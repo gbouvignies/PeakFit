@@ -39,9 +39,7 @@ def build_parser() -> ArgumentParser:
     parser.add_argument("--fixed", dest="fixed", action="store_true")
     parser.add_argument("--pvoigt", dest="pvoigt", action="store_true")
     parser.add_argument("--lorentzian", dest="lorentzian", action="store_true")
+    parser.add_argument("--gaussian", dest="gaussian", action="store_true")
     parser.add_argument("--exclude", dest="exclude", type=int, nargs="+")
-    parser.add_argument(
-        "--merge-cluster-threshold", dest="merge_cluster_threshold_hz", type=float
-    )
 
     return parser

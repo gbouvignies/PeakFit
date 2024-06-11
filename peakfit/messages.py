@@ -11,9 +11,9 @@ from rich.panel import Panel
 from rich.text import Text
 
 from peakfit import __version__
+from peakfit.peak import Peak
 
 console = Console(record=True)
-
 
 LOGO = r"""
    ___           _      ___ _ _
@@ -21,30 +21,35 @@ LOGO = r"""
  / /_)/ _ \/ _` | |/ // _\ | | __|
 / ___/  __/ (_| |   </ /   | | |_
 \/    \___|\__,_|_|\_\/    |_|\__|
-
 """
 
 
 def print_logo() -> None:
     """Display the logo in the terminal."""
-    logo = Text(LOGO, style="blue")
-    description = "Perform peak integration in  \npseudo-3D spectra\n\n"
-    version = "Version: "
-    version_number = Text(f"{__version__}", style="red")
-    all_text = Text.assemble(logo, description, version, version_number)
+    logo_text = Text(LOGO, style="blue")
+    description_text = Text("Perform peak integration in  \npseudo-3D spectra\n\n")
+    version_text = Text("Version: ")
+    version_number_text = Text(f"{__version__}", style="red")
+    all_text = Text.assemble(
+        logo_text, description_text, version_text, version_number_text
+    )
     panel = Panel.fit(all_text)
     console.print(panel)
 
 
+def print_message(message: str, style: str) -> None:
+    """Print a styled message to the console."""
+    console.print(message, style=style)
+
+
 def print_fitting() -> None:
     """Print the fitting message."""
-    message = "\n — Fitting peaks..."
-    console.print(message, style="bold yellow")
+    print_message("\n — Fitting peaks...", "bold yellow")
 
 
-def print_peaks(peaks) -> None:
+def print_peaks(peaks: list[Peak]) -> None:
     """Print the peak names that are being fitted."""
-    peak_list = ", ".join(f"{name:s}" for name in peaks["name"])
+    peak_list = ", ".join(peak.name for peak in peaks)
     message = f"Peak(s): {peak_list}"
     panel = Panel.fit(message, style="green")
     console.print(panel)
@@ -52,8 +57,9 @@ def print_peaks(peaks) -> None:
 
 def print_segmenting() -> None:
     """Print the segmenting message."""
-    message = "\n — Segmenting the spectra and clustering the peaks..."
-    console.print(message, style="bold yellow")
+    print_message(
+        "\n — Segmenting the spectra and clustering the peaks...", "bold yellow"
+    )
 
 
 def print_fit_report(minimizer_result: MinimizerResult) -> None:
@@ -62,13 +68,13 @@ def print_fit_report(minimizer_result: MinimizerResult) -> None:
 
 
 def export_html(filehtml: Path) -> None:
+    """Export console output to an HTML file."""
     filehtml.write_text(console.export_html())
 
 
 def print_reading_files() -> None:
     """Print the message for reading files."""
-    message = "\n — Reading files..."
-    console.print(message, style="bold yellow")
+    print_message("\n — Reading files...", "bold yellow")
 
 
 def print_plotting() -> None:

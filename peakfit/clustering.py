@@ -1,131 +1,128 @@
-import itertools as it
-from itertools import product
-from typing import NamedTuple
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 
+import networkx as nx
 import numpy as np
-import pandas as pd
-from nmrglue.fileio.fileiobase import unit_conversion
-from scipy import spatial
-from scipy.cluster.hierarchy import fcluster, single
+import numpy.typing as npt
+from scipy.ndimage import binary_dilation, generate_binary_structure, label
 
 from peakfit.messages import print_segmenting
+from peakfit.peak import Peak
+from peakfit.spectra import Spectra
+
+IntArray = npt.NDArray[np.int_]
 
 
-class Spectra(NamedTuple):
-    data: np.ndarray
-    ucx: unit_conversion
-    ucy: unit_conversion
-    z_values: np.ndarray
-
-
-class Cluster(NamedTuple):
-    peaks: pd.DataFrame
-    x: np.ndarray
-    y: np.ndarray
+@dataclass
+class Cluster:
+    peaks: list[Peak]
+    positions: Sequence[IntArray]
     data: np.ndarray
 
 
-def _merge_clusters(clusters: list[Cluster]) -> Cluster:
-    cluster_peaks = pd.concat([cluster.peaks for cluster in clusters]).reset_index(
-        drop=True
-    )
-    cluster_x = np.hstack([cluster.x for cluster in clusters])
-    cluster_y = np.hstack([cluster.y for cluster in clusters])
-    cluster_data = np.vstack([cluster.data for cluster in clusters])
-    return Cluster(cluster_peaks, cluster_x, cluster_y, cluster_data)
+def group_connected_pairs(pairs: Iterable[tuple[int, int]]) -> list[list[int]]:
+    """Group connected pairs using a graph-based approach.
+
+    Args:
+        pairs (Iterable[tuple[int, int]]): Iterable of pairs of connected indices.
+
+    Returns:
+        list[list[int]]: List of grouped and sorted connected components.
+    """
+    graph = nx.Graph()
+    graph.add_edges_from(pairs)
+    return [sorted(component) for component in nx.connected_components(graph)]
 
 
-def _distance(cluster1: Cluster, cluster2: Cluster) -> float:
-    points1 = cluster1.peaks[["x0_hz", "y0_hz"]]
-    points2 = cluster2.peaks[["x0_hz", "y0_hz"]]
-    distances = spatial.distance.cdist(points1, points2)
-    return np.min(distances)
+def merge_connected_segments(segments: IntArray) -> IntArray:
+    """Merge connected segments in a labeled array.
+
+    Args:
+        segments (IntArray): Array with labeled segments.
+
+    Returns:
+        IntArray: Array with merged segments.
+    """
+    for _ in range(segments.ndim):
+        merge_mask = np.logical_and(segments[0] > 0, segments[-1] > 0)
+        connected_pairs = zip(
+            segments[0][merge_mask], segments[-1][merge_mask], strict=True
+        )
+        connected_groups = group_connected_pairs(connected_pairs)
+
+        for group in connected_groups:
+            primary_segment_label = group[0]
+            for segment_number in group[1:]:
+                segments[segments == segment_number] = primary_segment_label
+
+        segments = np.moveaxis(segments, 0, -1)
+
+    return segments
 
 
-def _merge_close_clusters2(
-    clusters: list[Cluster],
-    cutoff: float,
+def segment_data(data: np.ndarray, contour_level: float, peaks: list[Peak]) -> IntArray:
+    """Segment the spectral data based on the contour level.
+
+    Args:
+        data (np.ndarray): The spectral data.
+        contour_level (float): Contour level for segmenting the data.
+        peaks (list[Peak]): List of detected peaks.
+
+    Returns:
+        IntArray: Labeled segments array.
+    """
+    data_above_threshold = np.any(np.abs(data) >= contour_level, axis=0)
+    data_around_peaks = np.zeros_like(data_above_threshold, dtype=bool)
+
+    for peak in peaks:
+        data_around_peaks[tuple(peak.positions_i)] = True
+
+    structuring_element = generate_binary_structure(data.ndim - 1, data.ndim - 1)
+    data_around_peaks = binary_dilation(data_around_peaks, structuring_element)
+    data_selected = np.logical_or(data_above_threshold, data_around_peaks)
+    segments, _ = label(data_selected, structure=structuring_element)
+
+    return merge_connected_segments(segments)
+
+
+def assign_peaks_to_segments(peaks: list[Peak], segments: IntArray) -> dict:
+    """Assign peaks to their respective segments.
+
+    Args:
+        peaks (list[Peak]): List of detected peaks.
+        segments (IntArray): Array with labeled segments.
+
+    Returns:
+        dict: Dictionary mapping segment IDs to peaks.
+    """
+    peak_segments_dict = {}
+    for peak in peaks:
+        segment_id = segments[*peak.positions_i]
+        peak_segments_dict.setdefault(segment_id, []).append(peak)
+    return peak_segments_dict
+
+
+def create_clusters(
+    spectra: Spectra, peaks: list[Peak], contour_level: float
 ) -> list[Cluster]:
-    pdist = np.array(
-        [
-            _distance(cluster1, cluster2)
-            for cluster1, cluster2 in it.combinations(clusters, 2)
-        ]
-    )
-    dendrogram = single(pdist)
-    clusters_ids = fcluster(dendrogram, t=cutoff, criterion="distance")
+    """Create clusters from spectral data based on peaks and contour levels.
 
-    if len(clusters) == len(np.unique(clusters_ids)):
-        return clusters
+    Args:
+        spectra (Spectra): Spectra object containing the data.
+        peaks (list[Peak]): List of detected peaks.
+        contour_level (float): Contour level for segmenting the data.
 
-    clusters_dict: dict[int, list[Cluster]] = {}
-    for i, cluster in zip(clusters_ids, clusters, strict=False):
-        clusters_dict.setdefault(i, []).append(cluster)
-
-    return [_merge_clusters(cluster_list) for cluster_list in clusters_dict.values()]
-
-
-def _select_square(x: int, y: int, size: int) -> set[tuple[int, int]]:
-    size = size // 2
-    return set(product(range(x - size, x + size + 1), range(y - size, y + size + 1)))
-
-
-def _flood(
-    x_start: int,
-    y_start: int,
-    spectra: Spectra,
-    threshold: float,
-) -> pd.DataFrame:
-    data = spectra.data
-    data_above = np.any(np.absolute(data) >= threshold, axis=0)
-    _nz, ny, nx = data.shape
-    stack = [(x_start, y_start)]
-    points: set[tuple[int, int]] = set()
-    while stack:
-        x, y = stack.pop()
-        x %= nx
-        y %= ny
-        above = data_above[y, x]
-        unvisited = (x, y) not in points
-        if above and unvisited:
-            points.add((x, y))
-            stack.extend(_select_square(x, y, 3) - {(x, y)})
-    if len(points) < 9:
-        points = _select_square(x, y, 3)
-    return pd.DataFrame(points, columns=["x0_int", "y0_int"])
-
-
-def get_cluster_data(data: np.ndarray, region: pd.DataFrame) -> np.ndarray:
-    nz, ny, nx = data.shape
-    region_x, region_y = region["x0_int"], region["y0_int"]
-    region_data = data[:, region_y, region_x]
-    return region_data.reshape((nz, len(region))).T
-
-
-def cluster_peaks(
-    spectra: Spectra,
-    peaks: pd.DataFrame,
-    contour_level: float,
-    merge_cluster_threshold_hz: float | None = None,
-) -> list[Cluster]:
+    Returns:
+        list[Cluster]: List of created clusters.
+    """
     print_segmenting()
+    segments = segment_data(spectra.data, contour_level, peaks)
+    peak_segments_dict = assign_peaks_to_segments(peaks, segments)
 
     clusters = []
-    selected_peaks: set[str] = set()
+    for segment_id, peaks_in_segment in peak_segments_dict.items():
+        segment_positions = np.where(segments == segment_id)
+        segmented_data = spectra.data[:, *segment_positions].T
+        clusters.append(Cluster(peaks_in_segment, segment_positions, segmented_data))
 
-    for peak in peaks.itertuples(index=False, name="Peak"):
-        if peak.name in selected_peaks:
-            continue
-        region = _flood(peak.x0_int, peak.y0_int, spectra, contour_level)
-        cluster_peaks = peaks.merge(region, how="inner", on=["x0_int", "y0_int"])
-        cluster_x = region["x0_int"].to_numpy()
-        cluster_y = region["y0_int"].to_numpy()
-        cluster_data = get_cluster_data(spectra.data, region)
-        cluster = Cluster(cluster_peaks, cluster_x, cluster_y, cluster_data)
-        clusters.append(cluster)
-        selected_peaks = {*selected_peaks, *cluster_peaks["name"]}
-
-    if merge_cluster_threshold_hz is not None:
-        clusters = _merge_close_clusters2(clusters, merge_cluster_threshold_hz)
-
-    return sorted(clusters, key=lambda x: len(x[0]))
+    return sorted(clusters, key=lambda cluster: len(cluster.peaks))
