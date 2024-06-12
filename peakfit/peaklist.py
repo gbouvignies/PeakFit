@@ -2,6 +2,7 @@ from collections.abc import Callable, Iterable
 from io import StringIO
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from peakfit.peak import Peak, create_peak
@@ -55,6 +56,7 @@ def read_sparky_list(
     return _create_peak_list(peaks, spectra, shape_names)
 
 
+@np.vectorize
 def _make_names(f1name: str, f2name: str, peak_id: int) -> str:
     """Create a peak name from the indirect and direct dimension names."""
     if not isinstance(f1name, str) and not isinstance(f2name, str):
