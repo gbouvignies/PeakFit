@@ -18,11 +18,23 @@ class Peak:
         self.positions_start = positions
         self.shapes = shapes
 
+    def set_cluster_id(self, cluster_id: int) -> None:
+        for shape in self.shapes:
+            shape.cluster_id = cluster_id
+
     def create_params(self) -> lf.Parameters:
         params = lf.Parameters()
         for shape in self.shapes:
             params.update(shape.create_params())
         return params
+
+    def fix_params(self, params) -> None:
+        for shape in self.shapes:
+            shape.fix_params(params)
+
+    def release_params(self, params) -> None:
+        for shape in self.shapes:
+            shape.release_params(params)
 
     def evaluate(self, grid: Sequence[IntArray], params: lf.Parameters) -> FloatArray:
         evaluations = [
@@ -32,11 +44,20 @@ class Peak:
         return np.prod(evaluations, axis=0)
 
     def print(self, params: lf.Parameters) -> str:
-        return "\n".join(shape.print(params) for shape in self.shapes)
+        result = f"# Name: {self.name}\n"
+        result += "\n".join(shape.print(params) for shape in self.shapes)
+        return result
 
     @property
     def positions_i(self) -> IntArray:
         return np.array([shape.center_i for shape in self.shapes], dtype=np.int_)
+
+    @property
+    def positions_hz(self) -> IntArray:
+        return np.array(
+            [shape.spec_params.pts2hz(shape.center_i) for shape in self.shapes],
+            dtype=np.float64,
+        )
 
     def update_positions(self, params: lf.Parameters) -> None:
         self.positions = np.array(
