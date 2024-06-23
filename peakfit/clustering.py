@@ -1,5 +1,6 @@
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Self
 
 import networkx as nx
 import numpy as np
@@ -10,14 +11,43 @@ from peakfit.messages import print_segmenting
 from peakfit.peak import Peak
 from peakfit.spectra import Spectra
 
+FloatArray = npt.NDArray[np.float64]
 IntArray = npt.NDArray[np.int_]
 
 
 @dataclass
 class Cluster:
+    cluster_id: int
     peaks: list[Peak]
-    positions: Sequence[IntArray]
-    data: np.ndarray
+    positions: list[IntArray]
+    data: FloatArray
+    corrections: FloatArray = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self.corrections = np.zeros_like(self.data)
+
+    @classmethod
+    def from_clusters(cls, clusters: Sequence[Self]) -> Self:
+        return sum(clusters[1:], clusters[0])
+
+    @property
+    def corrected_data(self) -> FloatArray:
+        return self.data - self.corrections
+
+    def __add__(self, other: object) -> Self:
+        if not isinstance(other, Cluster):
+            return NotImplemented
+        return type(self)(
+            self.cluster_id,
+            self.peaks + other.peaks,
+            [
+                np.concatenate((positions_self, positions_other))
+                for positions_self, positions_other in zip(
+                    self.positions, other.positions, strict=False
+                )
+            ],
+            np.concatenate((self.data, other.data), axis=0),
+        )
 
 
 def group_connected_pairs(pairs: Iterable[tuple[int, int]]) -> list[list[int]]:
@@ -60,7 +90,7 @@ def merge_connected_segments(segments: IntArray) -> IntArray:
     return segments
 
 
-def segment_data(data: np.ndarray, contour_level: float, peaks: list[Peak]) -> IntArray:
+def segment_data(data: FloatArray, contour_level: float, peaks: list[Peak]) -> IntArray:
     """Segment the spectral data based on the contour level.
 
     Args:
@@ -119,10 +149,14 @@ def create_clusters(
     segments = segment_data(spectra.data, contour_level, peaks)
     peak_segments_dict = assign_peaks_to_segments(peaks, segments)
 
-    clusters = []
+    clusters: list[Cluster] = []
     for segment_id, peaks_in_segment in peak_segments_dict.items():
-        segment_positions = np.where(segments == segment_id)
+        for peak in peaks_in_segment:
+            peak.set_cluster_id(segment_id)
+        segment_positions = [*np.where(segments == segment_id)]
         segmented_data = spectra.data[:, *segment_positions].T
-        clusters.append(Cluster(peaks_in_segment, segment_positions, segmented_data))
+        clusters.append(
+            Cluster(segment_id, peaks_in_segment, segment_positions, segmented_data)
+        )
 
     return sorted(clusters, key=lambda cluster: len(cluster.peaks))
