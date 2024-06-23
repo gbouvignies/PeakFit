@@ -94,3 +94,23 @@ def print_estimated_noise(noise: float) -> None:
     """Print the estimated noise."""
     message = f"\n [bold yellow]— Estimated noise:[/] [bold green]{noise:.2f}[/]"
     console.print(Text.from_markup(message))
+
+
+def print_writing_spectra() -> None:
+    """Print the message for writing the spectra."""
+    print_message("\n — Writing the difference and simulated spectra...", "bold yellow")
+
+
+def print_writing_profiles() -> None:
+    """Print the message for writing the profiles."""
+    print_message("\n — Writing the profiles...", "bold yellow")
+
+
+def print_writing_shifts() -> None:
+    """Print the message for writing the shifts."""
+    print_message("\n — Writing the shifts...", "bold yellow")
+
+
+def print_refining(index:int, refine_nb: int) -> None:
+    """Print the message for refining the peaks."""
+    print_message(f"\n — Refining the peak parameters ({index}/{refine_nb})...", "bold yellow")

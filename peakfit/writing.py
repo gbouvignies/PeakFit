@@ -2,29 +2,50 @@ from pathlib import Path
 
 import lmfit as lf
 import numpy as np
+import numpy.typing as npt
 
 from peakfit.clustering import Cluster
+from peakfit.computing import (
+    calculate_amplitudes_err,
+    calculate_shapes,
+)
+from peakfit.messages import print_writing_profiles, print_writing_shifts
 from peakfit.peak import Peak
+
+FloatArray = npt.NDArray[np.float64]
 
 
 def write_profiles(
-    path: Path,
-    z_values: np.ndarray,
-    cluster: Cluster,
-    params: lf.Parameters,
-    heights: np.ndarray,
-    height_err: np.ndarray,
+    path: Path, z_values: np.ndarray, clusters: list[Cluster], params: lf.Parameters
 ) -> None:
     """Write profile information to output files."""
-    for i, peak in enumerate(cluster.peaks):
-        write_profile(
-            path,
-            peak,
-            params,
-            z_values,
-            heights[i],
-            height_err[i],
+    print_writing_profiles()
+    for cluster in clusters:
+        shapes = calculate_shapes(params, cluster)
+        amplitudes, amplitudes_err = calculate_amplitudes_err(
+            shapes, cluster.corrected_data
         )
+        for i, peak in enumerate(cluster.peaks):
+            write_profile(
+                path,
+                peak,
+                params,
+                z_values,
+                amplitudes[i],
+                amplitudes_err[i],
+            )
+
+
+def print_heights(
+    z_values: np.ndarray, heights: FloatArray, height_err: FloatArray
+) -> str:
+    """Print the heights and errors."""
+    result = f"# {'Z':>10s}  {'I':>14s}  {'I_err':>14s}\n"
+    result += "\n".join(
+        f"  {z!s:>10s}  {ampl:14.6e}  {ampl_e:14.6e}"
+        for z, ampl, ampl_e in zip(z_values, heights, height_err, strict=False)
+    )
+    return result
 
 
 def write_profile(
@@ -38,21 +59,18 @@ def write_profile(
     """Write individual profile data to a file."""
     filename = path / f"{peak.name}.out"
     with filename.open("w") as f:
-        f.write(f"# Name: {peak.name}\n")
         f.write(peak.print(params))
         f.write("\n#---------------------------------------------\n")
-        f.write(f"# {'Z':>10s}  {'I':>14s}  {'I_err':>14s}\n")
-        f.write(
-            "\n".join(
-                f"  {z!s:>10s}  {ampl:14.6e}  {ampl_e:14.6e}"
-                for z, ampl, ampl_e in zip(z_values, heights, heights_err, strict=False)
-            )
-        )
+        f.write(print_heights(z_values, heights, heights_err))
 
 
-def write_shifts(peaks: list[Peak], shifts: dict, file_shifts: Path) -> None:
+def write_shifts(peaks: list[Peak], params: lf.Parameters, file_shifts: Path) -> None:
     """Write the shifts to the output file."""
+    print_writing_shifts()
+    shifts = {peak.name: peak.positions for peak in peaks}
     with file_shifts.open("w") as f:
         for peak in peaks:
+            peak.update_positions(params)
             name = peak.name
-            f.write(f"{name:>15s} {shifts[name][1]:10.5f} {shifts[name][0]:10.5f}\n")
+            shifts = " ".join(f"{position:10.5f}" for position in peak.positions)
+            f.write(f"{name:>15s} {shifts}\n")

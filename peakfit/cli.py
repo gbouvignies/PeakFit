@@ -29,17 +29,14 @@ def build_parser() -> ArgumentParser:
         nargs="+",
     )
     parser.add_argument("--ct", "-t", dest="contour_level", type=float)
+    parser.add_argument("--refine", "-r", dest="refine_nb", type=int, default=1)
     parser.add_argument("--out", "-o", dest="path_output", default="Fits", type=Path)
     parser.add_argument("--noise", "-n", dest="noise", type=float)
-    parser.add_argument(
-        "--mc",
-        nargs=5,
-        metavar=("X_MIN", "X_MAX", "Y_MIN", "Y_MAX", "N"),
-    )
     parser.add_argument("--fixed", dest="fixed", action="store_true")
     parser.add_argument("--pvoigt", dest="pvoigt", action="store_true")
     parser.add_argument("--lorentzian", dest="lorentzian", action="store_true")
     parser.add_argument("--gaussian", dest="gaussian", action="store_true")
+    parser.add_argument("--jx", dest="jx", action="store_true")
     parser.add_argument("--exclude", dest="exclude", type=int, nargs="+")
 
     return parser
