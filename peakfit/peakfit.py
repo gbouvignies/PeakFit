@@ -1,111 +1,88 @@
-"""Main module."""
+"""Main module for peak fitting."""
 
 from argparse import Namespace
 from collections.abc import Sequence
+from pathlib import Path
 
 import lmfit as lf
+import nmrglue as ng
 import numpy as np
 import numpy.typing as npt
-from matplotlib.backends.backend_pdf import PdfPages
 
 from peakfit.cli import build_parser
 from peakfit.clustering import Cluster, create_clusters
-from peakfit.computing import calculate_shape_heights, residuals
+from peakfit.computing import (
+    residuals,
+    simulate_data,
+    update_cluster_corrections,
+)
 from peakfit.messages import (
     export_html,
-    print_estimated_noise,
     print_fit_report,
     print_fitting,
     print_logo,
     print_peaks,
+    print_refining,
+    print_writing_spectra,
 )
-from peakfit.noise import estimate_noise, monte_carlo
+from peakfit.noise import prepare_noise_level
 from peakfit.peak import create_params
 from peakfit.peaklist import read_list
-from peakfit.plots import plot_pdf
 from peakfit.spectra import Spectra, get_shape_names, read_spectra
 from peakfit.writing import write_profiles, write_shifts
 
 FloatArray = npt.NDArray[np.float64]
 
 
-def prepare_noise_level(clargs: Namespace, spectra: Spectra) -> float:
-    """Prepare the noise level for fitting."""
-    if clargs.noise is not None and clargs.noise < 0.0:
-        clargs.noise = None
-
-    if clargs.noise is None:
-        clargs.noise = estimate_noise(spectra.data)
-        print_estimated_noise(clargs.noise)
-
-    return clargs.noise
+def update_params(params: lf.Parameters, params_all: lf.Parameters) -> lf.Parameters:
+    """Update the parameters with the global parameters."""
+    for key in params:
+        if key in params_all:
+            params[key] = params_all[key]
+    return params
 
 
-def calculate_errors(
-    clargs: Namespace,
-    spectra: Spectra,
-    cluster: Cluster,
-    out: lf.minimizer.MinimizerResult,
-    heights: FloatArray,
-) -> tuple[dict, FloatArray]:
-    """Calculate parameter and height errors."""
-    params_err = {param.name: param.stderr for param in out.params.values()}
-    height_err = np.full_like(heights, clargs.noise)
-
-    if clargs.mc and int(clargs.mc[4]) > 1:
-        params_err, height_err = monte_carlo(
-            clargs.mc, spectra, cluster, out, clargs.noise
-        )
-        for param in out.params.values():
-            param.stderr = params_err[param.name]
-
-    return params_err, height_err
-
-
-def run_cluster_fit(
-    clargs: Namespace, spectra: Spectra, cluster: Cluster, shifts: dict, pdf: PdfPages
-) -> None:
-    """Run the fitting process for a single cluster."""
-    print_peaks(cluster.peaks)
-    params = create_params(cluster.peaks, fixed=clargs.fixed)
-
-    out = lf.minimize(
-        residuals,
-        params,
-        args=(cluster, clargs.noise),
-        method="least_squares",
-        verbose=2,
-    )
-
-    _, heights = calculate_shape_heights(out.params, cluster)
-    print_fit_report(out)
-
-    params_err, height_err = calculate_errors(clargs, spectra, cluster, out, heights)
-
-    for peak in cluster.peaks:
-        peak.update_positions(out.params)
-
-    plot_pdf(pdf, spectra, cluster, clargs.contour_level, out)
-    shifts.update({peak.name: peak.positions for peak in cluster.peaks})
-
-    write_profiles(
-        clargs.path_output,
-        spectra.z_values,
-        cluster,
-        out.params,
-        heights,
-        height_err,
-    )
-
-
-def run_fit(clargs: Namespace, spectra: Spectra, clusters: Sequence[Cluster]) -> dict:
-    """Run the fitting process for all clusters."""
+def fit_clusters(clargs: Namespace, clusters: Sequence[Cluster]) -> lf.Parameters:
+    """Fit all clusters and return shifts."""
     print_fitting()
-    shifts: dict[str, FloatArray] = {}
-    with PdfPages(clargs.path_output / "clusters.pdf") as pdf:
+    params_all = lf.Parameters()
+
+    for index in range(clargs.refine_nb + 1):
+        if index > 0:
+            print_refining(index, clargs.refine_nb)
         for cluster in clusters:
-            run_cluster_fit(clargs, spectra, cluster, shifts, pdf)
-    return shifts
+            print_peaks(cluster.peaks)
+            params = create_params(cluster.peaks, fixed=clargs.fixed)
+            params = update_params(params, params_all)
+            out = lf.minimize(residuals, params, args=(cluster, clargs.noise))
+            print_fit_report(out)
+            params_all.update(out.params)
+
+        update_cluster_corrections(params_all, clusters)
+
+    return params_all
+
+
+def write_spectra(
+    path: Path, spectra: Spectra, clusters: Sequence[Cluster], params: lf.Parameters
+) -> None:
+    print_writing_spectra()
+    cluster_all = Cluster.from_clusters(clusters)
+
+    data_simulated = simulate_data(params, cluster_all, spectra.data)
+
+    ng.pipe.write(
+        str(path / "simulated.ft2"),
+        spectra.dic,
+        (data_simulated).astype(np.float32),
+        overwrite=True,
+    )
+    ng.pipe.write(
+        str(path / "difference.ft2"),
+        spectra.dic,
+        (spectra.data - data_simulated).astype(np.float32),
+        overwrite=True,
+    )
 
 
 def main() -> None:
@@ -116,19 +93,25 @@ def main() -> None:
     clargs = parser.parse_args()
 
     spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
-    shape_names = get_shape_names(clargs, spectra)
 
     clargs.noise = prepare_noise_level(clargs, spectra)
+
+    shape_names = get_shape_names(clargs, spectra)
     peaks = read_list(clargs.path_list, spectra, shape_names)
 
-    clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
+    clargs.contour_level = clargs.contour_level or 10.0 * clargs.noise
     clusters = create_clusters(spectra, peaks, clargs.contour_level)
 
     clargs.path_output.mkdir(parents=True, exist_ok=True)
-    shifts = run_fit(clargs, spectra, clusters)
+    params = fit_clusters(clargs, clusters)
+
+    write_profiles(clargs.path_output, spectra.z_values, clusters, params)
 
     export_html(clargs.path_output / "logs.html")
-    write_shifts(peaks, shifts, clargs.path_output / "shifts.list")
+
+    write_shifts(peaks, params, clargs.path_output / "shifts.list")
+
+    write_spectra(clargs.path_output, spectra, clusters, params)
 
 
 if __name__ == "__main__":
