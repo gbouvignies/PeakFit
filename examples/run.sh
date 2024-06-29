@@ -8,4 +8,4 @@ peakfit  \
     -z b1_offsets.txt \
     -o Fits
 
-plot_cest -f Fits/*N-H.out --ref 0
+peakfit-plot cest -f Fits/*N-H.out --ref 0
