@@ -56,7 +56,7 @@ def fit_clusters(clargs: Namespace, clusters: Sequence[Cluster]) -> lf.Parameter
             params = update_params(params, params_all)
             out = lf.minimize(residuals, params, args=(cluster, clargs.noise))
             print_fit_report(out)
-            params_all.update(out.params)
+            params_all.update(getattr(out, "params", lf.Parameters()))
 
         update_cluster_corrections(params_all, clusters)
 
@@ -75,12 +75,6 @@ def write_spectra(
         str(path / "simulated.ft2"),
         spectra.dic,
         (data_simulated).astype(np.float32),
-        overwrite=True,
-    )
-    ng.pipe.write(
-        str(path / "difference.ft2"),
-        spectra.dic,
-        (spectra.data - data_simulated).astype(np.float32),
         overwrite=True,
     )
 

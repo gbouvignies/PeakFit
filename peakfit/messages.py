@@ -98,7 +98,7 @@ def print_estimated_noise(noise: float) -> None:
 
 def print_writing_spectra() -> None:
     """Print the message for writing the spectra."""
-    print_message("\n — Writing the difference and simulated spectra...", "bold yellow")
+    print_message("\n — Writing the simulated spectra...", "bold yellow")
 
 
 def print_writing_profiles() -> None:
@@ -111,6 +111,8 @@ def print_writing_shifts() -> None:
     print_message("\n — Writing the shifts...", "bold yellow")
 
 
-def print_refining(index:int, refine_nb: int) -> None:
+def print_refining(index: int, refine_nb: int) -> None:
     """Print the message for refining the peaks."""
-    print_message(f"\n — Refining the peak parameters ({index}/{refine_nb})...", "bold yellow")
+    print_message(
+        f"\n — Refining the peak parameters ({index}/{refine_nb})...", "bold yellow"
+    )
