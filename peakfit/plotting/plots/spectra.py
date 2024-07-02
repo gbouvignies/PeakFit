@@ -320,9 +320,9 @@ class SpectraViewer(QMainWindow):
                 lambda state, k=key: self.toggle_spectrum(k, state == Qt.Checked)
             )
 
-        self.plane_slider.setFixedWidth(150)
+        self.plane_slider.setFixedWidth(250)
         self.plane_spinbox.setFixedWidth(50)
-        self.contour_slider.setFixedWidth(150)
+        self.contour_slider.setFixedWidth(250)
         self.contour_spinbox.setFixedWidth(50)
 
         return control_widget
@@ -374,10 +374,6 @@ class SpectraViewer(QMainWindow):
         self.figure.tight_layout()
         self.canvas.draw_idle()
 
-        # self.plane_label.setText(
-        #     f"Plane: {self.current_plane + 1}/{self.data1.data.shape[0]}"
-        # )
-
         # Store the current limits for next update
         self.current_xlim = self.ax.get_xlim()
         self.current_ylim = self.ax.get_ylim()
@@ -418,9 +414,8 @@ class SpectraViewer(QMainWindow):
         self.canvas.draw_idle()
 
     def on_navigation(self, event) -> None:
-        if (
-            event.name == "motion_notify"
-        ):  # This event is triggered when panning or zooming
+        # This event is triggered when panning or zooming
+        if event.name == "motion_notify":
             self.update_limits()
 
     def key_press_event(self, event) -> None:
