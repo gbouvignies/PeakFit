@@ -47,6 +47,9 @@ def main() -> None:
     spectra_parser.add_argument(
         "--sim", dest="data_sim", required=True, help="Path to the second spectrum file"
     )
+    spectra_parser.add_argument(
+        "--plist", dest="peak_list", help="Path to the peak list file"
+    )
 
     args = parser.parse_args()
 

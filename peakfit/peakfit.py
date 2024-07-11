@@ -1,6 +1,5 @@
 """Main module for peak fitting."""
 
-from argparse import Namespace
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -9,7 +8,7 @@ import nmrglue as ng
 import numpy as np
 import numpy.typing as npt
 
-from peakfit.cli import build_parser
+from peakfit.cli import Arguments, parse_args
 from peakfit.clustering import Cluster, create_clusters
 from peakfit.computing import (
     residuals,
@@ -42,7 +41,7 @@ def update_params(params: lf.Parameters, params_all: lf.Parameters) -> lf.Parame
     return params
 
 
-def fit_clusters(clargs: Namespace, clusters: Sequence[Cluster]) -> lf.Parameters:
+def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> lf.Parameters:
     """Fit all clusters and return shifts."""
     print_fitting()
     params_all = lf.Parameters()
@@ -54,7 +53,8 @@ def fit_clusters(clargs: Namespace, clusters: Sequence[Cluster]) -> lf.Parameter
             print_peaks(cluster.peaks)
             params = create_params(cluster.peaks, fixed=clargs.fixed)
             params = update_params(params, params_all)
-            out = lf.minimize(residuals, params, args=(cluster, clargs.noise))
+            mini = lf.Minimizer(residuals, params, fcn_args=(cluster, clargs.noise))
+            out = mini.least_squares(verbose=2)
             print_fit_report(out)
             params_all.update(getattr(out, "params", lf.Parameters()))
 
@@ -83,23 +83,22 @@ def main() -> None:
     """Run peakfit."""
     print_logo()
 
-    parser = build_parser()
-    clargs = parser.parse_args()
+    clargs = parse_args()
 
     spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
     clargs.noise = prepare_noise_level(clargs, spectra)
 
     shape_names = get_shape_names(clargs, spectra)
-    peaks = read_list(clargs.path_list, spectra, shape_names)
+    peaks = read_list(spectra, shape_names, clargs)
 
-    clargs.contour_level = clargs.contour_level or 10.0 * clargs.noise
+    clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
     clusters = create_clusters(spectra, peaks, clargs.contour_level)
 
     clargs.path_output.mkdir(parents=True, exist_ok=True)
     params = fit_clusters(clargs, clusters)
 
-    write_profiles(clargs.path_output, spectra.z_values, clusters, params)
+    write_profiles(clargs.path_output, spectra.z_values, clusters, params, clargs)
 
     export_html(clargs.path_output / "logs.html")
 

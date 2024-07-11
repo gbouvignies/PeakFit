@@ -4,6 +4,7 @@ import lmfit as lf
 import numpy as np
 from numpy.typing import NDArray
 
+from peakfit.cli import Arguments
 from peakfit.shapes import SHAPES, Shape
 from peakfit.spectra import Spectra
 
@@ -28,11 +29,11 @@ class Peak:
             params.update(shape.create_params())
         return params
 
-    def fix_params(self, params) -> None:
+    def fix_params(self, params: lf.Parameters) -> None:
         for shape in self.shapes:
             shape.fix_params(params)
 
-    def release_params(self, params) -> None:
+    def release_params(self, params: lf.Parameters) -> None:
         for shape in self.shapes:
             shape.release_params(params)
 
@@ -72,9 +73,10 @@ def create_peak(
     positions: Sequence[float],
     shape_names: list[str],
     spectra: Spectra,
+    args: Arguments,
 ) -> Peak:
     shapes = [
-        SHAPES[shape_name](name, center, spectra, dim)
+        SHAPES[shape_name](name, center, spectra, dim, args)
         for dim, (center, shape_name) in enumerate(
             zip(positions, shape_names, strict=False), start=1
         )

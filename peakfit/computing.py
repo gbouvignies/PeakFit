@@ -34,24 +34,6 @@ def calculate_amplitudes_err(
     return amplitudes, amplitudes_err.T
 
 
-# def calculate_amplitudes_err(
-#     shapes: FloatArray, data: FloatArray
-# ) -> tuple[FloatArray, FloatArray]:
-#     amplitudes, chi2, _rank, _s = np.linalg.lstsq(shapes.T, data, rcond=None)
-#     cov = np.linalg.pinv(shapes @ shapes.T)
-
-#     residuals = data - shapes.T @ amplitudes
-#     leverage = np.diagonal(shapes.T @ cov @ shapes)
-#     # # HC3, Mackinnon and White estimator
-#     res_scaled = residuals.T / (1 - leverage)
-#     cov_robust = cov @ shapes @ (shapes.T * res_scaled[:, :, np.newaxis] ** 2) @ cov
-#     amplitudes_err = np.sqrt(np.diagonal(cov_robust, axis1=1, axis2=2))
-
-#     amplitudes_err = np.full_like(amplitudes_err, np.mean(amplitudes_err))
-
-#     return amplitudes, amplitudes_err.T
-
-
 def calculate_shape_heights(
     params: lf.Parameters, cluster: Cluster
 ) -> tuple[FloatArray, FloatArray]:

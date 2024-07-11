@@ -1,4 +1,3 @@
-from argparse import Namespace
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,6 +6,7 @@ import nmrglue as ng
 import numpy as np
 import numpy.typing as npt
 
+from peakfit.cli import Arguments
 from peakfit.nmrpipe import SpectralParameters, read_spectral_parameters
 
 FloatArray = npt.NDArray[np.float64]
@@ -50,7 +50,7 @@ def exclude_planes(
     return data[mask], z_values[mask]
 
 
-def get_shape_names(clargs: Namespace, spectra: Spectra) -> list[str]:
+def get_shape_names(clargs: Arguments, spectra: Spectra) -> list[str]:
     """Get the shape names from the command line arguments."""
     if clargs.pvoigt:
         return ["pvoigt"] * (spectra.data.ndim - 1)
@@ -59,21 +59,16 @@ def get_shape_names(clargs: Namespace, spectra: Spectra) -> list[str]:
     if clargs.gaussian:
         return ["gaussian"] * (spectra.data.ndim - 1)
 
-    shape_names = []
-    for dim_params in spectra.params[1:]:
-        jx = bool(dim_params.direct and clargs.jx)
-        shape_name = determine_shape_name(dim_params, jx=jx)
-        shape_names.append(shape_name)
-    return shape_names
+    return [determine_shape_name(dim_params) for dim_params in spectra.params[1:]]
 
 
-def determine_shape_name(dim_params: SpectralParameters, *, jx: bool = False) -> str:
+def determine_shape_name(dim_params: SpectralParameters) -> str:
     """Determine the shape name based on spectral parameters."""
     if dim_params.apocode == 1.0:
         if dim_params.apodq3 == 1.0:
-            return "sp1_jx" if jx else "sp1"
+            return "sp1"
         if dim_params.apodq3 == 2.0:
-            return "sp2_jx" if jx else "sp2"
+            return "sp2"
     if dim_params.apocode in {0.0, 2.0}:
-        return "no_apod_jx" if jx else "no_apod"
+        return "no_apod"
     return "pvoigt"

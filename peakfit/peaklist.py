@@ -5,10 +5,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from peakfit.cli import Arguments
 from peakfit.peak import Peak, create_peak
 from peakfit.spectra import Spectra
 
-Reader = Callable[[Path, Spectra, list[str]], list[Peak]]
+Reader = Callable[[Path, Spectra, list[str], Arguments], list[Peak]]
 
 READERS: dict[str, Reader] = {}
 
@@ -29,18 +30,18 @@ def register_reader(file_types: str | Iterable[str]) -> Callable[[Reader], Reade
 
 
 def _create_peak_list(
-    peaks: pd.DataFrame, spectra: Spectra, shape_names: list[str]
+    peaks: pd.DataFrame, spectra: Spectra, shape_names: list[str], args: Arguments
 ) -> list[Peak]:
     """Create a list of Peak objects from a DataFrame."""
     return [
-        create_peak(name, positions, shape_names, spectra)
+        create_peak(name, positions, shape_names, spectra, args)
         for name, *positions in peaks.itertuples(index=False, name=None)
     ]
 
 
 @register_reader("list")
 def read_sparky_list(
-    path: Path, spectra: Spectra, shape_names: list[str]
+    path: Path, spectra: Spectra, shape_names: list[str], args: Arguments
 ) -> list[Peak]:
     """Read a Sparky list file and return a list of peaks."""
     with path.open() as f:
@@ -53,7 +54,7 @@ def read_sparky_list(
         encoding="utf-8",
         names=("name", "y0_ppm", "x0_ppm"),
     )
-    return _create_peak_list(peaks, spectra, shape_names)
+    return _create_peak_list(peaks, spectra, shape_names, args)
 
 
 @np.vectorize
@@ -74,6 +75,7 @@ def _read_ccpn_list(
     spectra: Spectra,
     read_func: Callable[[Path], pd.DataFrame],
     shape_names: list[str],
+    args: Arguments,
 ) -> list[Peak]:
     """Read a generic list file and return a list of peaks."""
     peaks_csv = read_func(path)
@@ -81,29 +83,36 @@ def _read_ccpn_list(
     peaks = pd.DataFrame(
         {"name": names, "y0_ppm": peaks_csv["Pos F2"], "x0_ppm": peaks_csv["Pos F1"]}
     )
-    return _create_peak_list(peaks, spectra, shape_names)
+    return _create_peak_list(peaks, spectra, shape_names, args)
 
 
 @register_reader("csv")
-def read_csv_list(path: Path, spectra: Spectra, shape_names: list[str]) -> list[Peak]:
-    return _read_ccpn_list(path, spectra, pd.read_csv, shape_names)
+def read_csv_list(
+    path: Path, spectra: Spectra, shape_names: list[str], args: Arguments
+) -> list[Peak]:
+    return _read_ccpn_list(path, spectra, pd.read_csv, shape_names, args)
 
 
 @register_reader("json")
-def read_json_list(path: Path, spectra: Spectra, shape_names: list[str]) -> list[Peak]:
-    return _read_ccpn_list(path, spectra, pd.read_json, shape_names)
+def read_json_list(
+    path: Path, spectra: Spectra, shape_names: list[str], args: Arguments
+) -> list[Peak]:
+    return _read_ccpn_list(path, spectra, pd.read_json, shape_names, args)
 
 
 @register_reader(["xlsx", "xls"])
-def read_excel_list(path: Path, spectra: Spectra, shape_names: list[str]) -> list[Peak]:
-    return _read_ccpn_list(path, spectra, pd.read_excel, shape_names)
+def read_excel_list(
+    path: Path, spectra: Spectra, shape_names: list[str], args: Arguments
+) -> list[Peak]:
+    return _read_ccpn_list(path, spectra, pd.read_excel, shape_names, args)
 
 
-def read_list(path: Path, spectra: Spectra, shape_names: list[str]) -> list[Peak]:
+def read_list(spectra: Spectra, shape_names: list[str], args: Arguments) -> list[Peak]:
     """Read a list of peaks from a file based on its extension."""
+    path = args.path_list
     extension = path.suffix.lstrip(".")
     reader = READERS.get(extension)
     if reader is None:
         msg = f"No reader registered for extension: {extension}"
         raise ValueError(msg)
-    return reader(path, spectra, shape_names)
+    return reader(path, spectra, shape_names, args)

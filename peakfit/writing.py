@@ -4,6 +4,7 @@ import lmfit as lf
 import numpy as np
 import numpy.typing as npt
 
+from peakfit.cli import Arguments
 from peakfit.clustering import Cluster
 from peakfit.computing import (
     calculate_amplitudes_err,
@@ -16,7 +17,11 @@ FloatArray = npt.NDArray[np.float64]
 
 
 def write_profiles(
-    path: Path, z_values: np.ndarray, clusters: list[Cluster], params: lf.Parameters
+    path: Path,
+    z_values: np.ndarray,
+    clusters: list[Cluster],
+    params: lf.Parameters,
+    args: Arguments,
 ) -> None:
     """Write profile information to output files."""
     print_writing_profiles()
@@ -25,6 +30,7 @@ def write_profiles(
         amplitudes, amplitudes_err = calculate_amplitudes_err(
             shapes, cluster.corrected_data
         )
+        amplitudes_err = np.full_like(amplitudes_err, args.noise)
         for i, peak in enumerate(cluster.peaks):
             write_profile(
                 path,

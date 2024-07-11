@@ -1,9 +1,8 @@
-from argparse import Namespace
-
 import numpy as np
 from lmfit.models import GaussianModel
 from numpy.typing import NDArray
 
+from peakfit.cli import Arguments
 from peakfit.messages import print_estimated_noise
 from peakfit.spectra import Spectra
 
@@ -11,7 +10,7 @@ FloatArray = NDArray[np.float64]
 IntArray = NDArray[np.int_]
 
 
-def prepare_noise_level(clargs: Namespace, spectra: Spectra) -> float:
+def prepare_noise_level(clargs: Arguments, spectra: Spectra) -> float:
     """Prepare the noise level for fitting."""
     if clargs.noise is not None and clargs.noise < 0.0:
         clargs.noise = None

@@ -1,10 +1,12 @@
 import argparse
 import sys
 from dataclasses import dataclass
+from typing import Self
 
 import nmrglue as ng
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 from matplotlib.backend_bases import Event
 from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -47,8 +49,9 @@ class NMRData:
     ylim: tuple[float, float]
 
     @classmethod
-    def from_file(cls, filename: str) -> "NMRData":
+    def from_file(cls, filename: str) -> Self:
         dic, data = ng.pipe.read(filename)
+        data = data.astype(np.float64)
         data, xlim, ylim = cls._process_data(dic, data)
         return cls(filename, dic, data, xlim, ylim)
 
@@ -68,6 +71,14 @@ class NMRData:
             raise ValueError(msg)
 
         return data, uc_x.ppm_limits(), uc_y.ppm_limits()
+
+    def unalias_y(self, y0: FloatArray) -> FloatArray:
+        y_scale = (
+            (self.ylim[1] - self.ylim[0])
+            * (self.data.shape[1] + 1)
+            / self.data.shape[1]
+        )
+        return (y0 - self.ylim[0]) % y_scale + self.ylim[0]
 
 
 class PlotWidget(QWidget):
@@ -96,6 +107,7 @@ class PlotWidget(QWidget):
         data1: FloatArray,
         data2: FloatArray,
         data_diff: FloatArray,
+        plist: pd.DataFrame,
         show_spectra: dict[str, bool],
         contour_level: float,
         noise_level: float,
@@ -121,6 +133,16 @@ class PlotWidget(QWidget):
                     colors=CONTOUR_COLORS[key],
                     alpha=0.7,
                     extent=[*xlim, *ylim],
+                )
+
+        if plist is not None:
+            self.ax.scatter(plist["x0_ppm"], plist["y0_ppm"], color="black", s=10)
+            for label, y, x in plist.itertuples(index=False):
+                self.ax.annotate(
+                    label,
+                    (x, y),
+                    textcoords="offset points",
+                    xytext=(5, 5),
                 )
 
         self.ax.set_title(f"NMR Spectrum - Plane {current_plane + 1}")
@@ -196,10 +218,13 @@ class ControlWidget(QWidget):
 
 
 class SpectraViewer(QMainWindow):
-    def __init__(self, data1: NMRData, data2: NMRData) -> None:
+    def __init__(
+        self, data1: NMRData, data2: NMRData, plist: pd.DataFrame | None
+    ) -> None:
         super().__init__()
         self.data1, self.data2 = data1, data2
         self.data_diff = self.data1.data - self.data2.data
+        self.plist = plist
         self.current_plane = 0
         self.show_spectra = {
             "spectrum_exp": True,
@@ -280,6 +305,7 @@ class SpectraViewer(QMainWindow):
             self.data1.data,
             self.data2.data,
             self.data_diff,
+            self.plist,
             self.show_spectra,
             self.contour_level,
             self.noise_level,
@@ -321,10 +347,20 @@ def plot_spectra(args: argparse.Namespace) -> None:
     try:
         data1 = NMRData.from_file(args.data_exp)
         data2 = NMRData.from_file(args.data_sim)
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
-        sys.exit(1)
-    except ValueError as e:
+        if args.peak_list:
+            plist = pd.read_table(
+                args.peak_list,
+                sep=r"\s+",
+                comment="#",
+                header=None,
+                names=("name", "y0_ppm", "x0_ppm"),
+            )
+            plist["y0_ppm"] = data1.unalias_y(
+                plist["y0_ppm"].to_numpy().astype(np.float64)
+            )
+        else:
+            plist = None
+    except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}")
         sys.exit(1)
 
@@ -333,14 +369,6 @@ def plot_spectra(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     app = QApplication(sys.argv)
-    viewer = SpectraViewer(data1, data2)
+    viewer = SpectraViewer(data1, data2, plist)
     viewer.show()
     sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="NMR Pseudo-3D Spectra Viewer")
-    parser.add_argument("data_exp", help="Path to experimental data file")
-    parser.add_argument("data_sim", help="Path to simulated data file")
-    args = parser.parse_args()
-    plot_spectra(args)
