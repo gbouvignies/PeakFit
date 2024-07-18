@@ -6,7 +6,6 @@ from pathlib import Path
 import lmfit as lf
 import nmrglue as ng
 import numpy as np
-import numpy.typing as npt
 
 from peakfit.cli import Arguments, parse_args
 from peakfit.clustering import Cluster, create_clusters
@@ -30,8 +29,6 @@ from peakfit.peaklist import read_list
 from peakfit.spectra import Spectra, get_shape_names, read_spectra
 from peakfit.writing import write_profiles, write_shifts
 
-FloatArray = npt.NDArray[np.float64]
-
 
 def update_params(params: lf.Parameters, params_all: lf.Parameters) -> lf.Parameters:
     """Update the parameters with the global parameters."""
@@ -49,6 +46,7 @@ def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> lf.Parameter
     for index in range(clargs.refine_nb + 1):
         if index > 0:
             print_refining(index, clargs.refine_nb)
+            update_cluster_corrections(params_all, clusters)
         for cluster in clusters:
             print_peaks(cluster.peaks)
             params = create_params(cluster.peaks, fixed=clargs.fixed)
@@ -58,8 +56,6 @@ def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> lf.Parameter
             print_fit_report(out)
             params_all.update(getattr(out, "params", lf.Parameters()))
 
-        update_cluster_corrections(params_all, clusters)
-
     return params_all
 
 
@@ -67,9 +63,11 @@ def write_spectra(
     path: Path, spectra: Spectra, clusters: Sequence[Cluster], params: lf.Parameters
 ) -> None:
     print_writing_spectra()
-    cluster_all = Cluster.from_clusters(clusters)
 
-    data_simulated = simulate_data(params, cluster_all, spectra.data)
+    data_simulated = simulate_data(params, clusters, spectra.data)
+
+    if spectra.pseudo_dim_added:
+        data_simulated = np.squeeze(data_simulated, axis=0)
 
     ng.pipe.write(
         str(path / "simulated.ft2"),

@@ -4,15 +4,12 @@ from typing import Self
 
 import networkx as nx
 import numpy as np
-import numpy.typing as npt
 from scipy.ndimage import binary_dilation, generate_binary_structure, label
 
 from peakfit.messages import print_segmenting
 from peakfit.peak import Peak
 from peakfit.spectra import Spectra
-
-FloatArray = npt.NDArray[np.float64]
-IntArray = npt.NDArray[np.int_]
+from peakfit.typing import FloatArray, IntArray
 
 
 @dataclass

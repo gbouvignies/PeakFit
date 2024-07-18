@@ -2,18 +2,13 @@ from pathlib import Path
 
 import lmfit as lf
 import numpy as np
-import numpy.typing as npt
 
 from peakfit.cli import Arguments
 from peakfit.clustering import Cluster
-from peakfit.computing import (
-    calculate_amplitudes_err,
-    calculate_shapes,
-)
+from peakfit.computing import calculate_shape_heights
 from peakfit.messages import print_writing_profiles, print_writing_shifts
 from peakfit.peak import Peak
-
-FloatArray = npt.NDArray[np.float64]
+from peakfit.typing import FloatArray
 
 
 def write_profiles(
@@ -26,11 +21,8 @@ def write_profiles(
     """Write profile information to output files."""
     print_writing_profiles()
     for cluster in clusters:
-        shapes = calculate_shapes(params, cluster)
-        amplitudes, amplitudes_err = calculate_amplitudes_err(
-            shapes, cluster.corrected_data
-        )
-        amplitudes_err = np.full_like(amplitudes_err, args.noise)
+        shapes, amplitudes = calculate_shape_heights(params, cluster)
+        amplitudes_err = np.full_like(amplitudes, args.noise)
         for i, peak in enumerate(cluster.peaks):
             write_profile(
                 path,

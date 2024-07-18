@@ -1,15 +1,14 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 
-import nmrglue as ng
 import numpy as np
-import numpy.typing as npt
+from nmrglue.fileio.pipe import guess_udic, read
 
 from peakfit.cli import Arguments
 from peakfit.nmrpipe import SpectralParameters, read_spectral_parameters
-
-FloatArray = npt.NDArray[np.float64]
+from peakfit.typing import FloatArray
 
 
 @dataclass
@@ -17,49 +16,60 @@ class Spectra:
     dic: dict
     data: FloatArray
     z_values: np.ndarray
-    params: list[SpectralParameters]
+    pseudo_dim_added: bool = False
+
+    def __post_init__(self) -> None:
+        udic = guess_udic(self.dic, self.data)
+        no_pseudo_dim = udic[0]["freq"]
+        if no_pseudo_dim:
+            self.data = np.expand_dims(self.data, axis=0)
+            self.pseudo_dim_added = True
+        if self.z_values.size == 0:
+            self.z_values = np.arange(self.data.shape[0])
+
+    @cached_property
+    def params(self) -> list[SpectralParameters]:
+        return read_spectral_parameters(self.dic, self.data)
+
+    def exclude_planes(self, exclude_list: Sequence[int] | None) -> None:
+        if exclude_list is None:
+            return
+        mask = ~np.isin(range(self.data.shape[0]), exclude_list)
+        self.data, self.z_values = self.data[mask], self.z_values[mask]
 
 
 def read_spectra(
-    paths_spectra: Sequence[Path],
-    paths_z_values: Sequence[Path],
+    path_spectra: Path,
+    path_z_values: Path | None = None,
     exclude_list: Sequence[int] | None = None,
 ) -> Spectra:
-    """Read NMRPipe spectra and return a Spectra object."""
-    data_list = [ng.fileio.pipe.read(str(path))[1] for path in paths_spectra]
-    data = np.concatenate(data_list, axis=0, dtype=np.float64)
+    """Read NMRPipe spectra and z-values, returning a Spectra object."""
+    dic, data = read(path_spectra)
+    data = data.astype(np.float32)
 
-    z_values_list = [np.genfromtxt(path, dtype=None) for path in paths_z_values]
-    z_values = np.concatenate(z_values_list)
+    if path_z_values is not None:
+        z_values = np.genfromtxt(path_z_values, dtype=None, encoding="utf-8")
+    else:
+        z_values = np.array([])
 
-    if exclude_list:
-        data, z_values = exclude_planes(data, z_values, exclude_list)
+    spectra = Spectra(dic, data, z_values)
+    spectra.exclude_planes(exclude_list)
 
-    dic = ng.fileio.pipe.read(str(paths_spectra[0]))[0]
-    params = read_spectral_parameters(dic, data)
-
-    return Spectra(dic, data, z_values, params)
-
-
-def exclude_planes(
-    data: np.ndarray, z_values: np.ndarray, exclude_list: Sequence[int]
-) -> tuple[np.ndarray, np.ndarray]:
-    """Exclude specified planes from data and z_values."""
-    mask = np.ones(len(z_values), dtype=bool)
-    mask[exclude_list] = False
-    return data[mask], z_values[mask]
+    return Spectra(dic, data, z_values)
 
 
 def get_shape_names(clargs: Arguments, spectra: Spectra) -> list[str]:
-    """Get the shape names from the command line arguments."""
+    """Determine the shape names for fitting based on command line arguments or spectral parameters."""
     if clargs.pvoigt:
-        return ["pvoigt"] * (spectra.data.ndim - 1)
-    if clargs.lorentzian:
-        return ["lorentzian"] * (spectra.data.ndim - 1)
-    if clargs.gaussian:
-        return ["gaussian"] * (spectra.data.ndim - 1)
+        shape = "pvoigt"
+    elif clargs.lorentzian:
+        shape = "lorentzian"
+    elif clargs.gaussian:
+        shape = "gaussian"
+    else:
+        return [determine_shape_name(param) for param in spectra.params[1:]]
 
-    return [determine_shape_name(dim_params) for dim_params in spectra.params[1:]]
+    return [shape] * (spectra.data.ndim - 1)
 
 
 def determine_shape_name(dim_params: SpectralParameters) -> str:

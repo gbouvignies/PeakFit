@@ -1,13 +1,10 @@
 import numpy as np
 from lmfit.models import GaussianModel
-from numpy.typing import NDArray
 
 from peakfit.cli import Arguments
 from peakfit.messages import print_estimated_noise
 from peakfit.spectra import Spectra
-
-FloatArray = NDArray[np.float64]
-IntArray = NDArray[np.int_]
+from peakfit.typing import FloatArray
 
 
 def prepare_noise_level(clargs: Arguments, spectra: Spectra) -> float:

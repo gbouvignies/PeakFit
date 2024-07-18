@@ -9,12 +9,12 @@ from pathlib import Path
 class Arguments:
     """The dataclass for the command-line arguments."""
 
-    path_spectra: list[Path] = field(default_factory=list)
+    path_spectra: Path = field(default_factory=Path)
     path_list: Path = field(default_factory=Path)
-    path_z_values: list[Path] = field(default_factory=list)
+    path_z_values: Path | None = None
     contour_level: float | None = None
     noise: float | None = None
-    path_output: Path = field(default_factory=Path)
+    path_output: Path = Path("Fits")
     refine_nb: int = 1
     fixed: bool = False
     pvoigt: bool = False
@@ -32,9 +32,9 @@ def build_parser() -> ArgumentParser:
 
     parser = ArgumentParser(description=description)
 
-    parser.add_argument("-s", dest="path_spectra", type=Path, required=True, nargs="+")
+    parser.add_argument("-s", dest="path_spectra", type=Path, required=True)
     parser.add_argument("-l", dest="path_list", type=Path, required=True)
-    parser.add_argument("-z", dest="path_z_values", type=Path, required=True, nargs="+")
+    parser.add_argument("-z", dest="path_z_values", type=Path)
     parser.add_argument("-t", dest="contour_level", type=float)
     parser.add_argument("-n", dest="noise", type=float)
     parser.add_argument("-o", dest="path_output", type=Path, default="Fits")

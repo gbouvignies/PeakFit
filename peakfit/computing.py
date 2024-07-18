@@ -2,11 +2,9 @@ from collections.abc import Sequence
 
 import lmfit as lf
 import numpy as np
-import numpy.typing as npt
 
 from peakfit.clustering import Cluster
-
-FloatArray = npt.NDArray[np.float64]
+from peakfit.typing import FloatArray
 
 
 def calculate_shapes(params: lf.Parameters, cluster: Cluster) -> FloatArray:
@@ -17,21 +15,6 @@ def calculate_shapes(params: lf.Parameters, cluster: Cluster) -> FloatArray:
 
 def calculate_amplitudes(shapes: FloatArray, data: FloatArray) -> FloatArray:
     return np.linalg.lstsq(shapes.T, data, rcond=None)[0]
-
-
-def calculate_amplitudes_err(
-    shapes: FloatArray, data: FloatArray
-) -> tuple[FloatArray, FloatArray]:
-    amplitudes, chi2, _rank, _s = np.linalg.lstsq(shapes.T, data, rcond=None)
-    cov = np.linalg.pinv(shapes @ shapes.T)
-    n = data.shape[0]
-    k = amplitudes.shape[0]
-    cov_scaled = cov * chi2.reshape(-1, 1, 1) / (n - k)
-    amplitudes_err = np.sqrt(np.diagonal(cov_scaled, axis1=1, axis2=2))
-
-    amplitudes_err = np.full_like(amplitudes_err, np.mean(amplitudes_err))
-
-    return amplitudes, amplitudes_err.T
 
 
 def calculate_shape_heights(
@@ -48,16 +31,26 @@ def residuals(params: lf.Parameters, cluster: Cluster, noise: float) -> FloatArr
 
 
 def simulate_data(
-    params: lf.Parameters, cluster: Cluster, data: FloatArray
+    params: lf.Parameters, clusters: Sequence[Cluster], data: FloatArray
 ) -> FloatArray:
-    _shapes, amplitudes = calculate_shape_heights(params, cluster)
-    cluster_all = Cluster.from_clusters([cluster])
+    amplitudes_list: list[FloatArray] = []
+    for cluster in clusters:
+        shapes, amplitudes = calculate_shape_heights(params, cluster)
+        amplitudes_list.append(amplitudes)
+    amplitudes = np.concatenate(amplitudes_list)
+    cluster_all = Cluster.from_clusters(clusters)
     cluster_all.positions = [
         indices.ravel() for indices in list(np.indices(data.shape[1:]))
     ]
-    shapes = calculate_shapes(params, cluster_all)
 
-    return (amplitudes.T @ shapes).reshape(-1, *data.shape[1:])
+    return sum(
+        (
+            amplitudes[index][:, np.newaxis]
+            * peak.evaluate(cluster_all.positions, params)
+            for index, peak in enumerate(cluster_all.peaks)
+        ),
+        start=np.array(0.0),
+    ).reshape(data.shape)
 
 
 def update_cluster_corrections(

@@ -1,19 +1,17 @@
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 import lmfit as lf
 import numpy as np
-import numpy.typing as npt
 
 from peakfit.cli import Arguments
 from peakfit.nmrpipe import SpectralParameters
 from peakfit.spectra import Spectra
+from peakfit.typing import FloatArray, IntArray
 
-FloatArray = npt.NDArray[np.float64]
-IntArray = npt.NDArray[np.int32]
-
+T = TypeVar("T")
 
 AXIS_NAMES = ("x", "y", "z", "a")
 
@@ -80,8 +78,7 @@ def sp1(
     dx: FloatArray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
 ) -> FloatArray:
     z1 = aq * (1j * dx + r2)
-    f1 = 1j * off * np.pi
-    f2 = 1j * (end - off) * np.pi
+    f1, f2 = 1j * off * np.pi, 1j * (end - off) * np.pi
     a1 = (np.exp(+f2) - np.exp(+z1)) * np.exp(-z1 + f1) / (2 * (z1 - f2))
     a2 = (np.exp(+z1) - np.exp(-f2)) * np.exp(-z1 - f1) / (2 * (z1 + f2))
     spec = 1j * aq * (a1 + a2)
@@ -92,8 +89,7 @@ def sp2(
     dx: FloatArray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
 ) -> FloatArray:
     z1 = aq * (1j * dx + r2)
-    f1 = 1j * off * np.pi
-    f2 = 1j * (end - off) * np.pi
+    f1, f2 = 1j * off * np.pi, 1j * (end - off) * np.pi
     a1 = (np.exp(+2 * f2) - np.exp(z1)) * np.exp(-z1 + 2 * f1) / (4 * (z1 - 2 * f2))
     a2 = (np.exp(-2 * f2) - np.exp(z1)) * np.exp(-z1 - 2 * f1) / (4 * (z1 + 2 * f2))
     a3 = (1.0 - np.exp(-z1)) / (2 * z1)
@@ -105,14 +101,6 @@ class BaseShape(ABC):
     def __init__(
         self, name: str, center: float, spectra: Spectra, dim: int, args: Arguments
     ) -> None:
-        """Initializes the Lorentzian object.
-
-        Args:
-            name (str): Peak name.
-            center (float): Center value of the Pseudo Voigt profile.
-            spectra (Spectra): Spectra object.
-            dim (int): Dimension of the shape.
-        """
         self.name = name
         self.axis = AXIS_NAMES[spectra.data[0].ndim - dim]
         self.center = center
@@ -121,6 +109,7 @@ class BaseShape(ABC):
         self.param_names: list[str] = []
         self.cluster_id = 0
         self.args = args
+        self.full_grid = np.arange(self.size)
 
     @property
     def prefix(self) -> str:
@@ -131,44 +120,20 @@ class BaseShape(ABC):
         return clean(f"{self.cluster_id}_{self.axis}")
 
     @abstractmethod
-    def create_params(self) -> lf.Parameters:
-        """Creates and initializes fitting parameters for the Pseudo Voigt profile.
-
-        Returns:
-            lf.Parameters: Initialized parameters.
-        """
+    def create_params(self) -> lf.Parameters: ...
 
     def fix_params(self, params: lf.Parameters) -> None:
-        """Fixes all parameters of the shape."""
         for name in self.param_names:
             params[name].vary = False
 
     def release_params(self, params: lf.Parameters) -> None:
-        """Varies all parameters of the shape."""
         for name in self.param_names:
             params[name].vary = True
 
     @abstractmethod
-    def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray:
-        """Evaluates the Pseudo Voigt profile at given points.
-
-        Args:
-            x_pt (FloatArray): Array of x-values.
-            params (lf.Parameters): Parameters of the Pseudo Voigt profile.
-
-        Returns:
-            FloatArray: Evaluated profile.
-        """
+    def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray: ...
 
     def print(self, params: lf.Parameters) -> str:
-        """Prints the fitting parameters.
-
-        Args:
-            params (lf.Parameters): Parameters to print.
-
-        Returns:
-            str: Formatted parameter string.
-        """
         lines = []
         for name in self.param_names:
             fullname = name
@@ -204,9 +169,9 @@ class BaseShape(ABC):
         return dx_pt_corrected, sign
 
 
-@register_shape("lorentzian")
-class Lorentzian(BaseShape):
+class PeakShape(BaseShape):
     FWHM_START = 25.0
+    shape_func: Callable
 
     def create_params(self) -> lf.Parameters:
         params = lf.Parameters()
@@ -217,77 +182,48 @@ class Lorentzian(BaseShape):
             max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
         )
         params.add(f"{self.prefix}_fwhm", value=self.FWHM_START, min=0.1, max=200.0)
-        self.param_names = [*params.keys()]
+        self.param_names = list(params.keys())
         return params
 
     def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray:
         x0 = params[f"{self.prefix}0"].value
         fwhm = params[f"{self.prefix}_fwhm"].value
-
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
+        return sign * self.shape_func(dx_hz, fwhm)
 
-        return sign * lorentzian(dx_hz, fwhm)
+
+@register_shape("lorentzian")
+class Lorentzian(PeakShape):
+    shape_func = staticmethod(lorentzian)
 
 
 @register_shape("gaussian")
-class Gaussian(BaseShape):
-    FWHM_START = 25.0
-
-    def create_params(self) -> lf.Parameters:
-        params = lf.Parameters()
-        params.add(
-            f"{self.prefix}0",
-            value=self.center,
-            min=self.center - self.spec_params.hz2ppm(self.FWHM_START),
-            max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
-        )
-        params.add(f"{self.prefix}_fwhm", value=self.FWHM_START, min=0.1, max=200.0)
-        self.param_names = [*params.keys()]
-        return params
-
-    def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray:
-        x0 = params[f"{self.prefix}0"].value
-        fwhm = params[f"{self.prefix}_fwhm"].value
-
-        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
-        dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-
-        return sign * gaussian(dx_hz, fwhm)
+class Gaussian(PeakShape):
+    shape_func = staticmethod(gaussian)
 
 
 @register_shape("pvoigt")
-class PseudoVoigt(BaseShape):
-    FWHM_START = 25.0
-
+class PseudoVoigt(PeakShape):
     def create_params(self) -> lf.Parameters:
-        params = lf.Parameters()
-        params.add(
-            f"{self.prefix}0",
-            value=self.center,
-            min=self.center - self.spec_params.hz2ppm(self.FWHM_START),
-            max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
-        )
-        params.add(f"{self.prefix}_fwhm", value=self.FWHM_START, min=0.1, max=200.0)
+        params = super().create_params()
         params.add(f"{self.prefix}_eta", value=0.5, min=-1.0, max=1.0)
-        self.param_names = [*params.keys()]
+        self.param_names = list(params.keys())
         return params
 
     def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray:
         x0 = params[f"{self.prefix}0"].value
         fwhm = params[f"{self.prefix}_fwhm"].value
         eta = params[f"{self.prefix}_eta"].value
-
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-
         return sign * pvoigt(dx_hz, fwhm, eta)
 
 
-@register_shape("no_apod")
-class NoApod(BaseShape):
+class ApodShape(BaseShape):
     R2_START = 20.0
     FWHM_START = 25.0
+    shape_func: Callable
 
     def create_params(self) -> lf.Parameters:
         params = lf.Parameters()
@@ -307,150 +243,40 @@ class NoApod(BaseShape):
 
     def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray:
         parvalues = params.valuesdict()
-        x0 = parvalues.get(f"{self.prefix}0", 0.0)
-        r2 = parvalues.get(f"{self.prefix}_r2", 0.0)
+        x0 = parvalues[f"{self.prefix}0"]
+        r2 = parvalues[f"{self.prefix}_r2"]
         p0 = parvalues.get(f"{self.prefix_phase}p", 0.0)
         j_hz = parvalues.get(f"{self.prefix}_j", 0.0)
 
-        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
+        dx_pt, sign = self._compute_dx_and_sign(self.full_grid, x0)
         dx_rads = self.spec_params.pts2hz_delta(dx_pt) * 2 * np.pi
-
-        if j_hz == 0.0:
-            j_rads = np.array([[0.0]]).T
-        else:
-            j_rads = j_hz * np.pi * np.array([[1.0, -1.0]]).T
-
+        j_rads = (
+            np.array([[0.0]]).T
+            if j_hz == 0.0
+            else j_hz * np.pi * np.array([[1.0, -1.0]]).T
+        )
         dx_rads = dx_rads + j_rads
 
-        norm = np.sum(no_apod(j_rads, r2, self.spec_params.aq_time, p0), axis=0)
-        shape = np.sum(no_apod(dx_rads, r2, self.spec_params.aq_time, p0), axis=0)
+        shape_args = (r2, self.spec_params.aq_time, p0)
+        if self.shape_func in (sp1, sp2):
+            shape_args += (self.spec_params.apodq2, self.spec_params.apodq1)
 
-        return sign * shape / norm
+        norm = np.sum(self.shape_func(j_rads, *shape_args), axis=0)
+        shape = np.sum(self.shape_func(dx_rads, *shape_args), axis=0)
+
+        return sign[x_pt] * shape[x_pt] / norm
+
+
+@register_shape("no_apod")
+class NoApod(ApodShape):
+    shape_func = staticmethod(no_apod)
 
 
 @register_shape("sp1")
-class SP1(BaseShape):
-    R2_START = 20.0
-    FWHM_START = 25.0
-
-    def create_params(self) -> lf.Parameters:
-        params = lf.Parameters()
-        params.add(
-            f"{self.prefix}0",
-            value=self.center,
-            min=self.center - self.spec_params.hz2ppm(self.FWHM_START),
-            max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
-        )
-        params.add(f"{self.prefix}_r2", value=self.R2_START, min=0.1, max=200.0)
-        if self.args.jx and self.spec_params.direct:
-            params.add(f"{self.prefix}_j", value=5.0, min=1.0, max=10.0)
-        if (self.args.phx and self.spec_params.direct) or self.args.phy:
-            params.add(f"{self.prefix_phase}p", value=0.0, min=-5.0, max=5.0)
-        self.param_names = list(params.keys())
-        return params
-
-    def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray:
-        parvalues = params.valuesdict()
-        x0 = parvalues.get(f"{self.prefix}0", 0.0)
-        r2 = parvalues.get(f"{self.prefix}_r2", 0.0)
-        p0 = parvalues.get(f"{self.prefix_phase}p", 0.0)
-        j_hz = parvalues.get(f"{self.prefix}_j", 0.0)
-
-        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
-        dx_rads = self.spec_params.pts2hz_delta(dx_pt) * 2 * np.pi
-
-        if j_hz == 0.0:
-            j_rads = np.array([[0.0]]).T
-        else:
-            j_rads = j_hz * np.pi * np.array([[1.0, -1.0]]).T
-
-        dx_rads = dx_rads + j_rads
-
-        norm = np.sum(
-            sp1(
-                j_rads,
-                r2,
-                self.spec_params.aq_time,
-                self.spec_params.apodq2,
-                self.spec_params.apodq1,
-                p0,
-            ),
-            axis=0,
-        )
-        shape = np.sum(
-            sp1(
-                dx_rads,
-                r2,
-                self.spec_params.aq_time,
-                self.spec_params.apodq2,
-                self.spec_params.apodq1,
-                p0,
-            ),
-            axis=0,
-        )
-
-        return sign * shape / norm
+class SP1(ApodShape):
+    shape_func = staticmethod(sp1)
 
 
 @register_shape("sp2")
-class SP2(BaseShape):
-    R2_START = 20.0
-    FWHM_START = 25.0
-
-    def create_params(self) -> lf.Parameters:
-        params = lf.Parameters()
-        params.add(
-            f"{self.prefix}0",
-            value=self.center,
-            min=self.center - self.spec_params.hz2ppm(self.FWHM_START),
-            max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
-        )
-        params.add(f"{self.prefix}_r2", value=self.R2_START, min=1.0, max=200.0)
-        if self.args.jx and self.spec_params.direct:
-            params.add(f"{self.prefix}_j", value=5.0, min=1.0, max=10.0)
-        if (self.args.phx and self.spec_params.direct) or self.args.phy:
-            params.add(f"{self.prefix_phase}p", value=0.0, min=-5.0, max=5.0)
-        self.param_names = list(params.keys())
-        return params
-
-    def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray:
-        parvalues = params.valuesdict()
-        x0 = parvalues.get(f"{self.prefix}0", 0.0)
-        r2 = parvalues.get(f"{self.prefix}_r2", 0.0)
-        p0 = parvalues.get(f"{self.prefix_phase}p", 0.0)
-        j_hz = parvalues.get(f"{self.prefix}_j", 0.0)
-
-        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
-        dx_rads = self.spec_params.pts2hz_delta(dx_pt) * 2 * np.pi
-
-        if j_hz == 0.0:
-            j_rads = np.array([[0.0]]).T
-        else:
-            j_rads = j_hz * np.pi * np.array([[1.0, -1.0]]).T
-
-        dx_rads = dx_rads + j_rads
-
-        norm = np.sum(
-            sp2(
-                j_rads,
-                r2,
-                self.spec_params.aq_time,
-                self.spec_params.apodq2,
-                self.spec_params.apodq1,
-                p0,
-            ),
-            axis=0,
-        )
-        shape = np.sum(
-            sp2(
-                dx_rads,
-                r2,
-                self.spec_params.aq_time,
-                self.spec_params.apodq2,
-                self.spec_params.apodq1,
-                p0,
-            ),
-            axis=0,
-        )
-
-        return sign * shape / norm
+class SP2(ApodShape):
+    shape_func = staticmethod(sp2)

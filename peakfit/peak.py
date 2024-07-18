@@ -2,14 +2,11 @@ from collections.abc import Sequence
 
 import lmfit as lf
 import numpy as np
-from numpy.typing import NDArray
 
 from peakfit.cli import Arguments
 from peakfit.shapes import SHAPES, Shape
 from peakfit.spectra import Spectra
-
-FloatArray = NDArray[np.float64]
-IntArray = NDArray[np.int_]
+from peakfit.typing import FloatArray, IntArray
 
 
 class Peak:
@@ -54,7 +51,7 @@ class Peak:
         return np.array([shape.center_i for shape in self.shapes], dtype=np.int_)
 
     @property
-    def positions_hz(self) -> IntArray:
+    def positions_hz(self) -> FloatArray:
         return np.array(
             [shape.spec_params.pts2hz(shape.center_i) for shape in self.shapes],
             dtype=np.float64,

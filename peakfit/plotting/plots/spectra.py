@@ -5,7 +5,6 @@ from typing import Self
 
 import nmrglue as ng
 import numpy as np
-import numpy.typing as npt
 import pandas as pd
 from matplotlib.backend_bases import Event
 from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
@@ -28,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from peakfit.noise import estimate_noise
+from peakfit.typing import FloatArray
 
 CONTOUR_NUM = 25
 CONTOUR_FACTOR = 1.30
@@ -36,8 +36,6 @@ CONTOUR_COLORS = {
     "spectrum_sim": "C1",
     "difference": "C2",
 }
-
-FloatArray = npt.NDArray[np.float64]
 
 
 @dataclass
