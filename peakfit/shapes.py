@@ -257,9 +257,10 @@ class ApodShape(BaseShape):
         )
         dx_rads = dx_rads + j_rads
 
-        shape_args = (r2, self.spec_params.aq_time, p0)
+        shape_args = (r2, self.spec_params.aq_time)
         if self.shape_func in (sp1, sp2):
             shape_args += (self.spec_params.apodq2, self.spec_params.apodq1)
+        shape_args += (p0,)
 
         norm = np.sum(self.shape_func(j_rads, *shape_args), axis=0)
         shape = np.sum(self.shape_func(dx_rads, *shape_args), axis=0)
