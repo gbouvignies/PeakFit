@@ -59,7 +59,7 @@ def plot_cpmg(file: Path, args: argparse.Namespace) -> Figure:
     nu_cpmg = ncyc_to_nu_cpmg(data_cpmg["ncyc"], args.time_t2)
     r2_exp = intensity_to_r2eff(data_cpmg["intensity"], intensity_ref, args.time_t2)
     data_ref = np.array(
-        [intensity_ref, error_ref], dtype=[("intensity", float), ("error", float)]
+        [(intensity_ref, error_ref)], dtype=[("intensity", float), ("error", float)]
     )
     r2_ens = intensity_to_r2eff(make_ens(data_cpmg), make_ens(data_ref), args.time_t2)
     r2_erd, r2_eru = abs(np.percentile(r2_ens, [15.9, 84.1], axis=0) - r2_exp)
