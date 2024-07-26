@@ -62,6 +62,17 @@ def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> lf.Parameter
 def write_spectra(
     path: Path, spectra: Spectra, clusters: Sequence[Cluster], params: lf.Parameters
 ) -> None:
+    """Write simulated spectra to a file.
+
+    Args:
+        path (Path): The path to the file where the spectra will be written.
+        spectra (Spectra): The original spectra.
+        clusters (Sequence[Cluster]): The clusters used for simulation.
+        params (lf.Parameters): The parameters used for simulation.
+
+    Returns:
+        None
+    """
     print_writing_spectra()
 
     data_simulated = simulate_data(params, clusters, spectra.data)
@@ -70,7 +81,7 @@ def write_spectra(
         data_simulated = np.squeeze(data_simulated, axis=0)
 
     ng.pipe.write(
-        str(path / "simulated.ft2"),
+        str(path / f"simulated.ft{data_simulated.ndim}"),
         spectra.dic,
         (data_simulated).astype(np.float32),
         overwrite=True,
