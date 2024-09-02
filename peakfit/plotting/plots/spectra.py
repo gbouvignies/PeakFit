@@ -7,12 +7,12 @@ import nmrglue as ng
 import numpy as np
 import pandas as pd
 from matplotlib.backend_bases import Event
-from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import (
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtWidgets import (
+    QAction,
     QApplication,
     QCheckBox,
     QHBoxLayout,
@@ -29,8 +29,9 @@ from PySide6.QtWidgets import (
 from peakfit.noise import estimate_noise
 from peakfit.typing import FloatArray
 
+# Configuration
 CONTOUR_NUM = 25
-CONTOUR_FACTOR = 1.30
+CONTOUR_FACTOR = 1.40
 CONTOUR_COLORS = {
     "spectrum_exp": "C0",
     "spectrum_sim": "C1",
@@ -49,7 +50,7 @@ class NMRData:
     @classmethod
     def from_file(cls, filename: str) -> Self:
         dic, data = ng.pipe.read(filename)
-        data = data.astype(np.float64)
+        data = data.astype(np.float32)
         data, xlim, ylim = cls._process_data(dic, data)
         return cls(filename, dic, data, xlim, ylim)
 
@@ -58,15 +59,18 @@ class NMRData:
         dic: dict, data: FloatArray
     ) -> tuple[FloatArray, tuple[float, float], tuple[float, float]]:
         if data.ndim == 3:
-            uc_y = ng.pipe.make_uc(dic, data, dim=1)
-            uc_x = ng.pipe.make_uc(dic, data, dim=2)
+            uc_y, uc_x = (
+                ng.pipe.make_uc(dic, data, dim=1),
+                ng.pipe.make_uc(dic, data, dim=2),
+            )
         elif data.ndim == 2:
-            uc_y = ng.pipe.make_uc(dic, data, dim=0)
-            uc_x = ng.pipe.make_uc(dic, data, dim=1)
+            uc_y, uc_x = (
+                ng.pipe.make_uc(dic, data, dim=0),
+                ng.pipe.make_uc(dic, data, dim=1),
+            )
             data = data.reshape(1, *data.shape)
         else:
-            msg = f"Unsupported data dimensionality: {data.ndim}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported data dimensionality: {data.ndim}")
 
         return data, uc_x.ppm_limits(), uc_y.ppm_limits()
 
@@ -86,8 +90,7 @@ class PlotWidget(QWidget):
         self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_subplot(111)
         self.toolbar = NavigationToolbar(self.canvas, self)
-        self.current_xlim = None
-        self.current_ylim = None
+        self.current_xlim = self.current_ylim = None
 
         layout = QVBoxLayout()
         layout.addWidget(self.canvas)
@@ -105,7 +108,7 @@ class PlotWidget(QWidget):
         data1: FloatArray,
         data2: FloatArray,
         data_diff: FloatArray,
-        plist: pd.DataFrame,
+        plist: pd.DataFrame | None,
         show_spectra: dict[str, bool],
         contour_level: float,
         noise_level: float,
@@ -137,10 +140,7 @@ class PlotWidget(QWidget):
             self.ax.scatter(plist["x0_ppm"], plist["y0_ppm"], color="black", s=10)
             for label, y, x in plist.itertuples(index=False):
                 self.ax.annotate(
-                    label,
-                    (x, y),
-                    textcoords="offset points",
-                    xytext=(5, 5),
+                    label, (x, y), textcoords="offset points", xytext=(5, 5)
                 )
 
         self.ax.set_title(f"NMR Spectrum - Plane {current_plane + 1}")
@@ -159,9 +159,9 @@ class PlotWidget(QWidget):
 
 
 class ControlWidget(QWidget):
-    plane_changed = Signal(int)
-    contour_level_changed = Signal(int)
-    spectrum_toggled = Signal(str, bool)
+    plane_changed = pyqtSignal(int)
+    contour_level_changed = pyqtSignal(int)
+    spectrum_toggled = pyqtSignal(str, bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -176,7 +176,7 @@ class ControlWidget(QWidget):
 
     def _create_navigation_layout(self) -> QHBoxLayout:
         nav_layout = QHBoxLayout()
-        self.plane_slider = QSlider(Qt.Horizontal)
+        self.plane_slider = QSlider(Qt.Orientation.Horizontal)
         self.plane_spinbox = QSpinBox()
 
         nav_layout.addWidget(QLabel("Plane:"))
@@ -186,7 +186,7 @@ class ControlWidget(QWidget):
 
     def _create_slider_layout(self) -> QHBoxLayout:
         slider_layout = QHBoxLayout()
-        self.contour_slider = QSlider(Qt.Horizontal)
+        self.contour_slider = QSlider(Qt.Orientation.Horizontal)
         self.contour_spinbox = QSpinBox()
 
         slider_layout.addWidget(QLabel("Contour:"))
@@ -267,7 +267,7 @@ class SpectraViewer(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
-        splitter = QSplitter(Qt.Vertical)
+        splitter = QSplitter(Qt.Orientation.Vertical)
         self.plot_widget = PlotWidget()
         self.control_widget = ControlWidget()
 
@@ -278,7 +278,9 @@ class SpectraViewer(QMainWindow):
 
         main_layout.addWidget(splitter)
 
-        # Connect signals
+        self._connect_signals()
+
+    def _connect_signals(self) -> None:
         self.control_widget.plane_slider.valueChanged.connect(self._change_plane)
         self.control_widget.plane_spinbox.valueChanged.connect(self._change_plane)
         self.control_widget.contour_slider.valueChanged.connect(
@@ -288,7 +290,7 @@ class SpectraViewer(QMainWindow):
             self._update_contour_level
         )
         for key, checkbox in self.control_widget.checkboxes.items():
-            checkbox.stateChanged.connect(lambda _, k=key: self._toggle_spectrum(k))
+            checkbox.stateChanged.connect(lambda state, k=key: self._toggle_spectrum(k))
 
     def _create_status_bar(self) -> None:
         self.statusbar = QStatusBar()
@@ -345,6 +347,7 @@ def plot_spectra(args: argparse.Namespace) -> None:
     try:
         data1 = NMRData.from_file(args.data_exp)
         data2 = NMRData.from_file(args.data_sim)
+        plist = None
         if args.peak_list:
             plist = pd.read_table(
                 args.peak_list,
@@ -354,10 +357,8 @@ def plot_spectra(args: argparse.Namespace) -> None:
                 names=("name", "y0_ppm", "x0_ppm"),
             )
             plist["y0_ppm"] = data1.unalias_y(
-                plist["y0_ppm"].to_numpy().astype(np.float64)
+                plist["y0_ppm"].to_numpy().astype(np.float32)
             )
-        else:
-            plist = None
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}")
         sys.exit(1)
@@ -369,4 +370,13 @@ def plot_spectra(args: argparse.Namespace) -> None:
     app = QApplication(sys.argv)
     viewer = SpectraViewer(data1, data2, plist)
     viewer.show()
-    sys.exit(app.exec())
+    sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="NMR Spectra Viewer")
+    parser.add_argument("data_exp", help="Experimental data file")
+    parser.add_argument("data_sim", help="Simulated data file")
+    parser.add_argument("--peak-list", help="Peak list file")
+    args = parser.parse_args()
+    plot_spectra(args)

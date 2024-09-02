@@ -104,8 +104,9 @@ def main() -> None:
     clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
     clusters = create_clusters(spectra, peaks, clargs.contour_level)
 
-    clargs.path_output.mkdir(parents=True, exist_ok=True)
     params = fit_clusters(clargs, clusters)
+
+    clargs.path_output.mkdir(parents=True, exist_ok=True)
 
     write_profiles(clargs.path_output, spectra.z_values, clusters, params, clargs)
 
