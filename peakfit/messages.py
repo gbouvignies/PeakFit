@@ -77,9 +77,9 @@ def print_reading_files() -> None:
     print_message("\n — Reading files...", "bold yellow")
 
 
-def print_plotting() -> None:
+def print_plotting(out: str) -> None:
     """Print the message for plotting."""
-    filename = "[bold green]profiles.pdf[/]"
+    filename = f"[bold green]{out}[/]"
     message = f"\n[bold yellow] — Plotting to[/] {filename}[bold yellow]...[/]"
     console.print(Text.from_markup(message))
 

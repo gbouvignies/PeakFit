@@ -30,6 +30,13 @@ def main() -> None:
         default=[-1],
         help="Reference points for CEST plot",
     )
+    cest_parser.add_argument(
+        "-o",
+        "--out",
+        type=str,
+        help="PDF file to save the plot to",
+        default="profiles.pdf",
+    )
 
     # CPMG plot parser
     cpmg_parser = subparsers.add_parser(
@@ -37,6 +44,13 @@ def main() -> None:
     )
     cpmg_parser.add_argument(
         "--time_t2", type=float, required=True, help="T2 time for CPMG plot"
+    )
+    cpmg_parser.add_argument(
+        "-o",
+        "--out",
+        type=str,
+        help="PDF file to save the plot to",
+        default="profiles.pdf",
     )
 
     # Spectra plot parser

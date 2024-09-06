@@ -13,10 +13,10 @@ def get_sorted_files(files: list[pathlib.Path]) -> list[pathlib.Path]:
     return sorted(files, key=lambda x: int(re.sub(r"\D", "", str(x))))
 
 
-def save_figures(figs: dict) -> None:
+def save_figures(figs: dict, output: str) -> None:
     """Saves all figures into a single PDF file."""
-    print_plotting()
-    with PdfPages("profiles.pdf") as pdf:
+    print_plotting(output)
+    with PdfPages(output) as pdf:
         for fig in figs.values():
             pdf.savefig(fig)
 
@@ -33,7 +33,7 @@ def plot_wrapper(plot_func: Callable) -> Callable:
             print_filename(a_file)
             figs[a_file.name] = plot_func(a_file, args)
 
-        save_figures(figs)
+        save_figures(figs, args.out)
 
     return wrapper
 
