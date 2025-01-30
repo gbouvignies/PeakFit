@@ -15,8 +15,15 @@ def main() -> None:
     )
 
     # Intensity plot parser
-    subparsers.add_parser(
+    intensity_parser = subparsers.add_parser(
         "intensity", parents=[get_base_parser()], help="Generate intensity plot"
+    )
+    intensity_parser.add_argument(
+        "-o",
+        "--out",
+        type=str,
+        help="PDF file to save the plot to",
+        default="profiles.pdf",
     )
 
     # CEST plot parser

@@ -15,7 +15,6 @@ dependencies = [
     "networkx>=3.3",
     "emcee>=3.1.6",
     "numdifftools>=0.9.41",
-    "pyqtgraph>=0.13.7",
     "pyqt5>=5.15.11",
 ]
 requires-python = ">=3.12"
