@@ -361,7 +361,7 @@ excel = [
 
 [[package]]
 name = "peakfit"
-version = "0.10.3.dev0+g02eaeb3.d20240904"
+version = "0.10.4.dev0+ge96288a.d20250113"
 source = { editable = "." }
 dependencies = [
     { name = "emcee" },
@@ -373,7 +373,6 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas", extra = ["excel"] },
     { name = "pyqt5" },
-    { name = "pyqtgraph" },
     { name = "rich" },
     { name = "scipy" },
 ]
@@ -389,7 +388,6 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0.0" },
     { name = "pandas", extras = ["excel"], specifier = ">=2.2.2" },
     { name = "pyqt5", specifier = ">=5.15.11" },
-    { name = "pyqtgraph", specifier = ">=0.13.7" },
     { name = "rich", specifier = ">=13.7.1" },
     { name = "scipy", specifier = ">=1.13.1" },
 ]
@@ -479,18 +477,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/6c/9a2fe24f8970e092613f709283a2101403490a209a30de3de89a413d9915/PyQt5_sip-12.15.0-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:0cd21c3215e3c47fdd5fa7a2dc3dd1e07a7230b0626e905a7217925068c788b9", size = 281431 },
     { url = "https://files.pythonhosted.org/packages/90/53/0a4dc2d448619f2a51849e124d375ec7a8e95c938eccfaf8711bb77a62b6/PyQt5_sip-12.15.0-cp312-cp312-win32.whl", hash = "sha256:b58eeedc9b2a3037b136bf96915196c391a33be470ed1c0723d7163ef0b727a2", size = 49408 },
     { url = "https://files.pythonhosted.org/packages/aa/c2/c07c531fe5a6124d91942c48a85ff4e14918766cd37819f7841cf2debabb/PyQt5_sip-12.15.0-cp312-cp312-win_amd64.whl", hash = "sha256:24a1d4937332bf0a38dd95bb2ce4d89723df449f6e912b52ef0e107e11fefac1", size = 57922 },
-]
-
-[[package]]
-name = "pyqtgraph"
-version = "0.13.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/33/d9/b62d5cddb3caa6e5145664bee5ed90223dee23ca887ed3ee479f2609e40a/pyqtgraph-0.13.7.tar.gz", hash = "sha256:64f84f1935c6996d0e09b1ee66fe478a7771e3ca6f3aaa05f00f6e068321d9e3", size = 2343380 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7b/34/5702b3b7cafe99be1d94b42f100e8cc5e6957b761fcb1cf5f72d492851da/pyqtgraph-0.13.7-py3-none-any.whl", hash = "sha256:7754edbefb6c367fa0dfb176e2d0610da3ada20aa7a5318516c74af5fb72bf7a", size = 1925473 },
 ]
 
 [[package]]
