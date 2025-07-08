@@ -154,12 +154,12 @@ def plot_wrapper(plot_func: Callable) -> Callable:
         print_reading_files()
 
         # Expand file patterns and convert to Path objects
-        if isinstance(args.files[0], str):
+        if args.files and isinstance(args.files[0], str):
             # Files are still strings (patterns), expand them
             expanded_files = expand_file_patterns(args.files)
             files_ordered = get_sorted_files(expanded_files)
         else:
-            # Files are already Path objects
+            # Files are already Path objects or args.files is empty
             files_ordered = get_sorted_files(args.files)
 
         for a_file in files_ordered:
