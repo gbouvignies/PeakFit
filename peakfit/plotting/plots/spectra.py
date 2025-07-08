@@ -27,7 +27,13 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from peakfit.messages import print_message
+from peakfit.messages import (
+    print_data_loading_error,
+    print_data_shape_mismatch_error,
+    print_experimental_file_not_found,
+    print_peak_list_file_not_found,
+    print_simulated_file_not_found,
+)
 from peakfit.noise import estimate_noise
 from peakfit.typing import FloatArray
 
@@ -351,26 +357,20 @@ def plot_spectra(args: argparse.Namespace) -> None:
     # Validate experimental data file
     exp_file = Path(args.data_exp)
     if not exp_file.exists():
-        print_message(
-            f"Error: Experimental data file not found: {args.data_exp}", "bold red"
-        )
+        print_experimental_file_not_found(args.data_exp)
         sys.exit(1)
 
     # Validate simulated data file
     sim_file = Path(args.data_sim)
     if not sim_file.exists():
-        print_message(
-            f"Error: Simulated data file not found: {args.data_sim}", "bold red"
-        )
+        print_simulated_file_not_found(args.data_sim)
         sys.exit(1)
 
     # Validate peak list file if provided
     if args.peak_list:
         plist_file = Path(args.peak_list)
         if not plist_file.exists():
-            print_message(
-                f"Error: Peak list file not found: {args.peak_list}", "bold red"
-            )
+            print_peak_list_file_not_found(args.peak_list)
             sys.exit(1)
 
     try:
@@ -389,14 +389,11 @@ def plot_spectra(args: argparse.Namespace) -> None:
                 plist["y0_ppm"].to_numpy().astype(np.float32)
             )
     except (FileNotFoundError, ValueError, OSError) as e:
-        print_message(f"Error loading data files: {e}", "bold red")
+        print_data_loading_error(e)
         sys.exit(1)
 
     if data1.data.shape != data2.data.shape:
-        print_message(
-            "Error: Data shapes do not match between experimental and simulated data",
-            "bold red",
-        )
+        print_data_shape_mismatch_error()
         sys.exit(1)
 
     app = QApplication(sys.argv)

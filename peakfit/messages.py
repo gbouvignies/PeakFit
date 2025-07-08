@@ -116,3 +116,69 @@ def print_refining(index: int, refine_nb: int) -> None:
     print_message(
         f"\n — Refining the peak parameters ({index}/{refine_nb})...", "bold yellow"
     )
+
+
+# File validation and error messages for plotting commands
+
+
+def print_no_files_specified() -> None:
+    """Print error message when no files are specified."""
+    print_message("Error: No files specified.", "bold red")
+
+
+def print_files_not_found_warning() -> None:
+    """Print warning message when some files are not found."""
+    print_message("\nWarning: Some files were not found:", "bold yellow")
+
+
+def print_missing_file(filename: str | Path) -> None:
+    """Print a specific missing file."""
+    print_message(f"  - {filename}", "yellow")
+
+
+def print_no_valid_files_error() -> None:
+    """Print error message when no valid files are found."""
+    print_message("Error: No valid files found.", "bold red")
+
+
+def print_all_files_missing_error() -> None:
+    """Print error message when all specified files are missing."""
+    print_message("All specified files are missing or inaccessible.", "red")
+
+
+def print_check_file_patterns_help() -> None:
+    """Print help message to check file patterns."""
+    print_message("Please check your file patterns and ensure files exist.", "red")
+
+
+def print_processing_files_count(count: int) -> None:
+    """Print the number of files being processed."""
+    print_message(f"\nProcessing {count} valid file(s).", "green")
+
+
+def print_experimental_file_not_found(filename: str) -> None:
+    """Print error message when experimental data file is not found."""
+    print_message(f"Error: Experimental data file not found: {filename}", "bold red")
+
+
+def print_simulated_file_not_found(filename: str) -> None:
+    """Print error message when simulated data file is not found."""
+    print_message(f"Error: Simulated data file not found: {filename}", "bold red")
+
+
+def print_peak_list_file_not_found(filename: str) -> None:
+    """Print error message when peak list file is not found."""
+    print_message(f"Error: Peak list file not found: {filename}", "bold red")
+
+
+def print_data_loading_error(error: Exception) -> None:
+    """Print error message when data files cannot be loaded."""
+    print_message(f"Error loading data files: {error}", "bold red")
+
+
+def print_data_shape_mismatch_error() -> None:
+    """Print error message when data shapes do not match."""
+    print_message(
+        "Error: Data shapes do not match between experimental and simulated data",
+        "bold red",
+    )

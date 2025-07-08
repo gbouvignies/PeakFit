@@ -7,9 +7,15 @@ from collections.abc import Callable
 from matplotlib.backends.backend_pdf import PdfPages
 
 from peakfit.messages import (
+    print_all_files_missing_error,
+    print_check_file_patterns_help,
     print_filename,
-    print_message,
+    print_files_not_found_warning,
+    print_missing_file,
+    print_no_files_specified,
+    print_no_valid_files_error,
     print_plotting,
+    print_processing_files_count,
     print_reading_files,
 )
 
@@ -67,7 +73,7 @@ def validate_and_filter_files(files: list[pathlib.Path]) -> list[pathlib.Path]:
     Returns a list of valid files and prints warnings for missing files.
     """
     if not files:
-        print_message("Error: No files specified.", "bold red")
+        print_no_files_specified()
         sys.exit(1)
 
     # Filter out empty paths and non-existent files
@@ -85,19 +91,19 @@ def validate_and_filter_files(files: list[pathlib.Path]) -> list[pathlib.Path]:
 
     # Report missing files as warnings
     if missing_files:
-        print_message("Warning: Some files were not found:", "bold yellow")
+        print_files_not_found_warning()
         for missing_file in missing_files:
-            print_message(f"  - {missing_file}", "yellow")
+            print_missing_file(missing_file)
 
     # Check if we have any valid files
     if not valid_files:
-        print_message("Error: No valid files found.", "bold red")
+        print_no_valid_files_error()
         if missing_files:
-            print_message("All specified files are missing or inaccessible.", "red")
-        print_message("Please check your file patterns and ensure files exist.", "red")
+            print_all_files_missing_error()
+        print_check_file_patterns_help()
         sys.exit(1)
 
-    print_message(f"Processing {len(valid_files)} valid file(s).", "green")
+    print_processing_files_count(len(valid_files))
     return valid_files
 
 
