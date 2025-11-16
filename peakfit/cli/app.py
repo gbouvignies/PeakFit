@@ -497,5 +497,165 @@ def _run_benchmark(numba_available: bool) -> None:
         console.print(f"    [green]Speedup: {speedup:.1f}x[/green]")
 
 
+@app.command()
+def benchmark(
+    spectrum: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to NMRPipe spectrum file",
+            exists=True,
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ],
+    peaklist: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to peak list file",
+            exists=True,
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ],
+    z_values: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--z-values",
+            "-z",
+            help="Path to Z-dimension values file",
+            exists=True,
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    iterations: Annotated[
+        int,
+        typer.Option(
+            "--iterations",
+            "-n",
+            help="Number of benchmark iterations",
+            min=1,
+            max=10,
+        ),
+    ] = 1,
+) -> None:
+    """Benchmark fitting performance with different methods.
+
+    Compare standard lmfit, fast scipy, and parallel fitting approaches
+    to determine the optimal method for your data.
+
+    Example:
+        peakfit benchmark spectrum.ft2 peaks.list --iterations 3
+    """
+    import time
+
+    from peakfit.cli_legacy import Arguments as LegacyArguments
+    from peakfit.clustering import create_clusters
+    from peakfit.core.fast_fit import fit_clusters_fast
+    from peakfit.core.models import PeakFitConfig
+    from peakfit.core.parallel import fit_clusters_parallel_refined
+    from peakfit.noise import prepare_noise_level
+    from peakfit.peaklist import read_list
+    from peakfit.spectra import get_shape_names, read_spectra
+
+    console.print("[bold]PeakFit Performance Benchmark[/bold]\n")
+
+    # Load data
+    with console.status("[yellow]Loading spectrum..."):
+        # Create minimal legacy args for loading
+        clargs = LegacyArguments()
+        clargs.path_spectra = spectrum
+        clargs.path_z_values = z_values
+        clargs.path_list = peaklist
+        clargs.exclude = []
+        clargs.noise = None
+        clargs.contour_level = None
+        clargs.fixed = False
+        clargs.jx = False
+        clargs.phx = False
+        clargs.phy = False
+        clargs.pvoigt = False
+        clargs.lorentzian = False
+        clargs.gaussian = False
+
+        spectra = read_spectra(spectrum, z_values, [])
+
+    console.print(f"[green]Loaded spectrum:[/green] {spectrum.name}")
+    console.print(f"  Shape: {spectra.data.shape}")
+
+    # Prepare fitting
+    clargs.noise = prepare_noise_level(clargs, spectra)
+    shape_names = get_shape_names(clargs, spectra)
+    peaks = read_list(spectra, shape_names, clargs)
+    clargs.contour_level = 5.0 * clargs.noise
+    clusters = create_clusters(spectra, peaks, clargs.contour_level)
+
+    console.print(f"[green]Noise level:[/green] {clargs.noise:.2f}")
+    console.print(f"[green]Clusters:[/green] {len(clusters)}")
+    console.print(f"[green]Total peaks:[/green] {len(peaks)}")
+
+    console.print(f"\n[bold]Running benchmark ({iterations} iteration(s))...[/bold]\n")
+
+    # Benchmark fast sequential
+    times_fast = []
+    for i in range(iterations):
+        start = time.perf_counter()
+        fit_clusters_fast(
+            clusters=list(clusters),
+            noise=clargs.noise,
+            refine_iterations=0,  # No refinement for speed comparison
+            fixed=False,
+            verbose=False,
+        )
+        times_fast.append(time.perf_counter() - start)
+
+    avg_fast = sum(times_fast) / len(times_fast)
+    console.print("[cyan]Fast Sequential:[/cyan]")
+    console.print(f"  Average time: {avg_fast:.3f}s")
+    if len(times_fast) > 1:
+        console.print(f"  Min: {min(times_fast):.3f}s, Max: {max(times_fast):.3f}s")
+
+    # Benchmark parallel (if enough clusters)
+    if len(clusters) > 1:
+        import multiprocessing as mp
+
+        n_workers = mp.cpu_count()
+
+        times_parallel = []
+        for i in range(iterations):
+            start = time.perf_counter()
+            fit_clusters_parallel_refined(
+                clusters=clusters,
+                noise=clargs.noise,
+                refine_iterations=0,
+                fixed=False,
+                n_workers=n_workers,
+                verbose=False,
+            )
+            times_parallel.append(time.perf_counter() - start)
+
+        avg_parallel = sum(times_parallel) / len(times_parallel)
+        console.print(f"\n[cyan]Parallel ({n_workers} workers):[/cyan]")
+        console.print(f"  Average time: {avg_parallel:.3f}s")
+        if len(times_parallel) > 1:
+            console.print(f"  Min: {min(times_parallel):.3f}s, Max: {max(times_parallel):.3f}s")
+
+        speedup = avg_fast / avg_parallel if avg_parallel > 0 else 1.0
+        console.print(f"  [green]Speedup: {speedup:.2f}x[/green]")
+
+        # Recommendation
+        console.print("\n[bold]Recommendation:[/bold]")
+        if speedup > 1.2:
+            console.print(
+                f"  Use [green]--parallel[/green] for {speedup:.1f}x speedup"
+            )
+        else:
+            console.print("  Use [green]--fast[/green] (parallel overhead exceeds benefit)")
+    else:
+        console.print("\n[yellow]Note:[/yellow] Only 1 cluster, parallel comparison skipped")
+        console.print("\n[bold]Recommendation:[/bold]")
+        console.print("  Use [green]--fast[/green] for optimal performance")
+
+
 if __name__ == "__main__":
     app()
