@@ -77,6 +77,9 @@ def run_fit(
     """
     print_logo()
 
+    # Show optimization status
+    _print_optimization_status()
+
     # Convert to legacy args for compatibility with existing modules
     clargs = config_to_legacy_args(config, spectrum_path, peaklist_path, z_values_path)
 
@@ -209,3 +212,21 @@ def _write_spectra(path: Path, spectra, clusters, params: lf.Parameters) -> None
         data_simulated.astype(np.float32),
         overwrite=True,
     )
+
+
+def _print_optimization_status() -> None:
+    """Print optimization status at the start of fitting."""
+    from peakfit.core.optimized import get_optimization_info
+
+    opt_info = get_optimization_info()
+
+    if opt_info["numba_available"]:
+        try:
+            import numba
+
+            console.print(f"[green]✓ Numba JIT enabled[/green] (v{numba.__version__})")
+        except ImportError:
+            console.print("[yellow]• Using NumPy vectorized operations[/yellow]")
+    else:
+        console.print("[yellow]• Using NumPy vectorized operations[/yellow]")
+        console.print("  [dim]Install numba for better performance: pip install numba[/dim]")
