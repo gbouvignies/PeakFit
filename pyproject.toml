@@ -33,7 +33,7 @@ dev = [
     "mypy>=1.0",
 ]
 performance = [
-    "numba>=0.58.0",
+    "numba>=0.58.0; python_version<'3.14'",
 ]
 
 [project.scripts]
