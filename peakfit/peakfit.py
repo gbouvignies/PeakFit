@@ -52,7 +52,13 @@ def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> lf.Parameter
             params = create_params(cluster.peaks, fixed=clargs.fixed)
             params = update_params(params, params_all)
             mini = lf.Minimizer(residuals, params, fcn_args=(cluster, clargs.noise))
-            out = mini.least_squares(verbose=2)
+            # Faster tolerance settings for quicker convergence
+            out = mini.least_squares(
+                verbose=2,
+                ftol=1e-7,  # Slightly relaxed function tolerance
+                xtol=1e-7,  # Slightly relaxed parameter tolerance
+                max_nfev=1000,  # Limit function evaluations
+            )
             print_fit_report(out)
             params_all.update(getattr(out, "params", lf.Parameters()))
 
