@@ -11,6 +11,16 @@ from peakfit.nmrpipe import SpectralParameters
 from peakfit.spectra import Spectra
 from peakfit.typing import FloatArray, IntArray
 
+# Import optimized lineshape functions (JIT-compiled if Numba available)
+from peakfit.core.optimized import (
+    gaussian_jit,
+    lorentzian_jit,
+    no_apod_jit,
+    pvoigt_jit,
+    sp1_jit,
+    sp2_jit,
+)
+
 T = TypeVar("T")
 
 AXIS_NAMES = ("x", "y", "z", "a")
@@ -195,12 +205,12 @@ class PeakShape(BaseShape):
 
 @register_shape("lorentzian")
 class Lorentzian(PeakShape):
-    shape_func = staticmethod(lorentzian)
+    shape_func = staticmethod(lorentzian_jit)
 
 
 @register_shape("gaussian")
 class Gaussian(PeakShape):
-    shape_func = staticmethod(gaussian)
+    shape_func = staticmethod(gaussian_jit)
 
 
 @register_shape("pvoigt")
@@ -217,7 +227,7 @@ class PseudoVoigt(PeakShape):
         eta = params[f"{self.prefix}_eta"].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-        return sign * pvoigt(dx_hz, fwhm, eta)
+        return sign * pvoigt_jit(dx_hz, fwhm, eta)
 
 
 class ApodShape(BaseShape):
@@ -258,7 +268,7 @@ class ApodShape(BaseShape):
         dx_rads = dx_rads + j_rads
 
         shape_args = (r2, self.spec_params.aq_time)
-        if self.shape_func in (sp1, sp2):
+        if self.shape_func in (sp1, sp2, sp1_jit, sp2_jit):
             shape_args += (self.spec_params.apodq2, self.spec_params.apodq1)
         shape_args += (p0,)
 
@@ -270,14 +280,14 @@ class ApodShape(BaseShape):
 
 @register_shape("no_apod")
 class NoApod(ApodShape):
-    shape_func = staticmethod(no_apod)
+    shape_func = staticmethod(no_apod_jit)
 
 
 @register_shape("sp1")
 class SP1(ApodShape):
-    shape_func = staticmethod(sp1)
+    shape_func = staticmethod(sp1_jit)
 
 
 @register_shape("sp2")
 class SP2(ApodShape):
-    shape_func = staticmethod(sp2)
+    shape_func = staticmethod(sp2_jit)
