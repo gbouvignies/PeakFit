@@ -25,8 +25,73 @@ except ImportError:
         return decorator
 
 
+# =============================================================================
+# Vectorized NumPy implementations (fast without Numba)
+# =============================================================================
+
+
+def gaussian_numpy(dx: np.ndarray, fwhm: float) -> np.ndarray:
+    """Vectorized Gaussian lineshape (fast without Numba)."""
+    c = 4.0 * np.log(2.0) / (fwhm * fwhm)
+    return np.exp(-dx * dx * c)
+
+
+def lorentzian_numpy(dx: np.ndarray, fwhm: float) -> np.ndarray:
+    """Vectorized Lorentzian lineshape (fast without Numba)."""
+    half_width_sq = (0.5 * fwhm) ** 2
+    return half_width_sq / (dx * dx + half_width_sq)
+
+
+def pvoigt_numpy(dx: np.ndarray, fwhm: float, eta: float) -> np.ndarray:
+    """Vectorized Pseudo-Voigt lineshape (fast without Numba)."""
+    c_gauss = 4.0 * np.log(2.0) / (fwhm * fwhm)
+    gauss = np.exp(-dx * dx * c_gauss)
+    half_width_sq = (0.5 * fwhm) ** 2
+    lorentz = half_width_sq / (dx * dx + half_width_sq)
+    return (1.0 - eta) * gauss + eta * lorentz
+
+
+def no_apod_numpy(
+    dx: np.ndarray, r2: float, aq: float, phase: float = 0.0
+) -> np.ndarray:
+    """Vectorized non-apodized lineshape (fast without Numba)."""
+    z1 = aq * (1j * dx + r2)
+    spec = aq * (1.0 - np.exp(-z1)) / z1
+    return (spec * np.exp(1j * np.deg2rad(phase))).real
+
+
+def sp1_numpy(
+    dx: np.ndarray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
+) -> np.ndarray:
+    """Vectorized SP1 lineshape (fast without Numba)."""
+    z1 = aq * (1j * dx + r2)
+    f1, f2 = 1j * off * np.pi, 1j * (end - off) * np.pi
+    a1 = (np.exp(+f2) - np.exp(+z1)) * np.exp(-z1 + f1) / (2 * (z1 - f2))
+    a2 = (np.exp(+z1) - np.exp(-f2)) * np.exp(-z1 - f1) / (2 * (z1 + f2))
+    spec = 1j * aq * (a1 + a2)
+    return (spec * np.exp(1j * np.deg2rad(phase))).real
+
+
+def sp2_numpy(
+    dx: np.ndarray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
+) -> np.ndarray:
+    """Vectorized SP2 lineshape (fast without Numba)."""
+    z1 = aq * (1j * dx + r2)
+    f1, f2 = 1j * off * np.pi, 1j * (end - off) * np.pi
+    a1 = (np.exp(+2 * f2) - np.exp(z1)) * np.exp(-z1 + 2 * f1) / (4 * (z1 - 2 * f2))
+    a2 = (np.exp(-2 * f2) - np.exp(z1)) * np.exp(-z1 - 2 * f1) / (4 * (z1 + 2 * f2))
+    a3 = (1.0 - np.exp(-z1)) / (2 * z1)
+    spec = aq * (a1 + a2 + a3)
+    return (spec * np.exp(1j * np.deg2rad(phase))).real
+
+
+# =============================================================================
+# JIT-compiled implementations (fast with Numba)
+# =============================================================================
+
+
 @jit(nopython=True, cache=True, fastmath=True)
-def gaussian_jit(dx: np.ndarray, fwhm: float) -> np.ndarray:
+def _gaussian_jit_impl(dx: np.ndarray, fwhm: float) -> np.ndarray:
     """JIT-optimized Gaussian lineshape.
 
     Args:
@@ -41,7 +106,7 @@ def gaussian_jit(dx: np.ndarray, fwhm: float) -> np.ndarray:
 
 
 @jit(nopython=True, cache=True, fastmath=True)
-def lorentzian_jit(dx: np.ndarray, fwhm: float) -> np.ndarray:
+def _lorentzian_jit_impl(dx: np.ndarray, fwhm: float) -> np.ndarray:
     """JIT-optimized Lorentzian lineshape.
 
     Args:
@@ -56,7 +121,7 @@ def lorentzian_jit(dx: np.ndarray, fwhm: float) -> np.ndarray:
 
 
 @jit(nopython=True, cache=True, fastmath=True)
-def pvoigt_jit(dx: np.ndarray, fwhm: float, eta: float) -> np.ndarray:
+def _pvoigt_jit_impl(dx: np.ndarray, fwhm: float, eta: float) -> np.ndarray:
     """JIT-optimized Pseudo-Voigt lineshape.
 
     Args:
@@ -77,7 +142,7 @@ def pvoigt_jit(dx: np.ndarray, fwhm: float, eta: float) -> np.ndarray:
 
 
 @jit(nopython=True, cache=True)
-def no_apod_jit(
+def _no_apod_jit_impl(
     dx: np.ndarray, r2: float, aq: float, phase: float = 0.0
 ) -> np.ndarray:
     """JIT-optimized non-apodized lineshape.
@@ -127,7 +192,7 @@ def no_apod_jit(
 
 
 @jit(nopython=True, cache=True)
-def sp1_jit(
+def _sp1_jit_impl(
     dx: np.ndarray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
 ) -> np.ndarray:
     """JIT-optimized SP1 (sine bell) lineshape.
@@ -238,7 +303,7 @@ def sp1_jit(
 
 
 @jit(nopython=True, cache=True)
-def sp2_jit(
+def _sp2_jit_impl(
     dx: np.ndarray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
 ) -> np.ndarray:
     """JIT-optimized SP2 (sine squared bell) lineshape.
@@ -375,6 +440,29 @@ def calculate_lstsq_amplitude(shapes: np.ndarray, data: np.ndarray) -> np.ndarra
     # Solve using Cholesky decomposition would be ideal but not in numba
     # Use simple solve
     return np.linalg.solve(ata, atb)
+
+
+# =============================================================================
+# Smart wrapper functions (automatically choose best implementation)
+# =============================================================================
+
+# Select implementation based on Numba availability
+if HAS_NUMBA:
+    # Use JIT-compiled versions (fast with compilation)
+    gaussian_jit = _gaussian_jit_impl
+    lorentzian_jit = _lorentzian_jit_impl
+    pvoigt_jit = _pvoigt_jit_impl
+    no_apod_jit = _no_apod_jit_impl
+    sp1_jit = _sp1_jit_impl
+    sp2_jit = _sp2_jit_impl
+else:
+    # Use vectorized NumPy versions (fast without compilation)
+    gaussian_jit = gaussian_numpy
+    lorentzian_jit = lorentzian_numpy
+    pvoigt_jit = pvoigt_numpy
+    no_apod_jit = no_apod_numpy
+    sp1_jit = sp1_numpy
+    sp2_jit = sp2_numpy
 
 
 def get_optimized_gaussian():
