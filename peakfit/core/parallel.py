@@ -12,8 +12,6 @@ from typing import Any
 import lmfit as lf
 
 from peakfit.clustering import Cluster
-from peakfit.computing import residuals
-from peakfit.peak import create_params
 
 
 def _fit_single_cluster(

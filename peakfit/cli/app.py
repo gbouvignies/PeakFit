@@ -168,6 +168,22 @@ def fit(
             help="Enable parallel fitting of clusters",
         ),
     ] = False,
+    fast: Annotated[
+        bool,
+        typer.Option(
+            "--fast/--no-fast",
+            help="Use fast scipy optimization (bypasses lmfit overhead)",
+        ),
+    ] = False,
+    workers: Annotated[
+        Optional[int],
+        typer.Option(
+            "--workers",
+            "-w",
+            help="Number of parallel workers (default: number of CPUs)",
+            min=1,
+        ),
+    ] = None,
 ) -> None:
     """Fit lineshapes to peaks in pseudo-3D NMR spectrum.
 
@@ -207,6 +223,8 @@ def fit(
         z_values_path=z_values,
         config=fit_config,
         parallel=parallel,
+        fast=fast,
+        n_workers=workers,
     )
 
 

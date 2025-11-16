@@ -93,5 +93,5 @@ save_html_report = true
 
 # Optional settings
 # noise_level = 100.0  # Uncomment to set manual noise level
-exclude_planes = []
+# exclude_planes = []  # List of plane indices to exclude
 '''
