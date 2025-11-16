@@ -41,9 +41,14 @@ def _fit_single_cluster(
         if key in params_dict:
             params[key].value = params_dict[key]
 
-    # Perform fit
+    # Perform fit with optimized tolerances
     mini = lf.Minimizer(residuals, params, fcn_args=(cluster, noise))
-    result = mini.least_squares(verbose=0)
+    result = mini.least_squares(
+        verbose=0,
+        ftol=1e-7,
+        xtol=1e-7,
+        max_nfev=1000,
+    )
 
     # Extract results
     fitted_params = {}

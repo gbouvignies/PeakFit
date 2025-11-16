@@ -24,6 +24,8 @@ class Arguments:
     phx: bool = False
     phy: bool = False
     exclude: list[int] = field(default_factory=list)
+    parallel: bool = False
+    n_workers: int | None = None
 
 
 def build_parser() -> ArgumentParser:
@@ -47,6 +49,18 @@ def build_parser() -> ArgumentParser:
     parser.add_argument("--phx", action="store_true")
     parser.add_argument("--phy", action="store_true")
     parser.add_argument("--exclude", type=int, nargs="+", default=[])
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Enable parallel cluster fitting (uses all CPU cores)",
+    )
+    parser.add_argument(
+        "--workers",
+        dest="n_workers",
+        type=int,
+        default=None,
+        help="Number of parallel workers (default: number of CPUs)",
+    )
 
     return parser
 
