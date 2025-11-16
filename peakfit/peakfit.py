@@ -15,6 +15,7 @@ from peakfit.computing import (
     simulate_data,
     update_cluster_corrections,
 )
+from peakfit.core.fast_fit import fit_clusters_fast
 from peakfit.core.parallel import fit_clusters_parallel_refined
 from peakfit.messages import (
     export_html,
@@ -112,16 +113,26 @@ def main() -> None:
     clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
     clusters = create_clusters(spectra, peaks, clargs.contour_level)
 
-    # Choose fitting method based on --parallel flag
+    # Choose fitting method based on --parallel and --fast flags
     if clargs.parallel and len(clusters) > 1:
         n_workers = clargs.n_workers or mp.cpu_count()
         print(f"\nParallel fitting enabled: {len(clusters)} clusters on {n_workers} workers")
+        print("Using fast scipy optimization (bypasses lmfit overhead)")
         params = fit_clusters_parallel_refined(
             clusters=clusters,
             noise=clargs.noise,
             refine_iterations=clargs.refine_nb,
             fixed=clargs.fixed,
             n_workers=n_workers,
+            verbose=True,
+        )
+    elif clargs.fast:
+        print("\nFast scipy optimization enabled (bypasses lmfit overhead)")
+        params = fit_clusters_fast(
+            clusters=list(clusters),
+            noise=clargs.noise,
+            refine_iterations=clargs.refine_nb,
+            fixed=clargs.fixed,
             verbose=True,
         )
     else:

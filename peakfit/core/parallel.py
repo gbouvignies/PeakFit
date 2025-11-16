@@ -33,43 +33,10 @@ def _fit_single_cluster(
     Returns:
         Dictionary with fitted parameter values and fit statistics
     """
-    # Create parameters for this cluster
-    params = create_params(cluster.peaks, fixed=fixed)
+    from peakfit.core.fast_fit import fit_cluster_fast
 
-    # Update with global parameter values
-    for key in params:
-        if key in params_dict:
-            params[key].value = params_dict[key]
-
-    # Perform fit with optimized tolerances
-    mini = lf.Minimizer(residuals, params, fcn_args=(cluster, noise))
-    result = mini.least_squares(
-        verbose=0,
-        ftol=1e-7,
-        xtol=1e-7,
-        max_nfev=1000,
-    )
-
-    # Extract results
-    fitted_params = {}
-    for name in result.params:
-        param = result.params[name]
-        fitted_params[name] = {
-            "value": param.value,
-            "stderr": param.stderr,
-            "vary": param.vary,
-            "min": param.min,
-            "max": param.max,
-        }
-
-    return {
-        "params": fitted_params,
-        "success": result.success,
-        "chisqr": result.chisqr if hasattr(result, "chisqr") else 0.0,
-        "redchi": result.redchi if hasattr(result, "redchi") else 0.0,
-        "nfev": result.nfev if hasattr(result, "nfev") else 0,
-        "message": result.message if hasattr(result, "message") else "",
-    }
+    # Use fast scipy-based fitting (bypasses lmfit overhead)
+    return fit_cluster_fast(cluster, noise, fixed, params_dict)
 
 
 def fit_clusters_parallel(

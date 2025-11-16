@@ -26,6 +26,7 @@ class Arguments:
     exclude: list[int] = field(default_factory=list)
     parallel: bool = False
     n_workers: int | None = None
+    fast: bool = False
 
 
 def build_parser() -> ArgumentParser:
@@ -60,6 +61,11 @@ def build_parser() -> ArgumentParser:
         type=int,
         default=None,
         help="Number of parallel workers (default: number of CPUs)",
+    )
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Use fast scipy optimization (bypasses lmfit overhead, ~2-3x faster)",
     )
 
     return parser
