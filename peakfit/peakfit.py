@@ -7,7 +7,7 @@ import lmfit as lf
 import nmrglue as ng
 import numpy as np
 
-from peakfit.cli import Arguments, parse_args
+from peakfit.cli_legacy import Arguments, parse_args
 from peakfit.clustering import Cluster, create_clusters
 from peakfit.computing import (
     residuals,

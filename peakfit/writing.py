@@ -3,7 +3,7 @@ from pathlib import Path
 import lmfit as lf
 import numpy as np
 
-from peakfit.cli import Arguments
+from peakfit.cli_legacy import Arguments
 from peakfit.clustering import Cluster
 from peakfit.computing import calculate_shape_heights
 from peakfit.messages import print_writing_profiles, print_writing_shifts

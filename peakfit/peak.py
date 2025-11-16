@@ -3,7 +3,7 @@ from collections.abc import Sequence
 import lmfit as lf
 import numpy as np
 
-from peakfit.cli import Arguments
+from peakfit.cli_legacy import Arguments
 from peakfit.shapes import SHAPES, Shape
 from peakfit.spectra import Spectra
 from peakfit.typing import FloatArray, IntArray

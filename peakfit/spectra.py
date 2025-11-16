@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from nmrglue.fileio.pipe import guess_udic, read
 
-from peakfit.cli import Arguments
+from peakfit.cli_legacy import Arguments
 from peakfit.nmrpipe import SpectralParameters, read_spectral_parameters
 from peakfit.typing import FloatArray
 

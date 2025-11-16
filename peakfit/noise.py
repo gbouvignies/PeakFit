@@ -1,7 +1,7 @@
 import numpy as np
 from lmfit.models import GaussianModel
 
-from peakfit.cli import Arguments
+from peakfit.cli_legacy import Arguments
 from peakfit.messages import print_estimated_noise
 from peakfit.spectra import Spectra
 from peakfit.typing import FloatArray

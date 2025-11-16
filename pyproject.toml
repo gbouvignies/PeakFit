@@ -10,20 +10,35 @@ dependencies = [
     "matplotlib>=3.9.0",
     "rich>=13.7.1",
     "nmrglue>=0.10",
-    "pandas[excel]>=2.2.2",
+    "pandas>=2.2.2",
+    "openpyxl>=3.0.0",
     "scipy>=1.13.1",
     "networkx>=3.3",
     "emcee>=3.1.6",
     "numdifftools>=0.9.41",
     "pyqt5>=5.15.11",
+    "pydantic>=2.5.0",
+    "typer>=0.9.0",
+    "tomli-w>=1.0.0",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 dynamic = ["version"]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "mypy>=1.0",
+]
+performance = [
+    "numba>=0.58.0",
+]
+
 [project.scripts]
-peakfit = "peakfit.peakfit:main"
+peakfit = "peakfit.cli.app:app"
+peakfit-legacy = "peakfit.peakfit:main"
 peakfit-plot = "peakfit.plotting.main:main"
 
 [build-system]
@@ -62,3 +77,26 @@ convention = "google"
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+[tool.coverage.run]
+source = ["peakfit"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 2

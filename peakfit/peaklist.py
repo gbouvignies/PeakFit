@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from peakfit.cli import Arguments
+from peakfit.cli_legacy import Arguments
 from peakfit.peak import Peak, create_peak
 from peakfit.spectra import Spectra
 
