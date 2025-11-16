@@ -88,6 +88,61 @@ class TestOptimizedFunctions:
 
         np.testing.assert_allclose(original, optimized, rtol=1e-10)
 
+    def test_optimized_no_apod_correctness(self):
+        """Optimized NoApod should give same results as original."""
+        import numpy as np
+
+        from peakfit.core.optimized import no_apod_jit
+        from peakfit.shapes import no_apod
+
+        dx = np.linspace(-50, 50, 101)
+        r2 = 5.0  # Hz
+        aq = 0.1  # seconds
+        phase = 10.0  # degrees
+
+        original = no_apod(dx, r2, aq, phase)
+        optimized = no_apod_jit(dx, r2, aq, phase)
+
+        np.testing.assert_allclose(original, optimized, rtol=1e-10)
+
+    def test_optimized_sp1_correctness(self):
+        """Optimized SP1 should give same results as original."""
+        import numpy as np
+
+        from peakfit.core.optimized import sp1_jit
+        from peakfit.shapes import sp1
+
+        dx = np.linspace(-50, 50, 101)
+        r2 = 5.0  # Hz
+        aq = 0.1  # seconds
+        end = 1.0
+        off = 0.5
+        phase = 10.0  # degrees
+
+        original = sp1(dx, r2, aq, end, off, phase)
+        optimized = sp1_jit(dx, r2, aq, end, off, phase)
+
+        np.testing.assert_allclose(original, optimized, rtol=1e-10)
+
+    def test_optimized_sp2_correctness(self):
+        """Optimized SP2 should give same results as original."""
+        import numpy as np
+
+        from peakfit.core.optimized import sp2_jit
+        from peakfit.shapes import sp2
+
+        dx = np.linspace(-50, 50, 101)
+        r2 = 5.0  # Hz
+        aq = 0.1  # seconds
+        end = 1.0
+        off = 0.5
+        phase = 10.0  # degrees
+
+        original = sp2(dx, r2, aq, end, off, phase)
+        optimized = sp2_jit(dx, r2, aq, end, off, phase)
+
+        np.testing.assert_allclose(original, optimized, rtol=1e-10)
+
     def test_optimization_info(self):
         """Should provide optimization info."""
         from peakfit.core.optimized import get_optimization_info
