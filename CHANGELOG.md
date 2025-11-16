@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Parallel Cluster Fitting**: Multi-core support for faster fitting
+  - Use `--parallel` flag: `peakfit fit spectrum.ft2 peaks.list --parallel`
+  - Automatic CPU core detection
+  - Linear scaling with number of clusters
+  - Maintains refinement iterations for cross-talk correction
+
+- **Optimized Fitting Engine**: Direct scipy.optimize integration
+  - New `peakfit.core.fitting` module with scipy.optimize.least_squares
+  - Custom Parameters class with bounds validation
+  - Reduced overhead compared to lmfit wrapper
+  - FitResult class with chi-squared statistics
+
+- **Optional Numba JIT Compilation**: Performance optimization for lineshape functions
+  - JIT-compiled Gaussian, Lorentzian, and Pseudo-Voigt functions
+  - Automatic fallback to NumPy if Numba not available
+  - Install with: `pip install numba` or `pip install peakfit[performance]`
+  - Up to 2-5x speedup for lineshape evaluations
+
 - **Modern CLI with Typer**: Intuitive command-line interface with subcommands (`fit`, `validate`, `init`, `plot`)
   - `peakfit fit spectrum.ft2 peaks.list` - Clear, positional arguments
   - `peakfit init config.toml` - Generate configuration templates

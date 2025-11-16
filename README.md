@@ -222,11 +222,40 @@ After fitting, PeakFit generates the following files in the output directory:
 
 ## Advanced Usage
 
-### Parallel Fitting (Experimental)
+### Parallel Fitting
+
+Enable multi-core parallel processing for faster fitting of multiple clusters:
 
 ```bash
+# Fit clusters in parallel (recommended for datasets with many peaks)
 peakfit fit spectrum.ft2 peaks.list --parallel
+
+# Parallel fitting scales with number of CPU cores
+# Particularly beneficial when you have many independent clusters
 ```
+
+**Benefits:**
+- Linear scaling with number of clusters
+- Automatic CPU core detection
+- Maintains cross-talk correction through refinement iterations
+- Significant speedup for large peak lists (10+ clusters)
+
+### Performance Optimization
+
+Install optional performance dependencies for faster lineshape calculations:
+
+```bash
+# Install with Numba JIT compilation support
+pip install peakfit[performance]
+
+# Or install numba directly
+pip install numba
+```
+
+Numba provides:
+- JIT-compiled lineshape functions (2-5x faster)
+- Automatic fallback to NumPy if not available
+- No code changes required
 
 ### Excluding Planes
 

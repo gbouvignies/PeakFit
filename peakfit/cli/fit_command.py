@@ -64,7 +64,7 @@ def run_fit(
     peaklist_path: Path,
     z_values_path: Path | None,
     config: PeakFitConfig,
-    parallel: bool = False,  # noqa: ARG001
+    parallel: bool = False,
 ) -> None:
     """Run the fitting process.
 
@@ -73,7 +73,7 @@ def run_fit(
         peaklist_path: Path to peak list file.
         z_values_path: Optional path to Z-values file.
         config: Configuration object.
-        parallel: Whether to use parallel processing (future feature).
+        parallel: Whether to use parallel processing.
     """
     print_logo()
 
@@ -108,7 +108,11 @@ def run_fit(
     console.print(f"[green]Created clusters:[/green] {len(clusters)} clusters")
 
     # Fit clusters
-    params = _fit_clusters(clargs, clusters)
+    if parallel and len(clusters) > 1:
+        console.print(f"[yellow]Using parallel fitting...[/yellow]")
+        params = _fit_clusters_parallel(clargs, clusters)
+    else:
+        params = _fit_clusters(clargs, clusters)
 
     # Write outputs
     config.output.directory.mkdir(parents=True, exist_ok=True)
@@ -153,6 +157,23 @@ def _fit_clusters(clargs: LegacyArguments, clusters: list) -> lf.Parameters:
             params_all.update(getattr(out, "params", lf.Parameters()))
 
     return params_all
+
+
+def _fit_clusters_parallel(clargs: LegacyArguments, clusters: list) -> lf.Parameters:
+    """Fit all clusters using parallel processing."""
+    from peakfit.core.parallel import fit_clusters_parallel_refined
+
+    console.print(f"[yellow]Parallel fitting with refinement...[/yellow]")
+
+    params = fit_clusters_parallel_refined(
+        clusters=clusters,
+        noise=clargs.noise,
+        refine_iterations=clargs.refine_nb,
+        fixed=clargs.fixed,
+        verbose=True,
+    )
+
+    return params
 
 
 def _update_params(params: lf.Parameters, params_all: lf.Parameters) -> lf.Parameters:
