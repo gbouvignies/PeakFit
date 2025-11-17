@@ -68,6 +68,7 @@ def run_fit(
     config: PeakFitConfig,
     parallel: bool = False,
     n_workers: int | None = None,
+    backend: str = "auto",
 ) -> None:
     """Run the fitting process.
 
@@ -78,10 +79,14 @@ def run_fit(
         config: Configuration object.
         parallel: Whether to use parallel processing.
         n_workers: Number of parallel workers.
+        backend: Computation backend (auto, numpy, numba, jax).
     """
     import multiprocessing as mp
 
     print_logo()
+
+    # Initialize computation backend
+    _initialize_backend(backend)
 
     # Show optimization status
     _print_optimization_status()
@@ -244,19 +249,55 @@ def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
     )
 
 
+def _initialize_backend(backend: str) -> None:
+    """Initialize the computation backend."""
+    from peakfit.core.backend import (
+        auto_select_backend,
+        get_available_backends,
+        set_backend,
+    )
+
+    if backend == "auto":
+        selected = auto_select_backend()
+        console.print(f"[green]✓ Auto-selected backend:[/green] {selected}")
+    else:
+        available = get_available_backends()
+        if backend not in available:
+            console.print(
+                f"[red]Backend '{backend}' not available. Available: {available}[/red]"
+            )
+            console.print(f"[yellow]Falling back to auto-selection...[/yellow]")
+            selected = auto_select_backend()
+            console.print(f"[green]✓ Using backend:[/green] {selected}")
+        else:
+            set_backend(backend)
+            console.print(f"[green]✓ Using backend:[/green] {backend}")
+
+
 def _print_optimization_status() -> None:
     """Print optimization status at the start of fitting."""
+    from peakfit.core.backend import get_backend
     from peakfit.core.optimized import get_optimization_info
 
+    current_backend = get_backend()
     opt_info = get_optimization_info()
 
-    if opt_info["numba_available"]:
+    # Show backend-specific information
+    if current_backend == "jax":
+        try:
+            import jax
+            console.print(f"[green]✓ JAX backend active[/green] (v{jax.__version__})")
+            devices = jax.devices()
+            device_info = ", ".join([str(d).split(":")[0] for d in devices])
+            console.print(f"  [dim]Devices: {device_info}[/dim]")
+        except ImportError:
+            pass
+    elif current_backend == "numba" and opt_info["numba_available"]:
         try:
             import numba
-
             console.print(f"[green]✓ Numba JIT enabled[/green] (v{numba.__version__})")
         except ImportError:
             console.print("[yellow]• Using NumPy vectorized operations[/yellow]")
     else:
         console.print("[yellow]• Using NumPy vectorized operations[/yellow]")
-        console.print("  [dim]Install numba for better performance: pip install numba[/dim]")
+        console.print("  [dim]Install numba or jax for better performance[/dim]")

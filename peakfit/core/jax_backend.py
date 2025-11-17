@@ -54,26 +54,24 @@ def _require_jax() -> None:
 if _jax_available:
 
     @_jit
-    def _gaussian_jax(x: "jnp.ndarray", x0: float, fwhm: float) -> "jnp.ndarray":
-        """JAX-compiled Gaussian lineshape."""
-        dx = x - x0
-        sigma_sq = fwhm**2 / (8.0 * _jnp.log(2.0))
-        return _jnp.exp(-0.5 * dx**2 / sigma_sq)
+    def _gaussian_jax(dx: "jnp.ndarray", fwhm: float) -> "jnp.ndarray":
+        """JAX-compiled Gaussian lineshape (normalized to 1 at center)."""
+        c = 4.0 * _jnp.log(2.0) / (fwhm * fwhm)
+        return _jnp.exp(-dx * dx * c)
 
     @_jit
-    def _lorentzian_jax(x: "jnp.ndarray", x0: float, fwhm: float) -> "jnp.ndarray":
-        """JAX-compiled Lorentzian lineshape."""
-        dx = x - x0
-        half_width = fwhm / 2.0
-        return half_width**2 / (dx**2 + half_width**2)
+    def _lorentzian_jax(dx: "jnp.ndarray", fwhm: float) -> "jnp.ndarray":
+        """JAX-compiled Lorentzian lineshape (normalized to 1 at center)."""
+        half_width_sq = (0.5 * fwhm) ** 2
+        return half_width_sq / (dx * dx + half_width_sq)
 
     @_jit
     def _pseudo_voigt_jax(
-        x: "jnp.ndarray", x0: float, fwhm: float, eta: float
+        dx: "jnp.ndarray", fwhm: float, eta: float
     ) -> "jnp.ndarray":
         """JAX-compiled Pseudo-Voigt lineshape."""
-        g = _gaussian_jax(x, x0, fwhm)
-        l = _lorentzian_jax(x, x0, fwhm)
+        g = _gaussian_jax(dx, fwhm)
+        l = _lorentzian_jax(dx, fwhm)
         return (1.0 - eta) * g + eta * l
 
     @_jit
@@ -168,33 +166,32 @@ def compute_hessian(
     return np.asarray(hessian_matrix)
 
 
-def gaussian_jax(x: FloatArray, x0: float, fwhm: float) -> FloatArray:
+def gaussian_jax(dx: FloatArray, fwhm: float) -> FloatArray:
     """Gaussian lineshape using JAX backend.
 
     Args:
-        x: Position array
-        x0: Peak center
+        dx: Frequency offset array
         fwhm: Full width at half maximum
 
     Returns:
-        Lineshape values
+        Lineshape values (normalized to 1 at center)
     """
     _require_jax()
-    return np.asarray(_gaussian_jax(_jnp.asarray(x), x0, fwhm))
+    return np.asarray(_gaussian_jax(_jnp.asarray(dx), fwhm))
 
 
-def lorentzian_jax(x: FloatArray, x0: float, fwhm: float) -> FloatArray:
+def lorentzian_jax(dx: FloatArray, fwhm: float) -> FloatArray:
     """Lorentzian lineshape using JAX backend."""
     _require_jax()
-    return np.asarray(_lorentzian_jax(_jnp.asarray(x), x0, fwhm))
+    return np.asarray(_lorentzian_jax(_jnp.asarray(dx), fwhm))
 
 
 def pseudo_voigt_jax(
-    x: FloatArray, x0: float, fwhm: float, eta: float
+    dx: FloatArray, fwhm: float, eta: float
 ) -> FloatArray:
     """Pseudo-Voigt lineshape using JAX backend."""
     _require_jax()
-    return np.asarray(_pseudo_voigt_jax(_jnp.asarray(x), x0, fwhm, eta))
+    return np.asarray(_pseudo_voigt_jax(_jnp.asarray(dx), fwhm, eta))
 
 
 # Backend selection

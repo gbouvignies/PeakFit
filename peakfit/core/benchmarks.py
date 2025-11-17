@@ -95,10 +95,13 @@ def benchmark_lineshape_backends(
     Returns:
         Dictionary of backend name to BenchmarkResult
     """
-    from peakfit.shapes import gaussian, lorentzian, pseudo_voigt
+    from peakfit.core.backend import (
+        _gaussian_numpy,
+        _lorentzian_numpy,
+        _pvoigt_numpy,
+    )
 
     x = np.linspace(-50, 50, n_points).astype(np.float64)
-    x0 = 0.0
     fwhm = 10.0
     eta = 0.5
 
@@ -106,22 +109,46 @@ def benchmark_lineshape_backends(
 
     # NumPy backend (default)
     results["numpy_gaussian"] = benchmark_function(
-        lambda: gaussian(x, x0, fwhm),
+        lambda: _gaussian_numpy(x, fwhm),
         "NumPy Gaussian",
         n_iterations,
     )
 
     results["numpy_lorentzian"] = benchmark_function(
-        lambda: lorentzian(x, x0, fwhm),
+        lambda: _lorentzian_numpy(x, fwhm),
         "NumPy Lorentzian",
         n_iterations,
     )
 
     results["numpy_pvoigt"] = benchmark_function(
-        lambda: pseudo_voigt(x, x0, fwhm, eta),
+        lambda: _pvoigt_numpy(x, fwhm, eta),
         "NumPy Pseudo-Voigt",
         n_iterations,
     )
+
+    # Numba backend (if available)
+    try:
+        from peakfit.core.optimized import gaussian_jit, lorentzian_jit, pvoigt_jit
+
+        results["numba_gaussian"] = benchmark_function(
+            lambda: gaussian_jit(x, fwhm),
+            "Numba Gaussian",
+            n_iterations,
+        )
+
+        results["numba_lorentzian"] = benchmark_function(
+            lambda: lorentzian_jit(x, fwhm),
+            "Numba Lorentzian",
+            n_iterations,
+        )
+
+        results["numba_pvoigt"] = benchmark_function(
+            lambda: pvoigt_jit(x, fwhm, eta),
+            "Numba Pseudo-Voigt",
+            n_iterations,
+        )
+    except ImportError:
+        pass
 
     # JAX backend (if available)
     try:
@@ -134,19 +161,19 @@ def benchmark_lineshape_backends(
 
         if is_jax_available():
             results["jax_gaussian"] = benchmark_function(
-                lambda: gaussian_jax(x, x0, fwhm),
+                lambda: gaussian_jax(x, fwhm),
                 "JAX Gaussian",
                 n_iterations,
             )
 
             results["jax_lorentzian"] = benchmark_function(
-                lambda: lorentzian_jax(x, x0, fwhm),
+                lambda: lorentzian_jax(x, fwhm),
                 "JAX Lorentzian",
                 n_iterations,
             )
 
             results["jax_pvoigt"] = benchmark_function(
-                lambda: pseudo_voigt_jax(x, x0, fwhm, eta),
+                lambda: pseudo_voigt_jax(x, fwhm, eta),
                 "JAX Pseudo-Voigt",
                 n_iterations,
             )

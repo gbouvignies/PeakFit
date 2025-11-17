@@ -177,6 +177,14 @@ def fit(
             min=1,
         ),
     ] = None,
+    backend: Annotated[
+        str,
+        typer.Option(
+            "--backend",
+            "-b",
+            help="Computation backend: auto, numpy, numba, jax",
+        ),
+    ] = "auto",
 ) -> None:
     """Fit lineshapes to peaks in pseudo-3D NMR spectrum.
 
@@ -217,6 +225,7 @@ def fit(
         config=fit_config,
         parallel=parallel,
         n_workers=workers,
+        backend=backend,
     )
 
 
@@ -345,7 +354,6 @@ def info(
         bool,
         typer.Option(
             "--benchmark",
-            "-b",
             help="Run performance benchmark to measure speedup",
         ),
     ] = False,
@@ -361,7 +369,8 @@ def info(
     import numpy as np
 
     from peakfit import __version__
-    from peakfit.core.optimized import check_numba_available, get_optimization_info
+    from peakfit.core.backend import get_available_backends, get_best_backend
+    from peakfit.core.optimized import get_optimization_info
 
     console.print("[bold]PeakFit System Information[/bold]\n")
 
@@ -370,11 +379,31 @@ def info(
     console.print(f"[green]Python version:[/green] {sys.version}")
     console.print(f"[green]NumPy version:[/green] {np.__version__}")
 
+    # Backend status
+    available_backends = get_available_backends()
+    best_backend = get_best_backend()
+
+    console.print(f"\n[bold]Computation Backends:[/bold]")
+    console.print(f"[green]Available:[/green] {', '.join(available_backends)}")
+    console.print(f"[green]Recommended:[/green] {best_backend}")
+
+    # Show details for each backend
+    if "jax" in available_backends:
+        try:
+            import jax
+            console.print(f"[green]✓ JAX available:[/green] {jax.__version__}")
+            devices = jax.devices()
+            console.print(f"  Devices: {[str(d) for d in devices]}")
+        except ImportError:
+            pass
+    else:
+        console.print("[yellow]✗ JAX not available[/yellow]")
+        console.print("  Install with: pip install peakfit[jax]")
+
     # Numba status
     opt_info = get_optimization_info()
     numba_available = opt_info["numba_available"]
 
-    console.print(f"\n[bold]Optimization Status:[/bold]")
     if numba_available:
         try:
             import numba

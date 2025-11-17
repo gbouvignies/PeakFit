@@ -27,6 +27,14 @@ from peakfit.core.optimized import (
     sp2_jit,
 )
 
+# Import backend registry for dynamic backend selection
+from peakfit.core.backend import (
+    get_backend,
+    get_gaussian_func,
+    get_lorentzian_func,
+    get_pvoigt_func,
+)
+
 T = TypeVar("T")
 
 AXIS_NAMES = ("x", "y", "z", "a")
@@ -268,12 +276,32 @@ class Lorentzian(PeakShape):
 
     shape_func = staticmethod(lorentzian_jit)
 
+    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
+        """Evaluate Lorentzian shape using current backend."""
+        x0 = params[f"{self.prefix}0"].value
+        fwhm = params[f"{self.prefix}_fwhm"].value
+        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
+        dx_hz = self.spec_params.pts2hz_delta(dx_pt)
+        # Use backend registry for dynamic backend selection
+        func = get_lorentzian_func()
+        return sign * func(dx_hz, fwhm)
+
 
 @register_shape("gaussian")
 class Gaussian(PeakShape):
     """Gaussian lineshape."""
 
     shape_func = staticmethod(gaussian_jit)
+
+    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
+        """Evaluate Gaussian shape using current backend."""
+        x0 = params[f"{self.prefix}0"].value
+        fwhm = params[f"{self.prefix}_fwhm"].value
+        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
+        dx_hz = self.spec_params.pts2hz_delta(dx_pt)
+        # Use backend registry for dynamic backend selection
+        func = get_gaussian_func()
+        return sign * func(dx_hz, fwhm)
 
 
 @register_shape("pvoigt")
@@ -301,7 +329,9 @@ class PseudoVoigt(PeakShape):
         eta = params[f"{self.prefix}_eta"].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-        return sign * pvoigt_jit(dx_hz, fwhm, eta)
+        # Use backend registry for dynamic backend selection
+        func = get_pvoigt_func()
+        return sign * func(dx_hz, fwhm, eta)
 
 
 class ApodShape(BaseShape):
