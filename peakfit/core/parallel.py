@@ -10,6 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import Any
 
+from threadpoolctl import threadpool_limits
+
 from peakfit.clustering import Cluster
 from peakfit.core.fitting import Parameters
 
@@ -241,17 +243,16 @@ def fit_clusters_parallel_refined(
         # Use optimal worker count to minimize GIL contention
         n_workers = _optimal_worker_count(len(clusters))
 
-    # Set BLAS to single-threaded to avoid thread oversubscription
+    # Pre-warm Numba JIT functions to compile them ONCE before parallelism
+    # Threads share the same JIT cache, so this compilation is amortized
+    prewarm_jit_functions()
+
+    params_all = Parameters()
+
+    # Use threadpoolctl to limit BLAS threads at runtime
     # This prevents OpenBLAS/MKL from spawning threads that fight with Python threads
-    original_blas = _set_blas_threads(1)
-
-    try:
-        # Pre-warm Numba JIT functions to compile them ONCE before parallelism
-        # Threads share the same JIT cache, so this compilation is amortized
-        prewarm_jit_functions()
-
-        params_all = Parameters()
-
+    # threadpoolctl works even after NumPy is imported (unlike environment variables)
+    with threadpool_limits(limits=1, user_api="blas"):
         for iteration in range(refine_iterations + 1):
             if verbose:
                 if iteration == 0:
@@ -301,7 +302,4 @@ def fit_clusters_parallel_refined(
                 successes = sum(1 for r in results if r["success"])
                 print(f"  {successes}/{len(results)} clusters converged")
 
-        return params_all
-    finally:
-        # Restore original BLAS thread settings
-        _restore_blas_threads(original_blas)
+    return params_all
