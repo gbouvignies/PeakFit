@@ -14,17 +14,30 @@ from peakfit.core.fitting import Parameters
 
 
 def _get_mp_context() -> mp.context.BaseContext:
-    """Get multiprocessing context compatible with JAX.
+    """Get multiprocessing context compatible with current backend.
 
-    Uses 'spawn' instead of 'fork' to avoid deadlocks with JAX's
-    internal threading. This is required because JAX initializes
-    threads at import time, and fork() is incompatible with
-    multithreaded code.
+    Uses 'spawn' only when JAX is loaded (to avoid fork deadlocks with JAX threading).
+    Otherwise uses 'fork' on Unix systems which shares JIT-compiled Numba code,
+    avoiding massive overhead from re-compiling in each worker.
 
     Returns:
-        Multiprocessing context using spawn method
+        Multiprocessing context
     """
-    return mp.get_context("spawn")
+    # Check if JAX has been imported in this process
+    import sys
+    jax_loaded = "jax" in sys.modules
+
+    if jax_loaded:
+        # JAX is multithreaded and incompatible with fork()
+        return mp.get_context("spawn")
+
+    # Use fork when JAX is not loaded - this shares Numba JIT code
+    # and avoids re-compilation overhead in each worker
+    try:
+        return mp.get_context("fork")
+    except ValueError:
+        # fork not available (Windows), fall back to spawn
+        return mp.get_context("spawn")
 
 
 def _fit_single_cluster(
