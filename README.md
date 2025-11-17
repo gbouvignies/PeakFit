@@ -126,6 +126,7 @@ Options:
   --phy/--no-phy          Fit phase correction in Y
   -e, --exclude INTEGER   Plane indices to exclude
   --parallel/--no-parallel Enable parallel fitting
+  -b, --backend TEXT      Computation backend: auto, numpy, numba, jax
   --help                  Show this message and exit
 ```
 
@@ -240,6 +241,30 @@ peakfit fit spectrum.ft2 peaks.list --parallel
 - Maintains cross-talk correction through refinement iterations
 - Significant speedup for large peak lists (10+ clusters)
 
+### Backend Selection
+
+PeakFit supports multiple computation backends for optimal performance:
+
+```bash
+# Auto-select best available backend (default)
+peakfit fit spectrum.ft2 peaks.list --backend auto
+
+# Use specific backend
+peakfit fit spectrum.ft2 peaks.list --backend numpy   # Pure NumPy (always available)
+peakfit fit spectrum.ft2 peaks.list --backend numba   # Numba JIT (2-5x faster)
+peakfit fit spectrum.ft2 peaks.list --backend jax     # JAX (GPU/TPU support)
+```
+
+**Available Backends:**
+- **NumPy**: Always available, pure Python/NumPy implementation
+- **Numba**: JIT-compiled functions (2-5x faster), requires `pip install peakfit[performance]`
+- **JAX**: GPU/TPU acceleration + autodiff, requires `pip install peakfit[jax]`
+
+Check available backends:
+```bash
+peakfit info
+```
+
 ### Performance Optimization
 
 Install optional performance dependencies for faster lineshape calculations:
@@ -250,12 +275,23 @@ pip install peakfit[performance]
 
 # Or install numba directly
 pip install numba
+
+# Install JAX for GPU acceleration
+pip install peakfit[jax]
+
+# Install all optional dependencies
+pip install peakfit[all]
 ```
 
 Numba provides:
 - JIT-compiled lineshape functions (2-5x faster)
 - Automatic fallback to NumPy if not available
 - No code changes required
+
+JAX provides:
+- GPU/TPU acceleration for large datasets
+- Automatic differentiation for advanced optimization
+- Exact gradient/Hessian computation
 
 ### Excluding Planes
 
@@ -517,6 +553,42 @@ values, chi2, ci = compute_profile_likelihood(
 )
 ```
 
+### Backend Registry
+
+Control which computation backend is used for lineshape calculations:
+
+```python
+from peakfit.core.backend import (
+    get_available_backends,
+    get_best_backend,
+    set_backend,
+    get_backend,
+    auto_select_backend,
+)
+
+# Check available backends
+print(get_available_backends())  # ['numpy', 'numba', 'jax']
+print(get_best_backend())        # 'jax' (prefers JAX > Numba > NumPy)
+
+# Set specific backend
+set_backend("numba")  # Use Numba JIT compilation
+print(get_backend())  # 'numba'
+
+# Auto-select best available
+selected = auto_select_backend()  # Automatically picks best
+print(f"Using: {selected}")
+
+# Get backend-specific functions
+from peakfit.core.backend import (
+    get_gaussian_func,
+    get_lorentzian_func,
+    get_pvoigt_func,
+)
+
+gaussian = get_gaussian_func()  # Returns current backend's Gaussian
+result = gaussian(dx, fwhm)     # Compute using selected backend
+```
+
 ### JAX Backend (Optional)
 
 For GPU acceleration and automatic differentiation:
@@ -529,21 +601,21 @@ pip install peakfit[jax]
 ```python
 from peakfit.core.jax_backend import (
     is_jax_available,
-    ComputeBackend,
     gaussian_jax,
+    lorentzian_jax,
+    pseudo_voigt_jax,
     compute_gradient,
     compute_hessian,
 )
 
-# Check available backends
-print(ComputeBackend.get_available())  # ['numpy', 'jax']
-print(ComputeBackend.get_best())       # 'jax'
-
-# Use JAX-accelerated lineshapes
+# Check JAX availability
 if is_jax_available():
-    result = gaussian_jax(x, x0, fwhm)
+    # Direct JAX lineshape computation
+    result = gaussian_jax(dx, fwhm)
+    result = lorentzian_jax(dx, fwhm)
+    result = pseudo_voigt_jax(dx, fwhm, eta)
 
-    # Autodiff for exact gradients
+    # Autodiff for exact gradients (advanced usage)
     grad = compute_gradient(params, cluster, noise)
     hess = compute_hessian(params, cluster, noise)
 ```
