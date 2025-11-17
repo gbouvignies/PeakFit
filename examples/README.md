@@ -100,14 +100,6 @@ peakfit fit pseudo3d.ft2 pseudo3d.list --z-values b1_offsets.txt --lineshape pvo
 peakfit fit pseudo3d.ft2 pseudo3d.list --z-values b1_offsets.txt --exclude 0 --exclude 127
 ```
 
-### Legacy CLI (Backwards Compatible)
-
-The old CLI syntax is still available:
-
-```bash
-peakfit-legacy -s pseudo3d.ft2 -l pseudo3d.list -z b1_offsets.txt -o Fits
-```
-
 ## Peak List Format
 
 The peak list uses Sparky format:

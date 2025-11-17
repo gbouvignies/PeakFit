@@ -84,7 +84,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Entry Points**:
   - `peakfit` now launches modern Typer CLI
-  - `peakfit-legacy` provides access to original CLI
   - `peakfit-plot` unchanged for plotting
 
 ### Fixed
@@ -92,9 +91,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version discovery with fallback for development installations
 - CLI module renamed to avoid namespace conflicts
 
-### Deprecated
+### Removed
 
-- Original argparse CLI (still available as `peakfit-legacy`)
+- Legacy argparse CLI (`peakfit-legacy`)
+- JAX backend support (Numba provides best performance)
 
 ## [Previous] - Legacy Versions
 
