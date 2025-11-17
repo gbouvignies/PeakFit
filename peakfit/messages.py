@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from lmfit.minimizer import MinimizerResult
-from lmfit.printfuncs import fit_report
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -62,9 +61,39 @@ def print_segmenting() -> None:
     )
 
 
-def print_fit_report(minimizer_result: MinimizerResult) -> None:
-    """Print the fitting report."""
-    console.print("\n", Text(fit_report(minimizer_result, min_correl=0.5)), "\n")
+def print_fit_report(result: Any) -> None:
+    """Print the fitting report.
+
+    Args:
+        result: scipy.optimize.OptimizeResult or similar object
+    """
+    # Format scipy.optimize.OptimizeResult
+    report_lines = ["[[Fit Statistics]]"]
+
+    if hasattr(result, "success"):
+        status = "success" if result.success else "failure"
+        report_lines.append(f"    fit status:        {status}")
+
+    if hasattr(result, "message"):
+        report_lines.append(f"    message:           {result.message}")
+
+    if hasattr(result, "nfev"):
+        report_lines.append(f"    # function evals:  {result.nfev}")
+
+    if hasattr(result, "njev"):
+        report_lines.append(f"    # jacobian evals:  {result.njev}")
+
+    if hasattr(result, "cost"):
+        report_lines.append(f"    final cost:        {result.cost:.6e}")
+
+    if hasattr(result, "optimality"):
+        report_lines.append(f"    optimality:        {result.optimality:.6e}")
+
+    if hasattr(result, "x"):
+        report_lines.append(f"    # variables:       {len(result.x)}")
+
+    report_text = "\n".join(report_lines)
+    console.print("\n", Text(report_text), "\n")
 
 
 def export_html(filehtml: Path) -> None:

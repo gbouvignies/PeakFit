@@ -3,8 +3,7 @@
 import numpy as np
 import pytest
 
-# Skip these tests if dependencies aren't available
-pytest.importorskip("lmfit")
+# Skip if scipy isn't available
 pytest.importorskip("scipy")
 
 
@@ -12,12 +11,11 @@ class TestFastFitConversions:
     """Tests for parameter conversion functions."""
 
     def test_params_to_arrays_basic(self):
-        """Should convert lmfit Parameters to numpy arrays."""
-        import lmfit as lf
-
+        """Should convert Parameters to numpy arrays."""
         from peakfit.core.fast_fit import params_to_arrays
+        from peakfit.core.fitting import Parameters
 
-        params = lf.Parameters()
+        params = Parameters()
         params.add("x0", value=10.0, min=5.0, max=15.0, vary=True)
         params.add("fwhm", value=25.0, min=1.0, max=100.0, vary=True)
         params.add("fixed", value=0.0, vary=False)
@@ -34,11 +32,10 @@ class TestFastFitConversions:
 
     def test_params_to_arrays_no_bounds(self):
         """Should handle parameters without explicit bounds."""
-        import lmfit as lf
-
         from peakfit.core.fast_fit import params_to_arrays
+        from peakfit.core.fitting import Parameters
 
-        params = lf.Parameters()
+        params = Parameters()
         params.add("unbounded", value=42.0, vary=True)
 
         x0, lower, upper, names = params_to_arrays(params)
@@ -50,11 +47,10 @@ class TestFastFitConversions:
 
     def test_params_to_arrays_empty(self):
         """Should handle case with no varying parameters."""
-        import lmfit as lf
-
         from peakfit.core.fast_fit import params_to_arrays
+        from peakfit.core.fitting import Parameters
 
-        params = lf.Parameters()
+        params = Parameters()
         params.add("fixed", value=10.0, vary=False)
 
         x0, lower, upper, names = params_to_arrays(params)
@@ -65,12 +61,11 @@ class TestFastFitConversions:
         assert len(upper) == 0
 
     def test_arrays_to_params_update(self):
-        """Should update lmfit Parameters with optimized values."""
-        import lmfit as lf
-
+        """Should update Parameters with optimized values."""
         from peakfit.core.fast_fit import arrays_to_params
+        from peakfit.core.fitting import Parameters
 
-        template = lf.Parameters()
+        template = Parameters()
         template.add("x0", value=10.0, min=5.0, max=15.0, vary=True)
         template.add("fwhm", value=25.0, min=1.0, max=100.0, vary=True)
 
@@ -157,11 +152,10 @@ class TestFastFitEdgeCases:
 
     def test_params_to_arrays_preserves_order(self):
         """Parameter order should be preserved."""
-        import lmfit as lf
-
         from peakfit.core.fast_fit import params_to_arrays
+        from peakfit.core.fitting import Parameters
 
-        params = lf.Parameters()
+        params = Parameters()
         params.add("a", value=1.0, vary=True)
         params.add("b", value=2.0, vary=True)
         params.add("c", value=3.0, vary=True)
@@ -173,11 +167,10 @@ class TestFastFitEdgeCases:
 
     def test_params_with_inf_bounds(self):
         """Should handle infinite bounds correctly."""
-        import lmfit as lf
-
         from peakfit.core.fast_fit import params_to_arrays
+        from peakfit.core.fitting import Parameters
 
-        params = lf.Parameters()
+        params = Parameters()
         params.add("pos", value=0.0, min=-np.inf, max=np.inf, vary=True)
         params.add("fwhm", value=10.0, min=0.0, max=np.inf, vary=True)
 
@@ -190,11 +183,10 @@ class TestFastFitEdgeCases:
 
     def test_arrays_to_params_copy(self):
         """Should return a copy, not modify original."""
-        import lmfit as lf
-
         from peakfit.core.fast_fit import arrays_to_params
+        from peakfit.core.fitting import Parameters
 
-        template = lf.Parameters()
+        template = Parameters()
         template.add("x0", value=10.0, vary=True)
 
         x_new = np.array([20.0])

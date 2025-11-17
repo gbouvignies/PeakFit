@@ -4,15 +4,19 @@ This module provides a faster alternative to lmfit by using scipy.optimize.least
 directly, reducing overhead and improving performance.
 """
 
+from __future__ import annotations
+
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.optimize import least_squares
 
-from peakfit.clustering import Cluster
 from peakfit.typing import FloatArray
+
+if TYPE_CHECKING:
+    from peakfit.clustering import Cluster
 
 
 @dataclass
@@ -146,7 +150,7 @@ class FitResult:
         return self.chisqr
 
 
-def calculate_shapes_fast(params: Parameters, cluster: Cluster) -> FloatArray:
+def calculate_shapes_fast(params: Parameters, cluster: "Cluster") -> FloatArray:
     """Calculate shapes for all peaks in cluster (optimized version)."""
     return np.array([peak.evaluate(cluster.positions, params) for peak in cluster.peaks])
 
@@ -156,7 +160,7 @@ def calculate_amplitudes_fast(shapes: FloatArray, data: FloatArray) -> FloatArra
     return np.linalg.lstsq(shapes.T, data, rcond=None)[0]
 
 
-def residuals_fast(x: np.ndarray, params: Parameters, cluster: Cluster, noise: float) -> np.ndarray:
+def residuals_fast(x: np.ndarray, params: Parameters, cluster: "Cluster", noise: float) -> np.ndarray:
     """Compute residuals for least_squares optimizer.
 
     Args:
@@ -184,7 +188,7 @@ def residuals_fast(x: np.ndarray, params: Parameters, cluster: Cluster, noise: f
 
 def fit_cluster_fast(
     params: Parameters,
-    cluster: Cluster,
+    cluster: "Cluster",
     noise: float,
     max_nfev: int = 1000,
     ftol: float = 1e-8,
@@ -241,7 +245,7 @@ def fit_cluster_fast(
 
 
 def fit_clusters_sequential(
-    clusters: Sequence[Cluster],
+    clusters: "Sequence[Cluster]",
     params_all: Parameters,
     noise: float,
     refine_iterations: int = 1,

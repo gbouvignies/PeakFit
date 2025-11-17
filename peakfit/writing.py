@@ -1,11 +1,11 @@
 from pathlib import Path
 
-import lmfit as lf
 import numpy as np
 
 from peakfit.cli_legacy import Arguments
 from peakfit.clustering import Cluster
 from peakfit.computing import calculate_shape_heights
+from peakfit.core.fitting import Parameters
 from peakfit.messages import print_writing_profiles, print_writing_shifts
 from peakfit.peak import Peak
 from peakfit.typing import FloatArray
@@ -15,7 +15,7 @@ def write_profiles(
     path: Path,
     z_values: np.ndarray,
     clusters: list[Cluster],
-    params: lf.Parameters,
+    params: Parameters,
     args: Arguments,
 ) -> None:
     """Write profile information to output files."""
@@ -49,7 +49,7 @@ def print_heights(
 def write_profile(
     path: Path,
     peak: Peak,
-    params: lf.Parameters,
+    params: Parameters,
     z_values: np.ndarray,
     heights: np.ndarray,
     heights_err: np.ndarray,
@@ -62,7 +62,7 @@ def write_profile(
         f.write(print_heights(z_values, heights, heights_err))
 
 
-def write_shifts(peaks: list[Peak], params: lf.Parameters, file_shifts: Path) -> None:
+def write_shifts(peaks: list[Peak], params: Parameters, file_shifts: Path) -> None:
     """Write the shifts to the output file."""
     print_writing_shifts()
     shifts = {peak.name: peak.positions for peak in peaks}

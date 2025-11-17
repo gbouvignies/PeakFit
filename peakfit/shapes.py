@@ -1,12 +1,18 @@
+"""Lineshape models for NMR peak fitting.
+
+This module provides various lineshape models (Gaussian, Lorentzian, Pseudo-Voigt,
+and apodization-based shapes) for fitting NMR peaks.
+"""
+
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
 from typing import Protocol, TypeVar
 
-import lmfit as lf
 import numpy as np
 
 from peakfit.cli_legacy import Arguments
+from peakfit.core.fitting import Parameters
 from peakfit.nmrpipe import SpectralParameters
 from peakfit.spectra import Spectra
 from peakfit.typing import FloatArray, IntArray
@@ -27,10 +33,13 @@ AXIS_NAMES = ("x", "y", "z", "a")
 
 
 def clean(name: str) -> str:
+    """Clean a string to be a valid parameter name."""
     return re.sub(r"\W+|^(?=\d)", "_", name)
 
 
 class Shape(Protocol):
+    """Protocol for lineshape models."""
+
     axis: str
     name: str
     cluster_id: int
@@ -38,11 +47,11 @@ class Shape(Protocol):
     spec_params: SpectralParameters
     size: int
 
-    def create_params(self) -> lf.Parameters: ...
-    def fix_params(self, params: lf.Parameters) -> None: ...
-    def release_params(self, params: lf.Parameters) -> None: ...
-    def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray: ...
-    def print(self, params: lf.Parameters) -> str: ...
+    def create_params(self) -> Parameters: ...
+    def fix_params(self, params: Parameters) -> None: ...
+    def release_params(self, params: Parameters) -> None: ...
+    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray: ...
+    def print(self, params: Parameters) -> str: ...
     @property
     def center_i(self) -> int: ...
     @property
@@ -55,6 +64,7 @@ SHAPES: dict[str, Callable[..., Shape]] = {}
 def register_shape(
     shape_names: str | Iterable[str],
 ) -> Callable[[type[Shape]], type[Shape]]:
+    """Decorator to register a shape class."""
     if isinstance(shape_names, str):
         shape_names = [shape_names]
 
@@ -67,18 +77,22 @@ def register_shape(
 
 
 def gaussian(dx: FloatArray, fwhm: float) -> FloatArray:
+    """Gaussian lineshape (normalized to 1 at center)."""
     return np.exp(-(dx**2) * 4 * np.log(2) / (fwhm**2))
 
 
 def lorentzian(dx: FloatArray, fwhm: float) -> FloatArray:
+    """Lorentzian lineshape (normalized to 1 at center)."""
     return (0.5 * fwhm) ** 2 / (dx**2 + (0.5 * fwhm) ** 2)
 
 
 def pvoigt(dx: FloatArray, fwhm: float, eta: float) -> FloatArray:
+    """Pseudo-Voigt lineshape (linear combination of Gaussian and Lorentzian)."""
     return (1.0 - eta) * gaussian(dx, fwhm) + eta * lorentzian(dx, fwhm)
 
 
 def no_apod(dx: FloatArray, r2: float, aq: float, phase: float = 0.0) -> FloatArray:
+    """Non-apodized lineshape with optional phase."""
     z1 = aq * (1j * dx + r2)
     spec = aq * (1.0 - np.exp(-z1)) / z1
     return (spec * np.exp(1j * np.deg2rad(phase))).real
@@ -87,6 +101,7 @@ def no_apod(dx: FloatArray, r2: float, aq: float, phase: float = 0.0) -> FloatAr
 def sp1(
     dx: FloatArray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
 ) -> FloatArray:
+    """SP1 apodization lineshape."""
     z1 = aq * (1j * dx + r2)
     f1, f2 = 1j * off * np.pi, 1j * (end - off) * np.pi
     a1 = (np.exp(+f2) - np.exp(+z1)) * np.exp(-z1 + f1) / (2 * (z1 - f2))
@@ -98,6 +113,7 @@ def sp1(
 def sp2(
     dx: FloatArray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
 ) -> FloatArray:
+    """SP2 apodization lineshape."""
     z1 = aq * (1j * dx + r2)
     f1, f2 = 1j * off * np.pi, 1j * (end - off) * np.pi
     a1 = (np.exp(+2 * f2) - np.exp(z1)) * np.exp(-z1 + 2 * f1) / (4 * (z1 - 2 * f2))
@@ -108,9 +124,20 @@ def sp2(
 
 
 class BaseShape(ABC):
+    """Base class for all lineshape models."""
+
     def __init__(
         self, name: str, center: float, spectra: Spectra, dim: int, args: Arguments
     ) -> None:
+        """Initialize shape.
+
+        Args:
+            name: Peak name
+            center: Center position in ppm
+            spectra: Spectra object with spectral parameters
+            dim: Dimension index (1-based)
+            args: Command-line arguments
+        """
         self.name = name
         self.axis = AXIS_NAMES[spectra.data[0].ndim - dim]
         self.center = center
@@ -123,27 +150,36 @@ class BaseShape(ABC):
 
     @property
     def prefix(self) -> str:
+        """Parameter name prefix for this shape."""
         return clean(f"{self.name}_{self.axis}")
 
     @property
     def prefix_phase(self) -> str:
+        """Parameter name prefix for phase parameters."""
         return clean(f"{self.cluster_id}_{self.axis}")
 
     @abstractmethod
-    def create_params(self) -> lf.Parameters: ...
+    def create_params(self) -> Parameters:
+        """Create parameters for this shape."""
+        ...
 
-    def fix_params(self, params: lf.Parameters) -> None:
+    def fix_params(self, params: Parameters) -> None:
+        """Fix (freeze) all parameters for this shape."""
         for name in self.param_names:
             params[name].vary = False
 
-    def release_params(self, params: lf.Parameters) -> None:
+    def release_params(self, params: Parameters) -> None:
+        """Release (unfreeze) all parameters for this shape."""
         for name in self.param_names:
             params[name].vary = True
 
     @abstractmethod
-    def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray: ...
+    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
+        """Evaluate shape at given points."""
+        ...
 
-    def print(self, params: lf.Parameters) -> str:
+    def print(self, params: Parameters) -> str:
+        """Format parameters as string for output."""
         lines = []
         for name in self.param_names:
             fullname = name
@@ -151,19 +187,29 @@ class BaseShape(ABC):
                 self.prefix_phase[:-1], ""
             )
             value = params[fullname].value
-            stderr = params[fullname].stderr
-            stderr_str = stderr if stderr is not None else 0.0
+            # No stderr in our Parameters class (computed separately if needed)
+            stderr_str = 0.0
             line = f"# {shortname:<10s}: {value:10.5f} ± {stderr_str:10.5f}"
             lines.append(line)
         return "\n".join(lines)
 
     @property
     def center_i(self) -> int:
+        """Center position in points (integer)."""
         return self.spec_params.ppm2pt_i(self.center)
 
     def _compute_dx_and_sign(
         self, x_pt: IntArray, x0: float
     ) -> tuple[FloatArray, FloatArray]:
+        """Compute frequency offset and aliasing sign.
+
+        Args:
+            x_pt: Points to evaluate
+            x0: Center position in ppm
+
+        Returns:
+            Tuple of (corrected dx in points, sign from aliasing)
+        """
         x0_pt = self.spec_params.ppm2pts(x0)
         dx_pt = x_pt - x0_pt
         if not self.spec_params.direct:
@@ -180,11 +226,14 @@ class BaseShape(ABC):
 
 
 class PeakShape(BaseShape):
+    """Base class for simple peak shapes (Gaussian, Lorentzian, Pseudo-Voigt)."""
+
     FWHM_START = 25.0
     shape_func: Callable
 
-    def create_params(self) -> lf.Parameters:
-        params = lf.Parameters()
+    def create_params(self) -> Parameters:
+        """Create parameters for peak shape (position and FWHM)."""
+        params = Parameters()
         params.add(
             f"{self.prefix}0",
             value=self.center,
@@ -195,7 +244,8 @@ class PeakShape(BaseShape):
         self.param_names = list(params.keys())
         return params
 
-    def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray:
+    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
+        """Evaluate peak shape at given points."""
         x0 = params[f"{self.prefix}0"].value
         fwhm = params[f"{self.prefix}_fwhm"].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
@@ -205,23 +255,31 @@ class PeakShape(BaseShape):
 
 @register_shape("lorentzian")
 class Lorentzian(PeakShape):
+    """Lorentzian lineshape."""
+
     shape_func = staticmethod(lorentzian_jit)
 
 
 @register_shape("gaussian")
 class Gaussian(PeakShape):
+    """Gaussian lineshape."""
+
     shape_func = staticmethod(gaussian_jit)
 
 
 @register_shape("pvoigt")
 class PseudoVoigt(PeakShape):
-    def create_params(self) -> lf.Parameters:
+    """Pseudo-Voigt lineshape (mixture of Gaussian and Lorentzian)."""
+
+    def create_params(self) -> Parameters:
+        """Create parameters including eta mixing factor."""
         params = super().create_params()
         params.add(f"{self.prefix}_eta", value=0.5, min=-1.0, max=1.0)
         self.param_names = list(params.keys())
         return params
 
-    def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray:
+    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
+        """Evaluate pseudo-Voigt at given points."""
         x0 = params[f"{self.prefix}0"].value
         fwhm = params[f"{self.prefix}_fwhm"].value
         eta = params[f"{self.prefix}_eta"].value
@@ -231,12 +289,15 @@ class PseudoVoigt(PeakShape):
 
 
 class ApodShape(BaseShape):
+    """Base class for apodization-based lineshapes."""
+
     R2_START = 20.0
     FWHM_START = 25.0
     shape_func: Callable
 
-    def create_params(self) -> lf.Parameters:
-        params = lf.Parameters()
+    def create_params(self) -> Parameters:
+        """Create parameters for apodization shape."""
+        params = Parameters()
         params.add(
             f"{self.prefix}0",
             value=self.center,
@@ -251,7 +312,8 @@ class ApodShape(BaseShape):
         self.param_names = list(params.keys())
         return params
 
-    def evaluate(self, x_pt: IntArray, params: lf.Parameters) -> FloatArray:
+    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
+        """Evaluate apodization shape at given points."""
         parvalues = params.valuesdict()
         x0 = parvalues[f"{self.prefix}0"]
         r2 = parvalues[f"{self.prefix}_r2"]
@@ -280,14 +342,20 @@ class ApodShape(BaseShape):
 
 @register_shape("no_apod")
 class NoApod(ApodShape):
+    """Non-apodized lineshape."""
+
     shape_func = staticmethod(no_apod_jit)
 
 
 @register_shape("sp1")
 class SP1(ApodShape):
+    """SP1 apodization lineshape."""
+
     shape_func = staticmethod(sp1_jit)
 
 
 @register_shape("sp2")
 class SP2(ApodShape):
+    """SP2 apodization lineshape."""
+
     shape_func = staticmethod(sp2_jit)

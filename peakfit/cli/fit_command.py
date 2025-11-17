@@ -2,12 +2,14 @@
 
 from pathlib import Path
 
-import lmfit as lf
+import numpy as np
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from scipy.optimize import least_squares
 
 from peakfit.clustering import create_clusters
-from peakfit.computing import simulate_data, update_cluster_corrections
+from peakfit.computing import residuals, simulate_data, update_cluster_corrections
+from peakfit.core.fitting import Parameters
 from peakfit.core.models import PeakFitConfig
 from peakfit.messages import (
     export_html,
@@ -147,10 +149,20 @@ def run_fit(
     console.print("\n[bold green]Fitting complete![/bold green]")
 
 
-def _fit_clusters(clargs: LegacyArguments, clusters: list) -> lf.Parameters:
+def _residual_wrapper(
+    x: np.ndarray, params: Parameters, cluster, noise: float
+) -> np.ndarray:
+    """Wrapper to convert array to Parameters for residual calculation."""
+    vary_names = params.get_vary_names()
+    for i, name in enumerate(vary_names):
+        params[name].value = x[i]
+    return residuals(params, cluster, noise)
+
+
+def _fit_clusters(clargs: LegacyArguments, clusters: list) -> Parameters:
     """Fit all clusters and return parameters."""
     print_fitting()
-    params_all = lf.Parameters()
+    params_all = Parameters()
 
     for index in range(clargs.refine_nb + 1):
         if index > 0:
@@ -160,21 +172,38 @@ def _fit_clusters(clargs: LegacyArguments, clusters: list) -> lf.Parameters:
             print_peaks(cluster.peaks)
             params = create_params(cluster.peaks, fixed=clargs.fixed)
             params = _update_params(params, params_all)
-            mini = lf.Minimizer(
-                lambda p, c, n: _residuals(p, c, n),  # noqa: E731
-                params,
-                fcn_args=(cluster, clargs.noise),
+
+            # Get varying parameters
+            vary_names = params.get_vary_names()
+            x0 = params.get_vary_values()
+            bounds_lower = np.array([params[name].min for name in vary_names])
+            bounds_upper = np.array([params[name].max for name in vary_names])
+
+            # Run optimization with scipy.optimize.least_squares
+            result = least_squares(
+                _residual_wrapper,
+                x0,
+                args=(params, cluster, clargs.noise),
+                bounds=(bounds_lower, bounds_upper),
+                ftol=1e-7,
+                xtol=1e-7,
+                max_nfev=1000,
+                verbose=2,
             )
-            out = mini.least_squares(verbose=2)
-            print_fit_report(out)
-            params_all.update(getattr(out, "params", lf.Parameters()))
+
+            # Update parameters with optimized values
+            for i, name in enumerate(vary_names):
+                params[name].value = result.x[i]
+
+            print_fit_report(result)
+            params_all.update(params)
 
     return params_all
 
 
 def _fit_clusters_parallel(
     clargs: LegacyArguments, clusters: list, n_workers: int | None = None
-) -> lf.Parameters:
+) -> Parameters:
     """Fit all clusters using parallel processing."""
     from peakfit.core.parallel import fit_clusters_parallel_refined
 
@@ -192,7 +221,7 @@ def _fit_clusters_parallel(
     return params
 
 
-def _fit_clusters_fast(clargs: LegacyArguments, clusters: list) -> lf.Parameters:
+def _fit_clusters_fast(clargs: LegacyArguments, clusters: list) -> Parameters:
     """Fit all clusters using fast scipy optimization."""
     from peakfit.core.fast_fit import fit_clusters_fast
 
@@ -209,7 +238,7 @@ def _fit_clusters_fast(clargs: LegacyArguments, clusters: list) -> lf.Parameters
     return params
 
 
-def _update_params(params: lf.Parameters, params_all: lf.Parameters) -> lf.Parameters:
+def _update_params(params: Parameters, params_all: Parameters) -> Parameters:
     """Update parameters with global parameters."""
     for key in params:
         if key in params_all:
@@ -217,14 +246,7 @@ def _update_params(params: lf.Parameters, params_all: lf.Parameters) -> lf.Param
     return params
 
 
-def _residuals(params: lf.Parameters, cluster, noise: float):
-    """Compute residuals for fitting."""
-    from peakfit.computing import residuals
-
-    return residuals(params, cluster, noise)
-
-
-def _write_spectra(path: Path, spectra, clusters, params: lf.Parameters) -> None:
+def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
     """Write simulated spectra to file."""
     import nmrglue as ng
     import numpy as np

@@ -1,23 +1,23 @@
-"""Fast fitting using direct scipy optimization (bypassing lmfit overhead).
+"""Fast fitting using direct scipy optimization.
 
-This module provides high-performance fitting functions that bypass the
-lmfit wrapper overhead by directly interfacing with scipy.optimize.least_squares.
+This module provides high-performance fitting functions that directly
+interface with scipy.optimize.least_squares.
 
 Key features:
-- 10-50x faster than lmfit for small to medium problems
+- Direct scipy optimization without external wrappers
 - Direct parameter array manipulation
-- Preserves lmfit Parameters interface for compatibility
+- Uses custom Parameters class for lightweight parameter management
 - Supports bounded optimization with TRF algorithm
 """
 
 import warnings
 from typing import Any
 
-import lmfit as lf
 import numpy as np
-from scipy.optimize import OptimizeResult, least_squares
+from scipy.optimize import least_squares
 
 from peakfit.clustering import Cluster
+from peakfit.core.fitting import Parameters
 from peakfit.peak import create_params
 
 
@@ -33,8 +33,8 @@ class ConvergenceWarning(UserWarning):
     pass
 
 
-def params_to_arrays(params: lf.Parameters) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
-    """Convert lmfit Parameters to numpy arrays.
+def params_to_arrays(params: Parameters) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
+    """Convert Parameters to numpy arrays.
 
     Returns:
         x0: Initial values for varying parameters
@@ -42,28 +42,20 @@ def params_to_arrays(params: lf.Parameters) -> tuple[np.ndarray, np.ndarray, np.
         upper: Upper bounds
         names: Parameter names (in order)
     """
-    names = []
-    x0 = []
-    lower = []
-    upper = []
+    names = params.get_vary_names()
+    x0 = params.get_vary_values()
+    lower = np.array([params[name].min for name in names])
+    upper = np.array([params[name].max for name in names])
 
-    for name in params:
-        param = params[name]
-        if param.vary:
-            names.append(name)
-            x0.append(param.value)
-            lower.append(param.min if param.min is not None else -np.inf)
-            upper.append(param.max if param.max is not None else np.inf)
-
-    return np.array(x0), np.array(lower), np.array(upper), names
+    return x0, lower, upper, names
 
 
 def arrays_to_params(
     x: np.ndarray,
     names: list[str],
-    params_template: lf.Parameters
-) -> lf.Parameters:
-    """Update lmfit Parameters with optimized values.
+    params_template: Parameters
+) -> Parameters:
+    """Update Parameters with optimized values.
 
     Args:
         x: Optimized parameter values
@@ -82,7 +74,7 @@ def arrays_to_params(
 def residuals_fast(
     x: np.ndarray,
     names: list[str],
-    params_template: lf.Parameters,
+    params_template: Parameters,
     cluster: Cluster,
     noise: float,
 ) -> np.ndarray:
@@ -275,7 +267,7 @@ def fit_clusters_fast(
     refine_iterations: int = 1,
     fixed: bool = False,
     verbose: bool = False,
-) -> lf.Parameters:
+) -> Parameters:
     """Fit all clusters using fast scipy optimization.
 
     Args:
@@ -290,7 +282,7 @@ def fit_clusters_fast(
     """
     from peakfit.computing import update_cluster_corrections
 
-    params_all = lf.Parameters()
+    params_all = Parameters()
     params_dict: dict[str, Any] = {}
 
     for iteration in range(refine_iterations + 1):

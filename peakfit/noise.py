@@ -1,5 +1,5 @@
 import numpy as np
-from lmfit.models import GaussianModel
+from scipy.optimize import curve_fit
 
 from peakfit.cli_legacy import Arguments
 from peakfit.messages import print_estimated_noise
@@ -19,14 +19,49 @@ def prepare_noise_level(clargs: Arguments, spectra: Spectra) -> float:
     return clargs.noise
 
 
+def _gaussian(x: FloatArray, amplitude: float, sigma: float) -> FloatArray:
+    """Gaussian function centered at 0.
+
+    Args:
+        x: Input array
+        amplitude: Amplitude of the Gaussian
+        sigma: Standard deviation (width)
+
+    Returns:
+        Gaussian function values
+    """
+    return amplitude * np.exp(-(x**2) / (2 * sigma**2))
+
+
 def estimate_noise(data: FloatArray) -> float:
-    """Estimate the noise level in the data."""
+    """Estimate the noise level in the data.
+
+    Uses a Gaussian fit to the histogram of truncated data to estimate
+    the standard deviation (sigma) of the noise distribution.
+
+    Args:
+        data: Input data array
+
+    Returns:
+        Estimated noise level (sigma of the distribution)
+    """
     std = np.std(data)
     truncated_data = data[np.abs(data) < std]
-    y, x = np.histogram(truncated_data.flatten(), bins=100)
-    x = (x[1:] + x[:-1]) / 2
-    model = GaussianModel()
-    pars = model.guess(y, x=x)
-    pars["center"].set(value=0.0, vary=False)
-    out = model.fit(y, pars, x=x)
-    return out.best_values["sigma"]
+    y, x_edges = np.histogram(truncated_data.flatten(), bins=100)
+    x = (x_edges[1:] + x_edges[:-1]) / 2
+
+    # Initial guess: amplitude from max y, sigma from std of truncated data
+    amplitude_guess = float(np.max(y))
+    sigma_guess = float(np.std(truncated_data))
+
+    # Fit Gaussian (center fixed at 0)
+    popt, _ = curve_fit(
+        _gaussian,
+        x,
+        y.astype(float),
+        p0=[amplitude_guess, sigma_guess],
+        bounds=([0, 0], [np.inf, np.inf]),
+    )
+
+    # Return sigma (second parameter)
+    return float(popt[1])

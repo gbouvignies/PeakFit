@@ -4,9 +4,9 @@ import multiprocessing as mp
 from collections.abc import Sequence
 from pathlib import Path
 
-import lmfit as lf
 import nmrglue as ng
 import numpy as np
+from scipy.optimize import least_squares
 
 from peakfit.cli_legacy import Arguments, parse_args
 from peakfit.clustering import Cluster, create_clusters
@@ -16,6 +16,7 @@ from peakfit.computing import (
     update_cluster_corrections,
 )
 from peakfit.core.fast_fit import fit_clusters_fast
+from peakfit.core.fitting import Parameters
 from peakfit.core.parallel import fit_clusters_parallel_refined
 from peakfit.messages import (
     export_html,
@@ -33,7 +34,7 @@ from peakfit.spectra import Spectra, get_shape_names, read_spectra
 from peakfit.writing import write_profiles, write_shifts
 
 
-def update_params(params: lf.Parameters, params_all: lf.Parameters) -> lf.Parameters:
+def update_params(params: Parameters, params_all: Parameters) -> Parameters:
     """Update the parameters with the global parameters."""
     for key in params:
         if key in params_all:
@@ -41,10 +42,18 @@ def update_params(params: lf.Parameters, params_all: lf.Parameters) -> lf.Parame
     return params
 
 
-def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> lf.Parameters:
+def _residual_wrapper(x: np.ndarray, params: Parameters, cluster: Cluster, noise: float) -> np.ndarray:
+    """Wrapper to convert array to Parameters for residual calculation."""
+    vary_names = params.get_vary_names()
+    for i, name in enumerate(vary_names):
+        params[name].value = x[i]
+    return residuals(params, cluster, noise)
+
+
+def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> Parameters:
     """Fit all clusters and return shifts."""
     print_fitting()
-    params_all = lf.Parameters()
+    params_all = Parameters()
 
     for index in range(clargs.refine_nb + 1):
         if index > 0:
@@ -54,22 +63,37 @@ def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> lf.Parameter
             print_peaks(cluster.peaks)
             params = create_params(cluster.peaks, fixed=clargs.fixed)
             params = update_params(params, params_all)
-            mini = lf.Minimizer(residuals, params, fcn_args=(cluster, clargs.noise))
-            # Faster tolerance settings for quicker convergence
-            out = mini.least_squares(
+
+            # Get varying parameters
+            vary_names = params.get_vary_names()
+            x0 = params.get_vary_values()
+            bounds_lower = np.array([params[name].min for name in vary_names])
+            bounds_upper = np.array([params[name].max for name in vary_names])
+
+            # Run optimization with scipy.optimize.least_squares
+            result = least_squares(
+                _residual_wrapper,
+                x0,
+                args=(params, cluster, clargs.noise),
+                bounds=(bounds_lower, bounds_upper),
+                ftol=1e-7,
+                xtol=1e-7,
+                max_nfev=1000,
                 verbose=2,
-                ftol=1e-7,  # Slightly relaxed function tolerance
-                xtol=1e-7,  # Slightly relaxed parameter tolerance
-                max_nfev=1000,  # Limit function evaluations
             )
-            print_fit_report(out)
-            params_all.update(getattr(out, "params", lf.Parameters()))
+
+            # Update parameters with optimized values
+            for i, name in enumerate(vary_names):
+                params[name].value = result.x[i]
+
+            print_fit_report(result)
+            params_all.update(params)
 
     return params_all
 
 
 def write_spectra(
-    path: Path, spectra: Spectra, clusters: Sequence[Cluster], params: lf.Parameters
+    path: Path, spectra: Spectra, clusters: Sequence[Cluster], params: Parameters
 ) -> None:
     """Write simulated spectra to a file.
 

@@ -1,63 +1,124 @@
+"""Peak representation and parameter management.
+
+This module provides the Peak class for representing NMR peaks and
+functions for creating fitting parameters.
+"""
+
 from collections.abc import Sequence
 
-import lmfit as lf
 import numpy as np
 
 from peakfit.cli_legacy import Arguments
+from peakfit.core.fitting import Parameters
 from peakfit.shapes import SHAPES, Shape
 from peakfit.spectra import Spectra
 from peakfit.typing import FloatArray, IntArray
 
 
 class Peak:
+    """Represents a single NMR peak with its shapes in each dimension."""
+
     def __init__(self, name: str, positions: FloatArray, shapes: list[Shape]) -> None:
+        """Initialize peak.
+
+        Args:
+            name: Peak identifier
+            positions: Peak positions in ppm for each dimension
+            shapes: List of Shape objects for each dimension
+        """
         self.name = name
         self.positions = positions
-        self.positions_start = positions
+        self.positions_start = positions.copy()
         self.shapes = shapes
 
     def set_cluster_id(self, cluster_id: int) -> None:
+        """Set cluster ID for all shapes.
+
+        Args:
+            cluster_id: Cluster identifier
+        """
         for shape in self.shapes:
             shape.cluster_id = cluster_id
 
-    def create_params(self) -> lf.Parameters:
-        params = lf.Parameters()
+    def create_params(self) -> Parameters:
+        """Create parameters for all shapes in this peak.
+
+        Returns:
+            Parameters object with all shape parameters
+        """
+        params = Parameters()
         for shape in self.shapes:
             params.update(shape.create_params())
         return params
 
-    def fix_params(self, params: lf.Parameters) -> None:
+    def fix_params(self, params: Parameters) -> None:
+        """Fix all parameters for this peak.
+
+        Args:
+            params: Parameters to modify
+        """
         for shape in self.shapes:
             shape.fix_params(params)
 
-    def release_params(self, params: lf.Parameters) -> None:
+    def release_params(self, params: Parameters) -> None:
+        """Release (unfreeze) all parameters for this peak.
+
+        Args:
+            params: Parameters to modify
+        """
         for shape in self.shapes:
             shape.release_params(params)
 
-    def evaluate(self, grid: Sequence[IntArray], params: lf.Parameters) -> FloatArray:
+    def evaluate(self, grid: Sequence[IntArray], params: Parameters) -> FloatArray:
+        """Evaluate peak shape at grid points.
+
+        The total peak shape is the product of shapes in each dimension.
+
+        Args:
+            grid: List of point arrays for each dimension
+            params: Current parameter values
+
+        Returns:
+            Evaluated peak shape (product over dimensions)
+        """
         evaluations = [
             shape.evaluate(pts, params)
             for pts, shape in zip(grid, self.shapes, strict=False)
         ]
         return np.prod(evaluations, axis=0)
 
-    def print(self, params: lf.Parameters) -> str:
+    def print(self, params: Parameters) -> str:
+        """Format peak parameters as string.
+
+        Args:
+            params: Current parameter values
+
+        Returns:
+            Formatted string with peak information
+        """
         result = f"# Name: {self.name}\n"
         result += "\n".join(shape.print(params) for shape in self.shapes)
         return result
 
     @property
     def positions_i(self) -> IntArray:
+        """Peak positions as integer points."""
         return np.array([shape.center_i for shape in self.shapes], dtype=np.int_)
 
     @property
     def positions_hz(self) -> FloatArray:
+        """Peak positions in Hz."""
         return np.array(
             [shape.spec_params.pts2hz(shape.center_i) for shape in self.shapes],
             dtype=np.float64,
         )
 
-    def update_positions(self, params: lf.Parameters) -> None:
+    def update_positions(self, params: Parameters) -> None:
+        """Update peak positions from fitted parameters.
+
+        Args:
+            params: Fitted parameter values
+        """
         self.positions = np.array(
             [params[f"{shape.prefix}0"].value for shape in self.shapes]
         )
@@ -72,6 +133,18 @@ def create_peak(
     spectra: Spectra,
     args: Arguments,
 ) -> Peak:
+    """Create a Peak object from positions and shape names.
+
+    Args:
+        name: Peak identifier
+        positions: Peak positions in ppm for each dimension
+        shape_names: Name of lineshape to use for each dimension
+        spectra: Spectra object with spectral parameters
+        args: Command-line arguments
+
+    Returns:
+        Peak object ready for fitting
+    """
     shapes = [
         SHAPES[shape_name](name, center, spectra, dim, args)
         for dim, (center, shape_name) in enumerate(
@@ -81,8 +154,17 @@ def create_peak(
     return Peak(name, np.array(positions), shapes)
 
 
-def create_params(peaks: list[Peak], *, fixed: bool = False) -> lf.Parameters:
-    params = lf.Parameters()
+def create_params(peaks: list[Peak], *, fixed: bool = False) -> Parameters:
+    """Create combined parameters for all peaks.
+
+    Args:
+        peaks: List of peaks to create parameters for
+        fixed: If True, fix position parameters (don't vary during fitting)
+
+    Returns:
+        Parameters object with all peak parameters
+    """
+    params = Parameters()
     for peak in peaks:
         params.update(peak.create_params())
 

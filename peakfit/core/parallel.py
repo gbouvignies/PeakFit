@@ -9,9 +9,8 @@ from collections.abc import Sequence
 from functools import partial
 from typing import Any
 
-import lmfit as lf
-
 from peakfit.clustering import Cluster
+from peakfit.core.fitting import Parameters
 
 
 def _fit_single_cluster(
@@ -33,7 +32,7 @@ def _fit_single_cluster(
     """
     from peakfit.core.fast_fit import fit_cluster_fast
 
-    # Use fast scipy-based fitting (bypasses lmfit overhead)
+    # Use fast scipy-based fitting
     return fit_cluster_fast(cluster, noise, fixed, params_dict)
 
 
@@ -43,7 +42,7 @@ def fit_clusters_parallel(
     fixed: bool = False,
     n_workers: int | None = None,
     progress_callback: Any = None,
-) -> lf.Parameters:
+) -> Parameters:
     """Fit multiple clusters in parallel.
 
     Args:
@@ -79,7 +78,7 @@ def fit_clusters_parallel(
         results = [worker(cluster) for cluster in clusters]
 
     # Combine results into single Parameters object
-    params_all = lf.Parameters()
+    params_all = Parameters()
     for result in results:
         for name, param_info in result["params"].items():
             if name not in params_all:
@@ -90,8 +89,6 @@ def fit_clusters_parallel(
                     min=param_info["min"],
                     max=param_info["max"],
                 )
-                if param_info["stderr"] is not None:
-                    params_all[name].stderr = param_info["stderr"]
 
         if progress_callback is not None:
             progress_callback(result)
@@ -106,7 +103,7 @@ def fit_clusters_parallel_refined(
     fixed: bool = False,
     n_workers: int | None = None,
     verbose: bool = False,
-) -> lf.Parameters:
+) -> Parameters:
     """Fit clusters with parallel processing and refinement iterations.
 
     This function performs iterative fitting with cross-talk correction,
@@ -128,7 +125,7 @@ def fit_clusters_parallel_refined(
     if n_workers is None:
         n_workers = min(mp.cpu_count(), len(clusters))
 
-    params_all = lf.Parameters()
+    params_all = Parameters()
 
     for iteration in range(refine_iterations + 1):
         if verbose:
@@ -172,8 +169,6 @@ def fit_clusters_parallel_refined(
                     )
                 else:
                     params_all[name].value = param_info["value"]
-                if param_info["stderr"] is not None:
-                    params_all[name].stderr = param_info["stderr"]
 
         if verbose:
             successes = sum(1 for r in results if r["success"])
