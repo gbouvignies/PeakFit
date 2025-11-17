@@ -598,14 +598,18 @@ For GPU acceleration and automatic differentiation:
 pip install peakfit[jax]
 ```
 
+**Key Benefits:**
+- **Exact Jacobians**: Analytical gradients via autodiff (not finite differences)
+- **GPU Acceleration**: Residual computation on CUDA/ROCm GPUs
+- **Accurate Uncertainties**: Exact Hessian for parameter error estimation
+- **Better Convergence**: Exact gradients improve optimizer performance
+
 ```python
 from peakfit.core.jax_backend import (
     is_jax_available,
     gaussian_jax,
     lorentzian_jax,
     pseudo_voigt_jax,
-    compute_gradient,
-    compute_hessian,
 )
 
 # Check JAX availability
@@ -614,11 +618,50 @@ if is_jax_available():
     result = gaussian_jax(dx, fwhm)
     result = lorentzian_jax(dx, fwhm)
     result = pseudo_voigt_jax(dx, fwhm, eta)
-
-    # Autodiff for exact gradients (advanced usage)
-    grad = compute_gradient(params, cluster, noise)
-    hess = compute_hessian(params, cluster, noise)
 ```
+
+### JAX Autodiff Fitting (Advanced)
+
+Use JAX's automatic differentiation for exact gradients and Hessians:
+
+```python
+from peakfit.core.jax_fitting import (
+    is_jax_fitting_available,
+    fit_with_jax_gradients,
+    estimate_parameter_errors,
+    compute_hessian_at_minimum,
+)
+
+if is_jax_fitting_available():
+    # Fit with exact analytical Jacobian (faster convergence)
+    result = fit_with_jax_gradients(
+        params,
+        cluster,
+        noise,
+        max_nfev=1000,
+        ftol=1e-8,
+    )
+    print(f"Success: {result['success']}")
+    print(f"Function evals: {result['nfev']}")
+
+    # Estimate parameter uncertainties using exact Hessian
+    errors = estimate_parameter_errors(params, cluster, noise)
+    for name, std_err in errors.items():
+        print(f"{name}: {params[name].value:.4f} ± {std_err:.4f}")
+
+    # Compute full Hessian matrix for covariance analysis
+    hessian = compute_hessian_at_minimum(params, cluster, noise)
+```
+
+**Why not optax?**
+
+PeakFit uses scipy.optimize.least_squares with JAX gradients rather than optax because:
+- NMR fitting requires **bounded least-squares** optimization
+- Parameters have strict physical bounds (FWHM > 0, 0 ≤ η ≤ 1, etc.)
+- Trust Region Reflective (TRF) algorithm handles bounds natively
+- optax is designed for unbounded gradient descent (neural networks)
+
+The hybrid approach (JAX autodiff + scipy optimizers) combines the best of both worlds.
 
 ### Performance Benchmarking
 
