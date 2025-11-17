@@ -123,8 +123,7 @@ def run_fit(
 
     # Fit clusters - choose method based on flags
     if parallel and len(clusters) > 1:
-        actual_workers = n_workers or mp.cpu_count()
-        console.print(f"[yellow]Using parallel fitting ({actual_workers} workers)...[/yellow]")
+        console.print("[yellow]Using parallel fitting...[/yellow]")
         params = _fit_clusters_parallel(clargs, clusters, n_workers)
     else:
         params = _fit_clusters(clargs, clusters)
