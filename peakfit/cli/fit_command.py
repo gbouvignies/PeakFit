@@ -86,6 +86,8 @@ def run_fit(
     parallel: bool = False,
     n_workers: int | None = None,
     backend: str = "auto",
+    optimizer: str = "leastsq",
+    save_state: bool = True,
 ) -> None:
     """Run the fitting process.
 
@@ -97,6 +99,8 @@ def run_fit(
         parallel: Whether to use parallel processing.
         n_workers: Number of parallel workers.
         backend: Computation backend (auto, numpy, numba, jax).
+        optimizer: Optimization algorithm (leastsq, basin-hopping, differential-evolution).
+        save_state: Whether to save fitting state for later analysis.
     """
     import multiprocessing as mp
 
@@ -107,6 +111,17 @@ def run_fit(
 
     # Show optimization status
     _print_optimization_status()
+
+    # Validate optimizer choice
+    valid_optimizers = ["leastsq", "basin-hopping", "differential-evolution"]
+    if optimizer not in valid_optimizers:
+        console.print(f"[red]Invalid optimizer:[/red] {optimizer}")
+        console.print(f"[yellow]Valid options:[/yellow] {', '.join(valid_optimizers)}")
+        raise SystemExit(1)
+
+    if optimizer != "leastsq":
+        console.print(f"[yellow]Using global optimizer:[/yellow] {optimizer}")
+        console.print("  [dim]This may take significantly longer than standard fitting[/dim]")
 
     # Convert to legacy args for compatibility with existing modules
     clargs = config_to_fit_args(config, spectrum_path, peaklist_path, z_values_path)
@@ -139,7 +154,10 @@ def run_fit(
     console.print(f"[green]Created clusters:[/green] {len(clusters)} clusters")
 
     # Fit clusters - choose method based on flags
-    if parallel and len(clusters) > 1:
+    if optimizer != "leastsq":
+        console.print(f"[yellow]Using {optimizer} optimizer...[/yellow]")
+        params = _fit_clusters_global(clargs, clusters, optimizer)
+    elif parallel and len(clusters) > 1:
         console.print("[yellow]Using parallel fitting...[/yellow]")
         params = _fit_clusters_parallel(clargs, clusters, n_workers)
     else:
@@ -161,6 +179,13 @@ def run_fit(
     if config.output.save_simulated:
         _write_spectra(config.output.directory, spectra, clusters, params)
         console.print(f"[green]Written simulated spectrum[/green]")
+
+    # Save fitting state for later analysis
+    if save_state:
+        state_file = config.output.directory / ".peakfit_state.pkl"
+        _save_fitting_state(state_file, clusters, params, clargs.noise, peaks)
+        console.print(f"[green]Saved fitting state:[/green] {state_file}")
+        console.print("  [dim]Use 'peakfit analyze' to compute uncertainties[/dim]")
 
     console.print("\n[bold green]Fitting complete![/bold green]")
 
@@ -254,6 +279,89 @@ def _fit_clusters_parallel(
     )
 
     return params
+
+
+def _fit_clusters_global(
+    clargs: FitArguments, clusters: list, optimizer: str
+) -> Parameters:
+    """Fit all clusters using global optimization."""
+    from peakfit.core.advanced_optimization import (
+        fit_basin_hopping,
+        fit_differential_evolution,
+    )
+
+    print_fitting()
+    params_all = Parameters()
+
+    with threadpool_limits(limits=1, user_api="blas"):
+        for index in range(clargs.refine_nb + 1):
+            if index > 0:
+                print_refining(index, clargs.refine_nb)
+                update_cluster_corrections(params_all, clusters)
+
+            for cluster in clusters:
+                print_peaks(cluster.peaks)
+                params = create_params(cluster.peaks, fixed=clargs.fixed)
+                params = _update_params(params, params_all)
+
+                # Use global optimizer
+                console.print(f"  [dim]Running {optimizer}...[/dim]")
+                if optimizer == "basin-hopping":
+                    result = fit_basin_hopping(
+                        params, cluster, clargs.noise,
+                        n_iterations=50,  # Reasonable default
+                        temperature=1.0,
+                        step_size=0.5,
+                    )
+                elif optimizer == "differential-evolution":
+                    result = fit_differential_evolution(
+                        params, cluster, clargs.noise,
+                        max_iterations=500,
+                        population_size=15,
+                        polish=True,
+                    )
+                else:
+                    msg = f"Unknown optimizer: {optimizer}"
+                    raise ValueError(msg)
+
+                console.print(
+                    f"  [dim]χ²={result.chisqr:.2f}, "
+                    f"reduced χ²={result.redchi:.4f}, "
+                    f"nfev={result.nfev}[/dim]"
+                )
+
+                if not result.success:
+                    console.print(f"  [yellow]Warning: {result.message}[/yellow]")
+
+                params_all.update(result.params)
+
+    return params_all
+
+
+def _save_fitting_state(
+    path: Path, clusters: list, params: Parameters, noise: float, peaks: list
+) -> None:
+    """Save fitting state for later analysis."""
+    import pickle
+
+    state = {
+        "clusters": clusters,
+        "params": params,
+        "noise": noise,
+        "peaks": peaks,
+        "version": "1.0",
+    }
+
+    with path.open("wb") as f:
+        pickle.dump(state, f)
+
+
+def _load_fitting_state(path: Path) -> dict:
+    """Load fitting state from file."""
+    import pickle
+
+    with path.open("rb") as f:
+        return pickle.load(f)
 
 
 def _update_params(params: Parameters, params_all: Parameters) -> Parameters:

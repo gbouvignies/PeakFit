@@ -185,11 +185,32 @@ def fit(
             help="Computation backend: auto, numpy, numba",
         ),
     ] = "auto",
+    optimizer: Annotated[
+        str,
+        typer.Option(
+            "--optimizer",
+            help="Optimization algorithm: leastsq (fast), basin-hopping (global), differential-evolution (global)",
+        ),
+    ] = "leastsq",
+    save_state: Annotated[
+        bool,
+        typer.Option(
+            "--save-state/--no-save-state",
+            help="Save fitting state for later analysis (enables 'peakfit analyze' command)",
+        ),
+    ] = True,
 ) -> None:
     """Fit lineshapes to peaks in pseudo-3D NMR spectrum.
 
     Example:
         peakfit fit spectrum.ft2 peaks.list --output results --refine 2
+
+    For difficult peaks with overlaps, use global optimization:
+        peakfit fit spectrum.ft2 peaks.list --optimizer basin-hopping
+
+    To perform uncertainty analysis later:
+        peakfit fit spectrum.ft2 peaks.list --save-state
+        peakfit analyze mcmc Fits/  # Compute MCMC uncertainties
     """
     from peakfit.cli.fit_command import run_fit
 
@@ -226,6 +247,8 @@ def fit(
         parallel=parallel,
         n_workers=workers,
         backend=backend,
+        optimizer=optimizer,
+        save_state=save_state,
     )
 
 
@@ -503,6 +526,151 @@ def _run_benchmark(numba_available: bool) -> None:
     console.print(f"    Optimized: {jit_time:.3f}s")
     if numba_available:
         console.print(f"    [green]Speedup: {speedup:.1f}x[/green]")
+
+
+@app.command()
+def analyze(
+    method: Annotated[
+        str,
+        typer.Argument(
+            help="Analysis method: mcmc, profile, correlation",
+        ),
+    ],
+    results: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to results directory from 'peakfit fit'",
+            exists=True,
+            file_okay=False,
+            resolve_path=True,
+        ),
+    ],
+    param: Annotated[
+        str | None,
+        typer.Option(
+            "--param",
+            "-p",
+            help="Parameter name (required for 'profile' method)",
+        ),
+    ] = None,
+    peaks: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--peaks",
+            help="Peak names to analyze (default: all)",
+        ),
+    ] = None,
+    n_walkers: Annotated[
+        int,
+        typer.Option(
+            "--walkers",
+            help="Number of MCMC walkers",
+            min=4,
+        ),
+    ] = 32,
+    n_steps: Annotated[
+        int,
+        typer.Option(
+            "--steps",
+            help="Number of MCMC steps",
+            min=100,
+        ),
+    ] = 1000,
+    burn_in: Annotated[
+        int,
+        typer.Option(
+            "--burn-in",
+            help="MCMC burn-in steps",
+            min=0,
+        ),
+    ] = 200,
+    n_points: Annotated[
+        int,
+        typer.Option(
+            "--points",
+            help="Number of profile likelihood points",
+            min=5,
+        ),
+    ] = 20,
+    confidence: Annotated[
+        float,
+        typer.Option(
+            "--confidence",
+            help="Confidence level (0.68 or 0.95)",
+            min=0.5,
+            max=0.999,
+        ),
+    ] = 0.95,
+    plot: Annotated[
+        bool,
+        typer.Option(
+            "--plot/--no-plot",
+            help="Plot profile likelihood curve",
+        ),
+    ] = False,
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output file for results",
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ] = None,
+) -> None:
+    """Analyze fitting uncertainties using advanced methods.
+
+    MCMC sampling provides full posterior distributions:
+        peakfit analyze mcmc Fits/
+        peakfit analyze mcmc Fits/ --walkers 64 --steps 2000
+
+    Profile likelihood gives accurate confidence intervals:
+        peakfit analyze profile Fits/ --param peak1_x0
+        peakfit analyze profile Fits/ --param peak1_x_fwhm --plot
+
+    Parameter correlation analysis:
+        peakfit analyze correlation Fits/
+    """
+    from peakfit.cli.analyze_command import (
+        run_correlation,
+        run_mcmc,
+        run_profile_likelihood,
+    )
+
+    valid_methods = ["mcmc", "profile", "correlation"]
+    if method not in valid_methods:
+        console.print(f"[red]Invalid method:[/red] {method}")
+        console.print(f"[yellow]Valid methods:[/yellow] {', '.join(valid_methods)}")
+        raise typer.Exit(1)
+
+    if method == "mcmc":
+        run_mcmc(
+            results_dir=results,
+            n_walkers=n_walkers,
+            n_steps=n_steps,
+            burn_in=burn_in,
+            peaks=peaks,
+            output_file=output,
+        )
+    elif method == "profile":
+        if param is None:
+            console.print("[red]Error:[/red] --param required for profile method")
+            console.print("Example: peakfit analyze profile Fits/ --param peak1_x0")
+            raise typer.Exit(1)
+        run_profile_likelihood(
+            results_dir=results,
+            param_name=param,
+            n_points=n_points,
+            confidence_level=confidence,
+            plot=plot,
+            output_file=output,
+        )
+    elif method == "correlation":
+        run_correlation(
+            results_dir=results,
+            output_file=output,
+        )
 
 
 @app.command()
