@@ -13,6 +13,20 @@ from peakfit.clustering import Cluster
 from peakfit.core.fitting import Parameters
 
 
+def _get_mp_context() -> mp.context.BaseContext:
+    """Get multiprocessing context compatible with JAX.
+
+    Uses 'spawn' instead of 'fork' to avoid deadlocks with JAX's
+    internal threading. This is required because JAX initializes
+    threads at import time, and fork() is incompatible with
+    multithreaded code.
+
+    Returns:
+        Multiprocessing context using spawn method
+    """
+    return mp.get_context("spawn")
+
+
 def _fit_single_cluster(
     cluster: Cluster,
     noise: float,
@@ -69,9 +83,10 @@ def fit_clusters_parallel(
         params_dict=params_dict,
     )
 
-    # Run parallel fitting
+    # Run parallel fitting using spawn context (JAX-compatible)
     if n_workers > 1 and len(clusters) > 1:
-        with mp.Pool(n_workers) as pool:
+        ctx = _get_mp_context()
+        with ctx.Pool(n_workers) as pool:
             results = pool.map(worker, clusters)
     else:
         # Fall back to sequential for single cluster or worker
@@ -126,6 +141,7 @@ def fit_clusters_parallel_refined(
         n_workers = min(mp.cpu_count(), len(clusters))
 
     params_all = Parameters()
+    ctx = _get_mp_context()
 
     for iteration in range(refine_iterations + 1):
         if verbose:
@@ -149,9 +165,9 @@ def fit_clusters_parallel_refined(
             params_dict=params_dict,
         )
 
-        # Fit all clusters in parallel
+        # Fit all clusters in parallel using spawn context (JAX-compatible)
         if n_workers > 1 and len(clusters) > 1:
-            with mp.Pool(n_workers) as pool:
+            with ctx.Pool(n_workers) as pool:
                 results = pool.map(worker, clusters)
         else:
             results = [worker(cluster) for cluster in clusters]
