@@ -6,6 +6,7 @@ concurrently, significantly improving performance on multi-core systems.
 
 import multiprocessing as mp
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import Any
 
@@ -169,6 +170,10 @@ def fit_clusters_parallel_refined(
     This function performs iterative fitting with cross-talk correction,
     parallelizing the cluster fitting within each iteration.
 
+    Uses thread-based parallelism (not multiprocessing) to avoid Numba JIT
+    compilation overhead. Numba and NumPy release the GIL, so threads can
+    execute concurrently while sharing the same JIT-compiled code.
+
     Args:
         clusters: List of clusters to fit
         noise: Noise level
@@ -184,14 +189,14 @@ def fit_clusters_parallel_refined(
     from peakfit.core.optimized import prewarm_jit_functions
 
     if n_workers is None:
-        # Use optimal worker count to balance parallelism vs JIT overhead
-        n_workers = _optimal_worker_count(len(clusters))
+        # Use optimal worker count based on CPU count
+        n_workers = min(mp.cpu_count(), len(clusters))
 
-    # Pre-warm Numba JIT functions before forking to share compiled code
+    # Pre-warm Numba JIT functions to compile them ONCE before parallelism
+    # Threads share the same JIT cache, so this compilation is amortized
     prewarm_jit_functions()
 
     params_all = Parameters()
-    ctx = _get_mp_context()
 
     for iteration in range(refine_iterations + 1):
         if verbose:
@@ -215,10 +220,12 @@ def fit_clusters_parallel_refined(
             params_dict=params_dict,
         )
 
-        # Fit all clusters in parallel using spawn context (JAX-compatible)
+        # Fit all clusters in parallel using THREADS (not processes)
+        # This avoids Numba JIT compilation overhead in each worker
+        # Numba and NumPy release the GIL, so threads can run concurrently
         if n_workers > 1 and len(clusters) > 1:
-            with ctx.Pool(n_workers) as pool:
-                results = pool.map(worker, clusters)
+            with ThreadPoolExecutor(max_workers=n_workers) as executor:
+                results = list(executor.map(worker, clusters))
         else:
             results = [worker(cluster) for cluster in clusters]
 
