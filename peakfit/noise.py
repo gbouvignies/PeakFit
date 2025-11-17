@@ -1,13 +1,13 @@
 import numpy as np
 from scipy.optimize import curve_fit
 
-from peakfit.cli_legacy import Arguments
+from peakfit.typing import FittingOptions
 from peakfit.messages import print_estimated_noise
 from peakfit.spectra import Spectra
 from peakfit.typing import FloatArray
 
 
-def prepare_noise_level(clargs: Arguments, spectra: Spectra) -> float:
+def prepare_noise_level(clargs: FittingOptions, spectra: Spectra) -> float:
     """Prepare the noise level for fitting."""
     if clargs.noise is not None and clargs.noise < 0.0:
         clargs.noise = None

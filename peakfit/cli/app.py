@@ -557,7 +557,7 @@ def benchmark(
     """
     import time
 
-    from peakfit.cli_legacy import Arguments as LegacyArguments
+    from peakfit.cli.fit_command import FitArguments
     from peakfit.clustering import create_clusters
     from peakfit.core.fast_fit import fit_clusters_fast
     from peakfit.core.models import PeakFitConfig
@@ -570,21 +570,22 @@ def benchmark(
 
     # Load data
     with console.status("[yellow]Loading spectrum..."):
-        # Create minimal legacy args for loading
-        clargs = LegacyArguments()
-        clargs.path_spectra = spectrum
-        clargs.path_z_values = z_values
-        clargs.path_list = peaklist
-        clargs.exclude = []
-        clargs.noise = None
-        clargs.contour_level = None
-        clargs.fixed = False
-        clargs.jx = False
-        clargs.phx = False
-        clargs.phy = False
-        clargs.pvoigt = False
-        clargs.lorentzian = False
-        clargs.gaussian = False
+        # Create args for loading
+        clargs = FitArguments(
+            path_spectra=spectrum,
+            path_z_values=z_values,
+            path_list=peaklist,
+            exclude=[],
+            noise=0.0,
+            contour_level=None,
+            fixed=False,
+            jx=False,
+            phx=False,
+            phy=False,
+            pvoigt=False,
+            lorentzian=False,
+            gaussian=False,
+        )
 
         spectra = read_spectra(spectrum, z_values, [])
 

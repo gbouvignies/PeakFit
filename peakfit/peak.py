@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from peakfit.cli_legacy import Arguments
+from peakfit.typing import FittingOptions
 from peakfit.core.fitting import Parameters
 from peakfit.shapes import SHAPES, Shape
 from peakfit.spectra import Spectra
@@ -136,7 +136,7 @@ def create_peak(
     positions: Sequence[float],
     shape_names: list[str],
     spectra: Spectra,
-    args: Arguments,
+    args: FittingOptions,
 ) -> Peak:
     """Create a Peak object from positions and shape names.
 

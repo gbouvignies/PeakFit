@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from peakfit.cli_legacy import Arguments
+from peakfit.typing import FittingOptions
 from peakfit.clustering import Cluster
 from peakfit.computing import calculate_shape_heights
 from peakfit.core.fitting import Parameters
@@ -16,7 +16,7 @@ def write_profiles(
     z_values: np.ndarray,
     clusters: list[Cluster],
     params: Parameters,
-    args: Arguments,
+    args: FittingOptions,
 ) -> None:
     """Write profile information to output files."""
     print_writing_profiles()

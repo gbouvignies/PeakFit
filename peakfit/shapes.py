@@ -11,7 +11,7 @@ from typing import Protocol, TypeVar
 
 import numpy as np
 
-from peakfit.cli_legacy import Arguments
+from peakfit.typing import FittingOptions
 from peakfit.core.fitting import Parameters, ParameterType
 from peakfit.nmrpipe import SpectralParameters
 from peakfit.spectra import Spectra
@@ -138,7 +138,7 @@ class BaseShape(ABC):
     """Base class for all lineshape models."""
 
     def __init__(
-        self, name: str, center: float, spectra: Spectra, dim: int, args: Arguments
+        self, name: str, center: float, spectra: Spectra, dim: int, args: FittingOptions
     ) -> None:
         """Initialize shape.
 

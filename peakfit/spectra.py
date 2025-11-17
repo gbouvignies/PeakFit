@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from nmrglue.fileio.pipe import guess_udic, read
 
-from peakfit.cli_legacy import Arguments
+from peakfit.typing import FittingOptions
 from peakfit.nmrpipe import SpectralParameters, read_spectral_parameters
 from peakfit.typing import FloatArray
 
@@ -58,7 +58,7 @@ def read_spectra(
     return spectra
 
 
-def get_shape_names(clargs: Arguments, spectra: Spectra) -> list[str]:
+def get_shape_names(clargs: FittingOptions, spectra: Spectra) -> list[str]:
     """Determine the shape names for fitting based on command line arguments or spectral parameters."""
     match (clargs.pvoigt, clargs.lorentzian, clargs.gaussian):
         case (True, _, _):

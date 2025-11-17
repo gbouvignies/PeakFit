@@ -5,11 +5,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from peakfit.cli_legacy import Arguments
+from peakfit.typing import FittingOptions
 from peakfit.peak import Peak, create_peak
 from peakfit.spectra import Spectra
 
-Reader = Callable[[Path, Spectra, list[str], Arguments], list[Peak]]
+Reader = Callable[[Path, Spectra, list[str], FittingOptions], list[Peak]]
 
 READERS: dict[str, Reader] = {}
 
@@ -30,7 +30,7 @@ def register_reader(file_types: str | Iterable[str]) -> Callable[[Reader], Reade
 
 
 def _create_peak_list(
-    peaks: pd.DataFrame, spectra: Spectra, shape_names: list[str], args_cli: Arguments
+    peaks: pd.DataFrame, spectra: Spectra, shape_names: list[str], args_cli: FittingOptions
 ) -> list[Peak]:
     """Create a list of Peak objects from a DataFrame."""
     return [
@@ -41,7 +41,7 @@ def _create_peak_list(
 
 @register_reader("list")
 def read_sparky_list(
-    path: Path, spectra: Spectra, shape_names: list[str], args_cli: Arguments
+    path: Path, spectra: Spectra, shape_names: list[str], args_cli: FittingOptions
 ) -> list[Peak]:
     """Read a Sparky list file and return a list of peaks."""
     with path.open() as f:
@@ -79,7 +79,7 @@ def _read_ccpn_list(
     spectra: Spectra,
     read_func: Callable[[Path], pd.DataFrame],
     shape_names: list[str],
-    args_cli: Arguments,
+    args_cli: FittingOptions,
 ) -> list[Peak]:
     """Read a generic list file and return a list of peaks."""
     peaks_csv = read_func(path)
@@ -92,27 +92,27 @@ def _read_ccpn_list(
 
 @register_reader("csv")
 def read_csv_list(
-    path: Path, spectra: Spectra, shape_names: list[str], args_cli: Arguments
+    path: Path, spectra: Spectra, shape_names: list[str], args_cli: FittingOptions
 ) -> list[Peak]:
     return _read_ccpn_list(path, spectra, pd.read_csv, shape_names, args_cli)
 
 
 @register_reader("json")
 def read_json_list(
-    path: Path, spectra: Spectra, shape_names: list[str], args_cli: Arguments
+    path: Path, spectra: Spectra, shape_names: list[str], args_cli: FittingOptions
 ) -> list[Peak]:
     return _read_ccpn_list(path, spectra, pd.read_json, shape_names, args_cli)
 
 
 @register_reader(["xlsx", "xls"])
 def read_excel_list(
-    path: Path, spectra: Spectra, shape_names: list[str], args_cli: Arguments
+    path: Path, spectra: Spectra, shape_names: list[str], args_cli: FittingOptions
 ) -> list[Peak]:
     return _read_ccpn_list(path, spectra, pd.read_excel, shape_names, args_cli)
 
 
 def read_list(
-    spectra: Spectra, shape_names: list[str], args_cli: Arguments
+    spectra: Spectra, shape_names: list[str], args_cli: FittingOptions
 ) -> list[Peak]:
     """Read a list of peaks from a file based on its extension."""
     path = args_cli.path_list
