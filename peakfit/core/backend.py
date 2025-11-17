@@ -65,23 +65,28 @@ def get_best_backend() -> str:
     """Get the best available backend.
 
     Prefers Numba for CPU-only execution (better performance with lower overhead).
-    Only prefers JAX when GPU/TPU acceleration is available.
+    Only prefers JAX when mature GPU/TPU acceleration is available (CUDA, not Metal).
     """
     available = get_available_backends()
 
-    # Check if JAX has GPU/TPU available
+    # Check if JAX has stable GPU/TPU available (CUDA only, not Metal which is experimental)
     if "jax" in available:
         try:
             import jax
+
             devices = jax.devices()
-            # Only prefer JAX if we have non-CPU devices
-            has_accelerator = any(
-                not str(d).lower().startswith("cpu")
-                and "tfrt_cpu" not in str(d).lower()
-                for d in devices
-            )
-            if has_accelerator:
-                return "jax"
+            # Only prefer JAX if we have CUDA GPUs (not Metal which is experimental)
+            has_cuda = any("cuda" in str(d).lower() for d in devices)
+            if has_cuda:
+                # Verify JAX CUDA actually works with a simple operation
+                try:
+                    import jax.numpy as jnp
+
+                    test_result = jnp.array([1.0]) + jnp.array([1.0])
+                    _ = float(test_result[0])  # Force computation
+                    return "jax"
+                except Exception:
+                    pass  # JAX CUDA not working, fall through
         except Exception:
             pass
 
@@ -90,8 +95,18 @@ def get_best_backend() -> str:
         return "numba"
 
     # JAX on CPU is still faster than pure NumPy for some operations
+    # but avoid JAX Metal (experimental) on macOS
     if "jax" in available:
-        return "jax"
+        try:
+            import jax
+
+            devices = jax.devices()
+            # Only use JAX CPU if no Metal devices (which are experimental)
+            has_metal = any("metal" in str(d).lower() for d in devices)
+            if not has_metal:
+                return "jax"
+        except Exception:
+            pass
 
     return "numpy"
 
