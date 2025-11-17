@@ -198,9 +198,8 @@ class BaseShape(ABC):
                 self.prefix_phase[:-1], ""
             )
             value = params[fullname].value
-            # No stderr in our Parameters class (computed separately if needed)
-            stderr_str = 0.0
-            line = f"# {shortname:<10s}: {value:10.5f} ± {stderr_str:10.5f}"
+            stderr_val = params[fullname].stderr
+            line = f"# {shortname:<10s}: {value:10.5f} ± {stderr_val:10.5f}"
             lines.append(line)
         return "\n".join(lines)
 

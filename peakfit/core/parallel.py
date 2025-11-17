@@ -115,6 +115,9 @@ def fit_clusters_parallel(
                     min=param_info["min"],
                     max=param_info["max"],
                 )
+            # Propagate standard errors from fitting
+            if "stderr" in param_info and param_info["stderr"] is not None:
+                params_all[name].stderr = param_info["stderr"]
 
         if progress_callback is not None:
             progress_callback(result)
@@ -290,6 +293,9 @@ def fit_clusters_parallel_refined(
                         )
                     else:
                         params_all[name].value = param_info["value"]
+                    # Propagate standard errors from fitting
+                    if "stderr" in param_info and param_info["stderr"] is not None:
+                        params_all[name].stderr = param_info["stderr"]
 
             if verbose:
                 successes = sum(1 for r in results if r["success"])

@@ -215,6 +215,21 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                 for i, name in enumerate(vary_names):
                     params[name].value = result.x[i]
 
+                # Compute standard errors from Jacobian
+                if result.jac is not None and len(result.fun) > len(vary_names):
+                    ndata = len(result.fun)
+                    nvarys = len(vary_names)
+                    redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
+                    try:
+                        jtj = result.jac.T @ result.jac
+                        cov = np.linalg.inv(jtj) * redchi
+                        stderr = np.sqrt(np.diag(cov))
+                        for i, name in enumerate(vary_names):
+                            params[name].stderr = float(stderr[i])
+                    except np.linalg.LinAlgError:
+                        # Singular matrix, can't compute errors
+                        pass
+
                 print_fit_report(result)
                 params_all.update(params)
 

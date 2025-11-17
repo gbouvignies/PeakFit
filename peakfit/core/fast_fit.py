@@ -242,13 +242,33 @@ def fit_cluster_dict(
             stacklevel=2,
         )
 
+    # Compute standard errors from Jacobian
+    # cov = inv(J.T @ J) * s2, where s2 = chi^2 / (n - p)
+    stderr_dict: dict[str, float] = {}
+    try:
+        if result.jac is not None and ndata > nvarys:
+            jac = result.jac
+            # Compute covariance matrix
+            jtj = jac.T @ jac
+            try:
+                cov = np.linalg.inv(jtj) * redchi
+                stderr = np.sqrt(np.diag(cov))
+                for i, name in enumerate(names):
+                    stderr_dict[name] = float(stderr[i])
+            except np.linalg.LinAlgError:
+                # Singular matrix, can't compute errors
+                pass
+    except Exception:
+        # If error computation fails, continue without errors
+        pass
+
     # Extract results
     fitted_params = {}
     for name in params:
         param = params[name]
         fitted_params[name] = {
             "value": param.value,
-            "stderr": None,  # Not computed for speed
+            "stderr": stderr_dict.get(name, 0.0),
             "vary": param.vary,
             "min": param.min,
             "max": param.max,
@@ -320,6 +340,9 @@ def fit_clusters_fast(
                     )
                 else:
                     params_all[name].value = param_info["value"]
+                # Propagate standard errors from fitting
+                if "stderr" in param_info and param_info["stderr"] is not None:
+                    params_all[name].stderr = param_info["stderr"]
 
         if verbose:
             print(f"  {successes}/{len(clusters)} clusters converged")
