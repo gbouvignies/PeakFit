@@ -62,12 +62,37 @@ def get_available_backends() -> list[str]:
 
 
 def get_best_backend() -> str:
-    """Get the best available backend (prefers JAX > Numba > NumPy)."""
+    """Get the best available backend.
+
+    Prefers Numba for CPU-only execution (better performance with lower overhead).
+    Only prefers JAX when GPU/TPU acceleration is available.
+    """
     available = get_available_backends()
+
+    # Check if JAX has GPU/TPU available
     if "jax" in available:
-        return "jax"
+        try:
+            import jax
+            devices = jax.devices()
+            # Only prefer JAX if we have non-CPU devices
+            has_accelerator = any(
+                not str(d).lower().startswith("cpu")
+                and "tfrt_cpu" not in str(d).lower()
+                for d in devices
+            )
+            if has_accelerator:
+                return "jax"
+        except Exception:
+            pass
+
+    # Prefer Numba for CPU-only execution (better performance, lower overhead)
     if "numba" in available:
         return "numba"
+
+    # JAX on CPU is still faster than pure NumPy for some operations
+    if "jax" in available:
+        return "jax"
+
     return "numpy"
 
 
