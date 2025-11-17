@@ -28,6 +28,7 @@ def _get_mp_context() -> mp.context.BaseContext:
     """
     # Check if JAX has been imported in this process
     import sys
+
     jax_loaded = "jax" in sys.modules
 
     if jax_loaded:
@@ -90,6 +91,7 @@ def fit_clusters_parallel(
 
     # Pre-warm Numba JIT functions before forking to share compiled code
     from peakfit.core.optimized import prewarm_jit_functions
+
     prewarm_jit_functions()
 
     # Initial empty global parameters
@@ -221,16 +223,17 @@ def fit_clusters_parallel_refined(
     This function performs iterative fitting with cross-talk correction,
     parallelizing the cluster fitting within each iteration.
 
-    Uses process-based parallelism on Linux/Unix (via fork) for true parallel
-    execution without GIL limitations. Falls back to thread-based parallelism
-    on platforms where fork is not available.
+    Uses thread-based parallelism with Numba/NumPy releasing the GIL for
+    numerical computations. While threads can't achieve perfect parallel
+    scaling due to GIL contention in Python code, they avoid the massive
+    overhead of re-compiling Numba JIT functions in each process.
 
     Args:
         clusters: List of clusters to fit
         noise: Noise level
         refine_iterations: Number of refinement passes
         fixed: Whether to fix peak positions
-        n_workers: Number of parallel workers (default: CPU count)
+        n_workers: Number of parallel workers (default: CPU count, capped at 16)
         verbose: Print progress information
 
     Returns:
@@ -240,70 +243,67 @@ def fit_clusters_parallel_refined(
     from peakfit.core.optimized import prewarm_jit_functions
 
     if n_workers is None:
-        n_workers = min(mp.cpu_count(), len(clusters))
+        # Default: use CPU count but cap at 16 to avoid excessive GIL contention
+        n_workers = min(16, mp.cpu_count(), len(clusters))
+    else:
+        # User specified: respect it but warn if very high
+        n_workers = min(n_workers, len(clusters))
 
     # Pre-warm Numba JIT functions to compile them ONCE before parallelism
-    # With fork, child processes share JIT-compiled code from parent
+    # Threads share the same JIT cache, so this compilation is amortized
     prewarm_jit_functions()
 
     params_all = Parameters()
 
-    # Determine whether to use processes or threads
-    ctx = _get_mp_context()
-    use_processes = ctx._name == "fork"  # Only on Linux/Unix with fork
-
-    for iteration in range(refine_iterations + 1):
-        if verbose:
-            if iteration == 0:
-                print(f"Fitting {len(clusters)} clusters with {n_workers} workers...")
-            else:
-                print(f"Refinement iteration {iteration}/{refine_iterations}...")
-
-        # Update corrections if not first iteration
-        if iteration > 0:
-            update_cluster_corrections(params_all, clusters)
-
-        # Prepare global parameters dict for workers
-        params_dict = {name: params_all[name].value for name in params_all}
-
-        # Worker function with current global parameters
-        worker = partial(
-            _fit_single_cluster,
-            noise=noise,
-            fixed=fixed,
-            params_dict=params_dict,
-        )
-
-        # Fit all clusters in parallel
-        if n_workers > 1 and len(clusters) > 1:
-            if use_processes:
-                # Use process pool with fork - shares JIT code, no GIL contention
-                with ctx.Pool(n_workers) as pool:
-                    results = list(pool.map(worker, clusters))
-            else:
-                # Fall back to threads with BLAS threading control
-                with threadpool_limits(limits=1, user_api="blas"):
-                    with ThreadPoolExecutor(max_workers=n_workers) as executor:
-                        results = list(executor.map(worker, clusters))
-        else:
-            results = [worker(cluster) for cluster in clusters]
-
-        # Update global parameters with results
-        for result in results:
-            for name, param_info in result["params"].items():
-                if name not in params_all:
-                    params_all.add(
-                        name,
-                        value=param_info["value"],
-                        vary=param_info["vary"],
-                        min=param_info["min"],
-                        max=param_info["max"],
-                    )
+    # Use threadpoolctl to limit BLAS threads at runtime
+    # This prevents OpenBLAS/MKL from spawning threads that fight with Python threads
+    with threadpool_limits(limits=1, user_api="blas"):
+        for iteration in range(refine_iterations + 1):
+            if verbose:
+                if iteration == 0:
+                    print(f"Fitting {len(clusters)} clusters with {n_workers} workers...")
                 else:
-                    params_all[name].value = param_info["value"]
+                    print(f"Refinement iteration {iteration}/{refine_iterations}...")
 
-        if verbose:
-            successes = sum(1 for r in results if r["success"])
-            print(f"  {successes}/{len(results)} clusters converged")
+            # Update corrections if not first iteration
+            if iteration > 0:
+                update_cluster_corrections(params_all, clusters)
+
+            # Prepare global parameters dict for workers
+            params_dict = {name: params_all[name].value for name in params_all}
+
+            # Worker function with current global parameters
+            worker = partial(
+                _fit_single_cluster,
+                noise=noise,
+                fixed=fixed,
+                params_dict=params_dict,
+            )
+
+            # Fit all clusters in parallel using threads
+            # Threads share JIT-compiled code and avoid massive compilation overhead
+            if n_workers > 1 and len(clusters) > 1:
+                with ThreadPoolExecutor(max_workers=n_workers) as executor:
+                    results = list(executor.map(worker, clusters))
+            else:
+                results = [worker(cluster) for cluster in clusters]
+
+            # Update global parameters with results
+            for result in results:
+                for name, param_info in result["params"].items():
+                    if name not in params_all:
+                        params_all.add(
+                            name,
+                            value=param_info["value"],
+                            vary=param_info["vary"],
+                            min=param_info["min"],
+                            max=param_info["max"],
+                        )
+                    else:
+                        params_all[name].value = param_info["value"]
+
+            if verbose:
+                successes = sum(1 for r in results if r["success"])
+                print(f"  {successes}/{len(results)} clusters converged")
 
     return params_all
