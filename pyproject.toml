@@ -39,12 +39,28 @@ performance = [
 ]
 jax = [
     "jax>=0.4.30",
-    "jaxlib>=0.4.30",
+]
+jax-cpu = [
+    "jax>=0.4.30",
+]
+jax-cuda = [
+    # CUDA 12 support for Linux with NVIDIA GPUs
+    "jax[cuda12]>=0.4.30; sys_platform == 'linux'",
+]
+jax-metal = [
+    # Metal GPU support for macOS Apple Silicon
+    "jax>=0.4.30; sys_platform == 'darwin'",
+    "jax-metal>=0.1.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+jax-gpu = [
+    # Auto-select GPU backend based on platform
+    "jax[cuda12]>=0.4.30; sys_platform == 'linux'",
+    "jax>=0.4.30; sys_platform == 'darwin'",
+    "jax-metal>=0.1.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 all = [
     "numba>=0.60.0",
     "jax>=0.4.30",
-    "jaxlib>=0.4.30",
 ]
 
 [project.scripts]

@@ -27,6 +27,35 @@ cd PeakFit
 uv pip install -e ".[dev]"
 ```
 
+### Optional Performance Backends
+
+```bash
+# Numba JIT compilation (recommended for CPU)
+pip install peakfit[performance]
+# or
+uv pip install peakfit[performance]
+
+# JAX for CPU
+pip install peakfit[jax]
+
+# JAX with CUDA GPU support (Linux with NVIDIA GPU)
+pip install peakfit[jax-cuda]
+
+# JAX with Metal GPU support (macOS Apple Silicon)
+pip install peakfit[jax-metal]
+
+# JAX with auto-detected GPU backend
+pip install peakfit[jax-gpu]
+
+# All performance backends
+pip install peakfit[all]
+```
+
+**Platform-specific notes:**
+- **Linux + NVIDIA GPU**: Use `[jax-cuda]` for CUDA 12 acceleration
+- **macOS Apple Silicon**: Use `[jax-metal]` for Metal GPU acceleration
+- **CPU-only**: Use `[performance]` (Numba) for best CPU performance, or `[jax]` for autodiff
+
 ## Requirements
 
 - Python >= 3.13
