@@ -173,13 +173,13 @@ def benchmark_fitting_methods(
     Returns:
         Dictionary of method name to BenchmarkResult
     """
-    from peakfit.core.fitting import fit_cluster_fast
+    from peakfit.core.fitting import fit_cluster
 
     results = {}
 
     # Standard least-squares
     results["least_squares"] = benchmark_function(
-        lambda: fit_cluster_fast(params.copy(), cluster, noise, max_nfev=500),
+        lambda: fit_cluster(params.copy(), cluster, noise, max_nfev=500),
         "Least Squares",
         n_iterations,
         warmup=1,
@@ -260,7 +260,7 @@ def profile_fit_cluster(
         Dictionary of stage name to time in seconds
     """
     from peakfit.computing import calculate_shapes, residuals
-    from peakfit.core.fitting import fit_cluster_fast
+    from peakfit.core.fitting import fit_cluster
 
     profile = {}
 
@@ -278,7 +278,7 @@ def profile_fit_cluster(
 
     # Profile full fitting
     start = time.perf_counter()
-    fit_cluster_fast(params.copy(), cluster, noise, max_nfev=500)
+    fit_cluster(params.copy(), cluster, noise, max_nfev=500)
     profile["full_fit"] = time.perf_counter() - start
 
     return profile

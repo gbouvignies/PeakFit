@@ -443,10 +443,10 @@ print(params.summary())  # Formatted parameter table
 The fitting engine uses `scipy.optimize.least_squares` directly for optimal performance:
 
 ```python
-from peakfit.core.fitting import fit_cluster_fast, FitResult
+from peakfit.core.fitting import fit_cluster, FitResult
 
 # Fit a single cluster
-result: FitResult = fit_cluster_fast(
+result: FitResult = fit_cluster(
     params,
     cluster,
     noise,

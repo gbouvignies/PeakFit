@@ -313,8 +313,10 @@ class FitResult:
         return self.chisqr
 
 
-def residuals_fast(x: np.ndarray, params: Parameters, cluster: "Cluster", noise: float) -> np.ndarray:
-    """Compute residuals for least_squares optimizer.
+def _residuals_for_optimizer(
+    x: np.ndarray, params: Parameters, cluster: "Cluster", noise: float
+) -> np.ndarray:
+    """Compute residuals for scipy.optimize.least_squares.
 
     Args:
         x: Array of varying parameter values
@@ -334,7 +336,7 @@ def residuals_fast(x: np.ndarray, params: Parameters, cluster: "Cluster", noise:
     return residuals(params, cluster, noise)
 
 
-def fit_cluster_fast(
+def fit_cluster(
     params: Parameters,
     cluster: "Cluster",
     noise: float,
@@ -365,7 +367,7 @@ def fit_cluster_fast(
 
     # Run optimization
     result = least_squares(
-        residuals_fast,
+        _residuals_for_optimizer,
         x0,
         args=(params, cluster, noise),
         bounds=(lower, upper),
@@ -431,9 +433,14 @@ def fit_clusters_sequential(
                     cluster_params[key] = params_all[key]
 
             # Fit cluster
-            result = fit_cluster_fast(cluster_params, cluster, noise, verbose=verbose)
+            result = fit_cluster(cluster_params, cluster, noise, verbose=verbose)
 
             # Update global parameters
             params_all.update(result.params)
 
     return params_all
+
+
+# Backward compatibility aliases (deprecated)
+fit_cluster_fast = fit_cluster
+residuals_fast = _residuals_for_optimizer

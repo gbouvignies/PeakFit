@@ -106,16 +106,19 @@ def residuals_fast(
     return (cluster.corrected_data - shapes.T @ amplitudes).ravel() / noise
 
 
-def fit_cluster_fast(
+def fit_cluster_dict(
     cluster: Cluster,
     noise: float,
     fixed: bool = False,
     params_init: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Fit a single cluster using direct scipy optimization.
+    """Fit a single cluster using direct scipy optimization (dict interface).
 
     This function bypasses lmfit overhead by directly interfacing with
     scipy.optimize.least_squares, providing significant performance gains.
+
+    Note: This function returns a dictionary for backward compatibility.
+    For new code, prefer using fit_cluster from peakfit.core.fitting.
 
     Args:
         cluster: Cluster to fit
@@ -299,7 +302,7 @@ def fit_clusters_fast(
         # Fit all clusters sequentially
         successes = 0
         for i, cluster in enumerate(clusters):
-            result = fit_cluster_fast(cluster, noise, fixed, params_dict)
+            result = fit_cluster_dict(cluster, noise, fixed, params_dict)
 
             if result["success"]:
                 successes += 1
@@ -322,3 +325,7 @@ def fit_clusters_fast(
             print(f"  {successes}/{len(clusters)} clusters converged")
 
     return params_all
+
+
+# Backward compatibility alias (deprecated)
+fit_cluster_fast = fit_cluster_dict
