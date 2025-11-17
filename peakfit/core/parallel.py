@@ -128,6 +128,34 @@ def fit_clusters_parallel(
     return params_all
 
 
+def _optimal_worker_count(n_clusters: int) -> int:
+    """Calculate optimal number of workers for parallel fitting.
+
+    Balances parallelism benefits against Numba JIT compilation overhead.
+    Each worker incurs JIT compilation cost (~1-2s with cache, up to 45s without).
+    Too many workers means more compilation overhead than actual work.
+
+    Args:
+        n_clusters: Number of clusters to fit
+
+    Returns:
+        Optimal number of workers
+    """
+    cpu_count = mp.cpu_count()
+
+    # Aim for at least 5-10 clusters per worker to amortize JIT overhead
+    # With 121 clusters: 121/10 = 12 workers
+    # This also matches the MacBook Pro performance (10 workers, 9.9s)
+    clusters_per_worker = 10
+    optimal = max(1, n_clusters // clusters_per_worker)
+
+    # Cap at CPU count but also at a reasonable maximum
+    # Too many workers = too much JIT compilation overhead
+    max_workers = min(cpu_count, 16)
+
+    return min(optimal, max_workers)
+
+
 def fit_clusters_parallel_refined(
     clusters: Sequence[Cluster],
     noise: float,
@@ -156,7 +184,8 @@ def fit_clusters_parallel_refined(
     from peakfit.core.optimized import prewarm_jit_functions
 
     if n_workers is None:
-        n_workers = min(mp.cpu_count(), len(clusters))
+        # Use optimal worker count to balance parallelism vs JIT overhead
+        n_workers = _optimal_worker_count(len(clusters))
 
     # Pre-warm Numba JIT functions before forking to share compiled code
     prewarm_jit_functions()
