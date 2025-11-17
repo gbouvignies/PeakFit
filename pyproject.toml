@@ -20,7 +20,7 @@ dependencies = [
     "typer>=0.9.0",
     "tomli-w>=1.0.0",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 dynamic = ["version"]
@@ -32,7 +32,7 @@ dev = [
     "mypy>=1.0",
 ]
 performance = [
-    "numba>=0.58.0; python_version<'3.14'",
+    "numba>=0.60.0",
 ]
 
 [project.scripts]

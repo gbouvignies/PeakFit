@@ -1,7 +1,7 @@
 """Main Typer application for PeakFit."""
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -23,7 +23,7 @@ console = Console()
 @app.callback()
 def main(
     version: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option(
             "--version",
             "-v",
@@ -60,7 +60,7 @@ def fit(
         ),
     ],
     z_values: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--z-values",
             "-z",
@@ -81,7 +81,7 @@ def fit(
         ),
     ] = Path("Fits"),
     config: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--config",
             "-c",
@@ -110,7 +110,7 @@ def fit(
         ),
     ] = 1,
     contour_level: Annotated[
-        Optional[float],
+        float | None,
         typer.Option(
             "--contour",
             "-t",
@@ -118,7 +118,7 @@ def fit(
         ),
     ] = None,
     noise: Annotated[
-        Optional[float],
+        float | None,
         typer.Option(
             "--noise",
             "-n",
@@ -154,7 +154,7 @@ def fit(
         ),
     ] = False,
     exclude: Annotated[
-        Optional[list[int]],
+        list[int] | None,
         typer.Option(
             "--exclude",
             "-e",
@@ -176,7 +176,7 @@ def fit(
         ),
     ] = False,
     workers: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--workers",
             "-w",
@@ -302,7 +302,7 @@ def plot(
         ),
     ],
     spectrum: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--spectrum",
             "-s",
@@ -313,7 +313,7 @@ def plot(
         ),
     ] = None,
     output: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--output",
             "-o",
@@ -518,7 +518,7 @@ def benchmark(
         ),
     ],
     z_values: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--z-values",
             "-z",
