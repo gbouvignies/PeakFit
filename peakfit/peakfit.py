@@ -8,6 +8,7 @@ from pathlib import Path
 import nmrglue as ng
 import numpy as np
 from scipy.optimize import least_squares
+from threadpoolctl import threadpool_limits
 
 from peakfit.cli_legacy import Arguments, parse_args
 from peakfit.clustering import Cluster, create_clusters
@@ -63,45 +64,49 @@ def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> Parameters:
     success_count = 0
     start_time = time.perf_counter()
 
-    for index in range(clargs.refine_nb + 1):
-        if index > 0:
-            print_refining(index, clargs.refine_nb)
-            update_cluster_corrections(params_all, clusters)
+    # Use threadpoolctl to limit BLAS threads at runtime
+    # This prevents OpenBLAS/MKL from spawning threads that cause massive overhead
+    # (e.g., 3171% CPU usage -> 99% CPU usage, 671s -> 8s CPU time)
+    with threadpool_limits(limits=1, user_api="blas"):
+        for index in range(clargs.refine_nb + 1):
+            if index > 0:
+                print_refining(index, clargs.refine_nb)
+                update_cluster_corrections(params_all, clusters)
 
-        for cluster_idx, cluster in enumerate(clusters, 1):
-            peak_names = [peak.name for peak in cluster.peaks]
-            print_cluster_summary(cluster_idx, total_clusters, peak_names)
+            for cluster_idx, cluster in enumerate(clusters, 1):
+                peak_names = [peak.name for peak in cluster.peaks]
+                print_cluster_summary(cluster_idx, total_clusters, peak_names)
 
-            params = create_params(cluster.peaks, fixed=clargs.fixed)
-            params = update_params(params, params_all)
+                params = create_params(cluster.peaks, fixed=clargs.fixed)
+                params = update_params(params, params_all)
 
-            # Get varying parameters
-            vary_names = params.get_vary_names()
-            x0 = params.get_vary_values()
-            bounds_lower = np.array([params[name].min for name in vary_names])
-            bounds_upper = np.array([params[name].max for name in vary_names])
+                # Get varying parameters
+                vary_names = params.get_vary_names()
+                x0 = params.get_vary_values()
+                bounds_lower = np.array([params[name].min for name in vary_names])
+                bounds_upper = np.array([params[name].max for name in vary_names])
 
-            # Run optimization with scipy.optimize.least_squares
-            result = least_squares(
-                _residual_wrapper,
-                x0,
-                args=(params, cluster, clargs.noise),
-                bounds=(bounds_lower, bounds_upper),
-                ftol=1e-7,
-                xtol=1e-7,
-                max_nfev=1000,
-                verbose=2,
-            )
+                # Run optimization with scipy.optimize.least_squares
+                result = least_squares(
+                    _residual_wrapper,
+                    x0,
+                    args=(params, cluster, clargs.noise),
+                    bounds=(bounds_lower, bounds_upper),
+                    ftol=1e-7,
+                    xtol=1e-7,
+                    max_nfev=1000,
+                    verbose=2,
+                )
 
-            # Update parameters with optimized values
-            for i, name in enumerate(vary_names):
-                params[name].value = result.x[i]
+                # Update parameters with optimized values
+                for i, name in enumerate(vary_names):
+                    params[name].value = result.x[i]
 
-            if result.success:
-                success_count += 1
+                if result.success:
+                    success_count += 1
 
-            print_fit_report(result)
-            params_all.update(params)
+                print_fit_report(result)
+                params_all.update(params)
 
     total_time = time.perf_counter() - start_time
     total_peaks = sum(len(c.peaks) for c in clusters)

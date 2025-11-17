@@ -6,6 +6,7 @@ import numpy as np
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from scipy.optimize import least_squares
+from threadpoolctl import threadpool_limits
 
 from peakfit.clustering import create_clusters
 from peakfit.computing import residuals, simulate_data, update_cluster_corrections
@@ -163,39 +164,43 @@ def _fit_clusters(clargs: LegacyArguments, clusters: list) -> Parameters:
     print_fitting()
     params_all = Parameters()
 
-    for index in range(clargs.refine_nb + 1):
-        if index > 0:
-            print_refining(index, clargs.refine_nb)
-            update_cluster_corrections(params_all, clusters)
-        for cluster in clusters:
-            print_peaks(cluster.peaks)
-            params = create_params(cluster.peaks, fixed=clargs.fixed)
-            params = _update_params(params, params_all)
+    # Use threadpoolctl to limit BLAS threads at runtime
+    # This prevents OpenBLAS/MKL from spawning threads that cause massive overhead
+    # (e.g., 3171% CPU usage -> 99% CPU usage, 671s -> 8s CPU time)
+    with threadpool_limits(limits=1, user_api="blas"):
+        for index in range(clargs.refine_nb + 1):
+            if index > 0:
+                print_refining(index, clargs.refine_nb)
+                update_cluster_corrections(params_all, clusters)
+            for cluster in clusters:
+                print_peaks(cluster.peaks)
+                params = create_params(cluster.peaks, fixed=clargs.fixed)
+                params = _update_params(params, params_all)
 
-            # Get varying parameters
-            vary_names = params.get_vary_names()
-            x0 = params.get_vary_values()
-            bounds_lower = np.array([params[name].min for name in vary_names])
-            bounds_upper = np.array([params[name].max for name in vary_names])
+                # Get varying parameters
+                vary_names = params.get_vary_names()
+                x0 = params.get_vary_values()
+                bounds_lower = np.array([params[name].min for name in vary_names])
+                bounds_upper = np.array([params[name].max for name in vary_names])
 
-            # Run optimization with scipy.optimize.least_squares
-            result = least_squares(
-                _residual_wrapper,
-                x0,
-                args=(params, cluster, clargs.noise),
-                bounds=(bounds_lower, bounds_upper),
-                ftol=1e-7,
-                xtol=1e-7,
-                max_nfev=1000,
-                verbose=2,
-            )
+                # Run optimization with scipy.optimize.least_squares
+                result = least_squares(
+                    _residual_wrapper,
+                    x0,
+                    args=(params, cluster, clargs.noise),
+                    bounds=(bounds_lower, bounds_upper),
+                    ftol=1e-7,
+                    xtol=1e-7,
+                    max_nfev=1000,
+                    verbose=2,
+                )
 
-            # Update parameters with optimized values
-            for i, name in enumerate(vary_names):
-                params[name].value = result.x[i]
+                # Update parameters with optimized values
+                for i, name in enumerate(vary_names):
+                    params[name].value = result.x[i]
 
-            print_fit_report(result)
-            params_all.update(params)
+                print_fit_report(result)
+                params_all.update(params)
 
     return params_all
 
