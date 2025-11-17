@@ -19,13 +19,34 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class GlobalFitResult(FitResult):
+class GlobalFitResult:
     """Extended fit result with global optimization info."""
 
+    params: Parameters
+    residual: FloatArray
+    cost: float
+    nfev: int
+    success: bool
+    message: str
     global_iterations: int = 0
     local_minimizations: int = 0
     global_minimum_found: bool = False
     basin_hopping_temperature: float = 1.0
+    covar: FloatArray | None = None
+
+    @property
+    def chisqr(self) -> float:
+        """Chi-squared value."""
+        return float(np.sum(self.residual**2))
+
+    @property
+    def redchi(self) -> float:
+        """Reduced chi-squared."""
+        ndata = len(self.residual)
+        nvarys = len(self.params.get_vary_names())
+        if ndata > nvarys:
+            return self.chisqr / (ndata - nvarys)
+        return self.chisqr
 
 
 @dataclass
@@ -127,12 +148,9 @@ def fit_basin_hopping(
 
     # Compute final statistics
     final_residuals = residuals(params, cluster, noise)
-    ndata = len(final_residuals)
-    nvarys = len(x0)
-    chisqr = float(np.sum(final_residuals**2))
-    redchi = chisqr / max(1, ndata - nvarys)
 
     # Compute covariance from final local minimum
+    covar = None
     try:
         # Use numerical Hessian for covariance
         hessian = _compute_numerical_hessian(objective, result.x, bounds)
@@ -140,22 +158,20 @@ def fit_basin_hopping(
         std_errors = np.sqrt(np.diag(covar))
         params.set_errors(std_errors)
     except (np.linalg.LinAlgError, ValueError):
-        covar = None
+        pass
 
     return GlobalFitResult(
         params=params,
-        chisqr=chisqr,
-        redchi=redchi,
+        residual=final_residuals,
+        cost=result.fun,
         nfev=result.nfev,
-        ndata=ndata,
-        nvarys=nvarys,
-        covar=covar,
         success=result.lowest_optimization_result.success,
         message=str(result.message),
         global_iterations=n_iterations,
         local_minimizations=result.nit,
         global_minimum_found=result.lowest_optimization_result.success,
         basin_hopping_temperature=temperature,
+        covar=covar,
     )
 
 
@@ -209,33 +225,28 @@ def fit_differential_evolution(
 
     # Compute statistics
     final_residuals = residuals(params, cluster, noise)
-    ndata = len(final_residuals)
-    nvarys = len(result.x)
-    chisqr = float(np.sum(final_residuals**2))
-    redchi = chisqr / max(1, ndata - nvarys)
 
     # Compute covariance
+    covar = None
     try:
         hessian = _compute_numerical_hessian(objective, result.x, bounds)
         covar = np.linalg.inv(hessian) * 2.0
         std_errors = np.sqrt(np.diag(covar))
         params.set_errors(std_errors)
     except (np.linalg.LinAlgError, ValueError):
-        covar = None
+        pass
 
     return GlobalFitResult(
         params=params,
-        chisqr=chisqr,
-        redchi=redchi,
+        residual=final_residuals,
+        cost=result.fun,
         nfev=result.nfev,
-        ndata=ndata,
-        nvarys=nvarys,
-        covar=covar,
         success=result.success,
         message=result.message,
         global_iterations=result.nit,
         local_minimizations=1 if polish else 0,
         global_minimum_found=result.success,
+        covar=covar,
     )
 
 
@@ -292,13 +303,13 @@ def compute_profile_likelihood(
         # Re-optimize other parameters
         x0 = params_copy.get_vary_values()
         if len(x0) > 0:
-            bounds = params_copy.get_vary_bounds()
+            bounds_list = params_copy.get_vary_bounds_list()
 
             def objective(x: FloatArray) -> float:
                 return residuals_global(x, params_copy, cluster, noise)
 
             result = optimize.minimize(
-                objective, x0, method="L-BFGS-B", bounds=bounds
+                objective, x0, method="L-BFGS-B", bounds=bounds_list
             )
             params_copy.set_vary_values(result.x)
 
