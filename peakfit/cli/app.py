@@ -168,13 +168,6 @@ def fit(
             help="Enable parallel fitting of clusters",
         ),
     ] = False,
-    fast: Annotated[
-        bool,
-        typer.Option(
-            "--fast/--no-fast",
-            help="Use fast scipy optimization (bypasses lmfit overhead)",
-        ),
-    ] = False,
     workers: Annotated[
         int | None,
         typer.Option(
@@ -223,7 +216,6 @@ def fit(
         z_values_path=z_values,
         config=fit_config,
         parallel=parallel,
-        fast=fast,
         n_workers=workers,
     )
 
@@ -650,11 +642,11 @@ def benchmark(
                 f"  Use [green]--parallel[/green] for {speedup:.1f}x speedup"
             )
         else:
-            console.print("  Use [green]--fast[/green] (parallel overhead exceeds benefit)")
+            console.print("  Sequential fitting is optimal (parallel overhead exceeds benefit)")
     else:
         console.print("\n[yellow]Note:[/yellow] Only 1 cluster, parallel comparison skipped")
         console.print("\n[bold]Recommendation:[/bold]")
-        console.print("  Use [green]--fast[/green] for optimal performance")
+        console.print("  Sequential fitting is optimal for single cluster")
 
 
 if __name__ == "__main__":

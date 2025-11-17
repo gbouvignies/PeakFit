@@ -67,7 +67,6 @@ def run_fit(
     z_values_path: Path | None,
     config: PeakFitConfig,
     parallel: bool = False,
-    fast: bool = False,
     n_workers: int | None = None,
 ) -> None:
     """Run the fitting process.
@@ -78,7 +77,6 @@ def run_fit(
         z_values_path: Optional path to Z-values file.
         config: Configuration object.
         parallel: Whether to use parallel processing.
-        fast: Whether to use fast scipy optimization.
         n_workers: Number of parallel workers.
     """
     import multiprocessing as mp
@@ -123,9 +121,6 @@ def run_fit(
         actual_workers = n_workers or mp.cpu_count()
         console.print(f"[yellow]Using parallel fitting ({actual_workers} workers)...[/yellow]")
         params = _fit_clusters_parallel(clargs, clusters, n_workers)
-    elif fast:
-        console.print("[yellow]Using fast scipy optimization...[/yellow]")
-        params = _fit_clusters_fast(clargs, clusters)
     else:
         params = _fit_clusters(clargs, clusters)
 
@@ -215,23 +210,6 @@ def _fit_clusters_parallel(
         refine_iterations=clargs.refine_nb,
         fixed=clargs.fixed,
         n_workers=n_workers,
-        verbose=True,
-    )
-
-    return params
-
-
-def _fit_clusters_fast(clargs: LegacyArguments, clusters: list) -> Parameters:
-    """Fit all clusters using fast scipy optimization."""
-    from peakfit.core.fast_fit import fit_clusters_fast
-
-    console.print("[yellow]Fast scipy fitting with refinement...[/yellow]")
-
-    params = fit_clusters_fast(
-        clusters=clusters,
-        noise=clargs.noise,
-        refine_iterations=clargs.refine_nb,
-        fixed=clargs.fixed,
         verbose=True,
     )
 

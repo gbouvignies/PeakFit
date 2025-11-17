@@ -49,7 +49,6 @@ class TestCLICommands:
         result = runner.invoke(app, ["fit", "--help"])
         assert result.exit_code == 0
         assert "--parallel" in result.output
-        assert "--fast" in result.output
         assert "--workers" in result.output
         assert "--refine" in result.output
         assert "--lineshape" in result.output
