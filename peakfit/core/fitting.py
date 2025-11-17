@@ -57,6 +57,7 @@ class Parameter:
     vary: bool = True
     param_type: ParameterType = ParameterType.GENERIC
     unit: str = ""  # Optional unit string (e.g., "Hz", "ppm", "deg")
+    stderr: float = 0.0  # Standard error from fitting
 
     def __post_init__(self) -> None:
         """Validate parameter bounds and apply type-specific defaults."""
@@ -181,6 +182,8 @@ class Parameters:
                 name, param.value, param.min, param.max, param.vary,
                 param.param_type, param.unit
             )
+            # Preserve stderr
+            new_params[name].stderr = param.stderr
         return new_params
 
     def get_vary_names(self) -> list[str]:
@@ -203,6 +206,25 @@ class Parameters:
         names = self.get_vary_names()
         for name, value in zip(names, values, strict=True):
             self._params[name].value = value
+
+    def set_errors(self, errors: np.ndarray) -> None:
+        """Set standard errors for varying parameters.
+
+        Args:
+            errors: Array of standard errors for varying parameters
+        """
+        names = self.get_vary_names()
+        for name, error in zip(names, errors, strict=True):
+            self._params[name].stderr = error
+
+    def get_vary_bounds_list(self) -> list[tuple[float, float]]:
+        """Get bounds for varying parameters as list of tuples.
+
+        Returns:
+            List of (min, max) tuples for each varying parameter
+        """
+        names = self.get_vary_names()
+        return [(self._params[name].min, self._params[name].max) for name in names]
 
     def __len__(self) -> int:
         """Return number of parameters."""

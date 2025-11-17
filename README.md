@@ -462,3 +462,108 @@ print(f"Reduced chi-squared: {result.redchi}")
 print(f"Function evaluations: {result.nfev}")
 print(f"Success: {result.success}")
 ```
+
+### Advanced Optimization
+
+PeakFit includes global optimization methods for difficult fitting problems:
+
+```python
+from peakfit.core.advanced_optimization import (
+    fit_basin_hopping,
+    fit_differential_evolution,
+    estimate_uncertainties_mcmc,
+    compute_profile_likelihood,
+)
+
+# Basin-hopping for escaping local minima
+result = fit_basin_hopping(
+    params,
+    cluster,
+    noise,
+    n_iterations=100,
+    temperature=1.0,
+    step_size=0.5,
+)
+
+# Differential evolution for global search
+result = fit_differential_evolution(
+    params,
+    cluster,
+    noise,
+    max_iterations=1000,
+    population_size=15,
+    polish=True,
+)
+
+# MCMC for uncertainty estimation
+uncertainties = estimate_uncertainties_mcmc(
+    params,
+    cluster,
+    noise,
+    n_walkers=32,
+    n_steps=1000,
+    burn_in=200,
+)
+print(f"68% CI: {uncertainties.confidence_intervals_68}")
+print(f"95% CI: {uncertainties.confidence_intervals_95}")
+
+# Profile likelihood for accurate confidence intervals
+values, chi2, ci = compute_profile_likelihood(
+    params,
+    cluster,
+    noise,
+    param_name="peak1_fwhm",
+    delta_chi2=3.84,  # 95% CI
+)
+```
+
+### JAX Backend (Optional)
+
+For GPU acceleration and automatic differentiation:
+
+```bash
+# Install JAX support
+pip install peakfit[jax]
+```
+
+```python
+from peakfit.core.jax_backend import (
+    is_jax_available,
+    ComputeBackend,
+    gaussian_jax,
+    compute_gradient,
+    compute_hessian,
+)
+
+# Check available backends
+print(ComputeBackend.get_available())  # ['numpy', 'jax']
+print(ComputeBackend.get_best())       # 'jax'
+
+# Use JAX-accelerated lineshapes
+if is_jax_available():
+    result = gaussian_jax(x, x0, fwhm)
+
+    # Autodiff for exact gradients
+    grad = compute_gradient(params, cluster, noise)
+    hess = compute_hessian(params, cluster, noise)
+```
+
+### Performance Benchmarking
+
+```python
+from peakfit.core.benchmarks import (
+    benchmark_lineshape_backends,
+    compare_backends_report,
+    profile_fit_cluster,
+)
+
+# Compare backend performance
+results = benchmark_lineshape_backends(n_points=1000, n_iterations=100)
+print(compare_backends_report(results))
+
+# Profile fitting stages
+profile = profile_fit_cluster(params, cluster, noise)
+print(f"Shape calculation: {profile['shape_calculation']*1000:.3f} ms")
+print(f"Residual calculation: {profile['residual_calculation']*1000:.3f} ms")
+print(f"Full fit: {profile['full_fit']*1000:.3f} ms")
+```
