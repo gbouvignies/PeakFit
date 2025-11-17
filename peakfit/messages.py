@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 
 from peakfit import __version__
-from peakfit.peak import Peak
+
+if TYPE_CHECKING:
+    from peakfit.peak import Peak
 
 console = Console(record=True)
 
@@ -46,7 +49,7 @@ def print_fitting() -> None:
     print_message("\n — Fitting peaks...", "bold yellow")
 
 
-def print_peaks(peaks: list[Peak]) -> None:
+def print_peaks(peaks: list["Peak"]) -> None:
     """Print the peak names that are being fitted."""
     peak_list = ", ".join(peak.name for peak in peaks)
     message = f"Peak(s): {peak_list}"
@@ -67,33 +70,177 @@ def print_fit_report(result: Any) -> None:
     Args:
         result: scipy.optimize.OptimizeResult or similar object
     """
-    # Format scipy.optimize.OptimizeResult
-    report_lines = ["[[Fit Statistics]]"]
+    # Create a table for fit statistics
+    table = Table(title="Fit Statistics", show_header=False, box=None)
+    table.add_column("Property", style="cyan", width=20)
+    table.add_column("Value", style="green")
 
     if hasattr(result, "success"):
-        status = "success" if result.success else "failure"
-        report_lines.append(f"    fit status:        {status}")
+        status_style = "green" if result.success else "red"
+        status_text = "✓ success" if result.success else "✗ failure"
+        table.add_row("Status", f"[{status_style}]{status_text}[/]")
 
     if hasattr(result, "message"):
-        report_lines.append(f"    message:           {result.message}")
+        table.add_row("Message", str(result.message))
 
     if hasattr(result, "nfev"):
-        report_lines.append(f"    # function evals:  {result.nfev}")
+        table.add_row("Function evals", str(result.nfev))
 
-    if hasattr(result, "njev"):
-        report_lines.append(f"    # jacobian evals:  {result.njev}")
+    if hasattr(result, "njev") and result.njev:
+        table.add_row("Jacobian evals", str(result.njev))
 
     if hasattr(result, "cost"):
-        report_lines.append(f"    final cost:        {result.cost:.6e}")
+        table.add_row("Final cost", f"{result.cost:.6e}")
 
     if hasattr(result, "optimality"):
-        report_lines.append(f"    optimality:        {result.optimality:.6e}")
+        table.add_row("Optimality", f"{result.optimality:.6e}")
 
     if hasattr(result, "x"):
-        report_lines.append(f"    # variables:       {len(result.x)}")
+        table.add_row("Variables", str(len(result.x)))
 
-    report_text = "\n".join(report_lines)
-    console.print("\n", Text(report_text), "\n")
+    console.print()
+    console.print(table)
+    console.print()
+
+
+def print_cluster_summary(cluster_index: int, total_clusters: int, peak_names: list[str]) -> None:
+    """Print a summary of the cluster being fitted."""
+    peaks_str = ", ".join(peak_names)
+    console.print(
+        f"\n[bold cyan]Cluster {cluster_index}/{total_clusters}[/] │ "
+        f"Peaks: [green]{peaks_str}[/]"
+    )
+
+
+def print_fitting_progress(current: int, total: int, cluster_name: str = "") -> None:
+    """Print fitting progress."""
+    percentage = (current / total) * 100 if total > 0 else 0
+    bar_width = 30
+    filled = int(bar_width * current / total) if total > 0 else 0
+    bar = "█" * filled + "░" * (bar_width - filled)
+    console.print(
+        f"\r[cyan]Progress[/] │[{bar}] {percentage:.0f}% ({current}/{total})",
+        end="",
+    )
+    if current == total:
+        console.print()  # New line when complete
+
+
+def print_fit_summary(
+    total_clusters: int,
+    total_peaks: int,
+    total_time: float,
+    success_count: int,
+) -> None:
+    """Print a summary of the fitting results."""
+    console.print()
+    panel_content = Text()
+    panel_content.append("Fitting Complete\n\n", style="bold green")
+    panel_content.append(f"  Clusters fitted:  {total_clusters}\n")
+    panel_content.append(f"  Total peaks:      {total_peaks}\n")
+    panel_content.append(f"  Successful:       {success_count}/{total_clusters}\n")
+    panel_content.append(f"  Total time:       {total_time:.2f}s\n")
+
+    if total_clusters > 0:
+        avg_time = total_time / total_clusters
+        panel_content.append(f"  Avg per cluster:  {avg_time:.3f}s")
+
+    console.print(Panel(panel_content, border_style="green"))
+
+
+def print_parameter_table(params: Any) -> None:
+    """Print a formatted table of fitted parameters.
+
+    Args:
+        params: Parameters object with fitted values
+    """
+    table = Table(title="Fitted Parameters", show_lines=False)
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="green", justify="right")
+    table.add_column("Min", style="dim", justify="right")
+    table.add_column("Max", style="dim", justify="right")
+    table.add_column("Vary", style="yellow", justify="center")
+
+    for name in params:
+        param = params[name]
+        vary_str = "✓" if param.vary else "✗"
+        min_str = f"{param.min:.2f}" if param.min > -1e10 else "-∞"
+        max_str = f"{param.max:.2f}" if param.max < 1e10 else "∞"
+        table.add_row(name, f"{param.value:.6f}", min_str, max_str, vary_str)
+
+    console.print(table)
+
+
+def print_optimization_settings(ftol: float, xtol: float, max_nfev: int) -> None:
+    """Print optimization settings."""
+    console.print(
+        f"[dim]Optimization: ftol={ftol:.0e}, xtol={xtol:.0e}, max_nfev={max_nfev}[/]"
+    )
+
+
+def print_boundary_warning(param_names: list[str]) -> None:
+    """Print a warning about parameters at their boundaries.
+
+    Args:
+        param_names: List of parameter names at boundaries
+    """
+    if param_names:
+        console.print(
+            f"\n[bold yellow]⚠ Warning:[/] {len(param_names)} parameter(s) at boundary:"
+        )
+        for name in param_names[:10]:  # Show max 10
+            console.print(f"  • [yellow]{name}[/]")
+        if len(param_names) > 10:
+            console.print(f"  ... and {len(param_names) - 10} more")
+
+
+def print_data_summary(
+    spectrum_shape: tuple,
+    n_planes: int,
+    n_peaks: int,
+    n_clusters: int,
+    noise_level: float,
+    contour_level: float,
+) -> None:
+    """Print a summary of loaded data.
+
+    Args:
+        spectrum_shape: Shape of spectrum data
+        n_planes: Number of planes (z-values)
+        n_peaks: Number of peaks
+        n_clusters: Number of clusters
+        noise_level: Estimated noise level
+        contour_level: Contour level for clustering
+    """
+    table = Table(title="Data Summary", show_header=False, box=None)
+    table.add_column("Property", style="cyan", width=20)
+    table.add_column("Value", style="green")
+
+    table.add_row("Spectrum shape", str(spectrum_shape))
+    table.add_row("Number of planes", str(n_planes))
+    table.add_row("Number of peaks", str(n_peaks))
+    table.add_row("Number of clusters", str(n_clusters))
+    table.add_row("Noise level", f"{noise_level:.4f}")
+    table.add_row("Contour level", f"{contour_level:.4f}")
+
+    console.print()
+    console.print(table)
+    console.print()
+
+
+def print_success_message(message: str) -> None:
+    """Print a success message."""
+    console.print(f"[bold green]✓[/] {message}")
+
+
+def print_warning_message(message: str) -> None:
+    """Print a warning message."""
+    console.print(f"[bold yellow]⚠[/] {message}")
+
+
+def print_error_message(message: str) -> None:
+    """Print an error message."""
+    console.print(f"[bold red]✗[/] {message}")
 
 
 def export_html(filehtml: Path) -> None:

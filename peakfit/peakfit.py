@@ -1,6 +1,7 @@
 """Main module for peak fitting."""
 
 import multiprocessing as mp
+import time
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -20,11 +21,15 @@ from peakfit.core.fitting import Parameters
 from peakfit.core.parallel import fit_clusters_parallel_refined
 from peakfit.messages import (
     export_html,
+    print_boundary_warning,
+    print_cluster_summary,
+    print_data_summary,
     print_fit_report,
+    print_fit_summary,
     print_fitting,
     print_logo,
-    print_peaks,
     print_refining,
+    print_success_message,
     print_writing_spectra,
 )
 from peakfit.noise import prepare_noise_level
@@ -54,13 +59,19 @@ def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> Parameters:
     """Fit all clusters and return shifts."""
     print_fitting()
     params_all = Parameters()
+    total_clusters = len(clusters)
+    success_count = 0
+    start_time = time.perf_counter()
 
     for index in range(clargs.refine_nb + 1):
         if index > 0:
             print_refining(index, clargs.refine_nb)
             update_cluster_corrections(params_all, clusters)
-        for cluster in clusters:
-            print_peaks(cluster.peaks)
+
+        for cluster_idx, cluster in enumerate(clusters, 1):
+            peak_names = [peak.name for peak in cluster.peaks]
+            print_cluster_summary(cluster_idx, total_clusters, peak_names)
+
             params = create_params(cluster.peaks, fixed=clargs.fixed)
             params = update_params(params, params_all)
 
@@ -86,8 +97,20 @@ def fit_clusters(clargs: Arguments, clusters: Sequence[Cluster]) -> Parameters:
             for i, name in enumerate(vary_names):
                 params[name].value = result.x[i]
 
+            if result.success:
+                success_count += 1
+
             print_fit_report(result)
             params_all.update(params)
+
+    total_time = time.perf_counter() - start_time
+    total_peaks = sum(len(c.peaks) for c in clusters)
+    print_fit_summary(total_clusters, total_peaks, total_time, success_count)
+
+    # Check for parameters at boundaries
+    boundary_params = params_all.get_boundary_params()
+    if boundary_params:
+        print_boundary_warning(boundary_params)
 
     return params_all
 
@@ -137,11 +160,21 @@ def main() -> None:
     clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
     clusters = create_clusters(spectra, peaks, clargs.contour_level)
 
+    # Print data summary
+    print_data_summary(
+        spectrum_shape=spectra.data.shape,
+        n_planes=len(spectra.z_values),
+        n_peaks=len(peaks),
+        n_clusters=len(clusters),
+        noise_level=clargs.noise,
+        contour_level=clargs.contour_level,
+    )
+
     # Choose fitting method based on --parallel and --fast flags
     if clargs.parallel and len(clusters) > 1:
         n_workers = clargs.n_workers or mp.cpu_count()
         print(f"\nParallel fitting enabled: {len(clusters)} clusters on {n_workers} workers")
-        print("Using fast scipy optimization (bypasses lmfit overhead)")
+        print("Using fast scipy optimization")
         params = fit_clusters_parallel_refined(
             clusters=clusters,
             noise=clargs.noise,
@@ -151,7 +184,7 @@ def main() -> None:
             verbose=True,
         )
     elif clargs.fast:
-        print("\nFast scipy optimization enabled (bypasses lmfit overhead)")
+        print("\nFast scipy optimization enabled")
         params = fit_clusters_fast(
             clusters=list(clusters),
             noise=clargs.noise,
@@ -165,12 +198,16 @@ def main() -> None:
     clargs.path_output.mkdir(parents=True, exist_ok=True)
 
     write_profiles(clargs.path_output, spectra.z_values, clusters, params, clargs)
+    print_success_message(f"Profiles written to {clargs.path_output}")
 
     export_html(clargs.path_output / "logs.html")
+    print_success_message(f"HTML log saved to {clargs.path_output / 'logs.html'}")
 
     write_shifts(peaks, params, clargs.path_output / "shifts.list")
+    print_success_message(f"Shifts written to {clargs.path_output / 'shifts.list'}")
 
     write_spectra(clargs.path_output, spectra, clusters, params)
+    print_success_message("Simulated spectrum written")
 
 
 if __name__ == "__main__":

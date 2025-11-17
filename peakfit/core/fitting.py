@@ -38,6 +38,26 @@ class Parameter:
             msg = f"Parameter {self.name}: value ({self.value}) outside bounds [{self.min}, {self.max}]"
             raise ValueError(msg)
 
+    def __repr__(self) -> str:
+        """String representation of parameter."""
+        vary_str = "vary" if self.vary else "fixed"
+        min_str = f"{self.min:.4g}" if self.min > -1e10 else "-inf"
+        max_str = f"{self.max:.4g}" if self.max < 1e10 else "inf"
+        return f"<Parameter {self.name}={self.value:.6g} [{min_str}, {max_str}] ({vary_str})>"
+
+    def is_at_boundary(self, tol: float = 1e-6) -> bool:
+        """Check if parameter is at or near its boundary.
+
+        Args:
+            tol: Tolerance for boundary check
+
+        Returns:
+            True if at boundary
+        """
+        at_min = abs(self.value - self.min) < tol * (1 + abs(self.value))
+        at_max = abs(self.value - self.max) < tol * (1 + abs(self.value))
+        return at_min or at_max
+
 
 @dataclass
 class Parameters:
@@ -120,6 +140,64 @@ class Parameters:
         names = self.get_vary_names()
         for name, value in zip(names, values, strict=True):
             self._params[name].value = value
+
+    def __len__(self) -> int:
+        """Return number of parameters."""
+        return len(self._params)
+
+    def __repr__(self) -> str:
+        """String representation of parameters collection."""
+        n_total = len(self._params)
+        n_vary = len(self.get_vary_names())
+        return f"<Parameters: {n_total} total, {n_vary} varying>"
+
+    def summary(self) -> str:
+        """Get a formatted summary of all parameters.
+
+        Returns:
+            Multi-line string with parameter details
+        """
+        lines = ["Parameters:", "=" * 60]
+        for name in self._params:
+            param = self._params[name]
+            vary_str = "vary" if param.vary else "fixed"
+            min_str = f"{param.min:.4g}" if param.min > -1e10 else "-inf"
+            max_str = f"{param.max:.4g}" if param.max < 1e10 else "inf"
+            lines.append(f"  {name:20s} = {param.value:12.6g} [{min_str:>10s}, {max_str:<10s}] ({vary_str})")
+        lines.append("=" * 60)
+        return "\n".join(lines)
+
+    def get_boundary_params(self) -> list[str]:
+        """Get names of parameters that are at their boundaries.
+
+        Returns:
+            List of parameter names at boundaries
+        """
+        return [name for name, param in self._params.items() if param.vary and param.is_at_boundary()]
+
+    def freeze(self, names: list[str] | None = None) -> None:
+        """Set parameters to not vary (freeze them).
+
+        Args:
+            names: List of parameter names to freeze. If None, freeze all.
+        """
+        if names is None:
+            names = list(self._params.keys())
+        for name in names:
+            if name in self._params:
+                self._params[name].vary = False
+
+    def unfreeze(self, names: list[str] | None = None) -> None:
+        """Set parameters to vary (unfreeze them).
+
+        Args:
+            names: List of parameter names to unfreeze. If None, unfreeze all.
+        """
+        if names is None:
+            names = list(self._params.keys())
+        for name in names:
+            if name in self._params:
+                self._params[name].vary = True
 
 
 @dataclass
