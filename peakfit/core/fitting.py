@@ -291,16 +291,6 @@ class FitResult:
         return self.chisqr
 
 
-def calculate_shapes_fast(params: Parameters, cluster: "Cluster") -> FloatArray:
-    """Calculate shapes for all peaks in cluster (optimized version)."""
-    return np.array([peak.evaluate(cluster.positions, params) for peak in cluster.peaks])
-
-
-def calculate_amplitudes_fast(shapes: FloatArray, data: FloatArray) -> FloatArray:
-    """Calculate amplitudes via linear least squares."""
-    return np.linalg.lstsq(shapes.T, data, rcond=None)[0]
-
-
 def residuals_fast(x: np.ndarray, params: Parameters, cluster: "Cluster", noise: float) -> np.ndarray:
     """Compute residuals for least_squares optimizer.
 
@@ -313,18 +303,13 @@ def residuals_fast(x: np.ndarray, params: Parameters, cluster: "Cluster", noise:
     Returns:
         Flattened residual array normalized by noise
     """
+    # Import here to avoid circular dependency
+    from peakfit.computing import residuals
+
     # Update parameters with current values
     params.set_vary_values(x)
 
-    # Calculate shapes and amplitudes
-    shapes = calculate_shapes_fast(params, cluster)
-    amplitudes = calculate_amplitudes_fast(shapes, cluster.corrected_data)
-
-    # Compute residuals
-    fitted = shapes.T @ amplitudes
-    residual = (cluster.corrected_data - fitted).ravel() / noise
-
-    return residual
+    return residuals(params, cluster, noise)
 
 
 def fit_cluster_fast(

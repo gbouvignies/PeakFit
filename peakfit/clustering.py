@@ -112,7 +112,7 @@ def segment_data(data: FloatArray, contour_level: float, peaks: list[Peak]) -> I
     return merge_connected_segments(segments)
 
 
-def assign_peaks_to_segments(peaks: list[Peak], segments: IntArray) -> dict:
+def assign_peaks_to_segments(peaks: list[Peak], segments: IntArray) -> dict[int, list[Peak]]:
     """Assign peaks to their respective segments.
 
     Args:
@@ -120,9 +120,9 @@ def assign_peaks_to_segments(peaks: list[Peak], segments: IntArray) -> dict:
         segments (IntArray): Array with labeled segments.
 
     Returns:
-        dict: Dictionary mapping segment IDs to peaks.
+        dict[int, list[Peak]]: Dictionary mapping segment IDs to peaks.
     """
-    peak_segments_dict = {}
+    peak_segments_dict: dict[int, list[Peak]] = {}
     for peak in peaks:
         segment_id = segments[*peak.positions_i]
         peak_segments_dict.setdefault(segment_id, []).append(peak)
