@@ -532,3 +532,39 @@ def get_optimization_info() -> dict:
         if HAS_NUMBA
         else ["numpy_vectorized"],
     }
+
+
+def prewarm_jit_functions() -> None:
+    """Pre-compile all Numba JIT functions to avoid compilation in worker processes.
+
+    This function should be called before using multiprocessing with fork().
+    It ensures all JIT functions are compiled in the main process so that
+    forked workers can share the compiled code instead of re-compiling.
+
+    This is critical for performance when using many workers.
+    """
+    if not HAS_NUMBA:
+        return
+
+    # Create small test arrays to trigger JIT compilation
+    dx_small = np.array([0.0, 1.0, 2.0])
+    fwhm = 1.0
+    eta = 0.5
+    r2 = 1.0
+    aq = 0.1
+    end = 1.0
+    off = 0.5
+    phase = 0.0
+
+    # Call each function to trigger compilation
+    _ = gaussian_jit(dx_small, fwhm)
+    _ = lorentzian_jit(dx_small, fwhm)
+    _ = pvoigt_jit(dx_small, fwhm, eta)
+    _ = no_apod_jit(dx_small, r2, aq, phase)
+    _ = sp1_jit(dx_small, r2, aq, end, off, phase)
+    _ = sp2_jit(dx_small, r2, aq, end, off, phase)
+
+    # Also pre-compile lstsq if used
+    shapes_small = np.array([[1.0, 0.5, 0.2]])
+    data_small = np.array([1.0, 0.6, 0.3])
+    _ = calculate_lstsq_amplitude(shapes_small, data_small)

@@ -85,6 +85,10 @@ def fit_clusters_parallel(
     if n_workers is None:
         n_workers = min(mp.cpu_count(), len(clusters))
 
+    # Pre-warm Numba JIT functions before forking to share compiled code
+    from peakfit.core.optimized import prewarm_jit_functions
+    prewarm_jit_functions()
+
     # Initial empty global parameters
     params_dict: dict[str, Any] = {}
 
@@ -149,9 +153,13 @@ def fit_clusters_parallel_refined(
         Final fitted parameters for all clusters
     """
     from peakfit.computing import update_cluster_corrections
+    from peakfit.core.optimized import prewarm_jit_functions
 
     if n_workers is None:
         n_workers = min(mp.cpu_count(), len(clusters))
+
+    # Pre-warm Numba JIT functions before forking to share compiled code
+    prewarm_jit_functions()
 
     params_all = Parameters()
     ctx = _get_mp_context()
