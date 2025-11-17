@@ -30,6 +30,9 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "mypy>=1.0",
+    "ruff>=0.7.0",
+    "pre-commit>=3.0",
+    "types-setuptools>=75.0",
 ]
 performance = [
     "numba>=0.60.0",
@@ -47,24 +50,39 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "vcs"
 
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "ANN101",
-    "ANN102",
-    "COM812",
-    "ISC001",
-    "TCH001",
-    "TCH002",
-    "TCH003",
-    "D100",
-    "D101",
-    "D102",
-    "D103",
-    "D104",
-    "D105",
-    "D107",
-    "S311",
+    "ANN101",  # Missing type annotation for self
+    "ANN102",  # Missing type annotation for cls
+    "COM812",  # Trailing comma (conflicts with formatter)
+    "ISC001",  # Single line implicit string concatenation
+    "TCH001",  # Typing-only first party import
+    "TCH002",  # Typing-only third party import
+    "TCH003",  # Typing-only standard library import
+    "D100",    # Missing docstring in public module
+    "D101",    # Missing docstring in public class
+    "D102",    # Missing docstring in public method
+    "D103",    # Missing docstring in public function
+    "D104",    # Missing docstring in public package
+    "D105",    # Missing docstring in magic method
+    "D107",    # Missing docstring in __init__
+    "S311",    # Standard pseudo-random generators
+    "PLR0913", # Too many arguments to function
+    "PLR2004", # Magic value used in comparison
+    "C901",    # Too complex
+    "PLR0912", # Too many branches
+    "PLR0915", # Too many statements
 ]
 
 [tool.ruff.lint.isort]
@@ -72,6 +90,10 @@ known-first-party = ["peakfit"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "D", "ANN", "PLR2004"]
+"peakfit/plotting/*" = ["PLR", "C901"]
 
 [tool.pyright]
 venvPath = "."
@@ -99,3 +121,32 @@ omit = [
 show_missing = true
 skip_covered = false
 precision = 2
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+extra_checks = true
+
+[[tool.mypy.overrides]]
+module = [
+    "nmrglue.*",
+    "scipy.*",
+    "networkx.*",
+    "emcee.*",
+    "numdifftools.*",
+    "matplotlib.*",
+    "pandas.*",
+    "numba.*",
+]
+ignore_missing_imports = true

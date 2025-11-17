@@ -29,7 +29,7 @@ uv pip install -e ".[dev]"
 
 ## Requirements
 
-- Python >= 3.11
+- Python >= 3.13
 - NMRPipe format spectrum files (.ft2, .ft3)
 
 ## Quick Start
@@ -363,3 +363,102 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - NMRPipe file format support via [nmrglue](https://www.nmrglue.com/)
 - Rich terminal output via [Rich](https://github.com/Textualize/rich)
 - CLI framework via [Typer](https://typer.tiangolo.com/)
+
+## API Reference
+
+### Parameters System
+
+PeakFit uses a custom parameter system optimized for NMR fitting with domain-specific bounds and metadata:
+
+```python
+from peakfit.core.fitting import Parameters, Parameter, ParameterType
+
+# Create parameters with NMR-specific types
+params = Parameters()
+
+# Position parameter (ppm)
+params.add(
+    "peak1_x0",
+    value=8.50,
+    min=8.40,
+    max=8.60,
+    param_type=ParameterType.POSITION,
+    unit="ppm"
+)
+
+# Linewidth parameter with automatic bounds
+# FWHM type defaults to bounds (0.1, 200.0) Hz
+params.add(
+    "peak1_fwhm",
+    value=25.0,
+    param_type=ParameterType.FWHM,
+    unit="Hz"
+)
+
+# Phase correction with automatic bounds
+# PHASE type defaults to bounds (-180.0, 180.0) degrees
+params.add(
+    "peak1_phase",
+    value=0.0,
+    param_type=ParameterType.PHASE,
+    unit="deg"
+)
+
+# J-coupling constant with automatic bounds
+# JCOUPLING type defaults to bounds (0.0, 20.0) Hz
+params.add(
+    "peak1_j",
+    value=7.0,
+    param_type=ParameterType.JCOUPLING,
+    unit="Hz"
+)
+
+# Fraction (mixing) parameter
+# FRACTION type defaults to bounds (0.0, 1.0)
+params.add(
+    "peak1_eta",
+    value=0.5,
+    param_type=ParameterType.FRACTION
+)
+
+# Parameter operations
+params.freeze(["peak1_x0"])  # Fix parameters
+params.unfreeze(["peak1_x0"])  # Release parameters
+boundary_params = params.get_boundary_params()  # Check for boundary issues
+print(params.summary())  # Formatted parameter table
+```
+
+### NMR Parameter Types
+
+- **POSITION**: Peak center position (units: ppm or points)
+- **FWHM**: Full width at half maximum (units: Hz, bounds: 0.1-200.0)
+- **FRACTION**: Mixing parameters like eta (bounds: 0.0-1.0)
+- **PHASE**: Phase correction (units: deg, bounds: -180.0 to 180.0)
+- **JCOUPLING**: J-coupling constants (units: Hz, bounds: 0.0-20.0)
+- **AMPLITUDE**: Peak amplitudes (bounds: 0.0 to inf)
+- **GENERIC**: Other parameters (no default bounds)
+
+### Fitting Engine
+
+The fitting engine uses `scipy.optimize.least_squares` directly for optimal performance:
+
+```python
+from peakfit.core.fitting import fit_cluster_fast, FitResult
+
+# Fit a single cluster
+result: FitResult = fit_cluster_fast(
+    params,
+    cluster,
+    noise,
+    max_nfev=1000,
+    ftol=1e-8,
+    xtol=1e-8,
+    gtol=1e-8
+)
+
+# Access fit statistics
+print(f"Chi-squared: {result.chisqr}")
+print(f"Reduced chi-squared: {result.redchi}")
+print(f"Function evaluations: {result.nfev}")
+print(f"Success: {result.success}")
+```
