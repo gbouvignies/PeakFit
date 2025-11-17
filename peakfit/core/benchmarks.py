@@ -150,36 +150,6 @@ def benchmark_lineshape_backends(
     except ImportError:
         pass
 
-    # JAX backend (if available)
-    try:
-        from peakfit.core.jax_backend import (
-            gaussian_jax,
-            is_jax_available,
-            lorentzian_jax,
-            pseudo_voigt_jax,
-        )
-
-        if is_jax_available():
-            results["jax_gaussian"] = benchmark_function(
-                lambda: gaussian_jax(x, fwhm),
-                "JAX Gaussian",
-                n_iterations,
-            )
-
-            results["jax_lorentzian"] = benchmark_function(
-                lambda: lorentzian_jax(x, fwhm),
-                "JAX Lorentzian",
-                n_iterations,
-            )
-
-            results["jax_pvoigt"] = benchmark_function(
-                lambda: pseudo_voigt_jax(x, fwhm, eta),
-                "JAX Pseudo-Voigt",
-                n_iterations,
-            )
-    except ImportError:
-        pass
-
     return results
 
 

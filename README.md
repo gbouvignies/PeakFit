@@ -30,31 +30,16 @@ uv pip install -e ".[dev]"
 ### Optional Performance Backends
 
 ```bash
-# Numba JIT compilation (recommended for CPU)
+# Numba JIT compilation (recommended)
 pip install peakfit[performance]
 # or
 uv pip install peakfit[performance]
-
-# JAX for CPU
-pip install peakfit[jax]
-
-# JAX with CUDA GPU support (Linux with NVIDIA GPU)
-pip install peakfit[jax-cuda]
-
-# JAX with Metal GPU support (macOS Apple Silicon)
-pip install peakfit[jax-metal]
-
-# JAX with auto-detected GPU backend
-pip install peakfit[jax-gpu]
 
 # All performance backends
 pip install peakfit[all]
 ```
 
-**Platform-specific notes:**
-- **Linux + NVIDIA GPU**: Use `[jax-cuda]` for CUDA 12 acceleration
-- **macOS Apple Silicon**: Use `[jax-metal]` for Metal GPU acceleration
-- **CPU-only**: Use `[performance]` (Numba) for best CPU performance, or `[jax]` for autodiff
+**Note:** Numba provides JIT-compiled lineshape functions that significantly improve performance.
 
 ## Requirements
 
@@ -155,7 +140,7 @@ Options:
   --phy/--no-phy          Fit phase correction in Y
   -e, --exclude INTEGER   Plane indices to exclude
   --parallel/--no-parallel Enable parallel fitting
-  -b, --backend TEXT      Computation backend: auto, numpy, numba, jax
+  -b, --backend TEXT      Computation backend: auto, numpy, numba
   --help                  Show this message and exit
 ```
 
@@ -281,13 +266,11 @@ peakfit fit spectrum.ft2 peaks.list --backend auto
 # Use specific backend
 peakfit fit spectrum.ft2 peaks.list --backend numpy   # Pure NumPy (always available)
 peakfit fit spectrum.ft2 peaks.list --backend numba   # Numba JIT (2-5x faster)
-peakfit fit spectrum.ft2 peaks.list --backend jax     # JAX (GPU/TPU support)
 ```
 
 **Available Backends:**
 - **NumPy**: Always available, pure Python/NumPy implementation
 - **Numba**: JIT-compiled functions (2-5x faster), requires `pip install peakfit[performance]`
-- **JAX**: GPU/TPU acceleration + autodiff, requires `pip install peakfit[jax]`
 
 Check available backends:
 ```bash
@@ -305,9 +288,6 @@ pip install peakfit[performance]
 # Or install numba directly
 pip install numba
 
-# Install JAX for GPU acceleration
-pip install peakfit[jax]
-
 # Install all optional dependencies
 pip install peakfit[all]
 ```
@@ -316,11 +296,6 @@ Numba provides:
 - JIT-compiled lineshape functions (2-5x faster)
 - Automatic fallback to NumPy if not available
 - No code changes required
-
-JAX provides:
-- GPU/TPU acceleration for large datasets
-- Automatic differentiation for advanced optimization
-- Exact gradient/Hessian computation
 
 ### Excluding Planes
 
@@ -596,8 +571,8 @@ from peakfit.core.backend import (
 )
 
 # Check available backends
-print(get_available_backends())  # ['numpy', 'numba', 'jax']
-print(get_best_backend())        # 'jax' (prefers JAX > Numba > NumPy)
+print(get_available_backends())  # ['numpy', 'numba']
+print(get_best_backend())        # 'numba' (prefers Numba > NumPy)
 
 # Set specific backend
 set_backend("numba")  # Use Numba JIT compilation
@@ -617,80 +592,6 @@ from peakfit.core.backend import (
 gaussian = get_gaussian_func()  # Returns current backend's Gaussian
 result = gaussian(dx, fwhm)     # Compute using selected backend
 ```
-
-### JAX Backend (Optional)
-
-For GPU acceleration and automatic differentiation:
-
-```bash
-# Install JAX support
-pip install peakfit[jax]
-```
-
-**Key Benefits:**
-- **Exact Jacobians**: Analytical gradients via autodiff (not finite differences)
-- **GPU Acceleration**: Residual computation on CUDA/ROCm GPUs
-- **Accurate Uncertainties**: Exact Hessian for parameter error estimation
-- **Better Convergence**: Exact gradients improve optimizer performance
-
-```python
-from peakfit.core.jax_backend import (
-    is_jax_available,
-    gaussian_jax,
-    lorentzian_jax,
-    pseudo_voigt_jax,
-)
-
-# Check JAX availability
-if is_jax_available():
-    # Direct JAX lineshape computation
-    result = gaussian_jax(dx, fwhm)
-    result = lorentzian_jax(dx, fwhm)
-    result = pseudo_voigt_jax(dx, fwhm, eta)
-```
-
-### JAX Autodiff Fitting (Advanced)
-
-Use JAX's automatic differentiation for exact gradients and Hessians:
-
-```python
-from peakfit.core.jax_fitting import (
-    is_jax_fitting_available,
-    fit_with_jax_gradients,
-    estimate_parameter_errors,
-    compute_hessian_at_minimum,
-)
-
-if is_jax_fitting_available():
-    # Fit with exact analytical Jacobian (faster convergence)
-    result = fit_with_jax_gradients(
-        params,
-        cluster,
-        noise,
-        max_nfev=1000,
-        ftol=1e-8,
-    )
-    print(f"Success: {result['success']}")
-    print(f"Function evals: {result['nfev']}")
-
-    # Estimate parameter uncertainties using exact Hessian
-    errors = estimate_parameter_errors(params, cluster, noise)
-    for name, std_err in errors.items():
-        print(f"{name}: {params[name].value:.4f} ± {std_err:.4f}")
-
-    # Compute full Hessian matrix for covariance analysis
-    hessian = compute_hessian_at_minimum(params, cluster, noise)
-```
-
-**Why not optax?**
-
-PeakFit uses scipy.optimize.least_squares with JAX gradients rather than optax because:
-- NMR fitting requires **bounded least-squares** optimization
-- Parameters have strict physical bounds (FWHM > 0, 0 ≤ η ≤ 1, etc.)
-- Trust Region Reflective (TRF) algorithm handles bounds natively
-- optax is designed for unbounded gradient descent (neural networks)
-
-The hybrid approach (JAX autodiff + scipy optimizers) combines the best of both worlds.
 
 ### Performance Benchmarking
 

@@ -182,7 +182,7 @@ def fit(
         typer.Option(
             "--backend",
             "-b",
-            help="Computation backend: auto, numpy, numba, jax",
+            help="Computation backend: auto, numpy, numba",
         ),
     ] = "auto",
 ) -> None:
@@ -386,19 +386,6 @@ def info(
     console.print(f"\n[bold]Computation Backends:[/bold]")
     console.print(f"[green]Available:[/green] {', '.join(available_backends)}")
     console.print(f"[green]Recommended:[/green] {best_backend}")
-
-    # Show details for each backend
-    if "jax" in available_backends:
-        try:
-            import jax
-            console.print(f"[green]✓ JAX available:[/green] {jax.__version__}")
-            devices = jax.devices()
-            console.print(f"  Devices: {[str(d) for d in devices]}")
-        except ImportError:
-            pass
-    else:
-        console.print("[yellow]✗ JAX not available[/yellow]")
-        console.print("  Install with: pip install peakfit[jax]")
 
     # Numba status
     opt_info = get_optimization_info()

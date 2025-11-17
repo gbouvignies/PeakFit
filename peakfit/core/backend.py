@@ -1,4 +1,4 @@
-"""Backend registry for computation backends (NumPy, Numba, JAX).
+"""Backend registry for computation backends (NumPy, Numba).
 
 This module provides a centralized way to select and use different computational
 backends for lineshape calculations and fitting.
@@ -19,7 +19,7 @@ def set_backend(backend: str) -> None:
     """Set the global computational backend.
 
     Args:
-        backend: One of "numpy", "numba", or "jax"
+        backend: One of "numpy" or "numba"
 
     Raises:
         ValueError: If backend is not available
@@ -51,62 +51,20 @@ def get_available_backends() -> list[str]:
     except ImportError:
         pass
 
-    try:
-        import jax  # noqa: F401
-
-        backends.append("jax")
-    except ImportError:
-        pass
-
     return backends
 
 
 def get_best_backend() -> str:
     """Get the best available backend.
 
-    Prefers Numba for CPU-only execution (better performance with lower overhead).
-    Only prefers JAX when mature GPU/TPU acceleration is available (CUDA, not Metal).
+    Prefers Numba for optimized JIT-compiled performance.
+    Falls back to NumPy if Numba is not available.
     """
     available = get_available_backends()
 
-    # Check if JAX has stable GPU/TPU available (CUDA only, not Metal which is experimental)
-    if "jax" in available:
-        try:
-            import jax
-
-            devices = jax.devices()
-            # Only prefer JAX if we have CUDA GPUs (not Metal which is experimental)
-            has_cuda = any("cuda" in str(d).lower() for d in devices)
-            if has_cuda:
-                # Verify JAX CUDA actually works with a simple operation
-                try:
-                    import jax.numpy as jnp
-
-                    test_result = jnp.array([1.0]) + jnp.array([1.0])
-                    _ = float(test_result[0])  # Force computation
-                    return "jax"
-                except Exception:
-                    pass  # JAX CUDA not working, fall through
-        except Exception:
-            pass
-
-    # Prefer Numba for CPU-only execution (better performance, lower overhead)
+    # Prefer Numba for CPU execution (best performance)
     if "numba" in available:
         return "numba"
-
-    # JAX on CPU is still faster than pure NumPy for some operations
-    # but avoid JAX Metal (experimental) on macOS
-    if "jax" in available:
-        try:
-            import jax
-
-            devices = jax.devices()
-            # Only use JAX CPU if no Metal devices (which are experimental)
-            has_metal = any("metal" in str(d).lower() for d in devices)
-            if not has_metal:
-                return "jax"
-        except Exception:
-            pass
 
     return "numpy"
 
@@ -148,24 +106,6 @@ def _initialize_backend_functions(backend: str) -> None:
             "no_apod": no_apod_jit,
             "sp1": sp1_jit,
             "sp2": sp2_jit,
-        }
-    elif backend == "jax":
-        from peakfit.core.jax_backend import (
-            gaussian_jax,
-            lorentzian_jax,
-            no_apod_jax,
-            pseudo_voigt_jax,
-            sp1_jax,
-            sp2_jax,
-        )
-
-        _backend_functions = {
-            "gaussian": gaussian_jax,
-            "lorentzian": lorentzian_jax,
-            "pvoigt": pseudo_voigt_jax,
-            "no_apod": no_apod_jax,
-            "sp1": sp1_jax,
-            "sp2": sp2_jax,
         }
 
 
@@ -283,15 +223,5 @@ def print_backend_info() -> str:
         f"Available backends: {get_available_backends()}",
         f"Best backend: {get_best_backend()}",
     ]
-
-    # Check JAX devices if available
-    if _current_backend == "jax":
-        try:
-            import jax
-
-            devices = jax.devices()
-            lines.append(f"JAX devices: {[str(d) for d in devices]}")
-        except Exception:
-            pass
 
     return "\n".join(lines)

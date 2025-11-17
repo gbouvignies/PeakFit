@@ -1,5 +1,6 @@
 """Implementation of the fit command."""
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -27,39 +28,54 @@ from peakfit.peaklist import read_list
 from peakfit.spectra import get_shape_names, read_spectra
 from peakfit.writing import write_profiles, write_shifts
 
-# Import legacy cli module for backwards compatibility
-from peakfit.cli_legacy import Arguments as LegacyArguments
-
 console = Console()
 
 
-def config_to_legacy_args(
+@dataclass
+class FitArguments:
+    """Arguments for fitting process."""
+
+    path_spectra: Path = field(default_factory=Path)
+    path_list: Path = field(default_factory=Path)
+    path_z_values: Path | None = None
+    path_output: Path = field(default_factory=lambda: Path("Fits"))
+    contour_level: float | None = None
+    noise: float = 0.0
+    refine_nb: int = 1
+    fixed: bool = False
+    jx: bool = False
+    phx: bool = False
+    phy: bool = False
+    exclude: list[int] = field(default_factory=list)
+    pvoigt: bool = False
+    lorentzian: bool = False
+    gaussian: bool = False
+
+
+def config_to_fit_args(
     config: PeakFitConfig,
     spectrum_path: Path,
     peaklist_path: Path,
     z_values_path: Path | None,
-) -> LegacyArguments:
-    """Convert modern config to legacy Arguments for backwards compatibility."""
-    args = LegacyArguments()
-    args.path_spectra = spectrum_path
-    args.path_list = peaklist_path
-    args.path_z_values = z_values_path
-    args.contour_level = config.clustering.contour_level
-    args.noise = config.noise_level
-    args.path_output = config.output.directory
-    args.refine_nb = config.fitting.refine_iterations
-    args.fixed = config.fitting.fix_positions
-    args.jx = config.fitting.fit_j_coupling
-    args.phx = config.fitting.fit_phase_x
-    args.phy = config.fitting.fit_phase_y
-    args.exclude = config.exclude_planes
-
-    # Map lineshape to flags
-    args.pvoigt = config.fitting.lineshape == "pvoigt"
-    args.lorentzian = config.fitting.lineshape == "lorentzian"
-    args.gaussian = config.fitting.lineshape == "gaussian"
-
-    return args
+) -> FitArguments:
+    """Convert modern config to FitArguments."""
+    return FitArguments(
+        path_spectra=spectrum_path,
+        path_list=peaklist_path,
+        path_z_values=z_values_path,
+        contour_level=config.clustering.contour_level,
+        noise=config.noise_level,
+        path_output=config.output.directory,
+        refine_nb=config.fitting.refine_iterations,
+        fixed=config.fitting.fix_positions,
+        jx=config.fitting.fit_j_coupling,
+        phx=config.fitting.fit_phase_x,
+        phy=config.fitting.fit_phase_y,
+        exclude=config.exclude_planes,
+        pvoigt=config.fitting.lineshape == "pvoigt",
+        lorentzian=config.fitting.lineshape == "lorentzian",
+        gaussian=config.fitting.lineshape == "gaussian",
+    )
 
 
 def run_fit(
@@ -93,7 +109,7 @@ def run_fit(
     _print_optimization_status()
 
     # Convert to legacy args for compatibility with existing modules
-    clargs = config_to_legacy_args(config, spectrum_path, peaklist_path, z_values_path)
+    clargs = config_to_fit_args(config, spectrum_path, peaklist_path, z_values_path)
 
     # Load data
     with console.status("[bold yellow]Loading spectrum..."):
@@ -159,7 +175,7 @@ def _residual_wrapper(
     return residuals(params, cluster, noise)
 
 
-def _fit_clusters(clargs: LegacyArguments, clusters: list) -> Parameters:
+def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
     """Fit all clusters and return parameters."""
     print_fitting()
     params_all = Parameters()
@@ -206,7 +222,7 @@ def _fit_clusters(clargs: LegacyArguments, clusters: list) -> Parameters:
 
 
 def _fit_clusters_parallel(
-    clargs: LegacyArguments, clusters: list, n_workers: int | None = None
+    clargs: FitArguments, clusters: list, n_workers: int | None = None
 ) -> Parameters:
     """Fit all clusters using parallel processing."""
     from peakfit.core.parallel import fit_clusters_parallel_refined
