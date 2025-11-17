@@ -132,9 +132,9 @@ def fit_clusters_parallel(
 def _optimal_worker_count(n_clusters: int) -> int:
     """Calculate optimal number of workers for parallel fitting.
 
-    Balances parallelism benefits against Numba JIT compilation overhead.
-    Each worker incurs JIT compilation cost (~1-2s with cache, up to 45s without).
-    Too many workers means more compilation overhead than actual work.
+    Balances parallelism benefits against GIL contention overhead.
+    Too many threads = excessive GIL contention, reducing efficiency.
+    Optimal is ~10-16 workers for thread-based parallelism.
 
     Args:
         n_clusters: Number of clusters to fit
@@ -144,17 +144,20 @@ def _optimal_worker_count(n_clusters: int) -> int:
     """
     cpu_count = mp.cpu_count()
 
-    # Aim for at least 5-10 clusters per worker to amortize JIT overhead
-    # With 121 clusters: 121/10 = 12 workers
-    # This also matches the MacBook Pro performance (10 workers, 9.9s)
-    clusters_per_worker = 10
-    optimal = max(1, n_clusters // clusters_per_worker)
+    # For thread-based parallelism, GIL contention limits effective parallelism
+    # Even with Numba GIL release, scipy's Python wrapper still contends
+    # MacBook Pro: 10 workers, 309% CPU = 3.1 effective cores = optimal
+    # Threadripper: 48 workers, 3312% CPU = 33 effective cores = too much contention
 
-    # Cap at CPU count but also at a reasonable maximum
-    # Too many workers = too much JIT compilation overhead
-    max_workers = min(cpu_count, 16)
+    # Optimal is ~8-16 workers regardless of CPU count
+    # More threads = more GIL contention = diminishing returns
+    max_effective_workers = 12
 
-    return min(optimal, max_workers)
+    # But don't use more workers than clusters
+    optimal = min(max_effective_workers, n_clusters)
+
+    # And don't exceed CPU count (though this is rarely the limit)
+    return min(optimal, cpu_count)
 
 
 def fit_clusters_parallel_refined(
@@ -189,8 +192,8 @@ def fit_clusters_parallel_refined(
     from peakfit.core.optimized import prewarm_jit_functions
 
     if n_workers is None:
-        # Use optimal worker count based on CPU count
-        n_workers = min(mp.cpu_count(), len(clusters))
+        # Use optimal worker count to minimize GIL contention
+        n_workers = _optimal_worker_count(len(clusters))
 
     # Pre-warm Numba JIT functions to compile them ONCE before parallelism
     # Threads share the same JIT cache, so this compilation is amortized
