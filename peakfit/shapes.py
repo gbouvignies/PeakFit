@@ -12,7 +12,7 @@ from typing import Protocol, TypeVar
 import numpy as np
 
 from peakfit.cli_legacy import Arguments
-from peakfit.core.fitting import Parameters
+from peakfit.core.fitting import Parameters, ParameterType
 from peakfit.nmrpipe import SpectralParameters
 from peakfit.spectra import Spectra
 from peakfit.typing import FloatArray, IntArray
@@ -239,8 +239,17 @@ class PeakShape(BaseShape):
             value=self.center,
             min=self.center - self.spec_params.hz2ppm(self.FWHM_START),
             max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
+            param_type=ParameterType.POSITION,
+            unit="ppm",
         )
-        params.add(f"{self.prefix}_fwhm", value=self.FWHM_START, min=0.1, max=200.0)
+        params.add(
+            f"{self.prefix}_fwhm",
+            value=self.FWHM_START,
+            min=0.1,
+            max=200.0,
+            param_type=ParameterType.FWHM,
+            unit="Hz",
+        )
         self.param_names = list(params.keys())
         return params
 
@@ -274,7 +283,14 @@ class PseudoVoigt(PeakShape):
     def create_params(self) -> Parameters:
         """Create parameters including eta mixing factor."""
         params = super().create_params()
-        params.add(f"{self.prefix}_eta", value=0.5, min=-1.0, max=1.0)
+        params.add(
+            f"{self.prefix}_eta",
+            value=0.5,
+            min=-1.0,
+            max=1.0,
+            param_type=ParameterType.FRACTION,
+            unit="",
+        )
         self.param_names = list(params.keys())
         return params
 
@@ -303,12 +319,35 @@ class ApodShape(BaseShape):
             value=self.center,
             min=self.center - self.spec_params.hz2ppm(self.FWHM_START),
             max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
+            param_type=ParameterType.POSITION,
+            unit="ppm",
         )
-        params.add(f"{self.prefix}_r2", value=self.R2_START, min=0.1, max=200.0)
+        params.add(
+            f"{self.prefix}_r2",
+            value=self.R2_START,
+            min=0.1,
+            max=200.0,
+            param_type=ParameterType.FWHM,  # R2 is related to linewidth
+            unit="Hz",
+        )
         if self.args.jx and self.spec_params.direct:
-            params.add(f"{self.prefix}_j", value=5.0, min=1.0, max=10.0)
+            params.add(
+                f"{self.prefix}_j",
+                value=5.0,
+                min=1.0,
+                max=10.0,
+                param_type=ParameterType.JCOUPLING,
+                unit="Hz",
+            )
         if (self.args.phx and self.spec_params.direct) or self.args.phy:
-            params.add(f"{self.prefix_phase}p", value=0.0, min=-5.0, max=5.0)
+            params.add(
+                f"{self.prefix_phase}p",
+                value=0.0,
+                min=-5.0,
+                max=5.0,
+                param_type=ParameterType.PHASE,
+                unit="deg",
+            )
         self.param_names = list(params.keys())
         return params
 

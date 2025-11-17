@@ -276,3 +276,144 @@ class TestParameters:
 
         np.testing.assert_array_equal(lower, [0.0, 1.0])
         np.testing.assert_array_equal(upper, [20.0, 100.0])
+
+
+class TestNMRSpecificParameters:
+    """Tests for NMR-specific parameter features."""
+
+    def test_parameter_type_enum(self):
+        """Should have all expected NMR parameter types."""
+        from peakfit.core.fitting import ParameterType
+
+        assert ParameterType.POSITION.value == "position"
+        assert ParameterType.FWHM.value == "fwhm"
+        assert ParameterType.FRACTION.value == "fraction"
+        assert ParameterType.PHASE.value == "phase"
+        assert ParameterType.JCOUPLING.value == "jcoupling"
+        assert ParameterType.AMPLITUDE.value == "amplitude"
+        assert ParameterType.GENERIC.value == "generic"
+
+    def test_parameter_with_type(self):
+        """Should create parameter with NMR type."""
+        from peakfit.core.fitting import Parameter, ParameterType
+
+        param = Parameter(
+            "peak1_fwhm", 25.0, min=0.1, max=200.0, vary=True,
+            param_type=ParameterType.FWHM, unit="Hz"
+        )
+        assert param.param_type == ParameterType.FWHM
+        assert param.unit == "Hz"
+
+    def test_parameter_type_default_bounds_fwhm(self):
+        """Should apply default bounds for FWHM type."""
+        from peakfit.core.fitting import Parameter, ParameterType
+
+        # Only provide value and type - should get default bounds
+        param = Parameter("lw", 25.0, param_type=ParameterType.FWHM)
+        assert param.min == 0.1
+        assert param.max == 200.0
+
+    def test_parameter_type_default_bounds_fraction(self):
+        """Should apply default bounds for FRACTION type."""
+        from peakfit.core.fitting import Parameter, ParameterType
+
+        param = Parameter("eta", 0.5, param_type=ParameterType.FRACTION)
+        assert param.min == 0.0
+        assert param.max == 1.0
+
+    def test_parameter_type_default_bounds_phase(self):
+        """Should apply default bounds for PHASE type."""
+        from peakfit.core.fitting import Parameter, ParameterType
+
+        param = Parameter("ph", 0.0, param_type=ParameterType.PHASE)
+        assert param.min == -180.0
+        assert param.max == 180.0
+
+    def test_parameter_type_default_bounds_jcoupling(self):
+        """Should apply default bounds for JCOUPLING type."""
+        from peakfit.core.fitting import Parameter, ParameterType
+
+        param = Parameter("j", 7.0, param_type=ParameterType.JCOUPLING)
+        assert param.min == 0.0
+        assert param.max == 20.0
+
+    def test_parameter_explicit_bounds_override_defaults(self):
+        """Explicit bounds should override type defaults."""
+        from peakfit.core.fitting import Parameter, ParameterType
+
+        # Explicitly set bounds should be used
+        param = Parameter(
+            "lw", 25.0, min=5.0, max=50.0, param_type=ParameterType.FWHM
+        )
+        assert param.min == 5.0
+        assert param.max == 50.0
+
+    def test_parameters_add_with_type(self):
+        """Should add parameter with type and unit."""
+        from peakfit.core.fitting import Parameters, ParameterType
+
+        params = Parameters()
+        params.add(
+            "peak1_fwhm", value=25.0, min=1.0, max=100.0,
+            param_type=ParameterType.FWHM, unit="Hz"
+        )
+
+        assert params["peak1_fwhm"].param_type == ParameterType.FWHM
+        assert params["peak1_fwhm"].unit == "Hz"
+
+    def test_parameters_copy_preserves_type(self):
+        """Copy should preserve param_type and unit."""
+        from peakfit.core.fitting import Parameters, ParameterType
+
+        original = Parameters()
+        original.add(
+            "x0", value=10.0, param_type=ParameterType.POSITION, unit="ppm"
+        )
+        original.add(
+            "fwhm", value=25.0, param_type=ParameterType.FWHM, unit="Hz"
+        )
+
+        copy = original.copy()
+
+        assert copy["x0"].param_type == ParameterType.POSITION
+        assert copy["x0"].unit == "ppm"
+        assert copy["fwhm"].param_type == ParameterType.FWHM
+        assert copy["fwhm"].unit == "Hz"
+
+    def test_parameter_repr_includes_unit(self):
+        """String representation should include unit."""
+        from peakfit.core.fitting import Parameter, ParameterType
+
+        param = Parameter(
+            "lw", 25.5, min=1.0, max=100.0, param_type=ParameterType.FWHM, unit="Hz"
+        )
+        repr_str = repr(param)
+        assert "Hz" in repr_str
+        assert "lw" in repr_str
+
+    def test_parameter_relative_position(self):
+        """Should calculate relative position within bounds."""
+        from peakfit.core.fitting import Parameter
+
+        # At minimum
+        param1 = Parameter("x", 0.0, min=0.0, max=10.0)
+        assert param1.relative_position() == 0.0
+
+        # At maximum
+        param2 = Parameter("x", 10.0, min=0.0, max=10.0)
+        assert param2.relative_position() == 1.0
+
+        # In middle
+        param3 = Parameter("x", 5.0, min=0.0, max=10.0)
+        assert param3.relative_position() == 0.5
+
+        # At 25%
+        param4 = Parameter("x", 2.5, min=0.0, max=10.0)
+        assert param4.relative_position() == 0.25
+
+    def test_parameter_relative_position_infinite_bounds(self):
+        """Relative position with infinite bounds should return 0.5."""
+        from peakfit.core.fitting import Parameter
+
+        param = Parameter("x", 100.0)  # Default unbounded
+        assert param.relative_position() == 0.5

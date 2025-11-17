@@ -19,18 +19,57 @@ if TYPE_CHECKING:
     from peakfit.clustering import Cluster
 
 
+from enum import Enum
+
+
+class ParameterType(str, Enum):
+    """Types of NMR fitting parameters."""
+
+    POSITION = "position"  # Peak center in points
+    FWHM = "fwhm"  # Full width at half maximum (Hz)
+    FRACTION = "fraction"  # Mixing parameter (0-1)
+    PHASE = "phase"  # Phase correction (degrees)
+    JCOUPLING = "jcoupling"  # J-coupling constant (Hz)
+    AMPLITUDE = "amplitude"  # Peak amplitude
+    GENERIC = "generic"  # Other parameters
+
+
+# Default bounds for NMR parameter types
+_DEFAULT_BOUNDS: dict[ParameterType, tuple[float, float]] = {
+    ParameterType.POSITION: (-np.inf, np.inf),  # Set dynamically from spectrum
+    ParameterType.FWHM: (0.1, 200.0),  # Typical NMR linewidths
+    ParameterType.FRACTION: (0.0, 1.0),  # Mixing fractions
+    ParameterType.PHASE: (-180.0, 180.0),  # Phase in degrees
+    ParameterType.JCOUPLING: (0.0, 20.0),  # Typical J-couplings
+    ParameterType.AMPLITUDE: (0.0, np.inf),  # Positive amplitudes
+    ParameterType.GENERIC: (-np.inf, np.inf),
+}
+
+
 @dataclass
 class Parameter:
-    """Single fitting parameter with bounds."""
+    """Single NMR fitting parameter with bounds and metadata.
+
+    Designed specifically for NMR lineshape fitting with support for
+    different parameter types (position, FWHM, phase, etc.).
+    """
 
     name: str
     value: float
     min: float = -np.inf
     max: float = np.inf
     vary: bool = True
+    param_type: ParameterType = ParameterType.GENERIC
+    unit: str = ""  # Optional unit string (e.g., "Hz", "ppm", "deg")
 
     def __post_init__(self) -> None:
-        """Validate parameter bounds."""
+        """Validate parameter bounds and apply type-specific defaults."""
+        # Apply type-specific defaults if bounds not explicitly set
+        if self.min == -np.inf and self.max == np.inf and self.param_type != ParameterType.GENERIC:
+            default_min, default_max = _DEFAULT_BOUNDS[self.param_type]
+            self.min = default_min
+            self.max = default_max
+
         if self.min > self.max:
             msg = f"Parameter {self.name}: min ({self.min}) > max ({self.max})"
             raise ValueError(msg)
@@ -43,7 +82,8 @@ class Parameter:
         vary_str = "vary" if self.vary else "fixed"
         min_str = f"{self.min:.4g}" if self.min > -1e10 else "-inf"
         max_str = f"{self.max:.4g}" if self.max < 1e10 else "inf"
-        return f"<Parameter {self.name}={self.value:.6g} [{min_str}, {max_str}] ({vary_str})>"
+        unit_str = f" {self.unit}" if self.unit else ""
+        return f"<Parameter {self.name}={self.value:.6g}{unit_str} [{min_str}, {max_str}] ({vary_str})>"
 
     def is_at_boundary(self, tol: float = 1e-6) -> bool:
         """Check if parameter is at or near its boundary.
@@ -57,6 +97,18 @@ class Parameter:
         at_min = abs(self.value - self.min) < tol * (1 + abs(self.value))
         at_max = abs(self.value - self.max) < tol * (1 + abs(self.value))
         return at_min or at_max
+
+    def relative_position(self) -> float:
+        """Get the relative position of value within bounds (0 to 1).
+
+        Returns:
+            0.0 if at min, 1.0 if at max, 0.5 if centered
+        """
+        if self.max == self.min:
+            return 0.5
+        if np.isinf(self.min) or np.isinf(self.max):
+            return 0.5
+        return (self.value - self.min) / (self.max - self.min)
 
 
 @dataclass
@@ -72,9 +124,21 @@ class Parameters:
         min: float = -np.inf,  # noqa: A002
         max: float = np.inf,  # noqa: A002
         vary: bool = True,
+        param_type: ParameterType = ParameterType.GENERIC,
+        unit: str = "",
     ) -> None:
-        """Add a parameter."""
-        self._params[name] = Parameter(name, value, min, max, vary)
+        """Add a parameter.
+
+        Args:
+            name: Parameter name
+            value: Initial value
+            min: Lower bound
+            max: Upper bound
+            vary: Whether parameter varies during fitting
+            param_type: Type of NMR parameter (affects default bounds)
+            unit: Unit string (e.g., "Hz", "ppm", "deg")
+        """
+        self._params[name] = Parameter(name, value, min, max, vary, param_type, unit)
 
     def __getitem__(self, key: str) -> Parameter:
         """Get parameter by name."""
@@ -117,7 +181,10 @@ class Parameters:
         """Create a copy of parameters."""
         new_params = Parameters()
         for name, param in self._params.items():
-            new_params.add(name, param.value, param.min, param.max, param.vary)
+            new_params.add(
+                name, param.value, param.min, param.max, param.vary,
+                param.param_type, param.unit
+            )
         return new_params
 
     def get_vary_names(self) -> list[str]:
