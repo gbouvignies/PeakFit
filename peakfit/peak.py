@@ -5,6 +5,7 @@ functions for creating fitting parameters.
 """
 
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -15,21 +16,25 @@ from peakfit.spectra import Spectra
 from peakfit.typing import FloatArray, IntArray
 
 
+@dataclass
 class Peak:
-    """Represents a single NMR peak with its shapes in each dimension."""
+    """Represents a single NMR peak with its shapes in each dimension.
 
-    def __init__(self, name: str, positions: FloatArray, shapes: list[Shape]) -> None:
-        """Initialize peak.
+    Attributes:
+        name: Peak identifier
+        positions: Peak positions in ppm for each dimension
+        shapes: List of Shape objects for each dimension
+        positions_start: Initial positions (set automatically)
+    """
 
-        Args:
-            name: Peak identifier
-            positions: Peak positions in ppm for each dimension
-            shapes: List of Shape objects for each dimension
-        """
-        self.name = name
-        self.positions = positions
-        self.positions_start = positions.copy()
-        self.shapes = shapes
+    name: str
+    positions: FloatArray
+    shapes: list[Shape]
+    positions_start: FloatArray = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Initialize derived fields after dataclass construction."""
+        self.positions_start = self.positions.copy()
 
     def set_cluster_id(self, cluster_id: int) -> None:
         """Set cluster ID for all shapes.

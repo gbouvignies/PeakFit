@@ -55,19 +55,20 @@ def read_spectra(
     spectra = Spectra(dic, data, z_values)
     spectra.exclude_planes(exclude_list)
 
-    return Spectra(dic, data, z_values)
+    return spectra
 
 
 def get_shape_names(clargs: Arguments, spectra: Spectra) -> list[str]:
     """Determine the shape names for fitting based on command line arguments or spectral parameters."""
-    if clargs.pvoigt:
-        shape = "pvoigt"
-    elif clargs.lorentzian:
-        shape = "lorentzian"
-    elif clargs.gaussian:
-        shape = "gaussian"
-    else:
-        return [determine_shape_name(param) for param in spectra.params[1:]]
+    match (clargs.pvoigt, clargs.lorentzian, clargs.gaussian):
+        case (True, _, _):
+            shape = "pvoigt"
+        case (_, True, _):
+            shape = "lorentzian"
+        case (_, _, True):
+            shape = "gaussian"
+        case _:
+            return [determine_shape_name(param) for param in spectra.params[1:]]
 
     return [shape] * (spectra.data.ndim - 1)
 

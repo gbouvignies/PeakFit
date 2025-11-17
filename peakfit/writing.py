@@ -37,11 +37,22 @@ def write_profiles(
 def print_heights(
     z_values: np.ndarray, heights: FloatArray, height_err: FloatArray
 ) -> str:
-    """Print the heights and errors."""
+    """Print the heights and errors.
+
+    Raises:
+        ValueError: If array lengths don't match
+    """
+    if not (len(z_values) == len(heights) == len(height_err)):
+        msg = (
+            f"Array length mismatch: z_values={len(z_values)}, "
+            f"heights={len(heights)}, height_err={len(height_err)}"
+        )
+        raise ValueError(msg)
+
     result = f"# {'Z':>10s}  {'I':>14s}  {'I_err':>14s}\n"
     result += "\n".join(
         f"  {z!s:>10s}  {ampl:14.6e}  {ampl_e:14.6e}"
-        for z, ampl, ampl_e in zip(z_values, heights, height_err, strict=False)
+        for z, ampl, ampl_e in zip(z_values, heights, height_err, strict=True)
     )
     return result
 
@@ -65,10 +76,9 @@ def write_profile(
 def write_shifts(peaks: list[Peak], params: Parameters, file_shifts: Path) -> None:
     """Write the shifts to the output file."""
     print_writing_shifts()
-    shifts = {peak.name: peak.positions for peak in peaks}
     with file_shifts.open("w") as f:
         for peak in peaks:
             peak.update_positions(params)
             name = peak.name
-            shifts = " ".join(f"{position:10.5f}" for position in peak.positions)
-            f.write(f"{name:>15s} {shifts}\n")
+            positions_str = " ".join(f"{position:10.5f}" for position in peak.positions)
+            f.write(f"{name:>15s} {positions_str}\n")

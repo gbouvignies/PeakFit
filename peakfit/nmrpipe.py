@@ -109,20 +109,3 @@ def read_spectral_parameters(
         )
 
     return spec_params
-
-
-# def calculate_acquisition_time(
-#     dic: dict[str, Any], fdf: str, size: int, *, is_direct: bool
-# ) -> float:
-#     if dic.get(f"{fdf}FTSIZE", 0.0) == 0.0:
-#         return 0.0
-
-#     aq_time = dic[f"{fdf}TDSIZE"] / dic[f"{fdf}SW"] * size / dic[f"{fdf}FTSIZE"]
-
-#     if is_direct:
-#         aq_time *= 1.0 - dic.get("FDDMXVAL", 0.0) / dic[f"{fdf}TDSIZE"]
-
-#     correction_factor = 1.0 if dic.get(f"{fdf}APODCODE", 0.0) == 1.0 else 0.5
-#     aq_time *= 1.0 - correction_factor / dic[f"{fdf}TDSIZE"]
-
-#     return aq_time
