@@ -75,6 +75,40 @@ if _jax_available:
         return (1.0 - eta) * g + eta * l
 
     @_jit
+    def _no_apod_jax(
+        dx: "jnp.ndarray", r2: float, aq: float, phase: float = 0.0
+    ) -> "jnp.ndarray":
+        """JAX-compiled non-apodized lineshape."""
+        z1 = aq * (1j * dx + r2)
+        spec = aq * (1.0 - _jnp.exp(-z1)) / z1
+        return (spec * _jnp.exp(1j * _jnp.deg2rad(phase))).real
+
+    @_jit
+    def _sp1_jax(
+        dx: "jnp.ndarray", r2: float, aq: float, end: float, off: float, phase: float = 0.0
+    ) -> "jnp.ndarray":
+        """JAX-compiled SP1 apodization lineshape."""
+        z1 = aq * (1j * dx + r2)
+        f1, f2 = 1j * off * _jnp.pi, 1j * (end - off) * _jnp.pi
+        a1 = (_jnp.exp(+f2) - _jnp.exp(+z1)) * _jnp.exp(-z1 + f1) / (2 * (z1 - f2))
+        a2 = (_jnp.exp(+z1) - _jnp.exp(-f2)) * _jnp.exp(-z1 - f1) / (2 * (z1 + f2))
+        spec = 1j * aq * (a1 + a2)
+        return (spec * _jnp.exp(1j * _jnp.deg2rad(phase))).real
+
+    @_jit
+    def _sp2_jax(
+        dx: "jnp.ndarray", r2: float, aq: float, end: float, off: float, phase: float = 0.0
+    ) -> "jnp.ndarray":
+        """JAX-compiled SP2 apodization lineshape."""
+        z1 = aq * (1j * dx + r2)
+        f1, f2 = 1j * off * _jnp.pi, 1j * (end - off) * _jnp.pi
+        a1 = (_jnp.exp(+2 * f2) - _jnp.exp(z1)) * _jnp.exp(-z1 + 2 * f1) / (4 * (z1 - 2 * f2))
+        a2 = (_jnp.exp(-2 * f2) - _jnp.exp(z1)) * _jnp.exp(-z1 - 2 * f1) / (4 * (z1 + 2 * f2))
+        a3 = (1.0 - _jnp.exp(-z1)) / (2 * z1)
+        spec = aq * (a1 + a2 + a3)
+        return (spec * _jnp.exp(1j * _jnp.deg2rad(phase))).real
+
+    @_jit
     def _residuals_jax(
         params_array: "jnp.ndarray",
         x_grid: "jnp.ndarray",
@@ -192,6 +226,30 @@ def pseudo_voigt_jax(
     """Pseudo-Voigt lineshape using JAX backend."""
     _require_jax()
     return np.asarray(_pseudo_voigt_jax(_jnp.asarray(dx), fwhm, eta))
+
+
+def no_apod_jax(
+    dx: FloatArray, r2: float, aq: float, phase: float = 0.0
+) -> FloatArray:
+    """Non-apodized lineshape using JAX backend."""
+    _require_jax()
+    return np.asarray(_no_apod_jax(_jnp.asarray(dx), r2, aq, phase))
+
+
+def sp1_jax(
+    dx: FloatArray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
+) -> FloatArray:
+    """SP1 apodization lineshape using JAX backend."""
+    _require_jax()
+    return np.asarray(_sp1_jax(_jnp.asarray(dx), r2, aq, end, off, phase))
+
+
+def sp2_jax(
+    dx: FloatArray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
+) -> FloatArray:
+    """SP2 apodization lineshape using JAX backend."""
+    _require_jax()
+    return np.asarray(_sp2_jax(_jnp.asarray(dx), r2, aq, end, off, phase))
 
 
 # Backend selection

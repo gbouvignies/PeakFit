@@ -32,7 +32,10 @@ from peakfit.core.backend import (
     get_backend,
     get_gaussian_func,
     get_lorentzian_func,
+    get_no_apod_func,
     get_pvoigt_func,
+    get_sp1_func,
+    get_sp2_func,
 )
 
 T = TypeVar("T")
@@ -340,6 +343,7 @@ class ApodShape(BaseShape):
     R2_START = 20.0
     FWHM_START = 25.0
     shape_func: Callable
+    shape_name: str = "no_apod"  # Override in subclasses
 
     def create_params(self) -> Parameters:
         """Create parameters for apodization shape."""
@@ -381,6 +385,14 @@ class ApodShape(BaseShape):
         self.param_names = list(params.keys())
         return params
 
+    def _get_shape_func(self) -> Callable:
+        """Get the shape function from backend registry."""
+        if self.shape_name == "sp1":
+            return get_sp1_func()
+        if self.shape_name == "sp2":
+            return get_sp2_func()
+        return get_no_apod_func()
+
     def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
         """Evaluate apodization shape at given points."""
         parvalues = params.valuesdict()
@@ -398,13 +410,16 @@ class ApodShape(BaseShape):
         )
         dx_rads = dx_rads + j_rads
 
+        # Get the shape function from backend registry
+        func = self._get_shape_func()
+
         shape_args = (r2, self.spec_params.aq_time)
-        if self.shape_func in (sp1, sp2, sp1_jit, sp2_jit):
+        if self.shape_name in ("sp1", "sp2"):
             shape_args += (self.spec_params.apodq2, self.spec_params.apodq1)
         shape_args += (p0,)
 
-        norm = np.sum(self.shape_func(j_rads, *shape_args), axis=0)
-        shape = np.sum(self.shape_func(dx_rads, *shape_args), axis=0)
+        norm = np.sum(func(j_rads, *shape_args), axis=0)
+        shape = np.sum(func(dx_rads, *shape_args), axis=0)
 
         return sign[x_pt] * shape[x_pt] / norm
 
@@ -414,6 +429,7 @@ class NoApod(ApodShape):
     """Non-apodized lineshape."""
 
     shape_func = staticmethod(no_apod_jit)
+    shape_name = "no_apod"
 
 
 @register_shape("sp1")
@@ -421,6 +437,7 @@ class SP1(ApodShape):
     """SP1 apodization lineshape."""
 
     shape_func = staticmethod(sp1_jit)
+    shape_name = "sp1"
 
 
 @register_shape("sp2")
@@ -428,3 +445,4 @@ class SP2(ApodShape):
     """SP2 apodization lineshape."""
 
     shape_func = staticmethod(sp2_jit)
+    shape_name = "sp2"

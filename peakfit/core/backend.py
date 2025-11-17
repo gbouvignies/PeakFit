@@ -87,26 +87,45 @@ def _initialize_backend_functions(backend: str) -> None:
             "gaussian": _gaussian_numpy,
             "lorentzian": _lorentzian_numpy,
             "pvoigt": _pvoigt_numpy,
+            "no_apod": _no_apod_numpy,
+            "sp1": _sp1_numpy,
+            "sp2": _sp2_numpy,
         }
     elif backend == "numba":
-        from peakfit.core.optimized import gaussian_jit, lorentzian_jit, pvoigt_jit
+        from peakfit.core.optimized import (
+            gaussian_jit,
+            lorentzian_jit,
+            no_apod_jit,
+            pvoigt_jit,
+            sp1_jit,
+            sp2_jit,
+        )
 
         _backend_functions = {
             "gaussian": gaussian_jit,
             "lorentzian": lorentzian_jit,
             "pvoigt": pvoigt_jit,
+            "no_apod": no_apod_jit,
+            "sp1": sp1_jit,
+            "sp2": sp2_jit,
         }
     elif backend == "jax":
         from peakfit.core.jax_backend import (
             gaussian_jax,
             lorentzian_jax,
+            no_apod_jax,
             pseudo_voigt_jax,
+            sp1_jax,
+            sp2_jax,
         )
 
         _backend_functions = {
             "gaussian": gaussian_jax,
             "lorentzian": lorentzian_jax,
             "pvoigt": pseudo_voigt_jax,
+            "no_apod": no_apod_jax,
+            "sp1": sp1_jax,
+            "sp2": sp2_jax,
         }
 
 
@@ -126,6 +145,40 @@ def _pvoigt_numpy(dx: FloatArray, fwhm: float, eta: float) -> FloatArray:
     return (1.0 - eta) * _gaussian_numpy(dx, fwhm) + eta * _lorentzian_numpy(dx, fwhm)
 
 
+def _no_apod_numpy(
+    dx: FloatArray, r2: float, aq: float, phase: float = 0.0
+) -> FloatArray:
+    """Pure NumPy non-apodized lineshape."""
+    z1 = aq * (1j * dx + r2)
+    spec = aq * (1.0 - np.exp(-z1)) / z1
+    return (spec * np.exp(1j * np.deg2rad(phase))).real
+
+
+def _sp1_numpy(
+    dx: FloatArray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
+) -> FloatArray:
+    """Pure NumPy SP1 apodization lineshape."""
+    z1 = aq * (1j * dx + r2)
+    f1, f2 = 1j * off * np.pi, 1j * (end - off) * np.pi
+    a1 = (np.exp(+f2) - np.exp(+z1)) * np.exp(-z1 + f1) / (2 * (z1 - f2))
+    a2 = (np.exp(+z1) - np.exp(-f2)) * np.exp(-z1 - f1) / (2 * (z1 + f2))
+    spec = 1j * aq * (a1 + a2)
+    return (spec * np.exp(1j * np.deg2rad(phase))).real
+
+
+def _sp2_numpy(
+    dx: FloatArray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
+) -> FloatArray:
+    """Pure NumPy SP2 apodization lineshape."""
+    z1 = aq * (1j * dx + r2)
+    f1, f2 = 1j * off * np.pi, 1j * (end - off) * np.pi
+    a1 = (np.exp(+2 * f2) - np.exp(z1)) * np.exp(-z1 + 2 * f1) / (4 * (z1 - 2 * f2))
+    a2 = (np.exp(-2 * f2) - np.exp(z1)) * np.exp(-z1 - 2 * f1) / (4 * (z1 + 2 * f2))
+    a3 = (1.0 - np.exp(-z1)) / (2 * z1)
+    spec = aq * (a1 + a2 + a3)
+    return (spec * np.exp(1j * np.deg2rad(phase))).real
+
+
 # Public API for getting backend-specific functions
 def get_gaussian_func():
     """Get current backend's Gaussian function."""
@@ -140,6 +193,21 @@ def get_lorentzian_func():
 def get_pvoigt_func():
     """Get current backend's Pseudo-Voigt function."""
     return _backend_functions.get("pvoigt", _pvoigt_numpy)
+
+
+def get_no_apod_func():
+    """Get current backend's non-apodized lineshape function."""
+    return _backend_functions.get("no_apod", _no_apod_numpy)
+
+
+def get_sp1_func():
+    """Get current backend's SP1 apodization function."""
+    return _backend_functions.get("sp1", _sp1_numpy)
+
+
+def get_sp2_func():
+    """Get current backend's SP2 apodization function."""
+    return _backend_functions.get("sp2", _sp2_numpy)
 
 
 # Initialize with best available backend on import
