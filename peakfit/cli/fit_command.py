@@ -86,7 +86,7 @@ def run_fit(
     print_logo()
 
     # Initialize computation backend
-    _initialize_backend(backend)
+    _initialize_backend(backend, parallel=parallel)
 
     # Show optimization status
     _print_optimization_status()
@@ -249,13 +249,33 @@ def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
     )
 
 
-def _initialize_backend(backend: str) -> None:
-    """Initialize the computation backend."""
+def _initialize_backend(backend: str, parallel: bool = False) -> None:
+    """Initialize the computation backend.
+
+    Args:
+        backend: Requested backend (auto, numpy, numba, jax)
+        parallel: Whether parallel mode is enabled
+    """
     from peakfit.core.backend import (
         auto_select_backend,
         get_available_backends,
         set_backend,
     )
+
+    # JAX is incompatible with multiprocessing due to GPU device conflicts
+    # When parallel mode is enabled, force numba or numpy backend
+    if parallel and backend in ("auto", "jax"):
+        available = get_available_backends()
+        if "numba" in available:
+            backend = "numba"
+            console.print(
+                "[yellow]⚠ Parallel mode: Using numba backend (JAX incompatible with multiprocessing)[/yellow]"
+            )
+        else:
+            backend = "numpy"
+            console.print(
+                "[yellow]⚠ Parallel mode: Using numpy backend (JAX incompatible with multiprocessing)[/yellow]"
+            )
 
     if backend == "auto":
         selected = auto_select_backend()
@@ -266,7 +286,7 @@ def _initialize_backend(backend: str) -> None:
             console.print(
                 f"[red]Backend '{backend}' not available. Available: {available}[/red]"
             )
-            console.print(f"[yellow]Falling back to auto-selection...[/yellow]")
+            console.print("[yellow]Falling back to auto-selection...[/yellow]")
             selected = auto_select_backend()
             console.print(f"[green]✓ Using backend:[/green] {selected}")
         else:
