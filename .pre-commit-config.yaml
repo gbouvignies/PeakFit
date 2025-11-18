@@ -25,4 +25,4 @@ repos:
           - types-setuptools>=75.0
         args: [--no-error-summary]
         pass_filenames: false
-        entry: mypy peakfit/
+        entry: mypy src/peakfit/
