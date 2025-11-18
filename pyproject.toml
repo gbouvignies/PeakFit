@@ -1,3 +1,5 @@
+#:tombi schema.strict = false
+
 [project]
 name = "PeakFit"
 version = "2025.11.0"
