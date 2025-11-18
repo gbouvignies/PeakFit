@@ -11,47 +11,6 @@ from rich.console import Console
 console = Console()
 
 
-def run_plot(
-    results: Path,
-    spectrum: Path | None,
-    output: Path | None,
-    show: bool,
-    plot_type: str,
-    ref_points: list[int] | None = None,
-    time_t2: float | None = None,
-) -> None:
-    """Run the plotting command.
-
-    Args:
-        results: Path to results directory or file.
-        spectrum: Optional path to spectrum for overlay.
-        output: Optional output file path.
-        show: Whether to display plots interactively.
-        plot_type: Type of plot to generate.
-        ref_points: Reference points for CEST plots.
-        time_t2: T2 time for CPMG plots (seconds).
-    """
-    console.print(f"[bold]Generating {plot_type} plots...[/bold]\n")
-
-    if plot_type == "intensity":
-        _plot_intensity(results, output, show)
-    elif plot_type == "cest":
-        _plot_cest(results, output, show, ref_points or [-1])
-    elif plot_type == "cpmg":
-        if time_t2 is None:
-            console.print("[red]Error:[/red] --time-t2 is required for CPMG plots")
-            raise SystemExit(1)
-        _plot_cpmg(results, output, show, time_t2)
-    elif plot_type == "spectra":
-        if spectrum is None:
-            console.print("[red]Error:[/red] --spectrum is required for spectra plots")
-            raise SystemExit(1)
-        _plot_spectra(results, spectrum, show)
-    else:
-        console.print(f"[red]Error:[/red] Unknown plot type: {plot_type}")
-        raise SystemExit(1)
-
-
 def _get_result_files(results: Path, extension: str = "*.out") -> list[Path]:
     """Get result files from path."""
     if results.is_dir():
@@ -90,8 +49,10 @@ def _make_intensity_figure(name: str, data: np.ndarray) -> Figure:
     return fig
 
 
-def _plot_intensity(results: Path, output: Path | None, show: bool) -> None:
+def plot_intensity_profiles(results: Path, output: Path | None, show: bool) -> None:
     """Generate intensity profile plots."""
+    console.print("[bold]Generating intensity profile plots...[/bold]\n")
+
     files = _get_result_files(results, "*.out")
     if not files:
         return
@@ -138,8 +99,10 @@ def _make_cest_figure(name: str, offset: np.ndarray, intensity: np.ndarray, erro
     return fig
 
 
-def _plot_cest(results: Path, output: Path | None, show: bool, ref_points: list[int]) -> None:
+def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_points: list[int]) -> None:
     """Generate CEST plots."""
+    console.print("[bold]Generating CEST profile plots...[/bold]\n")
+
     files = _get_result_files(results, "*.out")
     if not files:
         return
@@ -235,8 +198,10 @@ def _make_cpmg_figure(
     return fig
 
 
-def _plot_cpmg(results: Path, output: Path | None, show: bool, time_t2: float) -> None:
+def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: float) -> None:
     """Generate CPMG relaxation dispersion plots."""
+    console.print("[bold]Generating CPMG relaxation dispersion plots...[/bold]\n")
+
     files = _get_result_files(results, "*.out")
     if not files:
         return
@@ -304,7 +269,7 @@ def _plot_cpmg(results: Path, output: Path | None, show: bool, time_t2: float) -
 # ==================== SPECTRA VIEWER ====================
 
 
-def _plot_spectra(results: Path, spectrum: Path, show: bool) -> None:
+def plot_spectra_viewer(results: Path, spectrum: Path) -> None:
     """Launch interactive spectra viewer (PyQt5)."""
     console.print("[green]Launching interactive spectra viewer...[/green]")
 

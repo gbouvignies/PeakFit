@@ -73,6 +73,12 @@ class TestPlottingCLI:
         assert "cpmg" in result.output
         assert "spectra" in result.output
 
+    def test_plot_intensity_help(self, runner, app):
+        """Test plot intensity subcommand help."""
+        result = runner.invoke(app, ["plot", "intensity", "--help"])
+        assert result.exit_code == 0
+        assert "intensity profile" in result.output.lower()
+
     def test_plot_intensity_dry_run(self, runner, app, mock_intensity_data, tmp_path):
         """Test intensity plotting (without actually creating plots)."""
         output_file = tmp_path / "test_plots.pdf"
@@ -80,8 +86,8 @@ class TestPlottingCLI:
         # This will try to plot, but we're just checking it doesn't crash
         result = runner.invoke(app, [
             "plot",
+            "intensity",
             str(mock_intensity_data.parent),
-            "--type", "intensity",
             "--output", str(output_file),
         ])
 
@@ -93,8 +99,8 @@ class TestPlottingCLI:
         nonexistent = tmp_path / "nonexistent"
         result = runner.invoke(app, [
             "plot",
+            "cest",
             str(nonexistent),
-            "--type", "cest",
         ])
         # Should fail because path doesn't exist
         assert result.exit_code != 0
@@ -103,33 +109,32 @@ class TestPlottingCLI:
         """Test CPMG plotting requires --time-t2."""
         result = runner.invoke(app, [
             "plot",
+            "cpmg",
             str(mock_cpmg_data.parent),
-            "--type", "cpmg",
         ])
         # Should show error about missing --time-t2
-        assert result.exit_code == 1
-        assert "time-t2" in result.output.lower() or "t2" in result.output.lower()
+        assert result.exit_code != 0
+        assert "time-t2" in result.output.lower() or "time_t2" in result.output.lower() or "missing" in result.output.lower()
 
     def test_plot_spectra_requires_spectrum(self, runner, app, tmp_path):
         """Test spectra plotting requires --spectrum."""
         result = runner.invoke(app, [
             "plot",
+            "spectra",
             str(tmp_path),
-            "--type", "spectra",
         ])
         # Should show error about missing spectrum
-        assert result.exit_code == 1
-        assert "spectrum" in result.output.lower()
+        assert result.exit_code != 0
+        assert "spectrum" in result.output.lower() or "missing" in result.output.lower()
 
-    def test_plot_type_validation(self, runner, app, tmp_path):
-        """Test plot type validation."""
+    def test_plot_invalid_subcommand(self, runner, app, tmp_path):
+        """Test invalid plot subcommand."""
         result = runner.invoke(app, [
             "plot",
+            "invalid_type",
             str(tmp_path),
-            "--type", "invalid_type",
         ])
-        # Should fail with unknown plot type
-        # Note: might fail earlier due to tmp_path being empty
+        # Should fail with unknown subcommand
         assert result.exit_code != 0
 
 
@@ -139,17 +144,17 @@ class TestPlottingFunctions:
     def test_import_plot_command(self):
         """Test that plot_command module imports successfully."""
         from peakfit.cli import plot_command
-        assert hasattr(plot_command, 'run_plot')
+        assert hasattr(plot_command, 'plot_intensity_profiles')
 
     def test_plot_command_has_all_functions(self):
         """Test that all plot types have implementations."""
         from peakfit.cli import plot_command
 
-        # Check private functions exist
-        assert hasattr(plot_command, '_plot_intensity')
-        assert hasattr(plot_command, '_plot_cest')
-        assert hasattr(plot_command, '_plot_cpmg')
-        assert hasattr(plot_command, '_plot_spectra')
+        # Check public functions exist
+        assert hasattr(plot_command, 'plot_intensity_profiles')
+        assert hasattr(plot_command, 'plot_cest_profiles')
+        assert hasattr(plot_command, 'plot_cpmg_profiles')
+        assert hasattr(plot_command, 'plot_spectra_viewer')
 
     def test_ncyc_to_nu_cpmg_conversion(self):
         """Test CPMG ncyc to nu_CPMG conversion."""

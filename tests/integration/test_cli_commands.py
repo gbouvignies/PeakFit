@@ -107,12 +107,13 @@ class TestCLICommands:
         assert "--z-values" in result.output
 
     def test_plot_command_help(self, runner, app):
-        """plot --help should show plot options."""
+        """plot --help should show plot subcommands."""
         result = runner.invoke(app, ["plot", "--help"])
         assert result.exit_code == 0
-        assert "--type" in result.output
-        assert "--output" in result.output
-        assert "--show" in result.output
+        assert "intensity" in result.output
+        assert "cest" in result.output
+        assert "cpmg" in result.output
+        assert "spectra" in result.output
 
 
 class TestCLIFitOptions:

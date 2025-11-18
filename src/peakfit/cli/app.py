@@ -316,33 +316,27 @@ def init(
     console.print(f"[green]Created configuration file:[/green] {path}")
 
 
-@app.command()
-def plot(
+# Create a subapp for plot commands
+plot_app = typer.Typer(help="Generate plots from fitting results", no_args_is_help=True)
+app.add_typer(plot_app, name="plot")
+
+
+@plot_app.command("intensity")
+def plot_intensity(
     results: Annotated[
         Path,
         typer.Argument(
-            help="Path to results directory or specific result file",
+            help="Path to results directory or result file",
             exists=True,
             resolve_path=True,
         ),
     ],
-    spectrum: Annotated[
-        Path | None,
-        typer.Option(
-            "--spectrum",
-            "-s",
-            help="Path to original spectrum for overlay (required for spectra type)",
-            exists=True,
-            dir_okay=False,
-            resolve_path=True,
-        ),
-    ] = None,
     output: Annotated[
         Path | None,
         typer.Option(
             "--output",
             "-o",
-            help="Output file for plots (PDF)",
+            help="Output PDF file (default: intensity_profiles.pdf)",
             dir_okay=False,
             resolve_path=True,
         ),
@@ -354,43 +348,152 @@ def plot(
             help="Display plots interactively",
         ),
     ] = False,
-    plot_type: Annotated[
-        str,
-        typer.Option(
-            "--type",
-            "-t",
-            help="Plot type: intensity, cest, cpmg, spectra",
+) -> None:
+    """Plot intensity profiles vs. plane index.
+
+    Examples:
+      peakfit plot intensity Fits/ --output plots.pdf
+      peakfit plot intensity Fits/ --show
+    """
+    from peakfit.cli.plot_command import plot_intensity_profiles
+
+    plot_intensity_profiles(results, output, show)
+
+
+@plot_app.command("cest")
+def plot_cest(
+    results: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to results directory or result file",
+            exists=True,
+            resolve_path=True,
         ),
-    ] = "intensity",
+    ],
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output PDF file (default: cest_profiles.pdf)",
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    show: Annotated[
+        bool,
+        typer.Option(
+            "--show/--no-show",
+            help="Display plots interactively",
+        ),
+    ] = False,
     ref: Annotated[
         list[int] | None,
         typer.Option(
             "--ref",
-            help="Reference points for CEST plots (default: auto-detect high offsets)",
-        ),
-    ] = None,
-    time_t2: Annotated[
-        float | None,
-        typer.Option(
-            "--time-t2",
-            help="T2 relaxation time for CPMG plots (seconds, required for cpmg type)",
+            "-r",
+            help="Reference point indices (default: auto-detect using |offset| >= 10 kHz)",
         ),
     ] = None,
 ) -> None:
-    """Generate plots from fitting results.
+    """Plot CEST profiles (normalized intensity vs. B1 offset).
 
-    Create publication-quality figures showing fitted intensities, CEST profiles,
-    CPMG relaxation dispersions, or interactive spectra overlays.
+    By default, reference points are automatically detected as points with
+    |offset| >= 10 kHz. Use --ref to manually specify indices.
 
     Examples:
-      peakfit plot Fits/ --type intensity --output plots.pdf
-      peakfit plot Fits/ --type cest --ref 0 1 2
-      peakfit plot Fits/ --type cpmg --time-t2 0.04
-      peakfit plot Fits/ --type spectra --spectrum data.ft2 --show
+      peakfit plot cest Fits/                    # Auto-detect reference
+      peakfit plot cest Fits/ --ref 0 1 2        # Manual reference points
+      peakfit plot cest Fits/ --output cest.pdf --show
     """
-    from peakfit.cli.plot_command import run_plot
+    from peakfit.cli.plot_command import plot_cest_profiles
 
-    run_plot(results, spectrum, output, show, plot_type, ref, time_t2)
+    plot_cest_profiles(results, output, show, ref or [-1])
+
+
+@plot_app.command("cpmg")
+def plot_cpmg(
+    results: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to results directory or result file",
+            exists=True,
+            resolve_path=True,
+        ),
+    ],
+    time_t2: Annotated[
+        float,
+        typer.Option(
+            "--time-t2",
+            "-t",
+            help="T2 relaxation time in seconds (required)",
+        ),
+    ],
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output PDF file (default: cpmg_profiles.pdf)",
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    show: Annotated[
+        bool,
+        typer.Option(
+            "--show/--no-show",
+            help="Display plots interactively",
+        ),
+    ] = False,
+) -> None:
+    """Plot CPMG relaxation dispersion (R2eff vs. νCPMG).
+
+    Converts CPMG cycle counts to frequencies and intensities to effective
+    relaxation rates (R2eff) using the specified T2 time.
+
+    Examples:
+      peakfit plot cpmg Fits/ --time-t2 0.04
+      peakfit plot cpmg Fits/ --time-t2 0.04 --output cpmg.pdf --show
+    """
+    from peakfit.cli.plot_command import plot_cpmg_profiles
+
+    plot_cpmg_profiles(results, output, show, time_t2)
+
+
+@plot_app.command("spectra")
+def plot_spectra(
+    results: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to results directory",
+            exists=True,
+            resolve_path=True,
+        ),
+    ],
+    spectrum: Annotated[
+        Path,
+        typer.Option(
+            "--spectrum",
+            "-s",
+            help="Path to experimental spectrum for overlay (required)",
+            exists=True,
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ],
+) -> None:
+    """Launch interactive spectra viewer (PyQt5).
+
+    Displays experimental and simulated spectra side-by-side with interactive
+    plane selection and zooming.
+
+    Example:
+      peakfit plot spectra Fits/ --spectrum data.ft2
+    """
+    from peakfit.cli.plot_command import plot_spectra_viewer
+
+    plot_spectra_viewer(results, spectrum)
 
 
 @app.command()
