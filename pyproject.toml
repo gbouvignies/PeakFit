@@ -1,5 +1,6 @@
 [project]
 name = "PeakFit"
+version = "0.3.0"
 description = "PeakFit allow for lineshape fitting in pseudo-3D NMR spectra."
 authors = [
     { name = "Guillaume Bouvignies", email = "guillaume.bouvignies@ens.psl.eu" },
@@ -24,7 +25,6 @@ dependencies = [
 requires-python = ">=3.13"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
-dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = [
@@ -47,11 +47,11 @@ peakfit = "peakfit.cli.app:app"
 peakfit-plot = "peakfit.plotting.main:main"
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.9.10,<0.10.0"]
+build-backend = "uv_build"
 
-[tool.hatch.version]
-source = "vcs"
+[tool.uv.build-backend]
+module-root = ""
 
 [tool.ruff]
 line-length = 100

@@ -53,42 +53,44 @@ If you are proposing a feature:
 Get Started!
 ------------
 
-Ready to contribute? Here's how to set up chemex for local development.
+Ready to contribute? Here's how to set up PeakFit for local development.
 
-1.  Fork the chemex repo on GitHub.
+1.  Fork the PeakFit repo on GitHub.
+
 2.  Clone your fork locally:
 
-        $ git clone git@github.com:your_name_here/chemex.git
+        $ git clone git@github.com:your_name_here/PeakFit.git
 
-3.  Install your local copy into a virtualenv. Assuming you have
-    virtualenvwrapper installed, this is how you set up your fork for
-    local development:
+3.  Install uv if you haven't already:
 
-        $ mkvirtualenv chemex
-        $ cd chemex/
-        $ python setup.py develop
+        $ curl -LsSf https://astral.sh/uv/install.sh | sh
 
-4.  Create a branch for local development:
+4.  Set up your local development environment:
+
+        $ cd PeakFit/
+        $ uv sync --all-extras
+
+5.  Create a branch for local development:
 
         $ git checkout -b name-of-your-bugfix-or-feature
 
     Now you can make your changes locally.
 
-5.  When you're done making changes, check that your changes pass flake8
-    and the tests:
+6.  When you're done making changes, check that your changes pass linting,
+    type checking, and tests:
 
-        $ flake8 chemex tests
-        $ python setup.py test or py.test
+        $ uv run ruff check peakfit/
+        $ uv run ruff format peakfit/
+        $ uv run mypy peakfit/
+        $ uv run pytest
 
-    To get flake8, just pip install them into your conda env.
-
-6.  Commit your changes and push your branch to GitHub:
+7.  Commit your changes and push your branch to GitHub:
 
         $ git add .
         $ git commit -m "Your detailed description of your changes."
         $ git push origin name-of-your-bugfix-or-feature
 
-7.  Submit a pull request through the GitHub website.
+8.  Submit a pull request through the GitHub website.
 
 Pull Request Guidelines
 -----------------------
@@ -99,13 +101,20 @@ Before you submit a pull request, check that it meets these guidelines:
 2.  If the pull request adds functionality, the docs should be updated.
     Put your new functionality into a function with a docstring, and add
     the feature to the list in README.md.
-3.  The pull request should work for Python 3.6 and 3.7. Check
-    <https://travis-ci.org/gbouvignies/chemex/pull_requests> and make
-    sure that the tests pass for all supported Python versions.
+3.  The pull request should work for Python 3.13+. Check GitHub Actions
+    CI results and make sure that the tests pass.
 
 Tips
 ----
 
 To run a subset of tests:
 
-    $ py.test tests.test_chemex
+    $ uv run pytest tests/unit/test_lineshapes.py
+
+To run tests with coverage:
+
+    $ uv run pytest --cov=peakfit --cov-report=html
+
+To build the package locally:
+
+    $ uv build

@@ -1,6 +1,8 @@
 from importlib import metadata
 
+__version__ = "0.3.0"
+
 try:
     __version__ = metadata.version(__name__)
 except metadata.PackageNotFoundError:
-    __version__ = "0.0.0.dev0"  # Fallback for development
+    pass  # Use the hardcoded version above

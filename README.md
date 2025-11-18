@@ -14,28 +14,53 @@ Modern lineshape fitting for pseudo-3D NMR spectra.
 
 ## Installation
 
-```bash
-# Using pip
-pip install peakfit
+### Using uv (recommended)
 
-# Using uv (recommended)
+[uv](https://docs.astral.sh/uv/) is a fast Python package and project manager. Install it first:
+
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Then install PeakFit:
+
+```bash
+# Install PeakFit
 uv pip install peakfit
 
-# For development
+# Or create a new project with PeakFit
+uv init my-project
+cd my-project
+uv add peakfit
+```
+
+### Using pip
+
+```bash
+pip install peakfit
+```
+
+### Development Installation
+
+```bash
 git clone https://github.com/gbouvignies/PeakFit.git
 cd PeakFit
-uv pip install -e ".[dev]"
+uv sync --all-extras  # Install all dependencies including dev tools
 ```
 
 ### Optional Performance Backends
 
 ```bash
-# Numba JIT compilation (recommended)
-pip install peakfit[performance]
-# or
-uv pip install peakfit[performance]
+# Using uv
+uv pip install peakfit[performance]  # Numba JIT compilation
+uv pip install peakfit[all]          # All performance backends
 
-# All performance backends
+# Using pip
+pip install peakfit[performance]
 pip install peakfit[all]
 ```
 
@@ -282,13 +307,12 @@ peakfit info
 Install optional performance dependencies for faster lineshape calculations:
 
 ```bash
-# Install with Numba JIT compilation support
+# Using uv
+uv pip install peakfit[performance]  # Numba JIT compilation
+uv pip install peakfit[all]          # All optional dependencies
+
+# Using pip
 pip install peakfit[performance]
-
-# Or install numba directly
-pip install numba
-
-# Install all optional dependencies
 pip install peakfit[all]
 ```
 
@@ -313,33 +337,56 @@ peakfit fit spectrum.ft2 peaks.list --noise 100.0
 
 ## Development
 
+### Setup Development Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/gbouvignies/PeakFit.git
+cd PeakFit
+
+# Install with all dependencies (recommended)
+uv sync --all-extras
+
+# Or install development dependencies only
+uv sync --extra dev
+```
+
 ### Running Tests
 
 ```bash
-# Install development dependencies
-uv pip install -e ".[dev]"
-
 # Run all tests
-pytest
+uv run pytest
 
 # Run with coverage
-pytest --cov=peakfit --cov-report=html
+uv run pytest --cov=peakfit --cov-report=html
 
 # Run specific test file
-pytest tests/unit/test_lineshapes.py
+uv run pytest tests/unit/test_lineshapes.py
 ```
 
 ### Code Quality
 
 ```bash
 # Linting with Ruff
-ruff check peakfit/
+uv run ruff check peakfit/
 
 # Type checking
-mypy peakfit/
+uv run mypy peakfit/
 
 # Format code
-ruff format peakfit/
+uv run ruff format peakfit/
+
+# Run pre-commit hooks
+uv run pre-commit run --all-files
+```
+
+### Building the Package
+
+```bash
+# Build wheel and source distribution
+uv build
+
+# Build artifacts are in dist/
 ```
 
 ### Project Structure
