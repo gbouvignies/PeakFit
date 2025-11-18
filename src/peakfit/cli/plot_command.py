@@ -45,10 +45,7 @@ def _plot_intensity(results: Path, output: Path | None, show: bool) -> None:
     """Generate intensity profile plots."""
     from peakfit.plotting.plots.intensity import print_plotting
 
-    if results.is_dir():
-        files = list(results.glob("*.out"))
-    else:
-        files = [results]
+    files = list(results.glob("*.out")) if results.is_dir() else [results]
 
     if not files:
         console.print("[yellow]Warning:[/yellow] No result files found")
@@ -83,9 +80,9 @@ def _plot_spectra(results: Path, spectrum: Path, show: bool) -> None:
     console.print("[yellow]Launching interactive spectra viewer...[/yellow]")
 
     # Import and launch the PyQt5 viewer
-    from peakfit.plotting.plots.spectra import main as spectra_main
-
     import sys
+
+    from peakfit.plotting.plots.spectra import main as spectra_main
 
     sys.argv = ["peakfit", str(spectrum)]
     if results.is_dir():

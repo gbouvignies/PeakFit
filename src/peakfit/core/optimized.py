@@ -7,8 +7,6 @@ Otherwise, pure NumPy implementations are used.
 
 import numpy as np
 
-from peakfit.typing import FloatArray
-
 # Try to import numba for JIT compilation
 try:
     from numba import jit

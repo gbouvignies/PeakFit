@@ -4,7 +4,6 @@ This module provides a faster alternative to lmfit by using scipy.optimize.least
 directly, reducing overhead and improving performance.
 """
 
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -12,9 +11,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy.optimize import least_squares
 
-from peakfit.typing import FloatArray
-
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from peakfit.clustering import Cluster
 
 

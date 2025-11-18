@@ -82,7 +82,7 @@ def run_mcmc(
             raise SystemExit(1)
         console.print(f"[yellow]Analyzing {len(clusters)} cluster(s) for peaks: {peaks}[/yellow]")
 
-    console.print(f"\n[bold]Running MCMC uncertainty estimation[/bold]")
+    console.print("\n[bold]Running MCMC uncertainty estimation[/bold]")
     console.print(f"  Walkers: {n_walkers}")
     console.print(f"  Steps: {n_steps}")
     console.print(f"  Burn-in: {burn_in}")
@@ -149,7 +149,7 @@ def run_mcmc(
 
     # Update .out files with new uncertainties
     _update_output_files(results_dir, params, all_peaks)
-    console.print(f"[green]Updated output files with MCMC uncertainties[/green]")
+    console.print("[green]Updated output files with MCMC uncertainties[/green]")
 
 
 def run_profile_likelihood(
@@ -222,7 +222,7 @@ def run_profile_likelihood(
     best_value = cluster_params[param_name].value
     covar_stderr = cluster_params[param_name].stderr
 
-    console.print(f"\n[bold]Results:[/bold]")
+    console.print("\n[bold]Results:[/bold]")
     console.print(f"  Best-fit value: {best_value:.6f}")
     console.print(f"  Covariance stderr: {covar_stderr:.6f}")
     console.print(f"  Profile {confidence_level*100:.0f}% CI: [{ci_low:.6f}, {ci_high:.6f}]")
@@ -268,7 +268,7 @@ def run_correlation(results_dir: Path, output_file: Path | None = None) -> None:
         console.print("[yellow]Not enough varying parameters for correlation analysis[/yellow]")
         return
 
-    console.print(f"\n[bold]Parameter Correlation Analysis[/bold]")
+    console.print("\n[bold]Parameter Correlation Analysis[/bold]")
     console.print(f"  Parameters: {len(vary_names)}")
 
     # For now, just show parameter summary
@@ -381,7 +381,7 @@ def _plot_profile_likelihood(
     try:
         import matplotlib.pyplot as plt
 
-        fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+        _fig, ax = plt.subplots(1, 1, figsize=(8, 6))
 
         # Plot chi-squared curve
         ax.plot(param_vals, chi2_vals, "b-", linewidth=2, label="Profile")

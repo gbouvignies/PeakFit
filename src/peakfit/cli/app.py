@@ -406,7 +406,7 @@ def info(
     available_backends = get_available_backends()
     best_backend = get_best_backend()
 
-    console.print(f"\n[bold]Computation Backends:[/bold]")
+    console.print("\n[bold]Computation Backends:[/bold]")
     console.print(f"[green]Available:[/green] {', '.join(available_backends)}")
     console.print(f"[green]Recommended:[/green] {best_backend}")
 
@@ -485,7 +485,7 @@ def _run_benchmark(numba_available: bool) -> None:
     jit_time = time.perf_counter() - start
 
     speedup = numpy_time / jit_time if jit_time > 0 else 1.0
-    console.print(f"\n  [cyan]Gaussian:[/cyan]")
+    console.print("\n  [cyan]Gaussian:[/cyan]")
     console.print(f"    NumPy:     {numpy_time:.3f}s")
     console.print(f"    Optimized: {jit_time:.3f}s")
     if numba_available:
@@ -503,7 +503,7 @@ def _run_benchmark(numba_available: bool) -> None:
     jit_time = time.perf_counter() - start
 
     speedup = numpy_time / jit_time if jit_time > 0 else 1.0
-    console.print(f"\n  [cyan]Lorentzian:[/cyan]")
+    console.print("\n  [cyan]Lorentzian:[/cyan]")
     console.print(f"    NumPy:     {numpy_time:.3f}s")
     console.print(f"    Optimized: {jit_time:.3f}s")
     if numba_available:
@@ -521,7 +521,7 @@ def _run_benchmark(numba_available: bool) -> None:
     jit_time = time.perf_counter() - start
 
     speedup = numpy_time / jit_time if jit_time > 0 else 1.0
-    console.print(f"\n  [cyan]Pseudo-Voigt:[/cyan]")
+    console.print("\n  [cyan]Pseudo-Voigt:[/cyan]")
     console.print(f"    NumPy:     {numpy_time:.3f}s")
     console.print(f"    Optimized: {jit_time:.3f}s")
     if numba_available:
@@ -728,7 +728,6 @@ def benchmark(
     from peakfit.cli.fit_command import FitArguments
     from peakfit.clustering import create_clusters
     from peakfit.core.fast_fit import fit_clusters_fast
-    from peakfit.core.models import PeakFitConfig
     from peakfit.core.parallel import fit_clusters_parallel_refined
     from peakfit.noise import prepare_noise_level
     from peakfit.peaklist import read_list
@@ -775,7 +774,7 @@ def benchmark(
 
     # Benchmark fast sequential
     times_fast = []
-    for i in range(iterations):
+    for _i in range(iterations):
         start = time.perf_counter()
         fit_clusters_fast(
             clusters=list(clusters),
@@ -799,7 +798,7 @@ def benchmark(
         n_workers = mp.cpu_count()
 
         times_parallel = []
-        for i in range(iterations):
+        for _i in range(iterations):
             start = time.perf_counter()
             fit_clusters_parallel_refined(
                 clusters=clusters,

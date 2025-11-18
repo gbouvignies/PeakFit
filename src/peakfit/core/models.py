@@ -3,8 +3,7 @@
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class FitConfig(BaseModel):

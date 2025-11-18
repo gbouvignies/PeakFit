@@ -11,8 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from peakfit.typing import FloatArray
-
 if TYPE_CHECKING:
     from peakfit.clustering import Cluster
     from peakfit.core.fitting import Parameters
@@ -220,12 +218,9 @@ def compare_backends_report(
     sorted_results = sorted(results.items(), key=lambda x: x[1].mean_time)
 
     # Find baseline (fastest)
-    if sorted_results:
-        baseline_time = sorted_results[0][1].mean_time
-    else:
-        baseline_time = 1.0
+    baseline_time = sorted_results[0][1].mean_time if sorted_results else 1.0
 
-    for name, result in sorted_results:
+    for _name, result in sorted_results:
         speedup = baseline_time / result.mean_time if result.mean_time > 0 else 0
         lines.append(f"{result.name:30s}")
         lines.append(f"  Mean time:    {result.mean_time*1000:10.3f} ms")

@@ -25,7 +25,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path) -> None:
     # Validate spectrum file
     console.print(f"[yellow]Checking spectrum:[/yellow] {spectrum_path}")
     try:
-        dic, data = ng.pipe.read(str(spectrum_path))
+        _dic, data = ng.pipe.read(str(spectrum_path))
         info["spectrum_shape"] = data.shape
         info["spectrum_ndim"] = data.ndim
 
@@ -102,8 +102,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path) -> None:
             console.print(f"  - {error}")
         console.print("\n[red]Validation failed![/red]")
         raise SystemExit(1)
-    else:
-        console.print("\n[green]Validation passed![/green]")
+    console.print("\n[green]Validation passed![/green]")
 
 
 def _read_sparky_list(path: Path) -> list[dict]:
@@ -112,7 +111,7 @@ def _read_sparky_list(path: Path) -> list[dict]:
     with path.open() as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith("#") or line.startswith("Assignment"):
+            if not line or line.startswith(("#", "Assignment")):
                 continue
             parts = line.split()
             if len(parts) >= 3:

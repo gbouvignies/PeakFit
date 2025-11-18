@@ -4,14 +4,14 @@ Provides global optimization algorithms and improved uncertainty estimation
 beyond basic least-squares fitting.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy import optimize
 
 from peakfit.computing import residuals
-from peakfit.core.fitting import FitResult, Parameters
+from peakfit.core.fitting import Parameters
 from peakfit.typing import FloatArray
 
 if TYPE_CHECKING:

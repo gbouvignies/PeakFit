@@ -9,11 +9,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from peakfit.typing import FittingOptions
 from peakfit.core.fitting import Parameters
 from peakfit.shapes import SHAPES, Shape
 from peakfit.spectra import Spectra
-from peakfit.typing import FloatArray, IntArray
+from peakfit.typing import FittingOptions, FloatArray, IntArray
 
 
 @dataclass

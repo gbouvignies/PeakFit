@@ -1,10 +1,9 @@
 import numpy as np
 from scipy.optimize import curve_fit
 
-from peakfit.typing import FittingOptions
 from peakfit.messages import print_estimated_noise
 from peakfit.spectra import Spectra
-from peakfit.typing import FloatArray
+from peakfit.typing import FittingOptions, FloatArray
 
 
 def prepare_noise_level(clargs: FittingOptions, spectra: Spectra) -> float:

@@ -83,7 +83,7 @@ class Profiler:
         self._current_name: str = ""
 
     @contextmanager
-    def timer(self, name: str, count: int = 1, **metadata: Any):
+    def timer(self, name: str, count: int = 1, **metadata: object) -> "Generator[None, None, None]":
         """Context manager for timing a block of code.
 
         Args:
@@ -109,7 +109,7 @@ class Profiler:
         self._current_name = name
         self._current_timer = time.perf_counter()
 
-    def stop(self, count: int = 1, **metadata: Any) -> float:
+    def stop(self, count: int = 1, **metadata: object) -> float:
         """Stop timing and record the result.
 
         Args:
@@ -149,6 +149,7 @@ def compare_fitting_methods(
     clusters: list,
     noise: float,
     refine_iterations: int = 1,
+    *,
     fixed: bool = False,
     n_workers: int | None = None,
 ) -> dict[str, ProfileReport]:
@@ -164,8 +165,6 @@ def compare_fitting_methods(
     Returns:
         Dictionary mapping method name to ProfileReport
     """
-    import multiprocessing as mp
-
     from peakfit.core.fast_fit import fit_clusters_fast
     from peakfit.core.parallel import fit_clusters_parallel_refined
 
@@ -224,8 +223,6 @@ def estimate_optimal_workers(
     Returns:
         Tuple of (optimal_workers, timings_dict)
     """
-    import multiprocessing as mp
-
     from peakfit.core.parallel import fit_clusters_parallel_refined
 
     if max_workers is None:

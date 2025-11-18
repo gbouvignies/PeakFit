@@ -51,7 +51,7 @@ class SpectralParameters:
         return ((hz / self.obs) - self.first) / self.delta
 
     def hz2pt_i(self, hz: float) -> int:
-        return int(round(self.hz2pts(hz))) % self.size
+        return round(self.hz2pts(hz)) % self.size
 
     def pts2hz(self, pts: T) -> T:
         return (pts * self.delta + self.first) * self.obs
@@ -60,7 +60,7 @@ class SpectralParameters:
         return (ppm - self.first) / self.delta
 
     def ppm2pt_i(self, ppm: float) -> int:
-        return int(round(self.ppm2pts(ppm))) % self.size
+        return round(self.ppm2pts(ppm)) % self.size
 
     def pts2ppm(self, pts: T) -> T:
         return (pts * self.delta) + self.first

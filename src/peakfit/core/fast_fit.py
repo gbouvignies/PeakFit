@@ -24,13 +24,11 @@ from peakfit.peak import create_params
 class FastFitError(Exception):
     """Exception raised for errors in fast fitting."""
 
-    pass
 
 
 class ConvergenceWarning(UserWarning):
     """Warning for convergence issues."""
 
-    pass
 
 
 def params_to_arrays(params: Parameters) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
@@ -311,9 +309,9 @@ def fit_clusters_fast(
     for iteration in range(refine_iterations + 1):
         if verbose:
             if iteration == 0:
-                print(f"Fitting {len(clusters)} clusters...")
+                pass
             else:
-                print(f"Refinement iteration {iteration}/{refine_iterations}...")
+                pass
 
         # Update corrections if not first iteration
         if iteration > 0:
@@ -321,7 +319,7 @@ def fit_clusters_fast(
 
         # Fit all clusters sequentially
         successes = 0
-        for i, cluster in enumerate(clusters):
+        for _i, cluster in enumerate(clusters):
             result = fit_cluster_dict(cluster, noise, fixed, params_dict)
 
             if result["success"]:
@@ -345,7 +343,7 @@ def fit_clusters_fast(
                     params_all[name].stderr = param_info["stderr"]
 
         if verbose:
-            print(f"  {successes}/{len(clusters)} clusters converged")
+            pass
 
     return params_all
 

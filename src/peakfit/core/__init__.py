@@ -10,10 +10,10 @@ from peakfit.core.models import (
 )
 
 __all__ = [
-    "FitConfig",
     "ClusterConfig",
-    "OutputConfig",
-    "PeakFitConfig",
-    "PeakData",
+    "FitConfig",
     "FitResult",
+    "OutputConfig",
+    "PeakData",
+    "PeakFitConfig",
 ]

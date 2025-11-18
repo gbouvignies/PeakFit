@@ -251,12 +251,6 @@ def fit_clusters_parallel_refined(
     # This prevents OpenBLAS/MKL from spawning threads that fight with Python threads
     with threadpool_limits(limits=1, user_api="blas"):
         for iteration in range(refine_iterations + 1):
-            if verbose:
-                if iteration == 0:
-                    print(f"Fitting {len(clusters)} clusters with {n_workers} workers...")
-                else:
-                    print(f"Refinement iteration {iteration}/{refine_iterations}...")
-
             # Update corrections if not first iteration
             if iteration > 0:
                 update_cluster_corrections(params_all, clusters)
@@ -296,9 +290,5 @@ def fit_clusters_parallel_refined(
                     # Propagate standard errors from fitting
                     if "stderr" in param_info and param_info["stderr"] is not None:
                         params_all[name].stderr = param_info["stderr"]
-
-            if verbose:
-                successes = sum(1 for r in results if r["success"])
-                print(f"  {successes}/{len(results)} clusters converged")
 
     return params_all

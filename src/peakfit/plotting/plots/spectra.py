@@ -78,7 +78,8 @@ class NMRData:
             )
             data = data.reshape(1, *data.shape)
         else:
-            raise ValueError(f"Unsupported data dimensionality: {data.ndim}")
+            msg = f"Unsupported data dimensionality: {data.ndim}"
+            raise ValueError(msg)
 
         return data, uc_x.ppm_limits(), uc_y.ppm_limits()
 
@@ -298,7 +299,7 @@ class SpectraViewer(QMainWindow):
             self._update_contour_level
         )
         for key, checkbox in self.control_widget.checkboxes.items():
-            checkbox.stateChanged.connect(lambda state, k=key: self._toggle_spectrum(k))
+            checkbox.stateChanged.connect(lambda _state, k=key: self._toggle_spectrum(k))
 
     def _create_status_bar(self) -> None:
         self.statusbar = QStatusBar()
@@ -345,7 +346,7 @@ class SpectraViewer(QMainWindow):
         ].isChecked()
         self.update_view()
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: "QResizeEvent") -> None:  # noqa: N802
         super().resizeEvent(event)
         self.plot_widget.figure.tight_layout()
         self.plot_widget.canvas.draw_idle()

@@ -1,13 +1,10 @@
 """Configuration file loading and saving."""
 
-import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
+import tomli_w
 
 from peakfit.core.models import PeakFitConfig
 
@@ -42,12 +39,10 @@ def save_config(config: PeakFitConfig, path: Path) -> None:
         config: Configuration object to save.
         path: Path where to save the TOML file.
     """
-    import tomli_w
-
     data = config.model_dump(mode="json", exclude_none=True)
 
     # Convert Path objects to strings
-    def convert_paths(obj: Any) -> Any:
+    def convert_paths(obj: object) -> object:
         if isinstance(obj, dict):
             return {k: convert_paths(v) for k, v in obj.items()}
         if isinstance(obj, list):
@@ -68,7 +63,7 @@ def generate_default_config() -> str:
     Returns:
         str: TOML-formatted default configuration.
     """
-    return '''# PeakFit Configuration File
+    return """# PeakFit Configuration File
 # Generated automatically - edit as needed
 
 [fitting]
@@ -94,4 +89,4 @@ save_html_report = true
 # Optional settings
 # noise_level = 100.0  # Uncomment to set manual noise level
 # exclude_planes = []  # List of plane indices to exclude
-'''
+"""

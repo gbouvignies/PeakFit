@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from scipy.optimize import least_squares
 from threadpoolctl import threadpool_limits
 
@@ -102,8 +101,6 @@ def run_fit(
         optimizer: Optimization algorithm (leastsq, basin-hopping, differential-evolution).
         save_state: Whether to save fitting state for later analysis.
     """
-    import multiprocessing as mp
-
     print_logo()
 
     # Initialize computation backend
@@ -178,7 +175,7 @@ def run_fit(
 
     if config.output.save_simulated:
         _write_spectra(config.output.directory, spectra, clusters, params)
-        console.print(f"[green]Written simulated spectrum[/green]")
+        console.print("[green]Written simulated spectrum[/green]")
 
     # Save fitting state for later analysis
     if save_state:
@@ -269,7 +266,7 @@ def _fit_clusters_parallel(
 
     console.print("[yellow]Parallel fitting with refinement...[/yellow]")
 
-    params = fit_clusters_parallel_refined(
+    return fit_clusters_parallel_refined(
         clusters=clusters,
         noise=clargs.noise,
         refine_iterations=clargs.refine_nb,
@@ -278,7 +275,6 @@ def _fit_clusters_parallel(
         verbose=True,
     )
 
-    return params
 
 
 def _fit_clusters_global(

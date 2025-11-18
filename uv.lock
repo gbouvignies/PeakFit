@@ -616,7 +616,7 @@ wheels = [
 
 [[package]]
 name = "peakfit"
-version = "0.3.0"
+version = "2025.11.0"
 source = { editable = "." }
 dependencies = [
     { name = "emcee" },
@@ -637,9 +637,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-all = [
-    { name = "numba" },
-]
 dev = [
     { name = "mypy" },
     { name = "pre-commit" },
@@ -659,7 +656,6 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "networkx", specifier = ">=3.3" },
     { name = "nmrglue", specifier = ">=0.10" },
-    { name = "numba", marker = "extra == 'all'", specifier = ">=0.60.0" },
     { name = "numba", marker = "extra == 'performance'", specifier = ">=0.60.0" },
     { name = "numdifftools", specifier = ">=0.9.41" },
     { name = "numpy", specifier = ">=2.2.0" },
@@ -678,7 +674,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.9.0" },
     { name = "types-setuptools", marker = "extra == 'dev'", specifier = ">=75.0" },
 ]
-provides-extras = ["dev", "performance", "all"]
+provides-extras = ["dev", "performance"]
 
 [[package]]
 name = "pillow"

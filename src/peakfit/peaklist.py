@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from peakfit.typing import FittingOptions
 from peakfit.peak import Peak, create_peak
 from peakfit.spectra import Spectra
+from peakfit.typing import FittingOptions
 
 Reader = Callable[[Path, Spectra, list[str], FittingOptions], list[Peak]]
 

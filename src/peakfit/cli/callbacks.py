@@ -12,4 +12,4 @@ def version_callback(value: bool | None) -> None:
 
         console = Console()
         console.print(f"[bold]PeakFit[/bold] version {__version__}")
-        raise typer.Exit()
+        raise typer.Exit

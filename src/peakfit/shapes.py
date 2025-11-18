@@ -11,25 +11,8 @@ from typing import Protocol, TypeVar
 
 import numpy as np
 
-from peakfit.typing import FittingOptions
-from peakfit.core.fitting import Parameters, ParameterType
-from peakfit.nmrpipe import SpectralParameters
-from peakfit.spectra import Spectra
-from peakfit.typing import FloatArray, IntArray
-
-# Import optimized lineshape functions (JIT-compiled if Numba available)
-from peakfit.core.optimized import (
-    gaussian_jit,
-    lorentzian_jit,
-    no_apod_jit,
-    pvoigt_jit,
-    sp1_jit,
-    sp2_jit,
-)
-
 # Import backend registry for dynamic backend selection
 from peakfit.core.backend import (
-    get_backend,
     get_gaussian_func,
     get_lorentzian_func,
     get_no_apod_func,
@@ -37,6 +20,19 @@ from peakfit.core.backend import (
     get_sp1_func,
     get_sp2_func,
 )
+from peakfit.core.fitting import Parameters, ParameterType
+
+# Import optimized lineshape functions (JIT-compiled if Numba available)
+from peakfit.core.optimized import (
+    gaussian_jit,
+    lorentzian_jit,
+    no_apod_jit,
+    sp1_jit,
+    sp2_jit,
+)
+from peakfit.nmrpipe import SpectralParameters
+from peakfit.spectra import Spectra
+from peakfit.typing import FittingOptions, FloatArray, IntArray
 
 T = TypeVar("T")
 

@@ -88,7 +88,7 @@ def simulate_data(
     """
     amplitudes_list: list[FloatArray] = []
     for cluster in clusters:
-        shapes, amplitudes = calculate_shape_heights(params, cluster)
+        _shapes, amplitudes = calculate_shape_heights(params, cluster)
         amplitudes_list.append(amplitudes)
     amplitudes = np.concatenate(amplitudes_list)
     cluster_all = Cluster.from_clusters(clusters)

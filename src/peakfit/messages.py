@@ -110,7 +110,7 @@ def print_cluster_summary(cluster_index: int, total_clusters: int, peak_names: l
     )
 
 
-def print_fitting_progress(current: int, total: int, cluster_name: str = "") -> None:
+def print_fitting_progress(current: int, total: int) -> None:
     """Print fitting progress."""
     percentage = (current / total) * 100 if total > 0 else 0
     bar_width = 30
