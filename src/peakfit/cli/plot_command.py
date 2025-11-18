@@ -69,13 +69,10 @@ def _get_result_files(results: Path, extension: str = "*.out") -> list[Path]:
     return files
 
 
-def _save_figures_to_pdf(figures: dict[str, Figure], output_path: Path) -> None:
-    """Save all figures to a single PDF file."""
-    console.print(f"[green]Saving plots to:[/green] {output_path}")
-    with PdfPages(output_path) as pdf:
-        for fig in figures.values():
-            pdf.savefig(fig)
-            plt.close(fig)
+def _save_figure_to_pdf(pdf: PdfPages, fig: Figure) -> None:
+    """Save a single figure to PDF and close it."""
+    pdf.savefig(fig)
+    plt.close(fig)
 
 
 # ==================== INTENSITY PLOTTING ====================
@@ -99,22 +96,30 @@ def _plot_intensity(results: Path, output: Path | None, show: bool) -> None:
     if not files:
         return
 
-    figures = {}
-    for file in files:
-        try:
-            data = np.genfromtxt(file, dtype=None, names=("xlabel", "intensity", "error"))
-            figures[file.stem] = _make_intensity_figure(file.stem, data)
-        except Exception as e:
-            console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
+    output_path = output or Path("intensity_profiles.pdf")
+    console.print(f"[green]Saving plots to:[/green] {output_path}")
 
-    if figures:
-        output_path = output or Path("intensity_profiles.pdf")
-        _save_figures_to_pdf(figures, output_path)
+    figures_for_display = [] if show else None
 
-        if show:
-            for fig in figures.values():
-                fig.show()
-            plt.show()
+    with PdfPages(output_path) as pdf:
+        for file in files:
+            try:
+                data = np.genfromtxt(file, dtype=None, names=("xlabel", "intensity", "error"))
+                fig = _make_intensity_figure(file.stem, data)
+                _save_figure_to_pdf(pdf, fig)
+
+                if show:
+                    # Keep figure for display (recreate to avoid closed figure)
+                    fig_display = _make_intensity_figure(file.stem, data)
+                    figures_for_display.append(fig_display)
+
+            except Exception as e:
+                console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
+
+    if show and figures_for_display:
+        for fig in figures_for_display:
+            fig.show()
+        plt.show()
 
 
 # ==================== CEST PLOTTING ====================
@@ -140,46 +145,53 @@ def _plot_cest(results: Path, output: Path | None, show: bool, ref_points: list[
         return
 
     THRESHOLD = 1e4  # Threshold for automatic reference selection
+    output_path = output or Path("cest_profiles.pdf")
+    console.print(f"[green]Saving plots to:[/green] {output_path}")
 
-    figures = {}
-    for file in files:
-        try:
-            offset, intensity, error = np.loadtxt(file, unpack=True)
+    figures_for_display = [] if show else None
+    plot_data_for_display = [] if show else None
 
-            # Determine reference points
-            if ref_points == [-1]:
-                # Automatic: use points with |offset| >= threshold
-                ref = np.abs(offset) >= THRESHOLD
-            else:
-                # Manual: use specified indices
-                ref = np.zeros_like(offset, dtype=bool)
-                for idx in ref_points:
-                    if 0 <= idx < len(offset):
-                        ref[idx] = True
+    with PdfPages(output_path) as pdf:
+        for file in files:
+            try:
+                offset, intensity, error = np.loadtxt(file, unpack=True)
 
-            if not np.any(ref):
-                console.print(f"[yellow]Warning:[/yellow] No reference points found for {file.name}")
-                continue
+                # Determine reference points
+                if ref_points == [-1]:
+                    # Automatic: use points with |offset| >= threshold
+                    ref = np.abs(offset) >= THRESHOLD
+                else:
+                    # Manual: use specified indices
+                    ref = np.zeros_like(offset, dtype=bool)
+                    for idx in ref_points:
+                        if 0 <= idx < len(offset):
+                            ref[idx] = True
 
-            # Normalize by reference intensity
-            intensity_ref = np.mean(intensity[ref])
-            offset_norm = offset[~ref]
-            intensity_norm = intensity[~ref] / intensity_ref
-            error_norm = error[~ref] / np.abs(intensity_ref)
+                if not np.any(ref):
+                    console.print(f"[yellow]Warning:[/yellow] No reference points found for {file.name}")
+                    continue
 
-            figures[file.stem] = _make_cest_figure(file.stem, offset_norm, intensity_norm, error_norm)
+                # Normalize by reference intensity
+                intensity_ref = np.mean(intensity[ref])
+                offset_norm = offset[~ref]
+                intensity_norm = intensity[~ref] / intensity_ref
+                error_norm = error[~ref] / np.abs(intensity_ref)
 
-        except Exception as e:
-            console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
+                fig = _make_cest_figure(file.stem, offset_norm, intensity_norm, error_norm)
+                _save_figure_to_pdf(pdf, fig)
 
-    if figures:
-        output_path = output or Path("cest_profiles.pdf")
-        _save_figures_to_pdf(figures, output_path)
+                if show:
+                    # Store data for recreating figure later
+                    plot_data_for_display.append((file.stem, offset_norm, intensity_norm, error_norm))
 
-        if show:
-            for fig in figures.values():
-                fig.show()
-            plt.show()
+            except Exception as e:
+                console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
+
+    if show and plot_data_for_display:
+        for name, offset_norm, intensity_norm, error_norm in plot_data_for_display:
+            fig = _make_cest_figure(name, offset_norm, intensity_norm, error_norm)
+            fig.show()
+        plt.show()
 
 
 # ==================== CPMG PLOTTING ====================
@@ -229,57 +241,64 @@ def _plot_cpmg(results: Path, output: Path | None, show: bool, time_t2: float) -
     if not files:
         return
 
-    figures = {}
-    for file in files:
-        try:
-            data = np.loadtxt(
-                file,
-                dtype={"names": ("ncyc", "intensity", "error"), "formats": ("i4", "f8", "f8")},
-            )
+    output_path = output or Path("cpmg_profiles.pdf")
+    console.print(f"[green]Saving plots to:[/green] {output_path}")
 
-            # Separate reference (ncyc=0) and CPMG data
-            data_ref = data[data["ncyc"] == 0]
-            data_cpmg = data[data["ncyc"] != 0]
+    plot_data_for_display = [] if show else None
 
-            if len(data_ref) == 0:
-                console.print(f"[yellow]Warning:[/yellow] No reference point (ncyc=0) in {file.name}")
-                continue
+    with PdfPages(output_path) as pdf:
+        for file in files:
+            try:
+                data = np.loadtxt(
+                    file,
+                    dtype={"names": ("ncyc", "intensity", "error"), "formats": ("i4", "f8", "f8")},
+                )
 
-            # Calculate reference intensity
-            intensity_ref = float(np.mean(data_ref["intensity"]))
-            error_ref = np.mean(data_ref["error"]) / np.sqrt(len(data_ref))
+                # Separate reference (ncyc=0) and CPMG data
+                data_ref = data[data["ncyc"] == 0]
+                data_cpmg = data[data["ncyc"] != 0]
 
-            # Convert to CPMG frequency and R2eff
-            nu_cpmg = _ncyc_to_nu_cpmg(data_cpmg["ncyc"], time_t2)
-            r2_exp = _intensity_to_r2eff(data_cpmg["intensity"], intensity_ref, time_t2)
+                if len(data_ref) == 0:
+                    console.print(f"[yellow]Warning:[/yellow] No reference point (ncyc=0) in {file.name}")
+                    continue
 
-            # Bootstrap error estimation
-            data_ref_ens = np.array(
-                [(intensity_ref, error_ref)],
-                dtype=[("intensity", float), ("error", float)]
-            )
-            r2_ensemble = _intensity_to_r2eff(
-                _make_ensemble(data_cpmg),
-                _make_ensemble(data_ref_ens),
-                time_t2
-            )
-            r2_err_down, r2_err_up = np.abs(
-                np.percentile(r2_ensemble, [15.9, 84.1], axis=0) - r2_exp
-            )
+                # Calculate reference intensity
+                intensity_ref = float(np.mean(data_ref["intensity"]))
+                error_ref = np.mean(data_ref["error"]) / np.sqrt(len(data_ref))
 
-            figures[file.stem] = _make_cpmg_figure(file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
+                # Convert to CPMG frequency and R2eff
+                nu_cpmg = _ncyc_to_nu_cpmg(data_cpmg["ncyc"], time_t2)
+                r2_exp = _intensity_to_r2eff(data_cpmg["intensity"], intensity_ref, time_t2)
 
-        except Exception as e:
-            console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
+                # Bootstrap error estimation
+                data_ref_ens = np.array(
+                    [(intensity_ref, error_ref)],
+                    dtype=[("intensity", float), ("error", float)]
+                )
+                r2_ensemble = _intensity_to_r2eff(
+                    _make_ensemble(data_cpmg),
+                    _make_ensemble(data_ref_ens),
+                    time_t2
+                )
+                r2_err_down, r2_err_up = np.abs(
+                    np.percentile(r2_ensemble, [15.9, 84.1], axis=0) - r2_exp
+                )
 
-    if figures:
-        output_path = output or Path("cpmg_profiles.pdf")
-        _save_figures_to_pdf(figures, output_path)
+                fig = _make_cpmg_figure(file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
+                _save_figure_to_pdf(pdf, fig)
 
-        if show:
-            for fig in figures.values():
-                fig.show()
-            plt.show()
+                if show:
+                    # Store data for recreating figure later
+                    plot_data_for_display.append((file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up))
+
+            except Exception as e:
+                console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
+
+    if show and plot_data_for_display:
+        for name, nu_cpmg, r2_exp, r2_err_down, r2_err_up in plot_data_for_display:
+            fig = _make_cpmg_figure(name, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
+            fig.show()
+        plt.show()
 
 
 # ==================== SPECTRA VIEWER ====================
