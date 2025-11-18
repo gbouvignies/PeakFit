@@ -132,10 +132,10 @@ peakfit validate spectrum.ft2 peaks.list
 
 ```bash
 # Generate intensity plots
-peakfit plot Results/ --type intensity --show
+peakfit plot intensity Results/ --show
 
 # Launch interactive spectra viewer
-peakfit plot Results/ --spectrum spectrum.ft2 --type spectra
+peakfit plot spectra Results/ --spectrum spectrum.ft2
 ```
 
 ## CLI Reference
@@ -413,40 +413,46 @@ peakfit/
 
 ## Plotting
 
-PeakFit provides comprehensive plotting capabilities through the unified `peakfit plot` command:
+PeakFit provides comprehensive plotting capabilities through the `peakfit plot` command with dedicated subcommands for each plot type:
 
 ### Intensity Profiles
 
 ```bash
 # Generate intensity plots
-peakfit plot Fits/ --type intensity --output plots.pdf
+peakfit plot intensity Fits/ --output plots.pdf
 
-# Interactive display
-peakfit plot Fits/ --type intensity --show
+# Interactive display (limited to first 10 plots for large datasets)
+peakfit plot intensity Fits/ --show
 ```
 
 ### CEST Plots
 
 ```bash
-# Auto-detect reference points (|offset| >= 10000 Hz)
-peakfit plot Fits/ --type cest --output cest.pdf
+# Auto-detect reference points (|offset| >= 10 kHz)
+peakfit plot cest Fits/ --output cest.pdf
 
 # Manually specify reference point indices
-peakfit plot Fits/ --type cest --ref 0 1 2
+peakfit plot cest Fits/ --ref 0 1 2
+
+# Interactive display (limited to first 10 plots)
+peakfit plot cest Fits/ --show
 ```
 
 ### CPMG Relaxation Dispersion
 
 ```bash
-# Generate CPMG plots (requires --time-t2 parameter)
-peakfit plot Fits/ --type cpmg --time-t2 0.04 --output cpmg.pdf
+# Generate CPMG plots (--time-t2 is required)
+peakfit plot cpmg Fits/ --time-t2 0.04 --output cpmg.pdf
+
+# With interactive display
+peakfit plot cpmg Fits/ --time-t2 0.04 --show
 ```
 
 ### Interactive Spectra Viewer
 
 ```bash
 # Launch PyQt5 viewer with spectrum overlay
-peakfit plot Fits/ --type spectra --spectrum data.ft2 --show
+peakfit plot spectra Fits/ --spectrum data.ft2
 ```
 
 ## Migration from Previous Version
