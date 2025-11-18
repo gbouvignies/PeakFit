@@ -15,12 +15,14 @@ class TestMakeNames:
         peak_id = 1
 
         result = _make_names(f1name, f2name, peak_id)
+        # _make_names is vectorized and returns numpy array/scalar
+        result_str = str(result)
 
         # Should combine residue info: LEU51HD1-HG
-        assert "LEU" in result
-        assert "51" in result
-        assert "HD1" in result
-        assert "HG" in result
+        assert "LEU" in result_str
+        assert "51" in result_str
+        assert "HD1" in result_str
+        assert "HG" in result_str
 
     def test_make_names_same_residue(self):
         """Test creating name when both assignments are same residue."""
@@ -29,10 +31,11 @@ class TestMakeNames:
         peak_id = 1
 
         result = _make_names(f1name, f2name, peak_id)
+        result_str = str(result)
 
         # Second assignment shouldn't repeat residue info
-        assert result.count("LEU") == 1
-        assert result.count("51") == 1
+        assert result_str.count("LEU") == 1
+        assert result_str.count("51") == 1
 
     def test_make_names_different_residues(self):
         """Test creating name when assignments are different residues."""
@@ -41,12 +44,13 @@ class TestMakeNames:
         peak_id = 1
 
         result = _make_names(f1name, f2name, peak_id)
+        result_str = str(result)
 
         # Should include both residues
-        assert "LEU" in result
-        assert "VAL" in result
-        assert "51" in result
-        assert "52" in result
+        assert "LEU" in result_str
+        assert "VAL" in result_str
+        assert "51" in result_str
+        assert "52" in result_str
 
     def test_make_names_invalid_format(self):
         """Test with invalid assignment format."""
@@ -55,9 +59,10 @@ class TestMakeNames:
         peak_id = 42
 
         result = _make_names(f1name, f2name, peak_id)
+        result_str = str(result)
 
         # Should fall back to peak_id
-        assert result == "42"
+        assert result_str == "42"
 
     def test_make_names_wrong_number_of_items(self):
         """Test with wrong number of dot-separated items."""
@@ -66,9 +71,10 @@ class TestMakeNames:
         peak_id = 42
 
         result = _make_names(f1name, f2name, peak_id)
+        result_str = str(result)
 
         # Should fall back to peak_id
-        assert result == "42"
+        assert result_str == "42"
 
     def test_make_names_numeric_input(self):
         """Test with numeric input instead of strings."""
@@ -77,9 +83,10 @@ class TestMakeNames:
         peak_id = 42
 
         result = _make_names(f1name, f2name, peak_id)
+        result_str = str(result)
 
         # Should fall back to peak_id
-        assert result == "42"
+        assert result_str == "42"
 
     def test_make_names_vectorized(self):
         """Test that _make_names is vectorized and works with arrays."""

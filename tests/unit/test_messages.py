@@ -28,19 +28,15 @@ class TestPrintLogo:
         # Should not raise any exception
         print_logo()
 
-    def test_print_logo_outputs_to_console(self):
+    def test_print_logo_outputs_to_console(self, capsys):
         """Test that print_logo produces console output."""
-        from peakfit.messages import console
-
-        # Clear console
-        console.clear()
-        initial_len = len(console.export_text())
-
+        # Capture stdout directly
         print_logo()
+        captured = capsys.readouterr()
 
-        # Should have produced output
-        output = console.export_text()
-        assert len(output) > initial_len
+        # Should have produced output to stdout
+        assert len(captured.out) > 0
+        assert "PeakFit" in captured.out or "___" in captured.out
 
 
 class TestPrintMessage:
