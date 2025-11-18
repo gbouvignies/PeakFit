@@ -305,15 +305,43 @@ def init(
     """Generate a default configuration file.
 
     Creates a TOML configuration file with default settings that can be customized.
+    All parameters are documented with inline comments explaining their purpose.
+
+    Examples:
+      Create default config:
+        $ peakfit init
+
+      Create config with custom name:
+        $ peakfit init my_analysis.toml
+
+      Overwrite existing config:
+        $ peakfit init --force
     """
+    from peakfit.messages import print_next_steps, print_success_message
+
     if path.exists() and not force:
-        console.print(f"[red]Error:[/red] File already exists: {path}")
-        console.print("Use --force to overwrite")
+        console.print(f"[red]✗ Error:[/red] File already exists: [yellow]{path}[/]")
+        console.print("[dim]Use[/] [cyan]--force[/] [dim]to overwrite[/]")
         raise typer.Exit(1)
 
     config_content = generate_default_config()
     path.write_text(config_content)
-    console.print(f"[green]Created configuration file:[/green] {path}")
+
+    # Enhanced success message with details
+    print_success_message(f"Created configuration file: {path}")
+
+    console.print("\n[bold cyan]📄 Configuration includes:[/]")
+    console.print("  • [green]Fitting parameters[/] (optimizer, lineshape, tolerances)")
+    console.print("  • [green]Clustering settings[/] (algorithm, thresholds)")
+    console.print("  • [green]Output preferences[/] (formats, directories)")
+    console.print("  • [green]Advanced options[/] (parallel processing, backends)")
+
+    # Suggest next steps
+    print_next_steps([
+        f"Review and customize: [cyan]{path}[/]",
+        f"Run fitting: [cyan]peakfit fit spectrum.ft2 peaks.list --config {path}[/]",
+        "Documentation: [cyan]https://github.com/gbouvignies/PeakFit[/]",
+    ])
 
 
 # Create a subapp for plot commands
@@ -351,9 +379,18 @@ def plot_intensity(
 ) -> None:
     """Plot intensity profiles vs. plane index.
 
+    Creates plots showing peak intensity decay/buildup across all planes in
+    pseudo-3D spectra. Useful for visualizing CEST, CPMG, or T1/T2 relaxation data.
+
     Examples:
-      peakfit plot intensity Fits/ --output plots.pdf
-      peakfit plot intensity Fits/ --show
+      Save all plots to PDF:
+        $ peakfit plot intensity Fits/ --output intensity.pdf
+
+      Interactive display (first 10 plots only):
+        $ peakfit plot intensity Fits/ --show
+
+      Plot single result file:
+        $ peakfit plot intensity Fits/A45N-HN.out --show
     """
     from peakfit.cli.plot_command import plot_intensity_profiles
 
@@ -398,13 +435,25 @@ def plot_cest(
 ) -> None:
     """Plot CEST profiles (normalized intensity vs. B1 offset).
 
-    By default, reference points are automatically detected as points with
-    |offset| >= 10 kHz. Use --ref to manually specify indices.
+    Chemical Exchange Saturation Transfer (CEST) profiles show normalized peak
+    intensities as a function of B1 offset frequency. Reference points (off-resonance)
+    are used for normalization.
+
+    By default, reference points are auto-detected as |offset| >= 10 kHz.
+    Use --ref to manually specify reference point indices.
 
     Examples:
-      peakfit plot cest Fits/                    # Auto-detect reference
-      peakfit plot cest Fits/ --ref 0 1 2        # Manual reference points
-      peakfit plot cest Fits/ --output cest.pdf --show
+      Auto-detect reference points:
+        $ peakfit plot cest Fits/ --output cest.pdf
+
+      Manual reference selection (indices 0, 1, 2):
+        $ peakfit plot cest Fits/ --ref 0 1 2
+
+      Interactive display (first 10 plots):
+        $ peakfit plot cest Fits/ --show
+
+      Combine save and display:
+        $ peakfit plot cest Fits/ --ref 0 1 --output my_cest.pdf --show
     """
     from peakfit.cli.plot_command import plot_cest_profiles
 
@@ -449,12 +498,25 @@ def plot_cpmg(
 ) -> None:
     """Plot CPMG relaxation dispersion (R2eff vs. νCPMG).
 
-    Converts CPMG cycle counts to frequencies and intensities to effective
-    relaxation rates (R2eff) using the specified T2 time.
+    Carr-Purcell-Meiboom-Gill (CPMG) relaxation dispersion experiments probe
+    microsecond-millisecond dynamics. This command converts cycle counts to
+    CPMG frequencies (νCPMG) and intensities to effective relaxation rates (R2eff).
+
+    The --time-t2 parameter is the constant time delay in the CPMG block (in seconds).
+    Common values: 0.02-0.06s for backbone amides.
 
     Examples:
-      peakfit plot cpmg Fits/ --time-t2 0.04
-      peakfit plot cpmg Fits/ --time-t2 0.04 --output cpmg.pdf --show
+      Standard CPMG with T2 = 40ms:
+        $ peakfit plot cpmg Fits/ --time-t2 0.04
+
+      Save to custom file:
+        $ peakfit plot cpmg Fits/ --time-t2 0.04 --output my_cpmg.pdf
+
+      With interactive display (first 10):
+        $ peakfit plot cpmg Fits/ --time-t2 0.04 --show
+
+      Different T2 time (60ms):
+        $ peakfit plot cpmg Fits/ --time-t2 0.06 --output cpmg_60ms.pdf
     """
     from peakfit.cli.plot_command import plot_cpmg_profiles
 
@@ -485,11 +547,21 @@ def plot_spectra(
 ) -> None:
     """Launch interactive spectra viewer (PyQt5).
 
-    Displays experimental and simulated spectra side-by-side with interactive
-    plane selection and zooming.
+    Opens a graphical interface showing experimental and simulated spectra
+    side-by-side. Allows interactive plane selection, zooming, and comparison
+    of fit quality across all planes.
 
-    Example:
-      peakfit plot spectra Fits/ --spectrum data.ft2
+    Requires PyQt5 to be installed. Install with: pip install PyQt5
+
+    Examples:
+      Basic usage:
+        $ peakfit plot spectra Fits/ --spectrum data.ft2
+
+      Using relative paths:
+        $ peakfit plot spectra ./results --spectrum ../data/spectrum.ft2
+
+      Full path specification:
+        $ peakfit plot spectra /path/to/Fits --spectrum /path/to/spectrum.ft2
     """
     from peakfit.cli.plot_command import plot_spectra_viewer
 
