@@ -124,8 +124,8 @@ class Parameters:
         self,
         name: str,
         value: float = 0.0,
-        min: float = -np.inf,  # noqa: A002
-        max: float = np.inf,  # noqa: A002
+        min: float = -np.inf,
+        max: float = np.inf,
         vary: bool = True,
         param_type: ParameterType = ParameterType.GENERIC,
         unit: str = "",

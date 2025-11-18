@@ -19,7 +19,7 @@ except ImportError:
     HAS_NUMBA = False
 
     # Fallback decorator that does nothing
-    def jit(*args: object, **kwargs: object) -> Callable[[Callable[..., Any]], Callable[..., Any]]:  # noqa: ARG001
+    def jit(*args: object, **kwargs: object) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
 

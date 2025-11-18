@@ -50,43 +50,90 @@ build-backend = "uv_build"
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+src = ["src"]
+extend-exclude = [
+    ".venv",
+    "*.egg-info",
+    "build",
+    "dist",
+    ".git",
+    "__pycache__",
+    "*.pyc",
+]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = 88
 
 [tool.ruff.lint]
-select = ["ALL"]
-ignore = [
-
-    "COM812",  # Trailing comma (conflicts with formatter)
-    "ISC001",  # Single line implicit string concatenation
-    "D100",    # Missing docstring in public module
-    "D101",    # Missing docstring in public class
-    "D102",    # Missing docstring in public method
-    "D103",    # Missing docstring in public function
-    "D104",    # Missing docstring in public package
-    "D105",    # Missing docstring in magic method
-    "D107",    # Missing docstring in __init__
-    "S311",    # Standard pseudo-random generators
-    "PLR0913", # Too many arguments to function
-    "PLR2004", # Magic value used in comparison
-    "C901",    # Too complex
-    "PLR0912", # Too many branches
-    "PLR0915", # Too many statements
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "ARG",    # flake8-unused-arguments
+    "PTH",    # flake8-use-pathlib
+    "RET",    # flake8-return
+    "NPY",    # numpy-specific rules
+    "PERF",   # performance anti-patterns
+    "RUF",    # ruff-specific rules
 ]
+ignore = [
+    "E501",    # Line too long (handled by formatter)
+    "RET504",  # Unnecessary variable assignment before return
+    "RET505",  # Unnecessary else after return
+    "RET506",  # Unnecessary else after raise
+    "SIM108",  # Use ternary operator (sometimes less readable)
+    "PTH123",  # open() should be replaced by Path.open() (not always better)
+    "ARG001",  # Unused function argument (often needed for APIs/callbacks)
+    "ARG002",  # Unused method argument (often needed for inheritance)
+]
+# Allow fix for all enabled rules (when --fix is used)
+fixable = ["ALL"]
+unfixable = []
 
 [tool.ruff.lint.isort]
 known-first-party = ["peakfit"]
+combine-as-imports = true
+split-on-trailing-comma = false
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "D", "ANN", "PLR2004"]
-"src/peakfit/plotting/*" = ["PLR", "C901"]
+"tests/**/*" = [
+    "S101",    # Use of assert (required in tests)
+    "D",       # Missing docstrings (not needed in tests)
+    "ANN",     # Missing type annotations (relaxed for tests)
+    "PLR2004", # Magic values in comparisons
+    "ARG",     # Unused arguments (fixtures)
+]
+"src/peakfit/plotting/**/*" = [
+    "PLR0913", # Too many arguments
+    "PLR0912", # Too many branches
+    "PLR0915", # Too many statements
+    "C901",    # Too complex
+]
+"src/peakfit/cli/**/*" = [
+    "FBT001",  # Boolean positional arg (common in CLI)
+    "FBT002",  # Boolean default arg (common in CLI)
+    "PLC0415", # Import outside top-level (lazy imports for performance)
+]
+"src/peakfit/core/benchmarks.py" = [
+    "S311",    # Pseudo-random generators (acceptable for benchmarks)
+]
+"src/peakfit/__init__.py" = [
+    "E402",    # Module level import not at top of file
+]
 
 [tool.pyright]
 venvPath = "."

@@ -11,10 +11,7 @@ class TestParallelFitting:
 
     def test_import_parallel_module(self):
         """Should be able to import parallel module."""
-        from peakfit.core.parallel import (
-            fit_clusters_parallel,
-            fit_clusters_parallel_refined,
-        )
+        from peakfit.core.parallel import fit_clusters_parallel, fit_clusters_parallel_refined
 
         assert callable(fit_clusters_parallel)
         assert callable(fit_clusters_parallel_refined)
@@ -32,11 +29,7 @@ class TestOptimizedFunctions:
 
     def test_import_optimized_module(self):
         """Should be able to import optimized module."""
-        from peakfit.core.optimized import (
-            gaussian_jit,
-            lorentzian_jit,
-            pvoigt_jit,
-        )
+        from peakfit.core.optimized import gaussian_jit, lorentzian_jit, pvoigt_jit
 
         assert callable(gaussian_jit)
         assert callable(lorentzian_jit)
@@ -166,12 +159,7 @@ class TestFittingEngine:
 
     def test_import_fitting_module(self):
         """Should be able to import fitting module."""
-        from peakfit.core.fitting import (
-            FitResult,
-            Parameter,
-            Parameters,
-            fit_cluster_fast,
-        )
+        from peakfit.core.fitting import FitResult, Parameter, Parameters, fit_cluster_fast
 
         assert Parameter is not None
         assert Parameters is not None

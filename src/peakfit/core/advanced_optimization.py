@@ -118,7 +118,8 @@ def fit_basin_hopping(
             self.step_size = step_size
 
         def __call__(self, x: FloatArray) -> FloatArray:
-            x_new = x + np.random.uniform(-self.step_size, self.step_size, len(x))
+            rng = np.random.default_rng()
+            x_new = x + rng.uniform(-self.step_size, self.step_size, len(x))
             # Clip to bounds
             for i, (lb, ub) in enumerate(bounds):
                 x_new[i] = np.clip(x_new[i], lb, ub)
@@ -303,8 +304,8 @@ def compute_profile_likelihood(
         if len(x0) > 0:
             bounds_list = params_copy.get_vary_bounds_list()
 
-            def objective(x: FloatArray) -> float:
-                return residuals_global(x, params_copy, cluster, noise)
+            def objective(x: FloatArray, params: Parameters = params_copy) -> float:
+                return residuals_global(x, params, cluster, noise)
 
             result = optimize.minimize(objective, x0, method="L-BFGS-B", bounds=bounds_list)
             params_copy.set_vary_values(result.x)
@@ -372,7 +373,8 @@ def estimate_uncertainties_mcmc(
         return -0.5 * np.sum(res**2)
 
     # Initialize walkers near best-fit
-    pos = x0 + 1e-4 * np.random.randn(n_walkers, ndim)
+    rng = np.random.default_rng()
+    pos = x0 + 1e-4 * rng.standard_normal((n_walkers, ndim))
 
     # Clip to bounds
     for i, (lb, ub) in enumerate(bounds):

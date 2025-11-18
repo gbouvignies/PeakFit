@@ -22,7 +22,7 @@ class TestParameter:
         """Should raise error when min > max."""
         from peakfit.core.fitting import Parameter
 
-        with pytest.raises(ValueError, match="min.*>.*max"):
+        with pytest.raises(ValueError, match=r"min.*>.*max"):
             Parameter("bad", 10.0, min=20.0, max=10.0)
 
     def test_value_outside_bounds_raises(self):

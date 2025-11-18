@@ -278,10 +278,7 @@ def _fit_clusters_parallel(
 
 def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -> Parameters:
     """Fit all clusters using global optimization."""
-    from peakfit.core.advanced_optimization import (
-        fit_basin_hopping,
-        fit_differential_evolution,
-    )
+    from peakfit.core.advanced_optimization import fit_basin_hopping, fit_differential_evolution
 
     print_fitting()
     params_all = Parameters()
@@ -396,11 +393,7 @@ def _initialize_backend(backend: str, parallel: bool = False) -> None:
         backend: Requested backend (auto, numpy, numba, jax)
         parallel: Whether parallel mode is enabled
     """
-    from peakfit.core.backend import (
-        auto_select_backend,
-        get_available_backends,
-        set_backend,
-    )
+    from peakfit.core.backend import auto_select_backend, get_available_backends, set_backend
 
     # JAX is incompatible with multiprocessing due to GPU device conflicts
     # When parallel mode is enabled, force numba or numpy backend

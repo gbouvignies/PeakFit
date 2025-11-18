@@ -23,13 +23,7 @@ from peakfit.core.backend import (
 from peakfit.core.fitting import Parameters, ParameterType
 
 # Import optimized lineshape functions (JIT-compiled if Numba available)
-from peakfit.core.optimized import (
-    gaussian_jit,
-    lorentzian_jit,
-    no_apod_jit,
-    sp1_jit,
-    sp2_jit,
-)
+from peakfit.core.optimized import gaussian_jit, lorentzian_jit, no_apod_jit, sp1_jit, sp2_jit
 from peakfit.nmrpipe import SpectralParameters
 from peakfit.spectra import Spectra
 from peakfit.typing import FittingOptions, FloatArray, IntArray

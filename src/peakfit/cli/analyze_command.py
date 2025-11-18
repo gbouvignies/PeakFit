@@ -36,7 +36,7 @@ def load_fitting_state(results_dir: Path) -> dict:
 
     # Note: pickle.load is safe here as we control the state file creation
     with state_file.open("rb") as f:
-        state = pickle.load(f)  # noqa: S301
+        state = pickle.load(f)
 
     console.print(f"[green]Loaded fitting state:[/green] {state_file}")
     console.print(f"  Clusters: {len(state['clusters'])}")
@@ -90,7 +90,7 @@ def run_mcmc(
 
     for i, cluster in enumerate(clusters):
         peak_names = [p.name for p in cluster.peaks]
-        console.print(f"[cyan]Cluster {i+1}/{len(clusters)}:[/cyan] {', '.join(peak_names)}")
+        console.print(f"[cyan]Cluster {i + 1}/{len(clusters)}:[/cyan] {', '.join(peak_names)}")
 
         # Get parameters for this cluster
         from peakfit.peak import create_params
@@ -211,7 +211,7 @@ def run_profile_likelihood(
     delta_chi2 = chi2.ppf(confidence_level, df=1)
 
     console.print(f"\n[bold]Computing profile likelihood for {param_name}[/bold]")
-    console.print(f"  Confidence level: {confidence_level*100:.0f}%")
+    console.print(f"  Confidence level: {confidence_level * 100:.0f}%")
     console.print(f"  Δχ² threshold: {delta_chi2:.4f}")
     console.print(f"  Profile points: {n_points}")
 
@@ -231,7 +231,7 @@ def run_profile_likelihood(
     console.print("\n[bold]Results:[/bold]")
     console.print(f"  Best-fit value: {best_value:.6f}")
     console.print(f"  Covariance stderr: {covar_stderr:.6f}")
-    console.print(f"  Profile {confidence_level*100:.0f}% CI: [{ci_low:.6f}, {ci_high:.6f}]")
+    console.print(f"  Profile {confidence_level * 100:.0f}% CI: [{ci_low:.6f}, {ci_high:.6f}]")
 
     # Compare with covariance-based CI
     if covar_stderr > 0:
@@ -241,7 +241,7 @@ def run_profile_likelihood(
         covar_ci_low = best_value - z * covar_stderr
         covar_ci_high = best_value + z * covar_stderr
         console.print(
-            f"  Covariance {confidence_level*100:.0f}% CI: "
+            f"  Covariance {confidence_level * 100:.0f}% CI: "
             f"[{covar_ci_low:.6f}, {covar_ci_high:.6f}]"
         )
 
@@ -346,11 +346,15 @@ def _update_output_files(results_dir: Path, params: Parameters, peaks: list[Peak
                         # Find matching parameter
                         for shape in peak.shapes:
                             for param_name in shape.param_names:
-                                if (param_name.endswith(param_part) or param_part in param_name) and param_name in params:
+                                if (
+                                    param_name.endswith(param_part) or param_part in param_name
+                                ) and param_name in params:
                                     value = params[param_name].value
                                     stderr = params[param_name].stderr
                                     shortname = param_part
-                                    updated_line = f"# {shortname:<10s}: {value:10.5f} ± {stderr:10.5f}"
+                                    updated_line = (
+                                        f"# {shortname:<10s}: {value:10.5f} ± {stderr:10.5f}"
+                                    )
                                     line = updated_line
                                     break
                 new_lines.append(line)

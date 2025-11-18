@@ -633,11 +633,7 @@ def analyze(
     Parameter correlation analysis:
         peakfit analyze correlation Fits/
     """
-    from peakfit.cli.analyze_command import (
-        run_correlation,
-        run_mcmc,
-        run_profile_likelihood,
-    )
+    from peakfit.cli.analyze_command import run_correlation, run_mcmc, run_profile_likelihood
 
     valid_methods = ["mcmc", "profile", "correlation"]
     if method not in valid_methods:

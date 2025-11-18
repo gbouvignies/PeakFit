@@ -32,8 +32,8 @@ class BenchmarkResult:
 
     def __repr__(self) -> str:
         return (
-            f"<BenchmarkResult {self.name}: {self.mean_time*1000:.3f} ± "
-            f"{self.std_time*1000:.3f} ms ({self.iterations} iterations)>"
+            f"<BenchmarkResult {self.name}: {self.mean_time * 1000:.3f} ± "
+            f"{self.std_time * 1000:.3f} ms ({self.iterations} iterations)>"
         )
 
 
@@ -93,11 +93,7 @@ def benchmark_lineshape_backends(
     Returns:
         Dictionary of backend name to BenchmarkResult
     """
-    from peakfit.core.backend import (
-        _gaussian_numpy,
-        _lorentzian_numpy,
-        _pvoigt_numpy,
-    )
+    from peakfit.core.backend import _gaussian_numpy, _lorentzian_numpy, _pvoigt_numpy
 
     x = np.linspace(-50, 50, n_points).astype(np.float64)
     fwhm = 10.0
@@ -223,10 +219,10 @@ def compare_backends_report(
     for _name, result in sorted_results:
         speedup = baseline_time / result.mean_time if result.mean_time > 0 else 0
         lines.append(f"{result.name:30s}")
-        lines.append(f"  Mean time:    {result.mean_time*1000:10.3f} ms")
-        lines.append(f"  Std dev:      {result.std_time*1000:10.3f} ms")
-        lines.append(f"  Min time:     {result.min_time*1000:10.3f} ms")
-        lines.append(f"  Max time:     {result.max_time*1000:10.3f} ms")
+        lines.append(f"  Mean time:    {result.mean_time * 1000:10.3f} ms")
+        lines.append(f"  Std dev:      {result.std_time * 1000:10.3f} ms")
+        lines.append(f"  Min time:     {result.min_time * 1000:10.3f} ms")
+        lines.append(f"  Max time:     {result.max_time * 1000:10.3f} ms")
         if speedup != 1.0:
             lines.append(f"  Speedup:      {speedup:10.2f}x")
         lines.append("")

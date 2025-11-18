@@ -160,7 +160,7 @@ class TestFastFitEdgeCases:
         params.add("b", value=2.0, vary=True)
         params.add("c", value=3.0, vary=True)
 
-        x0, lower, upper, names = params_to_arrays(params)
+        x0, _lower, _upper, names = params_to_arrays(params)
 
         assert names == ["a", "b", "c"]
         np.testing.assert_array_equal(x0, [1.0, 2.0, 3.0])
@@ -174,7 +174,7 @@ class TestFastFitEdgeCases:
         params.add("pos", value=0.0, min=-np.inf, max=np.inf, vary=True)
         params.add("fwhm", value=10.0, min=0.0, max=np.inf, vary=True)
 
-        x0, lower, upper, names = params_to_arrays(params)
+        _x0, lower, upper, _names = params_to_arrays(params)
 
         assert lower[0] == -np.inf
         assert upper[0] == np.inf
