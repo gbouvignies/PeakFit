@@ -331,7 +331,7 @@ def plot(
         typer.Option(
             "--spectrum",
             "-s",
-            help="Path to original spectrum for overlay",
+            help="Path to original spectrum for overlay (required for spectra type)",
             exists=True,
             dir_okay=False,
             resolve_path=True,
@@ -362,14 +362,35 @@ def plot(
             help="Plot type: intensity, cest, cpmg, spectra",
         ),
     ] = "intensity",
+    ref: Annotated[
+        list[int] | None,
+        typer.Option(
+            "--ref",
+            help="Reference points for CEST plots (default: auto-detect high offsets)",
+        ),
+    ] = None,
+    time_t2: Annotated[
+        float | None,
+        typer.Option(
+            "--time-t2",
+            help="T2 relaxation time for CPMG plots (seconds, required for cpmg type)",
+        ),
+    ] = None,
 ) -> None:
     """Generate plots from fitting results.
 
-    Create publication-quality figures showing fitted intensities, spectra overlays, etc.
+    Create publication-quality figures showing fitted intensities, CEST profiles,
+    CPMG relaxation dispersions, or interactive spectra overlays.
+
+    Examples:
+      peakfit plot Fits/ --type intensity --output plots.pdf
+      peakfit plot Fits/ --type cest --ref 0 1 2
+      peakfit plot Fits/ --type cpmg --time-t2 0.04
+      peakfit plot Fits/ --type spectra --spectrum data.ft2 --show
     """
     from peakfit.cli.plot_command import run_plot
 
-    run_plot(results, spectrum, output, show, plot_type)
+    run_plot(results, spectrum, output, show, plot_type, ref, time_t2)
 
 
 @app.command()

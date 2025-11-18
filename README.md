@@ -413,39 +413,41 @@ peakfit/
 
 ## Plotting
 
-PeakFit provides two plotting interfaces:
+PeakFit provides comprehensive plotting capabilities through the unified `peakfit plot` command:
 
-### Modern CLI (Basic Plotting)
-
-The new `peakfit plot` command provides basic intensity plotting:
+### Intensity Profiles
 
 ```bash
 # Generate intensity plots
-peakfit plot results/ --output plots.pdf
+peakfit plot Fits/ --type intensity --output plots.pdf
 
 # Interactive display
-peakfit plot results/ --show
+peakfit plot Fits/ --type intensity --show
 ```
 
-### Advanced Plotting (`peakfit-plot`)
-
-For advanced plotting features (CEST, CPMG, spectra overlay), use the `peakfit-plot` command:
+### CEST Plots
 
 ```bash
-# Intensity profiles
-peakfit-plot intensity Fits/
+# Auto-detect reference points (|offset| >= 10000 Hz)
+peakfit plot Fits/ --type cest --output cest.pdf
 
-# CEST plots
-peakfit-plot cest Fits/ --ref -1
-
-# CPMG plots
-peakfit-plot cpmg Fits/ --time_t2 0.02
-
-# Interactive spectra viewer
-peakfit-plot spectra --exp spectrum.ft2 --sim Fits/simulated.ft2
+# Manually specify reference point indices
+peakfit plot Fits/ --type cest --ref 0 1 2
 ```
 
-**Note:** Full integration of plotting features into the modern CLI is planned for a future release.
+### CPMG Relaxation Dispersion
+
+```bash
+# Generate CPMG plots (requires --time-t2 parameter)
+peakfit plot Fits/ --type cpmg --time-t2 0.04 --output cpmg.pdf
+```
+
+### Interactive Spectra Viewer
+
+```bash
+# Launch PyQt5 viewer with spectrum overlay
+peakfit plot Fits/ --type spectra --spectrum data.ft2 --show
+```
 
 ## Migration from Previous Version
 
