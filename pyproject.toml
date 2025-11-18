@@ -38,9 +38,6 @@ dev = [
 performance = [
     "numba>=0.60.0",
 ]
-all = [
-    "numba>=0.60.0",
-]
 
 [project.scripts]
 peakfit = "peakfit.cli.app:app"
@@ -63,13 +60,9 @@ line-ending = "auto"
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "ANN101",  # Missing type annotation for self
-    "ANN102",  # Missing type annotation for cls
+
     "COM812",  # Trailing comma (conflicts with formatter)
     "ISC001",  # Single line implicit string concatenation
-    "TCH001",  # Typing-only first party import
-    "TCH002",  # Typing-only third party import
-    "TCH003",  # Typing-only standard library import
     "D100",    # Missing docstring in public module
     "D101",    # Missing docstring in public class
     "D102",    # Missing docstring in public method
@@ -93,7 +86,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "D", "ANN", "PLR2004"]
-"peakfit/plotting/*" = ["PLR", "C901"]
+"src/peakfit/plotting/*" = ["PLR", "C901"]
 
 [tool.pyright]
 venvPath = "."
@@ -111,7 +104,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["peakfit"]
+source = ["src/peakfit"]
 omit = [
     "*/tests/*",
     "*/__pycache__/*",

@@ -29,7 +29,7 @@ jobs:
         run: uv sync --all-extras
 
       - name: Run tests with coverage
-        run: uv run pytest tests/ --cov=peakfit --cov-report=xml --cov-report=term
+        run: uv run pytest tests/ --cov=src/peakfit --cov-report=xml --cov-report=term
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
@@ -56,10 +56,10 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run ruff check
-        run: uv run ruff check peakfit/
+        run: uv run ruff check src/peakfit/
 
       - name: Run ruff format check
-        run: uv run ruff format --check peakfit/
+        run: uv run ruff format --check src/peakfit/
 
   type-check:
     runs-on: ubuntu-latest
@@ -78,5 +78,5 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run mypy
-        run: uv run mypy peakfit/
+        run: uv run mypy src/peakfit/
         continue-on-error: true  # Allow failures initially
