@@ -1,64 +1,207 @@
+#:tombi schema.strict = false
+
 [project]
 name = "PeakFit"
+version = "2025.11.0"
 description = "PeakFit allow for lineshape fitting in pseudo-3D NMR spectra."
 authors = [
     { name = "Guillaume Bouvignies", email = "guillaume.bouvignies@ens.psl.eu" },
 ]
 dependencies = [
-    "numpy>=2.0.0",
-    "lmfit>=1.3.1",
+    "numpy>=2.2.0",
     "matplotlib>=3.9.0",
     "rich>=13.7.1",
     "nmrglue>=0.10",
-    "pandas[excel]>=2.2.2",
+    "pandas>=2.2.2",
+    "openpyxl>=3.0.0",
     "scipy>=1.13.1",
     "networkx>=3.3",
     "emcee>=3.1.6",
     "numdifftools>=0.9.41",
     "pyqt5>=5.15.11",
+    "pydantic>=2.5.0",
+    "typer>=0.9.0",
+    "tomli-w>=1.0.0",
+    "threadpoolctl>=3.0.0",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
-dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "mypy>=1.0",
+    "ruff>=0.7.0",
+    "pre-commit>=3.0",
+    "types-setuptools>=75.0",
+]
+performance = [
+    "numba>=0.60.0",
+]
 
 [project.scripts]
-peakfit = "peakfit.peakfit:main"
+peakfit = "peakfit.cli.app:app"
 peakfit-plot = "peakfit.plotting.main:main"
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.9.10,<0.10.0"]
+build-backend = "uv_build"
 
-[tool.hatch.version]
-source = "vcs"
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src"]
+extend-exclude = [
+    ".venv",
+    "*.egg-info",
+    "build",
+    "dist",
+    ".git",
+    "__pycache__",
+    "*.pyc",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = 88
 
 [tool.ruff.lint]
-select = ["ALL"]
-ignore = [
-    "ANN101",
-    "ANN102",
-    "COM812",
-    "ISC001",
-    "TCH001",
-    "TCH002",
-    "TCH003",
-    "D100",
-    "D101",
-    "D102",
-    "D103",
-    "D104",
-    "D105",
-    "D107",
-    "S311",
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "ARG",    # flake8-unused-arguments
+    "PTH",    # flake8-use-pathlib
+    "RET",    # flake8-return
+    "NPY",    # numpy-specific rules
+    "PERF",   # performance anti-patterns
+    "RUF",    # ruff-specific rules
+    "S",      # flake8-bandit (security)
+    "BLE",    # flake8-blind-except
+    "T10",    # flake8-debugger
+    "PLW",    # pylint warnings (subset of PL)
 ]
+ignore = [
+    "E501",    # Line too long (handled by formatter)
+    "RET504",  # Unnecessary variable assignment before return
+    "RET505",  # Unnecessary else after return
+    "RET506",  # Unnecessary else after raise
+    "SIM108",  # Use ternary operator (sometimes less readable)
+    "PTH123",  # open() should be replaced by Path.open() (not always better)
+    "ARG001",  # Unused function argument (often needed for APIs/callbacks)
+    "ARG002",  # Unused method argument (often needed for inheritance)
+    "S301",    # pickle usage (safe in controlled contexts)
+    "S603",    # subprocess without shell=True (not applicable)
+    "S607",    # subprocess partial path (not applicable)
+    "PLW2901", # Redefined loop variable (often intentional for readability)
+]
+# Allow fix for all enabled rules (when --fix is used)
+fixable = ["ALL"]
+unfixable = []
 
 [tool.ruff.lint.isort]
 known-first-party = ["peakfit"]
+combine-as-imports = true
+split-on-trailing-comma = false
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = [
+    "S101",    # Use of assert (required in tests)
+    "D",       # Missing docstrings (not needed in tests)
+    "ANN",     # Missing type annotations (relaxed for tests)
+    "PLR2004", # Magic values in comparisons
+    "ARG",     # Unused arguments (fixtures)
+]
+"src/peakfit/plotting/**/*" = [
+    "PLR0913", # Too many arguments
+    "PLR0912", # Too many branches
+    "PLR0915", # Too many statements
+    "C901",    # Too complex
+]
+"src/peakfit/cli/**/*" = [
+    "FBT001",  # Boolean positional arg (common in CLI)
+    "FBT002",  # Boolean default arg (common in CLI)
+    "PLC0415", # Import outside top-level (lazy imports for performance)
+    "BLE001",  # Blind exception (acceptable for validation/error reporting)
+]
+"src/peakfit/core/benchmarks.py" = [
+    "S311",    # Pseudo-random generators (acceptable for benchmarks)
+]
+"src/peakfit/core/backend.py" = [
+    "PLW0603", # Global statement (intentional for backend state management)
+]
+"src/peakfit/__init__.py" = [
+    "E402",    # Module level import not at top of file
+]
+
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+[tool.coverage.run]
+source = ["src/peakfit"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 2
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+extra_checks = true
+
+[[tool.mypy.overrides]]
+module = [
+    "nmrglue.*",
+    "scipy.*",
+    "networkx.*",
+    "emcee.*",
+    "numdifftools.*",
+    "matplotlib.*",
+    "pandas.*",
+    "numba.*",
+    "threadpoolctl.*",
+]
+ignore_missing_imports = true
