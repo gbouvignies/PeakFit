@@ -132,7 +132,7 @@ class TestFitCommand:
         )
         assert result.exit_code != 0
 
-    def test_fit_with_config_file(self, _sample_config_file, _tmp_path):
+    def test_fit_with_config_file(self, sample_config_file, tmp_path):
         """Fit should accept config file."""
         # This test just validates the CLI parsing, not actual fitting
         result = runner.invoke(

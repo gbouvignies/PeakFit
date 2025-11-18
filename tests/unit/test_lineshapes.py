@@ -99,7 +99,7 @@ class TestPseudoVoigt:
         eta = 1.0
         pv = pvoigt(dx, fwhm, eta)
         lor = lorentzian(dx, fwhm)
-        np.testing.assert_allclose(pv, l)
+        np.testing.assert_allclose(pv, lor)
 
     def test_pvoigt_peak_height(self):
         """Pseudo-Voigt should be 1.0 at center for any eta."""
@@ -116,7 +116,7 @@ class TestPseudoVoigt:
         eta = 0.5
         g = gaussian(dx, fwhm)[0]
         lor = lorentzian(dx, fwhm)[0]
-        expected = 0.5 * g + 0.5 * l
+        expected = 0.5 * g + 0.5 * lor
         result = pvoigt(dx, fwhm, eta)
         assert result[0] == pytest.approx(expected)
 

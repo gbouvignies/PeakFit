@@ -4,6 +4,7 @@ This module provides a faster alternative to lmfit by using scipy.optimize.least
 directly, reducing overhead and improving performance.
 """
 
+from collections.abc import ItemsView, Iterator, KeysView, ValuesView
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING

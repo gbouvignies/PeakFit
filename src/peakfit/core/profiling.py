@@ -85,7 +85,7 @@ class Profiler:
         self._current_name: str = ""
 
     @contextmanager
-    def timer(self, name: str, count: int = 1, **metadata: object) -> Generator[None, None, None]:
+    def timer(self, name: str, count: int = 1, **metadata: object) -> Generator[None]:
         """Context manager for timing a block of code.
 
         Args:

@@ -23,7 +23,7 @@ class TestSyntheticSpectrumGeneration:
         spectrum = np.zeros(n_points)
         for center, _fwhm, amp in peaks:
             dx = x - center
-            spectrum += amp * gaussian(dx, fwhm)
+            spectrum += amp * gaussian(dx, _fwhm)
 
         # Check peak positions
         for center, _fwhm, amp in peaks:
