@@ -411,13 +411,41 @@ peakfit/
 └── ...
 ```
 
-## Legacy CLI
+## Plotting
 
-The original CLI is still available as `peakfit-legacy`:
+PeakFit provides two plotting interfaces:
+
+### Modern CLI (Basic Plotting)
+
+The new `peakfit plot` command provides basic intensity plotting:
 
 ```bash
-peakfit-legacy -s spectrum.ft2 -l peaks.list -o Fits -r 2 --pvoigt
+# Generate intensity plots
+peakfit plot results/ --output plots.pdf
+
+# Interactive display
+peakfit plot results/ --show
 ```
+
+### Advanced Plotting (`peakfit-plot`)
+
+For advanced plotting features (CEST, CPMG, spectra overlay), use the `peakfit-plot` command:
+
+```bash
+# Intensity profiles
+peakfit-plot intensity Fits/
+
+# CEST plots
+peakfit-plot cest Fits/ --ref -1
+
+# CPMG plots
+peakfit-plot cpmg Fits/ --time_t2 0.02
+
+# Interactive spectra viewer
+peakfit-plot spectra --exp spectrum.ft2 --sim Fits/simulated.ft2
+```
+
+**Note:** Full integration of plotting features into the modern CLI is planned for a future release.
 
 ## Migration from Previous Version
 

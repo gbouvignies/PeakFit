@@ -354,10 +354,36 @@ Checking for Legacy Code
 **Fix:** Removed all JAX references from docstrings, code, and comments.
 **Status:** ✅ Fixed and validated
 
-### 2. Test Suite Extended ✅ COMPLETED
+### 2. Outdated `peakfit-legacy` Documentation ✅ FIXED
+**Issue:** README documented `peakfit-legacy` command that was already removed.
+**Evidence:** Source code removed, but documentation remained
+**Fix:** Removed outdated legacy CLI section from README.md
+**Status:** ✅ Fixed and validated
+
+### 3. Incomplete Plotting Migration ⚠️ DOCUMENTED
+**Issue:** Two separate plotting commands exist with overlapping functionality:
+- `peakfit-plot` (old argparse CLI) - Full featured (intensity, CEST, CPMG, spectra)
+- `peakfit plot` (new Typer CLI) - Partially implemented (only intensity complete)
+
+**Impact:** Users must use both commands depending on their needs
+**Resolution:**
+- ✅ Documented current state clearly in README.md
+- ✅ Created LEGACY_ISSUES.md with detailed analysis
+- 📋 Recommended: Complete migration in future release
+
+**Status:** ⚠️ Documented (technical debt, recommend completion)
+
+### 4. Test Suite Extended ✅ COMPLETED
 **Action:** Added 34 comprehensive edge case tests
 **Coverage:** Parameter bounds, lineshape edge cases, config validation, numeric stability
 **Status:** ✅ All passing
+
+### 5. Documentation Updated ✅ COMPLETED
+**Actions:**
+- Removed outdated `peakfit-legacy` references
+- Documented dual plotting command situation
+- Created LEGACY_ISSUES.md for future work tracking
+**Status:** ✅ Complete
 
 ---
 
@@ -410,13 +436,29 @@ Time: 1.60s
 
 ## Conclusion
 
-✅ **The PeakFit modernization (PR#9) is production-ready.**
+✅ **The PeakFit modernization (PR#9) is production-ready with noted limitations.**
 
-All features work as documented, edge cases are handled properly, error messages are informative, and performance optimizations provide meaningful speedups. Legacy code has been identified and removed. The test suite is comprehensive with 323 tests covering unit, integration, and edge cases.
+All core features work as documented, edge cases are handled properly, error messages are informative, and performance optimizations provide meaningful speedups. Legacy code has been identified and removed. The test suite is comprehensive with 323 tests covering unit, integration, and edge cases.
 
-**Validation Status:** PASSED ✅
+### ✅ Ready for Production
+- Core fitting functionality: **Complete**
+- CLI modernization: **Complete for fitting**
+- Testing: **Comprehensive (323 tests)**
+- Documentation: **Updated and accurate**
+- Performance: **Optimized (Numba JIT, parallel processing)**
+
+### ⚠️ Known Limitations
+1. **Plotting not fully migrated**: Two commands exist (`peakfit plot` and `peakfit-plot`)
+   - Basic intensity plotting works in new CLI
+   - Advanced features (CEST, CPMG) still require old `peakfit-plot` command
+   - Clearly documented for users
+
+2. **Recommendation**: Complete plotting migration in future release
+
+**Validation Status:** PASSED ✅ (with documented limitations)
 **Ready for Merge:** YES ✅
 **Breaking Changes:** Documented ✅
+**Technical Debt:** Documented in LEGACY_ISSUES.md ⚠️
 
 ---
 
@@ -427,19 +469,23 @@ All features work as documented, edge cases are handled properly, error messages
 1. **tests/validate_modernization.py** - Comprehensive CLI validation script (40 checks)
 2. **tests/test_edge_cases.py** - Edge case test suite (34 tests)
 3. **VALIDATION_REPORT.md** - This document
+4. **LEGACY_ISSUES.md** - Documentation of incomplete migration and technical debt
 
 ### Modified During Validation
 
 1. **src/peakfit/cli/fit_command.py** - Removed JAX references
 2. **src/peakfit/core/parallel.py** - Removed JAX comment
+3. **README.md** - Removed outdated `peakfit-legacy` docs, documented plotting situation
 
 ---
 
 **Validated By:** Claude Code (Anthropic)
 **Date:** November 18, 2025
-**Total Validation Time:** ~45 minutes
+**Total Validation Time:** ~60 minutes
 **Tests Run:** 323
 **Checks Performed:** 40
-**Issues Found:** 1 (JAX legacy code)
-**Issues Fixed:** 1
-**Final Status:** ✅ ALL TESTS PASSING
+**Issues Found:** 3
+**Issues Fixed:** 2 (JAX references, outdated docs)
+**Issues Documented:** 1 (incomplete plotting migration)
+**Technical Debt:** Documented in LEGACY_ISSUES.md
+**Final Status:** ✅ ALL TESTS PASSING (with documented limitations)
