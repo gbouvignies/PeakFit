@@ -320,7 +320,8 @@ def create_synthetic_cluster(
     noise_level = 10.0
 
     # Add Gaussian noise
-    data += np.random.normal(0, noise_level, data.shape)
+    rng = np.random.default_rng()
+    data += rng.normal(0, noise_level, data.shape)
 
     # Create cluster
     cluster = Cluster(positions_2d, peaks)

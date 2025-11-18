@@ -189,7 +189,8 @@ def fit(
         str,
         typer.Option(
             "--optimizer",
-            help="Optimization algorithm: leastsq (fast), basin-hopping (global), differential-evolution (global)",
+            help="Optimization algorithm: leastsq (fast), basin-hopping (global), "
+            "differential-evolution (global)",
         ),
     ] = "leastsq",
     save_state: Annotated[

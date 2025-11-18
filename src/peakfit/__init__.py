@@ -1,8 +1,7 @@
+import contextlib
 from importlib import metadata
 
 __version__ = "0.3.0"
 
-try:
+with contextlib.suppress(metadata.PackageNotFoundError):
     __version__ = metadata.version(__name__)
-except metadata.PackageNotFoundError:
-    pass  # Use the hardcoded version above

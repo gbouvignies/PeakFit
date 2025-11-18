@@ -12,6 +12,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QResizeEvent
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
@@ -330,7 +331,7 @@ class SpectraViewer(QMainWindow):
         self.show_spectra[spectrum] = self.control_widget.checkboxes[spectrum].isChecked()
         self.update_view()
 
-    def resizeEvent(self, event: "QResizeEvent") -> None:  # noqa: N802
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
         super().resizeEvent(event)
         self.plot_widget.figure.tight_layout()
         self.plot_widget.canvas.draw_idle()

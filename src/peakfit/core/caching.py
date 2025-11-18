@@ -37,7 +37,7 @@ def make_cache_key(*args: object) -> str:
     for arg in args:
         if isinstance(arg, np.ndarray):
             key_parts.append(f"arr:{hash_array(arg)}")
-        elif isinstance(arg, (list, tuple)):
+        elif isinstance(arg, list | tuple):
             key_parts.append(f"seq:{len(arg)}:{sum(hash(x) for x in arg)}")
         else:
             key_parts.append(str(arg))

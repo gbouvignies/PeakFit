@@ -71,7 +71,10 @@ class Parameter:
             msg = f"Parameter {self.name}: min ({self.min}) > max ({self.max})"
             raise ValueError(msg)
         if not self.min <= self.value <= self.max:
-            msg = f"Parameter {self.name}: value ({self.value}) outside bounds [{self.min}, {self.max}]"
+            msg = (
+                f"Parameter {self.name}: value ({self.value}) "
+                f"outside bounds [{self.min}, {self.max}]"
+            )
             raise ValueError(msg)
 
     def __repr__(self) -> str:
@@ -80,7 +83,10 @@ class Parameter:
         min_str = f"{self.min:.4g}" if self.min > -1e10 else "-inf"
         max_str = f"{self.max:.4g}" if self.max < 1e10 else "inf"
         unit_str = f" {self.unit}" if self.unit else ""
-        return f"<Parameter {self.name}={self.value:.6g}{unit_str} [{min_str}, {max_str}] ({vary_str})>"
+        return (
+            f"<Parameter {self.name}={self.value:.6g}{unit_str} "
+            f"[{min_str}, {max_str}] ({vary_str})>"
+        )
 
     def is_at_boundary(self, tol: float = 1e-6) -> bool:
         """Check if parameter is at or near its boundary.

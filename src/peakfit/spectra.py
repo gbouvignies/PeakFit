@@ -58,7 +58,7 @@ def read_spectra(
 
 
 def get_shape_names(clargs: FittingOptions, spectra: Spectra) -> list[str]:
-    """Determine the shape names for fitting based on command line arguments or spectral parameters."""
+    """Determine shape names for fitting based on CLI args or spectral parameters."""
     match (clargs.pvoigt, clargs.lorentzian, clargs.gaussian):
         case (True, _, _):
             shape = "pvoigt"

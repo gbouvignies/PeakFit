@@ -167,7 +167,7 @@ def _no_apod_jit_impl(dx: np.ndarray, r2: float, aq: float, phase: float = 0.0) 
     exp_neg_z1_real = exp_factor * np.cos(-z1_imag)
     exp_neg_z1_imag = exp_factor * np.sin(-z1_imag)
 
-    # 1 - exp(-z1)
+    # Compute: 1 - exp(-z1)
     num_real = 1.0 - exp_neg_z1_real
     num_imag = -exp_neg_z1_imag
 
@@ -218,11 +218,11 @@ def _sp1_jit_impl(
     exp_f2_real = np.cos(f2_imag)
     exp_f2_imag = np.sin(f2_imag)
 
-    # exp(-f2)
+    # Compute: exp(-f2)
     exp_neg_f2_real = np.cos(-f2_imag)
     exp_neg_f2_imag = np.sin(-f2_imag)
 
-    # exp(z1)
+    # Compute: exp(z1)
     exp_z1_factor = np.exp(z1_real)
     exp_z1_real = exp_z1_factor * np.cos(z1_imag)
     exp_z1_imag = exp_z1_factor * np.sin(z1_imag)
@@ -236,7 +236,7 @@ def _sp1_jit_impl(
     exp_f1_real = np.cos(f1_imag)
     exp_f1_imag = np.sin(f1_imag)
 
-    # exp(-f1)
+    # Compute: exp(-f1)
     exp_neg_f1_real = np.cos(-f1_imag)
     exp_neg_f1_imag = np.sin(-f1_imag)
 
@@ -278,7 +278,7 @@ def _sp1_jit_impl(
     a2_real = (a2_num_real * denom2_real + a2_num_imag * denom2_imag) / denom2_mag_sq
     a2_imag = (a2_num_imag * denom2_real - a2_num_real * denom2_imag) / denom2_mag_sq
 
-    # spec = 1j * aq * (a1 + a2)
+    # Final computation: spec = 1j * aq * (a1 + a2)
     sum_real = a1_real + a2_real
     sum_imag = a1_imag + a2_imag
     spec_real = -aq * sum_imag  # 1j * (a + bj) = -b + aj
@@ -322,11 +322,11 @@ def _sp2_jit_impl(
     exp_2f2_real = np.cos(2.0 * f2_imag)
     exp_2f2_imag = np.sin(2.0 * f2_imag)
 
-    # exp(-2*f2)
+    # Compute: exp(-2*f2)
     exp_neg_2f2_real = np.cos(-2.0 * f2_imag)
     exp_neg_2f2_imag = np.sin(-2.0 * f2_imag)
 
-    # exp(z1)
+    # Compute: exp(z1)
     exp_z1_factor = np.exp(z1_real)
     exp_z1_real = exp_z1_factor * np.cos(z1_imag)
     exp_z1_imag = exp_z1_factor * np.sin(z1_imag)
@@ -340,11 +340,11 @@ def _sp2_jit_impl(
     exp_2f1_real = np.cos(2.0 * f1_imag)
     exp_2f1_imag = np.sin(2.0 * f1_imag)
 
-    # exp(-2*f1)
+    # Compute: exp(-2*f1)
     exp_neg_2f1_real = np.cos(-2.0 * f1_imag)
     exp_neg_2f1_imag = np.sin(-2.0 * f1_imag)
 
-    # a1: (exp(2*f2) - exp(z1)) * exp(-z1 + 2*f1) / (4 * (z1 - 2*f2))
+    # Compute a1: (exp(2*f2) - exp(z1)) * exp(-z1 + 2*f1) / (4 * (z1 - 2*f2))
     num1_real = exp_2f2_real - exp_z1_real
     num1_imag = exp_2f2_imag - exp_z1_imag
 
@@ -361,7 +361,7 @@ def _sp2_jit_impl(
     a1_real = (a1_num_real * denom1_real + a1_num_imag * denom1_imag) / denom1_mag_sq
     a1_imag = (a1_num_imag * denom1_real - a1_num_real * denom1_imag) / denom1_mag_sq
 
-    # a2: (exp(-2*f2) - exp(z1)) * exp(-z1 - 2*f1) / (4 * (z1 + 2*f2))
+    # Compute a2: (exp(-2*f2) - exp(z1)) * exp(-z1 - 2*f1) / (4 * (z1 + 2*f2))
     num2_real = exp_neg_2f2_real - exp_z1_real
     num2_imag = exp_neg_2f2_imag - exp_z1_imag
 
@@ -382,7 +382,7 @@ def _sp2_jit_impl(
     a2_real = (a2_num_real * denom2_real + a2_num_imag * denom2_imag) / denom2_mag_sq
     a2_imag = (a2_num_imag * denom2_real - a2_num_real * denom2_imag) / denom2_mag_sq
 
-    # a3: (1 - exp(-z1)) / (2 * z1)
+    # Compute a3: (1 - exp(-z1)) / (2 * z1)
     num3_real = 1.0 - exp_neg_z1_real
     num3_imag = -exp_neg_z1_imag
 
@@ -393,7 +393,7 @@ def _sp2_jit_impl(
     a3_real = (num3_real * denom3_real + num3_imag * denom3_imag) / denom3_mag_sq
     a3_imag = (num3_imag * denom3_real - num3_real * denom3_imag) / denom3_mag_sq
 
-    # spec = aq * (a1 + a2 + a3)
+    # Final computation: spec = aq * (a1 + a2 + a3)
     sum_real = a1_real + a2_real + a3_real
     sum_imag = a1_imag + a2_imag + a3_imag
     spec_real = aq * sum_real
@@ -480,7 +480,7 @@ def evaluate_peaks_batch(
     positions: list[np.ndarray],
     centers: np.ndarray,
     fwhms: np.ndarray,
-    shape_func,
+    shape_func: object,
 ) -> np.ndarray:
     """Evaluate multiple peaks at once for better cache utilization.
 

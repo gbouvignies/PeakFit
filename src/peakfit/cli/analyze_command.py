@@ -34,8 +34,9 @@ def load_fitting_state(results_dir: Path) -> dict:
         console.print("  Run 'peakfit fit' with --save-state (enabled by default)")
         raise SystemExit(1)
 
+    # Note: pickle.load is safe here as we control the state file creation
     with state_file.open("rb") as f:
-        state = pickle.load(f)
+        state = pickle.load(f)  # noqa: S301
 
     console.print(f"[green]Loaded fitting state:[/green] {state_file}")
     console.print(f"  Clusters: {len(state['clusters'])}")
@@ -126,7 +127,7 @@ def run_mcmc(
             ci_95 = result.confidence_intervals_95[j]
             table.add_row(
                 name,
-                f"{result.values[j]:.6f}",
+                f"{result.to_numpy()[j]:.6f}",
                 f"{result.std_errors[j]:.6f}",
                 f"[{ci_68[0]:.6f}, {ci_68[1]:.6f}]",
                 f"[{ci_95[0]:.6f}, {ci_95[1]:.6f}]",
@@ -240,7 +241,8 @@ def run_profile_likelihood(
         covar_ci_low = best_value - z * covar_stderr
         covar_ci_high = best_value + z * covar_stderr
         console.print(
-            f"  Covariance {confidence_level*100:.0f}% CI: [{covar_ci_low:.6f}, {covar_ci_high:.6f}]"
+            f"  Covariance {confidence_level*100:.0f}% CI: "
+            f"[{covar_ci_low:.6f}, {covar_ci_high:.6f}]"
         )
 
         # Check for asymmetry
@@ -319,7 +321,8 @@ def run_correlation(results_dir: Path, output_file: Path | None = None) -> None:
             for name in vary_names:
                 param = params[name]
                 f.write(
-                    f"{name}  {param.value:.6f}  {param.stderr:.6f}  {param.min:.6f}  {param.max:.6f}\n"
+                    f"{name}  {param.value:.6f}  {param.stderr:.6f}  "
+                    f"{param.min:.6f}  {param.max:.6f}\n"
                 )
         console.print(f"[green]Saved parameter summary to:[/green] {output_file}")
 
@@ -343,13 +346,13 @@ def _update_output_files(results_dir: Path, params: Parameters, peaks: list[Peak
                         # Find matching parameter
                         for shape in peak.shapes:
                             for param_name in shape.param_names:
-                                if param_name.endswith(param_part) or param_part in param_name:
-                                    if param_name in params:
-                                        value = params[param_name].value
-                                        stderr = params[param_name].stderr
-                                        shortname = param_part
-                                        line = f"# {shortname:<10s}: {value:10.5f} ± {stderr:10.5f}"
-                                        break
+                                if (param_name.endswith(param_part) or param_part in param_name) and param_name in params:
+                                    value = params[param_name].value
+                                    stderr = params[param_name].stderr
+                                    shortname = param_part
+                                    updated_line = f"# {shortname:<10s}: {value:10.5f} ± {stderr:10.5f}"
+                                    line = updated_line
+                                    break
                 new_lines.append(line)
 
             out_file.write_text("\n".join(new_lines))
@@ -369,7 +372,7 @@ def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]
                 ci_68 = result.confidence_intervals_68[i]
                 ci_95 = result.confidence_intervals_95[i]
                 f.write(
-                    f"{name}  {result.values[i]:.6f}  {result.std_errors[i]:.6f}  "
+                    f"{name}  {result.to_numpy()[i]:.6f}  {result.std_errors[i]:.6f}  "
                     f"{ci_68[0]:.6f}  {ci_68[1]:.6f}  {ci_95[0]:.6f}  {ci_95[1]:.6f}\n"
                 )
 
@@ -426,7 +429,7 @@ def _plot_profile_likelihood(
         ax.set_ylabel("χ²")
         ax.set_title(f"Profile Likelihood for {param_name}")
         ax.legend()
-        ax.grid(True, alpha=0.3)
+        ax.grid(visible=True, alpha=0.3)
 
         plt.tight_layout()
         plt.show()

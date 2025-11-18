@@ -211,7 +211,6 @@ def fit_clusters_parallel_refined(
     *,
     fixed: bool = False,
     n_workers: int | None = None,
-    verbose: bool = False,
 ) -> Parameters:
     """Fit clusters with parallel processing and refinement iterations.
 

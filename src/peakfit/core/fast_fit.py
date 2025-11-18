@@ -247,10 +247,10 @@ def fit_cluster_dict(
                 for i, name in enumerate(names):
                     stderr_dict[name] = float(stderr[i])
             except np.linalg.LinAlgError:
-                # Singular matrix, can't compute errors
+                # Singular matrix, can't compute errors - skip stderr computation
                 pass
-    except Exception:
-        # If error computation fails, continue without errors
+    except (ValueError, RuntimeError):
+        # If error computation fails due to numerical issues, continue without errors
         pass
 
     # Extract results
