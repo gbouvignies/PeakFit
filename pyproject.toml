@@ -88,6 +88,10 @@ select = [
     "NPY",    # numpy-specific rules
     "PERF",   # performance anti-patterns
     "RUF",    # ruff-specific rules
+    "S",      # flake8-bandit (security)
+    "BLE",    # flake8-blind-except
+    "T10",    # flake8-debugger
+    "PLW",    # pylint warnings (subset of PL)
 ]
 ignore = [
     "E501",    # Line too long (handled by formatter)
@@ -98,6 +102,10 @@ ignore = [
     "PTH123",  # open() should be replaced by Path.open() (not always better)
     "ARG001",  # Unused function argument (often needed for APIs/callbacks)
     "ARG002",  # Unused method argument (often needed for inheritance)
+    "S301",    # pickle usage (safe in controlled contexts)
+    "S603",    # subprocess without shell=True (not applicable)
+    "S607",    # subprocess partial path (not applicable)
+    "PLW2901", # Redefined loop variable (often intentional for readability)
 ]
 # Allow fix for all enabled rules (when --fix is used)
 fixable = ["ALL"]
@@ -129,9 +137,13 @@ convention = "google"
     "FBT001",  # Boolean positional arg (common in CLI)
     "FBT002",  # Boolean default arg (common in CLI)
     "PLC0415", # Import outside top-level (lazy imports for performance)
+    "BLE001",  # Blind exception (acceptable for validation/error reporting)
 ]
 "src/peakfit/core/benchmarks.py" = [
     "S311",    # Pseudo-random generators (acceptable for benchmarks)
+]
+"src/peakfit/core/backend.py" = [
+    "PLW0603", # Global statement (intentional for backend state management)
 ]
 "src/peakfit/__init__.py" = [
     "E402",    # Module level import not at top of file
