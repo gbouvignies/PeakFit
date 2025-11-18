@@ -50,9 +50,6 @@ peakfit-plot = "peakfit.plotting.main:main"
 requires = ["uv_build>=0.9.10,<0.10.0"]
 build-backend = "uv_build"
 
-[tool.uv.build-backend]
-module-root = ""
-
 [tool.ruff]
 line-length = 100
 target-version = "py313"
