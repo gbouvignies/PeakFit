@@ -97,7 +97,7 @@ def run_fit(
         config: Configuration object.
         parallel: Whether to use parallel processing.
         n_workers: Number of parallel workers.
-        backend: Computation backend (auto, numpy, numba, jax).
+        backend: Computation backend (auto, numpy, numba).
         optimizer: Optimization algorithm (leastsq, basin-hopping, differential-evolution).
         save_state: Whether to save fitting state for later analysis.
     """
@@ -390,25 +390,10 @@ def _initialize_backend(backend: str, parallel: bool = False) -> None:
     """Initialize the computation backend.
 
     Args:
-        backend: Requested backend (auto, numpy, numba, jax)
+        backend: Requested backend (auto, numpy, numba)
         parallel: Whether parallel mode is enabled
     """
     from peakfit.core.backend import auto_select_backend, get_available_backends, set_backend
-
-    # JAX is incompatible with multiprocessing due to GPU device conflicts
-    # When parallel mode is enabled, force numba or numpy backend
-    if parallel and backend in ("auto", "jax"):
-        available = get_available_backends()
-        if "numba" in available:
-            backend = "numba"
-            console.print(
-                "[yellow]⚠ Parallel mode: Using numba backend (JAX incompatible with multiprocessing)[/yellow]"
-            )
-        else:
-            backend = "numpy"
-            console.print(
-                "[yellow]⚠ Parallel mode: Using numpy backend (JAX incompatible with multiprocessing)[/yellow]"
-            )
 
     if backend == "auto":
         selected = auto_select_backend()
@@ -434,17 +419,7 @@ def _print_optimization_status() -> None:
     opt_info = get_optimization_info()
 
     # Show backend-specific information
-    if current_backend == "jax":
-        try:
-            import jax
-
-            console.print(f"[green]✓ JAX backend active[/green] (v{jax.__version__})")
-            devices = jax.devices()
-            device_info = ", ".join([str(d).split(":")[0] for d in devices])
-            console.print(f"  [dim]Devices: {device_info}[/dim]")
-        except ImportError:
-            pass
-    elif current_backend == "numba" and opt_info["numba_available"]:
+    if current_backend == "numba" and opt_info["numba_available"]:
         try:
             import numba
 
@@ -453,4 +428,4 @@ def _print_optimization_status() -> None:
             console.print("[yellow]• Using NumPy vectorized operations[/yellow]")
     else:
         console.print("[yellow]• Using NumPy vectorized operations[/yellow]")
-        console.print("  [dim]Install numba or jax for better performance[/dim]")
+        console.print("  [dim]Install numba for better performance[/dim]")

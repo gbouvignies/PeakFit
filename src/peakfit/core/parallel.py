@@ -96,7 +96,7 @@ def fit_clusters_parallel(
         params_dict=params_dict,
     )
 
-    # Run parallel fitting using spawn context (JAX-compatible)
+    # Run parallel fitting
     if n_workers > 1 and len(clusters) > 1:
         ctx = _get_mp_context()
         with ctx.Pool(n_workers) as pool:
