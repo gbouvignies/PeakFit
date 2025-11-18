@@ -10,6 +10,9 @@ from rich.console import Console
 
 console = Console()
 
+# Maximum number of plots to display interactively (to avoid opening hundreds of windows)
+MAX_DISPLAY_PLOTS = 10
+
 
 def _get_result_files(results: Path, extension: str = "*.out") -> list[Path]:
     """Get result files from path."""
@@ -60,25 +63,30 @@ def plot_intensity_profiles(results: Path, output: Path | None, show: bool) -> N
     output_path = output or Path("intensity_profiles.pdf")
     console.print(f"[green]Saving plots to:[/green] {output_path}")
 
-    figures_for_display = [] if show else None
+    # Limit interactive display to avoid opening hundreds of windows
+    if show and len(files) > MAX_DISPLAY_PLOTS:
+        console.print(f"[yellow]Note:[/yellow] Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
+        console.print(f"       All plots are saved to {output_path}")
+
+    plot_data_for_display = [] if show else None
 
     with PdfPages(output_path) as pdf:
-        for file in files:
+        for idx, file in enumerate(files):
             try:
                 data = np.genfromtxt(file, dtype=None, names=("xlabel", "intensity", "error"))
                 fig = _make_intensity_figure(file.stem, data)
                 _save_figure_to_pdf(pdf, fig)
 
-                if show:
-                    # Keep figure for display (recreate to avoid closed figure)
-                    fig_display = _make_intensity_figure(file.stem, data)
-                    figures_for_display.append(fig_display)
+                if show and idx < MAX_DISPLAY_PLOTS:
+                    # Store data for recreating figure later
+                    plot_data_for_display.append((file.stem, data))
 
             except Exception as e:
                 console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
 
-    if show and figures_for_display:
-        for fig in figures_for_display:
+    if show and plot_data_for_display:
+        for name, data in plot_data_for_display:
+            fig = _make_intensity_figure(name, data)
             fig.show()
         plt.show()
 
@@ -111,8 +119,13 @@ def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_point
     output_path = output or Path("cest_profiles.pdf")
     console.print(f"[green]Saving plots to:[/green] {output_path}")
 
-    figures_for_display = [] if show else None
+    # Limit interactive display to avoid opening hundreds of windows
+    if show and len(files) > MAX_DISPLAY_PLOTS:
+        console.print(f"[yellow]Note:[/yellow] Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
+        console.print(f"       All plots are saved to {output_path}")
+
     plot_data_for_display = [] if show else None
+    plots_saved = 0
 
     with PdfPages(output_path) as pdf:
         for file in files:
@@ -143,9 +156,11 @@ def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_point
                 fig = _make_cest_figure(file.stem, offset_norm, intensity_norm, error_norm)
                 _save_figure_to_pdf(pdf, fig)
 
-                if show:
+                if show and plots_saved < MAX_DISPLAY_PLOTS:
                     # Store data for recreating figure later
                     plot_data_for_display.append((file.stem, offset_norm, intensity_norm, error_norm))
+
+                plots_saved += 1
 
             except Exception as e:
                 console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
@@ -209,7 +224,13 @@ def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: 
     output_path = output or Path("cpmg_profiles.pdf")
     console.print(f"[green]Saving plots to:[/green] {output_path}")
 
+    # Limit interactive display to avoid opening hundreds of windows
+    if show and len(files) > MAX_DISPLAY_PLOTS:
+        console.print(f"[yellow]Note:[/yellow] Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
+        console.print(f"       All plots are saved to {output_path}")
+
     plot_data_for_display = [] if show else None
+    plots_saved = 0
 
     with PdfPages(output_path) as pdf:
         for file in files:
@@ -252,9 +273,11 @@ def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: 
                 fig = _make_cpmg_figure(file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
                 _save_figure_to_pdf(pdf, fig)
 
-                if show:
+                if show and plots_saved < MAX_DISPLAY_PLOTS:
                     # Store data for recreating figure later
                     plot_data_for_display.append((file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up))
+
+                plots_saved += 1
 
             except Exception as e:
                 console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
