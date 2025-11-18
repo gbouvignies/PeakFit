@@ -1,9 +1,8 @@
 """Integration tests using synthetic data."""
 
 import numpy as np
-import pytest
 
-from peakfit.shapes import gaussian, lorentzian, pvoigt
+from peakfit.shapes import gaussian, lorentzian
 
 
 class TestSyntheticSpectrumGeneration:
@@ -22,12 +21,12 @@ class TestSyntheticSpectrumGeneration:
         ]
 
         spectrum = np.zeros(n_points)
-        for center, fwhm, amp in peaks:
+        for center, _fwhm, amp in peaks:
             dx = x - center
             spectrum += amp * gaussian(dx, fwhm)
 
         # Check peak positions
-        for center, fwhm, amp in peaks:
+        for center, _fwhm, amp in peaks:
             # Maximum should be near the peak center
             center_idx = int(center)
             local_max = spectrum[max(0, center_idx - 5) : min(n_points, center_idx + 6)]
@@ -51,9 +50,11 @@ class TestSyntheticSpectrumGeneration:
                 for j, x in enumerate(x_axis):
                     dy = y - y0
                     dx = x - x0
-                    spectrum[i, j] += amp * gaussian(np.array([dy]), fwhm_y)[0] * gaussian(
-                        np.array([dx]), fwhm_x
-                    )[0]
+                    spectrum[i, j] += (
+                        amp
+                        * gaussian(np.array([dy]), fwhm_y)[0]
+                        * gaussian(np.array([dx]), fwhm_x)[0]
+                    )
 
         # Check that peaks are present
         for y0, x0, _, _, amp in peaks:
@@ -168,6 +169,8 @@ class TestFittingAccuracy:
         # High noise might actually be less accurate (but not always due to randomness)
         # Just verify both give reasonable results
         assert low_noise_error < 5.0  # Should be very close
+        # High noise should not be extremely close — allow for larger error
+        assert high_noise_error < n_points  # sanity check
 
 
 class TestOverlappingPeaks:

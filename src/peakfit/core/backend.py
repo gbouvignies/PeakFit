@@ -4,6 +4,7 @@ This module provides a centralized way to select and use different computational
 backends for lineshape calculations and fitting.
 """
 
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -125,9 +126,7 @@ def _pvoigt_numpy(dx: FloatArray, fwhm: float, eta: float) -> FloatArray:
     return (1.0 - eta) * _gaussian_numpy(dx, fwhm) + eta * _lorentzian_numpy(dx, fwhm)
 
 
-def _no_apod_numpy(
-    dx: FloatArray, r2: float, aq: float, phase: float = 0.0
-) -> FloatArray:
+def _no_apod_numpy(dx: FloatArray, r2: float, aq: float, phase: float = 0.0) -> FloatArray:
     """Pure NumPy non-apodized lineshape."""
     z1 = aq * (1j * dx + r2)
     spec = aq * (1.0 - np.exp(-z1)) / z1
@@ -160,32 +159,35 @@ def _sp2_numpy(
 
 
 # Public API for getting backend-specific functions
-def get_gaussian_func():
+LineshapeFunc = Callable[..., FloatArray]
+
+
+def get_gaussian_func() -> LineshapeFunc:
     """Get current backend's Gaussian function."""
     return _backend_functions.get("gaussian", _gaussian_numpy)
 
 
-def get_lorentzian_func():
+def get_lorentzian_func() -> LineshapeFunc:
     """Get current backend's Lorentzian function."""
     return _backend_functions.get("lorentzian", _lorentzian_numpy)
 
 
-def get_pvoigt_func():
+def get_pvoigt_func() -> LineshapeFunc:
     """Get current backend's Pseudo-Voigt function."""
     return _backend_functions.get("pvoigt", _pvoigt_numpy)
 
 
-def get_no_apod_func():
+def get_no_apod_func() -> LineshapeFunc:
     """Get current backend's non-apodized lineshape function."""
     return _backend_functions.get("no_apod", _no_apod_numpy)
 
 
-def get_sp1_func():
+def get_sp1_func() -> LineshapeFunc:
     """Get current backend's SP1 apodization function."""
     return _backend_functions.get("sp1", _sp1_numpy)
 
 
-def get_sp2_func():
+def get_sp2_func() -> LineshapeFunc:
     """Get current backend's SP2 apodization function."""
     return _backend_functions.get("sp2", _sp2_numpy)
 

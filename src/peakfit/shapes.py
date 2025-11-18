@@ -190,9 +190,7 @@ class BaseShape(ABC):
         lines = []
         for name in self.param_names:
             fullname = name
-            shortname = name.replace(self.prefix[:-1], "").replace(
-                self.prefix_phase[:-1], ""
-            )
+            shortname = name.replace(self.prefix[:-1], "").replace(self.prefix_phase[:-1], "")
             value = params[fullname].value
             stderr_val = params[fullname].stderr
             line = f"# {shortname:<10s}: {value:10.5f} ± {stderr_val:10.5f}"
@@ -204,9 +202,7 @@ class BaseShape(ABC):
         """Center position in points (integer)."""
         return self.spec_params.ppm2pt_i(self.center)
 
-    def _compute_dx_and_sign(
-        self, x_pt: IntArray, x0: float
-    ) -> tuple[FloatArray, FloatArray]:
+    def _compute_dx_and_sign(self, x_pt: IntArray, x0: float) -> tuple[FloatArray, FloatArray]:
         """Compute frequency offset and aliasing sign.
 
         Args:
@@ -223,11 +219,7 @@ class BaseShape(ABC):
         else:
             aliasing = np.zeros_like(dx_pt)
         dx_pt_corrected = dx_pt - self.size * aliasing
-        sign = (
-            np.power(-1.0, aliasing)
-            if self.spec_params.p180
-            else np.ones_like(aliasing)
-        )
+        sign = np.power(-1.0, aliasing) if self.spec_params.p180 else np.ones_like(aliasing)
         return dx_pt_corrected, sign
 
 
@@ -398,11 +390,7 @@ class ApodShape(BaseShape):
 
         dx_pt, sign = self._compute_dx_and_sign(self.full_grid, x0)
         dx_rads = self.spec_params.pts2hz_delta(dx_pt) * 2 * np.pi
-        j_rads = (
-            np.array([[0.0]]).T
-            if j_hz == 0.0
-            else j_hz * np.pi * np.array([[1.0, -1.0]]).T
-        )
+        j_rads = np.array([[0.0]]).T if j_hz == 0.0 else j_hz * np.pi * np.array([[1.0, -1.0]]).T
         dx_rads = dx_rads + j_rads
 
         # Get the shape function from backend registry

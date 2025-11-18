@@ -32,14 +32,8 @@ class SpectralParameters:
 
     def __post_init__(self) -> None:
         # derived units (these are in ppm)
-        self.delta = (
-            -self.sw / (self.size * self.obs) if self.size * self.obs != 0.0 else 0.0
-        )
-        self.first = (
-            self.car / self.obs - self.delta * self.size / 2.0
-            if self.obs != 0.0
-            else 0.0
-        )
+        self.delta = -self.sw / (self.size * self.obs) if self.size * self.obs != 0.0 else 0.0
+        self.first = self.car / self.obs - self.delta * self.size / 2.0 if self.obs != 0.0 else 0.0
 
     def hz2pts_delta(self, hz: T) -> T:
         return hz / (self.obs * self.delta)
@@ -69,9 +63,7 @@ class SpectralParameters:
         return hz / self.obs
 
 
-def read_spectral_parameters(
-    dic: dict[str, Any], data: FloatArray
-) -> list[SpectralParameters]:
+def read_spectral_parameters(dic: dict[str, Any], data: FloatArray) -> list[SpectralParameters]:
     spec_params: list[SpectralParameters] = []
 
     for i in range(data.ndim):

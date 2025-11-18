@@ -72,9 +72,7 @@ def merge_connected_segments(segments: IntArray) -> IntArray:
     """
     for _ in range(segments.ndim):
         merge_mask = np.logical_and(segments[0] > 0, segments[-1] > 0)
-        connected_pairs = zip(
-            segments[0][merge_mask], segments[-1][merge_mask], strict=True
-        )
+        connected_pairs = zip(segments[0][merge_mask], segments[-1][merge_mask], strict=True)
         connected_groups = group_connected_pairs(connected_pairs)
 
         for group in connected_groups:
@@ -129,9 +127,7 @@ def assign_peaks_to_segments(peaks: list[Peak], segments: IntArray) -> dict[int,
     return peak_segments_dict
 
 
-def create_clusters(
-    spectra: Spectra, peaks: list[Peak], contour_level: float
-) -> list[Cluster]:
+def create_clusters(spectra: Spectra, peaks: list[Peak], contour_level: float) -> list[Cluster]:
     """Create clusters from spectral data based on peaks and contour levels.
 
     Args:
@@ -152,8 +148,6 @@ def create_clusters(
             peak.set_cluster_id(segment_id)
         segment_positions = [*np.where(segments == segment_id)]
         segmented_data = spectra.data[:, *segment_positions].T
-        clusters.append(
-            Cluster(segment_id, peaks_in_segment, segment_positions, segmented_data)
-        )
+        clusters.append(Cluster(segment_id, peaks_in_segment, segment_positions, segmented_data))
 
     return sorted(clusters, key=lambda cluster: len(cluster.peaks))

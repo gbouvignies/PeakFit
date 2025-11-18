@@ -4,7 +4,9 @@ This module provides tools for measuring and analyzing performance
 of different fitting strategies.
 """
 
+import multiprocessing as mp
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
@@ -83,7 +85,7 @@ class Profiler:
         self._current_name: str = ""
 
     @contextmanager
-    def timer(self, name: str, count: int = 1, **metadata: object) -> "Generator[None, None, None]":
+    def timer(self, name: str, count: int = 1, **metadata: object) -> Generator[None, None, None]:
         """Context manager for timing a block of code.
 
         Args:

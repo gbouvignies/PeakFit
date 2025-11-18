@@ -1,7 +1,7 @@
 """Contain IO messages."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.panel import Panel
@@ -30,9 +30,7 @@ def print_logo() -> None:
     description_text = Text("Perform peak integration in  \npseudo-3D spectra\n\n")
     version_text = Text("Version: ")
     version_number_text = Text(f"{__version__}", style="red")
-    all_text = Text.assemble(
-        logo_text, description_text, version_text, version_number_text
-    )
+    all_text = Text.assemble(logo_text, description_text, version_text, version_number_text)
     panel = Panel.fit(all_text)
     console.print(panel)
 
@@ -57,12 +55,10 @@ def print_peaks(peaks: list["Peak"]) -> None:
 
 def print_segmenting() -> None:
     """Print the segmenting message."""
-    print_message(
-        "\n — Segmenting the spectra and clustering the peaks...", "bold yellow"
-    )
+    print_message("\n — Segmenting the spectra and clustering the peaks...", "bold yellow")
 
 
-def print_fit_report(result: Any) -> None:
+def print_fit_report(result: object) -> None:
     """Print the fitting report.
 
     Args:
@@ -105,8 +101,7 @@ def print_cluster_summary(cluster_index: int, total_clusters: int, peak_names: l
     """Print a summary of the cluster being fitted."""
     peaks_str = ", ".join(peak_names)
     console.print(
-        f"\n[bold cyan]Cluster {cluster_index}/{total_clusters}[/] │ "
-        f"Peaks: [green]{peaks_str}[/]"
+        f"\n[bold cyan]Cluster {cluster_index}/{total_clusters}[/] │ Peaks: [green]{peaks_str}[/]"
     )
 
 
@@ -146,7 +141,7 @@ def print_fit_summary(
     console.print(Panel(panel_content, border_style="green"))
 
 
-def print_parameter_table(params: Any) -> None:
+def print_parameter_table(params: object) -> None:
     """Print a formatted table of fitted parameters.
 
     Args:
@@ -171,9 +166,7 @@ def print_parameter_table(params: Any) -> None:
 
 def print_optimization_settings(ftol: float, xtol: float, max_nfev: int) -> None:
     """Print optimization settings."""
-    console.print(
-        f"[dim]Optimization: ftol={ftol:.0e}, xtol={xtol:.0e}, max_nfev={max_nfev}[/]"
-    )
+    console.print(f"[dim]Optimization: ftol={ftol:.0e}, xtol={xtol:.0e}, max_nfev={max_nfev}[/]")
 
 
 def print_boundary_warning(param_names: list[str]) -> None:
@@ -183,9 +176,7 @@ def print_boundary_warning(param_names: list[str]) -> None:
         param_names: List of parameter names at boundaries
     """
     if param_names:
-        console.print(
-            f"\n[bold yellow]⚠ Warning:[/] {len(param_names)} parameter(s) at boundary:"
-        )
+        console.print(f"\n[bold yellow]⚠ Warning:[/] {len(param_names)} parameter(s) at boundary:")
         for name in param_names[:10]:  # Show max 10
             console.print(f"  • [yellow]{name}[/]")
         if len(param_names) > 10:
@@ -287,9 +278,7 @@ def print_writing_shifts() -> None:
 
 def print_refining(index: int, refine_nb: int) -> None:
     """Print the message for refining the peaks."""
-    print_message(
-        f"\n — Refining the peak parameters ({index}/{refine_nb})...", "bold yellow"
-    )
+    print_message(f"\n — Refining the peak parameters ({index}/{refine_nb})...", "bold yellow")
 
 
 # File validation and error messages for plotting commands

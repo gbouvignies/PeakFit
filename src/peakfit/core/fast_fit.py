@@ -25,10 +25,8 @@ class FastFitError(Exception):
     """Exception raised for errors in fast fitting."""
 
 
-
 class ConvergenceWarning(UserWarning):
     """Warning for convergence issues."""
-
 
 
 def params_to_arrays(params: Parameters) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
@@ -48,11 +46,7 @@ def params_to_arrays(params: Parameters) -> tuple[np.ndarray, np.ndarray, np.nda
     return x0, lower, upper, names
 
 
-def arrays_to_params(
-    x: np.ndarray,
-    names: list[str],
-    params_template: Parameters
-) -> Parameters:
+def arrays_to_params(x: np.ndarray, names: list[str], params_template: Parameters) -> Parameters:
     """Update Parameters with optimized values.
 
     Args:
@@ -93,9 +87,7 @@ def residuals_fast(
         params_template[name].value = x[i]
 
     # Calculate shapes (this uses the optimized JIT functions)
-    shapes = np.array(
-        [peak.evaluate(cluster.positions, params_template) for peak in cluster.peaks]
-    )
+    shapes = np.array([peak.evaluate(cluster.positions, params_template) for peak in cluster.peaks])
 
     # Least squares for amplitudes
     amplitudes = np.linalg.lstsq(shapes.T, cluster.corrected_data, rcond=None)[0]
@@ -107,6 +99,7 @@ def residuals_fast(
 def fit_cluster_dict(
     cluster: Cluster,
     noise: float,
+    *,
     fixed: bool = False,
     params_init: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -286,6 +279,7 @@ def fit_clusters_fast(
     clusters: list[Cluster],
     noise: float,
     refine_iterations: int = 1,
+    *,
     fixed: bool = False,
     verbose: bool = False,
 ) -> Parameters:
@@ -320,7 +314,7 @@ def fit_clusters_fast(
         # Fit all clusters sequentially
         successes = 0
         for _i, cluster in enumerate(clusters):
-            result = fit_cluster_dict(cluster, noise, fixed, params_dict)
+            result = fit_cluster_dict(cluster, noise, fixed=fixed, params_init=params_dict)
 
             if result["success"]:
                 successes += 1

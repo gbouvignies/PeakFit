@@ -1,7 +1,6 @@
 """Test clustering functions."""
 
 import numpy as np
-import pytest
 
 from peakfit.clustering import (
     group_connected_pairs,

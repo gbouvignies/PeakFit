@@ -73,10 +73,7 @@ def run_mcmc(
     # Filter clusters if specific peaks requested
     if peaks is not None:
         peak_set = set(peaks)
-        clusters = [
-            c for c in clusters
-            if any(p.name in peak_set for p in c.peaks)
-        ]
+        clusters = [c for c in clusters if any(p.name in peak_set for p in c.peaks)]
         if not clusters:
             console.print(f"[red]Error:[/red] No clusters found for peaks: {peaks}")
             raise SystemExit(1)
@@ -96,6 +93,7 @@ def run_mcmc(
 
         # Get parameters for this cluster
         from peakfit.peak import create_params
+
         cluster_params = create_params(cluster.peaks)
 
         # Copy values from fitted parameters
@@ -107,7 +105,9 @@ def run_mcmc(
         # Run MCMC
         with console.status("  [yellow]Sampling posterior distribution...[/yellow]"):
             result = estimate_uncertainties_mcmc(
-                cluster_params, cluster, noise,
+                cluster_params,
+                cluster,
+                noise,
                 n_walkers=n_walkers,
                 n_steps=n_steps,
                 burn_in=burn_in,
@@ -180,6 +180,7 @@ def run_profile_likelihood(
     target_cluster = None
     for cluster in clusters:
         from peakfit.peak import create_params
+
         cluster_params = create_params(cluster.peaks)
         if param_name in cluster_params:
             target_cluster = cluster
@@ -194,6 +195,7 @@ def run_profile_likelihood(
 
     # Get cluster parameters
     from peakfit.peak import create_params
+
     cluster_params = create_params(target_cluster.peaks)
     for key in cluster_params:
         if key in params:
@@ -204,6 +206,7 @@ def run_profile_likelihood(
     # For 1 parameter: chi2_inv(0.95, df=1) = 3.84
     # For 1 parameter: chi2_inv(0.68, df=1) = 1.0
     from scipy.stats import chi2
+
     delta_chi2 = chi2.ppf(confidence_level, df=1)
 
     console.print(f"\n[bold]Computing profile likelihood for {param_name}[/bold]")
@@ -213,7 +216,9 @@ def run_profile_likelihood(
 
     with console.status("[yellow]Computing profile...[/yellow]"):
         param_vals, chi2_vals, (ci_low, ci_high) = compute_profile_likelihood(
-            cluster_params, target_cluster, noise,
+            cluster_params,
+            target_cluster,
+            noise,
             param_name=param_name,
             n_points=n_points,
             delta_chi2=delta_chi2,
@@ -230,17 +235,22 @@ def run_profile_likelihood(
     # Compare with covariance-based CI
     if covar_stderr > 0:
         from scipy.stats import norm
+
         z = norm.ppf((1 + confidence_level) / 2)
         covar_ci_low = best_value - z * covar_stderr
         covar_ci_high = best_value + z * covar_stderr
-        console.print(f"  Covariance {confidence_level*100:.0f}% CI: [{covar_ci_low:.6f}, {covar_ci_high:.6f}]")
+        console.print(
+            f"  Covariance {confidence_level*100:.0f}% CI: [{covar_ci_low:.6f}, {covar_ci_high:.6f}]"
+        )
 
         # Check for asymmetry
         profile_lower = best_value - ci_low
         profile_upper = ci_high - best_value
         asymmetry = abs(profile_upper - profile_lower) / (profile_upper + profile_lower) * 200
         if asymmetry > 20:
-            console.print(f"  [yellow]Warning: Profile CI is asymmetric ({asymmetry:.1f}%)[/yellow]")
+            console.print(
+                f"  [yellow]Warning: Profile CI is asymmetric ({asymmetry:.1f}%)[/yellow]"
+            )
             console.print("  [dim]This indicates non-linear parameter behavior[/dim]")
 
     if plot:
@@ -297,7 +307,9 @@ def run_correlation(results_dir: Path, output_file: Path | None = None) -> None:
         console.print("\n[yellow]Warning: Parameters at boundaries:[/yellow]")
         for name in boundary_params:
             param = params[name]
-            console.print(f"  {name}: {param.value:.6f} (bounds: [{param.min:.6f}, {param.max:.6f}])")
+            console.print(
+                f"  {name}: {param.value:.6f} (bounds: [{param.min:.6f}, {param.max:.6f}])"
+            )
         console.print("  [dim]Consider adjusting bounds or using global optimization[/dim]")
 
     if output_file is not None:
@@ -306,7 +318,9 @@ def run_correlation(results_dir: Path, output_file: Path | None = None) -> None:
             f.write("# Name  Value  Stderr  Min  Max\n")
             for name in vary_names:
                 param = params[name]
-                f.write(f"{name}  {param.value:.6f}  {param.stderr:.6f}  {param.min:.6f}  {param.max:.6f}\n")
+                f.write(
+                    f"{name}  {param.value:.6f}  {param.stderr:.6f}  {param.min:.6f}  {param.max:.6f}\n"
+                )
         console.print(f"[green]Saved parameter summary to:[/green] {output_file}")
 
 
@@ -361,8 +375,12 @@ def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]
 
 
 def _save_profile_results(
-    output_file: Path, param_name: str, param_vals: np.ndarray,
-    chi2_vals: np.ndarray, ci_low: float, ci_high: float
+    output_file: Path,
+    param_name: str,
+    param_vals: np.ndarray,
+    chi2_vals: np.ndarray,
+    ci_low: float,
+    ci_high: float,
 ) -> None:
     """Save profile likelihood results to file."""
     with output_file.open("w") as f:
@@ -374,8 +392,12 @@ def _save_profile_results(
 
 
 def _plot_profile_likelihood(
-    param_name: str, param_vals: np.ndarray, chi2_vals: np.ndarray,
-    ci_low: float, ci_high: float, delta_chi2: float
+    param_name: str,
+    param_vals: np.ndarray,
+    chi2_vals: np.ndarray,
+    ci_low: float,
+    ci_high: float,
+    delta_chi2: float,
 ) -> None:
     """Plot profile likelihood curve."""
     try:

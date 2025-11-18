@@ -10,9 +10,7 @@ from peakfit.plotting.common import plot_wrapper
 THRESHOLD = 1e4
 
 
-def make_fig(
-    name: str, offset: np.ndarray, intensity: np.ndarray, error: np.ndarray
-) -> Figure:
+def make_fig(name: str, offset: np.ndarray, intensity: np.ndarray, error: np.ndarray) -> Figure:
     """Creates a figure for the CEST plot."""
     fig, ax = plt.subplots()
     ax.errorbar(offset, intensity, yerr=error, fmt=".")

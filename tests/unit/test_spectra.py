@@ -1,8 +1,8 @@
 """Test spectra reading and processing."""
 
+from unittest.mock import MagicMock, patch
+
 import numpy as np
-import pytest
-from unittest.mock import patch, MagicMock
 
 
 class TestSpectraExcludePlanes:
@@ -18,7 +18,8 @@ class TestSpectraExcludePlanes:
 
         # Create test data with 5 planes
         dic = {"FDF2QUADFLAG": 0.0}
-        data = np.random.randn(5, 10, 10).astype(np.float32)
+        rng = np.random.default_rng()
+        data = rng.standard_normal((5, 10, 10)).astype(np.float32)
         z_values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
         spectra = Spectra(dic, data, z_values)
@@ -39,7 +40,8 @@ class TestSpectraExcludePlanes:
         mock_udic.return_value = {0: {"freq": False}}
 
         dic = {"FDF2QUADFLAG": 0.0}
-        data = np.random.randn(5, 10, 10).astype(np.float32)
+        rng = np.random.default_rng()
+        data = rng.standard_normal((5, 10, 10)).astype(np.float32)
         z_values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
         spectra = Spectra(dic, data, z_values)
@@ -59,7 +61,8 @@ class TestSpectraExcludePlanes:
         mock_udic.return_value = {0: {"freq": False}}
 
         dic = {"FDF2QUADFLAG": 0.0}
-        data = np.random.randn(5, 10, 10).astype(np.float32)
+        rng = np.random.default_rng()
+        data = rng.standard_normal((5, 10, 10)).astype(np.float32)
         z_values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
         spectra = Spectra(dic, data, z_values)
@@ -74,6 +77,7 @@ class TestSpectraExcludePlanes:
     def test_read_spectra_returns_correct_object(self, mock_read, mock_udic):
         """Should return the spectra object with exclusions applied (bug fix test)."""
         from pathlib import Path
+
         from peakfit.spectra import read_spectra
 
         # Mock guess_udic to return freq=False (no pseudo-dim needed)
@@ -81,12 +85,14 @@ class TestSpectraExcludePlanes:
 
         # Mock NMRPipe read
         dic = {"FDF2QUADFLAG": 0.0}
-        data = np.random.randn(5, 10, 10).astype(np.float32)
+        rng = np.random.default_rng()
+        data = rng.standard_normal((5, 10, 10)).astype(np.float32)
         mock_read.return_value = (dic, data)
 
         # Create temp z_values file
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("1.0\n2.0\n3.0\n4.0\n5.0\n")
             z_path = Path(f.name)
 
@@ -95,7 +101,7 @@ class TestSpectraExcludePlanes:
             spectra = read_spectra(
                 Path("fake_spectrum.ft3"),
                 z_path,
-                exclude_list=[0, 2, 4]  # Exclude first, third, fifth planes
+                exclude_list=[0, 2, 4],  # Exclude first, third, fifth planes
             )
 
             # Critical: The returned object should have exclusions applied
@@ -116,7 +122,8 @@ class TestSpectraPostInit:
         # Simulate 2D spectrum (no pseudo-3D dimension)
         # We need to mock guess_udic to return freq=True for first dimension
         dic = {"FDF2QUADFLAG": 0.0, "FDF1QUADFLAG": 0.0}
-        data = np.random.randn(100, 100).astype(np.float32)
+        rng = np.random.default_rng()
+        data = rng.standard_normal((100, 100)).astype(np.float32)
         z_values = np.array([])
 
         with patch("peakfit.spectra.guess_udic") as mock_udic:
@@ -135,7 +142,8 @@ class TestSpectraPostInit:
         mock_udic.return_value = {0: {"freq": False}}
 
         dic = {"FDF2QUADFLAG": 0.0}
-        data = np.random.randn(5, 10, 10).astype(np.float32)
+        rng = np.random.default_rng()
+        data = rng.standard_normal((5, 10, 10)).astype(np.float32)
         z_values = np.array([])
 
         spectra = Spectra(dic, data, z_values)
@@ -150,7 +158,6 @@ class TestGetShapeNames:
     def test_pvoigt_flag(self):
         """Should return pvoigt when flag is set."""
         from peakfit.spectra import get_shape_names
-        from unittest.mock import MagicMock
 
         clargs = MagicMock()
         clargs.pvoigt = True
@@ -166,7 +173,6 @@ class TestGetShapeNames:
     def test_lorentzian_flag(self):
         """Should return lorentzian when flag is set."""
         from peakfit.spectra import get_shape_names
-        from unittest.mock import MagicMock
 
         clargs = MagicMock()
         clargs.pvoigt = False
@@ -182,7 +188,6 @@ class TestGetShapeNames:
     def test_gaussian_flag(self):
         """Should return gaussian when flag is set."""
         from peakfit.spectra import get_shape_names
-        from unittest.mock import MagicMock
 
         clargs = MagicMock()
         clargs.pvoigt = False
@@ -202,7 +207,6 @@ class TestDetermineShapeName:
     def test_sp1_apodization(self):
         """Should detect SP1 apodization."""
         from peakfit.spectra import determine_shape_name
-        from unittest.mock import MagicMock
 
         params = MagicMock()
         params.apocode = 1.0
@@ -214,7 +218,6 @@ class TestDetermineShapeName:
     def test_sp2_apodization(self):
         """Should detect SP2 apodization."""
         from peakfit.spectra import determine_shape_name
-        from unittest.mock import MagicMock
 
         params = MagicMock()
         params.apocode = 1.0
@@ -226,7 +229,6 @@ class TestDetermineShapeName:
     def test_no_apod(self):
         """Should detect no apodization."""
         from peakfit.spectra import determine_shape_name
-        from unittest.mock import MagicMock
 
         params = MagicMock()
         params.apocode = 0.0
@@ -237,7 +239,6 @@ class TestDetermineShapeName:
     def test_default_pvoigt(self):
         """Should default to pvoigt for unknown cases."""
         from peakfit.spectra import determine_shape_name
-        from unittest.mock import MagicMock
 
         params = MagicMock()
         params.apocode = 99.0  # Unknown

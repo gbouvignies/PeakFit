@@ -84,11 +84,7 @@ class NMRData:
         return data, uc_x.ppm_limits(), uc_y.ppm_limits()
 
     def unalias_y(self, y0: FloatArray) -> FloatArray:
-        y_scale = (
-            (self.ylim[1] - self.ylim[0])
-            * (self.data.shape[1] + 1)
-            / self.data.shape[1]
-        )
+        y_scale = (self.ylim[1] - self.ylim[0]) * (self.data.shape[1] + 1) / self.data.shape[1]
         return (y0 - self.ylim[0]) % y_scale + self.ylim[0]
 
 
@@ -148,9 +144,7 @@ class PlotWidget(QWidget):
         if plist is not None:
             self.ax.scatter(plist["x0_ppm"], plist["y0_ppm"], color="black", s=10)
             for label, y, x in plist.itertuples(index=False):
-                self.ax.annotate(
-                    label, (x, y), textcoords="offset points", xytext=(5, 5)
-                )
+                self.ax.annotate(label, (x, y), textcoords="offset points", xytext=(5, 5))
 
         self.ax.set_title(f"NMR Spectrum - Plane {current_plane + 1}")
         self.ax.set_xlabel("Dimension 1 [ppm]")
@@ -225,9 +219,7 @@ class ControlWidget(QWidget):
 
 
 class SpectraViewer(QMainWindow):
-    def __init__(
-        self, data1: NMRData, data2: NMRData, plist: pd.DataFrame | None
-    ) -> None:
+    def __init__(self, data1: NMRData, data2: NMRData, plist: pd.DataFrame | None) -> None:
         super().__init__()
         self.data1, self.data2 = data1, data2
         self.data_diff = self.data1.data - self.data2.data
@@ -292,12 +284,8 @@ class SpectraViewer(QMainWindow):
     def _connect_signals(self) -> None:
         self.control_widget.plane_slider.valueChanged.connect(self._change_plane)
         self.control_widget.plane_spinbox.valueChanged.connect(self._change_plane)
-        self.control_widget.contour_slider.valueChanged.connect(
-            self._update_contour_level
-        )
-        self.control_widget.contour_spinbox.valueChanged.connect(
-            self._update_contour_level
-        )
+        self.control_widget.contour_slider.valueChanged.connect(self._update_contour_level)
+        self.control_widget.contour_spinbox.valueChanged.connect(self._update_contour_level)
         for key, checkbox in self.control_widget.checkboxes.items():
             checkbox.stateChanged.connect(lambda _state, k=key: self._toggle_spectrum(k))
 
@@ -329,9 +317,7 @@ class SpectraViewer(QMainWindow):
 
     def _change_plane(self, value: int) -> None:
         self.current_plane = value - 1  # Adjust for 0-based indexing
-        self.control_widget.update_plane_label(
-            self.current_plane, self.data1.data.shape[0]
-        )
+        self.control_widget.update_plane_label(self.current_plane, self.data1.data.shape[0])
         self.update_view()
 
     def _update_contour_level(self, value: int) -> None:
@@ -341,9 +327,7 @@ class SpectraViewer(QMainWindow):
         self.update_view()
 
     def _toggle_spectrum(self, spectrum: str) -> None:
-        self.show_spectra[spectrum] = self.control_widget.checkboxes[
-            spectrum
-        ].isChecked()
+        self.show_spectra[spectrum] = self.control_widget.checkboxes[spectrum].isChecked()
         self.update_view()
 
     def resizeEvent(self, event: "QResizeEvent") -> None:  # noqa: N802
@@ -386,9 +370,7 @@ def plot_spectra(args: argparse.Namespace) -> None:
                 header=None,
                 names=("name", "y0_ppm", "x0_ppm"),
             )
-            plist["y0_ppm"] = data1.unalias_y(
-                plist["y0_ppm"].to_numpy().astype(np.float32)
-            )
+            plist["y0_ppm"] = data1.unalias_y(plist["y0_ppm"].to_numpy().astype(np.float32))
     except (FileNotFoundError, ValueError, OSError) as e:
         print_data_loading_error(e)
         sys.exit(1)

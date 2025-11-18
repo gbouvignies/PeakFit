@@ -5,6 +5,9 @@ If numba is available, functions are JIT-compiled for better performance.
 Otherwise, pure NumPy implementations are used.
 """
 
+from collections.abc import Callable
+from typing import Any
+
 import numpy as np
 
 # Try to import numba for JIT compilation
@@ -16,8 +19,8 @@ except ImportError:
     HAS_NUMBA = False
 
     # Fallback decorator that does nothing
-    def jit(*args, **kwargs):  # noqa: ARG001
-        def decorator(func):
+    def jit(*args: object, **kwargs: object) -> Callable[[Callable[..., Any]], Callable[..., Any]]:  # noqa: ARG001
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
 
         return decorator
@@ -49,9 +52,7 @@ def pvoigt_numpy(dx: np.ndarray, fwhm: float, eta: float) -> np.ndarray:
     return (1.0 - eta) * gauss + eta * lorentz
 
 
-def no_apod_numpy(
-    dx: np.ndarray, r2: float, aq: float, phase: float = 0.0
-) -> np.ndarray:
+def no_apod_numpy(dx: np.ndarray, r2: float, aq: float, phase: float = 0.0) -> np.ndarray:
     """Vectorized non-apodized lineshape (fast without Numba)."""
     z1 = aq * (1j * dx + r2)
     spec = aq * (1.0 - np.exp(-z1)) / z1
@@ -140,9 +141,7 @@ def _pvoigt_jit_impl(dx: np.ndarray, fwhm: float, eta: float) -> np.ndarray:
 
 
 @jit(nopython=True, cache=True, fastmath=True)
-def _no_apod_jit_impl(
-    dx: np.ndarray, r2: float, aq: float, phase: float = 0.0
-) -> np.ndarray:
+def _no_apod_jit_impl(dx: np.ndarray, r2: float, aq: float, phase: float = 0.0) -> np.ndarray:
     """JIT-optimized non-apodized lineshape.
 
     Args:
@@ -366,8 +365,12 @@ def _sp2_jit_impl(
     num2_real = exp_neg_2f2_real - exp_z1_real
     num2_imag = exp_neg_2f2_imag - exp_z1_imag
 
-    exp_neg_z1_neg_2f1_real = exp_neg_z1_real * exp_neg_2f1_real - exp_neg_z1_imag * exp_neg_2f1_imag
-    exp_neg_z1_neg_2f1_imag = exp_neg_z1_real * exp_neg_2f1_imag + exp_neg_z1_imag * exp_neg_2f1_real
+    exp_neg_z1_neg_2f1_real = (
+        exp_neg_z1_real * exp_neg_2f1_real - exp_neg_z1_imag * exp_neg_2f1_imag
+    )
+    exp_neg_z1_neg_2f1_imag = (
+        exp_neg_z1_real * exp_neg_2f1_imag + exp_neg_z1_imag * exp_neg_2f1_real
+    )
 
     a2_num_real = num2_real * exp_neg_z1_neg_2f1_real - num2_imag * exp_neg_z1_neg_2f1_imag
     a2_num_imag = num2_real * exp_neg_z1_neg_2f1_imag + num2_imag * exp_neg_z1_neg_2f1_real
@@ -445,7 +448,7 @@ else:
     sp2_jit = sp2_numpy
 
 
-def get_optimized_gaussian():
+def get_optimized_gaussian() -> Callable[..., np.ndarray]:
     """Get the optimized Gaussian function.
 
     Returns:
@@ -454,7 +457,7 @@ def get_optimized_gaussian():
     return gaussian_jit
 
 
-def get_optimized_lorentzian():
+def get_optimized_lorentzian() -> Callable[..., np.ndarray]:
     """Get the optimized Lorentzian function.
 
     Returns:
@@ -463,7 +466,7 @@ def get_optimized_lorentzian():
     return lorentzian_jit
 
 
-def get_optimized_pvoigt():
+def get_optimized_pvoigt() -> Callable[..., np.ndarray]:
     """Get the optimized Pseudo-Voigt function.
 
     Returns:

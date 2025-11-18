@@ -42,9 +42,7 @@ def expand_file_patterns(file_patterns: list[str]) -> list[pathlib.Path]:
             # Try to expand as a glob pattern
             # For patterns like "Fits/*.out", we need to handle the parent directory
             parent = (
-                pattern_path.parent
-                if pattern_path.parent != pathlib.Path()
-                else pathlib.Path.cwd()
+                pattern_path.parent if pattern_path.parent != pathlib.Path() else pathlib.Path.cwd()
             )
             try:
                 matches = list(parent.glob(pattern_path.name))

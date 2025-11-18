@@ -23,9 +23,7 @@ def intensity_to_r2eff(
 def make_ens(data: np.ndarray, size: int = 1000) -> np.ndarray:
     """Generates an ensemble of intensity values."""
     rng = np.random.default_rng()
-    return data["intensity"] + data["error"] * rng.standard_normal(
-        (size, len(data["intensity"]))
-    )
+    return data["intensity"] + data["error"] * rng.standard_normal((size, len(data["intensity"])))
 
 
 def make_fig(

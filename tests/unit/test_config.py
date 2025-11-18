@@ -1,5 +1,6 @@
 """Test configuration loading and saving."""
 
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -30,7 +31,7 @@ class TestConfigLoading:
         """Should raise error for invalid TOML syntax."""
         invalid_file = tmp_path / "invalid.toml"
         invalid_file.write_text("not valid toml {{{")
-        with pytest.raises(Exception):  # tomllib.TOMLDecodeError
+        with pytest.raises(tomllib.TOMLDecodeError):
             load_config(invalid_file)
 
     def test_load_minimal_config(self, tmp_path):

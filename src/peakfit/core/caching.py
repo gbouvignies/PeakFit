@@ -6,7 +6,8 @@ in fitting operations.
 
 import functools
 import hashlib
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 import numpy as np
 
@@ -23,7 +24,7 @@ def hash_array(arr: np.ndarray) -> str:
     return hashlib.md5(arr.tobytes(), usedforsecurity=False).hexdigest()
 
 
-def make_cache_key(*args: Any) -> str:
+def make_cache_key(*args: object) -> str:
     """Create a cache key from arguments.
 
     Args:
@@ -56,12 +57,12 @@ class LRUCache:
             maxsize: Maximum number of items to cache
         """
         self.maxsize = maxsize
-        self._cache: dict[str, Any] = {}
+        self._cache: dict[str, object] = {}
         self._order: list[str] = []
         self._hits = 0
         self._misses = 0
 
-    def get(self, key: str) -> Any | None:
+    def get(self, key: str) -> object | None:
         """Get item from cache.
 
         Args:
@@ -79,7 +80,7 @@ class LRUCache:
         self._misses += 1
         return None
 
-    def put(self, key: str, value: Any) -> None:
+    def put(self, key: str, value: object) -> None:
         """Put item in cache.
 
         Args:
@@ -133,7 +134,7 @@ def cached_shape_evaluation(
     peak_name: str,
     positions: tuple[np.ndarray, ...],
     param_values: tuple[float, ...],
-    evaluate_func: Any,
+    evaluate_func: Callable[[], np.ndarray],
 ) -> np.ndarray:
     """Cache shape evaluations.
 
@@ -176,7 +177,10 @@ def get_cache_stats() -> dict[str, Any]:
     return _shape_cache.stats
 
 
-def memoize_array_function(maxsize: int = 128):
+R = TypeVar("R")
+
+
+def memoize_array_function(maxsize: int = 128) -> Callable[[Callable[..., R]], Callable[..., R]]:
     """Decorator to memoize functions with numpy array arguments.
 
     This decorator handles numpy arrays by hashing their contents.
@@ -188,11 +192,11 @@ def memoize_array_function(maxsize: int = 128):
         Decorator function
     """
 
-    def decorator(func):
+    def decorator(func: Callable[..., R]) -> Callable[..., R]:
         cache = LRUCache(maxsize=maxsize)
 
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: object, **kwargs: object) -> R:
             # Create key from args and kwargs
             key_parts = [func.__name__]
 

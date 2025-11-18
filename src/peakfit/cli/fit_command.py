@@ -168,7 +168,9 @@ def run_fit(
 
     if config.output.save_html_report:
         export_html(config.output.directory / "logs.html")
-        console.print(f"[green]Written HTML report:[/green] {config.output.directory / 'logs.html'}")
+        console.print(
+            f"[green]Written HTML report:[/green] {config.output.directory / 'logs.html'}"
+        )
 
     write_shifts(peaks, params, config.output.directory / "shifts.list")
     console.print(f"[green]Written shifts:[/green] {config.output.directory / 'shifts.list'}")
@@ -187,9 +189,7 @@ def run_fit(
     console.print("\n[bold green]Fitting complete![/bold green]")
 
 
-def _residual_wrapper(
-    x: np.ndarray, params: Parameters, cluster, noise: float
-) -> np.ndarray:
+def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) -> np.ndarray:
     """Wrapper to convert array to Parameters for residual calculation."""
     vary_names = params.get_vary_names()
     for i, name in enumerate(vary_names):
@@ -276,10 +276,7 @@ def _fit_clusters_parallel(
     )
 
 
-
-def _fit_clusters_global(
-    clargs: FitArguments, clusters: list, optimizer: str
-) -> Parameters:
+def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -> Parameters:
     """Fit all clusters using global optimization."""
     from peakfit.core.advanced_optimization import (
         fit_basin_hopping,
@@ -304,14 +301,18 @@ def _fit_clusters_global(
                 console.print(f"  [dim]Running {optimizer}...[/dim]")
                 if optimizer == "basin-hopping":
                     result = fit_basin_hopping(
-                        params, cluster, clargs.noise,
+                        params,
+                        cluster,
+                        clargs.noise,
                         n_iterations=50,  # Reasonable default
                         temperature=1.0,
                         step_size=0.5,
                     )
                 elif optimizer == "differential-evolution":
                     result = fit_differential_evolution(
-                        params, cluster, clargs.noise,
+                        params,
+                        cluster,
+                        clargs.noise,
                         max_iterations=500,
                         population_size=15,
                         polish=True,
@@ -422,9 +423,7 @@ def _initialize_backend(backend: str, parallel: bool = False) -> None:
     else:
         available = get_available_backends()
         if backend not in available:
-            console.print(
-                f"[red]Backend '{backend}' not available. Available: {available}[/red]"
-            )
+            console.print(f"[red]Backend '{backend}' not available. Available: {available}[/red]")
             console.print("[yellow]Falling back to auto-selection...[/yellow]")
             selected = auto_select_backend()
             console.print(f"[green]✓ Using backend:[/green] {selected}")
@@ -445,6 +444,7 @@ def _print_optimization_status() -> None:
     if current_backend == "jax":
         try:
             import jax
+
             console.print(f"[green]✓ JAX backend active[/green] (v{jax.__version__})")
             devices = jax.devices()
             device_info = ", ".join([str(d).split(":")[0] for d in devices])
@@ -454,6 +454,7 @@ def _print_optimization_status() -> None:
     elif current_backend == "numba" and opt_info["numba_available"]:
         try:
             import numba
+
             console.print(f"[green]✓ Numba JIT enabled[/green] (v{numba.__version__})")
         except ImportError:
             console.print("[yellow]• Using NumPy vectorized operations[/yellow]")

@@ -1,8 +1,5 @@
 """Test CLI commands."""
 
-from pathlib import Path
-
-import pytest
 from typer.testing import CliRunner
 
 from peakfit.cli.app import app
@@ -114,9 +111,7 @@ class TestValidateCommand:
         spectrum_path = tmp_path / "spectrum.ft2"
         spectrum_path.write_bytes(b"dummy")
 
-        result = runner.invoke(
-            app, ["validate", str(spectrum_path), "/nonexistent/peaks.list"]
-        )
+        result = runner.invoke(app, ["validate", str(spectrum_path), "/nonexistent/peaks.list"])
         assert result.exit_code != 0
 
 
@@ -137,7 +132,7 @@ class TestFitCommand:
         )
         assert result.exit_code != 0
 
-    def test_fit_with_config_file(self, sample_config_file, tmp_path):
+    def test_fit_with_config_file(self, _sample_config_file, _tmp_path):
         """Fit should accept config file."""
         # This test just validates the CLI parsing, not actual fitting
         result = runner.invoke(

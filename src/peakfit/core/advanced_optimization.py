@@ -64,9 +64,7 @@ class UncertaintyResult:
     mcmc_percentiles: FloatArray | None = None  # 16th, 50th, 84th percentiles
 
 
-def residuals_global(
-    x: FloatArray, params: Parameters, cluster: "Cluster", noise: float
-) -> float:
+def residuals_global(x: FloatArray, params: Parameters, cluster: "Cluster", noise: float) -> float:
     """Compute sum of squared residuals for global optimization.
 
     Args:
@@ -308,9 +306,7 @@ def compute_profile_likelihood(
             def objective(x: FloatArray) -> float:
                 return residuals_global(x, params_copy, cluster, noise)
 
-            result = optimize.minimize(
-                objective, x0, method="L-BFGS-B", bounds=bounds_list
-            )
+            result = optimize.minimize(objective, x0, method="L-BFGS-B", bounds=bounds_list)
             params_copy.set_vary_values(result.x)
 
         chi2_values[i] = float(np.sum(residuals(params_copy, cluster, noise) ** 2))
@@ -394,9 +390,7 @@ def estimate_uncertainties_mcmc(
     std_errors = np.std(samples, axis=0)
 
     # Confidence intervals
-    ci_68 = np.array(
-        [[percentiles[0, i], percentiles[2, i]] for i in range(ndim)]
-    )
+    ci_68 = np.array([[percentiles[0, i], percentiles[2, i]] for i in range(ndim)])
     ci_95 = np.array(
         [
             [np.percentile(samples[:, i], 2.5), np.percentile(samples[:, i], 97.5)]

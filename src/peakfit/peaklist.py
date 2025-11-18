@@ -111,9 +111,7 @@ def read_excel_list(
     return _read_ccpn_list(path, spectra, pd.read_excel, shape_names, args_cli)
 
 
-def read_list(
-    spectra: Spectra, shape_names: list[str], args_cli: FittingOptions
-) -> list[Peak]:
+def read_list(spectra: Spectra, shape_names: list[str], args_cli: FittingOptions) -> list[Peak]:
     """Read a list of peaks from a file based on its extension."""
     path = args_cli.path_list
     extension = path.suffix.lstrip(".")

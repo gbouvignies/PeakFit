@@ -194,11 +194,11 @@ class TestFittingEngine:
         from peakfit.core.fitting import Parameter
 
         # Value outside bounds should raise
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"min \("):
             Parameter("test", 20.0, min=5.0, max=15.0)
 
         # Min > max should raise
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"min \("):
             Parameter("test", 10.0, min=15.0, max=5.0)
 
     def test_parameters_collection(self):

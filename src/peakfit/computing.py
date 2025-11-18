@@ -23,9 +23,7 @@ def calculate_shapes(params: Parameters, cluster: Cluster) -> FloatArray:
     Returns:
         Array of shape (n_peaks, n_points) with evaluated lineshapes
     """
-    return np.array(
-        [peak.evaluate(cluster.positions, params) for peak in cluster.peaks]
-    )
+    return np.array([peak.evaluate(cluster.positions, params) for peak in cluster.peaks])
 
 
 def calculate_amplitudes(shapes: FloatArray, data: FloatArray) -> FloatArray:
@@ -41,9 +39,7 @@ def calculate_amplitudes(shapes: FloatArray, data: FloatArray) -> FloatArray:
     return np.linalg.lstsq(shapes.T, data, rcond=None)[0]
 
 
-def calculate_shape_heights(
-    params: Parameters, cluster: Cluster
-) -> tuple[FloatArray, FloatArray]:
+def calculate_shape_heights(params: Parameters, cluster: Cluster) -> tuple[FloatArray, FloatArray]:
     """Calculate shapes and optimal amplitudes for a cluster.
 
     Args:
@@ -73,9 +69,7 @@ def residuals(params: Parameters, cluster: Cluster, noise: float) -> FloatArray:
     return (cluster.corrected_data - shapes.T @ amplitudes).ravel() / noise
 
 
-def simulate_data(
-    params: Parameters, clusters: Sequence[Cluster], data: FloatArray
-) -> FloatArray:
+def simulate_data(params: Parameters, clusters: Sequence[Cluster], data: FloatArray) -> FloatArray:
     """Simulate spectrum from fitted parameters.
 
     Args:
@@ -92,23 +86,18 @@ def simulate_data(
         amplitudes_list.append(amplitudes)
     amplitudes = np.concatenate(amplitudes_list)
     cluster_all = Cluster.from_clusters(clusters)
-    cluster_all.positions = [
-        indices.ravel() for indices in list(np.indices(data.shape[1:]))
-    ]
+    cluster_all.positions = [indices.ravel() for indices in list(np.indices(data.shape[1:]))]
 
     return sum(
         (
-            amplitudes[index][:, np.newaxis]
-            * peak.evaluate(cluster_all.positions, params)
+            amplitudes[index][:, np.newaxis] * peak.evaluate(cluster_all.positions, params)
             for index, peak in enumerate(cluster_all.peaks)
         ),
         start=np.array(0.0),
     ).reshape(data.shape)
 
 
-def update_cluster_corrections(
-    params: Parameters, clusters: Sequence[Cluster]
-) -> None:
+def update_cluster_corrections(params: Parameters, clusters: Sequence[Cluster]) -> None:
     """Update cross-talk corrections for clusters.
 
     This function computes the contribution of peaks from other clusters
@@ -122,15 +111,10 @@ def update_cluster_corrections(
     _shapes_all, amplitudes_all = calculate_shape_heights(params, cluster_all)
     for cluster in clusters:
         indexes = [
-            index
-            for index, peak in enumerate(cluster_all.peaks)
-            if peak not in cluster.peaks
+            index for index, peak in enumerate(cluster_all.peaks) if peak not in cluster.peaks
         ]
         shapes = np.array(
-            [
-                cluster_all.peaks[index].evaluate(cluster.positions, params)
-                for index in indexes
-            ]
+            [cluster_all.peaks[index].evaluate(cluster.positions, params) for index in indexes]
         ).T
         amplitudes = amplitudes_all[indexes, :]
         cluster.corrections = shapes @ amplitudes

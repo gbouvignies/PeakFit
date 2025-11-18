@@ -822,9 +822,7 @@ def benchmark(
         # Recommendation
         console.print("\n[bold]Recommendation:[/bold]")
         if speedup > 1.2:
-            console.print(
-                f"  Use [green]--parallel[/green] for {speedup:.1f}x speedup"
-            )
+            console.print(f"  Use [green]--parallel[/green] for {speedup:.1f}x speedup")
         else:
             console.print("  Sequential fitting is optimal (parallel overhead exceeds benefit)")
     else:

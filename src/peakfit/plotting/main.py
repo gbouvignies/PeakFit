@@ -10,9 +10,7 @@ from .plots.spectra import plot_spectra
 def main() -> None:
     """Main entry point for the PeakFit plotting tool."""
     parser = argparse.ArgumentParser(description="PeakFit plotting tool")
-    subparsers = parser.add_subparsers(
-        dest="type", required=True, help="Type of plot to generate"
-    )
+    subparsers = parser.add_subparsers(dest="type", required=True, help="Type of plot to generate")
 
     # Intensity plot parser
     intensity_parser = subparsers.add_parser(
@@ -49,9 +47,7 @@ def main() -> None:
     cpmg_parser = subparsers.add_parser(
         "cpmg", parents=[get_base_parser()], help="Generate CPMG plot"
     )
-    cpmg_parser.add_argument(
-        "--time_t2", type=float, required=True, help="T2 time for CPMG plot"
-    )
+    cpmg_parser.add_argument("--time_t2", type=float, required=True, help="T2 time for CPMG plot")
     cpmg_parser.add_argument(
         "-o",
         "--out",
@@ -68,9 +64,7 @@ def main() -> None:
     spectra_parser.add_argument(
         "--sim", dest="data_sim", required=True, help="Path to the second spectrum file"
     )
-    spectra_parser.add_argument(
-        "--plist", dest="peak_list", help="Path to the peak list file"
-    )
+    spectra_parser.add_argument("--plist", dest="peak_list", help="Path to the peak list file")
 
     args = parser.parse_args()
 

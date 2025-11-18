@@ -148,19 +148,19 @@ class Parameters:
         """Check if parameter exists."""
         return key in self._params
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         """Iterate over parameter names."""
         return iter(self._params)
 
-    def keys(self):
+    def keys(self) -> KeysView[str]:
         """Get parameter names."""
         return self._params.keys()
 
-    def values(self):
+    def values(self) -> ValuesView[Parameter]:
         """Get parameter objects."""
         return self._params.values()
 
-    def items(self):
+    def items(self) -> ItemsView[str, Parameter]:
         """Get parameter name-value pairs."""
         return self._params.items()
 
@@ -178,8 +178,7 @@ class Parameters:
         new_params = Parameters()
         for name, param in self._params.items():
             new_params.add(
-                name, param.value, param.min, param.max, param.vary,
-                param.param_type, param.unit
+                name, param.value, param.min, param.max, param.vary, param.param_type, param.unit
             )
             # Preserve stderr
             new_params[name].stderr = param.stderr
@@ -247,7 +246,9 @@ class Parameters:
             vary_str = "vary" if param.vary else "fixed"
             min_str = f"{param.min:.4g}" if param.min > -1e10 else "-inf"
             max_str = f"{param.max:.4g}" if param.max < 1e10 else "inf"
-            lines.append(f"  {name:20s} = {param.value:12.6g} [{min_str:>10s}, {max_str:<10s}] ({vary_str})")
+            lines.append(
+                f"  {name:20s} = {param.value:12.6g} [{min_str:>10s}, {max_str:<10s}] ({vary_str})"
+            )
         lines.append("=" * 60)
         return "\n".join(lines)
 
@@ -257,7 +258,9 @@ class Parameters:
         Returns:
             List of parameter names at boundaries
         """
-        return [name for name, param in self._params.items() if param.vary and param.is_at_boundary()]
+        return [
+            name for name, param in self._params.items() if param.vary and param.is_at_boundary()
+        ]
 
     def freeze(self, names: list[str] | None = None) -> None:
         """Set parameters to not vary (freeze them).
@@ -398,6 +401,7 @@ def fit_clusters_sequential(
     params_all: Parameters,
     noise: float,
     refine_iterations: int = 1,
+    *,
     fixed: bool = False,
     verbose: int = 0,
 ) -> Parameters:

@@ -86,8 +86,7 @@ class Peak:
             Evaluated peak shape (product over dimensions)
         """
         evaluations = [
-            shape.evaluate(pts, params)
-            for pts, shape in zip(grid, self.shapes, strict=False)
+            shape.evaluate(pts, params) for pts, shape in zip(grid, self.shapes, strict=False)
         ]
         return np.prod(evaluations, axis=0)
 
@@ -123,9 +122,7 @@ class Peak:
         Args:
             params: Fitted parameter values
         """
-        self.positions = np.array(
-            [params[f"{shape.prefix}0"].value for shape in self.shapes]
-        )
+        self.positions = np.array([params[f"{shape.prefix}0"].value for shape in self.shapes])
         for shape, position in zip(self.shapes, self.positions, strict=False):
             shape.center = position
 

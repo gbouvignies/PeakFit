@@ -298,8 +298,13 @@ class TestNMRSpecificParameters:
         from peakfit.core.fitting import Parameter, ParameterType
 
         param = Parameter(
-            "peak1_fwhm", 25.0, min=0.1, max=200.0, vary=True,
-            param_type=ParameterType.FWHM, unit="Hz"
+            "peak1_fwhm",
+            25.0,
+            min=0.1,
+            max=200.0,
+            vary=True,
+            param_type=ParameterType.FWHM,
+            unit="Hz",
         )
         assert param.param_type == ParameterType.FWHM
         assert param.unit == "Hz"
@@ -342,9 +347,7 @@ class TestNMRSpecificParameters:
         from peakfit.core.fitting import Parameter, ParameterType
 
         # Explicitly set bounds should be used
-        param = Parameter(
-            "lw", 25.0, min=5.0, max=50.0, param_type=ParameterType.FWHM
-        )
+        param = Parameter("lw", 25.0, min=5.0, max=50.0, param_type=ParameterType.FWHM)
         assert param.min == 5.0
         assert param.max == 50.0
 
@@ -354,8 +357,7 @@ class TestNMRSpecificParameters:
 
         params = Parameters()
         params.add(
-            "peak1_fwhm", value=25.0, min=1.0, max=100.0,
-            param_type=ParameterType.FWHM, unit="Hz"
+            "peak1_fwhm", value=25.0, min=1.0, max=100.0, param_type=ParameterType.FWHM, unit="Hz"
         )
 
         assert params["peak1_fwhm"].param_type == ParameterType.FWHM
@@ -366,12 +368,8 @@ class TestNMRSpecificParameters:
         from peakfit.core.fitting import Parameters, ParameterType
 
         original = Parameters()
-        original.add(
-            "x0", value=10.0, param_type=ParameterType.POSITION, unit="ppm"
-        )
-        original.add(
-            "fwhm", value=25.0, param_type=ParameterType.FWHM, unit="Hz"
-        )
+        original.add("x0", value=10.0, param_type=ParameterType.POSITION, unit="ppm")
+        original.add("fwhm", value=25.0, param_type=ParameterType.FWHM, unit="Hz")
 
         copy = original.copy()
 
@@ -384,9 +382,7 @@ class TestNMRSpecificParameters:
         """String representation should include unit."""
         from peakfit.core.fitting import Parameter, ParameterType
 
-        param = Parameter(
-            "lw", 25.5, min=1.0, max=100.0, param_type=ParameterType.FWHM, unit="Hz"
-        )
+        param = Parameter("lw", 25.5, min=1.0, max=100.0, param_type=ParameterType.FWHM, unit="Hz")
         repr_str = repr(param)
         assert "Hz" in repr_str
         assert "lw" in repr_str

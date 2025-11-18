@@ -33,9 +33,7 @@ def write_profiles(
             )
 
 
-def print_heights(
-    z_values: np.ndarray, heights: FloatArray, height_err: FloatArray
-) -> str:
+def print_heights(z_values: np.ndarray, heights: FloatArray, height_err: FloatArray) -> str:
     """Print the heights and errors.
 
     Raises:

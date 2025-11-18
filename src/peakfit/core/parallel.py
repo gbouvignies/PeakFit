@@ -5,7 +5,7 @@ concurrently, significantly improving performance on multi-core systems.
 """
 
 import multiprocessing as mp
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import Any
@@ -36,6 +36,7 @@ def _get_mp_context() -> mp.context.BaseContext:
 def _fit_single_cluster(
     cluster: Cluster,
     noise: float,
+    *,
     fixed: bool,
     params_dict: dict[str, Any],
 ) -> dict[str, Any]:
@@ -59,9 +60,10 @@ def _fit_single_cluster(
 def fit_clusters_parallel(
     clusters: Sequence[Cluster],
     noise: float,
+    *,
     fixed: bool = False,
     n_workers: int | None = None,
-    progress_callback: Any = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> Parameters:
     """Fit multiple clusters in parallel.
 
@@ -206,6 +208,7 @@ def fit_clusters_parallel_refined(
     clusters: Sequence[Cluster],
     noise: float,
     refine_iterations: int = 1,
+    *,
     fixed: bool = False,
     n_workers: int | None = None,
     verbose: bool = False,
