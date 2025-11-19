@@ -219,6 +219,8 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
 def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
     """Fit all clusters and return parameters."""
     from rich.live import Live
+    from rich.console import Group
+    from rich.text import Text
 
     params_all = Parameters()
 
@@ -232,15 +234,30 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                 ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
 
+            previous_result = None
+            previous_cluster_info = None
+
             for cluster_idx, cluster in enumerate(clusters, 1):
                 peak_names = [peak.name for peak in cluster.peaks]
 
                 # Create live display for this cluster
-                cluster_panel = ui.create_cluster_status(
+                current_panel = ui.create_cluster_status(
                     cluster_idx, len(clusters), peak_names, status="fitting"
                 )
 
-                with Live(cluster_panel, console=console, refresh_per_second=4):
+                # Build display with previous result (if exists) and current cluster
+                if previous_result is not None and previous_cluster_info is not None:
+                    prev_idx, prev_peaks, prev_res = previous_cluster_info
+                    prev_panel = ui.create_cluster_status(
+                        prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
+                    )
+                    # Show both previous and current with spacing
+                    display_group = Group(prev_panel, Text(""), current_panel)
+                else:
+                    # First cluster, show only current
+                    display_group = current_panel
+
+                with Live(display_group, console=console, refresh_per_second=4):
                     params = create_params(cluster.peaks, fixed=clargs.fixed)
                     params = _update_params(params, params_all)
 
@@ -281,14 +298,20 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                             # Singular matrix, can't compute errors
                             pass
 
-                # After fitting, show completion and detailed stats
-                final_panel = ui.create_cluster_status(
-                    cluster_idx, len(clusters), peak_names, status="done", result=result
-                )
-                console.print(final_panel)
-                ui.print_fit_report(result)
+                # Store this result as "previous" for next iteration
+                previous_result = result
+                previous_cluster_info = (cluster_idx, peak_names, result)
 
                 params_all.update(params)
+
+            # After all clusters, show the final result with detailed stats
+            if previous_result is not None and previous_cluster_info is not None:
+                prev_idx, prev_peaks, prev_res = previous_cluster_info
+                final_panel = ui.create_cluster_status(
+                    prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
+                )
+                console.print(final_panel)
+                ui.print_fit_report(prev_res)
 
     return params_all
 
@@ -314,6 +337,8 @@ def _fit_clusters_parallel(
 def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -> Parameters:
     """Fit all clusters using global optimization."""
     from rich.live import Live
+    from rich.console import Group
+    from rich.text import Text
     from peakfit.core.advanced_optimization import fit_basin_hopping, fit_differential_evolution
 
     params_all = Parameters()
@@ -325,15 +350,30 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
                 ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
 
+            previous_result = None
+            previous_cluster_info = None
+
             for cluster_idx, cluster in enumerate(clusters, 1):
                 peak_names = [peak.name for peak in cluster.peaks]
 
                 # Create live display for this cluster
-                cluster_panel = ui.create_cluster_status(
+                current_panel = ui.create_cluster_status(
                     cluster_idx, len(clusters), peak_names, status="optimizing"
                 )
 
-                with Live(cluster_panel, console=console, refresh_per_second=4):
+                # Build display with previous result (if exists) and current cluster
+                if previous_result is not None and previous_cluster_info is not None:
+                    prev_idx, prev_peaks, prev_res = previous_cluster_info
+                    prev_panel = ui.create_cluster_status(
+                        prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
+                    )
+                    # Show both previous and current with spacing
+                    display_group = Group(prev_panel, Text(""), current_panel)
+                else:
+                    # First cluster, show only current
+                    display_group = current_panel
+
+                with Live(display_group, console=console, refresh_per_second=4):
                     params = create_params(cluster.peaks, fixed=clargs.fixed)
                     params = _update_params(params, params_all)
 
@@ -360,27 +400,33 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
                         msg = f"Unknown optimizer: {optimizer}"
                         raise ValueError(msg)
 
-                # After optimization, show completion
+                # Store this result as "previous" for next iteration
+                previous_result = result
+                previous_cluster_info = (cluster_idx, peak_names, result)
+
+                params_all.update(result.params)
+
+            # After all clusters, show the final result with detailed stats
+            if previous_result is not None and previous_cluster_info is not None:
+                prev_idx, prev_peaks, prev_res = previous_cluster_info
                 final_panel = ui.create_cluster_status(
-                    cluster_idx, len(clusters), peak_names, status="done", result=result
+                    prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
                 )
                 console.print(final_panel)
 
                 # Display detailed results
-                if hasattr(result, "success"):
-                    if result.success:
+                if hasattr(prev_res, "success"):
+                    if prev_res.success:
                         ui.success("Optimization converged", indent=1)
                     else:
-                        ui.warning(f"Did not converge: {result.message}", indent=1)
+                        ui.warning(f"Did not converge: {prev_res.message}", indent=1)
 
-                if hasattr(result, "chisqr"):
+                if hasattr(prev_res, "chisqr"):
                     ui.bullet(
-                        f"χ² = {result.chisqr:.2f}, reduced χ² = {result.redchi:.4f}, nfev = {result.nfev}",
+                        f"χ² = {prev_res.chisqr:.2f}, reduced χ² = {prev_res.redchi:.4f}, nfev = {prev_res.nfev}",
                         indent=1,
                         style="default"
                     )
-
-                params_all.update(result.params)
 
     return params_all
 
