@@ -302,6 +302,22 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                             # Singular matrix, can't compute errors
                             pass
 
+                    # Update display to show completion
+                    done_panel = ui.create_cluster_status(
+                        cluster_idx, len(clusters), peak_names, status="done", result=result
+                    )
+                    if previous_result is not None and previous_cluster_info is not None:
+                        prev_idx, prev_peaks, prev_res = previous_cluster_info
+                        prev_panel = ui.create_cluster_status(
+                            prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
+                        )
+                        # Show both previous and current (both done)
+                        display_group = Group(prev_panel, Text(""), done_panel)
+                    else:
+                        # First cluster, show only current
+                        display_group = done_panel
+                    live.update(display_group)
+
                     # Store this result as "previous" for next iteration
                     previous_result = result
                     previous_cluster_info = (cluster_idx, peak_names, result)
@@ -407,6 +423,22 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
                     else:
                         msg = f"Unknown optimizer: {optimizer}"
                         raise ValueError(msg)
+
+                    # Update display to show completion
+                    done_panel = ui.create_cluster_status(
+                        cluster_idx, len(clusters), peak_names, status="done", result=result
+                    )
+                    if previous_result is not None and previous_cluster_info is not None:
+                        prev_idx, prev_peaks, prev_res = previous_cluster_info
+                        prev_panel = ui.create_cluster_status(
+                            prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
+                        )
+                        # Show both previous and current (both done)
+                        display_group = Group(prev_panel, Text(""), done_panel)
+                    else:
+                        # First cluster, show only current
+                        display_group = done_panel
+                    live.update(display_group)
 
                     # Store this result as "previous" for next iteration
                     previous_result = result
