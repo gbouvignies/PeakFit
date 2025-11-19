@@ -236,6 +236,7 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
 
             previous_result = None
             previous_cluster_info = None
+            cluster_results = []  # Track all cluster results for HTML logging
 
             # Keep Live display open for entire cluster loop
             with Live(console=console, refresh_per_second=4, transient=False) as live:
@@ -271,7 +272,7 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                     bounds_lower = np.array([params[name].min for name in vary_names])
                     bounds_upper = np.array([params[name].max for name in vary_names])
 
-                    # Run optimization with scipy.optimize.least_squares (no verbose output)
+                    # Run optimization with scipy.optimize.least_squares
                     result = least_squares(
                         _residual_wrapper,
                         x0,
@@ -280,7 +281,7 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                         ftol=1e-7,
                         xtol=1e-7,
                         max_nfev=1000,
-                        verbose=0,  # Suppress scipy output for clean display
+                        verbose=2,  # Show iteration progress
                     )
 
                     # Update parameters with optimized values
@@ -322,12 +323,22 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                     previous_result = result
                     previous_cluster_info = (cluster_idx, peak_names, result)
 
+                    # Track cluster result for HTML logging
+                    cluster_results.append((cluster_idx, peak_names, result))
+
                     params_all.update(params)
 
-            # After Live context exits, show detailed fit statistics for the final cluster
-            # (The cluster status panel is already visible from the Live display)
-            if previous_result is not None:
-                ui.print_fit_report(previous_result)
+            # After Live context exits, print cluster summaries for HTML logging
+            ui.spacer()
+            ui.show_subheader("Cluster Fitting Summary")
+            for cluster_idx, peak_names, result in cluster_results:
+                peaks_str = ", ".join(peak_names)
+                ui.bullet(
+                    f"Cluster {cluster_idx}/{len(clusters)} │ Peaks: {peaks_str} │ "
+                    f"{'✓' if result.success else '✗'} │ "
+                    f"Cost: {result.cost:.2e} │ nfev: {result.nfev}",
+                    style="success" if result.success else "error"
+                )
 
     return params_all
 
@@ -368,6 +379,7 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
 
             previous_result = None
             previous_cluster_info = None
+            cluster_results = []  # Track all cluster results for HTML logging
 
             # Keep Live display open for entire cluster loop
             with Live(console=console, refresh_per_second=4, transient=False) as live:
@@ -440,24 +452,25 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
                     previous_result = result
                     previous_cluster_info = (cluster_idx, peak_names, result)
 
+                    # Track cluster result for HTML logging
+                    cluster_results.append((cluster_idx, peak_names, result))
+
                     params_all.update(result.params)
 
-            # After Live context exits, show detailed results for the final cluster
-            # (The cluster status panel is already visible from the Live display)
-            if previous_result is not None:
-                # Display detailed results
-                if hasattr(previous_result, "success"):
-                    if previous_result.success:
-                        ui.success("Optimization converged", indent=1)
-                    else:
-                        ui.warning(f"Did not converge: {previous_result.message}", indent=1)
-
-                if hasattr(previous_result, "chisqr"):
-                    ui.bullet(
-                        f"χ² = {previous_result.chisqr:.2f}, reduced χ² = {previous_result.redchi:.4f}, nfev = {previous_result.nfev}",
-                        indent=1,
-                        style="default"
-                    )
+            # After Live context exits, print cluster summaries for HTML logging
+            ui.spacer()
+            ui.show_subheader("Cluster Fitting Summary")
+            for cluster_idx, peak_names, result in cluster_results:
+                peaks_str = ", ".join(peak_names)
+                success = result.success if hasattr(result, "success") else True
+                chisqr = result.chisqr if hasattr(result, "chisqr") else result.cost
+                nfev = result.nfev if hasattr(result, "nfev") else "N/A"
+                ui.bullet(
+                    f"Cluster {cluster_idx}/{len(clusters)} │ Peaks: {peaks_str} │ "
+                    f"{'✓' if success else '✗'} │ "
+                    f"Cost: {chisqr:.2e} │ nfev: {nfev}",
+                    style="success" if success else "error"
+                )
 
     return params_all
 
