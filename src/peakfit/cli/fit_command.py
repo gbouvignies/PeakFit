@@ -11,7 +11,6 @@ from peakfit.clustering import create_clusters
 from peakfit.computing import residuals, simulate_data, update_cluster_corrections
 from peakfit.core.fitting import Parameters
 from peakfit.core.models import PeakFitConfig
-from peakfit.messages import print_fit_report
 from peakfit.noise import prepare_noise_level
 from peakfit.peak import create_params
 from peakfit.peaklist import read_list
@@ -273,7 +272,7 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                         # Singular matrix, can't compute errors
                         pass
 
-                print_fit_report(result)
+                ui.print_fit_report(result)
                 params_all.update(params)
 
     return params_all
@@ -306,17 +305,18 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
     with threadpool_limits(limits=1, user_api="blas"):
         for index in range(clargs.refine_nb + 1):
             if index > 0:
-                ui.info(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
+                ui.spacer()
+                ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
 
-            for cluster in clusters:
-                peak_names = ", ".join(peak.name for peak in cluster.peaks)
-                console.print(f"\n[cyan]Fitting peaks:[/cyan] [green]{peak_names}[/]")
+            for cluster_idx, cluster in enumerate(clusters, 1):
+                peak_names = [peak.name for peak in cluster.peaks]
+                ui.print_cluster_info(cluster_idx, len(clusters), peak_names)
                 params = create_params(cluster.peaks, fixed=clargs.fixed)
                 params = _update_params(params, params_all)
 
                 # Use global optimizer
-                console.print(f"  [dim]Running {optimizer}...[/dim]")
+                ui.bullet(f"Running {optimizer}...", style="default")
                 if optimizer == "basin-hopping":
                     result = fit_basin_hopping(
                         params,
@@ -339,14 +339,19 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
                     msg = f"Unknown optimizer: {optimizer}"
                     raise ValueError(msg)
 
-                console.print(
-                    f"  [dim]χ²={result.chisqr:.2f}, "
-                    f"reduced χ²={result.redchi:.4f}, "
-                    f"nfev={result.nfev}[/dim]"
-                )
+                # Display results
+                if hasattr(result, "success"):
+                    if result.success:
+                        ui.success("Optimization converged", indent=1)
+                    else:
+                        ui.warning(f"Optimization did not converge: {result.message}", indent=1)
 
-                if not result.success:
-                    console.print(f"  [yellow]Warning: {result.message}[/yellow]")
+                if hasattr(result, "chisqr"):
+                    ui.bullet(
+                        f"χ² = {result.chisqr:.2f}, reduced χ² = {result.redchi:.4f}, nfev = {result.nfev}",
+                        indent=2,
+                        style="default"
+                    )
 
                 params_all.update(result.params)
 

@@ -477,10 +477,59 @@ class PeakFitUI:
             total_clusters: Total number of clusters
             peak_names: List of peak names in this cluster
         """
+        # Add visual separation before cluster
+        console.print()
+        console.print("[dim]" + "─" * 60 + "[/dim]")
+
         peaks_str = ", ".join(peak_names)
         console.print(
-            f"\n[bold cyan]Cluster {cluster_index}/{total_clusters}[/] │ Peaks: [green]{peaks_str}[/]"
+            f"[bold cyan]Cluster {cluster_index}/{total_clusters}[/] │ Peaks: [green]{peaks_str}[/]"
         )
+
+    @staticmethod
+    def print_fit_report(result: Any) -> None:
+        """Print fitting results in a styled panel.
+
+        Args:
+            result: scipy.optimize.OptimizeResult or similar object
+        """
+        # Create a table for fit statistics
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_column("Property", style="cyan", width=18)
+        table.add_column("Value", style="green")
+
+        if hasattr(result, "success"):
+            status_style = "green" if result.success else "red"
+            status_text = "✓ Success" if result.success else "✗ Failed"
+            table.add_row("Status", f"[{status_style}]{status_text}[/]")
+
+        if hasattr(result, "message"):
+            table.add_row("Message", str(result.message))
+
+        if hasattr(result, "nfev"):
+            table.add_row("Function evals", str(result.nfev))
+
+        if hasattr(result, "njev") and result.njev:
+            table.add_row("Jacobian evals", str(result.njev))
+
+        if hasattr(result, "cost"):
+            table.add_row("Final cost", f"{result.cost:.6e}")
+
+        if hasattr(result, "optimality"):
+            table.add_row("Optimality", f"{result.optimality:.6e}")
+
+        if hasattr(result, "x"):
+            table.add_row("Parameters", str(len(result.x)))
+
+        # Display in a panel
+        border_style = "green" if (hasattr(result, "success") and result.success) else "yellow"
+        panel = Panel(
+            table,
+            title="[bold]Fit Statistics[/bold]",
+            border_style=border_style,
+            padding=(0, 1),
+        )
+        console.print(panel)
 
     @staticmethod
     def print_peaks_panel(peaks: list[Any]) -> None:
