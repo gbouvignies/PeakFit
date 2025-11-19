@@ -211,6 +211,7 @@ def fit_clusters_parallel_refined(
     *,
     fixed: bool = False,
     n_workers: int | None = None,
+    verbose: bool = False,
 ) -> Parameters:
     """Fit clusters with parallel processing and refinement iterations.
 
@@ -253,6 +254,11 @@ def fit_clusters_parallel_refined(
     # This prevents OpenBLAS/MKL from spawning threads that fight with Python threads
     with threadpool_limits(limits=1, user_api="blas"):
         for iteration in range(refine_iterations + 1):
+            if verbose:
+                from peakfit.messages import console
+                if refine_iterations > 0:
+                    console.print(f"[cyan]Refinement iteration {iteration + 1}/{refine_iterations + 1}[/]")
+
             # Update corrections if not first iteration
             if iteration > 0:
                 update_cluster_corrections(params_all, clusters)
@@ -271,6 +277,8 @@ def fit_clusters_parallel_refined(
             # Fit all clusters in parallel using threads
             # Threads share JIT-compiled code and avoid massive compilation overhead
             if n_workers > 1 and len(clusters) > 1:
+                if verbose:
+                    console.print(f"[dim]Fitting {len(clusters)} clusters with {n_workers} workers...[/]")
                 with ThreadPoolExecutor(max_workers=n_workers) as executor:
                     results = list(executor.map(worker, clusters))
             else:
