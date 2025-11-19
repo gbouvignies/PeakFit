@@ -218,6 +218,8 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
 
 def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
     """Fit all clusters and return parameters."""
+    from rich.live import Live
+
     params_all = Parameters()
 
     # Use threadpoolctl to limit BLAS threads at runtime
@@ -229,50 +231,63 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                 ui.spacer()
                 ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
+
             for cluster_idx, cluster in enumerate(clusters, 1):
                 peak_names = [peak.name for peak in cluster.peaks]
-                ui.print_cluster_info(cluster_idx, len(clusters), peak_names)
-                params = create_params(cluster.peaks, fixed=clargs.fixed)
-                params = _update_params(params, params_all)
 
-                # Get varying parameters
-                vary_names = params.get_vary_names()
-                x0 = params.get_vary_values()
-                bounds_lower = np.array([params[name].min for name in vary_names])
-                bounds_upper = np.array([params[name].max for name in vary_names])
-
-                # Run optimization with scipy.optimize.least_squares
-                result = least_squares(
-                    _residual_wrapper,
-                    x0,
-                    args=(params, cluster, clargs.noise),
-                    bounds=(bounds_lower, bounds_upper),
-                    ftol=1e-7,
-                    xtol=1e-7,
-                    max_nfev=1000,
-                    verbose=2,
+                # Create live display for this cluster
+                cluster_panel = ui.create_cluster_status(
+                    cluster_idx, len(clusters), peak_names, status="fitting"
                 )
 
-                # Update parameters with optimized values
-                for i, name in enumerate(vary_names):
-                    params[name].value = result.x[i]
+                with Live(cluster_panel, console=console, refresh_per_second=4):
+                    params = create_params(cluster.peaks, fixed=clargs.fixed)
+                    params = _update_params(params, params_all)
 
-                # Compute standard errors from Jacobian
-                if result.jac is not None and len(result.fun) > len(vary_names):
-                    ndata = len(result.fun)
-                    nvarys = len(vary_names)
-                    redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
-                    try:
-                        jtj = result.jac.T @ result.jac
-                        cov = np.linalg.inv(jtj) * redchi
-                        stderr = np.sqrt(np.diag(cov))
-                        for i, name in enumerate(vary_names):
-                            params[name].stderr = float(stderr[i])
-                    except np.linalg.LinAlgError:
-                        # Singular matrix, can't compute errors
-                        pass
+                    # Get varying parameters
+                    vary_names = params.get_vary_names()
+                    x0 = params.get_vary_values()
+                    bounds_lower = np.array([params[name].min for name in vary_names])
+                    bounds_upper = np.array([params[name].max for name in vary_names])
 
+                    # Run optimization with scipy.optimize.least_squares (no verbose output)
+                    result = least_squares(
+                        _residual_wrapper,
+                        x0,
+                        args=(params, cluster, clargs.noise),
+                        bounds=(bounds_lower, bounds_upper),
+                        ftol=1e-7,
+                        xtol=1e-7,
+                        max_nfev=1000,
+                        verbose=0,  # Suppress scipy output for clean display
+                    )
+
+                    # Update parameters with optimized values
+                    for i, name in enumerate(vary_names):
+                        params[name].value = result.x[i]
+
+                    # Compute standard errors from Jacobian
+                    if result.jac is not None and len(result.fun) > len(vary_names):
+                        ndata = len(result.fun)
+                        nvarys = len(vary_names)
+                        redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
+                        try:
+                            jtj = result.jac.T @ result.jac
+                            cov = np.linalg.inv(jtj) * redchi
+                            stderr = np.sqrt(np.diag(cov))
+                            for i, name in enumerate(vary_names):
+                                params[name].stderr = float(stderr[i])
+                        except np.linalg.LinAlgError:
+                            # Singular matrix, can't compute errors
+                            pass
+
+                # After fitting, show completion and detailed stats
+                final_panel = ui.create_cluster_status(
+                    cluster_idx, len(clusters), peak_names, status="done", result=result
+                )
+                console.print(final_panel)
                 ui.print_fit_report(result)
+
                 params_all.update(params)
 
     return params_all
@@ -298,6 +313,7 @@ def _fit_clusters_parallel(
 
 def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -> Parameters:
     """Fit all clusters using global optimization."""
+    from rich.live import Live
     from peakfit.core.advanced_optimization import fit_basin_hopping, fit_differential_evolution
 
     params_all = Parameters()
@@ -311,45 +327,56 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
 
             for cluster_idx, cluster in enumerate(clusters, 1):
                 peak_names = [peak.name for peak in cluster.peaks]
-                ui.print_cluster_info(cluster_idx, len(clusters), peak_names)
-                params = create_params(cluster.peaks, fixed=clargs.fixed)
-                params = _update_params(params, params_all)
 
-                # Use global optimizer
-                ui.bullet(f"Running {optimizer}...", style="default")
-                if optimizer == "basin-hopping":
-                    result = fit_basin_hopping(
-                        params,
-                        cluster,
-                        clargs.noise,
-                        n_iterations=50,  # Reasonable default
-                        temperature=1.0,
-                        step_size=0.5,
-                    )
-                elif optimizer == "differential-evolution":
-                    result = fit_differential_evolution(
-                        params,
-                        cluster,
-                        clargs.noise,
-                        max_iterations=500,
-                        population_size=15,
-                        polish=True,
-                    )
-                else:
-                    msg = f"Unknown optimizer: {optimizer}"
-                    raise ValueError(msg)
+                # Create live display for this cluster
+                cluster_panel = ui.create_cluster_status(
+                    cluster_idx, len(clusters), peak_names, status="optimizing"
+                )
 
-                # Display results
+                with Live(cluster_panel, console=console, refresh_per_second=4):
+                    params = create_params(cluster.peaks, fixed=clargs.fixed)
+                    params = _update_params(params, params_all)
+
+                    # Use global optimizer
+                    if optimizer == "basin-hopping":
+                        result = fit_basin_hopping(
+                            params,
+                            cluster,
+                            clargs.noise,
+                            n_iterations=50,  # Reasonable default
+                            temperature=1.0,
+                            step_size=0.5,
+                        )
+                    elif optimizer == "differential-evolution":
+                        result = fit_differential_evolution(
+                            params,
+                            cluster,
+                            clargs.noise,
+                            max_iterations=500,
+                            population_size=15,
+                            polish=True,
+                        )
+                    else:
+                        msg = f"Unknown optimizer: {optimizer}"
+                        raise ValueError(msg)
+
+                # After optimization, show completion
+                final_panel = ui.create_cluster_status(
+                    cluster_idx, len(clusters), peak_names, status="done", result=result
+                )
+                console.print(final_panel)
+
+                # Display detailed results
                 if hasattr(result, "success"):
                     if result.success:
                         ui.success("Optimization converged", indent=1)
                     else:
-                        ui.warning(f"Optimization did not converge: {result.message}", indent=1)
+                        ui.warning(f"Did not converge: {result.message}", indent=1)
 
                 if hasattr(result, "chisqr"):
                     ui.bullet(
                         f"χ² = {result.chisqr:.2f}, reduced χ² = {result.redchi:.4f}, nfev = {result.nfev}",
-                        indent=2,
+                        indent=1,
                         style="default"
                     )
 

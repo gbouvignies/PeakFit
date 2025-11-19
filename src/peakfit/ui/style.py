@@ -98,12 +98,16 @@ class PeakFitUI:
 
     @staticmethod
     def show_header(text: str) -> None:
-        """Display a standard header.
+        """Display a prominent section header.
 
         Args:
             text: Header text to display
         """
-        console.print(f"\n[header]{text}[/header]")
+        console.print()
+        console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
+        console.print(f"[bold cyan]  {text}[/bold cyan]")
+        console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
+        console.print()
 
     @staticmethod
     def show_subheader(text: str) -> None:
@@ -112,7 +116,8 @@ class PeakFitUI:
         Args:
             text: Subheader text to display
         """
-        console.print(f"[subheader]{text}[/subheader]")
+        console.print(f"\n[bold white]{text}[/bold white]")
+        console.print("[dim]" + "─" * 40 + "[/dim]")
 
     # ==================== STATUS MESSAGES ====================
 
@@ -467,6 +472,62 @@ class PeakFitUI:
         console.print()
 
     # ==================== SPECIALIZED DISPLAYS ====================
+
+    @staticmethod
+    def create_cluster_status(
+        cluster_index: int,
+        total_clusters: int,
+        peak_names: list[str],
+        status: str = "fitting",
+        result: Any = None,
+    ) -> Panel:
+        """Create a renderable cluster status panel for live display.
+
+        Args:
+            cluster_index: Current cluster number (1-based)
+            total_clusters: Total number of clusters
+            peak_names: List of peak names in this cluster
+            status: Status message ("fitting", "optimizing", "done")
+            result: Optional optimization result to display
+
+        Returns:
+            Panel object that can be rendered
+        """
+        from rich.text import Text
+
+        peaks_str = ", ".join(peak_names)
+
+        # Build content
+        content = Text()
+        content.append(f"Cluster {cluster_index}/{total_clusters}\n", style="bold cyan")
+        content.append(f"Peaks: ", style="dim")
+        content.append(f"{peaks_str}\n\n", style="green")
+
+        if status == "fitting":
+            content.append("Status: ", style="dim")
+            content.append("● Fitting...", style="bold yellow")
+        elif status == "optimizing":
+            content.append("Status: ", style="dim")
+            content.append("● Optimizing...", style="bold yellow")
+        elif status == "done" and result:
+            if hasattr(result, "success") and result.success:
+                content.append("Status: ", style="dim")
+                content.append("✓ Complete", style="bold green")
+            else:
+                content.append("Status: ", style="dim")
+                content.append("⚠ Complete (with issues)", style="bold yellow")
+
+            # Add key statistics
+            if hasattr(result, "nfev"):
+                content.append(f"\nEvaluations: {result.nfev}", style="dim")
+            if hasattr(result, "cost"):
+                content.append(f" │ Cost: {result.cost:.2e}", style="dim")
+
+        return Panel(
+            content,
+            border_style="cyan" if status != "done" else "green",
+            padding=(0, 2),
+        )
 
     @staticmethod
     def print_cluster_info(cluster_index: int, total_clusters: int, peak_names: list[str]) -> None:
