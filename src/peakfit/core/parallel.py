@@ -54,7 +54,7 @@ def _fit_single_cluster(
     from peakfit.core.fast_fit import fit_cluster_fast
 
     # Use fast scipy-based fitting
-    return fit_cluster_fast(cluster, noise, fixed, params_dict)
+    return fit_cluster_fast(cluster, noise, fixed=fixed, params_init=params_dict)
 
 
 def fit_clusters_parallel(
