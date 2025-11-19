@@ -4,11 +4,12 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from rich.console import Console
 
 from peakfit.cli.callbacks import version_callback
 from peakfit.core.models import PeakFitConfig
 from peakfit.io.config import generate_default_config, load_config
+from peakfit.ui import PeakFitUI as ui
+from peakfit.ui import console
 
 app = typer.Typer(
     name="peakfit",
@@ -16,8 +17,6 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-
-console = Console()
 
 
 @app.callback()
@@ -200,6 +199,13 @@ def fit(
             help="Save fitting state for later analysis (enables 'peakfit analyze' command)",
         ),
     ] = True,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
 ) -> None:
     """Fit lineshapes to peaks in pseudo-3D NMR spectrum.
 
@@ -250,6 +256,7 @@ def fit(
         backend=backend,
         optimizer=optimizer,
         save_state=save_state,
+        verbose=verbose,
     )
 
 
@@ -273,6 +280,13 @@ def validate(
             resolve_path=True,
         ),
     ],
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
 ) -> None:
     """Validate input files before fitting.
 
@@ -280,7 +294,7 @@ def validate(
     """
     from peakfit.cli.validate_command import run_validate
 
-    run_validate(spectrum, peaklist)
+    run_validate(spectrum, peaklist, verbose)
 
 
 @app.command()
@@ -301,6 +315,13 @@ def init(
             help="Overwrite existing file",
         ),
     ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
 ) -> None:
     """Generate a default configuration file.
 
@@ -317,18 +338,19 @@ def init(
       Overwrite existing config:
         $ peakfit init --force
     """
-    from peakfit.messages import print_next_steps, print_success_message
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
 
     if path.exists() and not force:
-        console.print(f"[red]✗ Error:[/red] File already exists: [yellow]{path}[/]")
-        console.print("[dim]Use[/] [cyan]--force[/] [dim]to overwrite[/]")
+        ui.error(f"File already exists: [path]{path}[/path]")
+        ui.info("Use [code]--force[/code] to overwrite")
         raise typer.Exit(1)
 
     config_content = generate_default_config()
     path.write_text(config_content)
 
     # Enhanced success message with details
-    print_success_message(f"Created configuration file: {path}")
+    ui.success(f"Created configuration file: [path]{path}[/path]")
 
     console.print("\n[bold cyan]📄 Configuration includes:[/]")
     console.print("  • [green]Fitting parameters[/] (optimizer, lineshape, tolerances)")
@@ -337,7 +359,7 @@ def init(
     console.print("  • [green]Advanced options[/] (parallel processing, backends)")
 
     # Suggest next steps
-    print_next_steps([
+    ui.print_next_steps([
         f"Review and customize: [cyan]{path}[/]",
         f"Run fitting: [cyan]peakfit fit spectrum.ft2 peaks.list --config {path}[/]",
         "Documentation: [cyan]https://github.com/gbouvignies/PeakFit[/]",
@@ -376,6 +398,13 @@ def plot_intensity(
             help="Display plots interactively",
         ),
     ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
 ) -> None:
     """Plot intensity profiles vs. plane index.
 
@@ -394,7 +423,7 @@ def plot_intensity(
     """
     from peakfit.cli.plot_command import plot_intensity_profiles
 
-    plot_intensity_profiles(results, output, show)
+    plot_intensity_profiles(results, output, show, verbose)
 
 
 @plot_app.command("cest")
@@ -432,6 +461,13 @@ def plot_cest(
             help="Reference point indices (default: auto-detect using |offset| >= 10 kHz)",
         ),
     ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
 ) -> None:
     """Plot CEST profiles (normalized intensity vs. B1 offset).
 
@@ -457,7 +493,7 @@ def plot_cest(
     """
     from peakfit.cli.plot_command import plot_cest_profiles
 
-    plot_cest_profiles(results, output, show, ref or [-1])
+    plot_cest_profiles(results, output, show, ref or [-1], verbose)
 
 
 @plot_app.command("cpmg")
@@ -495,6 +531,13 @@ def plot_cpmg(
             help="Display plots interactively",
         ),
     ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
 ) -> None:
     """Plot CPMG relaxation dispersion (R2eff vs. νCPMG).
 
@@ -520,7 +563,7 @@ def plot_cpmg(
     """
     from peakfit.cli.plot_command import plot_cpmg_profiles
 
-    plot_cpmg_profiles(results, output, show, time_t2)
+    plot_cpmg_profiles(results, output, show, time_t2, verbose)
 
 
 @plot_app.command("spectra")
@@ -544,6 +587,13 @@ def plot_spectra(
             resolve_path=True,
         ),
     ],
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
 ) -> None:
     """Launch interactive spectra viewer (PyQt5).
 
@@ -565,7 +615,7 @@ def plot_spectra(
     """
     from peakfit.cli.plot_command import plot_spectra_viewer
 
-    plot_spectra_viewer(results, spectrum)
+    plot_spectra_viewer(results, spectrum, verbose)
 
 
 @app.command()
@@ -833,8 +883,8 @@ def analyze(
 
     valid_methods = ["mcmc", "profile", "correlation"]
     if method not in valid_methods:
-        console.print(f"[red]Invalid method:[/red] {method}")
-        console.print(f"[yellow]Valid methods:[/yellow] {', '.join(valid_methods)}")
+        ui.error(f"Invalid method: {method}")
+        ui.info(f"Valid methods: {', '.join(valid_methods)}")
         raise typer.Exit(1)
 
     if method == "mcmc":
@@ -845,11 +895,12 @@ def analyze(
             burn_in=burn_in,
             peaks=peaks,
             output_file=output,
+            verbose=False,  # No banner for analyze commands
         )
     elif method == "profile":
         if param is None:
-            console.print("[red]Error:[/red] --param required for profile method")
-            console.print("Example: peakfit analyze profile Fits/ --param peak1_x0")
+            ui.error("--param required for profile method")
+            ui.info("Example: [code]peakfit analyze profile Fits/ --param peak1_x0[/code]")
             raise typer.Exit(1)
         run_profile_likelihood(
             results_dir=results,
@@ -858,11 +909,13 @@ def analyze(
             confidence_level=confidence,
             plot=plot,
             output_file=output,
+            verbose=False,  # No banner for analyze commands
         )
     elif method == "correlation":
         run_correlation(
             results_dir=results,
             output_file=output,
+            verbose=False,  # No banner for analyze commands
         )
 
 
