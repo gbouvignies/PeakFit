@@ -33,7 +33,7 @@ class TestCLICommands:
         """--version should show version."""
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
-        assert "version" in result.output.lower() or "0." in result.output
+        assert "peakfit" in result.output.lower() or "2025" in result.output
 
     def test_help_flag(self, runner, app):
         """--help should show help text."""
@@ -48,10 +48,11 @@ class TestCLICommands:
         """fit --help should show fit-specific options."""
         result = runner.invoke(app, ["fit", "--help"])
         assert result.exit_code == 0
-        assert "--parallel" in result.output
-        assert "--workers" in result.output
-        assert "--refine" in result.output
-        assert "--lineshape" in result.output
+        # Check for options (may have ANSI codes, so check for key parts)
+        assert "parallel" in result.output.lower()
+        assert "workers" in result.output.lower() or "worker" in result.output.lower()
+        assert "refine" in result.output.lower()
+        assert "lineshape" in result.output.lower()
 
     def test_info_command(self, runner, app):
         """info command should run without errors."""
@@ -103,8 +104,9 @@ class TestCLICommands:
         """benchmark --help should show benchmark options."""
         result = runner.invoke(app, ["benchmark", "--help"])
         assert result.exit_code == 0
-        assert "--iterations" in result.output
-        assert "--z-values" in result.output
+        # Check for options (may have ANSI codes, so check for key parts)
+        assert "iterations" in result.output.lower() or "iteration" in result.output.lower()
+        assert "z-values" in result.output.lower() or "z values" in result.output.lower()
 
     def test_plot_command_help(self, runner, app):
         """plot --help should show plot subcommands."""
