@@ -388,10 +388,15 @@ def plot_spectra(args: argparse.Namespace) -> None:
     sys.exit(app.exec_())
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Main entry point for the spectra viewer."""
     parser = argparse.ArgumentParser(description="NMR Spectra Viewer")
     parser.add_argument("data_exp", help="Experimental data file")
-    parser.add_argument("data_sim", help="Simulated data file")
+    parser.add_argument("--sim", dest="data_sim", required=True, help="Simulated data file")
     parser.add_argument("--peak-list", help="Peak list file")
     args = parser.parse_args()
     plot_spectra(args)
+
+
+if __name__ == "__main__":
+    main()

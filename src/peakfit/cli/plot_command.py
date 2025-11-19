@@ -317,6 +317,7 @@ def plot_spectra_viewer(results: Path, spectrum: Path, verbose: bool = False) ->
         sys.argv = ["peakfit", str(spectrum)]
 
         # Add simulated spectrum if available
+        sim_found = False
         if results.is_dir():
             # Try both ft2 and ft3
             for dim in [2, 3]:
@@ -324,7 +325,20 @@ def plot_spectra_viewer(results: Path, spectrum: Path, verbose: bool = False) ->
                 if sim_path.exists():
                     sys.argv.extend(["--sim", str(sim_path)])
                     ui.success(f"Loading simulated spectrum: {sim_path.name}")
+                    sim_found = True
                     break
+
+        if not sim_found:
+            ui.warning("No simulated spectrum found in results directory")
+            ui.info("Viewer requires both experimental and simulated spectra")
+            raise SystemExit(1)
+
+        # Add peak list if available
+        if results.is_dir():
+            peak_list_path = results / "shifts.list"
+            if peak_list_path.exists():
+                sys.argv.extend(["--peak-list", str(peak_list_path)])
+                ui.success(f"Loading peak list: {peak_list_path.name}")
 
         # Launch the viewer
         spectra_main()
