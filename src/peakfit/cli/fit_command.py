@@ -218,10 +218,6 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
 
 def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
     """Fit all clusters and return parameters."""
-    from rich.live import Live
-    from rich.console import Group
-    from rich.text import Text
-
     params_all = Parameters()
 
     # Use threadpoolctl to limit BLAS threads at runtime
@@ -234,101 +230,67 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                 ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
 
-            previous_result = None
-            previous_cluster_info = None
             cluster_results = []  # Track all cluster results for HTML logging
 
-            # Keep Live display open for entire cluster loop
-            with Live(console=console, refresh_per_second=4, transient=False) as live:
-                for cluster_idx, cluster in enumerate(clusters, 1):
-                    peak_names = [peak.name for peak in cluster.peaks]
+            for cluster_idx, cluster in enumerate(clusters, 1):
+                peak_names = [peak.name for peak in cluster.peaks]
+                peaks_str = ", ".join(peak_names)
 
-                    # Create current cluster panel
-                    current_panel = ui.create_cluster_status(
-                        cluster_idx, len(clusters), peak_names, status="fitting"
-                    )
+                # Print cluster header
+                ui.spacer()
+                console.print(f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] │ Peaks: [green]{peaks_str}[/green]")
 
-                    # Build display with previous result (if exists) and current cluster
-                    if previous_result is not None and previous_cluster_info is not None:
-                        prev_idx, prev_peaks, prev_res = previous_cluster_info
-                        prev_panel = ui.create_cluster_status(
-                            prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
-                        )
-                        # Show both previous and current with spacing
-                        display_group = Group(prev_panel, Text(""), current_panel)
-                    else:
-                        # First cluster, show only current
-                        display_group = current_panel
+                params = create_params(cluster.peaks, fixed=clargs.fixed)
+                params = _update_params(params, params_all)
 
-                    # Update live display
-                    live.update(display_group)
+                # Get varying parameters
+                vary_names = params.get_vary_names()
+                x0 = params.get_vary_values()
+                bounds_lower = np.array([params[name].min for name in vary_names])
+                bounds_upper = np.array([params[name].max for name in vary_names])
 
-                    params = create_params(cluster.peaks, fixed=clargs.fixed)
-                    params = _update_params(params, params_all)
+                # Run optimization with scipy.optimize.least_squares
+                result = least_squares(
+                    _residual_wrapper,
+                    x0,
+                    args=(params, cluster, clargs.noise),
+                    bounds=(bounds_lower, bounds_upper),
+                    ftol=1e-7,
+                    xtol=1e-7,
+                    max_nfev=1000,
+                    verbose=2,  # Show iteration progress
+                )
 
-                    # Get varying parameters
-                    vary_names = params.get_vary_names()
-                    x0 = params.get_vary_values()
-                    bounds_lower = np.array([params[name].min for name in vary_names])
-                    bounds_upper = np.array([params[name].max for name in vary_names])
+                # Update parameters with optimized values
+                for i, name in enumerate(vary_names):
+                    params[name].value = result.x[i]
 
-                    # Run optimization with scipy.optimize.least_squares
-                    result = least_squares(
-                        _residual_wrapper,
-                        x0,
-                        args=(params, cluster, clargs.noise),
-                        bounds=(bounds_lower, bounds_upper),
-                        ftol=1e-7,
-                        xtol=1e-7,
-                        max_nfev=1000,
-                        verbose=2,  # Show iteration progress
-                    )
+                # Compute standard errors from Jacobian
+                if result.jac is not None and len(result.fun) > len(vary_names):
+                    ndata = len(result.fun)
+                    nvarys = len(vary_names)
+                    redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
+                    try:
+                        jtj = result.jac.T @ result.jac
+                        cov = np.linalg.inv(jtj) * redchi
+                        stderr = np.sqrt(np.diag(cov))
+                        for i, name in enumerate(vary_names):
+                            params[name].stderr = float(stderr[i])
+                    except np.linalg.LinAlgError:
+                        # Singular matrix, can't compute errors
+                        pass
 
-                    # Update parameters with optimized values
-                    for i, name in enumerate(vary_names):
-                        params[name].value = result.x[i]
+                # Print completion status
+                status_icon = "✓" if result.success else "✗"
+                status_color = "green" if result.success else "red"
+                console.print(f"[{status_color}]{status_icon} Complete[/{status_color}] │ Cost: {result.cost:.2e} │ Evaluations: {result.nfev}")
 
-                    # Compute standard errors from Jacobian
-                    if result.jac is not None and len(result.fun) > len(vary_names):
-                        ndata = len(result.fun)
-                        nvarys = len(vary_names)
-                        redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
-                        try:
-                            jtj = result.jac.T @ result.jac
-                            cov = np.linalg.inv(jtj) * redchi
-                            stderr = np.sqrt(np.diag(cov))
-                            for i, name in enumerate(vary_names):
-                                params[name].stderr = float(stderr[i])
-                        except np.linalg.LinAlgError:
-                            # Singular matrix, can't compute errors
-                            pass
+                # Track cluster result for summary
+                cluster_results.append((cluster_idx, peak_names, result))
 
-                    # Update display to show completion
-                    done_panel = ui.create_cluster_status(
-                        cluster_idx, len(clusters), peak_names, status="done", result=result
-                    )
-                    if previous_result is not None and previous_cluster_info is not None:
-                        prev_idx, prev_peaks, prev_res = previous_cluster_info
-                        prev_panel = ui.create_cluster_status(
-                            prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
-                        )
-                        # Show both previous and current (both done)
-                        display_group = Group(prev_panel, Text(""), done_panel)
-                    else:
-                        # First cluster, show only current
-                        display_group = done_panel
-                    live.update(display_group)
+                params_all.update(params)
 
-                    # Store this result as "previous" for next iteration
-                    previous_result = result
-                    previous_cluster_info = (cluster_idx, peak_names, result)
-
-                    # Track cluster result for HTML logging
-                    cluster_results.append((cluster_idx, peak_names, result))
-
-                    params_all.update(params)
-
-            # After Live context exits, print cluster summaries for HTML logging
+            # Print cluster fitting summary
             ui.spacer()
             ui.show_subheader("Cluster Fitting Summary")
             for cluster_idx, peak_names, result in cluster_results:
@@ -363,9 +325,6 @@ def _fit_clusters_parallel(
 
 def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -> Parameters:
     """Fit all clusters using global optimization."""
-    from rich.live import Live
-    from rich.console import Group
-    from rich.text import Text
     from peakfit.core.advanced_optimization import fit_basin_hopping, fit_differential_evolution
 
     params_all = Parameters()
@@ -377,87 +336,56 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
                 ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
 
-            previous_result = None
-            previous_cluster_info = None
             cluster_results = []  # Track all cluster results for HTML logging
 
-            # Keep Live display open for entire cluster loop
-            with Live(console=console, refresh_per_second=4, transient=False) as live:
-                for cluster_idx, cluster in enumerate(clusters, 1):
-                    peak_names = [peak.name for peak in cluster.peaks]
+            for cluster_idx, cluster in enumerate(clusters, 1):
+                peak_names = [peak.name for peak in cluster.peaks]
+                peaks_str = ", ".join(peak_names)
 
-                    # Create current cluster panel
-                    current_panel = ui.create_cluster_status(
-                        cluster_idx, len(clusters), peak_names, status="optimizing"
+                # Print cluster header
+                ui.spacer()
+                console.print(f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] │ Peaks: [green]{peaks_str}[/green]")
+
+                params = create_params(cluster.peaks, fixed=clargs.fixed)
+                params = _update_params(params, params_all)
+
+                # Use global optimizer
+                if optimizer == "basin-hopping":
+                    result = fit_basin_hopping(
+                        params,
+                        cluster,
+                        clargs.noise,
+                        n_iterations=50,  # Reasonable default
+                        temperature=1.0,
+                        step_size=0.5,
                     )
-
-                    # Build display with previous result (if exists) and current cluster
-                    if previous_result is not None and previous_cluster_info is not None:
-                        prev_idx, prev_peaks, prev_res = previous_cluster_info
-                        prev_panel = ui.create_cluster_status(
-                            prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
-                        )
-                        # Show both previous and current with spacing
-                        display_group = Group(prev_panel, Text(""), current_panel)
-                    else:
-                        # First cluster, show only current
-                        display_group = current_panel
-
-                    # Update live display
-                    live.update(display_group)
-
-                    params = create_params(cluster.peaks, fixed=clargs.fixed)
-                    params = _update_params(params, params_all)
-
-                    # Use global optimizer
-                    if optimizer == "basin-hopping":
-                        result = fit_basin_hopping(
-                            params,
-                            cluster,
-                            clargs.noise,
-                            n_iterations=50,  # Reasonable default
-                            temperature=1.0,
-                            step_size=0.5,
-                        )
-                    elif optimizer == "differential-evolution":
-                        result = fit_differential_evolution(
-                            params,
-                            cluster,
-                            clargs.noise,
-                            max_iterations=500,
-                            population_size=15,
-                            polish=True,
-                        )
-                    else:
-                        msg = f"Unknown optimizer: {optimizer}"
-                        raise ValueError(msg)
-
-                    # Update display to show completion
-                    done_panel = ui.create_cluster_status(
-                        cluster_idx, len(clusters), peak_names, status="done", result=result
+                elif optimizer == "differential-evolution":
+                    result = fit_differential_evolution(
+                        params,
+                        cluster,
+                        clargs.noise,
+                        max_iterations=500,
+                        population_size=15,
+                        polish=True,
                     )
-                    if previous_result is not None and previous_cluster_info is not None:
-                        prev_idx, prev_peaks, prev_res = previous_cluster_info
-                        prev_panel = ui.create_cluster_status(
-                            prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
-                        )
-                        # Show both previous and current (both done)
-                        display_group = Group(prev_panel, Text(""), done_panel)
-                    else:
-                        # First cluster, show only current
-                        display_group = done_panel
-                    live.update(display_group)
+                else:
+                    msg = f"Unknown optimizer: {optimizer}"
+                    raise ValueError(msg)
 
-                    # Store this result as "previous" for next iteration
-                    previous_result = result
-                    previous_cluster_info = (cluster_idx, peak_names, result)
+                # Print completion status
+                success = result.success if hasattr(result, "success") else True
+                status_icon = "✓" if success else "✗"
+                status_color = "green" if success else "red"
+                chisqr = result.chisqr if hasattr(result, "chisqr") else result.cost
+                nfev = result.nfev if hasattr(result, "nfev") else "N/A"
+                console.print(f"[{status_color}]{status_icon} Complete[/{status_color}] │ Cost: {chisqr:.2e} │ Evaluations: {nfev}")
 
-                    # Track cluster result for HTML logging
-                    cluster_results.append((cluster_idx, peak_names, result))
+                # Track cluster result for summary
+                cluster_results.append((cluster_idx, peak_names, result))
 
-                    params_all.update(result.params)
+                params_all.update(result.params)
 
-            # After Live context exits, print cluster summaries for HTML logging
+            # Print cluster fitting summary
             ui.spacer()
             ui.show_subheader("Cluster Fitting Summary")
             for cluster_idx, peak_names, result in cluster_results:
