@@ -18,7 +18,7 @@ def write_profiles(
     args: FittingOptions,
 ) -> None:
     """Write profile information to output files."""
-    ui.info("Writing profiles...")
+    ui.action("Writing profiles...")
     for cluster in clusters:
         _shapes, amplitudes = calculate_shape_heights(params, cluster)
         amplitudes_err = np.full_like(amplitudes, args.noise)
@@ -72,7 +72,7 @@ def write_profile(
 
 def write_shifts(peaks: list[Peak], params: Parameters, file_shifts: Path) -> None:
     """Write the shifts to the output file."""
-    ui.info("Writing shifts...")
+    ui.action("Writing shifts...")
     with file_shifts.open("w") as f:
         for peak in peaks:
             peak.update_positions(params)

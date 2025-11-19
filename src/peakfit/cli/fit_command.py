@@ -119,31 +119,47 @@ def run_fit(
 
     # Load data
     ui.show_header("Loading Data")
-    with console.status("[bold yellow]Loading spectrum..."):
+    ui.action("Reading spectrum...")
+    with console.status("[bold yellow]Processing..."):
         spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
     ui.success(f"Loaded spectrum: {spectrum_path.name}")
-    console.print(f"  Shape: {spectra.data.shape}")
-    console.print(f"  Z-values: {len(spectra.z_values)} planes")
+    ui.bullet(f"Shape: {spectra.data.shape}", style="default")
+    ui.bullet(f"Z-values: {len(spectra.z_values)} planes", style="default")
 
     # Estimate noise
+    ui.spacer()
     clargs.noise = prepare_noise_level(clargs, spectra)
     ui.success(f"Noise level: {clargs.noise:.2f}")
 
     # Determine lineshape
     shape_names = get_shape_names(clargs, spectra)
-    ui.success(f"Lineshapes: {shape_names}")
+    ui.bullet(f"Lineshapes: {shape_names}", style="default")
 
     # Read peak list
+    ui.spacer()
+    ui.action("Reading peak list...")
     peaks = read_list(spectra, shape_names, clargs)
-    ui.success(f"Loaded peaks: {len(peaks)} peaks")
+    ui.success(f"Loaded {len(peaks)} peaks")
 
     # Cluster peaks
+    ui.spacer()
     clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
-    ui.success(f"Contour level: {clargs.contour_level:.2f}")
+    ui.bullet(f"Contour level: {clargs.contour_level:.2f}", style="default")
 
     clusters = create_clusters(spectra, peaks, clargs.contour_level)
-    ui.success(f"Created clusters: {len(clusters)} clusters")
+    ui.success(f"Created {len(clusters)} clusters")
+
+    # Display data summary
+    ui.spacer()
+    ui.print_data_summary(
+        spectrum_shape=spectra.data.shape,
+        n_planes=len(spectra.z_values),
+        n_peaks=len(peaks),
+        n_clusters=len(clusters),
+        noise_level=clargs.noise,
+        contour_level=clargs.contour_level,
+    )
 
     # Fit clusters - choose method based on flags
     ui.show_header("Fitting Clusters")
@@ -161,28 +177,36 @@ def run_fit(
     config.output.directory.mkdir(parents=True, exist_ok=True)
 
     write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
-    ui.success(f"Written profiles to: [path]{config.output.directory}[/path]")
+    ui.success(f"Profiles written")
+    ui.bullet(f"{config.output.directory}/*.out", style="default")
 
     if config.output.save_html_report:
         ui.export_html(config.output.directory / "logs.html")
-        ui.success(f"Written HTML report: [path]{config.output.directory / 'logs.html'}[/path]")
+        ui.success("HTML report written")
+        ui.bullet(f"{config.output.directory / 'logs.html'}", style="default")
 
     write_shifts(peaks, params, config.output.directory / "shifts.list")
-    ui.success(f"Written shifts: [path]{config.output.directory / 'shifts.list'}[/path]")
+    ui.success("Shifts written")
+    ui.bullet(f"{config.output.directory / 'shifts.list'}", style="default")
 
     if config.output.save_simulated:
         _write_spectra(config.output.directory, spectra, clusters, params)
-        ui.success("Written simulated spectrum")
+        ui.success("Simulated spectrum written")
 
     # Save fitting state for later analysis
     if save_state:
+        ui.spacer()
         state_file = config.output.directory / ".peakfit_state.pkl"
         _save_fitting_state(state_file, clusters, params, clargs.noise, peaks)
-        ui.success(f"Saved fitting state: [path]{state_file}[/path]")
-        console.print("  [dim]Use 'peakfit analyze' to compute uncertainties[/dim]")
+        ui.success("Fitting state saved")
+        ui.bullet(f"{state_file}", style="default")
+        ui.bullet("Use 'peakfit analyze' to compute uncertainties", style="default")
 
-    console.print()
-    ui.success("Fitting complete!")
+    ui.spacer()
+    console.print("[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/]")
+    console.print("[bold green]✓ Fitting complete![/]")
+    console.print("[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/]")
+    ui.spacer()
 
 
 def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) -> np.ndarray:
@@ -203,11 +227,12 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
     with threadpool_limits(limits=1, user_api="blas"):
         for index in range(clargs.refine_nb + 1):
             if index > 0:
-                ui.info(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
+                ui.spacer()
+                ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
-            for cluster in clusters:
-                peak_names = ", ".join(peak.name for peak in cluster.peaks)
-                console.print(f"\n[cyan]Fitting peaks:[/cyan] [green]{peak_names}[/]")
+            for cluster_idx, cluster in enumerate(clusters, 1):
+                peak_names = [peak.name for peak in cluster.peaks]
+                ui.print_cluster_info(cluster_idx, len(clusters), peak_names)
                 params = create_params(cluster.peaks, fixed=clargs.fixed)
                 params = _update_params(params, params_all)
 
@@ -367,7 +392,7 @@ def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
     import nmrglue as ng
     import numpy as np
 
-    ui.info("Writing simulated spectra...")
+    ui.action("Writing simulated spectra...")
 
     data_simulated = simulate_data(params, clusters, spectra.data)
 

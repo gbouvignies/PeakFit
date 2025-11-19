@@ -117,40 +117,95 @@ class PeakFitUI:
     # ==================== STATUS MESSAGES ====================
 
     @staticmethod
-    def success(message: str) -> None:
+    def success(message: str, indent: int = 0) -> None:
         """Display a success message.
 
         Args:
             message: Success message to display
+            indent: Indentation level (spaces = indent * 2)
         """
-        console.print(f"[success]✓[/success] {message}")
+        spaces = "  " * indent
+        console.print(f"{spaces}[success]✓[/success] {message}")
 
     @staticmethod
-    def warning(message: str) -> None:
+    def warning(message: str, indent: int = 0) -> None:
         """Display a warning message.
 
         Args:
             message: Warning message to display
+            indent: Indentation level (spaces = indent * 2)
         """
-        console.print(f"[warning]⚠[/warning]  {message}")
+        spaces = "  " * indent
+        console.print(f"{spaces}[warning]⚠[/warning]  {message}")
 
     @staticmethod
-    def error(message: str) -> None:
+    def error(message: str, indent: int = 0) -> None:
         """Display an error message.
 
         Args:
             message: Error message to display
+            indent: Indentation level (spaces = indent * 2)
         """
-        console.print(f"[error]✗[/error] {message}")
+        spaces = "  " * indent
+        console.print(f"{spaces}[error]✗[/error] {message}")
 
     @staticmethod
-    def info(message: str) -> None:
+    def info(message: str, indent: int = 0) -> None:
         """Display an info message.
 
         Args:
             message: Info message to display
+            indent: Indentation level (spaces = indent * 2)
         """
-        console.print(f"[info]ℹ[/info]  {message}")
+        spaces = "  " * indent
+        console.print(f"{spaces}[info]ℹ[/info]  {message}")
+
+    @staticmethod
+    def action(message: str) -> None:
+        """Display an action/process message with visual separation.
+
+        Use this for ongoing operations like 'Fitting peaks...', 'Loading data...'
+
+        Args:
+            message: Action message to display
+        """
+        console.print(f"\n[bold yellow]—[/bold yellow] {message}")
+
+    @staticmethod
+    def bullet(message: str, indent: int = 1, style: str = "default") -> None:
+        """Display a bullet point item.
+
+        Args:
+            message: Message to display
+            indent: Indentation level (spaces = indent * 2)
+            style: Style name (success/warning/error/default)
+        """
+        spaces = "  " * indent
+        if style == "success":
+            icon = "[success]‣[/success]"
+        elif style == "warning":
+            icon = "[warning]‣[/warning]"
+        elif style == "error":
+            icon = "[error]‣[/error]"
+        else:
+            icon = "[cyan]‣[/cyan]"
+        console.print(f"{spaces}{icon} {message}")
+
+    @staticmethod
+    def spacer() -> None:
+        """Print an empty line for visual spacing."""
+        console.print()
+
+    @staticmethod
+    def separator(char: str = "─", width: int = 60, style: str = "dim") -> None:
+        """Print a visual separator line.
+
+        Args:
+            char: Character to use for separator
+            width: Width of separator
+            style: Rich style to apply
+        """
+        console.print(f"[{style}]{char * width}[/{style}]")
 
     # ==================== PROGRESS INDICATORS ====================
 
@@ -410,6 +465,118 @@ class PeakFitUI:
         console.print()
         console.print(table)
         console.print()
+
+    # ==================== SPECIALIZED DISPLAYS ====================
+
+    @staticmethod
+    def print_cluster_info(cluster_index: int, total_clusters: int, peak_names: list[str]) -> None:
+        """Display information about a cluster being processed.
+
+        Args:
+            cluster_index: Current cluster number (1-based)
+            total_clusters: Total number of clusters
+            peak_names: List of peak names in this cluster
+        """
+        peaks_str = ", ".join(peak_names)
+        console.print(
+            f"\n[bold cyan]Cluster {cluster_index}/{total_clusters}[/] │ Peaks: [green]{peaks_str}[/]"
+        )
+
+    @staticmethod
+    def print_peaks_panel(peaks: list[Any]) -> None:
+        """Display list of peaks in a panel.
+
+        Args:
+            peaks: List of Peak objects with .name attribute
+        """
+        peak_list = ", ".join(peak.name for peak in peaks)
+        panel = Panel.fit(peak_list, title="Peaks", style="green")
+        console.print(panel)
+
+    @staticmethod
+    def print_data_summary(
+        spectrum_shape: tuple,
+        n_planes: int,
+        n_peaks: int,
+        n_clusters: int,
+        noise_level: float,
+        contour_level: float,
+    ) -> None:
+        """Print a formatted summary of loaded data.
+
+        Args:
+            spectrum_shape: Shape of spectrum data
+            n_planes: Number of planes (z-values)
+            n_peaks: Number of peaks
+            n_clusters: Number of clusters
+            noise_level: Estimated noise level
+            contour_level: Contour level for clustering
+        """
+        table = PeakFitUI.create_table("Data Summary", show_header=False)
+        table.add_column("Property", style="cyan", width=20)
+        table.add_column("Value", style="green")
+
+        table.add_row("Spectrum shape", str(spectrum_shape))
+        table.add_row("Number of planes", str(n_planes))
+        table.add_row("Number of peaks", str(n_peaks))
+        table.add_row("Number of clusters", str(n_clusters))
+        table.add_row("Noise level", f"{noise_level:.4f}")
+        table.add_row("Contour level", f"{contour_level:.4f}")
+
+        console.print()
+        console.print(table)
+        console.print()
+
+    @staticmethod
+    def print_fit_summary(
+        total_clusters: int,
+        total_peaks: int,
+        total_time: float,
+        success_count: int,
+    ) -> None:
+        """Print a summary of fitting results in a panel.
+
+        Args:
+            total_clusters: Total number of clusters fitted
+            total_peaks: Total number of peaks
+            total_time: Total time elapsed
+            success_count: Number of successful fits
+        """
+        console.print()
+        panel_content = Text()
+        panel_content.append("Fitting Complete\n\n", style="bold green")
+        panel_content.append(f"  Clusters fitted:  {total_clusters}\n")
+        panel_content.append(f"  Total peaks:      {total_peaks}\n")
+        panel_content.append(f"  Successful:       {success_count}/{total_clusters}\n")
+        panel_content.append(f"  Total time:       {total_time:.2f}s\n")
+
+        if total_clusters > 0:
+            avg_time = total_time / total_clusters
+            panel_content.append(f"  Avg per cluster:  {avg_time:.3f}s")
+
+        console.print(Panel(panel_content, border_style="green"))
+
+    @staticmethod
+    def print_optimization_settings(ftol: float, xtol: float, max_nfev: int) -> None:
+        """Print optimization settings in dim style.
+
+        Args:
+            ftol: Function tolerance
+            xtol: Parameter tolerance
+            max_nfev: Maximum function evaluations
+        """
+        console.print(f"[dim]Optimization: ftol={ftol:.0e}, xtol={xtol:.0e}, max_nfev={max_nfev}[/]")
+
+    @staticmethod
+    def print_file_item(filepath: Path, indent: int = 2) -> None:
+        """Print a file path as a bullet item.
+
+        Args:
+            filepath: Path to display
+            indent: Indentation level
+        """
+        spaces = "  " * indent
+        console.print(f"{spaces}[cyan]‣[/cyan] [path]{filepath}[/path]")
 
     # ==================== HTML EXPORT ====================
 

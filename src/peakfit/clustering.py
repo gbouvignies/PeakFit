@@ -138,7 +138,7 @@ def create_clusters(spectra: Spectra, peaks: list[Peak], contour_level: float) -
     Returns:
         list[Cluster]: List of created clusters.
     """
-    ui.info("Segmenting spectra and clustering peaks...")
+    ui.action("Segmenting spectra and clustering peaks...")
     segments = segment_data(spectra.data, contour_level, peaks)
     peak_segments_dict = assign_peaks_to_segments(peaks, segments)
 
