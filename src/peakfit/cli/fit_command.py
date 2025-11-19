@@ -324,14 +324,10 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
 
                     params_all.update(params)
 
-            # After Live context exits, show the final result with detailed stats
-            if previous_result is not None and previous_cluster_info is not None:
-                prev_idx, prev_peaks, prev_res = previous_cluster_info
-                final_panel = ui.create_cluster_status(
-                    prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
-                )
-                console.print(final_panel)
-                ui.print_fit_report(prev_res)
+            # After Live context exits, show detailed fit statistics for the final cluster
+            # (The cluster status panel is already visible from the Live display)
+            if previous_result is not None:
+                ui.print_fit_report(previous_result)
 
     return params_all
 
@@ -446,24 +442,19 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
 
                     params_all.update(result.params)
 
-            # After Live context exits, show the final result with detailed stats
-            if previous_result is not None and previous_cluster_info is not None:
-                prev_idx, prev_peaks, prev_res = previous_cluster_info
-                final_panel = ui.create_cluster_status(
-                    prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
-                )
-                console.print(final_panel)
-
+            # After Live context exits, show detailed results for the final cluster
+            # (The cluster status panel is already visible from the Live display)
+            if previous_result is not None:
                 # Display detailed results
-                if hasattr(prev_res, "success"):
-                    if prev_res.success:
+                if hasattr(previous_result, "success"):
+                    if previous_result.success:
                         ui.success("Optimization converged", indent=1)
                     else:
-                        ui.warning(f"Did not converge: {prev_res.message}", indent=1)
+                        ui.warning(f"Did not converge: {previous_result.message}", indent=1)
 
-                if hasattr(prev_res, "chisqr"):
+                if hasattr(previous_result, "chisqr"):
                     ui.bullet(
-                        f"χ² = {prev_res.chisqr:.2f}, reduced χ² = {prev_res.redchi:.4f}, nfev = {prev_res.nfev}",
+                        f"χ² = {previous_result.chisqr:.2f}, reduced χ² = {previous_result.redchi:.4f}, nfev = {previous_result.nfev}",
                         indent=1,
                         style="default"
                     )
