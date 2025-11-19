@@ -230,15 +230,13 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                 ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
 
-            cluster_results = []  # Track all cluster results for HTML logging
-
             for cluster_idx, cluster in enumerate(clusters, 1):
                 peak_names = [peak.name for peak in cluster.peaks]
                 peaks_str = ", ".join(peak_names)
 
                 # Print cluster header
-                ui.spacer()
-                console.print(f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] │ Peaks: [green]{peaks_str}[/green]")
+                console.print()
+                console.print(f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}")
 
                 params = create_params(cluster.peaks, fixed=clargs.fixed)
                 params = _update_params(params, params_all)
@@ -281,26 +279,12 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                         pass
 
                 # Print completion status
-                status_icon = "✓" if result.success else "✗"
-                status_color = "green" if result.success else "red"
-                console.print(f"[{status_color}]{status_icon} Complete[/{status_color}] │ Cost: {result.cost:.2e} │ Evaluations: {result.nfev}")
-
-                # Track cluster result for summary
-                cluster_results.append((cluster_idx, peak_names, result))
+                if result.success:
+                    console.print(f"[green]✓ Converged[/green] [dim]│[/dim] Cost: [cyan]{result.cost:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{result.nfev}[/cyan]")
+                else:
+                    console.print(f"[yellow]⚠ {result.message}[/yellow] [dim]│[/dim] Cost: [cyan]{result.cost:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{result.nfev}[/cyan]")
 
                 params_all.update(params)
-
-            # Print cluster fitting summary
-            ui.spacer()
-            ui.show_subheader("Cluster Fitting Summary")
-            for cluster_idx, peak_names, result in cluster_results:
-                peaks_str = ", ".join(peak_names)
-                ui.bullet(
-                    f"Cluster {cluster_idx}/{len(clusters)} │ Peaks: {peaks_str} │ "
-                    f"{'✓' if result.success else '✗'} │ "
-                    f"Cost: {result.cost:.2e} │ nfev: {result.nfev}",
-                    style="success" if result.success else "error"
-                )
 
     return params_all
 
@@ -336,15 +320,13 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
                 ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
 
-            cluster_results = []  # Track all cluster results for HTML logging
-
             for cluster_idx, cluster in enumerate(clusters, 1):
                 peak_names = [peak.name for peak in cluster.peaks]
                 peaks_str = ", ".join(peak_names)
 
                 # Print cluster header
-                ui.spacer()
-                console.print(f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] │ Peaks: [green]{peaks_str}[/green]")
+                console.print()
+                console.print(f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}")
 
                 params = create_params(cluster.peaks, fixed=clargs.fixed)
                 params = _update_params(params, params_all)
@@ -374,31 +356,16 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
 
                 # Print completion status
                 success = result.success if hasattr(result, "success") else True
-                status_icon = "✓" if success else "✗"
-                status_color = "green" if success else "red"
                 chisqr = result.chisqr if hasattr(result, "chisqr") else result.cost
                 nfev = result.nfev if hasattr(result, "nfev") else "N/A"
-                console.print(f"[{status_color}]{status_icon} Complete[/{status_color}] │ Cost: {chisqr:.2e} │ Evaluations: {nfev}")
 
-                # Track cluster result for summary
-                cluster_results.append((cluster_idx, peak_names, result))
+                if success:
+                    console.print(f"[green]✓ Converged[/green] [dim]│[/dim] Cost: [cyan]{chisqr:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{nfev}[/cyan]")
+                else:
+                    message = result.message if hasattr(result, "message") else "Did not converge"
+                    console.print(f"[yellow]⚠ {message}[/yellow] [dim]│[/dim] Cost: [cyan]{chisqr:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{nfev}[/cyan]")
 
                 params_all.update(result.params)
-
-            # Print cluster fitting summary
-            ui.spacer()
-            ui.show_subheader("Cluster Fitting Summary")
-            for cluster_idx, peak_names, result in cluster_results:
-                peaks_str = ", ".join(peak_names)
-                success = result.success if hasattr(result, "success") else True
-                chisqr = result.chisqr if hasattr(result, "chisqr") else result.cost
-                nfev = result.nfev if hasattr(result, "nfev") else "N/A"
-                ui.bullet(
-                    f"Cluster {cluster_idx}/{len(clusters)} │ Peaks: {peaks_str} │ "
-                    f"{'✓' if success else '✗'} │ "
-                    f"Cost: {chisqr:.2e} │ nfev: {nfev}",
-                    style="success" if success else "error"
-                )
 
     return params_all
 
