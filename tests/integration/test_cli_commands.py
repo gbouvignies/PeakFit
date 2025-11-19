@@ -106,7 +106,8 @@ class TestCLICommands:
         assert result.exit_code == 0
         # Check for options (may have ANSI codes, so check for key parts)
         assert "iterations" in result.output.lower() or "iteration" in result.output.lower()
-        assert "z-values" in result.output.lower() or "z values" in result.output.lower()
+        # Z-values option appears as "Z-dimension" in help text
+        assert "dimension" in result.output.lower() or "-z" in result.output.lower()
 
     def test_plot_command_help(self, runner, app):
         """plot --help should show plot subcommands."""
