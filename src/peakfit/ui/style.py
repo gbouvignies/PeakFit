@@ -78,8 +78,7 @@ class PeakFitUI:
 
         logo_text = Text(LOGO_ASCII, style="bold cyan")
         description_text = Text(
-            "Modern NMR Peak Fitting for Pseudo-3D Spectra\n"
-            f"{REPO_URL}\n\n",
+            f"Modern NMR Peak Fitting for Pseudo-3D Spectra\n{REPO_URL}\n\n",
             style="dim",
         )
         version_text = Text("Version: ", style="dim")
@@ -334,7 +333,7 @@ class PeakFitUI:
 
         # Show error details in panel
         error_panel = PeakFitUI.create_panel(
-            f"[error]{type(error).__name__}[/error]: {str(error)}",
+            f"[error]{type(error).__name__}[/error]: {error!s}",
             title="Error Details",
             style="error",
         )
@@ -366,7 +365,7 @@ class PeakFitUI:
                 console.print(f"  • [path]{file}[/path]")
 
         # Show files in current directory
-        parent = filepath.parent if filepath.parent.exists() else Path(".")
+        parent = filepath.parent if filepath.parent.exists() else Path()
         if parent.is_dir():
             pattern = f"*{filepath.suffix}" if filepath.suffix else "*"
             matching_files = list(parent.glob(pattern))
@@ -500,7 +499,7 @@ class PeakFitUI:
         # Build content
         content = Text()
         content.append(f"Cluster {cluster_index}/{total_clusters}\n", style="bold cyan")
-        content.append(f"Peaks: ", style="dim")
+        content.append("Peaks: ", style="dim")
         content.append(f"{peaks_str}\n\n", style="green")
 
         if status == "fitting":
@@ -675,7 +674,9 @@ class PeakFitUI:
             xtol: Parameter tolerance
             max_nfev: Maximum function evaluations
         """
-        console.print(f"[dim]Optimization: ftol={ftol:.0e}, xtol={xtol:.0e}, max_nfev={max_nfev}[/]")
+        console.print(
+            f"[dim]Optimization: ftol={ftol:.0e}, xtol={xtol:.0e}, max_nfev={max_nfev}[/]"
+        )
 
     @staticmethod
     def print_file_item(filepath: Path, indent: int = 2) -> None:

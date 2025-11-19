@@ -4,8 +4,7 @@ from pathlib import Path
 
 import nmrglue as ng
 
-from peakfit.ui import PeakFitUI as ui
-from peakfit.ui import console
+from peakfit.ui import PeakFitUI as ui, console
 
 
 def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False) -> None:

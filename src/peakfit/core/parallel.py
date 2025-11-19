@@ -256,8 +256,11 @@ def fit_clusters_parallel_refined(
         for iteration in range(refine_iterations + 1):
             if verbose:
                 from peakfit.messages import console
+
                 if refine_iterations > 0:
-                    console.print(f"[cyan]Refinement iteration {iteration + 1}/{refine_iterations + 1}[/]")
+                    console.print(
+                        f"[cyan]Refinement iteration {iteration + 1}/{refine_iterations + 1}[/]"
+                    )
 
             # Update corrections if not first iteration
             if iteration > 0:
@@ -278,7 +281,9 @@ def fit_clusters_parallel_refined(
             # Threads share JIT-compiled code and avoid massive compilation overhead
             if n_workers > 1 and len(clusters) > 1:
                 if verbose:
-                    console.print(f"[dim]Fitting {len(clusters)} clusters with {n_workers} workers...[/]")
+                    console.print(
+                        f"[dim]Fitting {len(clusters)} clusters with {n_workers} workers...[/]"
+                    )
                 with ThreadPoolExecutor(max_workers=n_workers) as executor:
                     results = list(executor.map(worker, clusters))
             else:

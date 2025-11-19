@@ -15,8 +15,7 @@ from peakfit.noise import prepare_noise_level
 from peakfit.peak import create_params
 from peakfit.peaklist import read_list
 from peakfit.spectra import get_shape_names, read_spectra
-from peakfit.ui import PeakFitUI as ui
-from peakfit.ui import console
+from peakfit.ui import PeakFitUI as ui, console
 from peakfit.writing import write_profiles, write_shifts
 
 
@@ -176,7 +175,7 @@ def run_fit(
     config.output.directory.mkdir(parents=True, exist_ok=True)
 
     write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
-    ui.success(f"Profiles written")
+    ui.success("Profiles written")
     ui.bullet(f"{config.output.directory}/*.out", style="default")
 
     if config.output.save_html_report:
@@ -236,7 +235,9 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
 
                 # Print cluster header
                 console.print()
-                console.print(f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}")
+                console.print(
+                    f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}"
+                )
 
                 params = create_params(cluster.peaks, fixed=clargs.fixed)
                 params = _update_params(params, params_all)
@@ -280,9 +281,13 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
 
                 # Print completion status
                 if result.success:
-                    console.print(f"[green]✓ Converged[/green] [dim]│[/dim] Cost: [cyan]{result.cost:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{result.nfev}[/cyan]")
+                    console.print(
+                        f"[green]✓ Converged[/green] [dim]│[/dim] Cost: [cyan]{result.cost:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{result.nfev}[/cyan]"
+                    )
                 else:
-                    console.print(f"[yellow]⚠ {result.message}[/yellow] [dim]│[/dim] Cost: [cyan]{result.cost:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{result.nfev}[/cyan]")
+                    console.print(
+                        f"[yellow]⚠ {result.message}[/yellow] [dim]│[/dim] Cost: [cyan]{result.cost:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{result.nfev}[/cyan]"
+                    )
 
                 params_all.update(params)
 
@@ -326,7 +331,9 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
 
                 # Print cluster header
                 console.print()
-                console.print(f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}")
+                console.print(
+                    f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}"
+                )
 
                 params = create_params(cluster.peaks, fixed=clargs.fixed)
                 params = _update_params(params, params_all)
@@ -360,10 +367,14 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
                 nfev = result.nfev if hasattr(result, "nfev") else "N/A"
 
                 if success:
-                    console.print(f"[green]✓ Converged[/green] [dim]│[/dim] Cost: [cyan]{chisqr:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{nfev}[/cyan]")
+                    console.print(
+                        f"[green]✓ Converged[/green] [dim]│[/dim] Cost: [cyan]{chisqr:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{nfev}[/cyan]"
+                    )
                 else:
                     message = result.message if hasattr(result, "message") else "Did not converge"
-                    console.print(f"[yellow]⚠ {message}[/yellow] [dim]│[/dim] Cost: [cyan]{chisqr:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{nfev}[/cyan]")
+                    console.print(
+                        f"[yellow]⚠ {message}[/yellow] [dim]│[/dim] Cost: [cyan]{chisqr:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{nfev}[/cyan]"
+                    )
 
                 params_all.update(result.params)
 

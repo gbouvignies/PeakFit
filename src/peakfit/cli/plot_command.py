@@ -7,8 +7,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 
-from peakfit.ui import PeakFitUI as ui
-from peakfit.ui import console
+from peakfit.ui import PeakFitUI as ui, console
 
 # Maximum number of plots to display interactively (to avoid opening hundreds of windows)
 MAX_DISPLAY_PLOTS = 10
@@ -52,7 +51,9 @@ def _make_intensity_figure(name: str, data: np.ndarray) -> Figure:
     return fig
 
 
-def plot_intensity_profiles(results: Path, output: Path | None, show: bool, verbose: bool = False) -> None:
+def plot_intensity_profiles(
+    results: Path, output: Path | None, show: bool, verbose: bool = False
+) -> None:
     """Generate intensity profile plots."""
     # Show banner based on verbosity
     ui.show_banner(verbose)
@@ -97,7 +98,9 @@ def plot_intensity_profiles(results: Path, output: Path | None, show: bool, verb
 # ==================== CEST PLOTTING ====================
 
 
-def _make_cest_figure(name: str, offset: np.ndarray, intensity: np.ndarray, error: np.ndarray) -> Figure:
+def _make_cest_figure(
+    name: str, offset: np.ndarray, intensity: np.ndarray, error: np.ndarray
+) -> Figure:
     """Create CEST profile plot."""
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.errorbar(offset, intensity, yerr=error, fmt=".", markersize=8, capsize=3)
@@ -110,7 +113,9 @@ def _make_cest_figure(name: str, offset: np.ndarray, intensity: np.ndarray, erro
     return fig
 
 
-def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_points: list[int], verbose: bool = False) -> None:
+def plot_cest_profiles(
+    results: Path, output: Path | None, show: bool, ref_points: list[int], verbose: bool = False
+) -> None:
     """Generate CEST plots."""
     # Show banner based on verbosity
     ui.show_banner(verbose)
@@ -121,7 +126,7 @@ def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_point
     if not files:
         return
 
-    THRESHOLD = 1e4  # Threshold for automatic reference selection
+    threshold = 1e4  # Threshold for automatic reference selection
     output_path = output or Path("cest_profiles.pdf")
     ui.success(f"Saving plots to: [path]{output_path}[/path]")
 
@@ -141,7 +146,7 @@ def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_point
                 # Determine reference points
                 if ref_points == [-1]:
                     # Automatic: use points with |offset| >= threshold
-                    ref = np.abs(offset) >= THRESHOLD
+                    ref = np.abs(offset) >= threshold
                 else:
                     # Manual: use specified indices
                     ref = np.zeros_like(offset, dtype=bool)
@@ -164,7 +169,9 @@ def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_point
 
                 if show and plots_saved < MAX_DISPLAY_PLOTS:
                     # Store data for recreating figure later
-                    plot_data_for_display.append((file.stem, offset_norm, intensity_norm, error_norm))
+                    plot_data_for_display.append(
+                        (file.stem, offset_norm, intensity_norm, error_norm)
+                    )
 
                 plots_saved += 1
 
@@ -187,9 +194,7 @@ def _ncyc_to_nu_cpmg(ncyc: np.ndarray, time_t2: float) -> np.ndarray:
 
 
 def _intensity_to_r2eff(
-    intensity: np.ndarray,
-    intensity_ref: np.ndarray | float,
-    time_t2: float
+    intensity: np.ndarray, intensity_ref: np.ndarray | float, time_t2: float
 ) -> np.ndarray:
     """Convert intensity values to R2 effective values."""
     return -np.log(intensity / intensity_ref) / time_t2
@@ -219,7 +224,9 @@ def _make_cpmg_figure(
     return fig
 
 
-def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: float, verbose: bool = False) -> None:
+def plot_cpmg_profiles(
+    results: Path, output: Path | None, show: bool, time_t2: float, verbose: bool = False
+) -> None:
     """Generate CPMG relaxation dispersion plots."""
     # Show banner based on verbosity
     ui.show_banner(verbose)
@@ -267,13 +274,10 @@ def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: 
 
                 # Bootstrap error estimation
                 data_ref_ens = np.array(
-                    [(intensity_ref, error_ref)],
-                    dtype=[("intensity", float), ("error", float)]
+                    [(intensity_ref, error_ref)], dtype=[("intensity", float), ("error", float)]
                 )
                 r2_ensemble = _intensity_to_r2eff(
-                    _make_ensemble(data_cpmg),
-                    _make_ensemble(data_ref_ens),
-                    time_t2
+                    _make_ensemble(data_cpmg), _make_ensemble(data_ref_ens), time_t2
                 )
                 r2_err_down, r2_err_up = np.abs(
                     np.percentile(r2_ensemble, [15.9, 84.1], axis=0) - r2_exp
@@ -284,7 +288,9 @@ def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: 
 
                 if show and plots_saved < MAX_DISPLAY_PLOTS:
                     # Store data for recreating figure later
-                    plot_data_for_display.append((file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up))
+                    plot_data_for_display.append(
+                        (file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
+                    )
 
                 plots_saved += 1
 
@@ -346,7 +352,7 @@ def plot_spectra_viewer(results: Path, spectrum: Path, verbose: bool = False) ->
     except ImportError as e:
         ui.error(f"PyQt5 not available: {e}")
         ui.info("Install with: [code]pip install 'peakfit[gui]'[/code]")
-        raise SystemExit(1)
+        raise SystemExit(1) from e
     except Exception as e:
         ui.error(f"Failed to launch spectra viewer: {e}")
-        raise SystemExit(1)
+        raise SystemExit(1) from e

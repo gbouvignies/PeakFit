@@ -8,8 +8,7 @@ import typer
 from peakfit.cli.callbacks import version_callback
 from peakfit.core.models import PeakFitConfig
 from peakfit.io.config import generate_default_config, load_config
-from peakfit.ui import PeakFitUI as ui
-from peakfit.ui import console
+from peakfit.ui import PeakFitUI as ui, console
 
 app = typer.Typer(
     name="peakfit",
@@ -359,11 +358,13 @@ def init(
     console.print("  • [green]Advanced options[/] (parallel processing, backends)")
 
     # Suggest next steps
-    ui.print_next_steps([
-        f"Review and customize: [cyan]{path}[/]",
-        f"Run fitting: [cyan]peakfit fit spectrum.ft2 peaks.list --config {path}[/]",
-        "Documentation: [cyan]https://github.com/gbouvignies/PeakFit[/]",
-    ])
+    ui.print_next_steps(
+        [
+            f"Review and customize: [cyan]{path}[/]",
+            f"Run fitting: [cyan]peakfit fit spectrum.ft2 peaks.list --config {path}[/]",
+            "Documentation: [cyan]https://github.com/gbouvignies/PeakFit[/]",
+        ]
+    )
 
 
 # Create a subapp for plot commands

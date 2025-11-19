@@ -12,8 +12,7 @@ from peakfit.core.advanced_optimization import (
 )
 from peakfit.core.fitting import Parameters
 from peakfit.peak import Peak
-from peakfit.ui import PeakFitUI as ui
-from peakfit.ui import console
+from peakfit.ui import PeakFitUI as ui, console
 
 
 def load_fitting_state(results_dir: Path) -> dict:
@@ -272,7 +271,9 @@ def run_profile_likelihood(
         ui.success(f"Saved profile data to: [path]{output_file}[/path]")
 
 
-def run_correlation(results_dir: Path, output_file: Path | None = None, verbose: bool = False) -> None:
+def run_correlation(
+    results_dir: Path, output_file: Path | None = None, verbose: bool = False
+) -> None:
     """Analyze parameter correlations from fitting results.
 
     Args:

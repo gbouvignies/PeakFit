@@ -105,6 +105,8 @@ ignore = [
     "S603",    # subprocess without shell=True (not applicable)
     "S607",    # subprocess partial path (not applicable)
     "PLW2901", # Redefined loop variable (often intentional for readability)
+    "RUF001",  # Ambiguous Unicode characters (intentional for UI: ℹ, ✓, etc.)
+    "RUF002",  # Ambiguous Unicode characters in docstrings (intentional: ν for nu)
 ]
 # Allow fix for all enabled rules (when --fix is used)
 fixable = ["ALL"]
@@ -137,7 +139,11 @@ convention = "google"
     "FBT002",  # Boolean default arg (common in CLI)
     "PLC0415", # Import outside top-level (lazy imports for performance)
     "BLE001",  # Blind exception (acceptable for validation/error reporting)
+    "N813",    # PeakFitUI imported as ui (project convention)
 ]
+"src/peakfit/clustering.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
+"src/peakfit/noise.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
+"src/peakfit/writing.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
 "src/peakfit/core/benchmarks.py" = [
     "S311",    # Pseudo-random generators (acceptable for benchmarks)
 ]
