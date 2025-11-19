@@ -5,9 +5,9 @@ import numpy as np
 from peakfit.clustering import Cluster
 from peakfit.computing import calculate_shape_heights
 from peakfit.core.fitting import Parameters
-from peakfit.messages import print_writing_profiles, print_writing_shifts
 from peakfit.peak import Peak
 from peakfit.typing import FittingOptions, FloatArray
+from peakfit.ui import PeakFitUI as ui
 
 
 def write_profiles(
@@ -18,7 +18,7 @@ def write_profiles(
     args: FittingOptions,
 ) -> None:
     """Write profile information to output files."""
-    print_writing_profiles()
+    ui.info("Writing profiles...")
     for cluster in clusters:
         _shapes, amplitudes = calculate_shape_heights(params, cluster)
         amplitudes_err = np.full_like(amplitudes, args.noise)
@@ -72,7 +72,7 @@ def write_profile(
 
 def write_shifts(peaks: list[Peak], params: Parameters, file_shifts: Path) -> None:
     """Write the shifts to the output file."""
-    print_writing_shifts()
+    ui.info("Writing shifts...")
     with file_shifts.open("w") as f:
         for peak in peaks:
             peak.update_positions(params)

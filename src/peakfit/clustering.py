@@ -6,10 +6,10 @@ import networkx as nx
 import numpy as np
 from scipy.ndimage import binary_dilation, generate_binary_structure, label
 
-from peakfit.messages import print_segmenting
 from peakfit.peak import Peak
 from peakfit.spectra import Spectra
 from peakfit.typing import FloatArray, IntArray
+from peakfit.ui import PeakFitUI as ui
 
 
 @dataclass
@@ -138,7 +138,7 @@ def create_clusters(spectra: Spectra, peaks: list[Peak], contour_level: float) -
     Returns:
         list[Cluster]: List of created clusters.
     """
-    print_segmenting()
+    ui.info("Segmenting spectra and clustering peaks...")
     segments = segment_data(spectra.data, contour_level, peaks)
     peak_segments_dict = assign_peaks_to_segments(peaks, segments)
 
