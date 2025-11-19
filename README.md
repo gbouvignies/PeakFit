@@ -132,10 +132,10 @@ peakfit validate spectrum.ft2 peaks.list
 
 ```bash
 # Generate intensity plots
-peakfit plot Results/ --type intensity --show
+peakfit plot intensity Results/ --show
 
 # Launch interactive spectra viewer
-peakfit plot Results/ --spectrum spectrum.ft2 --type spectra
+peakfit plot spectra Results/ --spectrum spectrum.ft2
 ```
 
 ## CLI Reference
@@ -411,12 +411,48 @@ peakfit/
 └── ...
 ```
 
-## Legacy CLI
+## Plotting
 
-The original CLI is still available as `peakfit-legacy`:
+PeakFit provides comprehensive plotting capabilities through the `peakfit plot` command with dedicated subcommands for each plot type:
+
+### Intensity Profiles
 
 ```bash
-peakfit-legacy -s spectrum.ft2 -l peaks.list -o Fits -r 2 --pvoigt
+# Generate intensity plots
+peakfit plot intensity Fits/ --output plots.pdf
+
+# Interactive display (limited to first 10 plots for large datasets)
+peakfit plot intensity Fits/ --show
+```
+
+### CEST Plots
+
+```bash
+# Auto-detect reference points (|offset| >= 10 kHz)
+peakfit plot cest Fits/ --output cest.pdf
+
+# Manually specify reference point indices
+peakfit plot cest Fits/ --ref 0 1 2
+
+# Interactive display (limited to first 10 plots)
+peakfit plot cest Fits/ --show
+```
+
+### CPMG Relaxation Dispersion
+
+```bash
+# Generate CPMG plots (--time-t2 is required)
+peakfit plot cpmg Fits/ --time-t2 0.04 --output cpmg.pdf
+
+# With interactive display
+peakfit plot cpmg Fits/ --time-t2 0.04 --show
+```
+
+### Interactive Spectra Viewer
+
+```bash
+# Launch PyQt5 viewer with spectrum overlay
+peakfit plot spectra Fits/ --spectrum data.ft2
 ```
 
 ## Migration from Previous Version

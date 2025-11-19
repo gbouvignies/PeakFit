@@ -16,22 +16,26 @@ if TYPE_CHECKING:
 console = Console(record=True)
 
 LOGO = r"""
-   ___           _      ___ _ _
-  / _ \___  __ _| | __ / __(_) |_
- / /_)/ _ \/ _` | |/ // _\ | | __|
-/ ___/  __/ (_| |   </ /   | | |_
-\/    \___|\__,_|_|\_\/    |_|\__|
+   ___           _     _____ _ _
+  / _ \ ___  __ _| | __|  ___(_) |_
+ / /_)/ _ \/ _` | |/ /| |_  | | __|
+/ ___/  __/ (_| |   < |  _| | | |_
+\/    \___|\__,_|_|\_\|_|   |_|\__|
 """
 
 
 def print_logo() -> None:
     """Display the logo in the terminal."""
-    logo_text = Text(LOGO, style="blue")
-    description_text = Text("Perform peak integration in  \npseudo-3D spectra\n\n")
-    version_text = Text("Version: ")
-    version_number_text = Text(f"{__version__}", style="red")
+    logo_text = Text(LOGO, style="bold cyan")
+    description_text = Text(
+        "Modern NMR Peak Fitting for Pseudo-3D Spectra\n"
+        "https://github.com/gbouvignies/PeakFit\n\n",
+        style="dim"
+    )
+    version_text = Text("Version: ", style="dim")
+    version_number_text = Text(f"{__version__}", style="bold green")
     all_text = Text.assemble(logo_text, description_text, version_text, version_number_text)
-    panel = Panel.fit(all_text)
+    panel = Panel.fit(all_text, border_style="cyan", title="🎯 PeakFit")
     console.print(panel)
 
 
@@ -345,3 +349,129 @@ def print_data_shape_mismatch_error() -> None:
         "Error: Data shapes do not match between experimental and simulated data",
         "bold red",
     )
+
+
+def print_file_not_found_with_suggestions(filepath: Path, similar_files: list[Path] | None = None) -> None:
+    """Print file not found error with helpful suggestions.
+
+    Args:
+        filepath: Path that was not found
+        similar_files: Optional list of similar files to suggest
+    """
+    console.print(f"\n[bold red]✗ Error:[/] File not found: [yellow]{filepath}[/]")
+
+    if similar_files:
+        console.print("\n[cyan]Did you mean one of these?[/]")
+        for file in similar_files[:5]:  # Show max 5 suggestions
+            console.print(f"  • [green]{file}[/]")
+
+    # Show files in current directory
+    parent = filepath.parent if filepath.parent.exists() else Path(".")
+    if parent.is_dir():
+        pattern = f"*{filepath.suffix}" if filepath.suffix else "*"
+        matching_files = list(parent.glob(pattern))
+        if matching_files and not similar_files:
+            console.print(f"\n[cyan]Available {pattern} files in {parent}:[/]")
+            for file in matching_files[:10]:
+                console.print(f"  • [green]{file.name}[/]")
+            if len(matching_files) > 10:
+                console.print(f"  [dim]... and {len(matching_files) - 10} more[/]")
+
+
+def print_auto_detection(parameter: str, value: str, source: str = "spectrum") -> None:
+    """Print auto-detected parameter information.
+
+    Args:
+        parameter: Name of the parameter
+        value: Detected value
+        source: Source of detection (e.g., "spectrum", "data")
+    """
+    console.print(f"[dim]ℹ Auto-detected {parameter} from {source}:[/] [cyan]{value}[/]")
+
+
+def print_smart_default(option: str, value: str, reason: str) -> None:
+    """Print smart default selection message.
+
+    Args:
+        option: Option name
+        value: Default value being used
+        reason: Reason for this default
+    """
+    console.print(f"[dim]→ Using {option}:[/] [cyan]{value}[/] [dim]({reason})[/]")
+
+
+def print_confirmation_prompt(message: str) -> bool:
+    """Show confirmation prompt and return user's choice.
+
+    Args:
+        message: Message to display
+
+    Returns:
+        True if user confirms, False otherwise
+    """
+    from rich.prompt import Confirm
+    return Confirm.ask(f"[yellow]{message}[/]")
+
+
+def print_performance_summary(
+    total_time: float,
+    n_items: int,
+    item_name: str = "items",
+    successful: int | None = None,
+) -> None:
+    """Print a performance summary table.
+
+    Args:
+        total_time: Total elapsed time in seconds
+        n_items: Number of items processed
+        item_name: Name of items being processed
+        successful: Optional number of successful items
+    """
+    from datetime import timedelta
+
+    table = Table(title="⏱️  Performance Summary", show_header=False, box=None)
+    table.add_column("Metric", style="cyan", width=25)
+    table.add_column("Value", style="green")
+
+    table.add_row(f"Total {item_name}", str(n_items))
+    if successful is not None:
+        success_rate = (successful / n_items * 100) if n_items > 0 else 0
+        table.add_row("Successful", f"{successful} ({success_rate:.1f}%)")
+        if successful < n_items:
+            failed = n_items - successful
+            table.add_row("Failed", f"[red]{failed}[/]")
+
+    # Format time nicely
+    td = timedelta(seconds=total_time)
+    if total_time < 60:
+        time_str = f"{total_time:.2f}s"
+    elif total_time < 3600:
+        time_str = f"{td.seconds // 60}m {td.seconds % 60}s"
+    else:
+        time_str = str(td)
+
+    table.add_row("Total time", time_str)
+
+    if n_items > 0:
+        avg_time = total_time / n_items
+        if avg_time < 1:
+            avg_str = f"{avg_time*1000:.0f}ms"
+        else:
+            avg_str = f"{avg_time:.3f}s"
+        table.add_row(f"Average per {item_name.rstrip('s')}", avg_str)
+
+    console.print()
+    console.print(table)
+    console.print()
+
+
+def print_next_steps(steps: list[str]) -> None:
+    """Print suggested next steps for the user.
+
+    Args:
+        steps: List of suggested commands or actions
+    """
+    console.print("\n[bold cyan]📋 Next steps:[/]")
+    for i, step in enumerate(steps, 1):
+        console.print(f"  {i}. {step}")
+    console.print()
