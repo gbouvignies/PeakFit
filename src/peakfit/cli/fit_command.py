@@ -237,27 +237,31 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
             previous_result = None
             previous_cluster_info = None
 
-            for cluster_idx, cluster in enumerate(clusters, 1):
-                peak_names = [peak.name for peak in cluster.peaks]
+            # Keep Live display open for entire cluster loop
+            with Live(console=console, refresh_per_second=4, transient=False) as live:
+                for cluster_idx, cluster in enumerate(clusters, 1):
+                    peak_names = [peak.name for peak in cluster.peaks]
 
-                # Create live display for this cluster
-                current_panel = ui.create_cluster_status(
-                    cluster_idx, len(clusters), peak_names, status="fitting"
-                )
-
-                # Build display with previous result (if exists) and current cluster
-                if previous_result is not None and previous_cluster_info is not None:
-                    prev_idx, prev_peaks, prev_res = previous_cluster_info
-                    prev_panel = ui.create_cluster_status(
-                        prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
+                    # Create current cluster panel
+                    current_panel = ui.create_cluster_status(
+                        cluster_idx, len(clusters), peak_names, status="fitting"
                     )
-                    # Show both previous and current with spacing
-                    display_group = Group(prev_panel, Text(""), current_panel)
-                else:
-                    # First cluster, show only current
-                    display_group = current_panel
 
-                with Live(display_group, console=console, refresh_per_second=4):
+                    # Build display with previous result (if exists) and current cluster
+                    if previous_result is not None and previous_cluster_info is not None:
+                        prev_idx, prev_peaks, prev_res = previous_cluster_info
+                        prev_panel = ui.create_cluster_status(
+                            prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
+                        )
+                        # Show both previous and current with spacing
+                        display_group = Group(prev_panel, Text(""), current_panel)
+                    else:
+                        # First cluster, show only current
+                        display_group = current_panel
+
+                    # Update live display
+                    live.update(display_group)
+
                     params = create_params(cluster.peaks, fixed=clargs.fixed)
                     params = _update_params(params, params_all)
 
@@ -298,13 +302,13 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                             # Singular matrix, can't compute errors
                             pass
 
-                # Store this result as "previous" for next iteration
-                previous_result = result
-                previous_cluster_info = (cluster_idx, peak_names, result)
+                    # Store this result as "previous" for next iteration
+                    previous_result = result
+                    previous_cluster_info = (cluster_idx, peak_names, result)
 
-                params_all.update(params)
+                    params_all.update(params)
 
-            # After all clusters, show the final result with detailed stats
+            # After Live context exits, show the final result with detailed stats
             if previous_result is not None and previous_cluster_info is not None:
                 prev_idx, prev_peaks, prev_res = previous_cluster_info
                 final_panel = ui.create_cluster_status(
@@ -353,27 +357,31 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
             previous_result = None
             previous_cluster_info = None
 
-            for cluster_idx, cluster in enumerate(clusters, 1):
-                peak_names = [peak.name for peak in cluster.peaks]
+            # Keep Live display open for entire cluster loop
+            with Live(console=console, refresh_per_second=4, transient=False) as live:
+                for cluster_idx, cluster in enumerate(clusters, 1):
+                    peak_names = [peak.name for peak in cluster.peaks]
 
-                # Create live display for this cluster
-                current_panel = ui.create_cluster_status(
-                    cluster_idx, len(clusters), peak_names, status="optimizing"
-                )
-
-                # Build display with previous result (if exists) and current cluster
-                if previous_result is not None and previous_cluster_info is not None:
-                    prev_idx, prev_peaks, prev_res = previous_cluster_info
-                    prev_panel = ui.create_cluster_status(
-                        prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
+                    # Create current cluster panel
+                    current_panel = ui.create_cluster_status(
+                        cluster_idx, len(clusters), peak_names, status="optimizing"
                     )
-                    # Show both previous and current with spacing
-                    display_group = Group(prev_panel, Text(""), current_panel)
-                else:
-                    # First cluster, show only current
-                    display_group = current_panel
 
-                with Live(display_group, console=console, refresh_per_second=4):
+                    # Build display with previous result (if exists) and current cluster
+                    if previous_result is not None and previous_cluster_info is not None:
+                        prev_idx, prev_peaks, prev_res = previous_cluster_info
+                        prev_panel = ui.create_cluster_status(
+                            prev_idx, len(clusters), prev_peaks, status="done", result=prev_res
+                        )
+                        # Show both previous and current with spacing
+                        display_group = Group(prev_panel, Text(""), current_panel)
+                    else:
+                        # First cluster, show only current
+                        display_group = current_panel
+
+                    # Update live display
+                    live.update(display_group)
+
                     params = create_params(cluster.peaks, fixed=clargs.fixed)
                     params = _update_params(params, params_all)
 
@@ -400,13 +408,13 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
                         msg = f"Unknown optimizer: {optimizer}"
                         raise ValueError(msg)
 
-                # Store this result as "previous" for next iteration
-                previous_result = result
-                previous_cluster_info = (cluster_idx, peak_names, result)
+                    # Store this result as "previous" for next iteration
+                    previous_result = result
+                    previous_cluster_info = (cluster_idx, peak_names, result)
 
-                params_all.update(result.params)
+                    params_all.update(result.params)
 
-            # After all clusters, show the final result with detailed stats
+            # After Live context exits, show the final result with detailed stats
             if previous_result is not None and previous_cluster_info is not None:
                 prev_idx, prev_peaks, prev_res = previous_cluster_info
                 final_panel = ui.create_cluster_status(
