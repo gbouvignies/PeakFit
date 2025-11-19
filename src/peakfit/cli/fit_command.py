@@ -11,6 +11,7 @@ from peakfit.clustering import create_clusters
 from peakfit.computing import residuals, simulate_data, update_cluster_corrections
 from peakfit.core.fitting import Parameters
 from peakfit.core.models import PeakFitConfig
+from peakfit.messages import print_fit_report
 from peakfit.noise import prepare_noise_level
 from peakfit.peak import create_params
 from peakfit.peaklist import read_list

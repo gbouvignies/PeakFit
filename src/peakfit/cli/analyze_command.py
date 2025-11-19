@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import numpy as np
+from rich.table import Table
 
 from peakfit.clustering import Cluster
 from peakfit.core.advanced_optimization import (
