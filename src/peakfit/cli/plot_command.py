@@ -55,6 +55,8 @@ def plot_intensity_profiles(
     results: Path, output: Path | None, show: bool, verbose: bool = False
 ) -> None:
     """Generate intensity profile plots."""
+    import time
+
     # Show banner based on verbosity
     ui.show_banner(verbose)
 
@@ -62,9 +64,11 @@ def plot_intensity_profiles(
 
     files = _get_result_files(results, "*.out")
     if not files:
+        ui.warning(f"No .out files found in {results}")
         return
 
     output_path = output or Path("intensity_profiles.pdf")
+    ui.spacer()
     ui.success(f"Saving plots to: [path]{output_path}[/path]")
 
     # Limit interactive display to avoid opening hundreds of windows
@@ -74,19 +78,54 @@ def plot_intensity_profiles(
 
     plot_data_for_display = [] if show else None
 
-    with PdfPages(output_path) as pdf:
-        for idx, file in enumerate(files):
-            try:
-                data = np.genfromtxt(file, dtype=None, names=("xlabel", "intensity", "error"))
-                fig = _make_intensity_figure(file.stem, data)
-                _save_figure_to_pdf(pdf, fig)
+    start_time = time.time()
 
-                if show and idx < MAX_DISPLAY_PLOTS:
-                    # Store data for recreating figure later
-                    plot_data_for_display.append((file.stem, data))
+    with ui.create_progress() as progress:
+        task = progress.add_task(
+            "[cyan]Generating plots...", total=len(files)
+        )
 
-            except Exception as e:
-                ui.warning(f"Failed to plot {file.name}: {e}")
+        with PdfPages(output_path) as pdf:
+            for idx, file in enumerate(files):
+                try:
+                    data = np.genfromtxt(file, dtype=None, names=("xlabel", "intensity", "error"))
+                    fig = _make_intensity_figure(file.stem, data)
+                    _save_figure_to_pdf(pdf, fig)
+
+                    if show and idx < MAX_DISPLAY_PLOTS:
+                        # Store data for recreating figure later
+                        plot_data_for_display.append((file.stem, data))
+
+                    progress.update(task, advance=1)
+
+                except Exception as e:
+                    ui.warning(f"Failed to plot {file.name}: {e}")
+                    progress.update(task, advance=1)
+
+    plot_time = time.time() - start_time
+
+    # Summary
+    file_size = output_path.stat().st_size / 1024 / 1024  # MB
+    ui.spacer()
+    summary_table = ui.create_table("Plot Summary")
+    summary_table.add_column("Item", style="cyan")
+    summary_table.add_column("Value", style="green", justify="right")
+
+    summary_table.add_row("PDF file", str(output_path.name))
+    summary_table.add_row("Total plots", str(len(files)))
+    summary_table.add_row("File size", f"{file_size:.1f} MB")
+    summary_table.add_row("Generation time", f"{plot_time:.1f}s")
+
+    console.print(summary_table)
+    ui.spacer()
+    ui.success("Plots saved successfully!")
+
+    # Next steps
+    ui.print_next_steps([
+        f"Open PDF: [cyan]open {output_path}[/cyan]",
+        f"Plot CEST profiles: [cyan]peakfit plot cest {results}/[/cyan]",
+        f"Interactive viewer: [cyan]peakfit plot spectra {results}/ --spectrum SPECTRUM.ft2[/cyan]",
+    ])
 
     if show and plot_data_for_display:
         for name, data in plot_data_for_display:

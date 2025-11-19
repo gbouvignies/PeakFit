@@ -92,6 +92,12 @@ def run_fit(
         save_state: Whether to save fitting state for later analysis.
         verbose: Show banner and verbose output.
     """
+    import time
+
+    # Setup logging
+    log_file = config.output.directory / "peakfit.log"
+    ui.setup_logging(log_file=log_file, verbose=False)
+
     # Show banner based on verbosity
     ui.show_banner(verbose)
 
@@ -115,38 +121,74 @@ def run_fit(
     # Convert to legacy args for compatibility with existing modules
     clargs = config_to_fit_args(config, spectrum_path, peaklist_path, z_values_path)
 
+    # Track timing
+    start_time = time.time()
+
     # Load data
     ui.show_header("Loading Data")
-    ui.action("Reading spectrum...")
-    with console.status("[bold yellow]Processing..."):
+
+    with console.status("[bold yellow]Reading spectrum..."):
         spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
     ui.success(f"Loaded spectrum: {spectrum_path.name}")
-    ui.bullet(f"Shape: {spectra.data.shape}", style="default")
-    ui.bullet(f"Z-values: {len(spectra.z_values)} planes", style="default")
+    ui.bullet(f"Shape: {spectra.data.shape}", style="default", log=False)
+    ui.bullet(f"Z-values: {len(spectra.z_values)} planes", style="default", log=False)
+
+    # Log spectrum details
+    ui.log_dict({
+        "Spectrum": str(spectrum_path),
+        "Dimensions": str(spectra.data.shape),
+        "Size": f"{spectrum_path.stat().st_size / 1024 / 1024:.1f} MB",
+        "Data type": str(spectra.data.dtype),
+    })
 
     # Estimate noise
     ui.spacer()
+    ui.log_section("Noise Estimation")
     clargs.noise = prepare_noise_level(clargs, spectra)
     ui.success(f"Noise level: {clargs.noise:.2f}")
+    ui.log(f"Method: Median Absolute Deviation (MAD)")
+    ui.log(f"Noise level: {clargs.noise:.2f}")
 
     # Determine lineshape
+    ui.spacer()
+    ui.log_section("Lineshape Detection")
     shape_names = get_shape_names(clargs, spectra)
-    ui.bullet(f"Lineshapes: {shape_names}", style="default")
+    ui.bullet(f"Lineshapes: {shape_names}", style="default", log=False)
+    ui.log(f"Selected lineshape: {shape_names}")
 
     # Read peak list
     ui.spacer()
-    ui.action("Reading peak list...")
+    ui.log_section("Peak List")
     peaks = read_list(spectra, shape_names, clargs)
     ui.success(f"Loaded {len(peaks)} peaks")
+    ui.log_dict({
+        "Peak list": str(peaklist_path),
+        "Format": "Sparky/NMRPipe",
+        "Peaks": len(peaks),
+    })
 
     # Cluster peaks
     ui.spacer()
+    ui.log_section("Clustering")
     clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
-    ui.bullet(f"Contour level: {clargs.contour_level:.2f}", style="default")
+    ui.bullet(f"Contour level: {clargs.contour_level:.2f}", style="default", log=False)
 
     clusters = create_clusters(spectra, peaks, clargs.contour_level)
     ui.success(f"Created {len(clusters)} clusters")
+
+    # Log clustering details
+    ui.log("Algorithm: DBSCAN")
+    ui.log(f"Contour level: {clargs.contour_level:.2f} ({clargs.contour_level/clargs.noise:.1f} * noise)")
+    ui.log(f"Identified {len(clusters)} clusters")
+
+    # Calculate cluster size distribution
+    cluster_sizes = [len(c.peaks) for c in clusters]
+    ui.log_dict({
+        "Min": f"{min(cluster_sizes)} peak" if cluster_sizes else "N/A",
+        "Max": f"{max(cluster_sizes)} peaks" if cluster_sizes else "N/A",
+        "Median": f"{sorted(cluster_sizes)[len(cluster_sizes)//2]} peaks" if cluster_sizes else "N/A",
+    })
 
     # Display data summary
     ui.spacer()
@@ -161,6 +203,14 @@ def run_fit(
 
     # Fit clusters - choose method based on flags
     ui.show_header("Fitting Clusters")
+    ui.log_section("Fitting")
+    ui.log(f"Optimizer: {optimizer}")
+    ui.log(f"Backend: {backend}")
+    ui.log(f"Parallel: {'enabled' if parallel else 'disabled'}")
+    ui.log(f"Tolerances: ftol=1e-7, xtol=1e-7")
+    ui.log(f"Max iterations: 1000")
+    ui.log("")
+
     if optimizer != "leastsq":
         ui.info(f"Using {optimizer} optimizer...")
         params = _fit_clusters_global(clargs, clusters, optimizer)
@@ -172,20 +222,24 @@ def run_fit(
 
     # Write outputs
     ui.show_header("Saving Results")
+    ui.log_section("Output Files")
     config.output.directory.mkdir(parents=True, exist_ok=True)
 
     write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
     ui.success("Profiles written")
-    ui.bullet(f"{config.output.directory}/*.out", style="default")
+    ui.bullet(f"{config.output.directory}/*.out", style="default", log=False)
+    ui.log(f"Profile files: {len(peaks)} *.out files")
 
     if config.output.save_html_report:
         ui.export_html(config.output.directory / "logs.html")
         ui.success("HTML report written")
-        ui.bullet(f"{config.output.directory / 'logs.html'}", style="default")
+        ui.bullet(f"{config.output.directory / 'logs.html'}", style="default", log=False)
+        ui.log(f"HTML report: {config.output.directory / 'logs.html'}")
 
     write_shifts(peaks, params, config.output.directory / "shifts.list")
     ui.success("Shifts written")
-    ui.bullet(f"{config.output.directory / 'shifts.list'}", style="default")
+    ui.bullet(f"{config.output.directory / 'shifts.list'}", style="default", log=False)
+    ui.log(f"Shifts file: {config.output.directory / 'shifts.list'}")
 
     if config.output.save_simulated:
         _write_spectra(config.output.directory, spectra, clusters, params)
@@ -197,14 +251,64 @@ def run_fit(
         state_file = config.output.directory / ".peakfit_state.pkl"
         _save_fitting_state(state_file, clusters, params, clargs.noise, peaks)
         ui.success("Fitting state saved")
-        ui.bullet(f"{state_file}", style="default")
-        ui.bullet("Use 'peakfit analyze' to compute uncertainties", style="default")
+        ui.bullet(f"{state_file}", style="default", log=False)
+        ui.bullet("Use 'peakfit analyze' to compute uncertainties", style="default", log=False)
+        ui.log(f"State file: {state_file}")
 
+    # Calculate statistics
+    total_time = time.time() - start_time
+    ui.log(f"Log file: {log_file}")
+
+    # Log summary
+    ui.log_section("Results Summary")
+    ui.log(f"Total clusters: {len(clusters)}")
+    ui.log(f"Total peaks: {len(peaks)}")
+    ui.log(f"Total time: {total_time:.0f}s ({total_time/60:.1f}m)")
+    ui.log(f"Average time per cluster: {total_time/len(clusters):.1f}s")
+
+    # Display final summary
     ui.spacer()
-    console.print("[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/]")
+    console.print()
+    console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
+
+    # Create summary table
+    from datetime import timedelta
+
+    summary_table = ui.create_table("Fitting Summary")
+    summary_table.add_column("Metric", style="cyan")
+    summary_table.add_column("Value", style="green", justify="right")
+
+    summary_table.add_row("Total clusters", str(len(clusters)))
+    summary_table.add_row("Total peaks", str(len(peaks)))
+
+    # Format time nicely
+    td = timedelta(seconds=total_time)
+    if total_time < 60:
+        time_str = f"{total_time:.1f}s"
+    else:
+        time_str = f"{int(total_time // 60)}m {int(total_time % 60)}s"
+    summary_table.add_row("Total time", time_str)
+
+    avg_time_per_cluster = total_time / len(clusters) if len(clusters) > 0 else 0
+    summary_table.add_row("Time per cluster", f"{avg_time_per_cluster:.1f}s")
+
+    console.print()
+    console.print(summary_table)
+    console.print()
+
     console.print("[bold green]✓ Fitting complete![/]")
-    console.print("[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/]")
-    ui.spacer()
+    console.print()
+
+    # Next steps
+    ui.print_next_steps([
+        f"Plot intensity profiles: [cyan]peakfit plot intensity {config.output.directory}/[/]",
+        f"View results: [cyan]peakfit plot spectra {config.output.directory}/ --spectrum {spectrum_path}[/]",
+        f"Uncertainty analysis: [cyan]peakfit analyze mcmc {config.output.directory}/[/]",
+        f"Check log file: [cyan]{log_file}[/]",
+    ])
+
+    # Close logging
+    ui.close_logging()
 
 
 def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) -> np.ndarray:
@@ -230,20 +334,32 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                 update_cluster_corrections(params_all, clusters)
 
             for cluster_idx, cluster in enumerate(clusters, 1):
+                import time as time_module
+
+                cluster_start = time_module.time()
                 peak_names = [peak.name for peak in cluster.peaks]
                 peaks_str = ", ".join(peak_names)
 
                 # Print cluster header
                 console.print()
+                console.print("[dim]" + "─" * 60 + "[/dim]")
                 console.print(
                     f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}"
                 )
+                console.print("[dim]" + "─" * 60 + "[/dim]")
+
+                # Log cluster info
+                ui.log("")
+                ui.log(f"Cluster {cluster_idx}/{len(clusters)}: {peaks_str}")
+                ui.log(f"  - Peaks: {len(cluster.peaks)}")
 
                 params = create_params(cluster.peaks, fixed=clargs.fixed)
                 params = _update_params(params, params_all)
 
                 # Get varying parameters
                 vary_names = params.get_vary_names()
+                ui.log(f"  - Varying parameters: {len(vary_names)}")
+
                 x0 = params.get_vary_values()
                 bounds_lower = np.array([params[name].min for name in vary_names])
                 bounds_upper = np.array([params[name].max for name in vary_names])
@@ -279,15 +395,23 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                         # Singular matrix, can't compute errors
                         pass
 
-                # Print completion status
+                cluster_time = time_module.time() - cluster_start
+
+                # Print and log completion status
                 if result.success:
                     console.print(
                         f"[green]✓ Converged[/green] [dim]│[/dim] Cost: [cyan]{result.cost:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{result.nfev}[/cyan]"
                     )
+                    ui.log(f"  - Status: Converged", level="info")
                 else:
                     console.print(
                         f"[yellow]⚠ {result.message}[/yellow] [dim]│[/dim] Cost: [cyan]{result.cost:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{result.nfev}[/cyan]"
                     )
+                    ui.log(f"  - Status: {result.message}", level="warning")
+
+                ui.log(f"  - Cost: {result.cost:.3e}")
+                ui.log(f"  - Function evaluations: {result.nfev}")
+                ui.log(f"  - Time: {cluster_time:.1f}s")
 
                 params_all.update(params)
 

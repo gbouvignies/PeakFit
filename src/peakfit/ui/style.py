@@ -3,10 +3,14 @@ Centralized UI style definitions for consistent terminal output.
 All terminal output MUST use these styles for consistency.
 """
 
+import logging
+import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -46,6 +50,9 @@ PEAKFIT_THEME = Theme(
 # Single console instance for entire application
 console = Console(theme=PEAKFIT_THEME, record=True)
 
+# Module-level logger (configured by setup_logging)
+_logger: logging.Logger | None = None
+
 # Version and branding
 VERSION = __version__
 REPO_URL = "https://github.com/gbouvignies/PeakFit"
@@ -63,6 +70,130 @@ LOGO_ASCII = r"""
 
 class PeakFitUI:
     """Centralized UI manager for consistent terminal output."""
+
+    # ==================== LOGGING SETUP ====================
+
+    @staticmethod
+    def setup_logging(
+        log_file: Path | None = None,
+        verbose: bool = False,
+        level: int = logging.INFO,
+    ) -> None:
+        """Configure logging for PeakFit.
+
+        Args:
+            log_file: Path to log file. If None, logging is disabled.
+            verbose: If True, show all log messages in console
+            level: Logging level (default: INFO)
+        """
+        global _logger
+
+        if log_file is None:
+            _logger = None
+            return
+
+        # Create log directory if needed
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Configure logger
+        _logger = logging.getLogger("peakfit")
+        _logger.setLevel(level)
+        _logger.handlers.clear()
+
+        # File handler with structured format
+        file_handler = logging.FileHandler(log_file, mode="w")
+        file_handler.setLevel(level)
+        file_formatter = logging.Formatter(
+            "%(asctime)s | %(levelname)-5s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+        file_handler.setFormatter(file_formatter)
+        _logger.addHandler(file_handler)
+
+        # Console handler (only if verbose)
+        if verbose:
+            console_handler = RichHandler(
+                console=console,
+                show_time=False,
+                show_path=False,
+                markup=True,
+            )
+            console_handler.setLevel(level)
+            _logger.addHandler(console_handler)
+
+        # Log session start
+        _logger.info("━" * 60)
+        _logger.info(f"PeakFit v{VERSION} - Session Started")
+        _logger.info("━" * 60)
+        _logger.info(f"Command: {' '.join(sys.argv)}")
+        _logger.info(f"Working directory: {Path.cwd()}")
+        _logger.info(f"Python: {sys.version.split()[0]} | Platform: {sys.platform}")
+        _logger.info("")
+
+    @staticmethod
+    def log(message: str, level: str = "info") -> None:
+        """Log a message to file (if logging is enabled).
+
+        Args:
+            message: Message to log
+            level: Log level (info, warning, error, debug)
+        """
+        if _logger is None:
+            return
+
+        level_map = {
+            "debug": logging.DEBUG,
+            "info": logging.INFO,
+            "warning": logging.WARNING,
+            "error": logging.ERROR,
+            "critical": logging.CRITICAL,
+        }
+
+        log_level = level_map.get(level.lower(), logging.INFO)
+        _logger.log(log_level, message)
+
+    @staticmethod
+    def log_section(title: str) -> None:
+        """Log a section header.
+
+        Args:
+            title: Section title
+        """
+        if _logger is None:
+            return
+
+        _logger.info("")
+        _logger.info(f"=== {title.upper()} ===")
+
+    @staticmethod
+    def log_dict(data: dict[str, Any], indent: str = "  ") -> None:
+        """Log a dictionary as key-value pairs.
+
+        Args:
+            data: Dictionary to log
+            indent: Indentation string
+        """
+        if _logger is None:
+            return
+
+        for key, value in data.items():
+            _logger.info(f"{indent}- {key}: {value}")
+
+    @staticmethod
+    def close_logging() -> None:
+        """Close logging and finalize log file."""
+        if _logger is None:
+            return
+
+        _logger.info("")
+        _logger.info("━" * 60)
+        _logger.info("PeakFit Session Completed Successfully")
+        _logger.info("━" * 60)
+
+        # Close all handlers
+        for handler in _logger.handlers[:]:
+            handler.close()
+            _logger.removeHandler(handler)
 
     # ==================== BRANDING ====================
 
@@ -96,17 +227,20 @@ class PeakFitUI:
     # ==================== HEADERS ====================
 
     @staticmethod
-    def show_header(text: str) -> None:
+    def show_header(text: str, log: bool = True) -> None:
         """Display a prominent section header.
 
         Args:
             text: Header text to display
+            log: Whether to log this header to file
         """
         console.print()
         console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
         console.print(f"[bold cyan]  {text}[/bold cyan]")
         console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
         console.print()
+        if log:
+            PeakFitUI.log_section(text)
 
     @staticmethod
     def show_subheader(text: str) -> None:
@@ -121,48 +255,60 @@ class PeakFitUI:
     # ==================== STATUS MESSAGES ====================
 
     @staticmethod
-    def success(message: str, indent: int = 0) -> None:
+    def success(message: str, indent: int = 0, log: bool = True) -> None:
         """Display a success message.
 
         Args:
             message: Success message to display
             indent: Indentation level (spaces = indent * 2)
+            log: Whether to log this message to file
         """
         spaces = "  " * indent
         console.print(f"{spaces}[success]✓[/success] {message}")
+        if log:
+            PeakFitUI.log(f"{message}")
 
     @staticmethod
-    def warning(message: str, indent: int = 0) -> None:
+    def warning(message: str, indent: int = 0, log: bool = True) -> None:
         """Display a warning message.
 
         Args:
             message: Warning message to display
             indent: Indentation level (spaces = indent * 2)
+            log: Whether to log this message to file
         """
         spaces = "  " * indent
         console.print(f"{spaces}[warning]⚠[/warning]  {message}")
+        if log:
+            PeakFitUI.log(f"{message}", level="warning")
 
     @staticmethod
-    def error(message: str, indent: int = 0) -> None:
+    def error(message: str, indent: int = 0, log: bool = True) -> None:
         """Display an error message.
 
         Args:
             message: Error message to display
             indent: Indentation level (spaces = indent * 2)
+            log: Whether to log this message to file
         """
         spaces = "  " * indent
         console.print(f"{spaces}[error]✗[/error] {message}")
+        if log:
+            PeakFitUI.log(f"{message}", level="error")
 
     @staticmethod
-    def info(message: str, indent: int = 0) -> None:
+    def info(message: str, indent: int = 0, log: bool = True) -> None:
         """Display an info message.
 
         Args:
             message: Info message to display
             indent: Indentation level (spaces = indent * 2)
+            log: Whether to log this message to file
         """
         spaces = "  " * indent
         console.print(f"{spaces}[info]ℹ[/info]  {message}")
+        if log:
+            PeakFitUI.log(f"{message}")
 
     @staticmethod
     def action(message: str) -> None:
