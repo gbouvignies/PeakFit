@@ -3,47 +3,49 @@
 from pathlib import Path
 
 import nmrglue as ng
-from rich.console import Console
-from rich.table import Table
 
-console = Console()
+from peakfit.ui import PeakFitUI as ui, console
 
 
-def run_validate(spectrum_path: Path, peaklist_path: Path) -> None:
+def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False) -> None:
     """Validate input files.
 
     Args:
         spectrum_path: Path to spectrum file.
         peaklist_path: Path to peak list file.
+        verbose: Show banner and verbose output.
     """
-    console.print("[bold]Validating input files...[/bold]\n")
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
+    ui.show_header("Validating Input Files")
 
     errors = []
     warnings = []
     info = {}
 
     # Validate spectrum file
-    console.print(f"[yellow]Checking spectrum:[/yellow] {spectrum_path}")
+    ui.info(f"Checking spectrum: [path]{spectrum_path}[/path]")
     try:
         _dic, data = ng.pipe.read(str(spectrum_path))
-        info["spectrum_shape"] = data.shape
-        info["spectrum_ndim"] = data.ndim
+        info["Spectrum shape"] = str(data.shape)
+        info["Dimensions"] = str(data.ndim)
 
         # Extract spectral parameters
         if data.ndim == 2:
-            info["spectrum_type"] = "2D (will be treated as pseudo-3D with 1 plane)"
+            info["Type"] = "2D (will be treated as pseudo-3D with 1 plane)"
         elif data.ndim == 3:
-            info["spectrum_type"] = f"3D ({data.shape[0]} planes)"
+            info["Type"] = f"3D ({data.shape[0]} planes)"
         else:
             warnings.append(f"Unusual dimensionality: {data.ndim}D")
 
-        console.print(f"  [green]OK[/green] - Shape: {data.shape}")
+        ui.success(f"Spectrum readable - Shape: {data.shape}")
     except Exception as e:
         errors.append(f"Failed to read spectrum: {e}")
-        console.print(f"  [red]ERROR[/red] - {e}")
+        ui.error(f"Failed to read spectrum: {e}")
 
     # Validate peak list file
-    console.print(f"\n[yellow]Checking peak list:[/yellow] {peaklist_path}")
+    ui.info(f"Checking peak list: [path]{peaklist_path}[/path]")
     try:
         suffix = peaklist_path.suffix.lower()
 
@@ -60,8 +62,8 @@ def run_validate(spectrum_path: Path, peaklist_path: Path) -> None:
             peaks = []
 
         if peaks:
-            info["n_peaks"] = len(peaks)
-            console.print(f"  [green]OK[/green] - {len(peaks)} peaks found")
+            info["Peaks"] = str(len(peaks))
+            ui.success(f"Peak list readable - {len(peaks)} peaks found")
 
             # Check for duplicate names
             names = [p["name"] for p in peaks]
@@ -71,38 +73,36 @@ def run_validate(spectrum_path: Path, peaklist_path: Path) -> None:
             # Check position ranges
             x_positions = [p["x"] for p in peaks]
             y_positions = [p["y"] for p in peaks]
-            info["x_range"] = (min(x_positions), max(x_positions))
-            info["y_range"] = (min(y_positions), max(y_positions))
+            x_min, x_max = min(x_positions), max(x_positions)
+            y_min, y_max = min(y_positions), max(y_positions)
+            info["X range (ppm)"] = f"{x_min:.2f} to {x_max:.2f}"
+            info["Y range (ppm)"] = f"{y_min:.2f} to {y_max:.2f}"
 
     except Exception as e:
         errors.append(f"Failed to read peak list: {e}")
-        console.print(f"  [red]ERROR[/red] - {e}")
+        ui.error(f"Failed to read peak list: {e}")
 
     # Summary table
-    console.print("\n[bold]Summary:[/bold]")
-    table = Table()
-    table.add_column("Property", style="cyan")
-    table.add_column("Value", style="white")
-
-    for key, value in info.items():
-        table.add_row(key.replace("_", " ").title(), str(value))
-
-    console.print(table)
+    console.print()
+    ui.print_summary(info, title="Validation Summary")
 
     # Warnings
     if warnings:
-        console.print("\n[yellow]Warnings:[/yellow]")
+        console.print()
         for warning in warnings:
-            console.print(f"  - {warning}")
+            ui.warning(warning)
 
     # Errors
     if errors:
-        console.print("\n[red]Errors:[/red]")
+        console.print()
         for error in errors:
-            console.print(f"  - {error}")
-        console.print("\n[red]Validation failed![/red]")
+            ui.error(error)
+        console.print()
+        ui.error("Validation failed!")
         raise SystemExit(1)
-    console.print("\n[green]Validation passed![/green]")
+
+    console.print()
+    ui.success("Validation passed!")
 
 
 def _read_sparky_list(path: Path) -> list[dict]:

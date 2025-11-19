@@ -6,9 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
-from rich.console import Console
 
-console = Console()
+from peakfit.ui import PeakFitUI as ui, console
 
 # Maximum number of plots to display interactively (to avoid opening hundreds of windows)
 MAX_DISPLAY_PLOTS = 10
@@ -24,10 +23,10 @@ def _get_result_files(results: Path, extension: str = "*.out") -> list[Path]:
         files = []
 
     if not files:
-        console.print(f"[yellow]Warning:[/yellow] No {extension} files found in {results}")
+        ui.warning(f"No {extension} files found in {results}")
         return []
 
-    console.print(f"[green]Found {len(files)} result files[/green]")
+    ui.success(f"Found {len(files)} result files")
     return files
 
 
@@ -52,21 +51,26 @@ def _make_intensity_figure(name: str, data: np.ndarray) -> Figure:
     return fig
 
 
-def plot_intensity_profiles(results: Path, output: Path | None, show: bool) -> None:
+def plot_intensity_profiles(
+    results: Path, output: Path | None, show: bool, verbose: bool = False
+) -> None:
     """Generate intensity profile plots."""
-    console.print("[bold]Generating intensity profile plots...[/bold]\n")
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
+    ui.show_header("Generating Intensity Profile Plots")
 
     files = _get_result_files(results, "*.out")
     if not files:
         return
 
     output_path = output or Path("intensity_profiles.pdf")
-    console.print(f"[green]Saving plots to:[/green] {output_path}")
+    ui.success(f"Saving plots to: [path]{output_path}[/path]")
 
     # Limit interactive display to avoid opening hundreds of windows
     if show and len(files) > MAX_DISPLAY_PLOTS:
-        console.print(f"[yellow]Note:[/yellow] Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
-        console.print(f"       All plots are saved to {output_path}")
+        ui.info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
+        console.print(f"       [dim]All plots are saved to {output_path}[/dim]")
 
     plot_data_for_display = [] if show else None
 
@@ -82,7 +86,7 @@ def plot_intensity_profiles(results: Path, output: Path | None, show: bool) -> N
                     plot_data_for_display.append((file.stem, data))
 
             except Exception as e:
-                console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
+                ui.warning(f"Failed to plot {file.name}: {e}")
 
     if show and plot_data_for_display:
         for name, data in plot_data_for_display:
@@ -94,7 +98,9 @@ def plot_intensity_profiles(results: Path, output: Path | None, show: bool) -> N
 # ==================== CEST PLOTTING ====================
 
 
-def _make_cest_figure(name: str, offset: np.ndarray, intensity: np.ndarray, error: np.ndarray) -> Figure:
+def _make_cest_figure(
+    name: str, offset: np.ndarray, intensity: np.ndarray, error: np.ndarray
+) -> Figure:
     """Create CEST profile plot."""
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.errorbar(offset, intensity, yerr=error, fmt=".", markersize=8, capsize=3)
@@ -107,22 +113,27 @@ def _make_cest_figure(name: str, offset: np.ndarray, intensity: np.ndarray, erro
     return fig
 
 
-def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_points: list[int]) -> None:
+def plot_cest_profiles(
+    results: Path, output: Path | None, show: bool, ref_points: list[int], verbose: bool = False
+) -> None:
     """Generate CEST plots."""
-    console.print("[bold]Generating CEST profile plots...[/bold]\n")
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
+    ui.show_header("Generating CEST Profile Plots")
 
     files = _get_result_files(results, "*.out")
     if not files:
         return
 
-    THRESHOLD = 1e4  # Threshold for automatic reference selection
+    threshold = 1e4  # Threshold for automatic reference selection
     output_path = output or Path("cest_profiles.pdf")
-    console.print(f"[green]Saving plots to:[/green] {output_path}")
+    ui.success(f"Saving plots to: [path]{output_path}[/path]")
 
     # Limit interactive display to avoid opening hundreds of windows
     if show and len(files) > MAX_DISPLAY_PLOTS:
-        console.print(f"[yellow]Note:[/yellow] Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
-        console.print(f"       All plots are saved to {output_path}")
+        ui.info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
+        console.print(f"       [dim]All plots are saved to {output_path}[/dim]")
 
     plot_data_for_display = [] if show else None
     plots_saved = 0
@@ -135,7 +146,7 @@ def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_point
                 # Determine reference points
                 if ref_points == [-1]:
                     # Automatic: use points with |offset| >= threshold
-                    ref = np.abs(offset) >= THRESHOLD
+                    ref = np.abs(offset) >= threshold
                 else:
                     # Manual: use specified indices
                     ref = np.zeros_like(offset, dtype=bool)
@@ -144,7 +155,7 @@ def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_point
                             ref[idx] = True
 
                 if not np.any(ref):
-                    console.print(f"[yellow]Warning:[/yellow] No reference points found for {file.name}")
+                    ui.warning(f"No reference points found for {file.name}")
                     continue
 
                 # Normalize by reference intensity
@@ -158,12 +169,14 @@ def plot_cest_profiles(results: Path, output: Path | None, show: bool, ref_point
 
                 if show and plots_saved < MAX_DISPLAY_PLOTS:
                     # Store data for recreating figure later
-                    plot_data_for_display.append((file.stem, offset_norm, intensity_norm, error_norm))
+                    plot_data_for_display.append(
+                        (file.stem, offset_norm, intensity_norm, error_norm)
+                    )
 
                 plots_saved += 1
 
             except Exception as e:
-                console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
+                ui.warning(f"Failed to plot {file.name}: {e}")
 
     if show and plot_data_for_display:
         for name, offset_norm, intensity_norm, error_norm in plot_data_for_display:
@@ -181,9 +194,7 @@ def _ncyc_to_nu_cpmg(ncyc: np.ndarray, time_t2: float) -> np.ndarray:
 
 
 def _intensity_to_r2eff(
-    intensity: np.ndarray,
-    intensity_ref: np.ndarray | float,
-    time_t2: float
+    intensity: np.ndarray, intensity_ref: np.ndarray | float, time_t2: float
 ) -> np.ndarray:
     """Convert intensity values to R2 effective values."""
     return -np.log(intensity / intensity_ref) / time_t2
@@ -213,21 +224,26 @@ def _make_cpmg_figure(
     return fig
 
 
-def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: float) -> None:
+def plot_cpmg_profiles(
+    results: Path, output: Path | None, show: bool, time_t2: float, verbose: bool = False
+) -> None:
     """Generate CPMG relaxation dispersion plots."""
-    console.print("[bold]Generating CPMG relaxation dispersion plots...[/bold]\n")
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
+    ui.show_header("Generating CPMG Relaxation Dispersion Plots")
 
     files = _get_result_files(results, "*.out")
     if not files:
         return
 
     output_path = output or Path("cpmg_profiles.pdf")
-    console.print(f"[green]Saving plots to:[/green] {output_path}")
+    ui.success(f"Saving plots to: [path]{output_path}[/path]")
 
     # Limit interactive display to avoid opening hundreds of windows
     if show and len(files) > MAX_DISPLAY_PLOTS:
-        console.print(f"[yellow]Note:[/yellow] Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
-        console.print(f"       All plots are saved to {output_path}")
+        ui.info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
+        console.print(f"       [dim]All plots are saved to {output_path}[/dim]")
 
     plot_data_for_display = [] if show else None
     plots_saved = 0
@@ -245,7 +261,7 @@ def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: 
                 data_cpmg = data[data["ncyc"] != 0]
 
                 if len(data_ref) == 0:
-                    console.print(f"[yellow]Warning:[/yellow] No reference point (ncyc=0) in {file.name}")
+                    ui.warning(f"No reference point (ncyc=0) in {file.name}")
                     continue
 
                 # Calculate reference intensity
@@ -258,13 +274,10 @@ def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: 
 
                 # Bootstrap error estimation
                 data_ref_ens = np.array(
-                    [(intensity_ref, error_ref)],
-                    dtype=[("intensity", float), ("error", float)]
+                    [(intensity_ref, error_ref)], dtype=[("intensity", float), ("error", float)]
                 )
                 r2_ensemble = _intensity_to_r2eff(
-                    _make_ensemble(data_cpmg),
-                    _make_ensemble(data_ref_ens),
-                    time_t2
+                    _make_ensemble(data_cpmg), _make_ensemble(data_ref_ens), time_t2
                 )
                 r2_err_down, r2_err_up = np.abs(
                     np.percentile(r2_ensemble, [15.9, 84.1], axis=0) - r2_exp
@@ -275,12 +288,14 @@ def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: 
 
                 if show and plots_saved < MAX_DISPLAY_PLOTS:
                     # Store data for recreating figure later
-                    plot_data_for_display.append((file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up))
+                    plot_data_for_display.append(
+                        (file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
+                    )
 
                 plots_saved += 1
 
             except Exception as e:
-                console.print(f"[yellow]Warning:[/yellow] Failed to plot {file.name}: {e}")
+                ui.warning(f"Failed to plot {file.name}: {e}")
 
     if show and plot_data_for_display:
         for name, nu_cpmg, r2_exp, r2_err_down, r2_err_up in plot_data_for_display:
@@ -292,9 +307,12 @@ def plot_cpmg_profiles(results: Path, output: Path | None, show: bool, time_t2: 
 # ==================== SPECTRA VIEWER ====================
 
 
-def plot_spectra_viewer(results: Path, spectrum: Path) -> None:
+def plot_spectra_viewer(results: Path, spectrum: Path, verbose: bool = False) -> None:
     """Launch interactive spectra viewer (PyQt5)."""
-    console.print("[green]Launching interactive spectra viewer...[/green]")
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
+    ui.info("Launching interactive spectra viewer...")
 
     try:
         import sys
@@ -305,22 +323,36 @@ def plot_spectra_viewer(results: Path, spectrum: Path) -> None:
         sys.argv = ["peakfit", str(spectrum)]
 
         # Add simulated spectrum if available
+        sim_found = False
         if results.is_dir():
             # Try both ft2 and ft3
             for dim in [2, 3]:
                 sim_path = results / f"simulated.ft{dim}"
                 if sim_path.exists():
                     sys.argv.extend(["--sim", str(sim_path)])
-                    console.print(f"[green]Loading simulated spectrum:[/green] {sim_path.name}")
+                    ui.success(f"Loading simulated spectrum: {sim_path.name}")
+                    sim_found = True
                     break
+
+        if not sim_found:
+            ui.warning("No simulated spectrum found in results directory")
+            ui.info("Viewer requires both experimental and simulated spectra")
+            raise SystemExit(1)
+
+        # Add peak list if available
+        if results.is_dir():
+            peak_list_path = results / "shifts.list"
+            if peak_list_path.exists():
+                sys.argv.extend(["--peak-list", str(peak_list_path)])
+                ui.success(f"Loading peak list: {peak_list_path.name}")
 
         # Launch the viewer
         spectra_main()
 
     except ImportError as e:
-        console.print(f"[red]Error:[/red] PyQt5 not available: {e}")
-        console.print("[yellow]Install with:[/yellow] pip install 'peakfit[gui]'")
-        raise SystemExit(1)
+        ui.error(f"PyQt5 not available: {e}")
+        ui.info("Install with: [code]pip install 'peakfit[gui]'[/code]")
+        raise SystemExit(1) from e
     except Exception as e:
-        console.print(f"[red]Error:[/red] Failed to launch spectra viewer: {e}")
-        raise SystemExit(1)
+        ui.error(f"Failed to launch spectra viewer: {e}")
+        raise SystemExit(1) from e

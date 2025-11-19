@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
-from rich.console import Console
 from scipy.optimize import least_squares
 from threadpoolctl import threadpool_limits
 
@@ -12,22 +11,12 @@ from peakfit.clustering import create_clusters
 from peakfit.computing import residuals, simulate_data, update_cluster_corrections
 from peakfit.core.fitting import Parameters
 from peakfit.core.models import PeakFitConfig
-from peakfit.messages import (
-    export_html,
-    print_fit_report,
-    print_fitting,
-    print_logo,
-    print_peaks,
-    print_refining,
-    print_writing_spectra,
-)
 from peakfit.noise import prepare_noise_level
 from peakfit.peak import create_params
 from peakfit.peaklist import read_list
 from peakfit.spectra import get_shape_names, read_spectra
+from peakfit.ui import PeakFitUI as ui, console
 from peakfit.writing import write_profiles, write_shifts
-
-console = Console()
 
 
 @dataclass
@@ -87,6 +76,7 @@ def run_fit(
     backend: str = "auto",
     optimizer: str = "leastsq",
     save_state: bool = True,
+    verbose: bool = False,
 ) -> None:
     """Run the fitting process.
 
@@ -100,8 +90,10 @@ def run_fit(
         backend: Computation backend (auto, numpy, numba).
         optimizer: Optimization algorithm (leastsq, basin-hopping, differential-evolution).
         save_state: Whether to save fitting state for later analysis.
+        verbose: Show banner and verbose output.
     """
-    print_logo()
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
 
     # Initialize computation backend
     _initialize_backend(backend, parallel=parallel)
@@ -112,81 +104,107 @@ def run_fit(
     # Validate optimizer choice
     valid_optimizers = ["leastsq", "basin-hopping", "differential-evolution"]
     if optimizer not in valid_optimizers:
-        console.print(f"[red]Invalid optimizer:[/red] {optimizer}")
-        console.print(f"[yellow]Valid options:[/yellow] {', '.join(valid_optimizers)}")
+        ui.error(f"Invalid optimizer: {optimizer}")
+        ui.info(f"Valid options: {', '.join(valid_optimizers)}")
         raise SystemExit(1)
 
     if optimizer != "leastsq":
-        console.print(f"[yellow]Using global optimizer:[/yellow] {optimizer}")
+        ui.warning(f"Using global optimizer: {optimizer}")
         console.print("  [dim]This may take significantly longer than standard fitting[/dim]")
 
     # Convert to legacy args for compatibility with existing modules
     clargs = config_to_fit_args(config, spectrum_path, peaklist_path, z_values_path)
 
     # Load data
-    with console.status("[bold yellow]Loading spectrum..."):
+    ui.show_header("Loading Data")
+    ui.action("Reading spectrum...")
+    with console.status("[bold yellow]Processing..."):
         spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
-    console.print(f"[green]Loaded spectrum:[/green] {spectrum_path.name}")
-    console.print(f"  Shape: {spectra.data.shape}")
-    console.print(f"  Z-values: {len(spectra.z_values)} planes")
+    ui.success(f"Loaded spectrum: {spectrum_path.name}")
+    ui.bullet(f"Shape: {spectra.data.shape}", style="default")
+    ui.bullet(f"Z-values: {len(spectra.z_values)} planes", style="default")
 
     # Estimate noise
+    ui.spacer()
     clargs.noise = prepare_noise_level(clargs, spectra)
-    console.print(f"[green]Noise level:[/green] {clargs.noise:.2f}")
+    ui.success(f"Noise level: {clargs.noise:.2f}")
 
     # Determine lineshape
     shape_names = get_shape_names(clargs, spectra)
-    console.print(f"[green]Lineshapes:[/green] {shape_names}")
+    ui.bullet(f"Lineshapes: {shape_names}", style="default")
 
     # Read peak list
+    ui.spacer()
+    ui.action("Reading peak list...")
     peaks = read_list(spectra, shape_names, clargs)
-    console.print(f"[green]Loaded peaks:[/green] {len(peaks)} peaks")
+    ui.success(f"Loaded {len(peaks)} peaks")
 
     # Cluster peaks
+    ui.spacer()
     clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
-    console.print(f"[green]Contour level:[/green] {clargs.contour_level:.2f}")
+    ui.bullet(f"Contour level: {clargs.contour_level:.2f}", style="default")
 
     clusters = create_clusters(spectra, peaks, clargs.contour_level)
-    console.print(f"[green]Created clusters:[/green] {len(clusters)} clusters")
+    ui.success(f"Created {len(clusters)} clusters")
+
+    # Display data summary
+    ui.spacer()
+    ui.print_data_summary(
+        spectrum_shape=spectra.data.shape,
+        n_planes=len(spectra.z_values),
+        n_peaks=len(peaks),
+        n_clusters=len(clusters),
+        noise_level=clargs.noise,
+        contour_level=clargs.contour_level,
+    )
 
     # Fit clusters - choose method based on flags
+    ui.show_header("Fitting Clusters")
     if optimizer != "leastsq":
-        console.print(f"[yellow]Using {optimizer} optimizer...[/yellow]")
+        ui.info(f"Using {optimizer} optimizer...")
         params = _fit_clusters_global(clargs, clusters, optimizer)
     elif parallel and len(clusters) > 1:
-        console.print("[yellow]Using parallel fitting...[/yellow]")
+        ui.info("Using parallel fitting...")
         params = _fit_clusters_parallel(clargs, clusters, n_workers)
     else:
         params = _fit_clusters(clargs, clusters)
 
     # Write outputs
+    ui.show_header("Saving Results")
     config.output.directory.mkdir(parents=True, exist_ok=True)
 
     write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
-    console.print(f"[green]Written profiles to:[/green] {config.output.directory}")
+    ui.success("Profiles written")
+    ui.bullet(f"{config.output.directory}/*.out", style="default")
 
     if config.output.save_html_report:
-        export_html(config.output.directory / "logs.html")
-        console.print(
-            f"[green]Written HTML report:[/green] {config.output.directory / 'logs.html'}"
-        )
+        ui.export_html(config.output.directory / "logs.html")
+        ui.success("HTML report written")
+        ui.bullet(f"{config.output.directory / 'logs.html'}", style="default")
 
     write_shifts(peaks, params, config.output.directory / "shifts.list")
-    console.print(f"[green]Written shifts:[/green] {config.output.directory / 'shifts.list'}")
+    ui.success("Shifts written")
+    ui.bullet(f"{config.output.directory / 'shifts.list'}", style="default")
 
     if config.output.save_simulated:
         _write_spectra(config.output.directory, spectra, clusters, params)
-        console.print("[green]Written simulated spectrum[/green]")
+        ui.success("Simulated spectrum written")
 
     # Save fitting state for later analysis
     if save_state:
+        ui.spacer()
         state_file = config.output.directory / ".peakfit_state.pkl"
         _save_fitting_state(state_file, clusters, params, clargs.noise, peaks)
-        console.print(f"[green]Saved fitting state:[/green] {state_file}")
-        console.print("  [dim]Use 'peakfit analyze' to compute uncertainties[/dim]")
+        ui.success("Fitting state saved")
+        ui.bullet(f"{state_file}", style="default")
+        ui.bullet("Use 'peakfit analyze' to compute uncertainties", style="default")
 
-    console.print("\n[bold green]Fitting complete![/bold green]")
+    ui.spacer()
+    console.print("[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/]")
+    console.print("[bold green]✓ Fitting complete![/]")
+    console.print("[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/]")
+    ui.spacer()
 
 
 def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) -> np.ndarray:
@@ -199,7 +217,6 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
 
 def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
     """Fit all clusters and return parameters."""
-    print_fitting()
     params_all = Parameters()
 
     # Use threadpoolctl to limit BLAS threads at runtime
@@ -208,10 +225,20 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
     with threadpool_limits(limits=1, user_api="blas"):
         for index in range(clargs.refine_nb + 1):
             if index > 0:
-                print_refining(index, clargs.refine_nb)
+                ui.spacer()
+                ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
-            for cluster in clusters:
-                print_peaks(cluster.peaks)
+
+            for cluster_idx, cluster in enumerate(clusters, 1):
+                peak_names = [peak.name for peak in cluster.peaks]
+                peaks_str = ", ".join(peak_names)
+
+                # Print cluster header
+                console.print()
+                console.print(
+                    f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}"
+                )
+
                 params = create_params(cluster.peaks, fixed=clargs.fixed)
                 params = _update_params(params, params_all)
 
@@ -230,7 +257,7 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                     ftol=1e-7,
                     xtol=1e-7,
                     max_nfev=1000,
-                    verbose=2,
+                    verbose=2,  # Show iteration progress
                 )
 
                 # Update parameters with optimized values
@@ -252,7 +279,16 @@ def _fit_clusters(clargs: FitArguments, clusters: list) -> Parameters:
                         # Singular matrix, can't compute errors
                         pass
 
-                print_fit_report(result)
+                # Print completion status
+                if result.success:
+                    console.print(
+                        f"[green]✓ Converged[/green] [dim]│[/dim] Cost: [cyan]{result.cost:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{result.nfev}[/cyan]"
+                    )
+                else:
+                    console.print(
+                        f"[yellow]⚠ {result.message}[/yellow] [dim]│[/dim] Cost: [cyan]{result.cost:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{result.nfev}[/cyan]"
+                    )
+
                 params_all.update(params)
 
     return params_all
@@ -264,7 +300,7 @@ def _fit_clusters_parallel(
     """Fit all clusters using parallel processing."""
     from peakfit.core.parallel import fit_clusters_parallel_refined
 
-    console.print("[yellow]Parallel fitting with refinement...[/yellow]")
+    ui.info("Parallel fitting with refinement...")
 
     return fit_clusters_parallel_refined(
         clusters=clusters,
@@ -280,22 +316,29 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
     """Fit all clusters using global optimization."""
     from peakfit.core.advanced_optimization import fit_basin_hopping, fit_differential_evolution
 
-    print_fitting()
     params_all = Parameters()
 
     with threadpool_limits(limits=1, user_api="blas"):
         for index in range(clargs.refine_nb + 1):
             if index > 0:
-                print_refining(index, clargs.refine_nb)
+                ui.spacer()
+                ui.action(f"Refining peak parameters ({index}/{clargs.refine_nb})...")
                 update_cluster_corrections(params_all, clusters)
 
-            for cluster in clusters:
-                print_peaks(cluster.peaks)
+            for cluster_idx, cluster in enumerate(clusters, 1):
+                peak_names = [peak.name for peak in cluster.peaks]
+                peaks_str = ", ".join(peak_names)
+
+                # Print cluster header
+                console.print()
+                console.print(
+                    f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}"
+                )
+
                 params = create_params(cluster.peaks, fixed=clargs.fixed)
                 params = _update_params(params, params_all)
 
                 # Use global optimizer
-                console.print(f"  [dim]Running {optimizer}...[/dim]")
                 if optimizer == "basin-hopping":
                     result = fit_basin_hopping(
                         params,
@@ -318,14 +361,20 @@ def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -
                     msg = f"Unknown optimizer: {optimizer}"
                     raise ValueError(msg)
 
-                console.print(
-                    f"  [dim]χ²={result.chisqr:.2f}, "
-                    f"reduced χ²={result.redchi:.4f}, "
-                    f"nfev={result.nfev}[/dim]"
-                )
+                # Print completion status
+                success = result.success if hasattr(result, "success") else True
+                chisqr = result.chisqr if hasattr(result, "chisqr") else result.cost
+                nfev = result.nfev if hasattr(result, "nfev") else "N/A"
 
-                if not result.success:
-                    console.print(f"  [yellow]Warning: {result.message}[/yellow]")
+                if success:
+                    console.print(
+                        f"[green]✓ Converged[/green] [dim]│[/dim] Cost: [cyan]{chisqr:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{nfev}[/cyan]"
+                    )
+                else:
+                    message = result.message if hasattr(result, "message") else "Did not converge"
+                    console.print(
+                        f"[yellow]⚠ {message}[/yellow] [dim]│[/dim] Cost: [cyan]{chisqr:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{nfev}[/cyan]"
+                    )
 
                 params_all.update(result.params)
 
@@ -371,7 +420,7 @@ def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
     import nmrglue as ng
     import numpy as np
 
-    print_writing_spectra()
+    ui.action("Writing simulated spectra...")
 
     data_simulated = simulate_data(params, clusters, spectra.data)
 
@@ -397,17 +446,17 @@ def _initialize_backend(backend: str, parallel: bool = False) -> None:
 
     if backend == "auto":
         selected = auto_select_backend()
-        console.print(f"[green]✓ Auto-selected backend:[/green] {selected}")
+        ui.success(f"Auto-selected backend: {selected}")
     else:
         available = get_available_backends()
         if backend not in available:
-            console.print(f"[red]Backend '{backend}' not available. Available: {available}[/red]")
-            console.print("[yellow]Falling back to auto-selection...[/yellow]")
+            ui.error(f"Backend '{backend}' not available. Available: {available}")
+            ui.warning("Falling back to auto-selection...")
             selected = auto_select_backend()
-            console.print(f"[green]✓ Using backend:[/green] {selected}")
+            ui.success(f"Using backend: {selected}")
         else:
             set_backend(backend)
-            console.print(f"[green]✓ Using backend:[/green] {backend}")
+            ui.success(f"Using backend: {backend}")
 
 
 def _print_optimization_status() -> None:
@@ -423,9 +472,9 @@ def _print_optimization_status() -> None:
         try:
             import numba
 
-            console.print(f"[green]✓ Numba JIT enabled[/green] (v{numba.__version__})")
+            ui.success(f"Numba JIT enabled (v{numba.__version__})")
         except ImportError:
-            console.print("[yellow]• Using NumPy vectorized operations[/yellow]")
+            ui.info("Using NumPy vectorized operations")
     else:
-        console.print("[yellow]• Using NumPy vectorized operations[/yellow]")
+        ui.info("Using NumPy vectorized operations")
         console.print("  [dim]Install numba for better performance[/dim]")

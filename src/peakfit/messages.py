@@ -28,9 +28,8 @@ def print_logo() -> None:
     """Display the logo in the terminal."""
     logo_text = Text(LOGO, style="bold cyan")
     description_text = Text(
-        "Modern NMR Peak Fitting for Pseudo-3D Spectra\n"
-        "https://github.com/gbouvignies/PeakFit\n\n",
-        style="dim"
+        "Modern NMR Peak Fitting for Pseudo-3D Spectra\nhttps://github.com/gbouvignies/PeakFit\n\n",
+        style="dim",
     )
     version_text = Text("Version: ", style="dim")
     version_number_text = Text(f"{__version__}", style="bold green")
@@ -351,7 +350,9 @@ def print_data_shape_mismatch_error() -> None:
     )
 
 
-def print_file_not_found_with_suggestions(filepath: Path, similar_files: list[Path] | None = None) -> None:
+def print_file_not_found_with_suggestions(
+    filepath: Path, similar_files: list[Path] | None = None
+) -> None:
     """Print file not found error with helpful suggestions.
 
     Args:
@@ -366,7 +367,7 @@ def print_file_not_found_with_suggestions(filepath: Path, similar_files: list[Pa
             console.print(f"  • [green]{file}[/]")
 
     # Show files in current directory
-    parent = filepath.parent if filepath.parent.exists() else Path(".")
+    parent = filepath.parent if filepath.parent.exists() else Path()
     if parent.is_dir():
         pattern = f"*{filepath.suffix}" if filepath.suffix else "*"
         matching_files = list(parent.glob(pattern))
@@ -410,6 +411,7 @@ def print_confirmation_prompt(message: str) -> bool:
         True if user confirms, False otherwise
     """
     from rich.prompt import Confirm
+
     return Confirm.ask(f"[yellow]{message}[/]")
 
 
@@ -455,7 +457,7 @@ def print_performance_summary(
     if n_items > 0:
         avg_time = total_time / n_items
         if avg_time < 1:
-            avg_str = f"{avg_time*1000:.0f}ms"
+            avg_str = f"{avg_time * 1000:.0f}ms"
         else:
             avg_str = f"{avg_time:.3f}s"
         table.add_row(f"Average per {item_name.rstrip('s')}", avg_str)

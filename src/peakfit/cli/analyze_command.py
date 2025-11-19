@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import numpy as np
-from rich.console import Console
 from rich.table import Table
 
 from peakfit.clustering import Cluster
@@ -13,8 +12,7 @@ from peakfit.core.advanced_optimization import (
 )
 from peakfit.core.fitting import Parameters
 from peakfit.peak import Peak
-
-console = Console()
+from peakfit.ui import PeakFitUI as ui, console
 
 
 def load_fitting_state(results_dir: Path) -> dict:
@@ -30,15 +28,15 @@ def load_fitting_state(results_dir: Path) -> dict:
 
     state_file = results_dir / ".peakfit_state.pkl"
     if not state_file.exists():
-        console.print(f"[red]Error:[/red] No fitting state found in {results_dir}")
-        console.print("  Run 'peakfit fit' with --save-state (enabled by default)")
+        ui.error(f"No fitting state found in {results_dir}")
+        ui.info("Run 'peakfit fit' with --save-state (enabled by default)")
         raise SystemExit(1)
 
     # Note: pickle.load is safe here as we control the state file creation
     with state_file.open("rb") as f:
         state = pickle.load(f)
 
-    console.print(f"[green]Loaded fitting state:[/green] {state_file}")
+    ui.success(f"Loaded fitting state: [path]{state_file}[/path]")
     console.print(f"  Clusters: {len(state['clusters'])}")
     console.print(f"  Peaks: {len(state['peaks'])}")
     console.print(f"  Parameters: {len(state['params'])}")
@@ -53,6 +51,7 @@ def run_mcmc(
     burn_in: int = 200,
     peaks: list[str] | None = None,
     output_file: Path | None = None,
+    verbose: bool = False,
 ) -> None:
     """Run MCMC uncertainty estimation on fitted results.
 
@@ -63,7 +62,11 @@ def run_mcmc(
         burn_in: Number of burn-in steps to discard
         peaks: Optional list of peak names to analyze (default: all)
         output_file: Optional output file for results
+        verbose: Show banner and verbose output
     """
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
     state = load_fitting_state(results_dir)
 
     clusters: list[Cluster] = state["clusters"]
@@ -76,11 +79,11 @@ def run_mcmc(
         peak_set = set(peaks)
         clusters = [c for c in clusters if any(p.name in peak_set for p in c.peaks)]
         if not clusters:
-            console.print(f"[red]Error:[/red] No clusters found for peaks: {peaks}")
+            ui.error(f"No clusters found for peaks: {peaks}")
             raise SystemExit(1)
-        console.print(f"[yellow]Analyzing {len(clusters)} cluster(s) for peaks: {peaks}[/yellow]")
+        ui.info(f"Analyzing {len(clusters)} cluster(s) for peaks: {peaks}")
 
-    console.print("\n[bold]Running MCMC uncertainty estimation[/bold]")
+    ui.show_header("Running MCMC Uncertainty Estimation")
     console.print(f"  Walkers: {n_walkers}")
     console.print(f"  Steps: {n_steps}")
     console.print(f"  Burn-in: {burn_in}")
@@ -146,11 +149,11 @@ def run_mcmc(
     # Save updated parameters to output files
     if output_file is not None:
         _save_mcmc_results(output_file, all_results, clusters)
-        console.print(f"[green]Saved MCMC results to:[/green] {output_file}")
+        ui.success(f"Saved MCMC results to: [path]{output_file}[/path]")
 
     # Update .out files with new uncertainties
     _update_output_files(results_dir, params, all_peaks)
-    console.print("[green]Updated output files with MCMC uncertainties[/green]")
+    ui.success("Updated output files with MCMC uncertainties")
 
 
 def run_profile_likelihood(
@@ -160,6 +163,7 @@ def run_profile_likelihood(
     confidence_level: float = 0.95,
     plot: bool = False,
     output_file: Path | None = None,
+    verbose: bool = False,
 ) -> None:
     """Compute profile likelihood confidence interval for a parameter.
 
@@ -170,7 +174,11 @@ def run_profile_likelihood(
         confidence_level: Confidence level (0.95 for 95% CI)
         plot: Whether to plot the profile
         output_file: Optional output file for results
+        verbose: Show banner and verbose output
     """
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
     state = load_fitting_state(results_dir)
 
     clusters: list[Cluster] = state["clusters"]
@@ -188,8 +196,8 @@ def run_profile_likelihood(
             break
 
     if target_cluster is None:
-        console.print(f"[red]Error:[/red] Parameter '{param_name}' not found")
-        console.print("[yellow]Available parameters:[/yellow]")
+        ui.error(f"Parameter '{param_name}' not found")
+        ui.info("Available parameters:")
         for name in params:
             console.print(f"  {name}")
         raise SystemExit(1)
@@ -210,7 +218,7 @@ def run_profile_likelihood(
 
     delta_chi2 = chi2.ppf(confidence_level, df=1)
 
-    console.print(f"\n[bold]Computing profile likelihood for {param_name}[/bold]")
+    ui.show_header(f"Computing Profile Likelihood for {param_name}")
     console.print(f"  Confidence level: {confidence_level * 100:.0f}%")
     console.print(f"  Δχ² threshold: {delta_chi2:.4f}")
     console.print(f"  Profile points: {n_points}")
@@ -260,16 +268,22 @@ def run_profile_likelihood(
 
     if output_file is not None:
         _save_profile_results(output_file, param_name, param_vals, chi2_vals, ci_low, ci_high)
-        console.print(f"[green]Saved profile data to:[/green] {output_file}")
+        ui.success(f"Saved profile data to: [path]{output_file}[/path]")
 
 
-def run_correlation(results_dir: Path, output_file: Path | None = None) -> None:
+def run_correlation(
+    results_dir: Path, output_file: Path | None = None, verbose: bool = False
+) -> None:
     """Analyze parameter correlations from fitting results.
 
     Args:
         results_dir: Path to results directory
         output_file: Optional output file for correlation matrix
+        verbose: Show banner and verbose output
     """
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
     state = load_fitting_state(results_dir)
     params: Parameters = state["params"]
 
@@ -277,10 +291,10 @@ def run_correlation(results_dir: Path, output_file: Path | None = None) -> None:
     vary_names = params.get_vary_names()
 
     if len(vary_names) < 2:
-        console.print("[yellow]Not enough varying parameters for correlation analysis[/yellow]")
+        ui.warning("Not enough varying parameters for correlation analysis")
         return
 
-    console.print("\n[bold]Parameter Correlation Analysis[/bold]")
+    ui.show_header("Parameter Correlation Analysis")
     console.print(f"  Parameters: {len(vary_names)}")
 
     # For now, just show parameter summary
@@ -306,7 +320,8 @@ def run_correlation(results_dir: Path, output_file: Path | None = None) -> None:
     # Report boundary warnings
     boundary_params = params.get_boundary_params()
     if boundary_params:
-        console.print("\n[yellow]Warning: Parameters at boundaries:[/yellow]")
+        console.print()
+        ui.warning("Parameters at boundaries:")
         for name in boundary_params:
             param = params[name]
             console.print(
@@ -324,7 +339,7 @@ def run_correlation(results_dir: Path, output_file: Path | None = None) -> None:
                     f"{name}  {param.value:.6f}  {param.stderr:.6f}  "
                     f"{param.min:.6f}  {param.max:.6f}\n"
                 )
-        console.print(f"[green]Saved parameter summary to:[/green] {output_file}")
+        ui.success(f"Saved parameter summary to: [path]{output_file}[/path]")
 
 
 def _update_output_files(results_dir: Path, params: Parameters, peaks: list[Peak]) -> None:
@@ -439,4 +454,4 @@ def _plot_profile_likelihood(
         plt.show()
 
     except ImportError:
-        console.print("[yellow]Warning: matplotlib not available for plotting[/yellow]")
+        ui.warning("matplotlib not available for plotting")
