@@ -109,7 +109,7 @@ docs/
 
 ### Unused Functions Removed
 
-Removed 4 unused functions from `src/peakfit/core/optimized.py`:
+#### From `src/peakfit/core/optimized.py` (56 lines)
 
 | Function | Lines | Reason |
 |----------|-------|--------|
@@ -118,15 +118,30 @@ Removed 4 unused functions from `src/peakfit/core/optimized.py`:
 | `get_optimized_pvoigt()` | 8 | Unused getter function (YAGNI) |
 | `evaluate_peaks_batch()` | 32 | Unused batch processing function |
 
-**Total removed:** 56 lines of dead code
+#### From `src/peakfit/messages.py` (124 lines)
+
+Legacy UI functions superseded by `PeakFitUI` class in `ui/style.py`:
+
+| Function | Lines | Reason |
+|----------|-------|--------|
+| `print_cluster_summary()` | 6 | Replaced by `PeakFitUI.print_cluster_info()` |
+| `print_fitting_progress()` | 12 | Replaced by `PeakFitUI.create_progress()` |
+| `print_parameter_table()` | 21 | Replaced by `PeakFitUI.create_table()` |
+| `print_boundary_warning()` | 12 | No longer used |
+| `print_file_not_found_with_suggestions()` | 27 | Replaced by `PeakFitUI.show_file_not_found()` |
+| `print_auto_detection()` | 9 | No direct equivalent needed |
+| `print_smart_default()` | 9 | No direct equivalent needed |
+| `print_confirmation_prompt()` | 12 | Can be implemented in PeakFitUI if needed |
+
+**Total removed:** 180 lines of dead code (56 + 124)
 
 ### Conservative Approach
 
-Functions retained despite analysis flagging as potentially unused:
+Functions retained despite analysis:
 - `check_numba_available()` - **Used in CLI commands**
 - `get_optimization_info()` - **Used in CLI commands**
 - `calculate_lstsq_amplitude()` - **Used in JIT prewarming**
-- Message functions in `messages.py` - **Documented in style guide (potential public API)**
+- Other message functions in `messages.py` - **Actually used in codebase** (e.g., `print_fit_summary()`, `print_logo()`, etc.)
 
 ---
 
@@ -162,8 +177,8 @@ Functions retained despite analysis flagging as potentially unused:
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
-| Total Python LOC | 9,954 | 9,954 | 0 (functional) |
-| Dead code (LOC) | 56 | 0 | **-56 lines** |
+| Total Python LOC | 9,954 | 9,774 | **-180 lines** |
+| Dead code (LOC) | 180 | 0 | **-180 lines** |
 | Linting errors | 12 | 0 | **-12 errors** |
 | Unused imports | 3 | 0 | **-3 imports** |
 | Root-level .md files | 7 | 2 | **-5 files** |
@@ -176,7 +191,7 @@ Functions retained despite analysis flagging as potentially unused:
 |-------------------|--------|-------|
 | Linting pass rate | 99.88% | **100%** ✅ |
 | Documentation organization | Ad-hoc | **Structured** ✅ |
-| Dead code presence | Yes (56 lines) | **None** ✅ |
+| Dead code presence | Yes (180 lines) | **None** ✅ |
 | Commented-out code | None | **None** ✅ |
 | Repository cleanliness | Good | **Excellent** ✅ |
 
@@ -218,12 +233,13 @@ The following tasks from the original request were intentionally skipped as they
 
 ## Files Modified
 
-### Python Files (5)
+### Python Files (6)
 1. `src/peakfit/cli/fit_command.py` - Removed unused imports, fixed f-strings
 2. `src/peakfit/cli/validate_command.py` - Fixed f-string
 3. `src/peakfit/core/optimized.py` - Removed 4 unused functions (56 lines)
-4. `src/peakfit/noise.py` - Removed unused import
-5. `src/peakfit/ui/style.py` - Fixed linting issues (5 fixes)
+4. `src/peakfit/messages.py` - **Removed 8 legacy UI functions (124 lines)**
+5. `src/peakfit/noise.py` - Removed unused import
+6. `src/peakfit/ui/style.py` - Fixed linting issues (5 fixes)
 
 ### Documentation Files (4)
 1. `docs/terminal-output-improvements.md` - Updated internal links (2 changes)
@@ -324,18 +340,31 @@ Documentation:
 - VALIDATION_REPORT.md → docs/validation-report.md
 - Updated all internal documentation links
 
-Dead code removed:
-- get_optimized_gaussian() - unused getter
-- get_optimized_lorentzian() - unused getter
-- get_optimized_pvoigt() - unused getter
-- evaluate_peaks_batch() - unused batch processing
+Dead code removed (180 lines total):
+
+From core/optimized.py (56 lines):
+- get_optimized_gaussian() - unused getter function
+- get_optimized_lorentzian() - unused getter function
+- get_optimized_pvoigt() - unused getter function
+- evaluate_peaks_batch() - unused batch processing function
+
+From messages.py (124 lines):
+- print_cluster_summary() - superseded by PeakFitUI class
+- print_fitting_progress() - superseded by PeakFitUI class
+- print_parameter_table() - superseded by PeakFitUI class
+- print_boundary_warning() - superseded by PeakFitUI class
+- print_file_not_found_with_suggestions() - superseded by PeakFitUI class
+- print_auto_detection() - superseded by PeakFitUI class
+- print_smart_default() - superseded by PeakFitUI class
+- print_confirmation_prompt() - superseded by PeakFitUI class
 
 Metrics:
-- Lines removed: 72
+- Lines removed: 196 (72 + 124)
 - Lines added: 14
-- Net change: -58 lines
+- Net change: -182 lines
 - Linting errors: 12 → 0
 - Documentation files in root: 7 → 2
+- Legacy functions removed: 12 total (4 from optimized.py, 8 from messages.py)
 
 Breaking changes: NONE
 Risk level: Minimal (no functional changes)
