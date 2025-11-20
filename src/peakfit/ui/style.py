@@ -88,7 +88,7 @@ class PeakFitUI:
             verbose: If True, show all log messages in console
             level: Logging level (default: INFO)
         """
-        global _logger
+        global _logger  # noqa: PLW0603 - necessary for module-level logger management
 
         if log_file is None:
             _logger = None
@@ -242,7 +242,7 @@ class PeakFitUI:
 
         # Remove absolute path from peakfit executable, keep just 'peakfit'
         if sys.argv and ('peakfit' in sys.argv[0] or sys.argv[0].endswith('.py')):
-            clean_argv = ['peakfit'] + sys.argv[1:]
+            clean_argv = ['peakfit', *sys.argv[1:]]
         else:
             clean_argv = sys.argv
 
@@ -300,7 +300,8 @@ class PeakFitUI:
             try:
                 import socket
                 PeakFitUI.log(f"Hostname: {socket.gethostname()}")
-            except Exception:
+            except (OSError, ImportError):
+                # Socket operations may fail in restricted environments
                 pass
             PeakFitUI.log("=" * 60)
 

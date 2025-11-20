@@ -124,7 +124,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
 
     # Next steps
     ui.spacer()
-    ui.info(f"Ready for fitting. Run:")
+    ui.info("Ready for fitting. Run:")
     console.print(f"    [cyan]peakfit fit {spectrum_path.name} {peaklist_path.name}[/cyan]")
     ui.spacer()
 

@@ -448,62 +448,6 @@ else:
     sp2_jit = sp2_numpy
 
 
-def get_optimized_gaussian() -> Callable[..., np.ndarray]:
-    """Get the optimized Gaussian function.
-
-    Returns:
-        Function: Gaussian lineshape function (JIT if available)
-    """
-    return gaussian_jit
-
-
-def get_optimized_lorentzian() -> Callable[..., np.ndarray]:
-    """Get the optimized Lorentzian function.
-
-    Returns:
-        Function: Lorentzian lineshape function (JIT if available)
-    """
-    return lorentzian_jit
-
-
-def get_optimized_pvoigt() -> Callable[..., np.ndarray]:
-    """Get the optimized Pseudo-Voigt function.
-
-    Returns:
-        Function: Pseudo-Voigt lineshape function (JIT if available)
-    """
-    return pvoigt_jit
-
-
-# Vectorized operations for batch processing
-def evaluate_peaks_batch(
-    positions: list[np.ndarray],
-    centers: np.ndarray,
-    fwhms: np.ndarray,
-    shape_func: object,
-) -> np.ndarray:
-    """Evaluate multiple peaks at once for better cache utilization.
-
-    Args:
-        positions: List of position arrays per dimension
-        centers: Peak centers (n_peaks,)
-        fwhms: Peak widths (n_peaks,)
-        shape_func: Lineshape function to use
-
-    Returns:
-        Shape values for all peaks (n_peaks x n_points)
-    """
-    n_peaks = len(centers)
-    n_points = len(positions[0])
-    result = np.zeros((n_peaks, n_points))
-
-    for i in range(n_peaks):
-        dx = positions[0] - centers[i]
-        result[i] = shape_func(dx, fwhms[i])
-
-    return result
-
-
 def check_numba_available() -> bool:
     """Check if Numba is available for optimization.
 

@@ -3,7 +3,6 @@ from scipy.optimize import curve_fit
 
 from peakfit.spectra import Spectra
 from peakfit.typing import FittingOptions, FloatArray
-from peakfit.ui import PeakFitUI as ui
 
 
 def prepare_noise_level(clargs: FittingOptions, spectra: Spectra) -> float:
