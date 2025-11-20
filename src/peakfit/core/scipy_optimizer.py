@@ -1,13 +1,13 @@
-"""Fast fitting using direct scipy optimization.
+"""Direct scipy optimization for peak fitting.
 
-This module provides high-performance fitting functions that directly
-interface with scipy.optimize.least_squares.
+This module provides fitting functions that directly interface with
+scipy.optimize.least_squares, bypassing external optimization wrappers.
 
 Key features:
-- Direct scipy optimization without external wrappers
-- Direct parameter array manipulation
-- Uses custom Parameters class for lightweight parameter management
-- Supports bounded optimization with TRF algorithm
+- Direct scipy.optimize.least_squares integration
+- Lightweight parameter array manipulation
+- Custom Parameters class for efficient parameter management
+- Bounded optimization using Trust Region Reflective (TRF) algorithm
 """
 
 import warnings
@@ -22,8 +22,8 @@ from peakfit.core.fitting import Parameters
 from peakfit.peak import create_params
 
 
-class FastFitError(Exception):
-    """Exception raised for errors in fast fitting."""
+class ScipyOptimizerError(Exception):
+    """Exception raised for errors in scipy optimization."""
 
 
 class ConvergenceWarning(UserWarning):
@@ -64,14 +64,14 @@ def arrays_to_params(x: np.ndarray, names: list[str], params_template: Parameter
     return params
 
 
-def residuals_fast(
+def compute_residuals(
     x: np.ndarray,
     names: list[str],
     params_template: Parameters,
     cluster: Cluster,
     noise: float,
 ) -> np.ndarray:
-    """Fast residual function for scipy.optimize.
+    """Compute residuals for scipy.optimize.least_squares.
 
     Args:
         x: Current parameter values (varying only)
@@ -128,7 +128,7 @@ def fit_cluster_dict(
             - message: Optimizer message
 
     Raises:
-        FastFitError: If cluster has no peaks or invalid data
+        ScipyOptimizerError: If cluster has no peaks or invalid data
         ValueError: If noise is non-positive
     """
     # Validate inputs
@@ -138,18 +138,18 @@ def fit_cluster_dict(
 
     if not cluster.peaks:
         msg = "Cluster has no peaks to fit"
-        raise FastFitError(msg)
+        raise ScipyOptimizerError(msg)
 
     if not hasattr(cluster, "corrected_data") or cluster.corrected_data is None:
         msg = "Cluster has no data to fit"
-        raise FastFitError(msg)
+        raise ScipyOptimizerError(msg)
 
     # Create parameters
     try:
         params = create_params(cluster.peaks, fixed=fixed)
     except Exception as e:
         msg = f"Failed to create parameters: {e}"
-        raise FastFitError(msg) from e
+        raise ScipyOptimizerError(msg) from e
 
     # Update with initial values if provided
     if params_init:
@@ -184,16 +184,16 @@ def fit_cluster_dict(
     # Validate bounds
     if np.any(lower >= upper):
         msg = "Invalid parameter bounds: lower bound >= upper bound"
-        raise FastFitError(msg)
+        raise ScipyOptimizerError(msg)
 
     if np.any((x0 < lower) | (x0 > upper)):
         msg = "Initial values outside bounds"
-        raise FastFitError(msg)
+        raise ScipyOptimizerError(msg)
 
     # Direct scipy optimization
     try:
         result = least_squares(
-            residuals_fast,
+            compute_residuals,
             x0,
             args=(names, params, cluster, noise),
             bounds=(lower, upper),
@@ -205,7 +205,7 @@ def fit_cluster_dict(
         )
     except Exception as e:
         msg = f"Optimization failed: {e}"
-        raise FastFitError(msg) from e
+        raise ScipyOptimizerError(msg) from e
 
     # Check for convergence issues
     if not result.success:
@@ -220,7 +220,7 @@ def fit_cluster_dict(
         params[name].value = result.x[i]
 
     # Calculate chi-square
-    residual = residuals_fast(result.x, names, params, cluster, noise)
+    residual = compute_residuals(result.x, names, params, cluster, noise)
     chisqr = float(np.sum(residual**2))
     ndata = len(residual)
     nvarys = len(x0)
@@ -276,7 +276,7 @@ def fit_cluster_dict(
     }
 
 
-def fit_clusters_fast(
+def fit_clusters(
     clusters: list[Cluster],
     noise: float,
     refine_iterations: int = 1,
@@ -284,7 +284,7 @@ def fit_clusters_fast(
     fixed: bool = False,
     verbose: bool = False,
 ) -> Parameters:
-    """Fit all clusters using fast scipy optimization.
+    """Fit all clusters using direct scipy optimization.
 
     Args:
         clusters: List of clusters
@@ -344,4 +344,4 @@ def fit_clusters_fast(
 
 
 # Backward compatibility alias (deprecated)
-fit_cluster_fast = fit_cluster_dict
+fit_cluster = fit_cluster_dict

@@ -167,18 +167,18 @@ def compare_fitting_methods(
     Returns:
         Dictionary mapping method name to ProfileReport
     """
-    from peakfit.core.fast_fit import fit_clusters_fast
     from peakfit.core.parallel import fit_clusters_parallel_refined
+    from peakfit.core.scipy_optimizer import fit_clusters
 
     if n_workers is None:
         n_workers = min(mp.cpu_count(), len(clusters))
 
     results = {}
 
-    # Test fast sequential fitting
+    # Test sequential fitting
     profiler = Profiler()
-    with profiler.timer("fit_clusters_fast", count=len(clusters)):
-        fit_clusters_fast(
+    with profiler.timer("fit_clusters", count=len(clusters)):
+        fit_clusters(
             clusters=clusters,
             noise=noise,
             refine_iterations=refine_iterations,

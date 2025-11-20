@@ -159,12 +159,12 @@ class TestFittingEngine:
 
     def test_import_fitting_module(self):
         """Should be able to import fitting module."""
-        from peakfit.core.fitting import FitResult, Parameter, Parameters, fit_cluster_fast
+        from peakfit.core.fitting import FitResult, Parameter, Parameters, fit_cluster
 
         assert Parameter is not None
         assert Parameters is not None
         assert FitResult is not None
-        assert callable(fit_cluster_fast)
+        assert callable(fit_cluster)
 
     def test_parameter_creation(self):
         """Parameter should store values and bounds correctly."""

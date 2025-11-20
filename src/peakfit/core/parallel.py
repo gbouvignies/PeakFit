@@ -51,10 +51,10 @@ def _fit_single_cluster(
     Returns:
         Dictionary with fitted parameter values and fit statistics
     """
-    from peakfit.core.fast_fit import fit_cluster_fast
+    from peakfit.core.scipy_optimizer import fit_cluster
 
-    # Use fast scipy-based fitting
-    return fit_cluster_fast(cluster, noise, fixed=fixed, params_init=params_dict)
+    # Use scipy-based fitting
+    return fit_cluster(cluster, noise, fixed=fixed, params_init=params_dict)
 
 
 def fit_clusters_parallel(
@@ -255,7 +255,7 @@ def fit_clusters_parallel_refined(
     with threadpool_limits(limits=1, user_api="blas"):
         for iteration in range(refine_iterations + 1):
             if verbose:
-                from peakfit.messages import console
+                from peakfit.ui.style import console
 
                 if refine_iterations > 0:
                     console.print(
@@ -281,6 +281,8 @@ def fit_clusters_parallel_refined(
             # Threads share JIT-compiled code and avoid massive compilation overhead
             if n_workers > 1 and len(clusters) > 1:
                 if verbose:
+                    from peakfit.ui.style import console
+
                     console.print(
                         f"[dim]Fitting {len(clusters)} clusters with {n_workers} workers...[/]"
                     )

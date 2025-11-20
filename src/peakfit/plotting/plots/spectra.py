@@ -30,15 +30,9 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from peakfit.messages import (
-    print_data_loading_error,
-    print_data_shape_mismatch_error,
-    print_experimental_file_not_found,
-    print_peak_list_file_not_found,
-    print_simulated_file_not_found,
-)
 from peakfit.noise import estimate_noise
 from peakfit.typing import FloatArray
+from peakfit.ui.style import PeakFitUI
 
 # Configuration
 CONTOUR_NUM = 25
@@ -345,20 +339,20 @@ def plot_spectra(args: argparse.Namespace) -> None:
     # Validate experimental data file
     exp_file = Path(args.data_exp)
     if not exp_file.exists():
-        print_experimental_file_not_found(args.data_exp)
+        PeakFitUI.error(f"Experimental data file not found: {args.data_exp}")
         sys.exit(1)
 
     # Validate simulated data file
     sim_file = Path(args.data_sim)
     if not sim_file.exists():
-        print_simulated_file_not_found(args.data_sim)
+        PeakFitUI.error(f"Simulated data file not found: {args.data_sim}")
         sys.exit(1)
 
     # Validate peak list file if provided
     if args.peak_list:
         plist_file = Path(args.peak_list)
         if not plist_file.exists():
-            print_peak_list_file_not_found(args.peak_list)
+            PeakFitUI.error(f"Peak list file not found: {args.peak_list}")
             sys.exit(1)
 
     try:
@@ -375,11 +369,11 @@ def plot_spectra(args: argparse.Namespace) -> None:
             )
             plist["y0_ppm"] = data1.unalias_y(plist["y0_ppm"].to_numpy().astype(np.float32))
     except (FileNotFoundError, ValueError, OSError) as e:
-        print_data_loading_error(e)
+        PeakFitUI.error(f"Error loading data files: {e}")
         sys.exit(1)
 
     if data1.data.shape != data2.data.shape:
-        print_data_shape_mismatch_error()
+        PeakFitUI.error("Data shapes do not match between experimental and simulated data")
         sys.exit(1)
 
     app = QApplication(sys.argv)
