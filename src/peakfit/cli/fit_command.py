@@ -131,8 +131,8 @@ def run_fit(
         spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
     ui.success(f"Loaded spectrum: {spectrum_path.name}")
-    ui.bullet(f"Shape: {spectra.data.shape}", style="default", log=False)
-    ui.bullet(f"Z-values: {len(spectra.z_values)} planes", style="default", log=False)
+    ui.bullet(f"Shape: {spectra.data.shape}", style="default")
+    ui.bullet(f"Z-values: {len(spectra.z_values)} planes", style="default")
 
     # Log spectrum details
     ui.log_dict({
@@ -154,7 +154,7 @@ def run_fit(
     ui.spacer()
     ui.log_section("Lineshape Detection")
     shape_names = get_shape_names(clargs, spectra)
-    ui.bullet(f"Lineshapes: {shape_names}", style="default", log=False)
+    ui.bullet(f"Lineshapes: {shape_names}", style="default")
     ui.log(f"Selected lineshape: {shape_names}")
 
     # Read peak list
@@ -172,7 +172,7 @@ def run_fit(
     ui.spacer()
     ui.log_section("Clustering")
     clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
-    ui.bullet(f"Contour level: {clargs.contour_level:.2f}", style="default", log=False)
+    ui.bullet(f"Contour level: {clargs.contour_level:.2f}", style="default")
 
     clusters = create_clusters(spectra, peaks, clargs.contour_level)
     ui.success(f"Created {len(clusters)} clusters")
@@ -227,18 +227,18 @@ def run_fit(
 
     write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
     ui.success("Profiles written")
-    ui.bullet(f"{config.output.directory}/*.out", style="default", log=False)
+    ui.bullet(f"{config.output.directory}/*.out", style="default")
     ui.log(f"Profile files: {len(peaks)} *.out files")
 
     if config.output.save_html_report:
         ui.export_html(config.output.directory / "logs.html")
         ui.success("HTML report written")
-        ui.bullet(f"{config.output.directory / 'logs.html'}", style="default", log=False)
+        ui.bullet(f"{config.output.directory / 'logs.html'}", style="default")
         ui.log(f"HTML report: {config.output.directory / 'logs.html'}")
 
     write_shifts(peaks, params, config.output.directory / "shifts.list")
     ui.success("Shifts written")
-    ui.bullet(f"{config.output.directory / 'shifts.list'}", style="default", log=False)
+    ui.bullet(f"{config.output.directory / 'shifts.list'}", style="default")
     ui.log(f"Shifts file: {config.output.directory / 'shifts.list'}")
 
     if config.output.save_simulated:
@@ -251,8 +251,8 @@ def run_fit(
         state_file = config.output.directory / ".peakfit_state.pkl"
         _save_fitting_state(state_file, clusters, params, clargs.noise, peaks)
         ui.success("Fitting state saved")
-        ui.bullet(f"{state_file}", style="default", log=False)
-        ui.bullet("Use 'peakfit analyze' to compute uncertainties", style="default", log=False)
+        ui.bullet(f"{state_file}", style="default")
+        ui.bullet("Use 'peakfit analyze' to compute uncertainties", style="default")
         ui.log(f"State file: {state_file}")
 
     # Calculate statistics
