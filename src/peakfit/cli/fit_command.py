@@ -140,7 +140,7 @@ def run_fit(
     clargs = config_to_fit_args(config, spectrum_path, peaklist_path, z_values_path)
 
     # Load spectrum
-    with console.status("[bold yellow]Reading spectrum..."):
+    with console.status("[cyan]Reading spectrum...[/cyan]", spinner="dots"):
         spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
     # Log spectrum details
@@ -197,7 +197,7 @@ def run_fit(
     ui.log("Algorithm: DBSCAN")
     ui.log(f"Contour level: {clargs.contour_level:.2f} ({clargs.contour_level/clargs.noise:.1f} * noise)")
 
-    with console.status("[bold yellow]Analyzing overlaps..."):
+    with console.status("[cyan]Segmenting spectra and clustering peaks...[/cyan]", spinner="dots"):
         clusters = create_clusters(spectra, peaks, clargs.contour_level)
 
     # Log clustering details
@@ -218,7 +218,6 @@ def run_fit(
     else:
         cluster_desc = f"{min_peaks}-{max_peaks} peaks per cluster"
 
-    ui.spacer()
     ui.success(f"Identified {len(clusters)} clusters ({cluster_desc})")
 
     # ============================================================
@@ -258,8 +257,6 @@ def run_fit(
 
     # Save all files with progress feedback
     # Each operation shows spinner → immediate success message
-    ui.spacer()
-
     with console.status("[cyan]Writing profiles...[/cyan]", spinner="dots"):
         write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
     ui.success(f"Peak profiles: {config.output.directory.name}/{len(peaks)} *.out files")
@@ -299,8 +296,6 @@ def run_fit(
     ui.log(f"Average time per cluster: {total_time/len(clusters):.1f}s")
 
     # Display summary table on console
-    ui.spacer()
-
     # Count successes by checking params
     # Note: In a real implementation, we'd track these during fitting
     # For now, we'll use approximate values based on what we know
@@ -335,25 +330,19 @@ def run_fit(
     summary_table.add_row("Mode", parallel_mode)
 
     console.print(summary_table)
-    ui.spacer()
 
     # Next steps - use relative paths for cleaner output
     from pathlib import Path as PathlibPath
     output_dir_name = config.output.directory.name
     spectrum_name = spectrum_path.name
 
-    ui.spacer()
     ui.show_header("Next Steps")
-    console.print()
     console.print("1. View intensity profiles:")
     console.print(f"   [cyan]peakfit plot intensity {output_dir_name}/[/cyan]")
-    console.print()
     console.print("2. View fitted spectra:")
     console.print(f"   [cyan]peakfit plot spectra {output_dir_name}/ --spectrum {spectrum_name}[/cyan]")
-    console.print()
     console.print("3. Uncertainty analysis:")
     console.print(f"   [cyan]peakfit analyze mcmc {output_dir_name}/[/cyan]")
-    console.print()
     console.print("4. Check log file:")
     console.print(f"   [cyan]less {output_dir_name}/peakfit.log[/cyan]")
     console.print()
@@ -384,11 +373,10 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
         for index in range(clargs.refine_nb + 1):
             if index == 0:
                 # Label initial fit phase
-                console.print("\n[bold]Initial Fit[/bold]\n")
+                ui.subsection_header("Initial Fit")
             else:
                 # Label refinement phase
-                ui.spacer()
-                console.print(f"[bold]Refining Parameters (Iteration {index})[/bold]\n")
+                ui.subsection_header(f"Refining Parameters (Iteration {index})")
                 ui.log_section(f"Refinement Iteration {index}")
                 update_cluster_corrections(params_all, clusters)
 
@@ -400,8 +388,9 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                 peaks_str = ", ".join(peak_names)
                 n_peaks = len(cluster.peaks)
 
-                # Clean cluster output
-                console.print()
+                # Clean cluster output - add blank line between clusters (not before first)
+                if cluster_idx > 1 or index > 0:
+                    console.print()
                 console.print(
                     f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] "
                     f"{peaks_str} [dim][{n_peaks} peak{'s' if n_peaks != 1 else ''}][/dim]"
@@ -515,11 +504,10 @@ def _fit_clusters_global(
         for index in range(clargs.refine_nb + 1):
             if index == 0:
                 # Label initial fit phase
-                console.print("\n[bold]Initial Fit[/bold]\n")
+                ui.subsection_header("Initial Fit")
             else:
                 # Label refinement phase
-                ui.spacer()
-                console.print(f"[bold]Refining Parameters (Iteration {index})[/bold]\n")
+                ui.subsection_header(f"Refining Parameters (Iteration {index})")
                 ui.log_section(f"Refinement Iteration {index}")
                 update_cluster_corrections(params_all, clusters)
 
@@ -527,8 +515,9 @@ def _fit_clusters_global(
                 peak_names = [peak.name for peak in cluster.peaks]
                 peaks_str = ", ".join(peak_names)
 
-                # Print cluster header
-                console.print()
+                # Print cluster header - add blank line between clusters (not before first)
+                if cluster_idx > 1 or index > 0:
+                    console.print()
                 console.print(
                     f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}"
                 )

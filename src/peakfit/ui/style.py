@@ -334,6 +334,18 @@ class PeakFitUI:
         console.print(f"\n[bold white]{text}[/bold white]")
         console.print("[dim]" + "─" * 40 + "[/dim]")
 
+    @staticmethod
+    def subsection_header(title: str) -> None:
+        """Print subsection header with correct spacing.
+
+        Spacing: ZERO blank lines before, ONE blank line after.
+
+        Args:
+            title: Subsection title to display
+        """
+        console.print(f"[bold]{title}[/bold]")
+        console.print()  # ONE blank line after
+
     # ==================== STATUS MESSAGES ====================
 
     @staticmethod
