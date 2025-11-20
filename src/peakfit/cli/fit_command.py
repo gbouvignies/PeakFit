@@ -134,6 +134,7 @@ def run_fit(
     # ============================================================
     # SECTION 2: LOADING INPUT FILES
     # ============================================================
+    console.print()  # ONE blank line before section header
     ui.show_header("Loading Input Files")
 
     # Convert to legacy args for compatibility with existing modules
@@ -192,6 +193,7 @@ def run_fit(
     # ============================================================
     # SECTION 3: CLUSTERING PEAKS
     # ============================================================
+    console.print()  # ONE blank line before section header
     ui.show_header("Clustering Peaks")
     ui.log_section("Clustering")
     ui.log("Algorithm: DBSCAN")
@@ -224,6 +226,7 @@ def run_fit(
     # SECTION 4: FITTING CLUSTERS
     # ============================================================
     # Fit clusters - choose method based on flags
+    console.print()  # ONE blank line before section header
     ui.show_header("Fitting Clusters")
     ui.log_section("Fitting")
     ui.log(f"Optimizer: {optimizer}")
@@ -245,6 +248,7 @@ def run_fit(
     # ============================================================
     # SECTION 5: RESULTS
     # ============================================================
+    console.print()  # ONE blank line before section header
     ui.show_header("Fitting Complete")
 
     # Calculate statistics
@@ -301,6 +305,7 @@ def run_fit(
     # For now, we'll use approximate values based on what we know
     successful_clusters = len(clusters)  # Assume all successful for now
 
+    console.print()  # ONE blank line before Results Summary table
     summary_table = ui.create_table("Results Summary")
     summary_table.add_column("Metric", style="cyan")
     summary_table.add_column("Value", style="white", justify="right")
@@ -330,6 +335,7 @@ def run_fit(
     summary_table.add_row("Mode", parallel_mode)
 
     console.print(summary_table)
+    console.print()  # ONE blank line after Results Summary table
 
     # Next steps - use relative paths for cleaner output
     from pathlib import Path as PathlibPath
@@ -389,7 +395,7 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                 n_peaks = len(cluster.peaks)
 
                 # Clean cluster output - add blank line between clusters (not before first)
-                if cluster_idx > 1 or index > 0:
+                if cluster_idx > 1:
                     console.print()
                 console.print(
                     f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] "
@@ -516,7 +522,7 @@ def _fit_clusters_global(
                 peaks_str = ", ".join(peak_names)
 
                 # Print cluster header - add blank line between clusters (not before first)
-                if cluster_idx > 1 or index > 0:
+                if cluster_idx > 1:
                     console.print()
                 console.print(
                     f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}"

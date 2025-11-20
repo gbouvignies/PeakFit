@@ -310,13 +310,13 @@ class PeakFitUI:
     def show_header(text: str, log: bool = True) -> None:
         """Display a prominent section header with consistent spacing.
 
-        Spacing: ONE blank line before, ZERO blank lines after.
+        Spacing: Calling code must add ONE blank line before. ZERO blank lines after.
 
         Args:
             text: Header text to display
             log: Whether to log this header to file
         """
-        console.print()  # ONE blank line before
+        # Calling code is responsible for adding blank line before
         console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
         console.print(f"[bold cyan]  {text}[/bold cyan]")
         console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
@@ -338,11 +338,12 @@ class PeakFitUI:
     def subsection_header(title: str) -> None:
         """Print subsection header with correct spacing.
 
-        Spacing: ZERO blank lines before, ONE blank line after.
+        Spacing: ONE blank line before, ONE blank line after.
 
         Args:
             title: Subsection title to display
         """
+        console.print()  # ONE blank line before
         console.print(f"[bold]{title}[/bold]")
         console.print()  # ONE blank line after
 
