@@ -290,7 +290,7 @@ Examples:
 
 ## 📚 Documentation Deliverables
 
-### 1. STYLE_GUIDE.md (NEW)
+### 1. [ui-style-guide.md](ui-style-guide.md) (NEW)
 
 Comprehensive 400+ line style guide covering:
 
@@ -449,8 +449,8 @@ While the current implementation is comprehensive, potential future additions:
 
 ### Documentation
 
-1. **STYLE_GUIDE.md**: Comprehensive UI/UX patterns guide (400+ lines)
-2. **UI_UX_IMPROVEMENTS_SUMMARY.md**: This document
+1. **[ui-style-guide.md](ui-style-guide.md)**: Comprehensive UI/UX patterns guide (400+ lines)
+2. **[ui-ux-improvements-summary.md](ui-ux-improvements-summary.md)**: This document
 
 ### Commit
 

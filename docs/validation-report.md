@@ -482,7 +482,7 @@ All plotting functionality is now unified under `peakfit plot`:
 1. **tests/validate_modernization.py** - Comprehensive CLI validation script (40 checks)
 2. **tests/test_edge_cases.py** - Edge case test suite (34 tests)
 3. **tests/test_plotting_integration.py** - Plotting integration tests (12 tests)
-4. **VALIDATION_REPORT.md** - This document
+4. **[validation-report.md](validation-report.md)** - This document
 
 ### Modified During Validation
 

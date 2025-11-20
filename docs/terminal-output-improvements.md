@@ -321,7 +321,7 @@ Every major operation now tracks:
 5. **`src/peakfit/__main__.py`**
    - Fixed import error
 
-6. **`OUTPUT_SPECIFICATION.md`** (New)
+6. **[`output-specification.md`](output-specification.md)** (New)
    - Complete specification of desired output for all commands
    - Mock-ups showing exact format
    - Implementation checklist
@@ -358,7 +358,7 @@ peakfit plot intensity Fits/                 # ✓ Shows progress and summary
 
 ## Future Enhancements
 
-Potential improvements documented in `OUTPUT_SPECIFICATION.md`:
+Potential improvements documented in [`output-specification.md`](output-specification.md):
 - [ ] Add `--json` flag for machine-readable output
 - [ ] Add `--quiet` flag for minimal output
 - [ ] Add `--progress-style` option (auto/plain/fancy)

@@ -100,28 +100,6 @@ def print_fit_report(result: object) -> None:
     console.print()
 
 
-def print_cluster_summary(cluster_index: int, total_clusters: int, peak_names: list[str]) -> None:
-    """Print a summary of the cluster being fitted."""
-    peaks_str = ", ".join(peak_names)
-    console.print(
-        f"\n[bold cyan]Cluster {cluster_index}/{total_clusters}[/] │ Peaks: [green]{peaks_str}[/]"
-    )
-
-
-def print_fitting_progress(current: int, total: int) -> None:
-    """Print fitting progress."""
-    percentage = (current / total) * 100 if total > 0 else 0
-    bar_width = 30
-    filled = int(bar_width * current / total) if total > 0 else 0
-    bar = "█" * filled + "░" * (bar_width - filled)
-    console.print(
-        f"\r[cyan]Progress[/] │[{bar}] {percentage:.0f}% ({current}/{total})",
-        end="",
-    )
-    if current == total:
-        console.print()  # New line when complete
-
-
 def print_fit_summary(
     total_clusters: int,
     total_peaks: int,
@@ -144,46 +122,9 @@ def print_fit_summary(
     console.print(Panel(panel_content, border_style="green"))
 
 
-def print_parameter_table(params: object) -> None:
-    """Print a formatted table of fitted parameters.
-
-    Args:
-        params: Parameters object with fitted values
-    """
-    table = Table(title="Fitted Parameters", show_lines=False)
-    table.add_column("Parameter", style="cyan")
-    table.add_column("Value", style="green", justify="right")
-    table.add_column("Min", style="dim", justify="right")
-    table.add_column("Max", style="dim", justify="right")
-    table.add_column("Vary", style="yellow", justify="center")
-
-    for name in params:
-        param = params[name]
-        vary_str = "✓" if param.vary else "✗"
-        min_str = f"{param.min:.2f}" if param.min > -1e10 else "-∞"
-        max_str = f"{param.max:.2f}" if param.max < 1e10 else "∞"
-        table.add_row(name, f"{param.value:.6f}", min_str, max_str, vary_str)
-
-    console.print(table)
-
-
 def print_optimization_settings(ftol: float, xtol: float, max_nfev: int) -> None:
     """Print optimization settings."""
     console.print(f"[dim]Optimization: ftol={ftol:.0e}, xtol={xtol:.0e}, max_nfev={max_nfev}[/]")
-
-
-def print_boundary_warning(param_names: list[str]) -> None:
-    """Print a warning about parameters at their boundaries.
-
-    Args:
-        param_names: List of parameter names at boundaries
-    """
-    if param_names:
-        console.print(f"\n[bold yellow]⚠ Warning:[/] {len(param_names)} parameter(s) at boundary:")
-        for name in param_names[:10]:  # Show max 10
-            console.print(f"  • [yellow]{name}[/]")
-        if len(param_names) > 10:
-            console.print(f"  ... and {len(param_names) - 10} more")
 
 
 def print_data_summary(
@@ -348,71 +289,6 @@ def print_data_shape_mismatch_error() -> None:
         "Error: Data shapes do not match between experimental and simulated data",
         "bold red",
     )
-
-
-def print_file_not_found_with_suggestions(
-    filepath: Path, similar_files: list[Path] | None = None
-) -> None:
-    """Print file not found error with helpful suggestions.
-
-    Args:
-        filepath: Path that was not found
-        similar_files: Optional list of similar files to suggest
-    """
-    console.print(f"\n[bold red]✗ Error:[/] File not found: [yellow]{filepath}[/]")
-
-    if similar_files:
-        console.print("\n[cyan]Did you mean one of these?[/]")
-        for file in similar_files[:5]:  # Show max 5 suggestions
-            console.print(f"  • [green]{file}[/]")
-
-    # Show files in current directory
-    parent = filepath.parent if filepath.parent.exists() else Path()
-    if parent.is_dir():
-        pattern = f"*{filepath.suffix}" if filepath.suffix else "*"
-        matching_files = list(parent.glob(pattern))
-        if matching_files and not similar_files:
-            console.print(f"\n[cyan]Available {pattern} files in {parent}:[/]")
-            for file in matching_files[:10]:
-                console.print(f"  • [green]{file.name}[/]")
-            if len(matching_files) > 10:
-                console.print(f"  [dim]... and {len(matching_files) - 10} more[/]")
-
-
-def print_auto_detection(parameter: str, value: str, source: str = "spectrum") -> None:
-    """Print auto-detected parameter information.
-
-    Args:
-        parameter: Name of the parameter
-        value: Detected value
-        source: Source of detection (e.g., "spectrum", "data")
-    """
-    console.print(f"[dim]▸ Auto-detected {parameter} from {source}:[/] [cyan]{value}[/]")
-
-
-def print_smart_default(option: str, value: str, reason: str) -> None:
-    """Print smart default selection message.
-
-    Args:
-        option: Option name
-        value: Default value being used
-        reason: Reason for this default
-    """
-    console.print(f"[dim]→ Using {option}:[/] [cyan]{value}[/] [dim]({reason})[/]")
-
-
-def print_confirmation_prompt(message: str) -> bool:
-    """Show confirmation prompt and return user's choice.
-
-    Args:
-        message: Message to display
-
-    Returns:
-        True if user confirms, False otherwise
-    """
-    from rich.prompt import Confirm
-
-    return Confirm.ask(f"[yellow]{message}[/]")
 
 
 def print_performance_summary(

@@ -92,7 +92,6 @@ def run_fit(
         save_state: Whether to save fitting state for later analysis.
         verbose: Show banner and verbose output.
     """
-    import time
     from datetime import datetime
 
     # Track timing
@@ -232,8 +231,8 @@ def run_fit(
     ui.log(f"Optimizer: {optimizer}")
     ui.log(f"Backend: {backend}")
     ui.log(f"Parallel: {'enabled' if parallel else 'disabled'}")
-    ui.log(f"Tolerances: ftol=1e-7, xtol=1e-7")
-    ui.log(f"Max iterations: 1000")
+    ui.log("Tolerances: ftol=1e-7, xtol=1e-7")
+    ui.log("Max iterations: 1000")
     ui.log("")
 
     if optimizer != "leastsq":
@@ -338,7 +337,6 @@ def run_fit(
     console.print()  # ONE blank line after Results Summary table
 
     # Next steps - use relative paths for cleaner output
-    from pathlib import Path as PathlibPath
     output_dir_name = config.output.directory.name
     spectrum_name = spectrum_path.name
 
@@ -461,7 +459,7 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                         f"{result.nfev} evaluations [dim]│[/dim] "
                         f"{cluster_time:.1f}s"
                     )
-                    ui.log(f"  - Status: Converged", level="info")
+                    ui.log("  - Status: Converged", level="info")
                 else:
                     console.print(
                         f"[yellow]⚠[/yellow] {result.message} [dim]│[/dim] "
