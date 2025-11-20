@@ -256,36 +256,37 @@ def run_fit(
     ui.log_section("Output Files")
     config.output.directory.mkdir(parents=True, exist_ok=True)
 
-    # Track what was saved
-    output_files = []
+    # Save all files with progress feedback
+    # Each operation shows spinner → immediate success message
+    ui.spacer()
 
     with console.status("[cyan]Writing profiles...[/cyan]", spinner="dots"):
         write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
-    output_files.append(("Peak profiles", f"{len(peaks)} *.out files"))
+    ui.success(f"Peak profiles: {config.output.directory.name}/{len(peaks)} *.out files")
     ui.log(f"Profile files: {len(peaks)} *.out files")
-
-    if config.output.save_html_report:
-        with console.status("[cyan]Generating HTML report...[/cyan]", spinner="dots"):
-            ui.export_html(config.output.directory / "logs.html")
-        output_files.append(("HTML report", "logs.html"))
-        ui.log(f"HTML report: {config.output.directory / 'logs.html'}")
 
     with console.status("[cyan]Writing shifts...[/cyan]", spinner="dots"):
         write_shifts(peaks, params, config.output.directory / "shifts.list")
-    output_files.append(("Chemical shifts", "shifts.list"))
+    ui.success(f"Chemical shifts: {config.output.directory.name}/shifts.list")
     ui.log(f"Shifts file: {config.output.directory / 'shifts.list'}")
 
     if config.output.save_simulated:
         with console.status("[cyan]Writing simulated spectra...[/cyan]", spinner="dots"):
             _write_spectra(config.output.directory, spectra, clusters, params)
-        output_files.append(("Simulated spectra", "simulated_*.ft*"))
+        ui.success(f"Simulated spectra: {config.output.directory.name}/simulated_*.ft*")
+
+    if config.output.save_html_report:
+        with console.status("[cyan]Generating HTML report...[/cyan]", spinner="dots"):
+            ui.export_html(config.output.directory / "logs.html")
+        ui.success(f"HTML report: {config.output.directory.name}/logs.html")
+        ui.log(f"HTML report: {config.output.directory / 'logs.html'}")
 
     # Save fitting state for later analysis
     if save_state:
         with console.status("[cyan]Saving fitting state...[/cyan]", spinner="dots"):
             state_file = config.output.directory / ".peakfit_state.pkl"
             _save_fitting_state(state_file, clusters, params, clargs.noise, peaks)
-        output_files.append(("Fitting state", ".peakfit_state.pkl"))
+        ui.success(f"Fitting state: {config.output.directory.name}/.peakfit_state.pkl")
         ui.log(f"State file: {state_file}")
 
     ui.log(f"Log file: {log_file}")
@@ -296,12 +297,6 @@ def run_fit(
     ui.log(f"Total peaks: {len(peaks)}")
     ui.log(f"Total time: {total_time:.0f}s ({total_time/60:.1f}m)")
     ui.log(f"Average time per cluster: {total_time/len(clusters):.1f}s")
-
-    # Display saved files
-    ui.spacer()
-    for output_type, location in output_files:
-        full_location = f"{config.output.directory.name}/{location}"
-        ui.success(f"{output_type}: {full_location}")
 
     # Display summary table on console
     ui.spacer()
@@ -389,7 +384,7 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
         for index in range(clargs.refine_nb + 1):
             if index > 0:
                 ui.spacer()
-                ui.show_header("Refining Peak Parameters")
+                # Don't show header - keep all fitting in one section
                 ui.log_section(f"Refinement Iteration {index}")
                 update_cluster_corrections(params_all, clusters)
 
@@ -516,7 +511,7 @@ def _fit_clusters_global(
         for index in range(clargs.refine_nb + 1):
             if index > 0:
                 ui.spacer()
-                ui.show_header("Refining Peak Parameters")
+                # Don't show header - keep all fitting in one section
                 ui.log_section(f"Refinement Iteration {index}")
                 update_cluster_corrections(params_all, clusters)
 

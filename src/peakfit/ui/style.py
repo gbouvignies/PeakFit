@@ -241,13 +241,30 @@ class PeakFitUI:
         import os
         command_args = " ".join(sys.argv)
 
+        # Truncate long commands
+        max_cmd_length = 80
+        if len(command_args) > max_cmd_length:
+            command_display = command_args[:max_cmd_length-3] + "..."
+        else:
+            command_display = command_args
+
+        # Simplify platform string (remove redundant parts)
+        platform_str = platform.platform()
+        # "macOS-26.1-arm64-arm-64bit-Mach-O" → "macOS-26.1-arm64"
+        # "Linux-4.4.0-x86_64-with-glibc2.39" → "Linux-4.4.0-x86_64"
+        platform_parts = platform_str.split('-')
+        if len(platform_parts) > 3:
+            platform_display = '-'.join(platform_parts[:3])
+        else:
+            platform_display = platform_str
+
         # Create run information panel
         info_text = (
             f"[cyan]Started:[/cyan] {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-            f"[cyan]Command:[/cyan] {command_args}\n"
+            f"[cyan]Command:[/cyan] {command_display}\n"
             f"[cyan]Working directory:[/cyan] {Path.cwd()}\n"
             f"[cyan]Python:[/cyan] {sys.version.split()[0]} | "
-            f"[cyan]Platform:[/cyan] {platform.platform()}"
+            f"[cyan]Platform:[/cyan] {platform_display}"
         )
 
         run_info_panel = Panel(
@@ -255,12 +272,13 @@ class PeakFitUI:
             title="Run Information",
             border_style="cyan",
             box=box.ROUNDED,
-            padding=(0, 1),
+            padding=(0, 2),
+            expand=False,  # Don't expand to full terminal width
         )
         console.print(run_info_panel)
         console.print()
 
-        # Log this information
+        # Log this information (use full strings, not truncated)
         if _logger:
             PeakFitUI.log("=" * 60)
             PeakFitUI.log(f"PeakFit v{VERSION} started")
@@ -431,7 +449,7 @@ class PeakFitUI:
 
         console.print("\n" + "━" * 70)
         console.print(
-            f"[dim]Completed:[/dim] {end_time.strftime('%Y-%m-%d %H:%M:%S')} | "
+            f"[green]✓[/green] [dim]Completed:[/dim] {end_time.strftime('%Y-%m-%d %H:%M:%S')} | "
             f"[dim]Total runtime:[/dim] [cyan]{runtime_str}[/cyan]"
         )
 
