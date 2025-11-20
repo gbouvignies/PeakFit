@@ -1,17 +1,11 @@
 """Contain IO messages."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-
-from peakfit import __version__
-
-if TYPE_CHECKING:
-    from peakfit.peak import Peak
 
 console = Console(record=True)
 
@@ -22,43 +16,6 @@ LOGO = r"""
 / ___/  __/ (_| |   < |  _| | | |_
 \/    \___|\__,_|_|\_\|_|   |_|\__|
 """
-
-
-def print_logo() -> None:
-    """Display the logo in the terminal."""
-    logo_text = Text(LOGO, style="bold cyan")
-    description_text = Text(
-        "Modern NMR Peak Fitting for Pseudo-3D Spectra\nhttps://github.com/gbouvignies/PeakFit\n\n",
-        style="dim",
-    )
-    version_text = Text("Version: ", style="dim")
-    version_number_text = Text(f"{__version__}", style="bold green")
-    all_text = Text.assemble(logo_text, description_text, version_text, version_number_text)
-    panel = Panel.fit(all_text, border_style="cyan", title="🎯 PeakFit")
-    console.print(panel)
-
-
-def print_message(message: str, style: str) -> None:
-    """Print a styled message to the console."""
-    console.print(message, style=style)
-
-
-def print_fitting() -> None:
-    """Print the fitting message."""
-    print_message("\n — Fitting peaks...", "bold yellow")
-
-
-def print_peaks(peaks: list["Peak"]) -> None:
-    """Print the peak names that are being fitted."""
-    peak_list = ", ".join(peak.name for peak in peaks)
-    message = f"Peak(s): {peak_list}"
-    panel = Panel.fit(message, style="green")
-    console.print(panel)
-
-
-def print_segmenting() -> None:
-    """Print the segmenting message."""
-    print_message("\n — Segmenting the spectra and clustering the peaks...", "bold yellow")
 
 
 def print_fit_report(result: object) -> None:
@@ -161,21 +118,6 @@ def print_data_summary(
     console.print()
 
 
-def print_success_message(message: str) -> None:
-    """Print a success message."""
-    console.print(f"[bold green]✓[/] {message}")
-
-
-def print_warning_message(message: str) -> None:
-    """Print a warning message."""
-    console.print(f"[bold yellow]⚠[/] {message}")
-
-
-def print_error_message(message: str) -> None:
-    """Print an error message."""
-    console.print(f"[bold red]✗[/] {message}")
-
-
 def export_html(filehtml: Path) -> None:
     """Export console output to an HTML file."""
     filehtml.write_text(console.export_html())
@@ -183,7 +125,7 @@ def export_html(filehtml: Path) -> None:
 
 def print_reading_files() -> None:
     """Print the message for reading files."""
-    print_message("\n — Reading files...", "bold yellow")
+    console.print("\n — Reading files...", style="bold yellow")
 
 
 def print_plotting(out: str) -> None:
@@ -199,95 +141,69 @@ def print_filename(filename: Path) -> None:
     console.print(Text.from_markup(message))
 
 
-def print_estimated_noise(noise: float) -> None:
-    """Print the estimated noise."""
-    message = f"\n [bold yellow]— Estimated noise:[/] [bold green]{noise:.2f}[/]"
-    console.print(Text.from_markup(message))
-
-
-def print_writing_spectra() -> None:
-    """Print the message for writing the spectra."""
-    print_message("\n — Writing the simulated spectra...", "bold yellow")
-
-
-def print_writing_profiles() -> None:
-    """Print the message for writing the profiles."""
-    print_message("\n — Writing the profiles...", "bold yellow")
-
-
-def print_writing_shifts() -> None:
-    """Print the message for writing the shifts."""
-    print_message("\n — Writing the shifts...", "bold yellow")
-
-
-def print_refining(index: int, refine_nb: int) -> None:
-    """Print the message for refining the peaks."""
-    print_message(f"\n — Refining the peak parameters ({index}/{refine_nb})...", "bold yellow")
-
-
 # File validation and error messages for plotting commands
 
 
 def print_no_files_specified() -> None:
     """Print error message when no files are specified."""
-    print_message("Error: No files specified.", "bold red")
+    console.print("Error: No files specified.", style="bold red")
 
 
 def print_files_not_found_warning() -> None:
     """Print warning message when some files are not found."""
-    print_message("\nWarning: Some files were not found:", "bold yellow")
+    console.print("\nWarning: Some files were not found:", style="bold yellow")
 
 
 def print_missing_file(filename: str | Path) -> None:
     """Print a specific missing file."""
-    print_message(f"  - {filename}", "yellow")
+    console.print(f"  - {filename}", style="yellow")
 
 
 def print_no_valid_files_error() -> None:
     """Print error message when no valid files are found."""
-    print_message("Error: No valid files found.", "bold red")
+    console.print("Error: No valid files found.", style="bold red")
 
 
 def print_all_files_missing_error() -> None:
     """Print error message when all specified files are missing."""
-    print_message("All specified files are missing or inaccessible.", "red")
+    console.print("All specified files are missing or inaccessible.", style="red")
 
 
 def print_check_file_patterns_help() -> None:
     """Print help message to check file patterns."""
-    print_message("Please check your file patterns and ensure files exist.", "red")
+    console.print("Please check your file patterns and ensure files exist.", style="red")
 
 
 def print_processing_files_count(count: int) -> None:
     """Print the number of files being processed."""
-    print_message(f"\nProcessing {count} valid file(s).", "green")
+    console.print(f"\nProcessing {count} valid file(s).", style="green")
 
 
 def print_experimental_file_not_found(filename: str) -> None:
     """Print error message when experimental data file is not found."""
-    print_message(f"Error: Experimental data file not found: {filename}", "bold red")
+    console.print(f"Error: Experimental data file not found: {filename}", style="bold red")
 
 
 def print_simulated_file_not_found(filename: str) -> None:
     """Print error message when simulated data file is not found."""
-    print_message(f"Error: Simulated data file not found: {filename}", "bold red")
+    console.print(f"Error: Simulated data file not found: {filename}", style="bold red")
 
 
 def print_peak_list_file_not_found(filename: str) -> None:
     """Print error message when peak list file is not found."""
-    print_message(f"Error: Peak list file not found: {filename}", "bold red")
+    console.print(f"Error: Peak list file not found: {filename}", style="bold red")
 
 
 def print_data_loading_error(error: Exception) -> None:
     """Print error message when data files cannot be loaded."""
-    print_message(f"Error loading data files: {error}", "bold red")
+    console.print(f"Error loading data files: {error}", style="bold red")
 
 
 def print_data_shape_mismatch_error() -> None:
     """Print error message when data shapes do not match."""
-    print_message(
+    console.print(
         "Error: Data shapes do not match between experimental and simulated data",
-        "bold red",
+        style="bold red",
     )
 
 

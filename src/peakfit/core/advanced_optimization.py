@@ -11,6 +11,21 @@ import numpy as np
 from scipy import optimize
 
 from peakfit.computing import residuals
+from peakfit.core.constants import (
+    BASIN_HOPPING_LOCAL_MAXITER,
+    BASIN_HOPPING_NITER,
+    BASIN_HOPPING_STEPSIZE,
+    BASIN_HOPPING_TEMPERATURE,
+    DIFF_EVOLUTION_MAXITER,
+    DIFF_EVOLUTION_MUTATION,
+    DIFF_EVOLUTION_POPSIZE,
+    DIFF_EVOLUTION_RECOMBINATION,
+    MCMC_BURN_IN,
+    MCMC_N_STEPS,
+    MCMC_N_WALKERS,
+    PROFILE_LIKELIHOOD_DELTA_CHI2,
+    PROFILE_LIKELIHOOD_NPOINTS,
+)
 from peakfit.core.fitting import Parameters
 from peakfit.typing import FloatArray
 
@@ -85,9 +100,9 @@ def fit_basin_hopping(
     params: Parameters,
     cluster: "Cluster",
     noise: float,
-    n_iterations: int = 100,
-    temperature: float = 1.0,
-    step_size: float = 0.5,
+    n_iterations: int = BASIN_HOPPING_NITER,
+    temperature: float = BASIN_HOPPING_TEMPERATURE,
+    step_size: float = BASIN_HOPPING_STEPSIZE,
 ) -> GlobalFitResult:
     """Fit cluster using basin-hopping global optimization.
 
@@ -129,7 +144,7 @@ def fit_basin_hopping(
     minimizer_kwargs = {
         "method": "L-BFGS-B",
         "bounds": bounds,
-        "options": {"maxiter": 1000},
+        "options": {"maxiter": BASIN_HOPPING_LOCAL_MAXITER},
     }
 
     result = optimize.basinhopping(
@@ -178,10 +193,10 @@ def fit_differential_evolution(
     params: Parameters,
     cluster: "Cluster",
     noise: float,
-    max_iterations: int = 1000,
-    population_size: int = 15,
-    mutation: tuple[float, float] = (0.5, 1.0),
-    recombination: float = 0.7,
+    max_iterations: int = DIFF_EVOLUTION_MAXITER,
+    population_size: int = DIFF_EVOLUTION_POPSIZE,
+    mutation: tuple[float, float] = DIFF_EVOLUTION_MUTATION,
+    recombination: float = DIFF_EVOLUTION_RECOMBINATION,
     polish: bool = True,
 ) -> GlobalFitResult:
     """Fit cluster using differential evolution.
@@ -254,8 +269,8 @@ def compute_profile_likelihood(
     cluster: "Cluster",
     noise: float,
     param_name: str,
-    n_points: int = 20,
-    delta_chi2: float = 3.84,  # 95% CI for 1 parameter
+    n_points: int = PROFILE_LIKELIHOOD_NPOINTS,
+    delta_chi2: float = PROFILE_LIKELIHOOD_DELTA_CHI2,  # 95% CI for 1 parameter
 ) -> tuple[FloatArray, FloatArray, tuple[float, float]]:
     """Compute profile likelihood confidence interval.
 
@@ -331,9 +346,9 @@ def estimate_uncertainties_mcmc(
     params: Parameters,
     cluster: "Cluster",
     noise: float,
-    n_walkers: int = 32,
-    n_steps: int = 1000,
-    burn_in: int = 200,
+    n_walkers: int = MCMC_N_WALKERS,
+    n_steps: int = MCMC_N_STEPS,
+    burn_in: int = MCMC_BURN_IN,
 ) -> UncertaintyResult:
     """Estimate parameter uncertainties using MCMC sampling.
 

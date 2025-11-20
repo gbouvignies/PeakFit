@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from peakfit.core.constants import BENCHMARK_MAX_NFEV
+
 if TYPE_CHECKING:
     from peakfit.clustering import Cluster
     from peakfit.core.fitting import Parameters
@@ -170,7 +172,7 @@ def benchmark_fitting_methods(
 
     # Standard least-squares
     results["least_squares"] = benchmark_function(
-        lambda: fit_cluster(params.copy(), cluster, noise, max_nfev=500),
+        lambda: fit_cluster(params.copy(), cluster, noise, max_nfev=BENCHMARK_MAX_NFEV),
         "Least Squares",
         n_iterations,
         warmup=1,
@@ -266,7 +268,7 @@ def profile_fit_cluster(
 
     # Profile full fitting
     start = time.perf_counter()
-    fit_cluster(params.copy(), cluster, noise, max_nfev=500)
+    fit_cluster(params.copy(), cluster, noise, max_nfev=BENCHMARK_MAX_NFEV)
     profile["full_fit"] = time.perf_counter() - start
 
     return profile

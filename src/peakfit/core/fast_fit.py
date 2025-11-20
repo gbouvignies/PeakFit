@@ -17,6 +17,7 @@ import numpy as np
 from scipy.optimize import least_squares
 
 from peakfit.clustering import Cluster
+from peakfit.core.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
 from peakfit.core.fitting import Parameters
 from peakfit.peak import create_params
 
@@ -197,9 +198,9 @@ def fit_cluster_dict(
             args=(names, params, cluster, noise),
             bounds=(lower, upper),
             method="trf",
-            ftol=1e-7,
-            xtol=1e-7,
-            max_nfev=1000,
+            ftol=LEAST_SQUARES_FTOL,
+            xtol=LEAST_SQUARES_XTOL,
+            max_nfev=LEAST_SQUARES_MAX_NFEV,
             verbose=0,
         )
     except Exception as e:

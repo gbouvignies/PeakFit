@@ -9,6 +9,7 @@ from threadpoolctl import threadpool_limits
 
 from peakfit.clustering import create_clusters
 from peakfit.computing import residuals, simulate_data, update_cluster_corrections
+from peakfit.core.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
 from peakfit.core.fitting import Parameters
 from peakfit.core.models import PeakFitConfig
 from peakfit.noise import prepare_noise_level
@@ -231,8 +232,8 @@ def run_fit(
     ui.log(f"Optimizer: {optimizer}")
     ui.log(f"Backend: {backend}")
     ui.log(f"Parallel: {'enabled' if parallel else 'disabled'}")
-    ui.log("Tolerances: ftol=1e-7, xtol=1e-7")
-    ui.log("Max iterations: 1000")
+    ui.log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
+    ui.log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
     ui.log("")
 
     if optimizer != "leastsq":
@@ -424,9 +425,9 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                     x0,
                     args=(params, cluster, clargs.noise),
                     bounds=(bounds_lower, bounds_upper),
-                    ftol=1e-7,
-                    xtol=1e-7,
-                    max_nfev=1000,
+                    ftol=LEAST_SQUARES_FTOL,
+                    xtol=LEAST_SQUARES_XTOL,
+                    max_nfev=LEAST_SQUARES_MAX_NFEV,
                     verbose=scipy_verbose,
                 )
 
