@@ -13,7 +13,6 @@ def prepare_noise_level(clargs: FittingOptions, spectra: Spectra) -> float:
 
     if clargs.noise is None:
         clargs.noise = estimate_noise(spectra.data)
-        ui.info(f"Estimated noise level: {clargs.noise:.2f}")
 
     return clargs.noise
 

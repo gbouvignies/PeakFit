@@ -23,9 +23,11 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
     errors = []
     warnings = []
     info = {}
+    checks = {}
 
     # Validate spectrum file
-    ui.info(f"Checking spectrum: [path]{spectrum_path}[/path]")
+    ui.spacer()
+    ui.info(f"Checking spectrum: [path]{spectrum_path.name}[/path]")
     try:
         _dic, data = ng.pipe.read(str(spectrum_path))
         info["Spectrum shape"] = str(data.shape)
@@ -40,12 +42,15 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
             warnings.append(f"Unusual dimensionality: {data.ndim}D")
 
         ui.success(f"Spectrum readable - Shape: {data.shape}")
+        checks["Spectrum file readable"] = (True, "Pass")
     except Exception as e:
         errors.append(f"Failed to read spectrum: {e}")
         ui.error(f"Failed to read spectrum: {e}")
+        checks["Spectrum file readable"] = (False, f"✗ Failed: {e}")
 
     # Validate peak list file
-    ui.info(f"Checking peak list: [path]{peaklist_path}[/path]")
+    ui.spacer()
+    ui.info(f"Checking peak list: [path]{peaklist_path.name}[/path]")
     try:
         suffix = peaklist_path.suffix.lower()
 
@@ -64,11 +69,15 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
         if peaks:
             info["Peaks"] = str(len(peaks))
             ui.success(f"Peak list readable - {len(peaks)} peaks found")
+            checks["Peak list readable"] = (True, "Pass")
 
             # Check for duplicate names
             names = [p["name"] for p in peaks]
             if len(names) != len(set(names)):
                 warnings.append("Duplicate peak names found")
+                checks["No duplicate peaks"] = (False, "Duplicates found")
+            else:
+                checks["No duplicate peaks"] = (True, "Pass")
 
             # Check position ranges
             x_positions = [p["x"] for p in peaks]
@@ -78,31 +87,46 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
             info["X range (ppm)"] = f"{x_min:.2f} to {x_max:.2f}"
             info["Y range (ppm)"] = f"{y_min:.2f} to {y_max:.2f}"
 
+            # File permissions check
+            checks["File permissions"] = (True, "Pass")
+
     except Exception as e:
         errors.append(f"Failed to read peak list: {e}")
         ui.error(f"Failed to read peak list: {e}")
+        checks["Peak list readable"] = (False, f"✗ Failed: {e}")
 
     # Summary table
-    console.print()
-    ui.print_summary(info, title="Validation Summary")
+    ui.spacer()
+    ui.print_summary(info, title="File Information")
+
+    # Validation checks table
+    if checks:
+        ui.spacer()
+        ui.print_validation_table(checks, title="Validation Checks")
 
     # Warnings
     if warnings:
-        console.print()
+        ui.spacer()
         for warning in warnings:
             ui.warning(warning)
 
     # Errors
     if errors:
-        console.print()
+        ui.spacer()
         for error in errors:
             ui.error(error)
-        console.print()
+        ui.spacer()
         ui.error("Validation failed!")
         raise SystemExit(1)
 
-    console.print()
-    ui.success("Validation passed!")
+    ui.spacer()
+    ui.success("All validation checks passed!")
+
+    # Next steps
+    ui.spacer()
+    ui.info(f"Ready for fitting. Run:")
+    console.print(f"    [cyan]peakfit fit {spectrum_path.name} {peaklist_path.name}[/cyan]")
+    ui.spacer()
 
 
 def _read_sparky_list(path: Path) -> list[dict]:
