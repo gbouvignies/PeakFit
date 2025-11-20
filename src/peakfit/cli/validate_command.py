@@ -27,7 +27,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
 
     # Validate spectrum file
     ui.spacer()
-    ui.info(f"Checking spectrum: [path]{spectrum_path}[/path]")
+    ui.info(f"Checking spectrum: [path]{spectrum_path.name}[/path]")
     try:
         _dic, data = ng.pipe.read(str(spectrum_path))
         info["Spectrum shape"] = str(data.shape)
@@ -42,7 +42,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
             warnings.append(f"Unusual dimensionality: {data.ndim}D")
 
         ui.success(f"Spectrum readable - Shape: {data.shape}")
-        checks["Spectrum file readable"] = (True, "✓ Pass")
+        checks["Spectrum file readable"] = (True, "Pass")
     except Exception as e:
         errors.append(f"Failed to read spectrum: {e}")
         ui.error(f"Failed to read spectrum: {e}")
@@ -50,7 +50,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
 
     # Validate peak list file
     ui.spacer()
-    ui.info(f"Checking peak list: [path]{peaklist_path}[/path]")
+    ui.info(f"Checking peak list: [path]{peaklist_path.name}[/path]")
     try:
         suffix = peaklist_path.suffix.lower()
 
@@ -69,15 +69,15 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
         if peaks:
             info["Peaks"] = str(len(peaks))
             ui.success(f"Peak list readable - {len(peaks)} peaks found")
-            checks["Peak list readable"] = (True, "✓ Pass")
+            checks["Peak list readable"] = (True, "Pass")
 
             # Check for duplicate names
             names = [p["name"] for p in peaks]
             if len(names) != len(set(names)):
                 warnings.append("Duplicate peak names found")
-                checks["No duplicate peaks"] = (False, "⚠ Duplicates found")
+                checks["No duplicate peaks"] = (False, "Duplicates found")
             else:
-                checks["No duplicate peaks"] = (True, "✓ Pass")
+                checks["No duplicate peaks"] = (True, "Pass")
 
             # Check position ranges
             x_positions = [p["x"] for p in peaks]
@@ -88,7 +88,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
             info["Y range (ppm)"] = f"{y_min:.2f} to {y_max:.2f}"
 
             # File permissions check
-            checks["File permissions"] = (True, "✓ Pass")
+            checks["File permissions"] = (True, "Pass")
 
     except Exception as e:
         errors.append(f"Failed to read peak list: {e}")
@@ -125,7 +125,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
     # Next steps
     ui.spacer()
     ui.info(f"Ready for fitting. Run:")
-    console.print(f"    [cyan]peakfit fit {spectrum_path} {peaklist_path}[/cyan]")
+    console.print(f"    [cyan]peakfit fit {spectrum_path.name} {peaklist_path.name}[/cyan]")
     ui.spacer()
 
 

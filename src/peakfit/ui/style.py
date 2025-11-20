@@ -767,16 +767,16 @@ class PeakFitUI:
             noise_level: Estimated noise level
             contour_level: Contour level for clustering
         """
-        table = PeakFitUI.create_table("Data Summary", show_header=False)
-        table.add_column("Property", style="cyan", width=20)
-        table.add_column("Value", style="green")
+        table = PeakFitUI.create_table("Data Summary")
+        table.add_column("Property", style="cyan")
+        table.add_column("Value", style="green", justify="right")
 
         table.add_row("Spectrum shape", str(spectrum_shape))
         table.add_row("Number of planes", str(n_planes))
         table.add_row("Number of peaks", str(n_peaks))
         table.add_row("Number of clusters", str(n_clusters))
-        table.add_row("Noise level", f"{noise_level:.4f}")
-        table.add_row("Contour level", f"{contour_level:.4f}")
+        table.add_row("Noise level", f"{noise_level:.2f}")
+        table.add_row("Contour level", f"{contour_level:.2f}")
 
         console.print()
         console.print(table)
