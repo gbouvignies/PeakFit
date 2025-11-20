@@ -1,38 +1,30 @@
 # PeakFit Documentation
 
-This directory contains comprehensive documentation for PeakFit development and usage.
+Welcome to the PeakFit documentation. This directory contains guides for users and contributors.
 
 ## User Guides
 
-- **[Optimization Guide](optimization_guide.md)** - Performance optimization techniques and best practices for fitting
+- **[Optimization Guide](optimization_guide.md)** - Performance tuning and best practices for fitting large datasets
+- **[Examples](../examples/)** - Comprehensive examples demonstrating PeakFit capabilities
 
 ## Development Documentation
 
-### Style Guides
+For contributors and developers:
 
-- **[UI Style Guide](ui-style-guide.md)** - User interface and user experience design principles
-- **[Terminal Output Style Guide](terminal-output-style-guide.md)** - Developer guide for implementing consistent terminal output
-
-### Specifications
-
-- **[Output Specification](output-specification.md)** - Detailed specification for terminal output formatting across all commands
-
-### Project Reports
-
-- **[Terminal Output Improvements](terminal-output-improvements.md)** - Summary of terminal output polish and enhancements
-- **[UI/UX Improvements Summary](ui-ux-improvements-summary.md)** - Summary of comprehensive UI/UX enhancements
-- **[Validation Report](validation-report.md)** - Comprehensive validation of PeakFit modernization (PR#9)
+- **[UI Style Guide](development/ui-style-guide.md)** - User interface and experience design principles
+- **[Terminal Output Style Guide](development/terminal-output-style-guide.md)** - Guidelines for consistent terminal output
 
 ## Main Documentation
 
 See the main [README.md](../README.md) in the repository root for:
 - Installation instructions
 - Quick start guide
-- Usage examples
+- Command-line interface reference
 - Contributing guidelines
 
-## External Resources
+## Getting Help
 
+- **Examples**: See [examples/](../examples/) for practical usage demonstrations
 - **GitHub Repository**: https://github.com/gbouvignies/PeakFit
 - **Issue Tracker**: https://github.com/gbouvignies/PeakFit/issues
 

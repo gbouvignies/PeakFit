@@ -1,125 +1,240 @@
 # PeakFit Examples
 
-This directory contains example files demonstrating PeakFit usage.
+This directory contains practical examples demonstrating PeakFit's capabilities, from basic fitting to advanced optimization and uncertainty analysis.
 
-## CEST Analysis Example
+## Quick Start
 
-This example shows how to fit a pseudo-3D CEST (Chemical Exchange Saturation Transfer) NMR spectrum.
-
-### Files
-
-- **pseudo3d.ft2** - Pseudo-3D NMRPipe spectrum (128 planes)
-- **pseudo3d.list** - Peak list in Sparky format (name, F1 ppm, F2 ppm)
-- **b1_offsets.txt** - Z-dimension values (B1 offsets in Hz)
-- **run.sh** - Example script demonstrating the fitting workflow
-
-### Quick Start
+All examples can be run from the command line. Navigate to an example directory and run the provided script:
 
 ```bash
-# Run the example
-./run.sh
-
-# Or manually:
-peakfit fit pseudo3d.ft2 pseudo3d.list --z-values b1_offsets.txt --output Fits
+cd 02-advanced-fitting
+bash run.sh
 ```
 
-### Using Configuration Files
+## Examples Overview
 
-You can also use a TOML configuration file for more control:
+### 1. Basic Fitting
+**Directory:** `01-basic-fitting/`
+**Difficulty:** Beginner
+**Time:** < 1 minute
+**Status:** Template - adapt for your data
+
+Demonstrates the most common use case: fitting a simple 2D or pseudo-3D spectrum with well-separated peaks.
+
+**What you'll learn:**
+- Loading NMRPipe spectra and peak lists
+- Running a basic fit with default settings
+- Interpreting the results
+
+**Command:**
+```bash
+peakfit fit data/spectrum.ft2 data/peaks.list --output results/
+```
+
+### 2. Advanced Fitting with CEST Analysis
+**Directory:** `02-advanced-fitting/`
+**Difficulty:** Intermediate
+**Time:** 2-3 minutes
+**Status:** Ready to run with real data
+
+Shows how to fit pseudo-3D CEST (Chemical Exchange Saturation Transfer) data with Z-axis values and custom configuration.
+
+**What you'll learn:**
+- Handling pseudo-3D experiments (CEST, CPMG, relaxation, etc.)
+- Using Z-values for plane-dependent experiments
+- Working with configuration files for reproducibility
+- Analyzing CEST profiles
+
+**Command:**
+```bash
+peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
+  --z-values data/b1_offsets.txt \
+  --output Fits/
+```
+
+### 3. Global Optimization for Difficult Peaks
+**Directory:** `03-global-optimization/`
+**Difficulty:** Advanced
+**Time:** 5-10 minutes
+**Status:** Template - uses same data with different approach
+
+Demonstrates global optimization methods (basin-hopping, differential evolution) for fitting highly overlapping or difficult peaks where local optimization fails.
+
+**What you'll learn:**
+- When to use global optimization
+- Choosing between basin-hopping and differential evolution
+- Tuning global optimizer parameters
+- Comparing local vs. global results
+
+**Command:**
+```bash
+peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
+  --z-values data/b1_offsets.txt \
+  --optimizer basin_hopping \
+  --output Fits/
+```
+
+### 4. Uncertainty Quantification
+**Directory:** `04-uncertainty-analysis/`
+**Difficulty:** Advanced
+**Time:** 10-20 minutes
+**Status:** Template - requires MCMC implementation
+
+Shows how to estimate parameter uncertainties using MCMC sampling or profile likelihood methods.
+
+**What you'll learn:**
+- Running uncertainty analysis on fitted parameters
+- Understanding parameter correlations
+- Interpreting confidence intervals
+- Validating fit quality
+
+**Command:**
+```bash
+# First, run the fit
+peakfit fit data/spectrum.ft2 data/peaks.list --output fit_results/
+
+# Then, run uncertainty analysis (if available)
+peakfit analyze uncertainty fit_results/
+```
+
+### 5. Batch Processing Multiple Datasets
+**Directory:** `05-batch-processing/`
+**Difficulty:** Intermediate
+**Time:** Variable
+**Status:** Template - demonstrates workflow pattern
+
+Demonstrates efficient processing of multiple experiments with shared peak assignments.
+
+**What you'll learn:**
+- Processing multiple spectra in batch
+- Automating workflows with shell scripts
+- Organizing results from multiple experiments
+- Comparing results across datasets
+
+## Data Format Requirements
+
+PeakFit supports:
+- **Spectra:** NMRPipe format (.ft2, .ft3)
+- **Peak lists:** NMRPipe, Sparky, or CSV format
+- **Z-values:** Plain text file, one value per line (for pseudo-3D experiments)
+
+## Getting Started
+
+### For First-Time Users
+
+Start with **Example 2** (Advanced Fitting) since it contains real data and is ready to run:
 
 ```bash
-# Generate a default config
-peakfit init peakfit.toml
-
-# Edit the config as needed, then run:
-peakfit fit pseudo3d.ft2 pseudo3d.list --z-values b1_offsets.txt --config peakfit.toml
+cd 02-advanced-fitting
+bash run.sh
 ```
 
-Example configuration for CEST analysis:
+This will fit the provided CEST spectrum and generate results in the `Fits/` directory.
 
-```toml
-[fitting]
-lineshape = "auto"
-refine_iterations = 1
-fix_positions = false
+### Adapting Examples for Your Data
 
-[clustering]
-contour_factor = 5.0
+Most examples are templates showing the workflow. To use them with your data:
 
-[output]
-directory = "Fits"
-formats = ["txt"]
-save_simulated = true
-save_html_report = true
+1. **Replace the data files** in the `data/` subdirectory
+2. **Update the commands** in the README and run script
+3. **Adjust parameters** as needed for your experiment type
 
-exclude_planes = []
+## Example Data
+
+The examples use a real pseudo-3D CEST NMR spectrum from a protein sample:
+- **Spectrum:** 131 planes × 256 × 546 points
+- **Experiment:** CEST with B1 offsets from -5000 to +5000 Hz
+- **Peaks:** 166 peaks organized into 45 clusters
+
+This dataset is used across multiple examples to demonstrate different analysis workflows.
+
+## Output Files
+
+After running a fit, you'll typically find:
+
+- **`Fits/{peak_name}.out`** - Individual peak fitting results with intensity profiles
+- **`Fits/shifts.list`** - Fitted chemical shift positions
+- **`Fits/peakfit.log`** - Detailed log file with timestamps
+- **`Fits/logs.html`** - Interactive HTML report (if enabled)
+
+## Troubleshooting
+
+### Common Issues
+
+**"Command not found: peakfit"**
+- Make sure PeakFit is installed: `pip install peakfit`
+- Or install from source: `pip install -e .` from the repository root
+
+**"File not found" errors**
+- Check you're in the correct example directory
+- Verify data files exist in the `data/` subdirectory
+
+**"Fitting failed for all clusters"**
+- Check data quality and signal-to-noise ratio
+- Try adjusting contour level or clustering parameters
+- Consider global optimization (Example 3)
+
+**Results look wrong**
+- Verify peak list coordinates match your spectrum
+- Check lineshape model (auto-detected from spectrum header)
+- Review the log file for warnings
+
+### Getting Help
+
+For each example, see the `README.md` in that directory for detailed explanations and expected output.
+
+For general help:
+```bash
+peakfit --help
+peakfit fit --help
+peakfit plot --help
 ```
 
-### Validate Input Files
+## Validation
 
-Before fitting, you can validate your input files:
+Before fitting, validate your input files:
 
 ```bash
-peakfit validate pseudo3d.ft2 pseudo3d.list
+peakfit validate spectrum.ft2 peaks.list
 ```
 
-### Output Files
+This checks:
+- File formats are correct
+- Peaks are within spectral bounds
+- No duplicate assignments
+- Proper file permissions
 
-After running, the `Fits/` directory will contain:
+## Creating Your Own Workflows
 
-- **{peak_name}.out** - Individual peak fitting results with intensity profiles
-- **shifts.list** - Fitted chemical shift positions
-- **simulated.ft2** - Reconstructed spectrum from fitted parameters
-- **logs.html** - HTML report with detailed fitting information
+These examples provide templates you can adapt for your own data. Key principles:
 
-### Plotting Results
+1. **Start simple** - Use default settings first
+2. **Validate inputs** - Always check files before fitting
+3. **Use configuration files** - For reproducibility and documentation
+4. **Check logs** - Review `peakfit.log` for detailed information
+5. **Visualize results** - Plot profiles to validate fits
 
-Generate CEST profiles:
+## Performance Tips
 
-```bash
-# Plot all peaks with reference at plane 0
-peakfit-plot cest -f Fits/*N-H.out --ref 0
+For large datasets:
+- Use configuration files to specify parameters once
+- Enable parallel processing (automatically used when beneficial)
+- Consider clustering parameters to reduce number of fits
+- Monitor memory usage for very large spectra
 
-# Plot specific peaks
-peakfit-plot cest -f Fits/10N-H.out Fits/15N-H.out --ref 0
-```
+See the [Optimization Guide](../docs/optimization_guide.md) for detailed performance tuning.
 
-### Advanced Options
+## Citation
 
-```bash
-# Fix peak positions during fitting
-peakfit fit pseudo3d.ft2 pseudo3d.list --z-values b1_offsets.txt --fixed
+If you use PeakFit in your research, please cite the appropriate reference (see main README).
 
-# Use more refinement iterations
-peakfit fit pseudo3d.ft2 pseudo3d.list --z-values b1_offsets.txt --refine 3
+## Additional Resources
 
-# Force specific lineshape model
-peakfit fit pseudo3d.ft2 pseudo3d.list --z-values b1_offsets.txt --lineshape pvoigt
+- **[Main README](../README.md)** - Installation and quick start
+- **[Optimization Guide](../docs/optimization_guide.md)** - Performance tuning
+- **[Documentation](../docs/)** - Complete documentation
+- **[GitHub Issues](https://github.com/gbouvignies/PeakFit/issues)** - Report bugs or request features
 
-# Exclude noisy planes
-peakfit fit pseudo3d.ft2 pseudo3d.list --z-values b1_offsets.txt --exclude 0 --exclude 127
-```
+---
 
-## Peak List Format
-
-The peak list uses Sparky format:
-
-```
-Assignment  F1(ppm)   F2(ppm)
-2N-H        115.630   6.868
-3N-H        117.519   8.693
-...
-```
-
-## Z-Dimension Values
-
-The Z-values file contains one value per line, corresponding to each plane in the pseudo-3D spectrum:
-
-```
--5000
--4500
--4000
-...
-```
-
-For CEST experiments, these are typically B1 offsets in Hz.
+**Need help?** Open an issue at https://github.com/gbouvignies/PeakFit/issues
