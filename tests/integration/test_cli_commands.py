@@ -229,41 +229,41 @@ class TestProfilingUtilities:
         assert "Total time" in summary
 
 
-class TestFastFitErrorHandling:
-    """Test error handling in fast_fit module."""
+class TestScipyOptimizerErrorHandling:
+    """Test error handling in scipy_optimizer module."""
 
     def test_negative_noise_raises(self):
         """Negative noise should raise ValueError."""
         from unittest.mock import MagicMock
 
-        from peakfit.core.fast_fit import fit_cluster_fast
+        from peakfit.core.scipy_optimizer import fit_cluster
 
         cluster = MagicMock()
         cluster.peaks = [MagicMock()]
 
         with pytest.raises(ValueError, match="positive"):
-            fit_cluster_fast(cluster, noise=-1.0)
+            fit_cluster(cluster, noise=-1.0)
 
     def test_zero_noise_raises(self):
         """Zero noise should raise ValueError."""
         from unittest.mock import MagicMock
 
-        from peakfit.core.fast_fit import fit_cluster_fast
+        from peakfit.core.scipy_optimizer import fit_cluster
 
         cluster = MagicMock()
         cluster.peaks = [MagicMock()]
 
         with pytest.raises(ValueError, match="positive"):
-            fit_cluster_fast(cluster, noise=0.0)
+            fit_cluster(cluster, noise=0.0)
 
     def test_empty_peaks_raises(self):
-        """Cluster with no peaks should raise FastFitError."""
+        """Cluster with no peaks should raise ScipyOptimizerError."""
         from unittest.mock import MagicMock
 
-        from peakfit.core.fast_fit import FastFitError, fit_cluster_fast
+        from peakfit.core.scipy_optimizer import ScipyOptimizerError, fit_cluster
 
         cluster = MagicMock()
         cluster.peaks = []
 
-        with pytest.raises(FastFitError, match="no peaks"):
-            fit_cluster_fast(cluster, noise=1.0)
+        with pytest.raises(ScipyOptimizerError, match="no peaks"):
+            fit_cluster(cluster, noise=1.0)

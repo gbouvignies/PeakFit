@@ -1,4 +1,4 @@
-"""Test fast fitting module (direct scipy optimization)."""
+"""Test scipy optimizer module (direct scipy optimization)."""
 
 import numpy as np
 import pytest
@@ -7,13 +7,13 @@ import pytest
 pytest.importorskip("scipy")
 
 
-class TestFastFitConversions:
+class TestScipyOptimizerConversions:
     """Tests for parameter conversion functions."""
 
     def test_params_to_arrays_basic(self):
         """Should convert Parameters to numpy arrays."""
-        from peakfit.core.fast_fit import params_to_arrays
         from peakfit.core.fitting import Parameters
+        from peakfit.core.scipy_optimizer import params_to_arrays
 
         params = Parameters()
         params.add("x0", value=10.0, min=5.0, max=15.0, vary=True)
@@ -32,8 +32,8 @@ class TestFastFitConversions:
 
     def test_params_to_arrays_no_bounds(self):
         """Should handle parameters without explicit bounds."""
-        from peakfit.core.fast_fit import params_to_arrays
         from peakfit.core.fitting import Parameters
+        from peakfit.core.scipy_optimizer import params_to_arrays
 
         params = Parameters()
         params.add("unbounded", value=42.0, vary=True)
@@ -47,8 +47,8 @@ class TestFastFitConversions:
 
     def test_params_to_arrays_empty(self):
         """Should handle case with no varying parameters."""
-        from peakfit.core.fast_fit import params_to_arrays
         from peakfit.core.fitting import Parameters
+        from peakfit.core.scipy_optimizer import params_to_arrays
 
         params = Parameters()
         params.add("fixed", value=10.0, vary=False)
@@ -62,8 +62,8 @@ class TestFastFitConversions:
 
     def test_arrays_to_params_update(self):
         """Should update Parameters with optimized values."""
-        from peakfit.core.fast_fit import arrays_to_params
         from peakfit.core.fitting import Parameters
+        from peakfit.core.scipy_optimizer import arrays_to_params
 
         template = Parameters()
         template.add("x0", value=10.0, min=5.0, max=15.0, vary=True)
@@ -81,45 +81,45 @@ class TestFastFitConversions:
         assert updated["x0"].max == 15.0
 
 
-class TestFastFitModuleImports:
+class TestScipyOptimizerModuleImports:
     """Tests for module imports and basic structure."""
 
-    def test_import_fast_fit_module(self):
-        """Should be able to import fast_fit module."""
-        from peakfit.core.fast_fit import (
+    def test_import_scipy_optimizer_module(self):
+        """Should be able to import scipy_optimizer module."""
+        from peakfit.core.scipy_optimizer import (
             arrays_to_params,
-            fit_cluster_fast,
-            fit_clusters_fast,
+            compute_residuals,
+            fit_cluster,
+            fit_clusters,
             params_to_arrays,
-            residuals_fast,
         )
 
         assert callable(params_to_arrays)
         assert callable(arrays_to_params)
-        assert callable(residuals_fast)
-        assert callable(fit_cluster_fast)
-        assert callable(fit_clusters_fast)
+        assert callable(compute_residuals)
+        assert callable(fit_cluster)
+        assert callable(fit_clusters)
 
-    def test_fit_cluster_fast_signature(self):
-        """fit_cluster_fast should have correct signature."""
+    def test_fit_cluster_signature(self):
+        """fit_cluster should have correct signature."""
         import inspect
 
-        from peakfit.core.fast_fit import fit_cluster_fast
+        from peakfit.core.scipy_optimizer import fit_cluster
 
-        sig = inspect.signature(fit_cluster_fast)
+        sig = inspect.signature(fit_cluster)
         params = list(sig.parameters.keys())
         assert "cluster" in params
         assert "noise" in params
         assert "fixed" in params
         assert "params_init" in params
 
-    def test_fit_clusters_fast_signature(self):
-        """fit_clusters_fast should have correct signature."""
+    def test_fit_clusters_signature(self):
+        """fit_clusters should have correct signature."""
         import inspect
 
-        from peakfit.core.fast_fit import fit_clusters_fast
+        from peakfit.core.scipy_optimizer import fit_clusters
 
-        sig = inspect.signature(fit_clusters_fast)
+        sig = inspect.signature(fit_clusters)
         params = list(sig.parameters.keys())
         assert "clusters" in params
         assert "noise" in params
@@ -128,7 +128,7 @@ class TestFastFitModuleImports:
         assert "verbose" in params
 
 
-class TestFastFitResultStructure:
+class TestScipyOptimizerResultStructure:
     """Tests for result dictionary structure."""
 
     def test_result_dictionary_keys(self):
@@ -136,7 +136,7 @@ class TestFastFitResultStructure:
         # Test that the structure is documented correctly
         expected_keys = {"params", "success", "chisqr", "redchi", "nfev", "message"}
 
-        # These are the keys that fit_cluster_fast returns
+        # These are the keys that fit_cluster returns
         assert expected_keys == {"params", "success", "chisqr", "redchi", "nfev", "message"}
 
     def test_param_info_structure(self):
@@ -147,13 +147,13 @@ class TestFastFitResultStructure:
         assert expected_fields == {"value", "stderr", "vary", "min", "max"}
 
 
-class TestFastFitEdgeCases:
-    """Tests for edge cases in fast fitting."""
+class TestScipyOptimizerEdgeCases:
+    """Tests for edge cases in scipy optimization."""
 
     def test_params_to_arrays_preserves_order(self):
         """Parameter order should be preserved."""
-        from peakfit.core.fast_fit import params_to_arrays
         from peakfit.core.fitting import Parameters
+        from peakfit.core.scipy_optimizer import params_to_arrays
 
         params = Parameters()
         params.add("a", value=1.0, vary=True)
@@ -167,8 +167,8 @@ class TestFastFitEdgeCases:
 
     def test_params_with_inf_bounds(self):
         """Should handle infinite bounds correctly."""
-        from peakfit.core.fast_fit import params_to_arrays
         from peakfit.core.fitting import Parameters
+        from peakfit.core.scipy_optimizer import params_to_arrays
 
         params = Parameters()
         params.add("pos", value=0.0, min=-np.inf, max=np.inf, vary=True)
@@ -183,8 +183,8 @@ class TestFastFitEdgeCases:
 
     def test_arrays_to_params_copy(self):
         """Should return a copy, not modify original."""
-        from peakfit.core.fast_fit import arrays_to_params
         from peakfit.core.fitting import Parameters
+        from peakfit.core.scipy_optimizer import arrays_to_params
 
         template = Parameters()
         template.add("x0", value=10.0, vary=True)
@@ -200,7 +200,7 @@ class TestFastFitEdgeCases:
         assert updated["x0"].value == 20.0
 
 
-class TestFastFitIntegration:
+class TestScipyOptimizerIntegration:
     """Integration tests with actual fitting (mocked cluster)."""
 
     def test_scipy_least_squares_available(self):
@@ -211,7 +211,7 @@ class TestFastFitIntegration:
 
     def test_numpy_lstsq_available(self):
         """numpy.linalg.lstsq should be available."""
-        # This is used in residuals_fast
+        # This is used in compute_residuals
         result = np.linalg.lstsq(
             np.array([[1, 2], [3, 4], [5, 6]]),
             np.array([1, 2, 3]),
