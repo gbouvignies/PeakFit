@@ -1,6 +1,6 @@
 """Tests for messaging and output functions."""
 
-from peakfit.messages import LOGO, print_logo, print_message
+from peakfit.messages import LOGO
 
 
 class TestLogo:
@@ -20,60 +20,6 @@ class TestLogo:
         assert len(LOGO) > 50  # Should be multi-line ASCII art
 
 
-class TestPrintLogo:
-    """Tests for print_logo function."""
-
-    def test_print_logo_executes(self):
-        """Test that print_logo executes without error."""
-        # Should not raise any exception
-        print_logo()
-
-    def test_print_logo_outputs_to_console(self, capsys):
-        """Test that print_logo produces console output."""
-        # Capture stdout directly
-        print_logo()
-        captured = capsys.readouterr()
-
-        # Should have produced output to stdout
-        assert len(captured.out) > 0
-        assert "PeakFit" in captured.out or "___" in captured.out
-
-
-class TestPrintMessage:
-    """Tests for print_message function."""
-
-    def test_print_message_executes(self):
-        """Test that print_message executes without error."""
-        print_message("Test message", "bold")
-
-    def test_print_message_with_different_styles(self):
-        """Test print_message with various styles."""
-        styles = ["bold", "italic", "bold red", "green", "yellow"]
-
-        for style in styles:
-            print_message(f"Test with {style}", style)
-
-    def test_print_message_empty_string(self):
-        """Test print_message with empty string."""
-        print_message("", "bold")
-
-
-class TestFittingMessages:
-    """Tests for fitting-related message functions."""
-
-    def test_print_fitting_executes(self):
-        """Test that print_fitting executes without error."""
-        from peakfit.messages import print_fitting
-
-        print_fitting()
-
-    def test_print_segmenting_executes(self):
-        """Test that print_segmenting executes without error."""
-        from peakfit.messages import print_segmenting
-
-        print_segmenting()
-
-
 class TestConsoleExport:
     """Tests for console export functionality."""
 
@@ -82,7 +28,7 @@ class TestConsoleExport:
         from peakfit.messages import console
 
         console.clear()
-        print_message("Test export", "bold")
+        console.print("Test export", style="bold")
 
         output = console.export_text()
         assert isinstance(output, str)
@@ -92,7 +38,7 @@ class TestConsoleExport:
         """Test that console can be cleared."""
         from peakfit.messages import console
 
-        print_message("Before clear", "bold")
+        console.print("Before clear", style="bold")
         before_len = len(console.export_text())
 
         console.clear()

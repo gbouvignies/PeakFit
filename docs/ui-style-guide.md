@@ -62,10 +62,13 @@ The PeakFit logo appears:
 
 ### Display Function
 
-```python
-from peakfit.messages import print_logo
+The logo is displayed using the PeakFitUI class from `ui/style.py`:
 
-print_logo()  # Shows logo with version and description
+```python
+from peakfit.ui.style import PeakFitUI
+
+ui = PeakFitUI()
+ui.print_banner()  # Shows logo with version and description
 ```
 
 ## Command Structure
@@ -160,19 +163,16 @@ Documentation: https://peakfit.readthedocs.io/config
 ### Error Message Functions
 
 ```python
-from peakfit.messages import (
-    print_error_message,
-    print_file_not_found_with_suggestions,
-)
+from peakfit.ui.style import PeakFitUI
+
+ui = PeakFitUI()
 
 # Simple error
-print_error_message("Configuration file is invalid")
+ui.error("Configuration file is invalid")
 
-# Error with file suggestions
-print_file_not_found_with_suggestions(
-    Path("specturm.ft2"),
-    similar_files=[Path("spectrum.ft2"), Path("test_spectrum.ft2")]
-)
+# Or use console directly for quick messages
+from peakfit.messages import console
+console.print("[bold red]✗[/] Configuration file is invalid")
 ```
 
 ## User Feedback Patterns
@@ -202,10 +202,15 @@ print_smart_default("--jobs", "8", "detected 8 CPU cores")
 ### Success Messages
 
 ```python
-from peakfit.messages import print_success_message
+from peakfit.ui.style import PeakFitUI
 
-print_success_message("Created configuration file: peakfit.toml")
+ui = PeakFitUI()
+ui.success("Created configuration file: peakfit.toml")
 # Output: ✓ Created configuration file: peakfit.toml
+
+# Or use console directly
+from peakfit.messages import console
+console.print("[bold green]✓[/] Created configuration file: peakfit.toml")
 ```
 
 ### Next Steps
