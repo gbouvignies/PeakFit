@@ -974,8 +974,8 @@ def benchmark(
 
     from peakfit.cli.fit_command import FitArguments
     from peakfit.clustering import create_clusters
-    from peakfit.core.fast_fit import fit_clusters_fast
     from peakfit.core.parallel import fit_clusters_parallel_refined
+    from peakfit.core.scipy_optimizer import fit_clusters
     from peakfit.noise import prepare_noise_level
     from peakfit.peaklist import read_list
     from peakfit.spectra import get_shape_names, read_spectra
@@ -1023,7 +1023,7 @@ def benchmark(
     times_fast = []
     for _i in range(iterations):
         start = time.perf_counter()
-        fit_clusters_fast(
+        fit_clusters(
             clusters=list(clusters),
             noise=clargs.noise,
             refine_iterations=0,  # No refinement for speed comparison

@@ -451,6 +451,6 @@ def fit_clusters_sequential(
     return params_all
 
 
-# Backward compatibility aliases (deprecated)
-fit_cluster_fast = fit_cluster
-residuals_fast = _residuals_for_optimizer
+# Backward compatibility aliases (deprecated - remove in future version)
+# fit_cluster_fast was renamed to fit_cluster
+# residuals_fast was renamed to _residuals_for_optimizer

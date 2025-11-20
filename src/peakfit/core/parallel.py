@@ -51,10 +51,10 @@ def _fit_single_cluster(
     Returns:
         Dictionary with fitted parameter values and fit statistics
     """
-    from peakfit.core.fast_fit import fit_cluster_fast
+    from peakfit.core.scipy_optimizer import fit_cluster
 
-    # Use fast scipy-based fitting
-    return fit_cluster_fast(cluster, noise, fixed=fixed, params_init=params_dict)
+    # Use scipy-based fitting
+    return fit_cluster(cluster, noise, fixed=fixed, params_init=params_dict)
 
 
 def fit_clusters_parallel(
