@@ -4,11 +4,13 @@ All terminal output MUST use these styles for consistency.
 """
 
 import logging
+import platform
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
@@ -224,6 +226,58 @@ class PeakFitUI:
         console.print(f"\n{LOGO_EMOJI} [header]PeakFit[/header] [dim]v{VERSION}[/dim]")
         console.print(f"[dim]{REPO_URL}[/dim]\n")
 
+    @staticmethod
+    def show_run_info(start_time: datetime) -> None:
+        """Show run information header with context.
+
+        Args:
+            start_time: When the program started
+        """
+        # Logo and version
+        console.print(f"\n{LOGO_EMOJI} [bold cyan]PeakFit[/bold cyan] [dim]v{VERSION}[/dim]")
+        console.print("━" * 70 + "\n")
+
+        # Get command line arguments
+        import os
+        command_args = " ".join(sys.argv)
+
+        # Create run information panel
+        info_text = (
+            f"[cyan]Started:[/cyan] {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"[cyan]Command:[/cyan] {command_args}\n"
+            f"[cyan]Working directory:[/cyan] {Path.cwd()}\n"
+            f"[cyan]Python:[/cyan] {sys.version.split()[0]} | "
+            f"[cyan]Platform:[/cyan] {platform.platform()}"
+        )
+
+        run_info_panel = Panel(
+            info_text,
+            title="Run Information",
+            border_style="cyan",
+            box=box.ROUNDED,
+            padding=(0, 1),
+        )
+        console.print(run_info_panel)
+        console.print()
+
+        # Log this information
+        if _logger:
+            PeakFitUI.log("=" * 60)
+            PeakFitUI.log(f"PeakFit v{VERSION} started")
+            PeakFitUI.log("=" * 60)
+            PeakFitUI.log(f"Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            PeakFitUI.log(f"Command: {command_args}")
+            PeakFitUI.log(f"Working directory: {Path.cwd()}")
+            PeakFitUI.log(f"Python: {sys.version.split()[0]}")
+            PeakFitUI.log(f"Platform: {platform.platform()}")
+            PeakFitUI.log(f"User: {os.getenv('USER', 'unknown')}")
+            try:
+                import socket
+                PeakFitUI.log(f"Hostname: {socket.gethostname()}")
+            except Exception:
+                pass
+            PeakFitUI.log("=" * 60)
+
     # ==================== HEADERS ====================
 
     @staticmethod
@@ -356,6 +410,37 @@ class PeakFitUI:
             style: Rich style to apply
         """
         console.print(f"[{style}]{char * width}[/{style}]")
+
+    @staticmethod
+    def show_footer(start_time: datetime, end_time: datetime) -> None:
+        """Show completion footer with timing information.
+
+        Args:
+            start_time: When the program started
+            end_time: When the program completed
+        """
+        runtime = (end_time - start_time).total_seconds()
+
+        # Format runtime
+        if runtime < 60:
+            runtime_str = f"{runtime:.1f}s"
+        else:
+            minutes = int(runtime // 60)
+            seconds = int(runtime % 60)
+            runtime_str = f"{minutes}m {seconds}s"
+
+        console.print("\n" + "━" * 70)
+        console.print(
+            f"[dim]Completed:[/dim] {end_time.strftime('%Y-%m-%d %H:%M:%S')} | "
+            f"[dim]Total runtime:[/dim] [cyan]{runtime_str}[/cyan]"
+        )
+
+        # Log completion
+        if _logger:
+            PeakFitUI.log("=" * 60)
+            PeakFitUI.log(f"Completed: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            PeakFitUI.log(f"Total runtime: {runtime_str}")
+            PeakFitUI.log("=" * 60)
 
     # ==================== PROGRESS INDICATORS ====================
 

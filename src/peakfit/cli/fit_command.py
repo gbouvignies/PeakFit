@@ -93,19 +93,23 @@ def run_fit(
         verbose: Show banner and verbose output.
     """
     import time
+    from datetime import datetime
+
+    # Track timing
+    start_time_dt = datetime.now()
 
     # Setup logging
     log_file = config.output.directory / "peakfit.log"
     ui.setup_logging(log_file=log_file, verbose=False)
 
-    # Show banner based on verbosity
-    ui.show_banner(verbose)
+    # Show run information header (replaces banner)
+    if verbose:
+        ui.show_banner(verbose)  # Show full banner in verbose mode
+    else:
+        ui.show_run_info(start_time_dt)  # Show compact run info otherwise
 
     # Store verbose flag globally for _fit_clusters to access
     config._verbose = verbose
-
-    # Track timing
-    start_time = time.time()
 
     # ============================================================
     # SECTION 1: CONFIGURATION
@@ -245,7 +249,8 @@ def run_fit(
     ui.show_header("Fitting Complete")
 
     # Calculate statistics
-    total_time = time.time() - start_time
+    end_time_dt = datetime.now()
+    total_time = (end_time_dt - start_time_dt).total_seconds()
 
     # Save all output files
     ui.log_section("Output Files")
@@ -254,27 +259,32 @@ def run_fit(
     # Track what was saved
     output_files = []
 
-    write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
+    with console.status("[cyan]Writing profiles...[/cyan]", spinner="dots"):
+        write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
     output_files.append(("Peak profiles", f"{len(peaks)} *.out files"))
     ui.log(f"Profile files: {len(peaks)} *.out files")
 
     if config.output.save_html_report:
-        ui.export_html(config.output.directory / "logs.html")
+        with console.status("[cyan]Generating HTML report...[/cyan]", spinner="dots"):
+            ui.export_html(config.output.directory / "logs.html")
         output_files.append(("HTML report", "logs.html"))
         ui.log(f"HTML report: {config.output.directory / 'logs.html'}")
 
-    write_shifts(peaks, params, config.output.directory / "shifts.list")
+    with console.status("[cyan]Writing shifts...[/cyan]", spinner="dots"):
+        write_shifts(peaks, params, config.output.directory / "shifts.list")
     output_files.append(("Chemical shifts", "shifts.list"))
     ui.log(f"Shifts file: {config.output.directory / 'shifts.list'}")
 
     if config.output.save_simulated:
-        _write_spectra(config.output.directory, spectra, clusters, params)
+        with console.status("[cyan]Writing simulated spectra...[/cyan]", spinner="dots"):
+            _write_spectra(config.output.directory, spectra, clusters, params)
         output_files.append(("Simulated spectra", "simulated_*.ft*"))
 
     # Save fitting state for later analysis
     if save_state:
-        state_file = config.output.directory / ".peakfit_state.pkl"
-        _save_fitting_state(state_file, clusters, params, clargs.noise, peaks)
+        with console.status("[cyan]Saving fitting state...[/cyan]", spinner="dots"):
+            state_file = config.output.directory / ".peakfit_state.pkl"
+            _save_fitting_state(state_file, clusters, params, clargs.noise, peaks)
         output_files.append(("Fitting state", ".peakfit_state.pkl"))
         ui.log(f"State file: {state_file}")
 
@@ -352,6 +362,9 @@ def run_fit(
     console.print("4. Check log file:")
     console.print(f"   [cyan]less {output_dir_name}/peakfit.log[/cyan]")
     console.print()
+
+    # Show footer with completion info
+    ui.show_footer(start_time_dt, end_time_dt)
 
     # Close logging
     ui.close_logging()
