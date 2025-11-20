@@ -81,9 +81,7 @@ def plot_intensity_profiles(
     start_time = time.time()
 
     with ui.create_progress() as progress:
-        task = progress.add_task(
-            "[cyan]Generating plots...", total=len(files)
-        )
+        task = progress.add_task("[cyan]Generating plots...", total=len(files))
 
         with PdfPages(output_path) as pdf:
             for idx, file in enumerate(files):
@@ -121,11 +119,13 @@ def plot_intensity_profiles(
     ui.success("Plots saved successfully!")
 
     # Next steps
-    ui.print_next_steps([
-        f"Open PDF: [cyan]open {output_path}[/cyan]",
-        f"Plot CEST profiles: [cyan]peakfit plot cest {results}/[/cyan]",
-        f"Interactive viewer: [cyan]peakfit plot spectra {results}/ --spectrum SPECTRUM.ft2[/cyan]",
-    ])
+    ui.print_next_steps(
+        [
+            f"Open PDF: [cyan]open {output_path}[/cyan]",
+            f"Plot CEST profiles: [cyan]peakfit plot cest {results}/[/cyan]",
+            f"Interactive viewer: [cyan]peakfit plot spectra {results}/ --spectrum SPECTRUM.ft2[/cyan]",
+        ]
+    )
 
     if show and plot_data_for_display:
         for name, data in plot_data_for_display:

@@ -241,8 +241,8 @@ class PeakFitUI:
         import os
 
         # Remove absolute path from peakfit executable, keep just 'peakfit'
-        if sys.argv and ('peakfit' in sys.argv[0] or sys.argv[0].endswith('.py')):
-            clean_argv = ['peakfit', *sys.argv[1:]]
+        if sys.argv and ("peakfit" in sys.argv[0] or sys.argv[0].endswith(".py")):
+            clean_argv = ["peakfit", *sys.argv[1:]]
         else:
             clean_argv = sys.argv
 
@@ -251,7 +251,7 @@ class PeakFitUI:
         # Truncate long commands
         max_cmd_length = 80
         if len(command_args) > max_cmd_length:
-            command_display = command_args[:max_cmd_length-3] + "..."
+            command_display = command_args[: max_cmd_length - 3] + "..."
         else:
             command_display = command_args
 
@@ -259,9 +259,9 @@ class PeakFitUI:
         platform_str = platform.platform()
         # "macOS-26.1-arm64-arm-64bit-Mach-O" → "macOS-26.1-arm64"
         # "Linux-4.4.0-x86_64-with-glibc2.39" → "Linux-4.4.0-x86_64"
-        platform_parts = platform_str.split('-')
+        platform_parts = platform_str.split("-")
         if len(platform_parts) > 3:
-            platform_display = '-'.join(platform_parts[:3])
+            platform_display = "-".join(platform_parts[:3])
         else:
             platform_display = platform_str
 
@@ -299,6 +299,7 @@ class PeakFitUI:
             PeakFitUI.log(f"User: {os.getenv('USER', 'unknown')}")
             try:
                 import socket
+
                 PeakFitUI.log(f"Hostname: {socket.gethostname()}")
             except (OSError, ImportError):
                 # Socket operations may fail in restricted environments

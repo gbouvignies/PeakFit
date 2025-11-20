@@ -145,19 +145,23 @@ def run_fit(
         spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
     # Log spectrum details
-    ui.log_dict({
-        "Spectrum": str(spectrum_path),
-        "Dimensions": str(spectra.data.shape),
-        "Size": f"{spectrum_path.stat().st_size / 1024 / 1024:.1f} MB",
-        "Data type": str(spectra.data.dtype),
-    })
+    ui.log_dict(
+        {
+            "Spectrum": str(spectrum_path),
+            "Dimensions": str(spectra.data.shape),
+            "Size": f"{spectrum_path.stat().st_size / 1024 / 1024:.1f} MB",
+            "Data type": str(spectra.data.dtype),
+        }
+    )
 
     # Estimate noise
     ui.log_section("Noise Estimation")
     noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
     clargs.noise = prepare_noise_level(clargs, spectra)
     noise_source = "user-provided" if noise_was_provided else "estimated"
-    ui.log(f"Method: {'User-provided' if noise_was_provided else 'Median Absolute Deviation (MAD)'}")
+    ui.log(
+        f"Method: {'User-provided' if noise_was_provided else 'Median Absolute Deviation (MAD)'}"
+    )
     ui.log(f"Noise level: {clargs.noise:.2f} ({noise_source})")
 
     # Determine lineshape
@@ -170,22 +174,19 @@ def run_fit(
 
     # Show consolidated spectrum info table
     _print_spectrum_info(
-        spectrum_path,
-        spectra,
-        shape_names,
-        clargs.noise,
-        noise_source,
-        clargs.contour_level
+        spectrum_path, spectra, shape_names, clargs.noise, noise_source, clargs.contour_level
     )
 
     # Read peak list
     ui.log_section("Peak List")
     peaks = read_list(spectra, shape_names, clargs)
-    ui.log_dict({
-        "Peak list": str(peaklist_path),
-        "Format": "Sparky/NMRPipe",
-        "Peaks": len(peaks),
-    })
+    ui.log_dict(
+        {
+            "Peak list": str(peaklist_path),
+            "Format": "Sparky/NMRPipe",
+            "Peaks": len(peaks),
+        }
+    )
 
     # Show consolidated peak list info table
     _print_peaklist_info(peaklist_path, z_values_path, len(peaks))
@@ -197,7 +198,9 @@ def run_fit(
     ui.show_header("Clustering Peaks")
     ui.log_section("Clustering")
     ui.log("Algorithm: DBSCAN")
-    ui.log(f"Contour level: {clargs.contour_level:.2f} ({clargs.contour_level/clargs.noise:.1f} * noise)")
+    ui.log(
+        f"Contour level: {clargs.contour_level:.2f} ({clargs.contour_level / clargs.noise:.1f} * noise)"
+    )
 
     with console.status("[cyan]Segmenting spectra and clustering peaks...[/cyan]", spinner="dots"):
         clusters = create_clusters(spectra, peaks, clargs.contour_level)
@@ -207,11 +210,15 @@ def run_fit(
 
     # Calculate cluster size distribution
     cluster_sizes = [len(c.peaks) for c in clusters]
-    ui.log_dict({
-        "Min": f"{min(cluster_sizes)} peak" if cluster_sizes else "N/A",
-        "Max": f"{max(cluster_sizes)} peaks" if cluster_sizes else "N/A",
-        "Median": f"{sorted(cluster_sizes)[len(cluster_sizes)//2]} peaks" if cluster_sizes else "N/A",
-    })
+    ui.log_dict(
+        {
+            "Min": f"{min(cluster_sizes)} peak" if cluster_sizes else "N/A",
+            "Max": f"{max(cluster_sizes)} peaks" if cluster_sizes else "N/A",
+            "Median": f"{sorted(cluster_sizes)[len(cluster_sizes) // 2]} peaks"
+            if cluster_sizes
+            else "N/A",
+        }
+    )
 
     min_peaks = min(cluster_sizes) if cluster_sizes else 0
     max_peaks = max(cluster_sizes) if cluster_sizes else 0
@@ -296,8 +303,8 @@ def run_fit(
     ui.log_section("Results Summary")
     ui.log(f"Total clusters: {len(clusters)}")
     ui.log(f"Total peaks: {len(peaks)}")
-    ui.log(f"Total time: {total_time:.0f}s ({total_time/60:.1f}m)")
-    ui.log(f"Average time per cluster: {total_time/len(clusters):.1f}s")
+    ui.log(f"Total time: {total_time:.0f}s ({total_time / 60:.1f}m)")
+    ui.log(f"Average time per cluster: {total_time / len(clusters):.1f}s")
 
     # Display summary table on console
     # Count successes by checking params
@@ -316,8 +323,7 @@ def run_fit(
     # Success rate
     success_pct = (successful_clusters / len(clusters) * 100) if len(clusters) > 0 else 0
     summary_table.add_row(
-        "Successful fits",
-        f"{successful_clusters}/{len(clusters)} ({success_pct:.0f}%)"
+        "Successful fits", f"{successful_clusters}/{len(clusters)} ({success_pct:.0f}%)"
     )
 
     # Format time nicely
@@ -345,7 +351,9 @@ def run_fit(
     console.print("1. View intensity profiles:")
     console.print(f"   [cyan]peakfit plot intensity {output_dir_name}/[/cyan]")
     console.print("2. View fitted spectra:")
-    console.print(f"   [cyan]peakfit plot spectra {output_dir_name}/ --spectrum {spectrum_name}[/cyan]")
+    console.print(
+        f"   [cyan]peakfit plot spectra {output_dir_name}/ --spectrum {spectrum_name}[/cyan]"
+    )
     console.print("3. Uncertainty analysis:")
     console.print(f"   [cyan]peakfit analyze mcmc {output_dir_name}/[/cyan]")
     console.print("4. Check log file:")
@@ -670,7 +678,9 @@ def _initialize_backend(backend: str, parallel: bool = False) -> str:
             return backend
 
 
-def _print_configuration(backend: str, parallel: bool, n_workers: int | None, output_dir: Path) -> None:
+def _print_configuration(
+    backend: str, parallel: bool, n_workers: int | None, output_dir: Path
+) -> None:
     """Print configuration information in a consolidated table.
 
     Args:
@@ -699,6 +709,7 @@ def _print_configuration(backend: str, parallel: bool, n_workers: int | None, ou
     if current_backend == "numba" and opt_info["numba_available"]:
         try:
             import numba
+
             jit_status = f"enabled (v{numba.__version__})"
         except ImportError:
             jit_status = "disabled"
@@ -710,6 +721,7 @@ def _print_configuration(backend: str, parallel: bool, n_workers: int | None, ou
     # Parallel processing
     if parallel:
         import multiprocessing
+
         cores = n_workers if n_workers else multiprocessing.cpu_count()
         parallel_str = f"enabled ({cores} cores)"
     else:
@@ -730,7 +742,7 @@ def _print_spectrum_info(
     shape_names: list,
     noise: float,
     noise_source: str,
-    contour_level: float
+    contour_level: float,
 ) -> None:
     """Print consolidated spectrum information table.
 
