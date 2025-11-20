@@ -237,9 +237,16 @@ class PeakFitUI:
         console.print(f"\n{LOGO_EMOJI} [bold cyan]PeakFit[/bold cyan] [dim]v{VERSION}[/dim]")
         console.print("━" * 70 + "\n")
 
-        # Get command line arguments
+        # Get command line arguments and clean them
         import os
-        command_args = " ".join(sys.argv)
+
+        # Remove absolute path from peakfit executable, keep just 'peakfit'
+        if sys.argv and ('peakfit' in sys.argv[0] or sys.argv[0].endswith('.py')):
+            clean_argv = ['peakfit'] + sys.argv[1:]
+        else:
+            clean_argv = sys.argv
+
+        command_args = " ".join(clean_argv)
 
         # Truncate long commands
         max_cmd_length = 80
@@ -278,13 +285,14 @@ class PeakFitUI:
         console.print(run_info_panel)
         console.print()
 
-        # Log this information (use full strings, not truncated)
+        # Log this information (use full original command for log file)
         if _logger:
+            original_command = " ".join(sys.argv)
             PeakFitUI.log("=" * 60)
             PeakFitUI.log(f"PeakFit v{VERSION} started")
             PeakFitUI.log("=" * 60)
             PeakFitUI.log(f"Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-            PeakFitUI.log(f"Command: {command_args}")
+            PeakFitUI.log(f"Command: {original_command}")
             PeakFitUI.log(f"Working directory: {Path.cwd()}")
             PeakFitUI.log(f"Python: {sys.version.split()[0]}")
             PeakFitUI.log(f"Platform: {platform.platform()}")
@@ -300,17 +308,19 @@ class PeakFitUI:
 
     @staticmethod
     def show_header(text: str, log: bool = True) -> None:
-        """Display a prominent section header.
+        """Display a prominent section header with consistent spacing.
+
+        Spacing: ONE blank line before, ZERO blank lines after.
 
         Args:
             text: Header text to display
             log: Whether to log this header to file
         """
-        console.print()
+        console.print()  # ONE blank line before
         console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
         console.print(f"[bold cyan]  {text}[/bold cyan]")
         console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
-        console.print()
+        # NO blank line after - content starts immediately
         if log:
             PeakFitUI.log_section(text)
 

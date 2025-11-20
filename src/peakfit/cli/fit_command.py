@@ -382,9 +382,13 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
     # (e.g., 3171% CPU usage -> 99% CPU usage, 671s -> 8s CPU time)
     with threadpool_limits(limits=1, user_api="blas"):
         for index in range(clargs.refine_nb + 1):
-            if index > 0:
+            if index == 0:
+                # Label initial fit phase
+                console.print("\n[bold]Initial Fit[/bold]\n")
+            else:
+                # Label refinement phase
                 ui.spacer()
-                # Don't show header - keep all fitting in one section
+                console.print(f"[bold]Refining Parameters (Iteration {index})[/bold]\n")
                 ui.log_section(f"Refinement Iteration {index}")
                 update_cluster_corrections(params_all, clusters)
 
@@ -509,9 +513,13 @@ def _fit_clusters_global(
 
     with threadpool_limits(limits=1, user_api="blas"):
         for index in range(clargs.refine_nb + 1):
-            if index > 0:
+            if index == 0:
+                # Label initial fit phase
+                console.print("\n[bold]Initial Fit[/bold]\n")
+            else:
+                # Label refinement phase
                 ui.spacer()
-                # Don't show header - keep all fitting in one section
+                console.print(f"[bold]Refining Parameters (Iteration {index})[/bold]\n")
                 ui.log_section(f"Refinement Iteration {index}")
                 update_cluster_corrections(params_all, clusters)
 
