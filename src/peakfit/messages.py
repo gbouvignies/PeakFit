@@ -387,7 +387,7 @@ def print_auto_detection(parameter: str, value: str, source: str = "spectrum") -
         value: Detected value
         source: Source of detection (e.g., "spectrum", "data")
     """
-    console.print(f"[dim]ℹ Auto-detected {parameter} from {source}:[/] [cyan]{value}[/]")
+    console.print(f"[dim]▸ Auto-detected {parameter} from {source}:[/] [cyan]{value}[/]")
 
 
 def print_smart_default(option: str, value: str, reason: str) -> None:

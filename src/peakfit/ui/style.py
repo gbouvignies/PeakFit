@@ -306,7 +306,7 @@ class PeakFitUI:
             log: Whether to log this message to file
         """
         spaces = "  " * indent
-        console.print(f"{spaces}[info]ℹ[/info]  {message}")
+        console.print(f"{spaces}[dim]▸[/dim] {message}")
         if log:
             PeakFitUI.log(f"{message}")
 
@@ -755,6 +755,7 @@ class PeakFitUI:
         n_peaks: int,
         n_clusters: int,
         noise_level: float,
+        noise_source: str,
         contour_level: float,
     ) -> None:
         """Print a formatted summary of loaded data.
@@ -764,7 +765,8 @@ class PeakFitUI:
             n_planes: Number of planes (z-values)
             n_peaks: Number of peaks
             n_clusters: Number of clusters
-            noise_level: Estimated noise level
+            noise_level: Noise level value
+            noise_source: Source of noise level ('user-provided' or 'estimated')
             contour_level: Contour level for clustering
         """
         table = PeakFitUI.create_table("Data Summary")
@@ -775,7 +777,7 @@ class PeakFitUI:
         table.add_row("Number of planes", str(n_planes))
         table.add_row("Number of peaks", str(n_peaks))
         table.add_row("Number of clusters", str(n_clusters))
-        table.add_row("Noise level", f"{noise_level:.2f}")
+        table.add_row("Noise level", f"{noise_level:.2f} ({noise_source})")
         table.add_row("Contour level", f"{contour_level:.2f}")
 
         console.print()

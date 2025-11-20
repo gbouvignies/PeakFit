@@ -148,10 +148,12 @@ def run_fit(
     # Estimate noise
     ui.spacer()
     ui.log_section("Noise Estimation")
+    noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
     clargs.noise = prepare_noise_level(clargs, spectra)
-    ui.success(f"Noise level: {clargs.noise:.2f}")
-    ui.log(f"Method: Median Absolute Deviation (MAD)")
-    ui.log(f"Noise level: {clargs.noise:.2f}")
+    noise_source = "user-provided" if noise_was_provided else "estimated"
+    ui.success(f"Noise level: {clargs.noise:.2f} ({noise_source})")
+    ui.log(f"Method: {'User-provided' if noise_was_provided else 'Median Absolute Deviation (MAD)'}")
+    ui.log(f"Noise level: {clargs.noise:.2f} ({noise_source})")
 
     # Determine lineshape
     ui.spacer()
@@ -201,6 +203,7 @@ def run_fit(
         n_peaks=len(peaks),
         n_clusters=len(clusters),
         noise_level=clargs.noise,
+        noise_source=noise_source,
         contour_level=clargs.contour_level,
     )
 
