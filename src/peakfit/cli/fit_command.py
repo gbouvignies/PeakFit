@@ -368,7 +368,19 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
 
 
 def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -> Parameters:
-    """Fit all clusters and return parameters."""
+    """Fit all clusters and return parameters.
+
+    Note: This function shares structure with _fit_clusters_global() but intentionally
+    remains separate. DRY extraction was considered but deferred because:
+    - Core optimization logic is fundamentally different (least_squares vs global methods)
+    - Different features: timing, error computation, verbose logging (here) vs simpler output (global)
+    - Only ~20-30 lines of shared boilerplate out of 110+ lines total
+    - Functions are evolving differently as optimization methods diverge
+    - Extraction would require complex conditionals, reducing readability
+    - Current separation provides clarity: standard fitting vs experimental global optimization
+
+    If these functions converge in behavior over time, revisit extraction.
+    """
     params_all = Parameters()
 
     # Use threadpoolctl to limit BLAS threads at runtime
@@ -500,7 +512,11 @@ def _fit_clusters_parallel(
 def _fit_clusters_global(
     clargs: FitArguments, clusters: list, optimizer: str, verbose: bool = False
 ) -> Parameters:
-    """Fit all clusters using global optimization."""
+    """Fit all clusters using global optimization.
+
+    Note: This function shares structure with _fit_clusters() but intentionally
+    remains separate. See _fit_clusters() docstring for DRY analysis rationale.
+    """
     from peakfit.core.advanced_optimization import fit_basin_hopping, fit_differential_evolution
 
     params_all = Parameters()
