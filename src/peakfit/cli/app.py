@@ -180,7 +180,7 @@ def fit(
         typer.Option(
             "--backend",
             "-b",
-            help="Computation backend: auto, numpy, numba",
+            help="Computation backend: auto, numpy, numba, jax (Note: jax slower in Phase 1, use numba for production)",
         ),
     ] = "auto",
     optimizer: Annotated[

@@ -90,7 +90,14 @@ def get_best_backend() -> str:
 
 
 def auto_select_backend() -> str:
-    """Automatically select and set the best backend."""
+    """Automatically select and set the best backend.
+
+    Note: In Phase 1, JAX backend may be slower than Numba for scipy-based
+    optimization due to recompilation overhead. Phase 2 will introduce pure
+    JAX optimization which will be 2-3x faster than Numba.
+
+    For production work, consider using set_backend('numba') until Phase 2.
+    """
     backend = get_best_backend()
     set_backend(backend)
     return backend

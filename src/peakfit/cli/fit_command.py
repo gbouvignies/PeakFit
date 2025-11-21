@@ -700,17 +700,23 @@ def _print_configuration(
 
     # Get backend info
     current_backend = get_backend()
-    opt_info = get_optimization_info()
 
     # Backend row
     config_table.add_row("Backend", current_backend)
 
     # JIT compilation status
-    if current_backend == "numba" and opt_info["numba_available"]:
+    if current_backend == "jax":
+        try:
+            import jax
+
+            jit_status = f"enabled (JAX v{jax.__version__})"
+        except ImportError:
+            jit_status = "disabled"
+    elif current_backend == "numba":
         try:
             import numba
 
-            jit_status = f"enabled (v{numba.__version__})"
+            jit_status = f"enabled (Numba v{numba.__version__})"
         except ImportError:
             jit_status = "disabled"
     else:
