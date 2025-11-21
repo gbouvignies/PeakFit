@@ -198,6 +198,94 @@ def compute_shapes_matrix_numpy(
     return shapes
 
 
+@jax.jit
+def update_peak_data_vectorized(
+    x: Array,
+    positions: Array,
+    fwhms: Array,
+    etas: Array,
+    r2s: Array,
+    param_mapping: Array,  # Shape: (n_params, 3) - [param_type, peak_idx, dim_idx]
+) -> tuple[Array, Array, Array, Array]:
+    """Update peak parameters vectorized (JIT-compiled).
+
+    Args:
+        x: Varying parameter values
+        positions: Position array to update
+        fwhms: FWHM array to update
+        etas: Eta array to update
+        r2s: R2 array to update
+        param_mapping: Mapping array
+
+    Returns:
+        Updated (positions, fwhms, etas, r2s)
+    """
+    # Use jax.lax.fori_loop to update arrays efficiently
+    def update_one(i, arrays):
+        pos, fw, et, r2 = arrays
+        param_type, peak_idx, dim_idx = param_mapping[i]
+
+        # Update appropriate array based on param_type
+        # 0=position, 1=fwhm, 2=eta, 3=r2
+        pos = jnp.where(param_type == 0, pos.at[peak_idx, dim_idx].set(x[i]), pos)
+        fw = jnp.where(param_type == 1, fw.at[peak_idx, dim_idx].set(x[i]), fw)
+        et = jnp.where(param_type == 2, et.at[peak_idx, dim_idx].set(x[i]), et)
+        r2 = jnp.where(param_type == 3, r2.at[peak_idx, dim_idx].set(x[i]), r2)
+
+        return (pos, fw, et, r2)
+
+    return jax.lax.fori_loop(0, len(x), update_one, (positions, fwhms, etas, r2s))
+
+
+def objective_for_optimistix_cached(
+    x: Array,
+    args: tuple[dict[str, Array], Array, Array, float],
+) -> Array:
+    """Objective function with cached peak data (Phase 2.1 optimized).
+
+    This version caches peak metadata to avoid repeated Python object access.
+
+    Args:
+        x: Current varying parameter values
+        args: Tuple of (peak_data_cached, param_mapping, data, noise)
+            - peak_data_cached: Pre-extracted peak data as JAX arrays
+            - param_mapping: Array of (param_type, peak_idx, dim_idx) for varying params
+            - data: Data to fit
+            - noise: Noise level
+
+    Returns:
+        Sum of squared residuals
+    """
+    peak_data_cached, param_mapping, data, noise = args
+
+    # Update parameters using vectorized JAX operation (JIT-compiled)
+    positions_updated, fwhms_updated, etas_updated, r2s_updated = update_peak_data_vectorized(
+        x,
+        peak_data_cached["positions"],
+        peak_data_cached["fwhms"],
+        peak_data_cached["etas"],
+        peak_data_cached["r2s"],
+        param_mapping,
+    )
+
+    # Create updated peak data
+    peak_data_updated = peak_data_cached.copy()
+    peak_data_updated["positions"] = positions_updated
+    peak_data_updated["fwhms"] = fwhms_updated
+    peak_data_updated["etas"] = etas_updated
+    peak_data_updated["r2s"] = r2s_updated
+
+    # Compute shapes using vectorized JAX
+    from peakfit.core.vectorized_jax import compute_shapes_matrix_jax_vectorized
+
+    shapes = compute_shapes_matrix_jax_vectorized(peak_data_updated)
+
+    # Compute residuals (fully JIT-compiled)
+    residuals = compute_residuals_jax(x, shapes, data, noise)
+
+    return jnp.sum(residuals**2)
+
+
 def objective_for_optimistix(
     x: Array,
     args: tuple[Parameters, list[str], Cluster, float],
@@ -210,11 +298,14 @@ def objective_for_optimistix(
 
     Returns:
         Sum of squared residuals
+
+    Notes:
+        Phase 2.0 implementation - still has Python overhead.
+        Phase 2.1: Use fit_cluster_jax_fast for fully optimized version.
     """
     params_template, vary_names, cluster, noise = args
 
     # Update parameters (still using Python objects here)
-    # Phase 2.1 will eliminate this
     for i, name in enumerate(vary_names):
         params_template[name].value = float(x[i])
 
@@ -237,6 +328,49 @@ def objective_for_optimistix(
     return jnp.sum(residuals**2)
 
 
+def create_param_mapping(
+    vary_names: list[str], cluster: Cluster
+) -> Array:
+    """Create mapping from varying parameter names to peak/dimension indices.
+
+    Args:
+        vary_names: List of varying parameter names
+        cluster: Cluster being fit
+
+    Returns:
+        Array of shape (n_params, 3) with [param_type, peak_idx, dim_idx]
+        param_type: 0=position, 1=fwhm, 2=eta, 3=r2
+    """
+    param_mapping = []
+
+    for name in vary_names:
+        # Determine parameter type
+        if name.endswith("0"):
+            param_type = 0  # Position
+        elif name.endswith("_fwhm"):
+            param_type = 1  # FWHM
+        elif name.endswith("_eta"):
+            param_type = 2  # Eta
+        elif name.endswith("_r2"):
+            param_type = 3  # R2
+        else:
+            param_type = 1  # Default to FWHM
+
+        # Find which peak this belongs to
+        found = False
+        for peak_idx, peak in enumerate(cluster.peaks):
+            if found:
+                break
+            for dim_idx, shape in enumerate(peak.shapes):
+                prefix = shape.prefix
+                if name.startswith(prefix) or name.startswith(prefix.replace("_", "")):
+                    param_mapping.append([param_type, peak_idx, dim_idx])
+                    found = True
+                    break
+
+    return jnp.array(param_mapping, dtype=jnp.int32)
+
+
 def fit_cluster_jax(
     cluster: Cluster,
     noise: float,
@@ -246,6 +380,7 @@ def fit_cluster_jax(
     max_steps: int = 100,
     rtol: float = LEAST_SQUARES_FTOL,
     atol: float = LEAST_SQUARES_XTOL,
+    use_fast_path: bool = True,
 ) -> dict[str, Any]:
     """Fit a cluster using JAX + Optimistix.
 
@@ -338,16 +473,55 @@ def fit_cluster_jax(
 
     # Optimize using Optimistix
     try:
-        args = (params.copy(), names, cluster, noise)
+        if use_fast_path and len(cluster.peaks) > 0 and len(cluster.peaks[0].shapes) == 1:
+            # Phase 2.1 fast path: Cache peak data to avoid repeated extraction
+            try:
+                from peakfit.core.vectorized_jax import extract_peak_evaluation_data_jax
 
-        solution = optx.minimise(
-            fn=objective_for_optimistix,
-            solver=solver,
-            y0=x0,
-            args=args,
-            max_steps=max_steps,
-            throw=False,  # Don't raise on non-convergence
-        )
+                # Extract peak data once
+                peak_data_cached, data_jax = extract_peak_evaluation_data_jax(cluster, params)
+
+                # Create parameter mapping array
+                param_mapping = create_param_mapping(names, cluster)
+
+                # Use cached objective function
+                args = (peak_data_cached, param_mapping, data_jax, noise)
+
+                solution = optx.minimise(
+                    fn=objective_for_optimistix_cached,
+                    solver=solver,
+                    y0=x0,
+                    args=args,
+                    max_steps=max_steps,
+                    throw=False,
+                )
+            except Exception as e:
+                # Fall back to Phase 2.0 if fast path fails
+                warnings.warn(
+                    f"Fast path failed ({e}), using Phase 2.0",
+                    stacklevel=2,
+                )
+                args = (params.copy(), names, cluster, noise)
+                solution = optx.minimise(
+                    fn=objective_for_optimistix,
+                    solver=solver,
+                    y0=x0,
+                    args=args,
+                    max_steps=max_steps,
+                    throw=False,
+                )
+        else:
+            # Phase 2.0: Original path with Python parameter management
+            args = (params.copy(), names, cluster, noise)
+
+            solution = optx.minimise(
+                fn=objective_for_optimistix,
+                solver=solver,
+                y0=x0,
+                args=args,
+                max_steps=max_steps,
+                throw=False,  # Don't raise on non-convergence
+            )
 
         # Extract results
         x_opt = solution.value
