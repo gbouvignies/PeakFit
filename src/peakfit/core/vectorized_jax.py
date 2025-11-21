@@ -305,7 +305,6 @@ def evaluate_peak_dim_jax(
     )
 
 
-@jax.jit
 def compute_shapes_matrix_jax_vectorized(
     peak_data: dict[str, Array],
 ) -> Array:
@@ -332,9 +331,23 @@ def compute_shapes_matrix_jax_vectorized(
     n_peaks = peak_data["shape_types"].shape[0]
     n_dims = peak_data["shape_types"].shape[1]
 
+    # Extract spectral parameters outside JIT (they're dicts in a list)
+    # Convert to simple scalars that JIT can handle
+    spec_params_extracted = [
+        {
+            "sw": float(peak_data["spec_params_list"][dim]["sw"]),
+            "size": int(peak_data["spec_params_list"][dim]["size"]),
+        }
+        for dim in range(n_dims)
+    ]
+
     # Handle common cases explicitly (avoid dynamic list building in JIT)
     if n_dims == 1:
         # 1D case: direct evaluation
+        sw_0 = spec_params_extracted[0]["sw"]
+        size_0 = spec_params_extracted[0]["size"]
+
+        @jax.jit
         def eval_one_peak_1d(i: int) -> Array:
             return evaluate_single_shape_jax(
                 peak_data["grid"][0],
@@ -347,8 +360,8 @@ def compute_shapes_matrix_jax_vectorized(
                 peak_data["ends"][i, 0],
                 peak_data["offs"][i, 0],
                 peak_data["phases"][i, 0],
-                peak_data["spec_params_list"][0]["sw"],
-                peak_data["spec_params_list"][0]["size"],
+                sw_0,
+                size_0,
             )
 
         shapes = jax.vmap(eval_one_peak_1d)(jnp.arange(n_peaks))
@@ -356,6 +369,13 @@ def compute_shapes_matrix_jax_vectorized(
 
     elif n_dims == 2:
         # 2D case: explicit outer product
+        # Extract scalars outside JIT
+        sw_0 = spec_params_extracted[0]["sw"]
+        size_0 = spec_params_extracted[0]["size"]
+        sw_1 = spec_params_extracted[1]["sw"]
+        size_1 = spec_params_extracted[1]["size"]
+
+        @jax.jit
         def eval_one_peak_2d(i: int) -> Array:
             # Evaluate 1D lineshape in dimension 0
             shape_0 = evaluate_single_shape_jax(
@@ -369,8 +389,8 @@ def compute_shapes_matrix_jax_vectorized(
                 peak_data["ends"][i, 0],
                 peak_data["offs"][i, 0],
                 peak_data["phases"][i, 0],
-                peak_data["spec_params_list"][0]["sw"],
-                peak_data["spec_params_list"][0]["size"],
+                sw_0,
+                size_0,
             )
 
             # Evaluate 1D lineshape in dimension 1
@@ -385,8 +405,8 @@ def compute_shapes_matrix_jax_vectorized(
                 peak_data["ends"][i, 1],
                 peak_data["offs"][i, 1],
                 peak_data["phases"][i, 1],
-                peak_data["spec_params_list"][1]["sw"],
-                peak_data["spec_params_list"][1]["size"],
+                sw_1,
+                size_1,
             )
 
             # Compute outer product: (n0, 1) * (n1,) -> (n0, n1)
