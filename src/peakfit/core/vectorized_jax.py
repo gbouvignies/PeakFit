@@ -184,7 +184,10 @@ def extract_peak_evaluation_data_jax(
         ],
     }
 
-    data_jax = jnp.array(cluster.corrected_data)
+    # Flatten data for N-D peaks (2D, 3D, etc.)
+    # For 1D: corrected_data is already 1D
+    # For 2D: corrected_data is (n0, n1) -> flatten to (n0*n1,)
+    data_jax = jnp.array(cluster.corrected_data).ravel()
 
     return peak_data, data_jax
 
@@ -467,16 +470,27 @@ def compute_shapes_matrix_jax_vectorized(
         # Use a simple Python loop for now - will be optimized by JIT at a higher level
         # This approach is simpler and more robust than trying to use vmap/map here
         shapes_list = []
-        for i in range(n_peaks):
-            shape = eval_one_peak_2d(
-                shape_types_0[i], positions_0[i], fwhms_0[i], etas_0[i], r2s_0[i],
-                aqs_0[i], ends_0[i], offs_0[i], phases_0[i],
-                shape_types_1[i], positions_1[i], fwhms_1[i], etas_1[i], r2s_1[i],
-                aqs_1[i], ends_1[i], offs_1[i], phases_1[i],
-                grid_0, grid_1, sw_0, size_0, sw_1, size_1,
-            )
-            shapes_list.append(shape)
 
+        # Debug: Check grid shapes
+        import sys
+        print(f"DEBUG:  grid_0 shape: {grid_0.shape}, grid_1 shape: {grid_1.shape}", file=sys.stderr)
+
+        for i in range(n_peaks):
+            try:
+                shape = eval_one_peak_2d(
+                    shape_types_0[i], positions_0[i], fwhms_0[i], etas_0[i], r2s_0[i],
+                    aqs_0[i], ends_0[i], offs_0[i], phases_0[i],
+                    shape_types_1[i], positions_1[i], fwhms_1[i], etas_1[i], r2s_1[i],
+                    aqs_1[i], ends_1[i], offs_1[i], phases_1[i],
+                    grid_0, grid_1, sw_0, size_0, sw_1, size_1,
+                )
+                print(f"DEBUG: Peak {i} shape: {shape.shape}", file=sys.stderr)
+                shapes_list.append(shape)
+            except Exception as e:
+                print(f"DEBUG: Error evaluating peak {i}: {e}", file=sys.stderr)
+                raise
+
+        print(f"DEBUG: All shapes computed, stacking {len(shapes_list)} shapes", file=sys.stderr)
         shapes = jnp.stack(shapes_list)
         return shapes
 

@@ -377,15 +377,23 @@ def objective_for_optimistix_cached(
     """
     peak_data_cached, param_mapping, data, noise = args
 
+    import sys
+    print(f"DEBUG: objective_for_optimistix_cached called with x.shape={x.shape}", file=sys.stderr)
+
     # Update parameters using vectorized JAX operation (JIT-compiled)
-    positions_updated, fwhms_updated, etas_updated, r2s_updated = update_peak_data_vectorized(
-        x,
-        peak_data_cached["positions"],
-        peak_data_cached["fwhms"],
-        peak_data_cached["etas"],
-        peak_data_cached["r2s"],
-        param_mapping,
-    )
+    try:
+        positions_updated, fwhms_updated, etas_updated, r2s_updated = update_peak_data_vectorized(
+            x,
+            peak_data_cached["positions"],
+            peak_data_cached["fwhms"],
+            peak_data_cached["etas"],
+            peak_data_cached["r2s"],
+            param_mapping,
+        )
+        print(f"DEBUG: Parameters updated successfully", file=sys.stderr)
+    except Exception as e:
+        print(f"DEBUG: Error in update_peak_data_vectorized: {e}", file=sys.stderr)
+        raise
 
     # Create updated peak data
     peak_data_updated = peak_data_cached.copy()
@@ -395,10 +403,22 @@ def objective_for_optimistix_cached(
     peak_data_updated["r2s"] = r2s_updated
 
     # Compute shapes using vectorized JAX (import at module level)
-    shapes = compute_shapes_matrix_jax_vectorized(peak_data_updated)
+    try:
+        print(f"DEBUG: About to compute shapes", file=sys.stderr)
+        shapes = compute_shapes_matrix_jax_vectorized(peak_data_updated)
+        print(f"DEBUG: Shapes computed successfully, shape={shapes.shape}", file=sys.stderr)
+    except Exception as e:
+        print(f"DEBUG: Error in compute_shapes_matrix_jax_vectorized: {e}", file=sys.stderr)
+        raise
 
     # Compute residuals (fully JIT-compiled)
-    residuals = compute_residuals_jax(x, shapes, data, noise)
+    try:
+        print(f"DEBUG: About to compute residuals, data.shape={data.shape}, shapes.shape={shapes.shape}", file=sys.stderr)
+        residuals = compute_residuals_jax(x, shapes, data, noise)
+        print(f"DEBUG: Residuals computed successfully", file=sys.stderr)
+    except Exception as e:
+        print(f"DEBUG: Error in compute_residuals_jax: {e}", file=sys.stderr)
+        raise
 
     return jnp.sum(residuals**2)
 
