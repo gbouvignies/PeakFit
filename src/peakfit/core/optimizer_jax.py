@@ -143,14 +143,16 @@ def compute_residuals_jax(
     """
     # Solve for amplitudes using linear least squares
     # shapes.T @ amplitudes = data
-    # Normal equations: (shapes @ shapes.T) @ amplitudes = shapes @ data
+    # For pseudo-3D: data is (n_points, n_planes), amplitudes is (n_peaks, n_planes)
     amplitudes = jnp.linalg.lstsq(shapes_matrix.T, data)[0]
 
     # Compute residuals
+    # model has same shape as data: (n_points, n_planes) for pseudo-3D
     model = shapes_matrix.T @ amplitudes
     residuals = (data - model) / noise
 
-    return residuals
+    # Flatten residuals (matches scipy version behavior)
+    return residuals.ravel()
 
 
 def compute_shapes_matrix_numpy(
@@ -747,7 +749,9 @@ def fit_cluster_jax(
             except Exception as e:
                 # Let exception propagate to caller for proper fallback
                 import sys
+                import traceback
                 print(f"DEBUG: Vectorized path failed with error: {type(e).__name__}: {e}", file=sys.stderr)
+                print(f"DEBUG: Traceback:\n{traceback.format_exc()}", file=sys.stderr)
                 raise JAXOptimizerError(f"Phase 2.1 vectorized path failed: {e}") from e
         else:
             # No peaks to optimize

@@ -184,10 +184,10 @@ def extract_peak_evaluation_data_jax(
         ],
     }
 
-    # Flatten data for N-D peaks (2D, 3D, etc.)
-    # For 1D: corrected_data is already 1D
-    # For 2D: corrected_data is (n0, n1) -> flatten to (n0*n1,)
-    data_jax = jnp.array(cluster.corrected_data).ravel()
+    # Keep data shape as-is for pseudo-3D fitting
+    # For pseudo-3D: corrected_data is (n_spatial_points, n_planes)
+    # Shapes are constant across planes, but amplitudes vary per plane
+    data_jax = jnp.array(cluster.corrected_data)
 
     return peak_data, data_jax
 
@@ -468,31 +468,27 @@ def compute_shapes_matrix_jax_vectorized(
             # So both shapes have same length, and we multiply element-wise
             return shape_0 * shape_1
 
-        # Use a simple Python loop for now - will be optimized by JIT at a higher level
-        # This approach is simpler and more robust than trying to use vmap/map here
-        shapes_list = []
+        # Use jax.lax.fori_loop for JAX-traceable iteration
+        # This is compatible with JIT compilation and autodiff
 
-        # Debug: Check grid shapes
-        import sys
-        print(f"DEBUG:  grid_0 shape: {grid_0.shape}, grid_1 shape: {grid_1.shape}", file=sys.stderr)
+        def eval_peak_idx(i, shapes_array):
+            """Evaluate one peak and update shapes array."""
+            shape = eval_one_peak_2d(
+                shape_types_0[i], positions_0[i], fwhms_0[i], etas_0[i], r2s_0[i],
+                aqs_0[i], ends_0[i], offs_0[i], phases_0[i],
+                shape_types_1[i], positions_1[i], fwhms_1[i], etas_1[i], r2s_1[i],
+                aqs_1[i], ends_1[i], offs_1[i], phases_1[i],
+                grid_0, grid_1, sw_0, size_0, sw_1, size_1,
+            )
+            # Update the i-th row with the computed shape
+            return shapes_array.at[i].set(shape)
 
-        for i in range(n_peaks):
-            try:
-                shape = eval_one_peak_2d(
-                    shape_types_0[i], positions_0[i], fwhms_0[i], etas_0[i], r2s_0[i],
-                    aqs_0[i], ends_0[i], offs_0[i], phases_0[i],
-                    shape_types_1[i], positions_1[i], fwhms_1[i], etas_1[i], r2s_1[i],
-                    aqs_1[i], ends_1[i], offs_1[i], phases_1[i],
-                    grid_0, grid_1, sw_0, size_0, sw_1, size_1,
-                )
-                print(f"DEBUG: Peak {i} shape: {shape.shape}", file=sys.stderr)
-                shapes_list.append(shape)
-            except Exception as e:
-                print(f"DEBUG: Error evaluating peak {i}: {e}", file=sys.stderr)
-                raise
+        # Initialize empty shapes array
+        n_spatial_points = grid_0.shape[0]
+        shapes_init = jnp.zeros((n_peaks, n_spatial_points), dtype=jnp.float64)
 
-        print(f"DEBUG: All shapes computed, stacking {len(shapes_list)} shapes", file=sys.stderr)
-        shapes = jnp.stack(shapes_list)
+        # Use fori_loop to fill the shapes array
+        shapes = jax.lax.fori_loop(0, n_peaks, eval_peak_idx, shapes_init)
         return shapes
 
     else:
