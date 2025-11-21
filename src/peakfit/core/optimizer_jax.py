@@ -689,37 +689,15 @@ def fit_cluster_jax(
                     throw=False,
                 )
             except Exception as e:
-                # Fall back to Phase 2.0 if fast path fails
+                # Let exception propagate to caller for proper fallback
                 import sys
-                print(f"DEBUG: Ultra-fast path failed with error: {e}", file=sys.stderr)
-                print("DEBUG: Falling back to Phase 2.0", file=sys.stderr)
-                warnings.warn(
-                    f"Ultra-fast path failed ({e}), using Phase 2.0",
-                    stacklevel=2,
-                )
-                args = (params.copy(), names, cluster, noise)
-                solution = optx.minimise(
-                    fn=objective_for_optimistix,
-                    solver=solver,
-                    y0=x0,
-                    args=args,
-                    max_steps=max_steps,
-                    throw=False,
-                )
+                print(f"DEBUG: Ultra-fast path failed with error: {type(e).__name__}: {e}", file=sys.stderr)
+                raise JAXOptimizerError(f"Phase 2.1 Ultra failed: {e}") from e
         else:
-            # Phase 2.0: Original path with Python parameter management
+            # Multi-D peaks not supported in fast path
             import sys
-            print(f"DEBUG: Using Phase 2.0 (multi-D or fast_path=False)", file=sys.stderr)
-            args = (params.copy(), names, cluster, noise)
-
-            solution = optx.minimise(
-                fn=objective_for_optimistix,
-                solver=solver,
-                y0=x0,
-                args=args,
-                max_steps=max_steps,
-                throw=False,  # Don't raise on non-convergence
-            )
+            print(f"DEBUG: Multi-D peaks - not using fast path", file=sys.stderr)
+            raise JAXOptimizerError("Multi-dimensional peaks not supported in JAX optimizer yet")
 
         # Extract results
         x_opt = solution.value

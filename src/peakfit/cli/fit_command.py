@@ -438,38 +438,78 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                 from peakfit.core.lineshapes import HAS_JAX
 
                 if get_backend() == "jax" and HAS_JAX:
-                    # Use JAX optimizer for maximum performance
+                    # Try JAX optimizer for maximum performance
                     import sys
                     print("DEBUG: Using JAX optimizer from fit command", file=sys.stderr)
 
-                    from peakfit.core.scipy_optimizer import fit_cluster_dict
+                    try:
+                        from peakfit.core.scipy_optimizer import fit_cluster_dict
 
-                    # Convert params to dict for params_init
-                    params_init = {name: params[name].value for name in params}
+                        # Convert params to dict for params_init
+                        params_init = {name: params[name].value for name in params}
 
-                    result_dict = fit_cluster_dict(
-                        cluster,
-                        clargs.noise,
-                        fixed=clargs.fixed,
-                        params_init=params_init,
-                    )
+                        result_dict = fit_cluster_dict(
+                            cluster,
+                            clargs.noise,
+                            fixed=clargs.fixed,
+                            params_init=params_init,
+                        )
 
-                    # Update parameters from result
-                    for name, param_info in result_dict["params"].items():
-                        if name in params:
-                            params[name].value = param_info["value"]
-                            if param_info["stderr"] is not None:
-                                params[name].stderr = param_info["stderr"]
+                        # Update parameters from result
+                        for name, param_info in result_dict["params"].items():
+                            if name in params:
+                                params[name].value = param_info["value"]
+                                if param_info["stderr"] is not None:
+                                    params[name].stderr = param_info["stderr"]
 
-                    # Create result object compatible with scipy format
-                    class JAXResult:
-                        def __init__(self, result_dict):
-                            self.success = result_dict["success"]
-                            self.cost = result_dict["chisqr"]
-                            self.nfev = result_dict["nfev"]
-                            self.message = result_dict["message"]
+                        # Create result object compatible with scipy format
+                        class JAXResult:
+                            def __init__(self, result_dict):
+                                self.success = result_dict["success"]
+                                self.cost = result_dict["chisqr"]
+                                self.nfev = result_dict["nfev"]
+                                self.message = result_dict["message"]
 
-                    result = JAXResult(result_dict)
+                        result = JAXResult(result_dict)
+
+                    except Exception as e:
+                        # JAX optimizer failed, fall back to scipy
+                        print(f"DEBUG: JAX optimizer failed: {type(e).__name__}, falling back to scipy", file=sys.stderr)
+
+                        # Use scipy optimizer (fallback path)
+                        x0 = params.get_vary_values()
+                        bounds_lower = np.array([params[name].min for name in vary_names])
+                        bounds_upper = np.array([params[name].max for name in vary_names])
+
+                        scipy_verbose = 2 if verbose else 0
+                        result = least_squares(
+                            _residual_wrapper,
+                            x0,
+                            args=(params, cluster, clargs.noise),
+                            bounds=(bounds_lower, bounds_upper),
+                            ftol=LEAST_SQUARES_FTOL,
+                            xtol=LEAST_SQUARES_XTOL,
+                            max_nfev=LEAST_SQUARES_MAX_NFEV,
+                            verbose=scipy_verbose,
+                        )
+
+                        # Update parameters
+                        for i, name in enumerate(vary_names):
+                            params[name].value = result.x[i]
+
+                        # Compute standard errors
+                        if result.jac is not None and len(result.fun) > len(vary_names):
+                            ndata = len(result.fun)
+                            nvarys = len(vary_names)
+                            redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
+                            try:
+                                jtj = result.jac.T @ result.jac
+                                cov = np.linalg.inv(jtj) * redchi
+                                stderr = np.sqrt(np.diag(cov))
+                                for i, name in enumerate(vary_names):
+                                    params[name].stderr = float(stderr[i])
+                            except np.linalg.LinAlgError:
+                                pass
 
                 else:
                     # Use scipy optimizer (legacy path)
