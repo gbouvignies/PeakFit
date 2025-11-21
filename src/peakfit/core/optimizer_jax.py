@@ -637,6 +637,10 @@ def fit_cluster_jax(
             try:
                 from peakfit.core.vectorized_jax import extract_peak_evaluation_data_jax
 
+                # Debug: Confirm ultra-fast path is being used
+                import sys
+                print("DEBUG: Using Phase 2.1 Ultra (fully JIT-compiled)", file=sys.stderr)
+
                 # Extract peak data once
                 peak_data_cached, data_jax = extract_peak_evaluation_data_jax(cluster, params)
 
@@ -686,6 +690,9 @@ def fit_cluster_jax(
                 )
             except Exception as e:
                 # Fall back to Phase 2.0 if fast path fails
+                import sys
+                print(f"DEBUG: Ultra-fast path failed with error: {e}", file=sys.stderr)
+                print("DEBUG: Falling back to Phase 2.0", file=sys.stderr)
                 warnings.warn(
                     f"Ultra-fast path failed ({e}), using Phase 2.0",
                     stacklevel=2,
@@ -701,6 +708,8 @@ def fit_cluster_jax(
                 )
         else:
             # Phase 2.0: Original path with Python parameter management
+            import sys
+            print(f"DEBUG: Using Phase 2.0 (multi-D or fast_path=False)", file=sys.stderr)
             args = (params.copy(), names, cluster, noise)
 
             solution = optx.minimise(
