@@ -710,11 +710,18 @@ def _print_configuration(
         try:
             import numba
 
-            jit_status = f"enabled (v{numba.__version__})"
+            jit_status = f"enabled (Numba v{numba.__version__})"
+        except ImportError:
+            jit_status = "disabled"
+    elif current_backend == "jax":
+        try:
+            import jax
+
+            jit_status = f"enabled (JAX v{jax.__version__})"
         except ImportError:
             jit_status = "disabled"
     else:
-        jit_status = "disabled (numpy vectorized)"
+        jit_status = "disabled (NumPy vectorized)"
 
     config_table.add_row("JIT compilation", jit_status)
 
