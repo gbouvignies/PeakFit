@@ -115,6 +115,14 @@ def compare_backends_on_real_data(array_size: int = 100) -> dict[str, dict[str, 
     Returns:
         Dictionary mapping backend names to profiling results
     """
+    # Ensure JAX uses 64-bit precision if available
+    try:
+        import jax
+
+        jax.config.update("jax_enable_x64", True)
+    except ImportError:
+        pass
+
     from peakfit.core import backend
 
     # Realistic parameters
@@ -157,6 +165,9 @@ def diagnose_platform() -> dict[str, Any]:
     try:
         import jax
 
+        # Ensure 64-bit precision is enabled (must be set early)
+        jax.config.update("jax_enable_x64", True)
+
         info["jax_available"] = True
         info["jax_version"] = jax.__version__
 
@@ -167,6 +178,17 @@ def diagnose_platform() -> dict[str, Any]:
             info["jax_default_backend"] = devices[0].platform if devices else "unknown"
         except Exception as e:
             info["jax_devices_error"] = str(e)
+
+        # Check JAX precision configuration
+        try:
+            import jax.numpy as jnp
+
+            # Test actual dtype being used
+            test_array = jnp.array([1.0])
+            info["jax_default_dtype"] = str(test_array.dtype)
+            info["jax_x64_enabled"] = test_array.dtype == jnp.float64
+        except Exception as e:
+            info["jax_dtype_error"] = str(e)
 
         # Check for M1/ARM
         if platform.machine() in ("arm64", "aarch64"):

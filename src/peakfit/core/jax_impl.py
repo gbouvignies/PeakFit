@@ -16,6 +16,11 @@ try:
     import jax
     import jax.numpy as jnp
 
+    # CRITICAL: Enable 64-bit precision for numerical accuracy
+    # JAX defaults to float32, but scientific computing needs float64
+    # This must be set before any JAX operations are performed
+    jax.config.update("jax_enable_x64", True)
+
     HAS_JAX = True
 except ImportError:
     HAS_JAX = False

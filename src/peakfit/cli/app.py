@@ -1118,6 +1118,15 @@ def diagnose() -> None:
         console.print(f"  JAX backend: {platform_info.get('jax_default_backend', 'unknown')}")
         if "jax_devices" in platform_info:
             console.print(f"  JAX devices: {', '.join(platform_info['jax_devices'])}")
+
+        # Show precision configuration
+        if "jax_default_dtype" in platform_info:
+            dtype = platform_info["jax_default_dtype"]
+            x64_enabled = platform_info.get("jax_x64_enabled", False)
+            if x64_enabled:
+                console.print(f"  JAX precision: [green]{dtype}[/green] ✓ (64-bit enabled)")
+            else:
+                console.print(f"  JAX precision: [red]{dtype}[/red] ✗ (32-bit, accuracy issues!)")
     else:
         console.print("\n  JAX: Not installed")
 
