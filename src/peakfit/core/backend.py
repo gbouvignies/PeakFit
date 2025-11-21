@@ -1,7 +1,12 @@
-"""Backend registry for computation backends (NumPy, Numba).
+"""Backend registry for computation backends (NumPy, Numba, JAX).
 
 This module provides a centralized way to select and use different computational
 backends for lineshape calculations and fitting.
+
+Backend priority (best to worst):
+1. JAX - Modern autodiff, JIT compilation, GPU support
+2. Numba - Legacy JIT compilation (to be deprecated)
+3. NumPy - Pure Python fallback
 """
 
 from collections.abc import Callable
@@ -20,7 +25,7 @@ def set_backend(backend: str) -> None:
     """Set the global computational backend.
 
     Args:
-        backend: One of "numpy" or "numba"
+        backend: One of "numpy", "numba", or "jax"
 
     Raises:
         ValueError: If backend is not available
@@ -45,6 +50,15 @@ def get_available_backends() -> list[str]:
     """Get list of available backends."""
     backends = ["numpy"]
 
+    # Check for JAX (preferred backend)
+    try:
+        import jax  # noqa: F401
+
+        backends.append("jax")
+    except ImportError:
+        pass
+
+    # Check for Numba (legacy backend, to be deprecated)
     try:
         import numba  # noqa: F401
 
@@ -58,15 +72,20 @@ def get_available_backends() -> list[str]:
 def get_best_backend() -> str:
     """Get the best available backend.
 
-    Prefers Numba for optimized JIT-compiled performance.
-    Falls back to NumPy if Numba is not available.
+    Prefers JAX for autodiff, JIT compilation, and GPU support.
+    Falls back to Numba (legacy), then NumPy.
     """
     available = get_available_backends()
 
-    # Prefer Numba for CPU execution (best performance)
+    # Prefer JAX (best performance, autodiff, GPU support)
+    if "jax" in available:
+        return "jax"
+
+    # Fallback to Numba (legacy, to be deprecated)
     if "numba" in available:
         return "numba"
 
+    # Final fallback to NumPy
     return "numpy"
 
 
@@ -89,6 +108,24 @@ def _initialize_backend_functions(backend: str) -> None:
             "no_apod": _no_apod_numpy,
             "sp1": _sp1_numpy,
             "sp2": _sp2_numpy,
+        }
+    elif backend == "jax":
+        from peakfit.core.lineshapes import (
+            gaussian,
+            lorentzian,
+            no_apod,
+            pvoigt,
+            sp1,
+            sp2,
+        )
+
+        _backend_functions = {
+            "gaussian": gaussian,
+            "lorentzian": lorentzian,
+            "pvoigt": pvoigt,
+            "no_apod": no_apod,
+            "sp1": sp1,
+            "sp2": sp2,
         }
     elif backend == "numba":
         from peakfit.core.optimized import (

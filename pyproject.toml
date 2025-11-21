@@ -35,10 +35,13 @@ dev = [
     "types-setuptools>=75.0",
 ]
 performance = [
-    "numba>=0.60.0",
+    "jax>=0.4.20",
+    "jaxlib>=0.4.20",
+    "optimistix>=0.0.11",
+    "numba>=0.60.0",  # Legacy, to be deprecated
 ]
 mcmc = [
-    "emcee>=3.1.6",
+    "emcee>=3.1.6",  # Legacy, consider switching to blackjax for JAX integration
 ]
 
 [project.scripts]
@@ -207,5 +210,7 @@ module = [
     "pandas.*",
     "numba.*",
     "threadpoolctl.*",
+    "jax.*",
+    "optimistix.*",
 ]
 ignore_missing_imports = true
