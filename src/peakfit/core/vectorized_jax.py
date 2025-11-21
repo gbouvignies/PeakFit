@@ -415,6 +415,14 @@ def compute_shapes_matrix_jax_vectorized(
         phases_0 = peak_data["phases"][:, 0]
         phases_1 = peak_data["phases"][:, 1]
 
+        # Debug: Check all array shapes
+        import sys
+        print(f"DEBUG: Array shapes before vmap:", file=sys.stderr)
+        print(f"  shape_types_0: {shape_types_0.shape}", file=sys.stderr)
+        print(f"  positions_0: {positions_0.shape}", file=sys.stderr)
+        print(f"  grid_0: {grid_0.shape}", file=sys.stderr)
+        print(f"  grid_1: {grid_1.shape}", file=sys.stderr)
+
         @jax.jit
         def eval_one_peak_2d(
             shape_type_0, position_0, fwhm_0, eta_0, r2_0, aq_0, end_0, off_0, phase_0,
