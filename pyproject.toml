@@ -36,6 +36,7 @@ dev = [
 ]
 performance = [
     "numba>=0.60.0",
+    "jax[cpu]>=0.4.20",
 ]
 mcmc = [
     "emcee>=3.1.6",
@@ -206,6 +207,7 @@ module = [
     "matplotlib.*",
     "pandas.*",
     "numba.*",
+    "jax.*",
     "threadpoolctl.*",
 ]
 ignore_missing_imports = true

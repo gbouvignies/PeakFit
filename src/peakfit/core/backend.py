@@ -1,4 +1,4 @@
-"""Backend registry for computation backends (NumPy, Numba).
+"""Backend registry for computation backends (NumPy, Numba, JAX).
 
 This module provides a centralized way to select and use different computational
 backends for lineshape calculations and fitting.
@@ -20,7 +20,7 @@ def set_backend(backend: str) -> None:
     """Set the global computational backend.
 
     Args:
-        backend: One of "numpy" or "numba"
+        backend: One of "numpy", "numba", or "jax"
 
     Raises:
         ValueError: If backend is not available
@@ -46,6 +46,13 @@ def get_available_backends() -> list[str]:
     backends = ["numpy"]
 
     try:
+        import jax  # noqa: F401
+
+        backends.append("jax")
+    except ImportError:
+        pass
+
+    try:
         import numba  # noqa: F401
 
         backends.append("numba")
@@ -58,12 +65,16 @@ def get_available_backends() -> list[str]:
 def get_best_backend() -> str:
     """Get the best available backend.
 
-    Prefers Numba for optimized JIT-compiled performance.
-    Falls back to NumPy if Numba is not available.
+    Prefers JAX for optimized JIT-compiled performance with GPU support.
+    Falls back to Numba, then NumPy if JAX/Numba are not available.
     """
     available = get_available_backends()
 
-    # Prefer Numba for CPU execution (best performance)
+    # Prefer JAX for best performance and GPU support
+    if "jax" in available:
+        return "jax"
+
+    # Fall back to Numba for CPU-only JIT compilation
     if "numba" in available:
         return "numba"
 
@@ -89,6 +100,24 @@ def _initialize_backend_functions(backend: str) -> None:
             "no_apod": _no_apod_numpy,
             "sp1": _sp1_numpy,
             "sp2": _sp2_numpy,
+        }
+    elif backend == "jax":
+        from peakfit.core.jax_impl import (
+            gaussian_jax,
+            lorentzian_jax,
+            no_apod_jax,
+            pvoigt_jax,
+            sp1_jax,
+            sp2_jax,
+        )
+
+        _backend_functions = {
+            "gaussian": gaussian_jax,
+            "lorentzian": lorentzian_jax,
+            "pvoigt": pvoigt_jax,
+            "no_apod": no_apod_jax,
+            "sp1": sp1_jax,
+            "sp2": sp2_jax,
         }
     elif backend == "numba":
         from peakfit.core.optimized import (

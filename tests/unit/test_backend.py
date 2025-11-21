@@ -44,12 +44,14 @@ class TestGetBestBackend:
         available = get_available_backends()
         assert backend in available
 
-    def test_prefers_numba_if_available(self):
-        """Test that numba is preferred if available."""
+    def test_prefers_jax_then_numba_if_available(self):
+        """Test that JAX is preferred, then Numba, then NumPy."""
         available = get_available_backends()
         best = get_best_backend()
 
-        if "numba" in available:
+        if "jax" in available:
+            assert best == "jax"
+        elif "numba" in available:
             assert best == "numba"
         else:
             assert best == "numpy"
@@ -133,6 +135,17 @@ class TestBackendFunctions:
         assert isinstance(result_numpy, np.ndarray)
         assert len(result_numpy) == 2
         assert result_numpy[0] == pytest.approx(1.0)  # At center
+
+        # Test with JAX if available
+        if "jax" in get_available_backends():
+            set_backend("jax")
+            func_jax = get_gaussian_func()
+            result_jax = func_jax(np.array([0.0, 1.0]), 10.0)
+
+            assert isinstance(result_jax, np.ndarray)
+            assert len(result_jax) == 2
+            # Results should be approximately the same
+            assert np.allclose(result_numpy, result_jax)
 
         # Test with numba if available
         if "numba" in get_available_backends():
