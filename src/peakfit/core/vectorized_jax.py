@@ -463,9 +463,10 @@ def compute_shapes_matrix_jax_vectorized(
                 size_1_arg,
             )
 
-            # Compute outer product: (n0, 1) * (n1,) -> (n0, n1)
-            result = shape_0[:, None] * shape_1[None, :]
-            return result.ravel()
+            # Element-wise multiplication (NOT outer product!)
+            # Grid points are paired: (grid_0[i], grid_1[i]), not Cartesian product
+            # So both shapes have same length, and we multiply element-wise
+            return shape_0 * shape_1
 
         # Use a simple Python loop for now - will be optimized by JIT at a higher level
         # This approach is simpler and more robust than trying to use vmap/map here
