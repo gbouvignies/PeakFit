@@ -362,7 +362,7 @@ def compute_shapes_matrix_jax_vectorized(
         offs_0 = peak_data["offs"][:, 0]
         phases_0 = peak_data["phases"][:, 0]
 
-        @jax.jit
+        # Don't use @jax.jit here - let vmap handle compilation
         def eval_one_peak_1d(shape_type, position, fwhm, eta, r2, aq, end, off, phase) -> Array:
             return evaluate_single_shape_jax(
                 grid_0,
@@ -415,31 +415,8 @@ def compute_shapes_matrix_jax_vectorized(
         phases_0 = peak_data["phases"][:, 0]
         phases_1 = peak_data["phases"][:, 1]
 
-        # Debug: Check all array shapes
-        import sys
-        print(f"DEBUG: Array shapes before vmap:", file=sys.stderr)
-        print(f"  Dimension 0 arrays:", file=sys.stderr)
-        print(f"    shape_types_0: {shape_types_0.shape}", file=sys.stderr)
-        print(f"    positions_0: {positions_0.shape}", file=sys.stderr)
-        print(f"    fwhms_0: {fwhms_0.shape}", file=sys.stderr)
-        print(f"    etas_0: {etas_0.shape}", file=sys.stderr)
-        print(f"    r2s_0: {r2s_0.shape}", file=sys.stderr)
-        print(f"    aqs_0: {aqs_0.shape}", file=sys.stderr)
-        print(f"    ends_0: {ends_0.shape}", file=sys.stderr)
-        print(f"    offs_0: {offs_0.shape}", file=sys.stderr)
-        print(f"    phases_0: {phases_0.shape}", file=sys.stderr)
-        print(f"  Dimension 1 arrays:", file=sys.stderr)
-        print(f"    shape_types_1: {shape_types_1.shape}", file=sys.stderr)
-        print(f"    positions_1: {positions_1.shape}", file=sys.stderr)
-        print(f"    fwhms_1: {fwhms_1.shape}", file=sys.stderr)
-        print(f"    etas_1: {etas_1.shape}", file=sys.stderr)
-        print(f"    r2s_1: {r2s_1.shape}", file=sys.stderr)
-        print(f"    aqs_1: {aqs_1.shape}", file=sys.stderr)
-        print(f"    ends_1: {ends_1.shape}", file=sys.stderr)
-        print(f"    offs_1: {offs_1.shape}", file=sys.stderr)
-        print(f"    phases_1: {phases_1.shape}", file=sys.stderr)
-
-        @jax.jit
+        # Don't use @jax.jit here - let vmap handle compilation
+        # JIT on nested closures can cause vmap issues
         def eval_one_peak_2d(
             shape_type_0, position_0, fwhm_0, eta_0, r2_0, aq_0, end_0, off_0, phase_0,
             shape_type_1, position_1, fwhm_1, eta_1, r2_1, aq_1, end_1, off_1, phase_1,
