@@ -418,10 +418,26 @@ def compute_shapes_matrix_jax_vectorized(
         # Debug: Check all array shapes
         import sys
         print(f"DEBUG: Array shapes before vmap:", file=sys.stderr)
-        print(f"  shape_types_0: {shape_types_0.shape}", file=sys.stderr)
-        print(f"  positions_0: {positions_0.shape}", file=sys.stderr)
-        print(f"  grid_0: {grid_0.shape}", file=sys.stderr)
-        print(f"  grid_1: {grid_1.shape}", file=sys.stderr)
+        print(f"  Dimension 0 arrays:", file=sys.stderr)
+        print(f"    shape_types_0: {shape_types_0.shape}", file=sys.stderr)
+        print(f"    positions_0: {positions_0.shape}", file=sys.stderr)
+        print(f"    fwhms_0: {fwhms_0.shape}", file=sys.stderr)
+        print(f"    etas_0: {etas_0.shape}", file=sys.stderr)
+        print(f"    r2s_0: {r2s_0.shape}", file=sys.stderr)
+        print(f"    aqs_0: {aqs_0.shape}", file=sys.stderr)
+        print(f"    ends_0: {ends_0.shape}", file=sys.stderr)
+        print(f"    offs_0: {offs_0.shape}", file=sys.stderr)
+        print(f"    phases_0: {phases_0.shape}", file=sys.stderr)
+        print(f"  Dimension 1 arrays:", file=sys.stderr)
+        print(f"    shape_types_1: {shape_types_1.shape}", file=sys.stderr)
+        print(f"    positions_1: {positions_1.shape}", file=sys.stderr)
+        print(f"    fwhms_1: {fwhms_1.shape}", file=sys.stderr)
+        print(f"    etas_1: {etas_1.shape}", file=sys.stderr)
+        print(f"    r2s_1: {r2s_1.shape}", file=sys.stderr)
+        print(f"    aqs_1: {aqs_1.shape}", file=sys.stderr)
+        print(f"    ends_1: {ends_1.shape}", file=sys.stderr)
+        print(f"    offs_1: {offs_1.shape}", file=sys.stderr)
+        print(f"    phases_1: {phases_1.shape}", file=sys.stderr)
 
         @jax.jit
         def eval_one_peak_2d(
