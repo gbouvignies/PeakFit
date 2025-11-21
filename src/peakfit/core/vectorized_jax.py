@@ -341,16 +341,20 @@ def compute_shapes_matrix_jax_vectorized(
         for dim in range(n_dims)
     ]
 
+    # Extract grid arrays outside JIT (they're in a Python list)
+    grids_extracted = [peak_data["grid"][dim] for dim in range(n_dims)]
+
     # Handle common cases explicitly (avoid dynamic list building in JIT)
     if n_dims == 1:
         # 1D case: direct evaluation
+        grid_0 = grids_extracted[0]
         sw_0 = spec_params_extracted[0]["sw"]
         size_0 = spec_params_extracted[0]["size"]
 
         @jax.jit
         def eval_one_peak_1d(i: int) -> Array:
             return evaluate_single_shape_jax(
-                peak_data["grid"][0],
+                grid_0,
                 peak_data["shape_types"][i, 0],
                 peak_data["positions"][i, 0],
                 peak_data["fwhms"][i, 0],
@@ -369,7 +373,9 @@ def compute_shapes_matrix_jax_vectorized(
 
     elif n_dims == 2:
         # 2D case: explicit outer product
-        # Extract scalars outside JIT
+        # Extract arrays and scalars outside JIT
+        grid_0 = grids_extracted[0]
+        grid_1 = grids_extracted[1]
         sw_0 = spec_params_extracted[0]["sw"]
         size_0 = spec_params_extracted[0]["size"]
         sw_1 = spec_params_extracted[1]["sw"]
@@ -379,7 +385,7 @@ def compute_shapes_matrix_jax_vectorized(
         def eval_one_peak_2d(i: int) -> Array:
             # Evaluate 1D lineshape in dimension 0
             shape_0 = evaluate_single_shape_jax(
-                peak_data["grid"][0],
+                grid_0,
                 peak_data["shape_types"][i, 0],
                 peak_data["positions"][i, 0],
                 peak_data["fwhms"][i, 0],
@@ -395,7 +401,7 @@ def compute_shapes_matrix_jax_vectorized(
 
             # Evaluate 1D lineshape in dimension 1
             shape_1 = evaluate_single_shape_jax(
-                peak_data["grid"][1],
+                grid_1,
                 peak_data["shape_types"][i, 1],
                 peak_data["positions"][i, 1],
                 peak_data["fwhms"][i, 1],
