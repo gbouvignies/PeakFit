@@ -362,10 +362,11 @@ def compute_shapes_matrix_jax_vectorized(
         offs_0 = peak_data["offs"][:, 0]
         phases_0 = peak_data["phases"][:, 0]
 
-        # Don't use @jax.jit here - let vmap handle compilation
-        def eval_one_peak_1d(shape_type, position, fwhm, eta, r2, aq, end, off, phase) -> Array:
+        # Pass grid and constants as non-vmapped arguments to avoid closure issues
+        def eval_one_peak_1d(shape_type, position, fwhm, eta, r2, aq, end, off, phase,
+                            grid_arg, sw_arg, size_arg) -> Array:
             return evaluate_single_shape_jax(
-                grid_0,
+                grid_arg,
                 shape_type,
                 position,
                 fwhm,
@@ -375,13 +376,19 @@ def compute_shapes_matrix_jax_vectorized(
                 end,
                 off,
                 phase,
-                sw_0,
-                size_0,
+                sw_arg,
+                size_arg,
             )
 
         # Vmap over the data arrays themselves, not indices!
-        shapes = jax.vmap(eval_one_peak_1d)(
-            shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0
+        # Use in_axes to specify which arguments are vmapped (0) vs broadcasted (None)
+        shapes = jax.vmap(
+            eval_one_peak_1d,
+            in_axes=(0, 0, 0, 0, 0, 0, 0, 0, 0,  # Peak params (vmapped)
+                    None, None, None)  # Grid and constants (broadcasted)
+        )(
+            shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0,
+            grid_0, sw_0, size_0,
         )
         return shapes
 
@@ -415,15 +422,15 @@ def compute_shapes_matrix_jax_vectorized(
         phases_0 = peak_data["phases"][:, 0]
         phases_1 = peak_data["phases"][:, 1]
 
-        # Don't use @jax.jit here - let vmap handle compilation
-        # JIT on nested closures can cause vmap issues
+        # Pass grids and constants as non-vmapped arguments to avoid closure issues
         def eval_one_peak_2d(
             shape_type_0, position_0, fwhm_0, eta_0, r2_0, aq_0, end_0, off_0, phase_0,
             shape_type_1, position_1, fwhm_1, eta_1, r2_1, aq_1, end_1, off_1, phase_1,
+            grid_0_arg, grid_1_arg, sw_0_arg, size_0_arg, sw_1_arg, size_1_arg,
         ) -> Array:
             # Evaluate 1D lineshape in dimension 0
             shape_0 = evaluate_single_shape_jax(
-                grid_0,
+                grid_0_arg,
                 shape_type_0,
                 position_0,
                 fwhm_0,
@@ -433,13 +440,13 @@ def compute_shapes_matrix_jax_vectorized(
                 end_0,
                 off_0,
                 phase_0,
-                sw_0,
-                size_0,
+                sw_0_arg,
+                size_0_arg,
             )
 
             # Evaluate 1D lineshape in dimension 1
             shape_1 = evaluate_single_shape_jax(
-                grid_1,
+                grid_1_arg,
                 shape_type_1,
                 position_1,
                 fwhm_1,
@@ -449,8 +456,8 @@ def compute_shapes_matrix_jax_vectorized(
                 end_1,
                 off_1,
                 phase_1,
-                sw_1,
-                size_1,
+                sw_1_arg,
+                size_1_arg,
             )
 
             # Compute outer product: (n0, 1) * (n1,) -> (n0, n1)
@@ -458,10 +465,17 @@ def compute_shapes_matrix_jax_vectorized(
             return result.ravel()
 
         # Vmap over the data arrays themselves, not indices!
+        # Use in_axes to specify which arguments are vmapped (0) vs broadcasted (None)
         try:
-            shapes = jax.vmap(eval_one_peak_2d)(
+            shapes = jax.vmap(
+                eval_one_peak_2d,
+                in_axes=(0, 0, 0, 0, 0, 0, 0, 0, 0,  # Dim 0 params (vmapped)
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,  # Dim 1 params (vmapped)
+                        None, None, None, None, None, None)  # Grids and constants (broadcasted)
+            )(
                 shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0,
                 shape_types_1, positions_1, fwhms_1, etas_1, r2s_1, aqs_1, ends_1, offs_1, phases_1,
+                grid_0, grid_1, sw_0, size_0, sw_1, size_1,
             )
         except Exception as e:
             import sys
