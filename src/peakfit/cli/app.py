@@ -1153,8 +1153,10 @@ def diagnose() -> None:
     console.print(f"  ✓ Fastest backend on this system: [green]{best_backend}[/green]")
     console.print(f"    Use: peakfit fit --backend {best_backend}")
     console.print()
-    console.print("  [dim]Note: Results are for 100-point arrays. Performance may vary")
-    console.print("  with different array sizes and workloads.[/dim]")
+    console.print(
+        "  [dim]Note: Results are for 100-point arrays. Performance may vary\n"
+        "  with different array sizes and workloads.[/dim]"
+    )
 
 
 if __name__ == "__main__":
