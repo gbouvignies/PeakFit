@@ -31,6 +31,7 @@ if HAS_JAX:
     import jax.numpy as jnp
     import optimistix as optx
     from jax import Array
+    from peakfit.core.vectorized_jax import compute_shapes_matrix_jax_flattened
 
 
 class JAXOptimizerError(Exception):
@@ -331,8 +332,6 @@ def objective_fully_jitted_1d(
     )
 
     # Compute shapes using flattened function (fully JIT-compiled)
-    from peakfit.core.vectorized_jax import compute_shapes_matrix_jax_flattened
-
     shapes = compute_shapes_matrix_jax_flattened(
         grid_pts,
         shape_types,
