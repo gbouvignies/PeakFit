@@ -327,8 +327,10 @@ def compute_shapes_matrix_jax_vectorized(
         N 1D lineshapes (one per dimension), then flattened. This handles 1D,
         2D, 3D, etc. peaks generically.
     """
-    n_peaks = peak_data["n_peaks"]
-    n_dims = peak_data["n_dims"]
+    # Use array shapes (static/concrete) instead of dict values (traced)
+    # Array shapes are known at JIT compile time, dict values are not
+    n_peaks = peak_data["shape_types"].shape[0]
+    n_dims = peak_data["shape_types"].shape[1]
 
     # Vectorize across all peaks
     def eval_one_peak(i: int) -> Array:
