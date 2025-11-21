@@ -308,6 +308,7 @@ def evaluate_peak_dim_jax(
     )
 
 
+@jax.jit
 def compute_shapes_matrix_jax_vectorized(
     peak_data: dict[str, Array],
 ) -> Array:
@@ -334,12 +335,12 @@ def compute_shapes_matrix_jax_vectorized(
     n_peaks = peak_data["shape_types"].shape[0]
     n_dims = peak_data["shape_types"].shape[1]
 
-    # Extract spectral parameters outside JIT (they're dicts in a list)
-    # Convert to simple scalars that JIT can handle
+    # Extract spectral parameters (they're dicts in a list)
+    # Don't call float()/int() - JAX tracers can be used directly
     spec_params_extracted = [
         {
-            "sw": float(peak_data["spec_params_list"][dim]["sw"]),
-            "size": int(peak_data["spec_params_list"][dim]["size"]),
+            "sw": peak_data["spec_params_list"][dim]["sw"],
+            "size": peak_data["spec_params_list"][dim]["size"],
         }
         for dim in range(n_dims)
     ]
