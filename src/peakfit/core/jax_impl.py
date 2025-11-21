@@ -199,32 +199,18 @@ def _sp2_jax_impl(
 
 
 # =============================================================================
-# Public exports with NumPy array conversion for compatibility
+# Public exports - native JAX arrays for maximum performance
 # =============================================================================
 
-
-def _convert_to_numpy(func: Callable[..., Any]) -> Callable[..., np.ndarray]:
-    """Wrapper that converts JAX array outputs to NumPy arrays.
-
-    This ensures compatibility with code that expects NumPy arrays.
-    """
-
-    def wrapper(*args: Any, **kwargs: Any) -> np.ndarray:
-        result = func(*args, **kwargs)
-        # Convert JAX array to NumPy array
-        return np.asarray(result)
-
-    return wrapper
-
-
 if HAS_JAX:
-    # Wrap JAX functions to return NumPy arrays for compatibility
-    gaussian_jax = _convert_to_numpy(_gaussian_jax_impl)
-    lorentzian_jax = _convert_to_numpy(_lorentzian_jax_impl)
-    pvoigt_jax = _convert_to_numpy(_pvoigt_jax_impl)
-    no_apod_jax = _convert_to_numpy(_no_apod_jax_impl)
-    sp1_jax = _convert_to_numpy(_sp1_jax_impl)
-    sp2_jax = _convert_to_numpy(_sp2_jax_impl)
+    # Export JAX functions directly - no conversion overhead
+    # JAX arrays are duck-typed to work with most NumPy operations
+    gaussian_jax = _gaussian_jax_impl
+    lorentzian_jax = _lorentzian_jax_impl
+    pvoigt_jax = _pvoigt_jax_impl
+    no_apod_jax = _no_apod_jax_impl
+    sp1_jax = _sp1_jax_impl
+    sp2_jax = _sp2_jax_impl
 else:
     # Fallback to NumPy implementations if JAX is not available
     # These will be imported from optimized.py if needed

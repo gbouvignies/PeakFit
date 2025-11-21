@@ -142,7 +142,9 @@ class TestBackendFunctions:
             func_jax = get_gaussian_func()
             result_jax = func_jax(np.array([0.0, 1.0]), 10.0)
 
-            assert isinstance(result_jax, np.ndarray)
+            # JAX returns jax.Array, not np.ndarray - check it's array-like
+            assert hasattr(result_jax, "__len__")
+            assert hasattr(result_jax, "shape")
             assert len(result_jax) == 2
             # Results should be approximately the same
             assert np.allclose(result_numpy, result_jax)
