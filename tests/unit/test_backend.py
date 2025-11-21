@@ -44,32 +44,21 @@ class TestGetBestBackend:
         available = get_available_backends()
         assert backend in available
 
-    def test_backend_preference_platform_aware(self):
-        """Test that backend preference is platform-aware."""
-        import platform
+    def test_prefers_jax_then_numba_if_available(self):
+        """Test that JAX is preferred, then Numba, then NumPy.
 
+        Note: Actual performance may vary by platform. Users should run
+        'peakfit diagnose' to determine optimal backend for their system.
+        """
         available = get_available_backends()
         best = get_best_backend()
-        is_arm = platform.machine() in ("arm64", "aarch64")
 
-        # On ARM (M1/M2/M3), prefer Numba > NumPy > JAX
-        if is_arm:
-            if "numba" in available:
-                assert best == "numba", "ARM platform should prefer Numba"
-            elif "numpy" in available:
-                assert best == "numpy", "ARM platform should prefer NumPy over JAX"
-            elif "jax" in available:
-                assert best == "jax", "ARM platform JAX fallback"
-            else:
-                assert best == "numpy", "Should default to NumPy"
-        # On x86_64, prefer JAX > Numba > NumPy
+        if "jax" in available:
+            assert best == "jax"
+        elif "numba" in available:
+            assert best == "numba"
         else:
-            if "jax" in available:
-                assert best == "jax", "x86 platform should prefer JAX"
-            elif "numba" in available:
-                assert best == "numba", "x86 platform should prefer Numba"
-            else:
-                assert best == "numpy", "Should default to NumPy"
+            assert best == "numpy"
 
 
 class TestSetBackend:

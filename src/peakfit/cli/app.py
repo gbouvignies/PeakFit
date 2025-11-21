@@ -1111,10 +1111,7 @@ def diagnose() -> None:
     console.print(f"  Processor: {platform_info['processor']}")
 
     if platform_info.get("is_arm"):
-        console.print(
-            "  [yellow]⚠ ARM architecture detected (M1/M2/M3 Mac or ARM Linux)[/yellow]"
-        )
-        console.print("    JAX may have limited optimization on this platform")
+        console.print("  [cyan]ℹ ARM architecture detected (M1/M2/M3 Mac or ARM Linux)[/cyan]")
 
     if platform_info.get("jax_available"):
         console.print(f"\n  JAX version: {platform_info['jax_version']}")
@@ -1149,19 +1146,15 @@ def diagnose() -> None:
         else:
             console.print("  (baseline)")
 
-    # Recommendations
+    # Recommendations based on actual benchmark results
     console.print("\n[bold]Recommendations:[/bold]")
 
-    if platform_info.get("is_arm"):
-        console.print(
-            "  [yellow]⚠ On ARM platforms (M1/M2/M3 Mac), NumPy may be faster than JAX[/yellow]"
-        )
-        console.print("    Use --backend numpy for better performance")
-        console.print("    Or let --backend auto select the best option")
-    else:
-        best_backend = min(results.items(), key=lambda x: x[1]["mean"])[0]
-        console.print(f"  ✓ Best backend for your platform: {best_backend}")
-        console.print(f"    Use: peakfit fit --backend {best_backend}")
+    best_backend = min(results.items(), key=lambda x: x[1]["mean"])[0]
+    console.print(f"  ✓ Fastest backend on this system: [green]{best_backend}[/green]")
+    console.print(f"    Use: peakfit fit --backend {best_backend}")
+    console.print()
+    console.print("  [dim]Note: Results are for 100-point arrays. Performance may vary")
+    console.print("  with different array sizes and workloads.[/dim]")
 
 
 if __name__ == "__main__":
