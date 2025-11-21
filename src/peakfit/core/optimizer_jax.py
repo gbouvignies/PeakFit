@@ -31,7 +31,10 @@ if HAS_JAX:
     import jax.numpy as jnp
     import optimistix as optx
     from jax import Array
-    from peakfit.core.vectorized_jax import compute_shapes_matrix_jax_flattened
+    from peakfit.core.vectorized_jax import (
+        compute_shapes_matrix_jax_flattened,
+        compute_shapes_matrix_jax_vectorized,
+    )
 
 
 class JAXOptimizerError(Exception):
@@ -391,9 +394,7 @@ def objective_for_optimistix_cached(
     peak_data_updated["etas"] = etas_updated
     peak_data_updated["r2s"] = r2s_updated
 
-    # Compute shapes using vectorized JAX
-    from peakfit.core.vectorized_jax import compute_shapes_matrix_jax_vectorized
-
+    # Compute shapes using vectorized JAX (import at module level)
     shapes = compute_shapes_matrix_jax_vectorized(peak_data_updated)
 
     # Compute residuals (fully JIT-compiled)
@@ -693,11 +694,44 @@ def fit_cluster_jax(
                 import sys
                 print(f"DEBUG: Ultra-fast path failed with error: {type(e).__name__}: {e}", file=sys.stderr)
                 raise JAXOptimizerError(f"Phase 2.1 Ultra failed: {e}") from e
+        elif use_fast_path and len(cluster.peaks) > 0 and len(cluster.peaks[0].shapes) == 2:
+            # Phase 2.1: 2D peaks using vectorized path
+            try:
+                from peakfit.core.vectorized_jax import extract_peak_evaluation_data_jax
+
+                # Debug: Confirm 2D path is being used
+                import sys
+                print("DEBUG: Using Phase 2.1 2D (vectorized with outer products)", file=sys.stderr)
+
+                # Extract peak data once
+                peak_data_cached, data_jax = extract_peak_evaluation_data_jax(cluster, params)
+
+                # Create parameter mapping array (2D version)
+                param_mapping = create_param_mapping(names, cluster)
+
+                # Pack into tuple for Optimistix
+                args = (peak_data_cached, param_mapping, data_jax, noise)
+
+                # Optimize using Optimistix with vectorized objective
+                solution = optx.minimise(
+                    objective_for_optimistix_cached,
+                    solver,
+                    jnp.array(x0),
+                    args=args,
+                    max_steps=max_steps,
+                    throw=False,
+                )
+            except Exception as e:
+                # Let exception propagate to caller for proper fallback
+                import sys
+                print(f"DEBUG: 2D path failed with error: {type(e).__name__}: {e}", file=sys.stderr)
+                raise JAXOptimizerError(f"Phase 2.1 2D failed: {e}") from e
         else:
-            # Multi-D peaks not supported in fast path
+            # 3D+ peaks not supported yet
             import sys
-            print(f"DEBUG: Multi-D peaks - not using fast path", file=sys.stderr)
-            raise JAXOptimizerError("Multi-dimensional peaks not supported in JAX optimizer yet")
+            n_dims = len(cluster.peaks[0].shapes) if cluster.peaks else 0
+            print(f"DEBUG: {n_dims}D peaks - not supported yet", file=sys.stderr)
+            raise JAXOptimizerError(f"{n_dims}D peaks not supported in JAX optimizer yet (only 1D and 2D)")
 
         # Extract results
         x_opt = solution.value
