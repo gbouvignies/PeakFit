@@ -464,26 +464,20 @@ def compute_shapes_matrix_jax_vectorized(
             result = shape_0[:, None] * shape_1[None, :]
             return result.ravel()
 
-        # Use jax.lax.map instead of vmap - simpler and more robust
-        # Map over peak indices, passing all data as auxiliary arguments
-        def eval_peak_i(i, aux_data):
-            (st0, p0, f0, e0, r0, aq0, end0, off0, ph0,
-             st1, p1, f1, e1, r1, aq1, end1, off1, ph1,
-             g0, g1, sw0, sz0, sw1, sz1) = aux_data
-
-            return eval_one_peak_2d(
-                st0[i], p0[i], f0[i], e0[i], r0[i], aq0[i], end0[i], off0[i], ph0[i],
-                st1[i], p1[i], f1[i], e1[i], r1[i], aq1[i], end1[i], off1[i], ph1[i],
-                g0, g1, sw0, sz0, sw1, sz1,
+        # Use a simple Python loop for now - will be optimized by JIT at a higher level
+        # This approach is simpler and more robust than trying to use vmap/map here
+        shapes_list = []
+        for i in range(n_peaks):
+            shape = eval_one_peak_2d(
+                shape_types_0[i], positions_0[i], fwhms_0[i], etas_0[i], r2s_0[i],
+                aqs_0[i], ends_0[i], offs_0[i], phases_0[i],
+                shape_types_1[i], positions_1[i], fwhms_1[i], etas_1[i], r2s_1[i],
+                aqs_1[i], ends_1[i], offs_1[i], phases_1[i],
+                grid_0, grid_1, sw_0, size_0, sw_1, size_1,
             )
+            shapes_list.append(shape)
 
-        aux_data = (
-            shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0,
-            shape_types_1, positions_1, fwhms_1, etas_1, r2s_1, aqs_1, ends_1, offs_1, phases_1,
-            grid_0, grid_1, sw_0, size_0, sw_1, size_1,
-        )
-
-        shapes = jax.lax.map(lambda i: eval_peak_i(i, aux_data), jnp.arange(n_peaks))
+        shapes = jnp.stack(shapes_list)
         return shapes
 
     else:
