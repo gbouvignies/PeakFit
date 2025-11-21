@@ -1092,5 +1092,77 @@ def benchmark(
         console.print("  Sequential fitting is optimal for single cluster")
 
 
+@app.command()
+def diagnose() -> None:
+    """Diagnose platform and backend performance.
+
+    Run diagnostics to understand backend performance characteristics
+    on your specific platform. Useful for troubleshooting performance issues.
+    """
+    from peakfit.core.diagnostics import compare_backends_on_real_data, diagnose_platform
+
+    console.print("[bold]PeakFit Performance Diagnostics[/bold]\n")
+
+    # Platform info
+    console.print("[bold]Platform Information:[/bold]")
+    platform_info = diagnose_platform()
+
+    console.print(f"  System: {platform_info['platform']} {platform_info['machine']}")
+    console.print(f"  Processor: {platform_info['processor']}")
+
+    if platform_info.get("is_arm"):
+        console.print(
+            "  [yellow]⚠ ARM architecture detected (M1/M2/M3 Mac or ARM Linux)[/yellow]"
+        )
+        console.print("    JAX may have limited optimization on this platform")
+
+    if platform_info.get("jax_available"):
+        console.print(f"\n  JAX version: {platform_info['jax_version']}")
+        console.print(f"  JAX backend: {platform_info.get('jax_default_backend', 'unknown')}")
+        if "jax_devices" in platform_info:
+            console.print(f"  JAX devices: {', '.join(platform_info['jax_devices'])}")
+    else:
+        console.print("\n  JAX: Not installed")
+
+    # Backend comparison
+    console.print("\n[bold]Backend Performance (realistic array size = 100 points):[/bold]")
+    console.print("Testing SP2 lineshape (most complex)...\n")
+
+    results = compare_backends_on_real_data(array_size=100)
+
+    # Find baseline (numpy)
+    numpy_time = results.get("numpy", {}).get("mean", 0)
+
+    for backend_name, profile in results.items():
+        mean_us = profile["mean"] * 1_000_000
+        std_us = profile["std"] * 1_000_000
+
+        speedup = numpy_time / profile["mean"] if profile["mean"] > 0 else 0
+
+        color = "green" if speedup > 1.2 else "yellow" if speedup > 0.8 else "red"
+
+        console.print(f"  [{color}]{backend_name:8s}[/{color}]: ", end="")
+        console.print(f"{mean_us:7.2f} ± {std_us:5.2f} µs/call", end="")
+
+        if backend_name != "numpy" and numpy_time > 0:
+            console.print(f"  ({speedup:.2f}x vs NumPy)")
+        else:
+            console.print("  (baseline)")
+
+    # Recommendations
+    console.print("\n[bold]Recommendations:[/bold]")
+
+    if platform_info.get("is_arm"):
+        console.print(
+            "  [yellow]⚠ On ARM platforms (M1/M2/M3 Mac), NumPy may be faster than JAX[/yellow]"
+        )
+        console.print("    Use --backend numpy for better performance")
+        console.print("    Or let --backend auto select the best option")
+    else:
+        best_backend = min(results.items(), key=lambda x: x[1]["mean"])[0]
+        console.print(f"  ✓ Best backend for your platform: {best_backend}")
+        console.print(f"    Use: peakfit fit --backend {best_backend}")
+
+
 if __name__ == "__main__":
     app()

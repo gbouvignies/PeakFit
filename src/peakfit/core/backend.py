@@ -65,18 +65,30 @@ def get_available_backends() -> list[str]:
 def get_best_backend() -> str:
     """Get the best available backend.
 
-    Prefers JAX for optimized JIT-compiled performance with GPU support.
-    Falls back to Numba, then NumPy if JAX/Numba are not available.
+    Selects optimal backend based on platform:
+    - ARM (M1/M2/M3 Mac): Prefers Numba > NumPy > JAX (JAX not optimized for ARM)
+    - x86_64/AMD64: Prefers JAX > Numba > NumPy (JAX best for large workloads)
     """
+    import platform
+
     available = get_available_backends()
+    is_arm = platform.machine() in ("arm64", "aarch64")
 
-    # Prefer JAX for best performance and GPU support
-    if "jax" in available:
-        return "jax"
-
-    # Fall back to Numba for CPU-only JIT compilation
-    if "numba" in available:
-        return "numba"
+    if is_arm:
+        # On ARM (M1/M2/M3 Mac), Numba and NumPy are typically faster than JAX
+        # JAX has limited optimization for ARM architecture as of 2024
+        if "numba" in available:
+            return "numba"
+        if "numpy" in available:
+            return "numpy"
+        if "jax" in available:
+            return "jax"
+    else:
+        # On x86_64, JAX provides best performance for large arrays
+        if "jax" in available:
+            return "jax"
+        if "numba" in available:
+            return "numba"
 
     return "numpy"
 
