@@ -41,7 +41,7 @@ bash run.sh
 This script will:
 1. Clean any previous results
 2. Run PeakFit on the CEST data
-3. Attempt to plot CEST profiles (if peakfit-plot is available)
+3. Attempt to plot CEST profiles
 
 ### Step-by-Step
 
@@ -58,8 +58,8 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 cat Fits/shifts.list
 less Fits/peakfit.log
 
-# 4. Plot CEST profiles (if available)
-peakfit-plot cest -f Fits/*N-HN.out --ref 0
+# 4. Plot CEST profiles
+peakfit plot cest Fits/ --ref 0
 ```
 
 ### Using Configuration File

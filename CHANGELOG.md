@@ -83,8 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Python version requirement relaxed to >=3.11
 
 - **Entry Points**:
-  - `peakfit` now launches modern Typer CLI
-  - `peakfit-plot` unchanged for plotting
+  - `peakfit` now launches modern Typer CLI with integrated plotting
+  - Plotting now accessible via `peakfit plot` subcommands (cest, cpmg, intensity, spectra)
 
 ### Fixed
 
@@ -95,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Legacy argparse CLI (`peakfit-legacy`)
 - JAX backend support (Numba provides best performance)
+- Standalone `peakfit-plot` command (replaced with `peakfit plot` subcommands)
 
 ## [Previous] - Legacy Versions
 

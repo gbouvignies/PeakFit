@@ -58,6 +58,6 @@ echo
 echo "Next steps:"
 echo "  • View log: less Fits/peakfit.log"
 echo "  • Check shifts: cat Fits/shifts.list"
-echo "  • Plot CEST profile: peakfit-plot cest -f Fits/*N-HN.out --ref 0"
+echo "  • Plot CEST profile: peakfit plot cest Fits/ --ref 0"
 echo "  • Open HTML report: open Fits/logs.html (if available)"
 echo
