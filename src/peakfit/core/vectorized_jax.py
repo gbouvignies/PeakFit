@@ -358,3 +358,64 @@ def compute_shapes_matrix_jax_vectorized(
             "Phase 2.1: Multi-dimensional peaks not yet implemented in vectorized path. "
             "Use scipy optimizer for 2D/3D peaks."
         )
+
+
+@jax.jit
+def compute_shapes_matrix_jax_flattened(
+    grid_pts: Array,
+    shape_types: Array,
+    positions: Array,
+    fwhms: Array,
+    etas: Array,
+    r2s: Array,
+    aqs: Array,
+    ends: Array,
+    offs: Array,
+    phases: Array,
+    sw: float,
+    size: int,
+) -> Array:
+    """Compute lineshape matrix using flattened arrays (fully optimized).
+
+    This version takes individual arrays instead of a dict, eliminating
+    all dict access overhead for maximum JIT performance.
+
+    Args:
+        grid_pts: Grid positions (n_points,)
+        shape_types: Shape type codes (n_peaks,)
+        positions: Peak positions (n_peaks,)
+        fwhms: Linewidths (n_peaks,)
+        etas: Pvoigt mixing (n_peaks,)
+        r2s: R2 relaxation rates (n_peaks,)
+        aqs: Acquisition times (n_peaks,)
+        ends: SP1/SP2 end parameters (n_peaks,)
+        offs: SP1/SP2 offset parameters (n_peaks,)
+        phases: Phase corrections (n_peaks,)
+        sw: Spectral width (Hz)
+        size: Number of points
+
+    Returns:
+        shapes_matrix: Array of shape (n_peaks, n_points)
+    """
+    n_peaks = len(shape_types)
+
+    # Vectorize across all peaks using vmap
+    def eval_one_peak(i: int) -> Array:
+        return evaluate_single_shape_jax(
+            grid_pts,
+            shape_types[i],
+            positions[i],
+            fwhms[i],
+            etas[i],
+            r2s[i],
+            aqs[i],
+            ends[i],
+            offs[i],
+            phases[i],
+            sw,
+            size,
+        )
+
+    # Use vmap to vectorize across peaks
+    shapes = jax.vmap(eval_one_peak)(jnp.arange(n_peaks))
+    return shapes

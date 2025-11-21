@@ -199,6 +199,45 @@ def compute_shapes_matrix_numpy(
 
 
 @jax.jit
+def update_peak_params_1d(
+    x: Array,
+    positions: Array,
+    fwhms: Array,
+    etas: Array,
+    r2s: Array,
+    param_mapping: Array,  # Shape: (n_params, 2) - [param_type, peak_idx] for 1D
+) -> tuple[Array, Array, Array, Array]:
+    """Update 1D peak parameters vectorized (JIT-compiled).
+
+    Args:
+        x: Varying parameter values
+        positions: Position array to update (n_peaks,)
+        fwhms: FWHM array to update (n_peaks,)
+        etas: Eta array to update (n_peaks,)
+        r2s: R2 array to update (n_peaks,)
+        param_mapping: Mapping array (n_params, 2) - [param_type, peak_idx]
+
+    Returns:
+        Updated (positions, fwhms, etas, r2s)
+    """
+    # Use jax.lax.fori_loop to update arrays efficiently
+    def update_one(i, arrays):
+        pos, fw, et, r2 = arrays
+        param_type, peak_idx = param_mapping[i]
+
+        # Update appropriate array based on param_type
+        # 0=position, 1=fwhm, 2=eta, 3=r2
+        pos = jnp.where(param_type == 0, pos.at[peak_idx].set(x[i]), pos)
+        fw = jnp.where(param_type == 1, fw.at[peak_idx].set(x[i]), fw)
+        et = jnp.where(param_type == 2, et.at[peak_idx].set(x[i]), et)
+        r2 = jnp.where(param_type == 3, r2.at[peak_idx].set(x[i]), r2)
+
+        return (pos, fw, et, r2)
+
+    return jax.lax.fori_loop(0, len(x), update_one, (positions, fwhms, etas, r2s))
+
+
+@jax.jit
 def update_peak_data_vectorized(
     x: Array,
     positions: Array,
@@ -235,6 +274,84 @@ def update_peak_data_vectorized(
         return (pos, fw, et, r2)
 
     return jax.lax.fori_loop(0, len(x), update_one, (positions, fwhms, etas, r2s))
+
+
+@jax.jit
+def objective_fully_jitted_1d(
+    x: Array,
+    args: tuple[Array, Array, Array, Array, Array, Array, Array, Array, Array, Array, Array, float, int, Array, float],
+) -> Array:
+    """Fully JIT-compiled objective function for 1D peaks (Phase 2.1 Ultra).
+
+    This version eliminates ALL Python overhead by using only JAX arrays.
+
+    Args:
+        x: Current varying parameter values
+        args: Tuple of flattened arrays
+            - grid_pts: Grid positions
+            - shape_types: Shape type codes (n_peaks,)
+            - positions: Initial positions (n_peaks,)
+            - fwhms: Initial FWHMs (n_peaks,)
+            - etas: Initial etas (n_peaks,)
+            - r2s: Initial r2s (n_peaks,)
+            - aqs: Acquisition times (n_peaks,)
+            - ends: SP1/SP2 end parameters (n_peaks,)
+            - offs: SP1/SP2 offset parameters (n_peaks,)
+            - phases: Phase corrections (n_peaks,)
+            - param_mapping: Parameter mapping (n_params, 2) for 1D
+            - sw: Spectral width
+            - size: Number of points
+            - data: Data to fit
+            - noise: Noise level
+
+    Returns:
+        Sum of squared residuals
+    """
+    (
+        grid_pts,
+        shape_types,
+        positions,
+        fwhms,
+        etas,
+        r2s,
+        aqs,
+        ends,
+        offs,
+        phases,
+        param_mapping,
+        sw,
+        size,
+        data,
+        noise,
+    ) = args
+
+    # Update parameters (JIT-compiled)
+    positions_updated, fwhms_updated, etas_updated, r2s_updated = update_peak_params_1d(
+        x, positions, fwhms, etas, r2s, param_mapping
+    )
+
+    # Compute shapes using flattened function (fully JIT-compiled)
+    from peakfit.core.vectorized_jax import compute_shapes_matrix_jax_flattened
+
+    shapes = compute_shapes_matrix_jax_flattened(
+        grid_pts,
+        shape_types,
+        positions_updated,
+        fwhms_updated,
+        etas_updated,
+        r2s_updated,
+        aqs,
+        ends,
+        offs,
+        phases,
+        sw,
+        size,
+    )
+
+    # Compute residuals (JIT-compiled)
+    residuals = compute_residuals_jax(x, shapes, data, noise)
+
+    return jnp.sum(residuals**2)
 
 
 def objective_for_optimistix_cached(
@@ -326,6 +443,49 @@ def objective_for_optimistix(
 
     # Return sum of squared residuals
     return jnp.sum(residuals**2)
+
+
+def create_param_mapping_1d(
+    vary_names: list[str], cluster: Cluster
+) -> Array:
+    """Create mapping from varying parameter names to peak indices (1D version).
+
+    Args:
+        vary_names: List of varying parameter names
+        cluster: Cluster being fit (1D peaks only)
+
+    Returns:
+        Array of shape (n_params, 2) with [param_type, peak_idx]
+        param_type: 0=position, 1=fwhm, 2=eta, 3=r2
+    """
+    param_mapping = []
+
+    for name in vary_names:
+        # Determine parameter type
+        if name.endswith("0"):
+            param_type = 0  # Position
+        elif name.endswith("_fwhm"):
+            param_type = 1  # FWHM
+        elif name.endswith("_eta"):
+            param_type = 2  # Eta
+        elif name.endswith("_r2"):
+            param_type = 3  # R2
+        else:
+            param_type = 1  # Default to FWHM
+
+        # Find which peak this belongs to
+        found = False
+        for peak_idx, peak in enumerate(cluster.peaks):
+            if found:
+                break
+            shape = peak.shapes[0]  # 1D: only one shape per peak
+            prefix = shape.prefix
+            if name.startswith(prefix) or name.startswith(prefix.replace("_", "")):
+                param_mapping.append([param_type, peak_idx])
+                found = True
+                break
+
+    return jnp.array(param_mapping, dtype=jnp.int32)
 
 
 def create_param_mapping(
@@ -474,21 +634,51 @@ def fit_cluster_jax(
     # Optimize using Optimistix
     try:
         if use_fast_path and len(cluster.peaks) > 0 and len(cluster.peaks[0].shapes) == 1:
-            # Phase 2.1 fast path: Cache peak data to avoid repeated extraction
+            # Phase 2.1 Ultra: Fully JIT-compiled with flattened arrays
             try:
                 from peakfit.core.vectorized_jax import extract_peak_evaluation_data_jax
 
                 # Extract peak data once
                 peak_data_cached, data_jax = extract_peak_evaluation_data_jax(cluster, params)
 
-                # Create parameter mapping array
-                param_mapping = create_param_mapping(names, cluster)
+                # Create parameter mapping array (1D version)
+                param_mapping = create_param_mapping_1d(names, cluster)
 
-                # Use cached objective function
-                args = (peak_data_cached, param_mapping, data_jax, noise)
+                # Flatten all data into pure JAX arrays (eliminate dict overhead)
+                grid_pts = peak_data_cached["grid"][0]
+                shape_types = peak_data_cached["shape_types"][:, 0]  # 1D: take first dimension
+                positions = peak_data_cached["positions"][:, 0]
+                fwhms = peak_data_cached["fwhms"][:, 0]
+                etas = peak_data_cached["etas"][:, 0]
+                r2s = peak_data_cached["r2s"][:, 0]
+                aqs = peak_data_cached["aqs"][:, 0]
+                ends = peak_data_cached["ends"][:, 0]
+                offs = peak_data_cached["offs"][:, 0]
+                phases = peak_data_cached["phases"][:, 0]
+                sw = float(peak_data_cached["spec_params_list"][0]["sw"])
+                size = int(peak_data_cached["spec_params_list"][0]["size"])
+
+                # Pack into tuple (all JAX arrays + scalars, no dicts!)
+                args = (
+                    grid_pts,
+                    shape_types,
+                    positions,
+                    fwhms,
+                    etas,
+                    r2s,
+                    aqs,
+                    ends,
+                    offs,
+                    phases,
+                    param_mapping,
+                    sw,
+                    size,
+                    data_jax,
+                    noise,
+                )
 
                 solution = optx.minimise(
-                    fn=objective_for_optimistix_cached,
+                    fn=objective_fully_jitted_1d,
                     solver=solver,
                     y0=x0,
                     args=args,
@@ -498,7 +688,7 @@ def fit_cluster_jax(
             except Exception as e:
                 # Fall back to Phase 2.0 if fast path fails
                 warnings.warn(
-                    f"Fast path failed ({e}), using Phase 2.0",
+                    f"Ultra-fast path failed ({e}), using Phase 2.0",
                     stacklevel=2,
                 )
                 args = (params.copy(), names, cluster, noise)
