@@ -222,6 +222,17 @@ poetry.toml
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,python,visualstudiocode
 
-# PeakFit
-examples/Fits*
-examples/profiles.pdf
+# PeakFit - Example outputs (users generate these locally)
+examples/*/Fits/
+examples/*/Fits-*/
+examples/*/results/
+examples/*/Results-*/
+examples/*/output/
+examples/*/Bootstrap/
+examples/*/MCMC/
+examples/*/Uncertainty/
+examples/*/*.out
+examples/*/*.pdf
+examples/*/logs/
+examples/*/all_shifts.csv
+examples/*/cest_*.csv
