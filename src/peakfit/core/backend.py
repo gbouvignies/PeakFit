@@ -65,21 +65,29 @@ def get_available_backends() -> list[str]:
 def get_best_backend() -> str:
     """Get the best available backend.
 
-    Prefers JAX for JIT compilation with GPU support capability,
-    falls back to Numba for CPU-only JIT, then NumPy.
+    Prefers Numba for consistently fast CPU performance,
+    falls back to NumPy if Numba unavailable.
 
-    Note: Performance varies by platform and workload. Use 'peakfit diagnose'
-    to benchmark backends on your specific system.
+    JAX is available but not preferred by default due to overhead on CPU
+    for typical NMR fitting workloads. JAX excels with GPU or very large arrays.
+
+    Note: Use 'peakfit diagnose' to benchmark on your system, or explicitly
+    select with --backend jax if you have GPU or specialized needs.
     """
     available = get_available_backends()
 
-    # Prefer JAX for JIT compilation and GPU support
-    if "jax" in available:
-        return "jax"
-
-    # Fall back to Numba for CPU-only JIT compilation
+    # Prefer Numba for best CPU performance (10s on both M1 and x86)
     if "numba" in available:
         return "numba"
+
+    # NumPy is a solid fallback (12-14s)
+    if "numpy" in available:
+        return "numpy"
+
+    # JAX available but slow for CPU workloads (37-39s)
+    # Use explicitly with --backend jax if you need GPU support
+    if "jax" in available:
+        return "jax"
 
     return "numpy"
 

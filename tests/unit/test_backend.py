@@ -44,19 +44,25 @@ class TestGetBestBackend:
         available = get_available_backends()
         assert backend in available
 
-    def test_prefers_jax_then_numba_if_available(self):
-        """Test that JAX is preferred, then Numba, then NumPy.
+    def test_prefers_numba_then_numpy(self):
+        """Test that Numba is preferred, then NumPy, then JAX.
 
-        Note: Actual performance may vary by platform. Users should run
-        'peakfit diagnose' to determine optimal backend for their system.
+        Based on real-world performance testing:
+        - Numba: 10s (fastest on both M1 and x86)
+        - NumPy: 12-14s (solid baseline)
+        - JAX: 37-39s (slow on CPU, use with --backend jax for GPU)
+
+        Users should run 'peakfit diagnose' to verify on their system.
         """
         available = get_available_backends()
         best = get_best_backend()
 
-        if "jax" in available:
-            assert best == "jax"
-        elif "numba" in available:
+        if "numba" in available:
             assert best == "numba"
+        elif "numpy" in available:
+            assert best == "numpy"
+        elif "jax" in available:
+            assert best == "jax"
         else:
             assert best == "numpy"
 
