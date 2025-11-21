@@ -332,42 +332,74 @@ def compute_shapes_matrix_jax_vectorized(
     n_peaks = peak_data["shape_types"].shape[0]
     n_dims = peak_data["shape_types"].shape[1]
 
-    # Vectorize across all peaks
-    def eval_one_peak(i: int) -> Array:
-        # Evaluate 1D lineshape for each dimension
-        shapes_1d = []
-        for dim in range(n_dims):
-            shape_1d = evaluate_single_shape_jax(
-                peak_data["grid"][dim],
-                peak_data["shape_types"][i, dim],
-                peak_data["positions"][i, dim],
-                peak_data["fwhms"][i, dim],
-                peak_data["etas"][i, dim],
-                peak_data["r2s"][i, dim],
-                peak_data["aqs"][i, dim],
-                peak_data["ends"][i, dim],
-                peak_data["offs"][i, dim],
-                peak_data["phases"][i, dim],
-                peak_data["spec_params_list"][dim]["sw"],
-                peak_data["spec_params_list"][dim]["size"],
+    # Handle common cases explicitly (avoid dynamic list building in JIT)
+    if n_dims == 1:
+        # 1D case: direct evaluation
+        def eval_one_peak_1d(i: int) -> Array:
+            return evaluate_single_shape_jax(
+                peak_data["grid"][0],
+                peak_data["shape_types"][i, 0],
+                peak_data["positions"][i, 0],
+                peak_data["fwhms"][i, 0],
+                peak_data["etas"][i, 0],
+                peak_data["r2s"][i, 0],
+                peak_data["aqs"][i, 0],
+                peak_data["ends"][i, 0],
+                peak_data["offs"][i, 0],
+                peak_data["phases"][i, 0],
+                peak_data["spec_params_list"][0]["sw"],
+                peak_data["spec_params_list"][0]["size"],
             )
-            shapes_1d.append(shape_1d)
 
-        # Compute outer product across all dimensions
-        # Start with first dimension
-        result = shapes_1d[0]
+        shapes = jax.vmap(eval_one_peak_1d)(jnp.arange(n_peaks))
+        return shapes
 
-        # Multiply by each additional dimension
-        for dim in range(1, n_dims):
-            # Add new axis and broadcast multiply
-            result = result[..., None] * shapes_1d[dim]
+    elif n_dims == 2:
+        # 2D case: explicit outer product
+        def eval_one_peak_2d(i: int) -> Array:
+            # Evaluate 1D lineshape in dimension 0
+            shape_0 = evaluate_single_shape_jax(
+                peak_data["grid"][0],
+                peak_data["shape_types"][i, 0],
+                peak_data["positions"][i, 0],
+                peak_data["fwhms"][i, 0],
+                peak_data["etas"][i, 0],
+                peak_data["r2s"][i, 0],
+                peak_data["aqs"][i, 0],
+                peak_data["ends"][i, 0],
+                peak_data["offs"][i, 0],
+                peak_data["phases"][i, 0],
+                peak_data["spec_params_list"][0]["sw"],
+                peak_data["spec_params_list"][0]["size"],
+            )
 
-        # Flatten to 1D
-        return result.ravel()
+            # Evaluate 1D lineshape in dimension 1
+            shape_1 = evaluate_single_shape_jax(
+                peak_data["grid"][1],
+                peak_data["shape_types"][i, 1],
+                peak_data["positions"][i, 1],
+                peak_data["fwhms"][i, 1],
+                peak_data["etas"][i, 1],
+                peak_data["r2s"][i, 1],
+                peak_data["aqs"][i, 1],
+                peak_data["ends"][i, 1],
+                peak_data["offs"][i, 1],
+                peak_data["phases"][i, 1],
+                peak_data["spec_params_list"][1]["sw"],
+                peak_data["spec_params_list"][1]["size"],
+            )
 
-    # Use vmap to vectorize across peaks
-    shapes = jax.vmap(eval_one_peak)(jnp.arange(n_peaks))
-    return shapes
+            # Compute outer product: (n0, 1) * (n1,) -> (n0, n1)
+            result = shape_0[:, None] * shape_1[None, :]
+            return result.ravel()
+
+        shapes = jax.vmap(eval_one_peak_2d)(jnp.arange(n_peaks))
+        return shapes
+
+    else:
+        # For 3D+, would need explicit implementation (rare in NMR)
+        # Fallback to slower path (this will cause an error, triggering fallback to scipy)
+        raise NotImplementedError(f"JAX vectorized path for {n_dims}D peaks not yet implemented")
 
 
 @jax.jit
