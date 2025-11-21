@@ -13,11 +13,8 @@ dependencies = [
     "rich>=13.7.1",
     "nmrglue>=0.10",
     "pandas>=2.2.2",
-    "openpyxl>=3.0.0",
     "scipy>=1.13.1",
     "networkx>=3.3",
-    "emcee>=3.1.6",
-    "numdifftools>=0.9.41",
     "pyqt5>=5.15.11",
     "pydantic>=2.5.0",
     "typer>=0.9.0",
@@ -39,6 +36,9 @@ dev = [
 ]
 performance = [
     "numba>=0.60.0",
+]
+mcmc = [
+    "emcee>=3.1.6",
 ]
 
 [project.scripts]
@@ -203,7 +203,6 @@ module = [
     "scipy.*",
     "networkx.*",
     "emcee.*",
-    "numdifftools.*",
     "matplotlib.*",
     "pandas.*",
     "numba.*",
