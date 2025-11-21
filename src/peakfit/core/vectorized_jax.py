@@ -351,29 +351,43 @@ def compute_shapes_matrix_jax_vectorized(
         sw_0 = spec_params_extracted[0]["sw"]
         size_0 = spec_params_extracted[0]["size"]
 
+        # Extract all peak data arrays
+        shape_types_0 = peak_data["shape_types"][:, 0]
+        positions_0 = peak_data["positions"][:, 0]
+        fwhms_0 = peak_data["fwhms"][:, 0]
+        etas_0 = peak_data["etas"][:, 0]
+        r2s_0 = peak_data["r2s"][:, 0]
+        aqs_0 = peak_data["aqs"][:, 0]
+        ends_0 = peak_data["ends"][:, 0]
+        offs_0 = peak_data["offs"][:, 0]
+        phases_0 = peak_data["phases"][:, 0]
+
         @jax.jit
-        def eval_one_peak_1d(i: int) -> Array:
+        def eval_one_peak_1d(shape_type, position, fwhm, eta, r2, aq, end, off, phase) -> Array:
             return evaluate_single_shape_jax(
                 grid_0,
-                peak_data["shape_types"][i, 0],
-                peak_data["positions"][i, 0],
-                peak_data["fwhms"][i, 0],
-                peak_data["etas"][i, 0],
-                peak_data["r2s"][i, 0],
-                peak_data["aqs"][i, 0],
-                peak_data["ends"][i, 0],
-                peak_data["offs"][i, 0],
-                peak_data["phases"][i, 0],
+                shape_type,
+                position,
+                fwhm,
+                eta,
+                r2,
+                aq,
+                end,
+                off,
+                phase,
                 sw_0,
                 size_0,
             )
 
-        shapes = jax.vmap(eval_one_peak_1d)(jnp.arange(n_peaks))
+        # Vmap over the data arrays themselves, not indices!
+        shapes = jax.vmap(eval_one_peak_1d)(
+            shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0
+        )
         return shapes
 
     elif n_dims == 2:
         # 2D case: explicit outer product
-        # Extract arrays and scalars outside JIT
+        # Extract ALL arrays and scalars outside JIT (no dict access inside JIT!)
         grid_0 = grids_extracted[0]
         grid_1 = grids_extracted[1]
         sw_0 = spec_params_extracted[0]["sw"]
@@ -381,20 +395,43 @@ def compute_shapes_matrix_jax_vectorized(
         sw_1 = spec_params_extracted[1]["sw"]
         size_1 = spec_params_extracted[1]["size"]
 
+        # Extract all peak data arrays (no more dict access in JIT)
+        shape_types_0 = peak_data["shape_types"][:, 0]
+        shape_types_1 = peak_data["shape_types"][:, 1]
+        positions_0 = peak_data["positions"][:, 0]
+        positions_1 = peak_data["positions"][:, 1]
+        fwhms_0 = peak_data["fwhms"][:, 0]
+        fwhms_1 = peak_data["fwhms"][:, 1]
+        etas_0 = peak_data["etas"][:, 0]
+        etas_1 = peak_data["etas"][:, 1]
+        r2s_0 = peak_data["r2s"][:, 0]
+        r2s_1 = peak_data["r2s"][:, 1]
+        aqs_0 = peak_data["aqs"][:, 0]
+        aqs_1 = peak_data["aqs"][:, 1]
+        ends_0 = peak_data["ends"][:, 0]
+        ends_1 = peak_data["ends"][:, 1]
+        offs_0 = peak_data["offs"][:, 0]
+        offs_1 = peak_data["offs"][:, 1]
+        phases_0 = peak_data["phases"][:, 0]
+        phases_1 = peak_data["phases"][:, 1]
+
         @jax.jit
-        def eval_one_peak_2d(i: int) -> Array:
+        def eval_one_peak_2d(
+            shape_type_0, position_0, fwhm_0, eta_0, r2_0, aq_0, end_0, off_0, phase_0,
+            shape_type_1, position_1, fwhm_1, eta_1, r2_1, aq_1, end_1, off_1, phase_1,
+        ) -> Array:
             # Evaluate 1D lineshape in dimension 0
             shape_0 = evaluate_single_shape_jax(
                 grid_0,
-                peak_data["shape_types"][i, 0],
-                peak_data["positions"][i, 0],
-                peak_data["fwhms"][i, 0],
-                peak_data["etas"][i, 0],
-                peak_data["r2s"][i, 0],
-                peak_data["aqs"][i, 0],
-                peak_data["ends"][i, 0],
-                peak_data["offs"][i, 0],
-                peak_data["phases"][i, 0],
+                shape_type_0,
+                position_0,
+                fwhm_0,
+                eta_0,
+                r2_0,
+                aq_0,
+                end_0,
+                off_0,
+                phase_0,
                 sw_0,
                 size_0,
             )
@@ -402,15 +439,15 @@ def compute_shapes_matrix_jax_vectorized(
             # Evaluate 1D lineshape in dimension 1
             shape_1 = evaluate_single_shape_jax(
                 grid_1,
-                peak_data["shape_types"][i, 1],
-                peak_data["positions"][i, 1],
-                peak_data["fwhms"][i, 1],
-                peak_data["etas"][i, 1],
-                peak_data["r2s"][i, 1],
-                peak_data["aqs"][i, 1],
-                peak_data["ends"][i, 1],
-                peak_data["offs"][i, 1],
-                peak_data["phases"][i, 1],
+                shape_type_1,
+                position_1,
+                fwhm_1,
+                eta_1,
+                r2_1,
+                aq_1,
+                end_1,
+                off_1,
+                phase_1,
                 sw_1,
                 size_1,
             )
@@ -419,7 +456,11 @@ def compute_shapes_matrix_jax_vectorized(
             result = shape_0[:, None] * shape_1[None, :]
             return result.ravel()
 
-        shapes = jax.vmap(eval_one_peak_2d)(jnp.arange(n_peaks))
+        # Vmap over the data arrays themselves, not indices!
+        shapes = jax.vmap(eval_one_peak_2d)(
+            shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0,
+            shape_types_1, positions_1, fwhms_1, etas_1, r2s_1, aqs_1, ends_1, offs_1, phases_1,
+        )
         return shapes
 
     else:
