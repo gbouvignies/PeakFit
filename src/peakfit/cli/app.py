@@ -180,7 +180,7 @@ def fit(
         typer.Option(
             "--backend",
             "-b",
-            help="Computation backend: auto, numpy, numba",
+            help="Computation backend: auto, numpy, jax, numba",
         ),
     ] = "auto",
     optimizer: Annotated[
@@ -658,6 +658,22 @@ def info(
     console.print(f"[green]Available:[/green] {', '.join(available_backends)}")
     console.print(f"[green]Recommended:[/green] {best_backend}")
 
+    # Backend-specific details
+    console.print()
+
+    # JAX status
+    if "jax" in available_backends:
+        try:
+            import jax
+
+            console.print(f"[green]✓ JAX enabled:[/green] {jax.__version__}")
+            console.print("  Features: JIT compilation, GPU support, auto-differentiation")
+        except ImportError:
+            console.print("[yellow]✗ JAX import error[/yellow]")
+    else:
+        console.print("[dim]○ JAX not installed[/dim]")
+        console.print("  Install with: pip install peakfit[performance]")
+
     # Numba status
     opt_info = get_optimization_info()
     numba_available = opt_info["numba_available"]
@@ -669,12 +685,10 @@ def info(
             console.print(f"[green]✓ Numba JIT enabled:[/green] {numba.__version__}")
             console.print(f"  Optimized functions: {', '.join(opt_info['optimizations'])}")
         except ImportError:
-            console.print("[yellow]✗ Numba not available[/yellow]")
+            console.print("[yellow]✗ Numba import error[/yellow]")
     else:
-        console.print("[yellow]✗ Numba JIT not available[/yellow]")
-        console.print("  Install with: pip install numba")
-        console.print("  Or: pip install peakfit[performance]")
-        console.print(f"  Using: {', '.join(opt_info['optimizations'])}")
+        console.print("[dim]○ Numba not installed[/dim]")
+        console.print("  Install with: pip install peakfit[performance]")
 
     # Parallel processing
     n_cpus = mp.cpu_count()

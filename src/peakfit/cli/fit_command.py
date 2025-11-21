@@ -88,7 +88,7 @@ def run_fit(
         config: Configuration object.
         parallel: Whether to use parallel processing.
         n_workers: Number of parallel workers.
-        backend: Computation backend (auto, numpy, numba).
+        backend: Computation backend (auto, numpy, jax, numba).
         optimizer: Optimization algorithm (leastsq, basin-hopping, differential-evolution).
         save_state: Whether to save fitting state for later analysis.
         verbose: Show banner and verbose output.
@@ -655,7 +655,7 @@ def _initialize_backend(backend: str, parallel: bool = False) -> str:
     """Initialize the computation backend.
 
     Args:
-        backend: Requested backend (auto, numpy, numba)
+        backend: Requested backend (auto, numpy, jax, numba)
         parallel: Whether parallel mode is enabled
 
     Returns:
