@@ -433,42 +433,82 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                 vary_names = params.get_vary_names()
                 ui.log(f"  - Varying parameters: {len(vary_names)}")
 
-                x0 = params.get_vary_values()
-                bounds_lower = np.array([params[name].min for name in vary_names])
-                bounds_upper = np.array([params[name].max for name in vary_names])
+                # Check if we should use optimized path (JAX optimizer)
+                from peakfit.core.backend import get_backend
+                from peakfit.core.lineshapes import HAS_JAX
 
-                # Run optimization with scipy.optimize.least_squares
-                # verbose=0: silent, verbose=2: show iterations
-                scipy_verbose = 2 if verbose else 0
-                result = least_squares(
-                    _residual_wrapper,
-                    x0,
-                    args=(params, cluster, clargs.noise),
-                    bounds=(bounds_lower, bounds_upper),
-                    ftol=LEAST_SQUARES_FTOL,
-                    xtol=LEAST_SQUARES_XTOL,
-                    max_nfev=LEAST_SQUARES_MAX_NFEV,
-                    verbose=scipy_verbose,
-                )
+                if get_backend() == "jax" and HAS_JAX:
+                    # Use JAX optimizer for maximum performance
+                    import sys
+                    print("DEBUG: Using JAX optimizer from fit command", file=sys.stderr)
 
-                # Update parameters with optimized values
-                for i, name in enumerate(vary_names):
-                    params[name].value = result.x[i]
+                    from peakfit.core.scipy_optimizer import fit_cluster_dict
 
-                # Compute standard errors from Jacobian
-                if result.jac is not None and len(result.fun) > len(vary_names):
-                    ndata = len(result.fun)
-                    nvarys = len(vary_names)
-                    redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
-                    try:
-                        jtj = result.jac.T @ result.jac
-                        cov = np.linalg.inv(jtj) * redchi
-                        stderr = np.sqrt(np.diag(cov))
-                        for i, name in enumerate(vary_names):
-                            params[name].stderr = float(stderr[i])
-                    except np.linalg.LinAlgError:
-                        # Singular matrix, can't compute errors
-                        pass
+                    # Convert params to dict for params_init
+                    params_init = {name: params[name].value for name in params}
+
+                    result_dict = fit_cluster_dict(
+                        cluster,
+                        clargs.noise,
+                        fixed=clargs.fixed,
+                        params_init=params_init,
+                    )
+
+                    # Update parameters from result
+                    for name, param_info in result_dict["params"].items():
+                        if name in params:
+                            params[name].value = param_info["value"]
+                            if param_info["stderr"] is not None:
+                                params[name].stderr = param_info["stderr"]
+
+                    # Create result object compatible with scipy format
+                    class JAXResult:
+                        def __init__(self, result_dict):
+                            self.success = result_dict["success"]
+                            self.cost = result_dict["chisqr"]
+                            self.nfev = result_dict["nfev"]
+                            self.message = result_dict["message"]
+
+                    result = JAXResult(result_dict)
+
+                else:
+                    # Use scipy optimizer (legacy path)
+                    x0 = params.get_vary_values()
+                    bounds_lower = np.array([params[name].min for name in vary_names])
+                    bounds_upper = np.array([params[name].max for name in vary_names])
+
+                    # Run optimization with scipy.optimize.least_squares
+                    # verbose=0: silent, verbose=2: show iterations
+                    scipy_verbose = 2 if verbose else 0
+                    result = least_squares(
+                        _residual_wrapper,
+                        x0,
+                        args=(params, cluster, clargs.noise),
+                        bounds=(bounds_lower, bounds_upper),
+                        ftol=LEAST_SQUARES_FTOL,
+                        xtol=LEAST_SQUARES_XTOL,
+                        max_nfev=LEAST_SQUARES_MAX_NFEV,
+                        verbose=scipy_verbose,
+                    )
+
+                    # Update parameters with optimized values
+                    for i, name in enumerate(vary_names):
+                        params[name].value = result.x[i]
+
+                    # Compute standard errors from Jacobian
+                    if result.jac is not None and len(result.fun) > len(vary_names):
+                        ndata = len(result.fun)
+                        nvarys = len(vary_names)
+                        redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
+                        try:
+                            jtj = result.jac.T @ result.jac
+                            cov = np.linalg.inv(jtj) * redchi
+                            stderr = np.sqrt(np.diag(cov))
+                            for i, name in enumerate(vary_names):
+                                params[name].stderr = float(stderr[i])
+                        except np.linalg.LinAlgError:
+                            # Singular matrix, can't compute errors
+                            pass
 
                 cluster_time = time_module.time() - cluster_start
 
