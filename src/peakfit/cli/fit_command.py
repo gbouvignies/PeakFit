@@ -439,9 +439,6 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
 
                 if get_backend() == "jax" and HAS_JAX:
                     # Try JAX optimizer for maximum performance
-                    import sys
-                    print("DEBUG: Using JAX optimizer from fit command", file=sys.stderr)
-
                     try:
                         from peakfit.core.scipy_optimizer import fit_cluster_dict
 
@@ -474,8 +471,6 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
 
                     except Exception as e:
                         # JAX optimizer failed, fall back to scipy
-                        print(f"DEBUG: JAX optimizer failed: {type(e).__name__}, falling back to scipy", file=sys.stderr)
-
                         # Use scipy optimizer (fallback path)
                         x0 = params.get_vary_values()
                         bounds_lower = np.array([params[name].min for name in vary_names])

@@ -155,10 +155,6 @@ def fit_cluster_dict(
     if get_backend() == "jax" and HAS_JAX:
         from peakfit.core.optimizer_jax import fit_cluster_jax
 
-        # Debug: Confirm JAX delegation
-        import sys
-        print(f"DEBUG: Delegating to JAX optimizer (backend={get_backend()})", file=sys.stderr)
-
         return fit_cluster_jax(
             cluster, noise, fixed=fixed, params_init=params_init
         )
