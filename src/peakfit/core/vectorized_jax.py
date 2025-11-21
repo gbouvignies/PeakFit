@@ -323,94 +323,49 @@ def compute_shapes_matrix_jax_vectorized(
         This function is fully JIT-compiled. All lineshape evaluations happen
         inside JAX with no Python overhead.
 
-        For multi-dimensional peaks (e.g., 2D NMR), the lineshape is computed
-        as the outer product of 1D lineshapes in each dimension, then flattened.
+        For N-dimensional peaks, the lineshape is computed as the product of
+        N 1D lineshapes (one per dimension), then flattened. This handles 1D,
+        2D, 3D, etc. peaks generically.
     """
     n_peaks = peak_data["n_peaks"]
     n_dims = peak_data["n_dims"]
 
-    if n_dims == 1:
-        # 1D peaks - direct evaluation
-        grid_pts = peak_data["grid"][0]
-        n_points = len(grid_pts)
-
-        # Vectorize across all peaks using vmap
-        def eval_one_peak(i: int) -> Array:
-            return evaluate_single_shape_jax(
-                grid_pts,
-                peak_data["shape_types"][i, 0],
-                peak_data["positions"][i, 0],
-                peak_data["fwhms"][i, 0],
-                peak_data["etas"][i, 0],
-                peak_data["r2s"][i, 0],
-                peak_data["aqs"][i, 0],
-                peak_data["ends"][i, 0],
-                peak_data["offs"][i, 0],
-                peak_data["phases"][i, 0],
-                peak_data["spec_params_list"][0]["sw"],
-                peak_data["spec_params_list"][0]["size"],
+    # Vectorize across all peaks
+    def eval_one_peak(i: int) -> Array:
+        # Evaluate 1D lineshape for each dimension
+        shapes_1d = []
+        for dim in range(n_dims):
+            shape_1d = evaluate_single_shape_jax(
+                peak_data["grid"][dim],
+                peak_data["shape_types"][i, dim],
+                peak_data["positions"][i, dim],
+                peak_data["fwhms"][i, dim],
+                peak_data["etas"][i, dim],
+                peak_data["r2s"][i, dim],
+                peak_data["aqs"][i, dim],
+                peak_data["ends"][i, dim],
+                peak_data["offs"][i, dim],
+                peak_data["phases"][i, dim],
+                peak_data["spec_params_list"][dim]["sw"],
+                peak_data["spec_params_list"][dim]["size"],
             )
+            shapes_1d.append(shape_1d)
 
-        # Use vmap to vectorize across peaks
-        shapes = jax.vmap(eval_one_peak)(jnp.arange(n_peaks))
-        return shapes
+        # Compute outer product across all dimensions
+        # Start with first dimension
+        result = shapes_1d[0]
 
-    elif n_dims == 2:
-        # 2D peaks - compute outer product of 1D lineshapes
-        grid_pts_0 = peak_data["grid"][0]
-        grid_pts_1 = peak_data["grid"][1]
-        n_points_0 = len(grid_pts_0)
-        n_points_1 = len(grid_pts_1)
-        n_points_total = n_points_0 * n_points_1
+        # Multiply by each additional dimension
+        for dim in range(1, n_dims):
+            # Add new axis and broadcast multiply
+            result = result[..., None] * shapes_1d[dim]
 
-        # Vectorize across all peaks
-        def eval_one_peak_2d(i: int) -> Array:
-            # Evaluate 1D lineshape in first dimension
-            shape_0 = evaluate_single_shape_jax(
-                grid_pts_0,
-                peak_data["shape_types"][i, 0],
-                peak_data["positions"][i, 0],
-                peak_data["fwhms"][i, 0],
-                peak_data["etas"][i, 0],
-                peak_data["r2s"][i, 0],
-                peak_data["aqs"][i, 0],
-                peak_data["ends"][i, 0],
-                peak_data["offs"][i, 0],
-                peak_data["phases"][i, 0],
-                peak_data["spec_params_list"][0]["sw"],
-                peak_data["spec_params_list"][0]["size"],
-            )
+        # Flatten to 1D
+        return result.ravel()
 
-            # Evaluate 1D lineshape in second dimension
-            shape_1 = evaluate_single_shape_jax(
-                grid_pts_1,
-                peak_data["shape_types"][i, 1],
-                peak_data["positions"][i, 1],
-                peak_data["fwhms"][i, 1],
-                peak_data["etas"][i, 1],
-                peak_data["r2s"][i, 1],
-                peak_data["aqs"][i, 1],
-                peak_data["ends"][i, 1],
-                peak_data["offs"][i, 1],
-                peak_data["phases"][i, 1],
-                peak_data["spec_params_list"][1]["sw"],
-                peak_data["spec_params_list"][1]["size"],
-            )
-
-            # Compute outer product and flatten
-            # shape_2d = jnp.outer(shape_0, shape_1).ravel()
-            shape_2d = (shape_0[:, None] * shape_1[None, :]).ravel()
-            return shape_2d
-
-        # Use vmap to vectorize across peaks
-        shapes = jax.vmap(eval_one_peak_2d)(jnp.arange(n_peaks))
-        return shapes
-
-    else:
-        raise NotImplementedError(
-            f"Phase 2.1: {n_dims}D peaks not yet implemented. "
-            "Currently supports 1D and 2D peaks only."
-        )
+    # Use vmap to vectorize across peaks
+    shapes = jax.vmap(eval_one_peak)(jnp.arange(n_peaks))
+    return shapes
 
 
 @jax.jit

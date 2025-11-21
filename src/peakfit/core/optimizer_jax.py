@@ -634,13 +634,14 @@ def fit_cluster_jax(
     # Optimize using Optimistix
     try:
         if use_fast_path and len(cluster.peaks) > 0 and len(cluster.peaks[0].shapes) == 1:
-            # Phase 2.1 Ultra: Fully JIT-compiled with flattened arrays
+            # Phase 2.1 Ultra: Fully JIT-compiled with flattened arrays (1D only)
+            # For 1D peaks, we can use fully flattened arrays for maximum performance
             try:
                 from peakfit.core.vectorized_jax import extract_peak_evaluation_data_jax
 
                 # Debug: Confirm ultra-fast path is being used
                 import sys
-                print("DEBUG: Using Phase 2.1 Ultra (fully JIT-compiled)", file=sys.stderr)
+                print("DEBUG: Using Phase 2.1 Ultra (fully JIT-compiled, 1D)", file=sys.stderr)
 
                 # Extract peak data once
                 peak_data_cached, data_jax = extract_peak_evaluation_data_jax(cluster, params)
@@ -694,19 +695,21 @@ def fit_cluster_jax(
                 import sys
                 print(f"DEBUG: Ultra-fast path failed with error: {type(e).__name__}: {e}", file=sys.stderr)
                 raise JAXOptimizerError(f"Phase 2.1 Ultra failed: {e}") from e
-        elif use_fast_path and len(cluster.peaks) > 0 and len(cluster.peaks[0].shapes) == 2:
-            # Phase 2.1: 2D peaks using vectorized path
+        elif use_fast_path and len(cluster.peaks) > 0:
+            # Phase 2.1: N-dimensional peaks using vectorized path
+            # Works for 2D, 3D, etc. - any N-D peak is just N 1D shapes multiplied together
             try:
                 from peakfit.core.vectorized_jax import extract_peak_evaluation_data_jax
 
-                # Debug: Confirm 2D path is being used
+                # Debug: Confirm N-D path is being used
                 import sys
-                print("DEBUG: Using Phase 2.1 2D (vectorized with outer products)", file=sys.stderr)
+                n_dims = len(cluster.peaks[0].shapes)
+                print(f"DEBUG: Using Phase 2.1 vectorized ({n_dims}D peaks)", file=sys.stderr)
 
                 # Extract peak data once
                 peak_data_cached, data_jax = extract_peak_evaluation_data_jax(cluster, params)
 
-                # Create parameter mapping array (2D version)
+                # Create parameter mapping array (N-D version)
                 param_mapping = create_param_mapping(names, cluster)
 
                 # Pack into tuple for Optimistix
@@ -724,14 +727,13 @@ def fit_cluster_jax(
             except Exception as e:
                 # Let exception propagate to caller for proper fallback
                 import sys
-                print(f"DEBUG: 2D path failed with error: {type(e).__name__}: {e}", file=sys.stderr)
-                raise JAXOptimizerError(f"Phase 2.1 2D failed: {e}") from e
+                print(f"DEBUG: Vectorized path failed with error: {type(e).__name__}: {e}", file=sys.stderr)
+                raise JAXOptimizerError(f"Phase 2.1 vectorized path failed: {e}") from e
         else:
-            # 3D+ peaks not supported yet
+            # No peaks to optimize
             import sys
-            n_dims = len(cluster.peaks[0].shapes) if cluster.peaks else 0
-            print(f"DEBUG: {n_dims}D peaks - not supported yet", file=sys.stderr)
-            raise JAXOptimizerError(f"{n_dims}D peaks not supported in JAX optimizer yet (only 1D and 2D)")
+            print(f"DEBUG: No peaks to optimize", file=sys.stderr)
+            raise JAXOptimizerError("No peaks to optimize")
 
         # Extract results
         x_opt = solution.value
