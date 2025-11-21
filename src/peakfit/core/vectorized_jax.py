@@ -481,10 +481,17 @@ def compute_shapes_matrix_jax_vectorized(
             return result.ravel()
 
         # Vmap over the data arrays themselves, not indices!
-        shapes = jax.vmap(eval_one_peak_2d)(
-            shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0,
-            shape_types_1, positions_1, fwhms_1, etas_1, r2s_1, aqs_1, ends_1, offs_1, phases_1,
-        )
+        try:
+            shapes = jax.vmap(eval_one_peak_2d)(
+                shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0,
+                shape_types_1, positions_1, fwhms_1, etas_1, r2s_1, aqs_1, ends_1, offs_1, phases_1,
+            )
+        except Exception as e:
+            import sys
+            import traceback
+            print(f"DEBUG: vmap failed with full traceback:", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            raise
         return shapes
 
     else:
