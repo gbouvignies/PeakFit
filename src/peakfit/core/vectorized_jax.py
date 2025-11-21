@@ -1,0 +1,360 @@
+"""Vectorized JAX lineshape evaluation for Phase 2.1.
+
+This module provides pure JAX functions for evaluating multiple lineshapes
+in parallel using jax.vmap, eliminating Python loops for maximum performance.
+
+Phase 2.1 goal: Move all lineshape evaluation inside JIT boundary.
+"""
+
+from typing import Any
+
+import numpy as np
+
+from peakfit.clustering import Cluster
+from peakfit.core.fitting import Parameters
+from peakfit.core.lineshapes import HAS_JAX, require_jax
+
+if HAS_JAX:
+    import jax
+    import jax.numpy as jnp
+    from jax import Array
+
+# Shape type encoding for conditional evaluation
+SHAPE_GAUSSIAN = 0
+SHAPE_LORENTZIAN = 1
+SHAPE_PVOIGT = 2
+SHAPE_NO_APOD = 3
+SHAPE_SP1 = 4
+SHAPE_SP2 = 5
+
+
+def extract_peak_evaluation_data_jax(
+    cluster: Cluster, params: Parameters
+) -> tuple[dict[str, Any], Array]:
+    """Extract peak data into JAX-friendly arrays for vectorized evaluation.
+
+    This converts the object-oriented Peak/Shape API into pure arrays that
+    JAX can vectorize.
+
+    Args:
+        cluster: Cluster to fit
+        params: Current parameters
+
+    Returns:
+        peak_data: Dict with arrays of peak metadata
+        data_jax: Cluster data as JAX array
+
+    Structure of peak_data:
+        - n_peaks: Number of peaks (int)
+        - n_dims: Number of dimensions per peak (typically 1 or 2)
+        - shape_types: Array of shape type codes (n_peaks, n_dims)
+        - positions: Array of peak positions (n_peaks, n_dims)
+        - fwhms: Array of linewidths (n_peaks, n_dims)
+        - etas: Array of pvoigt mixing (n_peaks, n_dims) - used only for pvoigt
+        - ... (other shape-specific params)
+        - grid: List of position arrays for each dimension
+        - spec_params: Spectral parameters for Hz conversion
+    """
+    require_jax()
+
+    peaks = cluster.peaks
+    n_peaks = len(peaks)
+
+    if n_peaks == 0:
+        raise ValueError("No peaks to evaluate")
+
+    # Get dimensionality from first peak
+    n_dims = len(peaks[0].shapes)
+
+    # Pre-allocate arrays
+    shape_types = np.zeros((n_peaks, n_dims), dtype=np.int32)
+    positions = np.zeros((n_peaks, n_dims), dtype=np.float64)
+    fwhms = np.zeros((n_peaks, n_dims), dtype=np.float64)
+    etas = np.zeros((n_peaks, n_dims), dtype=np.float64)  # For pvoigt
+    r2s = np.zeros((n_peaks, n_dims), dtype=np.float64)  # For apodization shapes
+    aqs = np.zeros((n_peaks, n_dims), dtype=np.float64)
+    ends = np.zeros((n_peaks, n_dims), dtype=np.float64)
+    offs = np.zeros((n_peaks, n_dims), dtype=np.float64)
+    phases = np.zeros((n_peaks, n_dims), dtype=np.float64)
+
+    # Extract data from each peak
+    for i, peak in enumerate(peaks):
+        for j, shape in enumerate(peak.shapes):
+            prefix = shape.prefix
+
+            # Determine shape type
+            shape_class_name = shape.__class__.__name__.lower()
+            if "gaussian" in shape_class_name:
+                shape_types[i, j] = SHAPE_GAUSSIAN
+            elif "lorentzian" in shape_class_name:
+                shape_types[i, j] = SHAPE_LORENTZIAN
+            elif "pvoigt" in shape_class_name or "pseudovoigt" in shape_class_name:
+                shape_types[i, j] = SHAPE_PVOIGT
+            elif "noapod" in shape_class_name:
+                shape_types[i, j] = SHAPE_NO_APOD
+            elif "sp1" in shape_class_name:
+                shape_types[i, j] = SHAPE_SP1
+            elif "sp2" in shape_class_name:
+                shape_types[i, j] = SHAPE_SP2
+            else:
+                raise ValueError(f"Unknown shape type: {shape_class_name}")
+
+            # Extract position
+            position_key = f"{prefix}0"
+            if position_key in params:
+                positions[i, j] = params[position_key].value
+            else:
+                positions[i, j] = shape.center
+
+            # Extract common parameters
+            fwhm_key = f"{prefix}_fwhm"
+            if fwhm_key in params:
+                fwhms[i, j] = params[fwhm_key].value
+            elif hasattr(shape, "fwhm"):
+                fwhms[i, j] = shape.fwhm
+            else:
+                fwhms[i, j] = 10.0  # Default
+
+            # Extract shape-specific parameters
+            if shape_types[i, j] == SHAPE_PVOIGT:
+                eta_key = f"{prefix}_eta"
+                if eta_key in params:
+                    etas[i, j] = params[eta_key].value
+                else:
+                    etas[i, j] = 0.5  # Default
+
+            # For apodization shapes (NoApod, SP1, SP2)
+            if shape_types[i, j] in [SHAPE_NO_APOD, SHAPE_SP1, SHAPE_SP2]:
+                r2_key = f"{prefix}_r2"
+                if r2_key in params:
+                    r2s[i, j] = params[r2_key].value
+                elif hasattr(shape, "r2"):
+                    r2s[i, j] = shape.r2
+                else:
+                    r2s[i, j] = 10.0
+
+                # Get aq from spec_params
+                if hasattr(shape, "spec_params") and hasattr(shape.spec_params, "aq"):
+                    aqs[i, j] = shape.spec_params.aq
+                else:
+                    aqs[i, j] = 0.1
+
+                # For SP1/SP2
+                if shape_types[i, j] in [SHAPE_SP1, SHAPE_SP2]:
+                    if hasattr(shape, "end"):
+                        ends[i, j] = shape.end
+                    else:
+                        ends[i, j] = 1.0
+
+                    if hasattr(shape, "off"):
+                        offs[i, j] = shape.off
+                    else:
+                        offs[i, j] = 0.35
+
+                # Phase
+                phase_prefix = prefix.replace("_", "_ph")
+                phase_key = f"{phase_prefix}p"
+                if phase_key in params:
+                    phases[i, j] = params[phase_key].value
+                else:
+                    phases[i, j] = 0.0
+
+    # Convert to JAX arrays
+    peak_data = {
+        "n_peaks": n_peaks,
+        "n_dims": n_dims,
+        "shape_types": jnp.array(shape_types, dtype=jnp.int32),
+        "positions": jnp.array(positions),
+        "fwhms": jnp.array(fwhms),
+        "etas": jnp.array(etas),
+        "r2s": jnp.array(r2s),
+        "aqs": jnp.array(aqs),
+        "ends": jnp.array(ends),
+        "offs": jnp.array(offs),
+        "phases": jnp.array(phases),
+        "grid": [jnp.array(g) for g in cluster.positions],
+        "spec_params_list": [
+            {
+                "sw": float(shape.spec_params.sw),
+                "obs": float(shape.spec_params.obs),
+                "car": float(shape.spec_params.car),
+                "size": int(shape.spec_params.size),
+            }
+            for shape in peaks[0].shapes  # Use first peak as template
+        ],
+    }
+
+    data_jax = jnp.array(cluster.corrected_data)
+
+    return peak_data, data_jax
+
+
+@jax.jit
+def pts2hz_delta_jax(dx_pt: Array, sw: float, size: int) -> Array:
+    """Convert point offset to Hz (JAX version).
+
+    Args:
+        dx_pt: Offset in points
+        sw: Spectral width (Hz)
+        size: Number of points
+
+    Returns:
+        Offset in Hz
+    """
+    return dx_pt * sw / size
+
+
+@jax.jit
+def evaluate_single_shape_jax(
+    grid_pts: Array,
+    shape_type: int,
+    position: float,
+    fwhm: float,
+    eta: float,
+    r2: float,
+    aq: float,
+    end: float,
+    off: float,
+    phase: float,
+    sw: float,
+    size: int,
+) -> Array:
+    """Evaluate a single lineshape using JAX (JIT-compiled).
+
+    Uses conditional branching to handle different shape types.
+
+    Args:
+        grid_pts: Grid positions (in points)
+        shape_type: Shape type code (0=Gaussian, 1=Lorentzian, ...)
+        position: Peak position (in points)
+        fwhm: Full width at half maximum (Hz)
+        eta: Pvoigt mixing parameter
+        r2: R2 relaxation rate (Hz)
+        aq: Acquisition time (s)
+        end: SP1/SP2 end parameter
+        off: SP1/SP2 offset parameter
+        phase: Phase correction (degrees)
+        sw: Spectral width (Hz)
+        size: Number of points
+
+    Returns:
+        Evaluated lineshape
+    """
+    from peakfit.core.lineshapes import gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
+
+    # Compute distance from center
+    dx_pt = grid_pts - position
+    dx_hz = pts2hz_delta_jax(dx_pt, sw, size)
+
+    # Evaluate based on shape type using jax.lax.switch
+    def eval_gaussian(_):
+        return gaussian(dx_hz, fwhm)
+
+    def eval_lorentzian(_):
+        return lorentzian(dx_hz, fwhm)
+
+    def eval_pvoigt(_):
+        return pvoigt(dx_hz, fwhm, eta)
+
+    def eval_no_apod(_):
+        return no_apod(dx_hz, r2, aq, phase)
+
+    def eval_sp1(_):
+        return sp1(dx_hz, r2, aq, end, off, phase)
+
+    def eval_sp2(_):
+        return sp2(dx_hz, r2, aq, end, off, phase)
+
+    # Use jax.lax.switch for efficient conditional
+    branches = [eval_gaussian, eval_lorentzian, eval_pvoigt, eval_no_apod, eval_sp1, eval_sp2]
+    result = jax.lax.switch(shape_type, branches, None)
+
+    # Note: Sign handling for folded peaks is simplified here
+    # Full implementation would need aliasing calculation and p180 flag
+    # For Phase 2.1, assuming no aliasing (most common case)
+    return result
+
+
+def evaluate_peak_dim_jax(
+    grid_pts: Array,
+    shape_type: int,
+    position: float,
+    fwhm: float,
+    eta: float,
+    r2: float,
+    aq: float,
+    end: float,
+    off: float,
+    phase: float,
+    spec_params: dict[str, Any],
+) -> Array:
+    """Evaluate one dimension of a peak (wrapper for vectorization)."""
+    return evaluate_single_shape_jax(
+        grid_pts,
+        shape_type,
+        position,
+        fwhm,
+        eta,
+        r2,
+        aq,
+        end,
+        off,
+        phase,
+        spec_params["sw"],
+        spec_params["size"],
+    )
+
+
+@jax.jit
+def compute_shapes_matrix_jax_vectorized(
+    peak_data: dict[str, Array],
+) -> Array:
+    """Compute lineshape matrix for all peaks using vectorized JAX (Phase 2.1).
+
+    This is the core vectorized function that replaces the Python loop.
+
+    Args:
+        peak_data: Dict with peak metadata arrays (from extract_peak_evaluation_data_jax)
+
+    Returns:
+        shapes_matrix: Array of shape (n_peaks, n_points)
+
+    Notes:
+        This function is fully JIT-compiled. All lineshape evaluations happen
+        inside JAX with no Python overhead.
+    """
+    n_peaks = peak_data["n_peaks"]
+    n_dims = peak_data["n_dims"]
+
+    # For now, handle 1D case (most common in NMR)
+    # Multi-dimensional peaks require product across dimensions
+    if n_dims == 1:
+        grid_pts = peak_data["grid"][0]
+        n_points = len(grid_pts)
+
+        # Vectorize across all peaks using vmap
+        def eval_one_peak(i: int) -> Array:
+            return evaluate_single_shape_jax(
+                grid_pts,
+                peak_data["shape_types"][i, 0],
+                peak_data["positions"][i, 0],
+                peak_data["fwhms"][i, 0],
+                peak_data["etas"][i, 0],
+                peak_data["r2s"][i, 0],
+                peak_data["aqs"][i, 0],
+                peak_data["ends"][i, 0],
+                peak_data["offs"][i, 0],
+                peak_data["phases"][i, 0],
+                peak_data["spec_params_list"][0]["sw"],
+                peak_data["spec_params_list"][0]["size"],
+            )
+
+        # Use vmap to vectorize across peaks
+        shapes = jax.vmap(eval_one_peak)(jnp.arange(n_peaks))
+        return shapes
+
+    else:
+        raise NotImplementedError(
+            "Phase 2.1: Multi-dimensional peaks not yet implemented in vectorized path. "
+            "Use scipy optimizer for 2D/3D peaks."
+        )
