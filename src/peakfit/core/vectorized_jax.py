@@ -380,16 +380,16 @@ def compute_shapes_matrix_jax_vectorized(
                 size_arg,
             )
 
-        # Vmap over the data arrays themselves, not indices!
-        # Use in_axes to specify which arguments are vmapped (0) vs broadcasted (None)
-        shapes = jax.vmap(
-            eval_one_peak_1d,
-            in_axes=(0, 0, 0, 0, 0, 0, 0, 0, 0,  # Peak params (vmapped)
-                    None, None, None)  # Grid and constants (broadcasted)
-        )(
-            shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0,
-            grid_0, sw_0, size_0,
-        )
+        # Use jax.lax.map instead of vmap - simpler and more robust
+        def eval_peak_i(i, aux_data):
+            (st, p, f, e, r, aq, end, off, ph, g, sw, sz) = aux_data
+            return eval_one_peak_1d(st[i], p[i], f[i], e[i], r[i], aq[i], end[i], off[i], ph[i],
+                                   g, sw, sz)
+
+        aux_data = (shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0,
+                   grid_0, sw_0, size_0)
+
+        shapes = jax.lax.map(lambda i: eval_peak_i(i, aux_data), jnp.arange(n_peaks))
         return shapes
 
     elif n_dims == 2:
@@ -464,25 +464,26 @@ def compute_shapes_matrix_jax_vectorized(
             result = shape_0[:, None] * shape_1[None, :]
             return result.ravel()
 
-        # Vmap over the data arrays themselves, not indices!
-        # Use in_axes to specify which arguments are vmapped (0) vs broadcasted (None)
-        try:
-            shapes = jax.vmap(
-                eval_one_peak_2d,
-                in_axes=(0, 0, 0, 0, 0, 0, 0, 0, 0,  # Dim 0 params (vmapped)
-                        0, 0, 0, 0, 0, 0, 0, 0, 0,  # Dim 1 params (vmapped)
-                        None, None, None, None, None, None)  # Grids and constants (broadcasted)
-            )(
-                shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0,
-                shape_types_1, positions_1, fwhms_1, etas_1, r2s_1, aqs_1, ends_1, offs_1, phases_1,
-                grid_0, grid_1, sw_0, size_0, sw_1, size_1,
+        # Use jax.lax.map instead of vmap - simpler and more robust
+        # Map over peak indices, passing all data as auxiliary arguments
+        def eval_peak_i(i, aux_data):
+            (st0, p0, f0, e0, r0, aq0, end0, off0, ph0,
+             st1, p1, f1, e1, r1, aq1, end1, off1, ph1,
+             g0, g1, sw0, sz0, sw1, sz1) = aux_data
+
+            return eval_one_peak_2d(
+                st0[i], p0[i], f0[i], e0[i], r0[i], aq0[i], end0[i], off0[i], ph0[i],
+                st1[i], p1[i], f1[i], e1[i], r1[i], aq1[i], end1[i], off1[i], ph1[i],
+                g0, g1, sw0, sz0, sw1, sz1,
             )
-        except Exception as e:
-            import sys
-            import traceback
-            print(f"DEBUG: vmap failed with full traceback:", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-            raise
+
+        aux_data = (
+            shape_types_0, positions_0, fwhms_0, etas_0, r2s_0, aqs_0, ends_0, offs_0, phases_0,
+            shape_types_1, positions_1, fwhms_1, etas_1, r2s_1, aqs_1, ends_1, offs_1, phases_1,
+            grid_0, grid_1, sw_0, size_0, sw_1, size_1,
+        )
+
+        shapes = jax.lax.map(lambda i: eval_peak_i(i, aux_data), jnp.arange(n_peaks))
         return shapes
 
     else:
