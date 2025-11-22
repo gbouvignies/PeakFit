@@ -9,14 +9,14 @@ class TestHashArray:
 
     def test_hash_same_array(self):
         """Same array should produce same hash."""
-        from peakfit.core.caching import hash_array
+        from peakfit.analysis.caching import hash_array
 
         arr = np.array([1.0, 2.0, 3.0])
         assert hash_array(arr) == hash_array(arr)
 
     def test_hash_identical_arrays(self):
         """Identical arrays should have same hash."""
-        from peakfit.core.caching import hash_array
+        from peakfit.analysis.caching import hash_array
 
         arr1 = np.array([1.0, 2.0, 3.0])
         arr2 = np.array([1.0, 2.0, 3.0])
@@ -24,7 +24,7 @@ class TestHashArray:
 
     def test_hash_different_arrays(self):
         """Different arrays should have different hashes."""
-        from peakfit.core.caching import hash_array
+        from peakfit.analysis.caching import hash_array
 
         arr1 = np.array([1.0, 2.0, 3.0])
         arr2 = np.array([1.0, 2.0, 4.0])
@@ -32,7 +32,7 @@ class TestHashArray:
 
     def test_hash_multidimensional(self):
         """Should handle multidimensional arrays."""
-        from peakfit.core.caching import hash_array
+        from peakfit.analysis.caching import hash_array
 
         arr = np.array([[1, 2], [3, 4]])
         h = hash_array(arr)
@@ -45,7 +45,7 @@ class TestMakeCacheKey:
 
     def test_key_from_scalars(self):
         """Should create key from scalar values."""
-        from peakfit.core.caching import make_cache_key
+        from peakfit.analysis.caching import make_cache_key
 
         key = make_cache_key(1.0, 2.0, "test")
         assert "1.0" in key
@@ -54,7 +54,7 @@ class TestMakeCacheKey:
 
     def test_key_from_array(self):
         """Should create key from array."""
-        from peakfit.core.caching import make_cache_key
+        from peakfit.analysis.caching import make_cache_key
 
         arr = np.array([1.0, 2.0])
         key = make_cache_key(arr)
@@ -62,7 +62,7 @@ class TestMakeCacheKey:
 
     def test_key_consistency(self):
         """Same arguments should produce same key."""
-        from peakfit.core.caching import make_cache_key
+        from peakfit.analysis.caching import make_cache_key
 
         arr = np.array([1.0, 2.0])
         key1 = make_cache_key(arr, 3.0)
@@ -75,7 +75,7 @@ class TestLRUCache:
 
     def test_basic_get_put(self):
         """Should store and retrieve values."""
-        from peakfit.core.caching import LRUCache
+        from peakfit.analysis.caching import LRUCache
 
         cache = LRUCache(maxsize=10)
         cache.put("key1", "value1")
@@ -83,14 +83,14 @@ class TestLRUCache:
 
     def test_cache_miss_returns_none(self):
         """Should return None for missing keys."""
-        from peakfit.core.caching import LRUCache
+        from peakfit.analysis.caching import LRUCache
 
         cache = LRUCache(maxsize=10)
         assert cache.get("nonexistent") is None
 
     def test_eviction_on_full(self):
         """Should evict oldest item when full."""
-        from peakfit.core.caching import LRUCache
+        from peakfit.analysis.caching import LRUCache
 
         cache = LRUCache(maxsize=3)
         cache.put("a", 1)
@@ -105,7 +105,7 @@ class TestLRUCache:
 
     def test_access_refreshes_position(self):
         """Accessing item should move it to end."""
-        from peakfit.core.caching import LRUCache
+        from peakfit.analysis.caching import LRUCache
 
         cache = LRUCache(maxsize=3)
         cache.put("a", 1)
@@ -125,7 +125,7 @@ class TestLRUCache:
 
     def test_update_existing_key(self):
         """Should update value for existing key."""
-        from peakfit.core.caching import LRUCache
+        from peakfit.analysis.caching import LRUCache
 
         cache = LRUCache(maxsize=10)
         cache.put("key", "old")
@@ -134,7 +134,7 @@ class TestLRUCache:
 
     def test_clear_cache(self):
         """Should clear all items."""
-        from peakfit.core.caching import LRUCache
+        from peakfit.analysis.caching import LRUCache
 
         cache = LRUCache(maxsize=10)
         cache.put("a", 1)
@@ -147,7 +147,7 @@ class TestLRUCache:
 
     def test_hit_rate_tracking(self):
         """Should track hit rate."""
-        from peakfit.core.caching import LRUCache
+        from peakfit.analysis.caching import LRUCache
 
         cache = LRUCache(maxsize=10)
         cache.put("a", 1)
@@ -163,7 +163,7 @@ class TestLRUCache:
 
     def test_stats(self):
         """Should provide cache statistics."""
-        from peakfit.core.caching import LRUCache
+        from peakfit.analysis.caching import LRUCache
 
         cache = LRUCache(maxsize=100)
         cache.put("a", 1)
@@ -181,7 +181,7 @@ class TestMemoizeArrayFunction:
 
     def test_caches_results(self):
         """Should cache function results."""
-        from peakfit.core.caching import memoize_array_function
+        from peakfit.analysis.caching import memoize_array_function
 
         call_count = 0
 
@@ -201,7 +201,7 @@ class TestMemoizeArrayFunction:
 
     def test_different_args_not_cached(self):
         """Different args should compute separately."""
-        from peakfit.core.caching import memoize_array_function
+        from peakfit.analysis.caching import memoize_array_function
 
         call_count = 0
 
@@ -221,7 +221,7 @@ class TestMemoizeArrayFunction:
 
     def test_handles_kwargs(self):
         """Should handle keyword arguments."""
-        from peakfit.core.caching import memoize_array_function
+        from peakfit.analysis.caching import memoize_array_function
 
         call_count = 0
 
@@ -241,7 +241,7 @@ class TestMemoizeArrayFunction:
 
     def test_cache_accessible(self):
         """Should expose cache for inspection."""
-        from peakfit.core.caching import memoize_array_function
+        from peakfit.analysis.caching import memoize_array_function
 
         @memoize_array_function(maxsize=10)
         def func(x):
@@ -259,7 +259,7 @@ class TestCachedLstsq:
 
     def test_basic_lstsq(self):
         """Should compute least squares correctly."""
-        from peakfit.core.caching import cached_lstsq
+        from peakfit.analysis.caching import cached_lstsq
 
         a = np.array([[1, 2], [3, 4], [5, 6]], dtype=float)
         b = np.array([1, 2, 3], dtype=float)
@@ -271,7 +271,7 @@ class TestCachedLstsq:
 
     def test_caching_works(self):
         """Should cache results."""
-        from peakfit.core.caching import cached_lstsq
+        from peakfit.analysis.caching import cached_lstsq
 
         a = np.array([[1, 2], [3, 4]], dtype=float)
         b = np.array([1, 2], dtype=float)
@@ -292,7 +292,7 @@ class TestGlobalShapeCache:
 
     def test_clear_shape_cache(self):
         """Should clear global cache."""
-        from peakfit.core.caching import clear_shape_cache, get_cache_stats
+        from peakfit.analysis.caching import clear_shape_cache, get_cache_stats
 
         # Add something to cache
         clear_shape_cache()
@@ -301,7 +301,7 @@ class TestGlobalShapeCache:
 
     def test_get_cache_stats(self):
         """Should return cache statistics."""
-        from peakfit.core.caching import get_cache_stats
+        from peakfit.analysis.caching import get_cache_stats
 
         stats = get_cache_stats()
         assert "size" in stats

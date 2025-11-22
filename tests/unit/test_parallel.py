@@ -11,14 +11,14 @@ class TestParallelFitting:
 
     def test_import_parallel_module(self):
         """Should be able to import parallel module."""
-        from peakfit.core.parallel import fit_clusters_parallel, fit_clusters_parallel_refined
+        from peakfit.fitting.parallel import fit_clusters_parallel, fit_clusters_parallel_refined
 
         assert callable(fit_clusters_parallel)
         assert callable(fit_clusters_parallel_refined)
 
     def test_single_cluster_worker(self):
         """Single cluster fitting should work."""
-        from peakfit.core.parallel import _fit_single_cluster
+        from peakfit.fitting.parallel import _fit_single_cluster
 
         # This is tested indirectly - the function signature is correct
         assert callable(_fit_single_cluster)
@@ -29,7 +29,7 @@ class TestOptimizedFunctions:
 
     def test_import_optimized_module(self):
         """Should be able to import optimized module."""
-        from peakfit.core.optimized import gaussian_jit, lorentzian_jit, pvoigt_jit
+        from peakfit.lineshapes.functions import gaussian_jit, lorentzian_jit, pvoigt_jit
 
         assert callable(gaussian_jit)
         assert callable(lorentzian_jit)
@@ -39,8 +39,8 @@ class TestOptimizedFunctions:
         """Optimized Gaussian should give same results as original."""
         import numpy as np
 
-        from peakfit.core.optimized import gaussian_jit
-        from peakfit.shapes import gaussian
+        from peakfit.lineshapes.functions import gaussian_jit
+        from peakfit.lineshapes import gaussian
 
         dx = np.linspace(-50, 50, 101)
         fwhm = 10.0
@@ -54,8 +54,8 @@ class TestOptimizedFunctions:
         """Optimized Lorentzian should give same results as original."""
         import numpy as np
 
-        from peakfit.core.optimized import lorentzian_jit
-        from peakfit.shapes import lorentzian
+        from peakfit.lineshapes.functions import lorentzian_jit
+        from peakfit.lineshapes import lorentzian
 
         dx = np.linspace(-50, 50, 101)
         fwhm = 10.0
@@ -69,8 +69,8 @@ class TestOptimizedFunctions:
         """Optimized Pseudo-Voigt should give same results as original."""
         import numpy as np
 
-        from peakfit.core.optimized import pvoigt_jit
-        from peakfit.shapes import pvoigt
+        from peakfit.lineshapes.functions import pvoigt_jit
+        from peakfit.lineshapes import pvoigt
 
         dx = np.linspace(-50, 50, 101)
         fwhm = 10.0
@@ -85,8 +85,8 @@ class TestOptimizedFunctions:
         """Optimized NoApod should give same results as original."""
         import numpy as np
 
-        from peakfit.core.optimized import no_apod_jit
-        from peakfit.shapes import no_apod
+        from peakfit.lineshapes.functions import no_apod_jit
+        from peakfit.lineshapes import no_apod
 
         dx = np.linspace(-50, 50, 101)
         r2 = 5.0  # Hz
@@ -102,8 +102,8 @@ class TestOptimizedFunctions:
         """Optimized SP1 should give same results as original."""
         import numpy as np
 
-        from peakfit.core.optimized import sp1_jit
-        from peakfit.shapes import sp1
+        from peakfit.lineshapes.functions import sp1_jit
+        from peakfit.lineshapes import sp1
 
         dx = np.linspace(-50, 50, 101)
         r2 = 5.0  # Hz
@@ -121,8 +121,8 @@ class TestOptimizedFunctions:
         """Optimized SP2 should give same results as original."""
         import numpy as np
 
-        from peakfit.core.optimized import sp2_jit
-        from peakfit.shapes import sp2
+        from peakfit.lineshapes.functions import sp2_jit
+        from peakfit.lineshapes import sp2
 
         dx = np.linspace(-50, 50, 101)
         r2 = 5.0  # Hz
@@ -138,7 +138,7 @@ class TestOptimizedFunctions:
 
     def test_optimization_info(self):
         """Should provide optimization info."""
-        from peakfit.core.optimized import get_optimization_info
+        from peakfit.lineshapes.functions import get_optimization_info
 
         info = get_optimization_info()
         assert "numba_available" in info
@@ -148,7 +148,7 @@ class TestOptimizedFunctions:
 
     def test_check_numba_available(self):
         """Should report numba availability."""
-        from peakfit.core.optimized import check_numba_available
+        from peakfit.lineshapes.functions import check_numba_available
 
         result = check_numba_available()
         assert isinstance(result, bool)
@@ -159,7 +159,7 @@ class TestFittingEngine:
 
     def test_import_fitting_module(self):
         """Should be able to import fitting module."""
-        from peakfit.core.fitting import FitResult, Parameter, Parameters, fit_cluster
+        from peakfit.fitting.parameters import FitResult, Parameter, Parameters, fit_cluster
 
         assert Parameter is not None
         assert Parameters is not None
@@ -168,7 +168,7 @@ class TestFittingEngine:
 
     def test_parameter_creation(self):
         """Parameter should store values and bounds correctly."""
-        from peakfit.core.fitting import Parameter
+        from peakfit.fitting.parameters import Parameter
 
         param = Parameter("test", 10.0, min=5.0, max=15.0, vary=True)
         assert param.name == "test"
@@ -179,7 +179,7 @@ class TestFittingEngine:
 
     def test_parameter_bounds_validation(self):
         """Parameter should validate bounds."""
-        from peakfit.core.fitting import Parameter
+        from peakfit.fitting.parameters import Parameter
 
         # Value outside bounds should raise
         with pytest.raises(ValueError, match=r"min \("):
@@ -191,7 +191,7 @@ class TestFittingEngine:
 
     def test_parameters_collection(self):
         """Parameters collection should work correctly."""
-        from peakfit.core.fitting import Parameters
+        from peakfit.fitting.parameters import Parameters
 
         params = Parameters()
         params.add("x0", 10.0, min=5.0, max=15.0)
@@ -204,7 +204,7 @@ class TestFittingEngine:
 
     def test_parameters_valuesdict(self):
         """Parameters should provide values dictionary."""
-        from peakfit.core.fitting import Parameters
+        from peakfit.fitting.parameters import Parameters
 
         params = Parameters()
         params.add("x0", 10.0)
@@ -215,7 +215,7 @@ class TestFittingEngine:
 
     def test_parameters_vary_methods(self):
         """Parameters should track varying parameters."""
-        from peakfit.core.fitting import Parameters
+        from peakfit.fitting.parameters import Parameters
 
         params = Parameters()
         params.add("x0", 10.0, vary=True)
@@ -234,7 +234,7 @@ class TestFittingEngine:
         """FitResult should compute chi-squared."""
         import numpy as np
 
-        from peakfit.core.fitting import FitResult, Parameters
+        from peakfit.fitting.parameters import FitResult, Parameters
 
         params = Parameters()
         residual = np.array([1.0, 2.0, 3.0])

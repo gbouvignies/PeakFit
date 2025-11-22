@@ -11,7 +11,7 @@ class TestSpectraExcludePlanes:
     @patch("peakfit.spectra.guess_udic")
     def test_exclude_planes_removes_data(self, mock_udic):
         """Should exclude specified planes from data."""
-        from peakfit.spectra import Spectra
+        from peakfit.data.spectrum import Spectra
 
         # Mock guess_udic to return freq=False (no pseudo-dim needed)
         mock_udic.return_value = {0: {"freq": False}}
@@ -35,7 +35,7 @@ class TestSpectraExcludePlanes:
     @patch("peakfit.spectra.guess_udic")
     def test_exclude_planes_none_does_nothing(self, mock_udic):
         """Should not modify data when exclude_list is None."""
-        from peakfit.spectra import Spectra
+        from peakfit.data.spectrum import Spectra
 
         mock_udic.return_value = {0: {"freq": False}}
 
@@ -56,7 +56,7 @@ class TestSpectraExcludePlanes:
     @patch("peakfit.spectra.guess_udic")
     def test_exclude_planes_empty_list_does_nothing(self, mock_udic):
         """Should not modify data when exclude_list is empty."""
-        from peakfit.spectra import Spectra
+        from peakfit.data.spectrum import Spectra
 
         mock_udic.return_value = {0: {"freq": False}}
 
@@ -78,7 +78,7 @@ class TestSpectraExcludePlanes:
         """Should return the spectra object with exclusions applied (bug fix test)."""
         from pathlib import Path
 
-        from peakfit.spectra import read_spectra
+        from peakfit.data.spectrum import read_spectra
 
         # Mock guess_udic to return freq=False (no pseudo-dim needed)
         mock_udic.return_value = {0: {"freq": False}}
@@ -117,7 +117,7 @@ class TestSpectraPostInit:
 
     def test_pseudo_dim_added_for_2d_spectrum(self):
         """Should add pseudo dimension for 2D spectra."""
-        from peakfit.spectra import Spectra
+        from peakfit.data.spectrum import Spectra
 
         # Simulate 2D spectrum (no pseudo-3D dimension)
         # We need to mock guess_udic to return freq=True for first dimension
@@ -137,7 +137,7 @@ class TestSpectraPostInit:
     @patch("peakfit.spectra.guess_udic")
     def test_empty_z_values_generates_indices(self, mock_udic):
         """Should generate z_values from indices when not provided."""
-        from peakfit.spectra import Spectra
+        from peakfit.data.spectrum import Spectra
 
         mock_udic.return_value = {0: {"freq": False}}
 
@@ -157,7 +157,7 @@ class TestGetShapeNames:
 
     def test_pvoigt_flag(self):
         """Should return pvoigt when flag is set."""
-        from peakfit.spectra import get_shape_names
+        from peakfit.data.spectrum import get_shape_names
 
         clargs = MagicMock()
         clargs.pvoigt = True
@@ -172,7 +172,7 @@ class TestGetShapeNames:
 
     def test_lorentzian_flag(self):
         """Should return lorentzian when flag is set."""
-        from peakfit.spectra import get_shape_names
+        from peakfit.data.spectrum import get_shape_names
 
         clargs = MagicMock()
         clargs.pvoigt = False
@@ -187,7 +187,7 @@ class TestGetShapeNames:
 
     def test_gaussian_flag(self):
         """Should return gaussian when flag is set."""
-        from peakfit.spectra import get_shape_names
+        from peakfit.data.spectrum import get_shape_names
 
         clargs = MagicMock()
         clargs.pvoigt = False
@@ -206,7 +206,7 @@ class TestDetermineShapeName:
 
     def test_sp1_apodization(self):
         """Should detect SP1 apodization."""
-        from peakfit.spectra import determine_shape_name
+        from peakfit.data.spectrum import determine_shape_name
 
         params = MagicMock()
         params.apocode = 1.0
@@ -217,7 +217,7 @@ class TestDetermineShapeName:
 
     def test_sp2_apodization(self):
         """Should detect SP2 apodization."""
-        from peakfit.spectra import determine_shape_name
+        from peakfit.data.spectrum import determine_shape_name
 
         params = MagicMock()
         params.apocode = 1.0
@@ -228,7 +228,7 @@ class TestDetermineShapeName:
 
     def test_no_apod(self):
         """Should detect no apodization."""
-        from peakfit.spectra import determine_shape_name
+        from peakfit.data.spectrum import determine_shape_name
 
         params = MagicMock()
         params.apocode = 0.0
@@ -238,7 +238,7 @@ class TestDetermineShapeName:
 
     def test_default_pvoigt(self):
         """Should default to pvoigt for unknown cases."""
-        from peakfit.spectra import determine_shape_name
+        from peakfit.data.spectrum import determine_shape_name
 
         params = MagicMock()
         params.apocode = 99.0  # Unknown

@@ -177,7 +177,7 @@ class TestProfilingUtilities:
         """Profiler context manager should record timings."""
         import time
 
-        from peakfit.core.profiling import Profiler
+        from peakfit.analysis.profiling import Profiler
 
         profiler = Profiler()
 
@@ -193,7 +193,7 @@ class TestProfilingUtilities:
         """Profiler start/stop should record timings."""
         import time
 
-        from peakfit.core.profiling import Profiler
+        from peakfit.analysis.profiling import Profiler
 
         profiler = Profiler()
 
@@ -209,14 +209,14 @@ class TestProfilingUtilities:
 
     def test_timing_result_per_call(self):
         """TimingResult should compute per-call average."""
-        from peakfit.core.profiling import TimingResult
+        from peakfit.analysis.profiling import TimingResult
 
         result = TimingResult(name="test", elapsed=1.0, count=10)
         assert result.per_call == 0.1
 
     def test_profile_report_summary(self):
         """ProfileReport should generate summary."""
-        from peakfit.core.profiling import ProfileReport, TimingResult
+        from peakfit.analysis.profiling import ProfileReport, TimingResult
 
         report = ProfileReport()
         report.add_timing(TimingResult("op1", 0.5))
@@ -236,7 +236,7 @@ class TestScipyOptimizerErrorHandling:
         """Negative noise should raise ValueError."""
         from unittest.mock import MagicMock
 
-        from peakfit.core.scipy_optimizer import fit_cluster
+        from peakfit.fitting.optimizer import fit_cluster
 
         cluster = MagicMock()
         cluster.peaks = [MagicMock()]
@@ -248,7 +248,7 @@ class TestScipyOptimizerErrorHandling:
         """Zero noise should raise ValueError."""
         from unittest.mock import MagicMock
 
-        from peakfit.core.scipy_optimizer import fit_cluster
+        from peakfit.fitting.optimizer import fit_cluster
 
         cluster = MagicMock()
         cluster.peaks = [MagicMock()]
@@ -260,7 +260,7 @@ class TestScipyOptimizerErrorHandling:
         """Cluster with no peaks should raise ScipyOptimizerError."""
         from unittest.mock import MagicMock
 
-        from peakfit.core.scipy_optimizer import ScipyOptimizerError, fit_cluster
+        from peakfit.fitting.optimizer import ScipyOptimizerError, fit_cluster
 
         cluster = MagicMock()
         cluster.peaks = []
