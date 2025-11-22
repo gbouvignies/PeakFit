@@ -75,8 +75,10 @@ class UncertaintyResult:
     confidence_intervals_95: FloatArray  # 95% CI (2 sigma)
     correlation_matrix: FloatArray
     profile_likelihood_ci: FloatArray | None = None  # From profile likelihood
-    mcmc_samples: FloatArray | None = None  # MCMC samples if available
+    mcmc_samples: FloatArray | None = None  # MCMC samples if available (flattened)
     mcmc_percentiles: FloatArray | None = None  # 16th, 50th, 84th percentiles
+    mcmc_chains: FloatArray | None = None  # Full chain data (n_walkers, n_steps, n_params)
+    mcmc_diagnostics: "ConvergenceDiagnostics | None" = None  # Convergence diagnostics
 
 
 def residuals_global(x: FloatArray, params: Parameters, cluster: "Cluster", noise: float) -> float:
@@ -355,16 +357,25 @@ def estimate_uncertainties_mcmc(
     Uses emcee for Markov Chain Monte Carlo sampling to get
     full posterior distributions for parameters.
 
+    This function now computes comprehensive convergence diagnostics following
+    the Bayesian Analysis Reporting Guidelines (BARG):
+    - R-hat (Gelman-Rubin statistic) for convergence assessment
+    - Effective Sample Size (ESS) for sample quality
+    - Full chain data for diagnostic plotting
+
     Args:
         params: Fitted parameters (starting point)
         cluster: Cluster data
         noise: Noise level
-        n_walkers: Number of MCMC walkers
-        n_steps: Number of MCMC steps
+        n_walkers: Number of MCMC walkers/chains
+        n_steps: Number of MCMC steps per walker
         burn_in: Steps to discard as burn-in
 
     Returns:
-        UncertaintyResult with comprehensive uncertainty estimates
+        UncertaintyResult with comprehensive uncertainty estimates and diagnostics
+
+    Raises:
+        ImportError: If emcee is not installed
     """
     try:
         import emcee
@@ -399,8 +410,16 @@ def estimate_uncertainties_mcmc(
     sampler = emcee.EnsembleSampler(n_walkers, ndim, log_likelihood)
     sampler.run_mcmc(pos, n_steps, progress=False)
 
-    # Get samples after burn-in
+    # Get full chains for diagnostics (n_walkers, n_steps_after_burnin, n_params)
+    chains = sampler.get_chain(discard=burn_in, flat=False)
+
+    # Get flattened samples after burn-in
     samples = sampler.get_chain(discard=burn_in, flat=True)
+
+    # Compute convergence diagnostics
+    from peakfit.diagnostics import diagnose_convergence
+
+    diagnostics = diagnose_convergence(chains, params.get_vary_names())
 
     # Compute statistics
     percentiles = np.percentile(samples, [16, 50, 84], axis=0)
@@ -430,6 +449,8 @@ def estimate_uncertainties_mcmc(
         correlation_matrix=corr_matrix,
         mcmc_samples=samples,
         mcmc_percentiles=percentiles,
+        mcmc_chains=chains,
+        mcmc_diagnostics=diagnostics,
     )
 
 

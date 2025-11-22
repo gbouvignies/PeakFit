@@ -395,3 +395,111 @@ def plot_spectra_viewer(results: Path, spectrum: Path, verbose: bool = False) ->
     except Exception as e:
         ui.error(f"Failed to launch spectra viewer: {e}")
         raise SystemExit(1) from e
+
+
+# ==================== MCMC DIAGNOSTICS PLOTTING ====================
+
+
+def plot_mcmc_diagnostics(
+    results: Path,
+    output: Path | None,
+    peaks: list[str] | None,
+    verbose: bool = False,
+) -> None:
+    """Generate MCMC diagnostic plots from saved chain data."""
+    import pickle
+
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
+    ui.show_header("Generating MCMC Diagnostic Plots")
+
+    # Load MCMC chain data
+    mcmc_file = results / ".mcmc_chains.pkl"
+    if not mcmc_file.exists():
+        ui.error(f"No MCMC chain data found in {results}")
+        ui.info("Run 'peakfit analyze mcmc' first to generate MCMC samples")
+        raise SystemExit(1)
+
+    ui.success(f"Loading MCMC data from: [path]{mcmc_file}[/path]")
+
+    # Note: pickle.load is safe here as we control the file creation
+    with mcmc_file.open("rb") as f:
+        mcmc_data = pickle.load(f)
+
+    # Filter peaks if specified
+    if peaks is not None:
+        peak_set = set(peaks)
+        mcmc_data = [d for d in mcmc_data if any(p in peak_set for p in d["peak_names"])]
+        if not mcmc_data:
+            ui.error(f"No MCMC data found for peaks: {peaks}")
+            raise SystemExit(1)
+
+    ui.success(f"Found MCMC data for {len(mcmc_data)} cluster(s)")
+
+    output_path = output or Path("mcmc_diagnostics.pdf")
+    ui.success(f"Saving diagnostic plots to: [path]{output_path}[/path]")
+
+    # Import plotting functions
+    from peakfit.diagnostics import save_diagnostic_plots
+
+    # Generate plots for each cluster
+    with PdfPages(output_path) as pdf:
+        for i, data in enumerate(mcmc_data):
+            peak_names = data["peak_names"]
+            chains = data["chains"]  # Shape: (n_walkers, n_steps, n_params)
+            parameter_names = data["parameter_names"]
+            burn_in = data.get("burn_in", 0)
+            diagnostics = data.get("diagnostics", None)
+            best_fit_values = data.get("best_fit_values", None)
+
+            ui.info(f"[cyan]Cluster {i + 1}/{len(mcmc_data)}:[/cyan] {', '.join(peak_names)}")
+
+            # Generate all diagnostic plots
+            from peakfit.diagnostics import (
+                plot_autocorrelation,
+                plot_corner,
+                plot_posterior_summary,
+                plot_trace,
+            )
+
+            # Flatten chains for corner plot
+            samples_flat = chains.reshape(-1, chains.shape[2])
+
+            # Page 1: Trace plots
+            fig_trace = plot_trace(chains, parameter_names, burn_in, diagnostics)
+            pdf.savefig(fig_trace, bbox_inches="tight")
+            plt.close(fig_trace)
+
+            # Page 2: Corner plot
+            fig_corner = plot_corner(samples_flat, parameter_names, best_fit_values)
+            pdf.savefig(fig_corner, bbox_inches="tight")
+            plt.close(fig_corner)
+
+            # Page 3: Autocorrelation plots
+            fig_autocorr = plot_autocorrelation(chains, parameter_names)
+            pdf.savefig(fig_autocorr, bbox_inches="tight")
+            plt.close(fig_autocorr)
+
+            # Page 4: Posterior summary (compact view)
+            fig_summary = plot_posterior_summary(samples_flat, parameter_names)
+            pdf.savefig(fig_summary, bbox_inches="tight")
+            plt.close(fig_summary)
+
+    ui.success(f"Diagnostic plots saved to: [path]{output_path}[/path]")
+
+    # Summary
+    file_size = output_path.stat().st_size / 1024 / 1024  # MB
+    console.print()
+    console.print(f"[bold]Summary:[/bold]")
+    console.print(f"  • Clusters plotted: {len(mcmc_data)}")
+    console.print(f"  • File size: {file_size:.1f} MB")
+    console.print(f"  • Output: [path]{output_path}[/path]")
+
+    ui.print_next_steps(
+        [
+            f"Open plots: [cyan]open {output_path}[/cyan]",
+            "Review convergence: Check R-hat ≤ 1.01 in trace plots",
+            "Inspect correlations: Look for patterns in corner plots",
+        ]
+    )

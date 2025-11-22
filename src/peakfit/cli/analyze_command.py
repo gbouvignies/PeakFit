@@ -114,6 +114,64 @@ def run_mcmc(
                 burn_in=burn_in,
             )
 
+        # Display convergence diagnostics
+        if result.mcmc_diagnostics is not None:
+            diag = result.mcmc_diagnostics
+            console.print(f"[bold cyan]Convergence Diagnostics - {', '.join(peak_names)}[/bold cyan]")
+            console.print(f"  Chains: {diag.n_chains}, Samples per chain: {diag.n_samples}")
+
+            # Create diagnostics table
+            diag_table = Table(show_header=True, header_style="bold cyan")
+            diag_table.add_column("Parameter", style="cyan", width=20)
+            diag_table.add_column("R-hat", justify="right", width=10)
+            diag_table.add_column("ESS_bulk", justify="right", width=12)
+            diag_table.add_column("Status", width=12)
+
+            for j, name in enumerate(result.parameter_names):
+                rhat = diag.rhat[j]
+                ess_bulk = diag.ess_bulk[j]
+
+                # Determine status
+                if rhat <= 1.01 and ess_bulk >= 100 * diag.n_chains:
+                    status = "[green]✓ Good[/green]"
+                elif rhat <= 1.05 and ess_bulk >= 10 * diag.n_chains:
+                    status = "[yellow]⚠ Marginal[/yellow]"
+                else:
+                    status = "[red]✗ Poor[/red]"
+
+                # Format R-hat with color coding
+                if rhat <= 1.01:
+                    rhat_str = f"[green]{rhat:.4f}[/green]"
+                elif rhat <= 1.05:
+                    rhat_str = f"[yellow]{rhat:.4f}[/yellow]"
+                else:
+                    rhat_str = f"[red]{rhat:.4f}[/red]"
+
+                # Format ESS with color coding
+                recommended_ess = 100 * diag.n_chains
+                if ess_bulk >= recommended_ess:
+                    ess_str = f"[green]{ess_bulk:.0f}[/green]"
+                elif ess_bulk >= 10 * diag.n_chains:
+                    ess_str = f"[yellow]{ess_bulk:.0f}[/yellow]"
+                else:
+                    ess_str = f"[red]{ess_bulk:.0f}[/red]"
+
+                diag_table.add_row(name, rhat_str, ess_str, status)
+
+            console.print(diag_table)
+
+            # Show warnings if any
+            warnings = diag.get_warnings()
+            if warnings:
+                console.print()
+                ui.warning("Convergence issues detected:")
+                for warning in warnings[:5]:  # Limit to first 5 warnings
+                    console.print(f"  [dim]• {warning}[/dim]")
+                if len(warnings) > 5:
+                    console.print(f"  [dim]... and {len(warnings) - 5} more warnings[/dim]")
+
+            console.print("")
+
         # Display results
         table = Table(title=f"MCMC Results - {', '.join(peak_names)}")
         table.add_column("Parameter", style="cyan")
@@ -174,6 +232,10 @@ def run_mcmc(
 
         all_results.append(result)
 
+    # Save MCMC chain data for diagnostic plotting
+    _save_mcmc_chains(results_dir, all_results, clusters, burn_in)
+    ui.success("Saved MCMC chain data for diagnostic plotting")
+
     # Save updated parameters to output files
     if output_file is not None:
         _save_mcmc_results(output_file, all_results, clusters)
@@ -182,6 +244,16 @@ def run_mcmc(
     # Update .out files with new uncertainties
     _update_output_files(results_dir, params, all_peaks)
     ui.success("Updated output files with MCMC uncertainties")
+
+    # Provide next steps
+    ui.spacer()
+    ui.print_next_steps(
+        [
+            f"Generate diagnostic plots: [cyan]peakfit plot diagnostics {results_dir}/[/cyan]",
+            f"Review convergence: Check R-hat ≤ 1.01 and ESS values above",
+            "Inspect correlations: Check correlation matrices for parameter dependencies",
+        ]
+    )
 
 
 def run_profile_likelihood(
@@ -756,3 +828,48 @@ def _plot_profile_likelihood(
 
     except ImportError:
         ui.warning("matplotlib not available for plotting")
+
+
+def _save_mcmc_chains(
+    results_dir: Path,
+    all_results: list,
+    clusters: list[Cluster],
+    burn_in: int,
+) -> None:
+    """Save MCMC chain data for diagnostic plotting.
+
+    Args:
+        results_dir: Directory to save chain data
+        all_results: List of UncertaintyResult objects
+        clusters: List of clusters
+        burn_in: Burn-in steps used
+    """
+    import pickle
+
+    mcmc_data = []
+
+    for result, cluster in zip(all_results, clusters, strict=False):
+        if result.mcmc_chains is not None:
+            # Get best-fit values
+            best_fit_values = result.values
+
+            # Get peak names
+            peak_names = [p.name for p in cluster.peaks]
+
+            # Store data for this cluster
+            mcmc_data.append(
+                {
+                    "peak_names": peak_names,
+                    "chains": result.mcmc_chains,
+                    "parameter_names": result.parameter_names,
+                    "burn_in": burn_in,
+                    "diagnostics": result.mcmc_diagnostics,
+                    "best_fit_values": best_fit_values,
+                }
+            )
+
+    # Save to pickle file
+    mcmc_file = results_dir / ".mcmc_chains.pkl"
+    # Note: pickle.dump is safe here as we control the data being saved
+    with mcmc_file.open("wb") as f:
+        pickle.dump(mcmc_data, f)

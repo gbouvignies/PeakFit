@@ -619,6 +619,66 @@ def plot_spectra(
     plot_spectra_viewer(results, spectrum, verbose)
 
 
+@plot_app.command("diagnostics")
+def plot_diagnostics(
+    results: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to results directory from 'peakfit analyze mcmc'",
+            exists=True,
+            file_okay=False,
+            resolve_path=True,
+        ),
+    ],
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output PDF file (default: mcmc_diagnostics.pdf)",
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    peaks: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--peaks",
+            help="Peak names to plot (default: all)",
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
+) -> None:
+    """Generate MCMC diagnostic plots (trace, corner, autocorrelation).
+
+    Creates comprehensive diagnostic plots from MCMC sampling results to assess:
+    - Chain convergence (trace plots)
+    - Parameter correlations (corner plots)
+    - Mixing efficiency (autocorrelation plots)
+
+    This command requires MCMC results from 'peakfit analyze mcmc' with saved chain data.
+
+    Examples:
+      Generate diagnostics for all peaks:
+        $ peakfit plot diagnostics Fits/ --output diagnostics.pdf
+
+      Plot specific peaks only:
+        $ peakfit plot diagnostics Fits/ --peaks 2N-H 5L-H
+
+      Quick diagnostics with default output:
+        $ peakfit plot diagnostics Fits/
+    """
+    from peakfit.cli.plot_command import plot_mcmc_diagnostics
+
+    plot_mcmc_diagnostics(results, output, peaks, verbose)
+
+
 @app.command()
 def info(
     benchmark: Annotated[
