@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from peakfit.core.fitting import Parameters
+from peakfit.fitting.parameters import Parameters
 from peakfit.lineshapes import SHAPES, Shape
 from peakfit.data.spectrum import Spectra
 from peakfit.typing import FittingOptions, FloatArray, IntArray

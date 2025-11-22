@@ -167,8 +167,8 @@ def compare_fitting_methods(
     Returns:
         Dictionary mapping method name to ProfileReport
     """
-    from peakfit.core.parallel import fit_clusters_parallel_refined
-    from peakfit.core.scipy_optimizer import fit_clusters
+    from peakfit.fitting.parallel import fit_clusters_parallel_refined
+    from peakfit.fitting.optimizer import fit_clusters
 
     if n_workers is None:
         n_workers = min(mp.cpu_count(), len(clusters))
@@ -225,7 +225,7 @@ def estimate_optimal_workers(
     Returns:
         Tuple of (optimal_workers, timings_dict)
     """
-    from peakfit.core.parallel import fit_clusters_parallel_refined
+    from peakfit.fitting.parallel import fit_clusters_parallel_refined
 
     if max_workers is None:
         max_workers = mp.cpu_count()
