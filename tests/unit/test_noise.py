@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from peakfit.noise import estimate_noise
+from peakfit.data.noise import estimate_noise
 
 
 class TestEstimateNoise:

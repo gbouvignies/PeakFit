@@ -7,17 +7,17 @@ import numpy as np
 from scipy.optimize import least_squares
 from threadpoolctl import threadpool_limits
 
-from peakfit.clustering import create_clusters
-from peakfit.computing import residuals, simulate_data, update_cluster_corrections
-from peakfit.core.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
-from peakfit.core.fitting import Parameters
-from peakfit.core.models import PeakFitConfig
-from peakfit.noise import prepare_noise_level
-from peakfit.peak import create_params
-from peakfit.peaklist import read_list
-from peakfit.spectra import get_shape_names, read_spectra
+from peakfit.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
+from peakfit.data.clustering import create_clusters
+from peakfit.data.noise import prepare_noise_level
+from peakfit.data.peaks import create_params, read_list
+from peakfit.data.spectrum import get_shape_names, read_spectra
+from peakfit.fitting.computation import residuals, update_cluster_corrections
+from peakfit.fitting.parameters import Parameters
+from peakfit.fitting.simulation import simulate_data
+from peakfit.io.output import write_profiles, write_shifts
+from peakfit.models import PeakFitConfig
 from peakfit.ui import PeakFitUI as ui, console
-from peakfit.writing import write_profiles, write_shifts
 
 
 @dataclass
@@ -88,7 +88,7 @@ def run_fit(
         config: Configuration object.
         parallel: Whether to use parallel processing.
         n_workers: Number of parallel workers.
-        backend: Computation backend (auto, numpy, numba).
+        backend: Computation backend (deprecated, always uses NumPy).
         optimizer: Optimization algorithm (leastsq, basin-hopping, differential-evolution).
         save_state: Whether to save fitting state for later analysis.
         verbose: Show banner and verbose output.
@@ -503,7 +503,7 @@ def _fit_clusters_parallel(
     clargs: FitArguments, clusters: list, n_workers: int | None = None
 ) -> Parameters:
     """Fit all clusters using parallel processing."""
-    from peakfit.core.parallel import fit_clusters_parallel_refined
+    from peakfit.fitting.parallel import fit_clusters_parallel_refined
 
     ui.info("Parallel fitting with refinement...")
 
@@ -525,7 +525,7 @@ def _fit_clusters_global(
     Note: This function shares structure with _fit_clusters() but intentionally
     remains separate. See _fit_clusters() docstring for DRY analysis rationale.
     """
-    from peakfit.core.advanced_optimization import fit_basin_hopping, fit_differential_evolution
+    from peakfit.fitting.advanced import fit_basin_hopping, fit_differential_evolution
 
     params_all = Parameters()
 
@@ -655,27 +655,16 @@ def _initialize_backend(backend: str, parallel: bool = False) -> str:
     """Initialize the computation backend.
 
     Args:
-        backend: Requested backend (auto, numpy, numba)
+        backend: Requested backend - DEPRECATED (always uses NumPy)
         parallel: Whether parallel mode is enabled
 
     Returns:
-        Selected backend name
+        Selected backend name (always 'numpy')
     """
-    from peakfit.core.backend import auto_select_backend, get_available_backends, set_backend
-
-    if backend == "auto":
-        selected = auto_select_backend()
-        return selected
-    else:
-        available = get_available_backends()
-        if backend not in available:
-            ui.error(f"Backend '{backend}' not available. Available: {available}")
-            ui.warning("Falling back to auto-selection...")
-            selected = auto_select_backend()
-            return selected
-        else:
-            set_backend(backend)
-            return backend
+    # Backend selection is deprecated - always use numpy
+    if backend != "auto" and backend != "numpy":
+        ui.warning("Backend selection is deprecated. Using numpy.")
+    return "numpy"
 
 
 def _print_configuration(
@@ -684,39 +673,19 @@ def _print_configuration(
     """Print configuration information in a consolidated table.
 
     Args:
-        backend: Backend name
+        backend: Backend name (deprecated, always numpy)
         parallel: Whether parallel mode is enabled
         n_workers: Number of workers (if parallel)
         output_dir: Output directory path
     """
-    from peakfit.core.backend import get_backend
-    from peakfit.core.optimized import get_optimization_info
-
     ui.spacer()
 
     config_table = ui.create_table("Configuration")
     config_table.add_column("Setting", style="cyan")
     config_table.add_column("Value", style="white", justify="right")
 
-    # Get backend info
-    current_backend = get_backend()
-    opt_info = get_optimization_info()
-
-    # Backend row
-    config_table.add_row("Backend", current_backend)
-
-    # JIT compilation status
-    if current_backend == "numba" and opt_info["numba_available"]:
-        try:
-            import numba
-
-            jit_status = f"enabled (v{numba.__version__})"
-        except ImportError:
-            jit_status = "disabled"
-    else:
-        jit_status = "disabled (numpy vectorized)"
-
-    config_table.add_row("JIT compilation", jit_status)
+    # Backend row (always numpy now)
+    config_table.add_row("Backend", "numpy")
 
     # Parallel processing
     if parallel:

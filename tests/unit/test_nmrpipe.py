@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from peakfit.nmrpipe import SpectralParameters, read_spectral_parameters
+from peakfit.data.spectrum import SpectralParameters, read_spectral_parameters
 
 
 class TestSpectralParameters:

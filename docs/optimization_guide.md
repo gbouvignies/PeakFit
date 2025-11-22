@@ -1,13 +1,19 @@
 # PeakFit Optimization Guide
 
-This guide explains how to use PeakFit's performance optimization features to speed up your NMR lineshape fitting workflows.
+This guide explains how to optimize PeakFit's performance for your NMR lineshape fitting workflows.
+
+## Overview
+
+PeakFit uses pure NumPy implementations for all lineshape calculations, providing excellent compatibility and maintainability. Performance can be optimized through:
+
+1. **Parallel processing** - Fit multiple clusters simultaneously
+2. **Fast scipy optimization** - Direct interface with scipy.optimize
+3. **Efficient caching** - Reuse computed results
+4. **Profiling** - Identify bottlenecks
 
 ## Quick Start
 
 ```bash
-# Check system optimization status
-peakfit info
-
 # Benchmark your dataset to find optimal settings
 peakfit benchmark spectrum.ft2 peaks.list
 
@@ -57,22 +63,6 @@ peakfit fit spectrum.ft2 peaks.list --parallel
 peakfit fit spectrum.ft2 peaks.list --parallel --workers 4
 ```
 
-### 3. JIT Compilation (Automatic)
-
-When Numba is installed, lineshape functions are JIT-compiled for better performance.
-
-**Installation:**
-```bash
-pip install numba
-# or
-pip install peakfit[performance]
-```
-
-**Check status:**
-```bash
-peakfit info
-```
-
 ## Performance Benchmarking
 
 Use the benchmark command to find optimal settings for your data:
@@ -93,7 +83,7 @@ This will:
 For detailed performance analysis:
 
 ```python
-from peakfit.core.profiling import Profiler
+from peakfit.analysis.profiling import Profiler
 
 profiler = Profiler()
 
@@ -114,7 +104,7 @@ print(report.summary())
 Use caching for repeated computations:
 
 ```python
-from peakfit.core.caching import memoize_array_function, get_cache_stats
+from peakfit.analysis.caching import memoize_array_function, get_cache_stats
 
 @memoize_array_function(maxsize=128)
 def expensive_computation(data):
@@ -131,7 +121,7 @@ print(f"Cache hit rate: {stats['hit_rate']:.1f}%")
 For fine-grained control over parallel processing:
 
 ```python
-from peakfit.core.parallel import fit_clusters_parallel_refined
+from peakfit.fitting.parallel import fit_clusters_parallel_refined
 
 params = fit_clusters_parallel_refined(
     clusters=clusters,
@@ -156,11 +146,7 @@ params = fit_clusters_parallel_refined(
    - Parallel fitting uses more memory (one process per worker)
    - For memory-constrained systems, use `--fast`
 
-4. **Cluster Size Matters**:
-   - Large clusters benefit more from JIT
-   - Small clusters benefit more from parallelization
-
-5. **Refinement Iterations**:
+4. **Refinement Iterations**:
    - More iterations = more benefit from optimization
    - Consider `--refine 2` or `--refine 3` for complex data
 
@@ -179,17 +165,6 @@ params = fit_clusters_parallel_refined(
    ```bash
    peakfit fit spectrum.ft2 peaks.list --parallel --workers 4
    ```
-
-### JIT not providing speedup
-
-1. Verify Numba is installed:
-   ```bash
-   peakfit info
-   ```
-
-2. JIT compilation has startup cost; benefit appears on repeated calls
-
-3. Lineshapes are typically only ~0.3% of total runtime; focus on other optimizations
 
 ### Out of memory errors
 
@@ -216,21 +191,21 @@ peakfit fit SPECTRUM PEAKLIST [--fast] [--parallel] [--workers N]
 
 ```python
 # Fast fitting
-from peakfit.core.fast_fit import fit_clusters_fast
+from peakfit.fitting.fast_fit import fit_clusters_fast
 params = fit_clusters_fast(clusters, noise, refine_iterations=1)
 
 # Parallel fitting
-from peakfit.core.parallel import fit_clusters_parallel_refined
+from peakfit.fitting.parallel import fit_clusters_parallel_refined
 params = fit_clusters_parallel_refined(clusters, noise, n_workers=8)
 
 # Profiling
-from peakfit.core.profiling import Profiler, ProfileReport
+from peakfit.analysis.profiling import Profiler, ProfileReport
 
 # Caching
-from peakfit.core.caching import LRUCache, memoize_array_function
+from peakfit.analysis.caching import LRUCache, memoize_array_function
 ```
 
 ## Version History
 
+- **v2025.12.0**: Removed Numba dependency, NumPy-only implementation
 - **v0.2.0**: Added fast scipy optimization, parallel fitting, profiling, caching
-- **v0.1.0**: Initial JIT optimization support

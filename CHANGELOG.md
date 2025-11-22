@@ -5,6 +5,38 @@ All notable changes to PeakFit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2025.12.0] - 2025-11-22
+
+### Breaking Changes
+- **Removed Numba dependency**: PeakFit now uses pure NumPy implementations for all lineshape functions
+  - Performance impact: 2-5x slower lineshape evaluation (acceptable for most use cases)
+  - Simpler dependency stack, better compatibility, easier maintenance
+  - No action required: NumPy implementations are drop-in replacements
+
+### Major Refactoring
+- **Complete module reorganization** for improved clarity and maintainability:
+  - `peakfit.lineshapes/` - All lineshape functions and models
+  - `peakfit.fitting/` - Fitting algorithms, parameters, and results
+  - `peakfit.data/` - Spectrum and peak data structures
+  - `peakfit.models/` - Configuration models
+  - `peakfit.analysis/` - Benchmarking, profiling, caching
+  - `peakfit.io/` - Input/output operations
+- Removed `core/` module - functionality redistributed to logical packages
+- Backend selection system removed - always uses NumPy
+
+### Migration Guide
+Old imports → New imports:
+- `from peakfit.shapes import Gaussian` → `from peakfit.lineshapes import Gaussian`
+- `from peakfit.core.fitting import Parameters` → `from peakfit.fitting import Parameters`
+- `from peakfit.clustering import Cluster` → `from peakfit.data import Cluster`
+- `from peakfit.spectra import Spectra` → `from peakfit.data import Spectra`
+- And more... (see documentation)
+
+### Removed
+- Numba JIT compilation support
+- Backend selection (`--backend` option)
+- `performance` optional dependency group
+
 ## [Unreleased]
 
 ### Added
@@ -16,16 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Maintains refinement iterations for cross-talk correction
 
 - **Optimized Fitting Engine**: Direct scipy.optimize integration
-  - New `peakfit.core.fitting` module with scipy.optimize.least_squares
+  - New `peakfit.fitting` module with scipy.optimize.least_squares
   - Custom Parameters class with bounds validation
   - Reduced overhead compared to lmfit wrapper
   - FitResult class with chi-squared statistics
-
-- **Optional Numba JIT Compilation**: Performance optimization for lineshape functions
-  - JIT-compiled Gaussian, Lorentzian, and Pseudo-Voigt functions
-  - Automatic fallback to NumPy if Numba not available
-  - Install with: `pip install numba` or `pip install peakfit[performance]`
-  - Up to 2-5x speedup for lineshape evaluations
 
 - **Modern CLI with Typer**: Intuitive command-line interface with subcommands (`fit`, `validate`, `init`, `plot`)
   - `peakfit fit spectrum.ft2 peaks.list` - Clear, positional arguments
@@ -72,10 +98,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New: `peakfit fit spectrum.ft2 peaks.list --output Fits --refine 2 --lineshape pvoigt`
 
 - **Package Structure**: Modular organization
-  - `peakfit/core/` - Core models and fitting logic
+  - `peakfit/lineshapes/` - Lineshape functions and models
+  - `peakfit/fitting/` - Fitting algorithms and parameters
+  - `peakfit/data/` - Spectrum and peak data structures
+  - `peakfit/models/` - Configuration models
+  - `peakfit/analysis/` - Benchmarking, profiling, caching
+  - `peakfit/io/` - Input/output operations
   - `peakfit/cli/` - Modern Typer CLI
-  - `peakfit/io/` - Configuration and file I/O
-  - `peakfit/config/` - Configuration utilities
 
 - **Dependencies**:
   - Added: pydantic>=2.5.0, typer>=0.9.0, tomli-w>=1.0.0, openpyxl>=3.0.0
@@ -94,7 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Legacy argparse CLI (`peakfit-legacy`)
-- JAX backend support (Numba provides best performance)
+- JAX backend support
 - Standalone `peakfit-plot` command (replaced with `peakfit plot` subcommands)
 
 ## [Previous] - Legacy Versions

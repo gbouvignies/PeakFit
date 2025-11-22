@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import curve_fit
 
-from peakfit.spectra import Spectra
+from peakfit.data.spectrum import Spectra
 from peakfit.typing import FittingOptions, FloatArray
 
 

@@ -59,7 +59,7 @@ case $choice in
         rm -rf Fits-BH
         peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
             --z-values data/b1_offsets.txt \
-            --optimizer basin_hopping \
+            --optimizer basin-hopping \
             --output Fits-BH/
 
         echo
@@ -75,7 +75,7 @@ case $choice in
         rm -rf Fits-DE
         peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
             --z-values data/b1_offsets.txt \
-            --optimizer differential_evolution \
+            --optimizer differential-evolution \
             --output Fits-DE/
 
         echo
@@ -100,7 +100,7 @@ case $choice in
         rm -rf Fits-BH
         peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
             --z-values data/b1_offsets.txt \
-            --optimizer basin_hopping \
+            --optimizer basin-hopping \
             --output Fits-BH/
         echo "  ✓ Basin-hopping complete"
 
@@ -109,7 +109,7 @@ case $choice in
         rm -rf Fits-DE
         peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
             --z-values data/b1_offsets.txt \
-            --optimizer differential_evolution \
+            --optimizer differential-evolution \
             --output Fits-DE/
         echo "  ✓ Differential evolution complete"
 

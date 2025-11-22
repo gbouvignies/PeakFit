@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from peakfit.core.constants import BENCHMARK_MAX_NFEV
+from peakfit.constants import BENCHMARK_MAX_NFEV
 
 if TYPE_CHECKING:
-    from peakfit.clustering import Cluster
-    from peakfit.core.fitting import Parameters
+    from peakfit.data.clustering import Cluster
+    from peakfit.fitting.parameters import Parameters
 
 
 @dataclass
@@ -95,7 +95,7 @@ def benchmark_lineshape_backends(
     Returns:
         Dictionary of backend name to BenchmarkResult
     """
-    from peakfit.core.backend import _gaussian_numpy, _lorentzian_numpy, _pvoigt_numpy
+    from peakfit.lineshapes.functions import _gaussian_numpy, _lorentzian_numpy, _pvoigt_numpy
 
     x = np.linspace(-50, 50, n_points).astype(np.float64)
     fwhm = 10.0
@@ -122,30 +122,6 @@ def benchmark_lineshape_backends(
         n_iterations,
     )
 
-    # Numba backend (if available)
-    try:
-        from peakfit.core.optimized import gaussian_jit, lorentzian_jit, pvoigt_jit
-
-        results["numba_gaussian"] = benchmark_function(
-            lambda: gaussian_jit(x, fwhm),
-            "Numba Gaussian",
-            n_iterations,
-        )
-
-        results["numba_lorentzian"] = benchmark_function(
-            lambda: lorentzian_jit(x, fwhm),
-            "Numba Lorentzian",
-            n_iterations,
-        )
-
-        results["numba_pvoigt"] = benchmark_function(
-            lambda: pvoigt_jit(x, fwhm, eta),
-            "Numba Pseudo-Voigt",
-            n_iterations,
-        )
-    except ImportError:
-        pass
-
     return results
 
 
@@ -166,7 +142,7 @@ def benchmark_fitting_methods(
     Returns:
         Dictionary of method name to BenchmarkResult
     """
-    from peakfit.core.fitting import fit_cluster
+    from peakfit.fitting.optimizer import fit_cluster
 
     results = {}
 
@@ -177,19 +153,6 @@ def benchmark_fitting_methods(
         n_iterations,
         warmup=1,
     )
-
-    # Basin-hopping (if practical)
-    try:
-        from peakfit.core.advanced_optimization import fit_basin_hopping
-
-        results["basin_hopping"] = benchmark_function(
-            lambda: fit_basin_hopping(params.copy(), cluster, noise, n_iterations=10),
-            "Basin Hopping (10 iter)",
-            n_iterations // 2,  # Fewer iterations since it's slower
-            warmup=1,
-        )
-    except ImportError:
-        pass
 
     return results
 
@@ -249,8 +212,8 @@ def profile_fit_cluster(
     Returns:
         Dictionary of stage name to time in seconds
     """
-    from peakfit.computing import calculate_shapes, residuals
-    from peakfit.core.fitting import fit_cluster
+    from peakfit.fitting.computation import calculate_shapes, residuals
+    from peakfit.fitting.optimizer import fit_cluster
 
     profile = {}
 
@@ -289,9 +252,9 @@ def create_synthetic_cluster(
     Returns:
         Tuple of (Cluster, noise_level)
     """
-    from peakfit.clustering import Cluster
-    from peakfit.peak import Peak
-    from peakfit.shapes import PseudoVoigt
+    from peakfit.data.clustering import Cluster
+    from peakfit.data.peaks import Peak
+    from peakfit.lineshapes import PseudoVoigt
 
     # Create synthetic peaks
     peaks = []

@@ -1,25 +1,30 @@
-"""Direct scipy optimization for peak fitting.
+"""Least-squares optimization for NMR peak fitting.
 
 This module provides fitting functions that directly interface with
-scipy.optimize.least_squares, bypassing external optimization wrappers.
+scipy.optimize.least_squares for efficient parameter optimization.
 
 Key features:
 - Direct scipy.optimize.least_squares integration
-- Lightweight parameter array manipulation
-- Custom Parameters class for efficient parameter management
 - Bounded optimization using Trust Region Reflective (TRF) algorithm
+- Sequential cluster fitting with refinement iterations
+- Parameter array manipulation utilities
+- Robust error handling and convergence warnings
 """
 
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.optimize import least_squares
 
-from peakfit.clustering import Cluster
-from peakfit.core.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
-from peakfit.core.fitting import Parameters
-from peakfit.peak import create_params
+from peakfit.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
+from peakfit.fitting.parameters import Parameters
+from peakfit.fitting.results import FitResult
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from peakfit.data.clustering import Cluster
 
 
 class ScipyOptimizerError(Exception):
@@ -33,11 +38,15 @@ class ConvergenceWarning(UserWarning):
 def params_to_arrays(params: Parameters) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
     """Convert Parameters to numpy arrays.
 
+    Args:
+        params: Parameters object to convert
+
     Returns:
-        x0: Initial values for varying parameters
-        lower: Lower bounds
-        upper: Upper bounds
-        names: Parameter names (in order)
+        Tuple of (x0, lower, upper, names) where:
+            - x0: Initial values for varying parameters
+            - lower: Lower bounds
+            - upper: Upper bounds
+            - names: Parameter names (in order)
     """
     names = params.get_vary_names()
     x0 = params.get_vary_values()
@@ -64,14 +73,41 @@ def arrays_to_params(x: np.ndarray, names: list[str], params_template: Parameter
     return params
 
 
+def _residuals_for_optimizer(
+    x: np.ndarray, params: Parameters, cluster: "Cluster", noise: float
+) -> np.ndarray:
+    """Compute residuals for scipy.optimize.least_squares.
+
+    This function delegates to the main residuals computation function.
+
+    Args:
+        x: Array of varying parameter values
+        params: Parameters object (will be updated in-place)
+        cluster: Cluster being fitted
+        noise: Noise level for normalization
+
+    Returns:
+        Flattened residual array normalized by noise
+    """
+    from peakfit.fitting.computation import residuals
+
+    # Update parameters with current values
+    params.set_vary_values(x)
+
+    return residuals(params, cluster, noise)
+
+
 def compute_residuals(
     x: np.ndarray,
     names: list[str],
     params_template: Parameters,
-    cluster: Cluster,
+    cluster: "Cluster",
     noise: float,
 ) -> np.ndarray:
     """Compute residuals for scipy.optimize.least_squares.
+
+    This function computes residuals directly by evaluating peak shapes
+    and solving for amplitudes using least squares.
 
     Args:
         x: Current parameter values (varying only)
@@ -81,13 +117,13 @@ def compute_residuals(
         noise: Noise level
 
     Returns:
-        Residual vector
+        Residual vector normalized by noise
     """
     # Update parameters with current values
     for i, name in enumerate(names):
         params_template[name].value = x[i]
 
-    # Calculate shapes (this uses the optimized JIT functions)
+    # Calculate shapes
     shapes = np.array([peak.evaluate(cluster.positions, params_template) for peak in cluster.peaks])
 
     # Least squares for amplitudes
@@ -97,8 +133,79 @@ def compute_residuals(
     return (cluster.corrected_data - shapes.T @ amplitudes).ravel() / noise
 
 
+def fit_cluster(
+    params: Parameters,
+    cluster: "Cluster",
+    noise: float,
+    max_nfev: int = 1000,
+    ftol: float = 1e-8,
+    xtol: float = 1e-8,
+    gtol: float = 1e-8,
+    verbose: int = 0,
+) -> FitResult:
+    """Fit a single cluster using scipy.optimize.least_squares.
+
+    Args:
+        params: Initial parameters
+        cluster: Cluster to fit
+        noise: Noise level (must be positive)
+        max_nfev: Maximum number of function evaluations
+        ftol: Tolerance for termination by change of cost function
+        xtol: Tolerance for termination by change of variables
+        gtol: Tolerance for termination by gradient norm
+        verbose: Verbosity level (0=silent, 1=termination, 2=iteration)
+
+    Returns:
+        FitResult containing optimized parameters and fit statistics
+
+    Raises:
+        ValueError: If noise is non-positive
+        ScipyOptimizerError: If cluster has no peaks
+    """
+    # Validate inputs
+    if noise <= 0:
+        msg = f"Noise must be positive, got {noise}"
+        raise ValueError(msg)
+
+    if not cluster.peaks:
+        msg = "Cluster has no peaks to fit"
+        raise ScipyOptimizerError(msg)
+
+    # Get initial values and bounds for varying parameters
+    x0 = params.get_vary_values()
+    lower, upper = params.get_vary_bounds()
+
+    # Run optimization
+    result = least_squares(
+        _residuals_for_optimizer,
+        x0,
+        args=(params, cluster, noise),
+        bounds=(lower, upper),
+        method="trf",  # Trust Region Reflective - good for bounded problems
+        ftol=ftol,
+        xtol=xtol,
+        gtol=gtol,
+        max_nfev=max_nfev,
+        verbose=verbose,
+    )
+
+    # Update parameters with final values
+    params.set_vary_values(result.x)
+
+    return FitResult(
+        params=params,
+        residual=result.fun,
+        cost=result.cost,
+        nfev=result.nfev,
+        njev=result.njev if hasattr(result, "njev") else 0,
+        success=result.success,
+        message=result.message,
+        optimality=result.optimality if hasattr(result, "optimality") else 0.0,
+    )
+
+
 def fit_cluster_dict(
-    cluster: Cluster,
+    cluster: "Cluster",
     noise: float,
     *,
     fixed: bool = False,
@@ -110,7 +217,7 @@ def fit_cluster_dict(
     scipy.optimize.least_squares, providing significant performance gains.
 
     Note: This function returns a dictionary for backward compatibility.
-    For new code, prefer using fit_cluster from peakfit.core.fitting.
+    For new code, prefer using fit_cluster which returns a FitResult.
 
     Args:
         cluster: Cluster to fit
@@ -145,6 +252,8 @@ def fit_cluster_dict(
         raise ScipyOptimizerError(msg)
 
     # Create parameters
+    from peakfit.data.peaks import create_params
+
     try:
         params = create_params(cluster.peaks, fixed=fixed)
     except Exception as e:
@@ -235,7 +344,6 @@ def fit_cluster_dict(
         )
 
     # Compute standard errors from Jacobian
-    # cov = inv(J.T @ J) * s2, where s2 = chi^2 / (n - p)
     stderr_dict: dict[str, float] = {}
     try:
         if result.jac is not None and ndata > nvarys:
@@ -248,7 +356,7 @@ def fit_cluster_dict(
                 for i, name in enumerate(names):
                     stderr_dict[name] = float(stderr[i])
             except np.linalg.LinAlgError:
-                # Singular matrix, can't compute errors - skip stderr computation
+                # Singular matrix, can't compute errors
                 pass
     except (ValueError, RuntimeError):
         # If error computation fails due to numerical issues, continue without errors
@@ -276,8 +384,56 @@ def fit_cluster_dict(
     }
 
 
+def fit_clusters_sequential(
+    clusters: "Sequence[Cluster]",
+    params_all: Parameters,
+    noise: float,
+    refine_iterations: int = 1,
+    *,
+    fixed: bool = False,
+    verbose: int = 0,
+) -> Parameters:
+    """Fit all clusters sequentially with refinement.
+
+    Args:
+        clusters: List of clusters to fit
+        params_all: Global parameters (updated in place)
+        noise: Noise level
+        refine_iterations: Number of refinement passes
+        fixed: Whether to fix peak positions
+        verbose: Verbosity level
+
+    Returns:
+        Updated global parameters
+    """
+    from peakfit.data.peaks import create_params
+    from peakfit.fitting.computation import update_cluster_corrections
+
+    for iteration in range(refine_iterations + 1):
+        if iteration > 0:
+            # Update corrections for cross-talk
+            update_cluster_corrections(params_all, clusters)
+
+        for cluster in clusters:
+            # Create parameters for this cluster
+            cluster_params = create_params(cluster.peaks, fixed=fixed)
+
+            # Merge with global parameters
+            for key in cluster_params:
+                if key in params_all:
+                    cluster_params[key] = params_all[key]
+
+            # Fit cluster
+            result = fit_cluster(cluster_params, cluster, noise, verbose=verbose)
+
+            # Update global parameters
+            params_all.update(result.params)
+
+    return params_all
+
+
 def fit_clusters(
-    clusters: list[Cluster],
+    clusters: list["Cluster"],
     noise: float,
     refine_iterations: int = 1,
     *,
@@ -296,29 +452,19 @@ def fit_clusters(
     Returns:
         Combined fitted parameters
     """
-    from peakfit.computing import update_cluster_corrections
+    from peakfit.fitting.computation import update_cluster_corrections
 
     params_all = Parameters()
     params_dict: dict[str, Any] = {}
 
     for iteration in range(refine_iterations + 1):
-        if verbose:
-            if iteration == 0:
-                pass
-            else:
-                pass
-
         # Update corrections if not first iteration
         if iteration > 0:
             update_cluster_corrections(params_all, clusters)
 
         # Fit all clusters sequentially
-        successes = 0
-        for _i, cluster in enumerate(clusters):
+        for cluster in clusters:
             result = fit_cluster_dict(cluster, noise, fixed=fixed, params_init=params_dict)
-
-            if result["success"]:
-                successes += 1
 
             # Update global parameters
             for name, param_info in result["params"].items():
@@ -337,11 +483,4 @@ def fit_clusters(
                 if "stderr" in param_info and param_info["stderr"] is not None:
                     params_all[name].stderr = param_info["stderr"]
 
-        if verbose:
-            pass
-
     return params_all
-
-
-# Backward compatibility alias (deprecated)
-fit_cluster = fit_cluster_dict

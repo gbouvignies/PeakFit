@@ -1,15 +1,19 @@
+from __future__ import annotations
+
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 import networkx as nx
 import numpy as np
 from scipy.ndimage import binary_dilation, generate_binary_structure, label
 
-from peakfit.peak import Peak
-from peakfit.spectra import Spectra
 from peakfit.typing import FloatArray, IntArray
 from peakfit.ui import PeakFitUI as ui
+
+if TYPE_CHECKING:
+    from peakfit.data.peaks import Peak
+    from peakfit.data.spectrum import Spectra
 
 
 @dataclass

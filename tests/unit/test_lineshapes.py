@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from peakfit.shapes import gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
+from peakfit.lineshapes.functions import gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
 
 
 class TestGaussian:

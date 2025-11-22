@@ -10,8 +10,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy import optimize
 
-from peakfit.computing import residuals
-from peakfit.core.constants import (
+from peakfit.constants import (
     BASIN_HOPPING_LOCAL_MAXITER,
     BASIN_HOPPING_NITER,
     BASIN_HOPPING_STEPSIZE,
@@ -26,11 +25,12 @@ from peakfit.core.constants import (
     PROFILE_LIKELIHOOD_DELTA_CHI2,
     PROFILE_LIKELIHOOD_NPOINTS,
 )
-from peakfit.core.fitting import Parameters
+from peakfit.fitting.computation import residuals
+from peakfit.fitting.parameters import Parameters
 from peakfit.typing import FloatArray
 
 if TYPE_CHECKING:
-    from peakfit.clustering import Cluster
+    from peakfit.data.clustering import Cluster
 
 
 @dataclass

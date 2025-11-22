@@ -226,7 +226,7 @@ def validate_parameter_system(results: ValidationResult):
     console.print("\n[bold]Testing Parameter System[/bold]")
 
     try:
-        from peakfit.core.fitting import Parameter, ParameterType, Parameters
+        from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
 
         # Test creating parameters with types
         p1 = Parameter(
@@ -265,7 +265,7 @@ def validate_lineshapes(results: ValidationResult):
     console.print("\n[bold]Testing Lineshape Functions[/bold]")
 
     try:
-        from peakfit.core.backend import (
+        from peakfit.lineshapes import (
             gaussian,
             get_available_backends,
             lorentzian,
@@ -311,7 +311,7 @@ def validate_config_system(results: ValidationResult):
     console.print("\n[bold]Testing Configuration System[/bold]")
 
     try:
-        from peakfit.core.models import ClusterConfig, FitConfig, OutputConfig, PeakFitConfig
+        from peakfit.models import ClusterConfig, FitConfig, OutputConfig, PeakFitConfig
 
         # Test creating default config
         config = PeakFitConfig()

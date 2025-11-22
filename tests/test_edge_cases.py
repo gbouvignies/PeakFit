@@ -6,8 +6,8 @@ Tests edge cases, error conditions, and boundary conditions.
 import numpy as np
 import pytest
 
-from peakfit.core.backend import gaussian, lorentzian, pvoigt, set_backend
-from peakfit.core.fitting import Parameter, ParameterType, Parameters
+from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
+from peakfit.lineshapes import gaussian, lorentzian, pvoigt
 
 
 class TestParameterEdgeCases:
@@ -97,10 +97,8 @@ class TestLineshapeEdgeCases:
 
     @pytest.fixture(autouse=True)
     def reset_backend(self):
-        """Reset backend to numpy for consistent testing."""
-        set_backend("numpy")
+        """Backend selection removed - this fixture is now a no-op."""
         yield
-        set_backend("numpy")
 
     def test_gaussian_zero_fwhm(self):
         """Test Gaussian with zero FWHM (should raise or return delta function)."""
@@ -210,34 +208,16 @@ class TestLineshapeEdgeCases:
 
 
 class TestBackendEdgeCases:
-    """Test edge cases for backend selection."""
+    """Test edge cases for backend selection - DEPRECATED."""
 
-    def test_invalid_backend(self):
-        """Test setting invalid backend."""
-        from peakfit.core.backend import set_backend
-
-        with pytest.raises(ValueError, match="not available"):
-            set_backend("invalid_backend")
-
-    def test_backend_switching(self):
-        """Test switching between backends."""
-        from peakfit.core.backend import get_backend, get_available_backends, set_backend
-
-        backends = get_available_backends()
-        if len(backends) < 2:
-            pytest.skip("Need at least 2 backends to test switching")
-
-        # Switch to first backend
-        set_backend(backends[0])
-        assert get_backend() == backends[0]
-
-        # Switch to second backend
-        set_backend(backends[1])
-        assert get_backend() == backends[1]
-
-        # Switch back
-        set_backend(backends[0])
-        assert get_backend() == backends[0]
+    def test_backend_removed(self):
+        """Backend selection has been removed."""
+        # Backend selection is now deprecated
+        # This test just verifies lineshapes still work
+        import numpy as np
+        x = np.linspace(-5, 5, 100)
+        y = gaussian(x, fwhm=2.0)
+        assert np.all(np.isfinite(y))
 
 
 class TestConfigEdgeCases:
@@ -247,7 +227,7 @@ class TestConfigEdgeCases:
         """Test config with negative refine iterations."""
         from pydantic import ValidationError
 
-        from peakfit.core.models import FitConfig
+        from peakfit.models import FitConfig
 
         with pytest.raises(ValidationError):
             FitConfig(refine_iterations=-1)
@@ -256,14 +236,14 @@ class TestConfigEdgeCases:
         """Test config with negative contour factor."""
         from pydantic import ValidationError
 
-        from peakfit.core.models import ClusterConfig
+        from peakfit.models import ClusterConfig
 
         with pytest.raises(ValidationError):
             ClusterConfig(contour_factor=-1.0)
 
     def test_empty_output_formats(self):
         """Test config with empty output formats."""
-        from peakfit.core.models import OutputConfig
+        from peakfit.models import OutputConfig
 
         config = OutputConfig(formats=[])
         assert config.formats == []
@@ -272,7 +252,7 @@ class TestConfigEdgeCases:
         """Test config rejects negative exclude planes."""
         from pydantic import ValidationError
 
-        from peakfit.core.models import PeakFitConfig
+        from peakfit.models import PeakFitConfig
 
         # Negative indices should be rejected by validation
         with pytest.raises(ValidationError, match="non-negative"):
@@ -287,8 +267,8 @@ class TestConfigEdgeCases:
         import tempfile
         from pathlib import Path
 
-        from peakfit.core.models import PeakFitConfig
         from peakfit.io.config import load_config, save_config
+        from peakfit.models import PeakFitConfig
 
         config = PeakFitConfig(
             noise_level=1.5,
