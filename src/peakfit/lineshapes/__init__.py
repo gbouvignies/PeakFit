@@ -18,6 +18,9 @@ from peakfit.lineshapes.functions import (
     sp2,
 )
 
+# Import registry before models (models uses register_shape)
+from peakfit.lineshapes.registry import SHAPES, Shape, get_shape, list_shapes, register_shape
+
 # Import models (this will populate SHAPES via decorators)
 from peakfit.lineshapes.models import (
     SP1,
@@ -30,9 +33,6 @@ from peakfit.lineshapes.models import (
     PeakShape,
     PseudoVoigt,
 )
-
-# Import registry before models (models uses register_shape)
-from peakfit.lineshapes.registry import SHAPES, Shape, get_shape, list_shapes, register_shape
 
 __all__ = [
     # Functions
