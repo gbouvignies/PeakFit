@@ -15,11 +15,17 @@ PeakFit now includes comprehensive MCMC diagnostics to help you:
 ### 1. Run MCMC Analysis
 
 ```bash
-# Basic MCMC analysis (uses defaults: 32 chains, 1000 samples, 200 burn-in)
+# Basic MCMC analysis (uses adaptive burn-in by default)
 peakfit analyze mcmc Fits/
 
-# Custom MCMC settings for better convergence
+# Custom MCMC settings for better convergence (still uses adaptive burn-in)
+peakfit analyze mcmc Fits/ --walkers 64 --steps 2000
+
+# Manual burn-in override (disables adaptive determination)
 peakfit analyze mcmc Fits/ --walkers 64 --steps 2000 --burn-in 500
+
+# Disable adaptive burn-in (uses default 200 steps)
+peakfit analyze mcmc Fits/ --no-auto-burnin
 
 # Analyze specific peaks only
 peakfit analyze mcmc Fits/ --peaks 2N-H 5L-H
@@ -27,9 +33,20 @@ peakfit analyze mcmc Fits/ --peaks 2N-H 5L-H
 
 This command will:
 - Sample the posterior distribution using MCMC
+- **Automatically determine burn-in** using R-hat convergence monitoring (new!)
 - Compute R-hat and ESS diagnostics
 - Display convergence statistics
 - Save chain data for plotting
+
+**What is Adaptive Burn-in?**
+
+Instead of using a fixed burn-in period (e.g., 200 steps), PeakFit now automatically determines the optimal burn-in by monitoring when R-hat drops below 1.05 for all parameters. This follows modern Bayesian workflow best practices and ensures you don't discard too many or too few samples.
+
+The adaptive burn-in report shows:
+- **Convergence step**: When R-hat first reached the threshold
+- **Method**: How burn-in was determined (R-hat monitoring or default fallback)
+- **Max R-hat**: R-hat value at the convergence point
+- **Validation warnings**: If burn-in exceeds 50% of chain (suggests running longer chains)
 
 ### 2. Generate Diagnostic Plots
 
@@ -134,37 +151,39 @@ The diagnostic PDF includes:
 
 ## Recommended MCMC Settings
 
+**Note**: All examples use adaptive burn-in by default. Burn-in is automatically determined unless you specify `--burn-in` or `--no-auto-burnin`.
+
 ### For Quick Exploratory Analysis
 ```bash
-peakfit analyze mcmc Fits/ --walkers 32 --steps 500 --burn-in 100
+peakfit analyze mcmc Fits/ --walkers 32 --steps 500
 ```
 - **Use when**: Just checking if MCMC is feasible
 - **Time**: Fast (minutes)
-- **Quality**: May not converge fully
+- **Quality**: May not converge fully; adaptive burn-in will use fallback if needed
 
 ### For Standard Analysis (Recommended)
 ```bash
-peakfit analyze mcmc Fits/ --walkers 32 --steps 2000 --burn-in 500
+peakfit analyze mcmc Fits/ --walkers 32 --steps 2000
 ```
 - **Use when**: Default for most fitting problems
 - **Time**: Moderate (10-30 minutes)
-- **Quality**: Should achieve R-hat ≤ 1.01 for most parameters
+- **Quality**: Should achieve R-hat ≤ 1.01 for most parameters; adaptive burn-in typically finds convergence
 
 ### For Publication-Quality Results
 ```bash
-peakfit analyze mcmc Fits/ --walkers 64 --steps 5000 --burn-in 1000
+peakfit analyze mcmc Fits/ --walkers 64 --steps 5000
 ```
 - **Use when**: Final analysis for publication
 - **Time**: Longer (30-60 minutes)
-- **Quality**: High ESS, very stable credible intervals
+- **Quality**: High ESS, very stable credible intervals; adaptive burn-in ensures optimal sample usage
 
 ### For Difficult Problems
 ```bash
-peakfit analyze mcmc Fits/ --walkers 128 --steps 10000 --burn-in 2000
+peakfit analyze mcmc Fits/ --walkers 128 --steps 10000
 ```
 - **Use when**: Many overlapping peaks, strong correlations
 - **Time**: Extended (hours)
-- **Quality**: Maximum reliability
+- **Quality**: Maximum reliability; longer chains allow adaptive burn-in to find true convergence point
 
 ## BARG Compliance Checklist
 
@@ -172,9 +191,10 @@ When reporting MCMC results in publications, ensure you include:
 
 - [ ] **Number of chains**: Report `--walkers` used
 - [ ] **Number of iterations**: Report `--steps` per chain
-- [ ] **Burn-in**: Report `--burn-in` discarded
+- [ ] **Burn-in method**: Report whether adaptive (R-hat monitoring) or manual burn-in was used
+- [ ] **Burn-in amount**: Report number of steps discarded (PeakFit displays this automatically)
 - [ ] **Convergence diagnostics**: Report R-hat for all parameters
-- [ ] **Effective sample size**: Report ESS for key parameters
+- [ ] **Effective sample size**: Report ESS_bulk and ESS_tail for key parameters
 - [ ] **Diagnostic plots**: Include trace and/or corner plots in supplementary materials
 - [ ] **Credible intervals**: Report 95% CIs (not just standard errors)
 - [ ] **Software version**: `peakfit --version`

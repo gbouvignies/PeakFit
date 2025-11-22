@@ -45,7 +45,8 @@ def run_mcmc(
     results_dir: Path,
     n_walkers: int = 32,
     n_steps: int = 1000,
-    burn_in: int = 200,
+    burn_in: int | None = None,
+    auto_burnin: bool = True,
     peaks: list[str] | None = None,
     output_file: Path | None = None,
     verbose: bool = False,
@@ -56,7 +57,8 @@ def run_mcmc(
         results_dir: Path to results directory
         n_walkers: Number of MCMC walkers
         n_steps: Number of MCMC steps
-        burn_in: Number of burn-in steps to discard
+        burn_in: Number of burn-in steps to discard (manual override)
+        auto_burnin: Automatically determine burn-in using R-hat monitoring
         peaks: Optional list of peak names to analyze (default: all)
         output_file: Optional output file for results
         verbose: Show banner and verbose output
@@ -80,10 +82,19 @@ def run_mcmc(
             raise SystemExit(1)
         ui.info(f"Analyzing {len(clusters)} cluster(s) for peaks: {peaks}")
 
+    # Handle auto vs manual burn-in
+    if not auto_burnin and burn_in is None:
+        # Neither auto nor manual specified, use default
+        burn_in = 200
+        ui.warning("Both auto-burnin and manual burn-in disabled. Using default: 200 steps")
+
     ui.show_header("Running MCMC Uncertainty Estimation")
     console.print(f"  Walkers: {n_walkers}")
     console.print(f"  Steps: {n_steps}")
-    console.print(f"  Burn-in: {burn_in}")
+    if auto_burnin:
+        console.print("  Burn-in: [cyan]Auto-determined using R-hat convergence[/cyan]")
+    else:
+        console.print(f"  Burn-in: {burn_in} (manual)")
     console.print("")
 
     all_results = []
@@ -111,8 +122,33 @@ def run_mcmc(
                 noise,
                 n_walkers=n_walkers,
                 n_steps=n_steps,
-                burn_in=burn_in,
+                burn_in=None if auto_burnin else burn_in,
             )
+
+        # Display burn-in determination report
+        if result.burn_in_info is not None:
+            from peakfit.diagnostics.burnin import format_burnin_report
+
+            burn_in_used = result.burn_in_info["burn_in"]
+            console.print(
+                f"[bold cyan]Burn-in Determination - {', '.join(peak_names)}[/bold cyan]"
+            )
+
+            # Format and display the report
+            report = format_burnin_report(
+                burn_in_used,
+                n_steps,
+                n_walkers,
+                result.burn_in_info.get("diagnostics", {}),
+            )
+            console.print(report)
+
+            # Show validation warning if present
+            if result.burn_in_info.get("validation_warning"):
+                console.print()
+                ui.warning(result.burn_in_info["validation_warning"])
+
+            console.print()
 
         # Display convergence diagnostics
         if result.mcmc_diagnostics is not None:
@@ -259,7 +295,7 @@ def run_mcmc(
         all_results.append(result)
 
     # Save MCMC chain data for diagnostic plotting
-    _save_mcmc_chains(results_dir, all_results, clusters, burn_in)
+    _save_mcmc_chains(results_dir, all_results, clusters)
     ui.success("Saved MCMC chain data for diagnostic plotting")
 
     # Save updated parameters to output files
@@ -860,7 +896,6 @@ def _save_mcmc_chains(
     results_dir: Path,
     all_results: list,
     clusters: list[Cluster],
-    burn_in: int,
 ) -> None:
     """Save MCMC chain data for diagnostic plotting.
 
@@ -868,7 +903,6 @@ def _save_mcmc_chains(
         results_dir: Directory to save chain data
         all_results: List of UncertaintyResult objects
         clusters: List of clusters
-        burn_in: Burn-in steps used
     """
     import pickle
 
@@ -882,6 +916,9 @@ def _save_mcmc_chains(
             # Get peak names
             peak_names = [p.name for p in cluster.peaks]
 
+            # Extract burn-in from result (may be adaptive or manual)
+            burn_in = result.burn_in_info["burn_in"] if result.burn_in_info else 0
+
             # Store data for this cluster
             mcmc_data.append(
                 {
@@ -889,6 +926,7 @@ def _save_mcmc_chains(
                     "chains": result.mcmc_chains,
                     "parameter_names": result.parameter_names,
                     "burn_in": burn_in,
+                    "burn_in_info": result.burn_in_info,  # Save full burn-in info
                     "diagnostics": result.mcmc_diagnostics,
                     "best_fit_values": best_fit_values,
                 }

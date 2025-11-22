@@ -773,13 +773,20 @@ def analyze(
         ),
     ] = 1000,
     burn_in: Annotated[
-        int,
+        int | None,
         typer.Option(
             "--burn-in",
-            help="MCMC burn-in steps",
+            help="MCMC burn-in steps (manual override; default: auto-determined using R-hat)",
             min=0,
         ),
-    ] = 200,
+    ] = None,
+    auto_burnin: Annotated[
+        bool,
+        typer.Option(
+            "--auto-burnin/--no-auto-burnin",
+            help="Automatically determine burn-in using R-hat convergence monitoring",
+        ),
+    ] = True,
     n_points: Annotated[
         int,
         typer.Option(
@@ -848,11 +855,17 @@ def analyze(
         raise typer.Exit(1)
 
     if method == "mcmc":
+        # Handle manual override: if --burn-in is specified, disable auto-burnin
+        if burn_in is not None and auto_burnin:
+            ui.info("Manual burn-in specified; disabling auto-burnin")
+            auto_burnin = False
+
         run_mcmc(
             results_dir=results,
             n_walkers=n_walkers,
             n_steps=n_steps,
             burn_in=burn_in,
+            auto_burnin=auto_burnin,
             peaks=peaks,
             output_file=output,
             verbose=False,  # No banner for analyze commands
