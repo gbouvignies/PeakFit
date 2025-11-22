@@ -237,33 +237,39 @@ class TestScipyOptimizerErrorHandling:
         from unittest.mock import MagicMock
 
         from peakfit.fitting.optimizer import fit_cluster
+        from peakfit.fitting.parameters import Parameters
 
         cluster = MagicMock()
         cluster.peaks = [MagicMock()]
+        params = Parameters()
 
         with pytest.raises(ValueError, match="positive"):
-            fit_cluster(cluster, noise=-1.0)
+            fit_cluster(params, cluster, noise=-1.0)
 
     def test_zero_noise_raises(self):
         """Zero noise should raise ValueError."""
         from unittest.mock import MagicMock
 
         from peakfit.fitting.optimizer import fit_cluster
+        from peakfit.fitting.parameters import Parameters
 
         cluster = MagicMock()
         cluster.peaks = [MagicMock()]
+        params = Parameters()
 
         with pytest.raises(ValueError, match="positive"):
-            fit_cluster(cluster, noise=0.0)
+            fit_cluster(params, cluster, noise=0.0)
 
     def test_empty_peaks_raises(self):
         """Cluster with no peaks should raise ScipyOptimizerError."""
         from unittest.mock import MagicMock
 
         from peakfit.fitting.optimizer import ScipyOptimizerError, fit_cluster
+        from peakfit.fitting.parameters import Parameters
 
         cluster = MagicMock()
         cluster.peaks = []
+        params = Parameters()
 
         with pytest.raises(ScipyOptimizerError, match="no peaks"):
-            fit_cluster(cluster, noise=1.0)
+            fit_cluster(params, cluster, noise=1.0)

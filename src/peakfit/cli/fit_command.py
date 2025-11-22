@@ -7,18 +7,17 @@ import numpy as np
 from scipy.optimize import least_squares
 from threadpoolctl import threadpool_limits
 
-from peakfit.data.clustering import create_clusters
-from peakfit.fitting.computation import residuals, update_cluster_corrections
-from peakfit.fitting.simulation import simulate_data
 from peakfit.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
-from peakfit.fitting.parameters import Parameters
-from peakfit.models import PeakFitConfig
+from peakfit.data.clustering import create_clusters
 from peakfit.data.noise import prepare_noise_level
-from peakfit.data.peaks import create_params
-from peakfit.data.peaks import read_list
+from peakfit.data.peaks import create_params, read_list
 from peakfit.data.spectrum import get_shape_names, read_spectra
-from peakfit.ui import PeakFitUI as ui, console
+from peakfit.fitting.computation import residuals, update_cluster_corrections
+from peakfit.fitting.parameters import Parameters
+from peakfit.fitting.simulation import simulate_data
 from peakfit.io.output import write_profiles, write_shifts
+from peakfit.models import PeakFitConfig
+from peakfit.ui import PeakFitUI as ui, console
 
 
 @dataclass
@@ -664,7 +663,7 @@ def _initialize_backend(backend: str, parallel: bool = False) -> str:
     """
     # Backend selection is deprecated - always use numpy
     if backend != "auto" and backend != "numpy":
-        ui.warning(f"Backend selection is deprecated. Using numpy.")
+        ui.warning("Backend selection is deprecated. Using numpy.")
     return "numpy"
 
 

@@ -6,8 +6,8 @@ from typing import Annotated
 import typer
 
 from peakfit.cli.callbacks import version_callback
-from peakfit.models import PeakFitConfig
 from peakfit.io.config import generate_default_config, load_config
+from peakfit.models import PeakFitConfig
 from peakfit.ui import PeakFitUI as ui, console
 
 app = typer.Typer(
@@ -875,11 +875,11 @@ def benchmark(
 
     from peakfit.cli.fit_command import FitArguments
     from peakfit.data.clustering import create_clusters
-    from peakfit.fitting.parallel import fit_clusters_parallel_refined
-    from peakfit.fitting.optimizer import fit_clusters
     from peakfit.data.noise import prepare_noise_level
     from peakfit.data.peaks import read_list
     from peakfit.data.spectrum import get_shape_names, read_spectra
+    from peakfit.fitting.optimizer import fit_clusters
+    from peakfit.fitting.parallel import fit_clusters_parallel_refined
 
     console.print("[bold]PeakFit Performance Benchmark[/bold]\n")
 

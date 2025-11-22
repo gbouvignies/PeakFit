@@ -6,8 +6,8 @@ Tests edge cases, error conditions, and boundary conditions.
 import numpy as np
 import pytest
 
+from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
 from peakfit.lineshapes import gaussian, lorentzian, pvoigt
-from peakfit.fitting.parameters import Parameter, ParameterType, Parameters
 
 
 class TestParameterEdgeCases:
@@ -267,8 +267,8 @@ class TestConfigEdgeCases:
         import tempfile
         from pathlib import Path
 
-        from peakfit.models import PeakFitConfig
         from peakfit.io.config import load_config, save_config
+        from peakfit.models import PeakFitConfig
 
         config = PeakFitConfig(
             noise_level=1.5,

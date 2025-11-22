@@ -8,7 +8,7 @@ import numpy as np
 class TestSpectraExcludePlanes:
     """Tests for plane exclusion functionality."""
 
-    @patch("peakfit.spectra.guess_udic")
+    @patch("peakfit.data.spectrum.guess_udic")
     def test_exclude_planes_removes_data(self, mock_udic):
         """Should exclude specified planes from data."""
         from peakfit.data.spectrum import Spectra
@@ -32,7 +32,7 @@ class TestSpectraExcludePlanes:
         assert len(spectra.z_values) == 3
         np.testing.assert_array_equal(spectra.z_values, [1.0, 3.0, 5.0])
 
-    @patch("peakfit.spectra.guess_udic")
+    @patch("peakfit.data.spectrum.guess_udic")
     def test_exclude_planes_none_does_nothing(self, mock_udic):
         """Should not modify data when exclude_list is None."""
         from peakfit.data.spectrum import Spectra
@@ -53,7 +53,7 @@ class TestSpectraExcludePlanes:
         assert spectra.data.shape == original_shape
         np.testing.assert_array_equal(spectra.z_values, original_z)
 
-    @patch("peakfit.spectra.guess_udic")
+    @patch("peakfit.data.spectrum.guess_udic")
     def test_exclude_planes_empty_list_does_nothing(self, mock_udic):
         """Should not modify data when exclude_list is empty."""
         from peakfit.data.spectrum import Spectra
@@ -72,8 +72,8 @@ class TestSpectraExcludePlanes:
 
         assert spectra.data.shape == original_shape
 
-    @patch("peakfit.spectra.guess_udic")
-    @patch("peakfit.spectra.read")
+    @patch("peakfit.data.spectrum.guess_udic")
+    @patch("peakfit.data.spectrum.read")
     def test_read_spectra_returns_correct_object(self, mock_read, mock_udic):
         """Should return the spectra object with exclusions applied (bug fix test)."""
         from pathlib import Path
@@ -126,7 +126,7 @@ class TestSpectraPostInit:
         data = rng.standard_normal((100, 100)).astype(np.float32)
         z_values = np.array([])
 
-        with patch("peakfit.spectra.guess_udic") as mock_udic:
+        with patch("peakfit.data.spectrum.guess_udic") as mock_udic:
             mock_udic.return_value = {0: {"freq": True}, 1: {"freq": True}}
             spectra = Spectra(dic, data, z_values)
 
@@ -134,7 +134,7 @@ class TestSpectraPostInit:
         assert spectra.data.ndim == 3
         assert spectra.data.shape[0] == 1
 
-    @patch("peakfit.spectra.guess_udic")
+    @patch("peakfit.data.spectrum.guess_udic")
     def test_empty_z_values_generates_indices(self, mock_udic):
         """Should generate z_values from indices when not provided."""
         from peakfit.data.spectrum import Spectra

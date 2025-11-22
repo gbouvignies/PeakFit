@@ -5,7 +5,11 @@ and clusters, along with utilities for reading peak lists and estimating noise.
 """
 
 # Spectrum data structures
-from peakfit.data.spectrum import Spectra, SpectralParameters
+# Clustering
+from peakfit.data.clustering import Cluster
+
+# Noise estimation
+from peakfit.data.noise import estimate_noise
 
 # Peak data structures and I/O
 from peakfit.data.peaks import (
@@ -17,12 +21,7 @@ from peakfit.data.peaks import (
     read_list,
     read_sparky_list,
 )
-
-# Clustering
-from peakfit.data.clustering import Cluster
-
-# Noise estimation
-from peakfit.data.noise import estimate_noise
+from peakfit.data.spectrum import Spectra, SpectralParameters
 
 __all__ = [
     # Spectrum

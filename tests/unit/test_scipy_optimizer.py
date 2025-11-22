@@ -12,8 +12,8 @@ class TestScipyOptimizerConversions:
 
     def test_params_to_arrays_basic(self):
         """Should convert Parameters to numpy arrays."""
-        from peakfit.fitting.parameters import Parameters
         from peakfit.fitting.optimizer import params_to_arrays
+        from peakfit.fitting.parameters import Parameters
 
         params = Parameters()
         params.add("x0", value=10.0, min=5.0, max=15.0, vary=True)
@@ -32,8 +32,8 @@ class TestScipyOptimizerConversions:
 
     def test_params_to_arrays_no_bounds(self):
         """Should handle parameters without explicit bounds."""
-        from peakfit.fitting.parameters import Parameters
         from peakfit.fitting.optimizer import params_to_arrays
+        from peakfit.fitting.parameters import Parameters
 
         params = Parameters()
         params.add("unbounded", value=42.0, vary=True)
@@ -47,8 +47,8 @@ class TestScipyOptimizerConversions:
 
     def test_params_to_arrays_empty(self):
         """Should handle case with no varying parameters."""
-        from peakfit.fitting.parameters import Parameters
         from peakfit.fitting.optimizer import params_to_arrays
+        from peakfit.fitting.parameters import Parameters
 
         params = Parameters()
         params.add("fixed", value=10.0, vary=False)
@@ -62,8 +62,8 @@ class TestScipyOptimizerConversions:
 
     def test_arrays_to_params_update(self):
         """Should update Parameters with optimized values."""
-        from peakfit.fitting.parameters import Parameters
         from peakfit.fitting.optimizer import arrays_to_params
+        from peakfit.fitting.parameters import Parameters
 
         template = Parameters()
         template.add("x0", value=10.0, min=5.0, max=15.0, vary=True)
@@ -108,10 +108,10 @@ class TestScipyOptimizerModuleImports:
 
         sig = inspect.signature(fit_cluster)
         params = list(sig.parameters.keys())
+        assert "params" in params
         assert "cluster" in params
         assert "noise" in params
-        assert "fixed" in params
-        assert "params_init" in params
+        assert "max_nfev" in params
 
     def test_fit_clusters_signature(self):
         """fit_clusters should have correct signature."""
@@ -152,8 +152,8 @@ class TestScipyOptimizerEdgeCases:
 
     def test_params_to_arrays_preserves_order(self):
         """Parameter order should be preserved."""
-        from peakfit.fitting.parameters import Parameters
         from peakfit.fitting.optimizer import params_to_arrays
+        from peakfit.fitting.parameters import Parameters
 
         params = Parameters()
         params.add("a", value=1.0, vary=True)
@@ -167,8 +167,8 @@ class TestScipyOptimizerEdgeCases:
 
     def test_params_with_inf_bounds(self):
         """Should handle infinite bounds correctly."""
-        from peakfit.fitting.parameters import Parameters
         from peakfit.fitting.optimizer import params_to_arrays
+        from peakfit.fitting.parameters import Parameters
 
         params = Parameters()
         params.add("pos", value=0.0, min=-np.inf, max=np.inf, vary=True)
@@ -183,8 +183,8 @@ class TestScipyOptimizerEdgeCases:
 
     def test_arrays_to_params_copy(self):
         """Should return a copy, not modify original."""
-        from peakfit.fitting.parameters import Parameters
         from peakfit.fitting.optimizer import arrays_to_params
+        from peakfit.fitting.parameters import Parameters
 
         template = Parameters()
         template.add("x0", value=10.0, vary=True)

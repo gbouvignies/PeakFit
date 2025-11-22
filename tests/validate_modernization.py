@@ -226,7 +226,7 @@ def validate_parameter_system(results: ValidationResult):
     console.print("\n[bold]Testing Parameter System[/bold]")
 
     try:
-        from peakfit.fitting.parameters import Parameter, ParameterType, Parameters
+        from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
 
         # Test creating parameters with types
         p1 = Parameter(

@@ -3,33 +3,9 @@
 import numpy as np
 import pytest
 
-from peakfit.lineshapes.models import clean, gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
+from peakfit.lineshapes.functions import gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
 
-
-class TestCleanFunction:
-    """Tests for clean function."""
-
-    def test_clean_simple_name(self):
-        """Test cleaning simple alphanumeric name."""
-        assert clean("Peak1") == "Peak1"
-        assert clean("peak_x") == "peak_x"
-
-    def test_clean_with_special_chars(self):
-        """Test cleaning name with special characters."""
-        assert clean("Peak-1") == "Peak_1"
-        assert clean("Peak@1") == "Peak_1"
-        assert clean("Peak.1") == "Peak_1"
-
-    def test_clean_starting_with_digit(self):
-        """Test cleaning name starting with digit."""
-        result = clean("1Peak")
-        assert result.startswith("_")
-        assert "Peak" in result
-
-    def test_clean_multiple_special_chars(self):
-        """Test cleaning name with multiple consecutive special chars."""
-        assert clean("Peak--1") == "Peak_1"
-        assert clean("Peak@@1") == "Peak_1"
+# Note: clean() function was removed during refactoring
 
 
 class TestGaussianFunction:
@@ -251,14 +227,14 @@ class TestRegisteredShapes:
 
     def test_shapes_dict_exists(self):
         """Test that SHAPES dictionary exists."""
-        from peakfit.lineshapes.models import SHAPES
+        from peakfit.lineshapes import SHAPES
 
         assert isinstance(SHAPES, dict)
         assert len(SHAPES) > 0
 
     def test_standard_shapes_registered(self):
         """Test that standard shapes are registered."""
-        from peakfit.lineshapes.models import SHAPES
+        from peakfit.lineshapes import SHAPES
 
         # These shapes should be registered by default
         assert "gaussian" in SHAPES

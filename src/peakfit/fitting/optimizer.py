@@ -148,7 +148,7 @@ def fit_cluster(
     Args:
         params: Initial parameters
         cluster: Cluster to fit
-        noise: Noise level
+        noise: Noise level (must be positive)
         max_nfev: Maximum number of function evaluations
         ftol: Tolerance for termination by change of cost function
         xtol: Tolerance for termination by change of variables
@@ -157,7 +157,20 @@ def fit_cluster(
 
     Returns:
         FitResult containing optimized parameters and fit statistics
+
+    Raises:
+        ValueError: If noise is non-positive
+        ScipyOptimizerError: If cluster has no peaks
     """
+    # Validate inputs
+    if noise <= 0:
+        msg = f"Noise must be positive, got {noise}"
+        raise ValueError(msg)
+
+    if not cluster.peaks:
+        msg = "Cluster has no peaks to fit"
+        raise ScipyOptimizerError(msg)
+
     # Get initial values and bounds for varying parameters
     x0 = params.get_vary_values()
     lower, upper = params.get_vary_bounds()

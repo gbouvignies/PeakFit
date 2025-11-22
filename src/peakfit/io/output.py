@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 
 from peakfit.data.clustering import Cluster
+from peakfit.data.peaks import Peak
 from peakfit.fitting.computation import calculate_shape_heights
 from peakfit.fitting.parameters import Parameters
-from peakfit.data.peaks import Peak
 from peakfit.typing import FittingOptions, FloatArray
 from peakfit.ui import PeakFitUI as ui
 

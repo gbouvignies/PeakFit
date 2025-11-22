@@ -39,8 +39,8 @@ class TestOptimizedFunctions:
         """Optimized Gaussian should give same results as original."""
         import numpy as np
 
-        from peakfit.lineshapes.functions import gaussian_jit
         from peakfit.lineshapes import gaussian
+        from peakfit.lineshapes.functions import gaussian_jit
 
         dx = np.linspace(-50, 50, 101)
         fwhm = 10.0
@@ -54,8 +54,8 @@ class TestOptimizedFunctions:
         """Optimized Lorentzian should give same results as original."""
         import numpy as np
 
-        from peakfit.lineshapes.functions import lorentzian_jit
         from peakfit.lineshapes import lorentzian
+        from peakfit.lineshapes.functions import lorentzian_jit
 
         dx = np.linspace(-50, 50, 101)
         fwhm = 10.0
@@ -69,8 +69,8 @@ class TestOptimizedFunctions:
         """Optimized Pseudo-Voigt should give same results as original."""
         import numpy as np
 
-        from peakfit.lineshapes.functions import pvoigt_jit
         from peakfit.lineshapes import pvoigt
+        from peakfit.lineshapes.functions import pvoigt_jit
 
         dx = np.linspace(-50, 50, 101)
         fwhm = 10.0
@@ -85,8 +85,8 @@ class TestOptimizedFunctions:
         """Optimized NoApod should give same results as original."""
         import numpy as np
 
-        from peakfit.lineshapes.functions import no_apod_jit
         from peakfit.lineshapes import no_apod
+        from peakfit.lineshapes.functions import no_apod_jit
 
         dx = np.linspace(-50, 50, 101)
         r2 = 5.0  # Hz
@@ -102,8 +102,8 @@ class TestOptimizedFunctions:
         """Optimized SP1 should give same results as original."""
         import numpy as np
 
-        from peakfit.lineshapes.functions import sp1_jit
         from peakfit.lineshapes import sp1
+        from peakfit.lineshapes.functions import sp1_jit
 
         dx = np.linspace(-50, 50, 101)
         r2 = 5.0  # Hz
@@ -121,8 +121,8 @@ class TestOptimizedFunctions:
         """Optimized SP2 should give same results as original."""
         import numpy as np
 
-        from peakfit.lineshapes.functions import sp2_jit
         from peakfit.lineshapes import sp2
+        from peakfit.lineshapes.functions import sp2_jit
 
         dx = np.linspace(-50, 50, 101)
         r2 = 5.0  # Hz

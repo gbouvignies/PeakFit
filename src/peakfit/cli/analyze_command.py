@@ -6,12 +6,9 @@ import numpy as np
 from rich.table import Table
 
 from peakfit.data.clustering import Cluster
-from peakfit.fitting.advanced import (
-    compute_profile_likelihood,
-    estimate_uncertainties_mcmc,
-)
-from peakfit.fitting.parameters import Parameters
 from peakfit.data.peaks import Peak
+from peakfit.fitting.advanced import compute_profile_likelihood, estimate_uncertainties_mcmc
+from peakfit.fitting.parameters import Parameters
 from peakfit.ui import PeakFitUI as ui, console
 
 
@@ -231,7 +228,7 @@ def run_profile_likelihood(
         console.print(f"  Parameters to profile: {len(target_params)}")
         console.print(f"  Confidence level: {confidence_level * 100:.0f}%")
         console.print(f"  Points per parameter: {n_points}")
-        console.print(f"  [yellow]This may take a while...[/yellow]")
+        console.print("  [yellow]This may take a while...[/yellow]")
     else:
         # Find matching parameters
         target_params = _find_matching_parameters(param_name, all_param_names)
@@ -472,7 +469,7 @@ def run_uncertainty(
         return
 
     ui.show_header("Parameter Uncertainties")
-    console.print(f"  Source: Covariance matrix from least-squares fit")
+    console.print("  Source: Covariance matrix from least-squares fit")
     console.print(f"  Parameters: {len(vary_names)}")
     console.print("")
 
@@ -536,7 +533,7 @@ def run_uncertainty(
     ]
     if large_uncert:
         console.print()
-        ui.warning(f"Parameters with large relative uncertainties (>10%):")
+        ui.warning("Parameters with large relative uncertainties (>10%):")
         for name in large_uncert:
             param = params[name]
             rel_err = abs(param.stderr / param.value) * 100
@@ -664,11 +661,7 @@ def _find_matching_parameters(pattern: str, all_params: list[str]) -> list[str]:
         # Check if pattern matches peak name (before underscore)
         if "_" in param:
             peak_name, param_type = param.rsplit("_", 1)
-            if pattern_lower == peak_name.lower():
-                matches.append(param)
-            elif pattern_lower == param_type.lower():
-                matches.append(param)
-            elif pattern_lower in param_lower:
+            if pattern_lower == peak_name.lower() or pattern_lower == param_type.lower() or pattern_lower in param_lower:
                 matches.append(param)
         else:
             # No underscore, just check if pattern is in parameter name

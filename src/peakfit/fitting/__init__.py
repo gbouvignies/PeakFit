@@ -6,19 +6,6 @@ and simulation capabilities.
 """
 
 # Parameter management
-from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
-
-# Fit results
-from peakfit.fitting.results import FitResult
-
-# Basic optimization
-from peakfit.fitting.optimizer import (
-    fit_cluster,
-    fit_cluster_dict,
-    fit_clusters,
-    fit_clusters_sequential,
-)
-
 # Advanced optimization
 from peakfit.fitting.advanced import (
     GlobalFitResult,
@@ -29,12 +16,6 @@ from peakfit.fitting.advanced import (
     fit_differential_evolution,
 )
 
-# Parallel fitting
-from peakfit.fitting.parallel import (
-    fit_clusters_parallel,
-    fit_clusters_parallel_refined,
-)
-
 # Core computation functions
 from peakfit.fitting.computation import (
     calculate_amplitudes,
@@ -43,6 +24,21 @@ from peakfit.fitting.computation import (
     residuals,
     update_cluster_corrections,
 )
+
+# Basic optimization
+from peakfit.fitting.optimizer import (
+    fit_cluster,
+    fit_cluster_dict,
+    fit_clusters,
+    fit_clusters_sequential,
+)
+
+# Parallel fitting
+from peakfit.fitting.parallel import fit_clusters_parallel, fit_clusters_parallel_refined
+from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
+
+# Fit results
+from peakfit.fitting.results import FitResult
 
 # Simulation
 from peakfit.fitting.simulation import simulate_data
