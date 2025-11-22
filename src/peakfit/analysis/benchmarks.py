@@ -14,7 +14,7 @@ import numpy as np
 from peakfit.constants import BENCHMARK_MAX_NFEV
 
 if TYPE_CHECKING:
-    from peakfit.clustering import Cluster
+    from peakfit.data.clustering import Cluster
     from peakfit.fitting.parameters import Parameters
 
 
@@ -212,7 +212,7 @@ def profile_fit_cluster(
     Returns:
         Dictionary of stage name to time in seconds
     """
-    from peakfit.computing import calculate_shapes, residuals
+    from peakfit.fitting.computation import calculate_shapes, residuals
     from peakfit.fitting.optimizer import fit_cluster
 
     profile = {}
@@ -252,9 +252,9 @@ def create_synthetic_cluster(
     Returns:
         Tuple of (Cluster, noise_level)
     """
-    from peakfit.clustering import Cluster
-    from peakfit.peak import Peak
-    from peakfit.shapes import PseudoVoigt
+    from peakfit.data.clustering import Cluster
+    from peakfit.data.peaks import Peak
+    from peakfit.lineshapes import PseudoVoigt
 
     # Create synthetic peaks
     peaks = []

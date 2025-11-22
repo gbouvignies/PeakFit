@@ -20,12 +20,12 @@ from scipy.optimize import least_squares
 from peakfit.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
 from peakfit.fitting.parameters import Parameters
 from peakfit.fitting.results import FitResult
-from peakfit.peak import create_params
+from peakfit.data.peaks import create_params
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from peakfit.clustering import Cluster
+    from peakfit.data.clustering import Cluster
 
 
 class ScipyOptimizerError(Exception):
