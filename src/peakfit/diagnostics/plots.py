@@ -176,11 +176,26 @@ def plot_corner(
     n_total_samples, n_params = samples.shape
     n_params_plot = min(n_params, max_params)
 
-    # Create figure
+    # Shorten parameter names for display to avoid text overlap
+    # e.g., "2N-H_x0" -> "x0", "2N-H_fwhm_x" -> "fwhm_x"
+    short_names = []
+    for name in parameter_names[:n_params_plot]:
+        if "_" in name:
+            # Take everything after the last underscore for short display
+            parts = name.split("_")
+            if len(parts) >= 2:
+                # Keep last 2 parts for context (e.g., "fwhm_x")
+                short_names.append("_".join(parts[-2:]) if len(parts) > 2 else parts[-1])
+            else:
+                short_names.append(parts[-1])
+        else:
+            short_names.append(name[:12])  # Truncate long names
+
+    # Create figure with more spacing to prevent overlap
     fig, axes = plt.subplots(
         n_params_plot,
         n_params_plot,
-        figsize=(min(15, 2 * n_params_plot), min(15, 2 * n_params_plot)),
+        figsize=(min(16, 2.2 * n_params_plot), min(16, 2.2 * n_params_plot)),
     )
 
     if n_params_plot == 1:
@@ -265,20 +280,21 @@ def plot_corner(
                         bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.7},
                     )
 
-            # Axis labels
+            # Axis labels - use short names to avoid overlap
             if i == n_params_plot - 1:
-                ax.set_xlabel(parameter_names[j], fontsize=9)
-                plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha="right", fontsize=7)
+                ax.set_xlabel(short_names[j], fontsize=8)
+                # Rotate less (30° instead of 45°) for better readability
+                plt.setp(ax.xaxis.get_majorticklabels(), rotation=30, ha="right", fontsize=6)
             else:
                 ax.set_xticklabels([])
 
             if j == 0 and i > 0:
-                ax.set_ylabel(parameter_names[i], fontsize=9)
-                plt.setp(ax.yaxis.get_majorticklabels(), fontsize=7)
+                ax.set_ylabel(short_names[i], fontsize=8)
+                plt.setp(ax.yaxis.get_majorticklabels(), fontsize=6)
             else:
                 ax.set_yticklabels([])
 
-            ax.tick_params(labelsize=7)
+            ax.tick_params(labelsize=6)
 
     fig.suptitle(
         f"Corner Plot: Posterior Distributions and Correlations\n({n_total_samples:,} samples)",
@@ -304,7 +320,8 @@ def plot_corner(
         wrap=True,
     )
 
-    plt.tight_layout(rect=[0, 0.04, 1, 0.96])
+    # Use more spacing to prevent text overlap
+    plt.tight_layout(rect=[0, 0.04, 1, 0.96], h_pad=1.5, w_pad=1.5)
 
     return fig
 

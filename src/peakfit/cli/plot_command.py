@@ -459,7 +459,6 @@ def plot_mcmc_diagnostics(
             from peakfit.diagnostics import (
                 plot_autocorrelation,
                 plot_corner,
-                plot_posterior_summary,
                 plot_trace,
             )
 
@@ -480,11 +479,6 @@ def plot_mcmc_diagnostics(
             fig_autocorr = plot_autocorrelation(chains, parameter_names)
             pdf.savefig(fig_autocorr, bbox_inches="tight")
             plt.close(fig_autocorr)
-
-            # Page 4: Posterior summary (compact view)
-            fig_summary = plot_posterior_summary(samples_flat, parameter_names)
-            pdf.savefig(fig_summary, bbox_inches="tight")
-            plt.close(fig_summary)
 
     ui.success(f"Diagnostic plots saved to: [path]{output_path}[/path]")
 
