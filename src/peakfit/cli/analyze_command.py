@@ -139,6 +139,37 @@ def run_mcmc(
         console.print(table)
         console.print("")
 
+        # Display correlation matrix if there are multiple parameters
+        if result.correlation_matrix is not None and len(result.parameter_names) > 1:
+            console.print(f"[bold cyan]Correlation Matrix - {', '.join(peak_names)}[/bold cyan]")
+            console.print("  (Strong correlations: |r| > 0.7)")
+
+            # Create correlation table
+            corr_table = Table(show_header=True, header_style="bold cyan")
+            corr_table.add_column("", style="cyan", width=15)
+            for name in result.parameter_names:
+                # Shorten parameter names for display
+                short_name = name.split("_")[-1] if "_" in name else name
+                corr_table.add_column(short_name[:8], justify="right", width=9)
+
+            for i, name in enumerate(result.parameter_names):
+                short_name = name.split("_")[-1] if "_" in name else name
+                row = [short_name[:15]]
+                for j, val in enumerate(result.correlation_matrix[i]):
+                    if i == j:
+                        row.append("[dim]1.0000[/dim]")
+                    elif abs(val) > 0.7:
+                        # Highlight strong correlations
+                        row.append(f"[bold yellow]{val:7.4f}[/bold yellow]")
+                    elif abs(val) > 0.3:
+                        row.append(f"[yellow]{val:7.4f}[/yellow]")
+                    else:
+                        row.append(f"{val:7.4f}")
+                corr_table.add_row(*row)
+
+            console.print(corr_table)
+            console.print("")
+
         # Update global parameters with MCMC uncertainties
         for j, name in enumerate(result.parameter_names):
             if name in params:
@@ -394,6 +425,17 @@ def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]
                     f"{name}  {result.values[i]:.6f}  {result.std_errors[i]:.6f}  "
                     f"{ci_68[0]:.6f}  {ci_68[1]:.6f}  {ci_95[0]:.6f}  {ci_95[1]:.6f}\n"
                 )
+
+            # Add correlation matrix
+            if result.correlation_matrix is not None and len(result.parameter_names) > 1:
+                f.write(f"\n# Correlation Matrix for Cluster: {', '.join(peak_names)}\n")
+                f.write("# Rows/Columns: " + "  ".join(result.parameter_names) + "\n")
+                for i, row in enumerate(result.correlation_matrix):
+                    f.write(f"# {result.parameter_names[i]:<20s}")
+                    for val in row:
+                        f.write(f"  {val:7.4f}")
+                    f.write("\n")
+                f.write("\n")
 
 
 def _save_profile_results(
