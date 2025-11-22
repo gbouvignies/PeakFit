@@ -6,8 +6,8 @@ import networkx as nx
 import numpy as np
 from scipy.ndimage import binary_dilation, generate_binary_structure, label
 
-from peakfit.peak import Peak
-from peakfit.spectra import Spectra
+from peakfit.data.peaks import Peak
+from peakfit.data.spectrum import Spectra
 from peakfit.typing import FloatArray, IntArray
 from peakfit.ui import PeakFitUI as ui
 

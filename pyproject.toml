@@ -34,9 +34,6 @@ dev = [
     "pre-commit>=3.0",
     "types-setuptools>=75.0",
 ]
-performance = [
-    "numba>=0.60.0",
-]
 mcmc = [
     "emcee>=3.1.6",
 ]
@@ -141,14 +138,11 @@ convention = "google"
     "BLE001",  # Blind exception (acceptable for validation/error reporting)
     "N813",    # PeakFitUI imported as ui (project convention)
 ]
-"src/peakfit/clustering.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
-"src/peakfit/noise.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
-"src/peakfit/writing.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
-"src/peakfit/core/benchmarks.py" = [
+"src/peakfit/data/clustering.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
+"src/peakfit/data/noise.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
+"src/peakfit/io/output.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
+"src/peakfit/analysis/benchmarks.py" = [
     "S311",    # Pseudo-random generators (acceptable for benchmarks)
-]
-"src/peakfit/core/backend.py" = [
-    "PLW0603", # Global statement (intentional for backend state management)
 ]
 "src/peakfit/__init__.py" = [
     "E402",    # Module level import not at top of file
@@ -205,7 +199,6 @@ module = [
     "emcee.*",
     "matplotlib.*",
     "pandas.*",
-    "numba.*",
     "threadpoolctl.*",
 ]
 ignore_missing_imports = true

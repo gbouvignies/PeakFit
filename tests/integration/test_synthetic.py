@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from peakfit.shapes import gaussian, lorentzian
+from peakfit.lineshapes.models import gaussian, lorentzian
 
 
 class TestSyntheticSpectrumGeneration:

@@ -12,20 +12,19 @@ from typing import Any
 
 from threadpoolctl import threadpool_limits
 
-from peakfit.clustering import Cluster
-from peakfit.core.fitting import Parameters
+from peakfit.data.clustering import Cluster
+from peakfit.fitting.parameters import Parameters
 
 
 def _get_mp_context() -> mp.context.BaseContext:
     """Get multiprocessing context for parallel processing.
 
-    Uses 'fork' on Unix systems which shares JIT-compiled Numba code,
-    avoiding massive overhead from re-compiling in each worker.
+    Uses 'fork' on Unix systems for better performance.
 
     Returns:
         Multiprocessing context
     """
-    # Use fork to share Numba JIT code and avoid re-compilation overhead
+    # Use fork when available
     try:
         return mp.get_context("fork")
     except ValueError:
@@ -51,7 +50,7 @@ def _fit_single_cluster(
     Returns:
         Dictionary with fitted parameter values and fit statistics
     """
-    from peakfit.core.scipy_optimizer import fit_cluster
+    from peakfit.fitting.optimizer import fit_cluster
 
     # Use scipy-based fitting
     return fit_cluster(cluster, noise, fixed=fixed, params_init=params_dict)
@@ -79,11 +78,6 @@ def fit_clusters_parallel(
     """
     if n_workers is None:
         n_workers = min(mp.cpu_count(), len(clusters))
-
-    # Pre-warm Numba JIT functions before forking to share compiled code
-    from peakfit.core.optimized import prewarm_jit_functions
-
-    prewarm_jit_functions()
 
     # Initial empty global parameters
     params_dict: dict[str, Any] = {}
@@ -218,10 +212,10 @@ def fit_clusters_parallel_refined(
     This function performs iterative fitting with cross-talk correction,
     parallelizing the cluster fitting within each iteration.
 
-    Uses thread-based parallelism with Numba/NumPy releasing the GIL for
+    Uses thread-based parallelism with NumPy releasing the GIL for
     numerical computations. While threads can't achieve perfect parallel
-    scaling due to GIL contention in Python code, they avoid the massive
-    overhead of re-compiling Numba JIT functions in each process.
+    scaling due to GIL contention in Python code, they avoid overhead
+    of process spawning.
 
     Args:
         clusters: List of clusters to fit
@@ -234,8 +228,7 @@ def fit_clusters_parallel_refined(
     Returns:
         Final fitted parameters for all clusters
     """
-    from peakfit.computing import update_cluster_corrections
-    from peakfit.core.optimized import prewarm_jit_functions
+    from peakfit.fitting.computation import update_cluster_corrections
 
     if n_workers is None:
         # Default: use CPU count but cap at 16 to avoid excessive GIL contention
@@ -243,10 +236,6 @@ def fit_clusters_parallel_refined(
     else:
         # User specified: respect it but warn if very high
         n_workers = min(n_workers, len(clusters))
-
-    # Pre-warm Numba JIT functions to compile them ONCE before parallelism
-    # Threads share the same JIT cache, so this compilation is amortized
-    prewarm_jit_functions()
 
     params_all = Parameters()
 
@@ -278,7 +267,6 @@ def fit_clusters_parallel_refined(
             )
 
             # Fit all clusters in parallel using threads
-            # Threads share JIT-compiled code and avoid massive compilation overhead
             if n_workers > 1 and len(clusters) > 1:
                 if verbose:
                     from peakfit.ui.style import console

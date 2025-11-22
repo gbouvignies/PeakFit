@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from peakfit.shapes import clean, gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
+from peakfit.lineshapes.models import clean, gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
 
 
 class TestCleanFunction:
@@ -251,14 +251,14 @@ class TestRegisteredShapes:
 
     def test_shapes_dict_exists(self):
         """Test that SHAPES dictionary exists."""
-        from peakfit.shapes import SHAPES
+        from peakfit.lineshapes.models import SHAPES
 
         assert isinstance(SHAPES, dict)
         assert len(SHAPES) > 0
 
     def test_standard_shapes_registered(self):
         """Test that standard shapes are registered."""
-        from peakfit.shapes import SHAPES
+        from peakfit.lineshapes.models import SHAPES
 
         # These shapes should be registered by default
         assert "gaussian" in SHAPES

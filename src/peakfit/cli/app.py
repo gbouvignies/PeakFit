@@ -6,7 +6,7 @@ from typing import Annotated
 import typer
 
 from peakfit.cli.callbacks import version_callback
-from peakfit.core.models import PeakFitConfig
+from peakfit.models import PeakFitConfig
 from peakfit.io.config import generate_default_config, load_config
 from peakfit.ui import PeakFitUI as ui, console
 
@@ -180,7 +180,7 @@ def fit(
         typer.Option(
             "--backend",
             "-b",
-            help="Computation backend: auto, numpy, numba",
+            help="Computation backend (deprecated, always uses numpy)",
         ),
     ] = "auto",
     optimizer: Annotated[
@@ -625,14 +625,13 @@ def info(
         bool,
         typer.Option(
             "--benchmark",
-            help="Run performance benchmark to measure speedup",
+            help="Run performance benchmark (deprecated)",
         ),
     ] = False,
 ) -> None:
-    """Show system information and optimization status.
+    """Show system information.
 
-    Display details about available optimizations including Numba JIT compilation,
-    parallel processing capabilities, and optionally run a benchmark.
+    Display details about the PeakFit installation and system capabilities.
     """
     import multiprocessing as mp
     import sys
@@ -640,8 +639,6 @@ def info(
     import numpy as np
 
     from peakfit import __version__
-    from peakfit.core.backend import get_available_backends, get_best_backend
-    from peakfit.core.optimized import get_optimization_info
 
     console.print("[bold]PeakFit System Information[/bold]\n")
 
@@ -650,130 +647,19 @@ def info(
     console.print(f"[green]Python version:[/green] {sys.version}")
     console.print(f"[green]NumPy version:[/green] {np.__version__}")
 
-    # Backend status
-    available_backends = get_available_backends()
-    best_backend = get_best_backend()
-
-    console.print("\n[bold]Computation Backends:[/bold]")
-    console.print(f"[green]Available:[/green] {', '.join(available_backends)}")
-    console.print(f"[green]Recommended:[/green] {best_backend}")
-
-    # Numba status
-    opt_info = get_optimization_info()
-    numba_available = opt_info["numba_available"]
-
-    if numba_available:
-        try:
-            import numba
-
-            console.print(f"[green]✓ Numba JIT enabled:[/green] {numba.__version__}")
-            console.print(f"  Optimized functions: {', '.join(opt_info['optimizations'])}")
-        except ImportError:
-            console.print("[yellow]✗ Numba not available[/yellow]")
-    else:
-        console.print("[yellow]✗ Numba JIT not available[/yellow]")
-        console.print("  Install with: pip install numba")
-        console.print("  Or: pip install peakfit[performance]")
-        console.print(f"  Using: {', '.join(opt_info['optimizations'])}")
-
     # Parallel processing
     n_cpus = mp.cpu_count()
     console.print(f"\n[green]Parallel processing:[/green] {n_cpus} CPU cores available")
 
+    # Note about backends
+    console.print("\n[dim]Note: Numba backend support has been removed.[/dim]")
+    console.print("[dim]      All computations now use optimized NumPy vectorization.[/dim]")
+
     # Benchmark
     if benchmark:
-        console.print("\n[bold]Running Performance Benchmark...[/bold]")
-        _run_benchmark(numba_available)
+        console.print("\n[yellow]Benchmark option is deprecated and has been removed.[/yellow]")
 
 
-def _run_benchmark(numba_available: bool) -> None:
-    """Run performance benchmark comparing optimized vs pure NumPy."""
-    import time
-
-    import numpy as np
-
-    from peakfit.core.optimized import gaussian_jit, lorentzian_jit, pvoigt_jit
-
-    # Pure NumPy implementations for comparison (avoid circular imports)
-    def gaussian_numpy(dx: np.ndarray, fwhm: float) -> np.ndarray:
-        c = 4.0 * np.log(2.0) / (fwhm * fwhm)
-        return np.exp(-dx * dx * c)
-
-    def lorentzian_numpy(dx: np.ndarray, fwhm: float) -> np.ndarray:
-        half_width_sq = (0.5 * fwhm) ** 2
-        return half_width_sq / (dx * dx + half_width_sq)
-
-    def pvoigt_numpy(dx: np.ndarray, fwhm: float, eta: float) -> np.ndarray:
-        return (1.0 - eta) * gaussian_numpy(dx, fwhm) + eta * lorentzian_numpy(dx, fwhm)
-
-    # Test parameters
-    n_iterations = 1000
-    dx = np.linspace(-100, 100, 10001)  # Large array
-    fwhm = 15.0
-    eta = 0.5
-
-    console.print(f"  Array size: {len(dx):,} points")
-    console.print(f"  Iterations: {n_iterations:,}")
-
-    # Warmup JIT (if available)
-    if numba_available:
-        _ = gaussian_jit(dx, fwhm)
-        _ = lorentzian_jit(dx, fwhm)
-        _ = pvoigt_jit(dx, fwhm, eta)
-
-    # Benchmark Gaussian
-    start = time.perf_counter()
-    for _ in range(n_iterations):
-        _ = gaussian_numpy(dx, fwhm)
-    numpy_time = time.perf_counter() - start
-
-    start = time.perf_counter()
-    for _ in range(n_iterations):
-        _ = gaussian_jit(dx, fwhm)
-    jit_time = time.perf_counter() - start
-
-    speedup = numpy_time / jit_time if jit_time > 0 else 1.0
-    console.print("\n  [cyan]Gaussian:[/cyan]")
-    console.print(f"    NumPy:     {numpy_time:.3f}s")
-    console.print(f"    Optimized: {jit_time:.3f}s")
-    if numba_available:
-        console.print(f"    [green]Speedup: {speedup:.1f}x[/green]")
-
-    # Benchmark Lorentzian
-    start = time.perf_counter()
-    for _ in range(n_iterations):
-        _ = lorentzian_numpy(dx, fwhm)
-    numpy_time = time.perf_counter() - start
-
-    start = time.perf_counter()
-    for _ in range(n_iterations):
-        _ = lorentzian_jit(dx, fwhm)
-    jit_time = time.perf_counter() - start
-
-    speedup = numpy_time / jit_time if jit_time > 0 else 1.0
-    console.print("\n  [cyan]Lorentzian:[/cyan]")
-    console.print(f"    NumPy:     {numpy_time:.3f}s")
-    console.print(f"    Optimized: {jit_time:.3f}s")
-    if numba_available:
-        console.print(f"    [green]Speedup: {speedup:.1f}x[/green]")
-
-    # Benchmark Pseudo-Voigt
-    start = time.perf_counter()
-    for _ in range(n_iterations):
-        _ = pvoigt_numpy(dx, fwhm, eta)
-    numpy_time = time.perf_counter() - start
-
-    start = time.perf_counter()
-    for _ in range(n_iterations):
-        _ = pvoigt_jit(dx, fwhm, eta)
-    jit_time = time.perf_counter() - start
-
-    speedup = numpy_time / jit_time if jit_time > 0 else 1.0
-    console.print("\n  [cyan]Pseudo-Voigt:[/cyan]")
-    console.print(f"    NumPy:     {numpy_time:.3f}s")
-    console.print(f"    Optimized: {jit_time:.3f}s")
-    if numba_available:
-        console.print(f"    [green]Speedup: {speedup:.1f}x[/green]")
 
 
 @app.command()
@@ -973,12 +859,12 @@ def benchmark(
     import time
 
     from peakfit.cli.fit_command import FitArguments
-    from peakfit.clustering import create_clusters
-    from peakfit.core.parallel import fit_clusters_parallel_refined
-    from peakfit.core.scipy_optimizer import fit_clusters
-    from peakfit.noise import prepare_noise_level
-    from peakfit.peaklist import read_list
-    from peakfit.spectra import get_shape_names, read_spectra
+    from peakfit.data.clustering import create_clusters
+    from peakfit.fitting.parallel import fit_clusters_parallel_refined
+    from peakfit.fitting.optimizer import fit_clusters
+    from peakfit.data.noise import prepare_noise_level
+    from peakfit.data.peaks import read_list
+    from peakfit.data.spectrum import get_shape_names, read_spectra
 
     console.print("[bold]PeakFit Performance Benchmark[/bold]\n")
 

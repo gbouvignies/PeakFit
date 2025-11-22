@@ -1,8 +1,4 @@
-"""Core constants for PeakFit optimization and fitting.
-
-These constants define default parameters for various optimization
-algorithms. They can be overridden via configuration files or CLI arguments.
-"""
+"""Constants and default values for peak fitting."""
 
 # =============================================================================
 # Least-Squares Optimization Defaults

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from peakfit.core.models import PeakFitConfig
+from peakfit.models import PeakFitConfig
 from peakfit.io.config import generate_default_config, load_config, save_config
 
 

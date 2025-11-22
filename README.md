@@ -52,20 +52,6 @@ cd PeakFit
 uv sync --all-extras  # Install all dependencies including dev tools
 ```
 
-### Optional Performance Backends
-
-```bash
-# Using uv
-uv pip install peakfit[performance]  # Numba JIT compilation
-uv pip install peakfit[all]          # All performance backends
-
-# Using pip
-pip install peakfit[performance]
-pip install peakfit[all]
-```
-
-**Note:** Numba provides JIT-compiled lineshape functions that significantly improve performance.
-
 ## Requirements
 
 - Python >= 3.13
@@ -165,7 +151,6 @@ Options:
   --phy/--no-phy          Fit phase correction in Y
   -e, --exclude INTEGER   Plane indices to exclude
   --parallel/--no-parallel Enable parallel fitting
-  -b, --backend TEXT      Computation backend: auto, numpy, numba
   --help                  Show this message and exit
 ```
 
@@ -280,47 +265,6 @@ peakfit fit spectrum.ft2 peaks.list --parallel
 - Maintains cross-talk correction through refinement iterations
 - Significant speedup for large peak lists (10+ clusters)
 
-### Backend Selection
-
-PeakFit supports multiple computation backends for optimal performance:
-
-```bash
-# Auto-select best available backend (default)
-peakfit fit spectrum.ft2 peaks.list --backend auto
-
-# Use specific backend
-peakfit fit spectrum.ft2 peaks.list --backend numpy   # Pure NumPy (always available)
-peakfit fit spectrum.ft2 peaks.list --backend numba   # Numba JIT (2-5x faster)
-```
-
-**Available Backends:**
-- **NumPy**: Always available, pure Python/NumPy implementation
-- **Numba**: JIT-compiled functions (2-5x faster), requires `pip install peakfit[performance]`
-
-Check available backends:
-```bash
-peakfit info
-```
-
-### Performance Optimization
-
-Install optional performance dependencies for faster lineshape calculations:
-
-```bash
-# Using uv
-uv pip install peakfit[performance]  # Numba JIT compilation
-uv pip install peakfit[all]          # All optional dependencies
-
-# Using pip
-pip install peakfit[performance]
-pip install peakfit[all]
-```
-
-Numba provides:
-- JIT-compiled lineshape functions (2-5x faster)
-- Automatic fallback to NumPy if not available
-- No code changes required
-
 ### Excluding Planes
 
 ```bash
@@ -393,22 +337,32 @@ uv build
 
 ```
 peakfit/
-├── core/               # Core data models and fitting logic
-│   ├── models.py       # Pydantic models
+├── lineshapes/         # Lineshape functions and models
+│   ├── gaussian.py     # Gaussian lineshape
+│   ├── lorentzian.py   # Lorentzian lineshape
+│   ├── pvoigt.py       # Pseudo-Voigt lineshape
 │   └── ...
+├── fitting/            # Fitting algorithms and parameters
+│   ├── parameters.py   # Parameter system
+│   ├── fit.py          # Fitting engine
+│   └── ...
+├── data/               # Data structures
+│   ├── spectrum.py     # Spectrum data
+│   ├── cluster.py      # Peak clusters
+│   └── ...
+├── models/             # Configuration models
+│   └── config.py       # Pydantic models
+├── analysis/           # Analysis tools
+│   ├── benchmarks.py   # Performance benchmarking
+│   ├── profiling.py    # Profiling utilities
+│   └── ...
+├── io/                 # Input/output operations
+│   └── readers.py      # File readers
 ├── cli/                # Modern CLI with Typer
 │   ├── app.py          # Main Typer application
-│   ├── fit_command.py  # Fit command implementation
 │   └── ...
-├── io/                 # File I/O operations
-│   ├── config.py       # TOML configuration loader
-│   └── ...
-├── plotting/           # Visualization
-│   └── plots/          # Individual plot generators
-├── shapes.py           # Lineshape models
-├── clustering.py       # Peak clustering
-├── computing.py        # Fitting computations
-└── ...
+└── plotting/           # Visualization
+    └── plots/          # Individual plot generators
 ```
 
 ## Plotting
@@ -494,7 +448,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 PeakFit uses a custom parameter system optimized for NMR fitting with domain-specific bounds and metadata:
 
 ```python
-from peakfit.core.fitting import Parameters, Parameter, ParameterType
+from peakfit.fitting import Parameters, Parameter, ParameterType
 
 # Create parameters with NMR-specific types
 params = Parameters()
@@ -566,7 +520,7 @@ print(params.summary())  # Formatted parameter table
 The fitting engine uses `scipy.optimize.least_squares` directly for optimal performance:
 
 ```python
-from peakfit.core.fitting import fit_cluster, FitResult
+from peakfit.fitting import fit_cluster, FitResult
 
 # Fit a single cluster
 result: FitResult = fit_cluster(
@@ -591,7 +545,7 @@ print(f"Success: {result.success}")
 PeakFit includes global optimization methods for difficult fitting problems:
 
 ```python
-from peakfit.core.advanced_optimization import (
+from peakfit.analysis.advanced_optimization import (
     fit_basin_hopping,
     fit_differential_evolution,
     estimate_uncertainties_mcmc,
@@ -640,54 +594,17 @@ values, chi2, ci = compute_profile_likelihood(
 )
 ```
 
-### Backend Registry
-
-Control which computation backend is used for lineshape calculations:
-
-```python
-from peakfit.core.backend import (
-    get_available_backends,
-    get_best_backend,
-    set_backend,
-    get_backend,
-    auto_select_backend,
-)
-
-# Check available backends
-print(get_available_backends())  # ['numpy', 'numba']
-print(get_best_backend())        # 'numba' (prefers Numba > NumPy)
-
-# Set specific backend
-set_backend("numba")  # Use Numba JIT compilation
-print(get_backend())  # 'numba'
-
-# Auto-select best available
-selected = auto_select_backend()  # Automatically picks best
-print(f"Using: {selected}")
-
-# Get backend-specific functions
-from peakfit.core.backend import (
-    get_gaussian_func,
-    get_lorentzian_func,
-    get_pvoigt_func,
-)
-
-gaussian = get_gaussian_func()  # Returns current backend's Gaussian
-result = gaussian(dx, fwhm)     # Compute using selected backend
-```
-
 ### Performance Benchmarking
 
 ```python
-from peakfit.core.benchmarks import (
-    benchmark_lineshape_backends,
-    compare_backends_report,
+from peakfit.analysis.benchmarks import (
+    benchmark_lineshape_performance,
     profile_fit_cluster,
 )
 
-# Compare backend performance
-results = benchmark_lineshape_backends(n_points=1000, n_iterations=100)
-print(compare_backends_report(results))
+# Benchmark lineshape performance
+results = benchmark_lineshape_performance(n_points=1000, n_iterations=100)
+print(f"Average time: {results['avg_time']*1000:.3f} ms")
 
 # Profile fitting stages
 profile = profile_fit_cluster(params, cluster, noise)

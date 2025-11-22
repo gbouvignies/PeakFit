@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from peakfit.peaklist import _make_names, register_reader
+from peakfit.data.peaks import _make_names, register_reader
 
 
 class TestMakeNames:
@@ -105,7 +105,7 @@ class TestRegisterReader:
 
     def test_register_single_extension(self):
         """Test registering reader for single extension."""
-        from peakfit.peaklist import READERS
+        from peakfit.data.peaks import READERS
 
         initial_count = len(READERS)
 
@@ -119,7 +119,7 @@ class TestRegisterReader:
 
     def test_register_multiple_extensions(self):
         """Test registering reader for multiple extensions."""
-        from peakfit.peaklist import READERS
+        from peakfit.data.peaks import READERS
 
         @register_reader(["test_a", "test_b"])
         def test_reader_multi(path, spectra, shape_names, args_cli):
@@ -132,7 +132,7 @@ class TestRegisterReader:
 
     def test_standard_readers_registered(self):
         """Test that standard readers are registered."""
-        from peakfit.peaklist import READERS
+        from peakfit.data.peaks import READERS
 
         # These should be registered by default
         assert "list" in READERS
@@ -147,14 +147,14 @@ class TestReadersRegistry:
 
     def test_readers_dict_populated(self):
         """Test that READERS dictionary is populated with default readers."""
-        from peakfit.peaklist import READERS
+        from peakfit.data.peaks import READERS
 
         # Should have at least the standard readers
         assert len(READERS) >= 5
 
     def test_all_registered_readers_callable(self):
         """Test that all registered readers are callable."""
-        from peakfit.peaklist import READERS
+        from peakfit.data.peaks import READERS
 
         for extension, reader in READERS.items():
             assert callable(reader), f"Reader for {extension} is not callable"

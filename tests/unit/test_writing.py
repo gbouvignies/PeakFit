@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from peakfit.writing import print_heights
+from peakfit.io.output import print_heights
 
 
 class TestPrintHeights:

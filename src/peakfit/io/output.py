@@ -1,11 +1,13 @@
+"""Output file writers for peak fitting results."""
+
 from pathlib import Path
 
 import numpy as np
 
-from peakfit.clustering import Cluster
-from peakfit.computing import calculate_shape_heights
-from peakfit.core.fitting import Parameters
-from peakfit.peak import Peak
+from peakfit.data.clustering import Cluster
+from peakfit.fitting.computation import calculate_shape_heights
+from peakfit.fitting.parameters import Parameters
+from peakfit.data.peaks import Peak
 from peakfit.typing import FittingOptions, FloatArray
 from peakfit.ui import PeakFitUI as ui
 

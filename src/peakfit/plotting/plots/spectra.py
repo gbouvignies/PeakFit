@@ -30,7 +30,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from peakfit.noise import estimate_noise
+from peakfit.data.noise import estimate_noise
 from peakfit.typing import FloatArray
 from peakfit.ui.style import PeakFitUI
 

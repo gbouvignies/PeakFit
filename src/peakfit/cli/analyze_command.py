@@ -5,13 +5,13 @@ from pathlib import Path
 import numpy as np
 from rich.table import Table
 
-from peakfit.clustering import Cluster
-from peakfit.core.advanced_optimization import (
+from peakfit.data.clustering import Cluster
+from peakfit.fitting.advanced import (
     compute_profile_likelihood,
     estimate_uncertainties_mcmc,
 )
-from peakfit.core.fitting import Parameters
-from peakfit.peak import Peak
+from peakfit.fitting.parameters import Parameters
+from peakfit.data.peaks import Peak
 from peakfit.ui import PeakFitUI as ui, console
 
 
@@ -96,7 +96,7 @@ def run_mcmc(
         console.print(f"[cyan]Cluster {i + 1}/{len(clusters)}:[/cyan] {', '.join(peak_names)}")
 
         # Get parameters for this cluster
-        from peakfit.peak import create_params
+        from peakfit.data.peaks import create_params
 
         cluster_params = create_params(cluster.peaks)
 
@@ -188,7 +188,7 @@ def run_profile_likelihood(
     # Find which cluster contains the parameter
     target_cluster = None
     for cluster in clusters:
-        from peakfit.peak import create_params
+        from peakfit.data.peaks import create_params
 
         cluster_params = create_params(cluster.peaks)
         if param_name in cluster_params:
@@ -203,7 +203,7 @@ def run_profile_likelihood(
         raise SystemExit(1)
 
     # Get cluster parameters
-    from peakfit.peak import create_params
+    from peakfit.data.peaks import create_params
 
     cluster_params = create_params(target_cluster.peaks)
     for key in cluster_params:

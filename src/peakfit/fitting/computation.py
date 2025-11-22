@@ -1,15 +1,11 @@
-"""Computing functions for peak fitting.
-
-This module provides core computational functions for shape calculations,
-amplitude estimation, residual computation, and cross-talk correction.
-"""
+"""Core computational functions for peak fitting."""
 
 from collections.abc import Sequence
 
 import numpy as np
 
-from peakfit.clustering import Cluster
-from peakfit.core.fitting import Parameters
+from peakfit.data.clustering import Cluster
+from peakfit.fitting.parameters import Parameters
 from peakfit.typing import FloatArray
 
 
@@ -67,34 +63,6 @@ def residuals(params: Parameters, cluster: Cluster, noise: float) -> FloatArray:
     """
     shapes, amplitudes = calculate_shape_heights(params, cluster)
     return (cluster.corrected_data - shapes.T @ amplitudes).ravel() / noise
-
-
-def simulate_data(params: Parameters, clusters: Sequence[Cluster], data: FloatArray) -> FloatArray:
-    """Simulate spectrum from fitted parameters.
-
-    Args:
-        params: Fitted parameter values
-        clusters: List of fitted clusters
-        data: Original data (for shape information)
-
-    Returns:
-        Simulated spectrum with same shape as input
-    """
-    amplitudes_list: list[FloatArray] = []
-    for cluster in clusters:
-        _shapes, amplitudes = calculate_shape_heights(params, cluster)
-        amplitudes_list.append(amplitudes)
-    amplitudes = np.concatenate(amplitudes_list)
-    cluster_all = Cluster.from_clusters(clusters)
-    cluster_all.positions = [indices.ravel() for indices in list(np.indices(data.shape[1:]))]
-
-    return sum(
-        (
-            amplitudes[index][:, np.newaxis] * peak.evaluate(cluster_all.positions, params)
-            for index, peak in enumerate(cluster_all.peaks)
-        ),
-        start=np.array(0.0),
-    ).reshape(data.shape)
 
 
 def update_cluster_corrections(params: Parameters, clusters: Sequence[Cluster]) -> None:
