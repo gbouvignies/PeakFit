@@ -75,10 +75,10 @@ class UncertaintyResult:
     confidence_intervals_95: FloatArray  # 95% CI (2 sigma)
     correlation_matrix: FloatArray
     profile_likelihood_ci: FloatArray | None = None  # From profile likelihood
-    mcmc_samples: FloatArray | None = None  # MCMC samples if available (flattened)
+    mcmc_samples: FloatArray | None = None  # MCMC samples (flattened, post-burn-in)
     mcmc_percentiles: FloatArray | None = None  # 16th, 50th, 84th percentiles
-    mcmc_chains: FloatArray | None = None  # Full chain data (n_walkers, n_steps, n_params)
-    mcmc_diagnostics: "ConvergenceDiagnostics | None" = None  # Convergence diagnostics
+    mcmc_chains: FloatArray | None = None  # Full chains INCLUDING burn-in (n_walkers, n_steps_total, n_params)
+    mcmc_diagnostics: "ConvergenceDiagnostics | None" = None  # Convergence diagnostics (computed on post-burn-in)
 
 
 def residuals_global(x: FloatArray, params: Parameters, cluster: "Cluster", noise: float) -> float:
@@ -410,16 +410,21 @@ def estimate_uncertainties_mcmc(
     sampler = emcee.EnsembleSampler(n_walkers, ndim, log_likelihood)
     sampler.run_mcmc(pos, n_steps, progress=False)
 
-    # Get full chains for diagnostics (n_walkers, n_steps_after_burnin, n_params)
-    chains = sampler.get_chain(discard=burn_in, flat=False)
+    # Get FULL chains including burn-in for diagnostic plotting
+    # Shape: (n_walkers, n_steps_total, n_params)
+    chains_full = sampler.get_chain(discard=0, flat=False)
 
-    # Get flattened samples after burn-in
+    # Get post-burn-in chains for convergence diagnostics
+    # Shape: (n_walkers, n_steps_after_burnin, n_params)
+    chains_post_burnin = sampler.get_chain(discard=burn_in, flat=False)
+
+    # Get flattened samples after burn-in for statistics
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
-    # Compute convergence diagnostics
+    # Compute convergence diagnostics on post-burn-in samples
     from peakfit.diagnostics import diagnose_convergence
 
-    diagnostics = diagnose_convergence(chains, params.get_vary_names())
+    diagnostics = diagnose_convergence(chains_post_burnin, params.get_vary_names())
 
     # Compute statistics
     percentiles = np.percentile(samples, [16, 50, 84], axis=0)
@@ -449,7 +454,7 @@ def estimate_uncertainties_mcmc(
         correlation_matrix=corr_matrix,
         mcmc_samples=samples,
         mcmc_percentiles=percentiles,
-        mcmc_chains=chains,
+        mcmc_chains=chains_full,  # Full chains including burn-in for plotting
         mcmc_diagnostics=diagnostics,
     )
 
