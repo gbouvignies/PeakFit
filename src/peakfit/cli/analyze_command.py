@@ -373,6 +373,129 @@ def run_correlation(
         ui.success(f"Saved parameter summary to: [path]{output_file}[/path]")
 
 
+def run_uncertainty(
+    results_dir: Path, output_file: Path | None = None, verbose: bool = False
+) -> None:
+    """Display parameter uncertainties from fitting results.
+
+    Shows the covariance-based uncertainties computed during fitting.
+
+    Args:
+        results_dir: Path to results directory
+        output_file: Optional output file for uncertainty summary
+        verbose: Show banner and verbose output
+    """
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
+    state = load_fitting_state(results_dir)
+    params: Parameters = state["params"]
+
+    # Get varying parameters
+    vary_names = params.get_vary_names()
+
+    if len(vary_names) == 0:
+        ui.warning("No varying parameters found")
+        return
+
+    ui.show_header("Parameter Uncertainties")
+    console.print(f"  Source: Covariance matrix from least-squares fit")
+    console.print(f"  Parameters: {len(vary_names)}")
+    console.print("")
+
+    # Create uncertainty table
+    table = Table(title="Fitted Parameters with Uncertainties")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", justify="right")
+    table.add_column("Std Error", justify="right")
+    table.add_column("Relative Error (%)", justify="right")
+    table.add_column("At Boundary?", justify="center")
+
+    for name in vary_names:
+        param = params[name]
+        at_boundary = "⚠️" if param.is_at_boundary() else ""
+
+        # Calculate relative error
+        if param.value != 0 and param.stderr > 0:
+            rel_error = abs(param.stderr / param.value) * 100
+            rel_error_str = f"{rel_error:.2f}%"
+        else:
+            rel_error_str = "N/A"
+
+        # Color code based on relative error
+        if param.stderr <= 0:
+            stderr_str = "[red]Not computed[/red]"
+        elif param.value != 0 and abs(param.stderr / param.value) > 0.1:
+            # > 10% relative error - warning
+            stderr_str = f"[yellow]{param.stderr:.6f}[/yellow]"
+        else:
+            stderr_str = f"{param.stderr:.6f}"
+
+        table.add_row(
+            name,
+            f"{param.value:.6f}",
+            stderr_str,
+            rel_error_str,
+            at_boundary,
+        )
+
+    console.print(table)
+
+    # Report boundary warnings
+    boundary_params = params.get_boundary_params()
+    if boundary_params:
+        console.print()
+        ui.warning("Parameters at boundaries:")
+        for name in boundary_params:
+            param = params[name]
+            console.print(
+                f"  {name}: {param.value:.6f} (bounds: [{param.min:.6f}, {param.max:.6f}])"
+            )
+        console.print("  [dim]Consider adjusting bounds or using global optimization[/dim]")
+
+    # Check for large uncertainties
+    large_uncert = [
+        name
+        for name in vary_names
+        if params[name].value != 0
+        and params[name].stderr > 0
+        and abs(params[name].stderr / params[name].value) > 0.1
+    ]
+    if large_uncert:
+        console.print()
+        ui.warning(f"Parameters with large relative uncertainties (>10%):")
+        for name in large_uncert:
+            param = params[name]
+            rel_err = abs(param.stderr / param.value) * 100
+            console.print(f"  {name}: {rel_err:.1f}%")
+        console.print("  [dim]Consider MCMC analysis for better uncertainty estimates[/dim]")
+
+    # Suggest next steps
+    console.print()
+    console.print("[bold]Next steps:[/bold]")
+    console.print("  • Run MCMC for more accurate uncertainties:")
+    console.print(f"    [cyan]peakfit analyze mcmc {results_dir}/[/cyan]")
+    console.print("  • Check parameter correlations:")
+    console.print(f"    [cyan]peakfit analyze correlation {results_dir}/[/cyan]")
+
+    if output_file is not None:
+        with output_file.open("w") as f:
+            f.write("# Parameter Uncertainty Summary\n")
+            f.write("# Name  Value  Stderr  RelError(%)  Min  Max\n")
+            for name in vary_names:
+                param = params[name]
+                rel_error = (
+                    abs(param.stderr / param.value) * 100
+                    if param.value != 0 and param.stderr > 0
+                    else 0.0
+                )
+                f.write(
+                    f"{name}  {param.value:.6f}  {param.stderr:.6f}  {rel_error:.2f}  "
+                    f"{param.min:.6f}  {param.max:.6f}\n"
+                )
+        ui.success(f"Saved uncertainty summary to: [path]{output_file}[/path]")
+
+
 def _update_output_files(results_dir: Path, params: Parameters, peaks: list[Peak]) -> None:
     """Update .out files with new uncertainty estimates."""
     for peak in peaks:

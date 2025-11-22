@@ -698,7 +698,8 @@ def analyze(
         int,
         typer.Option(
             "--walkers",
-            help="Number of MCMC walkers",
+            "--chains",
+            help="Number of MCMC walkers/chains",
             min=4,
         ),
     ] = 32,
@@ -706,7 +707,8 @@ def analyze(
         int,
         typer.Option(
             "--steps",
-            help="Number of MCMC steps",
+            "--samples",
+            help="Number of MCMC steps/samples per walker",
             min=100,
         ),
     ] = 1000,
@@ -757,7 +759,8 @@ def analyze(
 
     MCMC sampling provides full posterior distributions:
         peakfit analyze mcmc Fits/
-        peakfit analyze mcmc Fits/ --walkers 64 --steps 2000
+        peakfit analyze mcmc Fits/ --chains 64 --samples 2000
+        peakfit analyze mcmc Fits/ --walkers 64 --steps 2000  # Alternative syntax
 
     Profile likelihood gives accurate confidence intervals:
         peakfit analyze profile Fits/ --param peak1_x0
@@ -765,10 +768,18 @@ def analyze(
 
     Parameter correlation analysis:
         peakfit analyze correlation Fits/
-    """
-    from peakfit.cli.analyze_command import run_correlation, run_mcmc, run_profile_likelihood
 
-    valid_methods = ["mcmc", "profile", "correlation"]
+    Display existing uncertainties from fit:
+        peakfit analyze uncertainty Fits/
+    """
+    from peakfit.cli.analyze_command import (
+        run_correlation,
+        run_mcmc,
+        run_profile_likelihood,
+        run_uncertainty,
+    )
+
+    valid_methods = ["mcmc", "profile", "correlation", "uncertainty"]
     if method not in valid_methods:
         ui.error(f"Invalid method: {method}")
         ui.info(f"Valid methods: {', '.join(valid_methods)}")
@@ -800,6 +811,12 @@ def analyze(
         )
     elif method == "correlation":
         run_correlation(
+            results_dir=results,
+            output_file=output,
+            verbose=False,  # No banner for analyze commands
+        )
+    elif method == "uncertainty":
+        run_uncertainty(
             results_dir=results,
             output_file=output,
             verbose=False,  # No banner for analyze commands
