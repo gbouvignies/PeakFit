@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy import optimize
 
-from peakfit.config.constants import (
+from peakfit.constants import (
     BASIN_HOPPING_LOCAL_MAXITER,
     BASIN_HOPPING_NITER,
     BASIN_HOPPING_STEPSIZE,
