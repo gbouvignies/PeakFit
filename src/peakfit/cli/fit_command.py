@@ -8,7 +8,8 @@ from scipy.optimize import least_squares
 from threadpoolctl import threadpool_limits
 
 from peakfit.data.clustering import create_clusters
-from peakfit.fitting.computation import residuals, simulate_data, update_cluster_corrections
+from peakfit.fitting.computation import residuals, update_cluster_corrections
+from peakfit.fitting.simulation import simulate_data
 from peakfit.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
 from peakfit.fitting.parameters import Parameters
 from peakfit.models import PeakFitConfig

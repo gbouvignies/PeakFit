@@ -19,7 +19,7 @@ from peakfit.lineshapes.functions import (
 )
 
 # Import registry before models (models uses register_shape)
-from peakfit.lineshapes.registry import SHAPES, get_shape, list_shapes, register_shape
+from peakfit.lineshapes.registry import SHAPES, Shape, get_shape, list_shapes, register_shape
 
 # Import models (this will populate SHAPES via decorators)
 from peakfit.lineshapes.models import (
@@ -56,6 +56,7 @@ __all__ = [
     "SP2",
     # Registry
     "SHAPES",
+    "Shape",
     "register_shape",
     "get_shape",
     "list_shapes",
