@@ -8,7 +8,11 @@ This example demonstrates how to estimate parameter uncertainties and assess fit
 - Identifying poorly constrained parameters
 - Publishing reliable results
 
-**Note:** This is a template example. Uncertainty analysis features may require additional implementation or external tools.
+**Available Features:**
+- ✅ Covariance-based uncertainties (automatic)
+- ✅ MCMC sampling with correlation matrices
+- ✅ Profile likelihood confidence intervals
+- ⚠️ Bootstrap resampling (planned)
 
 ## Why Uncertainty Analysis?
 
@@ -28,12 +32,12 @@ A fitted parameter without an uncertainty is just a number. Uncertainty analysis
 
 ## Methods for Uncertainty Estimation
 
-### 1. Covariance Matrix (Fast)
+### 1. Covariance Matrix (Fast) ✅ Available
 
 From the Hessian matrix at the optimum:
 
 **Pros:**
-- Fast (computed during optimization)
+- Fast (computed automatically during optimization)
 - Standard approach for least-squares fitting
 
 **Cons:**
@@ -43,12 +47,14 @@ From the Hessian matrix at the optimum:
 
 **Usage:**
 ```bash
-peakfit fit data/spectrum.ft2 data/peaks.list \
-  --output Fits/ \
-  --compute-uncertainties
+# Uncertainties are computed automatically during fitting
+peakfit fit data/spectrum.ft2 data/peaks.list --output Fits/
+
+# View uncertainties after fitting
+peakfit analyze uncertainty Fits/
 ```
 
-### 2. Bootstrap Resampling (Medium)
+### 2. Bootstrap Resampling (Medium) ⚠️ Not Yet Implemented
 
 Resample data and refit multiple times:
 
@@ -60,16 +66,10 @@ Resample data and refit multiple times:
 - Computationally expensive (requires many refits)
 - Assumes data points are independent
 
-**Usage:**
-```bash
-# Fit once
-peakfit fit data/spectrum.ft2 data/peaks.list --output Fits/
+**Status:**
+This feature is planned but not yet implemented. For now, use MCMC (method 3) for robust uncertainty estimates.
 
-# Bootstrap analysis
-peakfit analyze bootstrap Fits/ --nsamples 1000 --output Bootstrap/
-```
-
-### 3. MCMC Sampling (Slow but thorough)
+### 3. MCMC Sampling (Slow but thorough) ✅ Available
 
 Sample the posterior distribution using Markov Chain Monte Carlo:
 
@@ -77,6 +77,7 @@ Sample the posterior distribution using Markov Chain Monte Carlo:
 - Full posterior distribution (not just mean ± std)
 - Handles parameter correlations correctly
 - Works for complex, non-Gaussian problems
+- Provides correlation matrices automatically
 
 **Cons:**
 - Very computationally expensive
@@ -88,54 +89,70 @@ Sample the posterior distribution using Markov Chain Monte Carlo:
 # Fit once
 peakfit fit data/spectrum.ft2 data/peaks.list --output Fits/
 
-# MCMC sampling
-peakfit analyze mcmc Fits/ \
-  --chains 4 \
-  --samples 10000 \
-  --output MCMC/
+# MCMC sampling (either syntax works)
+peakfit analyze mcmc Fits/ --chains 32 --samples 1000 --output mcmc_results.txt
+peakfit analyze mcmc Fits/ --walkers 32 --steps 1000    # Alternative syntax
 ```
 
 ## Running This Example
 
-Since uncertainty analysis features may not be fully implemented, here's the general workflow:
-
 ### Step 1: Fit the Data
 
+Uncertainties are computed automatically during fitting:
+
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
   --output Fits/
 ```
 
-### Step 2: Compute Uncertainties (if available)
+### Step 2: View Uncertainties
+
+Display covariance-based uncertainties:
 
 ```bash
-# Covariance-based uncertainties
-peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-  --z-values data/b1_offsets.txt \
-  --compute-uncertainties \
-  --output Fits/
+peakfit analyze uncertainty Fits/
 ```
 
-Or as a post-processing step:
+This shows:
+- Parameter values and standard errors
+- Relative error percentages (color-coded)
+- Warnings for parameters at boundaries
+- Warnings for large uncertainties (>10%)
+
+Save to file:
+```bash
+peakfit analyze uncertainty Fits/ --output uncertainty_summary.txt
+```
+
+### Step 3: MCMC for Better Uncertainties (Optional)
+
+For more accurate uncertainties and correlation analysis:
 
 ```bash
-peakfit analyze uncertainty Fits/ --output Uncertainty/
+peakfit analyze mcmc Fits/ --chains 32 --samples 1000
 ```
 
-### Step 3: Analyze Results
+This provides:
+- Full posterior distributions
+- 68% and 95% confidence intervals
+- **Correlation matrix** showing parameter dependencies
+- More reliable uncertainties for non-linear problems
 
-Check output files for uncertainty estimates:
+Save results:
+```bash
+peakfit analyze mcmc Fits/ --chains 32 --samples 1000 --output mcmc_full.txt
+```
+
+### Step 4: Check Correlations
+
+View parameter correlations:
 
 ```bash
-# Chemical shift uncertainties
-cat Fits/shifts.list
-# Should include columns: assignment, w1, w1_err, w2, w2_err
-
-# Parameter correlations
-cat Fits/correlations.txt
-# Shows which parameters are correlated
+peakfit analyze correlation Fits/
 ```
+
+Shows which parameters are at boundaries and may need adjustment.
 
 ## Expected Output
 
@@ -316,20 +333,27 @@ plt.savefig('fit_quality.pdf')
 ### Quick Command Reference
 
 ```bash
-# With uncertainties during fit
-peakfit fit SPECTRUM PEAKS --compute-uncertainties --output DIR
+# Fit data (uncertainties computed automatically)
+peakfit fit SPECTRUM PEAKS --output DIR
 
-# Post-processing uncertainty analysis
-peakfit analyze uncertainty DIR --output UNCERT_DIR
+# View covariance-based uncertainties
+peakfit analyze uncertainty DIR
+peakfit analyze uncertainty DIR --output summary.txt
 
-# Bootstrap resampling
-peakfit analyze bootstrap DIR --nsamples N --output BOOT_DIR
+# MCMC for full posterior with correlations
+peakfit analyze mcmc DIR --chains 32 --samples 1000
+peakfit analyze mcmc DIR --walkers 32 --steps 1000  # Alternative syntax
+peakfit analyze mcmc DIR --chains 32 --samples 1000 --output results.txt
 
-# MCMC sampling
-peakfit analyze mcmc DIR --chains N --samples M --output MCMC_DIR
+# Profile likelihood for specific parameter
+peakfit analyze profile DIR --param peak1_x0
+peakfit analyze profile DIR --param peak1_x0 --plot
+
+# Check parameter correlations
+peakfit analyze correlation DIR
 ```
 
-**Note:** Check `peakfit analyze --help` for available analysis commands.
+**Note:** Run `peakfit analyze --help` for all available analysis commands.
 
 ## Additional Resources
 
