@@ -411,12 +411,13 @@ def estimate_uncertainties_mcmc(
     sampler.run_mcmc(pos, n_steps, progress=False)
 
     # Get FULL chains including burn-in for diagnostic plotting
-    # Shape: (n_walkers, n_steps_total, n_params)
-    chains_full = sampler.get_chain(discard=0, flat=False)
+    # emcee returns shape (n_steps, n_walkers, n_params)
+    # Transpose to (n_walkers, n_steps, n_params) for our plotting functions
+    chains_full = sampler.get_chain(discard=0, flat=False).swapaxes(0, 1)
 
     # Get post-burn-in chains for convergence diagnostics
-    # Shape: (n_walkers, n_steps_after_burnin, n_params)
-    chains_post_burnin = sampler.get_chain(discard=burn_in, flat=False)
+    # Shape after transpose: (n_walkers, n_steps_after_burnin, n_params)
+    chains_post_burnin = sampler.get_chain(discard=burn_in, flat=False).swapaxes(0, 1)
 
     # Get flattened samples after burn-in for statistics
     samples = sampler.get_chain(discard=burn_in, flat=True)
