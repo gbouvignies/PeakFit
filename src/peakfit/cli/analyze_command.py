@@ -130,7 +130,7 @@ def run_mcmc(
             ci_95 = result.confidence_intervals_95[j]
             table.add_row(
                 name,
-                f"{result.to_numpy()[j]:.6f}",
+                f"{result.values[j]:.6f}",
                 f"{result.std_errors[j]:.6f}",
                 f"[{ci_68[0]:.6f}, {ci_68[1]:.6f}]",
                 f"[{ci_95[0]:.6f}, {ci_95[1]:.6f}]",
@@ -391,7 +391,7 @@ def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]
                 ci_68 = result.confidence_intervals_68[i]
                 ci_95 = result.confidence_intervals_95[i]
                 f.write(
-                    f"{name}  {result.to_numpy()[i]:.6f}  {result.std_errors[i]:.6f}  "
+                    f"{name}  {result.values[i]:.6f}  {result.std_errors[i]:.6f}  "
                     f"{ci_68[0]:.6f}  {ci_68[1]:.6f}  {ci_95[0]:.6f}  {ci_95[1]:.6f}\n"
                 )
 
