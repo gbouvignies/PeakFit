@@ -119,44 +119,70 @@ def run_mcmc(
             diag = result.mcmc_diagnostics
             console.print(f"[bold cyan]Convergence Diagnostics - {', '.join(peak_names)}[/bold cyan]")
             console.print(f"  Chains: {diag.n_chains}, Samples per chain: {diag.n_samples}")
+            console.print(
+                "  [dim]BARG Guidelines: R-hat ≤ 1.01 (excellent), "
+                "ESS ≥ 10,000 for stable CIs (Kruschke 2021)[/dim]"
+            )
+            console.print("")
 
             # Create diagnostics table
             diag_table = Table(show_header=True, header_style="bold cyan")
             diag_table.add_column("Parameter", style="cyan", width=20)
             diag_table.add_column("R-hat", justify="right", width=10)
-            diag_table.add_column("ESS_bulk", justify="right", width=12)
-            diag_table.add_column("Status", width=12)
+            diag_table.add_column("ESS_bulk", justify="right", width=14)
+            diag_table.add_column("ESS_tail", justify="right", width=14)
+            diag_table.add_column("Status", width=15)
 
             for j, name in enumerate(result.parameter_names):
                 rhat = diag.rhat[j]
                 ess_bulk = diag.ess_bulk[j]
+                ess_tail = diag.ess_tail[j]
 
-                # Determine status
-                if rhat <= 1.01 and ess_bulk >= 100 * diag.n_chains:
+                # Determine overall status based on BARG criteria
+                # R-hat ≤ 1.01 is excellent, ≤ 1.05 acceptable
+                # ESS ≥ 10,000 is BARG-recommended for publication
+                if rhat <= 1.01 and ess_bulk >= 10000:
+                    status = "[green]✓ Excellent[/green]"
+                elif rhat <= 1.01 and ess_bulk >= 100 * diag.n_chains:
                     status = "[green]✓ Good[/green]"
+                elif rhat <= 1.05 and ess_bulk >= 100 * diag.n_chains:
+                    status = "[cyan]○ Acceptable[/cyan]"
                 elif rhat <= 1.05 and ess_bulk >= 10 * diag.n_chains:
                     status = "[yellow]⚠ Marginal[/yellow]"
                 else:
                     status = "[red]✗ Poor[/red]"
 
-                # Format R-hat with color coding
+                # Format R-hat with color coding (stricter is better)
                 if rhat <= 1.01:
                     rhat_str = f"[green]{rhat:.4f}[/green]"
                 elif rhat <= 1.05:
-                    rhat_str = f"[yellow]{rhat:.4f}[/yellow]"
+                    rhat_str = f"[cyan]{rhat:.4f}[/cyan]"
                 else:
                     rhat_str = f"[red]{rhat:.4f}[/red]"
 
-                # Format ESS with color coding
-                recommended_ess = 100 * diag.n_chains
-                if ess_bulk >= recommended_ess:
-                    ess_str = f"[green]{ess_bulk:.0f}[/green]"
+                # Format ESS_bulk with percentage toward BARG target (10,000)
+                pct_bulk = min(100, (ess_bulk / 10000) * 100)
+                if ess_bulk >= 10000:
+                    ess_bulk_str = f"[green]{ess_bulk:.0f} (100%)[/green]"
+                elif ess_bulk >= 100 * diag.n_chains:
+                    ess_bulk_str = f"[green]{ess_bulk:.0f} ({pct_bulk:.0f}%)[/green]"
                 elif ess_bulk >= 10 * diag.n_chains:
-                    ess_str = f"[yellow]{ess_bulk:.0f}[/yellow]"
+                    ess_bulk_str = f"[yellow]{ess_bulk:.0f} ({pct_bulk:.0f}%)[/yellow]"
                 else:
-                    ess_str = f"[red]{ess_bulk:.0f}[/red]"
+                    ess_bulk_str = f"[red]{ess_bulk:.0f} ({pct_bulk:.0f}%)[/red]"
 
-                diag_table.add_row(name, rhat_str, ess_str, status)
+                # Format ESS_tail similarly
+                pct_tail = min(100, (ess_tail / 10000) * 100)
+                if ess_tail >= 10000:
+                    ess_tail_str = f"[green]{ess_tail:.0f} (100%)[/green]"
+                elif ess_tail >= 100 * diag.n_chains:
+                    ess_tail_str = f"[green]{ess_tail:.0f} ({pct_tail:.0f}%)[/green]"
+                elif ess_tail >= 10 * diag.n_chains:
+                    ess_tail_str = f"[yellow]{ess_tail:.0f} ({pct_tail:.0f}%)[/yellow]"
+                else:
+                    ess_tail_str = f"[red]{ess_tail:.0f} ({pct_tail:.0f}%)[/red]"
+
+                diag_table.add_row(name, rhat_str, ess_bulk_str, ess_tail_str, status)
 
             console.print(diag_table)
 

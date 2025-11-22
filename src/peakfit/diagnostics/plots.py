@@ -119,12 +119,31 @@ def plot_trace(
     for i in range(n_params_plot, len(axes)):
         axes[i].set_visible(False)
 
-    fig.suptitle(
-        f"MCMC Trace Plots ({n_chains} chains, {n_samples} samples)",
-        fontsize=14,
-        fontweight="bold",
+    # Add title with interpretation guide
+    title_text = f"MCMC Trace Plots ({n_chains} chains, {n_samples} samples)"
+    if burn_in > 0:
+        title_text += f"\nGray = burn-in ({burn_in} samples, discarded) | Red line = burn-in cutoff"
+    fig.suptitle(title_text, fontsize=13, fontweight="bold")
+
+    # Add interpretation guide at bottom
+    guide_text = (
+        "Good convergence: chains overlap (look like fuzzy caterpillars), "
+        "no trends or drifts\n"
+        "✓ R̂ ≤ 1.01 excellent | ⚠ 1.01 < R̂ ≤ 1.05 acceptable | "
+        "✗ R̂ > 1.05 poor (BARG: Kruschke 2021)"
     )
-    plt.tight_layout()
+    fig.text(
+        0.5,
+        0.02,
+        guide_text,
+        ha="center",
+        fontsize=8,
+        style="italic",
+        color="gray",
+        wrap=True,
+    )
+
+    plt.tight_layout(rect=[0, 0.04, 1, 0.96])  # Leave space for guide text
 
     return fig
 
@@ -266,7 +285,26 @@ def plot_corner(
         fontsize=14,
         fontweight="bold",
     )
-    plt.tight_layout()
+
+    # Add interpretation guide
+    guide_text = (
+        "Diagonal: marginal posteriors (red = median, dashed = 68% CI) | "
+        "Off-diagonal: joint distributions\n"
+        "Strong correlations (|r| > 0.7) indicate parameter interdependence | "
+        "Green + = best-fit values"
+    )
+    fig.text(
+        0.5,
+        0.02,
+        guide_text,
+        ha="center",
+        fontsize=8,
+        style="italic",
+        color="gray",
+        wrap=True,
+    )
+
+    plt.tight_layout(rect=[0, 0.04, 1, 0.96])
 
     return fig
 
@@ -367,7 +405,26 @@ def plot_autocorrelation(
         fontsize=14,
         fontweight="bold",
     )
-    plt.tight_layout()
+
+    # Add interpretation guide
+    guide_text = (
+        "Good mixing: autocorrelation drops quickly to ~0 (within 10-20 lags) | "
+        "Red line = effective decorrelation lag\n"
+        "Slow decay (>100 lags) indicates high autocorrelation → low ESS → "
+        "need more MCMC steps"
+    )
+    fig.text(
+        0.5,
+        0.02,
+        guide_text,
+        ha="center",
+        fontsize=8,
+        style="italic",
+        color="gray",
+        wrap=True,
+    )
+
+    plt.tight_layout(rect=[0, 0.04, 1, 0.96])
 
     return fig
 
@@ -516,6 +573,22 @@ def plot_posterior_summary(
     )
     ax.legend(fontsize=10, loc="best")
     ax.grid(True, axis="x", alpha=0.3)
-    plt.tight_layout()
+
+    # Add interpretation guide
+    guide_text = (
+        "Red line = median | Dark blue = 68% CI (±1σ) | "
+        "Light blue = 95% CI (BARG-recommended for reporting)"
+    )
+    fig.text(
+        0.5,
+        0.02,
+        guide_text,
+        ha="center",
+        fontsize=8,
+        style="italic",
+        color="gray",
+    )
+
+    plt.tight_layout(rect=[0, 0.04, 1, 1])
 
     return fig
