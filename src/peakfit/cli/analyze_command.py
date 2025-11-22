@@ -189,18 +189,18 @@ def run_mcmc(
 
 def run_profile_likelihood(
     results_dir: Path,
-    param_name: str,
+    param_name: str | None = None,
     n_points: int = 20,
     confidence_level: float = 0.95,
     plot: bool = False,
     output_file: Path | None = None,
     verbose: bool = False,
 ) -> None:
-    """Compute profile likelihood confidence interval for a parameter.
+    """Compute profile likelihood confidence interval for parameter(s).
 
     Args:
         results_dir: Path to results directory
-        param_name: Parameter name to profile
+        param_name: Parameter name to profile (or partial match). If None, profiles all parameters.
         n_points: Number of profile points
         confidence_level: Confidence level (0.95 for 95% CI)
         plot: Whether to plot the profile
@@ -216,89 +216,162 @@ def run_profile_likelihood(
     params: Parameters = state["params"]
     noise: float = state["noise"]
 
-    # Find which cluster contains the parameter
-    target_cluster = None
-    for cluster in clusters:
-        from peakfit.data.peaks import create_params
+    # Get all varying parameter names
+    all_param_names = params.get_vary_names()
 
-        cluster_params = create_params(cluster.peaks)
-        if param_name in cluster_params:
-            target_cluster = cluster
-            break
-
-    if target_cluster is None:
-        ui.error(f"Parameter '{param_name}' not found")
-        ui.info("Available parameters:")
-        for name in params:
-            console.print(f"  {name}")
+    if not all_param_names:
+        ui.error("No varying parameters found")
         raise SystemExit(1)
 
-    # Get cluster parameters
-    from peakfit.data.peaks import create_params
+    # Determine which parameters to profile
+    if param_name is None:
+        # Profile all parameters
+        target_params = all_param_names
+        ui.show_header("Computing Profile Likelihood for All Parameters")
+        console.print(f"  Parameters to profile: {len(target_params)}")
+        console.print(f"  Confidence level: {confidence_level * 100:.0f}%")
+        console.print(f"  Points per parameter: {n_points}")
+        console.print(f"  [yellow]This may take a while...[/yellow]")
+    else:
+        # Find matching parameters
+        target_params = _find_matching_parameters(param_name, all_param_names)
 
-    cluster_params = create_params(target_cluster.peaks)
-    for key in cluster_params:
-        if key in params:
-            cluster_params[key].value = params[key].value
-            cluster_params[key].stderr = params[key].stderr
+        if not target_params:
+            ui.error(f"No parameters matching '{param_name}' found")
+            ui.info("Available parameters:")
+            for name in all_param_names[:20]:  # Show first 20
+                console.print(f"  {name}")
+            if len(all_param_names) > 20:
+                console.print(f"  ... and {len(all_param_names) - 20} more")
+            raise SystemExit(1)
 
-    # Compute delta chi-squared for desired confidence level
-    # For 1 parameter: chi2_inv(0.95, df=1) = 3.84
-    # For 1 parameter: chi2_inv(0.68, df=1) = 1.0
+        if len(target_params) > 1:
+            ui.info(f"Found {len(target_params)} matching parameters:")
+            for name in target_params:
+                console.print(f"  {name}")
+            console.print("")
+
+        ui.show_header(
+            f"Computing Profile Likelihood for {len(target_params)} Parameter(s)"
+        )
+
     from scipy.stats import chi2
 
     delta_chi2 = chi2.ppf(confidence_level, df=1)
 
-    ui.show_header(f"Computing Profile Likelihood for {param_name}")
-    console.print(f"  Confidence level: {confidence_level * 100:.0f}%")
     console.print(f"  Δχ² threshold: {delta_chi2:.4f}")
-    console.print(f"  Profile points: {n_points}")
+    console.print("")
 
-    with console.status("[yellow]Computing profile...[/yellow]"):
-        param_vals, chi2_vals, (ci_low, ci_high) = compute_profile_likelihood(
-            cluster_params,
-            target_cluster,
-            noise,
-            param_name=param_name,
-            n_points=n_points,
-            delta_chi2=delta_chi2,
-        )
+    # Store results for all parameters
+    all_results = []
 
-    best_value = cluster_params[param_name].value
-    covar_stderr = cluster_params[param_name].stderr
-
-    console.print("\n[bold]Results:[/bold]")
-    console.print(f"  Best-fit value: {best_value:.6f}")
-    console.print(f"  Covariance stderr: {covar_stderr:.6f}")
-    console.print(f"  Profile {confidence_level * 100:.0f}% CI: [{ci_low:.6f}, {ci_high:.6f}]")
-
-    # Compare with covariance-based CI
-    if covar_stderr > 0:
-        from scipy.stats import norm
-
-        z = norm.ppf((1 + confidence_level) / 2)
-        covar_ci_low = best_value - z * covar_stderr
-        covar_ci_high = best_value + z * covar_stderr
-        console.print(
-            f"  Covariance {confidence_level * 100:.0f}% CI: "
-            f"[{covar_ci_low:.6f}, {covar_ci_high:.6f}]"
-        )
-
-        # Check for asymmetry
-        profile_lower = best_value - ci_low
-        profile_upper = ci_high - best_value
-        asymmetry = abs(profile_upper - profile_lower) / (profile_upper + profile_lower) * 200
-        if asymmetry > 20:
+    for idx, target_param in enumerate(target_params, 1):
+        if len(target_params) > 1:
             console.print(
-                f"  [yellow]Warning: Profile CI is asymmetric ({asymmetry:.1f}%)[/yellow]"
+                f"[cyan]Parameter {idx}/{len(target_params)}: {target_param}[/cyan]"
             )
-            console.print("  [dim]This indicates non-linear parameter behavior[/dim]")
 
-    if plot:
-        _plot_profile_likelihood(param_name, param_vals, chi2_vals, ci_low, ci_high, delta_chi2)
+        # Find which cluster contains the parameter
+        target_cluster = None
+        for cluster in clusters:
+            from peakfit.data.peaks import create_params
+
+            cluster_params = create_params(cluster.peaks)
+            if target_param in cluster_params:
+                target_cluster = cluster
+                break
+
+        if target_cluster is None:
+            ui.warning(f"Parameter '{target_param}' not found in any cluster")
+            continue
+
+        # Get cluster parameters
+        from peakfit.data.peaks import create_params
+
+        cluster_params = create_params(target_cluster.peaks)
+        for key in cluster_params:
+            if key in params:
+                cluster_params[key].value = params[key].value
+                cluster_params[key].stderr = params[key].stderr
+
+        with console.status(f"[yellow]Computing profile for {target_param}...[/yellow]"):
+            param_vals, chi2_vals, (ci_low, ci_high) = compute_profile_likelihood(
+                cluster_params,
+                target_cluster,
+                noise,
+                param_name=target_param,
+                n_points=n_points,
+                delta_chi2=delta_chi2,
+            )
+
+        best_value = cluster_params[target_param].value
+        covar_stderr = cluster_params[target_param].stderr
+
+        # Display results
+        result_table = Table(show_header=False)
+        result_table.add_column("", style="dim")
+        result_table.add_column("", style="")
+
+        result_table.add_row("Parameter:", target_param)
+        result_table.add_row("Best-fit value:", f"{best_value:.6f}")
+        result_table.add_row("Covariance stderr:", f"{covar_stderr:.6f}")
+        result_table.add_row(
+            f"Profile {confidence_level * 100:.0f}% CI:",
+            f"[{ci_low:.6f}, {ci_high:.6f}]",
+        )
+
+        # Compare with covariance-based CI
+        if covar_stderr > 0:
+            from scipy.stats import norm
+
+            z = norm.ppf((1 + confidence_level) / 2)
+            covar_ci_low = best_value - z * covar_stderr
+            covar_ci_high = best_value + z * covar_stderr
+            result_table.add_row(
+                f"Covariance {confidence_level * 100:.0f}% CI:",
+                f"[{covar_ci_low:.6f}, {covar_ci_high:.6f}]",
+            )
+
+            # Check for asymmetry
+            profile_lower = best_value - ci_low
+            profile_upper = ci_high - best_value
+            asymmetry = (
+                abs(profile_upper - profile_lower) / (profile_upper + profile_lower) * 200
+            )
+            if asymmetry > 20:
+                result_table.add_row(
+                    "Asymmetry:",
+                    f"[yellow]{asymmetry:.1f}% (non-linear parameter)[/yellow]",
+                )
+
+        console.print(result_table)
+        console.print("")
+
+        # Store results
+        all_results.append(
+            {
+                "name": target_param,
+                "param_vals": param_vals,
+                "chi2_vals": chi2_vals,
+                "ci_low": ci_low,
+                "ci_high": ci_high,
+                "best_value": best_value,
+            }
+        )
+
+    if plot and len(all_results) > 0:
+        for result in all_results[:10]:  # Limit to 10 plots
+            _plot_profile_likelihood(
+                result["name"],
+                result["param_vals"],
+                result["chi2_vals"],
+                result["ci_low"],
+                result["ci_high"],
+                delta_chi2,
+            )
 
     if output_file is not None:
-        _save_profile_results(output_file, param_name, param_vals, chi2_vals, ci_low, ci_high)
+        _save_all_profile_results(output_file, all_results, confidence_level)
         ui.success(f"Saved profile data to: [path]{output_file}[/path]")
 
 
@@ -559,6 +632,76 @@ def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]
                         f.write(f"  {val:7.4f}")
                     f.write("\n")
                 f.write("\n")
+
+
+def _find_matching_parameters(pattern: str, all_params: list[str]) -> list[str]:
+    """Find parameters matching a pattern.
+
+    Supports:
+    - Exact match: "2N-H_x0"
+    - Peak name: "2N-H" matches all parameters for that peak
+    - Parameter type: "x0" matches all x0 parameters
+    - Partial match: "fwhm" matches all fwhm parameters
+
+    Args:
+        pattern: Search pattern
+        all_params: List of all parameter names
+
+    Returns:
+        List of matching parameter names
+    """
+    matches = []
+
+    # Try exact match first
+    if pattern in all_params:
+        return [pattern]
+
+    # Try partial matching
+    pattern_lower = pattern.lower()
+    for param in all_params:
+        param_lower = param.lower()
+
+        # Check if pattern matches peak name (before underscore)
+        if "_" in param:
+            peak_name, param_type = param.rsplit("_", 1)
+            if pattern_lower == peak_name.lower():
+                matches.append(param)
+            elif pattern_lower == param_type.lower():
+                matches.append(param)
+            elif pattern_lower in param_lower:
+                matches.append(param)
+        else:
+            # No underscore, just check if pattern is in parameter name
+            if pattern_lower in param_lower:
+                matches.append(param)
+
+    return matches
+
+
+def _save_all_profile_results(
+    output_file: Path, results: list[dict], confidence_level: float
+) -> None:
+    """Save profile likelihood results for multiple parameters."""
+    with output_file.open("w") as f:
+        f.write("# Profile Likelihood Results\n")
+        f.write(f"# Confidence Level: {confidence_level * 100:.0f}%\n")
+        f.write("#\n")
+
+        for result in results:
+            param_name = result["name"]
+            param_vals = result["param_vals"]
+            chi2_vals = result["chi2_vals"]
+            ci_low = result["ci_low"]
+            ci_high = result["ci_high"]
+            best_value = result["best_value"]
+
+            f.write(f"\n# Parameter: {param_name}\n")
+            f.write(f"# Best-fit: {best_value:.6f}\n")
+            f.write(f"# {confidence_level * 100:.0f}% CI: [{ci_low:.6f}, {ci_high:.6f}]\n")
+            f.write("# Parameter_Value  Chi_Squared\n")
+            for val, chi2 in zip(param_vals, chi2_vals, strict=True):
+                f.write(f"{val:.6f}  {chi2:.6f}\n")
+            f.write("\n")
 
 
 def _save_profile_results(

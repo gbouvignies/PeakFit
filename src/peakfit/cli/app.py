@@ -684,7 +684,7 @@ def analyze(
         typer.Option(
             "--param",
             "-p",
-            help="Parameter name (required for 'profile' method)",
+            help="Parameter to profile: exact name, peak name, or parameter type (default: all)",
         ),
     ] = None,
     peaks: Annotated[
@@ -763,8 +763,10 @@ def analyze(
         peakfit analyze mcmc Fits/ --walkers 64 --steps 2000  # Alternative syntax
 
     Profile likelihood gives accurate confidence intervals:
-        peakfit analyze profile Fits/ --param peak1_x0
-        peakfit analyze profile Fits/ --param peak1_x_fwhm --plot
+        peakfit analyze profile Fits/                    # All parameters
+        peakfit analyze profile Fits/ --param 2N-H       # All params for peak 2N-H
+        peakfit analyze profile Fits/ --param x0         # All x0 parameters
+        peakfit analyze profile Fits/ --param 2N-H_x0    # Specific parameter
 
     Parameter correlation analysis:
         peakfit analyze correlation Fits/
@@ -796,10 +798,6 @@ def analyze(
             verbose=False,  # No banner for analyze commands
         )
     elif method == "profile":
-        if param is None:
-            ui.error("--param required for profile method")
-            ui.info("Example: [code]peakfit analyze profile Fits/ --param peak1_x0[/code]")
-            raise typer.Exit(1)
         run_profile_likelihood(
             results_dir=results,
             param_name=param,
