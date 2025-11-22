@@ -20,7 +20,6 @@ from scipy.optimize import least_squares
 from peakfit.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
 from peakfit.fitting.parameters import Parameters
 from peakfit.fitting.results import FitResult
-from peakfit.data.peaks import create_params
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -240,6 +239,8 @@ def fit_cluster_dict(
         raise ScipyOptimizerError(msg)
 
     # Create parameters
+    from peakfit.data.peaks import create_params
+
     try:
         params = create_params(cluster.peaks, fixed=fixed)
     except Exception as e:
@@ -392,6 +393,7 @@ def fit_clusters_sequential(
     Returns:
         Updated global parameters
     """
+    from peakfit.data.peaks import create_params
     from peakfit.fitting.computation import update_cluster_corrections
 
     for iteration in range(refine_iterations + 1):
