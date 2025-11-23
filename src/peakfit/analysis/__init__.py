@@ -19,13 +19,7 @@ from peakfit.analysis.caching import (
     make_cache_key,
     memoize_array_function,
 )
-from peakfit.analysis.profiling import (
-    Profiler,
-    ProfileReport,
-    TimingResult,
-    compare_fitting_methods,
-    estimate_optimal_workers,
-)
+from peakfit.analysis.profiling import Profiler, ProfileReport, TimingResult
 
 __all__ = [
     # Benchmarking
@@ -49,6 +43,4 @@ __all__ = [
     "Profiler",
     "ProfileReport",
     "TimingResult",
-    "compare_fitting_methods",
-    "estimate_optimal_workers",
 ]

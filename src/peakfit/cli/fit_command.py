@@ -371,56 +371,58 @@ def _fit_single_cluster(cluster, cluster_idx, total_clusters, clargs, params_glo
     """
     import time as time_module
 
-    cluster_start = time_module.time()
+    # Limit BLAS threads to 1 per worker to prevent oversubscription
+    with threadpool_limits(limits=1, user_api="blas"):
+        cluster_start = time_module.time()
 
-    # Create parameters for this cluster
-    params = create_params(cluster.peaks, fixed=clargs.fixed)
+        # Create parameters for this cluster
+        params = create_params(cluster.peaks, fixed=clargs.fixed)
 
-    # Update with global parameters
-    for name, value in params_global_dict.items():
-        if name in params:
-            params[name].value = value
+        # Update with global parameters
+        for name, value in params_global_dict.items():
+            if name in params:
+                params[name].value = value
 
-    # Get varying parameters
-    vary_names = params.get_vary_names()
-    x0 = params.get_vary_values()
-    bounds_lower = np.array([params[name].min for name in vary_names])
-    bounds_upper = np.array([params[name].max for name in vary_names])
+        # Get varying parameters
+        vary_names = params.get_vary_names()
+        x0 = params.get_vary_values()
+        bounds_lower = np.array([params[name].min for name in vary_names])
+        bounds_upper = np.array([params[name].max for name in vary_names])
 
-    # Run optimization
-    scipy_verbose = 2 if verbose else 0
-    result = least_squares(
-        _residual_wrapper,
-        x0,
-        args=(params, cluster, clargs.noise),
-        bounds=(bounds_lower, bounds_upper),
-        ftol=LEAST_SQUARES_FTOL,
-        xtol=LEAST_SQUARES_XTOL,
-        max_nfev=LEAST_SQUARES_MAX_NFEV,
-        verbose=scipy_verbose,
-    )
+        # Run optimization
+        scipy_verbose = 2 if verbose else 0
+        result = least_squares(
+            _residual_wrapper,
+            x0,
+            args=(params, cluster, clargs.noise),
+            bounds=(bounds_lower, bounds_upper),
+            ftol=LEAST_SQUARES_FTOL,
+            xtol=LEAST_SQUARES_XTOL,
+            max_nfev=LEAST_SQUARES_MAX_NFEV,
+            verbose=scipy_verbose,
+        )
 
-    # Update parameters with optimized values
-    for i, name in enumerate(vary_names):
-        params[name].value = result.x[i]
+        # Update parameters with optimized values
+        for i, name in enumerate(vary_names):
+            params[name].value = result.x[i]
 
-    # Compute standard errors from Jacobian
-    if result.jac is not None and len(result.fun) > len(vary_names):
-        ndata = len(result.fun)
-        nvarys = len(vary_names)
-        redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
-        try:
-            jtj = result.jac.T @ result.jac
-            cov = np.linalg.inv(jtj) * redchi
-            stderr = np.sqrt(np.diag(cov))
-            for i, name in enumerate(vary_names):
-                params[name].stderr = float(stderr[i])
-        except np.linalg.LinAlgError:
-            pass
+        # Compute standard errors from Jacobian
+        if result.jac is not None and len(result.fun) > len(vary_names):
+            ndata = len(result.fun)
+            nvarys = len(vary_names)
+            redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
+            try:
+                jtj = result.jac.T @ result.jac
+                cov = np.linalg.inv(jtj) * redchi
+                stderr = np.sqrt(np.diag(cov))
+                for i, name in enumerate(vary_names):
+                    params[name].stderr = float(stderr[i])
+            except np.linalg.LinAlgError:
+                pass
 
-    cluster_time = time_module.time() - cluster_start
+        cluster_time = time_module.time() - cluster_start
 
-    return cluster_idx, params, result, cluster_time
+        return cluster_idx, params, result, cluster_time
 
 
 def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -> Parameters:
@@ -430,120 +432,95 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
     params_all = Parameters()
     n_workers = min(mp.cpu_count(), len(clusters))
 
-    # Use threadpoolctl to limit BLAS threads at runtime
-    # This prevents OpenBLAS/MKL from spawning threads that cause massive overhead
-    with threadpool_limits(limits=1, user_api="blas"):
-        for index in range(clargs.refine_nb + 1):
-            if index == 0:
-                ui.subsection_header("Initial Fit")
-                if len(clusters) > 1:
-                    ui.info(
-                        f"Fitting {len(clusters)} clusters in parallel ({n_workers} workers)..."
-                    )
-            else:
-                ui.subsection_header(f"Refining Parameters (Iteration {index})")
-                ui.log_section(f"Refinement Iteration {index}")
-                update_cluster_corrections(params_all, clusters)
+    for index in range(clargs.refine_nb + 1):
+        if index == 0:
+            ui.subsection_header("Initial Fit")
+            if len(clusters) > 1:
+                ui.info(f"Fitting {len(clusters)} clusters in parallel ({n_workers} workers)...")
+        else:
+            ui.subsection_header(f"Refining Parameters (Iteration {index})")
+            ui.log_section(f"Refinement Iteration {index}")
+            update_cluster_corrections(params_all, clusters)
 
-            # Get global parameters as dict for passing to workers
-            params_global_dict = {name: params_all[name].value for name in params_all}
+        # Get global parameters as dict for passing to workers
+        params_global_dict = {name: params_all[name].value for name in params_all}
 
-            # Fit clusters in parallel
-            import time
+        # Fit clusters in parallel
+        import time
 
-            parallel_start = time.perf_counter()
+        parallel_start = time.perf_counter()
 
-            with ThreadPoolExecutor(max_workers=n_workers) as executor:
-                futures = [
-                    executor.submit(
-                        _fit_single_cluster,
-                        cluster,
-                        idx,
-                        len(clusters),
-                        clargs,
-                        params_global_dict,
-                        verbose,
-                    )
-                    for idx, cluster in enumerate(clusters, 1)
-                ]
-
-                # Collect and display results as they complete
-                results = []
-                for future in futures:
-                    cluster_idx, params, result, cluster_time = future.result()
-                    results.append((cluster_idx, params, result, cluster_time))
-
-                # Sort by cluster index for consistent output
-                results.sort(key=lambda x: x[0])
-
-            parallel_elapsed = time.perf_counter() - parallel_start
-            total_cpu_time = sum(r[3] for r in results)  # Sum of individual cluster times
-
-            # Calculate parallelization efficiency
-            if parallel_elapsed > 0:
-                cpu_utilization = total_cpu_time / parallel_elapsed
-                efficiency = (cpu_utilization / n_workers) * 100
-
-                ui.log("")
-                ui.log("Parallel execution stats:")
-                ui.log(f"  - Wall-clock time: {parallel_elapsed:.1f}s")
-                ui.log(f"  - Total CPU time: {total_cpu_time:.1f}s")
-                ui.log(f"  - Effective cores used: {cpu_utilization:.1f} / {n_workers}")
-                ui.log(f"  - Parallel efficiency: {efficiency:.1f}%")
-
-            # Display results and update global parameters
-            for cluster_idx, (idx, params, result, cluster_time) in enumerate(results, 1):
-                cluster = clusters[idx - 1]
-                peak_names = [peak.name for peak in cluster.peaks]
-                peaks_str = ", ".join(peak_names)
-                n_peaks = len(cluster.peaks)
-
-                # Clean cluster output
-                if cluster_idx > 1:
-                    console.print()
-                console.print(
-                    f"[bold cyan]Cluster {idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] "
-                    f"{peaks_str} [dim][{n_peaks} peak{'s' if n_peaks != 1 else ''}][/dim]"
+        # Use ThreadPoolExecutor - each worker limits BLAS internally
+        with ThreadPoolExecutor(max_workers=n_workers) as executor:
+            futures = [
+                executor.submit(
+                    _fit_single_cluster,
+                    cluster,
+                    idx,
+                    len(clusters),
+                    clargs,
+                    params_global_dict,
+                    verbose,
                 )
+                for idx, cluster in enumerate(clusters, 1)
+            ]
 
-                # Log cluster info
-                ui.log("")
-                ui.log(f"Cluster {idx}/{len(clusters)}: {peaks_str}")
-                ui.log(f"  - Peaks: {len(cluster.peaks)}")
-                ui.log(f"  - Varying parameters: {len(params.get_vary_names())}")
+            # Collect results
+            results = [future.result() for future in futures]
 
-                # Print completion status
-                if result.success:
-                    console.print(
-                        f"[green]✓[/green] Converged [dim]│[/dim] "
-                        f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
-                        f"{result.nfev} evaluations [dim]│[/dim] "
-                        f"{cluster_time:.1f}s"
-                    )
-                    ui.log("  - Status: Converged", level="info")
-                else:
-                    console.print(
-                        f"[yellow]⚠[/yellow] {result.message} [dim]│[/dim] "
-                        f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
-                        f"{result.nfev} evaluations [dim]│[/dim] "
-                        f"{cluster_time:.1f}s"
-                    )
-                    ui.log(f"  - Status: {result.message}", level="warning")
+        # Sort by cluster index for consistent output
+        results.sort(key=lambda x: x[0])
 
-                ui.log(f"  - Cost: {result.cost:.3e}")
-                ui.log(f"  - Function evaluations: {result.nfev}")
-                ui.log(f"  - Time: {cluster_time:.1f}s")
+        parallel_elapsed = time.perf_counter() - parallel_start
 
-                params_all.update(params)
+        if len(clusters) > 1:
+            ui.log("")
+            ui.log(f"Fitting completed in {parallel_elapsed:.1f}s")
 
-            # Show parallel performance summary
-            if len(clusters) > 1 and parallel_elapsed > 0:
-                speedup = total_cpu_time / parallel_elapsed
+        # Display results and update global parameters
+        for cluster_idx, (idx, params, result, cluster_time) in enumerate(results, 1):
+            cluster = clusters[idx - 1]
+            peak_names = [peak.name for peak in cluster.peaks]
+            peaks_str = ", ".join(peak_names)
+            n_peaks = len(cluster.peaks)
+
+            # Clean cluster output
+            if cluster_idx > 1:
                 console.print()
+            console.print(
+                f"[bold cyan]Cluster {idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] "
+                f"{peaks_str} [dim][{n_peaks} peak{'s' if n_peaks != 1 else ''}][/dim]"
+            )
+
+            # Log cluster info
+            ui.log("")
+            ui.log(f"Cluster {idx}/{len(clusters)}: {peaks_str}")
+            ui.log(f"  - Peaks: {len(cluster.peaks)}")
+            ui.log(f"  - Varying parameters: {len(params.get_vary_names())}")
+
+            # Print completion status
+            if result.success:
                 console.print(
-                    f"[dim]Parallel performance:[/dim] {speedup:.1f}x speedup "
-                    f"[dim]({cpu_utilization:.1f} cores utilized)[/dim]"
+                    f"[green]✓[/green] Converged [dim]│[/dim] "
+                    f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
+                    f"{result.nfev} evaluations [dim]│[/dim] "
+                    f"{cluster_time:.1f}s"
                 )
+                ui.log("  - Status: Converged", level="info")
+            else:
+                console.print(
+                    f"[yellow]⚠[/yellow] {result.message} [dim]│[/dim] "
+                    f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
+                    f"{result.nfev} evaluations [dim]│[/dim] "
+                    f"{cluster_time:.1f}s"
+                )
+                ui.log(f"  - Status: {result.message}", level="warning")
+
+            ui.log(f"  - Cost: {result.cost:.3e}")
+            ui.log(f"  - Function evaluations: {result.nfev}")
+            ui.log(f"  - Time: {cluster_time:.1f}s")
+
+            params_all.update(params)
 
     return params_all
 
