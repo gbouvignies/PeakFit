@@ -1,10 +1,10 @@
 """Implementation of the fit command."""
 
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
+from joblib import Parallel, delayed
 from scipy.optimize import least_squares
 from threadpoolctl import threadpool_limits
 
@@ -450,11 +450,11 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
 
         parallel_start = time.perf_counter()
 
-        # Use ThreadPoolExecutor - each worker limits BLAS internally
-        with ThreadPoolExecutor(max_workers=n_workers) as executor:
-            futures = [
-                executor.submit(
-                    _fit_single_cluster,
+        # Use joblib with loky backend for true multi-core parallelism
+        # loky backend uses processes which bypass Python's GIL
+        results = (
+            Parallel(n_jobs=n_workers, backend="loky", verbose=0)(
+                delayed(_fit_single_cluster)(
                     cluster,
                     idx,
                     len(clusters),
@@ -463,10 +463,9 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                     verbose,
                 )
                 for idx, cluster in enumerate(clusters, 1)
-            ]
-
-            # Collect results
-            results = [future.result() for future in futures]
+            )
+            or []
+        )
 
         # Sort by cluster index for consistent output
         results.sort(key=lambda x: x[0])
