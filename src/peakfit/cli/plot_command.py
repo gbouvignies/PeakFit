@@ -395,3 +395,157 @@ def plot_spectra_viewer(results: Path, spectrum: Path, verbose: bool = False) ->
     except Exception as e:
         ui.error(f"Failed to launch spectra viewer: {e}")
         raise SystemExit(1) from e
+
+
+# ==================== MCMC DIAGNOSTICS PLOTTING ====================
+
+
+def plot_mcmc_diagnostics(
+    results: Path,
+    output: Path | None,
+    peaks: list[str] | None,
+    verbose: bool = False,
+) -> None:
+    """Generate MCMC diagnostic plots from saved chain data.
+
+    Creates one PDF per cluster with:
+    - Trace plots (convergence)
+    - Marginal distributions (1D posteriors with stats)
+    - Correlation pairs (2D plots for |r| ≥ 0.5)
+    - Autocorrelation plots (mixing efficiency)
+
+    Args:
+        results: Path to results directory containing .mcmc_chains.pkl
+        output: Optional output path/prefix for PDFs
+        peaks: Optional list of peak names to plot (default: all)
+        verbose: Show banner
+    """
+    import pickle
+
+    # Show banner based on verbosity
+    ui.show_banner(verbose)
+
+    ui.show_header("Generating MCMC Diagnostic Plots")
+
+    # Load MCMC chain data
+    mcmc_file = results / ".mcmc_chains.pkl"
+    if not mcmc_file.exists():
+        ui.error(f"No MCMC chain data found in {results}")
+        ui.info("Run 'peakfit analyze mcmc' first to generate MCMC samples")
+        raise SystemExit(1)
+
+    ui.success(f"Loading MCMC data from: [path]{mcmc_file}[/path]")
+
+    # Note: pickle.load is safe here as we control the file creation
+    with mcmc_file.open("rb") as f:
+        mcmc_data = pickle.load(f)
+
+    # Filter peaks if specified
+    if peaks is not None:
+        peak_set = set(peaks)
+        mcmc_data = [d for d in mcmc_data if any(p in peak_set for p in d["peak_names"])]
+        if not mcmc_data:
+            ui.error(f"No MCMC data found for peaks: {peaks}")
+            raise SystemExit(1)
+
+    ui.success(f"Found MCMC data for {len(mcmc_data)} cluster(s)")
+
+    # Import plotting functions
+    from peakfit.diagnostics import (
+        plot_autocorrelation,
+        plot_correlation_pairs,
+        plot_marginal_distributions,
+        plot_trace,
+    )
+
+    # Generate separate PDF for each cluster
+    output_files = []
+    for i, data in enumerate(mcmc_data):
+        peak_names = data["peak_names"]
+        chains = data["chains"]  # Shape: (n_walkers, n_steps, n_params)
+        parameter_names = data["parameter_names"]
+        burn_in = data.get("burn_in", 0)
+        diagnostics = data.get("diagnostics", None)
+        best_fit_values = data.get("best_fit_values", None)
+
+        # Create output filename for this cluster
+        if len(mcmc_data) == 1:
+            # Single cluster: use simple name
+            cluster_output = output or Path("mcmc_diagnostics.pdf")
+        else:
+            # Multiple clusters: include peak names in filename
+            peak_label = "_".join(peak_names)
+            if output:
+                # User specified output: append peak label before extension
+                base = output.stem
+                suffix = output.suffix
+                cluster_output = output.parent / f"{base}_{peak_label}{suffix}"
+            else:
+                cluster_output = Path(f"mcmc_diagnostics_{peak_label}.pdf")
+
+        ui.info(f"[cyan]Cluster {i + 1}/{len(mcmc_data)}:[/cyan] {', '.join(peak_names)}")
+        ui.info(f"  Saving to: [path]{cluster_output}[/path]")
+
+        # Generate plots for this cluster
+        with PdfPages(cluster_output) as pdf:
+            # Flatten chains for marginal and correlation plots
+            samples_flat = chains.reshape(-1, chains.shape[2])
+
+            # Page 1: Trace plots
+            fig_trace = plot_trace(chains, parameter_names, burn_in, diagnostics)
+            pdf.savefig(fig_trace, bbox_inches="tight")
+            plt.close(fig_trace)
+
+            # Pages 2+: Marginal distributions (1D histograms with full names)
+            figs_marginal = plot_marginal_distributions(
+                samples_flat, parameter_names, best_fit_values, diagnostics
+            )
+            for fig in figs_marginal:
+                pdf.savefig(fig, bbox_inches="tight")
+                plt.close(fig)
+
+            # Pages N+: Correlation pairs (2D plots for strongly correlated params)
+            figs_corr = plot_correlation_pairs(
+                samples_flat, parameter_names, best_fit_values, min_correlation=0.5
+            )
+            if figs_corr:
+                for fig in figs_corr:
+                    pdf.savefig(fig, bbox_inches="tight")
+                    plt.close(fig)
+            else:
+                # No strong correlations - add a note
+                ui.info(
+                    f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}"
+                )
+
+            # Last page: Autocorrelation plots
+            fig_autocorr = plot_autocorrelation(chains, parameter_names)
+            pdf.savefig(fig_autocorr, bbox_inches="tight")
+            plt.close(fig_autocorr)
+
+        output_files.append(cluster_output)
+        ui.success(f"  Saved: [path]{cluster_output}[/path]")
+        console.print()
+
+    # Summary
+    console.print(f"[bold]Summary:[/bold]")
+    console.print(f"  • Clusters plotted: {len(mcmc_data)}")
+    console.print(f"  • PDFs generated: {len(output_files)}")
+    for out_file in output_files:
+        file_size = out_file.stat().st_size / 1024 / 1024  # MB
+        console.print(f"    - [path]{out_file}[/path] ({file_size:.1f} MB)")
+
+    # Next steps
+    if len(output_files) == 1:
+        open_cmd = f"open {output_files[0]}"
+    else:
+        open_cmd = f"open {' '.join(str(f) for f in output_files)}"
+
+    ui.print_next_steps(
+        [
+            f"Open plots: [cyan]{open_cmd}[/cyan]",
+            "Review trace plots: Check R-hat ≤ 1.01 and chain convergence",
+            "Inspect marginal distributions: Review parameter posteriors with full names",
+            "Check correlations: Look for strongly correlated parameter pairs (|r| ≥ 0.5)",
+        ]
+    )

@@ -75,8 +75,11 @@ class UncertaintyResult:
     confidence_intervals_95: FloatArray  # 95% CI (2 sigma)
     correlation_matrix: FloatArray
     profile_likelihood_ci: FloatArray | None = None  # From profile likelihood
-    mcmc_samples: FloatArray | None = None  # MCMC samples if available
+    mcmc_samples: FloatArray | None = None  # MCMC samples (flattened, post-burn-in)
     mcmc_percentiles: FloatArray | None = None  # 16th, 50th, 84th percentiles
+    mcmc_chains: FloatArray | None = None  # Full chains INCLUDING burn-in (n_walkers, n_steps_total, n_params)
+    mcmc_diagnostics: "ConvergenceDiagnostics | None" = None  # Convergence diagnostics (computed on post-burn-in)
+    burn_in_info: dict | None = None  # Burn-in determination information
 
 
 def residuals_global(x: FloatArray, params: Parameters, cluster: "Cluster", noise: float) -> float:
@@ -348,23 +351,34 @@ def estimate_uncertainties_mcmc(
     noise: float,
     n_walkers: int = MCMC_N_WALKERS,
     n_steps: int = MCMC_N_STEPS,
-    burn_in: int = MCMC_BURN_IN,
+    burn_in: int | None = None,
 ) -> UncertaintyResult:
     """Estimate parameter uncertainties using MCMC sampling.
 
     Uses emcee for Markov Chain Monte Carlo sampling to get
     full posterior distributions for parameters.
 
+    This function now computes comprehensive convergence diagnostics following
+    the Bayesian Analysis Reporting Guidelines (BARG):
+    - R-hat (Gelman-Rubin statistic) for convergence assessment
+    - Effective Sample Size (ESS) for sample quality
+    - Full chain data for diagnostic plotting
+    - Adaptive burn-in determination using R-hat monitoring
+
     Args:
         params: Fitted parameters (starting point)
         cluster: Cluster data
         noise: Noise level
-        n_walkers: Number of MCMC walkers
-        n_steps: Number of MCMC steps
-        burn_in: Steps to discard as burn-in
+        n_walkers: Number of MCMC walkers/chains
+        n_steps: Number of MCMC steps per walker
+        burn_in: Steps to discard as burn-in. If None, automatically determined
+            using R-hat convergence monitoring (recommended).
 
     Returns:
-        UncertaintyResult with comprehensive uncertainty estimates
+        UncertaintyResult with comprehensive uncertainty estimates and diagnostics
+
+    Raises:
+        ImportError: If emcee is not installed
     """
     try:
         import emcee
@@ -399,8 +413,57 @@ def estimate_uncertainties_mcmc(
     sampler = emcee.EnsembleSampler(n_walkers, ndim, log_likelihood)
     sampler.run_mcmc(pos, n_steps, progress=False)
 
-    # Get samples after burn-in
+    # Get FULL chains including burn-in for diagnostic plotting
+    # emcee returns shape (n_steps, n_walkers, n_params)
+    # Transpose to (n_walkers, n_steps, n_params) for our plotting functions
+    chains_full = sampler.get_chain(discard=0, flat=False).swapaxes(0, 1)
+
+    # Determine burn-in period (adaptive or manual)
+    burn_in_info = {}
+    if burn_in is None:
+        # Automatic burn-in determination using R-hat monitoring
+        from peakfit.diagnostics.burnin import determine_burnin_rhat, validate_burnin
+
+        burn_in, burn_in_diagnostics = determine_burnin_rhat(
+            chains_full,
+            rhat_threshold=1.05,
+            window_size=100,
+            min_samples=100,
+            check_interval=50,
+        )
+
+        # Validate burn-in and get warnings if needed
+        is_valid, warning_msg = validate_burnin(burn_in, n_steps, max_fraction=0.5)
+
+        burn_in_info = {
+            "burn_in": burn_in,
+            "method": "adaptive",
+            "diagnostics": burn_in_diagnostics,
+            "validation_warning": warning_msg,
+        }
+    else:
+        # Manual burn-in specified
+        from peakfit.diagnostics.burnin import validate_burnin
+
+        is_valid, warning_msg = validate_burnin(burn_in, n_steps, max_fraction=0.5)
+
+        burn_in_info = {
+            "burn_in": burn_in,
+            "method": "manual",
+            "validation_warning": warning_msg,
+        }
+
+    # Get post-burn-in chains for convergence diagnostics
+    # Shape after transpose: (n_walkers, n_steps_after_burnin, n_params)
+    chains_post_burnin = sampler.get_chain(discard=burn_in, flat=False).swapaxes(0, 1)
+
+    # Get flattened samples after burn-in for statistics
     samples = sampler.get_chain(discard=burn_in, flat=True)
+
+    # Compute convergence diagnostics on post-burn-in samples
+    from peakfit.diagnostics import diagnose_convergence
+
+    diagnostics = diagnose_convergence(chains_post_burnin, params.get_vary_names())
 
     # Compute statistics
     percentiles = np.percentile(samples, [16, 50, 84], axis=0)
@@ -430,6 +493,9 @@ def estimate_uncertainties_mcmc(
         correlation_matrix=corr_matrix,
         mcmc_samples=samples,
         mcmc_percentiles=percentiles,
+        mcmc_chains=chains_full,  # Full chains including burn-in for plotting
+        mcmc_diagnostics=diagnostics,
+        burn_in_info=burn_in_info,
     )
 
 
