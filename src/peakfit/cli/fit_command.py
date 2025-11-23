@@ -355,11 +355,9 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
     return residuals(params, cluster, noise)
 
 
-def _fit_single_cluster(
-    cluster, cluster_idx, total_clusters, clargs, params_global_dict, verbose
-):
+def _fit_single_cluster(cluster, cluster_idx, total_clusters, clargs, params_global_dict, verbose):
     """Fit a single cluster (worker function for parallel execution).
-    
+
     Args:
         cluster: Cluster to fit
         cluster_idx: Index of cluster (1-based)
@@ -367,28 +365,28 @@ def _fit_single_cluster(
         clargs: Fitting arguments
         params_global_dict: Dictionary of global parameter values
         verbose: Whether to show verbose output
-        
+
     Returns:
         Tuple of (cluster_idx, params, result, fit_time)
     """
     import time as time_module
-    
+
     cluster_start = time_module.time()
-    
+
     # Create parameters for this cluster
     params = create_params(cluster.peaks, fixed=clargs.fixed)
-    
+
     # Update with global parameters
     for name, value in params_global_dict.items():
         if name in params:
             params[name].value = value
-    
+
     # Get varying parameters
     vary_names = params.get_vary_names()
     x0 = params.get_vary_values()
     bounds_lower = np.array([params[name].min for name in vary_names])
     bounds_upper = np.array([params[name].max for name in vary_names])
-    
+
     # Run optimization
     scipy_verbose = 2 if verbose else 0
     result = least_squares(
@@ -401,11 +399,11 @@ def _fit_single_cluster(
         max_nfev=LEAST_SQUARES_MAX_NFEV,
         verbose=scipy_verbose,
     )
-    
+
     # Update parameters with optimized values
     for i, name in enumerate(vary_names):
         params[name].value = result.x[i]
-    
+
     # Compute standard errors from Jacobian
     if result.jac is not None and len(result.fun) > len(vary_names):
         ndata = len(result.fun)
@@ -419,19 +417,19 @@ def _fit_single_cluster(
                 params[name].stderr = float(stderr[i])
         except np.linalg.LinAlgError:
             pass
-    
+
     cluster_time = time_module.time() - cluster_start
-    
+
     return cluster_idx, params, result, cluster_time
 
 
 def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -> Parameters:
     """Fit all clusters in parallel and return parameters."""
     import multiprocessing as mp
-    
+
     params_all = Parameters()
     n_workers = min(mp.cpu_count(), len(clusters))
-    
+
     # Use threadpoolctl to limit BLAS threads at runtime
     # This prevents OpenBLAS/MKL from spawning threads that cause massive overhead
     with threadpool_limits(limits=1, user_api="blas"):
@@ -439,16 +437,22 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
             if index == 0:
                 ui.subsection_header("Initial Fit")
                 if len(clusters) > 1:
-                    ui.info(f"Fitting {len(clusters)} clusters in parallel ({n_workers} workers)...")
+                    ui.info(
+                        f"Fitting {len(clusters)} clusters in parallel ({n_workers} workers)..."
+                    )
             else:
                 ui.subsection_header(f"Refining Parameters (Iteration {index})")
                 ui.log_section(f"Refinement Iteration {index}")
                 update_cluster_corrections(params_all, clusters)
-            
+
             # Get global parameters as dict for passing to workers
             params_global_dict = {name: params_all[name].value for name in params_all}
-            
+
             # Fit clusters in parallel
+            import time
+
+            parallel_start = time.perf_counter()
+
             with ThreadPoolExecutor(max_workers=n_workers) as executor:
                 futures = [
                     executor.submit(
@@ -462,23 +466,38 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                     )
                     for idx, cluster in enumerate(clusters, 1)
                 ]
-                
+
                 # Collect and display results as they complete
                 results = []
                 for future in futures:
                     cluster_idx, params, result, cluster_time = future.result()
                     results.append((cluster_idx, params, result, cluster_time))
-                
+
                 # Sort by cluster index for consistent output
                 results.sort(key=lambda x: x[0])
-            
+
+            parallel_elapsed = time.perf_counter() - parallel_start
+            total_cpu_time = sum(r[3] for r in results)  # Sum of individual cluster times
+
+            # Calculate parallelization efficiency
+            if parallel_elapsed > 0:
+                cpu_utilization = total_cpu_time / parallel_elapsed
+                efficiency = (cpu_utilization / n_workers) * 100
+
+                ui.log("")
+                ui.log("Parallel execution stats:")
+                ui.log(f"  - Wall-clock time: {parallel_elapsed:.1f}s")
+                ui.log(f"  - Total CPU time: {total_cpu_time:.1f}s")
+                ui.log(f"  - Effective cores used: {cpu_utilization:.1f} / {n_workers}")
+                ui.log(f"  - Parallel efficiency: {efficiency:.1f}%")
+
             # Display results and update global parameters
             for cluster_idx, (idx, params, result, cluster_time) in enumerate(results, 1):
                 cluster = clusters[idx - 1]
                 peak_names = [peak.name for peak in cluster.peaks]
                 peaks_str = ", ".join(peak_names)
                 n_peaks = len(cluster.peaks)
-                
+
                 # Clean cluster output
                 if cluster_idx > 1:
                     console.print()
@@ -486,13 +505,13 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                     f"[bold cyan]Cluster {idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] "
                     f"{peaks_str} [dim][{n_peaks} peak{'s' if n_peaks != 1 else ''}][/dim]"
                 )
-                
+
                 # Log cluster info
                 ui.log("")
                 ui.log(f"Cluster {idx}/{len(clusters)}: {peaks_str}")
                 ui.log(f"  - Peaks: {len(cluster.peaks)}")
                 ui.log(f"  - Varying parameters: {len(params.get_vary_names())}")
-                
+
                 # Print completion status
                 if result.success:
                     console.print(
@@ -510,13 +529,22 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                         f"{cluster_time:.1f}s"
                     )
                     ui.log(f"  - Status: {result.message}", level="warning")
-                
+
                 ui.log(f"  - Cost: {result.cost:.3e}")
                 ui.log(f"  - Function evaluations: {result.nfev}")
                 ui.log(f"  - Time: {cluster_time:.1f}s")
-                
+
                 params_all.update(params)
-    
+
+            # Show parallel performance summary
+            if len(clusters) > 1 and parallel_elapsed > 0:
+                speedup = total_cpu_time / parallel_elapsed
+                console.print()
+                console.print(
+                    f"[dim]Parallel performance:[/dim] {speedup:.1f}x speedup "
+                    f"[dim]({cpu_utilization:.1f} cores utilized)[/dim]"
+                )
+
     return params_all
 
 
