@@ -72,9 +72,6 @@ def run_fit(
     peaklist_path: Path,
     z_values_path: Path | None,
     config: PeakFitConfig,
-    parallel: bool = False,
-    n_workers: int | None = None,
-    backend: str = "auto",
     optimizer: str = "leastsq",
     save_state: bool = True,
     verbose: bool = False,
@@ -86,9 +83,6 @@ def run_fit(
         peaklist_path: Path to peak list file.
         z_values_path: Optional path to Z-values file.
         config: Configuration object.
-        parallel: Whether to use parallel processing.
-        n_workers: Number of parallel workers.
-        backend: Computation backend (deprecated, always uses NumPy).
         optimizer: Optimization algorithm (leastsq, basin-hopping, differential-evolution).
         save_state: Whether to save fitting state for later analysis.
         verbose: Show banner and verbose output.
@@ -108,15 +102,9 @@ def run_fit(
     else:
         ui.show_run_info(start_time_dt)  # Show compact run info otherwise
 
-    # Store verbose flag globally for _fit_clusters to access
-    config._verbose = verbose
-
     # ============================================================
     # SECTION 1: CONFIGURATION
     # ============================================================
-    # Initialize computation backend (returns selected backend)
-    selected_backend = _initialize_backend(backend, parallel=parallel)
-
     # Validate optimizer choice
     valid_optimizers = ["leastsq", "basin-hopping", "differential-evolution"]
     if optimizer not in valid_optimizers:
@@ -129,7 +117,7 @@ def run_fit(
         console.print("  [dim]This may take significantly longer than standard fitting[/dim]")
 
     # Show configuration in a consolidated table
-    _print_configuration(selected_backend, parallel, n_workers, config.output.directory)
+    _print_configuration(config.output.directory)
 
     # ============================================================
     # SECTION 2: LOADING INPUT FILES
@@ -237,8 +225,6 @@ def run_fit(
     ui.show_header("Fitting Clusters")
     ui.log_section("Fitting")
     ui.log(f"Optimizer: {optimizer}")
-    ui.log(f"Backend: {backend}")
-    ui.log(f"Parallel: {'enabled' if parallel else 'disabled'}")
     ui.log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
     ui.log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
     ui.log("")
@@ -246,9 +232,6 @@ def run_fit(
     if optimizer != "leastsq":
         ui.info(f"Using {optimizer} optimizer...")
         params = _fit_clusters_global(clargs, clusters, optimizer, verbose)
-    elif parallel and len(clusters) > 1:
-        ui.info("Using parallel fitting...")
-        params = _fit_clusters_parallel(clargs, clusters, n_workers)
     else:
         params = _fit_clusters(clargs, clusters, verbose)
 
@@ -336,10 +319,6 @@ def run_fit(
     avg_time_per_cluster = total_time / len(clusters) if len(clusters) > 0 else 0
     summary_table.add_row("Time per cluster", f"{avg_time_per_cluster:.1f}s")
 
-    # Parallelization info
-    parallel_mode = "Parallel" if parallel else "Sequential"
-    summary_table.add_row("Mode", parallel_mode)
-
     console.print(summary_table)
     console.print()  # ONE blank line after Results Summary table
 
@@ -376,19 +355,7 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
 
 
 def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -> Parameters:
-    """Fit all clusters and return parameters.
-
-    Note: This function shares structure with _fit_clusters_global() but intentionally
-    remains separate. DRY extraction was considered but deferred because:
-    - Core optimization logic is fundamentally different (least_squares vs global methods)
-    - Different features: timing, error computation, verbose logging (here) vs simpler output (global)
-    - Only ~20-30 lines of shared boilerplate out of 110+ lines total
-    - Functions are evolving differently as optimization methods diverge
-    - Extraction would require complex conditionals, reducing readability
-    - Current separation provides clarity: standard fitting vs experimental global optimization
-
-    If these functions converge in behavior over time, revisit extraction.
-    """
+    """Fit all clusters and return parameters."""
     params_all = Parameters()
 
     # Use threadpoolctl to limit BLAS threads at runtime
@@ -499,32 +466,10 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
     return params_all
 
 
-def _fit_clusters_parallel(
-    clargs: FitArguments, clusters: list, n_workers: int | None = None
-) -> Parameters:
-    """Fit all clusters using parallel processing."""
-    from peakfit.fitting.parallel import fit_clusters_parallel_refined
-
-    ui.info("Parallel fitting with refinement...")
-
-    return fit_clusters_parallel_refined(
-        clusters=clusters,
-        noise=clargs.noise,
-        refine_iterations=clargs.refine_nb,
-        fixed=clargs.fixed,
-        n_workers=n_workers,
-        verbose=True,
-    )
-
-
 def _fit_clusters_global(
     clargs: FitArguments, clusters: list, optimizer: str, verbose: bool = False
 ) -> Parameters:
-    """Fit all clusters using global optimization.
-
-    Note: This function shares structure with _fit_clusters() but intentionally
-    remains separate. See _fit_clusters() docstring for DRY analysis rationale.
-    """
+    """Fit all clusters using global optimization."""
     from peakfit.fitting.advanced import fit_basin_hopping, fit_differential_evolution
 
     params_all = Parameters()
@@ -651,31 +596,10 @@ def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
     )
 
 
-def _initialize_backend(backend: str, parallel: bool = False) -> str:
-    """Initialize the computation backend.
-
-    Args:
-        backend: Requested backend - DEPRECATED (always uses NumPy)
-        parallel: Whether parallel mode is enabled
-
-    Returns:
-        Selected backend name (always 'numpy')
-    """
-    # Backend selection is deprecated - always use numpy
-    if backend != "auto" and backend != "numpy":
-        ui.warning("Backend selection is deprecated. Using numpy.")
-    return "numpy"
-
-
-def _print_configuration(
-    backend: str, parallel: bool, n_workers: int | None, output_dir: Path
-) -> None:
+def _print_configuration(output_dir: Path) -> None:
     """Print configuration information in a consolidated table.
 
     Args:
-        backend: Backend name (deprecated, always numpy)
-        parallel: Whether parallel mode is enabled
-        n_workers: Number of workers (if parallel)
         output_dir: Output directory path
     """
     ui.spacer()
@@ -683,20 +607,6 @@ def _print_configuration(
     config_table = ui.create_table("Configuration")
     config_table.add_column("Setting", style="cyan")
     config_table.add_column("Value", style="white", justify="right")
-
-    # Backend row (always numpy now)
-    config_table.add_row("Backend", "numpy")
-
-    # Parallel processing
-    if parallel:
-        import multiprocessing
-
-        cores = n_workers if n_workers else multiprocessing.cpu_count()
-        parallel_str = f"enabled ({cores} cores)"
-    else:
-        parallel_str = "disabled"
-
-    config_table.add_row("Parallel processing", parallel_str)
 
     # Output directory
     config_table.add_row("Output directory", str(output_dir.name))

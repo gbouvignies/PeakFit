@@ -32,9 +32,6 @@ from peakfit.fitting.optimizer import (
     fit_clusters,
     fit_clusters_sequential,
 )
-
-# Parallel fitting
-from peakfit.fitting.parallel import fit_clusters_parallel, fit_clusters_parallel_refined
 from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
 
 # Fit results
@@ -62,9 +59,6 @@ __all__ = [
     "fit_differential_evolution",
     "compute_profile_likelihood",
     "estimate_uncertainties_mcmc",
-    # Parallel fitting
-    "fit_clusters_parallel",
-    "fit_clusters_parallel_refined",
     # Computation
     "calculate_shapes",
     "calculate_amplitudes",

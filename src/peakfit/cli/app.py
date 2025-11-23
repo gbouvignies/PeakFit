@@ -159,30 +159,6 @@ def fit(
             help="Plane indices to exclude (can be specified multiple times)",
         ),
     ] = None,
-    parallel: Annotated[
-        bool,
-        typer.Option(
-            "--parallel/--no-parallel",
-            help="Enable parallel fitting of clusters",
-        ),
-    ] = False,
-    workers: Annotated[
-        int | None,
-        typer.Option(
-            "--workers",
-            "-w",
-            help="Number of parallel workers (default: number of CPUs)",
-            min=1,
-        ),
-    ] = None,
-    backend: Annotated[
-        str,
-        typer.Option(
-            "--backend",
-            "-b",
-            help="Computation backend (deprecated, always uses numpy)",
-        ),
-    ] = "auto",
     optimizer: Annotated[
         str,
         typer.Option(
@@ -250,9 +226,6 @@ def fit(
         peaklist_path=peaklist,
         z_values_path=z_values,
         config=fit_config,
-        parallel=parallel,
-        n_workers=workers,
-        backend=backend,
         optimizer=optimizer,
         save_state=save_state,
         verbose=verbose,
@@ -680,20 +653,11 @@ def plot_diagnostics(
 
 
 @app.command()
-def info(
-    benchmark: Annotated[
-        bool,
-        typer.Option(
-            "--benchmark",
-            help="Run performance benchmark (deprecated)",
-        ),
-    ] = False,
-) -> None:
+def info() -> None:
     """Show system information.
 
     Display details about the PeakFit installation and system capabilities.
     """
-    import multiprocessing as mp
     import sys
 
     import numpy as np
@@ -706,20 +670,6 @@ def info(
     console.print(f"[green]PeakFit version:[/green] {__version__}")
     console.print(f"[green]Python version:[/green] {sys.version}")
     console.print(f"[green]NumPy version:[/green] {np.__version__}")
-
-    # Parallel processing
-    n_cpus = mp.cpu_count()
-    console.print(f"\n[green]Parallel processing:[/green] {n_cpus} CPU cores available")
-
-    # Note about backends
-    console.print("\n[dim]Note: Numba backend support has been removed.[/dim]")
-    console.print("[dim]      All computations now use optimized NumPy vectorization.[/dim]")
-
-    # Benchmark
-    if benchmark:
-        console.print("\n[yellow]Benchmark option is deprecated and has been removed.[/yellow]")
-
-
 
 
 @app.command()
@@ -892,164 +842,6 @@ def analyze(
             output_file=output,
             verbose=False,  # No banner for analyze commands
         )
-
-
-@app.command()
-def benchmark(
-    spectrum: Annotated[
-        Path,
-        typer.Argument(
-            help="Path to NMRPipe spectrum file",
-            exists=True,
-            dir_okay=False,
-            resolve_path=True,
-        ),
-    ],
-    peaklist: Annotated[
-        Path,
-        typer.Argument(
-            help="Path to peak list file",
-            exists=True,
-            dir_okay=False,
-            resolve_path=True,
-        ),
-    ],
-    z_values: Annotated[
-        Path | None,
-        typer.Option(
-            "--z-values",
-            "-z",
-            help="Path to Z-dimension values file",
-            exists=True,
-            dir_okay=False,
-            resolve_path=True,
-        ),
-    ] = None,
-    iterations: Annotated[
-        int,
-        typer.Option(
-            "--iterations",
-            "-n",
-            help="Number of benchmark iterations",
-            min=1,
-            max=10,
-        ),
-    ] = 1,
-) -> None:
-    """Benchmark fitting performance with different methods.
-
-    Compare standard lmfit, fast scipy, and parallel fitting approaches
-    to determine the optimal method for your data.
-
-    Example:
-        peakfit benchmark spectrum.ft2 peaks.list --iterations 3
-    """
-    import time
-
-    from peakfit.cli.fit_command import FitArguments
-    from peakfit.data.clustering import create_clusters
-    from peakfit.data.noise import prepare_noise_level
-    from peakfit.data.peaks import read_list
-    from peakfit.data.spectrum import get_shape_names, read_spectra
-    from peakfit.fitting.optimizer import fit_clusters
-    from peakfit.fitting.parallel import fit_clusters_parallel_refined
-
-    console.print("[bold]PeakFit Performance Benchmark[/bold]\n")
-
-    # Load data
-    with console.status("[yellow]Loading spectrum..."):
-        # Create args for loading
-        clargs = FitArguments(
-            path_spectra=spectrum,
-            path_z_values=z_values,
-            path_list=peaklist,
-            exclude=[],
-            noise=0.0,
-            contour_level=None,
-            fixed=False,
-            jx=False,
-            phx=False,
-            phy=False,
-            pvoigt=False,
-            lorentzian=False,
-            gaussian=False,
-        )
-
-        spectra = read_spectra(spectrum, z_values, [])
-
-    console.print(f"[green]Loaded spectrum:[/green] {spectrum.name}")
-    console.print(f"  Shape: {spectra.data.shape}")
-
-    # Prepare fitting
-    clargs.noise = prepare_noise_level(clargs, spectra)
-    shape_names = get_shape_names(clargs, spectra)
-    peaks = read_list(spectra, shape_names, clargs)
-    clargs.contour_level = 5.0 * clargs.noise
-    clusters = create_clusters(spectra, peaks, clargs.contour_level)
-
-    console.print(f"[green]Noise level:[/green] {clargs.noise:.2f}")
-    console.print(f"[green]Clusters:[/green] {len(clusters)}")
-    console.print(f"[green]Total peaks:[/green] {len(peaks)}")
-
-    console.print(f"\n[bold]Running benchmark ({iterations} iteration(s))...[/bold]\n")
-
-    # Benchmark fast sequential
-    times_fast = []
-    for _i in range(iterations):
-        start = time.perf_counter()
-        fit_clusters(
-            clusters=list(clusters),
-            noise=clargs.noise,
-            refine_iterations=0,  # No refinement for speed comparison
-            fixed=False,
-            verbose=False,
-        )
-        times_fast.append(time.perf_counter() - start)
-
-    avg_fast = sum(times_fast) / len(times_fast)
-    console.print("[cyan]Fast Sequential:[/cyan]")
-    console.print(f"  Average time: {avg_fast:.3f}s")
-    if len(times_fast) > 1:
-        console.print(f"  Min: {min(times_fast):.3f}s, Max: {max(times_fast):.3f}s")
-
-    # Benchmark parallel (if enough clusters)
-    if len(clusters) > 1:
-        import multiprocessing as mp
-
-        n_workers = mp.cpu_count()
-
-        times_parallel = []
-        for _i in range(iterations):
-            start = time.perf_counter()
-            fit_clusters_parallel_refined(
-                clusters=clusters,
-                noise=clargs.noise,
-                refine_iterations=0,
-                fixed=False,
-                n_workers=n_workers,
-                verbose=False,
-            )
-            times_parallel.append(time.perf_counter() - start)
-
-        avg_parallel = sum(times_parallel) / len(times_parallel)
-        console.print(f"\n[cyan]Parallel ({n_workers} workers):[/cyan]")
-        console.print(f"  Average time: {avg_parallel:.3f}s")
-        if len(times_parallel) > 1:
-            console.print(f"  Min: {min(times_parallel):.3f}s, Max: {max(times_parallel):.3f}s")
-
-        speedup = avg_fast / avg_parallel if avg_parallel > 0 else 1.0
-        console.print(f"  [green]Speedup: {speedup:.2f}x[/green]")
-
-        # Recommendation
-        console.print("\n[bold]Recommendation:[/bold]")
-        if speedup > 1.2:
-            console.print(f"  Use [green]--parallel[/green] for {speedup:.1f}x speedup")
-        else:
-            console.print("  Sequential fitting is optimal (parallel overhead exceeds benefit)")
-    else:
-        console.print("\n[yellow]Note:[/yellow] Only 1 cluster, parallel comparison skipped")
-        console.print("\n[bold]Recommendation:[/bold]")
-        console.print("  Sequential fitting is optimal for single cluster")
 
 
 if __name__ == "__main__":

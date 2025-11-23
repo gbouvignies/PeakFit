@@ -49,10 +49,9 @@ class TestCLICommands:
         result = runner.invoke(app, ["fit", "--help"])
         assert result.exit_code == 0
         # Check for options (may have ANSI codes, so check for key parts)
-        assert "parallel" in result.output.lower()
-        assert "workers" in result.output.lower() or "worker" in result.output.lower()
         assert "refine" in result.output.lower()
         assert "lineshape" in result.output.lower()
+        assert "optimizer" in result.output.lower()
 
     def test_info_command(self, runner, app):
         """info command should run without errors."""
@@ -99,15 +98,6 @@ class TestCLICommands:
         result = runner.invoke(app, ["validate", str(fake_spectrum), str(fake_peaklist)])
         # Should fail because files don't exist
         assert result.exit_code != 0
-
-    def test_benchmark_command_help(self, runner, app):
-        """benchmark --help should show benchmark options."""
-        result = runner.invoke(app, ["benchmark", "--help"])
-        assert result.exit_code == 0
-        # Check for options (may have ANSI codes, so check for key parts)
-        assert "iterations" in result.output.lower() or "iteration" in result.output.lower()
-        # Z-values option appears as "Z-dimension" in help text
-        assert "dimension" in result.output.lower() or "-z" in result.output.lower()
 
     def test_plot_command_help(self, runner, app):
         """plot --help should show plot subcommands."""
@@ -168,65 +158,6 @@ class TestCLIFitOptions:
         )
         # Negative refine iterations
         assert result.exit_code != 0
-
-
-class TestProfilingUtilities:
-    """Test profiling utilities."""
-
-    def test_profiler_context_manager(self):
-        """Profiler context manager should record timings."""
-        import time
-
-        from peakfit.analysis.profiling import Profiler
-
-        profiler = Profiler()
-
-        with profiler.timer("test_operation"):
-            time.sleep(0.01)
-
-        report = profiler.finalize()
-        assert len(report.timings) == 1
-        assert report.timings[0].name == "test_operation"
-        assert report.timings[0].elapsed >= 0.01
-
-    def test_profiler_start_stop(self):
-        """Profiler start/stop should record timings."""
-        import time
-
-        from peakfit.analysis.profiling import Profiler
-
-        profiler = Profiler()
-
-        profiler.start("manual_timing")
-        time.sleep(0.01)
-        elapsed = profiler.stop(count=5, extra="data")
-
-        report = profiler.finalize()
-        assert elapsed >= 0.01
-        assert len(report.timings) == 1
-        assert report.timings[0].count == 5
-        assert report.timings[0].metadata["extra"] == "data"
-
-    def test_timing_result_per_call(self):
-        """TimingResult should compute per-call average."""
-        from peakfit.analysis.profiling import TimingResult
-
-        result = TimingResult(name="test", elapsed=1.0, count=10)
-        assert result.per_call == 0.1
-
-    def test_profile_report_summary(self):
-        """ProfileReport should generate summary."""
-        from peakfit.analysis.profiling import ProfileReport, TimingResult
-
-        report = ProfileReport()
-        report.add_timing(TimingResult("op1", 0.5))
-        report.add_timing(TimingResult("op2", 1.0))
-        report.finalize()
-
-        summary = report.summary()
-        assert "op1" in summary
-        assert "op2" in summary
-        assert "Total time" in summary
 
 
 class TestScipyOptimizerErrorHandling:

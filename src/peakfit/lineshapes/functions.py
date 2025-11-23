@@ -1,13 +1,6 @@
 """Numba-accelerated lineshape functions for NMR peak fitting.
 
 All functions are JIT-compiled with Numba for high performance.
-Numba is a required dependency.
-
-Performance optimizations:
-- Explicit type signatures for zero-latency compilation
-- Manual complex arithmetic in parallel loops (5-10× faster)
-- Intel SVML support via fastmath=True (when available)
-- Cache-friendly memory access patterns
 """
 
 import numba as nb
@@ -22,7 +15,7 @@ from peakfit.typing import FloatArray
 
 @nb.njit("float64[:](float64[:], float64)", cache=True, fastmath=True, error_model="numpy")
 def gaussian(dx: FloatArray, fwhm: float) -> FloatArray:
-    """Gaussian lineshape (Numba-optimized).
+    """Gaussian lineshape.
 
     Args:
         dx: Frequency offset from peak center (Hz)
@@ -30,11 +23,6 @@ def gaussian(dx: FloatArray, fwhm: float) -> FloatArray:
 
     Returns:
         Gaussian profile values
-
-    Performance:
-        - Explicit signature prevents recompilation
-        - fastmath=True enables Intel SVML (if available)
-        - ~50× faster than pure NumPy
     """
     c = 4.0 * np.log(2.0) / (fwhm * fwhm)
     result = np.empty_like(dx)
@@ -45,7 +33,7 @@ def gaussian(dx: FloatArray, fwhm: float) -> FloatArray:
 
 @nb.njit("float64[:](float64[:], float64)", cache=True, fastmath=True, error_model="numpy")
 def lorentzian(dx: FloatArray, fwhm: float) -> FloatArray:
-    """Lorentzian lineshape (Numba-optimized)."""
+    """Lorentzian lineshape."""
     half_width_sq = (0.5 * fwhm) ** 2
     result = np.empty_like(dx)
     for i in range(len(dx)):
@@ -177,9 +165,7 @@ def sp2(
     return (spec * phase_factor).real
 
 
-# =============================================================================
-# Multi-Peak Parallel Functions (OPTIMIZED)
-# =============================================================================
+# Multi-Peak Functions
 
 
 @nb.njit(cache=True, fastmath=True, parallel=True, error_model="numpy")
@@ -188,22 +174,16 @@ def compute_all_gaussian_shapes(
     centers: np.ndarray,  # (n_peaks,)
     fwhms: np.ndarray,  # (n_peaks,)
 ) -> np.ndarray:
-    """Compute Gaussian lineshapes for all peaks in parallel.
+    """Compute Gaussian lineshapes for all peaks.
 
     Returns:
         Array of shape (n_peaks, n_points) with evaluated lineshapes
-
-    Performance:
-        - Uses prange for true multi-core parallelism
-        - Cache-friendly memory access (outer loop over peaks)
-        - Expected speedup: 10-50× vs sequential
-        - Scales linearly up to physical CPU cores
     """
     n_peaks = len(centers)
     n_points = len(positions)
     shapes = np.empty((n_peaks, n_points), dtype=np.float64)
 
-    for i in nb.prange(n_peaks):  # PARALLEL over peaks
+    for i in nb.prange(n_peaks):
         center = centers[i]
         fwhm = fwhms[i]
         c = 4.0 * np.log(2.0) / (fwhm * fwhm)
@@ -221,7 +201,7 @@ def compute_all_lorentzian_shapes(
     centers: np.ndarray,
     fwhms: np.ndarray,
 ) -> np.ndarray:
-    """Compute Lorentzian lineshapes for all peaks in parallel."""
+    """Compute Lorentzian lineshapes for all peaks."""
     n_peaks = len(centers)
     n_points = len(positions)
     shapes = np.empty((n_peaks, n_points), dtype=np.float64)
@@ -245,7 +225,7 @@ def compute_all_pvoigt_shapes(
     fwhms: np.ndarray,
     etas: np.ndarray,
 ) -> np.ndarray:
-    """Compute Pseudo-Voigt lineshapes for all peaks in parallel."""
+    """Compute Pseudo-Voigt lineshapes for all peaks."""
     n_peaks = len(centers)
     n_points = len(positions)
     shapes = np.empty((n_peaks, n_points), dtype=np.float64)
