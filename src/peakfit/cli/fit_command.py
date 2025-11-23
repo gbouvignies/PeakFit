@@ -1,5 +1,6 @@
 """Implementation of the fit command."""
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -354,92 +355,145 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
     return residuals(params, cluster, noise)
 
 
-def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -> Parameters:
-    """Fit all clusters and return parameters."""
-    params_all = Parameters()
+def _fit_single_cluster(
+    cluster, cluster_idx, total_clusters, clargs, params_global_dict, verbose
+):
+    """Fit a single cluster (worker function for parallel execution).
+    
+    Args:
+        cluster: Cluster to fit
+        cluster_idx: Index of cluster (1-based)
+        total_clusters: Total number of clusters
+        clargs: Fitting arguments
+        params_global_dict: Dictionary of global parameter values
+        verbose: Whether to show verbose output
+        
+    Returns:
+        Tuple of (cluster_idx, params, result, fit_time)
+    """
+    import time as time_module
+    
+    cluster_start = time_module.time()
+    
+    # Create parameters for this cluster
+    params = create_params(cluster.peaks, fixed=clargs.fixed)
+    
+    # Update with global parameters
+    for name, value in params_global_dict.items():
+        if name in params:
+            params[name].value = value
+    
+    # Get varying parameters
+    vary_names = params.get_vary_names()
+    x0 = params.get_vary_values()
+    bounds_lower = np.array([params[name].min for name in vary_names])
+    bounds_upper = np.array([params[name].max for name in vary_names])
+    
+    # Run optimization
+    scipy_verbose = 2 if verbose else 0
+    result = least_squares(
+        _residual_wrapper,
+        x0,
+        args=(params, cluster, clargs.noise),
+        bounds=(bounds_lower, bounds_upper),
+        ftol=LEAST_SQUARES_FTOL,
+        xtol=LEAST_SQUARES_XTOL,
+        max_nfev=LEAST_SQUARES_MAX_NFEV,
+        verbose=scipy_verbose,
+    )
+    
+    # Update parameters with optimized values
+    for i, name in enumerate(vary_names):
+        params[name].value = result.x[i]
+    
+    # Compute standard errors from Jacobian
+    if result.jac is not None and len(result.fun) > len(vary_names):
+        ndata = len(result.fun)
+        nvarys = len(vary_names)
+        redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
+        try:
+            jtj = result.jac.T @ result.jac
+            cov = np.linalg.inv(jtj) * redchi
+            stderr = np.sqrt(np.diag(cov))
+            for i, name in enumerate(vary_names):
+                params[name].stderr = float(stderr[i])
+        except np.linalg.LinAlgError:
+            pass
+    
+    cluster_time = time_module.time() - cluster_start
+    
+    return cluster_idx, params, result, cluster_time
 
+
+def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -> Parameters:
+    """Fit all clusters in parallel and return parameters."""
+    import multiprocessing as mp
+    
+    params_all = Parameters()
+    n_workers = min(mp.cpu_count(), len(clusters))
+    
     # Use threadpoolctl to limit BLAS threads at runtime
     # This prevents OpenBLAS/MKL from spawning threads that cause massive overhead
-    # (e.g., 3171% CPU usage -> 99% CPU usage, 671s -> 8s CPU time)
     with threadpool_limits(limits=1, user_api="blas"):
         for index in range(clargs.refine_nb + 1):
             if index == 0:
-                # Label initial fit phase
                 ui.subsection_header("Initial Fit")
+                if len(clusters) > 1:
+                    ui.info(f"Fitting {len(clusters)} clusters in parallel ({n_workers} workers)...")
             else:
-                # Label refinement phase
                 ui.subsection_header(f"Refining Parameters (Iteration {index})")
                 ui.log_section(f"Refinement Iteration {index}")
                 update_cluster_corrections(params_all, clusters)
-
-            for cluster_idx, cluster in enumerate(clusters, 1):
-                import time as time_module
-
-                cluster_start = time_module.time()
+            
+            # Get global parameters as dict for passing to workers
+            params_global_dict = {name: params_all[name].value for name in params_all}
+            
+            # Fit clusters in parallel
+            with ThreadPoolExecutor(max_workers=n_workers) as executor:
+                futures = [
+                    executor.submit(
+                        _fit_single_cluster,
+                        cluster,
+                        idx,
+                        len(clusters),
+                        clargs,
+                        params_global_dict,
+                        verbose,
+                    )
+                    for idx, cluster in enumerate(clusters, 1)
+                ]
+                
+                # Collect and display results as they complete
+                results = []
+                for future in futures:
+                    cluster_idx, params, result, cluster_time = future.result()
+                    results.append((cluster_idx, params, result, cluster_time))
+                
+                # Sort by cluster index for consistent output
+                results.sort(key=lambda x: x[0])
+            
+            # Display results and update global parameters
+            for cluster_idx, (idx, params, result, cluster_time) in enumerate(results, 1):
+                cluster = clusters[idx - 1]
                 peak_names = [peak.name for peak in cluster.peaks]
                 peaks_str = ", ".join(peak_names)
                 n_peaks = len(cluster.peaks)
-
-                # Clean cluster output - add blank line between clusters (not before first)
+                
+                # Clean cluster output
                 if cluster_idx > 1:
                     console.print()
                 console.print(
-                    f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] "
+                    f"[bold cyan]Cluster {idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] "
                     f"{peaks_str} [dim][{n_peaks} peak{'s' if n_peaks != 1 else ''}][/dim]"
                 )
-
+                
                 # Log cluster info
                 ui.log("")
-                ui.log(f"Cluster {cluster_idx}/{len(clusters)}: {peaks_str}")
+                ui.log(f"Cluster {idx}/{len(clusters)}: {peaks_str}")
                 ui.log(f"  - Peaks: {len(cluster.peaks)}")
-
-                params = create_params(cluster.peaks, fixed=clargs.fixed)
-                params = _update_params(params, params_all)
-
-                # Get varying parameters
-                vary_names = params.get_vary_names()
-                ui.log(f"  - Varying parameters: {len(vary_names)}")
-
-                x0 = params.get_vary_values()
-                bounds_lower = np.array([params[name].min for name in vary_names])
-                bounds_upper = np.array([params[name].max for name in vary_names])
-
-                # Run optimization with scipy.optimize.least_squares
-                # verbose=0: silent, verbose=2: show iterations
-                scipy_verbose = 2 if verbose else 0
-                result = least_squares(
-                    _residual_wrapper,
-                    x0,
-                    args=(params, cluster, clargs.noise),
-                    bounds=(bounds_lower, bounds_upper),
-                    ftol=LEAST_SQUARES_FTOL,
-                    xtol=LEAST_SQUARES_XTOL,
-                    max_nfev=LEAST_SQUARES_MAX_NFEV,
-                    verbose=scipy_verbose,
-                )
-
-                # Update parameters with optimized values
-                for i, name in enumerate(vary_names):
-                    params[name].value = result.x[i]
-
-                # Compute standard errors from Jacobian
-                if result.jac is not None and len(result.fun) > len(vary_names):
-                    ndata = len(result.fun)
-                    nvarys = len(vary_names)
-                    redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
-                    try:
-                        jtj = result.jac.T @ result.jac
-                        cov = np.linalg.inv(jtj) * redchi
-                        stderr = np.sqrt(np.diag(cov))
-                        for i, name in enumerate(vary_names):
-                            params[name].stderr = float(stderr[i])
-                    except np.linalg.LinAlgError:
-                        # Singular matrix, can't compute errors
-                        pass
-
-                cluster_time = time_module.time() - cluster_start
-
-                # Print and log completion status - clean one-line output
+                ui.log(f"  - Varying parameters: {len(params.get_vary_names())}")
+                
+                # Print completion status
                 if result.success:
                     console.print(
                         f"[green]✓[/green] Converged [dim]│[/dim] "
@@ -456,13 +510,13 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                         f"{cluster_time:.1f}s"
                     )
                     ui.log(f"  - Status: {result.message}", level="warning")
-
+                
                 ui.log(f"  - Cost: {result.cost:.3e}")
                 ui.log(f"  - Function evaluations: {result.nfev}")
                 ui.log(f"  - Time: {cluster_time:.1f}s")
-
+                
                 params_all.update(params)
-
+    
     return params_all
 
 
