@@ -9,13 +9,17 @@ All functions are Numba-accelerated with production-level optimizations.
 Numba is a required dependency.
 """
 
+# Import registry FIRST (before models, as models use register_shape decorator)
 # Import functions for direct access
 from peakfit.lineshapes import functions
 from peakfit.lineshapes.functions import (
     calculate_lstsq_amplitude,
     compute_all_gaussian_shapes,
     compute_all_lorentzian_shapes,
+    compute_all_no_apod_shapes,
     compute_all_pvoigt_shapes,
+    compute_all_sp1_shapes,
+    compute_all_sp2_shapes,
     compute_ata_symmetric,
     evaluate_apod_shape,
     evaluate_apod_shape_no_apod,
@@ -30,7 +34,7 @@ from peakfit.lineshapes.functions import (
     warm_numba_cache,
 )
 
-# Import models (this will populate SHAPES via decorators)
+# Import models LAST (this will populate SHAPES via decorators)
 from peakfit.lineshapes.models import (
     SP1,
     SP2,
@@ -42,8 +46,6 @@ from peakfit.lineshapes.models import (
     PeakShape,
     PseudoVoigt,
 )
-
-# Import registry BEFORE models (models uses register_shape decorator)
 from peakfit.lineshapes.registry import SHAPES, Shape, get_shape, list_shapes, register_shape
 
 __all__ = [
@@ -58,7 +60,10 @@ __all__ = [
     "calculate_lstsq_amplitude",
     "compute_all_gaussian_shapes",
     "compute_all_lorentzian_shapes",
+    "compute_all_no_apod_shapes",
     "compute_all_pvoigt_shapes",
+    "compute_all_sp1_shapes",
+    "compute_all_sp2_shapes",
     "compute_ata_symmetric",
     "evaluate_apod_shape",
     "evaluate_apod_shape_no_apod",
