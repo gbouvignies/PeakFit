@@ -82,11 +82,7 @@ class TestParameterEdgeCases:
 
         for param_type in ParameterType:
             value = type_values.get(param_type, 100.0)  # Default to 100.0
-            p = Parameter(
-                f"test_{param_type.name}",
-                value=value,
-                param_type=param_type
-            )
+            p = Parameter(f"test_{param_type.name}", value=value, param_type=param_type)
             assert p.param_type == param_type
             # Parameter type is set correctly
             assert isinstance(p.param_type, ParameterType)
@@ -101,12 +97,15 @@ class TestLineshapeEdgeCases:
         yield
 
     def test_gaussian_zero_fwhm(self):
-        """Test Gaussian with zero FWHM (should raise or return delta function)."""
+        """Test Gaussian with zero FWHM (should return inf or nan).
+
+        Note: Numba with error_model="numpy" doesn't emit warnings,
+        but still produces inf/nan for division by zero.
+        """
         x = np.array([0.0, 0.1, 1.0])
-        # Zero FWHM might cause division by zero
-        with pytest.warns(RuntimeWarning):  # NumPy warns about division by zero
-            y = gaussian(x, fwhm=0.0)
-            assert np.any(np.isnan(y)) or np.any(np.isinf(y))
+        # Zero FWHM causes division by zero
+        y = gaussian(x, fwhm=0.0)
+        assert np.any(np.isnan(y)) or np.any(np.isinf(y))
 
     def test_gaussian_negative_fwhm(self):
         """Test Gaussian with negative FWHM (physically meaningless)."""
@@ -132,12 +131,16 @@ class TestLineshapeEdgeCases:
         assert np.all(y >= 0.0)
 
     def test_lorentzian_zero_fwhm(self):
-        """Test Lorentzian with zero FWHM."""
+        """Test Lorentzian with zero FWHM.
+
+        Note: Numba with error_model="numpy" doesn't emit warnings,
+        but still produces inf/nan for division by zero.
+        """
         x = np.array([0.0, 0.1, 1.0])
-        with pytest.warns(RuntimeWarning):  # Division by zero
-            y = lorentzian(x, fwhm=0.0)
-            # Division by zero produces NaN or Inf
-            assert np.any(np.isnan(y)) or np.any(np.isinf(y))
+        # Zero FWHM causes division by zero
+        y = lorentzian(x, fwhm=0.0)
+        # Division by zero produces NaN or Inf
+        assert np.any(np.isnan(y)) or np.any(np.isinf(y))
 
     def test_pvoigt_eta_boundaries(self):
         """Test Pseudo-Voigt with eta at boundaries."""
@@ -215,6 +218,7 @@ class TestBackendEdgeCases:
         # Backend selection is now deprecated
         # This test just verifies lineshapes still work
         import numpy as np
+
         x = np.linspace(-5, 5, 100)
         y = gaussian(x, fwhm=2.0)
         assert np.all(np.isfinite(y))
@@ -270,10 +274,7 @@ class TestConfigEdgeCases:
         from peakfit.io.config import load_config, save_config
         from peakfit.models import PeakFitConfig
 
-        config = PeakFitConfig(
-            noise_level=1.5,
-            exclude_planes=[1, 2, 3]
-        )
+        config = PeakFitConfig(noise_level=1.5, exclude_planes=[1, 2, 3])
         config.fitting.lineshape = "lorentzian"
         config.fitting.refine_iterations = 3
 

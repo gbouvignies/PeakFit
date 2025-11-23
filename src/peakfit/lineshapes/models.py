@@ -242,15 +242,22 @@ class ApodShape(BaseShape):
         return params
 
     def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
-        """Evaluate apodization shape at given points."""
+        """Evaluate apodization shape at given points.
+
+        Optimized to only compute lineshape for requested points rather than
+        the entire spectrum, significantly improving performance.
+        """
         parvalues = params.valuesdict()
         x0 = parvalues[f"{self.prefix}0"]
         r2 = parvalues[f"{self.prefix}_r2"]
         p0 = parvalues.get(f"{self.prefix_phase}p", 0.0)
         j_hz = parvalues.get(f"{self.prefix}_j", 0.0)
 
-        dx_pt, sign = self._compute_dx_and_sign(self.full_grid, x0)
+        # Only compute for requested points (optimization)
+        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_rads = self.spec_params.pts2hz_delta(dx_pt) * 2 * np.pi
+
+        # J-coupling: creates 2D array (n_coupling_components, n_points)
         j_rads = np.array([[0.0]]).T if j_hz == 0.0 else j_hz * np.pi * np.array([[1.0, -1.0]]).T
         dx_rads = dx_rads + j_rads
 
@@ -267,10 +274,13 @@ class ApodShape(BaseShape):
             shape_args += (self.spec_params.apodq2, self.spec_params.apodq1)
         shape_args += (p0,)
 
+        # Compute normalization (only depends on j_rads, not position)
         norm = np.sum(func(j_rads, *shape_args), axis=0)
+
+        # Compute shape at requested points only
         shape = np.sum(func(dx_rads, *shape_args), axis=0)
 
-        return sign[x_pt] * shape[x_pt] / norm
+        return sign * shape / norm
 
 
 @register_shape("no_apod")
