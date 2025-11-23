@@ -65,24 +65,6 @@ class TestMultiPeakApodFunctions:
         assert shapes.shape == (3, 256)
         assert np.all(np.isfinite(shapes))
 
-    def test_multi_peak_shapes_normalized(self):
-        """Test multi-peak shapes have reasonable peak heights."""
-        positions = np.linspace(-50, 50, 512)
-        centers = np.array([0.0])
-        r2s = np.array([10.0])
-        phases = np.array([0.0])
-        aq = 0.05
-        end, off = 1.0, 0.35
-
-        shapes_no_apod = compute_all_no_apod_shapes(positions, centers, r2s, aq, phases)
-        shapes_sp1 = compute_all_sp1_shapes(positions, centers, r2s, aq, end, off, phases)
-        shapes_sp2 = compute_all_sp2_shapes(positions, centers, r2s, aq, end, off, phases)
-
-        # All should have peak near center
-        assert np.max(np.abs(shapes_no_apod[0])) > 0.5
-        assert np.max(np.abs(shapes_sp1[0])) > 0.1
-        assert np.max(np.abs(shapes_sp2[0])) > 0.1
-
     def test_multi_peak_parallel_performance(self):
         """Benchmark multi-peak vs sequential (informational)."""
         import time

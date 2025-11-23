@@ -215,18 +215,18 @@ def compute_all_no_apod_shapes(
 
         for j in range(n_points):
             dx = positions[j] - center
-            # Compute complex FID
-            z1_real = -aq * r2
+            # Compute z1 = aq * (1j*dx + r2)
+            z1_real = aq * r2
             z1_imag = aq * dx
 
             # exp(-z1) = exp(-z1_real) * (cos(-z1_imag) + i*sin(-z1_imag))
-            exp_z1_mag = np.exp(z1_real)
-            exp_z1_cos = np.cos(z1_imag)
-            exp_z1_sin = np.sin(z1_imag)
+            exp_z1_mag = np.exp(-z1_real)
+            exp_z1_cos = np.cos(-z1_imag)
+            exp_z1_sin = np.sin(-z1_imag)
 
             # spec = aq * (1 - exp(-z1)) / z1
             numer_real = aq * (1.0 - exp_z1_mag * exp_z1_cos)
-            numer_imag = aq * exp_z1_mag * exp_z1_sin
+            numer_imag = -aq * exp_z1_mag * exp_z1_sin
 
             denom_real = z1_real
             denom_imag = z1_imag
@@ -298,18 +298,102 @@ def compute_all_sp1_shapes(
         for j in range(n_points):
             dx = positions[j] - center
 
-            # z1 = aq * (i*dx + r2)
-            z1_real = -aq * r2
+            # z1 = aq * (1j*dx + r2)
+            z1_real = aq * r2
             z1_imag = aq * dx
 
-            # Compute a1 and a2 terms using manual complex arithmetic
-            # a1 = (exp(+f2) - exp(z1)) * exp(-z1 + f1) / (2 * (z1 - f2))
-            # a2 = (exp(z1) - exp(-f2)) * exp(-z1 - f1) / (2 * (z1 + f2))
+            # f1 = 1j * off * π (pure imaginary)
+            # f2 = 1j * (end - off) * π (pure imaginary)
 
-            # This is simplified - using the same approach as no_apod
-            # For production, full complex arithmetic expansion would be here
-            # For now, call the single-peak function (still gains from parallel loop)
-            result = sp1(np.array([dx]), r2, aq, end, off, phase)[0]
+            # exp(f2) = exp(1j * f2_imag) = cos(f2_imag) + 1j*sin(f2_imag)
+            exp_f2_real = np.cos(f2_imag)
+            exp_f2_imag = np.sin(f2_imag)
+
+            # exp(z1) = exp(z1_real) * (cos(z1_imag) + 1j*sin(z1_imag))
+            exp_z1_mag = np.exp(z1_real)
+            exp_z1_real = exp_z1_mag * np.cos(z1_imag)
+            exp_z1_imag = exp_z1_mag * np.sin(z1_imag)
+
+            # exp(-z1) = exp(-z1_real) * (cos(-z1_imag) + 1j*sin(-z1_imag))
+            exp_nz1_mag = np.exp(-z1_real)
+            exp_nz1_real = exp_nz1_mag * np.cos(z1_imag)
+            exp_nz1_imag = -exp_nz1_mag * np.sin(z1_imag)
+
+            # exp(-f2) = cos(-f2_imag) + 1j*sin(-f2_imag)
+            exp_nf2_real = np.cos(f2_imag)
+            exp_nf2_imag = -np.sin(f2_imag)
+
+            # a1_num = (exp(f2) - exp(z1))
+            a1_num_real = exp_f2_real - exp_z1_real
+            a1_num_imag = exp_f2_imag - exp_z1_imag
+
+            # a1 = a1_num * exp(-z1 + f1) / (2 * (z1 - f2))
+            # exp(-z1 + f1) = exp(-z1) * exp(f1)
+            # exp(f1) = cos(f1_imag) + 1j*sin(f1_imag)
+            exp_f1_real = np.cos(f1_imag)
+            exp_f1_imag = np.sin(f1_imag)
+
+            # exp(-z1 + f1) = exp(-z1) * exp(f1) (complex multiplication)
+            exp_nz1_f1_real = exp_nz1_real * exp_f1_real - exp_nz1_imag * exp_f1_imag
+            exp_nz1_f1_imag = exp_nz1_real * exp_f1_imag + exp_nz1_imag * exp_f1_real
+
+            # a1_num * exp(-z1 + f1) (complex multiplication)
+            a1_numer_real = a1_num_real * exp_nz1_f1_real - a1_num_imag * exp_nz1_f1_imag
+            a1_numer_imag = a1_num_real * exp_nz1_f1_imag + a1_num_imag * exp_nz1_f1_real
+
+            # a1_denom = 2 * (z1 - f2) = 2 * (z1_real + 1j*(z1_imag - f2_imag))
+            a1_denom_real = 2.0 * z1_real
+            a1_denom_imag = 2.0 * (z1_imag - f2_imag)
+            a1_denom_mag_sq = a1_denom_real * a1_denom_real + a1_denom_imag * a1_denom_imag
+
+            # a1 = a1_numer / a1_denom (complex division)
+            a1_real = (
+                a1_numer_real * a1_denom_real + a1_numer_imag * a1_denom_imag
+            ) / a1_denom_mag_sq
+            a1_imag = (
+                a1_numer_imag * a1_denom_real - a1_numer_real * a1_denom_imag
+            ) / a1_denom_mag_sq
+
+            # a2_num = (exp(z1) - exp(-f2))
+            a2_num_real = exp_z1_real - exp_nf2_real
+            a2_num_imag = exp_z1_imag - exp_nf2_imag
+
+            # a2 = a2_num * exp(-z1 - f1) / (2 * (z1 + f2))
+            # exp(-z1 - f1) = exp(-z1) * exp(-f1)
+            # exp(-f1) = cos(-f1_imag) + 1j*sin(-f1_imag)
+            exp_nf1_real = np.cos(f1_imag)
+            exp_nf1_imag = -np.sin(f1_imag)
+
+            # exp(-z1 - f1) = exp(-z1) * exp(-f1) (complex multiplication)
+            exp_nz1_nf1_real = exp_nz1_real * exp_nf1_real - exp_nz1_imag * exp_nf1_imag
+            exp_nz1_nf1_imag = exp_nz1_real * exp_nf1_imag + exp_nz1_imag * exp_nf1_real
+
+            # a2_num * exp(-z1 - f1) (complex multiplication)
+            a2_numer_real = a2_num_real * exp_nz1_nf1_real - a2_num_imag * exp_nz1_nf1_imag
+            a2_numer_imag = a2_num_real * exp_nz1_nf1_imag + a2_num_imag * exp_nz1_nf1_real
+
+            # a2_denom = 2 * (z1 + f2) = 2 * (z1_real + 1j*(z1_imag + f2_imag))
+            a2_denom_real = 2.0 * z1_real
+            a2_denom_imag = 2.0 * (z1_imag + f2_imag)
+            a2_denom_mag_sq = a2_denom_real * a2_denom_real + a2_denom_imag * a2_denom_imag
+
+            # a2 = a2_numer / a2_denom (complex division)
+            a2_real = (
+                a2_numer_real * a2_denom_real + a2_numer_imag * a2_denom_imag
+            ) / a2_denom_mag_sq
+            a2_imag = (
+                a2_numer_imag * a2_denom_real - a2_numer_real * a2_denom_imag
+            ) / a2_denom_mag_sq
+
+            # spec = 1j * aq * (a1 + a2)
+            # 1j * (a1 + a2) = 1j * ((a1_real + a2_real) + 1j*(a1_imag + a2_imag))
+            #                = -( a1_imag + a2_imag) + 1j*(a1_real + a2_real)
+            spec_real = -aq * (a1_imag + a2_imag)
+            spec_imag = aq * (a1_real + a2_real)
+
+            # Apply phase correction: spec * phase_factor
+            result = spec_real * phase_real - spec_imag * phase_imag
+
             shapes[i, j] = result
 
     return shapes
@@ -369,13 +453,115 @@ def compute_all_sp2_shapes(
         for j in range(n_points):
             dx = positions[j] - center
 
-            # z1 = aq * (i*dx + r2)
-            z1_real = -aq * r2
+            # z1 = aq * (1j*dx + r2)
+            z1_real = aq * r2
             z1_imag = aq * dx
 
-            # For production: manual complex arithmetic would be fully expanded here
-            # For now, leverage the single-peak function within parallel loop
-            result = sp2(np.array([dx]), r2, aq, end, off, phase)[0]
+            # f1 = 1j * off * π (pure imaginary)
+            # f2 = 1j * (end - off) * π (pure imaginary)
+
+            # exp(2*f2) = cos(2*f2_imag) + 1j*sin(2*f2_imag)
+            exp_2f2_real = np.cos(2.0 * f2_imag)
+            exp_2f2_imag = np.sin(2.0 * f2_imag)
+
+            # exp(-2*f2) = cos(-2*f2_imag) + 1j*sin(-2*f2_imag)
+            exp_n2f2_real = np.cos(2.0 * f2_imag)
+            exp_n2f2_imag = -np.sin(2.0 * f2_imag)
+
+            # exp(z1)
+            exp_z1_mag = np.exp(z1_real)
+            exp_z1_real = exp_z1_mag * np.cos(z1_imag)
+            exp_z1_imag = exp_z1_mag * np.sin(z1_imag)
+
+            # exp(-z1)
+            exp_nz1_mag = np.exp(-z1_real)
+            exp_nz1_real = exp_nz1_mag * np.cos(z1_imag)
+            exp_nz1_imag = -exp_nz1_mag * np.sin(z1_imag)
+
+            # === Compute a1 ===
+            # a1_num = (exp(2*f2) - exp(z1))
+            a1_num_real = exp_2f2_real - exp_z1_real
+            a1_num_imag = exp_2f2_imag - exp_z1_imag
+
+            # exp(-z1 + 2*f1) = exp(-z1) * exp(2*f1)
+            # exp(2*f1) = cos(2*f1_imag) + 1j*sin(2*f1_imag)
+            exp_2f1_real = np.cos(2.0 * f1_imag)
+            exp_2f1_imag = np.sin(2.0 * f1_imag)
+
+            # exp(-z1 + 2*f1) (complex multiplication)
+            exp_nz1_2f1_real = exp_nz1_real * exp_2f1_real - exp_nz1_imag * exp_2f1_imag
+            exp_nz1_2f1_imag = exp_nz1_real * exp_2f1_imag + exp_nz1_imag * exp_2f1_real
+
+            # a1_num * exp(-z1 + 2*f1)
+            a1_numer_real = a1_num_real * exp_nz1_2f1_real - a1_num_imag * exp_nz1_2f1_imag
+            a1_numer_imag = a1_num_real * exp_nz1_2f1_imag + a1_num_imag * exp_nz1_2f1_real
+
+            # a1_denom = 4 * (z1 - 2*f2) = 4 * (z1_real + 1j*(z1_imag - 2*f2_imag))
+            a1_denom_real = 4.0 * z1_real
+            a1_denom_imag = 4.0 * (z1_imag - 2.0 * f2_imag)
+            a1_denom_mag_sq = a1_denom_real * a1_denom_real + a1_denom_imag * a1_denom_imag
+
+            # a1 = a1_numer / a1_denom
+            a1_real = (
+                a1_numer_real * a1_denom_real + a1_numer_imag * a1_denom_imag
+            ) / a1_denom_mag_sq
+            a1_imag = (
+                a1_numer_imag * a1_denom_real - a1_numer_real * a1_denom_imag
+            ) / a1_denom_mag_sq
+
+            # === Compute a2 ===
+            # a2_num = (exp(-2*f2) - exp(z1))
+            a2_num_real = exp_n2f2_real - exp_z1_real
+            a2_num_imag = exp_n2f2_imag - exp_z1_imag
+
+            # exp(-z1 - 2*f1) = exp(-z1) * exp(-2*f1)
+            # exp(-2*f1) = cos(-2*f1_imag) + 1j*sin(-2*f1_imag)
+            exp_n2f1_real = np.cos(2.0 * f1_imag)
+            exp_n2f1_imag = -np.sin(2.0 * f1_imag)
+
+            # exp(-z1 - 2*f1) (complex multiplication)
+            exp_nz1_n2f1_real = exp_nz1_real * exp_n2f1_real - exp_nz1_imag * exp_n2f1_imag
+            exp_nz1_n2f1_imag = exp_nz1_real * exp_n2f1_imag + exp_nz1_imag * exp_n2f1_real
+
+            # a2_num * exp(-z1 - 2*f1)
+            a2_numer_real = a2_num_real * exp_nz1_n2f1_real - a2_num_imag * exp_nz1_n2f1_imag
+            a2_numer_imag = a2_num_real * exp_nz1_n2f1_imag + a2_num_imag * exp_nz1_n2f1_real
+
+            # a2_denom = 4 * (z1 + 2*f2) = 4 * (z1_real + 1j*(z1_imag + 2*f2_imag))
+            a2_denom_real = 4.0 * z1_real
+            a2_denom_imag = 4.0 * (z1_imag + 2.0 * f2_imag)
+            a2_denom_mag_sq = a2_denom_real * a2_denom_real + a2_denom_imag * a2_denom_imag
+
+            # a2 = a2_numer / a2_denom
+            a2_real = (
+                a2_numer_real * a2_denom_real + a2_numer_imag * a2_denom_imag
+            ) / a2_denom_mag_sq
+            a2_imag = (
+                a2_numer_imag * a2_denom_real - a2_numer_real * a2_denom_imag
+            ) / a2_denom_mag_sq
+
+            # === Compute a3 ===
+            # a3 = (1.0 - exp(-z1)) / (2 * z1)
+            # a3_num = 1.0 - exp(-z1)
+            a3_num_real = 1.0 - exp_nz1_real
+            a3_num_imag = -exp_nz1_imag
+
+            # a3_denom = 2 * z1
+            a3_denom_real = 2.0 * z1_real
+            a3_denom_imag = 2.0 * z1_imag
+            a3_denom_mag_sq = a3_denom_real * a3_denom_real + a3_denom_imag * a3_denom_imag
+
+            # a3 = a3_num / a3_denom
+            a3_real = (a3_num_real * a3_denom_real + a3_num_imag * a3_denom_imag) / a3_denom_mag_sq
+            a3_imag = (a3_num_imag * a3_denom_real - a3_num_real * a3_denom_imag) / a3_denom_mag_sq
+
+            # === Combine: spec = aq * (a1 + a2 + a3) ===
+            spec_real = aq * (a1_real + a2_real + a3_real)
+            spec_imag = aq * (a1_imag + a2_imag + a3_imag)
+
+            # Apply phase correction: spec * phase_factor
+            result = spec_real * phase_real - spec_imag * phase_imag
+
             shapes[i, j] = result
 
     return shapes
