@@ -24,6 +24,8 @@ from peakfit.diagnostics.convergence import (
 from peakfit.diagnostics.plots import (
     plot_autocorrelation,
     plot_corner,
+    plot_correlation_pairs,
+    plot_marginal_distributions,
     plot_posterior_summary,
     plot_trace,
     save_diagnostic_plots,
@@ -38,7 +40,9 @@ __all__ = [
     "format_diagnostics_table",
     # Plotting functions
     "plot_trace",
-    "plot_corner",
+    "plot_corner",  # Kept for backward compatibility
+    "plot_marginal_distributions",
+    "plot_correlation_pairs",
     "plot_autocorrelation",
     "plot_posterior_summary",
     "save_diagnostic_plots",

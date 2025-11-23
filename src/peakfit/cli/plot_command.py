@@ -458,11 +458,12 @@ def plot_mcmc_diagnostics(
             # Generate all diagnostic plots
             from peakfit.diagnostics import (
                 plot_autocorrelation,
-                plot_corner,
+                plot_correlation_pairs,
+                plot_marginal_distributions,
                 plot_trace,
             )
 
-            # Flatten chains for corner plot
+            # Flatten chains for marginal and correlation plots
             samples_flat = chains.reshape(-1, chains.shape[2])
 
             # Page 1: Trace plots
@@ -470,12 +471,29 @@ def plot_mcmc_diagnostics(
             pdf.savefig(fig_trace, bbox_inches="tight")
             plt.close(fig_trace)
 
-            # Page 2: Corner plot
-            fig_corner = plot_corner(samples_flat, parameter_names, best_fit_values)
-            pdf.savefig(fig_corner, bbox_inches="tight")
-            plt.close(fig_corner)
+            # Pages 2+: Marginal distributions (1D histograms with full names)
+            figs_marginal = plot_marginal_distributions(
+                samples_flat, parameter_names, best_fit_values, diagnostics
+            )
+            for fig in figs_marginal:
+                pdf.savefig(fig, bbox_inches="tight")
+                plt.close(fig)
 
-            # Page 3: Autocorrelation plots
+            # Pages N+: Correlation pairs (2D plots for strongly correlated params)
+            figs_corr = plot_correlation_pairs(
+                samples_flat, parameter_names, best_fit_values, min_correlation=0.5
+            )
+            if figs_corr:
+                for fig in figs_corr:
+                    pdf.savefig(fig, bbox_inches="tight")
+                    plt.close(fig)
+            else:
+                # No strong correlations - add a note
+                ui.info(
+                    f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}"
+                )
+
+            # Last page: Autocorrelation plots
             fig_autocorr = plot_autocorrelation(chains, parameter_names)
             pdf.savefig(fig_autocorr, bbox_inches="tight")
             plt.close(fig_autocorr)
@@ -493,7 +511,8 @@ def plot_mcmc_diagnostics(
     ui.print_next_steps(
         [
             f"Open plots: [cyan]open {output_path}[/cyan]",
-            "Review convergence: Check R-hat ≤ 1.01 in trace plots",
-            "Inspect correlations: Look for patterns in corner plots",
+            "Review trace plots: Check R-hat ≤ 1.01 and chain convergence",
+            "Inspect marginal distributions: Review parameter posteriors with full names",
+            "Check correlations: Look for strongly correlated parameter pairs (|r| ≥ 0.5)",
         ]
     )
