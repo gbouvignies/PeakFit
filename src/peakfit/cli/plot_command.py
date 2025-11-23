@@ -406,7 +406,20 @@ def plot_mcmc_diagnostics(
     peaks: list[str] | None,
     verbose: bool = False,
 ) -> None:
-    """Generate MCMC diagnostic plots from saved chain data."""
+    """Generate MCMC diagnostic plots from saved chain data.
+
+    Creates one PDF per cluster with:
+    - Trace plots (convergence)
+    - Marginal distributions (1D posteriors with stats)
+    - Correlation pairs (2D plots for |r| ≥ 0.5)
+    - Autocorrelation plots (mixing efficiency)
+
+    Args:
+        results: Path to results directory containing .mcmc_chains.pkl
+        output: Optional output path/prefix for PDFs
+        peaks: Optional list of peak names to plot (default: all)
+        verbose: Show banner
+    """
     import pickle
 
     # Show banner based on verbosity
@@ -437,32 +450,44 @@ def plot_mcmc_diagnostics(
 
     ui.success(f"Found MCMC data for {len(mcmc_data)} cluster(s)")
 
-    output_path = output or Path("mcmc_diagnostics.pdf")
-    ui.success(f"Saving diagnostic plots to: [path]{output_path}[/path]")
-
     # Import plotting functions
-    from peakfit.diagnostics import save_diagnostic_plots
+    from peakfit.diagnostics import (
+        plot_autocorrelation,
+        plot_correlation_pairs,
+        plot_marginal_distributions,
+        plot_trace,
+    )
 
-    # Generate plots for each cluster
-    with PdfPages(output_path) as pdf:
-        for i, data in enumerate(mcmc_data):
-            peak_names = data["peak_names"]
-            chains = data["chains"]  # Shape: (n_walkers, n_steps, n_params)
-            parameter_names = data["parameter_names"]
-            burn_in = data.get("burn_in", 0)
-            diagnostics = data.get("diagnostics", None)
-            best_fit_values = data.get("best_fit_values", None)
+    # Generate separate PDF for each cluster
+    output_files = []
+    for i, data in enumerate(mcmc_data):
+        peak_names = data["peak_names"]
+        chains = data["chains"]  # Shape: (n_walkers, n_steps, n_params)
+        parameter_names = data["parameter_names"]
+        burn_in = data.get("burn_in", 0)
+        diagnostics = data.get("diagnostics", None)
+        best_fit_values = data.get("best_fit_values", None)
 
-            ui.info(f"[cyan]Cluster {i + 1}/{len(mcmc_data)}:[/cyan] {', '.join(peak_names)}")
+        # Create output filename for this cluster
+        if len(mcmc_data) == 1:
+            # Single cluster: use simple name
+            cluster_output = output or Path("mcmc_diagnostics.pdf")
+        else:
+            # Multiple clusters: include peak names in filename
+            peak_label = "_".join(peak_names)
+            if output:
+                # User specified output: append peak label before extension
+                base = output.stem
+                suffix = output.suffix
+                cluster_output = output.parent / f"{base}_{peak_label}{suffix}"
+            else:
+                cluster_output = Path(f"mcmc_diagnostics_{peak_label}.pdf")
 
-            # Generate all diagnostic plots
-            from peakfit.diagnostics import (
-                plot_autocorrelation,
-                plot_correlation_pairs,
-                plot_marginal_distributions,
-                plot_trace,
-            )
+        ui.info(f"[cyan]Cluster {i + 1}/{len(mcmc_data)}:[/cyan] {', '.join(peak_names)}")
+        ui.info(f"  Saving to: [path]{cluster_output}[/path]")
 
+        # Generate plots for this cluster
+        with PdfPages(cluster_output) as pdf:
             # Flatten chains for marginal and correlation plots
             samples_flat = chains.reshape(-1, chains.shape[2])
 
@@ -498,19 +523,27 @@ def plot_mcmc_diagnostics(
             pdf.savefig(fig_autocorr, bbox_inches="tight")
             plt.close(fig_autocorr)
 
-    ui.success(f"Diagnostic plots saved to: [path]{output_path}[/path]")
+        output_files.append(cluster_output)
+        ui.success(f"  Saved: [path]{cluster_output}[/path]")
+        console.print()
 
     # Summary
-    file_size = output_path.stat().st_size / 1024 / 1024  # MB
-    console.print()
     console.print(f"[bold]Summary:[/bold]")
     console.print(f"  • Clusters plotted: {len(mcmc_data)}")
-    console.print(f"  • File size: {file_size:.1f} MB")
-    console.print(f"  • Output: [path]{output_path}[/path]")
+    console.print(f"  • PDFs generated: {len(output_files)}")
+    for out_file in output_files:
+        file_size = out_file.stat().st_size / 1024 / 1024  # MB
+        console.print(f"    - [path]{out_file}[/path] ({file_size:.1f} MB)")
+
+    # Next steps
+    if len(output_files) == 1:
+        open_cmd = f"open {output_files[0]}"
+    else:
+        open_cmd = f"open {' '.join(str(f) for f in output_files)}"
 
     ui.print_next_steps(
         [
-            f"Open plots: [cyan]open {output_path}[/cyan]",
+            f"Open plots: [cyan]{open_cmd}[/cyan]",
             "Review trace plots: Check R-hat ≤ 1.01 and chain convergence",
             "Inspect marginal distributions: Review parameter posteriors with full names",
             "Check correlations: Look for strongly correlated parameter pairs (|r| ≥ 0.5)",
