@@ -41,8 +41,8 @@ Old imports → New imports:
 
 ### Added
 
-- **Parallel Cluster Fitting**: Multi-core support for faster fitting
-  - Use `--parallel` flag: `peakfit fit spectrum.ft2 peaks.list --parallel`
+- **Parallel Cluster Fitting**: Multi-core support for faster fitting (automatic)
+  - Multi-core support is chosen automatically; the CLI no longer exposes a `--parallel` flag
   - Automatic CPU core detection
   - Linear scaling with number of clusters
   - Maintains refinement iterations for cross-talk correction

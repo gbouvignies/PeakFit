@@ -73,7 +73,6 @@ def run_fit(
     z_values_path: Path | None,
     config: PeakFitConfig,
     n_workers: int | None = None,
-    backend: str = "auto",
     optimizer: str = "leastsq",
     save_state: bool = True,
     verbose: bool = False,
@@ -87,7 +86,7 @@ def run_fit(
         config: Configuration object.
         Note: Parallel processing is selected automatically. Use `n_workers` to hint
         at the number of worker threads to use.
-        backend: Computation backend (deprecated, always uses NumPy).
+        Note: Backend selection has been deprecated; NumPy is always used.
         optimizer: Optimization algorithm (leastsq, basin-hopping, differential-evolution).
         save_state: Whether to save fitting state for later analysis.
         verbose: Show banner and verbose output.
@@ -113,8 +112,8 @@ def run_fit(
     # ============================================================
     # SECTION 1: CONFIGURATION
     # ============================================================
-    # Initialize computation backend (returns selected backend)
-    selected_backend = _initialize_backend(backend)
+    # Backend selection has been removed. The computation backend is always NumPy.
+    # No initialization required.
 
     # Validate optimizer choice
     valid_optimizers = ["leastsq", "basin-hopping", "differential-evolution"]
@@ -128,7 +127,7 @@ def run_fit(
         console.print("  [dim]This may take significantly longer than standard fitting[/dim]")
 
     # Show configuration in a consolidated table
-    _print_configuration(selected_backend, n_workers, config.output.directory)
+    _print_configuration(n_workers, config.output.directory)
 
     # ============================================================
     # SECTION 2: LOADING INPUT FILES
@@ -236,7 +235,7 @@ def run_fit(
     ui.show_header("Fitting Clusters")
     ui.log_section("Fitting")
     ui.log(f"Optimizer: {optimizer}")
-    ui.log(f"Backend: {backend}")
+    ui.log("Backend: numpy (default)")
     ui.log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
     ui.log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
     ui.log("")
@@ -633,29 +632,10 @@ def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
     )
 
 
-def _initialize_backend(backend: str) -> str:
-    """Initialize the computation backend.
-
-    Args:
-        backend: Requested backend - DEPRECATED (always uses NumPy)
-        parallel: (Deprecated) Whether parallel mode was enabled (ignored)
-
-    Returns:
-        Selected backend name (always 'numpy')
-    """
-    # Backend selection is deprecated - always use numpy
-    if backend != "auto" and backend != "numpy":
-        ui.warning("Backend selection is deprecated. Using numpy.")
-    return "numpy"
-
-
-def _print_configuration(
-    backend: str, n_workers: int | None, output_dir: Path
-) -> None:
+def _print_configuration(n_workers: int | None, output_dir: Path) -> None:
     """Print configuration information in a consolidated table.
 
     Args:
-        backend: Backend name (deprecated, always numpy)
         n_workers: Number of workers (if specified)
         output_dir: Output directory path
     """

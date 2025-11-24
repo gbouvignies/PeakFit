@@ -170,14 +170,8 @@ def fit(
             min=1,
         ),
     ] = None,
-    backend: Annotated[
-        str,
-        typer.Option(
-            "--backend",
-            "-b",
-            help="Computation backend (deprecated, always uses numpy)",
-        ),
-    ] = "auto",
+    # Backend selection is deprecated and removed from CLI. The computation backend
+    # now always uses NumPy internally.
     optimizer: Annotated[
         str,
         typer.Option(
@@ -246,7 +240,6 @@ def fit(
         z_values_path=z_values,
         config=fit_config,
         n_workers=workers,
-        backend=backend,
         optimizer=optimizer,
         save_state=save_state,
         verbose=verbose,
@@ -712,8 +705,6 @@ def info(
     # Benchmark
     if benchmark:
         console.print("\n[yellow]Benchmark option is deprecated and has been removed.[/yellow]")
-
-
 
 
 @app.command()
