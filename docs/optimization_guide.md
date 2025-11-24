@@ -98,7 +98,7 @@ report = profiler.finalize()
 print(report.summary())
 ```
 
-### Reuse Computations (removed)
+###
 
 ### Custom Worker Configuration
 
@@ -185,7 +185,7 @@ params = fit_clusters_parallel_refined(clusters, noise, n_workers=8)
 # Profiling
 from peakfit.analysis.profiling import Profiler, ProfileReport
 
-## Memoization and Alternatives
+##
 ```
 
 ## Version History
