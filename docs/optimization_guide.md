@@ -8,7 +8,7 @@ PeakFit uses pure NumPy implementations for all lineshape calculations, providin
 
 1. **Parallel processing** - Fit multiple clusters simultaneously
 2. **Fast scipy optimization** - Direct interface with scipy.optimize
-3. **Efficient caching** - Reuse computed results
+3. **Efficient repeated computations** - Reuse computed results
 4. **Profiling** - Identify bottlenecks
 
 ## Quick Start
@@ -99,32 +99,10 @@ report = profiler.finalize()
 print(report.summary())
 ```
 
-### Caching for Repeated Operations
+### Memoization for Repeated Operations
 
-The legacy `peakfit.analysis.caching` utilities are no longer part of the
-public API. For caching and memoization, prefer the standard library or
-well-maintained third-party packages.
-
-Examples:
-
-```python
-# Simple in-memory memoization with builtin functools
-from functools import lru_cache
-
-@lru_cache(maxsize=128)
-def expensive_computation(key: str):
-   # Convert key to data and compute
-   return 42
-
-# For a persistent disk cache, use joblib or diskcache
-from joblib import Memory
-memory = Memory("./joblib_cache", verbose=0)
-
-@memory.cache
-def expensive_computation_persistent(data):
-   # Convert to numpy array and compute
-   return 42
-```
+This section removed: PeakFit no longer ships internal memoization utilities.
+Use the Python standard library or third-party packages if you need memoization.
 
 ### Custom Worker Configuration
 
@@ -211,12 +189,10 @@ params = fit_clusters_parallel_refined(clusters, noise, n_workers=8)
 # Profiling
 from peakfit.analysis.profiling import Profiler, ProfileReport
 
-# Caching
-Use `functools.lru_cache` or third-party libraries like `joblib` or
-`diskcache` for advanced caching needs.
+# Memoization and Alternatives (removed)
 ```
 
 ## Version History
 
 - **v2025.12.0**: Removed Numba dependency, NumPy-only implementation
-- **v0.2.0**: Added fast scipy optimization, parallel fitting, profiling, caching
+- **v0.2.0**: Added fast scipy optimization, parallel fitting, profiling

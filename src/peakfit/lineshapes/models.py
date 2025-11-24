@@ -4,12 +4,16 @@ This module provides various lineshape model classes (Gaussian, Lorentzian, Pseu
 and apodization-based shapes) for fitting NMR peaks.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.fitting.parameters import Parameters, ParameterType
+if TYPE_CHECKING:
+    from peakfit.fitting.parameters import Parameters
 from peakfit.lineshapes import functions
 from peakfit.lineshapes.registry import register_shape
 from peakfit.typing import FittingOptions, FloatArray, IntArray
@@ -122,6 +126,9 @@ class PeakShape(BaseShape):
 
     def create_params(self) -> Parameters:
         """Create parameters for peak shape (position and FWHM)."""
+        # Import ParameterType at runtime to avoid circular imports during module import
+        from peakfit.fitting.parameters import Parameters, ParameterType
+
         params = Parameters()
         params.add(
             f"{self.prefix}0",
@@ -172,6 +179,9 @@ class PseudoVoigt(PeakShape):
     def create_params(self) -> Parameters:
         """Create parameters including eta mixing factor."""
         params = super().create_params()
+        # Import ParameterType at runtime to avoid circular imports
+        from peakfit.fitting.parameters import ParameterType
+
         params.add(
             f"{self.prefix}_eta",
             value=0.5,
@@ -203,6 +213,9 @@ class ApodShape(BaseShape):
 
     def create_params(self) -> Parameters:
         """Create parameters for apodization shape."""
+        # Import ParameterType and Parameters at runtime to avoid circular imports
+        from peakfit.fitting.parameters import Parameters, ParameterType
+
         params = Parameters()
         params.add(
             f"{self.prefix}0",
