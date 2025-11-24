@@ -1,15 +1,20 @@
 """Output file writers for peak fitting results."""
 
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from peakfit.data.clustering import Cluster
-from peakfit.data.peaks import Peak
 from peakfit.fitting.computation import calculate_shape_heights
 from peakfit.fitting.parameters import Parameters
 from peakfit.typing import FittingOptions, FloatArray
 from peakfit.ui import PeakFitUI
+
+if TYPE_CHECKING:
+    from peakfit.data.peaks import Peak
 
 ui = PeakFitUI
 
