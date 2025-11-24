@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `peakfit.fitting/` - Fitting algorithms, parameters, and results
   - `peakfit.data/` - Spectrum and peak data structures
   - `peakfit.models/` - Configuration models
-  - `peakfit.analysis/` - Benchmarking, profiling, caching
+  - `peakfit.analysis/` - Benchmarking and profiling
   - `peakfit.io/` - Input/output operations
 - Removed `core/` module - functionality redistributed to logical packages
 - Backend selection system removed - always uses NumPy
@@ -36,7 +36,6 @@ Old imports → New imports:
 - Numba JIT compilation support
 - Backend selection (`--backend` option)
 - `performance` optional dependency group
- - `peakfit.analysis.caching` module and caching utilities
 
 ## [Unreleased]
 
@@ -103,7 +102,7 @@ Old imports → New imports:
   - `peakfit/fitting/` - Fitting algorithms and parameters
   - `peakfit/data/` - Spectrum and peak data structures
   - `peakfit/models/` - Configuration models
-  - `peakfit/analysis/` - Benchmarking, profiling, caching
+  - `peakfit/analysis/` - Benchmarking and profiling
   - `peakfit/io/` - Input/output operations
   - `peakfit/cli/` - Modern Typer CLI
 

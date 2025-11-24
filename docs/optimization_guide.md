@@ -8,8 +8,7 @@ PeakFit uses pure NumPy implementations for all lineshape calculations, providin
 
 1. **Parallel processing** - Fit multiple clusters simultaneously
 2. **Fast scipy optimization** - Direct interface with scipy.optimize
-3. **Efficient repeated computations** - Reuse computed results
-4. **Profiling** - Identify bottlenecks
+3. **Profiling** - Identify bottlenecks
 
 ## Quick Start
 
@@ -99,10 +98,7 @@ report = profiler.finalize()
 print(report.summary())
 ```
 
-### Memoization for Repeated Operations
-
-This section removed: PeakFit no longer ships internal memoization utilities.
-Use the Python standard library or third-party packages if you need memoization.
+### Reuse Computations (removed)
 
 ### Custom Worker Configuration
 
@@ -189,7 +185,7 @@ params = fit_clusters_parallel_refined(clusters, noise, n_workers=8)
 # Profiling
 from peakfit.analysis.profiling import Profiler, ProfileReport
 
-# Memoization and Alternatives (removed)
+## Memoization and Alternatives
 ```
 
 ## Version History
