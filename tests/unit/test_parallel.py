@@ -1,27 +1,16 @@
-"""Test parallel fitting functionality."""
+"""Parallel module removal test.
+
+This test ensures that the parallelization module has been removed and is
+no longer importable.
+"""
 
 import pytest
 
-# Skip these tests if dependencies aren't available
-pytest.importorskip("lmfit")
 
-
-class TestParallelFitting:
-    """Tests for parallel fitting module."""
-
-    def test_import_parallel_module(self):
-        """Should be able to import parallel module."""
-        from peakfit.fitting.parallel import fit_clusters_parallel, fit_clusters_parallel_refined
-
-        assert callable(fit_clusters_parallel)
-        assert callable(fit_clusters_parallel_refined)
-
-    def test_single_cluster_worker(self):
-        """Single cluster fitting should work."""
-        from peakfit.fitting.parallel import _fit_single_cluster
-
-        # This is tested indirectly - the function signature is correct
-        assert callable(_fit_single_cluster)
+def test_parallel_module_removed():
+    """Importing `peakfit.fitting.parallel` should fail now that it's removed."""
+    with pytest.raises(ModuleNotFoundError):
+        __import__("peakfit.fitting.parallel")
 
 
 class TestOptimizedFunctions:

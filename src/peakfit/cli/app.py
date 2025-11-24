@@ -159,17 +159,7 @@ def fit(
             help="Plane indices to exclude (can be specified multiple times)",
         ),
     ] = None,
-    # Note: removed `--parallel` CLI option. Parallelism is managed automatically.
-    # Keep workers option for advanced performance tuning but it no longer toggles parallel mode.
-    workers: Annotated[
-        int | None,
-        typer.Option(
-            "--workers",
-            "-w",
-            help="Number of parallel workers (default: number of CPUs)",
-            min=1,
-        ),
-    ] = None,
+    # Note: removed `--parallel` CLI option and the `--workers` tuning option.
     # Backend selection is deprecated and removed from CLI. The computation backend
     # now always uses NumPy internally.
     optimizer: Annotated[
@@ -239,7 +229,6 @@ def fit(
         peaklist_path=peaklist,
         z_values_path=z_values,
         config=fit_config,
-        n_workers=workers,
         optimizer=optimizer,
         save_state=save_state,
         verbose=verbose,
@@ -680,7 +669,6 @@ def info(
 
     Display details about the PeakFit installation and system capabilities.
     """
-    import multiprocessing as mp
     import sys
 
     import numpy as np
@@ -694,9 +682,8 @@ def info(
     console.print(f"[green]Python version:[/green] {sys.version}")
     console.print(f"[green]NumPy version:[/green] {np.__version__}")
 
-    # Parallel processing
-    n_cpus = mp.cpu_count()
-    console.print(f"\n[green]Automatic parallelism:[/green] {n_cpus} CPU cores available")
+    # Parallelization removed
+    console.print("\n[green]Parallelization:[/green] Disabled (single-threaded execution)")
 
     # Note about backends
     console.print("\n[dim]Note: Numba backend support has been removed.[/dim]")
@@ -923,7 +910,7 @@ def benchmark(
 ) -> None:
     """Benchmark fitting performance with different methods.
 
-    Compare standard lmfit, fast scipy, and parallel fitting approaches
+    Compare standard lmfit and fast scipy approaches
     to determine the optimal method for your data.
 
     Example:
@@ -937,7 +924,6 @@ def benchmark(
     from peakfit.data.peaks import read_list
     from peakfit.data.spectrum import get_shape_names, read_spectra
     from peakfit.fitting.optimizer import fit_clusters
-    from peakfit.fitting.parallel import fit_clusters_parallel_refined
 
     console.print("[bold]PeakFit Performance Benchmark[/bold]\n")
 
@@ -997,46 +983,7 @@ def benchmark(
     if len(times_fast) > 1:
         console.print(f"  Min: {min(times_fast):.3f}s, Max: {max(times_fast):.3f}s")
 
-    # Benchmark parallel (if enough clusters)
-    if len(clusters) > 1:
-        import multiprocessing as mp
-
-        n_workers = mp.cpu_count()
-
-        times_parallel = []
-        for _i in range(iterations):
-            start = time.perf_counter()
-            fit_clusters_parallel_refined(
-                clusters=clusters,
-                noise=clargs.noise,
-                refine_iterations=0,
-                fixed=False,
-                n_workers=n_workers,
-                verbose=False,
-            )
-            times_parallel.append(time.perf_counter() - start)
-
-        avg_parallel = sum(times_parallel) / len(times_parallel)
-        console.print(f"\n[cyan]Parallel ({n_workers} workers):[/cyan]")
-        console.print(f"  Average time: {avg_parallel:.3f}s")
-        if len(times_parallel) > 1:
-            console.print(f"  Min: {min(times_parallel):.3f}s, Max: {max(times_parallel):.3f}s")
-
-        speedup = avg_fast / avg_parallel if avg_parallel > 0 else 1.0
-        console.print(f"  [green]Speedup: {speedup:.2f}x[/green]")
-
-        # Recommendation
-        console.print("\n[bold]Recommendation:[/bold]")
-        if speedup > 1.2:
-            console.print(
-                f"  Parallel processing shows a {speedup:.1f}x speedup for this dataset; the tool selects optimized paths automatically."
-            )
-        else:
-            console.print("  Sequential fitting is optimal (parallel overhead exceeds benefit)")
-    else:
-        console.print("\n[yellow]Note:[/yellow] Only 1 cluster, parallel comparison skipped")
-        console.print("\n[bold]Recommendation:[/bold]")
-        console.print("  Sequential fitting is optimal for single cluster")
+    # Parallel benchmarking removed. Only sequential benchmark is available.
 
 
 if __name__ == "__main__":

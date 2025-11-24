@@ -218,7 +218,7 @@ These examples provide templates you can adapt for your own data. Key principles
 
 For large datasets:
 - Use configuration files to specify parameters once
-- Enable parallel processing (automatically used when beneficial)
+- Parallel processing has been removed; use single-process execution
 - Consider clustering parameters to reduce number of fits
 - Monitor memory usage for very large spectra
 

@@ -150,8 +150,9 @@ Options:
   --phx/--no-phx          Fit phase correction in X
   --phy/--no-phy          Fit phase correction in Y
   -e, --exclude INTEGER   Plane indices to exclude
-  --workers N            Set maximum number of worker threads for automatic parallelism
   --help                  Show this message and exit
+
+Note: The CLI option `--workers` has been removed. PeakFit now runs sequentially by default.
 ```
 
 ### `peakfit validate`
@@ -247,23 +248,13 @@ After fitting, PeakFit generates the following files in the output directory:
 
 ## Advanced Usage
 
-### Parallel Fitting
+### Fitting behavior
 
-Enable multi-core parallel processing for faster fitting of multiple clusters:
+PeakFit performs sequential cluster fitting using scipy.optimize least squares for predictable execution and minimal memory usage.
 
-```bash
-# Fit clusters in parallel (recommended for datasets with many peaks)
-peakfit fit spectrum.ft2 peaks.list
-
-# Parallel fitting scales with number of CPU cores
-# Particularly beneficial when you have many independent clusters
-```
-
-**Benefits:**
-- Linear scaling with number of clusters
-- Automatic CPU core detection
-- Maintains cross-talk correction through refinement iterations
-- Significant speedup for large peak lists (10+ clusters)
+**Notes:**
+- Multi-process/parallel cluster fitting was removed to simplify the execution model.
+- For datasets with many clusters, performance can be improved by optimizing lineshape calculations or using the benchmark tools to tune your environment.
 
 ### Excluding Planes
 

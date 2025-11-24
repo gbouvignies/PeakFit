@@ -72,7 +72,6 @@ def run_fit(
     peaklist_path: Path,
     z_values_path: Path | None,
     config: PeakFitConfig,
-    n_workers: int | None = None,
     optimizer: str = "leastsq",
     save_state: bool = True,
     verbose: bool = False,
@@ -84,8 +83,7 @@ def run_fit(
         peaklist_path: Path to peak list file.
         z_values_path: Optional path to Z-values file.
         config: Configuration object.
-        Note: Parallel processing is selected automatically. Use `n_workers` to hint
-        at the number of worker threads to use.
+        Note: Parallel processing has been removed.
         Note: Backend selection has been deprecated; NumPy is always used.
         optimizer: Optimization algorithm (leastsq, basin-hopping, differential-evolution).
         save_state: Whether to save fitting state for later analysis.
@@ -127,7 +125,7 @@ def run_fit(
         console.print("  [dim]This may take significantly longer than standard fitting[/dim]")
 
     # Show configuration in a consolidated table
-    _print_configuration(n_workers, config.output.directory)
+    _print_configuration(config.output.directory)
 
     # ============================================================
     # SECTION 2: LOADING INPUT FILES
@@ -494,7 +492,8 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
 
 
 # NOTE: The CLI --parallel option has been removed. Parallel cluster fitting
-# is still available via the `peakfit.fitting.parallel` module for profiling
+# has been removed from the public codebase; profiling helpers were deleted or
+# replaced with sequential-only test functions.
 # and developer tools, but it is no longer exposed through the CLI.
 
 
@@ -632,7 +631,7 @@ def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
     )
 
 
-def _print_configuration(n_workers: int | None, output_dir: Path) -> None:
+def _print_configuration(output_dir: Path) -> None:
     """Print configuration information in a consolidated table.
 
     Args:
@@ -648,13 +647,8 @@ def _print_configuration(n_workers: int | None, output_dir: Path) -> None:
     # Backend row (always numpy now)
     config_table.add_row("Backend", "numpy")
 
-    # Parallel processing (automatically handled internally)
-    import multiprocessing
-
-    cores = n_workers if n_workers else multiprocessing.cpu_count()
-    parallel_str = f"Automatic (max workers: {cores})"
-
-    config_table.add_row("Parallel processing", parallel_str)
+    # Parallel processing removed
+    config_table.add_row("Parallel processing", "disabled")
 
     # Output directory
     config_table.add_row("Output directory", str(output_dir.name))

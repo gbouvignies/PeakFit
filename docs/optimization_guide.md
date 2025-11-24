@@ -6,7 +6,7 @@ This guide explains how to optimize PeakFit's performance for your NMR lineshape
 
 PeakFit uses pure NumPy implementations for all lineshape calculations, providing excellent compatibility and maintainability. Performance can be optimized through:
 
-1. **Automatic parallel processing** - Fit multiple clusters simultaneously when beneficial
+1. **Sequential processing** - Fit clusters sequentially, optimized for predictable and reproducible results
 2. **Fast scipy optimization** - Direct interface with scipy.optimize
 3. **Profiling** - Identify bottlenecks
 
@@ -19,11 +19,8 @@ peakfit benchmark spectrum.ft2 peaks.list
 # Run with the default scipy least-squares optimizer (leastsq)
 peakfit fit spectrum.ft2 peaks.list --optimizer leastsq
 
-# Parallel processing is automatic for multiple clusters; just run the fit command
+# PeakFit now runs sequentially; parallel cluster fitting support has been removed.
 peakfit fit spectrum.ft2 peaks.list
-
-# Control number of parallel workers (optional)
-peakfit fit spectrum.ft2 peaks.list --workers 8
 ```
 
 ## Optimization Methods
@@ -44,24 +41,15 @@ sequential fitting. This avoids lmfit wrapper overhead and is a good choice for 
 peakfit fit spectrum.ft2 peaks.list --optimizer leastsq
 ```
 
-### 2. Automatic Parallel Processing
+### 2. Sequential processing
 
-Fits multiple clusters concurrently using Python's multiprocessing (automatically enabled when beneficial).
+PeakFit now performs cluster fitting sequentially using scipy.optimize least squares. This conservative mode reduces the memory footprint and avoids multiprocessing overhead for reproducibility.
 
 **When to use:**
-- Multi-core systems (4+ CPU cores)
-- Datasets with many clusters (10+)
-- When wall-clock time matters more than CPU usage
+- All systems; default mode: stable and predictable
+- For datasets with few clusters where parallelization overhead would be higher than the benefit
 
-**Expected speedup:** Scales with number of clusters and cores
-
-```bash
-# Use all available CPU cores (automatic)
-peakfit fit spectrum.ft2 peaks.list
-
-# Specify number of workers
-peakfit fit spectrum.ft2 peaks.list --workers 4
-```
+**Expected behaviour:** Consistent, single-process wall-clock times; no user-configurable worker count
 
 ## Performance Benchmarking
 
@@ -72,9 +60,7 @@ peakfit benchmark spectrum.ft2 peaks.list --iterations 3
 ```
 
 This will:
-- Compare fast sequential vs parallel fitting
-- Report average times and speedup
-- Recommend the best approach for your data
+- Benchmark the current (sequential) fitting method and report average timings
 
 ## Advanced Usage
 
