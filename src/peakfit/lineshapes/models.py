@@ -1,198 +1,114 @@
-"""Lineshape models for NMR peak fitting.
+"""Shape models - all shapes treated symmetrically with uniform J-coupling support."""
 
-This module provides various lineshape model classes (Gaussian, Lorentzian, Pseudo-Voigt,
-and apodization-based shapes) for fitting NMR peaks, along with the shape registry.
-"""
-
+import re
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Sequence
-from typing import TYPE_CHECKING, Protocol
+from collections.abc import Callable, Iterable
 
 import numpy as np
 
 from peakfit.lineshapes import functions
+from peakfit.lineshapes.functions import KERNEL_REGISTRY
 from peakfit.typing import FittingOptions, FloatArray, IntArray
 
-if TYPE_CHECKING:
+try:
     from peakfit.fitting.parameters import Parameters, ParameterType
-else:
-    # Avoid circular import at runtime - Parameters is only used for type hints in methods
-    from peakfit.fitting.parameters import Parameters, ParameterType
+except ImportError:
+    Parameters = object  # type: ignore[misc, assignment]
+    ParameterType = object  # type: ignore[misc, assignment]
 
 
-# ============================================================================
-# Shape Registry
-# ============================================================================
+# Shape registry
+SHAPES: dict[str, type] = {}
 
 
-class Shape(Protocol):
-    """Protocol for lineshape models."""
+def register_shape(names: str | Iterable[str]) -> Callable:
+    """Register shape class with one or more names."""
+    name_list = [names] if isinstance(names, str) else list(names)
 
-    axis: str
-    name: str
-    cluster_id: int
-    center: float
-    size: int
-
-    def create_params(self) -> object: ...
-    def fix_params(self, params: object) -> None: ...
-    def release_params(self, params: object) -> None: ...
-    def evaluate(self, x_pt: object, params: object) -> object: ...
-    def print(self, params: object) -> str: ...
-    @property
-    def center_i(self) -> int: ...
-    @property
-    def prefix(self) -> str: ...
-
-
-# Global shape registry
-SHAPES: dict[str, Callable[..., Shape]] = {}
-
-
-def register_shape(
-    shape_names: str | Iterable[str],
-) -> Callable[[type[Shape]], type[Shape]]:
-    """Decorator to register a shape class.
-
-    Args:
-        shape_names: Single name or iterable of names to register the shape under
-
-    Returns:
-        Decorator function that registers the shape class
-
-    Example:
-        @register_shape("gaussian")
-        class Gaussian(BaseShape):
-            ...
-
-        @register_shape(["lorentzian", "lorentz"])
-        class Lorentzian(BaseShape):
-            ...
-    """
-    if isinstance(shape_names, str):
-        shape_names = [shape_names]
-
-    def decorator(shape_class: type[Shape]) -> type[Shape]:
-        for name in shape_names:
-            SHAPES[name] = shape_class
-        return shape_class
+    def decorator(cls):
+        for name in name_list:
+            SHAPES[name] = cls
+        return cls
 
     return decorator
 
 
-def get_shape(name: str) -> Callable[..., Shape]:
-    """Get a shape class by name.
-
-    Args:
-        name: Name of the shape to retrieve
-
-    Returns:
-        Shape class
-
-    Raises:
-        KeyError: If shape name not found in registry
-    """
+def get_shape(name: str) -> type:
+    """Get shape class by name."""
     return SHAPES[name]
 
 
 def list_shapes() -> list[str]:
-    """List all registered shape names.
-
-    Returns:
-        List of registered shape names
-    """
+    """List registered shape names."""
     return list(SHAPES.keys())
 
 
-AXIS_NAMES = ("x", "y", "z", "a")
-
-
+# Base class
 class BaseShape(ABC):
-    """Base class for all lineshape models."""
+    """Base for all shapes - uniform interface with J-coupling support."""
 
-    def __init__(
-        self, name: str, center: float, spectra: object, dim: int, args: FittingOptions
-    ) -> None:
-        """Initialize shape.
+    shape_func: Callable
+    shape_name: str
 
-        Args:
-            name: Peak name
-            center: Center position in ppm
-            spectra: Spectra object with spectral parameters
-            dim: Dimension index (1-based)
-            args: Command-line arguments
-        """
+    def __init__(self, name: str, center: float, spectra, dim: int, args: FittingOptions):
         self.name = name
-        self.axis = AXIS_NAMES[spectra.data[0].ndim - dim]
+        self.axis = ("x", "y", "z", "a")[spectra.data[0].ndim - dim]
         self.center = center
         self.spec_params = spectra.params[dim]
         self.size = self.spec_params.size
-        self.param_names: list[str] = []
         self.cluster_id = 0
         self.args = args
         self.full_grid = np.arange(self.size)
+        self.param_names: list[str] = []
 
-    @property
-    def prefix(self) -> str:
-        """Parameter name prefix for this shape."""
-        import re
-
-        return re.sub(r"\W+|^(?=\d)", "_", f"{self.name}_{self.axis}")
-
-    @property
-    def prefix_phase(self) -> str:
-        """Parameter name prefix for phase parameters."""
-        import re
-
-        return re.sub(r"\W+|^(?=\d)", "_", f"{self.cluster_id}_{self.axis}")
+        # Cached prefixes
+        self._prefix = re.sub(r"\W+|^(?=\d)", "_", f"{name}_{self.axis}")
+        self._prefix_phase = re.sub(r"\W+|^(?=\d)", "_", f"{self.cluster_id}_{self.axis}")
 
     @abstractmethod
     def create_params(self) -> Parameters:
-        """Create parameters for this shape."""
+        """Create parameters."""
         ...
 
     def fix_params(self, params: Parameters) -> None:
-        """Fix (freeze) all parameters for this shape."""
+        """Fix all parameters."""
         for name in self.param_names:
             params[name].vary = False
 
     def release_params(self, params: Parameters) -> None:
-        """Release (unfreeze) all parameters for this shape."""
+        """Release all parameters."""
         for name in self.param_names:
             params[name].vary = True
 
     @abstractmethod
     def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
-        """Evaluate shape at given points."""
+        """Evaluate shape."""
         ...
 
+    @classmethod
+    def batch_evaluate(cls, shapes: list, x_pt: IntArray, params: Parameters) -> FloatArray:
+        """Batch evaluation using catalog."""
+        from peakfit.lineshapes.catalog import batch_evaluate_with_catalog
+
+        return batch_evaluate_with_catalog(shapes, x_pt, params)
+
     def print(self, params: Parameters) -> str:
-        """Format parameters as string for output."""
+        """Format parameters."""
         lines = []
         for name in self.param_names:
-            fullname = name
-            shortname = name.replace(self.prefix[:-1], "").replace(self.prefix_phase[:-1], "")
-            value = params[fullname].value
-            stderr_val = params[fullname].stderr
-            line = f"# {shortname:<10s}: {value:10.5f} ± {stderr_val:10.5f}"
-            lines.append(line)
+            short = name.replace(self._prefix[:-1], "").replace(self._prefix_phase[:-1], "")
+            val = params[name].value
+            err = params[name].stderr
+            lines.append(f"# {short:<10s}: {val:10.5f} ± {err:10.5f}")
         return "\n".join(lines)
 
     @property
     def center_i(self) -> int:
-        """Center position in points (integer)."""
+        """Center in points."""
         return self.spec_params.ppm2pt_i(self.center)
 
     def _compute_dx_and_sign(self, x_pt: IntArray, x0: float) -> tuple[FloatArray, FloatArray]:
-        """Compute frequency offset and aliasing sign.
-
-        Args:
-            x_pt: Points to evaluate
-            x0: Center position in ppm
-
-        Returns:
-            Tuple of (corrected dx in points, sign from aliasing)
-        """
+        """Compute offset and aliasing sign."""
         x0_pt = self.spec_params.ppm2pts(x0)
         dx_pt = x_pt - x0_pt
         if not self.spec_params.direct:
@@ -204,124 +120,121 @@ class BaseShape(ABC):
         return dx_pt_corrected, sign
 
 
-class PeakShape(BaseShape):
-    """Base class for simple peak shapes (Gaussian, Lorentzian, Pseudo-Voigt)."""
+# All shapes use same pattern - only difference is which parameters they need
+class FreqShape(BaseShape):
+    """Frequency-domain shapes (gaussian, lorentzian, pvoigt).
 
-    FWHM_START = 25.0
-    shape_func: Callable
+    All frequency-domain shapes support uniform J-coupling.
+    """
+
+    needs_eta = False
 
     def create_params(self) -> Parameters:
-        """Create parameters for peak shape (position and FWHM)."""
         params = Parameters()
         params.add(
-            f"{self.prefix}0",
+            f"{self._prefix}0",
             value=self.center,
-            min=self.center - self.spec_params.hz2ppm(self.FWHM_START),
-            max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
+            min=self.center - self.spec_params.hz2ppm(25.0),
+            max=self.center + self.spec_params.hz2ppm(25.0),
             param_type=ParameterType.POSITION,
             unit="ppm",
         )
         params.add(
-            f"{self.prefix}_fwhm",
-            value=self.FWHM_START,
+            f"{self._prefix}_fwhm",
+            value=25.0,
             min=0.1,
             max=200.0,
             param_type=ParameterType.FWHM,
             unit="Hz",
         )
-        self.param_names = list(params.keys())
-        return params
-
-    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
-        """Evaluate peak shape at given points."""
-        x0 = params[f"{self.prefix}0"].value
-        fwhm = params[f"{self.prefix}_fwhm"].value
-        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
-        dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-        return sign * self.shape_func(dx_hz, fwhm)
-
-
-@register_shape("lorentzian")
-class Lorentzian(PeakShape):
-    """Lorentzian lineshape."""
-
-    shape_func = staticmethod(functions.lorentzian)
-
-
-@register_shape("gaussian")
-class Gaussian(PeakShape):
-    """Gaussian lineshape."""
-
-    shape_func = staticmethod(functions.gaussian)
-
-
-@register_shape("pvoigt")
-class PseudoVoigt(PeakShape):
-    """Pseudo-Voigt lineshape (mixture of Gaussian and Lorentzian)."""
-
-    def create_params(self) -> Parameters:
-        """Create parameters including eta mixing factor."""
-        params = super().create_params()
-        params.add(
-            f"{self.prefix}_eta",
-            value=0.5,
-            min=-1.0,
-            max=1.0,
-            param_type=ParameterType.FRACTION,
-            unit="",
-        )
-        self.param_names = list(params.keys())
-        return params
-
-    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
-        """Evaluate pseudo-Voigt at given points."""
-        x0 = params[f"{self.prefix}0"].value
-        fwhm = params[f"{self.prefix}_fwhm"].value
-        eta = params[f"{self.prefix}_eta"].value
-        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
-        dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-        return sign * functions.pvoigt(dx_hz, fwhm, eta)
-
-
-class ApodShape(BaseShape):
-    """Base class for apodization-based lineshapes."""
-
-    R2_START = 20.0
-    FWHM_START = 25.0
-    shape_func: Callable
-    shape_name: str = "no_apod"  # Override in subclasses
-
-    def create_params(self) -> Parameters:
-        """Create parameters for apodization shape."""
-        params = Parameters()
-        params.add(
-            f"{self.prefix}0",
-            value=self.center,
-            min=self.center - self.spec_params.hz2ppm(self.FWHM_START),
-            max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
-            param_type=ParameterType.POSITION,
-            unit="ppm",
-        )
-        params.add(
-            f"{self.prefix}_r2",
-            value=self.R2_START,
-            min=0.1,
-            max=200.0,
-            param_type=ParameterType.FWHM,  # R2 is related to linewidth
-            unit="Hz",
-        )
+        if self.needs_eta:
+            params.add(
+                f"{self._prefix}_eta",
+                value=0.5,
+                min=-1.0,
+                max=1.0,
+                param_type=ParameterType.FRACTION,
+                unit="",
+            )
+        # J-coupling (uniform across all shapes)
         if self.args.jx and self.spec_params.direct:
             params.add(
-                f"{self.prefix}_j",
+                f"{self._prefix}_j",
                 value=5.0,
                 min=1.0,
                 max=10.0,
                 param_type=ParameterType.JCOUPLING,
                 unit="Hz",
             )
+        self.param_names = list(params.keys())
+        return params
+
+    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
+        """Evaluate using KERNEL_REGISTRY (zero manual math)."""
+        parvals = params.valuesdict()
+        x0 = parvals[f"{self._prefix}0"]
+        fwhm = parvals[f"{self._prefix}_fwhm"]
+        j_hz = parvals.get(f"{self._prefix}_j", 0.0)
+
+        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
+        dx_hz = self.spec_params.pts2hz_delta(dx_pt)
+
+        # Retrieve kernel from registry
+        kernel_func = KERNEL_REGISTRY[self.shape_name]
+
+        # Prepare arguments
+        if self.needs_eta:
+            eta = parvals[f"{self._prefix}_eta"]
+            args = (fwhm, eta)
+        else:
+            args = (fwhm,)
+
+        # Execute kernel (handles J-coupling and normalization internally)
+        return sign * kernel_func(dx_hz, j_hz, *args)
+
+
+class TimeShape(BaseShape):
+    """FID-parameterized frequency-domain shapes (no_apod, sp1, sp2).
+
+    These shapes are parameterized by FID properties (R2, acquisition time)
+    but are mathematically Fourier-transformed into the frequency domain.
+    All support uniform J-coupling.
+    """
+
+    needs_apod_params = False
+
+    def create_params(self) -> Parameters:
+        params = Parameters()
+        params.add(
+            f"{self._prefix}0",
+            value=self.center,
+            min=self.center - self.spec_params.hz2ppm(25.0),
+            max=self.center + self.spec_params.hz2ppm(25.0),
+            param_type=ParameterType.POSITION,
+            unit="ppm",
+        )
+        params.add(
+            f"{self._prefix}_r2",
+            value=20.0,
+            min=0.1,
+            max=200.0,
+            param_type=ParameterType.FWHM,
+            unit="Hz",
+        )
+        # J-coupling (uniform across all shapes)
+        if self.args.jx and self.spec_params.direct:
+            params.add(
+                f"{self._prefix}_j",
+                value=5.0,
+                min=1.0,
+                max=10.0,
+                param_type=ParameterType.JCOUPLING,
+                unit="Hz",
+            )
+        # Phase correction
         if (self.args.phx and self.spec_params.direct) or self.args.phy:
             params.add(
-                f"{self.prefix_phase}p",
+                f"{self._prefix_phase}p",
                 value=0.0,
                 min=-5.0,
                 max=5.0,
@@ -332,140 +245,89 @@ class ApodShape(BaseShape):
         return params
 
     def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
-        """Evaluate apodization shape at given points.
+        """Evaluate using KERNEL_REGISTRY (zero manual math)."""
+        parvals = params.valuesdict()
+        x0 = parvals[f"{self._prefix}0"]
+        r2 = parvals[f"{self._prefix}_r2"]
+        phase = parvals.get(f"{self._prefix_phase}p", 0.0)
+        j_hz = parvals.get(f"{self._prefix}_j", 0.0)
 
-        Optimized to only compute lineshape for requested points rather than
-        the entire spectrum, significantly improving performance.
-        """
-        parvalues = params.valuesdict()
-        x0 = parvalues[f"{self.prefix}0"]
-        r2 = parvalues[f"{self.prefix}_r2"]
-        p0 = parvalues.get(f"{self.prefix_phase}p", 0.0)
-        j_hz = parvalues.get(f"{self.prefix}_j", 0.0)
-
-        # Only compute for requested points (optimization)
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
+        # Convert to radians/s (FID kernels expect this unit)
         dx_rads = self.spec_params.pts2hz_delta(dx_pt) * 2 * np.pi
 
-        # J-coupling: creates 2D array (n_coupling_components, n_points)
-        j_rads = np.array([[0.0]]).T if j_hz == 0.0 else j_hz * np.pi * np.array([[1.0, -1.0]]).T
-        dx_rads = dx_rads + j_rads
+        # Retrieve kernel from registry
+        kernel_func = KERNEL_REGISTRY[self.shape_name]
 
-        # Select shape function
-        if self.shape_name == "sp1":
-            func = functions.sp1
-        elif self.shape_name == "sp2":
-            func = functions.sp2
-        else:
-            func = functions.no_apod
-
-        shape_args = (r2, self.spec_params.aq_time)
-        if self.shape_name in ("sp1", "sp2"):
-            shape_args += (self.spec_params.apodq2, self.spec_params.apodq1)
-        shape_args += (p0,)
-
-        # Compute normalization (only depends on j_rads, not position)
-        norm = np.sum(func(j_rads, *shape_args), axis=0)
-
-        # Compute shape at requested points only
-        shape = np.sum(func(dx_rads, *shape_args), axis=0)
-
-        return sign * shape / norm
-
-    @staticmethod
-    def batch_evaluate_apod_shapes(
-        shapes: Sequence["ApodShape"], x_pt: IntArray, params: Parameters
-    ) -> np.ndarray:
-        """Evaluate multiple apodization shapes at once using optimized multi-peak functions.
-
-        This provides 15-22x speedup over sequential evaluation for large clusters.
-        All shapes must be the same type (no_apod, sp1, or sp2) and have the same
-        spec_params.
-
-        Args:
-            shapes: Sequence of ApodShape instances (same type)
-            x_pt: Point indices to evaluate at
-            params: Parameter values
-
-        Returns:
-            Array of shape (n_peaks, n_points) with evaluated lineshapes
-        """
-        if not shapes:
-            return np.empty((0, len(x_pt)))
-
-        # Get shape type and spec_params from first shape
-        shape_type = shapes[0].shape_name
-        spec_params = shapes[0].spec_params
-        n_peaks = len(shapes)
-
-        # Extract parameters for all peaks
-        centers = np.empty(n_peaks)
-        r2s = np.empty(n_peaks)
-        phases = np.empty(n_peaks)
-
-        for i, shape in enumerate(shapes):
-            parvalues = params.valuesdict()
-            centers[i] = parvalues[f"{shape.prefix}0"]
-            r2s[i] = parvalues[f"{shape.prefix}_r2"]
-            phases[i] = parvalues.get(f"{shape.prefix_phase}p", 0.0)
-
-        # Convert positions to Hz
-        positions_hz = spec_params.pts2hz(x_pt)
-
-        # Convert centers from ppm to Hz (ppm * obs_frequency)
-        centers_hz = centers * spec_params.obs
-
-        # Call optimized multi-peak function based on shape type
-        if shape_type == "no_apod":
-            shapes_array = functions.compute_all_no_apod_shapes(
-                positions_hz, centers_hz, r2s, spec_params.aq_time, phases
-            )
-        elif shape_type == "sp1":
-            shapes_array = functions.compute_all_sp1_shapes(
-                positions_hz,
-                centers_hz,
-                r2s,
-                spec_params.aq_time,
-                spec_params.apodq2,
-                spec_params.apodq1,
-                phases,
-            )
-        elif shape_type == "sp2":
-            shapes_array = functions.compute_all_sp2_shapes(
-                positions_hz,
-                centers_hz,
-                r2s,
-                spec_params.aq_time,
-                spec_params.apodq2,
-                spec_params.apodq1,
-                phases,
+        # Prepare arguments
+        if self.needs_apod_params:
+            args = (
+                r2,
+                self.spec_params.aq_time,
+                self.spec_params.apodq2,
+                self.spec_params.apodq1,
+                phase,
             )
         else:
-            # Fallback to sequential (should not happen)
-            shapes_array = np.array([shape.evaluate(x_pt, params) for shape in shapes])
+            args = (r2, self.spec_params.aq_time, phase)
 
-        return shapes_array
+        # Execute kernel (handles J-coupling and normalization internally)
+        return sign * kernel_func(dx_rads, j_hz, *args)
+
+
+# Register all shapes (all treated equally)
+@register_shape("gaussian")
+class Gaussian(FreqShape):
+    """Gaussian lineshape."""
+
+    shape_func = staticmethod(functions.gaussian)
+    shape_name = "gaussian"
+
+
+@register_shape("lorentzian")
+class Lorentzian(FreqShape):
+    """Lorentzian lineshape."""
+
+    shape_func = staticmethod(functions.lorentzian)
+    shape_name = "lorentzian"
+
+
+@register_shape("pvoigt")
+class PseudoVoigt(FreqShape):
+    """Pseudo-Voigt lineshape."""
+
+    shape_func = staticmethod(functions.pvoigt)
+    shape_name = "pvoigt"
+    needs_eta = True
 
 
 @register_shape("no_apod")
-class NoApod(ApodShape):
-    """Non-apodized lineshape."""
+class NoApod(TimeShape):
+    """Non-apodized FID-based frequency-domain lineshape."""
 
     shape_func = staticmethod(functions.no_apod)
     shape_name = "no_apod"
 
 
 @register_shape("sp1")
-class SP1(ApodShape):
-    """SP1 apodization lineshape."""
+class SP1(TimeShape):
+    """SP1 apodization FID-based frequency-domain lineshape."""
 
     shape_func = staticmethod(functions.sp1)
     shape_name = "sp1"
+    needs_apod_params = True
 
 
 @register_shape("sp2")
-class SP2(ApodShape):
-    """SP2 apodization lineshape."""
+class SP2(TimeShape):
+    """SP2 apodization FID-based frequency-domain lineshape."""
 
     shape_func = staticmethod(functions.sp2)
     shape_name = "sp2"
+    needs_apod_params = True
+
+
+# Legacy exports
+Shape = BaseShape
+PeakShape = FreqShape
+ApodShape = TimeShape

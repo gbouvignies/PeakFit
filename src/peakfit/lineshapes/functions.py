@@ -1,6 +1,9 @@
 """Numba-accelerated lineshape functions for NMR peak fitting.
 
-All functions are JIT-compiled with Numba for high performance.
+Functional composition architecture:
+- Core kernels: Pure mathematical lineshape functions
+- Factories: Generate J-coupled and batch versions dynamically
+- Registry: Single source of truth for all shape computations
 """
 
 import numba as nb
@@ -9,935 +12,640 @@ import numpy as np
 from peakfit.typing import FloatArray
 
 # =============================================================================
-# Single-Peak Lineshape Functions (with explicit signatures)
+# Core Kernels (inline for maximum Numba optimization)
 # =============================================================================
 
 
-@nb.njit("float64[:](float64[:], float64)", cache=True, fastmath=True, error_model="numpy")
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _kernel_gaussian(dx: np.ndarray, fwhm: float) -> np.ndarray:
+    """Gaussian lineshape kernel."""
+    c = 4.0 * np.log(2.0) / (fwhm * fwhm)
+    return np.exp(-dx * dx * c)
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _kernel_lorentzian(dx: np.ndarray, fwhm: float) -> np.ndarray:
+    """Lorentzian lineshape kernel."""
+    hw2 = (0.5 * fwhm) ** 2
+    return hw2 / (dx * dx + hw2)
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _kernel_pvoigt(dx: np.ndarray, fwhm: float, eta: float) -> np.ndarray:
+    """Pseudo-Voigt lineshape kernel."""
+    c = 4.0 * np.log(2.0) / (fwhm * fwhm)
+    hw2 = (0.5 * fwhm) ** 2
+    gauss = np.exp(-dx * dx * c)
+    lorentz = hw2 / (dx * dx + hw2)
+    return (1.0 - eta) * gauss + eta * lorentz
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _kernel_no_apod(dx: np.ndarray, r2: float, aq: float, phase: float) -> np.ndarray:
+    """Non-apodized FID-based frequency-domain lineshape kernel."""
+    phase_rad = phase * np.pi / 180.0
+    result = np.empty_like(dx)
+    for i in range(len(dx)):
+        z = aq * (r2 + 1j * dx[i])
+        spec = aq * (1.0 - np.exp(-z)) / z
+        result[i] = (spec * np.exp(1j * phase_rad)).real
+    return result
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _kernel_sp1(
+    dx: np.ndarray, r2: float, aq: float, end: float, off: float, phase: float
+) -> np.ndarray:
+    """SP1 apodization FID-based frequency-domain lineshape kernel."""
+    phase_rad = phase * np.pi / 180.0
+    f1 = 1j * off * np.pi
+    f2 = 1j * (end - off) * np.pi
+    result = np.empty_like(dx)
+    for i in range(len(dx)):
+        z = aq * (r2 + 1j * dx[i])
+        a1 = (np.exp(f2) - np.exp(z)) * np.exp(-z + f1) / (2 * (z - f2))
+        a2 = (np.exp(z) - np.exp(-f2)) * np.exp(-z - f1) / (2 * (z + f2))
+        spec = 1j * aq * (a1 + a2)
+        result[i] = (spec * np.exp(1j * phase_rad)).real
+    return result
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _kernel_sp2(
+    dx: np.ndarray, r2: float, aq: float, end: float, off: float, phase: float
+) -> np.ndarray:
+    """SP2 apodization FID-based frequency-domain lineshape kernel."""
+    phase_rad = phase * np.pi / 180.0
+    f1 = 1j * off * np.pi
+    f2 = 1j * (end - off) * np.pi
+    result = np.empty_like(dx)
+    for i in range(len(dx)):
+        z = aq * (r2 + 1j * dx[i])
+        a1 = (np.exp(2 * f2) - np.exp(z)) * np.exp(-z + 2 * f1) / (4 * (z - 2 * f2))
+        a2 = (np.exp(-2 * f2) - np.exp(z)) * np.exp(-z - 2 * f1) / (4 * (z + 2 * f2))
+        a3 = (1.0 - np.exp(-z)) / (2 * z)
+        spec = aq * (a1 + a2 + a3)
+        result[i] = (spec * np.exp(1j * phase_rad)).real
+    return result
+
+
+# =============================================================================
+# J-Coupling: Explicit implementations (Numba doesn't support *args in closures)
+# =============================================================================
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _apply_jcoupling_gaussian(dx: np.ndarray, j_hz: float, fwhm: float) -> np.ndarray:
+    """Apply J-coupling to gaussian shape."""
+    if j_hz == 0.0:
+        return _kernel_gaussian(dx, fwhm)
+
+    offset = j_hz * np.pi
+    plus = _kernel_gaussian(dx + offset, fwhm)
+    minus = _kernel_gaussian(dx - offset, fwhm)
+
+    tmp = np.empty(1, dtype=dx.dtype)
+    tmp[0] = offset
+    n_plus = _kernel_gaussian(tmp, fwhm)[0]
+    tmp[0] = -offset
+    n_minus = _kernel_gaussian(tmp, fwhm)[0]
+    norm = n_plus + n_minus
+    return (plus + minus) / norm
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _apply_jcoupling_lorentzian(dx: np.ndarray, j_hz: float, fwhm: float) -> np.ndarray:
+    """Apply J-coupling to lorentzian shape."""
+    if j_hz == 0.0:
+        return _kernel_lorentzian(dx, fwhm)
+
+    offset = j_hz * np.pi
+    plus = _kernel_lorentzian(dx + offset, fwhm)
+    minus = _kernel_lorentzian(dx - offset, fwhm)
+
+    tmp = np.empty(1, dtype=dx.dtype)
+    tmp[0] = offset
+    n_plus = _kernel_lorentzian(tmp, fwhm)[0]
+    tmp[0] = -offset
+    n_minus = _kernel_lorentzian(tmp, fwhm)[0]
+    norm = n_plus + n_minus
+    return (plus + minus) / norm
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _apply_jcoupling_pvoigt(dx: np.ndarray, j_hz: float, fwhm: float, eta: float) -> np.ndarray:
+    """Apply J-coupling to pvoigt shape."""
+    if j_hz == 0.0:
+        return _kernel_pvoigt(dx, fwhm, eta)
+
+    offset = j_hz * np.pi
+    plus = _kernel_pvoigt(dx + offset, fwhm, eta)
+    minus = _kernel_pvoigt(dx - offset, fwhm, eta)
+
+    tmp = np.empty(1, dtype=dx.dtype)
+    tmp[0] = offset
+    n_plus = _kernel_pvoigt(tmp, fwhm, eta)[0]
+    tmp[0] = -offset
+    n_minus = _kernel_pvoigt(tmp, fwhm, eta)[0]
+    norm = n_plus + n_minus
+    return (plus + minus) / norm
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _apply_jcoupling_no_apod(
+    dx: np.ndarray, j_hz: float, r2: float, aq: float, phase: float
+) -> np.ndarray:
+    """Apply J-coupling to no_apod shape."""
+    if j_hz == 0.0:
+        return _kernel_no_apod(dx, r2, aq, phase)
+
+    offset = j_hz * np.pi
+    plus = _kernel_no_apod(dx + offset, r2, aq, phase)
+    minus = _kernel_no_apod(dx - offset, r2, aq, phase)
+
+    tmp = np.empty(1, dtype=dx.dtype)
+    tmp[0] = offset
+    n_plus = _kernel_no_apod(tmp, r2, aq, phase)[0]
+    tmp[0] = -offset
+    n_minus = _kernel_no_apod(tmp, r2, aq, phase)[0]
+    norm = n_plus + n_minus
+    return (plus + minus) / norm
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _apply_jcoupling_sp1(
+    dx: np.ndarray, j_hz: float, r2: float, aq: float, end: float, off: float, phase: float
+) -> np.ndarray:
+    """Apply J-coupling to sp1 shape."""
+    if j_hz == 0.0:
+        return _kernel_sp1(dx, r2, aq, end, off, phase)
+
+    offset = j_hz * np.pi
+    plus = _kernel_sp1(dx + offset, r2, aq, end, off, phase)
+    minus = _kernel_sp1(dx - offset, r2, aq, end, off, phase)
+
+    tmp = np.empty(1, dtype=dx.dtype)
+    tmp[0] = offset
+    n_plus = _kernel_sp1(tmp, r2, aq, end, off, phase)[0]
+    tmp[0] = -offset
+    n_minus = _kernel_sp1(tmp, r2, aq, end, off, phase)[0]
+    norm = n_plus + n_minus
+    return (plus + minus) / norm
+
+
+@nb.njit(cache=True, fastmath=True, inline="always")
+def _apply_jcoupling_sp2(
+    dx: np.ndarray, j_hz: float, r2: float, aq: float, end: float, off: float, phase: float
+) -> np.ndarray:
+    """Apply J-coupling to sp2 shape."""
+    if j_hz == 0.0:
+        return _kernel_sp2(dx, r2, aq, end, off, phase)
+
+    offset = j_hz * np.pi
+    plus = _kernel_sp2(dx + offset, r2, aq, end, off, phase)
+    minus = _kernel_sp2(dx - offset, r2, aq, end, off, phase)
+
+    tmp = np.empty(1, dtype=dx.dtype)
+    tmp[0] = offset
+    n_plus = _kernel_sp2(tmp, r2, aq, end, off, phase)[0]
+    tmp[0] = -offset
+    n_minus = _kernel_sp2(tmp, r2, aq, end, off, phase)[0]
+    norm = n_plus + n_minus
+    return (plus + minus) / norm
+
+
+def make_batch_evaluator(j_coupled_func):
+    """Factory for parallel batch evaluators.
+
+    Returns a @njit(parallel=True) function with signature:
+    (positions, centers, j_couplings, *param_arrays)
+
+    Each element of param_arrays must be a 1D array with length == n_peaks.
+    """
+
+    @nb.njit(cache=True, fastmath=True, parallel=True)
+    def batch(positions: np.ndarray, centers: np.ndarray, j_couplings: np.ndarray, *param_arrays):
+        n_peaks = centers.shape[0]
+        n_points = positions.shape[0]
+        result = np.empty((n_peaks, n_points), dtype=np.float64)
+
+        n_params = len(param_arrays)
+        for i in nb.prange(n_peaks):
+            dx = positions - centers[i]
+            if n_params == 0:
+                result[i] = j_coupled_func(dx, j_couplings[i])
+            elif n_params == 1:
+                result[i] = j_coupled_func(dx, j_couplings[i], param_arrays[0][i])
+            elif n_params == 2:
+                result[i] = j_coupled_func(
+                    dx, j_couplings[i], param_arrays[0][i], param_arrays[1][i]
+                )
+            elif n_params == 3:
+                result[i] = j_coupled_func(
+                    dx,
+                    j_couplings[i],
+                    param_arrays[0][i],
+                    param_arrays[1][i],
+                    param_arrays[2][i],
+                )
+            elif n_params == 4:
+                result[i] = j_coupled_func(
+                    dx,
+                    j_couplings[i],
+                    param_arrays[0][i],
+                    param_arrays[1][i],
+                    param_arrays[2][i],
+                    param_arrays[3][i],
+                )
+            else:
+                # support up to 5 params explicitly
+                result[i] = j_coupled_func(
+                    dx,
+                    j_couplings[i],
+                    param_arrays[0][i],
+                    param_arrays[1][i],
+                    param_arrays[2][i],
+                    param_arrays[3][i],
+                    param_arrays[4][i],
+                )
+
+        return result
+
+    return batch
+
+
+# =============================================================================
+# Registry and Batch Evaluator Factory
+# =============================================================================
+
+# Registry: shape name -> J-coupled kernel function
+KERNEL_REGISTRY = {
+    "gaussian": _apply_jcoupling_gaussian,
+    "lorentzian": _apply_jcoupling_lorentzian,
+    "pvoigt": _apply_jcoupling_pvoigt,
+    "no_apod": _apply_jcoupling_no_apod,
+    "sp1": _apply_jcoupling_sp1,
+    "sp2": _apply_jcoupling_sp2,
+}
+
+# =============================================================================
+# Public API functions (with 2D array compatibility for models)
+# =============================================================================
+
+
 def gaussian(dx: FloatArray, fwhm: float) -> FloatArray:
     """Gaussian lineshape.
 
-    Args:
-        dx: Frequency offset from peak center (Hz)
-        fwhm: Full width at half maximum (Hz)
-
-    Returns:
-        Gaussian profile values
+    If dx is 2D (for external J-coupling from models), compute for each row.
     """
-    c = 4.0 * np.log(2.0) / (fwhm * fwhm)
-    result = np.empty_like(dx)
-    for i in range(len(dx)):
-        result[i] = np.exp(-dx[i] * dx[i] * c)
-    return result
+    dx_array = np.atleast_1d(dx)
+    if dx_array.ndim == 2:
+        return np.array([_kernel_gaussian(row, fwhm) for row in dx_array])
+    return _kernel_gaussian(dx_array, fwhm)
 
 
-@nb.njit("float64[:](float64[:], float64)", cache=True, fastmath=True, error_model="numpy")
 def lorentzian(dx: FloatArray, fwhm: float) -> FloatArray:
-    """Lorentzian lineshape."""
-    half_width_sq = (0.5 * fwhm) ** 2
-    result = np.empty_like(dx)
-    for i in range(len(dx)):
-        result[i] = half_width_sq / (dx[i] * dx[i] + half_width_sq)
-    return result
+    """Lorentzian lineshape.
 
-
-@nb.njit("float64[:](float64[:], float64, float64)", cache=True, fastmath=True, error_model="numpy")
-def pvoigt(dx: FloatArray, fwhm: float, eta: float) -> FloatArray:
-    """Pseudo-Voigt: (1-eta)*Gaussian + eta*Lorentzian (Numba-optimized)."""
-    c_gauss = 4.0 * np.log(2.0) / (fwhm * fwhm)
-    half_width_sq = (0.5 * fwhm) ** 2
-    result = np.empty_like(dx)
-    for i in range(len(dx)):
-        gauss = np.exp(-dx[i] * dx[i] * c_gauss)
-        lorentz = half_width_sq / (dx[i] * dx[i] + half_width_sq)
-        result[i] = (1.0 - eta) * gauss + eta * lorentz
-    return result
-
-
-# =============================================================================
-# FID-Based Lineshapes with Manual Complex Arithmetic (OPTIMIZED)
-# =============================================================================
-
-
-@nb.njit(cache=True, fastmath=True, error_model="numpy")
-def no_apod(dx: FloatArray, r2: float, aq: float, phase: float = 0.0) -> FloatArray:
-    """Non-apodized FID lineshape (Numba-optimized).
-
-    Args:
-        dx: Frequency offset from peak center (Hz) - can be 1D or 2D
-        r2: Transverse relaxation rate (Hz)
-        aq: Acquisition time (s)
-        phase: Phase correction (degrees)
-
-    Returns:
-        Real part of lineshape after phase correction (same shape as dx)
-
-    Performance optimizations:
-        - Uses complex arithmetic (compatible with 2D arrays)
-        - Phase factor computed once (not per loop iteration)
-        - Expected speedup: 20-50× vs pure NumPy
+    If dx is 2D (for external J-coupling from models), compute for each row.
     """
-    # Pre-compute phase factor
-    phase_rad = np.deg2rad(phase)
-    phase_factor = np.cos(phase_rad) + 1j * np.sin(phase_rad)
-
-    # Compute using complex arithmetic (works with any array shape)
-    z1 = aq * (1j * dx + r2)
-    spec = aq * (1.0 - np.exp(-z1)) / z1
-
-    return (spec * phase_factor).real
+    dx_array = np.atleast_1d(dx)
+    if dx_array.ndim == 2:
+        return np.array([_kernel_lorentzian(row, fwhm) for row in dx_array])
+    return _kernel_lorentzian(dx_array, fwhm)
 
 
-@nb.njit(cache=True, fastmath=True, error_model="numpy")
+def pvoigt(dx: FloatArray, fwhm: float, eta: float) -> FloatArray:
+    """Pseudo-Voigt lineshape.
+
+    If dx is 2D (for external J-coupling from models), compute for each row.
+    """
+    dx_array = np.atleast_1d(dx)
+    if dx_array.ndim == 2:
+        return np.array([_kernel_pvoigt(row, fwhm, eta) for row in dx_array])
+    return _kernel_pvoigt(dx_array, fwhm, eta)
+
+
+def no_apod(dx: FloatArray, r2: float, aq: float, phase: float = 0.0) -> FloatArray:
+    """Non-apodized FID-based frequency-domain lineshape.
+
+    If dx is 2D (for external J-coupling from models), compute for each row.
+    """
+    dx_array = np.atleast_1d(dx)
+    if dx_array.ndim == 2:
+        return np.array([_kernel_no_apod(row, r2, aq, phase) for row in dx_array])
+    return _kernel_no_apod(dx_array, r2, aq, phase)
+
+
 def sp1(
     dx: FloatArray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
 ) -> FloatArray:
-    """SP1 (sine bell) apodization lineshape (Numba-optimized).
+    """SP1 apodization FID-based frequency-domain lineshape.
 
-    Args:
-        dx: Frequency offset from peak center (Hz) - can be 1D or 2D
-        r2: Transverse relaxation rate (Hz)
-        aq: Acquisition time (s)
-        end: End parameter for sine bell
-        off: Offset parameter for sine bell
-        phase: Phase correction (degrees)
-
-    Returns:
-        Real part of lineshape after phase correction (same shape as dx)
-
-    Performance optimizations:
-        - Uses complex arithmetic (compatible with 2D arrays)
-        - Pre-computed phase and sine bell parameters
-        - Expected speedup: 20-50× vs pure NumPy
+    If dx is 2D (for external J-coupling from models), compute for each row.
     """
-    # Pre-compute constants
-    phase_rad = np.deg2rad(phase)
-    phase_factor = np.cos(phase_rad) + 1j * np.sin(phase_rad)
-
-    # Compute using complex arithmetic (works with any array shape)
-    z1 = aq * (1j * dx + r2)
-    f1 = 1j * off * np.pi
-    f2 = 1j * (end - off) * np.pi
-
-    a1 = (np.exp(+f2) - np.exp(+z1)) * np.exp(-z1 + f1) / (2 * (z1 - f2))
-    a2 = (np.exp(+z1) - np.exp(-f2)) * np.exp(-z1 - f1) / (2 * (z1 + f2))
-    spec = 1j * aq * (a1 + a2)
-
-    return (spec * phase_factor).real
+    dx_array = np.atleast_1d(dx)
+    if dx_array.ndim == 2:
+        return np.array([_kernel_sp1(row, r2, aq, end, off, phase) for row in dx_array])
+    return _kernel_sp1(dx_array, r2, aq, end, off, phase)
 
 
-@nb.njit(cache=True, fastmath=True, error_model="numpy")
 def sp2(
     dx: FloatArray, r2: float, aq: float, end: float, off: float, phase: float = 0.0
 ) -> FloatArray:
-    """SP2 (sine squared bell) apodization lineshape (Numba-optimized).
+    """SP2 apodization FID-based frequency-domain lineshape.
 
-    Args:
-        dx: Frequency offset from peak center (Hz) - can be 1D or 2D
-        r2: Transverse relaxation rate (Hz)
-        aq: Acquisition time (s)
-        end: End parameter for squared sine bell
-        off: Offset parameter for squared sine bell
-        phase: Phase correction (degrees)
-
-    Returns:
-        Real part of lineshape after phase correction (same shape as dx)
-
-    Performance optimizations:
-        - Uses complex arithmetic (compatible with 2D arrays)
-        - Pre-computed phase and sine bell parameters
-        - Expected speedup: 20-50× vs pure NumPy
+    If dx is 2D (for external J-coupling from models), compute for each row.
     """
-    # Pre-compute constants
-    phase_rad = np.deg2rad(phase)
-    phase_factor = np.cos(phase_rad) + 1j * np.sin(phase_rad)
-
-    # Compute using complex arithmetic (works with any array shape)
-    z1 = aq * (1j * dx + r2)
-    f1 = 1j * off * np.pi
-    f2 = 1j * (end - off) * np.pi
-
-    a1 = (np.exp(+2 * f2) - np.exp(z1)) * np.exp(-z1 + 2 * f1) / (4 * (z1 - 2 * f2))
-    a2 = (np.exp(-2 * f2) - np.exp(z1)) * np.exp(-z1 - 2 * f1) / (4 * (z1 + 2 * f2))
-    a3 = (1.0 - np.exp(-z1)) / (2 * z1)
-    spec = aq * (a1 + a2 + a3)
-
-    return (spec * phase_factor).real
+    dx_array = np.atleast_1d(dx)
+    if dx_array.ndim == 2:
+        return np.array([_kernel_sp2(row, r2, aq, end, off, phase) for row in dx_array])
+    return _kernel_sp2(dx_array, r2, aq, end, off, phase)
 
 
 # =============================================================================
-# Multi-Peak Apodization Functions (OPTIMIZED FOR PEAKFIT)
+# Batch evaluation functions (via factories)
 # =============================================================================
 
+# Compiled batch evaluators (standardized signature inside wrappers)
+_batch_gaussian = make_batch_evaluator(_apply_jcoupling_gaussian)
+_batch_lorentzian = make_batch_evaluator(_apply_jcoupling_lorentzian)
+_batch_pvoigt = make_batch_evaluator(_apply_jcoupling_pvoigt)
+_batch_no_apod = make_batch_evaluator(_apply_jcoupling_no_apod)
+_batch_sp1 = make_batch_evaluator(_apply_jcoupling_sp1)
+_batch_sp2 = make_batch_evaluator(_apply_jcoupling_sp2)
 
-@nb.njit(cache=True, fastmath=True, parallel=True, error_model="numpy")
-def compute_all_no_apod_shapes(
-    positions: np.ndarray,  # (n_points,) in Hz
-    centers: np.ndarray,  # (n_peaks,) in Hz
-    r2s: np.ndarray,  # (n_peaks,) relaxation rates
-    aq: float,  # acquisition time
-    phases: np.ndarray,  # (n_peaks,) phase corrections in degrees
-) -> np.ndarray:
-    """Compute no_apod lineshapes for all peaks in parallel.
 
-    This is a critical optimization for PeakFit's unique apodization-based fitting.
-    Processes multiple peaks simultaneously using Numba's parallel execution.
-
-    Args:
-        positions: Frequency positions in Hz, shape (n_points,)
-        centers: Peak center frequencies in Hz, shape (n_peaks,)
-        r2s: Transverse relaxation rates in Hz, shape (n_peaks,)
-        aq: Acquisition time in seconds (scalar)
-        phases: Phase corrections in degrees, shape (n_peaks,)
-
-    Returns:
-        Array of shape (n_peaks, n_points) with evaluated lineshapes
-
-    Performance optimizations:
-        - Parallel execution across peaks (Numba prange)
-        - Eliminates Python-level loops and function call overhead
-        - Pre-computed phase factors per peak
-        - Expected speedup: 10-50× vs sequential peak-by-peak calls
-    """
-    n_peaks = len(centers)
-    n_points = len(positions)
-    shapes = np.empty((n_peaks, n_points), dtype=np.float64)
-
-    for i in nb.prange(n_peaks):
-        center = centers[i]
-        r2 = r2s[i]
-        phase = phases[i]
-
-        # Pre-compute phase factor for this peak
-        phase_rad = np.deg2rad(phase)
-        phase_real = np.cos(phase_rad)
-        phase_imag = np.sin(phase_rad)
-
-        for j in range(n_points):
-            dx = positions[j] - center
-            # Compute z1 = aq * (1j*dx + r2)
-            z1_real = aq * r2
-            z1_imag = aq * dx
-
-            # exp(-z1) = exp(-z1_real) * (cos(-z1_imag) + i*sin(-z1_imag))
-            exp_z1_mag = np.exp(-z1_real)
-            exp_z1_cos = np.cos(-z1_imag)
-            exp_z1_sin = np.sin(-z1_imag)
-
-            # spec = aq * (1 - exp(-z1)) / z1
-            numer_real = aq * (1.0 - exp_z1_mag * exp_z1_cos)
-            numer_imag = -aq * exp_z1_mag * exp_z1_sin
-
-            denom_real = z1_real
-            denom_imag = z1_imag
-            denom_mag_sq = denom_real * denom_real + denom_imag * denom_imag
-
-            # Complex division: (numer_real + i*numer_imag) / (denom_real + i*denom_imag)
-            spec_real = (numer_real * denom_real + numer_imag * denom_imag) / denom_mag_sq
-            spec_imag = (numer_imag * denom_real - numer_real * denom_imag) / denom_mag_sq
-
-            # Apply phase correction
-            result = spec_real * phase_real - spec_imag * phase_imag
-
-            shapes[i, j] = result
-
-    return shapes
-
-
-@nb.njit(cache=True, fastmath=True, parallel=True, error_model="numpy")
-def compute_all_sp1_shapes(
-    positions: np.ndarray,  # (n_points,) in Hz
-    centers: np.ndarray,  # (n_peaks,) in Hz
-    r2s: np.ndarray,  # (n_peaks,) relaxation rates
-    aq: float,  # acquisition time
-    end: float,  # SP1 end parameter
-    off: float,  # SP1 offset parameter
-    phases: np.ndarray,  # (n_peaks,) phase corrections in degrees
-) -> np.ndarray:
-    """Compute SP1 (sine bell) apodization lineshapes for all peaks in parallel.
-
-    This is one of PeakFit's unique features - SP1 apodization for better
-    resolution in NMR spectra. Optimized for maximum performance.
-
-    Args:
-        positions: Frequency positions in Hz, shape (n_points,)
-        centers: Peak center frequencies in Hz, shape (n_peaks,)
-        r2s: Transverse relaxation rates in Hz, shape (n_peaks,)
-        aq: Acquisition time in seconds (scalar)
-        end: End parameter for sine bell (scalar)
-        off: Offset parameter for sine bell (scalar)
-        phases: Phase corrections in degrees, shape (n_peaks,)
-
-    Returns:
-        Array of shape (n_peaks, n_points) with evaluated lineshapes
-
-    Performance optimizations:
-        - Parallel execution across peaks
-        - Pre-computed sine bell parameters (f1, f2)
-        - Manual complex arithmetic for maximum speed
-        - Expected speedup: 10-50× vs sequential calls
-    """
-    n_peaks = len(centers)
-    n_points = len(positions)
-    shapes = np.empty((n_peaks, n_points), dtype=np.float64)
-
-    # Pre-compute sine bell parameters (shared across all peaks)
-    f1_imag = off * np.pi
-    f2_imag = (end - off) * np.pi
-
-    for i in nb.prange(n_peaks):
-        center = centers[i]
-        r2 = r2s[i]
-        phase = phases[i]
-
-        # Pre-compute phase factor
-        phase_rad = np.deg2rad(phase)
-        phase_real = np.cos(phase_rad)
-        phase_imag = np.sin(phase_rad)
-
-        for j in range(n_points):
-            dx = positions[j] - center
-
-            # z1 = aq * (1j*dx + r2)
-            z1_real = aq * r2
-            z1_imag = aq * dx
-
-            # f1 = 1j * off * π (pure imaginary)
-            # f2 = 1j * (end - off) * π (pure imaginary)
-
-            # exp(f2) = exp(1j * f2_imag) = cos(f2_imag) + 1j*sin(f2_imag)
-            exp_f2_real = np.cos(f2_imag)
-            exp_f2_imag = np.sin(f2_imag)
-
-            # exp(z1) = exp(z1_real) * (cos(z1_imag) + 1j*sin(z1_imag))
-            exp_z1_mag = np.exp(z1_real)
-            exp_z1_real = exp_z1_mag * np.cos(z1_imag)
-            exp_z1_imag = exp_z1_mag * np.sin(z1_imag)
-
-            # exp(-z1) = exp(-z1_real) * (cos(-z1_imag) + 1j*sin(-z1_imag))
-            exp_nz1_mag = np.exp(-z1_real)
-            exp_nz1_real = exp_nz1_mag * np.cos(z1_imag)
-            exp_nz1_imag = -exp_nz1_mag * np.sin(z1_imag)
-
-            # exp(-f2) = cos(-f2_imag) + 1j*sin(-f2_imag)
-            exp_nf2_real = np.cos(f2_imag)
-            exp_nf2_imag = -np.sin(f2_imag)
-
-            # a1_num = (exp(f2) - exp(z1))
-            a1_num_real = exp_f2_real - exp_z1_real
-            a1_num_imag = exp_f2_imag - exp_z1_imag
-
-            # a1 = a1_num * exp(-z1 + f1) / (2 * (z1 - f2))
-            # exp(-z1 + f1) = exp(-z1) * exp(f1)
-            # exp(f1) = cos(f1_imag) + 1j*sin(f1_imag)
-            exp_f1_real = np.cos(f1_imag)
-            exp_f1_imag = np.sin(f1_imag)
-
-            # exp(-z1 + f1) = exp(-z1) * exp(f1) (complex multiplication)
-            exp_nz1_f1_real = exp_nz1_real * exp_f1_real - exp_nz1_imag * exp_f1_imag
-            exp_nz1_f1_imag = exp_nz1_real * exp_f1_imag + exp_nz1_imag * exp_f1_real
-
-            # a1_num * exp(-z1 + f1) (complex multiplication)
-            a1_numer_real = a1_num_real * exp_nz1_f1_real - a1_num_imag * exp_nz1_f1_imag
-            a1_numer_imag = a1_num_real * exp_nz1_f1_imag + a1_num_imag * exp_nz1_f1_real
-
-            # a1_denom = 2 * (z1 - f2) = 2 * (z1_real + 1j*(z1_imag - f2_imag))
-            a1_denom_real = 2.0 * z1_real
-            a1_denom_imag = 2.0 * (z1_imag - f2_imag)
-            a1_denom_mag_sq = a1_denom_real * a1_denom_real + a1_denom_imag * a1_denom_imag
-
-            # a1 = a1_numer / a1_denom (complex division)
-            a1_real = (
-                a1_numer_real * a1_denom_real + a1_numer_imag * a1_denom_imag
-            ) / a1_denom_mag_sq
-            a1_imag = (
-                a1_numer_imag * a1_denom_real - a1_numer_real * a1_denom_imag
-            ) / a1_denom_mag_sq
-
-            # a2_num = (exp(z1) - exp(-f2))
-            a2_num_real = exp_z1_real - exp_nf2_real
-            a2_num_imag = exp_z1_imag - exp_nf2_imag
-
-            # a2 = a2_num * exp(-z1 - f1) / (2 * (z1 + f2))
-            # exp(-z1 - f1) = exp(-z1) * exp(-f1)
-            # exp(-f1) = cos(-f1_imag) + 1j*sin(-f1_imag)
-            exp_nf1_real = np.cos(f1_imag)
-            exp_nf1_imag = -np.sin(f1_imag)
-
-            # exp(-z1 - f1) = exp(-z1) * exp(-f1) (complex multiplication)
-            exp_nz1_nf1_real = exp_nz1_real * exp_nf1_real - exp_nz1_imag * exp_nf1_imag
-            exp_nz1_nf1_imag = exp_nz1_real * exp_nf1_imag + exp_nz1_imag * exp_nf1_real
-
-            # a2_num * exp(-z1 - f1) (complex multiplication)
-            a2_numer_real = a2_num_real * exp_nz1_nf1_real - a2_num_imag * exp_nz1_nf1_imag
-            a2_numer_imag = a2_num_real * exp_nz1_nf1_imag + a2_num_imag * exp_nz1_nf1_real
-
-            # a2_denom = 2 * (z1 + f2) = 2 * (z1_real + 1j*(z1_imag + f2_imag))
-            a2_denom_real = 2.0 * z1_real
-            a2_denom_imag = 2.0 * (z1_imag + f2_imag)
-            a2_denom_mag_sq = a2_denom_real * a2_denom_real + a2_denom_imag * a2_denom_imag
-
-            # a2 = a2_numer / a2_denom (complex division)
-            a2_real = (
-                a2_numer_real * a2_denom_real + a2_numer_imag * a2_denom_imag
-            ) / a2_denom_mag_sq
-            a2_imag = (
-                a2_numer_imag * a2_denom_real - a2_numer_real * a2_denom_imag
-            ) / a2_denom_mag_sq
-
-            # spec = 1j * aq * (a1 + a2)
-            # 1j * (a1 + a2) = 1j * ((a1_real + a2_real) + 1j*(a1_imag + a2_imag))
-            #                = -( a1_imag + a2_imag) + 1j*(a1_real + a2_real)
-            spec_real = -aq * (a1_imag + a2_imag)
-            spec_imag = aq * (a1_real + a2_real)
-
-            # Apply phase correction: spec * phase_factor
-            result = spec_real * phase_real - spec_imag * phase_imag
-
-            shapes[i, j] = result
-
-    return shapes
-
-
-@nb.njit(cache=True, fastmath=True, parallel=True, error_model="numpy")
-def compute_all_sp2_shapes(
-    positions: np.ndarray,  # (n_points,) in Hz
-    centers: np.ndarray,  # (n_peaks,) in Hz
-    r2s: np.ndarray,  # (n_peaks,) relaxation rates
-    aq: float,  # acquisition time
-    end: float,  # SP2 end parameter
-    off: float,  # SP2 offset parameter
-    phases: np.ndarray,  # (n_peaks,) phase corrections in degrees
-) -> np.ndarray:
-    """Compute SP2 (sine squared bell) apodization lineshapes for all peaks in parallel.
-
-    This is one of PeakFit's unique features - SP2 apodization for even better
-    resolution control in NMR spectra.
-
-    Args:
-        positions: Frequency positions in Hz, shape (n_points,)
-        centers: Peak center frequencies in Hz, shape (n_peaks,)
-        r2s: Transverse relaxation rates in Hz, shape (n_peaks,)
-        aq: Acquisition time in seconds (scalar)
-        end: End parameter for squared sine bell (scalar)
-        off: Offset parameter for squared sine bell (scalar)
-        phases: Phase corrections in degrees, shape (n_peaks,)
-
-    Returns:
-        Array of shape (n_peaks, n_points) with evaluated lineshapes
-
-    Performance optimizations:
-        - Parallel execution across peaks
-        - Pre-computed sine bell parameters
-        - Manual complex arithmetic expansion
-        - Expected speedup: 10-50× vs sequential calls
-    """
-    n_peaks = len(centers)
-    n_points = len(positions)
-    shapes = np.empty((n_peaks, n_points), dtype=np.float64)
-
-    # Pre-compute sine bell parameters (shared across all peaks)
-    f1_imag = off * np.pi
-    f2_imag = (end - off) * np.pi
-
-    for i in nb.prange(n_peaks):
-        center = centers[i]
-        r2 = r2s[i]
-        phase = phases[i]
-
-        # Pre-compute phase factor
-        phase_rad = np.deg2rad(phase)
-        phase_real = np.cos(phase_rad)
-        phase_imag = np.sin(phase_rad)
-
-        for j in range(n_points):
-            dx = positions[j] - center
-
-            # z1 = aq * (1j*dx + r2)
-            z1_real = aq * r2
-            z1_imag = aq * dx
-
-            # f1 = 1j * off * π (pure imaginary)
-            # f2 = 1j * (end - off) * π (pure imaginary)
-
-            # exp(2*f2) = cos(2*f2_imag) + 1j*sin(2*f2_imag)
-            exp_2f2_real = np.cos(2.0 * f2_imag)
-            exp_2f2_imag = np.sin(2.0 * f2_imag)
-
-            # exp(-2*f2) = cos(-2*f2_imag) + 1j*sin(-2*f2_imag)
-            exp_n2f2_real = np.cos(2.0 * f2_imag)
-            exp_n2f2_imag = -np.sin(2.0 * f2_imag)
-
-            # exp(z1)
-            exp_z1_mag = np.exp(z1_real)
-            exp_z1_real = exp_z1_mag * np.cos(z1_imag)
-            exp_z1_imag = exp_z1_mag * np.sin(z1_imag)
-
-            # exp(-z1)
-            exp_nz1_mag = np.exp(-z1_real)
-            exp_nz1_real = exp_nz1_mag * np.cos(z1_imag)
-            exp_nz1_imag = -exp_nz1_mag * np.sin(z1_imag)
-
-            # === Compute a1 ===
-            # a1_num = (exp(2*f2) - exp(z1))
-            a1_num_real = exp_2f2_real - exp_z1_real
-            a1_num_imag = exp_2f2_imag - exp_z1_imag
-
-            # exp(-z1 + 2*f1) = exp(-z1) * exp(2*f1)
-            # exp(2*f1) = cos(2*f1_imag) + 1j*sin(2*f1_imag)
-            exp_2f1_real = np.cos(2.0 * f1_imag)
-            exp_2f1_imag = np.sin(2.0 * f1_imag)
-
-            # exp(-z1 + 2*f1) (complex multiplication)
-            exp_nz1_2f1_real = exp_nz1_real * exp_2f1_real - exp_nz1_imag * exp_2f1_imag
-            exp_nz1_2f1_imag = exp_nz1_real * exp_2f1_imag + exp_nz1_imag * exp_2f1_real
-
-            # a1_num * exp(-z1 + 2*f1)
-            a1_numer_real = a1_num_real * exp_nz1_2f1_real - a1_num_imag * exp_nz1_2f1_imag
-            a1_numer_imag = a1_num_real * exp_nz1_2f1_imag + a1_num_imag * exp_nz1_2f1_real
-
-            # a1_denom = 4 * (z1 - 2*f2) = 4 * (z1_real + 1j*(z1_imag - 2*f2_imag))
-            a1_denom_real = 4.0 * z1_real
-            a1_denom_imag = 4.0 * (z1_imag - 2.0 * f2_imag)
-            a1_denom_mag_sq = a1_denom_real * a1_denom_real + a1_denom_imag * a1_denom_imag
-
-            # a1 = a1_numer / a1_denom
-            a1_real = (
-                a1_numer_real * a1_denom_real + a1_numer_imag * a1_denom_imag
-            ) / a1_denom_mag_sq
-            a1_imag = (
-                a1_numer_imag * a1_denom_real - a1_numer_real * a1_denom_imag
-            ) / a1_denom_mag_sq
-
-            # === Compute a2 ===
-            # a2_num = (exp(-2*f2) - exp(z1))
-            a2_num_real = exp_n2f2_real - exp_z1_real
-            a2_num_imag = exp_n2f2_imag - exp_z1_imag
-
-            # exp(-z1 - 2*f1) = exp(-z1) * exp(-2*f1)
-            # exp(-2*f1) = cos(-2*f1_imag) + 1j*sin(-2*f1_imag)
-            exp_n2f1_real = np.cos(2.0 * f1_imag)
-            exp_n2f1_imag = -np.sin(2.0 * f1_imag)
-
-            # exp(-z1 - 2*f1) (complex multiplication)
-            exp_nz1_n2f1_real = exp_nz1_real * exp_n2f1_real - exp_nz1_imag * exp_n2f1_imag
-            exp_nz1_n2f1_imag = exp_nz1_real * exp_n2f1_imag + exp_nz1_imag * exp_n2f1_real
-
-            # a2_num * exp(-z1 - 2*f1)
-            a2_numer_real = a2_num_real * exp_nz1_n2f1_real - a2_num_imag * exp_nz1_n2f1_imag
-            a2_numer_imag = a2_num_real * exp_nz1_n2f1_imag + a2_num_imag * exp_nz1_n2f1_real
-
-            # a2_denom = 4 * (z1 + 2*f2) = 4 * (z1_real + 1j*(z1_imag + 2*f2_imag))
-            a2_denom_real = 4.0 * z1_real
-            a2_denom_imag = 4.0 * (z1_imag + 2.0 * f2_imag)
-            a2_denom_mag_sq = a2_denom_real * a2_denom_real + a2_denom_imag * a2_denom_imag
-
-            # a2 = a2_numer / a2_denom
-            a2_real = (
-                a2_numer_real * a2_denom_real + a2_numer_imag * a2_denom_imag
-            ) / a2_denom_mag_sq
-            a2_imag = (
-                a2_numer_imag * a2_denom_real - a2_numer_real * a2_denom_imag
-            ) / a2_denom_mag_sq
-
-            # === Compute a3 ===
-            # a3 = (1.0 - exp(-z1)) / (2 * z1)
-            # a3_num = 1.0 - exp(-z1)
-            a3_num_real = 1.0 - exp_nz1_real
-            a3_num_imag = -exp_nz1_imag
-
-            # a3_denom = 2 * z1
-            a3_denom_real = 2.0 * z1_real
-            a3_denom_imag = 2.0 * z1_imag
-            a3_denom_mag_sq = a3_denom_real * a3_denom_real + a3_denom_imag * a3_denom_imag
-
-            # a3 = a3_num / a3_denom
-            a3_real = (a3_num_real * a3_denom_real + a3_num_imag * a3_denom_imag) / a3_denom_mag_sq
-            a3_imag = (a3_num_imag * a3_denom_real - a3_num_real * a3_denom_imag) / a3_denom_mag_sq
-
-            # === Combine: spec = aq * (a1 + a2 + a3) ===
-            spec_real = aq * (a1_real + a2_real + a3_real)
-            spec_imag = aq * (a1_imag + a2_imag + a3_imag)
-
-            # Apply phase correction: spec * phase_factor
-            result = spec_real * phase_real - spec_imag * phase_imag
-
-            shapes[i, j] = result
-
-    return shapes
-
-
-# =============================================================================
-# Multi-Peak Standard Lineshape Functions
-# =============================================================================
-
-
-@nb.njit(cache=True, fastmath=True, parallel=True, error_model="numpy")
 def compute_all_gaussian_shapes(
-    positions: np.ndarray,  # (n_points,)
-    centers: np.ndarray,  # (n_peaks,)
-    fwhms: np.ndarray,  # (n_peaks,)
+    positions: np.ndarray,
+    centers: np.ndarray,
+    fwhms: np.ndarray,
+    j_couplings: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Compute Gaussian lineshapes for all peaks.
-
-    Returns:
-        Array of shape (n_peaks, n_points) with evaluated lineshapes
-    """
-    n_peaks = len(centers)
-    n_points = len(positions)
-    shapes = np.empty((n_peaks, n_points), dtype=np.float64)
-
-    for i in nb.prange(n_peaks):
-        center = centers[i]
-        fwhm = fwhms[i]
-        c = 4.0 * np.log(2.0) / (fwhm * fwhm)
-
-        for j in range(n_points):
-            dx = positions[j] - center
-            shapes[i, j] = np.exp(-dx * dx * c)
-
-    return shapes
+    if j_couplings is None:
+        j_couplings = np.zeros(centers.shape[0], dtype=np.float64)
+    return _batch_gaussian(positions, centers, j_couplings, fwhms)
 
 
-@nb.njit(cache=True, fastmath=True, parallel=True, error_model="numpy")
 def compute_all_lorentzian_shapes(
     positions: np.ndarray,
     centers: np.ndarray,
     fwhms: np.ndarray,
+    j_couplings: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Compute Lorentzian lineshapes for all peaks."""
-    n_peaks = len(centers)
-    n_points = len(positions)
-    shapes = np.empty((n_peaks, n_points), dtype=np.float64)
-
-    for i in nb.prange(n_peaks):
-        center = centers[i]
-        fwhm = fwhms[i]
-        half_width_sq = (0.5 * fwhm) ** 2
-
-        for j in range(n_points):
-            dx = positions[j] - center
-            shapes[i, j] = half_width_sq / (dx * dx + half_width_sq)
-
-    return shapes
+    if j_couplings is None:
+        j_couplings = np.zeros(centers.shape[0], dtype=np.float64)
+    return _batch_lorentzian(positions, centers, j_couplings, fwhms)
 
 
-@nb.njit(cache=True, fastmath=True, parallel=True, error_model="numpy")
 def compute_all_pvoigt_shapes(
     positions: np.ndarray,
     centers: np.ndarray,
     fwhms: np.ndarray,
     etas: np.ndarray,
+    j_couplings: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Compute Pseudo-Voigt lineshapes for all peaks."""
-    n_peaks = len(centers)
-    n_points = len(positions)
-    shapes = np.empty((n_peaks, n_points), dtype=np.float64)
+    if j_couplings is None:
+        j_couplings = np.zeros(centers.shape[0], dtype=np.float64)
+    return _batch_pvoigt(positions, centers, j_couplings, fwhms, etas)
+
+
+def compute_all_no_apod_shapes(
+    positions: np.ndarray,
+    centers: np.ndarray,
+    r2s: np.ndarray,
+    aq: float | np.ndarray,
+    phases: np.ndarray,
+    j_couplings: np.ndarray | None = None,
+) -> np.ndarray:
+    if j_couplings is None:
+        j_couplings = np.zeros(centers.shape[0], dtype=np.float64)
+    if np.ndim(aq) == 0:
+        aqs = np.full_like(r2s, float(aq))
+    else:
+        aqs = aq  # type: ignore[assignment]
+    return _batch_no_apod(positions, centers, j_couplings, r2s, aqs, phases)
+
+
+def compute_all_sp1_shapes(
+    positions: np.ndarray,
+    centers: np.ndarray,
+    r2s: np.ndarray,
+    aq: float | np.ndarray,
+    end: float | np.ndarray,
+    off: float | np.ndarray,
+    phases: np.ndarray,
+    j_couplings: np.ndarray | None = None,
+) -> np.ndarray:
+    if j_couplings is None:
+        j_couplings = np.zeros(centers.shape[0], dtype=np.float64)
+    if np.ndim(aq) == 0:
+        aqs = np.full_like(r2s, float(aq))
+    else:
+        aqs = aq  # type: ignore[assignment]
+    if np.ndim(end) == 0:
+        ends = np.full_like(r2s, float(end))
+    else:
+        ends = end  # type: ignore[assignment]
+    if np.ndim(off) == 0:
+        offs = np.full_like(r2s, float(off))
+    else:
+        offs = off  # type: ignore[assignment]
+    return _batch_sp1(positions, centers, j_couplings, r2s, aqs, ends, offs, phases)
+
+
+def compute_all_sp2_shapes(
+    positions: np.ndarray,
+    centers: np.ndarray,
+    r2s: np.ndarray,
+    aq: float | np.ndarray,
+    end: float | np.ndarray,
+    off: float | np.ndarray,
+    phases: np.ndarray,
+    j_couplings: np.ndarray | None = None,
+) -> np.ndarray:
+    if j_couplings is None:
+        j_couplings = np.zeros(centers.shape[0], dtype=np.float64)
+    if np.ndim(aq) == 0:
+        aqs = np.full_like(r2s, float(aq))
+    else:
+        aqs = aq  # type: ignore[assignment]
+    if np.ndim(end) == 0:
+        ends = np.full_like(r2s, float(end))
+    else:
+        ends = end  # type: ignore[assignment]
+    if np.ndim(off) == 0:
+        offs = np.full_like(r2s, float(off))
+    else:
+        offs = off  # type: ignore[assignment]
+    return _batch_sp2(positions, centers, j_couplings, r2s, aqs, ends, offs, phases)
+
+
+# =============================================================================
+# Matrix operations for least-squares fitting
+# =============================================================================
+
+
+@nb.njit(cache=True, fastmath=True, parallel=True)
+def compute_ata_symmetric(shapes: np.ndarray) -> np.ndarray:
+    """Compute A^T A exploiting symmetry."""
+    n_peaks = shapes.shape[0]
+    result = np.empty((n_peaks, n_peaks), dtype=np.float64)
 
     for i in nb.prange(n_peaks):
-        center = centers[i]
-        fwhm = fwhms[i]
-        eta = etas[i]
-        c_gauss = 4.0 * np.log(2.0) / (fwhm * fwhm)
-        half_width_sq = (0.5 * fwhm) ** 2
+        for j in range(i, n_peaks):
+            val = np.dot(shapes[i], shapes[j])
+            result[i, j] = val
+            result[j, i] = val
 
-        for j in range(n_points):
-            dx = positions[j] - center
-            gauss = np.exp(-dx * dx * c_gauss)
-            lorentz = half_width_sq / (dx * dx + half_width_sq)
-            shapes[i, j] = (1.0 - eta) * gauss + eta * lorentz
-
-    return shapes
+    return result
 
 
-# =============================================================================
-# Linear Algebra Functions (OPTIMIZED)
-# =============================================================================
-
-
-@nb.njit(cache=True, fastmath=True, error_model="numpy")
-def calculate_lstsq_amplitude(shapes: FloatArray, data: FloatArray) -> FloatArray:
-    """Calculate peak amplitudes via linear least squares (Numba-optimized).
-
-    Uses normal equations: A^T A x = A^T b
-
-    Args:
-        shapes: Shape matrix (n_peaks, n_points)
-        data: Data vector (n_points,)
-
-    Returns:
-        Optimal amplitude coefficients for each peak
-
-    Performance:
-        - Uses Cholesky decomposition for stability (when available)
-        - Fallback to direct solve for ill-conditioned systems
-        - 2-5× faster than np.linalg.lstsq for small matrices (n_peaks < 100)
-
-    Notes:
-        For maximum performance with large matrices, ensure SciPy is built
-        against Intel MKL or OpenBLAS.
-    """
-    # A^T A (symmetric positive definite for well-conditioned problems)
-    ata = np.dot(shapes, shapes.T)
-
-    # A^T b
-    atb = np.dot(shapes, data)
-
-    # Try Cholesky decomposition first (faster and more stable)
-    try:
-        lower = np.linalg.cholesky(ata)
-        # Solve L y = A^T b
-        y = np.linalg.solve(lower, atb)
-        # Solve L^T x = y
-        return np.linalg.solve(lower.T, y)
-    except np.linalg.LinAlgError:
-        # Fallback to direct solve for ill-conditioned systems
-        return np.linalg.solve(ata, atb)
-
-
-@nb.njit(cache=True, fastmath=True, error_model="numpy")
-def compute_ata_symmetric(shapes: np.ndarray) -> np.ndarray:
-    """Compute A^T A with cache-friendly access pattern.
-
-    Exploits symmetry to compute only upper triangle.
-
-    Args:
-        shapes: Shape matrix (n_peaks, n_points) - must be C-contiguous
-
-    Returns:
-        Symmetric matrix A^T A (n_peaks, n_peaks)
-
-    Performance:
-        - Cache-friendly memory access (sequential reads)
-        - Exploits symmetry (2× fewer operations)
-        - Expected speedup: 1.5-3× vs np.dot(shapes, shapes.T)
-    """
-    n_peaks = shapes.shape[0]
-    n_points = shapes.shape[1]
-    ata = np.zeros((n_peaks, n_peaks), dtype=np.float64)
-
-    # Compute upper triangle only (exploit symmetry)
-    for i in range(n_peaks):
-        for j in range(i, n_peaks):  # j >= i
-            dot_product = 0.0
-            # Sequential memory access (cache-friendly)
-            for k in range(n_points):
-                dot_product += shapes[i, k] * shapes[j, k]
-            ata[i, j] = dot_product
-            if i != j:
-                ata[j, i] = dot_product  # symmetry
-
-    return ata
+@nb.njit(cache=True, fastmath=True)
+def compute_atb(shapes: np.ndarray, data: np.ndarray) -> np.ndarray:
+    """Compute A^T b."""
+    return shapes @ data
 
 
 # =============================================================================
-# Phase 2: Advanced Numba Features - Specialized Dispatch Functions
+# Backward compatibility and utilities
 # =============================================================================
 
+# Legacy names (backward compatibility)
+evaluate_apod_shape_no_apod = no_apod
+evaluate_apod_shape_sp1 = sp1
+evaluate_apod_shape_sp2 = sp2
 
-# Create type-specific dispatch functions that eliminate runtime conditionals
-# These provide compile-time specialization for maximum performance
-
-
-@nb.njit(cache=True, fastmath=True, error_model="numpy")
-def evaluate_apod_shape_no_apod(
-    dx_rads: FloatArray, r2: float, aq: float, phase: float
-) -> FloatArray:
-    """Specialized evaluator for no_apod shape (Phase 2 optimization).
-
-    Eliminates conditional overhead by providing dedicated function.
-    Use this when shape type is known to be no_apod.
-
-    Performance: ~10-15% faster than generic dispatch in hot loops.
-    """
-    return no_apod(dx_rads, r2, aq, phase)
+# Aliases for old kernel names (backward compatibility)
+_gaussian = _kernel_gaussian
+_lorentzian = _kernel_lorentzian
+_pvoigt = _kernel_pvoigt
+_no_apod = _kernel_no_apod
+_sp1 = _kernel_sp1
+_sp2 = _kernel_sp2
 
 
-@nb.njit(cache=True, fastmath=True, error_model="numpy")
-def evaluate_apod_shape_sp1(
-    dx_rads: FloatArray, r2: float, aq: float, end: float, off: float, phase: float
-) -> FloatArray:
-    """Specialized evaluator for sp1 shape (Phase 2 optimization)."""
-    return sp1(dx_rads, r2, aq, end, off, phase)
-
-
-@nb.njit(cache=True, fastmath=True, error_model="numpy")
-def evaluate_apod_shape_sp2(
-    dx_rads: FloatArray, r2: float, aq: float, end: float, off: float, phase: float
-) -> FloatArray:
-    """Specialized evaluator for sp2 shape (Phase 2 optimization)."""
-    return sp2(dx_rads, r2, aq, end, off, phase)
-
-
-# Generic dispatch function for cases where shape type is only known at runtime
-@nb.njit(cache=True, fastmath=True, error_model="numpy")
+@nb.njit(cache=True, fastmath=True)
 def evaluate_apod_shape(
-    dx_rads: FloatArray, r2: float, aq: float, end: float, off: float, phase: float, shape_type: int
+    dx_rads: FloatArray,
+    r2: float,
+    aq: float,
+    end: float,
+    off: float,
+    phase: float,
+    shape_type: int,
 ) -> FloatArray:
-    """Runtime dispatch for apodization shapes.
-
-    For best performance, use the specialized functions (evaluate_apod_shape_no_apod, etc.)
-    when the shape type is known at Python level. This function is provided for cases
-    where the shape type is only determined at runtime.
-
-    Args:
-        dx_rads: Frequency offset in radians (can be 1D or 2D for J-coupling)
-        r2: Transverse relaxation rate (Hz)
-        aq: Acquisition time (s)
-        end: End parameter for sine bell (sp1/sp2 only)
-        off: Offset parameter for sine bell (sp1/sp2 only)
-        phase: Phase correction (degrees)
-        shape_type: 0=no_apod, 1=sp1, 2=sp2
-
-    Returns:
-        Evaluated lineshape (same shape as dx_rads)
-    """
+    """Runtime dispatch for apodization shapes."""
     if shape_type == 0:
-        return no_apod(dx_rads, r2, aq, phase)
+        return _kernel_no_apod(dx_rads, r2, aq, phase)
     if shape_type == 1:
-        return sp1(dx_rads, r2, aq, end, off, phase)
-    # shape_type == 2
-    return sp2(dx_rads, r2, aq, end, off, phase)
-
-
-# =============================================================================
-# Phase 2: Cache Warming and Profiling Utilities
-# =============================================================================
+        return _kernel_sp1(dx_rads, r2, aq, end, off, phase)
+    return _kernel_sp2(dx_rads, r2, aq, end, off, phase)
 
 
 def warm_numba_cache() -> dict[str, float]:
-    """Pre-compile all Numba functions with representative inputs.
-
-    Reduces first-call latency by triggering JIT compilation upfront.
-    Useful for production deployments and benchmarking.
-
-    Returns:
-        Dictionary mapping function names to compilation times (seconds)
-
-    Example:
-        >>> times = warm_numba_cache()
-        >>> print(f"Total compilation: {sum(times.values()):.2f}s")
-    """
+    """Pre-compile all Numba functions."""
     import time
 
-    compilation_times = {}
-
-    # Representative inputs
-    dx_1d = np.linspace(-100, 100, 256)
-    dx_2d = np.linspace(-100, 100, 256).reshape(2, 128)
-    fwhm = 20.0
-    eta = 0.5
-    r2 = 10.0
+    times = {}
+    dx = np.linspace(-100.0, 100.0, 512, dtype=np.float64)
+    positions = dx.copy()
+    centers = np.array([0.0, 10.0], dtype=np.float64)
+    fwhms = np.array([20.0, 25.0], dtype=np.float64)
+    etas = np.array([0.5, 0.5], dtype=np.float64)
+    r2s = np.array([10.0, 15.0], dtype=np.float64)
+    phases = np.array([0.0, 0.0], dtype=np.float64)
+    j_couplings = np.array([0.0, 0.0], dtype=np.float64)
     aq = 0.05
-    end, off = 1.0, 0.0
-    phase = 0.0
+    end = 2.0
+    off = 0.5
 
-    # Warm single-peak functions
-    funcs_1d = [
-        ("gaussian", lambda: gaussian(dx_1d, fwhm)),
-        ("lorentzian", lambda: lorentzian(dx_1d, fwhm)),
-        ("pvoigt", lambda: pvoigt(dx_1d, fwhm, eta)),
-    ]
+    # Compile individual shapes
+    start = time.perf_counter()
+    _ = _kernel_gaussian(dx, 20.0)
+    times["_kernel_gaussian"] = time.perf_counter() - start
 
-    for name, func in funcs_1d:
-        start = time.perf_counter()
-        func()
-        compilation_times[name] = time.perf_counter() - start
+    start = time.perf_counter()
+    _ = _kernel_lorentzian(dx, 20.0)
+    times["_kernel_lorentzian"] = time.perf_counter() - start
 
-    # Warm FID functions (both 1D and 2D)
-    fid_funcs = [
-        ("no_apod_1d", lambda: no_apod(dx_1d, r2, aq, phase)),
-        ("no_apod_2d", lambda: no_apod(dx_2d, r2, aq, phase)),
-        ("sp1_1d", lambda: sp1(dx_1d, r2, aq, end, off, phase)),
-        ("sp1_2d", lambda: sp1(dx_2d, r2, aq, end, off, phase)),
-        ("sp2_1d", lambda: sp2(dx_1d, r2, aq, end, off, phase)),
-        ("sp2_2d", lambda: sp2(dx_2d, r2, aq, end, off, phase)),
-    ]
+    start = time.perf_counter()
+    _ = _kernel_pvoigt(dx, 20.0, 0.5)
+    times["_kernel_pvoigt"] = time.perf_counter() - start
 
-    for name, func in fid_funcs:
-        start = time.perf_counter()
-        func()
-        compilation_times[name] = time.perf_counter() - start
+    start = time.perf_counter()
+    _ = _kernel_no_apod(dx, 10.0, aq, 0.0)
+    times["_kernel_no_apod"] = time.perf_counter() - start
 
-    # Warm multi-peak functions
-    positions = np.linspace(0, 512, 512)
-    centers = np.array([100.0, 200.0, 300.0, 400.0])
-    fwhms = np.array([15.0, 20.0, 18.0, 22.0])
-    etas = np.array([0.3, 0.5, 0.4, 0.6])
-    r2s = np.array([10.0, 12.0, 11.0, 13.0])
-    phases = np.array([0.0, 5.0, -5.0, 2.0])
+    start = time.perf_counter()
+    _ = _kernel_sp1(dx, 10.0, aq, end, off, 0.0)
+    times["_kernel_sp1"] = time.perf_counter() - start
 
-    multi_funcs = [
-        (
-            "compute_all_gaussian_shapes",
-            lambda: compute_all_gaussian_shapes(positions, centers, fwhms),
-        ),
-        (
-            "compute_all_lorentzian_shapes",
-            lambda: compute_all_lorentzian_shapes(positions, centers, fwhms),
-        ),
-        (
-            "compute_all_pvoigt_shapes",
-            lambda: compute_all_pvoigt_shapes(positions, centers, fwhms, etas),
-        ),
-        (
-            "compute_all_no_apod_shapes",
-            lambda: compute_all_no_apod_shapes(positions, centers, r2s, aq, phases),
-        ),
-        (
-            "compute_all_sp1_shapes",
-            lambda: compute_all_sp1_shapes(positions, centers, r2s, aq, end, off, phases),
-        ),
-        (
-            "compute_all_sp2_shapes",
-            lambda: compute_all_sp2_shapes(positions, centers, r2s, aq, end, off, phases),
-        ),
-    ]
+    start = time.perf_counter()
+    _ = _kernel_sp2(dx, 10.0, aq, end, off, 0.0)
+    times["_kernel_sp2"] = time.perf_counter() - start
 
-    for name, func in multi_funcs:
-        start = time.perf_counter()
-        func()
-        compilation_times[name] = time.perf_counter() - start
+    # Compile J-coupling wrappers
+    start = time.perf_counter()
+    _ = _apply_jcoupling_gaussian(dx, 0.0, 20.0)
+    times["_apply_jcoupling_gaussian"] = time.perf_counter() - start
 
-    # Warm utility functions
-    rng = np.random.default_rng(42)
-    shapes = rng.standard_normal((4, 512))
-    data = rng.standard_normal(512)
+    start = time.perf_counter()
+    _ = _apply_jcoupling_lorentzian(dx, 0.0, 20.0)
+    times["_apply_jcoupling_lorentzian"] = time.perf_counter() - start
 
-    util_funcs = [
-        ("compute_ata_symmetric", lambda: compute_ata_symmetric(shapes)),
-        ("calculate_lstsq_amplitude", lambda: calculate_lstsq_amplitude(shapes, data)),
-    ]
+    start = time.perf_counter()
+    _ = _apply_jcoupling_pvoigt(dx, 0.0, 20.0, 0.5)
+    times["_apply_jcoupling_pvoigt"] = time.perf_counter() - start
 
-    for name, func in util_funcs:
-        start = time.perf_counter()
-        func()
-        compilation_times[name] = time.perf_counter() - start
+    start = time.perf_counter()
+    _ = _apply_jcoupling_no_apod(dx, 0.0, 10.0, aq, 0.0)
+    times["_apply_jcoupling_no_apod"] = time.perf_counter() - start
 
-    # Warm specialized dispatch functions
-    dx_rads_1d = dx_1d * 2 * np.pi
-    dispatch_funcs = [
-        (
-            "evaluate_apod_shape_no_apod",
-            lambda: evaluate_apod_shape_no_apod(dx_rads_1d, r2, aq, phase),
-        ),
-        (
-            "evaluate_apod_shape_sp1",
-            lambda: evaluate_apod_shape_sp1(dx_rads_1d, r2, aq, end, off, phase),
-        ),
-        (
-            "evaluate_apod_shape_sp2",
-            lambda: evaluate_apod_shape_sp2(dx_rads_1d, r2, aq, end, off, phase),
-        ),
-        (
-            "evaluate_apod_shape_generic",
-            lambda: evaluate_apod_shape(dx_rads_1d, r2, aq, end, off, phase, 0),
-        ),
-    ]
+    start = time.perf_counter()
+    _ = _apply_jcoupling_sp1(dx, 0.0, 10.0, aq, end, off, 0.0)
+    times["_apply_jcoupling_sp1"] = time.perf_counter() - start
 
-    for name, func in dispatch_funcs:
-        start = time.perf_counter()
-        func()
-        compilation_times[name] = time.perf_counter() - start
+    start = time.perf_counter()
+    _ = _apply_jcoupling_sp2(dx, 0.0, 10.0, aq, end, off, 0.0)
+    times["_apply_jcoupling_sp2"] = time.perf_counter() - start
 
-    return compilation_times
+    # Compile batch functions
+    start = time.perf_counter()
+    _ = compute_all_gaussian_shapes(positions, centers, fwhms, j_couplings)
+    times["compute_all_gaussian_shapes"] = time.perf_counter() - start
+
+    start = time.perf_counter()
+    _ = compute_all_lorentzian_shapes(positions, centers, fwhms, j_couplings)
+    times["compute_all_lorentzian_shapes"] = time.perf_counter() - start
+
+    start = time.perf_counter()
+    _ = compute_all_pvoigt_shapes(positions, centers, fwhms, etas, j_couplings)
+    times["compute_all_pvoigt_shapes"] = time.perf_counter() - start
+
+    start = time.perf_counter()
+    _ = compute_all_no_apod_shapes(positions, centers, r2s, aq, phases, j_couplings)
+    times["compute_all_no_apod_shapes"] = time.perf_counter() - start
+
+    start = time.perf_counter()
+    _ = compute_all_sp1_shapes(positions, centers, r2s, aq, end, off, phases, j_couplings)
+    times["compute_all_sp1_shapes"] = time.perf_counter() - start
+
+    start = time.perf_counter()
+    _ = compute_all_sp2_shapes(positions, centers, r2s, aq, end, off, phases, j_couplings)
+    times["compute_all_sp2_shapes"] = time.perf_counter() - start
+
+    # Compile matrix operations
+    rng = np.random.default_rng(1337)
+    shapes_mat = rng.standard_normal((4, 512))
+    data_vec = rng.standard_normal(512)
+
+    start = time.perf_counter()
+    _ = compute_ata_symmetric(shapes_mat)
+    times["compute_ata_symmetric"] = time.perf_counter() - start
+
+    start = time.perf_counter()
+    _ = compute_atb(shapes_mat, data_vec)
+    times["compute_atb"] = time.perf_counter() - start
+
+    return times

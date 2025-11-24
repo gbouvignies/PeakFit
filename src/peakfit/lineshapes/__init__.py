@@ -1,18 +1,13 @@
-"""Lineshapes package for NMR peak fitting.
+"""Simplified lineshapes package for NMR peak fitting.
 
-This package provides:
-- Numba-accelerated lineshape functions (functions module)
-- Lineshape model classes (models module)
-- Shape registration system (registry module)
-
-All functions are Numba-accelerated with production-level optimizations.
-Numba is a required dependency.
+All shapes treated equally with uniform J-coupling support.
+Single Numba kernel handles all shape types.
 """
 
-# Import functions for direct access (no circular dependency)
 from peakfit.lineshapes import functions
+from peakfit.lineshapes.catalog import ShapeComputationCatalog, batch_evaluate_with_catalog
 from peakfit.lineshapes.functions import (
-    calculate_lstsq_amplitude,
+    KERNEL_REGISTRY,
     compute_all_gaussian_shapes,
     compute_all_lorentzian_shapes,
     compute_all_no_apod_shapes,
@@ -20,6 +15,7 @@ from peakfit.lineshapes.functions import (
     compute_all_sp1_shapes,
     compute_all_sp2_shapes,
     compute_ata_symmetric,
+    compute_atb,
     evaluate_apod_shape,
     evaluate_apod_shape_no_apod,
     evaluate_apod_shape_sp1,
@@ -32,8 +28,6 @@ from peakfit.lineshapes.functions import (
     sp2,
     warm_numba_cache,
 )
-
-# Import registry and all model classes
 from peakfit.lineshapes.models import (
     SHAPES,
     SP1,
@@ -52,12 +46,11 @@ from peakfit.lineshapes.models import (
 )
 
 __all__ = [
-    # Registry
+    "KERNEL_REGISTRY",
     "SHAPES",
     "SP1",
     "SP2",
     "ApodShape",
-    # Models
     "BaseShape",
     "Gaussian",
     "Lorentzian",
@@ -65,7 +58,8 @@ __all__ = [
     "PeakShape",
     "PseudoVoigt",
     "Shape",
-    "calculate_lstsq_amplitude",
+    "ShapeComputationCatalog",
+    "batch_evaluate_with_catalog",
     "compute_all_gaussian_shapes",
     "compute_all_lorentzian_shapes",
     "compute_all_no_apod_shapes",
@@ -73,11 +67,11 @@ __all__ = [
     "compute_all_sp1_shapes",
     "compute_all_sp2_shapes",
     "compute_ata_symmetric",
+    "compute_atb",
     "evaluate_apod_shape",
     "evaluate_apod_shape_no_apod",
     "evaluate_apod_shape_sp1",
     "evaluate_apod_shape_sp2",
-    # Functions
     "functions",
     "gaussian",
     "get_shape",

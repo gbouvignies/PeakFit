@@ -128,7 +128,7 @@ class Peak:
         Args:
             params: Fitted parameter values
         """
-        self.positions = np.array([params[f"{shape.prefix}0"].value for shape in self.shapes])
+        self.positions = np.array([params[f"{shape._prefix}0"].value for shape in self.shapes])
         for shape, position in zip(self.shapes, self.positions, strict=False):
             shape.center = position
 
