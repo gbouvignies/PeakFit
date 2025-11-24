@@ -4,7 +4,6 @@ This module provides tools for measuring and analyzing performance
 of different fitting strategies.
 """
 
-import multiprocessing as mp
 import time
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -153,7 +152,6 @@ def compare_fitting_methods(
     refine_iterations: int = 1,
     *,
     fixed: bool = False,
-    n_workers: int | None = None,
 ) -> dict[str, ProfileReport]:
     """Compare performance of different fitting methods.
 
@@ -162,16 +160,13 @@ def compare_fitting_methods(
         noise: Noise level
         refine_iterations: Number of refinement iterations
         fixed: Whether to fix positions
-        n_workers: Number of workers for parallel fitting
 
     Returns:
         Dictionary mapping method name to ProfileReport
     """
     from peakfit.fitting.optimizer import fit_clusters
-    from peakfit.fitting.parallel import fit_clusters_parallel_refined
 
-    if n_workers is None:
-        n_workers = min(mp.cpu_count(), len(clusters))
+    # No parallel testing available — this function only tests sequential fitting
 
     results = {}
 
@@ -188,24 +183,7 @@ def compare_fitting_methods(
     profiler.finalize()
     results["fast_sequential"] = profiler.report
 
-    # Test parallel fitting
-    if len(clusters) > 1:
-        profiler = Profiler()
-        with profiler.timer(
-            "fit_clusters_parallel",
-            count=len(clusters),
-            n_workers=n_workers,
-        ):
-            fit_clusters_parallel_refined(
-                clusters=clusters,
-                noise=noise,
-                refine_iterations=refine_iterations,
-                fixed=fixed,
-                n_workers=n_workers,
-                verbose=False,
-            )
-        profiler.finalize()
-        results["parallel"] = profiler.report
+    # Parallel fitting removed; no parallel testing available
 
     return results
 
@@ -215,44 +193,28 @@ def estimate_optimal_workers(
     noise: float,
     max_workers: int | None = None,
 ) -> tuple[int, dict[int, float]]:
-    """Estimate optimal number of workers for parallel fitting.
+    """Estimate optimal worker count for the (removed) parallel fitting strategy.
+
+    Since parallel processing has been removed, this function returns 1 and a
+    timing for the sequential run for convenience.
 
     Args:
         clusters: List of clusters to fit
         noise: Noise level
-        max_workers: Maximum workers to test (default: CPU count)
+        max_workers: Ignored; retained for compatibility
 
     Returns:
-        Tuple of (optimal_workers, timings_dict)
+        Tuple of (1, {1: elapsed_time})
     """
-    from peakfit.fitting.parallel import fit_clusters_parallel_refined
-
+    # Parallel fitting removed - default to single worker.
     if max_workers is None:
-        max_workers = mp.cpu_count()
+        max_workers = 1
 
-    # Test a subset of worker counts
-    test_workers = [1, 2, 4]
-    if max_workers >= 8:
-        test_workers.append(8)
-    if max_workers >= 16:
-        test_workers.append(16)
-    test_workers = [w for w in test_workers if w <= max_workers]
+    # Only sequential timing available
+    from peakfit.fitting.optimizer import fit_clusters
 
-    timings = {}
-
-    for n_workers in test_workers:
-        start = time.perf_counter()
-        fit_clusters_parallel_refined(
-            clusters=clusters,
-            noise=noise,
-            refine_iterations=0,  # Quick test
-            fixed=False,
-            n_workers=n_workers,
-            verbose=False,
-        )
-        elapsed = time.perf_counter() - start
-        timings[n_workers] = elapsed
-
-    # Find optimal
-    optimal = min(timings, key=timings.get)
-    return optimal, timings
+    start = time.perf_counter()
+    fit_clusters(clusters=clusters, noise=noise, refine_iterations=0, fixed=False, verbose=False)
+    elapsed = time.perf_counter() - start
+    timings = {1: elapsed}
+    return 1, timings

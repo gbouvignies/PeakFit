@@ -228,7 +228,7 @@ If global optimization doesn't improve results:
 **Solutions:**
 - Reduce number of iterations (if using basin-hopping)
 - Reduce population size (if using differential evolution)
-- Use parallel processing (automatically enabled when beneficial)
+- Parallel processing is removed; run sequentially or parallelize at OS level if needed
 - Process fewer planes at once
 
 ### "Results are inconsistent between runs"
