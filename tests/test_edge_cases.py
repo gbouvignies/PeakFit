@@ -271,8 +271,7 @@ class TestConfigEdgeCases:
         import tempfile
         from pathlib import Path
 
-        from peakfit.io.config import load_config, save_config
-        from peakfit.models import PeakFitConfig
+        from peakfit.models import PeakFitConfig, load_config, save_config
 
         config = PeakFitConfig(noise_level=1.5, exclude_planes=[1, 2, 3])
         config.fitting.lineshape = "lorentzian"

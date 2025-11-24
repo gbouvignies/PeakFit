@@ -9,7 +9,9 @@ from peakfit.data.clustering import Cluster
 from peakfit.data.peaks import Peak
 from peakfit.fitting.advanced import compute_profile_likelihood, estimate_uncertainties_mcmc
 from peakfit.fitting.parameters import Parameters
-from peakfit.ui import PeakFitUI as ui, console
+from peakfit.ui import PeakFitUI, console
+
+ui = PeakFitUI
 
 
 def load_fitting_state(results_dir: Path) -> dict:
@@ -130,9 +132,7 @@ def run_mcmc(
             from peakfit.diagnostics.burnin import format_burnin_report
 
             burn_in_used = result.burn_in_info["burn_in"]
-            console.print(
-                f"[bold cyan]Burn-in Determination - {', '.join(peak_names)}[/bold cyan]"
-            )
+            console.print(f"[bold cyan]Burn-in Determination - {', '.join(peak_names)}[/bold cyan]")
 
             # Format and display the report
             report = format_burnin_report(
@@ -153,7 +153,9 @@ def run_mcmc(
         # Display convergence diagnostics
         if result.mcmc_diagnostics is not None:
             diag = result.mcmc_diagnostics
-            console.print(f"[bold cyan]Convergence Diagnostics - {', '.join(peak_names)}[/bold cyan]")
+            console.print(
+                f"[bold cyan]Convergence Diagnostics - {', '.join(peak_names)}[/bold cyan]"
+            )
             console.print(f"  Chains: {diag.n_chains}, Samples per chain: {diag.n_samples}")
             console.print(
                 "  [dim]BARG Guidelines: R-hat ≤ 1.01 (excellent), "
@@ -269,11 +271,11 @@ def run_mcmc(
                 short_name = name.split("_")[-1] if "_" in name else name
                 corr_table.add_column(short_name[:8], justify="right", width=9)
 
-            for i, name in enumerate(result.parameter_names):
+            for row_idx, name in enumerate(result.parameter_names):
                 short_name = name.split("_")[-1] if "_" in name else name
                 row = [short_name[:15]]
-                for j, val in enumerate(result.correlation_matrix[i]):
-                    if i == j:
+                for j, val in enumerate(result.correlation_matrix[row_idx]):
+                    if row_idx == j:
                         row.append("[dim]1.0000[/dim]")
                     elif abs(val) > 0.7:
                         # Highlight strong correlations
@@ -312,7 +314,7 @@ def run_mcmc(
     ui.print_next_steps(
         [
             f"Generate diagnostic plots: [cyan]peakfit plot diagnostics {results_dir}/[/cyan]",
-            f"Review convergence: Check R-hat ≤ 1.01 and ESS values above",
+            "Review convergence: Check R-hat ≤ 1.01 and ESS values above",
             "Inspect correlations: Check correlation matrices for parameter dependencies",
         ]
     )
@@ -382,9 +384,7 @@ def run_profile_likelihood(
                 console.print(f"  {name}")
             console.print("")
 
-        ui.show_header(
-            f"Computing Profile Likelihood for {len(target_params)} Parameter(s)"
-        )
+        ui.show_header(f"Computing Profile Likelihood for {len(target_params)} Parameter(s)")
 
     from scipy.stats import chi2
 
@@ -398,9 +398,7 @@ def run_profile_likelihood(
 
     for idx, target_param in enumerate(target_params, 1):
         if len(target_params) > 1:
-            console.print(
-                f"[cyan]Parameter {idx}/{len(target_params)}: {target_param}[/cyan]"
-            )
+            console.print(f"[cyan]Parameter {idx}/{len(target_params)}: {target_param}[/cyan]")
 
         # Find which cluster contains the parameter
         target_cluster = None
@@ -466,9 +464,7 @@ def run_profile_likelihood(
             # Check for asymmetry
             profile_lower = best_value - ci_low
             profile_upper = ci_high - best_value
-            asymmetry = (
-                abs(profile_upper - profile_lower) / (profile_upper + profile_lower) * 200
-            )
+            asymmetry = abs(profile_upper - profile_lower) / (profile_upper + profile_lower) * 200
             if asymmetry > 20:
                 result_table.add_row(
                     "Asymmetry:",
@@ -711,6 +707,7 @@ def _update_output_files(results_dir: Path, params: Parameters, peaks: list[Peak
             # Update parameter lines with new stderr
             new_lines = []
             for line in lines:
+                output_line = line  # Start with original line
                 if line.startswith("# ") and ":" in line and "±" in line:
                     # Parse parameter line
                     parts = line.split(":")
@@ -725,12 +722,11 @@ def _update_output_files(results_dir: Path, params: Parameters, peaks: list[Peak
                                     value = params[param_name].value
                                     stderr = params[param_name].stderr
                                     shortname = param_part
-                                    updated_line = (
+                                    output_line = (
                                         f"# {shortname:<10s}: {value:10.5f} ± {stderr:10.5f}"
                                     )
-                                    line = updated_line
                                     break
-                new_lines.append(line)
+                new_lines.append(output_line)
 
             out_file.write_text("\n".join(new_lines))
 
@@ -795,7 +791,11 @@ def _find_matching_parameters(pattern: str, all_params: list[str]) -> list[str]:
         # Check if pattern matches peak name (before underscore)
         if "_" in param:
             peak_name, param_type = param.rsplit("_", 1)
-            if pattern_lower == peak_name.lower() or pattern_lower == param_type.lower() or pattern_lower in param_lower:
+            if (
+                pattern_lower == peak_name.lower()
+                or pattern_lower == param_type.lower()
+                or pattern_lower in param_lower
+            ):
                 matches.append(param)
         else:
             # No underscore, just check if pattern is in parameter name

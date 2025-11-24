@@ -59,7 +59,7 @@ def benchmark_lineshape_function(
     times = []
     for _ in range(n_iterations):
         start = time.perf_counter()
-        result = func(dx, *args)
+        func(dx, *args)
         elapsed = time.perf_counter() - start
         times.append(elapsed)
 
@@ -147,7 +147,7 @@ def benchmark_multi_peak(n_peaks_list: list[int]):
         times = []
         for _ in range(10):
             start = time.perf_counter()
-            shapes = compute_all_gaussian_shapes(positions, centers, fwhms)
+            compute_all_gaussian_shapes(positions, centers, fwhms)
             elapsed = time.perf_counter() - start
             times.append(elapsed)
 
@@ -201,7 +201,7 @@ def benchmark_parallel_scaling():
         times = []
         for _ in range(50):
             start = time.perf_counter()
-            shapes = compute_all_gaussian_shapes(positions, centers, fwhms)
+            compute_all_gaussian_shapes(positions, centers, fwhms)
             elapsed = time.perf_counter() - start
             times.append(elapsed)
 
@@ -256,7 +256,7 @@ def main():
 
         if hasattr(config, "USING_SVML"):
             print(f"Intel SVML: {'Enabled' if config.USING_SVML else 'Disabled'}")
-    except:
+    except (ImportError, AttributeError):
         print("Intel SVML: Unknown")
 
     print()

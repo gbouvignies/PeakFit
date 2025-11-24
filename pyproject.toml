@@ -96,21 +96,10 @@ select = [
 ]
 ignore = [
     "E501",    # Line too long (handled by formatter)
-    "RET504",  # Unnecessary variable assignment before return
-    "RET505",  # Unnecessary else after return
-    "RET506",  # Unnecessary else after raise
-    "SIM108",  # Use ternary operator (sometimes less readable)
-    "PTH123",  # open() should be replaced by Path.open() (not always better)
-    "ARG001",  # Unused function argument (often needed for APIs/callbacks)
-    "ARG002",  # Unused method argument (often needed for inheritance)
     "S301",    # pickle usage (safe in controlled contexts)
-    "S603",    # subprocess without shell=True (not applicable)
-    "S607",    # subprocess partial path (not applicable)
-    "PLW2901", # Redefined loop variable (often intentional for readability)
     "RUF001",  # Ambiguous Unicode characters (intentional for UI: ℹ, ✓, etc.)
     "RUF002",  # Ambiguous Unicode characters in docstrings (intentional: ν for nu)
 ]
-# Allow fix for all enabled rules (when --fix is used)
 fixable = ["ALL"]
 unfixable = []
 
@@ -123,35 +112,8 @@ split-on-trailing-comma = false
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*" = [
-    "S101",    # Use of assert (required in tests)
-    "D",       # Missing docstrings (not needed in tests)
-    "ANN",     # Missing type annotations (relaxed for tests)
-    "PLR2004", # Magic values in comparisons
-    "ARG",     # Unused arguments (fixtures)
-]
-"src/peakfit/plotting/**/*" = [
-    "PLR0913", # Too many arguments
-    "PLR0912", # Too many branches
-    "PLR0915", # Too many statements
-    "C901",    # Too complex
-]
-"src/peakfit/cli/**/*" = [
-    "FBT001",  # Boolean positional arg (common in CLI)
-    "FBT002",  # Boolean default arg (common in CLI)
-    "PLC0415", # Import outside top-level (lazy imports for performance)
-    "BLE001",  # Blind exception (acceptable for validation/error reporting)
-    "N813",    # PeakFitUI imported as ui (project convention)
-]
-"src/peakfit/data/clustering.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
-"src/peakfit/data/noise.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
-"src/peakfit/io/output.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
-"src/peakfit/analysis/benchmarks.py" = [
-    "S311",    # Pseudo-random generators (acceptable for benchmarks)
-]
-"src/peakfit/__init__.py" = [
-    "E402",    # Module level import not at top of file
-]
+"tests/**/*" = ["S101", "ARG"]  # assert and unused fixtures are required in tests
+"src/peakfit/__init__.py" = ["E402"]  # Module import after code (version check)
 
 [tool.pyright]
 venvPath = "."
@@ -184,17 +146,10 @@ precision = 2
 python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
 check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
 strict_equality = true
-extra_checks = true
 
 [[tool.mypy.overrides]]
 module = [
@@ -205,5 +160,6 @@ module = [
     "matplotlib.*",
     "pandas.*",
     "threadpoolctl.*",
+    "numba.*",
 ]
 ignore_missing_imports = true

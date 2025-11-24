@@ -197,13 +197,12 @@ def determine_burnin_running_mean(
             "burn_in": burn_in,
         }
         return burn_in, diagnostics
-    else:
-        # Fallback
-        burn_in = _default_burnin(n_steps)
-        return burn_in, {
-            "method": "default_fallback",
-            "reason": "no_stability_detected",
-        }
+    # Fallback
+    burn_in = _default_burnin(n_steps)
+    return burn_in, {
+        "method": "default_fallback",
+        "reason": "no_stability_detected",
+    }
 
 
 def _default_burnin(n_steps: int) -> int:
@@ -288,17 +287,17 @@ def format_burnin_report(
 
     # Method-specific details
     if method == "rhat_monitoring":
-        lines.append(f"  Method: R-hat convergence monitoring")
+        lines.append("  Method: R-hat convergence monitoring")
         lines.append(f"  Threshold: R̂ ≤ {diagnostics['threshold']:.3f}")
         lines.append(f"  Max R̂ at convergence: {diagnostics['max_rhat']:.4f}")
         lines.append(f"  Convergence achieved at step: {diagnostics['convergence_step']}")
 
     elif method == "running_mean_stability":
-        lines.append(f"  Method: Running mean stabilization")
+        lines.append("  Method: Running mean stabilization")
         lines.append(f"  Stability threshold: {diagnostics['threshold']:.2%}")
 
     elif method == "default" or method == "default_fallback":
-        lines.append(f"  Method: Conservative default (20% or 500 steps)")
+        lines.append("  Method: Conservative default (20% or 500 steps)")
         reason = diagnostics.get("reason", "unknown")
         lines.append(f"  Reason: {reason.replace('_', ' ')}")
 

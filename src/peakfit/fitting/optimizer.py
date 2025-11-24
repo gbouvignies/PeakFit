@@ -438,7 +438,6 @@ def fit_clusters(
     refine_iterations: int = 1,
     *,
     fixed: bool = False,
-    verbose: bool = False,
 ) -> Parameters:
     """Fit all clusters using direct scipy optimization.
 
@@ -447,7 +446,6 @@ def fit_clusters(
         noise: Noise level
         refine_iterations: Number of refinement passes
         fixed: Whether to fix positions
-        verbose: Print progress
 
     Returns:
         Combined fitted parameters

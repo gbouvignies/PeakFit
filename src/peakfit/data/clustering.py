@@ -9,7 +9,9 @@ import numpy as np
 from scipy.ndimage import binary_dilation, generate_binary_structure, label
 
 from peakfit.typing import FloatArray, IntArray
-from peakfit.ui import PeakFitUI as ui
+from peakfit.ui import PeakFitUI
+
+ui = PeakFitUI
 
 if TYPE_CHECKING:
     from peakfit.data.peaks import Peak

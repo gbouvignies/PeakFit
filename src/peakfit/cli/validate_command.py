@@ -4,7 +4,9 @@ from pathlib import Path
 
 import nmrglue as ng
 
-from peakfit.ui import PeakFitUI as ui, console
+from peakfit.ui import PeakFitUI, console
+
+ui = PeakFitUI
 
 
 def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False) -> None:
@@ -43,7 +45,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
 
         ui.success(f"Spectrum readable - Shape: {data.shape}")
         checks["Spectrum file readable"] = (True, "Pass")
-    except Exception as e:
+    except (OSError, ValueError, RuntimeError, KeyError) as e:
         errors.append(f"Failed to read spectrum: {e}")
         ui.error(f"Failed to read spectrum: {e}")
         checks["Spectrum file readable"] = (False, f"✗ Failed: {e}")
@@ -90,7 +92,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
             # File permissions check
             checks["File permissions"] = (True, "Pass")
 
-    except Exception as e:
+    except (OSError, ValueError, RuntimeError) as e:
         errors.append(f"Failed to read peak list: {e}")
         ui.error(f"Failed to read peak list: {e}")
         checks["Peak list readable"] = (False, f"✗ Failed: {e}")
@@ -133,8 +135,8 @@ def _read_sparky_list(path: Path) -> list[dict]:
     """Read Sparky format peak list."""
     peaks = []
     with path.open() as f:
-        for line in f:
-            line = line.strip()
+        for raw_line in f:
+            line = raw_line.strip()
             if not line or line.startswith(("#", "Assignment")):
                 continue
             parts = line.split()

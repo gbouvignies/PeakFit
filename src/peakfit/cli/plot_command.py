@@ -7,7 +7,9 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 
-from peakfit.ui import PeakFitUI as ui, console
+from peakfit.ui import PeakFitUI, console
+
+ui = PeakFitUI
 
 # Maximum number of plots to display interactively (to avoid opening hundreds of windows)
 MAX_DISPLAY_PLOTS = 10
@@ -96,7 +98,7 @@ def plot_intensity_profiles(
 
                     progress.update(task, advance=1)
 
-                except Exception as e:
+                except (OSError, ValueError, RuntimeError) as e:
                     ui.warning(f"Failed to plot {file.name}: {e}")
                     progress.update(task, advance=1)
 
@@ -214,7 +216,7 @@ def plot_cest_profiles(
 
                 plots_saved += 1
 
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError, KeyError) as e:
                 ui.warning(f"Failed to plot {file.name}: {e}")
 
     if show and plot_data_for_display:
@@ -333,7 +335,7 @@ def plot_cpmg_profiles(
 
                 plots_saved += 1
 
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError) as e:
                 ui.warning(f"Failed to plot {file.name}: {e}")
 
     if show and plot_data_for_display:
@@ -514,9 +516,7 @@ def plot_mcmc_diagnostics(
                     plt.close(fig)
             else:
                 # No strong correlations - add a note
-                ui.info(
-                    f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}"
-                )
+                ui.info(f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}")
 
             # Last page: Autocorrelation plots
             fig_autocorr = plot_autocorrelation(chains, parameter_names)
@@ -528,7 +528,7 @@ def plot_mcmc_diagnostics(
         console.print()
 
     # Summary
-    console.print(f"[bold]Summary:[/bold]")
+    console.print("[bold]Summary:[/bold]")
     console.print(f"  • Clusters plotted: {len(mcmc_data)}")
     console.print(f"  • PDFs generated: {len(output_files)}")
     for out_file in output_files:

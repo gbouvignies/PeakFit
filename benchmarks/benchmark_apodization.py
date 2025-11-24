@@ -26,15 +26,16 @@ def benchmark_single_peak_sequential(n_peaks: int, n_points: int, n_iter: int = 
     print(f"{'=' * 70}")
 
     # Setup
+    rng = np.random.default_rng()
     positions = np.linspace(-200, 200, n_points)
     centers = np.linspace(-150, 150, n_peaks)
-    r2s = np.random.uniform(8, 15, n_peaks)
-    phases = np.random.uniform(-5, 5, n_peaks)
+    r2s = rng.uniform(8, 15, n_peaks)
+    phases = rng.uniform(-5, 5, n_peaks)
     aq = 0.05
     end, off = 1.0, 0.35
 
     # Warm up
-    for center, r2, phase in zip(centers[:2], r2s[:2], phases[:2]):
+    for center, r2, phase in zip(centers[:2], r2s[:2], phases[:2], strict=False):
         dx = positions - center
         no_apod(dx, r2, aq, phase)
         sp1(dx, r2, aq, end, off, phase)
@@ -43,7 +44,7 @@ def benchmark_single_peak_sequential(n_peaks: int, n_points: int, n_iter: int = 
     # Benchmark no_apod
     start = time.perf_counter()
     for _ in range(n_iter):
-        for center, r2, phase in zip(centers, r2s, phases):
+        for center, r2, phase in zip(centers, r2s, phases, strict=False):
             dx = positions - center
             no_apod(dx, r2, aq, phase)
     no_apod_time = (time.perf_counter() - start) / n_iter
@@ -51,7 +52,7 @@ def benchmark_single_peak_sequential(n_peaks: int, n_points: int, n_iter: int = 
     # Benchmark sp1
     start = time.perf_counter()
     for _ in range(n_iter):
-        for center, r2, phase in zip(centers, r2s, phases):
+        for center, r2, phase in zip(centers, r2s, phases, strict=False):
             dx = positions - center
             sp1(dx, r2, aq, end, off, phase)
     sp1_time = (time.perf_counter() - start) / n_iter
@@ -59,7 +60,7 @@ def benchmark_single_peak_sequential(n_peaks: int, n_points: int, n_iter: int = 
     # Benchmark sp2
     start = time.perf_counter()
     for _ in range(n_iter):
-        for center, r2, phase in zip(centers, r2s, phases):
+        for center, r2, phase in zip(centers, r2s, phases, strict=False):
             dx = positions - center
             sp2(dx, r2, aq, end, off, phase)
     sp2_time = (time.perf_counter() - start) / n_iter
@@ -78,10 +79,11 @@ def benchmark_multi_peak_parallel(n_peaks: int, n_points: int, n_iter: int = 100
     print(f"{'=' * 70}")
 
     # Setup
+    rng = np.random.default_rng()
     positions = np.linspace(-200, 200, n_points)
     centers = np.linspace(-150, 150, n_peaks)
-    r2s = np.random.uniform(8, 15, n_peaks)
-    phases = np.random.uniform(-5, 5, n_peaks)
+    r2s = rng.uniform(8, 15, n_peaks)
+    phases = rng.uniform(-5, 5, n_peaks)
     aq = 0.05
     end, off = 1.0, 0.35
 

@@ -14,11 +14,13 @@ from peakfit.data.noise import prepare_noise_level
 from peakfit.data.peaks import create_params, read_list
 from peakfit.data.spectrum import get_shape_names, read_spectra
 from peakfit.fitting.computation import residuals, update_cluster_corrections
+from peakfit.fitting.output import write_profiles, write_shifts
 from peakfit.fitting.parameters import Parameters
 from peakfit.fitting.simulation import simulate_data
-from peakfit.io.output import write_profiles, write_shifts
 from peakfit.models import PeakFitConfig
-from peakfit.ui import PeakFitUI as ui, console
+from peakfit.ui import PeakFitUI, console
+
+ui = PeakFitUI
 
 
 @dataclass
@@ -232,7 +234,7 @@ def run_fit(
 
     if optimizer != "leastsq":
         ui.info(f"Using {optimizer} optimizer...")
-        params = _fit_clusters_global(clargs, clusters, optimizer, verbose)
+        params = _fit_clusters_global(clargs, clusters, optimizer)
     else:
         params = _fit_clusters(clargs, clusters, verbose)
 
@@ -355,13 +357,12 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
     return residuals(params, cluster, noise)
 
 
-def _fit_single_cluster(cluster, cluster_idx, total_clusters, clargs, params_global_dict, verbose):
+def _fit_single_cluster(cluster, cluster_idx, clargs, params_global_dict, verbose):
     """Fit a single cluster (worker function for parallel execution).
 
     Args:
         cluster: Cluster to fit
         cluster_idx: Index of cluster (1-based)
-        total_clusters: Total number of clusters
         clargs: Fitting arguments
         params_global_dict: Dictionary of global parameter values
         verbose: Whether to show verbose output
@@ -524,9 +525,7 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
     return params_all
 
 
-def _fit_clusters_global(
-    clargs: FitArguments, clusters: list, optimizer: str, verbose: bool = False
-) -> Parameters:
+def _fit_clusters_global(clargs: FitArguments, clusters: list, optimizer: str) -> Parameters:
     """Fit all clusters using global optimization."""
     from peakfit.fitting.advanced import fit_basin_hopping, fit_differential_evolution
 
@@ -699,19 +698,13 @@ def _print_spectrum_info(
 
     # Dimensions
     shape = spectra.data.shape
-    if len(shape) == 3:
-        dim_str = f"{shape[2]} × {shape[1]} × {shape[0]}"
-    else:
-        dim_str = str(shape)
+    dim_str = f"{shape[2]} × {shape[1]} × {shape[0]}" if len(shape) == 3 else str(shape)
 
     spectrum_table.add_row("Dimensions", dim_str)
     spectrum_table.add_row("Number of planes", str(len(spectra.z_values)))
 
     # Lineshapes
-    if isinstance(shape_names, list):
-        lineshape_str = ", ".join(shape_names)
-    else:
-        lineshape_str = str(shape_names)
+    lineshape_str = ", ".join(shape_names) if isinstance(shape_names, list) else str(shape_names)
     spectrum_table.add_row("Lineshapes", lineshape_str)
 
     # Noise and contour

@@ -52,9 +52,6 @@ PEAKFIT_THEME = Theme(
 # Single console instance for entire application
 console = Console(theme=PEAKFIT_THEME, record=True)
 
-# Module-level logger (configured by setup_logging)
-_logger: logging.Logger | None = None
-
 # Version and branding
 VERSION = __version__
 REPO_URL = "https://github.com/gbouvignies/PeakFit"
@@ -88,19 +85,19 @@ class PeakFitUI:
             verbose: If True, show all log messages in console
             level: Logging level (default: INFO)
         """
-        global _logger  # noqa: PLW0603 - necessary for module-level logger management
+        logger = logging.getLogger("peakfit")
 
         if log_file is None:
-            _logger = None
+            logger.setLevel(logging.CRITICAL + 1)  # Disable logging
+            logger.handlers.clear()
             return
 
         # Create log directory if needed
         log_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Configure logger
-        _logger = logging.getLogger("peakfit")
-        _logger.setLevel(level)
-        _logger.handlers.clear()
+        logger.setLevel(level)
+        logger.handlers.clear()
 
         # File handler with structured format
         file_handler = logging.FileHandler(log_file, mode="w")
@@ -110,7 +107,7 @@ class PeakFitUI:
             datefmt="%Y-%m-%d %H:%M:%S",
         )
         file_handler.setFormatter(file_formatter)
-        _logger.addHandler(file_handler)
+        logger.addHandler(file_handler)
 
         # Console handler (only if verbose)
         if verbose:
@@ -121,16 +118,16 @@ class PeakFitUI:
                 markup=True,
             )
             console_handler.setLevel(level)
-            _logger.addHandler(console_handler)
+            logger.addHandler(console_handler)
 
         # Log session start
-        _logger.info("━" * 60)
-        _logger.info(f"PeakFit v{VERSION} - Session Started")
-        _logger.info("━" * 60)
-        _logger.info(f"Command: {' '.join(sys.argv)}")
-        _logger.info(f"Working directory: {Path.cwd()}")
-        _logger.info(f"Python: {sys.version.split()[0]} | Platform: {sys.platform}")
-        _logger.info("")
+        logger.info("━" * 60)
+        logger.info(f"PeakFit v{VERSION} - Session Started")
+        logger.info("━" * 60)
+        logger.info(f"Command: {' '.join(sys.argv)}")
+        logger.info(f"Working directory: {Path.cwd()}")
+        logger.info(f"Python: {sys.version.split()[0]} | Platform: {sys.platform}")
+        logger.info("")
 
     @staticmethod
     def log(message: str, level: str = "info") -> None:
@@ -140,7 +137,8 @@ class PeakFitUI:
             message: Message to log
             level: Log level (info, warning, error, debug)
         """
-        if _logger is None:
+        logger = logging.getLogger("peakfit")
+        if not logger.handlers:
             return
 
         level_map = {
@@ -152,20 +150,21 @@ class PeakFitUI:
         }
 
         log_level = level_map.get(level.lower(), logging.INFO)
-        _logger.log(log_level, message)
+        logger.log(log_level, message)
 
     @staticmethod
     def log_section(title: str) -> None:
-        """Log a section header.
+        """Log section header (file only, not shown in console).
 
         Args:
             title: Section title
         """
-        if _logger is None:
+        logger = logging.getLogger("peakfit")
+        if not logger.handlers:
             return
 
-        _logger.info("")
-        _logger.info(f"=== {title.upper()} ===")
+        logger.info("")
+        logger.info(f"=== {title.upper()} ===")
 
     @staticmethod
     def log_dict(data: dict[str, Any], indent: str = "  ") -> None:
@@ -175,27 +174,29 @@ class PeakFitUI:
             data: Dictionary to log
             indent: Indentation string
         """
-        if _logger is None:
+        logger = logging.getLogger("peakfit")
+        if not logger.handlers:
             return
 
         for key, value in data.items():
-            _logger.info(f"{indent}- {key}: {value}")
+            logger.info(f"{indent}- {key}: {value}")
 
     @staticmethod
     def close_logging() -> None:
         """Close logging and finalize log file."""
-        if _logger is None:
+        logger = logging.getLogger("peakfit")
+        if not logger.handlers:
             return
 
-        _logger.info("")
-        _logger.info("━" * 60)
-        _logger.info("PeakFit Session Completed Successfully")
-        _logger.info("━" * 60)
+        logger.info("")
+        logger.info("━" * 60)
+        logger.info("PeakFit Session Completed Successfully")
+        logger.info("━" * 60)
 
         # Close all handlers
-        for handler in _logger.handlers[:]:
+        for handler in logger.handlers[:]:
             handler.close()
-            _logger.removeHandler(handler)
+            logger.removeHandler(handler)
 
     # ==================== BRANDING ====================
 
@@ -260,10 +261,7 @@ class PeakFitUI:
         # "macOS-26.1-arm64-arm-64bit-Mach-O" → "macOS-26.1-arm64"
         # "Linux-4.4.0-x86_64-with-glibc2.39" → "Linux-4.4.0-x86_64"
         platform_parts = platform_str.split("-")
-        if len(platform_parts) > 3:
-            platform_display = "-".join(platform_parts[:3])
-        else:
-            platform_display = platform_str
+        platform_display = "-".join(platform_parts[:3]) if len(platform_parts) > 3 else platform_str
 
         # Create run information panel
         info_text = (
@@ -286,7 +284,7 @@ class PeakFitUI:
         console.print()
 
         # Log this information (use full original command for log file)
-        if _logger:
+        if logging.getLogger("peakfit").handlers:
             original_command = " ".join(sys.argv)
             PeakFitUI.log("=" * 60)
             PeakFitUI.log(f"PeakFit v{VERSION} started")
@@ -479,7 +477,7 @@ class PeakFitUI:
         )
 
         # Log completion
-        if _logger:
+        if logging.getLogger("peakfit").handlers:
             PeakFitUI.log("=" * 60)
             PeakFitUI.log(f"Completed: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
             PeakFitUI.log(f"Total runtime: {runtime_str}")
@@ -734,10 +732,7 @@ class PeakFitUI:
 
         if n_items > 0:
             avg_time = total_time / n_items
-            if avg_time < 1:
-                avg_str = f"{avg_time * 1000:.0f}ms"
-            else:
-                avg_str = f"{avg_time:.3f}s"
+            avg_str = f"{avg_time * 1000:.0f}ms" if avg_time < 1 else f"{avg_time:.3f}s"
             table.add_row(f"Average per {item_name.rstrip('s')}", avg_str)
 
         console.print()

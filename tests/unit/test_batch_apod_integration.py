@@ -5,31 +5,37 @@ import pytest
 
 from peakfit.data.clustering import Cluster
 from peakfit.data.peaks import Peak
+from peakfit.data.spectrum import SpectralParameters
 from peakfit.fitting.computation import calculate_shapes
 from peakfit.fitting.parameters import Parameters
 from peakfit.lineshapes.models import ApodShape, NoApod
-from peakfit.models.config import SpectrumParams
 
 
 @pytest.fixture
 def mock_spectra():
     """Create a mock Spectra object for testing."""
     # Create minimal spectrum parameters
-    spec_params = SpectrumParams(
-        npoints=512,
-        center=600.0,
-        sweep_width=1200.0,
-        obs_frequency=600.13,
+    spec_params = SpectralParameters(
+        size=512,
+        sw=1200.0,
+        obs=600.13,
+        car=4.7,
         aq_time=0.05,
+        apocode=0.0,
         apodq1=0.35,
         apodq2=0.98,
+        apodq3=0.0,
+        p180=False,
+        direct=True,
+        ft=True,
     )
 
     # Mock Spectra object
     class MockSpectra:
         def __init__(self):
+            rng = np.random.default_rng()
             self.params = [spec_params]
-            self.data = [np.random.randn(512)]
+            self.data = [rng.standard_normal(512)]
 
     return MockSpectra()
 
@@ -113,8 +119,9 @@ def test_calculate_shapes_uses_batch_optimization(mock_spectra):
         params.update(peak.create_params())
 
     # Create cluster
+    rng = np.random.default_rng()
     x_pt = np.arange(150, 250, dtype=np.int64)
-    data = np.random.randn(100)
+    data = rng.standard_normal(100)
     cluster = Cluster(cluster_id=0, peaks=peaks, positions=[x_pt], data=data)
 
     # Calculate shapes (should use batch optimization internally)
@@ -142,8 +149,9 @@ def test_calculate_shapes_performance_improvement(mock_spectra):
         params.update(peak.create_params())
 
     # Create cluster with many points
+    rng = np.random.default_rng()
     x_pt = np.arange(100, 400, dtype=np.int64)
-    data = np.random.randn(300)
+    data = rng.standard_normal(300)
     cluster = Cluster(cluster_id=0, peaks=peaks, positions=[x_pt], data=data)
 
     # Time batch evaluation (via calculate_shapes)

@@ -34,16 +34,16 @@ from peakfit.diagnostics.plots import (
 __all__ = [
     # Convergence diagnostics
     "ConvergenceDiagnostics",
-    "diagnose_convergence",
-    "compute_rhat",
     "compute_ess",
+    "compute_rhat",
+    "diagnose_convergence",
     "format_diagnostics_table",
+    "plot_autocorrelation",
+    "plot_corner",  # Kept for backward compatibility
+    "plot_correlation_pairs",
+    "plot_marginal_distributions",
+    "plot_posterior_summary",
     # Plotting functions
     "plot_trace",
-    "plot_corner",  # Kept for backward compatibility
-    "plot_marginal_distributions",
-    "plot_correlation_pairs",
-    "plot_autocorrelation",
-    "plot_posterior_summary",
     "save_diagnostic_plots",
 ]

@@ -24,19 +24,19 @@ from peakfit.data.peaks import (
 from peakfit.data.spectrum import Spectra, SpectralParameters
 
 __all__ = [
+    # Clustering
+    "Cluster",
+    # Peaks
+    "Peak",
     # Spectrum
     "Spectra",
     "SpectralParameters",
-    # Peaks
-    "Peak",
     "create_params",
-    "read_list",
-    "read_sparky_list",
-    "read_csv_list",
-    "read_json_list",
-    "read_excel_list",
-    # Clustering
-    "Cluster",
     # Noise
     "estimate_noise",
+    "read_csv_list",
+    "read_excel_list",
+    "read_json_list",
+    "read_list",
+    "read_sparky_list",
 ]

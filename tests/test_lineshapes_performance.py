@@ -31,7 +31,7 @@ def test_gaussian_benchmark():
     n_iterations = 1000
     start = time.perf_counter()
     for _ in range(n_iterations):
-        result = gaussian(dx, fwhm)
+        gaussian(dx, fwhm)
     elapsed = time.perf_counter() - start
 
     throughput = (10000 * n_iterations) / elapsed
@@ -60,7 +60,7 @@ def test_multi_peak_scaling(n_peaks):
     times = []
     for _ in range(10):
         start = time.perf_counter()
-        shapes = compute_all_gaussian_shapes(positions, centers, fwhms)
+        compute_all_gaussian_shapes(positions, centers, fwhms)
         elapsed = time.perf_counter() - start
         times.append(elapsed)
 
@@ -100,7 +100,7 @@ def test_parallel_efficiency():
         times = []
         for _ in range(50):
             start = time.perf_counter()
-            shapes = compute_all_gaussian_shapes(positions, centers, fwhms)
+            compute_all_gaussian_shapes(positions, centers, fwhms)
             elapsed = time.perf_counter() - start
             times.append(elapsed)
 
@@ -138,7 +138,7 @@ def test_lorentzian_benchmark():
     n_iterations = 1000
     start = time.perf_counter()
     for _ in range(n_iterations):
-        result = lorentzian(dx, fwhm)
+        lorentzian(dx, fwhm)
     elapsed = time.perf_counter() - start
 
     throughput = (10000 * n_iterations) / elapsed
@@ -164,7 +164,7 @@ def test_pvoigt_benchmark():
     n_iterations = 1000
     start = time.perf_counter()
     for _ in range(n_iterations):
-        result = pvoigt(dx, fwhm, eta)
+        pvoigt(dx, fwhm, eta)
     elapsed = time.perf_counter() - start
 
     throughput = (10000 * n_iterations) / elapsed
@@ -191,7 +191,7 @@ def test_no_apod_benchmark():
     n_iterations = 100
     start = time.perf_counter()
     for _ in range(n_iterations):
-        result = no_apod(dx, r2, aq, phase)
+        no_apod(dx, r2, aq, phase)
     elapsed = time.perf_counter() - start
 
     throughput = (10000 * n_iterations) / elapsed
@@ -247,7 +247,7 @@ def test_multi_peak_lorentzian_scaling():
         times = []
         for _ in range(10):
             start = time.perf_counter()
-            shapes = compute_all_lorentzian_shapes(positions, centers, fwhms)
+            compute_all_lorentzian_shapes(positions, centers, fwhms)
             elapsed = time.perf_counter() - start
             times.append(elapsed)
 
@@ -275,7 +275,7 @@ def test_multi_peak_pvoigt_scaling():
         times = []
         for _ in range(10):
             start = time.perf_counter()
-            shapes = compute_all_pvoigt_shapes(positions, centers, fwhms, etas)
+            compute_all_pvoigt_shapes(positions, centers, fwhms, etas)
             elapsed = time.perf_counter() - start
             times.append(elapsed)
 

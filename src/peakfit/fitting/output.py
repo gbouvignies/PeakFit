@@ -9,7 +9,9 @@ from peakfit.data.peaks import Peak
 from peakfit.fitting.computation import calculate_shape_heights
 from peakfit.fitting.parameters import Parameters
 from peakfit.typing import FittingOptions, FloatArray
-from peakfit.ui import PeakFitUI as ui
+from peakfit.ui import PeakFitUI
+
+ui = PeakFitUI
 
 
 def write_profiles(

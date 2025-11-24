@@ -685,13 +685,12 @@ def calculate_lstsq_amplitude(shapes: FloatArray, data: FloatArray) -> FloatArra
 
     # Try Cholesky decomposition first (faster and more stable)
     try:
-        L = np.linalg.cholesky(ata)
+        lower = np.linalg.cholesky(ata)
         # Solve L y = A^T b
-        y = np.linalg.solve(L, atb)
+        y = np.linalg.solve(lower, atb)
         # Solve L^T x = y
-        x = np.linalg.solve(L.T, y)
-        return x
-    except:
+        return np.linalg.solve(lower.T, y)
+    except np.linalg.LinAlgError:
         # Fallback to direct solve for ill-conditioned systems
         return np.linalg.solve(ata, atb)
 
@@ -795,10 +794,10 @@ def evaluate_apod_shape(
     """
     if shape_type == 0:
         return no_apod(dx_rads, r2, aq, phase)
-    elif shape_type == 1:
+    if shape_type == 1:
         return sp1(dx_rads, r2, aq, end, off, phase)
-    else:  # shape_type == 2
-        return sp2(dx_rads, r2, aq, end, off, phase)
+    # shape_type == 2
+    return sp2(dx_rads, r2, aq, end, off, phase)
 
 
 # =============================================================================
@@ -901,8 +900,9 @@ def warm_numba_cache() -> dict[str, float]:
         compilation_times[name] = time.perf_counter() - start
 
     # Warm utility functions
-    shapes = np.random.randn(4, 512)
-    data = np.random.randn(512)
+    rng = np.random.default_rng(42)
+    shapes = rng.standard_normal((4, 512))
+    data = rng.standard_normal(512)
 
     util_funcs = [
         ("compute_ata_symmetric", lambda: compute_ata_symmetric(shapes)),

@@ -1,18 +1,108 @@
 """Lineshape models for NMR peak fitting.
 
 This module provides various lineshape model classes (Gaussian, Lorentzian, Pseudo-Voigt,
-and apodization-based shapes) for fitting NMR peaks.
+and apodization-based shapes) for fitting NMR peaks, along with the shape registry.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
 
-from peakfit.fitting.parameters import Parameters, ParameterType
 from peakfit.lineshapes import functions
-from peakfit.lineshapes.registry import register_shape
 from peakfit.typing import FittingOptions, FloatArray, IntArray
+
+if TYPE_CHECKING:
+    from peakfit.fitting.parameters import Parameters, ParameterType
+else:
+    # Avoid circular import at runtime - Parameters is only used for type hints in methods
+    from peakfit.fitting.parameters import Parameters, ParameterType
+
+
+# ============================================================================
+# Shape Registry
+# ============================================================================
+
+
+class Shape(Protocol):
+    """Protocol for lineshape models."""
+
+    axis: str
+    name: str
+    cluster_id: int
+    center: float
+    size: int
+
+    def create_params(self) -> object: ...
+    def fix_params(self, params: object) -> None: ...
+    def release_params(self, params: object) -> None: ...
+    def evaluate(self, x_pt: object, params: object) -> object: ...
+    def print(self, params: object) -> str: ...
+    @property
+    def center_i(self) -> int: ...
+    @property
+    def prefix(self) -> str: ...
+
+
+# Global shape registry
+SHAPES: dict[str, Callable[..., Shape]] = {}
+
+
+def register_shape(
+    shape_names: str | Iterable[str],
+) -> Callable[[type[Shape]], type[Shape]]:
+    """Decorator to register a shape class.
+
+    Args:
+        shape_names: Single name or iterable of names to register the shape under
+
+    Returns:
+        Decorator function that registers the shape class
+
+    Example:
+        @register_shape("gaussian")
+        class Gaussian(BaseShape):
+            ...
+
+        @register_shape(["lorentzian", "lorentz"])
+        class Lorentzian(BaseShape):
+            ...
+    """
+    if isinstance(shape_names, str):
+        shape_names = [shape_names]
+
+    def decorator(shape_class: type[Shape]) -> type[Shape]:
+        for name in shape_names:
+            SHAPES[name] = shape_class
+        return shape_class
+
+    return decorator
+
+
+def get_shape(name: str) -> Callable[..., Shape]:
+    """Get a shape class by name.
+
+    Args:
+        name: Name of the shape to retrieve
+
+    Returns:
+        Shape class
+
+    Raises:
+        KeyError: If shape name not found in registry
+    """
+    return SHAPES[name]
+
+
+def list_shapes() -> list[str]:
+    """List all registered shape names.
+
+    Returns:
+        List of registered shape names
+    """
+    return list(SHAPES.keys())
+
 
 AXIS_NAMES = ("x", "y", "z", "a")
 
@@ -307,7 +397,6 @@ class ApodShape(BaseShape):
         shape_type = shapes[0].shape_name
         spec_params = shapes[0].spec_params
         n_peaks = len(shapes)
-        n_points = len(x_pt)
 
         # Extract parameters for all peaks
         centers = np.empty(n_peaks)

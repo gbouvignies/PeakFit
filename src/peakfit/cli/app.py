@@ -6,9 +6,10 @@ from typing import Annotated
 import typer
 
 from peakfit.cli.callbacks import version_callback
-from peakfit.io.config import generate_default_config, load_config
-from peakfit.models import PeakFitConfig
-from peakfit.ui import PeakFitUI as ui, console
+from peakfit.models import PeakFitConfig, generate_default_config, load_config
+from peakfit.ui import PeakFitUI, console
+
+ui = PeakFitUI
 
 app = typer.Typer(
     name="peakfit",

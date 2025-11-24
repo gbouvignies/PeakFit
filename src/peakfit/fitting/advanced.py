@@ -19,7 +19,6 @@ from peakfit.constants import (
     DIFF_EVOLUTION_MUTATION,
     DIFF_EVOLUTION_POPSIZE,
     DIFF_EVOLUTION_RECOMBINATION,
-    MCMC_BURN_IN,
     MCMC_N_STEPS,
     MCMC_N_WALKERS,
     PROFILE_LIKELIHOOD_DELTA_CHI2,
@@ -31,6 +30,7 @@ from peakfit.typing import FloatArray
 
 if TYPE_CHECKING:
     from peakfit.data.clustering import Cluster
+    from peakfit.diagnostics.convergence import ConvergenceDiagnostics
 
 
 @dataclass
@@ -77,8 +77,12 @@ class UncertaintyResult:
     profile_likelihood_ci: FloatArray | None = None  # From profile likelihood
     mcmc_samples: FloatArray | None = None  # MCMC samples (flattened, post-burn-in)
     mcmc_percentiles: FloatArray | None = None  # 16th, 50th, 84th percentiles
-    mcmc_chains: FloatArray | None = None  # Full chains INCLUDING burn-in (n_walkers, n_steps_total, n_params)
-    mcmc_diagnostics: "ConvergenceDiagnostics | None" = None  # Convergence diagnostics (computed on post-burn-in)
+    mcmc_chains: FloatArray | None = (
+        None  # Full chains INCLUDING burn-in (n_walkers, n_steps_total, n_params)
+    )
+    mcmc_diagnostics: "ConvergenceDiagnostics | None" = (
+        None  # Convergence diagnostics (computed on post-burn-in)
+    )
     burn_in_info: dict | None = None  # Burn-in determination information
 
 
@@ -433,7 +437,7 @@ def estimate_uncertainties_mcmc(
         )
 
         # Validate burn-in and get warnings if needed
-        is_valid, warning_msg = validate_burnin(burn_in, n_steps, max_fraction=0.5)
+        _is_valid, warning_msg = validate_burnin(burn_in, n_steps, max_fraction=0.5)
 
         burn_in_info = {
             "burn_in": burn_in,
@@ -445,7 +449,7 @@ def estimate_uncertainties_mcmc(
         # Manual burn-in specified
         from peakfit.diagnostics.burnin import validate_burnin
 
-        is_valid, warning_msg = validate_burnin(burn_in, n_steps, max_fraction=0.5)
+        _, warning_msg = validate_burnin(burn_in, n_steps, max_fraction=0.5)
 
         burn_in_info = {
             "burn_in": burn_in,

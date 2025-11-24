@@ -70,9 +70,10 @@ def run_command(cmd: list[str], check: bool = False) -> tuple[int, str, str]:
     """Run a command and return (returncode, stdout, stderr)."""
     # Use sys.executable to ensure we use the same Python interpreter
     if cmd[0] == "peakfit":
-        cmd = [sys.executable, "-m", "peakfit.cli.app"] + cmd[1:]
+        cmd = [sys.executable, "-m", "peakfit.cli.app", *cmd[1:]]
 
-    result = subprocess.run(
+    # S603: subprocess call is safe here - cmd is constructed from trusted sources in tests
+    result = subprocess.run(  # noqa: S603
         cmd,
         capture_output=True,
         text=True,
@@ -98,7 +99,7 @@ def validate_cli_help_commands(results: ValidationResult):
     ]
 
     for cmd, name in commands:
-        code, stdout, stderr = run_command(cmd)
+        code, _stdout, stderr = run_command(cmd)
         if code == 0:
             results.add_pass(name, f"Command: {' '.join(cmd)}")
         else:
@@ -109,7 +110,7 @@ def validate_info_command(results: ValidationResult):
     """Validate info command shows correct backend information."""
     console.print("\n[bold]Testing Info Command[/bold]")
 
-    code, stdout, stderr = run_command(["peakfit", "info"])
+    code, stdout, _stderr = run_command(["peakfit", "info"])
     if code == 0:
         results.add_pass("Info command", "Shows backend information")
 
@@ -130,7 +131,7 @@ def validate_init_command(results: ValidationResult):
         config_path = Path(tmpdir) / "test_config.toml"
 
         # Test basic init
-        code, stdout, stderr = run_command(["peakfit", "init", str(config_path)])
+        code, _stdout, _stderr = run_command(["peakfit", "init", str(config_path)])
         if code == 0 and config_path.exists():
             results.add_pass("Init creates config file", str(config_path))
         else:
@@ -147,14 +148,14 @@ def validate_init_command(results: ValidationResult):
                 results.add_fail(f"Config has {section}", "Section missing")
 
         # Test no overwrite without --force
-        code, stdout, stderr = run_command(["peakfit", "init", str(config_path)])
+        code, _stdout, _stderr = run_command(["peakfit", "init", str(config_path)])
         if code != 0:
             results.add_pass("Init prevents overwrite", "Correctly fails without --force")
         else:
             results.add_fail("Init prevents overwrite", "Should fail without --force")
 
         # Test overwrite with --force
-        code, stdout, stderr = run_command(["peakfit", "init", str(config_path), "--force"])
+        code, _stdout, _stderr = run_command(["peakfit", "init", str(config_path), "--force"])
         if code == 0:
             results.add_pass("Init with --force overwrites", "Overwrite successful")
         else:
@@ -169,6 +170,7 @@ def validate_backend_selection(results: ValidationResult):
     # Check if numba is available
     try:
         import numba  # noqa: F401
+
         results.add_pass("Numba available", "JIT compilation supported")
     except ImportError:
         results.add_warning("Numba not available", "Only NumPy backend will be used")
@@ -180,18 +182,30 @@ def validate_cli_options(results: ValidationResult):
 
     # Create minimal test files
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmppath = Path(tmpdir)
+        Path(tmpdir)
 
         # These should fail gracefully with appropriate error messages
         test_cases = [
             (["peakfit", "fit"], "fit requires arguments", "Should fail with missing args"),
-            (["peakfit", "validate"], "validate requires arguments", "Should fail with missing args"),
-            (["peakfit", "fit", "--lineshape", "invalid"], "Invalid lineshape", "Should reject invalid lineshape"),
-            (["peakfit", "fit", "--refine", "-1"], "Invalid refine", "Should reject negative refine"),
+            (
+                ["peakfit", "validate"],
+                "validate requires arguments",
+                "Should fail with missing args",
+            ),
+            (
+                ["peakfit", "fit", "--lineshape", "invalid"],
+                "Invalid lineshape",
+                "Should reject invalid lineshape",
+            ),
+            (
+                ["peakfit", "fit", "--refine", "-1"],
+                "Invalid refine",
+                "Should reject negative refine",
+            ),
         ]
 
         for cmd, name, desc in test_cases:
-            code, stdout, stderr = run_command(cmd)
+            code, _stdout, _stderr = run_command(cmd)
             if code != 0:
                 results.add_pass(name, desc)
             else:
@@ -209,11 +223,9 @@ def validate_error_handling(results: ValidationResult):
         fake_spectrum = tmppath / "nonexistent.ft2"
         fake_peaklist = tmppath / "nonexistent.list"
 
-        code, stdout, stderr = run_command([
-            "peakfit", "validate",
-            str(fake_spectrum),
-            str(fake_peaklist)
-        ])
+        code, _stdout, _stderr = run_command(
+            ["peakfit", "validate", str(fake_spectrum), str(fake_peaklist)]
+        )
 
         if code != 0:
             results.add_pass("Validate rejects missing files", "Correctly fails with missing files")
@@ -256,7 +268,7 @@ def validate_parameter_system(results: ValidationResult):
         else:
             results.add_fail("Parameters get_vary_names", f"Expected 1, got {len(vary_names)}")
 
-    except Exception as e:
+    except (ValueError, AttributeError, KeyError) as e:
         results.add_fail("Parameter system", str(e))
 
 
@@ -302,7 +314,7 @@ def validate_lineshapes(results: ValidationResult):
             else:
                 results.add_fail(f"Pseudo-Voigt ({backend})", f"Peak height: {np.max(y_pvoigt)}")
 
-    except Exception as e:
+    except (ValueError, ImportError, AttributeError) as e:
         results.add_fail("Lineshape functions", str(e))
 
 
@@ -336,14 +348,15 @@ def validate_config_system(results: ValidationResult):
         # Test validation (Pydantic v2 doesn't raise on assignment, but on validation)
         try:
             from pydantic import ValidationError
-            invalid_config = FitConfig(lineshape="invalid")
+
+            FitConfig(lineshape="invalid")
             results.add_fail("Config validation", "Should reject invalid lineshape")
         except ValidationError:
             results.add_pass("Config validation", "Correctly rejects invalid lineshape")
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             results.add_fail("Config validation", f"Unexpected error: {e}")
 
-    except Exception as e:
+    except (ValueError, ImportError, AttributeError) as e:
         results.add_fail("Configuration system", str(e))
 
 
@@ -355,11 +368,13 @@ def validate_no_legacy_references(results: ValidationResult):
     jax_files = []
     for file in Path("src/peakfit").rglob("*.py"):
         content = file.read_text()
-        if "jax" in content.lower() and "JAX" not in file.name:
+        if (
+            "jax" in content.lower()
+            and "JAX" not in file.name
+            and ("import jax" in content or "from jax" in content)
+        ):
             # Check if it's just in comments/docstrings
-            if "import jax" in content or "from jax" in content:
-                jax_files.append(file)
-
+            jax_files.append(file)
     if not jax_files:
         results.add_pass("No JAX dependencies", "JAX backend properly removed")
     else:
@@ -403,9 +418,8 @@ def main():
     if success:
         console.print("\n[bold green]✓ All validation tests passed![/bold green]")
         return 0
-    else:
-        console.print("\n[bold red]✗ Some validation tests failed[/bold red]")
-        return 1
+    console.print("\n[bold red]✗ Some validation tests failed[/bold red]")
+    return 1
 
 
 if __name__ == "__main__":

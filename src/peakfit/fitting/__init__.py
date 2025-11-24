@@ -32,6 +32,9 @@ from peakfit.fitting.optimizer import (
     fit_clusters,
     fit_clusters_sequential,
 )
+
+# Output file generation
+from peakfit.fitting.output import write_profiles, write_shifts
 from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
 
 # Fit results
@@ -41,30 +44,33 @@ from peakfit.fitting.results import FitResult
 from peakfit.fitting.simulation import simulate_data
 
 __all__ = [
-    # Parameters
-    "Parameter",
-    "Parameters",
-    "ParameterType",
     # Results
     "FitResult",
     "GlobalFitResult",
+    # Parameters
+    "Parameter",
+    "ParameterType",
+    "Parameters",
     "UncertaintyResult",
+    "calculate_amplitudes",
+    "calculate_shape_heights",
+    # Computation
+    "calculate_shapes",
+    "compute_profile_likelihood",
+    "estimate_uncertainties_mcmc",
+    # Advanced optimization
+    "fit_basin_hopping",
     # Basic optimization
     "fit_cluster",
     "fit_cluster_dict",
     "fit_clusters",
     "fit_clusters_sequential",
-    # Advanced optimization
-    "fit_basin_hopping",
     "fit_differential_evolution",
-    "compute_profile_likelihood",
-    "estimate_uncertainties_mcmc",
-    # Computation
-    "calculate_shapes",
-    "calculate_amplitudes",
-    "calculate_shape_heights",
     "residuals",
-    "update_cluster_corrections",
     # Simulation
     "simulate_data",
+    "update_cluster_corrections",
+    # Output
+    "write_profiles",
+    "write_shifts",
 ]

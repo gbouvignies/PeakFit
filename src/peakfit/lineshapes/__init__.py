@@ -9,7 +9,6 @@ All functions are Numba-accelerated with production-level optimizations.
 Numba is a required dependency.
 """
 
-# Import registry FIRST (before models, as models use register_shape decorator)
 # Import functions for direct access (no circular dependency)
 from peakfit.lineshapes import functions
 from peakfit.lineshapes.functions import (
@@ -33,62 +32,39 @@ from peakfit.lineshapes.functions import (
     sp2,
     warm_numba_cache,
 )
-from peakfit.lineshapes.registry import SHAPES, Shape, get_shape, list_shapes, register_shape
 
-
-# Use lazy imports for models to avoid circular dependency
-# Models will be imported when first accessed via __getattr__
-def __getattr__(name):
-    """Lazy import of model classes to avoid circular imports."""
-    if name in (
-        "SP1",
-        "SP2",
-        "ApodShape",
-        "BaseShape",
-        "Gaussian",
-        "Lorentzian",
-        "NoApod",
-        "PeakShape",
-        "PseudoVoigt",
-    ):
-        from peakfit.lineshapes.models import (
-            SP1,
-            SP2,
-            ApodShape,
-            BaseShape,
-            Gaussian,
-            Lorentzian,
-            NoApod,
-            PeakShape,
-            PseudoVoigt,
-        )
-
-        globals().update(
-            {
-                "SP1": SP1,
-                "SP2": SP2,
-                "ApodShape": ApodShape,
-                "BaseShape": BaseShape,
-                "Gaussian": Gaussian,
-                "Lorentzian": Lorentzian,
-                "NoApod": NoApod,
-                "PeakShape": PeakShape,
-                "PseudoVoigt": PseudoVoigt,
-            }
-        )
-        return globals()[name]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
+# Import registry and all model classes
+from peakfit.lineshapes.models import (
+    SHAPES,
+    SP1,
+    SP2,
+    ApodShape,
+    BaseShape,
+    Gaussian,
+    Lorentzian,
+    NoApod,
+    PeakShape,
+    PseudoVoigt,
+    Shape,
+    get_shape,
+    list_shapes,
+    register_shape,
+)
 
 __all__ = [
-    # Functions
-    "functions",
-    "gaussian",
-    "lorentzian",
-    "pvoigt",
-    "no_apod",
-    "sp1",
-    "sp2",
+    # Registry
+    "SHAPES",
+    "SP1",
+    "SP2",
+    "ApodShape",
+    # Models
+    "BaseShape",
+    "Gaussian",
+    "Lorentzian",
+    "NoApod",
+    "PeakShape",
+    "PseudoVoigt",
+    "Shape",
     "calculate_lstsq_amplitude",
     "compute_all_gaussian_shapes",
     "compute_all_lorentzian_shapes",
@@ -101,40 +77,16 @@ __all__ = [
     "evaluate_apod_shape_no_apod",
     "evaluate_apod_shape_sp1",
     "evaluate_apod_shape_sp2",
-    "warm_numba_cache",
-    # Models
-    "BaseShape",
-    "PeakShape",
-    "ApodShape",
-    "Gaussian",
-    "Lorentzian",
-    "PseudoVoigt",
-    "NoApod",
-    "SP1",
-    "SP2",
-    # Registry
-    "SHAPES",
-    "Shape",
-    "register_shape",
+    # Functions
+    "functions",
+    "gaussian",
     "get_shape",
     "list_shapes",
+    "lorentzian",
+    "no_apod",
+    "pvoigt",
+    "register_shape",
+    "sp1",
+    "sp2",
+    "warm_numba_cache",
 ]
-
-# Eagerly populate the SHAPES registry by triggering model imports
-# This is safe here because we're at the end of the module initialization
-# and all the functions and registry are already available
-try:
-    from peakfit.lineshapes.models import (
-        SP1,
-        SP2,
-        ApodShape,
-        BaseShape,
-        Gaussian,
-        Lorentzian,
-        NoApod,
-        PeakShape,
-        PseudoVoigt,
-    )
-except ImportError:
-    # If circular import during module init, models will be loaded lazily via __getattr__
-    pass

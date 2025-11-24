@@ -4,14 +4,21 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from io import StringIO
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
 from peakfit.data.spectrum import Spectra
 from peakfit.fitting.parameters import Parameters
-from peakfit.lineshapes import SHAPES, Shape
 from peakfit.typing import FittingOptions, FloatArray, IntArray
+
+if TYPE_CHECKING:
+    from peakfit.lineshapes import Shape
+else:
+    # Import at runtime to avoid circular dependency
+    # SHAPES will be imported in create_peak function where it's actually used
+    Shape = object
 
 
 @dataclass
@@ -145,6 +152,9 @@ def create_peak(
     Returns:
         Peak object ready for fitting
     """
+    # Import here to avoid circular dependency
+    from peakfit.lineshapes import SHAPES
+
     shapes = [
         SHAPES[shape_name](name, center, spectra, dim, args)
         for dim, (center, shape_name) in enumerate(

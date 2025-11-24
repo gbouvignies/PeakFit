@@ -328,6 +328,7 @@ class SpectraViewer(QMainWindow):
         self.update_view()
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        """Qt resize event handler (must match parent class naming)."""
         super().resizeEvent(event)
         self.plot_widget.figure.tight_layout()
         self.plot_widget.canvas.draw_idle()

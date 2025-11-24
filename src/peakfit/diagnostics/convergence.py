@@ -120,31 +120,28 @@ def compute_rhat(chains: FloatArray) -> float:
         return np.nan
 
     # Split each chain in half to get 2 * n_chains
-    split_chains = np.concatenate([chains[:, : n_samples // 2], chains[:, n_samples // 2 :]], axis=0)
-    n_split_chains = split_chains.shape[0]
+    split_chains = np.concatenate(
+        [chains[:, : n_samples // 2], chains[:, n_samples // 2 :]], axis=0
+    )
     n_split_samples = split_chains.shape[1]
 
     # Compute within-chain and between-chain variances
     chain_means = np.mean(split_chains, axis=1)
     chain_vars = np.var(split_chains, axis=1, ddof=1)
 
-    # Overall mean
-    overall_mean = np.mean(chain_means)
-
     # Within-chain variance (W)
-    W = np.mean(chain_vars)
+    within_var = np.mean(chain_vars)
 
     # Between-chain variance (B)
-    B = n_split_samples * np.var(chain_means, ddof=1)
+    between_var = n_split_samples * np.var(chain_means, ddof=1)
 
     # Estimate of marginal posterior variance
-    var_plus = ((n_split_samples - 1) / n_split_samples) * W + (1 / n_split_samples) * B
+    var_plus = ((n_split_samples - 1) / n_split_samples) * within_var + (
+        1 / n_split_samples
+    ) * between_var
 
     # R-hat
-    if W > 0:
-        rhat = np.sqrt(var_plus / W)
-    else:
-        rhat = np.nan
+    rhat = np.sqrt(var_plus / within_var) if within_var > 0 else np.nan
 
     return float(rhat)
 
@@ -323,8 +320,7 @@ def format_diagnostics_table(diagnostics: ConvergenceDiagnostics) -> str:
     if warnings:
         lines.append("")
         lines.append("Warnings:")
-        for warning in warnings:
-            lines.append(f"  • {warning}")
+        lines.extend(f"  • {warning}" for warning in warnings)
         lines.append("")
 
     # Overall assessment
