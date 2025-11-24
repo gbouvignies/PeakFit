@@ -87,15 +87,14 @@ peakfit fit --spectrum X --peaks Y    # Bad (too verbose)
 ```bash
 --output-dir PATH
 --config FILE
---parallel
---jobs N
+--workers N
 ```
 
 ### Boolean Flags
 
 Use `--flag` and `--no-flag` pattern:
 ```bash
---parallel / --no-parallel
+--workers N (hint for max workers)
 --verbose / --quiet
 --overwrite / --no-overwrite
 --show / --no-show

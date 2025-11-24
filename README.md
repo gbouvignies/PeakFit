@@ -150,7 +150,7 @@ Options:
   --phx/--no-phx          Fit phase correction in X
   --phy/--no-phy          Fit phase correction in Y
   -e, --exclude INTEGER   Plane indices to exclude
-  --parallel/--no-parallel Enable parallel fitting
+  --workers N            Set maximum number of worker threads for automatic parallelism
   --help                  Show this message and exit
 ```
 
@@ -253,7 +253,7 @@ Enable multi-core parallel processing for faster fitting of multiple clusters:
 
 ```bash
 # Fit clusters in parallel (recommended for datasets with many peaks)
-peakfit fit spectrum.ft2 peaks.list --parallel
+peakfit fit spectrum.ft2 peaks.list
 
 # Parallel fitting scales with number of CPU cores
 # Particularly beneficial when you have many independent clusters

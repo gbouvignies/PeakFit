@@ -159,13 +159,8 @@ def fit(
             help="Plane indices to exclude (can be specified multiple times)",
         ),
     ] = None,
-    parallel: Annotated[
-        bool,
-        typer.Option(
-            "--parallel/--no-parallel",
-            help="Enable parallel fitting of clusters",
-        ),
-    ] = False,
+    # Note: removed `--parallel` CLI option. Parallelism is managed automatically.
+    # Keep workers option for advanced performance tuning but it no longer toggles parallel mode.
     workers: Annotated[
         int | None,
         typer.Option(
@@ -250,7 +245,6 @@ def fit(
         peaklist_path=peaklist,
         z_values_path=z_values,
         config=fit_config,
-        parallel=parallel,
         n_workers=workers,
         backend=backend,
         optimizer=optimizer,
@@ -355,7 +349,7 @@ def init(
     console.print("  • [green]Fitting parameters[/] (optimizer, lineshape, tolerances)")
     console.print("  • [green]Clustering settings[/] (algorithm, thresholds)")
     console.print("  • [green]Output preferences[/] (formats, directories)")
-    console.print("  • [green]Advanced options[/] (parallel processing, backends)")
+    console.print("  • [green]Advanced options[/] (backends)")
 
     # Suggest next steps
     ui.print_next_steps(
@@ -709,7 +703,7 @@ def info(
 
     # Parallel processing
     n_cpus = mp.cpu_count()
-    console.print(f"\n[green]Parallel processing:[/green] {n_cpus} CPU cores available")
+    console.print(f"\n[green]Automatic parallelism:[/green] {n_cpus} CPU cores available")
 
     # Note about backends
     console.print("\n[dim]Note: Numba backend support has been removed.[/dim]")
@@ -1043,7 +1037,9 @@ def benchmark(
         # Recommendation
         console.print("\n[bold]Recommendation:[/bold]")
         if speedup > 1.2:
-            console.print(f"  Use [green]--parallel[/green] for {speedup:.1f}x speedup")
+            console.print(
+                f"  Parallel processing shows a {speedup:.1f}x speedup for this dataset; the tool selects optimized paths automatically."
+            )
         else:
             console.print("  Sequential fitting is optimal (parallel overhead exceeds benefit)")
     else:

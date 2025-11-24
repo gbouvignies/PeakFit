@@ -72,7 +72,6 @@ def run_fit(
     peaklist_path: Path,
     z_values_path: Path | None,
     config: PeakFitConfig,
-    parallel: bool = False,
     n_workers: int | None = None,
     backend: str = "auto",
     optimizer: str = "leastsq",
@@ -86,8 +85,8 @@ def run_fit(
         peaklist_path: Path to peak list file.
         z_values_path: Optional path to Z-values file.
         config: Configuration object.
-        parallel: Whether to use parallel processing.
-        n_workers: Number of parallel workers.
+        Note: Parallel processing is selected automatically. Use `n_workers` to hint
+        at the number of worker threads to use.
         backend: Computation backend (deprecated, always uses NumPy).
         optimizer: Optimization algorithm (leastsq, basin-hopping, differential-evolution).
         save_state: Whether to save fitting state for later analysis.
@@ -115,7 +114,7 @@ def run_fit(
     # SECTION 1: CONFIGURATION
     # ============================================================
     # Initialize computation backend (returns selected backend)
-    selected_backend = _initialize_backend(backend, parallel=parallel)
+    selected_backend = _initialize_backend(backend)
 
     # Validate optimizer choice
     valid_optimizers = ["leastsq", "basin-hopping", "differential-evolution"]
@@ -129,7 +128,7 @@ def run_fit(
         console.print("  [dim]This may take significantly longer than standard fitting[/dim]")
 
     # Show configuration in a consolidated table
-    _print_configuration(selected_backend, parallel, n_workers, config.output.directory)
+    _print_configuration(selected_backend, n_workers, config.output.directory)
 
     # ============================================================
     # SECTION 2: LOADING INPUT FILES
@@ -238,7 +237,6 @@ def run_fit(
     ui.log_section("Fitting")
     ui.log(f"Optimizer: {optimizer}")
     ui.log(f"Backend: {backend}")
-    ui.log(f"Parallel: {'enabled' if parallel else 'disabled'}")
     ui.log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
     ui.log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
     ui.log("")
@@ -246,9 +244,6 @@ def run_fit(
     if optimizer != "leastsq":
         ui.info(f"Using {optimizer} optimizer...")
         params = _fit_clusters_global(clargs, clusters, optimizer, verbose)
-    elif parallel and len(clusters) > 1:
-        ui.info("Using parallel fitting...")
-        params = _fit_clusters_parallel(clargs, clusters, n_workers)
     else:
         params = _fit_clusters(clargs, clusters, verbose)
 
@@ -337,7 +332,7 @@ def run_fit(
     summary_table.add_row("Time per cluster", f"{avg_time_per_cluster:.1f}s")
 
     # Parallelization info
-    parallel_mode = "Parallel" if parallel else "Sequential"
+    parallel_mode = "Automatic"
     summary_table.add_row("Mode", parallel_mode)
 
     console.print(summary_table)
@@ -499,22 +494,9 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
     return params_all
 
 
-def _fit_clusters_parallel(
-    clargs: FitArguments, clusters: list, n_workers: int | None = None
-) -> Parameters:
-    """Fit all clusters using parallel processing."""
-    from peakfit.fitting.parallel import fit_clusters_parallel_refined
-
-    ui.info("Parallel fitting with refinement...")
-
-    return fit_clusters_parallel_refined(
-        clusters=clusters,
-        noise=clargs.noise,
-        refine_iterations=clargs.refine_nb,
-        fixed=clargs.fixed,
-        n_workers=n_workers,
-        verbose=True,
-    )
+# NOTE: The CLI --parallel option has been removed. Parallel cluster fitting
+# is still available via the `peakfit.fitting.parallel` module for profiling
+# and developer tools, but it is no longer exposed through the CLI.
 
 
 def _fit_clusters_global(
@@ -651,12 +633,12 @@ def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
     )
 
 
-def _initialize_backend(backend: str, parallel: bool = False) -> str:
+def _initialize_backend(backend: str) -> str:
     """Initialize the computation backend.
 
     Args:
         backend: Requested backend - DEPRECATED (always uses NumPy)
-        parallel: Whether parallel mode is enabled
+        parallel: (Deprecated) Whether parallel mode was enabled (ignored)
 
     Returns:
         Selected backend name (always 'numpy')
@@ -668,14 +650,13 @@ def _initialize_backend(backend: str, parallel: bool = False) -> str:
 
 
 def _print_configuration(
-    backend: str, parallel: bool, n_workers: int | None, output_dir: Path
+    backend: str, n_workers: int | None, output_dir: Path
 ) -> None:
     """Print configuration information in a consolidated table.
 
     Args:
         backend: Backend name (deprecated, always numpy)
-        parallel: Whether parallel mode is enabled
-        n_workers: Number of workers (if parallel)
+        n_workers: Number of workers (if specified)
         output_dir: Output directory path
     """
     ui.spacer()
@@ -687,14 +668,11 @@ def _print_configuration(
     # Backend row (always numpy now)
     config_table.add_row("Backend", "numpy")
 
-    # Parallel processing
-    if parallel:
-        import multiprocessing
+    # Parallel processing (automatically handled internally)
+    import multiprocessing
 
-        cores = n_workers if n_workers else multiprocessing.cpu_count()
-        parallel_str = f"enabled ({cores} cores)"
-    else:
-        parallel_str = "disabled"
+    cores = n_workers if n_workers else multiprocessing.cpu_count()
+    parallel_str = f"Automatic (max workers: {cores})"
 
     config_table.add_row("Parallel processing", parallel_str)
 
