@@ -8,18 +8,7 @@ This package provides:
 
 # Import functions for direct access
 from peakfit.lineshapes import functions
-from peakfit.lineshapes.functions import (
-    calculate_lstsq_amplitude,
-    gaussian,
-    lorentzian,
-    no_apod,
-    pvoigt,
-    sp1,
-    sp2,
-)
-
-# Import registry before models (models uses register_shape)
-from peakfit.lineshapes.registry import SHAPES, Shape, get_shape, list_shapes, register_shape
+from peakfit.lineshapes.functions import gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
 
 # Import models (this will populate SHAPES via decorators)
 from peakfit.lineshapes.models import (
@@ -34,6 +23,11 @@ from peakfit.lineshapes.models import (
     PseudoVoigt,
 )
 
+# Import registry before models (models uses register_shape)
+from peakfit.lineshapes.registry import SHAPES, Shape, get_shape, list_shapes, register_shape
+
+# (registry already imported above)
+
 __all__ = [
     # Functions
     "functions",
@@ -43,7 +37,6 @@ __all__ = [
     "no_apod",
     "sp1",
     "sp2",
-    "calculate_lstsq_amplitude",
     # Models
     "BaseShape",
     "PeakShape",

@@ -101,19 +101,29 @@ print(report.summary())
 
 ### Caching for Repeated Operations
 
-Use caching for repeated computations:
+The legacy `peakfit.analysis.caching` utilities are no longer part of the
+public API. For caching and memoization, prefer the standard library or
+well-maintained third-party packages.
+
+Examples:
 
 ```python
-from peakfit.analysis.caching import memoize_array_function, get_cache_stats
+# Simple in-memory memoization with builtin functools
+from functools import lru_cache
 
-@memoize_array_function(maxsize=128)
-def expensive_computation(data):
-    # Your computation here
-    pass
+@lru_cache(maxsize=128)
+def expensive_computation(key: str):
+   # Convert key to data and compute
+   return 42
 
-# Check cache performance
-stats = get_cache_stats()
-print(f"Cache hit rate: {stats['hit_rate']:.1f}%")
+# For a persistent disk cache, use joblib or diskcache
+from joblib import Memory
+memory = Memory("./joblib_cache", verbose=0)
+
+@memory.cache
+def expensive_computation_persistent(data):
+   # Convert to numpy array and compute
+   return 42
 ```
 
 ### Custom Worker Configuration
@@ -202,7 +212,8 @@ params = fit_clusters_parallel_refined(clusters, noise, n_workers=8)
 from peakfit.analysis.profiling import Profiler, ProfileReport
 
 # Caching
-from peakfit.analysis.caching import LRUCache, memoize_array_function
+Use `functools.lru_cache` or third-party libraries like `joblib` or
+`diskcache` for advanced caching needs.
 ```
 
 ## Version History

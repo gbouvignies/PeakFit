@@ -127,24 +127,3 @@ def sp2(
     a3 = (1.0 - np.exp(-z1)) / (2 * z1)
     spec = aq * (a1 + a2 + a3)
     return (spec * np.exp(1j * np.deg2rad(phase))).real
-
-
-def calculate_lstsq_amplitude(shapes: FloatArray, data: FloatArray) -> FloatArray:
-    """Calculate peak amplitudes via linear least squares.
-
-    Uses the normal equations: A^T A x = A^T b
-
-    Args:
-        shapes: Shape matrix (n_peaks, n_points)
-        data: Data vector (n_points,)
-
-    Returns:
-        Optimal amplitude coefficients for each peak
-
-    Notes:
-        This is more efficient than np.linalg.lstsq for small matrices
-        but assumes the system is well-conditioned.
-    """
-    ata = np.dot(shapes, shapes.T)
-    atb = np.dot(shapes, data)
-    return np.linalg.solve(ata, atb)

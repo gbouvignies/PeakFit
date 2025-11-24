@@ -36,6 +36,7 @@ Old imports → New imports:
 - Numba JIT compilation support
 - Backend selection (`--backend` option)
 - `performance` optional dependency group
+ - `peakfit.analysis.caching` module and caching utilities
 
 ## [Unreleased]
 
