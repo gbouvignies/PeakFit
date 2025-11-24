@@ -458,7 +458,6 @@ def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -
                 delayed(_fit_single_cluster)(
                     cluster,
                     idx,
-                    len(clusters),
                     clargs,
                     params_global_dict,
                     verbose,
