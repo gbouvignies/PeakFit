@@ -10,14 +10,14 @@ PeakFit uses pure NumPy implementations for all lineshape calculations, providin
 2. **Fast scipy optimization** - Direct interface with scipy.optimize
 3. **Profiling** - Identify bottlenecks
 
-## Quick Start
+# Quick Start
 
 ```bash
 # Benchmark your dataset to find optimal settings
 peakfit benchmark spectrum.ft2 peaks.list
 
-# Run with fast scipy optimization (bypasses lmfit overhead)
-peakfit fit spectrum.ft2 peaks.list --fast
+# Run with the default scipy least-squares optimizer (leastsq)
+peakfit fit spectrum.ft2 peaks.list --optimizer leastsq
 
 # Run with parallel processing (multiple clusters simultaneously)
 peakfit fit spectrum.ft2 peaks.list --parallel
@@ -28,9 +28,10 @@ peakfit fit spectrum.ft2 peaks.list --parallel --workers 8
 
 ## Optimization Methods
 
-### 1. Fast Scipy Optimization (`--fast`)
+### 1. Scipy Least-Squares Optimization (`--optimizer leastsq`)
 
-Bypasses lmfit's Python wrapper overhead by directly interfacing with `scipy.optimize.least_squares`.
+Use the `leastsq` optimizer (default) which interfaces with `scipy.optimize.least_squares` for fast
+sequential fitting. This avoids lmfit wrapper overhead and is a good choice for single-process runs.
 
 **When to use:**
 - Single-core environments
@@ -40,7 +41,7 @@ Bypasses lmfit's Python wrapper overhead by directly interfacing with `scipy.opt
 **Expected speedup:** 10-50x faster than standard lmfit fitting
 
 ```bash
-peakfit fit spectrum.ft2 peaks.list --fast
+peakfit fit spectrum.ft2 peaks.list --optimizer leastsq
 ```
 
 ### 2. Parallel Processing (`--parallel`)
@@ -79,42 +80,25 @@ This will:
 
 ### Profiling Your Fits
 
-For detailed performance analysis:
+For detailed performance and profiling analysis, use the CLI benchmark and analyze commands:
 
-```python
-from peakfit.analysis.profiling import Profiler
+```bash
+# Run a benchmark across fitting methods
+peakfit benchmark spectrum.ft2 peaks.list --iterations 3
 
-profiler = Profiler()
-
-with profiler.timer("data_loading"):
-    # Load your data
-    pass
-
-with profiler.timer("cluster_fitting", count=len(clusters)):
-    # Fit clusters
-    pass
-
-report = profiler.finalize()
-print(report.summary())
+# Profile fit results (e.g., profile likelihood or MCMC)
+peakfit analyze profile Fits/ --param x0 --points 20 --plot
+peakfit analyze mcmc Fits/ --chains 64 --samples 2000
 ```
 
 ###
 
 ### Custom Worker Configuration
 
-For fine-grained control over parallel processing:
+For fine-grained control over parallel processing using the CLI:
 
-```python
-from peakfit.fitting.parallel import fit_clusters_parallel_refined
-
-params = fit_clusters_parallel_refined(
-    clusters=clusters,
-    noise=noise,
-    refine_iterations=2,
-    fixed=False,
-    n_workers=8,
-    verbose=True,
-)
+```bash
+peakfit fit spectrum.ft2 peaks.list --parallel --workers 8 --refine 2
 ```
 
 ## Performance Tips
@@ -122,13 +106,13 @@ params = fit_clusters_parallel_refined(
 1. **Profile First**: Use `peakfit benchmark` to understand your data's characteristics
 
 2. **Match Method to Data**:
-   - Few clusters (< 5): Use `--fast`
+   - Few clusters (< 5): Use the default `leastsq` optimizer (`--optimizer leastsq`)
    - Many clusters (> 10): Try `--parallel`
    - Medium clusters: Benchmark both
 
 3. **Memory Considerations**:
    - Parallel fitting uses more memory (one process per worker)
-   - For memory-constrained systems, use `--fast`
+   - For memory-constrained systems, avoid `--parallel` and use the default `leastsq` optimizer
 
 4. **Refinement Iterations**:
    - More iterations = more benefit from optimization
@@ -143,7 +127,7 @@ params = fit_clusters_parallel_refined(
    peakfit benchmark spectrum.ft2 peaks.list
    ```
 
-2. Multiprocessing has overhead; for few clusters, use `--fast`
+2. Multiprocessing has overhead; for few clusters, use the default `leastsq` optimizer (`--optimizer leastsq`)
 
 3. Reduce workers if memory is limited:
    ```bash
@@ -153,7 +137,7 @@ params = fit_clusters_parallel_refined(
 ### Out of memory errors
 
 1. Reduce parallel workers
-2. Use sequential fast fitting (`--fast`)
+2. Use sequential least-squares optimizer (default `--optimizer leastsq`)
 3. Process data in smaller batches
 
 ## API Reference
@@ -168,24 +152,16 @@ peakfit info [--benchmark]
 peakfit benchmark SPECTRUM PEAKLIST [--iterations N]
 
 # Fit with optimizations
-peakfit fit SPECTRUM PEAKLIST [--fast] [--parallel] [--workers N]
+peakfit fit SPECTRUM PEAKLIST [--optimizer <leastsq|basin-hopping|differential-evolution>] [--parallel] [--workers N]
 ```
 
-### Python API
+### Note: CLI-first usage
 
-```python
-# Fast fitting
-from peakfit.fitting.fast_fit import fit_clusters_fast
-params = fit_clusters_fast(clusters, noise, refine_iterations=1)
-
-# Parallel fitting
-from peakfit.fitting.parallel import fit_clusters_parallel_refined
-params = fit_clusters_parallel_refined(clusters, noise, n_workers=8)
-
-# Profiling
-from peakfit.analysis.profiling import Profiler, ProfileReport
-
-##
+PeakFit is intended to be used as a command-line application via the
+`peakfit` command. Internal Python functions (e.g., modules under
+`peakfit.*`) are not a public API and may change without notice. For
+automation or scripting, prefer invoking the CLI from your script or
+workflow manager (for example, using `subprocess.run`).
 ```
 
 ## Version History
