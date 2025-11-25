@@ -18,7 +18,7 @@ def test_plotting_fallback_to_agg(monkeypatch, tmp_path):
     matplotlib.use("Agg")
 
     mod = import_spectra(monkeypatch)
-    PlotWidget = mod.PlotWidget
+    plot_widget_cls = mod.PlotWidget
     # Build small synthetic data and call plot
     data1 = np.zeros((1, 10, 10), dtype=float)
     data2 = np.zeros_like(data1)
@@ -27,7 +27,7 @@ def test_plotting_fallback_to_agg(monkeypatch, tmp_path):
     # Create a dummy NMRData-like object with required attributes
     class Dummy:
         filename = "test"
-        dic = {}
+        dic: dict = {}
         data = data1
         xlim = (0.0, 1.0)
         ylim = (0.0, 1.0)
@@ -38,10 +38,10 @@ def test_plotting_fallback_to_agg(monkeypatch, tmp_path):
         from PyQt5.QtWidgets import QApplication
 
         app = QApplication.instance() or QApplication([])
-    except Exception:
+    except RuntimeError:
         app = None
     try:
-        pw = PlotWidget()
+        pw = plot_widget_cls()
         # Call plot with minimal inputs — this should not raise
         pw.plot(
             data1,
@@ -81,7 +81,6 @@ def test_plot_widget_with_pyqt(monkeypatch):
     import importlib
 
     importlib.reload(import_spectra(monkeypatch))
-    from peakfit.plotting.plots.spectra import PlotWidget
 
     # Ensure a QApplication exists to safely construct widgets
     try:
@@ -91,7 +90,7 @@ def test_plot_widget_with_pyqt(monkeypatch):
     except Exception:
         app = None
     try:
-        pw = PlotWidget()
+        pw = plot_widget_cls()
         data = np.zeros((1, 10, 10), dtype=float)
         pw.plot(
             data,

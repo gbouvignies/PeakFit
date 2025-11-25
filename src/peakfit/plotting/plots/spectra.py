@@ -1,14 +1,24 @@
 import argparse
 import sys
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, Self, cast
+from typing import Any, Self, cast
 
 import nmrglue as ng
 import numpy as np
 import pandas as pd
 from matplotlib.backend_bases import Event
+
+try:
+    from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+except (
+    ModuleNotFoundError,
+    ImportError,
+):  # pragma: no cover - fallback for headless/test environments
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+    NavigationToolbar = None
 from matplotlib.figure import Figure
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
@@ -26,38 +36,9 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-if TYPE_CHECKING:
-    # During static type checking, import the Qt-backed classes so that the
-    # declared names have concrete types. At runtime, import the best
-    # available backend and fall back to the Agg backend when GUI is not
-    # available.
-    from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
-    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-else:
-    try:
-        from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
-        from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-    except (
-        ModuleNotFoundError,
-        ImportError,
-    ):  # pragma: no cover - fallback for headless/test environments
-        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-
-        NavigationToolbar = None
-
-
 from peakfit.core.algorithms.noise import estimate_noise
 from peakfit.core.shared.typing import FloatArray
 from peakfit.ui.style import PeakFitUI
-
-
-class FigureCanvasLike(Protocol):
-    def draw_idle(self) -> None: ...
-    def mpl_connect(self, event: str | int, callback: Callable[[Event], object]) -> int: ...
-
-
-class NavigationToolbarLike(Protocol): ...
-
 
 # Configuration
 CONTOUR_NUM = 25
@@ -107,17 +88,18 @@ class NMRData:
 
     def unalias_y(self, y0: FloatArray) -> FloatArray:
         y_scale = (self.ylim[1] - self.ylim[0]) * (self.data.shape[1] + 1) / self.data.shape[1]
-        y_arr: FloatArray = np.asarray((y0 - self.ylim[0]) % y_scale + self.ylim[0], dtype=float)
-        return y_arr
+        return cast(
+            FloatArray, np.asarray((y0 - self.ylim[0]) % y_scale + self.ylim[0], dtype=float)
+        )
 
 
 class PlotWidget(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.figure = Figure(figsize=(5, 5), dpi=100)
-        self.canvas: FigureCanvasLike = FigureCanvas(self.figure)
+        self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_subplot(111)
-        self.toolbar: QWidget | None
+        self.toolbar: Any = None
         try:
             self.toolbar = (
                 NavigationToolbar(self.canvas, self) if NavigationToolbar is not None else None
@@ -128,7 +110,7 @@ class PlotWidget(QWidget):
         self.current_ylim: tuple[float, float] | None = None
 
         layout = QVBoxLayout()
-        layout.addWidget(cast(QWidget, self.canvas))
+        layout.addWidget(self.canvas)
         if self.toolbar is not None:
             layout.addWidget(self.toolbar)
         self.setLayout(layout)
@@ -287,7 +269,7 @@ class SpectraViewer(QMainWindow):
         exit_action = QAction("Exit", self)
         exit_action.setShortcut("Ctrl+Q")
 
-        def _exit_slot(*_args: object) -> None:
+        def _exit_slot(*_args: Any) -> None:
             self.close()
 
         exit_action.triggered.connect(_exit_slot)
@@ -297,7 +279,7 @@ class SpectraViewer(QMainWindow):
         reset_view_action = QAction("Reset View", self)
         reset_view_action.setShortcut("Ctrl+R")
 
-        def _reset_slot(*_args: object) -> None:
+        def _reset_slot(*_args: Any) -> None:
             self.reset_view()
 
         reset_view_action.triggered.connect(_reset_slot)
@@ -370,10 +352,6 @@ class SpectraViewer(QMainWindow):
     def _toggle_spectrum(self, spectrum: str) -> None:
         self.show_spectra[spectrum] = self.control_widget.checkboxes[spectrum].isChecked()
         self.update_view()
-
-    if TYPE_CHECKING:
-        # Import Qt ResizeEvent only for type checking to avoid import errors in headless tests
-        from PyQt5.QtGui import QResizeEvent
 
     def resizeEvent(self, a0: Any) -> None:  # noqa: N802
         super().resizeEvent(a0)
