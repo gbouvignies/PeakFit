@@ -6,9 +6,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 import numpy as np
-from scipy.optimize import least_squares
 from threadpoolctl import threadpool_limits
 
 from peakfit.core.algorithms.clustering import create_clusters
@@ -19,14 +19,16 @@ from peakfit.core.domain.peaks import create_params
 from peakfit.core.domain.peaks_io import read_list
 from peakfit.core.domain.spectrum import Spectra, get_shape_names, read_spectra
 from peakfit.core.domain.state import FittingState
-from peakfit.core.fitting.computation import residuals, update_cluster_corrections
+from peakfit.core.fitting.computation import update_cluster_corrections
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.simulation import simulate_data
+from peakfit.core.fitting.strategies import STRATEGIES, get_strategy
 from peakfit.core.shared.constants import (
     LEAST_SQUARES_FTOL,
     LEAST_SQUARES_MAX_NFEV,
     LEAST_SQUARES_XTOL,
 )
+from peakfit.core.shared.events import Event, EventDispatcher, EventType, FitProgressEvent
 from peakfit.infra.state import StateRepository
 from peakfit.io.output import write_profiles, write_shifts
 from peakfit.ui import PeakFitUI, console
@@ -94,6 +96,7 @@ class FitPipeline:
         optimizer: str = "leastsq",
         save_state: bool = True,
         verbose: bool = False,
+        dispatcher: EventDispatcher | None = None,
     ) -> None:
         FitPipeline._run_fit(
             spectrum_path,
@@ -103,6 +106,7 @@ class FitPipeline:
             optimizer=optimizer,
             save_state=save_state,
             verbose=verbose,
+            dispatcher=dispatcher,
         )
 
     @staticmethod
@@ -115,9 +119,21 @@ class FitPipeline:
         optimizer: str,
         save_state: bool,
         verbose: bool,
+        dispatcher: EventDispatcher | None,
     ) -> None:
         """Run the fitting process with the given configuration."""
         start_time_dt = datetime.now()
+        _dispatch_event(
+            dispatcher,
+            Event(
+                event_type=EventType.FIT_STARTED,
+                data={
+                    "spectrum": str(spectrum_path),
+                    "peaklist": str(peaklist_path),
+                    "optimizer": optimizer,
+                },
+            ),
+        )
 
         # Setup logging
         log_file = config.output.directory / "peakfit.log"
@@ -133,7 +149,7 @@ class FitPipeline:
         # components that require it. Avoid setting private attributes on the
         # Pydantic model to keep types and model schema stable.
 
-        valid_optimizers = ["leastsq", "basin-hopping", "differential-evolution"]
+        valid_optimizers = sorted(STRATEGIES.keys())
         if optimizer not in valid_optimizers:
             ui.error(f"Invalid optimizer: {optimizer}")
             ui.info(f"Valid options: {', '.join(valid_optimizers)}")
@@ -239,15 +255,21 @@ class FitPipeline:
         ui.log_section("Fitting")
         ui.log(f"Optimizer: {optimizer}")
         ui.log("Backend: numpy (default)")
-        ui.log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
-        ui.log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
+        if optimizer == "leastsq":
+            ui.log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
+            ui.log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
         ui.log("")
 
         if optimizer != "leastsq":
             ui.info(f"Using {optimizer} optimizer...")
-            params = _fit_clusters_global(clargs, clusters, optimizer, verbose)
-        else:
-            params = _fit_clusters(clargs, clusters, verbose)
+
+        params = _fit_clusters(
+            clargs,
+            clusters,
+            optimizer=optimizer,
+            verbose=verbose,
+            dispatcher=dispatcher,
+        )
 
         console.print()
         ui.show_header("Fitting Complete")
@@ -331,6 +353,19 @@ class FitPipeline:
         output_dir_name = config.output.directory.name
         spectrum_name = spectrum_path.name
 
+        _dispatch_event(
+            dispatcher,
+            Event(
+                event_type=EventType.FIT_COMPLETED,
+                data={
+                    "clusters": len(clusters),
+                    "peaks": len(peaks),
+                    "total_time_sec": total_time,
+                    "output_dir": str(config.output.directory),
+                },
+            ),
+        )
+
         ui.show_header("Next Steps")
         console.print("1. View intensity profiles:")
         console.print(f"   [cyan]peakfit plot intensity {output_dir_name}/[/cyan]")
@@ -348,34 +383,49 @@ class FitPipeline:
         ui.close_logging()
 
 
-def _residual_wrapper(
-    x: np.ndarray, params: Parameters, cluster: Cluster, noise: float
-) -> np.ndarray:
-    """Wrapper to convert array to Parameters for residual calculation."""
-    vary_names = params.get_vary_names()
-    for i, name in enumerate(vary_names):
-        params[name].value = float(x[i])
-    return residuals(params, cluster, noise)
-
-
 def _fit_clusters(
-    clargs: FitArguments, clusters: list[Cluster], verbose: bool = False
+    clargs: FitArguments,
+    clusters: list[Cluster],
+    *,
+    optimizer: str,
+    verbose: bool,
+    dispatcher: EventDispatcher | None,
 ) -> Parameters:
-    """Fit all clusters and return parameters."""
+    """Fit all clusters with the requested optimization strategy."""
+
+    if clargs.noise is None:
+        msg = "Noise must be specified before fitting clusters"
+        raise ValueError(msg)
+
+    noise_value = float(clargs.noise)
+    total_iterations = clargs.refine_nb + 1
+    strategy_kwargs: dict[str, Any] = {}
+
+    if optimizer == "leastsq":
+        strategy_kwargs = {
+            "ftol": LEAST_SQUARES_FTOL,
+            "xtol": LEAST_SQUARES_XTOL,
+            "max_nfev": LEAST_SQUARES_MAX_NFEV,
+            "verbose": 2 if verbose else 0,
+        }
+
+    strategy = get_strategy(optimizer, **strategy_kwargs)
     params_all = Parameters()
+    cluster_count = len(clusters)
+
+    import time as time_module
 
     with threadpool_limits(limits=1, user_api="blas"):
-        for index in range(clargs.refine_nb + 1):
-            if index == 0:
+        for iteration in range(total_iterations):
+            iteration_idx = iteration + 1
+            if iteration == 0:
                 ui.subsection_header("Initial Fit")
             else:
-                ui.subsection_header(f"Refining Parameters (Iteration {index})")
-                ui.log_section(f"Refinement Iteration {index}")
+                ui.subsection_header(f"Refining Parameters (Iteration {iteration_idx})")
+                ui.log_section(f"Refinement Iteration {iteration_idx}")
                 update_cluster_corrections(params_all, clusters)
 
             for cluster_idx, cluster in enumerate(clusters, 1):
-                import time as time_module
-
                 cluster_start = time_module.time()
                 peak_names = [peak.name for peak in cluster.peaks]
                 peaks_str = ", ".join(peak_names)
@@ -398,45 +448,64 @@ def _fit_clusters(
                 vary_names = params.get_vary_names()
                 ui.log(f"  - Varying parameters: {len(vary_names)}")
 
-                x0 = params.get_vary_values()
-                bounds_lower = np.array([params[name].min for name in vary_names])
-                bounds_upper = np.array([params[name].max for name in vary_names])
-
-                scipy_verbose = 2 if verbose else 0
-                result = least_squares(
-                    _residual_wrapper,
-                    x0,
-                    args=(params, cluster, clargs.noise),
-                    bounds=(bounds_lower, bounds_upper),
-                    ftol=LEAST_SQUARES_FTOL,
-                    xtol=LEAST_SQUARES_XTOL,
-                    max_nfev=LEAST_SQUARES_MAX_NFEV,
-                    verbose=scipy_verbose,
+                _dispatch_event(
+                    dispatcher,
+                    Event(
+                        event_type=EventType.CLUSTER_STARTED,
+                        data={
+                            "cluster_index": cluster_idx,
+                            "total_clusters": cluster_count,
+                            "iteration": iteration_idx,
+                            "total_iterations": total_iterations,
+                            "peak_names": peak_names,
+                        },
+                    ),
                 )
 
-                for i, name in enumerate(vary_names):
-                    params[name].value = result.x[i]
-
-                if result.jac is not None and len(result.fun) > len(vary_names):
-                    ndata = len(result.fun)
-                    nvarys = len(vary_names)
-                    redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
-                    try:
-                        jtj = result.jac.T @ result.jac
-                        cov = np.linalg.inv(jtj) * redchi
-                        stderr = np.sqrt(np.diag(cov))
-                        for i, name in enumerate(vary_names):
-                            params[name].stderr = float(stderr[i])
-                    except np.linalg.LinAlgError:
-                        pass
+                result = strategy.optimize(params, cluster, noise_value)
+                params = result.params
 
                 cluster_time = time_module.time() - cluster_start
+
+                _dispatch_event(
+                    dispatcher,
+                    Event(
+                        event_type=EventType.CLUSTER_COMPLETED,
+                        data={
+                            "cluster_index": cluster_idx,
+                            "total_clusters": cluster_count,
+                            "iteration": iteration_idx,
+                            "total_iterations": total_iterations,
+                            "cost": result.cost,
+                            "success": result.success,
+                            "time_sec": cluster_time,
+                        },
+                    ),
+                )
+                _dispatch_event(
+                    dispatcher,
+                    FitProgressEvent(
+                        event_type=EventType.FIT_PROGRESS,
+                        data={
+                            "cluster_index": cluster_idx,
+                            "iteration": iteration_idx,
+                            "cost": result.cost,
+                            "success": result.success,
+                        },
+                        current_cluster=cluster_idx,
+                        total_clusters=cluster_count,
+                        current_iteration=iteration_idx,
+                        total_iterations=total_iterations,
+                    ),
+                )
+
+                evaluations = result.n_evaluations
 
                 if result.success:
                     console.print(
                         f"[green]✓[/green] Converged [dim]│[/dim] "
                         f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
-                        f"{result.nfev} evaluations [dim]│[/dim] "
+                        f"{evaluations} evaluations [dim]│[/dim] "
                         f"{cluster_time:.1f}s"
                     )
                     ui.log("  - Status: Converged", level="info")
@@ -444,92 +513,16 @@ def _fit_clusters(
                     console.print(
                         f"[yellow]⚠[/yellow] {result.message} [dim]│[/dim] "
                         f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
-                        f"{result.nfev} evaluations [dim]│[/dim] "
+                        f"{evaluations} evaluations [dim]│[/dim] "
                         f"{cluster_time:.1f}s"
                     )
                     ui.log(f"  - Status: {result.message}", level="warning")
 
                 ui.log(f"  - Cost: {result.cost:.3e}")
-                ui.log(f"  - Function evaluations: {result.nfev}")
+                ui.log(f"  - Function evaluations: {evaluations}")
                 ui.log(f"  - Time: {cluster_time:.1f}s")
 
                 params_all.update(params)
-
-    return params_all
-
-
-def _fit_clusters_global(
-    clargs: FitArguments, clusters: list, optimizer: str, verbose: bool = False
-) -> Parameters:
-    """Fit all clusters using global optimization."""
-    from peakfit.core.fitting.advanced import fit_basin_hopping, fit_differential_evolution
-
-    if clargs.noise is None:
-        raise ValueError("Noise must be specified for global optimization")
-    noise_value = float(clargs.noise)
-
-    params_all = Parameters()
-
-    with threadpool_limits(limits=1, user_api="blas"):
-        for index in range(clargs.refine_nb + 1):
-            if index == 0:
-                ui.subsection_header("Initial Fit")
-            else:
-                ui.subsection_header(f"Refining Parameters (Iteration {index})")
-                ui.log_section(f"Refinement Iteration {index}")
-                update_cluster_corrections(params_all, clusters)
-
-            for cluster_idx, cluster in enumerate(clusters, 1):
-                peak_names = [peak.name for peak in cluster.peaks]
-                peaks_str = ", ".join(peak_names)
-
-                if cluster_idx > 1:
-                    console.print()
-                console.print(
-                    f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] {peaks_str}"
-                )
-
-                params = create_params(cluster.peaks, fixed=clargs.fixed)
-                params = _update_params(params, params_all)
-
-                if optimizer == "basin-hopping":
-                    # clargs.noise was asserted non-None earlier
-                    result = fit_basin_hopping(
-                        params,
-                        cluster,
-                        noise_value,
-                        n_iterations=50,
-                        temperature=1.0,
-                        step_size=0.5,
-                    )
-                elif optimizer == "differential-evolution":
-                    result = fit_differential_evolution(
-                        params,
-                        cluster,
-                        noise_value,
-                        max_iterations=500,
-                        population_size=15,
-                        polish=True,
-                    )
-                else:
-                    msg = f"Unknown optimizer: {optimizer}"
-                    raise ValueError(msg)
-
-                success = result.success if hasattr(result, "success") else True
-                chisqr = result.chisqr if hasattr(result, "chisqr") else result.cost
-                nfev = result.nfev if hasattr(result, "nfev") else "N/A"
-
-                if success:
-                    console.print(
-                        f"[green]✓ Converged[/green] [dim]│[/dim] Cost: [cyan]{chisqr:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{nfev}[/cyan]"
-                    )
-                else:
-                    message = result.message if hasattr(result, "message") else "Did not converge"
-                    console.print(
-                        f"[yellow]⚠ {message}[/yellow] [dim]│[/dim] Cost: [cyan]{chisqr:.3e}[/cyan] [dim]│[/dim] Evaluations: [cyan]{nfev}[/cyan]"
-                    )
-
-                params_all.update(result.params)
 
     return params_all
 
@@ -540,6 +533,15 @@ def _update_params(params: Parameters, params_all: Parameters) -> Parameters:
         if key in params_all:
             params[key] = params_all[key]
     return params
+
+
+def _dispatch_event(dispatcher: EventDispatcher | None, event: Event) -> None:
+    """Safely dispatch an event when a dispatcher is provided."""
+
+    if dispatcher is None:
+        return
+
+    dispatcher.dispatch(event)
 
 
 def _write_spectra(

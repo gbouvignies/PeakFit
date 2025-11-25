@@ -38,10 +38,24 @@ from peakfit.core.fitting.results import FitResult
 
 # Simulation
 from peakfit.core.fitting.simulation import simulate_data
+from peakfit.core.fitting.strategies import (
+    BasinHoppingStrategy,
+    DifferentialEvolutionStrategy,
+    LeastSquaresStrategy,
+    OptimizationResult,
+    OptimizationStrategy,
+    get_strategy,
+    register_strategy,
+)
 
 __all__ = [
+    "BasinHoppingStrategy",
+    "DifferentialEvolutionStrategy",
     "FitResult",
     "GlobalFitResult",
+    "LeastSquaresStrategy",
+    "OptimizationResult",
+    "OptimizationStrategy",
     "Parameter",
     "ParameterType",
     "Parameters",
@@ -57,6 +71,8 @@ __all__ = [
     "fit_clusters",
     "fit_clusters_sequential",
     "fit_differential_evolution",
+    "get_strategy",
+    "register_strategy",
     "residuals",
     "simulate_data",
     "update_cluster_corrections",
