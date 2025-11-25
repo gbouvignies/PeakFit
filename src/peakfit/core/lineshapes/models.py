@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -156,7 +156,8 @@ class PeakShape(BaseShape):
         fwhm = params[f"{self.prefix}_fwhm"].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-        return cast(FloatArray, np.asarray(sign * self.shape_func(dx_hz, fwhm), dtype=float))
+        res: FloatArray = np.asarray(sign * self.shape_func(dx_hz, fwhm), dtype=float)
+        return res
 
 
 @register_shape("lorentzian")
@@ -201,7 +202,8 @@ class PseudoVoigt(PeakShape):
         eta = params[f"{self.prefix}_eta"].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-        return cast(FloatArray, np.asarray(sign * functions.pvoigt(dx_hz, fwhm, eta), dtype=float))
+        res: FloatArray = np.asarray(sign * functions.pvoigt(dx_hz, fwhm, eta), dtype=float)
+        return res
 
 
 class ApodShape(BaseShape):
@@ -285,7 +287,8 @@ class ApodShape(BaseShape):
         norm = np.sum(func(j_rads, *shape_args), axis=0)
         shape = np.sum(func(dx_rads, *shape_args), axis=0)
 
-        return cast(FloatArray, np.asarray(sign[x_pt] * shape[x_pt] / norm, dtype=float))
+        res: FloatArray = np.asarray(sign[x_pt] * shape[x_pt] / norm, dtype=float)
+        return res
 
 
 @register_shape("no_apod")

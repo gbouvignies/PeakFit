@@ -1,7 +1,6 @@
 """Implementation of the plot command - fully integrated plotting for all types."""
 
 from pathlib import Path
-from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -77,7 +76,7 @@ def plot_intensity_profiles(
         ui.info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
         console.print(f"       [dim]All plots are saved to {output_path}[/dim]")
 
-    plot_data_for_display: list[tuple[Any, ...]] | None = [] if show else None
+    plot_data_for_display: list[tuple[str, np.ndarray]] | None = [] if show else None
 
     start_time = time.time()
 
@@ -175,7 +174,9 @@ def plot_cest_profiles(
         ui.info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
         console.print(f"       [dim]All plots are saved to {output_path}[/dim]")
 
-    plot_data_for_display: list[tuple[Any, ...]] | None = [] if show else None
+    plot_data_for_display: list[tuple[str, np.ndarray, np.ndarray, np.ndarray]] | None = (
+        [] if show else None
+    )
     plots_saved = 0
 
     with PdfPages(output_path) as pdf:
@@ -285,7 +286,9 @@ def plot_cpmg_profiles(
         ui.info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
         console.print(f"       [dim]All plots are saved to {output_path}[/dim]")
 
-    plot_data_for_display: list[tuple[Any, ...]] | None = [] if show else None
+    plot_data_for_display: (
+        list[tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | None
+    ) = [] if show else None
     plots_saved = 0
 
     with PdfPages(output_path) as pdf:

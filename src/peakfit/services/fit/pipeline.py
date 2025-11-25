@@ -128,7 +128,10 @@ class FitPipeline:
         else:
             ui.show_run_info(start_time_dt)
 
-        config._verbose = verbose  # type: ignore[attr-defined]
+        # NOTE: we do not mutate the configuration object to set a runtime
+        # 'verbose' flag; instead, pass the `verbose` value explicitly to any
+        # components that require it. Avoid setting private attributes on the
+        # Pydantic model to keep types and model schema stable.
 
         valid_optimizers = ["leastsq", "basin-hopping", "differential-evolution"]
         if optimizer not in valid_optimizers:

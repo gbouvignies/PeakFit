@@ -8,8 +8,9 @@ import platform
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
+# typing imports intentionally removed (use built-in 'object' and simple native types)
 from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
@@ -48,6 +49,11 @@ PEAKFIT_THEME = Theme(
         "path": "blue underline",
     }
 )
+
+
+class HasName(Protocol):
+    name: str
+
 
 # Single console instance for entire application
 console = Console(theme=PEAKFIT_THEME, record=True)
@@ -168,7 +174,7 @@ class PeakFitUI:
         _logger.info(f"=== {title.upper()} ===")
 
     @staticmethod
-    def log_dict(data: dict[str, Any], indent: str = "  ") -> None:
+    def log_dict(data: dict[str, object], indent: str = "  ") -> None:
         """Log a dictionary as key-value pairs.
 
         Args:
@@ -752,7 +758,7 @@ class PeakFitUI:
         total_clusters: int,
         peak_names: list[str],
         status: str = "fitting",
-        result: Any = None,
+        result: object | None = None,
     ) -> Panel:
         """Create a renderable cluster status panel for live display.
 
@@ -821,7 +827,7 @@ class PeakFitUI:
         )
 
     @staticmethod
-    def print_fit_report(result: Any) -> None:
+    def print_fit_report(result: Any | None) -> None:
         """Print fitting results in a styled panel.
 
         Args:
@@ -832,31 +838,35 @@ class PeakFitUI:
         table.add_column("Property", style="cyan", width=18)
         table.add_column("Value", style="green")
 
-        if hasattr(result, "success"):
+        if result is not None and hasattr(result, "success"):
             status_style = "green" if result.success else "red"
             status_text = "✓ Success" if result.success else "✗ Failed"
             table.add_row("Status", f"[{status_style}]{status_text}[/]")
 
-        if hasattr(result, "message"):
+        if result is not None and hasattr(result, "message"):
             table.add_row("Message", str(result.message))
 
-        if hasattr(result, "nfev"):
+        if result is not None and hasattr(result, "nfev"):
             table.add_row("Function evals", str(result.nfev))
 
-        if hasattr(result, "njev") and result.njev:
+        if result is not None and hasattr(result, "njev") and result.njev:
             table.add_row("Jacobian evals", str(result.njev))
 
-        if hasattr(result, "cost"):
+        if result is not None and hasattr(result, "cost"):
             table.add_row("Final cost", f"{result.cost:.6e}")
 
-        if hasattr(result, "optimality"):
+        if result is not None and hasattr(result, "optimality"):
             table.add_row("Optimality", f"{result.optimality:.6e}")
 
-        if hasattr(result, "x"):
+        if result is not None and hasattr(result, "x"):
             table.add_row("Parameters", str(len(result.x)))
 
         # Display in a panel
-        border_style = "green" if (hasattr(result, "success") and result.success) else "yellow"
+        border_style = (
+            "green"
+            if (result is not None and hasattr(result, "success") and result.success)
+            else "yellow"
+        )
         panel = Panel(
             table,
             title="[bold]Fit Statistics[/bold]",
@@ -866,7 +876,7 @@ class PeakFitUI:
         console.print(panel)
 
     @staticmethod
-    def print_peaks_panel(peaks: list[Any]) -> None:
+    def print_peaks_panel(peaks: list[HasName]) -> None:
         """Display list of peaks in a panel.
 
         Args:

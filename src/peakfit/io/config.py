@@ -3,7 +3,6 @@
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
 
 import tomli_w
 
@@ -40,7 +39,7 @@ def save_config(config: PeakFitConfig, path: Path) -> None:
         config: Configuration object to save.
         path: Path where to save the TOML file.
     """
-    data: dict[str, Any] = config.model_dump(mode="json", exclude_none=True)
+    data: dict[str, object] = config.model_dump(mode="json", exclude_none=True)
 
     # Convert Path objects to strings
     def convert_paths(obj: object) -> object:
@@ -58,7 +57,8 @@ def save_config(config: PeakFitConfig, path: Path) -> None:
         raise TypeError(msg)
 
     with path.open("wb") as f:
-        tomli_w.dump(cast(Mapping[str, Any], normalized), f)
+        # `convert_paths` returns a Mapping[str, object] after validation above.
+        tomli_w.dump(normalized, f)
 
 
 def generate_default_config() -> str:
