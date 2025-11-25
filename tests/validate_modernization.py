@@ -12,8 +12,10 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import cast
 
 import numpy as np
+from pydantic import ValidationError
 from rich.console import Console
 from rich.table import Table
 
@@ -70,7 +72,7 @@ def run_command(cmd: list[str], check: bool = False) -> tuple[int, str, str]:
     """Run a command and return (returncode, stdout, stderr)."""
     # Use sys.executable to ensure we use the same Python interpreter
     if cmd[0] == "peakfit":
-        cmd = [sys.executable, "-m", "peakfit.cli.app"] + cmd[1:]
+        cmd = [sys.executable, "-m", "peakfit.cli.app", *cmd[1:]]
 
     result = subprocess.run(
         cmd,
@@ -98,7 +100,7 @@ def validate_cli_help_commands(results: ValidationResult):
     ]
 
     for cmd, name in commands:
-        code, stdout, stderr = run_command(cmd)
+        code, _stdout, stderr = run_command(cmd)
         if code == 0:
             results.add_pass(name, f"Command: {' '.join(cmd)}")
         else:
@@ -109,7 +111,7 @@ def validate_info_command(results: ValidationResult):
     """Validate info command shows correct backend information."""
     console.print("\n[bold]Testing Info Command[/bold]")
 
-    code, stdout, stderr = run_command(["peakfit", "info"])
+    code, stdout, _stderr = run_command(["peakfit", "info"])
     if code == 0:
         results.add_pass("Info command", "Shows backend information")
 
@@ -130,7 +132,7 @@ def validate_init_command(results: ValidationResult):
         config_path = Path(tmpdir) / "test_config.toml"
 
         # Test basic init
-        code, stdout, stderr = run_command(["peakfit", "init", str(config_path)])
+        code, _stdout, _stderr = run_command(["peakfit", "init", str(config_path)])
         if code == 0 and config_path.exists():
             results.add_pass("Init creates config file", str(config_path))
         else:
@@ -147,14 +149,14 @@ def validate_init_command(results: ValidationResult):
                 results.add_fail(f"Config has {section}", "Section missing")
 
         # Test no overwrite without --force
-        code, stdout, stderr = run_command(["peakfit", "init", str(config_path)])
+        code, _stdout, _stderr = run_command(["peakfit", "init", str(config_path)])
         if code != 0:
             results.add_pass("Init prevents overwrite", "Correctly fails without --force")
         else:
             results.add_fail("Init prevents overwrite", "Should fail without --force")
 
         # Test overwrite with --force
-        code, stdout, stderr = run_command(["peakfit", "init", str(config_path), "--force"])
+        code, _stdout, _stderr = run_command(["peakfit", "init", str(config_path), "--force"])
         if code == 0:
             results.add_pass("Init with --force overwrites", "Overwrite successful")
         else:
@@ -168,7 +170,8 @@ def validate_backend_selection(results: ValidationResult):
     # The backend tests should be run via the info command
     # Check if numba is available
     try:
-        import numba  # noqa: F401
+        import numba  # noqa: F401  # pyright: ignore[reportMissingImports]
+
         results.add_pass("Numba available", "JIT compilation supported")
     except ImportError:
         results.add_warning("Numba not available", "Only NumPy backend will be used")
@@ -179,19 +182,29 @@ def validate_cli_options(results: ValidationResult):
     console.print("\n[bold]Testing CLI Options[/bold]")
 
     # Create minimal test files
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmppath = Path(tmpdir)
-
+    with tempfile.TemporaryDirectory():
         # These should fail gracefully with appropriate error messages
         test_cases = [
             (["peakfit", "fit"], "fit requires arguments", "Should fail with missing args"),
-            (["peakfit", "validate"], "validate requires arguments", "Should fail with missing args"),
-            (["peakfit", "fit", "--lineshape", "invalid"], "Invalid lineshape", "Should reject invalid lineshape"),
-            (["peakfit", "fit", "--refine", "-1"], "Invalid refine", "Should reject negative refine"),
+            (
+                ["peakfit", "validate"],
+                "validate requires arguments",
+                "Should fail with missing args",
+            ),
+            (
+                ["peakfit", "fit", "--lineshape", "invalid"],
+                "Invalid lineshape",
+                "Should reject invalid lineshape",
+            ),
+            (
+                ["peakfit", "fit", "--refine", "-1"],
+                "Invalid refine",
+                "Should reject negative refine",
+            ),
         ]
 
         for cmd, name, desc in test_cases:
-            code, stdout, stderr = run_command(cmd)
+            code, _stdout, _stderr = run_command(cmd)
             if code != 0:
                 results.add_pass(name, desc)
             else:
@@ -209,11 +222,9 @@ def validate_error_handling(results: ValidationResult):
         fake_spectrum = tmppath / "nonexistent.ft2"
         fake_peaklist = tmppath / "nonexistent.list"
 
-        code, stdout, stderr = run_command([
-            "peakfit", "validate",
-            str(fake_spectrum),
-            str(fake_peaklist)
-        ])
+        code, _stdout, _stderr = run_command(
+            ["peakfit", "validate", str(fake_spectrum), str(fake_peaklist)]
+        )
 
         if code != 0:
             results.add_pass("Validate rejects missing files", "Correctly fails with missing files")
@@ -226,7 +237,7 @@ def validate_parameter_system(results: ValidationResult):
     console.print("\n[bold]Testing Parameter System[/bold]")
 
     try:
-        from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
+        from peakfit.core.fitting.parameters import Parameter, Parameters, ParameterType
 
         # Test creating parameters with types
         p1 = Parameter(
@@ -256,7 +267,7 @@ def validate_parameter_system(results: ValidationResult):
         else:
             results.add_fail("Parameters get_vary_names", f"Expected 1, got {len(vary_names)}")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         results.add_fail("Parameter system", str(e))
 
 
@@ -265,44 +276,30 @@ def validate_lineshapes(results: ValidationResult):
     console.print("\n[bold]Testing Lineshape Functions[/bold]")
 
     try:
-        from peakfit.lineshapes import (
-            gaussian,
-            get_available_backends,
-            lorentzian,
-            pvoigt,
-            set_backend,
-        )
+        from peakfit.core.lineshapes import gaussian, lorentzian, pvoigt
 
-        backends = get_available_backends()
-        results.add_pass("Backend availability", f"Available: {backends}")
+        x = np.linspace(-10, 10, 100)
 
-        # Test each backend
-        for backend in backends:
-            set_backend(backend)
+        y_gauss = gaussian(x, fwhm=2.0)
+        if np.max(y_gauss) > 0.99:  # Peak should be ~1.0
+            results.add_pass("Gaussian lineshape", "Peak height correct")
+        else:
+            results.add_fail("Gaussian lineshape", f"Peak height: {np.max(y_gauss)}")
 
-            # Test Gaussian
-            x = np.linspace(-10, 10, 100)
-            y_gauss = gaussian(x, fwhm=2.0)
-            if np.max(y_gauss) > 0.99:  # Peak should be ~1.0
-                results.add_pass(f"Gaussian ({backend})", "Peak height correct")
-            else:
-                results.add_fail(f"Gaussian ({backend})", f"Peak height: {np.max(y_gauss)}")
+        # Peak height is ~0.99 for Lorentzian due to numerical precision
+        y_lorentz = lorentzian(x, fwhm=2.0)
+        if np.max(y_lorentz) > 0.98:
+            results.add_pass("Lorentzian lineshape", f"Peak height: {np.max(y_lorentz):.4f}")
+        else:
+            results.add_fail("Lorentzian lineshape", f"Peak height: {np.max(y_lorentz)}")
 
-            # Test Lorentzian (peak height is ~0.99, not exactly 1.0 due to numerical precision)
-            y_lorentz = lorentzian(x, fwhm=2.0)
-            if np.max(y_lorentz) > 0.98:
-                results.add_pass(f"Lorentzian ({backend})", f"Peak height: {np.max(y_lorentz):.4f}")
-            else:
-                results.add_fail(f"Lorentzian ({backend})", f"Peak height: {np.max(y_lorentz)}")
+        y_pvoigt = pvoigt(x, fwhm=2.0, eta=0.5)
+        if np.max(y_pvoigt) > 0.99:
+            results.add_pass("Pseudo-Voigt lineshape", "Peak height correct")
+        else:
+            results.add_fail("Pseudo-Voigt lineshape", f"Peak height: {np.max(y_pvoigt)}")
 
-            # Test Pseudo-Voigt
-            y_pvoigt = pvoigt(x, fwhm=2.0, eta=0.5)
-            if np.max(y_pvoigt) > 0.99:
-                results.add_pass(f"Pseudo-Voigt ({backend})", "Peak height correct")
-            else:
-                results.add_fail(f"Pseudo-Voigt ({backend})", f"Peak height: {np.max(y_pvoigt)}")
-
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         results.add_fail("Lineshape functions", str(e))
 
 
@@ -311,7 +308,13 @@ def validate_config_system(results: ValidationResult):
     console.print("\n[bold]Testing Configuration System[/bold]")
 
     try:
-        from peakfit.models import ClusterConfig, FitConfig, OutputConfig, PeakFitConfig
+        from peakfit.core.domain.config import (
+            ClusterConfig,
+            FitConfig,
+            LineshapeName,
+            OutputConfig,
+            PeakFitConfig,
+        )
 
         # Test creating default config
         config = PeakFitConfig()
@@ -335,15 +338,14 @@ def validate_config_system(results: ValidationResult):
 
         # Test validation (Pydantic v2 doesn't raise on assignment, but on validation)
         try:
-            from pydantic import ValidationError
-            invalid_config = FitConfig(lineshape="invalid")
+            FitConfig(lineshape=cast(LineshapeName, "invalid"))
             results.add_fail("Config validation", "Should reject invalid lineshape")
         except ValidationError:
             results.add_pass("Config validation", "Correctly rejects invalid lineshape")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             results.add_fail("Config validation", f"Unexpected error: {e}")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         results.add_fail("Configuration system", str(e))
 
 
@@ -355,10 +357,12 @@ def validate_no_legacy_references(results: ValidationResult):
     jax_files = []
     for file in Path("src/peakfit").rglob("*.py"):
         content = file.read_text()
-        if "jax" in content.lower() and "JAX" not in file.name:
-            # Check if it's just in comments/docstrings
-            if "import jax" in content or "from jax" in content:
-                jax_files.append(file)
+        if (
+            "jax" in content.lower()
+            and "JAX" not in file.name
+            and ("import jax" in content or "from jax" in content)
+        ):
+            jax_files.append(file)
 
     if not jax_files:
         results.add_pass("No JAX dependencies", "JAX backend properly removed")

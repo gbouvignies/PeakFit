@@ -15,10 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Major Refactoring
 - **Complete module reorganization** for improved clarity and maintainability:
+  - `peakfit.core.shared/` - Project-wide constants and typing aliases
+  - `peakfit.core.domain/` - Core domain models (spectra, peaks, clusters, configs)
   - `peakfit.lineshapes/` - All lineshape functions and models
   - `peakfit.fitting/` - Fitting algorithms, parameters, and results
-  - `peakfit.data/` - Spectrum and peak data structures
-  - `peakfit.models/` - Configuration models
+  - `peakfit.data/` - File readers and adapters around the domain layer
   - `peakfit.analysis/` - Benchmarking and profiling
   - `peakfit.io/` - Input/output operations
 - Removed `core/` module - functionality redistributed to logical packages
@@ -28,8 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Old imports → New imports:
 - `from peakfit.shapes import Gaussian` → `from peakfit.lineshapes import Gaussian`
 - `from peakfit.core.fitting import Parameters` → `from peakfit.fitting import Parameters`
-- `from peakfit.clustering import Cluster` → `from peakfit.data import Cluster`
-- `from peakfit.spectra import Spectra` → `from peakfit.data import Spectra`
+- `from peakfit.clustering import Cluster` → `from peakfit.core.domain import Cluster`
+- `from peakfit.spectra import Spectra` → `from peakfit.core.domain import Spectra`
 - And more... (see documentation)
 
 ### Removed
@@ -98,10 +99,11 @@ Old imports → New imports:
   - New: `peakfit fit spectrum.ft2 peaks.list --output Fits --refine 2 --lineshape pvoigt`
 
 - **Package Structure**: Modular organization
+  - `peakfit/shared/` - Cross-cutting constants and typing helpers
+  - `peakfit/domain/` - Core domain models (spectra, peaks, configs, clusters)
   - `peakfit/lineshapes/` - Lineshape functions and models
   - `peakfit/fitting/` - Fitting algorithms and parameters
-  - `peakfit/data/` - Spectrum and peak data structures
-  - `peakfit/models/` - Configuration models
+  - `peakfit/data/` - File readers, clustering, and noise estimation utilities
   - `peakfit/analysis/` - Benchmarking and profiling
   - `peakfit/io/` - Input/output operations
   - `peakfit/cli/` - Modern Typer CLI
@@ -125,6 +127,8 @@ Old imports → New imports:
 - Legacy argparse CLI (`peakfit-legacy`)
 - JAX backend support
 - Standalone `peakfit-plot` command (replaced with `peakfit plot` subcommands)
+- Compatibility shims `peakfit.models` and `peakfit.data.spectrum` (import from `peakfit.core.domain.*`)
+- Compatibility shims `peakfit.constants` and `peakfit.typing` (import from `peakfit.core.shared.*`)
 
 ## [Previous] - Legacy Versions
 

@@ -8,9 +8,9 @@ import pytest
 
 
 def test_parallel_module_removed():
-    """Importing `peakfit.fitting.parallel` should fail now that it's removed."""
+    """Importing `peakfit.core.fitting.parallel` should fail now that it's removed."""
     with pytest.raises(ModuleNotFoundError):
-        __import__("peakfit.fitting.parallel")
+        __import__("peakfit.core.fitting.parallel")
 
 
 def test_dummy_cleanup():
@@ -21,4 +21,4 @@ def test_dummy_cleanup():
 def test_clean_parallel_file_exists():
     """Ensure that parallel module is not importable and the test file only checks for its removal."""
     with pytest.raises(ModuleNotFoundError):
-        __import__("peakfit.fitting.parallel")
+        __import__("peakfit.core.fitting.parallel")

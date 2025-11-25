@@ -90,7 +90,7 @@ def plot_intensity_profiles(
                     fig = _make_intensity_figure(file.stem, data)
                     _save_figure_to_pdf(pdf, fig)
 
-                    if show and idx < MAX_DISPLAY_PLOTS:
+                    if show and idx < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
                         # Store data for recreating figure later
                         plot_data_for_display.append((file.stem, data))
 
@@ -206,7 +206,7 @@ def plot_cest_profiles(
                 fig = _make_cest_figure(file.stem, offset_norm, intensity_norm, error_norm)
                 _save_figure_to_pdf(pdf, fig)
 
-                if show and plots_saved < MAX_DISPLAY_PLOTS:
+                if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
                     # Store data for recreating figure later
                     plot_data_for_display.append(
                         (file.stem, offset_norm, intensity_norm, error_norm)
@@ -325,7 +325,7 @@ def plot_cpmg_profiles(
                 fig = _make_cpmg_figure(file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
                 _save_figure_to_pdf(pdf, fig)
 
-                if show and plots_saved < MAX_DISPLAY_PLOTS:
+                if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
                     # Store data for recreating figure later
                     plot_data_for_display.append(
                         (file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
@@ -451,7 +451,7 @@ def plot_mcmc_diagnostics(
     ui.success(f"Found MCMC data for {len(mcmc_data)} cluster(s)")
 
     # Import plotting functions
-    from peakfit.diagnostics import (
+    from peakfit.core.diagnostics import (
         plot_autocorrelation,
         plot_correlation_pairs,
         plot_marginal_distributions,
@@ -514,9 +514,7 @@ def plot_mcmc_diagnostics(
                     plt.close(fig)
             else:
                 # No strong correlations - add a note
-                ui.info(
-                    f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}"
-                )
+                ui.info(f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}")
 
             # Last page: Autocorrelation plots
             fig_autocorr = plot_autocorrelation(chains, parameter_names)
@@ -528,7 +526,7 @@ def plot_mcmc_diagnostics(
         console.print()
 
     # Summary
-    console.print(f"[bold]Summary:[/bold]")
+    console.print("[bold]Summary:[/bold]")
     console.print(f"  • Clusters plotted: {len(mcmc_data)}")
     console.print(f"  • PDFs generated: {len(output_files)}")
     for out_file in output_files:

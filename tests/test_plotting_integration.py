@@ -1,6 +1,5 @@
 """Tests for integrated plotting functionality."""
 
-
 import numpy as np
 import pytest
 from typer.testing import CliRunner
@@ -18,6 +17,7 @@ class TestPlottingCLI:
     def app(self):
         """Import CLI app."""
         from peakfit.cli.app import app
+
         return app
 
     @pytest.fixture
@@ -25,13 +25,15 @@ class TestPlottingCLI:
         """Create mock intensity data file."""
         data_file = tmp_path / "test_peak.out"
         # Create sample intensity data: xlabel, intensity, error
-        data = np.array([
-            [0, 100.0, 5.0],
-            [1, 95.0, 4.5],
-            [2, 90.0, 4.0],
-            [3, 85.0, 3.5],
-            [4, 80.0, 3.0],
-        ])
+        data = np.array(
+            [
+                [0, 100.0, 5.0],
+                [1, 95.0, 4.5],
+                [2, 90.0, 4.0],
+                [3, 85.0, 3.5],
+                [4, 80.0, 3.0],
+            ]
+        )
         np.savetxt(data_file, data)
         return data_file
 
@@ -52,14 +54,16 @@ class TestPlottingCLI:
         """Create mock CPMG data file."""
         data_file = tmp_path / "cpmg_peak.out"
         # Create sample CPMG data: ncyc, intensity, error
-        data = np.array([
-            [0, 100.0, 5.0],      # Reference
-            [10, 90.0, 4.5],
-            [20, 85.0, 4.0],
-            [40, 80.0, 3.5],
-            [80, 75.0, 3.0],
-        ])
-        np.savetxt(data_file, data, fmt=['%d', '%.1f', '%.1f'])
+        data = np.array(
+            [
+                [0, 100.0, 5.0],  # Reference
+                [10, 90.0, 4.5],
+                [20, 85.0, 4.0],
+                [40, 80.0, 3.5],
+                [80, 75.0, 3.0],
+            ]
+        )
+        np.savetxt(data_file, data, fmt=["%d", "%.1f", "%.1f"])
         return data_file
 
     def test_plot_help(self, runner, app):
@@ -82,12 +86,16 @@ class TestPlottingCLI:
         output_file = tmp_path / "test_plots.pdf"
 
         # This will try to plot, but we're just checking it doesn't crash
-        result = runner.invoke(app, [
-            "plot",
-            "intensity",
-            str(mock_intensity_data.parent),
-            "--output", str(output_file),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "plot",
+                "intensity",
+                str(mock_intensity_data.parent),
+                "--output",
+                str(output_file),
+            ],
+        )
 
         # Should complete successfully (exit code 0)
         assert result.exit_code == 0
@@ -95,43 +103,59 @@ class TestPlottingCLI:
     def test_plot_cest_requires_results(self, runner, app, tmp_path):
         """Test CEST plotting validates input."""
         nonexistent = tmp_path / "nonexistent"
-        result = runner.invoke(app, [
-            "plot",
-            "cest",
-            str(nonexistent),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "plot",
+                "cest",
+                str(nonexistent),
+            ],
+        )
         # Should fail because path doesn't exist
         assert result.exit_code != 0
 
     def test_plot_cpmg_requires_time_t2(self, runner, app, mock_cpmg_data):
         """Test CPMG plotting requires --time-t2."""
-        result = runner.invoke(app, [
-            "plot",
-            "cpmg",
-            str(mock_cpmg_data.parent),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "plot",
+                "cpmg",
+                str(mock_cpmg_data.parent),
+            ],
+        )
         # Should show error about missing --time-t2
         assert result.exit_code != 0
-        assert "time-t2" in result.output.lower() or "time_t2" in result.output.lower() or "missing" in result.output.lower()
+        assert (
+            "time-t2" in result.output.lower()
+            or "time_t2" in result.output.lower()
+            or "missing" in result.output.lower()
+        )
 
     def test_plot_spectra_requires_spectrum(self, runner, app, tmp_path):
         """Test spectra plotting requires --spectrum."""
-        result = runner.invoke(app, [
-            "plot",
-            "spectra",
-            str(tmp_path),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "plot",
+                "spectra",
+                str(tmp_path),
+            ],
+        )
         # Should show error about missing spectrum
         assert result.exit_code != 0
         assert "spectrum" in result.output.lower() or "missing" in result.output.lower()
 
     def test_plot_invalid_subcommand(self, runner, app, tmp_path):
         """Test invalid plot subcommand."""
-        result = runner.invoke(app, [
-            "plot",
-            "invalid_type",
-            str(tmp_path),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "plot",
+                "invalid_type",
+                str(tmp_path),
+            ],
+        )
         # Should fail with unknown subcommand
         assert result.exit_code != 0
 
@@ -142,17 +166,18 @@ class TestPlottingFunctions:
     def test_import_plot_command(self):
         """Test that plot_command module imports successfully."""
         from peakfit.cli import plot_command
-        assert hasattr(plot_command, 'plot_intensity_profiles')
+
+        assert hasattr(plot_command, "plot_intensity_profiles")
 
     def test_plot_command_has_all_functions(self):
         """Test that all plot types have implementations."""
         from peakfit.cli import plot_command
 
         # Check public functions exist
-        assert hasattr(plot_command, 'plot_intensity_profiles')
-        assert hasattr(plot_command, 'plot_cest_profiles')
-        assert hasattr(plot_command, 'plot_cpmg_profiles')
-        assert hasattr(plot_command, 'plot_spectra_viewer')
+        assert hasattr(plot_command, "plot_intensity_profiles")
+        assert hasattr(plot_command, "plot_cest_profiles")
+        assert hasattr(plot_command, "plot_cpmg_profiles")
+        assert hasattr(plot_command, "plot_spectra_viewer")
 
     def test_ncyc_to_nu_cpmg_conversion(self):
         """Test CPMG ncyc to nu_CPMG conversion."""
@@ -190,19 +215,19 @@ class TestPlottingBackwardCompatibility:
         # These can still be imported as library functions
         from peakfit.plotting.plots import cest, cpmg, intensity
 
-        assert hasattr(cest, 'plot_cest')
-        assert hasattr(cpmg, 'plot_cpmg')
-        assert hasattr(intensity, 'plot_intensities')
+        assert hasattr(cest, "plot_cest")
+        assert hasattr(cpmg, "plot_cpmg")
+        assert hasattr(intensity, "plot_intensities")
 
     def test_no_peakfit_plot_command(self):
         """Verify old peakfit-plot command entry point is removed."""
         import tomllib
 
-        with open('pyproject.toml', 'rb') as f:
+        with open("pyproject.toml", "rb") as f:
             config = tomllib.load(f)
 
-        scripts = config['project']['scripts']
+        scripts = config["project"]["scripts"]
 
         # Should have peakfit but not peakfit-plot
-        assert 'peakfit' in scripts
-        assert 'peakfit-plot' not in scripts
+        assert "peakfit" in scripts
+        assert "peakfit-plot" not in scripts

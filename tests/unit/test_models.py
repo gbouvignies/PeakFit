@@ -1,18 +1,33 @@
 """Test Pydantic models."""
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 from pydantic import ValidationError
 
-from peakfit.models import (
+from peakfit.core.domain.config import (
     ClusterConfig,
     FitConfig,
     FitResult,
+    LineshapeName,
     OutputConfig,
+    OutputFormat,
     PeakData,
     PeakFitConfig,
 )
+
+VALID_LINESHAPES: tuple[LineshapeName, ...] = (
+    "auto",
+    "gaussian",
+    "lorentzian",
+    "pvoigt",
+    "sp1",
+    "sp2",
+    "no_apod",
+)
+
+VALID_FORMATS: list[OutputFormat] = ["csv", "json", "txt"]
 
 
 class TestFitConfig:
@@ -28,14 +43,14 @@ class TestFitConfig:
 
     def test_valid_lineshapes(self):
         """FitConfig should accept valid lineshape values."""
-        for lineshape in ["auto", "gaussian", "lorentzian", "pvoigt", "sp1", "sp2", "no_apod"]:
+        for lineshape in VALID_LINESHAPES:
             config = FitConfig(lineshape=lineshape)
             assert config.lineshape == lineshape
 
     def test_invalid_lineshape(self):
         """FitConfig should reject invalid lineshape values."""
         with pytest.raises(ValidationError):
-            FitConfig(lineshape="invalid")
+            FitConfig(lineshape=cast(LineshapeName, "invalid"))
 
     def test_refine_iterations_bounds(self):
         """FitConfig should validate refine_iterations bounds."""
@@ -64,7 +79,7 @@ class TestFitConfig:
     def test_extra_fields_forbidden(self):
         """FitConfig should reject unknown fields."""
         with pytest.raises(ValidationError):
-            FitConfig(unknown_field="value")
+            FitConfig.model_validate({"unknown_field": "value"})
 
 
 class TestClusterConfig:
@@ -97,13 +112,13 @@ class TestOutputConfig:
 
     def test_valid_formats(self):
         """OutputConfig should accept valid format values."""
-        config = OutputConfig(formats=["csv", "json", "txt"])
-        assert config.formats == ["csv", "json", "txt"]
+        config = OutputConfig(formats=VALID_FORMATS)
+        assert config.formats == VALID_FORMATS
 
     def test_invalid_format(self):
         """OutputConfig should reject invalid format values."""
         with pytest.raises(ValidationError):
-            OutputConfig(formats=["invalid"])
+            OutputConfig(formats=cast(list[OutputFormat], ["invalid"]))
 
 
 class TestPeakFitConfig:
@@ -121,9 +136,9 @@ class TestPeakFitConfig:
     def test_nested_config(self):
         """PeakFitConfig should properly nest configs."""
         config = PeakFitConfig(
-            fitting={"lineshape": "gaussian", "refine_iterations": 3},
-            clustering={"contour_factor": 10.0},
-            output={"directory": Path("MyResults")},
+            fitting=FitConfig(lineshape="gaussian", refine_iterations=3),
+            clustering=ClusterConfig(contour_factor=10.0),
+            output=OutputConfig(directory=Path("MyResults")),
         )
         assert config.fitting.lineshape == "gaussian"
         assert config.fitting.refine_iterations == 3

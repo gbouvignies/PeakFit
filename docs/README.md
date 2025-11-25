@@ -13,6 +13,7 @@ For contributors and developers:
 
 - **[UI Style Guide](development/ui-style-guide.md)** - User interface and experience design principles
 - **[Terminal Output Style Guide](development/terminal-output-style-guide.md)** - Guidelines for consistent terminal output
+- **[Analyze Services Architecture](architecture/analyze_services.md)** - Overview of the layered analysis services and their responsibilities
 
 ## Main Documentation
 

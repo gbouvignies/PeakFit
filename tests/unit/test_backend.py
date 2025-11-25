@@ -1,7 +1,6 @@
 """Tests for backend selection and management - DEPRECATED."""
 
 
-
 # Backend selection has been deprecated - these tests verify lineshapes still work
 class TestBackendDeprecated:
     """Backend selection has been deprecated."""
@@ -10,7 +9,7 @@ class TestBackendDeprecated:
         """Test that lineshapes still work without backend selection."""
         import numpy as np
 
-        from peakfit.lineshapes import gaussian, lorentzian, pvoigt
+        from peakfit.core.lineshapes import gaussian, lorentzian, pvoigt
 
         x = np.linspace(-5, 5, 100)
         y_gauss = gaussian(x, fwhm=2.0)

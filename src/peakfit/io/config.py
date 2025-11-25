@@ -1,11 +1,13 @@
 """Configuration file loading and saving."""
 
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any, cast
 
 import tomli_w
 
-from peakfit.models import PeakFitConfig
+from peakfit.core.domain.config import PeakFitConfig
 
 
 def load_config(path: Path) -> PeakFitConfig:
@@ -38,7 +40,7 @@ def save_config(config: PeakFitConfig, path: Path) -> None:
         config: Configuration object to save.
         path: Path where to save the TOML file.
     """
-    data = config.model_dump(mode="json", exclude_none=True)
+    data: dict[str, Any] = config.model_dump(mode="json", exclude_none=True)
 
     # Convert Path objects to strings
     def convert_paths(obj: object) -> object:
@@ -50,10 +52,13 @@ def save_config(config: PeakFitConfig, path: Path) -> None:
             return str(obj)
         return obj
 
-    data = convert_paths(data)
+    normalized = convert_paths(data)
+    if not isinstance(normalized, Mapping):
+        msg = "Serialized configuration must be a mapping"
+        raise TypeError(msg)
 
     with path.open("wb") as f:
-        tomli_w.dump(data, f)
+        tomli_w.dump(cast(Mapping[str, Any], normalized), f)
 
 
 def generate_default_config() -> str:

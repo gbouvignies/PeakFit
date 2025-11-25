@@ -164,7 +164,7 @@ def compare_fitting_methods(
     Returns:
         Dictionary mapping method name to ProfileReport
     """
-    from peakfit.fitting.optimizer import fit_clusters
+    from peakfit.core.fitting.optimizer import fit_clusters
 
     # No parallel testing available — this function only tests sequential fitting
 
@@ -211,7 +211,7 @@ def estimate_optimal_workers(
         max_workers = 1
 
     # Only sequential timing available
-    from peakfit.fitting.optimizer import fit_clusters
+    from peakfit.core.fitting.optimizer import fit_clusters
 
     start = time.perf_counter()
     fit_clusters(clusters=clusters, noise=noise, refine_iterations=0, fixed=False, verbose=False)

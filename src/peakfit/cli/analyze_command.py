@@ -5,38 +5,54 @@ from pathlib import Path
 import numpy as np
 from rich.table import Table
 
-from peakfit.data.clustering import Cluster
-from peakfit.data.peaks import Peak
-from peakfit.fitting.advanced import compute_profile_likelihood, estimate_uncertainties_mcmc
-from peakfit.fitting.parameters import Parameters
+from peakfit.core.domain.cluster import Cluster
+from peakfit.core.domain.peaks import Peak
+from peakfit.core.domain.state import FittingState
+from peakfit.core.fitting.parameters import Parameters
+from peakfit.services.analyze import (
+    FittingStateService,
+    MCMCAnalysisService,
+    NotEnoughVaryingParametersError,
+    NoVaryingParametersError,
+    NoVaryingParametersFoundError,
+    ParameterCorrelationService,
+    ParameterMatchError,
+    ParameterUncertaintyService,
+    PeaksNotFoundError,
+    ProfileLikelihoodService,
+    ProfileParameterResult,
+    StateFileMissingError,
+    StateLoadError,
+)
 from peakfit.ui import PeakFitUI as ui, console
 
 
-def load_fitting_state(results_dir: Path) -> dict:
+def load_fitting_state(results_dir: Path) -> FittingState:
     """Load fitting state from results directory.
 
     Args:
         results_dir: Path to results directory containing .peakfit_state.pkl
 
     Returns:
-        Dictionary with clusters, params, noise, and peaks
+        FittingState with clusters, params, noise, and peaks
     """
-    import pickle
-
-    state_file = results_dir / ".peakfit_state.pkl"
-    if not state_file.exists():
+    try:
+        loaded_state = FittingStateService.load(results_dir)
+    except StateFileMissingError as exc:
         ui.error(f"No fitting state found in {results_dir}")
         ui.info("Run 'peakfit fit' with --save-state (enabled by default)")
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
+    except StateLoadError as exc:  # pragma: no cover - safety guard
+        ui.error(str(exc))
+        raise SystemExit(1) from exc
 
-    # Note: pickle.load is safe here as we control the state file creation
-    with state_file.open("rb") as f:
-        state = pickle.load(f)
+    state = loaded_state.state
+    state_file = loaded_state.path
 
     ui.success(f"Loaded fitting state: [path]{state_file}[/path]")
-    console.print(f"  Clusters: {len(state['clusters'])}")
-    console.print(f"  Peaks: {len(state['peaks'])}")
-    console.print(f"  Parameters: {len(state['params'])}")
+    console.print(f"  Clusters: {len(state.clusters)}")
+    console.print(f"  Peaks: {len(state.peaks)}")
+    console.print(f"  Parameters: {len(state.params)}")
 
     return state
 
@@ -68,25 +84,32 @@ def run_mcmc(
 
     state = load_fitting_state(results_dir)
 
-    clusters: list[Cluster] = state["clusters"]
-    params: Parameters = state["params"]
-    noise: float = state["noise"]
-    all_peaks: list[Peak] = state["peaks"]
-
-    # Filter clusters if specific peaks requested
-    if peaks is not None:
-        peak_set = set(peaks)
-        clusters = [c for c in clusters if any(p.name in peak_set for p in c.peaks)]
-        if not clusters:
-            ui.error(f"No clusters found for peaks: {peaks}")
-            raise SystemExit(1)
-        ui.info(f"Analyzing {len(clusters)} cluster(s) for peaks: {peaks}")
-
     # Handle auto vs manual burn-in
     if not auto_burnin and burn_in is None:
         # Neither auto nor manual specified, use default
         burn_in = 200
         ui.warning("Both auto-burnin and manual burn-in disabled. Using default: 200 steps")
+
+    try:
+        analysis = MCMCAnalysisService.run(
+            state,
+            peaks=peaks,
+            n_walkers=n_walkers,
+            n_steps=n_steps,
+            burn_in=burn_in,
+            auto_burnin=auto_burnin,
+        )
+    except PeaksNotFoundError as exc:
+        ui.error(str(exc))
+        raise SystemExit(1) from exc
+
+    clusters: list[Cluster] = analysis.clusters
+    params: Parameters = analysis.params
+    all_peaks: list[Peak] = analysis.peaks
+    cluster_results = analysis.cluster_results
+
+    if peaks is not None:
+        ui.info(f"Analyzing {len(clusters)} cluster(s) for peaks: {peaks}")
 
     ui.show_header("Running MCMC Uncertainty Estimation")
     console.print(f"  Walkers: {n_walkers}")
@@ -97,42 +120,20 @@ def run_mcmc(
         console.print(f"  Burn-in: {burn_in} (manual)")
     console.print("")
 
-    all_results = []
+    all_results = [cr.result for cr in cluster_results]
 
-    for i, cluster in enumerate(clusters):
+    for i, cluster_result in enumerate(cluster_results):
+        cluster = cluster_result.cluster
+        result = cluster_result.result
         peak_names = [p.name for p in cluster.peaks]
         console.print(f"[cyan]Cluster {i + 1}/{len(clusters)}:[/cyan] {', '.join(peak_names)}")
 
-        # Get parameters for this cluster
-        from peakfit.data.peaks import create_params
-
-        cluster_params = create_params(cluster.peaks)
-
-        # Copy values from fitted parameters
-        for key in cluster_params:
-            if key in params:
-                cluster_params[key].value = params[key].value
-                cluster_params[key].stderr = params[key].stderr
-
-        # Run MCMC
-        with console.status("  [yellow]Sampling posterior distribution...[/yellow]"):
-            result = estimate_uncertainties_mcmc(
-                cluster_params,
-                cluster,
-                noise,
-                n_walkers=n_walkers,
-                n_steps=n_steps,
-                burn_in=None if auto_burnin else burn_in,
-            )
-
         # Display burn-in determination report
         if result.burn_in_info is not None:
-            from peakfit.diagnostics.burnin import format_burnin_report
+            from peakfit.core.diagnostics.burnin import format_burnin_report
 
             burn_in_used = result.burn_in_info["burn_in"]
-            console.print(
-                f"[bold cyan]Burn-in Determination - {', '.join(peak_names)}[/bold cyan]"
-            )
+            console.print(f"[bold cyan]Burn-in Determination - {', '.join(peak_names)}[/bold cyan]")
 
             # Format and display the report
             report = format_burnin_report(
@@ -153,7 +154,9 @@ def run_mcmc(
         # Display convergence diagnostics
         if result.mcmc_diagnostics is not None:
             diag = result.mcmc_diagnostics
-            console.print(f"[bold cyan]Convergence Diagnostics - {', '.join(peak_names)}[/bold cyan]")
+            console.print(
+                f"[bold cyan]Convergence Diagnostics - {', '.join(peak_names)}[/bold cyan]"
+            )
             console.print(f"  Chains: {diag.n_chains}, Samples per chain: {diag.n_samples}")
             console.print(
                 "  [dim]BARG Guidelines: R-hat ≤ 1.01 (excellent), "
@@ -288,11 +291,6 @@ def run_mcmc(
             console.print("")
 
         # Update global parameters with MCMC uncertainties
-        for j, name in enumerate(result.parameter_names):
-            if name in params:
-                params[name].stderr = result.std_errors[j]
-
-        all_results.append(result)
 
     # Save MCMC chain data for diagnostic plotting
     _save_mcmc_chains(results_dir, all_results, clusters)
@@ -312,7 +310,7 @@ def run_mcmc(
     ui.print_next_steps(
         [
             f"Generate diagnostic plots: [cyan]peakfit plot diagnostics {results_dir}/[/cyan]",
-            f"Review convergence: Check R-hat ≤ 1.01 and ESS values above",
+            "Review convergence: Check R-hat ≤ 1.01 and ESS values above",
             "Inspect correlations: Check correlation matrices for parameter dependencies",
         ]
     )
@@ -342,103 +340,63 @@ def run_profile_likelihood(
     ui.show_banner(verbose)
 
     state = load_fitting_state(results_dir)
-
-    clusters: list[Cluster] = state["clusters"]
-    params: Parameters = state["params"]
-    noise: float = state["noise"]
-
-    # Get all varying parameter names
-    all_param_names = params.get_vary_names()
-
-    if not all_param_names:
+    try:
+        analysis = ProfileLikelihoodService.run(
+            state,
+            param_name=param_name,
+            n_points=n_points,
+            confidence_level=confidence_level,
+        )
+    except NoVaryingParametersError as exc:
         ui.error("No varying parameters found")
-        raise SystemExit(1)
+        raise SystemExit(1) from exc
+    except ParameterMatchError as exc:
+        ui.error(str(exc))
+        ui.info("Available parameters:")
+        for name in exc.available[:20]:
+            console.print(f"  {name}")
+        if len(exc.available) > 20:
+            console.print(f"  ... and {len(exc.available) - 20} more")
+        raise SystemExit(1) from exc
 
-    # Determine which parameters to profile
+    target_params = analysis.target_parameters
+
     if param_name is None:
-        # Profile all parameters
-        target_params = all_param_names
         ui.show_header("Computing Profile Likelihood for All Parameters")
         console.print(f"  Parameters to profile: {len(target_params)}")
         console.print(f"  Confidence level: {confidence_level * 100:.0f}%")
         console.print(f"  Points per parameter: {n_points}")
         console.print("  [yellow]This may take a while...[/yellow]")
     else:
-        # Find matching parameters
-        target_params = _find_matching_parameters(param_name, all_param_names)
-
-        if not target_params:
-            ui.error(f"No parameters matching '{param_name}' found")
-            ui.info("Available parameters:")
-            for name in all_param_names[:20]:  # Show first 20
-                console.print(f"  {name}")
-            if len(all_param_names) > 20:
-                console.print(f"  ... and {len(all_param_names) - 20} more")
-            raise SystemExit(1)
-
         if len(target_params) > 1:
             ui.info(f"Found {len(target_params)} matching parameters:")
             for name in target_params:
                 console.print(f"  {name}")
             console.print("")
 
-        ui.show_header(
-            f"Computing Profile Likelihood for {len(target_params)} Parameter(s)"
-        )
+        ui.show_header(f"Computing Profile Likelihood for {len(target_params)} Parameter(s)")
 
-    from scipy.stats import chi2
-
-    delta_chi2 = chi2.ppf(confidence_level, df=1)
-
-    console.print(f"  Δχ² threshold: {delta_chi2:.4f}")
+    console.print(f"  Δχ² threshold: {analysis.delta_chi2:.4f}")
     console.print("")
 
-    # Store results for all parameters
-    all_results = []
+    missing_set = set(analysis.missing_parameters)
+    results_by_name = {result.parameter_name: result for result in analysis.results}
+    ordered_results: list[ProfileParameterResult] = []
 
     for idx, target_param in enumerate(target_params, 1):
         if len(target_params) > 1:
-            console.print(
-                f"[cyan]Parameter {idx}/{len(target_params)}: {target_param}[/cyan]"
-            )
+            console.print(f"[cyan]Parameter {idx}/{len(target_params)}: {target_param}[/cyan]")
 
-        # Find which cluster contains the parameter
-        target_cluster = None
-        for cluster in clusters:
-            from peakfit.data.peaks import create_params
-
-            cluster_params = create_params(cluster.peaks)
-            if target_param in cluster_params:
-                target_cluster = cluster
-                break
-
-        if target_cluster is None:
+        if target_param in missing_set:
             ui.warning(f"Parameter '{target_param}' not found in any cluster")
             continue
 
-        # Get cluster parameters
-        from peakfit.data.peaks import create_params
+        result = results_by_name[target_param]
+        ordered_results.append(result)
 
-        cluster_params = create_params(target_cluster.peaks)
-        for key in cluster_params:
-            if key in params:
-                cluster_params[key].value = params[key].value
-                cluster_params[key].stderr = params[key].stderr
+        best_value = result.best_value
+        covar_stderr = result.covariance_stderr
 
-        with console.status(f"[yellow]Computing profile for {target_param}...[/yellow]"):
-            param_vals, chi2_vals, (ci_low, ci_high) = compute_profile_likelihood(
-                cluster_params,
-                target_cluster,
-                noise,
-                param_name=target_param,
-                n_points=n_points,
-                delta_chi2=delta_chi2,
-            )
-
-        best_value = cluster_params[target_param].value
-        covar_stderr = cluster_params[target_param].stderr
-
-        # Display results
         result_table = Table(show_header=False)
         result_table.add_column("", style="dim")
         result_table.add_column("", style="")
@@ -448,12 +406,11 @@ def run_profile_likelihood(
         result_table.add_row("Covariance stderr:", f"{covar_stderr:.6f}")
         result_table.add_row(
             f"Profile {confidence_level * 100:.0f}% CI:",
-            f"[{ci_low:.6f}, {ci_high:.6f}]",
+            f"[{result.ci_low:.6f}, {result.ci_high:.6f}]",
         )
 
-        # Compare with covariance-based CI
         if covar_stderr > 0:
-            from scipy.stats import norm
+            from scipy.stats import norm  # type: ignore[import-not-found]
 
             z = norm.ppf((1 + confidence_level) / 2)
             covar_ci_low = best_value - z * covar_stderr
@@ -463,12 +420,9 @@ def run_profile_likelihood(
                 f"[{covar_ci_low:.6f}, {covar_ci_high:.6f}]",
             )
 
-            # Check for asymmetry
-            profile_lower = best_value - ci_low
-            profile_upper = ci_high - best_value
-            asymmetry = (
-                abs(profile_upper - profile_lower) / (profile_upper + profile_lower) * 200
-            )
+            profile_lower = best_value - result.ci_low
+            profile_upper = result.ci_high - best_value
+            asymmetry = abs(profile_upper - profile_lower) / (profile_upper + profile_lower) * 200
             if asymmetry > 20:
                 result_table.add_row(
                     "Asymmetry:",
@@ -478,31 +432,19 @@ def run_profile_likelihood(
         console.print(result_table)
         console.print("")
 
-        # Store results
-        all_results.append(
-            {
-                "name": target_param,
-                "param_vals": param_vals,
-                "chi2_vals": chi2_vals,
-                "ci_low": ci_low,
-                "ci_high": ci_high,
-                "best_value": best_value,
-            }
-        )
-
-    if plot and len(all_results) > 0:
-        for result in all_results[:10]:  # Limit to 10 plots
+    if plot and ordered_results:
+        for result in ordered_results[:10]:
             _plot_profile_likelihood(
-                result["name"],
-                result["param_vals"],
-                result["chi2_vals"],
-                result["ci_low"],
-                result["ci_high"],
-                delta_chi2,
+                result.parameter_name,
+                result.parameter_values,
+                result.chi2_values,
+                result.ci_low,
+                result.ci_high,
+                analysis.delta_chi2,
             )
 
     if output_file is not None:
-        _save_all_profile_results(output_file, all_results, confidence_level)
+        _save_all_profile_results(output_file, ordered_results, confidence_level)
         ui.success(f"Saved profile data to: [path]{output_file}[/path]")
 
 
@@ -520,17 +462,16 @@ def run_correlation(
     ui.show_banner(verbose)
 
     state = load_fitting_state(results_dir)
-    params: Parameters = state["params"]
-
-    # Get varying parameters
-    vary_names = params.get_vary_names()
-
-    if len(vary_names) < 2:
+    try:
+        correlation = ParameterCorrelationService.analyze(state)
+    except NotEnoughVaryingParametersError as exc:
         ui.warning("Not enough varying parameters for correlation analysis")
+        if exc.vary_names:
+            console.print(f"  Found {len(exc.vary_names)} varying parameter(s): {exc.vary_names}")
         return
 
     ui.show_header("Parameter Correlation Analysis")
-    console.print(f"  Parameters: {len(vary_names)}")
+    console.print(f"  Parameters: {len(correlation.parameters)}")
 
     # For now, just show parameter summary
     # Full correlation requires MCMC samples or covariance matrix
@@ -540,27 +481,25 @@ def run_correlation(
     table.add_column("Std Error", justify="right")
     table.add_column("At Boundary?", justify="center")
 
-    for name in vary_names:
-        param = params[name]
-        at_boundary = "⚠️" if param.is_at_boundary() else ""
+    for entry in correlation.parameters:
+        at_boundary = "⚠️" if entry.at_boundary else ""
         table.add_row(
-            name,
-            f"{param.value:.6f}",
-            f"{param.stderr:.6f}",
+            entry.name,
+            f"{entry.value:.6f}",
+            f"{entry.stderr:.6f}",
             at_boundary,
         )
 
     console.print(table)
 
     # Report boundary warnings
-    boundary_params = params.get_boundary_params()
-    if boundary_params:
+    if correlation.boundary_parameters:
         console.print()
         ui.warning("Parameters at boundaries:")
-        for name in boundary_params:
-            param = params[name]
+        for entry in correlation.boundary_parameters:
             console.print(
-                f"  {name}: {param.value:.6f} (bounds: [{param.min:.6f}, {param.max:.6f}])"
+                f"  {entry.name}: {entry.value:.6f} (bounds: "
+                f"[{entry.min_bound:.6f}, {entry.max_bound:.6f}])"
             )
         console.print("  [dim]Consider adjusting bounds or using global optimization[/dim]")
 
@@ -568,11 +507,10 @@ def run_correlation(
         with output_file.open("w") as f:
             f.write("# Parameter summary\n")
             f.write("# Name  Value  Stderr  Min  Max\n")
-            for name in vary_names:
-                param = params[name]
+            for entry in correlation.parameters:
                 f.write(
-                    f"{name}  {param.value:.6f}  {param.stderr:.6f}  "
-                    f"{param.min:.6f}  {param.max:.6f}\n"
+                    f"{entry.name}  {entry.value:.6f}  {entry.stderr:.6f}  "
+                    f"{entry.min_bound:.6f}  {entry.max_bound:.6f}\n"
                 )
         ui.success(f"Saved parameter summary to: [path]{output_file}[/path]")
 
@@ -593,18 +531,15 @@ def run_uncertainty(
     ui.show_banner(verbose)
 
     state = load_fitting_state(results_dir)
-    params: Parameters = state["params"]
-
-    # Get varying parameters
-    vary_names = params.get_vary_names()
-
-    if len(vary_names) == 0:
+    try:
+        analysis = ParameterUncertaintyService.analyze(state)
+    except NoVaryingParametersFoundError:
         ui.warning("No varying parameters found")
         return
 
     ui.show_header("Parameter Uncertainties")
     console.print("  Source: Covariance matrix from least-squares fit")
-    console.print(f"  Parameters: {len(vary_names)}")
+    console.print(f"  Parameters: {len(analysis.parameters)}")
     console.print("")
 
     # Create uncertainty table
@@ -615,29 +550,23 @@ def run_uncertainty(
     table.add_column("Relative Error (%)", justify="right")
     table.add_column("At Boundary?", justify="center")
 
-    for name in vary_names:
-        param = params[name]
-        at_boundary = "⚠️" if param.is_at_boundary() else ""
+    large_uncertainty_names = {entry.name for entry in analysis.large_uncertainty_parameters}
 
-        # Calculate relative error
-        if param.value != 0 and param.stderr > 0:
-            rel_error = abs(param.stderr / param.value) * 100
-            rel_error_str = f"{rel_error:.2f}%"
-        else:
-            rel_error_str = "N/A"
+    for entry in analysis.parameters:
+        at_boundary = "⚠️" if entry.at_boundary else ""
 
-        # Color code based on relative error
-        if param.stderr <= 0:
+        rel_error_str = f"{entry.rel_error_pct:.2f}%" if entry.rel_error_pct is not None else "N/A"
+
+        if entry.stderr <= 0:
             stderr_str = "[red]Not computed[/red]"
-        elif param.value != 0 and abs(param.stderr / param.value) > 0.1:
-            # > 10% relative error - warning
-            stderr_str = f"[yellow]{param.stderr:.6f}[/yellow]"
+        elif entry.name in large_uncertainty_names:
+            stderr_str = f"[yellow]{entry.stderr:.6f}[/yellow]"
         else:
-            stderr_str = f"{param.stderr:.6f}"
+            stderr_str = f"{entry.stderr:.6f}"
 
         table.add_row(
-            name,
-            f"{param.value:.6f}",
+            entry.name,
+            f"{entry.value:.6f}",
             stderr_str,
             rel_error_str,
             at_boundary,
@@ -646,32 +575,23 @@ def run_uncertainty(
     console.print(table)
 
     # Report boundary warnings
-    boundary_params = params.get_boundary_params()
-    if boundary_params:
+    if analysis.boundary_parameters:
         console.print()
         ui.warning("Parameters at boundaries:")
-        for name in boundary_params:
-            param = params[name]
+        for entry in analysis.boundary_parameters:
             console.print(
-                f"  {name}: {param.value:.6f} (bounds: [{param.min:.6f}, {param.max:.6f}])"
+                f"  {entry.name}: {entry.value:.6f} (bounds: "
+                f"[{entry.min_bound:.6f}, {entry.max_bound:.6f}])"
             )
         console.print("  [dim]Consider adjusting bounds or using global optimization[/dim]")
 
     # Check for large uncertainties
-    large_uncert = [
-        name
-        for name in vary_names
-        if params[name].value != 0
-        and params[name].stderr > 0
-        and abs(params[name].stderr / params[name].value) > 0.1
-    ]
-    if large_uncert:
+    if analysis.large_uncertainty_parameters:
         console.print()
         ui.warning("Parameters with large relative uncertainties (>10%):")
-        for name in large_uncert:
-            param = params[name]
-            rel_err = abs(param.stderr / param.value) * 100
-            console.print(f"  {name}: {rel_err:.1f}%")
+        for entry in analysis.large_uncertainty_parameters:
+            rel_err = entry.rel_error_pct if entry.rel_error_pct is not None else 0.0
+            console.print(f"  {entry.name}: {rel_err:.1f}%")
         console.print("  [dim]Consider MCMC analysis for better uncertainty estimates[/dim]")
 
     # Suggest next steps
@@ -686,16 +606,11 @@ def run_uncertainty(
         with output_file.open("w") as f:
             f.write("# Parameter Uncertainty Summary\n")
             f.write("# Name  Value  Stderr  RelError(%)  Min  Max\n")
-            for name in vary_names:
-                param = params[name]
-                rel_error = (
-                    abs(param.stderr / param.value) * 100
-                    if param.value != 0 and param.stderr > 0
-                    else 0.0
-                )
+            for entry in analysis.parameters:
+                rel_error = entry.rel_error_pct if entry.rel_error_pct is not None else 0.0
                 f.write(
-                    f"{name}  {param.value:.6f}  {param.stderr:.6f}  {rel_error:.2f}  "
-                    f"{param.min:.6f}  {param.max:.6f}\n"
+                    f"{entry.name}  {entry.value:.6f}  {entry.stderr:.6f}  {rel_error:.2f}  "
+                    f"{entry.min_bound:.6f}  {entry.max_bound:.6f}\n"
                 )
         ui.success(f"Saved uncertainty summary to: [path]{output_file}[/path]")
 
@@ -718,7 +633,7 @@ def _update_output_files(results_dir: Path, params: Parameters, peaks: list[Peak
                         param_part = parts[0].strip("# ").strip()
                         # Find matching parameter
                         for shape in peak.shapes:
-                            for param_name in shape.param_names:
+                            for param_name in shape.param_names:  # type: ignore[attr-defined]
                                 if (
                                     param_name.endswith(param_part) or param_part in param_name
                                 ) and param_name in params:
@@ -765,48 +680,8 @@ def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]
                 f.write("\n")
 
 
-def _find_matching_parameters(pattern: str, all_params: list[str]) -> list[str]:
-    """Find parameters matching a pattern.
-
-    Supports:
-    - Exact match: "2N-H_x0"
-    - Peak name: "2N-H" matches all parameters for that peak
-    - Parameter type: "x0" matches all x0 parameters
-    - Partial match: "fwhm" matches all fwhm parameters
-
-    Args:
-        pattern: Search pattern
-        all_params: List of all parameter names
-
-    Returns:
-        List of matching parameter names
-    """
-    matches = []
-
-    # Try exact match first
-    if pattern in all_params:
-        return [pattern]
-
-    # Try partial matching
-    pattern_lower = pattern.lower()
-    for param in all_params:
-        param_lower = param.lower()
-
-        # Check if pattern matches peak name (before underscore)
-        if "_" in param:
-            peak_name, param_type = param.rsplit("_", 1)
-            if pattern_lower == peak_name.lower() or pattern_lower == param_type.lower() or pattern_lower in param_lower:
-                matches.append(param)
-        else:
-            # No underscore, just check if pattern is in parameter name
-            if pattern_lower in param_lower:
-                matches.append(param)
-
-    return matches
-
-
 def _save_all_profile_results(
-    output_file: Path, results: list[dict], confidence_level: float
+    output_file: Path, results: list[ProfileParameterResult], confidence_level: float
 ) -> None:
     """Save profile likelihood results for multiple parameters."""
     with output_file.open("w") as f:
@@ -815,18 +690,13 @@ def _save_all_profile_results(
         f.write("#\n")
 
         for result in results:
-            param_name = result["name"]
-            param_vals = result["param_vals"]
-            chi2_vals = result["chi2_vals"]
-            ci_low = result["ci_low"]
-            ci_high = result["ci_high"]
-            best_value = result["best_value"]
-
-            f.write(f"\n# Parameter: {param_name}\n")
-            f.write(f"# Best-fit: {best_value:.6f}\n")
-            f.write(f"# {confidence_level * 100:.0f}% CI: [{ci_low:.6f}, {ci_high:.6f}]\n")
+            f.write(f"\n# Parameter: {result.parameter_name}\n")
+            f.write(f"# Best-fit: {result.best_value:.6f}\n")
+            f.write(
+                f"# {confidence_level * 100:.0f}% CI: [{result.ci_low:.6f}, {result.ci_high:.6f}]\n"
+            )
             f.write("# Parameter_Value  Chi_Squared\n")
-            for val, chi2 in zip(param_vals, chi2_vals, strict=True):
+            for val, chi2 in zip(result.parameter_values, result.chi2_values, strict=True):
                 f.write(f"{val:.6f}  {chi2:.6f}\n")
             f.write("\n")
 
@@ -858,7 +728,7 @@ def _plot_profile_likelihood(
 ) -> None:
     """Plot profile likelihood curve."""
     try:
-        import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt  # type: ignore[import-not-found]
 
         _fig, ax = plt.subplots(1, 1, figsize=(8, 6))
 
@@ -867,13 +737,13 @@ def _plot_profile_likelihood(
 
         # Mark best fit
         best_idx = np.argmin(chi2_vals)
-        best_val = param_vals[best_idx]
-        best_chi2 = chi2_vals[best_idx]
+        best_val = float(param_vals[best_idx])
+        best_chi2 = float(chi2_vals[best_idx])
         ax.axhline(best_chi2, color="gray", linestyle="--", alpha=0.5)
         ax.axvline(best_val, color="gray", linestyle="--", alpha=0.5)
 
         # Mark confidence interval
-        threshold = best_chi2 + delta_chi2
+        threshold = best_chi2 + float(delta_chi2)
         ax.axhline(threshold, color="r", linestyle="--", alpha=0.7, label=f"Δχ²={delta_chi2:.2f}")
         ax.axvline(ci_low, color="g", linestyle="--", alpha=0.7)
         ax.axvline(ci_high, color="g", linestyle="--", alpha=0.7)

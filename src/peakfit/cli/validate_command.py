@@ -1,6 +1,7 @@
 """Implementation of the validate command."""
 
 from pathlib import Path
+from typing import Any, cast
 
 import nmrglue as ng
 
@@ -156,11 +157,16 @@ def _read_csv_list(path: Path) -> list[dict]:
     df = pd.read_csv(path)
     peaks = []
     for _, row in df.iterrows():
+        name_value = row.get("Assign F1", row.get("#", ""))
+        x_primary = cast(Any, row.get("Pos F1"))
+        y_primary = cast(Any, row.get("Pos F2"))
+        fallback_x = _to_float(row.iloc[0])
+        fallback_y = _to_float(row.iloc[1])
         peaks.append(
             {
-                "name": str(row.get("Assign F1", row.get("#", ""))),
-                "x": float(row.get("Pos F1", row.iloc[0])),
-                "y": float(row.get("Pos F2", row.iloc[1])),
+                "name": str(name_value),
+                "x": _to_float(x_primary, fallback_x),
+                "y": _to_float(y_primary, fallback_y),
             }
         )
     return peaks
@@ -177,8 +183,8 @@ def _read_json_list(path: Path) -> list[dict]:
         return [
             {
                 "name": str(p.get("name", p.get("Assign F1", ""))),
-                "x": float(p.get("x", p.get("Pos F1", 0))),
-                "y": float(p.get("y", p.get("Pos F2", 0))),
+                "x": _to_float(p.get("x") or p.get("Pos F1"), 0.0),
+                "y": _to_float(p.get("y") or p.get("Pos F2"), 0.0),
             }
             for p in data
         ]
@@ -192,11 +198,28 @@ def _read_excel_list(path: Path) -> list[dict]:
     df = pd.read_excel(path)
     peaks = []
     for _, row in df.iterrows():
+        name_value = row.get("Assign F1", row.get("#", ""))
+        x_primary = cast(Any, row.get("Pos F1"))
+        y_primary = cast(Any, row.get("Pos F2"))
+        fallback_x = _to_float(row.iloc[0])
+        fallback_y = _to_float(row.iloc[1])
         peaks.append(
             {
-                "name": str(row.get("Assign F1", row.get("#", ""))),
-                "x": float(row.get("Pos F1", row.iloc[0])),
-                "y": float(row.get("Pos F2", row.iloc[1])),
+                "name": str(name_value),
+                "x": _to_float(x_primary, fallback_x),
+                "y": _to_float(y_primary, fallback_y),
             }
         )
     return peaks
+
+
+def _to_float(value: Any, fallback: float = 0.0) -> float:
+    """Convert arbitrary values to float with graceful fallback."""
+
+    if value is None:
+        return fallback
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback

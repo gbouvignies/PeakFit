@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from peakfit.core.domain.config import ClusterConfig, FitConfig, OutputConfig, PeakFitConfig
 from peakfit.io.config import generate_default_config, load_config, save_config
-from peakfit.models import PeakFitConfig
 
 
 class TestConfigLoading:
@@ -50,9 +50,9 @@ class TestConfigSaving:
     def test_save_and_load_roundtrip(self, tmp_path):
         """Should save config that can be loaded back."""
         config = PeakFitConfig(
-            fitting={"lineshape": "pvoigt", "refine_iterations": 5},
-            clustering={"contour_factor": 7.5},
-            output={"directory": Path("TestOutput"), "formats": ["json", "csv"]},
+            fitting=FitConfig(lineshape="pvoigt", refine_iterations=5),
+            clustering=ClusterConfig(contour_factor=7.5),
+            output=OutputConfig(directory=Path("TestOutput"), formats=["json", "csv"]),
         )
 
         save_path = tmp_path / "roundtrip.toml"

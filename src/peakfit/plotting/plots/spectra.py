@@ -2,16 +2,23 @@ import argparse
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 
 import nmrglue as ng
 import numpy as np
 import pandas as pd
 from matplotlib.backend_bases import Event
-from matplotlib.backends.backend_qt5agg import (
-    FigureCanvasQTAgg as FigureCanvas,
-    NavigationToolbar2QT as NavigationToolbar,
-)
+
+try:
+    from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+except (
+    ModuleNotFoundError,
+    ImportError,
+):  # pragma: no cover - fallback for headless/test environments
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+    NavigationToolbar = None  # type: ignore[assignment]
 from matplotlib.figure import Figure
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QResizeEvent
@@ -30,8 +37,8 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from peakfit.data.noise import estimate_noise
-from peakfit.typing import FloatArray
+from peakfit.core.algorithms.noise import estimate_noise
+from peakfit.core.shared.typing import FloatArray
 from peakfit.ui.style import PeakFitUI
 
 # Configuration
@@ -91,12 +98,18 @@ class PlotWidget(QWidget):
         self.figure = Figure(figsize=(5, 5), dpi=100)
         self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_subplot(111)
-        self.toolbar = NavigationToolbar(self.canvas, self)
+        try:
+            self.toolbar = (
+                NavigationToolbar(self.canvas, self) if NavigationToolbar is not None else None
+            )
+        except (ModuleNotFoundError, ImportError):  # pragma: no cover - GUI may not be available
+            self.toolbar = None
         self.current_xlim = self.current_ylim = None
 
         layout = QVBoxLayout()
         layout.addWidget(self.canvas)
-        layout.addWidget(self.toolbar)
+        if self.toolbar is not None:
+            layout.addWidget(self.toolbar)
         self.setLayout(layout)
 
         self.canvas.mpl_connect("draw_event", self._update_limits)
@@ -247,18 +260,28 @@ class SpectraViewer(QMainWindow):
 
     def _create_menu_bar(self) -> None:
         menubar = self.menuBar()
-        file_menu = menubar.addMenu("File")
-        view_menu = menubar.addMenu("View")
+        file_menu = menubar.addMenu("File") if menubar is not None else None
+        view_menu = menubar.addMenu("View") if menubar is not None else None
 
         exit_action = QAction("Exit", self)
         exit_action.setShortcut("Ctrl+Q")
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
+
+        def _exit_slot(*_args: Any) -> None:
+            self.close()
+
+        exit_action.triggered.connect(_exit_slot)
+        if file_menu is not None:
+            file_menu.addAction(exit_action)
 
         reset_view_action = QAction("Reset View", self)
         reset_view_action.setShortcut("Ctrl+R")
-        reset_view_action.triggered.connect(self.reset_view)
-        view_menu.addAction(reset_view_action)
+
+        def _reset_slot(*_args: Any) -> None:
+            self.reset_view()
+
+        reset_view_action.triggered.connect(_reset_slot)
+        if view_menu is not None:
+            view_menu.addAction(reset_view_action)
 
     def _create_central_widget(self) -> None:
         central_widget = QWidget()
@@ -327,8 +350,8 @@ class SpectraViewer(QMainWindow):
         self.show_spectra[spectrum] = self.control_widget.checkboxes[spectrum].isChecked()
         self.update_view()
 
-    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
-        super().resizeEvent(event)
+    def resizeEvent(self, a0: QResizeEvent | None) -> None:  # noqa: N802
+        super().resizeEvent(a0)
         self.plot_widget.figure.tight_layout()
         self.plot_widget.canvas.draw_idle()
 
