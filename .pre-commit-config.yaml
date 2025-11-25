@@ -23,6 +23,15 @@ repos:
       - id: mypy
         additional_dependencies:
           - types-setuptools>=75.0
+          - numpy
+          - pydantic
+          - rich
+          - typer
+          - tomli-w
+          - tomli_w
+          - PyQt5
+          - PyQt5-stubs
+          - types-requests
         args: [--no-error-summary]
         pass_filenames: false
         entry: mypy src/peakfit/
