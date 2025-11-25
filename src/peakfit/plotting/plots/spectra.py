@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,6 +9,9 @@ import nmrglue as ng
 import numpy as np
 import pandas as pd
 from matplotlib.backend_bases import Event
+
+if not os.environ.get("DISPLAY") and not os.environ.get("QT_QPA_PLATFORM"):
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 try:
     from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar

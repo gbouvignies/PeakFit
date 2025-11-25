@@ -1,6 +1,7 @@
 import importlib
 import sys
 from types import ModuleType
+from typing import ClassVar
 
 import matplotlib
 import numpy as np
@@ -27,7 +28,7 @@ def test_plotting_fallback_to_agg(monkeypatch, tmp_path):
     # Create a dummy NMRData-like object with required attributes
     class Dummy:
         filename = "test"
-        dic: dict = {}
+        dic: ClassVar[dict] = {}
         data = data1
         xlim = (0.0, 1.0)
         ylim = (0.0, 1.0)
@@ -80,14 +81,16 @@ def test_plot_widget_with_pyqt(monkeypatch):
     matplotlib.use("Agg")
     import importlib
 
-    importlib.reload(import_spectra(monkeypatch))
+    mod = import_spectra(monkeypatch)
+    importlib.reload(mod)
+    plot_widget_cls = mod.PlotWidget
 
     # Ensure a QApplication exists to safely construct widgets
     try:
         from PyQt5.QtWidgets import QApplication
 
         app = QApplication.instance() or QApplication([])
-    except Exception:
+    except RuntimeError:
         app = None
     try:
         pw = plot_widget_cls()
