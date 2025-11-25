@@ -202,3 +202,6 @@ module = [
     "threadpoolctl.*",
 ]
 ignore_missing_imports = true
+
+[dependency-groups]
+dev = []

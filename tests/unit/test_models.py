@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from peakfit.models import (
+from peakfit.core.domain.config import (
     ClusterConfig,
     FitConfig,
     FitResult,

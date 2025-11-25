@@ -6,8 +6,8 @@ from typing import Annotated
 import typer
 
 from peakfit.cli.callbacks import version_callback
+from peakfit.core.domain.config import PeakFitConfig
 from peakfit.io.config import generate_default_config, load_config
-from peakfit.models import PeakFitConfig
 from peakfit.ui import PeakFitUI as ui, console
 
 app = typer.Typer(
@@ -918,12 +918,12 @@ def benchmark(
     """
     import time
 
-    from peakfit.cli.fit_command import FitArguments
-    from peakfit.data.clustering import create_clusters
-    from peakfit.data.noise import prepare_noise_level
-    from peakfit.data.peaks import read_list
-    from peakfit.data.spectrum import get_shape_names, read_spectra
-    from peakfit.fitting.optimizer import fit_clusters
+    from peakfit.core.algorithms.clustering import create_clusters
+    from peakfit.core.algorithms.noise import prepare_noise_level
+    from peakfit.core.domain.peaks_io import read_list
+    from peakfit.core.domain.spectrum import get_shape_names, read_spectra
+    from peakfit.core.fitting.optimizer import fit_clusters
+    from peakfit.services.fit import FitArguments
 
     console.print("[bold]PeakFit Performance Benchmark[/bold]\n")
 

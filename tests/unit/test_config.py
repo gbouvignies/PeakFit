@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from peakfit.core.domain.config import PeakFitConfig
 from peakfit.io.config import generate_default_config, load_config, save_config
-from peakfit.models import PeakFitConfig
 
 
 class TestConfigLoading:

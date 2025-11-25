@@ -169,6 +169,7 @@ def validate_backend_selection(results: ValidationResult):
     # Check if numba is available
     try:
         import numba  # noqa: F401
+
         results.add_pass("Numba available", "JIT compilation supported")
     except ImportError:
         results.add_warning("Numba not available", "Only NumPy backend will be used")
@@ -185,9 +186,21 @@ def validate_cli_options(results: ValidationResult):
         # These should fail gracefully with appropriate error messages
         test_cases = [
             (["peakfit", "fit"], "fit requires arguments", "Should fail with missing args"),
-            (["peakfit", "validate"], "validate requires arguments", "Should fail with missing args"),
-            (["peakfit", "fit", "--lineshape", "invalid"], "Invalid lineshape", "Should reject invalid lineshape"),
-            (["peakfit", "fit", "--refine", "-1"], "Invalid refine", "Should reject negative refine"),
+            (
+                ["peakfit", "validate"],
+                "validate requires arguments",
+                "Should fail with missing args",
+            ),
+            (
+                ["peakfit", "fit", "--lineshape", "invalid"],
+                "Invalid lineshape",
+                "Should reject invalid lineshape",
+            ),
+            (
+                ["peakfit", "fit", "--refine", "-1"],
+                "Invalid refine",
+                "Should reject negative refine",
+            ),
         ]
 
         for cmd, name, desc in test_cases:
@@ -209,11 +222,9 @@ def validate_error_handling(results: ValidationResult):
         fake_spectrum = tmppath / "nonexistent.ft2"
         fake_peaklist = tmppath / "nonexistent.list"
 
-        code, stdout, stderr = run_command([
-            "peakfit", "validate",
-            str(fake_spectrum),
-            str(fake_peaklist)
-        ])
+        code, stdout, stderr = run_command(
+            ["peakfit", "validate", str(fake_spectrum), str(fake_peaklist)]
+        )
 
         if code != 0:
             results.add_pass("Validate rejects missing files", "Correctly fails with missing files")
@@ -226,7 +237,7 @@ def validate_parameter_system(results: ValidationResult):
     console.print("\n[bold]Testing Parameter System[/bold]")
 
     try:
-        from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
+        from peakfit.core.fitting.parameters import Parameter, Parameters, ParameterType
 
         # Test creating parameters with types
         p1 = Parameter(
@@ -265,7 +276,7 @@ def validate_lineshapes(results: ValidationResult):
     console.print("\n[bold]Testing Lineshape Functions[/bold]")
 
     try:
-        from peakfit.lineshapes import (
+        from peakfit.core.lineshapes import (
             gaussian,
             get_available_backends,
             lorentzian,
@@ -311,7 +322,7 @@ def validate_config_system(results: ValidationResult):
     console.print("\n[bold]Testing Configuration System[/bold]")
 
     try:
-        from peakfit.models import ClusterConfig, FitConfig, OutputConfig, PeakFitConfig
+        from peakfit.core.domain.config import ClusterConfig, FitConfig, OutputConfig, PeakFitConfig
 
         # Test creating default config
         config = PeakFitConfig()
@@ -336,6 +347,7 @@ def validate_config_system(results: ValidationResult):
         # Test validation (Pydantic v2 doesn't raise on assignment, but on validation)
         try:
             from pydantic import ValidationError
+
             invalid_config = FitConfig(lineshape="invalid")
             results.add_fail("Config validation", "Should reject invalid lineshape")
         except ValidationError:

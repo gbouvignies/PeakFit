@@ -5,7 +5,7 @@ from pathlib import Path
 
 import tomli_w
 
-from peakfit.models import PeakFitConfig
+from peakfit.core.domain.config import PeakFitConfig
 
 
 def load_config(path: Path) -> PeakFitConfig:

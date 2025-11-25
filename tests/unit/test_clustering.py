@@ -2,7 +2,11 @@
 
 import numpy as np
 
-from peakfit.data.clustering import group_connected_pairs, merge_connected_segments, segment_data
+from peakfit.core.algorithms.clustering import (
+    group_connected_pairs,
+    merge_connected_segments,
+    segment_data,
+)
 
 
 class TestGroupConnectedPairs:

@@ -4,11 +4,11 @@ from pathlib import Path
 
 import numpy as np
 
-from peakfit.data.clustering import Cluster
-from peakfit.data.peaks import Peak
-from peakfit.fitting.computation import calculate_shape_heights
-from peakfit.fitting.parameters import Parameters
-from peakfit.typing import FittingOptions, FloatArray
+from peakfit.core.domain.cluster import Cluster
+from peakfit.core.domain.peaks import Peak
+from peakfit.core.fitting.computation import calculate_shape_heights
+from peakfit.core.fitting.parameters import Parameters
+from peakfit.core.shared.typing import FittingOptions, FloatArray
 from peakfit.ui import PeakFitUI as ui
 
 

@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from peakfit.constants import BENCHMARK_MAX_NFEV
+from peakfit.core.shared.constants import BENCHMARK_MAX_NFEV
 
 if TYPE_CHECKING:
-    from peakfit.data.clustering import Cluster
-    from peakfit.fitting.parameters import Parameters
+    from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.fitting.parameters import Parameters
 
 
 @dataclass
@@ -95,7 +95,7 @@ def benchmark_lineshape_backends(
     Returns:
         Dictionary of backend name to BenchmarkResult
     """
-    from peakfit.lineshapes.functions import _gaussian_numpy, _lorentzian_numpy, _pvoigt_numpy
+    from peakfit.core.lineshapes.functions import _gaussian_numpy, _lorentzian_numpy, _pvoigt_numpy
 
     x = np.linspace(-50, 50, n_points).astype(np.float64)
     fwhm = 10.0
@@ -142,7 +142,7 @@ def benchmark_fitting_methods(
     Returns:
         Dictionary of method name to BenchmarkResult
     """
-    from peakfit.fitting.optimizer import fit_cluster
+    from peakfit.core.fitting.optimizer import fit_cluster
 
     results = {}
 
@@ -212,8 +212,8 @@ def profile_fit_cluster(
     Returns:
         Dictionary of stage name to time in seconds
     """
-    from peakfit.fitting.computation import calculate_shapes, residuals
-    from peakfit.fitting.optimizer import fit_cluster
+    from peakfit.core.fitting.computation import calculate_shapes, residuals
+    from peakfit.core.fitting.optimizer import fit_cluster
 
     profile = {}
 
@@ -252,9 +252,9 @@ def create_synthetic_cluster(
     Returns:
         Tuple of (Cluster, noise_level)
     """
-    from peakfit.data.clustering import Cluster
-    from peakfit.data.peaks import Peak
-    from peakfit.lineshapes import PseudoVoigt
+    from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.domain.peaks import Peak
+    from peakfit.core.lineshapes import PseudoVoigt
 
     # Create synthetic peaks
     peaks = []

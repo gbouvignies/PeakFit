@@ -6,8 +6,8 @@ Tests edge cases, error conditions, and boundary conditions.
 import numpy as np
 import pytest
 
-from peakfit.fitting.parameters import Parameter, Parameters, ParameterType
-from peakfit.lineshapes import gaussian, lorentzian, pvoigt
+from peakfit.core.fitting.parameters import Parameter, Parameters, ParameterType
+from peakfit.core.lineshapes import gaussian, lorentzian, pvoigt
 
 
 class TestParameterEdgeCases:
@@ -82,11 +82,7 @@ class TestParameterEdgeCases:
 
         for param_type in ParameterType:
             value = type_values.get(param_type, 100.0)  # Default to 100.0
-            p = Parameter(
-                f"test_{param_type.name}",
-                value=value,
-                param_type=param_type
-            )
+            p = Parameter(f"test_{param_type.name}", value=value, param_type=param_type)
             assert p.param_type == param_type
             # Parameter type is set correctly
             assert isinstance(p.param_type, ParameterType)
@@ -215,6 +211,7 @@ class TestBackendEdgeCases:
         # Backend selection is now deprecated
         # This test just verifies lineshapes still work
         import numpy as np
+
         x = np.linspace(-5, 5, 100)
         y = gaussian(x, fwhm=2.0)
         assert np.all(np.isfinite(y))
@@ -227,7 +224,7 @@ class TestConfigEdgeCases:
         """Test config with negative refine iterations."""
         from pydantic import ValidationError
 
-        from peakfit.models import FitConfig
+        from peakfit.core.domain.config import FitConfig
 
         with pytest.raises(ValidationError):
             FitConfig(refine_iterations=-1)
@@ -236,14 +233,14 @@ class TestConfigEdgeCases:
         """Test config with negative contour factor."""
         from pydantic import ValidationError
 
-        from peakfit.models import ClusterConfig
+        from peakfit.core.domain.config import ClusterConfig
 
         with pytest.raises(ValidationError):
             ClusterConfig(contour_factor=-1.0)
 
     def test_empty_output_formats(self):
         """Test config with empty output formats."""
-        from peakfit.models import OutputConfig
+        from peakfit.core.domain.config import OutputConfig
 
         config = OutputConfig(formats=[])
         assert config.formats == []
@@ -252,7 +249,7 @@ class TestConfigEdgeCases:
         """Test config rejects negative exclude planes."""
         from pydantic import ValidationError
 
-        from peakfit.models import PeakFitConfig
+        from peakfit.core.domain.config import PeakFitConfig
 
         # Negative indices should be rejected by validation
         with pytest.raises(ValidationError, match="non-negative"):
@@ -267,13 +264,10 @@ class TestConfigEdgeCases:
         import tempfile
         from pathlib import Path
 
+        from peakfit.core.domain.config import PeakFitConfig
         from peakfit.io.config import load_config, save_config
-        from peakfit.models import PeakFitConfig
 
-        config = PeakFitConfig(
-            noise_level=1.5,
-            exclude_planes=[1, 2, 3]
-        )
+        config = PeakFitConfig(noise_level=1.5, exclude_planes=[1, 2, 3])
         config.fitting.lineshape = "lorentzian"
         config.fitting.refine_iterations = 3
 
