@@ -42,7 +42,7 @@ class FitArguments:
     path_z_values: Path | None = None
     path_output: Path = field(default_factory=lambda: Path("Fits"))
     contour_level: float | None = None
-    noise: float = 0.0
+    noise: float | None = None
     refine_nb: int = 1
     fixed: bool = False
     jx: bool = False
@@ -66,7 +66,7 @@ def config_to_fit_args(
         path_list=peaklist_path,
         path_z_values=z_values_path,
         contour_level=config.clustering.contour_level,
-        noise=float(config.noise_level or 0.0),
+        noise=config.noise_level,
         path_output=config.output.directory,
         refine_nb=config.fitting.refine_iterations,
         fixed=config.fitting.fix_positions,
@@ -161,11 +161,14 @@ class FitPipeline:
         ui.log_section("Noise Estimation")
         noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
         clargs.noise = prepare_noise_level(clargs, spectra)
+        if clargs.noise is None:
+            raise ValueError("Noise must be set by prepare_noise_level")
+        noise_value: float = float(clargs.noise)
         noise_source = "user-provided" if noise_was_provided else "estimated"
         ui.log(
             f"Method: {'User-provided' if noise_was_provided else 'Median Absolute Deviation (MAD)'}"
         )
-        ui.log(f"Noise level: {clargs.noise:.2f} ({noise_source})")
+        ui.log(f"Noise level: {noise_value:.2f} ({noise_source})")
 
         ui.log_section("Lineshape Detection")
         shape_names = get_shape_names(clargs, spectra)
@@ -345,7 +348,7 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
     """Wrapper to convert array to Parameters for residual calculation."""
     vary_names = params.get_vary_names()
     for i, name in enumerate(vary_names):
-        params[name].value = x[i]
+        params[name].value = float(x[i])
     return residuals(params, cluster, noise)
 
 
@@ -453,6 +456,10 @@ def _fit_clusters_global(
     """Fit all clusters using global optimization."""
     from peakfit.core.fitting.advanced import fit_basin_hopping, fit_differential_evolution
 
+    if clargs.noise is None:
+        raise ValueError("Noise must be specified for global optimization")
+    noise_value = float(clargs.noise)
+
     params_all = Parameters()
 
     with threadpool_limits(limits=1, user_api="blas"):
@@ -478,10 +485,11 @@ def _fit_clusters_global(
                 params = _update_params(params, params_all)
 
                 if optimizer == "basin-hopping":
+                    # clargs.noise was asserted non-None earlier
                     result = fit_basin_hopping(
                         params,
                         cluster,
-                        clargs.noise,
+                        noise_value,
                         n_iterations=50,
                         temperature=1.0,
                         step_size=0.5,
@@ -490,7 +498,7 @@ def _fit_clusters_global(
                     result = fit_differential_evolution(
                         params,
                         cluster,
-                        clargs.noise,
+                        noise_value,
                         max_iterations=500,
                         population_size=15,
                         polish=True,

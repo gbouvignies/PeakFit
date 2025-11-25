@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import TYPE_CHECKING
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import networkx as nx
 import numpy as np
+from numpy.typing import NDArray
 from scipy.ndimage import binary_dilation, generate_binary_structure, label
 
 from peakfit.core.shared.typing import FloatArray, IntArray
@@ -14,6 +15,13 @@ if TYPE_CHECKING:
     from peakfit.core.domain.spectrum import Spectra
 
 from peakfit.core.domain.cluster import Cluster
+
+
+class PeakLike(Protocol):
+    """Minimal interface required for segmentation."""
+
+    @property
+    def positions_i(self) -> IntArray | tuple[int, ...]: ...
 
 
 def group_connected_pairs(pairs: Iterable[tuple[int, int]]) -> list[list[int]]:
@@ -41,7 +49,12 @@ def merge_connected_segments(segments: IntArray) -> IntArray:
     """
     for _ in range(segments.ndim):
         merge_mask = np.logical_and(segments[0] > 0, segments[-1] > 0)
-        connected_pairs = zip(segments[0][merge_mask], segments[-1][merge_mask], strict=True)
+        segs = np.asarray(segments)
+        seg0 = np.take(segs, 0, axis=0)
+        segn = np.take(segs, -1, axis=0)
+        a = np.atleast_1d(seg0[merge_mask])
+        b = np.atleast_1d(segn[merge_mask])
+        connected_pairs = zip(a, b, strict=True)  # type: ignore[reportGeneralTypeIssues]
         connected_groups = group_connected_pairs(connected_pairs)
 
         for group in connected_groups:
@@ -54,7 +67,11 @@ def merge_connected_segments(segments: IntArray) -> IntArray:
     return segments
 
 
-def segment_data(data: FloatArray, contour_level: float, peaks: list[Peak]) -> IntArray:
+def segment_data(
+    data: FloatArray,
+    contour_level: float,
+    peaks: Sequence[PeakLike],
+) -> IntArray:
     """Segment the spectral data based on the contour level.
 
     Args:
@@ -69,12 +86,20 @@ def segment_data(data: FloatArray, contour_level: float, peaks: list[Peak]) -> I
     data_around_peaks = np.zeros_like(data_above_threshold, dtype=bool)
 
     for peak in peaks:
-        data_around_peaks[tuple(peak.positions_i)] = True
+        position = tuple(int(idx) for idx in np.asarray(peak.positions_i))
+        data_around_peaks[position] = True
 
-    structuring_element = generate_binary_structure(data.ndim - 1, data.ndim - 1)
+    connectivity: Any = data.ndim - 1
+    structuring_element: NDArray[np.int_] = np.asarray(
+        generate_binary_structure(data.ndim - 1, connectivity), dtype=np.int_
+    )
     data_around_peaks = binary_dilation(data_around_peaks, structuring_element)
     data_selected = np.logical_or(data_above_threshold, data_around_peaks)
-    segments, _ = label(data_selected, structure=structuring_element)
+    labeled_segments, _ = label(  # type: ignore[reportGeneralTypeIssues]
+        cast(NDArray[np.bool_], np.asarray(data_selected, dtype=np.bool_)),
+        structure=structuring_element,
+    )
+    segments = np.asarray(labeled_segments, dtype=np.int_)
 
     return merge_connected_segments(segments)
 
@@ -91,7 +116,8 @@ def assign_peaks_to_segments(peaks: list[Peak], segments: IntArray) -> dict[int,
     """
     peak_segments_dict: dict[int, list[Peak]] = {}
     for peak in peaks:
-        segment_id = segments[*peak.positions_i]
+        position_indices = tuple(int(idx) for idx in np.asarray(peak.positions_i))
+        segment_id = int(segments[position_indices])
         peak_segments_dict.setdefault(segment_id, []).append(peak)
     return peak_segments_dict
 

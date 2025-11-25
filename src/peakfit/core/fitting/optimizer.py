@@ -19,7 +19,11 @@ from scipy.optimize import least_squares
 
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.results import FitResult
-from peakfit.core.shared.constants import LEAST_SQUARES_FTOL, LEAST_SQUARES_MAX_NFEV, LEAST_SQUARES_XTOL
+from peakfit.core.shared.constants import (
+    LEAST_SQUARES_FTOL,
+    LEAST_SQUARES_MAX_NFEV,
+    LEAST_SQUARES_XTOL,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

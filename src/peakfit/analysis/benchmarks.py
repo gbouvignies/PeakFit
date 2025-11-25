@@ -7,7 +7,9 @@ lineshape calculations, and fitting strategies.
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -95,7 +97,7 @@ def benchmark_lineshape_backends(
     Returns:
         Dictionary of backend name to BenchmarkResult
     """
-    from peakfit.core.lineshapes.functions import _gaussian_numpy, _lorentzian_numpy, _pvoigt_numpy
+    from peakfit.core.lineshapes.functions import gaussian, lorentzian, pvoigt
 
     x = np.linspace(-50, 50, n_points).astype(np.float64)
     fwhm = 10.0
@@ -105,19 +107,19 @@ def benchmark_lineshape_backends(
 
     # NumPy backend (default)
     results["numpy_gaussian"] = benchmark_function(
-        lambda: _gaussian_numpy(x, fwhm),
+        lambda: gaussian(x, fwhm),
         "NumPy Gaussian",
         n_iterations,
     )
 
     results["numpy_lorentzian"] = benchmark_function(
-        lambda: _lorentzian_numpy(x, fwhm),
+        lambda: lorentzian(x, fwhm),
         "NumPy Lorentzian",
         n_iterations,
     )
 
     results["numpy_pvoigt"] = benchmark_function(
-        lambda: _pvoigt_numpy(x, fwhm, eta),
+        lambda: pvoigt(x, fwhm, eta),
         "NumPy Pseudo-Voigt",
         n_iterations,
     )
@@ -237,6 +239,20 @@ def profile_fit_cluster(
     return profile
 
 
+@dataclass
+class _BenchmarkOptions:
+    """Minimal implementation of FittingOptions protocol for benchmarks."""
+
+    jx: bool = False
+    phx: bool = False
+    phy: bool = False
+    noise: float | None = None
+    pvoigt: bool = False
+    lorentzian: bool = False
+    gaussian: bool = False
+    path_list: Path = Path("synthetic_peaks.list")
+
+
 def create_synthetic_cluster(
     n_peaks: int = 3,
     n_points_per_dim: int = 64,
@@ -253,39 +269,66 @@ def create_synthetic_cluster(
         Tuple of (Cluster, noise_level)
     """
     from peakfit.core.domain.cluster import Cluster
-    from peakfit.core.domain.peaks import Peak
-    from peakfit.core.lineshapes import PseudoVoigt
+    from peakfit.core.domain.peaks import create_params, create_peak
+    from peakfit.core.domain.spectrum import Spectra, SpectralParameters
 
-    # Create synthetic peaks
+    noise_level = 10.0
+    rng = np.random.default_rng(seed=1234)
+
+    data_cube = np.zeros((n_planes, n_points_per_dim, n_points_per_dim), dtype=np.float64)
+
+    spec_params = []
+    for dim_index, axis_size in enumerate(data_cube.shape):
+        spec_params.append(
+            SpectralParameters(
+                size=axis_size,
+                sw=5000.0,
+                obs=500.0,
+                car=0.0,
+                aq_time=0.1,
+                apocode=0.0,
+                apodq1=0.0,
+                apodq2=0.0,
+                apodq3=0.0,
+                p180=False,
+                direct=dim_index == data_cube.ndim - 1,
+                ft=True,
+            )
+        )
+
+    spectra_like = SimpleNamespace(data=data_cube, params=spec_params)
+    spectra: Spectra = cast(Spectra, spectra_like)
+    options = _BenchmarkOptions()
+    spatial_dims = data_cube.ndim - 1
+    shape_names = ["pvoigt"] * spatial_dims
+
     peaks = []
     for i in range(n_peaks):
         x_pos = 20.0 + i * 15.0
         y_pos = 20.0 + i * 15.0
-
-        positions = np.array([x_pos, y_pos])
-        shapes = [
-            PseudoVoigt(f"peak{i}_x", fwhm=5.0, eta=0.5),
-            PseudoVoigt(f"peak{i}_y", fwhm=5.0, eta=0.5),
-        ]
-
-        peak = Peak(f"peak{i}", positions, shapes)
+        positions = [x_pos, y_pos]
+        peak = create_peak(f"peak{i}", positions, shape_names, spectra, options)
         peaks.append(peak)
 
-    # Create synthetic data
-    x = np.arange(n_points_per_dim, dtype=np.float64)
-    y = np.arange(n_points_per_dim, dtype=np.float64)
-    positions_2d = np.array(np.meshgrid(x, y)).reshape(2, -1)
+    params = create_params(peaks)
 
-    # Generate data with peaks
-    data = np.zeros((n_planes, n_points_per_dim * n_points_per_dim))
-    noise_level = 10.0
+    grid_y, grid_x = np.meshgrid(
+        np.arange(n_points_per_dim, dtype=np.int_),
+        np.arange(n_points_per_dim, dtype=np.int_),
+        indexing="ij",
+    )
+    segment_positions = [grid_y.ravel(), grid_x.ravel()]
 
-    # Add Gaussian noise
-    rng = np.random.default_rng()
-    data += rng.normal(0, noise_level, data.shape)
+    shape_values = np.array([peak.evaluate(segment_positions, params) for peak in peaks])
+    amplitudes = rng.uniform(0.5, 1.5, size=(len(peaks), n_planes))
+    data = shape_values.T @ amplitudes
+    data += rng.normal(0.0, noise_level, size=data.shape)
 
-    # Create cluster
-    cluster = Cluster(positions_2d, peaks)
-    cluster.data = data
+    cluster = Cluster(
+        cluster_id=0,
+        peaks=peaks,
+        positions=segment_positions,
+        data=data.astype(np.float64),
+    )
 
     return cluster, noise_level

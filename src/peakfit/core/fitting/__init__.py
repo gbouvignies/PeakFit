@@ -40,31 +40,24 @@ from peakfit.core.fitting.results import FitResult
 from peakfit.core.fitting.simulation import simulate_data
 
 __all__ = [
-    # Parameters
-    "Parameter",
-    "Parameters",
-    "ParameterType",
-    # Results
     "FitResult",
     "GlobalFitResult",
+    "Parameter",
+    "ParameterType",
+    "Parameters",
     "UncertaintyResult",
-    # Basic optimization
+    "calculate_amplitudes",
+    "calculate_shape_heights",
+    "calculate_shapes",
+    "compute_profile_likelihood",
+    "estimate_uncertainties_mcmc",
+    "fit_basin_hopping",
     "fit_cluster",
     "fit_cluster_dict",
     "fit_clusters",
     "fit_clusters_sequential",
-    # Advanced optimization
-    "fit_basin_hopping",
     "fit_differential_evolution",
-    "compute_profile_likelihood",
-    "estimate_uncertainties_mcmc",
-    # Parallel fitting support removed
-    # Computation
-    "calculate_shapes",
-    "calculate_amplitudes",
-    "calculate_shape_heights",
     "residuals",
-    "update_cluster_corrections",
-    # Simulation
     "simulate_data",
+    "update_cluster_corrections",
 ]

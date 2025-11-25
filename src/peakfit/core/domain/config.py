@@ -5,11 +5,14 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+LineshapeName = Literal["auto", "gaussian", "lorentzian", "pvoigt", "sp1", "sp2", "no_apod"]
+OutputFormat = Literal["csv", "json", "txt"]
+
 
 class FitConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    lineshape: Literal["auto", "gaussian", "lorentzian", "pvoigt", "sp1", "sp2", "no_apod"] = Field(
+    lineshape: LineshapeName = Field(
         default="auto",
         description="Lineshape model to use. 'auto' detects from NMRPipe apodization.",
     )
@@ -51,7 +54,7 @@ class OutputConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     directory: Path = Field(default=Path("Fits"), description="Output directory for results.")
-    formats: list[Literal["csv", "json", "txt"]] = Field(
+    formats: list[OutputFormat] = Field(
         default=["txt"],
         description="Output formats for results.",
     )
@@ -135,7 +138,9 @@ __all__ = [
     "FitConfig",
     "FitResult",
     "FitResultPeak",
+    "LineshapeName",
     "OutputConfig",
+    "OutputFormat",
     "PeakData",
     "PeakFitConfig",
     "ValidationResult",

@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 from scipy.optimize import curve_fit
 
@@ -78,8 +80,8 @@ def estimate_noise(data: FloatArray) -> float:
         sigma = float(popt[1])
         if sigma > 0:
             return sigma
-    except Exception:  # pragma: no cover - scipy may raise RuntimeError/ValueError
-        pass
+    except (RuntimeError, ValueError) as exc:  # pragma: no cover - scipy may raise these
+        logging.debug("Gaussian fit for noise estimation failed: %s", exc)
 
     fallback = _mad_sigma(flattened)
     return fallback if fallback > 0 else std

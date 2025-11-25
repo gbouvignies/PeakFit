@@ -1,5 +1,6 @@
 """Shared typing aliases used across PeakFit."""
 
+from pathlib import Path
 from typing import Protocol
 
 import numpy as np
@@ -15,7 +16,8 @@ class FittingOptions(Protocol):
     jx: bool
     phx: bool
     phy: bool
-    noise: float
+    noise: float | None
     pvoigt: bool
     lorentzian: bool
     gaussian: bool
+    path_list: Path

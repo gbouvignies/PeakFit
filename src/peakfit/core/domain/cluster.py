@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -27,7 +28,7 @@ class Cluster:
         self.corrections = np.zeros_like(self.data)
 
     @classmethod
-    def from_clusters(cls, clusters: list[Cluster]) -> Cluster:
+    def from_clusters(cls, clusters: list[Cluster] | Sequence[Cluster]) -> Cluster:
         if not clusters:
             msg = "clusters list cannot be empty"
             raise ValueError(msg)

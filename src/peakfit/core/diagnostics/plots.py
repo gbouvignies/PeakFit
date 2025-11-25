@@ -57,7 +57,8 @@ def plot_trace(
     axes = axes.flatten()
 
     # Color palette for chains
-    colors = plt.cm.tab10(np.linspace(0, 1, min(n_chains, 10)))
+    color_map = plt.get_cmap("tab10")
+    colors = color_map(np.linspace(0, 1, min(n_chains, 10)))
 
     for i in range(n_params_plot):
         ax = axes[i]
@@ -143,7 +144,7 @@ def plot_trace(
         wrap=True,
     )
 
-    plt.tight_layout(rect=[0, 0.04, 1, 0.96])  # Leave space for guide text
+    plt.tight_layout(rect=(0, 0.04, 1, 0.96))  # Leave space for guide text
 
     return fig
 
@@ -264,7 +265,7 @@ def plot_marginal_distributions(
             page_title += f" — Page {page + 1}/{n_pages}"
         fig.suptitle(page_title, fontsize=16, fontweight="bold")
 
-        plt.tight_layout(rect=[0, 0, 1, 0.97])
+        plt.tight_layout(rect=(0, 0, 1, 0.97))
         figures.append(fig)
 
     return figures
@@ -381,7 +382,7 @@ def plot_correlation_pairs(
         page_title += f"\n{len(strong_pairs)} strongly correlated pair(s) found"
         fig.suptitle(page_title, fontsize=16, fontweight="bold")
 
-        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        plt.tight_layout(rect=(0, 0, 1, 0.96))
         figures.append(fig)
 
     return figures
@@ -431,14 +432,16 @@ def plot_corner(
             short_names.append(name[:12])  # Truncate long names
 
     # Create figure with more spacing to prevent overlap
-    fig, axes = plt.subplots(
+    fig, axes_raw = plt.subplots(
         n_params_plot,
         n_params_plot,
         figsize=(min(16, 2.2 * n_params_plot), min(16, 2.2 * n_params_plot)),
     )
 
-    if n_params_plot == 1:
-        axes = np.array([[axes]])
+    axes = np.atleast_2d(np.array(axes_raw, dtype=object)).reshape(
+        n_params_plot,
+        n_params_plot,
+    )
 
     # Plot each panel
     for i in range(n_params_plot):
@@ -464,7 +467,9 @@ def plot_corner(
 
                 # Add median and credible intervals
                 median = np.median(samples[:, i])
-                ci_16, ci_84 = np.percentile(samples[:, i], [16, 84])
+                percentile_values = np.atleast_1d(np.percentile(samples[:, i], [16, 84]))
+                ci_16 = float(percentile_values[0])
+                ci_84 = float(percentile_values[-1])
 
                 ax.axvline(median, color="red", linestyle="-", linewidth=1.5, label="Median")
                 ax.axvline(ci_16, color="red", linestyle="--", linewidth=1, alpha=0.7)
@@ -562,7 +567,7 @@ def plot_corner(
     )
 
     # Use more spacing to prevent text overlap
-    plt.tight_layout(rect=[0, 0.04, 1, 0.96], h_pad=1.5, w_pad=1.5)
+    plt.tight_layout(rect=(0, 0.04, 1, 0.96), h_pad=1.5, w_pad=1.5)
 
     return fig
 
@@ -682,7 +687,7 @@ def plot_autocorrelation(
         wrap=True,
     )
 
-    plt.tight_layout(rect=[0, 0.04, 1, 0.96])
+    plt.tight_layout(rect=(0, 0.04, 1, 0.96))
 
     return fig
 
@@ -847,6 +852,6 @@ def plot_posterior_summary(
         color="gray",
     )
 
-    plt.tight_layout(rect=[0, 0.04, 1, 1])
+    plt.tight_layout(rect=(0, 0.04, 1, 1))
 
     return fig

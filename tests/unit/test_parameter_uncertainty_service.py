@@ -52,9 +52,11 @@ def test_analyze_builds_entries_with_metadata() -> None:
 
 
 def test_raises_when_no_varying_parameters() -> None:
-    state = _make_state([
-        {"name": "A_x0", "vary": False},
-    ])
+    state = _make_state(
+        [
+            {"name": "A_x0", "vary": False},
+        ]
+    )
 
     with pytest.raises(NoVaryingParametersFoundError):
         ParameterUncertaintyService.analyze(state)

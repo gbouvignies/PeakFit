@@ -19,19 +19,15 @@ from peakfit.core.domain.peaks_io import (
 from peakfit.core.domain.spectrum import Spectra, SpectralParameters
 
 __all__ = [
-    # Spectrum
+    "Cluster",
+    "Peak",
     "Spectra",
     "SpectralParameters",
-    # Peaks
-    "Peak",
     "create_params",
+    "estimate_noise",
+    "read_csv_list",
+    "read_excel_list",
+    "read_json_list",
     "read_list",
     "read_sparky_list",
-    "read_csv_list",
-    "read_json_list",
-    "read_excel_list",
-    # Clustering
-    "Cluster",
-    # Noise
-    "estimate_noise",
 ]

@@ -6,7 +6,13 @@ from typing import Annotated
 import typer
 
 from peakfit.cli.callbacks import version_callback
-from peakfit.core.domain.config import PeakFitConfig
+from peakfit.core.domain.config import (
+    ClusterConfig,
+    FitConfig,
+    LineshapeName,
+    OutputConfig,
+    PeakFitConfig,
+)
 from peakfit.io.config import generate_default_config, load_config
 from peakfit.ui import PeakFitUI as ui, console
 
@@ -90,7 +96,7 @@ def fit(
         ),
     ] = None,
     lineshape: Annotated[
-        str,
+        LineshapeName,
         typer.Option(
             "--lineshape",
             "-l",
@@ -206,20 +212,16 @@ def fit(
         fit_config.output.directory = output
     else:
         fit_config = PeakFitConfig(
-            fitting={
-                "lineshape": lineshape,
-                "refine_iterations": refine,
-                "fix_positions": fixed,
-                "fit_j_coupling": jx,
-                "fit_phase_x": phx,
-                "fit_phase_y": phy,
-            },
-            clustering={
-                "contour_level": contour_level,
-            },
-            output={
-                "directory": output,
-            },
+            fitting=FitConfig(
+                lineshape=lineshape,
+                refine_iterations=refine,
+                fix_positions=fixed,
+                fit_j_coupling=jx,
+                fit_phase_x=phx,
+                fit_phase_y=phy,
+            ),
+            clustering=ClusterConfig(contour_level=contour_level),
+            output=OutputConfig(directory=output),
             noise_level=noise,
             exclude_planes=exclude or [],
         )

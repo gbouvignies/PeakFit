@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -47,10 +47,17 @@ class Peak:
             shape.release_params(params)
 
     def evaluate(self, grid: Sequence[IntArray], params: Parameters) -> FloatArray:
-        evaluations = [
-            shape.evaluate(pts, params) for pts, shape in zip(grid, self.shapes, strict=False)
-        ]
-        return np.prod(evaluations, axis=0)
+        evaluations = cast(
+            FloatArray,
+            np.stack(
+                [
+                    shape.evaluate(pts, params)
+                    for pts, shape in zip(grid, self.shapes, strict=False)
+                ],
+                axis=0,
+            ),
+        )
+        return cast(FloatArray, np.prod(evaluations, axis=0))
 
     def print(self, params: Parameters) -> str:
         result = f"# Name: {self.name}\n"

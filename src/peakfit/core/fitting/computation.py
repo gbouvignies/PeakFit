@@ -75,9 +75,10 @@ def update_cluster_corrections(params: Parameters, clusters: Sequence[Cluster]) 
         params: Current parameter values (all clusters)
         clusters: List of clusters to update
     """
-    cluster_all = Cluster.from_clusters(clusters)
+    cluster_list = list(clusters)
+    cluster_all = Cluster.from_clusters(cluster_list)
     _shapes_all, amplitudes_all = calculate_shape_heights(params, cluster_all)
-    for cluster in clusters:
+    for cluster in cluster_list:
         indexes = [
             index for index, peak in enumerate(cluster_all.peaks) if peak not in cluster.peaks
         ]

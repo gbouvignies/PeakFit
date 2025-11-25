@@ -18,18 +18,16 @@ from peakfit.analysis.profiling import (
 )
 
 __all__ = [
-    # Benchmarking
     "BenchmarkResult",
+    "ProfileReport",
+    "Profiler",
+    "TimingResult",
     "benchmark_fitting_methods",
     "benchmark_function",
     "benchmark_lineshape_backends",
     "compare_backends_report",
-    "create_synthetic_cluster",
-    "profile_fit_cluster",
-    # Profiling
-    "Profiler",
-    "ProfileReport",
-    "TimingResult",
     "compare_fitting_methods",
+    "create_synthetic_cluster",
     "estimate_optimal_workers",
+    "profile_fit_cluster",
 ]

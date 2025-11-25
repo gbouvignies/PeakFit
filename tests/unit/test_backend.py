@@ -1,7 +1,6 @@
 """Tests for backend selection and management - DEPRECATED."""
 
 
-
 # Backend selection has been deprecated - these tests verify lineshapes still work
 class TestBackendDeprecated:
     """Backend selection has been deprecated."""

@@ -4,6 +4,7 @@ Provides global optimization algorithms and improved uncertainty estimation
 beyond basic least-squares fitting.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -29,6 +30,7 @@ from peakfit.core.shared.constants import (
 from peakfit.core.shared.typing import FloatArray
 
 if TYPE_CHECKING:
+    from peakfit.core.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.core.domain.cluster import Cluster
 
 
@@ -339,8 +341,8 @@ def compute_profile_likelihood(
 
     if np.any(below_threshold):
         indices = np.where(below_threshold)[0]
-        ci_low = profile_values[indices[0]]
-        ci_high = profile_values[indices[-1]]
+        ci_low = float(profile_values[indices[0]])
+        ci_high = float(profile_values[indices[-1]])
     else:
         ci_low = range_min
         ci_high = range_max
@@ -398,11 +400,11 @@ def estimate_uncertainties_mcmc(
         # Check bounds
         for i, (lb, ub) in enumerate(bounds):
             if not lb <= x[i] <= ub:
-                return -np.inf
+                return float(-np.inf)
 
         params.set_vary_values(x)
         res = residuals(params, cluster, noise)
-        return -0.5 * np.sum(res**2)
+        return float(-0.5 * np.sum(res**2))
 
     # Initialize walkers near best-fit
     rng = np.random.default_rng()
@@ -419,7 +421,9 @@ def estimate_uncertainties_mcmc(
     # Get FULL chains including burn-in for diagnostic plotting
     # emcee returns shape (n_steps, n_walkers, n_params)
     # Transpose to (n_walkers, n_steps, n_params) for our plotting functions
-    chains_full = sampler.get_chain(discard=0, flat=False).swapaxes(0, 1)
+    chains_full = np.asarray(sampler.get_chain(discard=0, flat=False))
+    if chains_full.ndim == 3:
+        chains_full = chains_full.swapaxes(0, 1)
 
     # Determine burn-in period (adaptive or manual)
     burn_in_info = {}
@@ -436,7 +440,7 @@ def estimate_uncertainties_mcmc(
         )
 
         # Validate burn-in and get warnings if needed
-        is_valid, warning_msg = validate_burnin(burn_in, n_steps, max_fraction=0.5)
+        _, warning_msg = validate_burnin(burn_in, n_steps, max_fraction=0.5)
 
         burn_in_info = {
             "burn_in": burn_in,
@@ -448,7 +452,7 @@ def estimate_uncertainties_mcmc(
         # Manual burn-in specified
         from peakfit.core.diagnostics.burnin import validate_burnin
 
-        is_valid, warning_msg = validate_burnin(burn_in, n_steps, max_fraction=0.5)
+        _is_valid, warning_msg = validate_burnin(burn_in, n_steps, max_fraction=0.5)
 
         burn_in_info = {
             "burn_in": burn_in,
@@ -458,10 +462,12 @@ def estimate_uncertainties_mcmc(
 
     # Get post-burn-in chains for convergence diagnostics
     # Shape after transpose: (n_walkers, n_steps_after_burnin, n_params)
-    chains_post_burnin = sampler.get_chain(discard=burn_in, flat=False).swapaxes(0, 1)
+    chains_post_burnin = np.asarray(sampler.get_chain(discard=burn_in, flat=False))
+    if chains_post_burnin.ndim == 3:
+        chains_post_burnin = chains_post_burnin.swapaxes(0, 1)
 
     # Get flattened samples after burn-in for statistics
-    samples = sampler.get_chain(discard=burn_in, flat=True)
+    samples = np.asarray(sampler.get_chain(discard=burn_in, flat=True))
 
     # Compute convergence diagnostics on post-burn-in samples
     from peakfit.core.diagnostics import diagnose_convergence
@@ -503,7 +509,7 @@ def estimate_uncertainties_mcmc(
 
 
 def _compute_numerical_hessian(
-    func: callable,
+    func: Callable[[FloatArray], float],
     x: FloatArray,
     bounds: list[tuple[float, float]],
     epsilon: float = 1e-8,

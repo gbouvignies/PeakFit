@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
+    from peakfit.core.domain.spectrum import Spectra
     from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.lineshapes import functions
 from peakfit.core.lineshapes.registry import register_shape
@@ -25,7 +26,7 @@ class BaseShape(ABC):
     """Base class for all lineshape models."""
 
     def __init__(
-        self, name: str, center: float, spectra: object, dim: int, args: FittingOptions
+        self, name: str, center: float, spectra: Spectra, dim: int, args: FittingOptions
     ) -> None:
         """Initialize shape.
 
