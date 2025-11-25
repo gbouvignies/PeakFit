@@ -1,4 +1,5 @@
 import logging
+from typing import cast
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -29,7 +30,7 @@ def _gaussian(x: FloatArray, amplitude: float, sigma: float) -> FloatArray:
     Returns:
         Gaussian function values
     """
-    return amplitude * np.exp(-(x**2) / (2 * sigma**2))
+    return cast(FloatArray, np.asarray(amplitude * np.exp(-(x**2) / (2 * sigma**2)), dtype=float))
 
 
 def _mad_sigma(values: FloatArray) -> float:

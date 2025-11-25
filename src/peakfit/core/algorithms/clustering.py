@@ -54,7 +54,7 @@ def merge_connected_segments(segments: IntArray) -> IntArray:
         segn = np.take(segs, -1, axis=0)
         a = np.atleast_1d(seg0[merge_mask])
         b = np.atleast_1d(segn[merge_mask])
-        connected_pairs = zip(a, b, strict=True)  # type: ignore[reportGeneralTypeIssues]
+        connected_pairs = zip(a, b, strict=True)
         connected_groups = group_connected_pairs(connected_pairs)
 
         for group in connected_groups:
@@ -95,7 +95,7 @@ def segment_data(
     )
     data_around_peaks = binary_dilation(data_around_peaks, structuring_element)
     data_selected = np.logical_or(data_above_threshold, data_around_peaks)
-    labeled_segments, _ = label(  # type: ignore[reportGeneralTypeIssues]
+    labeled_segments, _ = label(
         cast(NDArray[np.bool_], np.asarray(data_selected, dtype=np.bool_)),
         structure=structuring_element,
     )
@@ -140,8 +140,10 @@ def create_clusters(spectra: Spectra, peaks: list[Peak], contour_level: float) -
     for segment_id, peaks_in_segment in peak_segments_dict.items():
         for peak in peaks_in_segment:
             peak.set_cluster_id(segment_id)
-        segment_positions = [*np.where(segments == segment_id)]
-        segmented_data = spectra.data[:, *segment_positions].T
+        positions: tuple[NDArray[np.int_], ...] = np.where(segments == segment_id)
+        segment_positions = [*positions]
+        indices: tuple[Any, ...] = (slice(None), *positions)
+        segmented_data = spectra.data[indices].T
         clusters.append(Cluster(segment_id, peaks_in_segment, segment_positions, segmented_data))
 
     return sorted(clusters, key=lambda cluster: len(cluster.peaks))

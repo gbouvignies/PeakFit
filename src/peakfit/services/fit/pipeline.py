@@ -7,16 +7,17 @@ from datetime import datetime
 from importlib import import_module
 from pathlib import Path
 
-import numpy as np  # type: ignore[import-not-found]
-from scipy.optimize import least_squares  # type: ignore[import-not-found]
-from threadpoolctl import threadpool_limits  # type: ignore[import-not-found]
+import numpy as np
+from scipy.optimize import least_squares
+from threadpoolctl import threadpool_limits
 
 from peakfit.core.algorithms.clustering import create_clusters
 from peakfit.core.algorithms.noise import prepare_noise_level
+from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.config import PeakFitConfig
 from peakfit.core.domain.peaks import create_params
 from peakfit.core.domain.peaks_io import read_list
-from peakfit.core.domain.spectrum import get_shape_names, read_spectra
+from peakfit.core.domain.spectrum import Spectra, get_shape_names, read_spectra
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.computation import residuals, update_cluster_corrections
 from peakfit.core.fitting.parameters import Parameters
@@ -344,7 +345,9 @@ class FitPipeline:
         ui.close_logging()
 
 
-def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) -> np.ndarray:
+def _residual_wrapper(
+    x: np.ndarray, params: Parameters, cluster: Cluster, noise: float
+) -> np.ndarray:
     """Wrapper to convert array to Parameters for residual calculation."""
     vary_names = params.get_vary_names()
     for i, name in enumerate(vary_names):
@@ -352,7 +355,9 @@ def _residual_wrapper(x: np.ndarray, params: Parameters, cluster, noise: float) 
     return residuals(params, cluster, noise)
 
 
-def _fit_clusters(clargs: FitArguments, clusters: list, verbose: bool = False) -> Parameters:
+def _fit_clusters(
+    clargs: FitArguments, clusters: list[Cluster], verbose: bool = False
+) -> Parameters:
     """Fit all clusters and return parameters."""
     params_all = Parameters()
 
@@ -534,7 +539,9 @@ def _update_params(params: Parameters, params_all: Parameters) -> Parameters:
     return params
 
 
-def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
+def _write_spectra(
+    path: Path, spectra: Spectra, clusters: list[Cluster], params: Parameters
+) -> None:
     """Write simulated spectra to file."""
 
     try:
@@ -548,6 +555,7 @@ def _write_spectra(path: Path, spectra, clusters, params: Parameters) -> None:
 
     ui.action("Writing simulated spectra...")
 
+    # No-op change to trigger file write
     data_simulated = simulate_data(params, clusters, spectra.data)
 
     if spectra.pseudo_dim_added:
@@ -579,8 +587,8 @@ def _print_configuration(output_dir: Path) -> None:
 
 def _print_spectrum_info(
     spectrum_path: Path,
-    spectra,
-    shape_names: list,
+    spectra: Spectra,
+    shape_names: list[str],
     noise: float,
     noise_source: str,
     contour_level: float,

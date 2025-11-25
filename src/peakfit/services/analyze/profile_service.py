@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from scipy.stats import chi2  # type: ignore[import-not-found]
+from scipy.stats import chi2
 
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import create_params

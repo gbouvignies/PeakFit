@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pickle
 from pathlib import Path
+from typing import cast
 
 from peakfit.core.domain.state import FittingState
 
@@ -42,4 +43,4 @@ class StateRepository:
     @staticmethod
     def _read(path: Path) -> dict[str, object]:
         with path.open("rb") as fh:
-            return pickle.load(fh)
+            return cast(dict[str, object], pickle.load(fh))

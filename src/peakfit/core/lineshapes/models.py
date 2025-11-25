@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -123,7 +123,7 @@ class PeakShape(BaseShape):
     """Base class for simple peak shapes (Gaussian, Lorentzian, Pseudo-Voigt)."""
 
     FWHM_START = 25.0
-    shape_func: Callable
+    shape_func: Callable[..., FloatArray]
 
     def create_params(self) -> Parameters:
         """Create parameters for peak shape (position and FWHM)."""
@@ -156,7 +156,7 @@ class PeakShape(BaseShape):
         fwhm = params[f"{self.prefix}_fwhm"].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-        return sign * self.shape_func(dx_hz, fwhm)
+        return cast(FloatArray, np.asarray(sign * self.shape_func(dx_hz, fwhm), dtype=float))
 
 
 @register_shape("lorentzian")
@@ -201,7 +201,7 @@ class PseudoVoigt(PeakShape):
         eta = params[f"{self.prefix}_eta"].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-        return sign * functions.pvoigt(dx_hz, fwhm, eta)
+        return cast(FloatArray, np.asarray(sign * functions.pvoigt(dx_hz, fwhm, eta), dtype=float))
 
 
 class ApodShape(BaseShape):
@@ -209,7 +209,7 @@ class ApodShape(BaseShape):
 
     R2_START = 20.0
     FWHM_START = 25.0
-    shape_func: Callable
+    shape_func: Callable[..., FloatArray]
     shape_name: str = "no_apod"  # Override in subclasses
 
     def create_params(self) -> Parameters:
@@ -269,6 +269,7 @@ class ApodShape(BaseShape):
         dx_rads = dx_rads + j_rads
 
         # Select shape function
+        func: Callable[..., FloatArray]
         if self.shape_name == "sp1":
             func = functions.sp1
         elif self.shape_name == "sp2":
@@ -276,7 +277,7 @@ class ApodShape(BaseShape):
         else:
             func = functions.no_apod
 
-        shape_args = (r2, self.spec_params.aq_time)
+        shape_args: tuple[float, ...] = (r2, self.spec_params.aq_time)
         if self.shape_name in ("sp1", "sp2"):
             shape_args += (self.spec_params.apodq2, self.spec_params.apodq1)
         shape_args += (p0,)
@@ -284,7 +285,7 @@ class ApodShape(BaseShape):
         norm = np.sum(func(j_rads, *shape_args), axis=0)
         shape = np.sum(func(dx_rads, *shape_args), axis=0)
 
-        return sign[x_pt] * shape[x_pt] / norm
+        return cast(FloatArray, np.asarray(sign[x_pt] * shape[x_pt] / norm, dtype=float))
 
 
 @register_shape("no_apod")

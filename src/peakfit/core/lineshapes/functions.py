@@ -4,6 +4,8 @@ This module provides vectorized NumPy implementations of common NMR lineshapes.
 All functions are optimized using NumPy broadcasting and vectorization for performance.
 """
 
+from typing import cast
+
 import numpy as np
 
 from peakfit.core.shared.typing import FloatArray
@@ -24,7 +26,7 @@ def gaussian(dx: FloatArray, fwhm: float) -> FloatArray:
         Optimized constant calculation avoids repeated computation.
     """
     c = 4.0 * np.log(2.0) / (fwhm * fwhm)
-    return np.exp(-dx * dx * c)
+    return cast(FloatArray, np.asarray(np.exp(-dx * dx * c), dtype=float))
 
 
 def lorentzian(dx: FloatArray, fwhm: float) -> FloatArray:
@@ -38,7 +40,7 @@ def lorentzian(dx: FloatArray, fwhm: float) -> FloatArray:
         Lorentzian profile values
     """
     half_width_sq = (0.5 * fwhm) ** 2
-    return half_width_sq / (dx * dx + half_width_sq)
+    return cast(FloatArray, np.asarray(half_width_sq / (dx * dx + half_width_sq), dtype=float))
 
 
 def pvoigt(dx: FloatArray, fwhm: float, eta: float) -> FloatArray:
@@ -56,7 +58,7 @@ def pvoigt(dx: FloatArray, fwhm: float, eta: float) -> FloatArray:
     gauss = np.exp(-dx * dx * c_gauss)
     half_width_sq = (0.5 * fwhm) ** 2
     lorentz = half_width_sq / (dx * dx + half_width_sq)
-    return (1.0 - eta) * gauss + eta * lorentz
+    return cast(FloatArray, np.asarray((1.0 - eta) * gauss + eta * lorentz, dtype=float))
 
 
 def no_apod(dx: FloatArray, r2: float, aq: float, phase: float = 0.0) -> FloatArray:
@@ -77,7 +79,7 @@ def no_apod(dx: FloatArray, r2: float, aq: float, phase: float = 0.0) -> FloatAr
     """
     z1 = aq * (1j * dx + r2)
     spec = aq * (1.0 - np.exp(-z1)) / z1
-    return (spec * np.exp(1j * np.deg2rad(phase))).real
+    return cast(FloatArray, np.asarray((spec * np.exp(1j * np.deg2rad(phase))).real, dtype=float))
 
 
 def sp1(
@@ -101,7 +103,7 @@ def sp1(
     a1 = (np.exp(+f2) - np.exp(+z1)) * np.exp(-z1 + f1) / (2 * (z1 - f2))
     a2 = (np.exp(+z1) - np.exp(-f2)) * np.exp(-z1 - f1) / (2 * (z1 + f2))
     spec = 1j * aq * (a1 + a2)
-    return (spec * np.exp(1j * np.deg2rad(phase))).real
+    return cast(FloatArray, np.asarray((spec * np.exp(1j * np.deg2rad(phase))).real, dtype=float))
 
 
 def sp2(
@@ -126,4 +128,4 @@ def sp2(
     a2 = (np.exp(-2 * f2) - np.exp(z1)) * np.exp(-z1 - 2 * f1) / (4 * (z1 + 2 * f2))
     a3 = (1.0 - np.exp(-z1)) / (2 * z1)
     spec = aq * (a1 + a2 + a3)
-    return (spec * np.exp(1j * np.deg2rad(phase))).real
+    return cast(FloatArray, np.asarray((spec * np.exp(1j * np.deg2rad(phase))).real, dtype=float))
