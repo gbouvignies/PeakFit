@@ -1,7 +1,7 @@
 """Domain configuration and result models for PeakFit."""
 
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -130,7 +130,7 @@ class ValidationResult(BaseModel):
     valid: bool
     errors: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
-    info: dict[str, Any] = Field(default_factory=dict)
+    info: dict[str, object] = Field(default_factory=dict)
 
 
 __all__ = [

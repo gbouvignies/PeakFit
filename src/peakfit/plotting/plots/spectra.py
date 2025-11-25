@@ -1,13 +1,17 @@
 import argparse
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Self, cast
 
 import nmrglue as ng
 import numpy as np
 import pandas as pd
 from matplotlib.backend_bases import Event
+
+if not os.environ.get("DISPLAY") and not os.environ.get("QT_QPA_PLATFORM"):
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 try:
     from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
@@ -18,10 +22,9 @@ except (
 ):  # pragma: no cover - fallback for headless/test environments
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
-    NavigationToolbar = None  # type: ignore[assignment]
+    NavigationToolbar = None
 from matplotlib.figure import Figure
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QResizeEvent
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
@@ -89,7 +92,9 @@ class NMRData:
 
     def unalias_y(self, y0: FloatArray) -> FloatArray:
         y_scale = (self.ylim[1] - self.ylim[0]) * (self.data.shape[1] + 1) / self.data.shape[1]
-        return (y0 - self.ylim[0]) % y_scale + self.ylim[0]
+        return cast(
+            FloatArray, np.asarray((y0 - self.ylim[0]) % y_scale + self.ylim[0], dtype=float)
+        )
 
 
 class PlotWidget(QWidget):
@@ -98,13 +103,15 @@ class PlotWidget(QWidget):
         self.figure = Figure(figsize=(5, 5), dpi=100)
         self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_subplot(111)
+        self.toolbar: Any = None
         try:
             self.toolbar = (
                 NavigationToolbar(self.canvas, self) if NavigationToolbar is not None else None
             )
         except (ModuleNotFoundError, ImportError):  # pragma: no cover - GUI may not be available
             self.toolbar = None
-        self.current_xlim = self.current_ylim = None
+        self.current_xlim: tuple[float, float] | None = None
+        self.current_ylim: tuple[float, float] | None = None
 
         layout = QVBoxLayout()
         layout.addWidget(self.canvas)
@@ -350,7 +357,7 @@ class SpectraViewer(QMainWindow):
         self.show_spectra[spectrum] = self.control_widget.checkboxes[spectrum].isChecked()
         self.update_view()
 
-    def resizeEvent(self, a0: QResizeEvent | None) -> None:  # noqa: N802
+    def resizeEvent(self, a0: Any) -> None:  # noqa: N802
         super().resizeEvent(a0)
         self.plot_widget.figure.tight_layout()
         self.plot_widget.canvas.draw_idle()

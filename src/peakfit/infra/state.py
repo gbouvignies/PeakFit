@@ -42,4 +42,5 @@ class StateRepository:
     @staticmethod
     def _read(path: Path) -> dict[str, object]:
         with path.open("rb") as fh:
-            return pickle.load(fh)
+            payload: dict[str, object] = pickle.load(fh)
+            return payload

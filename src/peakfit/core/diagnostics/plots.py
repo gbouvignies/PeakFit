@@ -50,6 +50,7 @@ def plot_trace(
     # Create figure with subplots
     n_cols = min(3, n_params_plot)
     n_rows = int(np.ceil(n_params_plot / n_cols))
+    fig: Figure
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 3 * n_rows))
 
     if n_params_plot == 1:
@@ -186,6 +187,7 @@ def plot_marginal_distributions(
         # Create figure with subplots
         n_cols = min(3, n_params_page)
         n_rows = int(np.ceil(n_params_page / n_cols))
+        fig: Figure
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4 * n_rows))
 
         if n_params_page == 1:
@@ -210,7 +212,9 @@ def plot_marginal_distributions(
 
             # Calculate statistics
             median = np.median(param_samples)
-            ci_16, ci_84 = np.percentile(param_samples, [16, 84])
+            percentiles = np.atleast_1d(np.percentile(param_samples, [16, 84]))
+            ci_16 = float(percentiles[0])
+            ci_84 = float(percentiles[1])
 
             # Mark median and credible intervals
             ax.axvline(median, color="red", linestyle="-", linewidth=2, label="Median", zorder=10)
@@ -324,6 +328,7 @@ def plot_correlation_pairs(
         # Create figure
         n_cols = 2
         n_rows = int(np.ceil(len(pairs_page) / n_cols))
+        fig: Figure
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 5 * n_rows))
 
         if len(pairs_page) == 1:
@@ -432,6 +437,7 @@ def plot_corner(
             short_names.append(name[:12])  # Truncate long names
 
     # Create figure with more spacing to prevent overlap
+    fig: Figure
     fig, axes_raw = plt.subplots(
         n_params_plot,
         n_params_plot,
@@ -599,6 +605,7 @@ def plot_autocorrelation(
     # Create figure
     n_cols = min(3, n_params_plot)
     n_rows = int(np.ceil(n_params_plot / n_cols))
+    fig: Figure
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 3 * n_rows))
 
     if n_params_plot == 1:
@@ -780,6 +787,7 @@ def plot_posterior_summary(
     n_total_samples, n_params = samples.shape
     n_params_plot = min(n_params, max_params)
 
+    fig: Figure
     fig, ax = plt.subplots(figsize=(10, max(6, n_params_plot * 0.3)))
 
     # Compute statistics for each parameter

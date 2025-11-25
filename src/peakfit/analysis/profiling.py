@@ -8,7 +8,6 @@ import time
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -18,7 +17,7 @@ class TimingResult:
     name: str
     elapsed: float
     count: int = 1
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
 
     @property
     def per_call(self) -> float:

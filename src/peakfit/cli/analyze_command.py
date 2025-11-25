@@ -410,7 +410,7 @@ def run_profile_likelihood(
         )
 
         if covar_stderr > 0:
-            from scipy.stats import norm  # type: ignore[import-not-found]
+            from scipy.stats import norm
 
             z = norm.ppf((1 + confidence_level) / 2)
             covar_ci_low = best_value - z * covar_stderr
@@ -728,7 +728,7 @@ def _plot_profile_likelihood(
 ) -> None:
     """Plot profile likelihood curve."""
     try:
-        import matplotlib.pyplot as plt  # type: ignore[import-not-found]
+        import matplotlib.pyplot as plt
 
         _fig, ax = plt.subplots(1, 1, figsize=(8, 6))
 

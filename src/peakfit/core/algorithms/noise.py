@@ -29,7 +29,8 @@ def _gaussian(x: FloatArray, amplitude: float, sigma: float) -> FloatArray:
     Returns:
         Gaussian function values
     """
-    return amplitude * np.exp(-(x**2) / (2 * sigma**2))
+    res: FloatArray = np.asarray(amplitude * np.exp(-(x**2) / (2 * sigma**2)), dtype=float)
+    return res
 
 
 def _mad_sigma(values: FloatArray) -> float:

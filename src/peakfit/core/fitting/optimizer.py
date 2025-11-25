@@ -134,7 +134,8 @@ def compute_residuals(
     amplitudes = np.linalg.lstsq(shapes.T, cluster.corrected_data, rcond=None)[0]
 
     # Residual
-    return (cluster.corrected_data - shapes.T @ amplitudes).ravel() / noise
+    residuals_arr: np.ndarray = (cluster.corrected_data - shapes.T @ amplitudes).ravel() / noise
+    return residuals_arr
 
 
 def fit_cluster(

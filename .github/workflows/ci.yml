@@ -29,6 +29,9 @@ jobs:
         run: uv sync --all-extras
 
       - name: Run tests with coverage
+        env:
+          QT_QPA_PLATFORM: offscreen
+          MPLBACKEND: Agg
         run: uv run pytest tests/ --cov=src/peakfit --cov-report=xml --cov-report=term
 
       - name: Upload coverage reports

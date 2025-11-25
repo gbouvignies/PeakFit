@@ -1,11 +1,20 @@
 """Implementation of the validate command."""
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol
 
-import nmrglue as ng
-
+# nmrglue is used internally by read_spectra; avoid direct dependency in CLI
+from peakfit.cli.models import PeakInput, SpectraInput
 from peakfit.ui import PeakFitUI as ui, console
+
+
+class RowLike(Protocol):
+    """Minimal protocol for a pandas-like row used by CSV/Excel readers."""
+
+    def get(self, key: str, default: Any | None = None) -> Any: ...
+    def __getitem__(self, key: int | str) -> Any: ...
+    @property
+    def iloc(self) -> Any: ...
 
 
 def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False) -> None:
@@ -30,19 +39,20 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
     ui.spacer()
     ui.info(f"Checking spectrum: [path]{spectrum_path.name}[/path]")
     try:
-        _dic, data = ng.pipe.read(str(spectrum_path))
-        info["Spectrum shape"] = str(data.shape)
-        info["Dimensions"] = str(data.ndim)
+        spectra_input = SpectraInput(path=spectrum_path)
+        spectra = spectra_input.load()
+        info["Spectrum shape"] = str(spectra.data.shape)
+        info["Dimensions"] = str(spectra.data.ndim)
 
         # Extract spectral parameters
-        if data.ndim == 2:
+        if spectra.data.ndim == 2:
             info["Type"] = "2D (will be treated as pseudo-3D with 1 plane)"
-        elif data.ndim == 3:
-            info["Type"] = f"3D ({data.shape[0]} planes)"
+        elif spectra.data.ndim == 3:
+            info["Type"] = f"3D ({spectra.data.shape[0]} planes)"
         else:
-            warnings.append(f"Unusual dimensionality: {data.ndim}D")
+            warnings.append(f"Unusual dimensionality: {spectra.data.ndim}D")
 
-        ui.success(f"Spectrum readable - Shape: {data.shape}")
+        ui.success(f"Spectrum readable - Shape: {spectra.data.shape}")
         checks["Spectrum file readable"] = (True, "Pass")
     except Exception as e:
         errors.append(f"Failed to read spectrum: {e}")
@@ -73,7 +83,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
             checks["Peak list readable"] = (True, "Pass")
 
             # Check for duplicate names
-            names = [p["name"] for p in peaks]
+            names = [p.name for p in peaks]
             if len(names) != len(set(names)):
                 warnings.append("Duplicate peak names found")
                 checks["No duplicate peaks"] = (False, "Duplicates found")
@@ -81,8 +91,8 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
                 checks["No duplicate peaks"] = (True, "Pass")
 
             # Check position ranges
-            x_positions = [p["x"] for p in peaks]
-            y_positions = [p["y"] for p in peaks]
+            x_positions = [p.x for p in peaks]
+            y_positions = [p.y for p in peaks]
             x_min, x_max = min(x_positions), max(x_positions)
             y_min, y_max = min(y_positions), max(y_positions)
             info["X range (ppm)"] = f"{x_min:.2f} to {x_max:.2f}"
@@ -130,7 +140,7 @@ def run_validate(spectrum_path: Path, peaklist_path: Path, verbose: bool = False
     ui.spacer()
 
 
-def _read_sparky_list(path: Path) -> list[dict]:
+def _read_sparky_list(path: Path) -> list[PeakInput]:
     """Read Sparky format peak list."""
     peaks = []
     with path.open() as f:
@@ -140,39 +150,34 @@ def _read_sparky_list(path: Path) -> list[dict]:
                 continue
             parts = line.split()
             if len(parts) >= 3:
-                peaks.append(
-                    {
-                        "name": parts[0],
-                        "x": float(parts[1]),
-                        "y": float(parts[2]),
-                    }
-                )
+                peaks.append(PeakInput(name=parts[0], x=float(parts[1]), y=float(parts[2])))
     return peaks
 
 
-def _read_csv_list(path: Path) -> list[dict]:
+def _read_csv_list(path: Path) -> list[PeakInput]:
     """Read CSV format peak list."""
     import pandas as pd
 
     df = pd.read_csv(path)
     peaks = []
+
     for _, row in df.iterrows():
         name_value = row.get("Assign F1", row.get("#", ""))
-        x_primary = cast(Any, row.get("Pos F1"))
-        y_primary = cast(Any, row.get("Pos F2"))
+        x_primary = row.get("Pos F1")
+        y_primary = row.get("Pos F2")
         fallback_x = _to_float(row.iloc[0])
         fallback_y = _to_float(row.iloc[1])
         peaks.append(
-            {
-                "name": str(name_value),
-                "x": _to_float(x_primary, fallback_x),
-                "y": _to_float(y_primary, fallback_y),
-            }
+            PeakInput(
+                name=str(name_value),
+                x=_to_float(x_primary, fallback_x),
+                y=_to_float(y_primary, fallback_y),
+            )
         )
     return peaks
 
 
-def _read_json_list(path: Path) -> list[dict]:
+def _read_json_list(path: Path) -> list[PeakInput]:
     """Read JSON format peak list."""
     import json
 
@@ -181,17 +186,17 @@ def _read_json_list(path: Path) -> list[dict]:
 
     if isinstance(data, list):
         return [
-            {
-                "name": str(p.get("name", p.get("Assign F1", ""))),
-                "x": _to_float(p.get("x") or p.get("Pos F1"), 0.0),
-                "y": _to_float(p.get("y") or p.get("Pos F2"), 0.0),
-            }
+            PeakInput(
+                name=str(p.get("name", p.get("Assign F1", ""))),
+                x=_to_float(p.get("x") or p.get("Pos F1"), 0.0),
+                y=_to_float(p.get("y") or p.get("Pos F2"), 0.0),
+            )
             for p in data
         ]
     return []
 
 
-def _read_excel_list(path: Path) -> list[dict]:
+def _read_excel_list(path: Path) -> list[PeakInput]:
     """Read Excel format peak list."""
     import pandas as pd
 
@@ -199,16 +204,16 @@ def _read_excel_list(path: Path) -> list[dict]:
     peaks = []
     for _, row in df.iterrows():
         name_value = row.get("Assign F1", row.get("#", ""))
-        x_primary = cast(Any, row.get("Pos F1"))
-        y_primary = cast(Any, row.get("Pos F2"))
+        x_primary = row.get("Pos F1")
+        y_primary = row.get("Pos F2")
         fallback_x = _to_float(row.iloc[0])
         fallback_y = _to_float(row.iloc[1])
         peaks.append(
-            {
-                "name": str(name_value),
-                "x": _to_float(x_primary, fallback_x),
-                "y": _to_float(y_primary, fallback_y),
-            }
+            PeakInput(
+                name=str(name_value),
+                x=_to_float(x_primary, fallback_x),
+                y=_to_float(y_primary, fallback_y),
+            )
         )
     return peaks
 

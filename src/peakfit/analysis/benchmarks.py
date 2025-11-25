@@ -8,8 +8,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -32,7 +31,7 @@ class BenchmarkResult:
     min_time: float
     max_time: float
     times: list[float] = field(default_factory=list)
-    extra_info: dict[str, Any] = field(default_factory=dict)
+    extra_info: dict[str, object] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         return (
@@ -42,7 +41,7 @@ class BenchmarkResult:
 
 
 def benchmark_function(
-    func: Callable[[], Any],
+    func: Callable[[], object],
     name: str = "benchmark",
     n_iterations: int = 100,
     warmup: int = 5,
@@ -296,8 +295,25 @@ def create_synthetic_cluster(
             )
         )
 
-    spectra_like = SimpleNamespace(data=data_cube, params=spec_params)
-    spectra: Spectra = cast(Spectra, spectra_like)
+    # Build a minimal NMRPipe-like header (dic) so we can instantiate a real
+    # Spectra object rather than casting a SimpleNamespace. This gives us a
+    # consistent `Spectra.params` computed by the existing helper functions.
+    dic: dict[str, object] = {}
+    fddimorder = list(range(1, data_cube.ndim + 1))
+    dic["FDDIMORDER"] = fddimorder
+    for fdf in fddimorder:
+        dic[f"FDF{fdf}SW"] = 5000.0
+        dic[f"FDF{fdf}ORIG"] = 0.0
+        dic[f"FDF{fdf}OBS"] = 500.0
+        dic[f"FDF{fdf}APOD"] = 0.0
+        dic[f"FDF{fdf}P1"] = 0.0
+        dic[f"FDF{fdf}APODCODE"] = 0.0
+        dic[f"FDF{fdf}APODQ1"] = 0.0
+        dic[f"FDF{fdf}APODQ2"] = 0.0
+        dic[f"FDF{fdf}APODQ3"] = 0.0
+    z_values = np.arange(n_planes)
+
+    spectra = Spectra(dic, data_cube, z_values)
     options = _BenchmarkOptions()
     spatial_dims = data_cube.ndim - 1
     shape_names = ["pvoigt"] * spatial_dims

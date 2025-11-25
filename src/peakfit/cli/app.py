@@ -920,10 +920,11 @@ def benchmark(
     """
     import time
 
+    from peakfit.cli.models import SpectraInput
     from peakfit.core.algorithms.clustering import create_clusters
     from peakfit.core.algorithms.noise import prepare_noise_level
     from peakfit.core.domain.peaks_io import read_list
-    from peakfit.core.domain.spectrum import get_shape_names, read_spectra
+    from peakfit.core.domain.spectrum import get_shape_names
     from peakfit.core.fitting.optimizer import fit_clusters
     from peakfit.services.fit import FitArguments
 
@@ -948,7 +949,7 @@ def benchmark(
             gaussian=False,
         )
 
-        spectra = read_spectra(spectrum, z_values, [])
+        spectra = SpectraInput(path=spectrum, z_values_path=z_values, exclude_list=[]).load()
 
     console.print(f"[green]Loaded spectrum:[/green] {spectrum.name}")
     console.print(f"  Shape: {spectra.data.shape}")

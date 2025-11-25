@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import cast
 
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
@@ -20,7 +20,7 @@ class FittingState:
     peaks: list[Peak]
     version: str = "1.0"
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
         """Convert the state into a pickle-friendly payload."""
         return {
             "clusters": self.clusters,
@@ -31,7 +31,7 @@ class FittingState:
         }
 
     @classmethod
-    def from_payload(cls, payload: dict[str, Any]) -> FittingState:
+    def from_payload(cls, payload: dict[str, object]) -> FittingState:
         """Construct a state object from a serialized payload."""
         required_keys = {"clusters", "params", "noise", "peaks"}
         missing = required_keys - payload.keys()
@@ -40,11 +40,20 @@ class FittingState:
             msg = f"Missing state fields: {missing_list}"
             raise ValueError(msg)
 
-        version = payload.get("version", "1.0")
+        # Cast values to concrete types expected by FittingState
+        clusters_val = (
+            cast(list[Cluster], payload["clusters"]) if payload.get("clusters") is not None else []
+        )
+        if payload.get("params") is None:
+            raise ValueError("Missing 'params' in payload")
+        params_val = cast(Parameters, payload["params"])
+        noise_val = float(cast(float, payload["noise"]))
+        peaks_val = cast(list[Peak], payload["peaks"]) if payload.get("peaks") is not None else []
+        version = str(payload.get("version", "1.0"))
         return cls(
-            clusters=payload["clusters"],
-            params=payload["params"],
-            noise=float(payload["noise"]),
-            peaks=payload["peaks"],
+            clusters=clusters_val,
+            params=params_val,
+            noise=noise_val,
+            peaks=peaks_val,
             version=version,
         )
