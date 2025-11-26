@@ -173,11 +173,13 @@ def plot_intensity(
 
     ui.spacer()
     ui.success("Plots saved successfully!")
-    ui.print_next_steps([
-        f"Open PDF: [cyan]open {output_path}[/cyan]",
-        f"Plot CEST profiles: [cyan]peakfit plot cest {results}/[/cyan]",
-        f"Interactive viewer: [cyan]peakfit plot spectra {results}/ --spectrum SPECTRUM.ft2[/cyan]",
-    ])
+    ui.print_next_steps(
+        [
+            f"Open PDF: [cyan]open {output_path}[/cyan]",
+            f"Plot CEST profiles: [cyan]peakfit plot cest {results}/[/cyan]",
+            f"Interactive viewer: [cyan]peakfit plot spectra {results}/ --spectrum SPECTRUM.ft2[/cyan]",
+        ]
+    )
 
     if show and plot_data_for_display:
         for name, data in plot_data_for_display:
@@ -308,7 +310,9 @@ def plot_cest(
                 _save_figure_to_pdf(pdf, fig)
 
                 if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
-                    plot_data_for_display.append((file.stem, offset_norm, intensity_norm, error_norm))
+                    plot_data_for_display.append(
+                        (file.stem, offset_norm, intensity_norm, error_norm)
+                    )
 
                 plots_saved += 1
             except Exception as e:
@@ -412,9 +416,9 @@ def plot_cpmg(
         ui.info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
         console.print(f"       [dim]All plots are saved to {output_path}[/dim]")
 
-    plot_data_for_display: list[tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | None = (
-        [] if show else None
-    )
+    plot_data_for_display: (
+        list[tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | None
+    ) = [] if show else None
     plots_saved = 0
 
     with PdfPages(output_path) as pdf:
@@ -458,7 +462,9 @@ def plot_cpmg(
                 _save_figure_to_pdf(pdf, fig)
 
                 if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
-                    plot_data_for_display.append((file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up))
+                    plot_data_for_display.append(
+                        (file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
+                    )
 
                 plots_saved += 1
             except Exception as e:
@@ -735,9 +741,11 @@ def plot_diagnostics(
     else:
         open_cmd = f"open {' '.join(str(f) for f in output_files)}"
 
-    ui.print_next_steps([
-        f"Open plots: [cyan]{open_cmd}[/cyan]",
-        "Review trace plots: Check R-hat ≤ 1.01 and chain convergence",
-        "Inspect marginal distributions: Review parameter posteriors with full names",
-        "Check correlations: Look for strongly correlated parameter pairs (|r| ≥ 0.5)",
-    ])
+    ui.print_next_steps(
+        [
+            f"Open plots: [cyan]{open_cmd}[/cyan]",
+            "Review trace plots: Check R-hat ≤ 1.01 and chain convergence",
+            "Inspect marginal distributions: Review parameter posteriors with full names",
+            "Check correlations: Look for strongly correlated parameter pairs (|r| ≥ 0.5)",
+        ]
+    )

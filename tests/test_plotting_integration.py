@@ -163,29 +163,33 @@ class TestPlottingCLI:
 class TestPlottingFunctions:
     """Test plotting module functions directly."""
 
-    def test_import_plot_command(self):
-        """Test that plot_command module imports successfully."""
-        from peakfit.cli import plot_command
+    def test_import_plot_commands(self):
+        """Test that plot command module imports successfully."""
+        from peakfit.cli.commands import plot
 
-        assert hasattr(plot_command, "plot_intensity_profiles")
+        assert hasattr(plot, "plot_app")
 
-    def test_plot_command_has_all_functions(self):
-        """Test that all plot types have implementations."""
-        from peakfit.cli import plot_command
+    def test_plot_commands_registered(self):
+        """Test that all plot commands are registered."""
+        from peakfit.cli.commands.plot import plot_app
 
-        # Check public functions exist
-        assert hasattr(plot_command, "plot_intensity_profiles")
-        assert hasattr(plot_command, "plot_cest_profiles")
-        assert hasattr(plot_command, "plot_cpmg_profiles")
-        assert hasattr(plot_command, "plot_spectra_viewer")
+        # Get registered command names
+        command_names = [cmd.name for cmd in plot_app.registered_commands]
+
+        # Check public commands exist
+        assert "intensity" in command_names
+        assert "cest" in command_names
+        assert "cpmg" in command_names
+        assert "spectra" in command_names
+        assert "diagnostics" in command_names
 
     def test_ncyc_to_nu_cpmg_conversion(self):
         """Test CPMG ncyc to nu_CPMG conversion."""
-        from peakfit.cli.plot_command import _ncyc_to_nu_cpmg
+        from peakfit.plotting.profiles import ncyc_to_nu_cpmg
 
         ncyc = np.array([0, 10, 20, 40])
         time_t2 = 0.04
-        nu_cpmg = _ncyc_to_nu_cpmg(ncyc, time_t2)
+        nu_cpmg = ncyc_to_nu_cpmg(ncyc, time_t2)
 
         # ncyc=0 -> 0.5/time_t2, others -> ncyc/time_t2
         assert nu_cpmg[0] == 0.5 / time_t2  # Reference point
@@ -194,13 +198,13 @@ class TestPlottingFunctions:
 
     def test_intensity_to_r2eff_conversion(self):
         """Test intensity to R2eff conversion."""
-        from peakfit.cli.plot_command import _intensity_to_r2eff
+        from peakfit.plotting.profiles import intensity_to_r2eff
 
         intensity = np.array([90.0, 80.0, 70.0])
         intensity_ref = 100.0
         time_t2 = 0.04
 
-        r2eff = _intensity_to_r2eff(intensity, intensity_ref, time_t2)
+        r2eff = intensity_to_r2eff(intensity, intensity_ref, time_t2)
 
         # Should be -ln(I/I0)/T2
         expected = -np.log(intensity / intensity_ref) / time_t2
