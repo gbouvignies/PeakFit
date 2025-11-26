@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 
 from peakfit.core.algorithms.clustering import create_clusters
-from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.config import PeakFitConfig
 from peakfit.core.domain.spectrum import Spectra
 from peakfit.core.fitting.strategies import STRATEGIES
