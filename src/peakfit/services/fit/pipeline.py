@@ -12,9 +12,23 @@ from peakfit.core.domain.spectrum import Spectra
 from peakfit.core.fitting.strategies import STRATEGIES
 from peakfit.core.shared.events import Event, EventDispatcher, EventType
 from peakfit.services.fit.fitting import fit_all_clusters
-from peakfit.ui import PeakFitUI, console
-
-ui = PeakFitUI
+from peakfit.ui import (
+    console,
+    create_table,
+    error,
+    export_html,
+    info,
+    log,
+    log_dict,
+    log_section,
+    setup_logging,
+    show_banner,
+    show_footer,
+    show_header,
+    show_run_info,
+    success,
+    warning,
+)
 
 
 @dataclass
@@ -118,12 +132,12 @@ class FitPipeline:
 
         # Setup logging
         log_file = config.output.directory / "peakfit.log"
-        ui.setup_logging(log_file=log_file, verbose=False)
+        setup_logging(log_file=log_file, verbose=False)
 
         if verbose:
-            ui.show_banner(verbose)
+            show_banner(verbose)
         else:
-            ui.show_run_info(start_time_dt)
+            show_run_info(start_time_dt)
 
         # NOTE: we do not mutate the configuration object to set a runtime
         # 'verbose' flag; instead, pass the `verbose` value explicitly to any
@@ -132,25 +146,25 @@ class FitPipeline:
 
         valid_optimizers = sorted(STRATEGIES.keys())
         if optimizer not in valid_optimizers:
-            ui.error(f"Invalid optimizer: {optimizer}")
-            ui.info(f"Valid options: {', '.join(valid_optimizers)}")
+            error(f"Invalid optimizer: {optimizer}")
+            info(f"Valid options: {', '.join(valid_optimizers)}")
             raise SystemExit(1)
 
         if optimizer != "leastsq":
-            ui.warning(f"Using global optimizer: {optimizer}")
+            warning(f"Using global optimizer: {optimizer}")
             console.print("  [dim]This may take significantly longer than standard fitting[/dim]")
 
         _print_configuration(config.output.directory)
 
         console.print()
-        ui.show_header("Loading Input Files")
+        show_header("Loading Input Files")
 
         clargs = config_to_fit_args(config, spectrum_path, peaklist_path, z_values_path)
 
         with console.status("[cyan]Reading spectrum...[/cyan]", spinner="dots"):
             spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
-        ui.log_dict(
+        log_dict(
             {
                 "Spectrum": str(spectrum_path),
                 "Dimensions": str(spectra.data.shape),
@@ -159,21 +173,21 @@ class FitPipeline:
             }
         )
 
-        ui.log_section("Noise Estimation")
+        log_section("Noise Estimation")
         noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
         clargs.noise = prepare_noise_level(clargs, spectra)
         if clargs.noise is None:
             raise ValueError("Noise must be set by prepare_noise_level")
         noise_value: float = float(clargs.noise)
         noise_source = "user-provided" if noise_was_provided else "estimated"
-        ui.log(
+        log(
             f"Method: {'User-provided' if noise_was_provided else 'Median Absolute Deviation (MAD)'}"
         )
-        ui.log(f"Noise level: {noise_value:.2f} ({noise_source})")
+        log(f"Noise level: {noise_value:.2f} ({noise_source})")
 
-        ui.log_section("Lineshape Detection")
+        log_section("Lineshape Detection")
         shape_names = get_shape_names(clargs, spectra)
-        ui.log(f"Selected lineshape: {shape_names}")
+        log(f"Selected lineshape: {shape_names}")
 
         clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
 
@@ -181,9 +195,9 @@ class FitPipeline:
             spectrum_path, spectra, shape_names, clargs.noise, noise_source, clargs.contour_level
         )
 
-        ui.log_section("Peak List")
+        log_section("Peak List")
         peaks = read_list(spectra, shape_names, clargs)
-        ui.log_dict(
+        log_dict(
             {
                 "Peak list": str(peaklist_path),
                 "Format": "Sparky/NMRPipe",
@@ -194,25 +208,25 @@ class FitPipeline:
         _print_peaklist_info(peaklist_path, z_values_path, len(peaks))
 
         console.print()
-        ui.show_header("Clustering Peaks")
-        ui.log_section("Clustering")
-        ui.log("Algorithm: DBSCAN")
+        show_header("Clustering Peaks")
+        log_section("Clustering")
+        log("Algorithm: DBSCAN")
         if clargs.noise > 0:
             noise_multiplier = f"{clargs.contour_level / clargs.noise:.1f} * noise"
         else:
             # Noise can be zero when estimated from silent regions; avoid division by zero
             noise_multiplier = "n/a (noise level is 0)"
 
-        ui.log(f"Contour level: {clargs.contour_level:.2f} ({noise_multiplier})")
+        log(f"Contour level: {clargs.contour_level:.2f} ({noise_multiplier})")
 
         with console.status(
             "[cyan]Segmenting spectra and clustering peaks...[/cyan]", spinner="dots"
         ):
             clusters = create_clusters(spectra, peaks, clargs.contour_level)
 
-        ui.log(f"Identified {len(clusters)} clusters")
+        log(f"Identified {len(clusters)} clusters")
         cluster_sizes = [len(c.peaks) for c in clusters]
-        ui.log_dict(
+        log_dict(
             {
                 "Min": f"{min(cluster_sizes)} peak" if cluster_sizes else "N/A",
                 "Max": f"{max(cluster_sizes)} peaks" if cluster_sizes else "N/A",
@@ -229,20 +243,20 @@ class FitPipeline:
         else:
             cluster_desc = f"{min_peaks}-{max_peaks} peaks per cluster"
 
-        ui.success(f"Identified {len(clusters)} clusters ({cluster_desc})")
+        success(f"Identified {len(clusters)} clusters ({cluster_desc})")
 
         console.print()
-        ui.show_header("Fitting Clusters")
-        ui.log_section("Fitting")
-        ui.log(f"Optimizer: {optimizer}")
-        ui.log("Backend: numpy (default)")
+        show_header("Fitting Clusters")
+        log_section("Fitting")
+        log(f"Optimizer: {optimizer}")
+        log("Backend: numpy (default)")
         if optimizer == "leastsq":
-            ui.log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
-            ui.log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
-        ui.log("")
+            log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
+            log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
+        log("")
 
         if optimizer != "leastsq":
-            ui.info(f"Using {optimizer} optimizer...")
+            info(f"Using {optimizer} optimizer...")
 
         params = fit_all_clusters(
             clargs,
@@ -253,33 +267,33 @@ class FitPipeline:
         )
 
         console.print()
-        ui.show_header("Fitting Complete")
+        show_header("Fitting Complete")
 
         end_time_dt = datetime.now()
         total_time = (end_time_dt - start_time_dt).total_seconds()
 
-        ui.log_section("Output Files")
+        log_section("Output Files")
         config.output.directory.mkdir(parents=True, exist_ok=True)
 
         with console.status("[cyan]Writing profiles...[/cyan]", spinner="dots"):
             write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
-        ui.success(f"Peak profiles: {config.output.directory.name}/{len(peaks)} *.out files")
-        ui.log(f"Profile files: {len(peaks)} *.out files")
+        success(f"Peak profiles: {config.output.directory.name}/{len(peaks)} *.out files")
+        log(f"Profile files: {len(peaks)} *.out files")
 
         with console.status("[cyan]Writing shifts...[/cyan]", spinner="dots"):
             write_shifts(peaks, params, config.output.directory / "shifts.list")
-        ui.success(f"Chemical shifts: {config.output.directory.name}/shifts.list")
-        ui.log(f"Shifts file: {config.output.directory / 'shifts.list'}")
+        success(f"Chemical shifts: {config.output.directory.name}/shifts.list")
+        log(f"Shifts file: {config.output.directory / 'shifts.list'}")
 
         if config.output.save_simulated:
             write_simulated_spectra(config.output.directory, spectra, clusters, params)
-            ui.success(f"Simulated spectra: {config.output.directory.name}/simulated_*.ft*")
+            success(f"Simulated spectra: {config.output.directory.name}/simulated_*.ft*")
 
         if config.output.save_html_report:
             with console.status("[cyan]Generating HTML report...[/cyan]", spinner="dots"):
-                ui.export_html(config.output.directory / "logs.html")
-            ui.success(f"HTML report: {config.output.directory.name}/logs.html")
-            ui.log(f"HTML report: {config.output.directory / 'logs.html'}")
+                export_html(config.output.directory / "logs.html")
+            success(f"HTML report: {config.output.directory.name}/logs.html")
+            log(f"HTML report: {config.output.directory / 'logs.html'}")
 
         if save_state:
             with console.status("[cyan]Saving fitting state...[/cyan]", spinner="dots"):
@@ -288,19 +302,19 @@ class FitPipeline:
                     clusters=clusters, params=params, noise=clargs.noise, peaks=peaks
                 )
                 StateRepository.save(state_file, state)
-            ui.success(f"Fitting state: {config.output.directory.name}/.peakfit_state.pkl")
-            ui.log(f"State file: {state_file}")
+            success(f"Fitting state: {config.output.directory.name}/.peakfit_state.pkl")
+            log(f"State file: {state_file}")
 
-        ui.log(f"Log file: {log_file}")
+        log(f"Log file: {log_file}")
 
-        ui.log_section("Results Summary")
-        ui.log(f"Total clusters: {len(clusters)}")
-        ui.log(f"Total peaks: {len(peaks)}")
-        ui.log(f"Total time: {total_time:.0f}s ({total_time / 60:.1f}m)")
-        ui.log(f"Average time per cluster: {total_time / len(clusters):.1f}s")
+        log_section("Results Summary")
+        log(f"Total clusters: {len(clusters)}")
+        log(f"Total peaks: {len(peaks)}")
+        log(f"Total time: {total_time:.0f}s ({total_time / 60:.1f}m)")
+        log(f"Average time per cluster: {total_time / len(clusters):.1f}s")
 
         console.print()
-        summary_table = ui.create_table("Results Summary")
+        summary_table = create_table("Results Summary")
         summary_table.add_column("Metric", style="cyan")
         summary_table.add_column("Value", style="white", justify="right")
 
@@ -346,7 +360,7 @@ class FitPipeline:
             ),
         )
 
-        ui.show_header("Next Steps")
+        show_header("Next Steps")
         console.print("1. View intensity profiles:")
         console.print(f"   [cyan]peakfit plot intensity {output_dir_name}/[/cyan]")
         console.print("2. View fitted spectra:")
@@ -359,7 +373,7 @@ class FitPipeline:
         console.print(f"   [cyan]less {output_dir_name}/peakfit.log[/cyan]")
         console.print()
 
-        ui.show_footer(start_time_dt, end_time_dt)
+        show_footer(start_time_dt, end_time_dt)
         ui.close_logging()
 
 
@@ -376,7 +390,7 @@ def _print_configuration(output_dir: Path) -> None:
     """Print configuration information in a consolidated table."""
     ui.spacer()
 
-    config_table = ui.create_table("Configuration")
+    config_table = create_table("Configuration")
     config_table.add_column("Setting", style="cyan")
     config_table.add_column("Value", style="white", justify="right")
 
@@ -399,7 +413,7 @@ def _print_spectrum_info(
     """Print consolidated spectrum information table."""
     ui.spacer()
 
-    spectrum_table = ui.create_table(f"Spectrum: {spectrum_path.name}")
+    spectrum_table = create_table(f"Spectrum: {spectrum_path.name}")
     spectrum_table.add_column("Property", style="cyan")
     spectrum_table.add_column("Value", style="white", justify="right")
 
@@ -425,7 +439,7 @@ def _print_peaklist_info(peaklist_path: Path, z_values_path: Path | None, n_peak
     """Print consolidated peak list information table."""
     ui.spacer()
 
-    peaklist_table = ui.create_table(f"Peak List: {peaklist_path.name}")
+    peaklist_table = create_table(f"Peak List: {peaklist_path.name}")
     peaklist_table.add_column("Property", style="cyan")
     peaklist_table.add_column("Value", style="white", justify="right")
 

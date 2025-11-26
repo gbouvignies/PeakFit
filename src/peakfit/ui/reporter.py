@@ -8,7 +8,7 @@ to the existing UI infrastructure.
 from __future__ import annotations
 
 from peakfit.core.shared.reporter import Reporter
-from peakfit.ui.style import PeakFitUI
+from peakfit.ui.messages import action, error, info, success, warning
 
 
 class ConsoleReporter:
@@ -30,7 +30,7 @@ class ConsoleReporter:
         Args:
             message: Action being performed
         """
-        PeakFitUI.action(message)
+        action(message)
 
     def info(self, message: str) -> None:
         """Display an informational message.
@@ -38,7 +38,7 @@ class ConsoleReporter:
         Args:
             message: Informational message
         """
-        PeakFitUI.info(message)
+        info(message)
 
     def warning(self, message: str) -> None:
         """Display a warning message.
@@ -46,7 +46,7 @@ class ConsoleReporter:
         Args:
             message: Warning message
         """
-        PeakFitUI.warning(message)
+        warning(message)
 
     def error(self, message: str) -> None:
         """Display an error message.
@@ -54,7 +54,7 @@ class ConsoleReporter:
         Args:
             message: Error message
         """
-        PeakFitUI.error(message)
+        error(message)
 
     def success(self, message: str) -> None:
         """Display a success message.
@@ -62,7 +62,7 @@ class ConsoleReporter:
         Args:
             message: Success message
         """
-        PeakFitUI.success(message)
+        success(message)
 
 
 # Verify protocol compliance at import time

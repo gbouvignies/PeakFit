@@ -13,12 +13,10 @@ from peakfit.core.algorithms.noise import prepare_noise_level
 from peakfit.core.domain.peaks import Peak
 from peakfit.core.domain.peaks_io import read_list
 from peakfit.core.domain.spectrum import Spectra, get_shape_names, read_spectra
-from peakfit.ui import PeakFitUI
 
 if TYPE_CHECKING:
     from peakfit.services.fit.pipeline import FitArguments
 
-ui = PeakFitUI
 
 __all__ = [
     "LoadedData",

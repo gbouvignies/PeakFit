@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 from matplotlib.backends.backend_pdf import PdfPages
 
-from peakfit.ui.style import PeakFitUI
+from peakfit.ui import action, bullet, error, info, print_file_item, success, warning
 
 
 def expand_file_patterns(file_patterns: list[str]) -> list[pathlib.Path]:
@@ -60,7 +60,7 @@ def validate_and_filter_files(files: list[pathlib.Path]) -> list[pathlib.Path]:
     Returns a list of valid files and prints warnings for missing files.
     """
     if not files:
-        PeakFitUI.error("No files specified")
+        error("No files specified")
         sys.exit(1)
 
     # Filter out empty paths and non-existent files
@@ -78,19 +78,19 @@ def validate_and_filter_files(files: list[pathlib.Path]) -> list[pathlib.Path]:
 
     # Report missing files as warnings
     if missing_files:
-        PeakFitUI.warning("Some files were not found:")
+        warning("Some files were not found:")
         for missing_file in missing_files:
-            PeakFitUI.bullet(str(missing_file), indent=1, style="warning")
+            bullet(str(missing_file), indent=1, style="warning")
 
     # Check if we have any valid files
     if not valid_files:
-        PeakFitUI.error("No valid files found")
+        error("No valid files found")
         if missing_files:
-            PeakFitUI.error("All specified files are missing or inaccessible")
-        PeakFitUI.info("Please check your file patterns and ensure files exist")
+            error("All specified files are missing or inaccessible")
+        info("Please check your file patterns and ensure files exist")
         sys.exit(1)
 
-    PeakFitUI.success(f"Processing {len(valid_files)} valid file(s)")
+    success(f"Processing {len(valid_files)} valid file(s)")
     return valid_files
 
 
@@ -127,7 +127,7 @@ def get_sorted_files(files: list[pathlib.Path]) -> list[pathlib.Path]:
 
 def save_figures(figs: dict, output: str) -> None:
     """Saves all figures into a single PDF file."""
-    PeakFitUI.action(f"Plotting to {output}...")
+    action(f"Plotting to {output}...")
     with PdfPages(output) as pdf:
         for fig in figs.values():
             pdf.savefig(fig)
@@ -138,7 +138,7 @@ def plot_wrapper(plot_func: Callable) -> Callable:
 
     def wrapper(args: argparse.Namespace) -> None:
         figs = {}
-        PeakFitUI.action("Reading files...")
+        action("Reading files...")
 
         # Expand file patterns and convert to Path objects
         if args.files and isinstance(args.files[0], str):
@@ -150,7 +150,7 @@ def plot_wrapper(plot_func: Callable) -> Callable:
             files_ordered = get_sorted_files(args.files)
 
         for a_file in files_ordered:
-            PeakFitUI.print_file_item(a_file, indent=2)
+            print_file_item(a_file, indent=2)
             figs[a_file.name] = plot_func(a_file, args)
 
         save_figures(figs, args.out)

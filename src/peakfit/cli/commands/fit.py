@@ -173,7 +173,7 @@ def fit_command(
         peakfit fit spectrum.ft2 peaks.list --save-state
         peakfit analyze mcmc Fits/  # Compute MCMC uncertainties
     """
-    from peakfit.cli.fit_command import run_fit
+    from peakfit.services.fit.pipeline import FitPipeline
 
     # Load config from file or create from CLI options
     if config is not None:
@@ -196,7 +196,7 @@ def fit_command(
             exclude_planes=exclude or [],
         )
 
-    run_fit(
+    FitPipeline.run(
         spectrum_path=spectrum,
         peaklist_path=peaklist,
         z_values_path=z_values,
