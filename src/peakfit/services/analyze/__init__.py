@@ -6,6 +6,13 @@ from .correlation_service import (
     ParameterCorrelationResult,
     ParameterCorrelationService,
 )
+from .formatters import (
+    MCMCClusterSummary,
+    MCMCParameterSummary,
+    ProfileParameterSummary,
+    format_mcmc_cluster_result,
+    format_profile_results,
+)
 from .mcmc_service import (
     ClusterMCMCResult,
     MCMCAnalysisResult,
@@ -38,6 +45,8 @@ __all__ = [
     "LoadedFittingState",
     "MCMCAnalysisResult",
     "MCMCAnalysisService",
+    "MCMCClusterSummary",
+    "MCMCParameterSummary",
     "NoVaryingParametersError",
     "NoVaryingParametersFoundError",
     "NotEnoughVaryingParametersError",
@@ -52,6 +61,9 @@ __all__ = [
     "ProfileLikelihoodAnalysisResult",
     "ProfileLikelihoodService",
     "ProfileParameterResult",
+    "ProfileParameterSummary",
     "StateFileMissingError",
     "StateLoadError",
+    "format_mcmc_cluster_result",
+    "format_profile_results",
 ]

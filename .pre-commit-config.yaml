@@ -35,3 +35,12 @@ repos:
         args: [--no-error-summary]
         pass_filenames: false
         entry: mypy src/peakfit/
+
+  - repo: local
+    hooks:
+      - id: validate-imports
+        name: Validate import architecture
+        entry: python tools/validate_imports.py
+        language: system
+        types: [python]
+        pass_filenames: false

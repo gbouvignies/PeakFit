@@ -170,6 +170,247 @@ def plot_trace(
     return fig
 
 
+def plot_marginal_distributions(
+    samples: FloatArray,
+    parameter_names: list[str],
+    truths: FloatArray | None = None,
+    diagnostics: ConvergenceDiagnostics | None = None,
+    max_params_per_page: int = 12,
+) -> list[Figure]:
+    """Create clear 1D marginal distribution plots with full parameter names.
+
+    Shows histograms of posterior distributions for each parameter with:
+    - Full parameter names (no truncation)
+    - Median and 68% credible intervals
+    - R-hat and ESS values if diagnostics provided
+    - Best-fit values if provided
+
+    Args:
+        samples: Array of shape (n_total_samples, n_params)
+        parameter_names: List of parameter names (full names)
+        truths: Optional best-fit values
+        diagnostics: Optional convergence diagnostics
+        max_params_per_page: Maximum parameters per page
+
+    Returns:
+        List of matplotlib Figure objects (one per page)
+    """
+    n_total_samples, n_params = samples.shape
+    n_pages = int(np.ceil(n_params / max_params_per_page))
+    figures: list[Figure] = []
+
+    for page in range(n_pages):
+        start_idx = page * max_params_per_page
+        end_idx = min((page + 1) * max_params_per_page, n_params)
+        n_params_page = end_idx - start_idx
+
+        # Create figure with subplots
+        n_cols = min(3, n_params_page)
+        n_rows = int(np.ceil(n_params_page / n_cols))
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4 * n_rows))
+
+        if n_params_page == 1:
+            axes = np.array([axes])
+        axes = axes.flatten()
+
+        for i, param_idx in enumerate(range(start_idx, end_idx)):
+            ax = axes[i]
+            param_name = parameter_names[param_idx]
+            param_samples = samples[:, param_idx]
+
+            # Plot histogram
+            ax.hist(
+                param_samples,
+                bins=40,
+                density=True,
+                alpha=0.7,
+                color="steelblue",
+                edgecolor="black",
+                linewidth=0.5,
+            )
+
+            # Calculate statistics
+            median = np.median(param_samples)
+            percentiles = np.atleast_1d(np.percentile(param_samples, [16, 84]))
+            ci_16 = float(percentiles[0])
+            ci_84 = float(percentiles[1])
+
+            # Mark median and credible intervals
+            ax.axvline(median, color="red", linestyle="-", linewidth=2, label="Median", zorder=10)
+            ax.axvline(ci_16, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="68% CI")
+            ax.axvline(ci_84, color="red", linestyle="--", linewidth=1.5, alpha=0.7)
+            ax.axvspan(ci_16, ci_84, alpha=0.15, color="red")
+
+            # Mark best-fit if provided
+            if truths is not None:
+                ax.axvline(
+                    truths[param_idx],
+                    color="green",
+                    linestyle=":",
+                    linewidth=2,
+                    label="Best-fit",
+                    zorder=10,
+                )
+
+            # Add statistics text box
+            stats_text = f"Median: {median:.6f}\n68% CI: [{ci_16:.6f}, {ci_84:.6f}]"
+            if diagnostics is not None:
+                rhat = diagnostics.rhat[param_idx]
+                ess_bulk = diagnostics.ess_bulk[param_idx]
+                stats_text += f"\nR̂: {rhat:.4f}"
+                stats_text += f"\nESS: {ess_bulk:.0f}"
+
+            ax.text(
+                0.98,
+                0.97,
+                stats_text,
+                transform=ax.transAxes,
+                fontsize=8,
+                verticalalignment="top",
+                horizontalalignment="right",
+                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
+            )
+
+            # Labels and title
+            ax.set_xlabel("Parameter Value", fontsize=10)
+            ax.set_ylabel("Density", fontsize=10)
+            ax.set_title(param_name, fontsize=11, fontweight="bold")
+            ax.legend(fontsize=8, loc="upper left")
+            ax.grid(alpha=0.3, linestyle=":")
+
+        # Hide unused subplots
+        for i in range(n_params_page, len(axes)):
+            axes[i].set_visible(False)
+
+        # Add page title
+        page_title = f"Marginal Posterior Distributions ({n_total_samples:,} samples)"
+        if n_pages > 1:
+            page_title += f" — Page {page + 1}/{n_pages}"
+        fig.suptitle(page_title, fontsize=16, fontweight="bold")
+
+        plt.tight_layout(rect=(0, 0, 1, 0.97))
+        figures.append(fig)
+
+    return figures
+
+
+def plot_correlation_pairs(
+    samples: FloatArray,
+    parameter_names: list[str],
+    truths: FloatArray | None = None,
+    min_correlation: float = 0.5,
+    max_pairs_per_page: int = 6,
+) -> list[Figure]:
+    """Create 2D scatter plots for strongly correlated parameter pairs.
+
+    Only plots pairs with |correlation| > min_correlation to focus on
+    important relationships.
+
+    Args:
+        samples: Array of shape (n_total_samples, n_params)
+        parameter_names: List of parameter names
+        truths: Optional best-fit values
+        min_correlation: Minimum |correlation| to plot
+        max_pairs_per_page: Maximum pairs per page
+
+    Returns:
+        List of matplotlib Figure objects (one per page), empty if no strong correlations
+    """
+    n_total_samples, n_params = samples.shape
+
+    # Find strongly correlated pairs
+    corr_matrix = np.corrcoef(samples.T)
+    strong_pairs: list[tuple[int, int, float]] = []
+
+    for i in range(n_params):
+        for j in range(i + 1, n_params):
+            corr = corr_matrix[i, j]
+            if abs(corr) >= min_correlation:
+                strong_pairs.append((i, j, corr))
+
+    # Sort by absolute correlation (strongest first)
+    strong_pairs.sort(key=lambda x: abs(x[2]), reverse=True)
+
+    if not strong_pairs:
+        # No strong correlations - return empty list
+        return []
+
+    # Create pages
+    n_pages = int(np.ceil(len(strong_pairs) / max_pairs_per_page))
+    figures: list[Figure] = []
+
+    for page in range(n_pages):
+        start_idx = page * max_pairs_per_page
+        end_idx = min((page + 1) * max_pairs_per_page, len(strong_pairs))
+        pairs_page = strong_pairs[start_idx:end_idx]
+
+        # Create figure
+        n_cols = 2
+        n_rows = int(np.ceil(len(pairs_page) / n_cols))
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 5 * n_rows))
+
+        if len(pairs_page) == 1:
+            axes = np.array([axes])
+        axes = axes.flatten()
+
+        for idx, (i, j, corr) in enumerate(pairs_page):
+            ax = axes[idx]
+
+            # Use hexbin for large samples, scatter for small
+            if n_total_samples < 2000:
+                ax.scatter(
+                    samples[:, j],
+                    samples[:, i],
+                    s=2,
+                    alpha=0.4,
+                    color="steelblue",
+                    rasterized=True,
+                )
+            else:
+                ax.hexbin(
+                    samples[:, j],
+                    samples[:, i],
+                    gridsize=40,
+                    cmap="Blues",
+                    mincnt=1,
+                    rasterized=True,
+                )
+
+            # Mark best-fit if provided
+            if truths is not None:
+                ax.plot(
+                    truths[j],
+                    truths[i],
+                    "g+",
+                    markersize=15,
+                    markeredgewidth=3,
+                    label="Best-fit",
+                )
+                ax.legend(fontsize=9)
+
+            # Labels with full parameter names
+            ax.set_xlabel(parameter_names[j], fontsize=10)
+            ax.set_ylabel(parameter_names[i], fontsize=10)
+            ax.set_title(f"Correlation: r = {corr:.3f}", fontsize=11, fontweight="bold")
+            ax.grid(alpha=0.3, linestyle=":")
+
+        # Hide unused subplots
+        for idx in range(len(pairs_page), len(axes)):
+            axes[idx].set_visible(False)
+
+        # Add page title
+        page_title = f"Parameter Correlations (|r| ≥ {min_correlation})"
+        if n_pages > 1:
+            page_title += f" — Page {page + 1}/{n_pages}"
+        page_title += f"\n{len(strong_pairs)} strongly correlated pair(s) found"
+        fig.suptitle(page_title, fontsize=16, fontweight="bold")
+
+        plt.tight_layout(rect=(0, 0, 1, 0.96))
+        figures.append(fig)
+
+    return figures
+
+
 def plot_autocorrelation(
     chains: FloatArray,
     parameter_names: list[str],

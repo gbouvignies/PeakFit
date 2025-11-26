@@ -12,7 +12,6 @@ from typing import Any, Protocol
 
 # typing imports intentionally removed (use built-in 'object' and simple native types)
 from rich import box
-from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.progress import (
@@ -25,55 +24,17 @@ from rich.progress import (
 )
 from rich.table import Table
 from rich.text import Text
-from rich.theme import Theme
 
-from peakfit import __version__
-
-# Define custom theme for consistent colors
-PEAKFIT_THEME = Theme(
-    {
-        # Status colors
-        "success": "bold green",
-        "warning": "bold yellow",
-        "error": "bold red",
-        "info": "cyan",
-        # UI elements
-        "header": "bold cyan",
-        "subheader": "bold white",
-        "emphasis": "bold",
-        "dim": "dim",
-        "code": "bold magenta",
-        # Values
-        "value": "green",
-        "metric": "cyan",
-        "path": "blue underline",
-    }
-)
+# Import from submodules
+from peakfit.ui.console import LOGO_ASCII, LOGO_EMOJI, REPO_URL, VERSION, console
 
 
 class HasName(Protocol):
     name: str
 
 
-# Single console instance for entire application
-console = Console(theme=PEAKFIT_THEME, record=True)
-
 # Module-level logger (configured by setup_logging)
 _logger: logging.Logger | None = None
-
-# Version and branding
-VERSION = __version__
-REPO_URL = "https://github.com/gbouvignies/PeakFit"
-LOGO_EMOJI = "🎯"
-
-# ASCII Logo
-LOGO_ASCII = r"""
-   ___           _     _____ _ _
-  / _ \___  __ _| | __|  ___(_) |_
- / /_)/ _ \/ _` | |/ /| |_  | | __|
-/ ___/  __/ (_| |   < |  _| | | |_
-\/    \___|\__,_|_|\_\|_|   |_|\__|
-"""
 
 
 class PeakFitUI:
