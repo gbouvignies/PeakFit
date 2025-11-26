@@ -22,7 +22,19 @@ import typer
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 
-from peakfit.ui import PeakFitUI as ui, console
+from peakfit.ui import (
+    console,
+    create_progress,
+    create_table,
+    error,
+    info,
+    print_next_steps,
+    show_banner,
+    show_header,
+    spacer,
+    success,
+    warning,
+)
 
 if TYPE_CHECKING:
     pass
@@ -50,10 +62,10 @@ def _get_result_files(results: Path, extension: str = "*.out") -> list[Path]:
         files = []
 
     if not files:
-        ui.warning(f"No {extension} files found in {results}")
+        warning(f"No {extension} files found in {results}")
         return []
 
-    ui.success(f"Found {len(files)} result files")
+    success(f"Found {len(files)} result files")
     return files
 
 
@@ -119,27 +131,27 @@ def plot_intensity(
     from peakfit.plotting.profiles import make_intensity_figure
 
     # Show banner based on verbosity
-    ui.show_banner(verbose)
-    ui.show_header("Generating Intensity Profile Plots")
+    show_banner(verbose)
+    show_header("Generating Intensity Profile Plots")
 
     files = _get_result_files(results, "*.out")
     if not files:
-        ui.warning(f"No .out files found in {results}")
+        warning(f"No .out files found in {results}")
         return
 
     output_path = output or Path("intensity_profiles.pdf")
-    ui.spacer()
-    ui.success(f"Saving plots to: [path]{output_path}[/path]")
+    spacer()
+    success(f"Saving plots to: [path]{output_path}[/path]")
 
     # Limit interactive display
     if show and len(files) > MAX_DISPLAY_PLOTS:
-        ui.info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
+        info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
         console.print(f"       [dim]All plots are saved to {output_path}[/dim]")
 
     plot_data_for_display: list[tuple[str, np.ndarray]] | None = [] if show else None
     start_time = time.time()
 
-    with ui.create_progress() as progress:
+    with create_progress() as progress:
         task = progress.add_task("[cyan]Generating plots...", total=len(files))
 
         with PdfPages(output_path) as pdf:
@@ -154,15 +166,15 @@ def plot_intensity(
 
                     progress.update(task, advance=1)
                 except Exception as e:
-                    ui.warning(f"Failed to plot {file.name}: {e}")
+                    warning(f"Failed to plot {file.name}: {e}")
                     progress.update(task, advance=1)
 
     plot_time = time.time() - start_time
 
     # Summary
     file_size = output_path.stat().st_size / 1024 / 1024
-    ui.spacer()
-    summary_table = ui.create_table("Plot Summary")
+    spacer()
+    summary_table = create_table("Plot Summary")
     summary_table.add_column("Item", style="cyan")
     summary_table.add_column("Value", style="green", justify="right")
     summary_table.add_row("PDF file", str(output_path.name))
@@ -171,9 +183,9 @@ def plot_intensity(
     summary_table.add_row("Generation time", f"{plot_time:.1f}s")
     console.print(summary_table)
 
-    ui.spacer()
-    ui.success("Plots saved successfully!")
-    ui.print_next_steps(
+    spacer()
+    success("Plots saved successfully!")
+    print_next_steps(
         [
             f"Open PDF: [cyan]open {output_path}[/cyan]",
             f"Plot CEST profiles: [cyan]peakfit plot cest {results}/[/cyan]",
@@ -261,8 +273,8 @@ def plot_cest(
     ref_points = ref or [-1]
 
     # Show banner based on verbosity
-    ui.show_banner(verbose)
-    ui.show_header("Generating CEST Profile Plots")
+    show_banner(verbose)
+    show_header("Generating CEST Profile Plots")
 
     files = _get_result_files(results, "*.out")
     if not files:
@@ -270,11 +282,11 @@ def plot_cest(
 
     threshold = 1e4  # Threshold for automatic reference selection
     output_path = output or Path("cest_profiles.pdf")
-    ui.success(f"Saving plots to: [path]{output_path}[/path]")
+    success(f"Saving plots to: [path]{output_path}[/path]")
 
     # Limit interactive display
     if show and len(files) > MAX_DISPLAY_PLOTS:
-        ui.info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
+        info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
         console.print(f"       [dim]All plots are saved to {output_path}[/dim]")
 
     plot_data_for_display: list[tuple[str, np.ndarray, np.ndarray, np.ndarray]] | None = (
@@ -297,7 +309,7 @@ def plot_cest(
                             ref_mask[idx] = True
 
                 if not np.any(ref_mask):
-                    ui.warning(f"No reference points found for {file.name}")
+                    warning(f"No reference points found for {file.name}")
                     continue
 
                 # Normalize by reference intensity
@@ -316,7 +328,7 @@ def plot_cest(
 
                 plots_saved += 1
             except Exception as e:
-                ui.warning(f"Failed to plot {file.name}: {e}")
+                warning(f"Failed to plot {file.name}: {e}")
 
     if show and plot_data_for_display:
         for name, offset_norm, intensity_norm, error_norm in plot_data_for_display:
@@ -401,19 +413,19 @@ def plot_cpmg(
     )
 
     # Show banner based on verbosity
-    ui.show_banner(verbose)
-    ui.show_header("Generating CPMG Relaxation Dispersion Plots")
+    show_banner(verbose)
+    show_header("Generating CPMG Relaxation Dispersion Plots")
 
     files = _get_result_files(results, "*.out")
     if not files:
         return
 
     output_path = output or Path("cpmg_profiles.pdf")
-    ui.success(f"Saving plots to: [path]{output_path}[/path]")
+    success(f"Saving plots to: [path]{output_path}[/path]")
 
     # Limit interactive display
     if show and len(files) > MAX_DISPLAY_PLOTS:
-        ui.info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
+        info(f"Displaying only first {MAX_DISPLAY_PLOTS} of {len(files)} plots")
         console.print(f"       [dim]All plots are saved to {output_path}[/dim]")
 
     plot_data_for_display: (
@@ -434,7 +446,7 @@ def plot_cpmg(
                 data_cpmg = data[data["ncyc"] != 0]
 
                 if len(data_ref) == 0:
-                    ui.warning(f"No reference point (ncyc=0) in {file.name}")
+                    warning(f"No reference point (ncyc=0) in {file.name}")
                     continue
 
                 # Calculate reference intensity
@@ -468,7 +480,7 @@ def plot_cpmg(
 
                 plots_saved += 1
             except Exception as e:
-                ui.warning(f"Failed to plot {file.name}: {e}")
+                warning(f"Failed to plot {file.name}: {e}")
 
     if show and plot_data_for_display:
         for name, nu_cpmg, r2_exp, r2_err_down, r2_err_up in plot_data_for_display:
@@ -530,8 +542,8 @@ def plot_spectra(
     import sys
 
     # Show banner based on verbosity
-    ui.show_banner(verbose)
-    ui.info("Launching interactive spectra viewer...")
+    show_banner(verbose)
+    info("Launching interactive spectra viewer...")
 
     try:
         from peakfit.plotting.plots.spectra import main as spectra_main
@@ -546,13 +558,13 @@ def plot_spectra(
                 sim_path = results / f"simulated.ft{dim}"
                 if sim_path.exists():
                     sys.argv.extend(["--sim", str(sim_path)])
-                    ui.success(f"Loading simulated spectrum: {sim_path.name}")
+                    success(f"Loading simulated spectrum: {sim_path.name}")
                     sim_found = True
                     break
 
         if not sim_found:
-            ui.warning("No simulated spectrum found in results directory")
-            ui.info("Viewer requires both experimental and simulated spectra")
+            warning("No simulated spectrum found in results directory")
+            info("Viewer requires both experimental and simulated spectra")
             raise SystemExit(1)
 
         # Add peak list if available
@@ -560,17 +572,17 @@ def plot_spectra(
             peak_list_path = results / "shifts.list"
             if peak_list_path.exists():
                 sys.argv.extend(["--peak-list", str(peak_list_path)])
-                ui.success(f"Loading peak list: {peak_list_path.name}")
+                success(f"Loading peak list: {peak_list_path.name}")
 
         # Launch the viewer
         spectra_main()
 
     except ImportError as e:
-        ui.error(f"PyQt5 not available: {e}")
-        ui.info("Install with: [code]pip install 'peakfit[gui]'[/code]")
+        error(f"PyQt5 not available: {e}")
+        info("Install with: [code]pip install 'peakfit[gui]'[/code]")
         raise SystemExit(1) from e
     except Exception as e:
-        ui.error(f"Failed to launch spectra viewer: {e}")
+        error(f"Failed to launch spectra viewer: {e}")
         raise SystemExit(1) from e
 
 
@@ -640,17 +652,17 @@ def plot_diagnostics(
     )
 
     # Show banner based on verbosity
-    ui.show_banner(verbose)
-    ui.show_header("Generating MCMC Diagnostic Plots")
+    show_banner(verbose)
+    show_header("Generating MCMC Diagnostic Plots")
 
     # Load MCMC chain data
     mcmc_file = results / ".mcmc_chains.pkl"
     if not mcmc_file.exists():
-        ui.error(f"No MCMC chain data found in {results}")
-        ui.info("Run 'peakfit analyze mcmc' first to generate MCMC samples")
+        error(f"No MCMC chain data found in {results}")
+        info("Run 'peakfit analyze mcmc' first to generate MCMC samples")
         raise SystemExit(1)
 
-    ui.success(f"Loading MCMC data from: [path]{mcmc_file}[/path]")
+    success(f"Loading MCMC data from: [path]{mcmc_file}[/path]")
 
     with mcmc_file.open("rb") as f:
         mcmc_data = pickle.load(f)
@@ -660,10 +672,10 @@ def plot_diagnostics(
         peak_set = set(peaks)
         mcmc_data = [d for d in mcmc_data if any(p in peak_set for p in d["peak_names"])]
         if not mcmc_data:
-            ui.error(f"No MCMC data found for peaks: {peaks}")
+            error(f"No MCMC data found for peaks: {peaks}")
             raise SystemExit(1)
 
-    ui.success(f"Found MCMC data for {len(mcmc_data)} cluster(s)")
+    success(f"Found MCMC data for {len(mcmc_data)} cluster(s)")
 
     # Generate separate PDF for each cluster
     output_files = []
@@ -687,8 +699,8 @@ def plot_diagnostics(
             else:
                 cluster_output = Path(f"mcmc_diagnostics_{peak_label}.pdf")
 
-        ui.info(f"[cyan]Cluster {i + 1}/{len(mcmc_data)}:[/cyan] {', '.join(peak_names)}")
-        ui.info(f"  Saving to: [path]{cluster_output}[/path]")
+        info(f"[cyan]Cluster {i + 1}/{len(mcmc_data)}:[/cyan] {', '.join(peak_names)}")
+        info(f"  Saving to: [path]{cluster_output}[/path]")
 
         # Generate plots for this cluster
         with PdfPages(cluster_output) as pdf:
@@ -716,7 +728,7 @@ def plot_diagnostics(
                     pdf.savefig(fig, bbox_inches="tight")
                     plt.close(fig)
             else:
-                ui.info(f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}")
+                info(f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}")
 
             # Last page: Autocorrelation plots
             fig_autocorr = plot_autocorrelation(chains, parameter_names)
@@ -724,7 +736,7 @@ def plot_diagnostics(
             plt.close(fig_autocorr)
 
         output_files.append(cluster_output)
-        ui.success(f"  Saved: [path]{cluster_output}[/path]")
+        success(f"  Saved: [path]{cluster_output}[/path]")
         console.print()
 
     # Summary
@@ -741,7 +753,7 @@ def plot_diagnostics(
     else:
         open_cmd = f"open {' '.join(str(f) for f in output_files)}"
 
-    ui.print_next_steps(
+    print_next_steps(
         [
             f"Open plots: [cyan]{open_cmd}[/cyan]",
             "Review trace plots: Check R-hat ≤ 1.01 and chain convergence",

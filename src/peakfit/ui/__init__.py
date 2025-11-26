@@ -11,6 +11,9 @@ Submodules:
 - panels: Panel display utilities
 - progress: Progress bar utilities
 - fit_display: Fit-specific display components
+
+Note: The PeakFitUI class has been deprecated. Use the direct function
+imports instead (success, error, info, warning, etc.).
 """
 
 from peakfit.ui.branding import show_banner, show_run_info, show_version
@@ -49,7 +52,6 @@ from peakfit.ui.messages import (
 from peakfit.ui.panels import create_panel, print_panel
 from peakfit.ui.progress import create_progress
 from peakfit.ui.reporter import ConsoleReporter, default_reporter
-from peakfit.ui.style import PeakFitUI
 from peakfit.ui.tables import (
     create_table,
     print_performance_summary,
@@ -60,7 +62,6 @@ from peakfit.ui.tables import (
 __all__ = [
     # Main classes
     "ConsoleReporter",
-    "PeakFitUI",
     "console",
     "default_reporter",
     # Console

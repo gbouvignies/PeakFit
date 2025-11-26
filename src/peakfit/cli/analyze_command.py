@@ -30,7 +30,17 @@ from peakfit.services.analyze import (
     StateLoadError,
 )
 from peakfit.services.analyze.formatters import format_mcmc_cluster_result
-from peakfit.ui import PeakFitUI as ui, console
+from peakfit.ui import (
+    console,
+    error,
+    info,
+    print_next_steps,
+    show_banner,
+    show_header,
+    spacer,
+    success,
+    warning,
+)
 
 
 def load_fitting_state(results_dir: Path) -> FittingState:
@@ -45,17 +55,17 @@ def load_fitting_state(results_dir: Path) -> FittingState:
     try:
         loaded_state = FittingStateService.load(results_dir)
     except StateFileMissingError as exc:
-        ui.error(f"No fitting state found in {results_dir}")
-        ui.info("Run 'peakfit fit' with --save-state (enabled by default)")
+        error(f"No fitting state found in {results_dir}")
+        info("Run 'peakfit fit' with --save-state (enabled by default)")
         raise SystemExit(1) from exc
     except StateLoadError as exc:  # pragma: no cover - safety guard
-        ui.error(str(exc))
+        error(str(exc))
         raise SystemExit(1) from exc
 
     state = loaded_state.state
     state_file = loaded_state.path
 
-    ui.success(f"Loaded fitting state: [path]{state_file}[/path]")
+    success(f"Loaded fitting state: [path]{state_file}[/path]")
     console.print(f"  Clusters: {len(state.clusters)}")
     console.print(f"  Peaks: {len(state.peaks)}")
     console.print(f"  Parameters: {len(state.params)}")
@@ -86,7 +96,7 @@ def run_mcmc(
         verbose: Show banner and verbose output
     """
     # Show banner based on verbosity
-    ui.show_banner(verbose)
+    show_banner(verbose)
 
     state = load_fitting_state(results_dir)
 
@@ -94,7 +104,7 @@ def run_mcmc(
     if not auto_burnin and burn_in is None:
         # Neither auto nor manual specified, use default
         burn_in = 200
-        ui.warning("Both auto-burnin and manual burn-in disabled. Using default: 200 steps")
+        warning("Both auto-burnin and manual burn-in disabled. Using default: 200 steps")
 
     try:
         analysis = MCMCAnalysisService.run(
@@ -106,7 +116,7 @@ def run_mcmc(
             auto_burnin=auto_burnin,
         )
     except PeaksNotFoundError as exc:
-        ui.error(str(exc))
+        error(str(exc))
         raise SystemExit(1) from exc
 
     clusters: list[Cluster] = analysis.clusters
@@ -115,9 +125,9 @@ def run_mcmc(
     cluster_results = analysis.cluster_results
 
     if peaks is not None:
-        ui.info(f"Analyzing {len(clusters)} cluster(s) for peaks: {peaks}")
+        info(f"Analyzing {len(clusters)} cluster(s) for peaks: {peaks}")
 
-    ui.show_header("Running MCMC Uncertainty Estimation")
+    show_header("Running MCMC Uncertainty Estimation")
     console.print(f"  Walkers: {n_walkers}")
     console.print(f"  Steps: {n_steps}")
     if auto_burnin:
@@ -149,7 +159,7 @@ def run_mcmc(
             warnings = result.mcmc_diagnostics.get_warnings()
             if warnings:
                 console.print()
-                ui.warning("Convergence issues detected:")
+                warning("Convergence issues detected:")
                 for warning_msg in warnings[:5]:  # Limit to first 5 warnings
                     console.print(f"  [dim]• {warning_msg}[/dim]")
                 if len(warnings) > 5:
@@ -166,20 +176,20 @@ def run_mcmc(
 
     # Save MCMC chain data for diagnostic plotting
     _save_mcmc_chains(results_dir, all_results, clusters)
-    ui.success("Saved MCMC chain data for diagnostic plotting")
+    success("Saved MCMC chain data for diagnostic plotting")
 
     # Save updated parameters to output files
     if output_file is not None:
         _save_mcmc_results(output_file, all_results, clusters)
-        ui.success(f"Saved MCMC results to: [path]{output_file}[/path]")
+        success(f"Saved MCMC results to: [path]{output_file}[/path]")
 
     # Update .out files with new uncertainties
     _update_output_files(results_dir, params, all_peaks)
-    ui.success("Updated output files with MCMC uncertainties")
+    success("Updated output files with MCMC uncertainties")
 
     # Provide next steps
-    ui.spacer()
-    ui.print_next_steps(
+    spacer()
+    print_next_steps(
         [
             f"Generate diagnostic plots: [cyan]peakfit plot diagnostics {results_dir}/[/cyan]",
             "Review convergence: Check R-hat ≤ 1.01 and ESS values above",
@@ -209,7 +219,7 @@ def run_profile_likelihood(
         verbose: Show banner and verbose output
     """
     # Show banner based on verbosity
-    ui.show_banner(verbose)
+    show_banner(verbose)
 
     state = load_fitting_state(results_dir)
     try:
@@ -220,11 +230,11 @@ def run_profile_likelihood(
             confidence_level=confidence_level,
         )
     except NoVaryingParametersError as exc:
-        ui.error("No varying parameters found")
+        error("No varying parameters found")
         raise SystemExit(1) from exc
     except ParameterMatchError as exc:
-        ui.error(str(exc))
-        ui.info("Available parameters:")
+        error(str(exc))
+        info("Available parameters:")
         for name in exc.available[:20]:
             console.print(f"  {name}")
         if len(exc.available) > 20:
@@ -234,19 +244,19 @@ def run_profile_likelihood(
     target_params = analysis.target_parameters
 
     if param_name is None:
-        ui.show_header("Computing Profile Likelihood for All Parameters")
+        show_header("Computing Profile Likelihood for All Parameters")
         console.print(f"  Parameters to profile: {len(target_params)}")
         console.print(f"  Confidence level: {confidence_level * 100:.0f}%")
         console.print(f"  Points per parameter: {n_points}")
         console.print("  [yellow]This may take a while...[/yellow]")
     else:
         if len(target_params) > 1:
-            ui.info(f"Found {len(target_params)} matching parameters:")
+            info(f"Found {len(target_params)} matching parameters:")
             for name in target_params:
                 console.print(f"  {name}")
             console.print("")
 
-        ui.show_header(f"Computing Profile Likelihood for {len(target_params)} Parameter(s)")
+        show_header(f"Computing Profile Likelihood for {len(target_params)} Parameter(s)")
 
     console.print(f"  Δχ² threshold: {analysis.delta_chi2:.4f}")
     console.print("")
@@ -260,7 +270,7 @@ def run_profile_likelihood(
             console.print(f"[cyan]Parameter {idx}/{len(target_params)}: {target_param}[/cyan]")
 
         if target_param in missing_set:
-            ui.warning(f"Parameter '{target_param}' not found in any cluster")
+            warning(f"Parameter '{target_param}' not found in any cluster")
             continue
 
         result = results_by_name[target_param]
@@ -317,7 +327,7 @@ def run_profile_likelihood(
 
     if output_file is not None:
         _save_all_profile_results(output_file, ordered_results, confidence_level)
-        ui.success(f"Saved profile data to: [path]{output_file}[/path]")
+        success(f"Saved profile data to: [path]{output_file}[/path]")
 
 
 def run_correlation(
@@ -331,18 +341,18 @@ def run_correlation(
         verbose: Show banner and verbose output
     """
     # Show banner based on verbosity
-    ui.show_banner(verbose)
+    show_banner(verbose)
 
     state = load_fitting_state(results_dir)
     try:
         correlation = ParameterCorrelationService.analyze(state)
     except NotEnoughVaryingParametersError as exc:
-        ui.warning("Not enough varying parameters for correlation analysis")
+        warning("Not enough varying parameters for correlation analysis")
         if exc.vary_names:
             console.print(f"  Found {len(exc.vary_names)} varying parameter(s): {exc.vary_names}")
         return
 
-    ui.show_header("Parameter Correlation Analysis")
+    show_header("Parameter Correlation Analysis")
     console.print(f"  Parameters: {len(correlation.parameters)}")
 
     # For now, just show parameter summary
@@ -367,7 +377,7 @@ def run_correlation(
     # Report boundary warnings
     if correlation.boundary_parameters:
         console.print()
-        ui.warning("Parameters at boundaries:")
+        warning("Parameters at boundaries:")
         for entry in correlation.boundary_parameters:
             console.print(
                 f"  {entry.name}: {entry.value:.6f} (bounds: "
@@ -384,7 +394,7 @@ def run_correlation(
                     f"{entry.name}  {entry.value:.6f}  {entry.stderr:.6f}  "
                     f"{entry.min_bound:.6f}  {entry.max_bound:.6f}\n"
                 )
-        ui.success(f"Saved parameter summary to: [path]{output_file}[/path]")
+        success(f"Saved parameter summary to: [path]{output_file}[/path]")
 
 
 def run_uncertainty(
@@ -400,16 +410,16 @@ def run_uncertainty(
         verbose: Show banner and verbose output
     """
     # Show banner based on verbosity
-    ui.show_banner(verbose)
+    show_banner(verbose)
 
     state = load_fitting_state(results_dir)
     try:
         analysis = ParameterUncertaintyService.analyze(state)
     except NoVaryingParametersFoundError:
-        ui.warning("No varying parameters found")
+        warning("No varying parameters found")
         return
 
-    ui.show_header("Parameter Uncertainties")
+    show_header("Parameter Uncertainties")
     console.print("  Source: Covariance matrix from least-squares fit")
     console.print(f"  Parameters: {len(analysis.parameters)}")
     console.print("")
@@ -449,7 +459,7 @@ def run_uncertainty(
     # Report boundary warnings
     if analysis.boundary_parameters:
         console.print()
-        ui.warning("Parameters at boundaries:")
+        warning("Parameters at boundaries:")
         for entry in analysis.boundary_parameters:
             console.print(
                 f"  {entry.name}: {entry.value:.6f} (bounds: "
@@ -460,7 +470,7 @@ def run_uncertainty(
     # Check for large uncertainties
     if analysis.large_uncertainty_parameters:
         console.print()
-        ui.warning("Parameters with large relative uncertainties (>10%):")
+        warning("Parameters with large relative uncertainties (>10%):")
         for entry in analysis.large_uncertainty_parameters:
             rel_err = entry.rel_error_pct if entry.rel_error_pct is not None else 0.0
             console.print(f"  {entry.name}: {rel_err:.1f}%")
@@ -484,7 +494,7 @@ def run_uncertainty(
                     f"{entry.name}  {entry.value:.6f}  {entry.stderr:.6f}  {rel_error:.2f}  "
                     f"{entry.min_bound:.6f}  {entry.max_bound:.6f}\n"
                 )
-        ui.success(f"Saved uncertainty summary to: [path]{output_file}[/path]")
+        success(f"Saved uncertainty summary to: [path]{output_file}[/path]")
 
 
 def _update_output_files(results_dir: Path, params: Parameters, peaks: list[Peak]) -> None:
@@ -631,7 +641,7 @@ def _plot_profile_likelihood(
         plt.show()
 
     except ImportError:
-        ui.warning("matplotlib not available for plotting")
+        warning("matplotlib not available for plotting")
 
 
 def _save_mcmc_chains(
@@ -705,6 +715,6 @@ def _display_burnin_report(
     # Show validation warning if present
     if burn_in_info.get("validation_warning"):
         console.print()
-        ui.warning(burn_in_info["validation_warning"])
+        warning(burn_in_info["validation_warning"])
 
     console.print()

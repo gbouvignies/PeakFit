@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer
 
-from peakfit.ui import PeakFitUI as ui
+from peakfit.ui import error, info
 
 
 def analyze_command(
@@ -137,14 +137,14 @@ def analyze_command(
 
     valid_methods = ["mcmc", "profile", "correlation", "uncertainty"]
     if method not in valid_methods:
-        ui.error(f"Invalid method: {method}")
-        ui.info(f"Valid methods: {', '.join(valid_methods)}")
+        error(f"Invalid method: {method}")
+        info(f"Valid methods: {', '.join(valid_methods)}")
         raise typer.Exit(1)
 
     if method == "mcmc":
         # Handle manual override: if --burn-in is specified, disable auto-burnin
         if burn_in is not None and auto_burnin:
-            ui.info("Manual burn-in specified; disabling auto-burnin")
+            info("Manual burn-in specified; disabling auto-burnin")
             auto_burnin = False
 
         run_mcmc(

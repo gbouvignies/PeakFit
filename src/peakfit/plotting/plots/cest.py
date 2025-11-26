@@ -1,24 +1,13 @@
 import argparse
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure
 
 from peakfit.plotting.common import plot_wrapper
+from peakfit.plotting.profiles import make_cest_figure
 
 THRESHOLD = 1e4
-
-
-def make_fig(name: str, offset: np.ndarray, intensity: np.ndarray, error: np.ndarray) -> Figure:
-    """Creates a figure for the CEST plot."""
-    fig, ax = plt.subplots()
-    ax.errorbar(offset, intensity, yerr=error, fmt=".")
-    ax.set_title(name)
-    ax.set_xlabel(r"$B_1$ offset (Hz)")
-    ax.set_ylabel(r"$I/I_0$")
-    plt.close()
-    return fig
 
 
 @plot_wrapper
@@ -36,4 +25,4 @@ def plot_cest(file: Path, args: argparse.Namespace) -> Figure:
     intensity = intensity[~ref] / intensity_ref
     error = error[~ref] / abs(intensity_ref)
 
-    return make_fig(file.name, offset, intensity, error)
+    return make_cest_figure(file.name, offset, intensity, error)

@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
+
 from peakfit.core.shared.reporter import NullReporter, Reporter
 
 
@@ -50,6 +54,14 @@ class PlotService:
         """
         self._reporter = reporter or NullReporter()
 
+    def _get_result_files(self, results_dir: Path, extension: str = "*.out") -> list[Path]:
+        """Get result files from path."""
+        if results_dir.is_dir():
+            return sorted(results_dir.glob(extension))
+        elif results_dir.is_file():
+            return [results_dir]
+        return []
+
     def generate_intensity_plots(
         self,
         results_dir: Path,
@@ -66,16 +78,31 @@ class PlotService:
         Returns:
             PlotOutput with path and count
         """
-        from peakfit.cli.plot_command import plot_intensity_profiles
+        from peakfit.plotting.profiles import make_intensity_figure
 
         if output_path is None:
             output_path = results_dir / "intensity_profiles.pdf"
 
-        # Call underlying implementation
-        plot_intensity_profiles(results_dir, output_path, show, verbose=False)
+        files = self._get_result_files(results_dir)
+        n_plots = 0
 
-        # Count output files for summary
-        n_plots = len(list(results_dir.glob("*.out"))) if results_dir.is_dir() else 1
+        with PdfPages(output_path) as pdf:
+            for file in files:
+                try:
+                    data = np.genfromtxt(file, dtype=None, names=("xlabel", "intensity", "error"))
+                    fig = make_intensity_figure(file.stem, data)
+                    pdf.savefig(fig)
+                    plt.close(fig)
+                    n_plots += 1
+
+                    if show:
+                        fig = make_intensity_figure(file.stem, data)
+                        fig.show()
+                except Exception:
+                    pass
+
+        if show and n_plots > 0:
+            plt.show()
 
         return PlotOutput(
             path=output_path,
@@ -101,15 +128,52 @@ class PlotService:
         Returns:
             PlotOutput with path and count
         """
-        from peakfit.cli.plot_command import plot_cest_profiles
+        from peakfit.plotting.profiles import make_cest_figure
 
         if output_path is None:
             output_path = results_dir / "cest_profiles.pdf"
 
-        ref = reference_indices or [-1]
-        plot_cest_profiles(results_dir, output_path, show, ref, verbose=False)
+        ref_points = reference_indices or [-1]
+        threshold = 1e4  # Threshold for automatic reference selection
+        files = self._get_result_files(results_dir)
+        n_plots = 0
 
-        n_plots = len(list(results_dir.glob("*.out"))) if results_dir.is_dir() else 1
+        with PdfPages(output_path) as pdf:
+            for file in files:
+                try:
+                    offset, intensity, error = np.loadtxt(file, unpack=True)
+
+                    # Determine reference points
+                    if ref_points == [-1]:
+                        ref_mask = np.abs(offset) >= threshold
+                    else:
+                        ref_mask = np.zeros_like(offset, dtype=bool)
+                        for idx in ref_points:
+                            if 0 <= idx < len(offset):
+                                ref_mask[idx] = True
+
+                    if not np.any(ref_mask):
+                        continue
+
+                    # Normalize by reference intensity
+                    intensity_ref = np.mean(intensity[ref_mask])
+                    offset_norm = offset[~ref_mask]
+                    intensity_norm = intensity[~ref_mask] / intensity_ref
+                    error_norm = error[~ref_mask] / np.abs(intensity_ref)
+
+                    fig = make_cest_figure(file.stem, offset_norm, intensity_norm, error_norm)
+                    pdf.savefig(fig)
+                    plt.close(fig)
+                    n_plots += 1
+
+                    if show:
+                        fig = make_cest_figure(file.stem, offset_norm, intensity_norm, error_norm)
+                        fig.show()
+                except Exception:
+                    pass
+
+        if show and n_plots > 0:
+            plt.show()
 
         return PlotOutput(
             path=output_path,
@@ -135,14 +199,57 @@ class PlotService:
         Returns:
             PlotOutput with path and count
         """
-        from peakfit.cli.plot_command import plot_cpmg_profiles
+        from peakfit.plotting.profiles import (
+            intensity_to_r2eff,
+            make_cpmg_figure,
+            make_intensity_ensemble,
+            ncyc_to_nu_cpmg,
+        )
 
         if output_path is None:
             output_path = results_dir / "cpmg_profiles.pdf"
 
-        plot_cpmg_profiles(results_dir, output_path, show, time_t2, verbose=False)
+        files = self._get_result_files(results_dir)
+        n_plots = 0
 
-        n_plots = len(list(results_dir.glob("*.out"))) if results_dir.is_dir() else 1
+        with PdfPages(output_path) as pdf:
+            for file in files:
+                try:
+                    data = np.genfromtxt(file, dtype=None, names=("ncyc", "intensity", "error"))
+                    ncyc = data["ncyc"]
+                    intensity = data["intensity"]
+
+                    # Reference intensity (ncyc = 0 point or first point)
+                    if 0 in ncyc:
+                        ref_idx = np.where(ncyc == 0)[0][0]
+                    else:
+                        ref_idx = np.argmin(ncyc)
+                    intensity_ref = intensity[ref_idx]
+
+                    # Convert to CPMG coordinates
+                    nu_cpmg = ncyc_to_nu_cpmg(ncyc, time_t2)
+                    r2_exp = intensity_to_r2eff(intensity, intensity_ref, time_t2)
+
+                    # Error propagation via Monte Carlo
+                    ensemble = make_intensity_ensemble(data, size=1000)
+                    r2_ensemble = intensity_to_r2eff(ensemble, intensity_ref, time_t2)
+                    r2_std = np.std(r2_ensemble, axis=0)
+                    r2_err_down = r2_std
+                    r2_err_up = r2_std
+
+                    fig = make_cpmg_figure(file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
+                    pdf.savefig(fig)
+                    plt.close(fig)
+                    n_plots += 1
+
+                    if show:
+                        fig = make_cpmg_figure(file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
+                        fig.show()
+                except Exception:
+                    pass
+
+        if show and n_plots > 0:
+            plt.show()
 
         return PlotOutput(
             path=output_path,

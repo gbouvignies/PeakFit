@@ -22,12 +22,11 @@ from peakfit.core.shared.constants import (
     LEAST_SQUARES_XTOL,
 )
 from peakfit.core.shared.events import Event, EventDispatcher, EventType, FitProgressEvent
-from peakfit.ui import PeakFitUI, console
+from peakfit.ui import console
 
 if TYPE_CHECKING:
     from peakfit.services.fit.pipeline import FitArguments
 
-ui = PeakFitUI
 
 __all__ = [
     "fit_all_clusters",
@@ -78,10 +77,10 @@ def fit_all_clusters(
         for iteration in range(total_iterations):
             iteration_idx = iteration + 1
             if iteration == 0:
-                ui.subsection_header("Initial Fit")
+                subsection_header("Initial Fit")
             else:
-                ui.subsection_header(f"Refining Parameters (Iteration {iteration_idx})")
-                ui.log_section(f"Refinement Iteration {iteration_idx}")
+                subsection_header(f"Refining Parameters (Iteration {iteration_idx})")
+                log_section(f"Refinement Iteration {iteration_idx}")
                 update_cluster_corrections(params_all, clusters)
 
             _fit_iteration(
@@ -131,15 +130,15 @@ def _fit_iteration(
 
         _print_cluster_header(cluster_idx, cluster_count, peaks_str, n_peaks)
 
-        ui.log("")
-        ui.log(f"Cluster {cluster_idx}/{cluster_count}: {peaks_str}")
-        ui.log(f"  - Peaks: {len(cluster.peaks)}")
+        log("")
+        log(f"Cluster {cluster_idx}/{cluster_count}: {peaks_str}")
+        log(f"  - Peaks: {len(cluster.peaks)}")
 
         params = create_params(cluster.peaks, fixed=clargs.fixed)
         params = _update_params(params, params_all)
 
         vary_names = params.get_vary_names()
-        ui.log(f"  - Varying parameters: {len(vary_names)}")
+        log(f"  - Varying parameters: {len(vary_names)}")
 
         _dispatch_cluster_started(
             dispatcher, cluster_idx, cluster_count, iteration_idx, total_iterations, peak_names
@@ -205,13 +204,13 @@ def _print_cluster_result(result: Any, cluster_time: float) -> None:
 def _log_cluster_result(result: Any, cluster_time: float) -> None:
     """Log cluster fitting result."""
     if result.success:
-        ui.log("  - Status: Converged", level="info")
+        log("  - Status: Converged", level="info")
     else:
-        ui.log(f"  - Status: {result.message}", level="warning")
+        log(f"  - Status: {result.message}", level="warning")
 
-    ui.log(f"  - Cost: {result.cost:.3e}")
-    ui.log(f"  - Function evaluations: {result.n_evaluations}")
-    ui.log(f"  - Time: {cluster_time:.1f}s")
+    log(f"  - Cost: {result.cost:.3e}")
+    log(f"  - Function evaluations: {result.n_evaluations}")
+    log(f"  - Time: {cluster_time:.1f}s")
 
 
 def _update_params(params: Parameters, params_all: Parameters) -> Parameters:

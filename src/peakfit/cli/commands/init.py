@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 
 from peakfit.io.config import generate_default_config
-from peakfit.ui import PeakFitUI as ui, console
+from peakfit.ui import console, error, info, print_next_steps, show_banner, success
 
 
 def init_command(
@@ -52,18 +52,18 @@ def init_command(
         $ peakfit init --force
     """
     # Show banner based on verbosity
-    ui.show_banner(verbose)
+    show_banner(verbose)
 
     if path.exists() and not force:
-        ui.error(f"File already exists: [path]{path}[/path]")
-        ui.info("Use [code]--force[/code] to overwrite")
+        error(f"File already exists: [path]{path}[/path]")
+        info("Use [code]--force[/code] to overwrite")
         raise typer.Exit(1)
 
     config_content = generate_default_config()
     path.write_text(config_content)
 
     # Enhanced success message with details
-    ui.success(f"Created configuration file: [path]{path}[/path]")
+    success(f"Created configuration file: [path]{path}[/path]")
 
     console.print("\n[bold cyan]📄 Configuration includes:[/]")
     console.print("  • [green]Fitting parameters[/] (optimizer, lineshape, tolerances)")
@@ -72,7 +72,7 @@ def init_command(
     console.print("  • [green]Advanced options[/] (backends)")
 
     # Suggest next steps
-    ui.print_next_steps(
+    print_next_steps(
         [
             f"Review and customize: [cyan]{path}[/]",
             f"Run fitting: [cyan]peakfit fit spectrum.ft2 peaks.list --config {path}[/]",

@@ -20,12 +20,11 @@ from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.simulation import simulate_data
 from peakfit.infra.state import StateRepository
 from peakfit.io.output import write_profiles, write_shifts
-from peakfit.ui import PeakFitUI, console
+from peakfit.ui import console, export_html, success
 
 if TYPE_CHECKING:
     from peakfit.services.fit.pipeline import FitArguments
 
-ui = PeakFitUI
 
 __all__ = [
     "save_fitting_state",
@@ -63,22 +62,22 @@ def write_all_outputs(
     # Write profiles
     with console.status("[cyan]Writing profiles...[/cyan]", spinner="dots"):
         write_profiles(output_dir, spectra.z_values, clusters, params, clargs)
-    ui.success(f"Peak profiles: {output_dir.name}/{len(peaks)} *.out files")
+    success(f"Peak profiles: {output_dir.name}/{len(peaks)} *.out files")
 
     # Write shifts
     with console.status("[cyan]Writing shifts...[/cyan]", spinner="dots"):
         write_shifts(peaks, params, output_dir / "shifts.list")
-    ui.success(f"Chemical shifts: {output_dir.name}/shifts.list")
+    success(f"Chemical shifts: {output_dir.name}/shifts.list")
 
     # Write simulated spectra if requested
     if save_simulated:
         write_simulated_spectra(output_dir, spectra, clusters, params)
-        ui.success(f"Simulated spectra: {output_dir.name}/simulated_*.ft*")
+        success(f"Simulated spectra: {output_dir.name}/simulated_*.ft*")
 
     # Write HTML report if requested
     if save_html_report:
         write_html_report(output_dir)
-        ui.success(f"HTML report: {output_dir.name}/logs.html")
+        success(f"HTML report: {output_dir.name}/logs.html")
 
 
 def write_simulated_spectra(
@@ -125,7 +124,7 @@ def write_html_report(output_dir: Path) -> None:
         output_dir: Directory to write files to
     """
     with console.status("[cyan]Generating HTML report...[/cyan]", spinner="dots"):
-        ui.export_html(output_dir / "logs.html")
+        export_html(output_dir / "logs.html")
 
 
 def save_fitting_state(
@@ -157,5 +156,5 @@ def save_fitting_state(
         )
         StateRepository.save(state_file, state)
 
-    ui.success(f"Fitting state: {output_dir.name}/.peakfit_state.pkl")
+    success(f"Fitting state: {output_dir.name}/.peakfit_state.pkl")
     return state_file

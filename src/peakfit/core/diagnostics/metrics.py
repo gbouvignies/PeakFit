@@ -298,10 +298,14 @@ def compute_posterior_statistics(
     }
 
 
+# Use the canonical implementation from convergence.py
+from peakfit.core.diagnostics.convergence import compute_ess, compute_rhat
+
+
 def _compute_ess(chains: FloatArray) -> float:
     """Compute effective sample size across chains.
 
-    Uses a simple variance ratio estimation.
+    Delegates to the canonical implementation in convergence.py.
 
     Args:
         chains: Array of shape (n_chains, n_samples)
@@ -309,22 +313,13 @@ def _compute_ess(chains: FloatArray) -> float:
     Returns:
         Effective sample size estimate
     """
-    n_chains, n_samples = chains.shape
-
-    # Simple ESS estimation using variance ratio
-    within_chain_var = np.mean(np.var(chains, axis=1))
-    total_var = np.var(chains)
-
-    if total_var == 0:
-        return float(n_chains * n_samples)
-
-    # Approximate ESS
-    ess = n_chains * n_samples * within_chain_var / total_var
-    return float(min(ess, n_chains * n_samples))
+    return compute_ess(chains, method="bulk")
 
 
 def _compute_rhat(chains: FloatArray) -> float:
     """Compute Gelman-Rubin R-hat statistic.
+
+    Delegates to the canonical implementation in convergence.py.
 
     Args:
         chains: Array of shape (n_chains, n_samples)
@@ -332,26 +327,4 @@ def _compute_rhat(chains: FloatArray) -> float:
     Returns:
         R-hat value (should be <= 1.01 for convergence)
     """
-    n_chains, n_samples = chains.shape
-
-    if n_chains < 2:
-        return float("nan")
-
-    # Chain means
-    chain_means = np.mean(chains, axis=1)
-
-    # Between-chain variance (B in Gelman-Rubin notation)
-    between_chain_var = n_samples * np.var(chain_means, ddof=1)
-
-    # Within-chain variance (W in Gelman-Rubin notation)
-    within_chain_var = np.mean(np.var(chains, axis=1, ddof=1))
-
-    if within_chain_var == 0:
-        return float("nan")
-
-    # Pooled variance estimate
-    var_hat = ((n_samples - 1) * within_chain_var + between_chain_var) / n_samples
-
-    # R-hat
-    rhat = np.sqrt(var_hat / within_chain_var)
-    return float(rhat)
+    return compute_rhat(chains)
