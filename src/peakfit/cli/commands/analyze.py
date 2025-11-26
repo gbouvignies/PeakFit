@@ -2,9 +2,8 @@
 
 This module contains all analyze-related commands for uncertainty estimation.
 It creates a Typer sub-application with commands for:
-- MCMC sampling
+- MCMC sampling (with correlation matrix display)
 - Profile likelihood
-- Parameter correlation
 - Uncertainty display
 """
 
@@ -194,49 +193,6 @@ def analyze_profile(
         n_points=n_points,
         confidence_level=confidence,
         plot=plot,
-        output_file=output,
-        verbose=False,
-    )
-
-
-# ==================== CORRELATION COMMAND ====================
-
-
-@analyze_app.command("correlation")
-def analyze_correlation(
-    results: Annotated[
-        Path,
-        typer.Argument(
-            help="Path to results directory from 'peakfit fit'",
-            exists=True,
-            file_okay=False,
-            resolve_path=True,
-        ),
-    ],
-    output: Annotated[
-        Path | None,
-        typer.Option(
-            "--output",
-            "-o",
-            help="Output file for correlation matrix",
-            dir_okay=False,
-            resolve_path=True,
-        ),
-    ] = None,
-) -> None:
-    """Analyze parameter correlations from fitting results.
-
-    Shows parameter correlations from the covariance matrix, which helps
-    identify dependencies between fitted parameters.
-
-    Examples:
-        peakfit analyze correlation Fits/
-        peakfit analyze correlation Fits/ --output correlations.txt
-    """
-    from peakfit.cli.analyze_command import run_correlation
-
-    run_correlation(
-        results_dir=results,
         output_file=output,
         verbose=False,
     )

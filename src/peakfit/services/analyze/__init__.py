@@ -1,11 +1,5 @@
 """Services orchestrating analysis workflows (MCMC, profile likelihood, etc.)."""
 
-from .correlation_service import (
-    NotEnoughVaryingParametersError,
-    ParameterCorrelationEntry,
-    ParameterCorrelationResult,
-    ParameterCorrelationService,
-)
 from .formatters import (
     MCMCClusterSummary,
     MCMCParameterSummary,
@@ -49,10 +43,6 @@ __all__ = [
     "MCMCParameterSummary",
     "NoVaryingParametersError",
     "NoVaryingParametersFoundError",
-    "NotEnoughVaryingParametersError",
-    "ParameterCorrelationEntry",
-    "ParameterCorrelationResult",
-    "ParameterCorrelationService",
     "ParameterMatchError",
     "ParameterUncertaintyEntry",
     "ParameterUncertaintyResult",
