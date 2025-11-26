@@ -14,7 +14,7 @@ import typer
 
 from peakfit.cli.callbacks import version_callback
 from peakfit.cli.commands import (
-    analyze_command,
+    analyze_app,
     benchmark_command,
     fit_command,
     info_command,
@@ -56,8 +56,8 @@ app.command(name="fit")(fit_command)
 app.command(name="validate")(validate_command)
 app.command(name="init")(init_command)
 app.command(name="info")(info_command)
-app.command(name="analyze")(analyze_command)
 app.command(name="benchmark")(benchmark_command)
 
 # Register sub-applications
+app.add_typer(analyze_app, name="analyze")
 app.add_typer(plot_app, name="plot")

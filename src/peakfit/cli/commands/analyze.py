@@ -1,4 +1,12 @@
-"""Analyze command implementation."""
+"""Analyze subcommands for PeakFit CLI.
+
+This module contains all analyze-related commands for uncertainty estimation.
+It creates a Typer sub-application with commands for:
+- MCMC sampling
+- Profile likelihood
+- Parameter correlation
+- Uncertainty display
+"""
 
 from __future__ import annotations
 
@@ -7,16 +15,20 @@ from typing import Annotated
 
 import typer
 
-from peakfit.ui import error, info
+from peakfit.ui import info
+
+# Create analyze sub-application
+analyze_app = typer.Typer(
+    help="Uncertainty analysis commands for PeakFit results",
+    no_args_is_help=True,
+)
 
 
-def analyze_command(
-    method: Annotated[
-        str,
-        typer.Argument(
-            help="Analysis method: mcmc, profile, correlation",
-        ),
-    ],
+# ==================== MCMC COMMAND ====================
+
+
+@analyze_app.command("mcmc")
+def analyze_mcmc(
     results: Annotated[
         Path,
         typer.Argument(
@@ -26,14 +38,6 @@ def analyze_command(
             resolve_path=True,
         ),
     ],
-    param: Annotated[
-        str | None,
-        typer.Option(
-            "--param",
-            "-p",
-            help="Parameter to profile: exact name, peak name, or parameter type (default: all)",
-        ),
-    ] = None,
     peaks: Annotated[
         list[str] | None,
         typer.Option(
@@ -74,6 +78,68 @@ def analyze_command(
             help="Automatically determine burn-in using R-hat convergence monitoring",
         ),
     ] = True,
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output file for results",
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ] = None,
+) -> None:
+    """Run MCMC sampling for uncertainty estimation.
+
+    MCMC sampling provides full posterior distributions for fitted parameters.
+
+    Examples:
+        peakfit analyze mcmc Fits/
+        peakfit analyze mcmc Fits/ --chains 64 --samples 2000
+        peakfit analyze mcmc Fits/ --walkers 64 --steps 2000
+        peakfit analyze mcmc Fits/ --peaks 2N-H --peaks 3N-H
+    """
+    from peakfit.cli.analyze_command import run_mcmc
+
+    # Handle manual override: if --burn-in is specified, disable auto-burnin
+    if burn_in is not None and auto_burnin:
+        info("Manual burn-in specified; disabling auto-burnin")
+        auto_burnin = False
+
+    run_mcmc(
+        results_dir=results,
+        n_walkers=n_walkers,
+        n_steps=n_steps,
+        burn_in=burn_in,
+        auto_burnin=auto_burnin,
+        peaks=peaks,
+        output_file=output,
+        verbose=False,
+    )
+
+
+# ==================== PROFILE COMMAND ====================
+
+
+@analyze_app.command("profile")
+def analyze_profile(
+    results: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to results directory from 'peakfit fit'",
+            exists=True,
+            file_okay=False,
+            resolve_path=True,
+        ),
+    ],
+    param: Annotated[
+        str | None,
+        typer.Option(
+            "--param",
+            "-p",
+            help="Parameter to profile: exact name, peak name, or parameter type (default: all)",
+        ),
+    ] = None,
     n_points: Annotated[
         int,
         typer.Option(
@@ -109,73 +175,112 @@ def analyze_command(
         ),
     ] = None,
 ) -> None:
-    """Analyze fitting uncertainties using advanced methods.
+    """Compute profile likelihood confidence intervals.
 
-    MCMC sampling provides full posterior distributions:
-        peakfit analyze mcmc Fits/
-        peakfit analyze mcmc Fits/ --chains 64 --samples 2000
-        peakfit analyze mcmc Fits/ --walkers 64 --steps 2000  # Alternative syntax
+    Profile likelihood gives accurate confidence intervals for parameters,
+    especially when the likelihood surface is non-quadratic.
 
-    Profile likelihood gives accurate confidence intervals:
+    Examples:
         peakfit analyze profile Fits/                    # All parameters
         peakfit analyze profile Fits/ --param 2N-H       # All params for peak 2N-H
         peakfit analyze profile Fits/ --param x0         # All x0 parameters
         peakfit analyze profile Fits/ --param 2N-H_x0    # Specific parameter
-
-    Parameter correlation analysis:
-        peakfit analyze correlation Fits/
-
-    Display existing uncertainties from fit:
-        peakfit analyze uncertainty Fits/
     """
-    from peakfit.cli.analyze_command import (
-        run_correlation,
-        run_mcmc,
-        run_profile_likelihood,
-        run_uncertainty,
+    from peakfit.cli.analyze_command import run_profile_likelihood
+
+    run_profile_likelihood(
+        results_dir=results,
+        param_name=param,
+        n_points=n_points,
+        confidence_level=confidence,
+        plot=plot,
+        output_file=output,
+        verbose=False,
     )
 
-    valid_methods = ["mcmc", "profile", "correlation", "uncertainty"]
-    if method not in valid_methods:
-        error(f"Invalid method: {method}")
-        info(f"Valid methods: {', '.join(valid_methods)}")
-        raise typer.Exit(1)
 
-    if method == "mcmc":
-        # Handle manual override: if --burn-in is specified, disable auto-burnin
-        if burn_in is not None and auto_burnin:
-            info("Manual burn-in specified; disabling auto-burnin")
-            auto_burnin = False
+# ==================== CORRELATION COMMAND ====================
 
-        run_mcmc(
-            results_dir=results,
-            n_walkers=n_walkers,
-            n_steps=n_steps,
-            burn_in=burn_in,
-            auto_burnin=auto_burnin,
-            peaks=peaks,
-            output_file=output,
-            verbose=False,
-        )
-    elif method == "profile":
-        run_profile_likelihood(
-            results_dir=results,
-            param_name=param,
-            n_points=n_points,
-            confidence_level=confidence,
-            plot=plot,
-            output_file=output,
-            verbose=False,
-        )
-    elif method == "correlation":
-        run_correlation(
-            results_dir=results,
-            output_file=output,
-            verbose=False,
-        )
-    elif method == "uncertainty":
-        run_uncertainty(
-            results_dir=results,
-            output_file=output,
-            verbose=False,
-        )
+
+@analyze_app.command("correlation")
+def analyze_correlation(
+    results: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to results directory from 'peakfit fit'",
+            exists=True,
+            file_okay=False,
+            resolve_path=True,
+        ),
+    ],
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output file for correlation matrix",
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ] = None,
+) -> None:
+    """Analyze parameter correlations from fitting results.
+
+    Shows parameter correlations from the covariance matrix, which helps
+    identify dependencies between fitted parameters.
+
+    Examples:
+        peakfit analyze correlation Fits/
+        peakfit analyze correlation Fits/ --output correlations.txt
+    """
+    from peakfit.cli.analyze_command import run_correlation
+
+    run_correlation(
+        results_dir=results,
+        output_file=output,
+        verbose=False,
+    )
+
+
+# ==================== UNCERTAINTY COMMAND ====================
+
+
+@analyze_app.command("uncertainty")
+def analyze_uncertainty(
+    results: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to results directory from 'peakfit fit'",
+            exists=True,
+            file_okay=False,
+            resolve_path=True,
+        ),
+    ],
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Output file for uncertainty summary",
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ] = None,
+) -> None:
+    """Display parameter uncertainties from fitting results.
+
+    Shows the covariance-based uncertainties computed during fitting.
+    This is a quick way to review uncertainties without running
+    additional analysis.
+
+    Examples:
+        peakfit analyze uncertainty Fits/
+        peakfit analyze uncertainty Fits/ --output uncertainties.txt
+    """
+    from peakfit.cli.analyze_command import run_uncertainty
+
+    run_uncertainty(
+        results_dir=results,
+        output_file=output,
+        verbose=False,
+    )
