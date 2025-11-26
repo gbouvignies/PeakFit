@@ -4,33 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from importlib import import_module
 from pathlib import Path
-from typing import Any
-
-import numpy as np
-from threadpoolctl import threadpool_limits
 
 from peakfit.core.algorithms.clustering import create_clusters
-from peakfit.core.algorithms.noise import prepare_noise_level
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.config import PeakFitConfig
-from peakfit.core.domain.peaks import create_params
-from peakfit.core.domain.peaks_io import read_list
-from peakfit.core.domain.spectrum import Spectra, get_shape_names, read_spectra
-from peakfit.core.domain.state import FittingState
-from peakfit.core.fitting.computation import update_cluster_corrections
-from peakfit.core.fitting.parameters import Parameters
-from peakfit.core.fitting.simulation import simulate_data
-from peakfit.core.fitting.strategies import STRATEGIES, get_strategy
-from peakfit.core.shared.constants import (
-    LEAST_SQUARES_FTOL,
-    LEAST_SQUARES_MAX_NFEV,
-    LEAST_SQUARES_XTOL,
-)
-from peakfit.core.shared.events import Event, EventDispatcher, EventType, FitProgressEvent
-from peakfit.infra.state import StateRepository
-from peakfit.io.output import write_profiles, write_shifts
+from peakfit.core.domain.spectrum import Spectra
+from peakfit.core.fitting.strategies import STRATEGIES
+from peakfit.core.shared.events import Event, EventDispatcher, EventType
+from peakfit.services.fit.fitting import fit_all_clusters
 from peakfit.ui import PeakFitUI, console
 
 ui = PeakFitUI
@@ -263,7 +245,7 @@ class FitPipeline:
         if optimizer != "leastsq":
             ui.info(f"Using {optimizer} optimizer...")
 
-        params = _fit_clusters(
+        params = fit_all_clusters(
             clargs,
             clusters,
             optimizer=optimizer,
@@ -291,8 +273,7 @@ class FitPipeline:
         ui.log(f"Shifts file: {config.output.directory / 'shifts.list'}")
 
         if config.output.save_simulated:
-            with console.status("[cyan]Writing simulated spectra...[/cyan]", spinner="dots"):
-                _write_spectra(config.output.directory, spectra, clusters, params)
+            write_simulated_spectra(config.output.directory, spectra, clusters, params)
             ui.success(f"Simulated spectra: {config.output.directory.name}/simulated_*.ft*")
 
         if config.output.save_html_report:
@@ -383,158 +364,6 @@ class FitPipeline:
         ui.close_logging()
 
 
-def _fit_clusters(
-    clargs: FitArguments,
-    clusters: list[Cluster],
-    *,
-    optimizer: str,
-    verbose: bool,
-    dispatcher: EventDispatcher | None,
-) -> Parameters:
-    """Fit all clusters with the requested optimization strategy."""
-
-    if clargs.noise is None:
-        msg = "Noise must be specified before fitting clusters"
-        raise ValueError(msg)
-
-    noise_value = float(clargs.noise)
-    total_iterations = clargs.refine_nb + 1
-    strategy_kwargs: dict[str, Any] = {}
-
-    if optimizer == "leastsq":
-        strategy_kwargs = {
-            "ftol": LEAST_SQUARES_FTOL,
-            "xtol": LEAST_SQUARES_XTOL,
-            "max_nfev": LEAST_SQUARES_MAX_NFEV,
-            "verbose": 2 if verbose else 0,
-        }
-
-    strategy = get_strategy(optimizer, **strategy_kwargs)
-    params_all = Parameters()
-    cluster_count = len(clusters)
-
-    import time as time_module
-
-    with threadpool_limits(limits=1, user_api="blas"):
-        for iteration in range(total_iterations):
-            iteration_idx = iteration + 1
-            if iteration == 0:
-                ui.subsection_header("Initial Fit")
-            else:
-                ui.subsection_header(f"Refining Parameters (Iteration {iteration_idx})")
-                ui.log_section(f"Refinement Iteration {iteration_idx}")
-                update_cluster_corrections(params_all, clusters)
-
-            for cluster_idx, cluster in enumerate(clusters, 1):
-                cluster_start = time_module.time()
-                peak_names = [peak.name for peak in cluster.peaks]
-                peaks_str = ", ".join(peak_names)
-                n_peaks = len(cluster.peaks)
-
-                if cluster_idx > 1:
-                    console.print()
-                console.print(
-                    f"[bold cyan]Cluster {cluster_idx}/{len(clusters)}[/bold cyan] [dim]│[/dim] "
-                    f"{peaks_str} [dim][{n_peaks} peak{'s' if n_peaks != 1 else ''}][/dim]"
-                )
-
-                ui.log("")
-                ui.log(f"Cluster {cluster_idx}/{len(clusters)}: {peaks_str}")
-                ui.log(f"  - Peaks: {len(cluster.peaks)}")
-
-                params = create_params(cluster.peaks, fixed=clargs.fixed)
-                params = _update_params(params, params_all)
-
-                vary_names = params.get_vary_names()
-                ui.log(f"  - Varying parameters: {len(vary_names)}")
-
-                _dispatch_event(
-                    dispatcher,
-                    Event(
-                        event_type=EventType.CLUSTER_STARTED,
-                        data={
-                            "cluster_index": cluster_idx,
-                            "total_clusters": cluster_count,
-                            "iteration": iteration_idx,
-                            "total_iterations": total_iterations,
-                            "peak_names": peak_names,
-                        },
-                    ),
-                )
-
-                result = strategy.optimize(params, cluster, noise_value)
-                params = result.params
-
-                cluster_time = time_module.time() - cluster_start
-
-                _dispatch_event(
-                    dispatcher,
-                    Event(
-                        event_type=EventType.CLUSTER_COMPLETED,
-                        data={
-                            "cluster_index": cluster_idx,
-                            "total_clusters": cluster_count,
-                            "iteration": iteration_idx,
-                            "total_iterations": total_iterations,
-                            "cost": result.cost,
-                            "success": result.success,
-                            "time_sec": cluster_time,
-                        },
-                    ),
-                )
-                _dispatch_event(
-                    dispatcher,
-                    FitProgressEvent(
-                        event_type=EventType.FIT_PROGRESS,
-                        data={
-                            "cluster_index": cluster_idx,
-                            "iteration": iteration_idx,
-                            "cost": result.cost,
-                            "success": result.success,
-                        },
-                        current_cluster=cluster_idx,
-                        total_clusters=cluster_count,
-                        current_iteration=iteration_idx,
-                        total_iterations=total_iterations,
-                    ),
-                )
-
-                evaluations = result.n_evaluations
-
-                if result.success:
-                    console.print(
-                        f"[green]✓[/green] Converged [dim]│[/dim] "
-                        f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
-                        f"{evaluations} evaluations [dim]│[/dim] "
-                        f"{cluster_time:.1f}s"
-                    )
-                    ui.log("  - Status: Converged", level="info")
-                else:
-                    console.print(
-                        f"[yellow]⚠[/yellow] {result.message} [dim]│[/dim] "
-                        f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
-                        f"{evaluations} evaluations [dim]│[/dim] "
-                        f"{cluster_time:.1f}s"
-                    )
-                    ui.log(f"  - Status: {result.message}", level="warning")
-
-                ui.log(f"  - Cost: {result.cost:.3e}")
-                ui.log(f"  - Function evaluations: {evaluations}")
-                ui.log(f"  - Time: {cluster_time:.1f}s")
-
-                params_all.update(params)
-
-    return params_all
-
-
-def _update_params(params: Parameters, params_all: Parameters) -> Parameters:
-    """Update parameters with global parameters."""
-    for key in params:
-        if key in params_all:
-            params[key] = params_all[key]
-    return params
-
-
 def _dispatch_event(dispatcher: EventDispatcher | None, event: Event) -> None:
     """Safely dispatch an event when a dispatcher is provided."""
 
@@ -542,36 +371,6 @@ def _dispatch_event(dispatcher: EventDispatcher | None, event: Event) -> None:
         return
 
     dispatcher.dispatch(event)
-
-
-def _write_spectra(
-    path: Path, spectra: Spectra, clusters: list[Cluster], params: Parameters
-) -> None:
-    """Write simulated spectra to file."""
-
-    try:
-        ng = import_module("nmrglue")
-    except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency guard
-        msg = (
-            "Writing simulated spectra requires the optional 'nmrglue' dependency. "
-            "Install it with `uv pip install nmrglue`."
-        )
-        raise RuntimeError(msg) from exc
-
-    ui.action("Writing simulated spectra...")
-
-    # No-op change to trigger file write
-    data_simulated = simulate_data(params, clusters, spectra.data)
-
-    if spectra.pseudo_dim_added:
-        data_simulated = np.squeeze(data_simulated, axis=0)
-
-    ng.pipe.write(
-        str(path / f"simulated.ft{data_simulated.ndim}"),
-        spectra.dic,
-        data_simulated.astype(np.float32),
-        overwrite=True,
-    )
 
 
 def _print_configuration(output_dir: Path) -> None:
