@@ -1,5 +1,7 @@
 """Output file writers for peak fitting results."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import numpy as np
@@ -8,8 +10,8 @@ from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
 from peakfit.core.fitting.computation import calculate_shape_heights
 from peakfit.core.fitting.parameters import Parameters
+from peakfit.core.shared.reporter import NullReporter, Reporter
 from peakfit.core.shared.typing import FittingOptions, FloatArray
-from peakfit.ui import PeakFitUI as ui
 
 
 def write_profiles(
@@ -18,9 +20,22 @@ def write_profiles(
     clusters: list[Cluster],
     params: Parameters,
     args: FittingOptions,
+    reporter: Reporter | None = None,
 ) -> None:
-    """Write profile information to output files."""
-    ui.action("Writing profiles...")
+    """Write profile information to output files.
+
+    Args:
+        path: Output directory path
+        z_values: Z-dimension values array
+        clusters: List of clusters to write
+        params: Fitting parameters
+        args: Fitting options containing noise level
+        reporter: Optional reporter for status messages (default: silent)
+    """
+    if reporter is None:
+        reporter = NullReporter()
+
+    reporter.action("Writing profiles...")
     for cluster in clusters:
         _shapes, amplitudes = calculate_shape_heights(params, cluster)
         amplitudes_err = np.full_like(amplitudes, args.noise)
@@ -72,9 +87,24 @@ def write_profile(
         f.write(print_heights(z_values, heights, heights_err))
 
 
-def write_shifts(peaks: list[Peak], params: Parameters, file_shifts: Path) -> None:
-    """Write the shifts to the output file."""
-    ui.action("Writing shifts...")
+def write_shifts(
+    peaks: list[Peak],
+    params: Parameters,
+    file_shifts: Path,
+    reporter: Reporter | None = None,
+) -> None:
+    """Write the shifts to the output file.
+
+    Args:
+        peaks: List of peaks
+        params: Fitting parameters
+        file_shifts: Output file path
+        reporter: Optional reporter for status messages (default: silent)
+    """
+    if reporter is None:
+        reporter = NullReporter()
+
+    reporter.action("Writing shifts...")
     with file_shifts.open("w") as f:
         for peak in peaks:
             peak.update_positions(params)

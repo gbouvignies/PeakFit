@@ -8,6 +8,7 @@ This package provides:
 
 # Import functions for direct access
 from peakfit.core.lineshapes import functions
+from peakfit.core.lineshapes.factory import LineshapeFactory
 from peakfit.core.lineshapes.functions import gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
 
 # Import models (this will populate SHAPES via decorators)
@@ -35,6 +36,7 @@ __all__ = [
     "ApodShape",
     "BaseShape",
     "Gaussian",
+    "LineshapeFactory",
     "Lorentzian",
     "NoApod",
     "PeakShape",

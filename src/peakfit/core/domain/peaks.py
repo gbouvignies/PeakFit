@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from peakfit.core.fitting.parameters import Parameters
-from peakfit.core.lineshapes import SHAPES, Shape
+from peakfit.core.lineshapes import LineshapeFactory, Shape
 from peakfit.core.shared.typing import FittingOptions, FloatArray, IntArray
 
 if TYPE_CHECKING:
@@ -86,13 +86,8 @@ def create_peak(
     spectra: Spectra,
     args: FittingOptions,
 ) -> Peak:
-    shapes = [
-        SHAPES[shape_name](name, center, spectra, dim, args)
-        for dim, (center, shape_name) in enumerate(
-            zip(positions, shape_names, strict=False),
-            start=1,
-        )
-    ]
+    factory = LineshapeFactory(spectra, args)
+    shapes = factory.create_shapes(name, positions, shape_names)
     return Peak(name, np.array(positions), shapes)
 
 
