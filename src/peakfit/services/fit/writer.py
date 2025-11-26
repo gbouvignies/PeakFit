@@ -18,8 +18,8 @@ from peakfit.core.domain.spectrum import Spectra
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.simulation import simulate_data
-from peakfit.infra.state import StateRepository
 from peakfit.io.output import write_profiles, write_shifts
+from peakfit.io.state import StateRepository
 from peakfit.ui import console, export_html, success
 
 if TYPE_CHECKING:

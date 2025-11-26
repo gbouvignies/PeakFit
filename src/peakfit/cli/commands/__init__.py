@@ -10,7 +10,7 @@ Each module exports:
 The main app.py imports and registers these commands.
 """
 
-from peakfit.cli.commands.analyze import analyze_command
+from peakfit.cli.commands.analyze import analyze_app
 from peakfit.cli.commands.benchmark import benchmark_command
 from peakfit.cli.commands.fit import fit_command
 from peakfit.cli.commands.info import info_command
@@ -19,7 +19,7 @@ from peakfit.cli.commands.plot import plot_app
 from peakfit.cli.commands.validate import validate_command
 
 __all__ = [
-    "analyze_command",
+    "analyze_app",
     "benchmark_command",
     "fit_command",
     "info_command",

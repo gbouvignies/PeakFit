@@ -533,73 +533,27 @@ print(f"Success: {result.success}")
 
 ### Advanced Optimization
 
-PeakFit includes global optimization methods for difficult fitting problems:
+PeakFit includes global optimization methods for difficult fitting problems.
+These are available as development utilities in `tools/analysis/`:
 
 ```python
-from peakfit.analysis.advanced_optimization import (
-    fit_basin_hopping,
-    fit_differential_evolution,
-    estimate_uncertainties_mcmc,
-    compute_profile_likelihood,
-)
-
-# Basin-hopping for escaping local minima
-result = fit_basin_hopping(
-    params,
-    cluster,
-    noise,
-    n_iterations=100,
-    temperature=1.0,
-    step_size=0.5,
-)
-
-# Differential evolution for global search
-result = fit_differential_evolution(
-    params,
-    cluster,
-    noise,
-    max_iterations=1000,
-    population_size=15,
-    polish=True,
-)
-
-# MCMC for uncertainty estimation
-uncertainties = estimate_uncertainties_mcmc(
-    params,
-    cluster,
-    noise,
-    n_walkers=32,
-    n_steps=1000,
-    burn_in=200,
-)
-print(f"68% CI: {uncertainties.confidence_intervals_68}")
-print(f"95% CI: {uncertainties.confidence_intervals_95}")
-
-# Profile likelihood for accurate confidence intervals
-values, chi2, ci = compute_profile_likelihood(
-    params,
-    cluster,
-    noise,
-    param_name="peak1_fwhm",
-    delta_chi2=3.84,  # 95% CI
-)
-```
-
-### Performance Benchmarking
-
-```python
-from peakfit.analysis.benchmarks import (
-    benchmark_lineshape_performance,
+# From tools/analysis (development utilities, not part of installed package)
+from analysis.benchmarks import (
+    benchmark_lineshape_backends,
     profile_fit_cluster,
 )
-
-# Benchmark lineshape performance
-results = benchmark_lineshape_performance(n_points=1000, n_iterations=100)
-print(f"Average time: {results['avg_time']*1000:.3f} ms")
+from analysis.profiling import (
+    Profiler,
+    estimate_optimal_workers,
+)
 
 # Profile fitting stages
 profile = profile_fit_cluster(params, cluster, noise)
 print(f"Shape calculation: {profile['shape_calculation']*1000:.3f} ms")
 print(f"Residual calculation: {profile['residual_calculation']*1000:.3f} ms")
 print(f"Full fit: {profile['full_fit']*1000:.3f} ms")
+
+# Benchmark different lineshape backends
+results = benchmark_lineshape_backends(n_points=1000, n_iterations=100)
+print(results)
 ```

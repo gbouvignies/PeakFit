@@ -9,9 +9,9 @@ import numpy as np
 
 def import_spectra(monkeypatch) -> ModuleType:
     """Import the spectra module, useful for reloading in tests."""
-    if "peakfit.plotting.plots.spectra" in sys.modules:
-        del sys.modules["peakfit.plotting.plots.spectra"]
-    return importlib.import_module("peakfit.plotting.plots.spectra")
+    if "peakfit.plotting.spectra" in sys.modules:
+        del sys.modules["peakfit.plotting.spectra"]
+    return importlib.import_module("peakfit.plotting.spectra")
 
 
 def test_plotting_fallback_to_agg(monkeypatch, tmp_path):

@@ -33,8 +33,8 @@ concerns.
 - Location: `peakfit.services.analyze.state_service`
 - Responsibilities:
   - Locate `.peakfit_state.pkl` inside a results directory.
-  - Delegate serialization/deserialization to the infrastructure layer
-    (`peakfit.infra.state.StateRepository`).
+  - Delegate serialization/deserialization to the I/O layer
+    (`peakfit.io.state.StateRepository`).
   - Provide a typed `LoadedFittingState` wrapper with both the materialized
     `FittingState` and the path used.
 - Errors:

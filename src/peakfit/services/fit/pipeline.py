@@ -7,12 +7,24 @@ from datetime import datetime
 from pathlib import Path
 
 from peakfit.core.algorithms.clustering import create_clusters
+from peakfit.core.algorithms.noise import prepare_noise_level
 from peakfit.core.domain.config import PeakFitConfig
-from peakfit.core.domain.spectrum import Spectra
+from peakfit.core.domain.peaks_io import read_list
+from peakfit.core.domain.spectrum import Spectra, get_shape_names, read_spectra
+from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.strategies import STRATEGIES
+from peakfit.core.shared.constants import (
+    LEAST_SQUARES_FTOL,
+    LEAST_SQUARES_MAX_NFEV,
+    LEAST_SQUARES_XTOL,
+)
 from peakfit.core.shared.events import Event, EventDispatcher, EventType
+from peakfit.io.output import write_profiles, write_shifts
+from peakfit.io.state import StateRepository
 from peakfit.services.fit.fitting import fit_all_clusters
+from peakfit.services.fit.writer import write_simulated_spectra
 from peakfit.ui import (
+    close_logging,
     console,
     create_table,
     error,
@@ -26,6 +38,7 @@ from peakfit.ui import (
     show_footer,
     show_header,
     show_run_info,
+    spacer,
     success,
     warning,
 )
@@ -374,7 +387,7 @@ class FitPipeline:
         console.print()
 
         show_footer(start_time_dt, end_time_dt)
-        ui.close_logging()
+        close_logging()
 
 
 def _dispatch_event(dispatcher: EventDispatcher | None, event: Event) -> None:
@@ -388,7 +401,7 @@ def _dispatch_event(dispatcher: EventDispatcher | None, event: Event) -> None:
 
 def _print_configuration(output_dir: Path) -> None:
     """Print configuration information in a consolidated table."""
-    ui.spacer()
+    spacer()
 
     config_table = create_table("Configuration")
     config_table.add_column("Setting", style="cyan")
@@ -399,7 +412,7 @@ def _print_configuration(output_dir: Path) -> None:
     config_table.add_row("Output directory", str(output_dir.name))
 
     console.print(config_table)
-    ui.spacer()
+    spacer()
 
 
 def _print_spectrum_info(
@@ -411,7 +424,7 @@ def _print_spectrum_info(
     contour_level: float,
 ) -> None:
     """Print consolidated spectrum information table."""
-    ui.spacer()
+    spacer()
 
     spectrum_table = create_table(f"Spectrum: {spectrum_path.name}")
     spectrum_table.add_column("Property", style="cyan")
@@ -432,12 +445,12 @@ def _print_spectrum_info(
     spectrum_table.add_row("Contour level", f"{contour_level:.2f}")
 
     console.print(spectrum_table)
-    ui.spacer()
+    spacer()
 
 
 def _print_peaklist_info(peaklist_path: Path, z_values_path: Path | None, n_peaks: int) -> None:
     """Print consolidated peak list information table."""
-    ui.spacer()
+    spacer()
 
     peaklist_table = create_table(f"Peak List: {peaklist_path.name}")
     peaklist_table.add_column("Property", style="cyan")
@@ -464,4 +477,4 @@ def _print_peaklist_info(peaklist_path: Path, z_values_path: Path | None, n_peak
         peaklist_table.add_row("Z-values file", "auto-detected")
 
     console.print(peaklist_table)
-    ui.spacer()
+    spacer()

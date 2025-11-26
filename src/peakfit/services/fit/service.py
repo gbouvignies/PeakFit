@@ -119,7 +119,7 @@ class FitService:
         )
 
         # Load the state that was saved
-        from peakfit.infra.state import StateRepository
+        from peakfit.io.state import StateRepository
 
         state_file = StateRepository.default_path(config.output.directory)
         state = StateRepository.load(state_file)
