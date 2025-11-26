@@ -704,7 +704,9 @@ def plot_diagnostics(
 
         # Generate plots for this cluster
         with PdfPages(cluster_output) as pdf:
-            samples_flat = chains.reshape(-1, chains.shape[2])
+            # Remove burn-in before flattening for marginal/correlation plots
+            chains_post_burnin = chains[:, burn_in:, :] if burn_in > 0 else chains
+            samples_flat = chains_post_burnin.reshape(-1, chains_post_burnin.shape[2])
 
             # Page 1: Trace plots
             fig_trace = plot_trace(chains, parameter_names, burn_in, diagnostics=diagnostics)
