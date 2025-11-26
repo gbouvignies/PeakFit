@@ -2,6 +2,9 @@
 
 This module provides tools for measuring and analyzing performance
 of different fitting strategies.
+
+Note: This module is located outside the main package in tools/analysis/.
+It requires PeakFit to be installed to run.
 """
 
 import time

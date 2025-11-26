@@ -174,11 +174,24 @@ class TestCLIFitOptions:
 class TestProfilingUtilities:
     """Test profiling utilities."""
 
+    @staticmethod
+    def _import_profiling():
+        """Import profiling module from tools/analysis."""
+        import sys
+        from pathlib import Path
+
+        tools_path = Path(__file__).parent.parent.parent / "tools"
+        if str(tools_path) not in sys.path:
+            sys.path.insert(0, str(tools_path))
+        from analysis.profiling import Profiler, ProfileReport, TimingResult
+
+        return Profiler, ProfileReport, TimingResult
+
     def test_profiler_context_manager(self):
         """Profiler context manager should record timings."""
         import time
 
-        from peakfit.analysis.profiling import Profiler
+        Profiler, _, _ = self._import_profiling()
 
         profiler = Profiler()
 
@@ -194,7 +207,7 @@ class TestProfilingUtilities:
         """Profiler start/stop should record timings."""
         import time
 
-        from peakfit.analysis.profiling import Profiler
+        Profiler, _, _ = self._import_profiling()
 
         profiler = Profiler()
 
@@ -210,14 +223,14 @@ class TestProfilingUtilities:
 
     def test_timing_result_per_call(self):
         """TimingResult should compute per-call average."""
-        from peakfit.analysis.profiling import TimingResult
+        _, _, TimingResult = self._import_profiling()
 
         result = TimingResult(name="test", elapsed=1.0, count=10)
         assert result.per_call == 0.1
 
     def test_profile_report_summary(self):
         """ProfileReport should generate summary."""
-        from peakfit.analysis.profiling import ProfileReport, TimingResult
+        _, ProfileReport, TimingResult = self._import_profiling()
 
         report = ProfileReport()
         report.add_timing(TimingResult("op1", 0.5))

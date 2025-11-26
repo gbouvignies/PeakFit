@@ -1,6 +1,14 @@
-"""Performance analysis and profiling tools for PeakFit."""
+"""Performance analysis and profiling tools for PeakFit development.
 
-from peakfit.analysis.benchmarks import (
+This package contains development utilities that are not part of the
+production PeakFit package. They require PeakFit to be installed to run.
+
+Modules:
+    - benchmarks: Performance benchmarking utilities
+    - profiling: Execution timing and profiling
+"""
+
+from analysis.benchmarks import (
     BenchmarkResult,
     benchmark_fitting_methods,
     benchmark_function,
@@ -9,7 +17,7 @@ from peakfit.analysis.benchmarks import (
     create_synthetic_cluster,
     profile_fit_cluster,
 )
-from peakfit.analysis.profiling import (
+from analysis.profiling import (
     Profiler,
     ProfileReport,
     TimingResult,

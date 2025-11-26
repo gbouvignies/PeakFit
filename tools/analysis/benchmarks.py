@@ -2,6 +2,9 @@
 
 Provides tools for profiling and comparing different optimization backends,
 lineshape calculations, and fitting strategies.
+
+Note: This module is located outside the main package in tools/analysis/.
+It requires PeakFit to be installed to run.
 """
 
 import time

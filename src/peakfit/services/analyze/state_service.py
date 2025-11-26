@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from peakfit.core.domain.state import FittingState
-from peakfit.infra.state import StateRepository
+from peakfit.io.state import StateRepository
 
 
 @dataclass(slots=True, frozen=True)

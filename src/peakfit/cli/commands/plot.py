@@ -546,7 +546,7 @@ def plot_spectra(
     info("Launching interactive spectra viewer...")
 
     try:
-        from peakfit.plotting.plots.spectra import main as spectra_main
+        from peakfit.plotting.spectra import main as spectra_main
 
         # Build arguments for the viewer
         sys.argv = ["peakfit", str(spectrum)]

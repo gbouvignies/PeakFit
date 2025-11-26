@@ -20,9 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `peakfit.lineshapes/` - All lineshape functions and models
   - `peakfit.fitting/` - Fitting algorithms, parameters, and results
   - `peakfit.data/` - File readers and adapters around the domain layer
-  - `peakfit.analysis/` - Benchmarking and profiling
-  - `peakfit.io/` - Input/output operations
+  - `peakfit.io/` - Input/output operations (including state persistence)
+  - `tools/analysis/` - Benchmarking and profiling (development utilities)
 - Removed `core/` module - functionality redistributed to logical packages
+- Removed `infra/` module - merged into `io/`
+- Removed `plotting/plots/` - orphan wrappers deleted, spectra.py moved up
 - Backend selection system removed - always uses NumPy
 
 ### Migration Guide

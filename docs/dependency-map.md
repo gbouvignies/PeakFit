@@ -1,6 +1,6 @@
 # PeakFit Dependency Snapshot
 
-_Updated: 2025-01-XX (post-refactoring-followup)_
+_Updated: 2025-01-XX (post-streamlining refactoring)_
 
 ## Architecture Overview
 
@@ -25,10 +25,34 @@ The PeakFit codebase follows a layered architecture:
 │   core/shared/events, core/diagnostics             │
 ├────────────────────────────────────────────────────┤
 │                Plotting & I/O Layers               │
-│   plotting/{diagnostics,profiles,...}              │
-│   io/{input,output,spectra,nmrpipe,...}            │
+│   plotting/{diagnostics,profiles,spectra}          │
+│   io/{config,output,state,spectra,nmrpipe,...}     │
 └────────────────────────────────────────────────────┘
 ```
+
+## Package Structure
+
+```
+peakfit/
+├── cli/           - Command-line interface
+├── core/          - Domain logic and algorithms
+├── services/      - Application services
+├── ui/            - Terminal output formatting
+├── plotting/      - Visualization
+│   ├── diagnostics.py  - MCMC diagnostic plots
+│   ├── profiles.py     - Profile visualization
+│   └── spectra.py      - Interactive Qt viewer
+└── io/            - File I/O
+    ├── config.py       - TOML configuration
+    ├── output.py       - Result file output
+    └── state.py        - State persistence
+```
+
+Removed packages:
+- `infra/` - merged into `io/`
+- `analysis/` - moved to `tools/analysis/` (development utilities)
+- `plotting/plots/` - orphan code deleted
+- `plotting/common.py` - orphan CLI helpers deleted
 
 ## How this snapshot was generated
 
@@ -72,7 +96,6 @@ The following import patterns are **forbidden**:
 |---------------|-------------------|
 | `io`          | `ui`              |
 | `core`        | `ui`, `cli`, `services` |
-| `infra`       | `ui`, `cli`       |
 
 Run `python tools/validate_imports.py` to check for violations.
 

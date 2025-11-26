@@ -9,7 +9,7 @@ from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.parameters import Parameters
-from peakfit.infra.state import StateRepository
+from peakfit.io.state import StateRepository
 
 
 def _make_state() -> FittingState:

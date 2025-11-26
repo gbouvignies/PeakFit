@@ -216,12 +216,20 @@ class TestPlottingBackwardCompatibility:
 
     def test_plotting_modules_available_as_library(self):
         """Test that plotting modules can still be imported as library functions."""
-        # These can still be imported as library functions
-        from peakfit.plotting.plots import cest, cpmg, intensity
+        # The main plotting functions are available through the public API
+        from peakfit.plotting import (
+            make_cest_figure,
+            make_cpmg_figure,
+            make_intensity_figure,
+            plot_corner,
+            plot_trace,
+        )
 
-        assert hasattr(cest, "plot_cest")
-        assert hasattr(cpmg, "plot_cpmg")
-        assert hasattr(intensity, "plot_intensities")
+        assert callable(make_cest_figure)
+        assert callable(make_cpmg_figure)
+        assert callable(make_intensity_figure)
+        assert callable(plot_trace)
+        assert callable(plot_corner)
 
     def test_no_peakfit_plot_command(self):
         """Verify old peakfit-plot command entry point is removed."""
