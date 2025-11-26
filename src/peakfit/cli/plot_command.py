@@ -454,8 +454,8 @@ def plot_mcmc_diagnostics(
 
     ui.success(f"Found MCMC data for {len(mcmc_data)} cluster(s)")
 
-    # Import plotting functions
-    from peakfit.core.diagnostics import (
+    # Import plotting functions from proper location
+    from peakfit.plotting.diagnostics import (
         plot_autocorrelation,
         plot_correlation_pairs,
         plot_marginal_distributions,
