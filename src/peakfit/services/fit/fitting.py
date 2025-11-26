@@ -22,7 +22,7 @@ from peakfit.core.shared.constants import (
     LEAST_SQUARES_XTOL,
 )
 from peakfit.core.shared.events import Event, EventDispatcher, EventType, FitProgressEvent
-from peakfit.ui import console
+from peakfit.ui import console, log, log_section, subsection_header
 
 if TYPE_CHECKING:
     from peakfit.services.fit.pipeline import FitArguments

@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+.r1 {color: #008080; text-decoration-color: #008080; font-weight: bold}
+.r2 {color: #7f7f7f; text-decoration-color: #7f7f7f}
+.r3 {color: #7fbfbf; text-decoration-color: #7fbfbf; font-weight: bold}
+.r4 {color: #008080; text-decoration-color: #008080}
+.r5 {color: #c0c0c0; text-decoration-color: #c0c0c0}
+.r6 {color: #008000; text-decoration-color: #008000}
+.r7 {color: #008000; text-decoration-color: #008000; font-weight: bold}
+.r8 {font-weight: bold}
+.r9 {color: #7f7f7f; text-decoration-color: #7f7f7f; font-weight: bold}
+body {
+    color: #000000;
+    background-color: #ffffff;
+}
+</style>
+</head>
+<body>
+    <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code style="font-family:inherit">
+🎯 <span class="r1">PeakFit</span> <span class="r2">v2025.</span><span class="r3">11.0</span>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+<span class="r4">╭───────────────────────────────────── Run Information ─────────────────────────────────────╮</span>
+<span class="r4">│</span>  <span class="r4">Started:</span> 2025-11-26 18:02:34                                                             <span class="r4">│</span>
+<span class="r4">│</span>  <span class="r4">Command:</span> peakfit fit data/pseudo3d.ft2 data/pseudo3d.list --z-values                     <span class="r4">│</span>
+<span class="r4">│</span>  data/b1_offsets.t...                                                                     <span class="r4">│</span>
+<span class="r4">│</span>  <span class="r4">Working directory:</span> /Users/gbouvignies/Code/PeakFit/examples/02-advanced-fitting          <span class="r4">│</span>
+<span class="r4">│</span>  <span class="r4">Python:</span> 3.13.9 | <span class="r4">Platform:</span> macOS-26.1-arm64                                              <span class="r4">│</span>
+<span class="r4">╰───────────────────────────────────────────────────────────────────────────────────────────╯</span>
+
+
+<span class="r1">           Configuration           </span>
+<span class="r2">╭─────────────────────┬───────────╮</span>
+<span class="r2">│</span><span class="r1"> Setting             </span><span class="r2">│</span><span class="r1">     Value </span><span class="r2">│</span>
+<span class="r2">├─────────────────────┼───────────┤</span>
+<span class="r2">│</span><span class="r4"> Backend             </span><span class="r2">│</span><span class="r5">     numpy </span><span class="r2">│</span>
+<span class="r2">│</span><span class="r4"> Parallel processing </span><span class="r2">│</span><span class="r5">  disabled </span><span class="r2">│</span>
+<span class="r2">│</span><span class="r4"> Output directory    </span><span class="r2">│</span><span class="r5"> Fits_test </span><span class="r2">│</span>
+<span class="r2">╰─────────────────────┴───────────╯</span>
+
+
+<span class="r1">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="r1">  Loading Input Files</span>
+<span class="r1">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="r6">⠋</span> <span class="r4">Reading spectrum...</span>
+[1A[2K
+<span class="r1">          Spectrum: pseudo3d.ft2           </span>
+<span class="r2">╭──────────────────┬──────────────────────╮</span>
+<span class="r2">│</span><span class="r1"> Property         </span><span class="r2">│</span><span class="r1">                Value </span><span class="r2">│</span>
+<span class="r2">├──────────────────┼──────────────────────┤</span>
+<span class="r2">│</span><span class="r4"> Dimensions       </span><span class="r2">│</span><span class="r5">      546 × 256 × 131 </span><span class="r2">│</span>
+<span class="r2">│</span><span class="r4"> Number of planes </span><span class="r2">│</span><span class="r5">                  131 </span><span class="r2">│</span>
+<span class="r2">│</span><span class="r4"> Lineshapes       </span><span class="r2">│</span><span class="r5">             sp2, sp2 </span><span class="r2">│</span>
+<span class="r2">│</span><span class="r4"> Noise level      </span><span class="r2">│</span><span class="r5"> 11922.54 (estimated) </span><span class="r2">│</span>
+<span class="r2">│</span><span class="r4"> Contour level    </span><span class="r2">│</span><span class="r5">             59612.72 </span><span class="r2">│</span>
+<span class="r2">╰──────────────────┴──────────────────────╯</span>
+
+
+<span class="r1">      Peak List: pseudo3d.list      </span>
+<span class="r2">╭─────────────────┬────────────────╮</span>
+<span class="r2">│</span><span class="r1"> Property        </span><span class="r2">│</span><span class="r1">          Value </span><span class="r2">│</span>
+<span class="r2">├─────────────────┼────────────────┤</span>
+<span class="r2">│</span><span class="r4"> Format          </span><span class="r2">│</span><span class="r5"> Sparky/NMRPipe </span><span class="r2">│</span>
+<span class="r2">│</span><span class="r4"> Number of peaks </span><span class="r2">│</span><span class="r5">            166 </span><span class="r2">│</span>
+<span class="r2">│</span><span class="r4"> Z-values file   </span><span class="r2">│</span><span class="r5"> b1_offsets.txt </span><span class="r2">│</span>
+<span class="r2">╰─────────────────┴────────────────╯</span>
+
+
+<span class="r1">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="r1">  Clustering Peaks</span>
+<span class="r1">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="r6">⠋</span> <span class="r4">Segmenting spectra and clustering peaks...</span>
+<span class="r7">✓</span> Identified <span class="r1">121</span> clusters <span class="r8">(</span><span class="r1">1</span>-<span class="r1">4</span> peaks per cluster<span class="r8">)</span>
+
+<span class="r1">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="r1">  Fitting Clusters</span>
+<span class="r1">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+<span class="r8">Initial Fit</span>
+
+<span class="r1">Cluster </span><span class="r1">1</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 2N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.70e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">2</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 4N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.64e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">3</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 7N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.13e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">4</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 9N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.49e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">5</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 11N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.23e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">6</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 14N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.12e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">7</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 16N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.66e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">8</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 17N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">8.01e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">9</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 18N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.72e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">10</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 19N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.98e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">11</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 21N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">8.93e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">12</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 23N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.64e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">13</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 24N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.85e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">14</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 26N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.19e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">15</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 27N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.57e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">16</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 29N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.62e+03</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">17</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 30N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.80e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">18</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 32N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.06e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">19</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 33N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.26e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">20</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 34N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.90e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">21</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 38N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.53e+04</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">22</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 39N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.31e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">23</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 46N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.35e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">24</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 48N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.87e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">25</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 49N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.99e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">26</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 50N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.36e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">27</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 51N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.32e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">28</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 55N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.35e+03</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">29</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 56N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.77e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">30</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 57N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.73e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">31</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 58N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.50e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">32</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 59N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.44e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">33</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 60N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.37e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">34</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 62N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.26e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">35</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 63N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.18e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">36</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 64N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.65e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">37</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 68N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.91e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">38</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 70N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.33e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">39</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 71N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.06e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">40</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 74N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.47e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">41</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 78N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.49e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">42</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 80N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.00e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">43</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 82N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.16e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">44</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 84N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.35e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">45</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 87N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.62e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">46</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 88N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">8.61e+03</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">47</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 89N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.58e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">48</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 90N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.48e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">49</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 91N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.72e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">50</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 95N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.84e+03</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">51</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 96N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.35e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">52</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 98N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.19e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">53</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 100N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.32e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">54</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 101N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.48e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">55</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 106N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.05e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">56</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 110N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.05e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">57</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 111N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.45e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">58</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 112N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.58e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">59</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 113N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.67e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">60</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 114N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.76e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">61</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 115N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">8.41e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">62</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 116N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.41e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">63</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 119N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.40e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">64</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 120N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.07e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">65</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 122N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.13e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">66</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 123N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.97e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">67</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 125N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.45e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">68</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 126EN-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.98e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">69</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 126N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.04e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">70</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 127N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">7.89e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">71</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 129N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.37e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">72</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 133N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.58e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">73</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 135N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.09e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">74</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 136N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.39e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">75</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 138EN-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.73e+03</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">76</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 140N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.97e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">77</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 141N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.03e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">78</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 142N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.28e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">79</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 144N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.00e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">80</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 145N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.43e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">81</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 146N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.86e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">82</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 150N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.20e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">83</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 152N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.76e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">84</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 153N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.30e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">85</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 154N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.12e+03</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">86</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 155N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.72e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">87</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 157N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.35e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">88</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 158EN-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.05e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">89</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 160N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.61e+03</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">90</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 163N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.94e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">91</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 164N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.29e+04</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">92</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 1013N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.23e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">93</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 8N-H, 20N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">7.43e+03</span> <span class="r2">│</span> <span class="r1">8</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">94</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 13N-H, 103N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.14e+04</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">95</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 31N-H, 43N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.40e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">96</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 35N-H, 149N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.30e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">97</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 40N-H, 61N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.21e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">98</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 41N-H, 77N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.27e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">99</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 44N-H, 79N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.05e+04</span> <span class="r2">│</span> <span class="r1">8</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">100</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 47N-H, 118N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.16e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">101</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 52N-H, 102N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.97e+03</span> <span class="r2">│</span> <span class="r1">11</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">102</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 53N-H, 147N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.26e+04</span> <span class="r2">│</span> <span class="r1">18</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">103</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 54N-H, 108N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.20e+04</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">104</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 69N-H, 99N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.77e+03</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">105</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 83N-H, 161N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">7.69e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">106</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 92N-H, 124N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.09e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">107</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 97N-H, 162N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.21e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">108</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 104N-H, 137N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.12e+04</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">109</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 128N-H, 138N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.63e+04</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">110</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 134N-H, 148N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.93e+03</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">111</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 12N-H, 1002N-H, 1011N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.68e+03</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">112</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 15N-H, 25N-H, 85N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.52e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">113</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 36N-H, 75N-H, 93N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.08e+04</span> <span class="r2">│</span> <span class="r1">36</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>4s
+
+<span class="r1">Cluster </span><span class="r1">114</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 42N-H, 65N-H, 81N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.19e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">115</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 67N-H, 121N-H, 130N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.09e+04</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">116</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 94N-H, 132N-H, 139N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.44e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">117</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 3N-H, 151N-H, 158N-H, 1000N-H <span class="r9">[</span><span class="r3">4</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.26e+04</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">118</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 5N-H, 10N-H, 76N-H, 105N-H <span class="r9">[</span><span class="r3">4</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.00e+03</span> <span class="r2">│</span> <span class="r1">18</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>3s
+
+<span class="r1">Cluster </span><span class="r1">119</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 6N-H, 66N-H, 72N-H, 131N-H <span class="r9">[</span><span class="r3">4</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.12e+04</span> <span class="r2">│</span> <span class="r1">6</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">120</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 22N-H, 45N-H, 73N-H, 159N-H <span class="r9">[</span><span class="r3">4</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.61e+04</span> <span class="r2">│</span> <span class="r1">7</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">121</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 28N-H, 107N-H, 109N-H, 156N-H <span class="r9">[</span><span class="r3">4</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.08e+04</span> <span class="r2">│</span> <span class="r1">12</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>2s
+
+<span class="r8">Refining Parameters (Iteration </span><span class="r1">2</span><span class="r8">)</span>
+
+<span class="r1">Cluster </span><span class="r1">1</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 2N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.66e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">2</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 4N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.59e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">3</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 7N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.13e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">4</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 9N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.45e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">5</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 11N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.23e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">6</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 14N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.14e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">7</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 16N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.66e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">8</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 17N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">7.92e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">9</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 18N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.72e+03</span> <span class="r2">│</span> <span class="r1">2</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">10</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 19N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.97e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">11</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 21N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">8.94e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">12</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 23N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.64e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">13</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 24N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.83e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">14</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 26N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.19e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">15</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 27N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.57e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">16</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 29N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.62e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">17</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 30N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.68e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">18</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 32N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.05e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">19</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 33N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.29e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">20</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 34N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.87e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">21</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 38N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.54e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">22</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 39N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.32e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">23</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 46N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.36e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">24</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 48N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.88e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">25</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 49N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.98e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">26</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 50N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.35e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">27</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 51N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.32e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">28</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 55N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.35e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">29</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 56N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.78e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">30</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 57N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.62e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">31</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 58N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.48e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">32</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 59N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.44e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">33</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 60N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.36e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">34</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 62N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.26e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">35</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 63N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.19e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">36</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 64N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.63e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">37</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 68N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.92e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">38</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 70N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.35e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">39</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 71N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.07e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">40</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 74N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.47e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">41</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 78N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.50e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">42</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 80N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.00e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">43</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 82N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.16e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">44</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 84N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.34e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">45</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 87N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.61e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">46</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 88N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">8.59e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">47</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 89N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.58e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">48</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 90N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.21e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">49</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 91N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.72e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">50</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 95N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.74e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">51</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 96N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.40e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">52</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 98N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.19e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">53</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 100N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.28e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">54</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 101N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.42e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">55</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 106N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.05e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">56</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 110N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.05e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">57</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 111N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.45e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">58</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 112N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.57e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">59</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 113N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.67e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">60</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 114N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.75e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">61</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 115N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">8.34e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">62</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 116N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.45e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">63</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 119N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.40e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">64</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 120N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.07e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">65</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 122N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.17e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">66</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 123N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.89e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">67</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 125N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.45e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">68</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 126EN-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.98e+03</span> <span class="r2">│</span> <span class="r1">2</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">69</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 126N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.04e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">70</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 127N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">7.88e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">71</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 129N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.43e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">72</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 133N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.62e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">73</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 135N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.08e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">74</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 136N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.39e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">75</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 138EN-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.72e+03</span> <span class="r2">│</span> <span class="r1">2</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">76</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 140N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.96e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">77</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 141N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.02e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">78</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 142N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.29e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">79</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 144N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.96e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">80</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 145N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.44e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">81</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 146N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.83e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">82</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 150N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.19e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">83</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 152N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.75e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">84</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 153N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.32e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">85</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 154N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.12e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">86</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 155N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">3.71e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">87</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 157N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.32e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">88</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 158EN-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">4.05e+04</span> <span class="r2">│</span> <span class="r1">2</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">89</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 160N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.54e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">90</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 163N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.94e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">91</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 164N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.29e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">92</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 1013N-H <span class="r9">[</span><span class="r3">1</span><span class="r2"> peak</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.23e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">93</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 8N-H, 20N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">7.44e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">94</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 13N-H, 103N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.13e+04</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">95</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 31N-H, 43N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.31e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">96</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 35N-H, 149N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.30e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">97</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 40N-H, 61N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.21e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">98</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 41N-H, 77N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.26e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">99</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 44N-H, 79N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.06e+04</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">100</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 47N-H, 118N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.15e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">101</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 52N-H, 102N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.91e+03</span> <span class="r2">│</span> <span class="r1">5</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">102</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 53N-H, 147N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.25e+04</span> <span class="r2">│</span> <span class="r1">13</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">103</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 54N-H, 108N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.19e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">104</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 69N-H, 99N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">9.72e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">105</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 83N-H, 161N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">7.68e+03</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">106</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 92N-H, 124N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.09e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">107</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 97N-H, 162N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.21e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">108</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 104N-H, 137N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.12e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">109</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 128N-H, 138N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.63e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">110</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 134N-H, 148N-H <span class="r9">[</span><span class="r3">2</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">5.94e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">111</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 12N-H, 1002N-H, 1011N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">6.69e+03</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">112</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 15N-H, 25N-H, 85N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.52e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">113</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 36N-H, 75N-H, 93N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.08e+04</span> <span class="r2">│</span> <span class="r1">23</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>2s
+
+<span class="r1">Cluster </span><span class="r1">114</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 42N-H, 65N-H, 81N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.18e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">115</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 67N-H, 121N-H, 130N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.09e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">116</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 94N-H, 132N-H, 139N-H <span class="r9">[</span><span class="r3">3</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.43e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>0s
+
+<span class="r1">Cluster </span><span class="r1">117</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 3N-H, 151N-H, 158N-H, 1000N-H <span class="r9">[</span><span class="r3">4</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.26e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">118</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 5N-H, 10N-H, 76N-H, 105N-H <span class="r9">[</span><span class="r3">4</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">8.97e+03</span> <span class="r2">│</span> <span class="r1">8</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">119</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 6N-H, 66N-H, 72N-H, 131N-H <span class="r9">[</span><span class="r3">4</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.12e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">120</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 22N-H, 45N-H, 73N-H, 159N-H <span class="r9">[</span><span class="r3">4</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">2.61e+04</span> <span class="r2">│</span> <span class="r1">4</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">Cluster </span><span class="r1">121</span><span class="r1">/</span><span class="r1">121</span> <span class="r2">│</span> 28N-H, 107N-H, 109N-H, 156N-H <span class="r9">[</span><span class="r3">4</span><span class="r2"> peaks</span><span class="r9">]</span>
+<span class="r6">✓</span> Converged <span class="r2">│</span> χ² = <span class="r1">1.08e+04</span> <span class="r2">│</span> <span class="r1">3</span> evaluations <span class="r2">│</span> <span class="r1">0.</span>1s
+
+<span class="r1">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="r1">  Fitting Complete</span>
+<span class="r1">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="r6">⠋</span> <span class="r4">Writing profiles...</span><span class="r6">⠋</span> <span class="r4">Writing profiles...</span>
+<span class="r7">✓</span> Peak profiles: Fits_test/<span class="r1">166</span> *.out files
+<span class="r6">⠋</span> <span class="r4">Writing shifts...</span>
+<span class="r7">✓</span> Chemical shifts: Fits_test/shifts.list
+<span class="r6">⠋</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠙</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠹</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠸</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠼</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠴</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠦</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠧</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠇</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠏</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠋</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠙</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠹</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠸</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠼</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠴</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠦</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠧</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠇</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠋</span> <span class="r4">Writing simulated spectra...</span><span class="r6">⠋</span> <span class="r4">Writing simulated spectra...</span>
+<span class="r7">✓</span> Simulated spectra: Fits_test/simulated_*.ft*
+</code></pre>
+</body>
+</html>
