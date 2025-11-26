@@ -91,9 +91,7 @@ def create_cluster_status(
     )
 
 
-def print_cluster_info(
-    cluster_index: int, total_clusters: int, peak_names: list[str]
-) -> None:
+def print_cluster_info(cluster_index: int, total_clusters: int, peak_names: list[str]) -> None:
     """Display information about a cluster being processed.
 
     Args:
@@ -244,9 +242,7 @@ def print_optimization_settings(ftol: float, xtol: float, max_nfev: int) -> None
         xtol: Parameter tolerance
         max_nfev: Maximum function evaluations
     """
-    console.print(
-        f"[dim]Optimization: ftol={ftol:.0e}, xtol={xtol:.0e}, max_nfev={max_nfev}[/]"
-    )
+    console.print(f"[dim]Optimization: ftol={ftol:.0e}, xtol={xtol:.0e}, max_nfev={max_nfev}[/]")
 
 
 def print_file_item(filepath: Path, indent: int = 2) -> None:

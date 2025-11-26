@@ -136,10 +136,7 @@ def show_footer(start_time: datetime, end_time: datetime) -> None:
 
     console.print()
     console.print("━" * 70)
-    console.print(
-        f"{LOGO_EMOJI} [bold green]Complete![/bold green] "
-        f"[dim]Elapsed: {time_str}[/dim]"
-    )
+    console.print(f"{LOGO_EMOJI} [bold green]Complete![/bold green] [dim]Elapsed: {time_str}[/dim]")
     console.print("━" * 70)
     console.print()
 

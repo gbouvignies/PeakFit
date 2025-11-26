@@ -26,14 +26,7 @@ from rich.table import Table
 from rich.text import Text
 
 # Import from submodules
-from peakfit.ui.console import (
-    LOGO_ASCII,
-    LOGO_EMOJI,
-    PEAKFIT_THEME,
-    REPO_URL,
-    VERSION,
-    console,
-)
+from peakfit.ui.console import LOGO_ASCII, LOGO_EMOJI, REPO_URL, VERSION, console
 
 
 class HasName(Protocol):

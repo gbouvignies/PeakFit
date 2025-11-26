@@ -5,6 +5,11 @@ from pathlib import Path
 import numpy as np
 from rich.table import Table
 
+from peakfit.cli._analyze_formatters import (
+    print_correlation_matrix,
+    print_mcmc_diagnostics_table,
+    print_mcmc_results_table,
+)
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
 from peakfit.core.domain.state import FittingState
@@ -24,6 +29,7 @@ from peakfit.services.analyze import (
     StateFileMissingError,
     StateLoadError,
 )
+from peakfit.services.analyze.formatters import format_mcmc_cluster_result
 from peakfit.ui import PeakFitUI as ui, console
 
 
@@ -130,165 +136,31 @@ def run_mcmc(
 
         # Display burn-in determination report
         if result.burn_in_info is not None:
-            from peakfit.core.diagnostics.burnin import format_burnin_report
+            _display_burnin_report(result.burn_in_info, peak_names, n_steps, n_walkers)
 
-            burn_in_used = result.burn_in_info["burn_in"]
-            console.print(f"[bold cyan]Burn-in Determination - {', '.join(peak_names)}[/bold cyan]")
-
-            # Format and display the report
-            report = format_burnin_report(
-                burn_in_used,
-                n_steps,
-                n_walkers,
-                result.burn_in_info.get("diagnostics", {}),
-            )
-            console.print(report)
-
-            # Show validation warning if present
-            if result.burn_in_info.get("validation_warning"):
-                console.print()
-                ui.warning(result.burn_in_info["validation_warning"])
-
-            console.print()
+        # Format and display using formatters
+        summary = format_mcmc_cluster_result(cluster_result)
 
         # Display convergence diagnostics
         if result.mcmc_diagnostics is not None:
-            diag = result.mcmc_diagnostics
-            console.print(
-                f"[bold cyan]Convergence Diagnostics - {', '.join(peak_names)}[/bold cyan]"
-            )
-            console.print(f"  Chains: {diag.n_chains}, Samples per chain: {diag.n_samples}")
-            console.print(
-                "  [dim]BARG Guidelines: R-hat ≤ 1.01 (excellent), "
-                "ESS ≥ 10,000 for stable CIs (Kruschke 2021)[/dim]"
-            )
-            console.print("")
-
-            # Create diagnostics table
-            diag_table = Table(show_header=True, header_style="bold cyan")
-            diag_table.add_column("Parameter", style="cyan", width=20)
-            diag_table.add_column("R-hat", justify="right", width=10)
-            diag_table.add_column("ESS_bulk", justify="right", width=14)
-            diag_table.add_column("ESS_tail", justify="right", width=14)
-            diag_table.add_column("Status", width=15)
-
-            for j, name in enumerate(result.parameter_names):
-                rhat = diag.rhat[j]
-                ess_bulk = diag.ess_bulk[j]
-                ess_tail = diag.ess_tail[j]
-
-                # Determine overall status based on BARG criteria
-                # R-hat ≤ 1.01 is excellent, ≤ 1.05 acceptable
-                # ESS ≥ 10,000 is BARG-recommended for publication
-                if rhat <= 1.01 and ess_bulk >= 10000:
-                    status = "[green]✓ Excellent[/green]"
-                elif rhat <= 1.01 and ess_bulk >= 100 * diag.n_chains:
-                    status = "[green]✓ Good[/green]"
-                elif rhat <= 1.05 and ess_bulk >= 100 * diag.n_chains:
-                    status = "[cyan]○ Acceptable[/cyan]"
-                elif rhat <= 1.05 and ess_bulk >= 10 * diag.n_chains:
-                    status = "[yellow]⚠ Marginal[/yellow]"
-                else:
-                    status = "[red]✗ Poor[/red]"
-
-                # Format R-hat with color coding (stricter is better)
-                if rhat <= 1.01:
-                    rhat_str = f"[green]{rhat:.4f}[/green]"
-                elif rhat <= 1.05:
-                    rhat_str = f"[cyan]{rhat:.4f}[/cyan]"
-                else:
-                    rhat_str = f"[red]{rhat:.4f}[/red]"
-
-                # Format ESS_bulk with percentage toward BARG target (10,000)
-                pct_bulk = min(100, (ess_bulk / 10000) * 100)
-                if ess_bulk >= 10000:
-                    ess_bulk_str = f"[green]{ess_bulk:.0f} (100%)[/green]"
-                elif ess_bulk >= 100 * diag.n_chains:
-                    ess_bulk_str = f"[green]{ess_bulk:.0f} ({pct_bulk:.0f}%)[/green]"
-                elif ess_bulk >= 10 * diag.n_chains:
-                    ess_bulk_str = f"[yellow]{ess_bulk:.0f} ({pct_bulk:.0f}%)[/yellow]"
-                else:
-                    ess_bulk_str = f"[red]{ess_bulk:.0f} ({pct_bulk:.0f}%)[/red]"
-
-                # Format ESS_tail similarly
-                pct_tail = min(100, (ess_tail / 10000) * 100)
-                if ess_tail >= 10000:
-                    ess_tail_str = f"[green]{ess_tail:.0f} (100%)[/green]"
-                elif ess_tail >= 100 * diag.n_chains:
-                    ess_tail_str = f"[green]{ess_tail:.0f} ({pct_tail:.0f}%)[/green]"
-                elif ess_tail >= 10 * diag.n_chains:
-                    ess_tail_str = f"[yellow]{ess_tail:.0f} ({pct_tail:.0f}%)[/yellow]"
-                else:
-                    ess_tail_str = f"[red]{ess_tail:.0f} ({pct_tail:.0f}%)[/red]"
-
-                diag_table.add_row(name, rhat_str, ess_bulk_str, ess_tail_str, status)
-
-            console.print(diag_table)
+            print_mcmc_diagnostics_table(summary)
 
             # Show warnings if any
-            warnings = diag.get_warnings()
+            warnings = result.mcmc_diagnostics.get_warnings()
             if warnings:
                 console.print()
                 ui.warning("Convergence issues detected:")
-                for warning in warnings[:5]:  # Limit to first 5 warnings
-                    console.print(f"  [dim]• {warning}[/dim]")
+                for warning_msg in warnings[:5]:  # Limit to first 5 warnings
+                    console.print(f"  [dim]• {warning_msg}[/dim]")
                 if len(warnings) > 5:
                     console.print(f"  [dim]... and {len(warnings) - 5} more warnings[/dim]")
+                console.print("")
 
-            console.print("")
-
-        # Display results
-        table = Table(title=f"MCMC Results - {', '.join(peak_names)}")
-        table.add_column("Parameter", style="cyan")
-        table.add_column("Value", justify="right")
-        table.add_column("Std Error", justify="right")
-        table.add_column("68% CI", justify="right")
-        table.add_column("95% CI", justify="right")
-
-        for j, name in enumerate(result.parameter_names):
-            ci_68 = result.confidence_intervals_68[j]
-            ci_95 = result.confidence_intervals_95[j]
-            table.add_row(
-                name,
-                f"{result.values[j]:.6f}",
-                f"{result.std_errors[j]:.6f}",
-                f"[{ci_68[0]:.6f}, {ci_68[1]:.6f}]",
-                f"[{ci_95[0]:.6f}, {ci_95[1]:.6f}]",
-            )
-
-        console.print(table)
-        console.print("")
+        # Display results table
+        print_mcmc_results_table(summary)
 
         # Display correlation matrix if there are multiple parameters
-        if result.correlation_matrix is not None and len(result.parameter_names) > 1:
-            console.print(f"[bold cyan]Correlation Matrix - {', '.join(peak_names)}[/bold cyan]")
-            console.print("  (Strong correlations: |r| > 0.7)")
-
-            # Create correlation table
-            corr_table = Table(show_header=True, header_style="bold cyan")
-            corr_table.add_column("", style="cyan", width=15)
-            for name in result.parameter_names:
-                # Shorten parameter names for display
-                short_name = name.split("_")[-1] if "_" in name else name
-                corr_table.add_column(short_name[:8], justify="right", width=9)
-
-            for i, name in enumerate(result.parameter_names):
-                short_name = name.split("_")[-1] if "_" in name else name
-                row = [short_name[:15]]
-                for j, val in enumerate(result.correlation_matrix[i]):
-                    if i == j:
-                        row.append("[dim]1.0000[/dim]")
-                    elif abs(val) > 0.7:
-                        # Highlight strong correlations
-                        row.append(f"[bold yellow]{val:7.4f}[/bold yellow]")
-                    elif abs(val) > 0.3:
-                        row.append(f"[yellow]{val:7.4f}[/yellow]")
-                    else:
-                        row.append(f"{val:7.4f}")
-                corr_table.add_row(*row)
-
-            console.print(corr_table)
-            console.print("")
+        print_correlation_matrix(summary)
 
         # Update global parameters with MCMC uncertainties
 
@@ -807,3 +679,32 @@ def _save_mcmc_chains(
     # Note: pickle.dump is safe here as we control the data being saved
     with mcmc_file.open("wb") as f:
         pickle.dump(mcmc_data, f)
+
+
+def _display_burnin_report(
+    burn_in_info: dict,
+    peak_names: list[str],
+    n_steps: int,
+    n_walkers: int,
+) -> None:
+    """Display burn-in determination report."""
+    from peakfit.core.diagnostics.burnin import format_burnin_report
+
+    burn_in_used = burn_in_info["burn_in"]
+    console.print(f"[bold cyan]Burn-in Determination - {', '.join(peak_names)}[/bold cyan]")
+
+    # Format and display the report
+    report = format_burnin_report(
+        burn_in_used,
+        n_steps,
+        n_walkers,
+        burn_in_info.get("diagnostics", {}),
+    )
+    console.print(report)
+
+    # Show validation warning if present
+    if burn_in_info.get("validation_warning"):
+        console.print()
+        ui.warning(burn_in_info["validation_warning"])
+
+    console.print()

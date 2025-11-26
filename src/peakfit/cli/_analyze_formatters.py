@@ -13,10 +13,7 @@ from rich.table import Table
 from peakfit.ui import console
 
 if TYPE_CHECKING:
-    from peakfit.services.analyze.formatters import (
-        MCMCClusterSummary,
-        MCMCParameterSummary,
-    )
+    from peakfit.services.analyze.formatters import MCMCClusterSummary, MCMCParameterSummary
 
 
 def format_rhat(rhat: float | None) -> str:

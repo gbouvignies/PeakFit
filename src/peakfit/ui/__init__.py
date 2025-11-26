@@ -13,14 +13,22 @@ Submodules:
 - fit_display: Fit-specific display components
 """
 
-from peakfit.ui.reporter import ConsoleReporter, default_reporter
-from peakfit.ui.style import PeakFitUI
-from peakfit.ui.console import console
+from peakfit.ui.branding import show_banner, show_run_info, show_version
 
 # Re-export submodule contents for direct access
-from peakfit.ui.console import LOGO_ASCII, PEAKFIT_THEME, REPO_URL, VERSION
+from peakfit.ui.console import LOGO_ASCII, PEAKFIT_THEME, REPO_URL, VERSION, console
+from peakfit.ui.fit_display import (
+    create_cluster_status,
+    export_html,
+    print_cluster_info,
+    print_data_summary,
+    print_file_item,
+    print_fit_report,
+    print_fit_summary,
+    print_optimization_settings,
+    print_peaks_panel,
+)
 from peakfit.ui.logging import close_logging, log, log_dict, log_section, setup_logging
-from peakfit.ui.branding import show_banner, show_run_info, show_version
 from peakfit.ui.messages import (
     action,
     bullet,
@@ -38,24 +46,15 @@ from peakfit.ui.messages import (
     success,
     warning,
 )
+from peakfit.ui.panels import create_panel, print_panel
+from peakfit.ui.progress import create_progress
+from peakfit.ui.reporter import ConsoleReporter, default_reporter
+from peakfit.ui.style import PeakFitUI
 from peakfit.ui.tables import (
     create_table,
     print_performance_summary,
     print_summary,
     print_validation_table,
-)
-from peakfit.ui.panels import create_panel, print_panel
-from peakfit.ui.progress import create_progress
-from peakfit.ui.fit_display import (
-    create_cluster_status,
-    export_html,
-    print_cluster_info,
-    print_data_summary,
-    print_file_item,
-    print_fit_report,
-    print_fit_summary,
-    print_optimization_settings,
-    print_peaks_panel,
 )
 
 __all__ = [
