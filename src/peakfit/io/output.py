@@ -8,7 +8,7 @@ import numpy as np
 
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
-from peakfit.core.fitting.computation import calculate_shape_heights
+from peakfit.core.fitting.computation import calculate_amplitudes_with_uncertainty, calculate_shapes
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.shared.reporter import NullReporter, Reporter
 from peakfit.core.shared.typing import FittingOptions, FloatArray
@@ -37,16 +37,24 @@ def write_profiles(
 
     reporter.action("Writing profiles...")
     for cluster in clusters:
-        _shapes, amplitudes = calculate_shape_heights(params, cluster)
-        amplitudes_err = np.full_like(amplitudes, args.noise)
+        # Compute amplitudes with proper uncertainty propagation from linear least-squares
+        shapes = calculate_shapes(params, cluster)
+        amplitudes, amplitudes_err, _covariance = calculate_amplitudes_with_uncertainty(
+            shapes, cluster.corrected_data, args.noise
+        )
         for i, peak in enumerate(cluster.peaks):
+            # amplitudes_err[i] is a scalar (same error for all planes)
+            # We need to broadcast it to match the number of planes
+            peak_amplitudes = amplitudes[i]
+            n_planes = len(peak_amplitudes) if hasattr(peak_amplitudes, "__len__") else 1
+            peak_errors = np.full(n_planes, amplitudes_err[i])
             write_profile(
                 path,
                 peak,
                 params,
                 z_values,
-                amplitudes[i],
-                amplitudes_err[i],
+                peak_amplitudes,
+                peak_errors,
             )
 
 

@@ -17,7 +17,9 @@ from peakfit.core.fitting.advanced import (
 
 # Core computation functions
 from peakfit.core.fitting.computation import (
+    calculate_amplitude_covariance,
     calculate_amplitudes,
+    calculate_amplitudes_with_uncertainty,
     calculate_shape_heights,
     calculate_shapes,
     residuals,

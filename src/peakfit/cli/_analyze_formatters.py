@@ -239,3 +239,78 @@ def print_correlation_analysis_table(
 
     console.print(table)
     console.print("")
+
+
+def print_mcmc_amplitude_table(summary: MCMCClusterSummary, max_rows: int = 10) -> None:
+    """Print MCMC amplitude (intensity) results table for a cluster.
+
+    Args:
+        summary: MCMCClusterSummary containing amplitude summaries
+        max_rows: Maximum number of rows to display per peak before summarizing
+    """
+    if not summary.amplitude_summaries:
+        return
+
+    console.print(f"[bold cyan]Intensity Results - {summary.cluster_label}[/bold cyan]")
+    console.print("  [dim]Intensities computed from linear least-squares at each MCMC sample[/dim]")
+    console.print("")
+
+    # Group amplitudes by peak
+    by_peak = summary.get_amplitudes_by_peak()
+
+    for peak_name, amplitudes in by_peak.items():
+        # Sort by plane index
+        amplitudes = sorted(amplitudes, key=lambda x: x.plane_index)
+        n_planes = len(amplitudes)
+
+        table = Table(title=f"Intensities for {peak_name}")
+        table.add_column(
+            "Z-value" if amplitudes[0].z_value is not None else "Plane", justify="right"
+        )
+        table.add_column("Intensity", justify="right")
+        table.add_column("Std Error", justify="right")
+        table.add_column("68% CI", justify="right")
+        table.add_column("Rel. Error (%)", justify="right")
+
+        # Determine if we need to truncate
+        show_all = n_planes <= max_rows
+        display_amps = (
+            amplitudes if show_all else amplitudes[: max_rows // 2] + amplitudes[-max_rows // 2 :]
+        )
+
+        for i, amp in enumerate(display_amps):
+            # Add ellipsis row if truncated
+            if not show_all and i == max_rows // 2:
+                table.add_row(
+                    "[dim]...[/dim]",
+                    "[dim]...[/dim]",
+                    "[dim]...[/dim]",
+                    "[dim]...[/dim]",
+                    "[dim]...[/dim]",
+                )
+
+            z_str = f"{amp.z_value:.1f}" if amp.z_value is not None else str(amp.plane_index)
+
+            # Calculate relative error
+            rel_err = abs(amp.std_error / amp.value * 100) if amp.value != 0 else 0.0
+            rel_err_str = f"{rel_err:.1f}%"
+            if rel_err > 10:
+                rel_err_str = f"[yellow]{rel_err:.1f}%[/yellow]"
+
+            table.add_row(
+                z_str,
+                f"{amp.value:.4e}",
+                f"{amp.std_error:.4e}",
+                f"[{amp.ci_68_lower:.4e}, {amp.ci_68_upper:.4e}]",
+                rel_err_str,
+            )
+
+        console.print(table)
+
+        if not show_all:
+            console.print(
+                f"  [dim]Showing {max_rows} of {n_planes} planes. "
+                f"Full results saved to output file.[/dim]"
+            )
+
+    console.print("")

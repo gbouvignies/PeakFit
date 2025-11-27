@@ -526,6 +526,172 @@ def plot_autocorrelation(
     return fig
 
 
+def plot_amplitude_summary(
+    amplitude_samples: FloatArray,
+    amplitude_names: list[str],
+    amplitude_values: FloatArray | None = None,
+    amplitude_std_errors: FloatArray | None = None,
+    max_planes_to_show: int = 20,
+) -> list[Figure]:
+    """Create summary plots for amplitude (intensity) posterior distributions.
+
+    Shows statistics for each peak's amplitude across all planes, including:
+    - Mean amplitude and uncertainty per plane
+    - Distribution of amplitudes
+    - Statistics summary
+
+    Args:
+        amplitude_samples: Array of shape (n_samples, n_peaks, n_planes)
+        amplitude_names: List of peak names
+        amplitude_values: Optional best-fit amplitude values (n_peaks, n_planes)
+        amplitude_std_errors: Optional standard errors (n_peaks, n_planes)
+        max_planes_to_show: Maximum number of planes to show in detail plots
+
+    Returns:
+        List of matplotlib Figure objects (one per peak)
+    """
+    if amplitude_samples is None or len(amplitude_samples) == 0:
+        return []
+
+    n_samples, n_peaks, n_planes = amplitude_samples.shape
+    figures: list[Figure] = []
+
+    for i_peak, peak_name in enumerate(amplitude_names):
+        peak_samples = amplitude_samples[:, i_peak, :]  # (n_samples, n_planes)
+
+        # Create figure with 2 rows: top for amplitude profile, bottom for histograms
+        fig = plt.figure(figsize=(14, 10))
+
+        # Top plot: Amplitude profile across planes
+        ax_profile = fig.add_subplot(2, 1, 1)
+
+        # Compute statistics for each plane
+        medians = np.median(peak_samples, axis=0)
+        ci_16 = np.percentile(peak_samples, 16, axis=0)
+        ci_84 = np.percentile(peak_samples, 84, axis=0)
+        ci_2_5 = np.percentile(peak_samples, 2.5, axis=0)
+        ci_97_5 = np.percentile(peak_samples, 97.5, axis=0)
+
+        plane_indices = np.arange(n_planes)
+
+        # Plot uncertainty bands
+        ax_profile.fill_between(
+            plane_indices, ci_2_5, ci_97_5, alpha=0.2, color="steelblue", label="95% CI"
+        )
+        ax_profile.fill_between(
+            plane_indices, ci_16, ci_84, alpha=0.4, color="steelblue", label="68% CI"
+        )
+        ax_profile.plot(plane_indices, medians, "o-", color="navy", markersize=3, label="Median")
+
+        # Plot best-fit values if provided
+        if amplitude_values is not None:
+            ax_profile.plot(
+                plane_indices,
+                amplitude_values[i_peak],
+                "s--",
+                color="red",
+                markersize=4,
+                alpha=0.7,
+                label="Best-fit",
+            )
+
+        ax_profile.set_xlabel("Plane Index", fontsize=11)
+        ax_profile.set_ylabel("Amplitude (Intensity)", fontsize=11)
+        ax_profile.set_title(
+            f"Amplitude Profile: {peak_name} ({n_samples:,} MCMC samples)",
+            fontsize=13,
+            fontweight="bold",
+        )
+        ax_profile.legend(loc="upper right", fontsize=9)
+        ax_profile.grid(True, alpha=0.3)
+
+        # Add overall statistics text box
+        overall_median = np.median(medians)
+        overall_std = np.std(medians)
+        mean_uncertainty = np.mean(ci_84 - ci_16) / 2
+
+        stats_text = (
+            f"Overall Statistics:\n"
+            f"  Median amplitude: {overall_median:.4g}\n"
+            f"  Std across planes: {overall_std:.4g}\n"
+            f"  Mean uncertainty: ±{mean_uncertainty:.4g}\n"
+            f"  Rel. uncertainty: {100 * mean_uncertainty / abs(overall_median):.1f}%"
+            if overall_median != 0
+            else f"Overall Statistics:\n"
+            f"  Median amplitude: {overall_median:.4g}\n"
+            f"  Std across planes: {overall_std:.4g}\n"
+            f"  Mean uncertainty: ±{mean_uncertainty:.4g}"
+        )
+
+        ax_profile.text(
+            0.02,
+            0.98,
+            stats_text,
+            transform=ax_profile.transAxes,
+            fontsize=9,
+            verticalalignment="top",
+            bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.8},
+        )
+
+        # Bottom plot: Histogram of overall amplitude distribution (all planes combined)
+        ax_hist = fig.add_subplot(2, 1, 2)
+
+        # Flatten all samples across planes for overall distribution
+        all_samples_flat = peak_samples.flatten()
+
+        ax_hist.hist(
+            all_samples_flat,
+            bins=50,
+            density=True,
+            alpha=0.7,
+            color="steelblue",
+            edgecolor="black",
+            linewidth=0.5,
+        )
+
+        # Mark overall median and CI
+        overall_median_all = np.median(all_samples_flat)
+        overall_ci_16 = np.percentile(all_samples_flat, 16)
+        overall_ci_84 = np.percentile(all_samples_flat, 84)
+
+        ax_hist.axvline(overall_median_all, color="red", linestyle="-", linewidth=2, label="Median")
+        ax_hist.axvline(overall_ci_16, color="red", linestyle="--", linewidth=1.5, alpha=0.7)
+        ax_hist.axvline(overall_ci_84, color="red", linestyle="--", linewidth=1.5, alpha=0.7)
+        ax_hist.axvspan(overall_ci_16, overall_ci_84, alpha=0.15, color="red", label="68% CI")
+
+        ax_hist.set_xlabel("Amplitude (Intensity)", fontsize=11)
+        ax_hist.set_ylabel("Density", fontsize=11)
+        ax_hist.set_title(
+            f"Overall Amplitude Distribution (all {n_planes} planes)",
+            fontsize=12,
+            fontweight="bold",
+        )
+        ax_hist.legend(loc="upper right", fontsize=9)
+        ax_hist.grid(True, alpha=0.3)
+
+        # Statistics text box for histogram
+        hist_stats = (
+            f"Median: {overall_median_all:.4g}\n"
+            f"68% CI: [{overall_ci_16:.4g}, {overall_ci_84:.4g}]\n"
+            f"Samples: {len(all_samples_flat):,}"
+        )
+        ax_hist.text(
+            0.98,
+            0.97,
+            hist_stats,
+            transform=ax_hist.transAxes,
+            fontsize=9,
+            verticalalignment="top",
+            horizontalalignment="right",
+            bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
+        )
+
+        plt.tight_layout()
+        figures.append(fig)
+
+    return figures
+
+
 def plot_corner(
     samples: FloatArray,
     parameter_names: list[str],

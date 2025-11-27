@@ -1,6 +1,7 @@
 """Services orchestrating analysis workflows (MCMC, profile likelihood, etc.)."""
 
 from .formatters import (
+    MCMCAmplitudeSummary,
     MCMCClusterSummary,
     MCMCParameterSummary,
     ProfileParameterSummary,
@@ -37,6 +38,7 @@ __all__ = [
     "ClusterMCMCResult",
     "FittingStateService",
     "LoadedFittingState",
+    "MCMCAmplitudeSummary",
     "MCMCAnalysisResult",
     "MCMCAnalysisService",
     "MCMCClusterSummary",

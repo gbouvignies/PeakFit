@@ -6,13 +6,14 @@ They don't do Rich/console output - that stays in CLI layer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 if TYPE_CHECKING:
     from peakfit.core.diagnostics.convergence import ConvergenceDiagnostics
+    from peakfit.core.shared.typing import FloatArray
     from peakfit.services.analyze.mcmc_service import ClusterMCMCResult
 
 
@@ -55,6 +56,21 @@ class MCMCParameterSummary:
 
 
 @dataclass
+class MCMCAmplitudeSummary:
+    """Summary of MCMC amplitude (intensity) results for a single peak."""
+
+    peak_name: str
+    plane_index: int
+    value: float
+    std_error: float
+    ci_68_lower: float
+    ci_68_upper: float
+    ci_95_lower: float
+    ci_95_upper: float
+    z_value: float | None = None  # Corresponding Z-dimension value if available
+
+
+@dataclass
 class MCMCClusterSummary:
     """Summary of MCMC results for a single cluster."""
 
@@ -64,6 +80,9 @@ class MCMCClusterSummary:
     burn_in_used: int | None
     n_chains: int
     n_samples: int
+    # Amplitude (intensity) summaries
+    amplitude_summaries: list[MCMCAmplitudeSummary] = field(default_factory=list)
+    amplitude_correlation_matrix: np.ndarray | None = None
 
     @property
     def cluster_label(self) -> str:
@@ -94,16 +113,31 @@ class MCMCClusterSummary:
                     )
         return pairs
 
+    def get_amplitudes_by_peak(self) -> dict[str, list[MCMCAmplitudeSummary]]:
+        """Group amplitude summaries by peak name.
+
+        Returns:
+            Dictionary mapping peak name to list of amplitude summaries across planes
+        """
+        by_peak: dict[str, list[MCMCAmplitudeSummary]] = {}
+        for amp in self.amplitude_summaries:
+            if amp.peak_name not in by_peak:
+                by_peak[amp.peak_name] = []
+            by_peak[amp.peak_name].append(amp)
+        return by_peak
+
 
 def format_mcmc_cluster_result(
     cluster_result: ClusterMCMCResult,
     diagnostics: ConvergenceDiagnostics | None = None,
+    z_values: FloatArray | None = None,
 ) -> MCMCClusterSummary:
     """Convert MCMCClusterResult to display-friendly summary.
 
     Args:
         cluster_result: Result from MCMC analysis service
         diagnostics: Optional convergence diagnostics
+        z_values: Optional Z-dimension values for amplitude labeling
 
     Returns:
         MCMCClusterSummary ready for display
@@ -135,6 +169,55 @@ def format_mcmc_cluster_result(
         )
         parameter_summaries.append(summary)
 
+    # Build amplitude summaries if available
+    amplitude_summaries: list[MCMCAmplitudeSummary] = []
+    if result.amplitude_names is not None and result.amplitude_values is not None:
+        amp_values = result.amplitude_values
+        amp_errors = result.amplitude_std_errors
+        amp_ci_68 = result.amplitude_confidence_intervals_68
+        amp_ci_95 = result.amplitude_confidence_intervals_95
+
+        n_peaks = len(result.amplitude_names)
+        # Handle both 1D and 2D amplitude arrays
+        if amp_values.ndim == 1:
+            n_planes = 1
+            amp_values = amp_values.reshape(n_peaks, 1)
+            if amp_errors is not None:
+                amp_errors = amp_errors.reshape(n_peaks, 1)
+            if amp_ci_68 is not None:
+                amp_ci_68 = amp_ci_68.reshape(n_peaks, 2, 1)
+            if amp_ci_95 is not None:
+                amp_ci_95 = amp_ci_95.reshape(n_peaks, 2, 1)
+        else:
+            n_planes = amp_values.shape[1]
+
+        for i_peak, peak_name in enumerate(result.amplitude_names):
+            for i_plane in range(n_planes):
+                z_val = None
+                if z_values is not None and i_plane < len(z_values):
+                    z_val = float(z_values[i_plane])
+
+                amp_summary = MCMCAmplitudeSummary(
+                    peak_name=peak_name,
+                    plane_index=i_plane,
+                    value=float(amp_values[i_peak, i_plane]),
+                    std_error=float(amp_errors[i_peak, i_plane]) if amp_errors is not None else 0.0,
+                    ci_68_lower=float(amp_ci_68[i_peak, 0, i_plane])
+                    if amp_ci_68 is not None
+                    else 0.0,
+                    ci_68_upper=float(amp_ci_68[i_peak, 1, i_plane])
+                    if amp_ci_68 is not None
+                    else 0.0,
+                    ci_95_lower=float(amp_ci_95[i_peak, 0, i_plane])
+                    if amp_ci_95 is not None
+                    else 0.0,
+                    ci_95_upper=float(amp_ci_95[i_peak, 1, i_plane])
+                    if amp_ci_95 is not None
+                    else 0.0,
+                    z_value=z_val,
+                )
+                amplitude_summaries.append(amp_summary)
+
     return MCMCClusterSummary(
         peak_names=peak_names,
         parameter_summaries=parameter_summaries,
@@ -142,6 +225,8 @@ def format_mcmc_cluster_result(
         burn_in_used=result.burn_in_info.get("burn_in") if result.burn_in_info else None,
         n_chains=diagnostics.n_chains if diagnostics else 0,
         n_samples=diagnostics.n_samples if diagnostics else 0,
+        amplitude_summaries=amplitude_summaries,
+        amplitude_correlation_matrix=result.amplitude_correlation_matrix,
     )
 
 

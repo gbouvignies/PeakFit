@@ -7,6 +7,7 @@ This module provides visualization functions for NMR data analysis:
 """
 
 from peakfit.plotting.diagnostics import (
+    plot_amplitude_summary,
     plot_autocorrelation,
     plot_corner,
     plot_correlation_pairs,
@@ -26,6 +27,7 @@ from peakfit.plotting.profiles import (
 
 __all__ = [
     # Diagnostics
+    "plot_amplitude_summary",
     "plot_autocorrelation",
     "plot_corner",
     "plot_correlation_pairs",
