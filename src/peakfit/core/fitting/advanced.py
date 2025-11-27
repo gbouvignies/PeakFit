@@ -480,13 +480,10 @@ def estimate_uncertainties_mcmc(
     # Get flattened samples after burn-in for statistics
     lineshape_samples = np.asarray(sampler.get_chain(discard=burn_in, flat=True))
 
-    # Compute convergence diagnostics on post-burn-in lineshape samples
-    from peakfit.core.diagnostics import diagnose_convergence
-
     lineshape_names = params.get_vary_names()
-    diagnostics = diagnose_convergence(chains_post_burnin, lineshape_names)
 
     # Correlation matrix for lineshape parameters only
+    # (amplitudes are conditionally independent given lineshape params)
     corr_matrix = np.corrcoef(lineshape_samples.T)
 
     # Compute amplitudes for each MCMC sample (via fast linear least-squares)
@@ -514,9 +511,16 @@ def estimate_uncertainties_mcmc(
     combined_chains = np.concatenate([chains_full, amp_chains], axis=2)
     combined_names = lineshape_names + amp_names
 
+    # Combined chains post burn-in for diagnostics
+    combined_chains_post_burnin = combined_chains[:, burn_in:, :]
+
+    # Compute convergence diagnostics on ALL parameters (lineshape + amplitudes)
+    from peakfit.core.diagnostics import diagnose_convergence
+
+    diagnostics = diagnose_convergence(combined_chains_post_burnin, combined_names)
+
     # Flatten combined samples for statistics (post burn-in)
-    amp_samples_flat = amp_chains[:, burn_in:, :].reshape(-1, n_amp_params)
-    combined_samples = np.concatenate([lineshape_samples, amp_samples_flat], axis=1)
+    combined_samples = combined_chains_post_burnin.reshape(-1, len(combined_names))
 
     # Compute unified statistics for all parameters
     percentiles = np.percentile(combined_samples, [16, 50, 84], axis=0)
@@ -550,7 +554,7 @@ def estimate_uncertainties_mcmc(
         mcmc_samples=combined_samples,
         mcmc_percentiles=percentiles,
         mcmc_chains=combined_chains,  # Unified chains
-        mcmc_diagnostics=diagnostics,
+        mcmc_diagnostics=diagnostics,  # Diagnostics for ALL parameters
         burn_in_info=burn_in_info,
         # Metadata for parameter type distinction
         n_lineshape_params=n_lineshape,
