@@ -645,24 +645,20 @@ def _save_mcmc_chains(
             # Extract burn-in from result (may be adaptive or manual)
             burn_in = result.burn_in_info["burn_in"] if result.burn_in_info else 0
 
-            # Store data for this cluster
+            # Store data for this cluster - unified chains include all parameters
             mcmc_data.append(
                 {
                     "peak_names": peak_names,
-                    "chains": result.mcmc_chains,
-                    "parameter_names": result.parameter_names,
+                    "chains": result.mcmc_chains,  # Unified chains (lineshape + amplitudes)
+                    "parameter_names": result.parameter_names,  # All parameter names
                     "burn_in": burn_in,
-                    "burn_in_info": result.burn_in_info,  # Save full burn-in info
+                    "burn_in_info": result.burn_in_info,
                     "diagnostics": result.mcmc_diagnostics,
                     "best_fit_values": best_fit_values,
-                    # Amplitude data
+                    # Metadata for distinguishing parameter types
+                    "n_lineshape_params": result.n_lineshape_params,
                     "amplitude_names": result.amplitude_names,
-                    "amplitude_values": result.amplitude_values,
-                    "amplitude_std_errors": result.amplitude_std_errors,
-                    "amplitude_confidence_intervals_68": result.amplitude_confidence_intervals_68,
-                    "amplitude_confidence_intervals_95": result.amplitude_confidence_intervals_95,
-                    "amplitude_chains": result.amplitude_chains,
-                    "amplitude_chain_names": result.amplitude_chain_names,
+                    "n_planes": result.n_planes,
                 }
             )
 

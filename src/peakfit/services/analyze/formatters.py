@@ -149,8 +149,15 @@ def format_mcmc_cluster_result(
     if diagnostics is None and result.mcmc_diagnostics is not None:
         diagnostics = result.mcmc_diagnostics
 
+    # Get metadata for distinguishing lineshape vs amplitude parameters
+    n_lineshape = getattr(result, "n_lineshape_params", len(result.parameter_names))
+    n_planes = getattr(result, "n_planes", 1)
+    amp_peak_names = result.amplitude_names or []
+
     parameter_summaries = []
-    for i, name in enumerate(result.parameter_names):
+    # Only include lineshape parameters in the main parameter summaries
+    for i in range(n_lineshape):
+        name = result.parameter_names[i]
         ci_68 = result.confidence_intervals_68[i]
         ci_95 = result.confidence_intervals_95[i]
 
@@ -162,36 +169,29 @@ def format_mcmc_cluster_result(
             ci_68_upper=ci_68[1],
             ci_95_lower=ci_95[0],
             ci_95_upper=ci_95[1],
-            rhat=diagnostics.rhat[i] if diagnostics else None,
-            ess_bulk=diagnostics.ess_bulk[i] if diagnostics else None,
-            ess_tail=diagnostics.ess_tail[i] if diagnostics else None,
+            rhat=diagnostics.rhat[i] if diagnostics and i < len(diagnostics.rhat) else None,
+            ess_bulk=diagnostics.ess_bulk[i]
+            if diagnostics and i < len(diagnostics.ess_bulk)
+            else None,
+            ess_tail=diagnostics.ess_tail[i]
+            if diagnostics and i < len(diagnostics.ess_tail)
+            else None,
         )
         parameter_summaries.append(summary)
 
-    # Build amplitude summaries if available
+    # Build amplitude summaries from unified parameter arrays
     amplitude_summaries: list[MCMCAmplitudeSummary] = []
-    if result.amplitude_names is not None and result.amplitude_values is not None:
-        amp_values = result.amplitude_values
-        amp_errors = result.amplitude_std_errors
-        amp_ci_68 = result.amplitude_confidence_intervals_68
-        amp_ci_95 = result.amplitude_confidence_intervals_95
+    if amp_peak_names and n_lineshape < len(result.parameter_names):
+        n_peaks = len(amp_peak_names)
+        # Amplitude parameters start after lineshape parameters
+        amp_start = n_lineshape
 
-        n_peaks = len(result.amplitude_names)
-        # Handle both 1D and 2D amplitude arrays
-        if amp_values.ndim == 1:
-            n_planes = 1
-            amp_values = amp_values.reshape(n_peaks, 1)
-            if amp_errors is not None:
-                amp_errors = amp_errors.reshape(n_peaks, 1)
-            if amp_ci_68 is not None:
-                amp_ci_68 = amp_ci_68.reshape(n_peaks, 2, 1)
-            if amp_ci_95 is not None:
-                amp_ci_95 = amp_ci_95.reshape(n_peaks, 2, 1)
-        else:
-            n_planes = amp_values.shape[1]
-
-        for i_peak, peak_name in enumerate(result.amplitude_names):
+        for i_peak, peak_name in enumerate(amp_peak_names):
             for i_plane in range(n_planes):
+                idx = amp_start + i_peak * n_planes + i_plane
+                ci_68 = result.confidence_intervals_68[idx]
+                ci_95 = result.confidence_intervals_95[idx]
+
                 z_val = None
                 if z_values is not None and i_plane < len(z_values):
                     z_val = float(z_values[i_plane])
@@ -199,20 +199,12 @@ def format_mcmc_cluster_result(
                 amp_summary = MCMCAmplitudeSummary(
                     peak_name=peak_name,
                     plane_index=i_plane,
-                    value=float(amp_values[i_peak, i_plane]),
-                    std_error=float(amp_errors[i_peak, i_plane]) if amp_errors is not None else 0.0,
-                    ci_68_lower=float(amp_ci_68[i_peak, 0, i_plane])
-                    if amp_ci_68 is not None
-                    else 0.0,
-                    ci_68_upper=float(amp_ci_68[i_peak, 1, i_plane])
-                    if amp_ci_68 is not None
-                    else 0.0,
-                    ci_95_lower=float(amp_ci_95[i_peak, 0, i_plane])
-                    if amp_ci_95 is not None
-                    else 0.0,
-                    ci_95_upper=float(amp_ci_95[i_peak, 1, i_plane])
-                    if amp_ci_95 is not None
-                    else 0.0,
+                    value=float(result.values[idx]),
+                    std_error=float(result.std_errors[idx]),
+                    ci_68_lower=float(ci_68[0]),
+                    ci_68_upper=float(ci_68[1]),
+                    ci_95_lower=float(ci_95[0]),
+                    ci_95_upper=float(ci_95[1]),
                     z_value=z_val,
                 )
                 amplitude_summaries.append(amp_summary)
