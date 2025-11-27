@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy import optimize
 
-from peakfit.core.fitting.computation import residuals
+from peakfit.core.fitting.computation import calculate_shape_heights, residuals
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.shared.constants import (
     BASIN_HOPPING_LOCAL_MAXITER,
@@ -67,24 +67,35 @@ class GlobalFitResult:
 
 @dataclass
 class UncertaintyResult:
-    """Comprehensive uncertainty estimates for fitted parameters."""
+    """Comprehensive uncertainty estimates for fitted parameters.
 
+    All parameters (lineshape and amplitudes) are treated uniformly.
+    Amplitudes are computed via linear least-squares for each MCMC sample
+    and included alongside lineshape parameters in the chains and statistics.
+    """
+
+    # Combined parameter names: lineshape params + amplitude params (I_{peak}[plane])
     parameter_names: list[str]
-    values: FloatArray
-    std_errors: FloatArray  # From covariance matrix
-    confidence_intervals_68: FloatArray  # 68% CI (1 sigma)
-    confidence_intervals_95: FloatArray  # 95% CI (2 sigma)
-    correlation_matrix: FloatArray
-    profile_likelihood_ci: FloatArray | None = None  # From profile likelihood
-    mcmc_samples: FloatArray | None = None  # MCMC samples (flattened, post-burn-in)
+    values: FloatArray  # Best-fit values for all parameters
+    std_errors: FloatArray  # Standard errors for all parameters
+    confidence_intervals_68: FloatArray  # 68% CI (1 sigma) for all parameters
+    confidence_intervals_95: FloatArray  # 95% CI (2 sigma) for all parameters
+    correlation_matrix: FloatArray  # Correlation matrix (lineshape params only)
+
+    # MCMC chain data - includes both lineshape and amplitude parameters
+    mcmc_samples: FloatArray | None = None  # Flattened samples (n_samples, n_all_params)
     mcmc_percentiles: FloatArray | None = None  # 16th, 50th, 84th percentiles
-    mcmc_chains: FloatArray | None = (
-        None  # Full chains INCLUDING burn-in (n_walkers, n_steps_total, n_params)
-    )
-    mcmc_diagnostics: "ConvergenceDiagnostics | None" = (
-        None  # Convergence diagnostics (computed on post-burn-in)
-    )
+    mcmc_chains: FloatArray | None = None  # Full chains (n_walkers, n_steps, n_all_params)
+    mcmc_diagnostics: "ConvergenceDiagnostics | None" = None  # Convergence diagnostics
     burn_in_info: dict | None = None  # Burn-in determination information
+
+    # Metadata for distinguishing parameter types
+    n_lineshape_params: int = 0  # Number of lineshape parameters
+    amplitude_names: list[str] | None = None  # Peak names (for grouping amplitudes)
+    n_planes: int = 1  # Number of planes (for amplitude indexing)
+
+    # Legacy fields for profile likelihood (not affected by this refactoring)
+    profile_likelihood_ci: FloatArray | None = None
 
 
 def residuals_global(x: FloatArray, params: Parameters, cluster: "Cluster", noise: float) -> float:
@@ -467,44 +478,88 @@ def estimate_uncertainties_mcmc(
         chains_post_burnin = chains_post_burnin.swapaxes(0, 1)
 
     # Get flattened samples after burn-in for statistics
-    samples = np.asarray(sampler.get_chain(discard=burn_in, flat=True))
+    lineshape_samples = np.asarray(sampler.get_chain(discard=burn_in, flat=True))
 
-    # Compute convergence diagnostics on post-burn-in samples
+    lineshape_names = params.get_vary_names()
+
+    # Correlation matrix for lineshape parameters only
+    # (amplitudes are conditionally independent given lineshape params)
+    corr_matrix = np.corrcoef(lineshape_samples.T)
+
+    # Compute amplitudes for each MCMC sample (via fast linear least-squares)
+    n_peaks = len(cluster.peaks)
+    n_planes = cluster.corrected_data.shape[1] if cluster.corrected_data.ndim > 1 else 1
+    n_walkers_chain, n_steps_chain, n_lineshape = chains_full.shape
+    n_amp_params = n_peaks * n_planes
+
+    # Compute amplitude chains: shape (n_walkers, n_steps, n_peaks * n_planes)
+    amp_chains = np.zeros((n_walkers_chain, n_steps_chain, n_amp_params))
+    for i_walker in range(n_walkers_chain):
+        for i_step in range(n_steps_chain):
+            params.set_vary_values(chains_full[i_walker, i_step])
+            _shapes, amps = calculate_shape_heights(params, cluster)
+            amp_chains[i_walker, i_step, :] = amps.ravel()
+
+    # Generate amplitude parameter names: I_{peak_name}[plane_idx]
+    amp_names = [
+        f"I_{peak.name}[{i_plane}]" for peak in cluster.peaks for i_plane in range(n_planes)
+    ]
+    amplitude_peak_names = [p.name for p in cluster.peaks]
+
+    # Combine lineshape and amplitude chains into unified chains
+    # Shape: (n_walkers, n_steps, n_lineshape + n_amp_params)
+    combined_chains = np.concatenate([chains_full, amp_chains], axis=2)
+    combined_names = lineshape_names + amp_names
+
+    # Combined chains post burn-in for diagnostics
+    combined_chains_post_burnin = combined_chains[:, burn_in:, :]
+
+    # Compute convergence diagnostics on ALL parameters (lineshape + amplitudes)
     from peakfit.core.diagnostics import diagnose_convergence
 
-    diagnostics = diagnose_convergence(chains_post_burnin, params.get_vary_names())
+    diagnostics = diagnose_convergence(combined_chains_post_burnin, combined_names)
 
-    # Compute statistics
-    percentiles = np.percentile(samples, [16, 50, 84], axis=0)
-    std_errors = np.std(samples, axis=0)
+    # Flatten combined samples for statistics (post burn-in)
+    combined_samples = combined_chains_post_burnin.reshape(-1, len(combined_names))
 
-    # Confidence intervals
-    ci_68 = np.array([[percentiles[0, i], percentiles[2, i]] for i in range(ndim)])
+    # Compute unified statistics for all parameters
+    percentiles = np.percentile(combined_samples, [16, 50, 84], axis=0)
+    std_errors = np.std(combined_samples, axis=0)
+
+    n_all_params = len(combined_names)
+    ci_68 = np.array([[percentiles[0, i], percentiles[2, i]] for i in range(n_all_params)])
     ci_95 = np.array(
         [
-            [np.percentile(samples[:, i], 2.5), np.percentile(samples[:, i], 97.5)]
-            for i in range(ndim)
+            [
+                np.percentile(combined_samples[:, i], 2.5),
+                np.percentile(combined_samples[:, i], 97.5),
+            ]
+            for i in range(n_all_params)
         ]
     )
 
-    # Correlation matrix
-    corr_matrix = np.corrcoef(samples.T)
+    # Update lineshape parameter errors
+    params.set_errors(std_errors[:n_lineshape])
 
-    # Update parameter errors
-    params.set_errors(std_errors)
+    # Restore best-fit values for lineshape params
+    params.set_vary_values(percentiles[1, :n_lineshape])
 
     return UncertaintyResult(
-        parameter_names=params.get_vary_names(),
-        values=percentiles[1],  # Median
+        parameter_names=combined_names,
+        values=percentiles[1],  # Median for all params
         std_errors=std_errors,
         confidence_intervals_68=ci_68,
         confidence_intervals_95=ci_95,
-        correlation_matrix=corr_matrix,
-        mcmc_samples=samples,
+        correlation_matrix=corr_matrix,  # Lineshape params only
+        mcmc_samples=combined_samples,
         mcmc_percentiles=percentiles,
-        mcmc_chains=chains_full,  # Full chains including burn-in for plotting
-        mcmc_diagnostics=diagnostics,
+        mcmc_chains=combined_chains,  # Unified chains
+        mcmc_diagnostics=diagnostics,  # Diagnostics for ALL parameters
         burn_in_info=burn_in_info,
+        # Metadata for parameter type distinction
+        n_lineshape_params=n_lineshape,
+        amplitude_names=amplitude_peak_names,
+        n_planes=n_planes,
     )
 
 

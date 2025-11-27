@@ -6,13 +6,14 @@ They don't do Rich/console output - that stays in CLI layer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 if TYPE_CHECKING:
     from peakfit.core.diagnostics.convergence import ConvergenceDiagnostics
+    from peakfit.core.shared.typing import FloatArray
     from peakfit.services.analyze.mcmc_service import ClusterMCMCResult
 
 
@@ -55,6 +56,21 @@ class MCMCParameterSummary:
 
 
 @dataclass
+class MCMCAmplitudeSummary:
+    """Summary of MCMC amplitude (intensity) results for a single peak."""
+
+    peak_name: str
+    plane_index: int
+    value: float
+    std_error: float
+    ci_68_lower: float
+    ci_68_upper: float
+    ci_95_lower: float
+    ci_95_upper: float
+    z_value: float | None = None  # Corresponding Z-dimension value if available
+
+
+@dataclass
 class MCMCClusterSummary:
     """Summary of MCMC results for a single cluster."""
 
@@ -64,6 +80,8 @@ class MCMCClusterSummary:
     burn_in_used: int | None
     n_chains: int
     n_samples: int
+    # Amplitude (intensity) summaries
+    amplitude_summaries: list[MCMCAmplitudeSummary] = field(default_factory=list)
 
     @property
     def cluster_label(self) -> str:
@@ -94,16 +112,31 @@ class MCMCClusterSummary:
                     )
         return pairs
 
+    def get_amplitudes_by_peak(self) -> dict[str, list[MCMCAmplitudeSummary]]:
+        """Group amplitude summaries by peak name.
+
+        Returns:
+            Dictionary mapping peak name to list of amplitude summaries across planes
+        """
+        by_peak: dict[str, list[MCMCAmplitudeSummary]] = {}
+        for amp in self.amplitude_summaries:
+            if amp.peak_name not in by_peak:
+                by_peak[amp.peak_name] = []
+            by_peak[amp.peak_name].append(amp)
+        return by_peak
+
 
 def format_mcmc_cluster_result(
     cluster_result: ClusterMCMCResult,
     diagnostics: ConvergenceDiagnostics | None = None,
+    z_values: FloatArray | None = None,
 ) -> MCMCClusterSummary:
     """Convert MCMCClusterResult to display-friendly summary.
 
     Args:
         cluster_result: Result from MCMC analysis service
         diagnostics: Optional convergence diagnostics
+        z_values: Optional Z-dimension values for amplitude labeling
 
     Returns:
         MCMCClusterSummary ready for display
@@ -116,8 +149,15 @@ def format_mcmc_cluster_result(
     if diagnostics is None and result.mcmc_diagnostics is not None:
         diagnostics = result.mcmc_diagnostics
 
+    # Get metadata for distinguishing lineshape vs amplitude parameters
+    n_lineshape = getattr(result, "n_lineshape_params", len(result.parameter_names))
+    n_planes = getattr(result, "n_planes", 1)
+    amp_peak_names = result.amplitude_names or []
+
     parameter_summaries = []
-    for i, name in enumerate(result.parameter_names):
+    # Only include lineshape parameters in the main parameter summaries
+    for i in range(n_lineshape):
+        name = result.parameter_names[i]
         ci_68 = result.confidence_intervals_68[i]
         ci_95 = result.confidence_intervals_95[i]
 
@@ -129,11 +169,45 @@ def format_mcmc_cluster_result(
             ci_68_upper=ci_68[1],
             ci_95_lower=ci_95[0],
             ci_95_upper=ci_95[1],
-            rhat=diagnostics.rhat[i] if diagnostics else None,
-            ess_bulk=diagnostics.ess_bulk[i] if diagnostics else None,
-            ess_tail=diagnostics.ess_tail[i] if diagnostics else None,
+            rhat=diagnostics.rhat[i] if diagnostics and i < len(diagnostics.rhat) else None,
+            ess_bulk=diagnostics.ess_bulk[i]
+            if diagnostics and i < len(diagnostics.ess_bulk)
+            else None,
+            ess_tail=diagnostics.ess_tail[i]
+            if diagnostics and i < len(diagnostics.ess_tail)
+            else None,
         )
         parameter_summaries.append(summary)
+
+    # Build amplitude summaries from unified parameter arrays
+    amplitude_summaries: list[MCMCAmplitudeSummary] = []
+    if amp_peak_names and n_lineshape < len(result.parameter_names):
+        n_peaks = len(amp_peak_names)
+        # Amplitude parameters start after lineshape parameters
+        amp_start = n_lineshape
+
+        for i_peak, peak_name in enumerate(amp_peak_names):
+            for i_plane in range(n_planes):
+                idx = amp_start + i_peak * n_planes + i_plane
+                ci_68 = result.confidence_intervals_68[idx]
+                ci_95 = result.confidence_intervals_95[idx]
+
+                z_val = None
+                if z_values is not None and i_plane < len(z_values):
+                    z_val = float(z_values[i_plane])
+
+                amp_summary = MCMCAmplitudeSummary(
+                    peak_name=peak_name,
+                    plane_index=i_plane,
+                    value=float(result.values[idx]),
+                    std_error=float(result.std_errors[idx]),
+                    ci_68_lower=float(ci_68[0]),
+                    ci_68_upper=float(ci_68[1]),
+                    ci_95_lower=float(ci_95[0]),
+                    ci_95_upper=float(ci_95[1]),
+                    z_value=z_val,
+                )
+                amplitude_summaries.append(amp_summary)
 
     return MCMCClusterSummary(
         peak_names=peak_names,
@@ -142,6 +216,7 @@ def format_mcmc_cluster_result(
         burn_in_used=result.burn_in_info.get("burn_in") if result.burn_in_info else None,
         n_chains=diagnostics.n_chains if diagnostics else 0,
         n_samples=diagnostics.n_samples if diagnostics else 0,
+        amplitude_summaries=amplitude_summaries,
     )
 
 

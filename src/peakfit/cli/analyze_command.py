@@ -7,6 +7,7 @@ from rich.table import Table
 
 from peakfit.cli._analyze_formatters import (
     print_correlation_matrix,
+    print_mcmc_amplitude_table,
     print_mcmc_diagnostics_table,
     print_mcmc_results_table,
 )
@@ -169,6 +170,9 @@ def run_mcmc(
 
         # Display correlation matrix if there are multiple parameters
         print_correlation_matrix(summary)
+
+        # Display amplitude (intensity) results
+        print_mcmc_amplitude_table(summary)
 
         # Update global parameters with MCMC uncertainties
 
@@ -464,29 +468,49 @@ def _update_output_files(results_dir: Path, params: Parameters, peaks: list[Peak
 
 
 def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]) -> None:
-    """Save MCMC results to file."""
+    """Save MCMC results to file.
+
+    All parameters (lineshape and amplitudes) are saved uniformly.
+    """
     with output_file.open("w") as f:
         f.write("# MCMC Uncertainty Analysis Results\n")
         f.write("# Parameter  Value  StdErr  CI_68_Low  CI_68_High  CI_95_Low  CI_95_High\n")
 
         for result, cluster in zip(results, clusters, strict=False):
             peak_names = [p.name for p in cluster.peaks]
-            f.write(f"# Cluster: {', '.join(peak_names)}\n")
+            f.write(f"\n# Cluster: {', '.join(peak_names)}\n")
 
+            n_lineshape = getattr(result, "n_lineshape_params", len(result.parameter_names))
+
+            # Write all parameters uniformly
             for i, name in enumerate(result.parameter_names):
                 ci_68 = result.confidence_intervals_68[i]
                 ci_95 = result.confidence_intervals_95[i]
-                f.write(
-                    f"{name}  {result.values[i]:.6f}  {result.std_errors[i]:.6f}  "
-                    f"{ci_68[0]:.6f}  {ci_68[1]:.6f}  {ci_95[0]:.6f}  {ci_95[1]:.6f}\n"
-                )
+                val = result.values[i]
+                err = result.std_errors[i]
 
-            # Add correlation matrix
-            if result.correlation_matrix is not None and len(result.parameter_names) > 1:
+                # Format based on parameter type (lineshape vs amplitude)
+                if i < n_lineshape:
+                    # Lineshape parameters - fixed point notation
+                    f.write(
+                        f"{name}  {val:.6f}  {err:.6f}  "
+                        f"{ci_68[0]:.6f}  {ci_68[1]:.6f}  {ci_95[0]:.6f}  {ci_95[1]:.6f}\n"
+                    )
+                else:
+                    # Amplitude parameters - scientific notation for large dynamic range
+                    f.write(
+                        f"{name}  {val:.6e}  {err:.6e}  "
+                        f"{ci_68[0]:.6e}  {ci_68[1]:.6e}  {ci_95[0]:.6e}  {ci_95[1]:.6e}\n"
+                    )
+
+            # Add correlation matrix (lineshape parameters only)
+            if result.correlation_matrix is not None and n_lineshape > 1:
+                lineshape_names = result.parameter_names[:n_lineshape]
                 f.write(f"\n# Correlation Matrix for Cluster: {', '.join(peak_names)}\n")
-                f.write("# Rows/Columns: " + "  ".join(result.parameter_names) + "\n")
+                f.write("# (lineshape parameters only)\n")
+                f.write("# Rows/Columns: " + "  ".join(lineshape_names) + "\n")
                 for i, row in enumerate(result.correlation_matrix):
-                    f.write(f"# {result.parameter_names[i]:<20s}")
+                    f.write(f"# {lineshape_names[i]:<20s}")
                     for val in row:
                         f.write(f"  {val:7.4f}")
                     f.write("\n")
@@ -602,16 +626,20 @@ def _save_mcmc_chains(
             # Extract burn-in from result (may be adaptive or manual)
             burn_in = result.burn_in_info["burn_in"] if result.burn_in_info else 0
 
-            # Store data for this cluster
+            # Store data for this cluster - unified chains include all parameters
             mcmc_data.append(
                 {
                     "peak_names": peak_names,
-                    "chains": result.mcmc_chains,
-                    "parameter_names": result.parameter_names,
+                    "chains": result.mcmc_chains,  # Unified chains (lineshape + amplitudes)
+                    "parameter_names": result.parameter_names,  # All parameter names
                     "burn_in": burn_in,
-                    "burn_in_info": result.burn_in_info,  # Save full burn-in info
+                    "burn_in_info": result.burn_in_info,
                     "diagnostics": result.mcmc_diagnostics,
                     "best_fit_values": best_fit_values,
+                    # Metadata for distinguishing parameter types
+                    "n_lineshape_params": result.n_lineshape_params,
+                    "amplitude_names": result.amplitude_names,
+                    "n_planes": result.n_planes,
                 }
             )
 

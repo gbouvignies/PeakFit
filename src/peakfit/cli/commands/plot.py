@@ -644,6 +644,8 @@ def plot_diagnostics(
       Quick diagnostics with default output:
         $ peakfit plot diagnostics Fits/
     """
+    import numpy as np
+
     from peakfit.plotting.diagnostics import (
         plot_autocorrelation,
         plot_correlation_pairs,
@@ -681,11 +683,54 @@ def plot_diagnostics(
     output_files = []
     for i, data in enumerate(mcmc_data):
         peak_names = data["peak_names"]
-        chains = data["chains"]
-        parameter_names = data["parameter_names"]
+        chains = data["chains"]  # Unified chains: (n_walkers, n_steps, n_all_params)
+        parameter_names = list(data["parameter_names"])
         burn_in = data.get("burn_in", 0)
         diagnostics = data.get("diagnostics", None)
         best_fit_values = data.get("best_fit_values", None)
+        if best_fit_values is not None:
+            best_fit_values = np.array(best_fit_values)
+
+        # Get metadata for parameter type distinction
+        n_lineshape = data.get("n_lineshape_params", len(parameter_names))
+        n_planes = data.get("n_planes", 1)
+        amplitude_peak_names = data.get("amplitude_names", [])
+        n_peaks = len(amplitude_peak_names) if amplitude_peak_names else 0
+
+        # Subsample amplitude parameters for plotting (first, middle, last plane)
+        # to avoid memory issues with many planes
+        if n_peaks > 0 and n_planes > 0 and n_lineshape < len(parameter_names):
+            # Determine which planes to show
+            if n_planes > 3:
+                plane_indices = [0, n_planes // 2, n_planes - 1]
+            else:
+                plane_indices = list(range(n_planes))
+
+            # Build indices for subsampled amplitude parameters
+            # Amplitudes are ordered as: peak0_plane0, peak0_plane1, ..., peak1_plane0, ...
+            amp_subsample_indices = []
+            for i_peak in range(n_peaks):
+                for i_plane in plane_indices:
+                    idx = n_lineshape + i_peak * n_planes + i_plane
+                    amp_subsample_indices.append(idx)
+
+            # Extract lineshape params (all) + subsampled amplitude params
+            lineshape_indices = list(range(n_lineshape))
+            plot_indices = lineshape_indices + amp_subsample_indices
+            plot_chains = chains[:, :, plot_indices]
+            plot_names = [parameter_names[i] for i in plot_indices]
+            plot_best_fit = best_fit_values[plot_indices] if best_fit_values is not None else None
+
+            n_amp_total = len(parameter_names) - n_lineshape
+            info(
+                f"  Subsampled {n_amp_total} amplitude params to {len(amp_subsample_indices)} "
+                f"(planes: {plane_indices})"
+            )
+        else:
+            # No amplitudes or subsampling not needed
+            plot_chains = chains
+            plot_names = parameter_names
+            plot_best_fit = best_fit_values
 
         # Create output filename for this cluster
         if len(mcmc_data) == 1:
@@ -705,25 +750,38 @@ def plot_diagnostics(
         # Generate plots for this cluster
         with PdfPages(cluster_output) as pdf:
             # Remove burn-in before flattening for marginal/correlation plots
-            chains_post_burnin = chains[:, burn_in:, :] if burn_in > 0 else chains
+            chains_post_burnin = plot_chains[:, burn_in:, :] if burn_in > 0 else plot_chains
             samples_flat = chains_post_burnin.reshape(-1, chains_post_burnin.shape[2])
 
-            # Page 1: Trace plots
-            fig_trace = plot_trace(chains, parameter_names, burn_in, diagnostics=diagnostics)
+            # Page 1: Trace plots (all parameters)
+            fig_trace = plot_trace(plot_chains, plot_names, burn_in, diagnostics=None)
             pdf.savefig(fig_trace, bbox_inches="tight")
             plt.close(fig_trace)
 
-            # Pages 2+: Marginal distributions
+            # Pages 2+: Marginal distributions (all parameters)
             figs_marginal = plot_marginal_distributions(
-                samples_flat, parameter_names, best_fit_values, diagnostics
+                samples_flat, plot_names, plot_best_fit, diagnostics=None
             )
             for fig in figs_marginal:
                 pdf.savefig(fig, bbox_inches="tight")
                 plt.close(fig)
 
-            # Pages N+: Correlation pairs
+            # Pages N+: Correlation pairs - ONLY lineshape parameters
+            # Amplitudes are computed via linear least-squares and are conditionally
+            # independent given lineshape parameters, so their correlations aren't meaningful
+            lineshape_chains = chains[:, :, :n_lineshape]
+            lineshape_chains_post_burnin = (
+                lineshape_chains[:, burn_in:, :] if burn_in > 0 else lineshape_chains
+            )
+            lineshape_samples_flat = lineshape_chains_post_burnin.reshape(
+                -1, lineshape_chains_post_burnin.shape[2]
+            )
+            lineshape_names = parameter_names[:n_lineshape]
+            lineshape_best_fit = (
+                best_fit_values[:n_lineshape] if best_fit_values is not None else None
+            )
             figs_corr = plot_correlation_pairs(
-                samples_flat, parameter_names, best_fit_values, min_correlation=0.5
+                lineshape_samples_flat, lineshape_names, lineshape_best_fit, min_correlation=0.5
             )
             if figs_corr:
                 for fig in figs_corr:
@@ -732,8 +790,8 @@ def plot_diagnostics(
             else:
                 info(f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}")
 
-            # Last page: Autocorrelation plots
-            fig_autocorr = plot_autocorrelation(chains, parameter_names)
+            # Autocorrelation plots (all parameters)
+            fig_autocorr = plot_autocorrelation(plot_chains, plot_names)
             pdf.savefig(fig_autocorr, bbox_inches="tight")
             plt.close(fig_autocorr)
 

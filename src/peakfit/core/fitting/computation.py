@@ -27,12 +27,58 @@ def calculate_amplitudes(shapes: FloatArray, data: FloatArray) -> FloatArray:
 
     Args:
         shapes: Peak lineshapes, shape (n_peaks, n_points)
-        data: Data to fit, shape (n_points,) or (n_planes, n_points)
+        data: Data to fit, shape (n_points,) or (n_points, n_planes)
 
     Returns:
-        Optimal amplitudes for each peak
+        Optimal amplitudes for each peak, shape (n_peaks,) or (n_peaks, n_planes)
     """
     return np.linalg.lstsq(shapes.T, data, rcond=None)[0]
+
+
+def calculate_amplitude_covariance(shapes: FloatArray, noise: float) -> FloatArray:
+    """Calculate covariance matrix for amplitudes from linear least squares.
+
+    For the linear model data = shapes.T @ amplitudes + noise, the covariance
+    of the amplitudes is given by: Cov(a) = (S^T S)^{-1} * sigma^2
+
+    Args:
+        shapes: Peak lineshapes, shape (n_peaks, n_points)
+        noise: Standard deviation of the noise
+
+    Returns:
+        Covariance matrix for amplitudes, shape (n_peaks, n_peaks)
+    """
+    # shapes.T has shape (n_points, n_peaks)
+    # S^T S has shape (n_peaks, n_peaks)
+    sts = shapes @ shapes.T
+    try:
+        sts_inv = np.linalg.inv(sts)
+    except np.linalg.LinAlgError:
+        # Fallback to pseudo-inverse for singular matrices
+        sts_inv = np.linalg.pinv(sts)
+    return sts_inv * (noise**2)
+
+
+def calculate_amplitudes_with_uncertainty(
+    shapes: FloatArray, data: FloatArray, noise: float
+) -> tuple[FloatArray, FloatArray, FloatArray]:
+    """Calculate amplitudes and their uncertainties via linear least squares.
+
+    Args:
+        shapes: Peak lineshapes, shape (n_peaks, n_points)
+        data: Data to fit, shape (n_points,) or (n_planes, n_points)
+        noise: Standard deviation of the noise
+
+    Returns:
+        Tuple of (amplitudes, amplitude_errors, amplitude_covariance)
+        - amplitudes: shape (n_peaks,) or (n_peaks, n_planes)
+        - amplitude_errors: shape (n_peaks,) standard errors
+        - amplitude_covariance: shape (n_peaks, n_peaks) covariance matrix
+    """
+    amplitudes = calculate_amplitudes(shapes, data)
+    covariance = calculate_amplitude_covariance(shapes, noise)
+    errors = np.sqrt(np.diag(covariance))
+    return amplitudes, errors, covariance
 
 
 def calculate_shape_heights(params: Parameters, cluster: Cluster) -> tuple[FloatArray, FloatArray]:

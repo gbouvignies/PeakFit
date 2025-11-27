@@ -224,6 +224,7 @@ poetry.toml
 
 # PeakFit - Example outputs (users generate these locally)
 examples/*/Fits/
+examples/*/Fits_*/
 examples/*/Fits-*/
 examples/*/results/
 examples/*/Results-*/
