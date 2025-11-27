@@ -77,5 +77,4 @@ echo
 echo "Next steps:"
 echo "  • View shifts: cat results/shifts.list"
 echo "  • Check log: less results/peakfit.log"
-echo "  • View a profile: cat results/{peak_name}.out"
 echo

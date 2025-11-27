@@ -22,7 +22,7 @@ from peakfit.core.shared.events import Event, EventDispatcher, EventType
 from peakfit.io.output import write_profiles, write_shifts
 from peakfit.io.state import StateRepository
 from peakfit.services.fit.fitting import fit_all_clusters
-from peakfit.services.fit.writer import write_simulated_spectra
+from peakfit.services.fit.writer import write_new_format_outputs, write_simulated_spectra
 from peakfit.ui import (
     close_logging,
     console,
@@ -288,15 +288,22 @@ class FitPipeline:
         log_section("Output Files")
         config.output.directory.mkdir(parents=True, exist_ok=True)
 
-        with console.status("[cyan]Writing profiles...[/cyan]", spinner="dots"):
-            write_profiles(config.output.directory, spectra.z_values, clusters, params, clargs)
-        success(f"Peak profiles: {config.output.directory.name}/{len(peaks)} *.out files")
-        log(f"Profile files: {len(peaks)} *.out files")
+        # Write legacy .out files only if --legacy flag is set
+        if config.output.include_legacy:
+            legacy_dir = config.output.directory / "legacy"
+            legacy_dir.mkdir(parents=True, exist_ok=True)
 
-        with console.status("[cyan]Writing shifts...[/cyan]", spinner="dots"):
-            write_shifts(peaks, params, config.output.directory / "shifts.list")
-        success(f"Chemical shifts: {config.output.directory.name}/shifts.list")
-        log(f"Shifts file: {config.output.directory / 'shifts.list'}")
+            with console.status("[cyan]Writing legacy profiles...[/cyan]", spinner="dots"):
+                write_profiles(legacy_dir, spectra.z_values, clusters, params, clargs)
+            success(
+                f"Legacy profiles: {config.output.directory.name}/legacy/{len(peaks)} *.out files"
+            )
+            log(f"Legacy profile files: {len(peaks)} *.out files in legacy/")
+
+            with console.status("[cyan]Writing legacy shifts...[/cyan]", spinner="dots"):
+                write_shifts(peaks, params, legacy_dir / "shifts.list")
+            success(f"Legacy shifts: {config.output.directory.name}/legacy/shifts.list")
+            log("Legacy shifts file: legacy/shifts.list")
 
         if config.output.save_simulated:
             write_simulated_spectra(config.output.directory, spectra, clusters, params)
@@ -315,8 +322,30 @@ class FitPipeline:
                     clusters=clusters, params=params, noise=clargs.noise, peaks=peaks
                 )
                 StateRepository.save(state_file, state)
-            success(f"Fitting state: {config.output.directory.name}/.peakfit_state.pkl")
+            success(f"Fitting state: {config.output.directory.name}/cache/state.pkl")
             log(f"State file: {state_file}")
+
+        # Write structured outputs (JSON, CSV, Markdown)
+        # These are in addition to the legacy .out files
+        if "json" in config.output.formats or "csv" in config.output.formats:
+            input_files = {
+                "spectrum": spectrum_path,
+                "peaklist": peaklist_path,
+            }
+            if z_values_path:
+                input_files["z_values"] = z_values_path
+
+            write_new_format_outputs(
+                output_dir=config.output.directory,
+                spectra=spectra,
+                clusters=clusters,
+                params=params,
+                noise=clargs.noise,
+                config=config.model_dump(),
+                input_files=input_files,
+                verbosity=config.output.verbosity,
+                include_legacy=config.output.include_legacy,
+            )
 
         log(f"Log file: {log_file}")
 

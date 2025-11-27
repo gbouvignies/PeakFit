@@ -1,1 +1,0 @@
-../../02-advanced-fitting/data/b1_offsets.txt

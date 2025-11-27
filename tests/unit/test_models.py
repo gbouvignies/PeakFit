@@ -107,8 +107,11 @@ class TestOutputConfig:
         """OutputConfig should have sensible defaults."""
         config = OutputConfig()
         assert config.directory == Path("Fits")
-        assert config.formats == ["txt"]
+        # Default formats include all structured outputs plus legacy txt
+        assert config.formats == ["json", "csv", "txt"]
         assert config.save_simulated is True
+        # Legacy is opt-in, not default
+        assert config.include_legacy is False
 
     def test_valid_formats(self):
         """OutputConfig should accept valid format values."""

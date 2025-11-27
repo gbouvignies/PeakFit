@@ -2,9 +2,7 @@
 
 ## Overview
 
-This example demonstrates fitting a pseudo-3D CEST (Chemical Exchange Saturation Transfer) NMR spectrum using PeakFit. This is a realistic, production-ready example using real experimental data.
-
-CEST experiments measure chemical exchange by applying saturation at different frequency offsets and measuring the resulting intensity changes. This creates a pseudo-3D dataset where each plane corresponds to a different B1 offset frequency.
+This example demonstrates fitting a pseudo-3D CEST (Chemical Exchange Saturation Transfer) NMR spectrum using PeakFit. This is a realistic, production-ready example using real experimental data that showcases the **new structured output system**.
 
 ## Dataset
 
@@ -12,77 +10,246 @@ CEST experiments measure chemical exchange by applying saturation at different f
 - **Type:** Pseudo-3D CEST experiment
 - **Dimensions:** 131 planes × 256 × 546 points
 - **Size:** ~70 MB
-- **Sample:** Protein sample
-- **Experiment:** CEST with B1 offsets from -5000 to +5000 Hz
 
 **Peak list:** `data/pseudo3d.list`
 - **Format:** Sparky format
 - **Number of peaks:** 166 peaks
-- **Assignment:** Residue-specific assignments (e.g., "2N-HN", "3N-HN")
 
 **Z-values:** `data/b1_offsets.txt`
-- **Type:** B1 offset frequencies
 - **Range:** -5000 to +5000 Hz
 - **Number of points:** 131 (one per plane)
-
-**Configuration:** `data/peakfit.toml`
-- **Purpose:** Optional configuration file for reproducibility
-- **Contains:** Fitting parameters, output options, optimization settings
 
 ## Running the Example
 
 ### Quick Start
 
 ```bash
-# From this directory
 bash run.sh
 ```
-
-This script will:
-1. Clean any previous results
-2. Run PeakFit on the CEST data
-3. Attempt to plot CEST profiles
 
 ### Step-by-Step
 
 ```bash
-# 1. Validate inputs (optional but recommended)
+# 1. Validate inputs
 peakfit validate data/pseudo3d.ft2 data/pseudo3d.list
 
-# 2. Run the fit
+# 2. Run the fit with new output system
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
-  --output Fits/
+  --output Fits/ \
+  --verbosity standard
 
-# 3. View results
-cat Fits/shifts.list
-less Fits/peakfit.log
-
-# 4. Plot CEST profiles
-peakfit plot cest Fits/ --ref 0
+# 3. Explore the outputs
+ls -la Fits/
 ```
 
-### Using Configuration File
+## Output Files
 
-For better reproducibility, use the provided configuration file:
+After fitting, the `Fits/` directory contains the **new structured outputs**:
+
+```
+Fits/
+├── results.json        # Machine-readable structured results
+├── results.csv         # Spreadsheet-compatible tabular data
+├── results.md          # Human-readable Markdown report
+└── peakfit.log         # Detailed execution log
+```
+
+### results.json - Structured Data
+
+Complete structured results for programmatic access:
+
+```json
+{
+  "version": "1.0",
+  "metadata": {
+    "timestamp": "2025-01-15T14:30:00Z",
+    "peakfit_version": "0.9.0",
+    "method": "scipy",
+    "elapsed_seconds": 145.2,
+    "input_files": {
+      "spectrum": "pseudo3d.ft2",
+      "peaks": "pseudo3d.list",
+      "z_values": "b1_offsets.txt"
+    }
+  },
+  "clusters": [
+    {
+      "cluster_id": 1,
+      "peaks": ["2N-HN", "3N-HN"],
+      "fit_statistics": {
+        "chi_squared": 1.234,
+        "reduced_chi_squared": 1.02,
+        "degrees_of_freedom": 260
+      },
+      "parameters": [...],
+      "amplitudes": [
+        {
+          "peak_name": "2N-HN",
+          "values": [1.5e6, 1.4e6, 1.3e6, ...],
+          "uncertainties": [2.3e4, 2.1e4, 2.0e4, ...]
+        }
+      ]
+    }
+  ],
+  "global_summary": {
+    "n_clusters": 45,
+    "n_peaks": 166,
+    "total_parameters": 540,
+    "overall_chi_squared": 1.05
+  }
+}
+```
+
+### results.csv - Tabular Data
+
+Easy-to-analyze tabular format:
+
+```csv
+cluster_id,peak_name,plane,z_value,amplitude,uncertainty,chi_squared
+1,2N-HN,0,-5000.0,1500000.0,23000.0,1.02
+1,2N-HN,1,-4900.0,1480000.0,22000.0,1.01
+1,2N-HN,2,-4800.0,1450000.0,21500.0,1.03
+...
+```
+
+### results.md - Human-Readable Report
+
+Markdown-formatted report for documentation:
+
+```markdown
+# PeakFit Results
+
+**Date**: 2025-01-15 14:30:00
+**Method**: SciPy Optimizer
+**Runtime**: 2 min 25 sec
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Clusters fitted | 45 |
+| Total peaks | 166 |
+| Overall χ² | 1.05 |
+
+## Cluster 1: 2N-HN, 3N-HN
+
+**Fit Quality**: χ² = 1.234 (reduced: 1.02)
+
+### Parameters
+| Parameter | Value | Uncertainty |
+|-----------|-------|-------------|
+| position_x | 115.632 | ±0.001 |
+| position_y | 6.869 | ±0.002 |
+```
+
+## Verbosity Levels
+
+Control output detail with `--verbosity`:
+
+```bash
+# Minimal: Essential results only
+peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
+  --z-values data/b1_offsets.txt \
+  --output Fits/ \
+  --verbosity minimal
+
+# Standard: Include statistics (default)
+peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
+  --z-values data/b1_offsets.txt \
+  --output Fits/ \
+  --verbosity standard
+
+# Full: Everything including all metadata
+peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
+  --z-values data/b1_offsets.txt \
+  --output Fits/ \
+  --verbosity full
+```
+
+## Legacy Output Compatibility
+
+For backward compatibility with existing scripts, add `--include-legacy`:
 
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
-  --config data/peakfit.toml
+  --output Fits/ \
+  --include-legacy
 ```
 
-The configuration file allows you to:
-- Document your analysis parameters
-- Share exact settings with collaborators
-- Reproduce analyses months or years later
-- Version control your analysis workflow
+This adds the traditional `*.out` profile files alongside the new formats:
 
-## Expected Output
+```
+Fits/
+├── results.json
+├── results.csv
+├── results.md
+├── 2N-HN.out           # Legacy profile file
+├── 3N-HN.out
+└── ...
+```
 
-### Fitting Process
+## Working with the Outputs
 
-The fitting should complete in 2-3 minutes and display:
+### Python: Analyze with JSON
+
+```python
+import json
+
+with open('Fits/results.json') as f:
+    results = json.load(f)
+
+# Get summary
+print(f"Fitted {results['global_summary']['n_peaks']} peaks")
+print(f"Overall χ² = {results['global_summary']['overall_chi_squared']:.3f}")
+
+# Analyze each cluster
+for cluster in results['clusters']:
+    chi2 = cluster['fit_statistics']['chi_squared']
+    peaks = ', '.join(cluster['peaks'])
+    print(f"Cluster {cluster['cluster_id']}: {peaks} (χ²={chi2:.2f})")
+```
+
+### Python: DataFrame with pandas
+
+```python
+import pandas as pd
+
+df = pd.read_csv('Fits/results.csv')
+
+# Summary statistics by cluster
+cluster_stats = df.groupby('cluster_id').agg({
+    'chi_squared': 'mean',
+    'amplitude': 'mean',
+    'uncertainty': 'mean'
+})
+print(cluster_stats)
+
+# Plot CEST profile for a specific peak
+peak_data = df[df['peak_name'] == '2N-HN']
+import matplotlib.pyplot as plt
+plt.plot(peak_data['z_value'], peak_data['amplitude'])
+plt.xlabel('B1 Offset (Hz)')
+plt.ylabel('Intensity')
+plt.title('CEST Profile: 2N-HN')
+plt.show()
+```
+
+### Shell: Quick extraction with jq
+
+```bash
+# Get list of all peaks
+jq -r '.clusters[].peaks[]' Fits/results.json | sort -u
+
+# Get chi-squared for each cluster
+jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' Fits/results.json
+
+# Count successful clusters
+jq '[.clusters[] | select(.fit_statistics.chi_squared < 2.0)] | length' Fits/results.json
+```
+
+## Expected Terminal Output
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -100,108 +267,31 @@ The fitting should complete in 2-3 minutes and display:
   Fitting Clusters
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[Progress bar showing cluster fitting...]
+[Progress bar]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Fitting Complete
+  Results
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
-┃ Metric               ┃ Value        ┃
-┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ Total clusters       │ 45           │
-│ Successful fits      │ 45 (100%)    │
-│ Total time           │ ~2-3 minutes │
-└──────────────────────┴──────────────┘
+✓ Fitted 45 clusters (166 peaks) in 2m 25s
+
+Output files:
+  ‣ Fits/results.json  (structured data)
+  ‣ Fits/results.csv   (tabular data)
+  ‣ Fits/results.md    (human-readable report)
 ```
 
-### Output Files
+## Advanced Options
 
-After completion, the `Fits/` directory will contain:
+### Using Configuration File
 
-**Peak profiles:**
-- `Fits/2N-HN.out` - Fitted intensity profile for residue 2
-- `Fits/3N-HN.out` - Fitted intensity profile for residue 3
-- ... (one file per peak)
-
-**Summary files:**
-- `Fits/shifts.list` - Fitted chemical shift positions
-- `Fits/peakfit.log` - Detailed log with timestamps
-- `Fits/logs.html` - Interactive HTML report (if enabled)
-- `Fits/.peakfit_state.pkl` - Internal state for resuming/analysis
-
-### Profile File Format
-
-Each `.out` file contains the fitted CEST profile:
-
-```
-# Residue: 2N-HN
-# F1: 115.630 ppm (fitted)
-# F2: 6.868 ppm (fitted)
-#
-# Z-value    Intensity    Fitted    Residual
--5000.0     1.234e6      1.245e6   -0.011e6
--4900.0     1.256e6      1.251e6    0.005e6
-...
+```bash
+peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
+  --z-values data/b1_offsets.txt \
+  --config data/peakfit.toml
 ```
 
-**Columns:**
-1. **Z-value:** B1 offset frequency (Hz)
-2. **Intensity:** Observed peak intensity
-3. **Fitted:** Fitted intensity from model
-4. **Residual:** Difference (observed - fitted)
-
-## What This Example Teaches
-
-### Key Concepts
-
-✅ **Pseudo-3D fitting:**
-- PeakFit treats pseudo-3D data as a series of 2D planes
-- Peaks are fitted in each plane independently
-- Z-values link the planes together
-
-✅ **Z-values file:**
-- One value per plane (must match number of planes)
-- Can be any experimental parameter: B1 offset, CPMG delay, time, temperature, etc.
-- Values are written to output files for plotting
-
-✅ **Configuration files:**
-- TOML format for human-readable settings
-- Documents all parameters in one place
-- Enables reproducible analysis
-
-✅ **Clustering:**
-- Nearby peaks are grouped into clusters
-- Each cluster is fitted as a unit (accounts for overlap)
-- Reduces computation and improves fits for overlapping peaks
-
-### Workflow Best Practices
-
-1. **Always validate first:**
-   ```bash
-   peakfit validate data/pseudo3d.ft2 data/pseudo3d.list
-   ```
-
-2. **Check logs for issues:**
-   ```bash
-   less Fits/peakfit.log
-   ```
-
-3. **Visualize results:**
-   - Plot profiles to check fit quality
-   - Look for systematic deviations (residuals)
-   - Verify chemical shifts match expectations
-
-4. **Document parameters:**
-   - Use configuration files
-   - Add comments explaining choices
-   - Version control the config file
-
-## Advanced Usage
-
-### Fixing Peak Positions
-
-If you want to fix peak positions during fitting (only fit intensities):
+### Fixed Peak Positions
 
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
@@ -210,14 +300,7 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --output Fits/
 ```
 
-This is useful when:
-- Peak positions are well-known
-- You only care about intensity profiles
-- Peak overlap is severe
-
 ### Custom Lineshape
-
-Force a specific lineshape model:
 
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
@@ -226,181 +309,25 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --output Fits/
 ```
 
-Available lineshapes:
-- `auto` - Auto-detect from spectrum header (default)
-- `gaussian` - Gaussian peaks
-- `lorentzian` - Lorentzian peaks
-- `pvoigt` - Pseudo-Voigt (mixed Gaussian/Lorentzian)
-
-### Excluding Noisy Planes
-
-Exclude specific planes from fitting:
-
-```bash
-peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-  --z-values data/b1_offsets.txt \
-  --exclude 0 --exclude 130 \
-  --output Fits/
-```
-
-This is useful for:
-- Removing reference plane with artifacts
-- Excluding planes with low signal
-- Focusing on specific Z-value range
-
-### Refinement Iterations
-
-Increase refinement iterations for better convergence:
-
-```bash
-peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-  --z-values data/b1_offsets.txt \
-  --refine 3 \
-  --output Fits/
-```
-
-Higher values (2-5) can improve fits for:
-- Highly overlapping peaks
-- Complex lineshapes
-- Difficult data
-
 ## Troubleshooting
 
-### Common Issues
+### "Z-values file has wrong number of entries"
+- Must have exactly 131 values (one per plane)
+- Check: `wc -l data/b1_offsets.txt`
 
-**"No peaks found"**
-- Check peak list format (must match spectrum dimensions)
-- Verify peak coordinates are within spectral bounds
-- Try: `peakfit validate data/pseudo3d.ft2 data/pseudo3d.list`
+### "Fitting failed for some clusters"
+- Check `Fits/results.json` for error details
+- Try global optimization: [Example 3](../03-global-optimization/)
 
-**"Z-values file has wrong number of entries"**
-- Must have exactly one value per plane
-- This dataset has 131 planes → need 131 Z-values
-- Check: `wc -l data/b1_offsets.txt` (should show 131)
-
-**"Fitting failed for some clusters"**
-- Check log file for specific errors: `less Fits/peakfit.log`
-- May indicate overlapping peaks → try global optimization (Example 3)
-- Low signal-to-noise → adjust contour level
-
-**"Results file is empty"**
-- Check that fitting completed successfully
-- Look for errors in `Fits/peakfit.log`
+### Output files missing
+- Check `Fits/peakfit.log` for errors
 - Verify output directory is writable
-
-**"CEST profiles look wrong"**
-- Check Z-values are correct (should be symmetric around 0)
-- Verify reference plane selection (--ref 0 uses first plane)
-- Check for artifacts in specific planes
-
-### Validation Steps
-
-1. **Check file sizes:**
-   ```bash
-   ls -lh data/
-   # pseudo3d.ft2 should be ~70 MB
-   ```
-
-2. **Count peaks:**
-   ```bash
-   grep -c "N-H" data/pseudo3d.list
-   # Should show 166 peaks
-   ```
-
-3. **Verify Z-values:**
-   ```bash
-   head data/b1_offsets.txt
-   tail data/b1_offsets.txt
-   # Should range from -5000 to +5000
-   ```
-
-4. **Check output:**
-   ```bash
-   ls -1 Fits/*.out | wc -l
-   # Should have 166 .out files (one per peak)
-   ```
 
 ## Next Steps
 
-After running this example:
-
-1. **Try global optimization** (Example 3)
-   - Compare results with basin-hopping optimizer
-   - See if fits improve for difficult peaks
-
-2. **Explore uncertainty analysis** (Example 4)
-   - Estimate parameter uncertainties
-   - Understand fit quality
-
-3. **Learn batch processing** (Example 5)
-   - Process multiple CEST experiments
-   - Compare results across datasets
-
-4. **Adapt for your data**
-   - Replace with your own pseudo-3D spectrum
-   - Adjust parameters as needed
-   - Use configuration file for documentation
-
-## Reference
-
-### Commands Summary
-
-```bash
-# Validate
-peakfit validate SPECTRUM PEAKS
-
-# Basic fit
-peakfit fit SPECTRUM PEAKS --z-values ZFILE --output DIR
-
-# With config
-peakfit fit SPECTRUM PEAKS --z-values ZFILE --config CONFIG
-
-# Fixed positions
-peakfit fit SPECTRUM PEAKS --z-values ZFILE --fixed
-
-# Custom lineshape
-peakfit fit SPECTRUM PEAKS --z-values ZFILE --lineshape MODEL
-
-# Exclude planes
-peakfit fit SPECTRUM PEAKS --z-values ZFILE --exclude N
-
-# More refinement
-peakfit fit SPECTRUM PEAKS --z-values ZFILE --refine N
-```
-
-### File Formats
-
-**Sparky peak list (`.list`):**
-```
-Assignment  w1      w2
-2N-HN       115.630 6.868
-3N-HN       117.519 8.693
-```
-
-**Z-values file (`.txt`):**
-```
--5000.0
--4900.0
--4800.0
-...
-```
-
-**Configuration file (`.toml`):**
-```toml
-[fitting]
-lineshape = "auto"
-refine_iterations = 1
-
-[output]
-directory = "Fits"
-save_html_report = true
-```
-
-## Additional Resources
-
-- **[Main Examples README](../README.md)** - Overview of all examples
-- **[Optimization Guide](../../docs/optimization_guide.md)** - Performance tuning
-- **[GitHub Issues](https://github.com/gbouvignies/PeakFit/issues)** - Get help
+1. **Global optimization** - [Example 3](../03-global-optimization/)
+2. **MCMC uncertainty** - [Example 4](../04-uncertainty-analysis/)
+3. **Read the output guide** - [docs/output_system.md](../../docs/output_system.md)
 
 ---
 
