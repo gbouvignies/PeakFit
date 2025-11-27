@@ -12,18 +12,17 @@ This example demonstrates the simplest use case for PeakFit: fitting a 2D or pse
 1. Prepare your spectrum and peak list
 2. Validate input files
 3. Run the fit with default settings
-4. Check the results
+4. Explore the new structured outputs
+
+✅ **New output formats:**
+- `results.json` - Machine-readable structured data
+- `results.csv` - Spreadsheet-compatible tabular data
+- `results.md` - Human-readable Markdown report
 
 ✅ **When to use basic fitting:**
 - Well-resolved peaks (minimal overlap)
 - Good signal-to-noise ratio (>10:1)
 - Standard 2D experiments (HSQC, HMQC, etc.)
-- Default parameters work well
-
-✅ **Key concepts:**
-- Input file formats (NMRPipe, Sparky)
-- Output file structure
-- Result interpretation
 
 ## Prerequisites
 
@@ -38,7 +37,6 @@ Place your own data files in the `data/` subdirectory:
 
 2. **Peak list:**
    - Format: Sparky (`.list`), NMRPipe, or CSV
-   - Coordinates: Must match spectrum dimensions
    - Example: `data/peaks.list`
 
 3. **Z-values** (optional, for pseudo-3D):
@@ -54,11 +52,6 @@ A2N-HN      117.519 8.693
 A3N-HN      118.234 7.542
 ...
 ```
-
-Where:
-- **Assignment:** Peak name (e.g., "A1N-HN")
-- **w1:** F1 chemical shift (ppm)
-- **w2:** F2 chemical shift (ppm)
 
 ## Running the Example
 
@@ -79,12 +72,6 @@ Always validate before fitting:
 peakfit validate data/spectrum.ft2 data/peaks.list
 ```
 
-This checks:
-- Files are readable
-- Formats are correct
-- Peaks are within spectral bounds
-- No duplicate assignments
-
 ### Step 3: Run the Fit
 
 ```bash
@@ -99,50 +86,162 @@ peakfit fit data/spectrum.ft2 data/peaks.list \
   --output results/
 ```
 
-### Step 4: Check Results
+### Step 4: Explore the Outputs
 
 ```bash
-# View fitted chemical shifts
-cat results/shifts.list
+# View the structured results
+ls -la results/
 
-# Check the log for any warnings
-less results/peakfit.log
+# Read the human-readable report
+cat results/results.md
 
-# List all output files
-ls -lh results/
+# Check the JSON for programmatic access
+cat results/results.json | python -m json.tool | head -50
+
+# Open the CSV in a spreadsheet
+open results/results.csv  # macOS
+# xdg-open results/results.csv  # Linux
 ```
 
-## Expected Output
+## Output Files
 
-After fitting, you'll find:
+After fitting, you'll find these new structured outputs:
 
-**results/shifts.list** - Fitted chemical shift positions:
-```
-Assignment  w1_fit    w2_fit
-A1N-HN      115.632   6.869
-A2N-HN      117.521   8.694
-...
+### results/results.json
+
+Machine-readable structured data for programmatic access:
+
+```json
+{
+  "version": "1.0",
+  "metadata": {
+    "timestamp": "2025-01-15T14:30:00Z",
+    "method": "scipy",
+    "elapsed_seconds": 12.5
+  },
+  "clusters": [
+    {
+      "cluster_id": 1,
+      "peaks": ["A1N-HN"],
+      "fit_statistics": {
+        "chi_squared": 1.23,
+        "reduced_chi_squared": 1.02
+      },
+      "amplitudes": [
+        {
+          "peak_name": "A1N-HN",
+          "value": 1.5e6,
+          "uncertainty": 2.3e4
+        }
+      ]
+    }
+  ]
+}
 ```
 
-**results/{peak}.out** - Individual peak profiles (one per peak):
-```
-# Peak: A1N-HN
-# F1: 115.632 ppm
-# F2: 6.869 ppm
-#
-# Plane  Z-value  Intensity    Fitted      Residual
-0        ...      1.234e6      1.245e6     -0.011e6
-1        ...      1.256e6      1.251e6      0.005e6
-...
+### results/results.csv
+
+Spreadsheet-compatible tabular data:
+
+```csv
+cluster_id,peak_name,parameter,value,uncertainty,units
+1,A1N-HN,amplitude,1500000.0,23000.0,intensity
+1,A1N-HN,position_x,115.632,0.001,ppm
+1,A1N-HN,position_y,6.869,0.002,ppm
 ```
 
-**results/peakfit.log** - Detailed log with timestamps:
+### results/results.md
+
+Human-readable Markdown report:
+
+```markdown
+# PeakFit Results
+
+**Date**: 2025-01-15 14:30:00
+**Method**: SciPy Optimizer
+**Runtime**: 12.5 seconds
+
+## Summary
+- Clusters fitted: 15
+- Total peaks: 42
+- Overall χ²: 1.05
+
+## Cluster 1: A1N-HN
+| Parameter | Value | Uncertainty |
+|-----------|-------|-------------|
+| amplitude | 1.50e+06 | ±2.30e+04 |
+| position_x | 115.632 | ±0.001 |
 ```
-2025-11-20 12:34:56 | INFO  | PeakFit Session Started
-2025-11-20 12:34:56 | INFO  | Loading spectrum...
-2025-11-20 12:34:57 | INFO  | Loaded 42 peaks
-2025-11-20 12:34:57 | INFO  | Created 15 clusters
-...
+
+## Controlling Output Verbosity
+
+Use the `--verbosity` flag to control detail level:
+
+```bash
+# Minimal: Just essential results
+peakfit fit data/spectrum.ft2 data/peaks.list \
+  --output results/ \
+  --verbosity minimal
+
+# Standard: Include statistics (default)
+peakfit fit data/spectrum.ft2 data/peaks.list \
+  --output results/ \
+  --verbosity standard
+
+# Full: Everything including all metadata
+peakfit fit data/spectrum.ft2 data/peaks.list \
+  --output results/ \
+  --verbosity full
+```
+
+## Including Legacy Output
+
+For backward compatibility with existing scripts:
+
+```bash
+peakfit fit data/spectrum.ft2 data/peaks.list \
+  --output results/ \
+  --include-legacy
+```
+
+This adds the traditional `*.out` files alongside the new formats.
+
+## Working with the Outputs
+
+### Python: Reading JSON
+
+```python
+import json
+
+with open('results/results.json') as f:
+    results = json.load(f)
+
+for cluster in results['clusters']:
+    print(f"Cluster {cluster['cluster_id']}: {cluster['peaks']}")
+    for amp in cluster['amplitudes']:
+        print(f"  {amp['peak_name']}: {amp['value']:.2e} ± {amp['uncertainty']:.2e}")
+```
+
+### Python: Reading CSV with pandas
+
+```python
+import pandas as pd
+
+df = pd.read_csv('results/results.csv')
+
+# Filter to amplitudes only
+amplitudes = df[df['parameter'] == 'amplitude']
+print(amplitudes[['peak_name', 'value', 'uncertainty']])
+```
+
+### Shell: Quick extraction
+
+```bash
+# Extract all amplitudes with jq
+jq '.clusters[].amplitudes[] | "\(.peak_name): \(.value)"' results/results.json
+
+# Get chi-squared values
+jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' results/results.json
 ```
 
 ## Success Criteria
@@ -155,155 +254,34 @@ A successful fit should have:
 
 ## When Basic Fitting Isn't Enough
 
-If you encounter:
-
-❌ **Many failed fits**
-→ Try [Example 3: Global Optimization](../03-global-optimization/)
-
-❌ **Poor convergence**
-→ Increase refinement iterations: `--refine 3`
-
-❌ **Overlapping peaks**
-→ PeakFit automatically clusters nearby peaks, but for severe overlap, try global optimization
-
-❌ **Uncertain results**
-→ Try [Example 4: Uncertainty Analysis](../04-uncertainty-analysis/)
-
-## Advanced Options
-
-### Fixing Peak Positions
-
-To only fit intensities (fix positions):
-
-```bash
-peakfit fit data/spectrum.ft2 data/peaks.list \
-  --fixed \
-  --output results/
-```
-
-### Custom Lineshape
-
-Force a specific lineshape model:
-
-```bash
-peakfit fit data/spectrum.ft2 data/peaks.list \
-  --lineshape gaussian \
-  --output results/
-```
-
-Options: `auto`, `gaussian`, `lorentzian`, `pvoigt`
-
-### Adjusting Contour Level
-
-Control peak clustering threshold:
-
-```bash
-peakfit fit data/spectrum.ft2 data/peaks.list \
-  --contour-factor 5.0 \
-  --output results/
-```
-
-Higher values → more aggressive clustering (group more peaks together)
-
-### Using Configuration Files
-
-For reproducibility, create a configuration file:
-
-```bash
-# Generate template
-peakfit init config.toml
-
-# Edit config.toml with your settings
-# Then run:
-peakfit fit data/spectrum.ft2 data/peaks.list \
-  --config config.toml
-```
+| Problem | Solution |
+|---------|----------|
+| Many failed fits | Try [Example 3: Global Optimization](../03-global-optimization/) |
+| Uncertain results | Try [Example 4: MCMC Uncertainty](../04-uncertainty-analysis/) |
+| Poor convergence | Increase refinement: `--refine 3` |
+| Severe overlap | Global optimization or adjust clustering |
 
 ## Troubleshooting
 
 ### "No peaks found"
-- **Check:** Peak list format matches spectrum dimensions
-- **Check:** Peaks are within spectral bounds (run validate)
-- **Try:** Opening peak list in a text editor to verify format
-
-### "Spectrum file not readable"
-- **Check:** File is NMRPipe format (`.ft2` or `.ft3`)
-- **Try:** `nmrPipe -in spectrum.ft2 -verb` to verify
-- **Check:** File permissions
+- Check peak list format matches spectrum dimensions
+- Verify peaks are within spectral bounds
 
 ### "Fitting failed for cluster X"
-- **Check:** Log file for specific error: `grep "cluster X" results/peakfit.log`
-- **Try:** Global optimization (Example 3)
-- **Try:** Adjusting contour level
+- Check `results.json` for error details
+- Try global optimization (Example 3)
 
 ### "Results look wrong"
-- **Check:** Peak list coordinates are correct
-- **Verify:** Lineshape model (auto-detected from header)
-- **Check:** For systematic residuals in `.out` files
+- Verify peak list coordinates are correct
+- Check lineshape model with `--lineshape auto`
 
 ## Next Steps
 
 After running this example:
 
-1. **Visualize results:**
-   - Plot fitted profiles
-   - Check residuals for systematic deviations
-
-2. **Try Example 2:**
-   - Learn about pseudo-3D fitting with real data
-   - See CEST analysis workflow
-
-3. **Explore advanced features:**
-   - Global optimization (Example 3)
-   - Uncertainty analysis (Example 4)
-   - Batch processing (Example 5)
-
-## Reference
-
-### Quick Command Reference
-
-```bash
-# Validate
-peakfit validate SPECTRUM PEAKS
-
-# Basic fit
-peakfit fit SPECTRUM PEAKS --output DIR
-
-# Pseudo-3D fit
-peakfit fit SPECTRUM PEAKS --z-values ZFILE --output DIR
-
-# With config
-peakfit fit SPECTRUM PEAKS --config CONFIG
-
-# Fixed positions
-peakfit fit SPECTRUM PEAKS --fixed --output DIR
-
-# Help
-peakfit fit --help
-```
-
-### Required File Formats
-
-**NMRPipe spectrum:**
-- Binary format created by `nmrPipe`
-- Extensions: `.ft2` (2D) or `.ft3` (3D)
-
-**Sparky peak list:**
-- Plain text
-- Columns: Assignment, w1, w2
-- Whitespace-separated
-
-**Z-values (optional):**
-- Plain text
-- One numeric value per line
-- Must match number of planes in spectrum
-
-## Additional Resources
-
-- **[Main Examples README](../README.md)** - Overview of all examples
-- **[Example 2: Advanced Fitting](../02-advanced-fitting/)** - Complete example with real data
-- **[Optimization Guide](../../docs/optimization_guide.md)** - Performance tuning
-- **[GitHub Issues](https://github.com/gbouvignies/PeakFit/issues)** - Get help
+1. **Try Example 2:** Complete workflow with real CEST data
+2. **Explore outputs:** Practice reading JSON/CSV programmatically
+3. **Try MCMC:** Get uncertainty estimates (Example 4)
 
 ---
 

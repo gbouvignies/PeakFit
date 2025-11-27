@@ -1,367 +1,353 @@
-# Example 4: Uncertainty Quantification
+# Example 4: Uncertainty Analysis with MCMC
 
 ## Overview
 
-This example demonstrates how to estimate parameter uncertainties and assess fit quality. Understanding uncertainties is crucial for:
-- Determining confidence in fitted parameters
-- Comparing results across experiments
-- Identifying poorly constrained parameters
-- Publishing reliable results
+This example demonstrates how to estimate parameter uncertainties using MCMC (Markov Chain Monte Carlo) sampling. MCMC provides **full posterior distributions**, not just point estimates, giving you deeper insights into parameter reliability and correlations.
 
-**Available Features:**
-- ✅ Covariance-based uncertainties (automatic)
-- ✅ MCMC sampling with correlation matrices
-- ✅ Profile likelihood confidence intervals
-- ⚠️ Bootstrap resampling (planned)
+The new output system provides comprehensive MCMC diagnostics including convergence metrics, chain storage, and diagnostic visualizations.
 
-## Why Uncertainty Analysis?
+## Why MCMC?
 
-A fitted parameter without an uncertainty is just a number. Uncertainty analysis tells you:
+| Method | Speed | What You Get |
+|--------|-------|--------------|
+| Covariance | Fast | Point estimate ± std |
+| MCMC | Slow | Full posterior distribution |
 
-✅ **How reliable is this fit?**
-- Are the parameters well-determined?
-- Or are they essentially unconstrained by the data?
+MCMC tells you:
+- ✅ Full shape of parameter distributions
+- ✅ Parameter correlations
+- ✅ Confidence intervals (68%, 95%, etc.)
+- ✅ Convergence diagnostics (R-hat, ESS)
 
-✅ **Are parameters correlated?**
-- Do changes in one parameter compensate for another?
-- Should parameters be fitted independently?
+## Running the Example
 
-✅ **How do errors propagate?**
-- What's the uncertainty in derived quantities?
-- Which parameters contribute most to overall uncertainty?
-
-## Methods for Uncertainty Estimation
-
-### 1. Covariance Matrix (Fast) ✅ Available
-
-From the Hessian matrix at the optimum:
-
-**Pros:**
-- Fast (computed automatically during optimization)
-- Standard approach for least-squares fitting
-
-**Cons:**
-- Assumes quadratic cost landscape (Gaussian errors)
-- May underestimate uncertainties for non-linear problems
-- Unreliable for poorly constrained parameters
-
-**Usage:**
-```bash
-# Uncertainties are computed automatically during fitting
-peakfit fit data/spectrum.ft2 data/peaks.list --output Fits/
-
-# View uncertainties after fitting
-peakfit analyze uncertainty Fits/
-```
-
-### 2. Bootstrap Resampling (Medium) ⚠️ Not Yet Implemented
-
-Resample data and refit multiple times:
-
-**Pros:**
-- Non-parametric (few assumptions)
-- Works for non-Gaussian errors
-
-**Cons:**
-- Computationally expensive (requires many refits)
-- Assumes data points are independent
-
-**Status:**
-This feature is planned but not yet implemented. For now, use MCMC (method 3) for robust uncertainty estimates.
-
-### 3. MCMC Sampling (Slow but thorough) ✅ Available
-
-Sample the posterior distribution using Markov Chain Monte Carlo:
-
-**Pros:**
-- Full posterior distribution (not just mean ± std)
-- Handles parameter correlations correctly
-- Works for complex, non-Gaussian problems
-- Provides correlation matrices automatically
-
-**Cons:**
-- Very computationally expensive
-- Requires careful convergence checking
-- May need tuning of sampling parameters
-
-**Usage:**
-```bash
-# Fit once
-peakfit fit data/spectrum.ft2 data/peaks.list --output Fits/
-
-# MCMC sampling (either syntax works)
-peakfit analyze mcmc Fits/ --chains 32 --samples 1000 --output mcmc_results.txt
-peakfit analyze mcmc Fits/ --walkers 32 --steps 1000    # Alternative syntax
-```
-
-## Running This Example
-
-### Step 1: Fit the Data
-
-Uncertainties are computed automatically during fitting:
+### Step 1: Run MCMC Fitting
 
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
+  --method mcmc \
+  --save-chains \
+  --verbosity full \
   --output Fits/
 ```
 
-### Step 2: View Uncertainties
+**Expected time:** 10-20 minutes (MCMC is thorough but slow)
 
-Display covariance-based uncertainties:
-
-```bash
-peakfit analyze uncertainty Fits/
-```
-
-This shows:
-- Parameter values and standard errors
-- Relative error percentages (color-coded)
-- Warnings for parameters at boundaries
-- Warnings for large uncertainties (>10%)
-
-Save to file:
-```bash
-peakfit analyze uncertainty Fits/ --output uncertainty_summary.txt
-```
-
-### Step 3: MCMC for Better Uncertainties (Optional)
-
-For more accurate uncertainties and correlation analysis:
+### Step 2: Explore the Outputs
 
 ```bash
-peakfit analyze mcmc Fits/ --chains 32 --samples 1000
+ls -la Fits/
+ls -la Fits/mcmc/
 ```
 
-This provides:
-- Full posterior distributions
-- 68% and 95% confidence intervals
-- **Correlation matrix** showing parameter dependencies
-- More reliable uncertainties for non-linear problems
+## Output Structure
 
-Save results:
-```bash
-peakfit analyze mcmc Fits/ --chains 32 --samples 1000 --output mcmc_full.txt
+MCMC fitting produces enhanced outputs:
+
+```
+Fits/
+├── results.json        # Complete results with MCMC diagnostics
+├── results.csv         # Tabular data including uncertainties
+├── results.md          # Report with convergence status
+├── peakfit.log
+└── mcmc/               # ← NEW: MCMC-specific outputs
+    ├── chains.npz      # Raw MCMC chains (NumPy format)
+    ├── chains_meta.json# Chain metadata
+    └── diagnostics.json# Convergence diagnostics
 ```
 
-### Step 4: Check Correlations
+## Understanding the Outputs
 
-View parameter correlations:
+### results.json - MCMC Diagnostics
 
-```bash
-peakfit analyze correlation Fits/
+The JSON output includes detailed MCMC diagnostics for each cluster:
+
+```json
+{
+  "clusters": [
+    {
+      "cluster_id": 1,
+      "peaks": ["2N-HN"],
+      "fit_statistics": {
+        "chi_squared": 1.12,
+        "reduced_chi_squared": 0.98
+      },
+      "mcmc_diagnostics": {
+        "status": "GOOD",
+        "n_samples": 10000,
+        "n_chains": 4,
+        "convergence": {
+          "all_rhat_below_threshold": true,
+          "effective_sample_size_adequate": true,
+          "rhat_max": 1.02,
+          "ess_min": 3200
+        },
+        "parameters": [
+          {
+            "name": "position_x",
+            "rhat": 1.01,
+            "ess": 4500,
+            "converged": true
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "position_x",
+          "value": 115.632,
+          "uncertainty": 0.002,
+          "ci_lower_95": 115.628,
+          "ci_upper_95": 115.636
+        }
+      ]
+    }
+  ]
+}
 ```
 
-Shows which parameters are at boundaries and may need adjustment.
+### MCMC Status Indicators
 
-## Expected Output
+| Status | Meaning | R-hat | Action |
+|--------|---------|-------|--------|
+| `GOOD` | Well converged | < 1.05 | Trust results |
+| `ACCEPTABLE` | Minor issues | 1.05-1.1 | Results usable |
+| `MARGINAL` | Convergence concerns | 1.1-1.2 | Run longer |
+| `POOR` | Not converged | > 1.2 | Don't trust |
 
-### With Uncertainties
-
-**shifts.list** with error estimates:
-```
-Assignment  w1_fit    w1_err   w2_fit   w2_err
-A1N-HN      115.632   0.002    6.869    0.001
-A2N-HN      117.521   0.003    8.694    0.002
-...
-```
-
-### Interpretation
-
-**Small uncertainties (< 0.01 ppm):**
-- Well-determined parameters
-- Good signal-to-noise
-- Confident in fitted values
-
-**Large uncertainties (> 0.05 ppm):**
-- Poorly constrained
-- Check fit quality
-- May need more data or constraints
-
-**Asymmetric uncertainties:**
-- Non-Gaussian posterior
-- Consider MCMC for full distribution
-
-## Alternative Approaches
-
-### Manual Uncertainty Estimation
-
-If automated tools aren't available:
-
-1. **Repeat fits with different starting points:**
-   ```bash
-   for i in {1..10}; do
-       peakfit fit data/spectrum.ft2 data/peaks.list --output Fits-$i/
-   done
-   # Check variability in results
-   ```
-
-2. **Jackknife resampling:**
-   - Remove one plane at a time and refit
-   - Uncertainty from variability across fits
-
-3. **Add noise and refit:**
-   - Add synthetic noise matching your data
-   - Refit multiple times
-   - Uncertainty from spread of results
-
-### External Tools
-
-Use external packages for uncertainty analysis:
-
-**Python (if using PeakFit as a library):**
-```python
-import emcee  # MCMC sampling
-import corner  # Corner plots for posteriors
-import scipy.optimize  # Covariance matrices
-```
-
-**R:**
-```r
-library(FME)  # Parameter sensitivity and MCMC
-```
-
-## Quality Metrics
-
-Even without formal uncertainty analysis, check:
-
-### 1. Residuals
-
-```bash
-# Plot residuals for each peak
-# Look for systematic patterns (indicates poor fit)
-cat Fits/10N-HN.out | awk '{print $4}' | gnuplot
-```
-
-**Good fit:**
-- Residuals randomly scattered around zero
-- No systematic trends
-
-**Poor fit:**
-- Systematic deviations
-- Large residuals
-
-### 2. χ² Values
-
-Check the log file:
-
-```bash
-grep "chi-squared" Fits/peakfit.log
-```
-
-**Interpretation:**
-- **χ² ≈ 1:** Good fit (residuals match noise level)
-- **χ² << 1:** Overfitting (too many parameters)
-- **χ² >> 1:** Poor fit (systematic errors)
-
-### 3. Fit Convergence
-
-```bash
-grep "Converged" Fits/peakfit.log | wc -l
-grep "Failed" Fits/peakfit.log | wc -l
-```
-
-High failure rate suggests:
-- Poor initial guesses
-- Data quality issues
-- Wrong model (lineshape, etc.)
-
-## Visualization
-
-Create plots to assess fit quality:
-
-### Fitted vs. Observed
+### Loading MCMC Chains
 
 ```python
-import matplotlib.pyplot as plt
 import numpy as np
+import json
 
-# Load data from .out file
-data = np.loadtxt('Fits/10N-HN.out', comments='#')
-z = data[:, 0]
-observed = data[:, 1]
-fitted = data[:, 2]
-residuals = data[:, 3]
+# Load chains
+data = np.load('Fits/mcmc/chains.npz')
+chains = data['chains']      # Shape: (n_chains, n_samples, n_params)
+param_names = list(data['param_names'])
 
-# Plot
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
+print(f"Shape: {chains.shape}")
+print(f"Parameters: {param_names}")
 
-# Data and fit
-ax1.plot(z, observed, 'o', label='Observed')
-ax1.plot(z, fitted, '-', label='Fitted')
-ax1.legend()
-ax1.set_ylabel('Intensity')
+# Load metadata
+with open('Fits/mcmc/chains_meta.json') as f:
+    meta = json.load(f)
+print(f"Samples per chain: {meta['n_samples']}")
+```
 
-# Residuals
-ax2.plot(z, residuals, 'o')
-ax2.axhline(0, color='k', linestyle='--')
-ax2.set_ylabel('Residuals')
-ax2.set_xlabel('Z-value')
+### Analyzing Posteriors
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Load chains
+data = np.load('Fits/mcmc/chains.npz')
+chains = data['chains']
+param_names = list(data['param_names'])
+
+# Flatten chains (combine all chains)
+flat_chains = chains.reshape(-1, chains.shape[-1])
+
+# Plot posterior for first parameter
+param_idx = 0
+samples = flat_chains[:, param_idx]
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+# Trace plot
+for i in range(chains.shape[0]):
+    axes[0].plot(chains[i, :, param_idx], alpha=0.5)
+axes[0].set_xlabel('Sample')
+axes[0].set_ylabel(param_names[param_idx])
+axes[0].set_title('Trace Plot')
+
+# Histogram
+axes[1].hist(samples, bins=50, density=True, alpha=0.7)
+axes[1].axvline(np.median(samples), color='r', label='Median')
+axes[1].axvline(np.percentile(samples, 2.5), color='r', linestyle='--', label='95% CI')
+axes[1].axvline(np.percentile(samples, 97.5), color='r', linestyle='--')
+axes[1].set_xlabel(param_names[param_idx])
+axes[1].set_title('Posterior Distribution')
+axes[1].legend()
 
 plt.tight_layout()
-plt.savefig('fit_quality.pdf')
+plt.savefig('posterior_analysis.pdf')
 ```
+
+### Corner Plot for Correlations
+
+```python
+import corner
+import numpy as np
+
+data = np.load('Fits/mcmc/chains.npz')
+chains = data['chains']
+param_names = list(data['param_names'])
+
+# Flatten chains
+flat_chains = chains.reshape(-1, chains.shape[-1])
+
+# Create corner plot
+fig = corner.corner(
+    flat_chains,
+    labels=param_names,
+    quantiles=[0.16, 0.5, 0.84],
+    show_titles=True,
+    title_fmt='.3f'
+)
+plt.savefig('corner_plot.pdf')
+```
+
+## Checking Convergence
+
+### From JSON
+
+```python
+import json
+
+with open('Fits/results.json') as f:
+    results = json.load(f)
+
+# Check all clusters
+for cluster in results['clusters']:
+    diag = cluster.get('mcmc_diagnostics')
+    if diag:
+        status = diag['status']
+        rhat_max = diag['convergence']['rhat_max']
+        ess_min = diag['convergence']['ess_min']
+        print(f"Cluster {cluster['cluster_id']}: {status} (R-hat={rhat_max:.3f}, ESS={ess_min})")
+```
+
+### From diagnostics.json
+
+```bash
+# Quick convergence check
+jq '.clusters[] | "\(.cluster_id): \(.status) R-hat=\(.rhat_max)"' Fits/mcmc/diagnostics.json
+```
+
+## Interpreting Results
+
+### Good Convergence
+- R-hat < 1.05 for all parameters
+- ESS > 100 per parameter (preferably > 1000)
+- Trace plots show good mixing (no trends)
+- Status: `GOOD` or `ACCEPTABLE`
+
+### Poor Convergence
+- R-hat > 1.1
+- ESS < 100
+- Trace plots show drifting or stuck chains
+- **Action:** Run longer chains or increase warmup
+
+```bash
+# Run longer chains
+peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
+  --z-values data/b1_offsets.txt \
+  --method mcmc \
+  --mcmc-samples 20000 \
+  --mcmc-warmup 5000 \
+  --save-chains \
+  --output Fits/
+```
+
+## CSV Output with Uncertainties
+
+The CSV includes full uncertainty information:
+
+```csv
+cluster_id,peak_name,parameter,value,uncertainty,ci_lower_95,ci_upper_95,rhat,ess
+1,2N-HN,position_x,115.632,0.002,115.628,115.636,1.01,4500
+1,2N-HN,position_y,6.869,0.001,6.867,6.871,1.02,4200
+1,2N-HN,amplitude,1500000.0,23000.0,1455000.0,1545000.0,1.01,3800
+```
+
+### Analyzing with pandas
+
+```python
+import pandas as pd
+
+df = pd.read_csv('Fits/results.csv')
+
+# Find poorly converged parameters
+poor_convergence = df[df['rhat'] > 1.1]
+if len(poor_convergence) > 0:
+    print("⚠️ Parameters with poor convergence:")
+    print(poor_convergence[['cluster_id', 'peak_name', 'parameter', 'rhat']])
+
+# Parameters with large uncertainties
+df['rel_error'] = df['uncertainty'] / df['value'].abs() * 100
+large_error = df[df['rel_error'] > 10]
+print(f"\nParameters with >10% relative error: {len(large_error)}")
+```
+
+## Markdown Report
+
+The `results.md` includes a convergence summary:
+
+```markdown
+## MCMC Diagnostics Summary
+
+| Status | Count |
+|--------|-------|
+| ✓ GOOD | 42 |
+| ⚠ ACCEPTABLE | 2 |
+| ✗ MARGINAL | 1 |
+
+### Cluster 1: 2N-HN
+
+**MCMC Status**: ✓ GOOD
+- Samples: 10,000
+- Chains: 4
+- Max R-hat: 1.02
+- Min ESS: 3,200
+
+| Parameter | Value | 95% CI | R-hat | ESS |
+|-----------|-------|--------|-------|-----|
+| position_x | 115.632 | [115.628, 115.636] | 1.01 | 4500 |
+```
+
+## Performance Tips
+
+### Speed vs Quality
+
+```bash
+# Quick check (fewer samples)
+peakfit fit ... --method mcmc --mcmc-samples 1000
+
+# Publication quality (more samples)
+peakfit fit ... --method mcmc --mcmc-samples 10000 --mcmc-warmup 2000
+```
+
+### For Large Datasets
+
+- Start with a subset of peaks to test settings
+- Use fewer chains if memory is limited
+- Consider running clusters in parallel (at OS level)
+
+## Troubleshooting
+
+### "MCMC not converging"
+- Increase warmup: `--mcmc-warmup 5000`
+- Increase samples: `--mcmc-samples 20000`
+- Check if local optimization succeeds first
+
+### "Chains look stuck"
+- Poor initial guess - run local optimization first
+- Model mismatch - check lineshape
+
+### "Memory error"
+- Reduce number of samples
+- Use fewer chains
+- Don't save chains: remove `--save-chains`
 
 ## Next Steps
 
-1. **Implement systematic checks:**
-   - Run fits with different optimizers
-   - Compare results - variability indicates uncertainty
-
-2. **Try global optimization (Example 3):**
-   - More robust to local minima
-   - May reduce uncertainty
-
-3. **Consider batch analysis (Example 5):**
-   - Replicate measurements reduce uncertainty
-   - Compare results across samples
-
-4. **Consult literature:**
-   - How do others in your field handle uncertainties?
-   - Standard practices for your experiment type
-
-## Reference
-
-### Uncertainty Methods Comparison
-
-| Method | Speed | Accuracy | Assumptions |
-|--------|-------|----------|-------------|
-| Covariance | Fast | Approximate | Gaussian errors |
-| Bootstrap | Medium | Good | Independent points |
-| MCMC | Slow | Excellent | Fewest assumptions |
-
-### Quick Command Reference
-
-```bash
-# Fit data (uncertainties computed automatically)
-peakfit fit SPECTRUM PEAKS --output DIR
-
-# View covariance-based uncertainties
-peakfit analyze uncertainty DIR
-peakfit analyze uncertainty DIR --output summary.txt
-
-# MCMC for full posterior with correlations
-peakfit analyze mcmc DIR --chains 32 --samples 1000
-peakfit analyze mcmc DIR --walkers 32 --steps 1000  # Alternative syntax
-peakfit analyze mcmc DIR --chains 32 --samples 1000 --output results.txt
-
-# Profile likelihood for specific parameter
-peakfit analyze profile DIR --param peak1_x0
-peakfit analyze profile DIR --param peak1_x0 --plot
-
-# Check parameter correlations
-peakfit analyze correlation DIR
-```
-
-**Note:** Run `peakfit analyze --help` for all available analysis commands.
-
-## Additional Resources
-
-- **[Main Examples README](../README.md)** - Overview of all examples
-- **[Example 2: Advanced Fitting](../02-advanced-fitting/)** - Get good fits first
-- **[Example 3: Global Optimization](../03-global-optimization/)** - Improve convergence
-- **[GitHub Issues](https://github.com/gbouvignies/PeakFit/issues)** - Request features
+1. **Visualize posteriors** - Create corner plots
+2. **Check correlations** - Identify dependent parameters
+3. **Compare methods** - Run with local optimizer for comparison
+4. **Read the docs** - [docs/output_system.md](../../docs/output_system.md)
 
 ---
 
-**Questions about uncertainties?** Open an issue at https://github.com/gbouvignies/PeakFit/issues
+**Questions?** Open an issue at https://github.com/gbouvignies/PeakFit/issues

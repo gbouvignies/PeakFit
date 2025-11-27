@@ -4,189 +4,180 @@
 
 This example demonstrates global optimization methods for fitting challenging peaks where local optimization fails or produces suboptimal results. Global optimization explores the entire parameter space rather than just locally around the initial guess.
 
-**Note:** This example uses the same CEST data as Example 2 but applies global optimization methods. Compare the results to see if global optimization improves the fits.
+**Note:** This example uses the same CEST data as Example 2 but applies global optimization methods. Compare the structured JSON outputs to evaluate improvement.
 
 ## When to Use Global Optimization
 
-Use global optimization when:
-
-❌ **Local optimization fails:**
+✅ **Use global optimization when:**
 - Many peaks fail to converge
-- Fits get stuck in local minima
+- Severe peak overlap
 - Results are sensitive to initial conditions
+- Local optimization gets stuck in local minima
 
-❌ **Severe peak overlap:**
-- Multiple peaks very close together
-- Difficult to separate individual contributions
-
-❌ **Complex lineshapes:**
-- Non-standard peak shapes
-- Multiple components per peak
-
-❌ **Poor signal-to-noise:**
-- Noisy data makes gradient-based methods unstable
-- Need robust fitting
-
-✅ **When NOT to use:**
+❌ **Don't use when:**
 - Well-resolved peaks with good S/N (use basic fitting - faster)
-- Very large datasets (global optimization is slow)
-- Real-time analysis (too computationally expensive)
+- Large datasets where time is critical
+- Most peaks converge with local optimization
 
 ## Global Optimization Methods
 
-PeakFit supports two global optimization algorithms:
-
-### 1. Basin-Hopping
-
-**How it works:**
+### Basin-Hopping
 - Randomly "hops" to different starting points
-- Performs local optimization from each point
-- Keeps the best solution found
+- Performs local optimization from each
+- Best for moderate-sized problems
 
-**Best for:**
-- Moderate-sized problems (< 20 parameters per cluster)
-- When you want thorough exploration
-- Relatively smooth cost landscapes
-
-**Parameters:**
-- `--optimizer basin_hopping`
-- Can tune: number of iterations, temperature
-
-### 2. Differential Evolution
-
-**How it works:**
-- Maintains a population of candidate solutions
-- Evolves population through crossover and mutation
-- Gradually converges to global optimum
-
-**Best for:**
-- Larger problems
-- Highly multimodal landscapes (many local minima)
-- When basin-hopping is too slow
-
-**Parameters:**
-- `--optimizer differential_evolution`
-- Can tune: population size, crossover probability
+### Differential Evolution
+- Evolves a population of candidate solutions
+- Best for larger, multimodal problems
 
 ## Running the Example
 
-### Step 1: Run with Basin-Hopping
+### Step 1: Run Local Optimization (Baseline)
+
+```bash
+peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
+  --z-values data/b1_offsets.txt \
+  --output Fits-Local/ \
+  --verbosity full
+```
+
+### Step 2: Run Basin-Hopping
 
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
   --optimizer basin_hopping \
-  --output Fits-BH/
+  --output Fits-BH/ \
+  --verbosity full
 ```
 
-**Expected time:** 10-20 minutes (much slower than local optimization)
+### Step 3: Compare Results Using JSON
 
-### Step 2: Run with Differential Evolution
+```python
+import json
+
+# Load both results
+with open('Fits-Local/results.json') as f:
+    local = json.load(f)
+with open('Fits-BH/results.json') as f:
+    bh = json.load(f)
+
+# Compare summary statistics
+print("Method        χ²       Time")
+print("-" * 35)
+print(f"Local         {local['global_summary']['overall_chi_squared']:.3f}    {local['metadata']['elapsed_seconds']:.1f}s")
+print(f"Basin-Hop     {bh['global_summary']['overall_chi_squared']:.3f}    {bh['metadata']['elapsed_seconds']:.1f}s")
+
+# Find clusters that improved
+for l_cluster in local['clusters']:
+    cid = l_cluster['cluster_id']
+    b_cluster = next(c for c in bh['clusters'] if c['cluster_id'] == cid)
+
+    l_chi2 = l_cluster['fit_statistics']['chi_squared']
+    b_chi2 = b_cluster['fit_statistics']['chi_squared']
+
+    if b_chi2 < l_chi2 * 0.95:  # >5% improvement
+        print(f"Cluster {cid}: {l_chi2:.2f} → {b_chi2:.2f} (improved)")
+```
+
+## Output Structure
+
+Each optimization run produces the standard structured outputs:
+
+```
+Fits-Local/
+├── results.json        # Complete structured results
+├── results.csv         # Tabular data for comparison
+├── results.md          # Human-readable report
+└── peakfit.log
+
+Fits-BH/
+├── results.json
+├── results.csv
+├── results.md
+└── peakfit.log
+```
+
+### Comparing with CSV
+
+```python
+import pandas as pd
+
+local_df = pd.read_csv('Fits-Local/results.csv')
+bh_df = pd.read_csv('Fits-BH/results.csv')
+
+# Merge on cluster_id and compare chi_squared
+comparison = local_df.merge(
+    bh_df,
+    on=['cluster_id', 'peak_name'],
+    suffixes=('_local', '_bh')
+)
+
+# Find improved fits
+improved = comparison[
+    comparison['chi_squared_bh'] < comparison['chi_squared_local'] * 0.95
+]
+print(f"Improved clusters: {len(improved)}")
+```
+
+### Comparing with Shell
 
 ```bash
-peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-  --z-values data/b1_offsets.txt \
-  --optimizer differential_evolution \
-  --output Fits-DE/
+# Extract chi-squared values and compare
+echo "Cluster | Local χ² | BH χ²"
+paste \
+  <(jq -r '.clusters[] | "\(.cluster_id) \(.fit_statistics.chi_squared)"' Fits-Local/results.json) \
+  <(jq -r '.clusters[] | .fit_statistics.chi_squared' Fits-BH/results.json) \
+  | awk '{printf "%7s | %8.3f | %5.3f\n", $1, $2, $3}'
 ```
 
-**Expected time:** 15-30 minutes
+## Expected Results
 
-### Step 3: Compare with Local Optimization
+### Local Optimization
 
-Run the standard fit for comparison:
+```json
+{
+  "global_summary": {
+    "n_clusters": 45,
+    "overall_chi_squared": 1.45,
+    "failed_clusters": 3
+  },
+  "metadata": {
+    "elapsed_seconds": 154
+  }
+}
+```
+
+### Basin-Hopping
+
+```json
+{
+  "global_summary": {
+    "n_clusters": 45,
+    "overall_chi_squared": 1.32,
+    "failed_clusters": 0
+  },
+  "metadata": {
+    "elapsed_seconds": 863
+  }
+}
+```
+
+## Tuning Parameters
+
+### Basin-Hopping
 
 ```bash
-peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-  --z-values data/b1_offsets.txt \
-  --output Fits-Local/
-```
-
-**Expected time:** 2-3 minutes
-
-### Step 4: Compare Results
-
-```bash
-# Compare chemical shifts
-diff Fits-Local/shifts.list Fits-BH/shifts.list
-diff Fits-Local/shifts.list Fits-DE/shifts.list
-
-# Check success rates in logs
-grep "Successful" Fits-Local/peakfit.log
-grep "Successful" Fits-BH/peakfit.log
-grep "Successful" Fits-DE/peakfit.log
-
-# Compare specific peak profiles
-diff Fits-Local/10N-HN.out Fits-BH/10N-HN.out
-```
-
-## What to Look For
-
-### Success Rate
-
-Global optimization should have:
-- ✓ Higher success rate (more converged fits)
-- ✓ Fewer failed clusters
-- ✓ More consistent results across runs
-
-### Fit Quality
-
-Check the log files for:
-- **χ² values:** Should be similar or lower
-- **Residuals:** Should be smaller and less systematic
-- **Chemical shifts:** Should be more physically reasonable
-
-### Computational Cost
-
-Trade-offs:
-- ⏱️ **Local:** Fast (~2-3 min) but may fail
-- ⏱️ **Basin-hopping:** Slower (~10-20 min) but more robust
-- ⏱️ **Differential evolution:** Slowest (~15-30 min) but most thorough
-
-## Example Output
-
-### Local Optimization (for comparison)
-
-```
-┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
-┃ Metric               ┃ Value        ┃
-┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ Total clusters       │ 45           │
-│ Successful fits      │ 42 (93%)     │
-│ Failed fits          │ 3  (7%)      │
-│ Average χ²           │ 1.45         │
-│ Total time           │ 2m 34s       │
-└──────────────────────┴──────────────┘
-```
-
-### Basin-Hopping Optimization
-
-```
-┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
-┃ Metric               ┃ Value        ┃
-┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ Total clusters       │ 45           │
-│ Successful fits      │ 45 (100%)    │  ← Improved!
-│ Failed fits          │ 0  (0%)      │
-│ Average χ²           │ 1.32         │  ← Better fit!
-│ Total time           │ 14m 23s      │  ← Much slower
-└──────────────────────┴──────────────┘
-```
-
-## Tuning Global Optimization
-
-### Basin-Hopping Parameters
-
-```bash
-# More iterations for thorough search (slower)
+# More iterations for thorough search
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
   --optimizer basin_hopping \
   --bh-niter 200 \
-  --output Fits/
+  --output Fits/ \
+  --verbosity full
 ```
 
-### Differential Evolution Parameters
+### Differential Evolution
 
 ```bash
 # Larger population for better exploration
@@ -194,155 +185,35 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
   --optimizer differential_evolution \
   --de-popsize 30 \
-  --output Fits/
+  --output Fits/ \
+  --verbosity full
 ```
 
-**Note:** Check `peakfit fit --help` for all available tuning parameters.
+## Performance Comparison
+
+| Method | Success Rate | Avg χ² | Time |
+|--------|--------------|--------|------|
+| Local | 93% | 1.45 | ~2-3 min |
+| Basin-Hopping | 100% | 1.32 | ~10-15 min |
+| Diff. Evolution | 100% | 1.30 | ~15-25 min |
 
 ## When Global Optimization Doesn't Help
 
 If global optimization doesn't improve results:
 
-1. **Check data quality:**
-   - Low S/N may be the limiting factor
-   - No optimizer can fit pure noise
-
-2. **Verify peak list:**
-   - Are peak positions approximately correct?
-   - Remove obviously bad peaks
-
-3. **Try different lineshapes:**
-   - Maybe the lineshape model is wrong
-   - Try `--lineshape pvoigt` or `--lineshape gaussian`
-
-4. **Check clustering:**
-   - Adjust contour level: `--contour-factor X`
-   - Maybe peaks shouldn't be clustered together
-
-## Troubleshooting
-
-### "Global optimization is very slow"
-
-**Expected:** Global optimization is 5-10× slower than local
-
-**Solutions:**
-- Reduce number of iterations (if using basin-hopping)
-- Reduce population size (if using differential evolution)
-- Parallel processing is removed; run sequentially or parallelize at OS level if needed
-- Process fewer planes at once
-
-### "Results are inconsistent between runs"
-
-Global optimization has some randomness:
-
-**Solutions:**
-- Run multiple times and compare
-- Increase number of iterations for better convergence
-- Set random seed for reproducibility (if option available)
-
-### "Still getting failed fits"
-
-Even global optimization can fail for:
-- Extremely poor data quality
-- Wrong lineshape model
-- Peaks outside spectral region
-
-**Solutions:**
-- Check log file for specific errors
-- Validate peak list positions
-- Try fixing positions: `--fixed`
-
-## Advanced Usage
-
-### Hybrid Approach
-
-Use global optimization only for failed clusters:
-
-1. Run local optimization first
-2. Identify failed clusters from log
-3. Re-run those clusters with global optimization
-4. Combine results
-
-### Selective Global Optimization
-
-Apply global optimization to specific peak ranges:
-
-```bash
-# Only fit peaks in a specific region
-# (This requires pre-filtering the peak list)
-peakfit fit data/pseudo3d.ft2 data/peaks_region1.list \
-  --optimizer basin_hopping \
-  --output Fits-Region1/
-```
-
-## Comparing Methods
-
-Create a comparison table:
-
-```bash
-echo "Method          Success   Avg χ²   Time"
-echo "---------------------------------------"
-grep "Successful" Fits-Local/peakfit.log | awk '{print "Local           " $0}'
-grep "Successful" Fits-BH/peakfit.log | awk '{print "Basin-Hopping   " $0}'
-grep "Successful" Fits-DE/peakfit.log | awk '{print "Diff-Evolution  " $0}'
-```
+1. **Check data quality** - Low S/N may be the limit
+2. **Verify peak list** - Positions approximately correct?
+3. **Try different lineshapes** - `--lineshape pvoigt`
+4. **Adjust clustering** - `--contour-factor X`
 
 ## Next Steps
 
-After running this example:
+1. **MCMC Uncertainty** - [Example 4](../04-uncertainty-analysis/)
+   - Quantify confidence in parameters
+   - Full posterior distributions
 
-1. **Analyze differences:**
-   - Which peaks improved with global optimization?
-   - Are the differences significant?
-
-2. **Cost-benefit analysis:**
-   - Is the extra time worth the improvement?
-   - Can you use local optimization for most peaks?
-
-3. **Try uncertainty analysis** (Example 4):
-   - Quantify confidence in fitted parameters
-   - Understand parameter correlations
-
-4. **Learn batch processing** (Example 5):
-   - Apply lessons to multiple datasets
-   - Automate global optimization for difficult samples
-
-## Reference
-
-### Quick Command Reference
-
-```bash
-# Basin-hopping
-peakfit fit SPECTRUM PEAKS --optimizer basin_hopping --output DIR
-
-# Differential evolution
-peakfit fit SPECTRUM PEAKS --optimizer differential_evolution --output DIR
-
-# Tuning basin-hopping
-peakfit fit SPECTRUM PEAKS --optimizer basin_hopping --bh-niter N
-
-# Tuning differential evolution
-peakfit fit SPECTRUM PEAKS --optimizer differential_evolution --de-popsize N
-
-# Help
-peakfit fit --help
-```
-
-### Performance Tips
-
-- Use global optimization only when needed (not all data requires it)
-- Start with basin-hopping (often faster than differential evolution)
-- Tune parameters based on problem size
-- Use configuration files to document settings
-- Consider running overnight for large datasets
-
-## Additional Resources
-
-- **[Main Examples README](../README.md)** - Overview of all examples
-- **[Example 2: Advanced Fitting](../02-advanced-fitting/)** - Compare with local optimization
-- **[Optimization Guide](../../docs/optimization_guide.md)** - Performance tuning
-- **[GitHub Issues](https://github.com/gbouvignies/PeakFit/issues)** - Get help
+2. **Read the output guide** - [docs/output_system.md](../../docs/output_system.md)
 
 ---
 
-**Questions about global optimization?** Open an issue at https://github.com/gbouvignies/PeakFit/issues
+**Questions?** Open an issue at https://github.com/gbouvignies/PeakFit/issues

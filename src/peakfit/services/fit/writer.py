@@ -18,8 +18,11 @@ from peakfit.core.domain.spectrum import Spectra
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.simulation import simulate_data
+from peakfit.core.results import FitResults, FitResultsBuilder
 from peakfit.io.output import write_profiles, write_shifts
 from peakfit.io.state import StateRepository
+from peakfit.io.writers import ResultsWriter
+from peakfit.io.writers.base import Verbosity, WriterConfig
 from peakfit.ui import console, export_html, success
 
 if TYPE_CHECKING:
@@ -27,11 +30,98 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "build_fit_results",
     "save_fitting_state",
     "write_all_outputs",
     "write_html_report",
+    "write_new_format_outputs",
     "write_simulated_spectra",
 ]
+
+
+def build_fit_results(
+    spectra: Spectra,
+    clusters: list[Cluster],
+    params: Parameters,
+    noise: float,
+    config: dict | None = None,
+    input_files: dict[str, Path] | None = None,
+) -> FitResults:
+    """Build a FitResults object from fitting outputs.
+
+    Args:
+        spectra: Spectrum data with z_values
+        clusters: List of fitted clusters
+        params: Fitted parameters
+        noise: Noise level
+        config: Configuration dictionary for metadata
+        input_files: Dictionary mapping input names to paths
+
+    Returns:
+        FitResults object ready for serialization
+    """
+    builder = FitResultsBuilder()
+    builder.set_metadata(config=config, input_files=input_files)
+    builder.set_spectra(spectra)
+
+    for cluster in clusters:
+        builder.add_cluster(cluster, params, noise)
+
+    return builder.build()
+
+
+def write_new_format_outputs(
+    output_dir: Path,
+    spectra: Spectra,
+    clusters: list[Cluster],
+    params: Parameters,
+    noise: float,
+    config: dict | None = None,
+    input_files: dict[str, Path] | None = None,
+    verbosity: str = "standard",
+    include_legacy: bool = True,
+) -> dict[str, Path]:
+    """Write outputs in the new structured format.
+
+    This function generates outputs using the new output system while
+    optionally maintaining backward compatibility with legacy formats.
+
+    Args:
+        output_dir: Base output directory
+        spectra: Spectrum data
+        clusters: List of clusters
+        params: Fitted parameters
+        noise: Noise level
+        config: Configuration dictionary
+        input_files: Input file paths for metadata
+        verbosity: Output verbosity level ("minimal", "standard", "full")
+        include_legacy: Whether to include legacy format outputs
+
+    Returns:
+        Dictionary mapping output type to written file paths
+    """
+    with console.status("[cyan]Building results...[/cyan]", spinner="dots"):
+        results = build_fit_results(spectra, clusters, params, noise, config, input_files)
+
+    # Map string verbosity to enum
+    verbosity_map = {
+        "minimal": Verbosity.MINIMAL,
+        "standard": Verbosity.STANDARD,
+        "full": Verbosity.FULL,
+    }
+    verb = verbosity_map.get(verbosity, Verbosity.STANDARD)
+
+    writer_config = WriterConfig(verbosity=verb)
+    writer = ResultsWriter(config=writer_config, include_legacy=include_legacy)
+
+    with console.status("[cyan]Writing outputs...[/cyan]", spinner="dots"):
+        written_files = writer.write_for_verbosity(results, output_dir, verb)
+
+    # Report what was written
+    n_files = len(written_files)
+    success(f"Structured outputs: {output_dir.name}/ ({n_files} files)")
+
+    return written_files
 
 
 def write_all_outputs(
@@ -43,7 +133,7 @@ def write_all_outputs(
     clargs: FitArguments,
     *,
     save_simulated: bool = False,
-    save_html_report: bool = True,
+    save_html_report: bool = False,
 ) -> None:
     """Write all output files.
 

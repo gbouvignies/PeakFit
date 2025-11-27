@@ -54,6 +54,7 @@ def test_service_load_error(tmp_path: Path) -> None:
     results_dir.mkdir()
 
     bad_state = StateRepository.default_path(results_dir)
+    bad_state.parent.mkdir(parents=True, exist_ok=True)
     bad_state.write_text("not-a-pickle")
 
     with pytest.raises(StateLoadError) as excinfo:

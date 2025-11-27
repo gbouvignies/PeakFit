@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 LineshapeName = Literal["auto", "gaussian", "lorentzian", "pvoigt", "sp1", "sp2", "no_apod"]
 OutputFormat = Literal["csv", "json", "txt"]
+OutputVerbosity = Literal["minimal", "standard", "full"]
 
 
 class FitConfig(BaseModel):
@@ -51,15 +52,37 @@ class ClusterConfig(BaseModel):
 
 
 class OutputConfig(BaseModel):
+    """Configuration for output file generation.
+
+    Supports both new structured output system and legacy formats.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     directory: Path = Field(default=Path("Fits"), description="Output directory for results.")
     formats: list[OutputFormat] = Field(
-        default=["txt"],
-        description="Output formats for results.",
+        default=["json", "csv", "txt"],
+        description="Output formats for results. Default includes all formats.",
+    )
+    verbosity: OutputVerbosity = Field(
+        default="standard",
+        description="Output verbosity: minimal (essential), standard (default), full (all).",
     )
     save_simulated: bool = Field(default=True, description="Save simulated spectrum to file.")
-    save_html_report: bool = Field(default=True, description="Save HTML report of fitting.")
+    save_html_report: bool = Field(default=False, description="Save HTML report of fitting.")
+    include_legacy: bool = Field(
+        default=False,
+        description="Generate legacy format output files in legacy/ subdirectory.",
+    )
+    save_chains: bool = Field(
+        default=False,
+        description="Save MCMC chains to disk (requires significant storage).",
+    )
+    save_figures: bool = Field(default=True, description="Generate and save diagnostic figures.")
+    include_timestamp: bool = Field(
+        default=False,
+        description="Include timestamp in output directory name.",
+    )
 
 
 class PeakFitConfig(BaseModel):
@@ -141,6 +164,7 @@ __all__ = [
     "LineshapeName",
     "OutputConfig",
     "OutputFormat",
+    "OutputVerbosity",
     "PeakData",
     "PeakFitConfig",
     "ValidationResult",

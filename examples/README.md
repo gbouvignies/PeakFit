@@ -1,6 +1,6 @@
 # PeakFit Examples
 
-This directory contains practical examples demonstrating PeakFit's capabilities, from basic fitting to advanced optimization and uncertainty analysis.
+This directory contains practical examples demonstrating PeakFit's capabilities, from basic fitting to advanced optimization and uncertainty analysis with MCMC.
 
 ## Quick Start
 
@@ -19,17 +19,19 @@ bash run.sh
 **Time:** < 1 minute
 **Status:** Template - adapt for your data
 
-Demonstrates the most common use case: fitting a simple 2D or pseudo-3D spectrum with well-separated peaks.
+Demonstrates the most common use case: fitting a 2D or pseudo-3D spectrum with well-separated peaks.
 
 **What you'll learn:**
 - Loading NMRPipe spectra and peak lists
 - Running a basic fit with default settings
-- Interpreting the results
+- Understanding the new structured output formats (JSON, CSV, Markdown)
 
 **Command:**
 ```bash
 peakfit fit data/spectrum.ft2 data/peaks.list --output results/
 ```
+
+---
 
 ### 2. Advanced Fitting with CEST Analysis
 **Directory:** `02-advanced-fitting/`
@@ -37,20 +39,26 @@ peakfit fit data/spectrum.ft2 data/peaks.list --output results/
 **Time:** 2-3 minutes
 **Status:** Ready to run with real data
 
-Shows how to fit pseudo-3D CEST (Chemical Exchange Saturation Transfer) data with Z-axis values and custom configuration.
+Shows how to fit pseudo-3D CEST (Chemical Exchange Saturation Transfer) data with Z-axis values and demonstrates the full output system.
 
 **What you'll learn:**
 - Handling pseudo-3D experiments (CEST, CPMG, relaxation, etc.)
 - Using Z-values for plane-dependent experiments
-- Working with configuration files for reproducibility
-- Analyzing CEST profiles
+- Exploring the new output formats:
+  - `results.json` - Machine-readable structured data
+  - `results.csv` - Spreadsheet-compatible tabular data
+  - `results.md` - Human-readable formatted report
+- Controlling output verbosity levels
 
 **Command:**
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
-  --output Fits/
+  --output Fits/ \
+  --verbosity standard
 ```
+
+---
 
 ### 3. Global Optimization for Difficult Peaks
 **Directory:** `03-global-optimization/`
@@ -58,58 +66,146 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 **Time:** 5-10 minutes
 **Status:** Template - uses same data with different approach
 
-Demonstrates global optimization methods (basin-hopping, differential evolution) for fitting highly overlapping or difficult peaks where local optimization fails.
+Demonstrates global optimization methods (basin-hopping, differential evolution) for fitting highly overlapping peaks where local optimization fails.
 
 **What you'll learn:**
 - When to use global optimization
 - Choosing between basin-hopping and differential evolution
-- Tuning global optimizer parameters
-- Comparing local vs. global results
+- Comparing results across optimization methods using structured outputs
+- Using JSON output for programmatic comparison
 
 **Command:**
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
   --optimizer basin_hopping \
-  --output Fits/
+  --output Fits/ \
+  --verbosity full
 ```
 
-### 4. Uncertainty Quantification
+---
+
+### 4. Uncertainty Analysis with MCMC
 **Directory:** `04-uncertainty-analysis/`
 **Difficulty:** Advanced
 **Time:** 10-20 minutes
-**Status:** Template - requires MCMC implementation
+**Status:** Ready to run
 
-Shows how to estimate parameter uncertainties using MCMC sampling or profile likelihood methods.
+Shows how to estimate parameter uncertainties using MCMC sampling and explores the comprehensive diagnostic outputs.
 
 **What you'll learn:**
-- Running uncertainty analysis on fitted parameters
-- Understanding parameter correlations
-- Interpreting confidence intervals
-- Validating fit quality
+- Running MCMC-based uncertainty analysis
+- Understanding MCMC diagnostics (R-hat, ESS, convergence status)
+- Saving and loading MCMC chains
+- Interpreting the `mcmc/` output directory:
+  - `chains.npz` - Raw MCMC chains (NumPy format)
+  - `chains_meta.json` - Chain metadata
+  - `diagnostics.json` - Convergence diagnostics
+- Viewing correlation matrices and posterior distributions
 
 **Command:**
 ```bash
-# First, run the fit
-peakfit fit data/spectrum.ft2 data/peaks.list --output fit_results/
-
-# Then, run uncertainty analysis (if available)
-peakfit analyze uncertainty fit_results/
+peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
+  --z-values data/b1_offsets.txt \
+  --method mcmc \
+  --save-chains \
+  --verbosity full \
+  --output Fits/
 ```
 
-### 5. Batch Processing Multiple Datasets
-**Directory:** `05-batch-processing/`
-**Difficulty:** Intermediate
-**Time:** Variable
-**Status:** Template - demonstrates workflow pattern
+---
 
-Demonstrates efficient processing of multiple experiments with shared peak assignments.
+## Output Formats
 
-**What you'll learn:**
-- Processing multiple spectra in batch
-- Automating workflows with shell scripts
-- Organizing results from multiple experiments
-- Comparing results across datasets
+PeakFit now generates structured outputs in multiple formats. See the [Output System Documentation](../docs/output_system.md) for complete details.
+
+### Quick Reference
+
+| Format | File | Use Case |
+|--------|------|----------|
+| JSON | `results.json` | Programmatic access, scripts, pipelines |
+| CSV | `results.csv` | Spreadsheets, data analysis, visualization |
+| Markdown | `results.md` | Human-readable reports, documentation |
+| Legacy | `*.out` | Backward compatibility (with `--include-legacy`) |
+
+### Verbosity Levels
+
+Control output detail with `--verbosity`:
+
+| Level | What's Included |
+|-------|-----------------|
+| `minimal` | Essential results only (values, uncertainties) |
+| `standard` | Adds fit statistics and basic diagnostics (default) |
+| `full` | Everything: all diagnostics, metadata, raw data |
+
+### Example: Reading JSON Output
+
+```python
+import json
+
+with open('Fits/results.json') as f:
+    results = json.load(f)
+
+for cluster in results['clusters']:
+    print(f"Cluster {cluster['cluster_id']}")
+    print(f"  χ² = {cluster['fit_statistics']['chi_squared']:.3f}")
+    for amp in cluster['amplitudes']:
+        print(f"  {amp['peak_name']}: {amp['value']:.2e} ± {amp['uncertainty']:.2e}")
+```
+
+### Example: Loading MCMC Chains
+
+```python
+import numpy as np
+
+# Load chains
+data = np.load('Fits/mcmc/chains.npz')
+chains = data['chains']      # Shape: (n_chains, n_samples, n_params)
+param_names = data['param_names']
+
+print(f"Chains shape: {chains.shape}")
+print(f"Parameters: {list(param_names)}")
+```
+
+---
+
+## Directory Structure
+
+After running Example 2, you'll see:
+
+```
+02-advanced-fitting/
+├── data/
+│   ├── pseudo3d.ft2        # Input spectrum
+│   ├── pseudo3d.list       # Peak list
+│   ├── b1_offsets.txt      # Z-values
+│   └── peakfit.toml        # Optional config
+└── Fits/
+    ├── results.json        # ← NEW: Structured results
+    ├── results.csv         # ← NEW: Tabular data
+    ├── results.md          # ← NEW: Markdown report
+    ├── 2N-HN.out           # Legacy profile (if --include-legacy)
+    ├── 3N-HN.out
+    └── ...
+```
+
+After running Example 4 (MCMC), you'll also see:
+
+```
+Fits/
+├── results.json
+├── results.csv
+├── results.md
+├── mcmc/                    # ← NEW: MCMC outputs
+│   ├── chains.npz          # Raw chains
+│   ├── chains_meta.json    # Metadata
+│   └── diagnostics.json    # Convergence info
+└── figures/                 # ← NEW: Figure catalog
+    ├── manifest.json
+    └── *.pdf
+```
+
+---
 
 ## Data Format Requirements
 
@@ -139,23 +235,7 @@ Most examples are templates showing the workflow. To use them with your data:
 2. **Update the commands** in the README and run script
 3. **Adjust parameters** as needed for your experiment type
 
-## Example Data
-
-The examples use a real pseudo-3D CEST NMR spectrum from a protein sample:
-- **Spectrum:** 131 planes × 256 × 546 points
-- **Experiment:** CEST with B1 offsets from -5000 to +5000 Hz
-- **Peaks:** 166 peaks organized into 45 clusters
-
-This dataset is used across multiple examples to demonstrate different analysis workflows.
-
-## Output Files
-
-After running a fit, you'll typically find:
-
-- **`Fits/{peak_name}.out`** - Individual peak fitting results with intensity profiles
-- **`Fits/shifts.list`** - Fitted chemical shift positions
-- **`Fits/peakfit.log`** - Detailed log file with timestamps
-- **`Fits/logs.html`** - Interactive HTML report (if enabled)
+---
 
 ## Troubleshooting
 
@@ -174,65 +254,22 @@ After running a fit, you'll typically find:
 - Try adjusting contour level or clustering parameters
 - Consider global optimization (Example 3)
 
-**Results look wrong**
-- Verify peak list coordinates match your spectrum
-- Check lineshape model (auto-detected from spectrum header)
-- Review the log file for warnings
-
 ### Getting Help
 
 For each example, see the `README.md` in that directory for detailed explanations and expected output.
 
-For general help:
 ```bash
 peakfit --help
 peakfit fit --help
-peakfit plot --help
 ```
 
-## Validation
-
-Before fitting, validate your input files:
-
-```bash
-peakfit validate spectrum.ft2 peaks.list
-```
-
-This checks:
-- File formats are correct
-- Peaks are within spectral bounds
-- No duplicate assignments
-- Proper file permissions
-
-## Creating Your Own Workflows
-
-These examples provide templates you can adapt for your own data. Key principles:
-
-1. **Start simple** - Use default settings first
-2. **Validate inputs** - Always check files before fitting
-3. **Use configuration files** - For reproducibility and documentation
-4. **Check logs** - Review `peakfit.log` for detailed information
-5. **Visualize results** - Plot profiles to validate fits
-
-## Performance Tips
-
-For large datasets:
-- Use configuration files to specify parameters once
-- Parallel processing has been removed; use single-process execution
-- Consider clustering parameters to reduce number of fits
-- Monitor memory usage for very large spectra
-
-See the [Optimization Guide](../docs/optimization_guide.md) for detailed performance tuning.
-
-## Citation
-
-If you use PeakFit in your research, please cite the appropriate reference (see main README).
+---
 
 ## Additional Resources
 
+- **[Output System Guide](../docs/output_system.md)** - Complete output format reference
 - **[Main README](../README.md)** - Installation and quick start
 - **[Optimization Guide](../docs/optimization_guide.md)** - Performance tuning
-- **[Documentation](../docs/)** - Complete documentation
 - **[GitHub Issues](https://github.com/gbouvignies/PeakFit/issues)** - Report bugs or request features
 
 ---

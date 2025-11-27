@@ -1,6 +1,6 @@
 #!/bin/bash
 # Example 3: Global Optimization for Difficult Peaks
-# Demonstrates basin-hopping and differential evolution
+# Compares local vs global optimization with structured output comparison
 
 set -e  # Exit on error
 
@@ -8,7 +8,9 @@ echo "=========================================="
 echo "PeakFit Example 3: Global Optimization"
 echo "=========================================="
 echo
-echo "This example compares local vs. global optimization methods."
+echo "This example compares local vs. global optimization methods"
+echo "using the new structured JSON outputs for comparison."
+echo
 echo "⚠️  Warning: Global optimization is MUCH slower (10-30 minutes)"
 echo
 
@@ -31,15 +33,16 @@ fi
 echo "Which optimization method would you like to run?"
 echo "  1) Local optimization (fast, ~2-3 min) - baseline"
 echo "  2) Basin-hopping (slow, ~10-20 min)"
-echo "  3) Differential evolution (slowest, ~15-30 min)"
-echo "  4) All three (for comparison, ~30-50 min total)"
+echo "  3) Both and compare results"
 echo
-read -p "Enter choice [1-4]: " choice
+read -p "Enter choice [1-3]: " choice
 
 case $choice in
     1)
         echo
+        echo "=========================================="
         echo "Running LOCAL optimization..."
+        echo "=========================================="
         echo
         rm -rf Fits-Local
         peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
@@ -48,47 +51,43 @@ case $choice in
 
         echo
         echo "✓ Local optimization complete"
+        echo
         echo "Results in: Fits-Local/"
+        echo "  - fit_results.json  : Complete results"
+        echo "  - parameters.csv    : Parameter table"
+        echo "  - report.md         : Summary"
         ;;
 
     2)
         echo
+        echo "=========================================="
         echo "Running BASIN-HOPPING optimization..."
         echo "  This will take 10-20 minutes..."
+        echo "=========================================="
         echo
         rm -rf Fits-BH
         peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
             --z-values data/b1_offsets.txt \
-            --optimizer basin-hopping \
+            --optimizer basin_hopping \
             --output Fits-BH/
 
         echo
         echo "✓ Basin-hopping complete"
+        echo
         echo "Results in: Fits-BH/"
+        echo "  - fit_results.json  : Complete results"
+        echo "  - parameters.csv    : Parameter table"
+        echo "  - report.md         : Summary"
         ;;
 
     3)
         echo
-        echo "Running DIFFERENTIAL EVOLUTION optimization..."
-        echo "  This will take 15-30 minutes..."
-        echo
-        rm -rf Fits-DE
-        peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-            --z-values data/b1_offsets.txt \
-            --optimizer differential-evolution \
-            --output Fits-DE/
-
-        echo
-        echo "✓ Differential evolution complete"
-        echo "Results in: Fits-DE/"
-        ;;
-
-    4)
-        echo
-        echo "Running ALL optimizers (this will take 30-50 minutes)..."
+        echo "=========================================="
+        echo "Running BOTH optimizers for comparison"
+        echo "=========================================="
         echo
 
-        echo "Step 1/3: Local optimization (~2-3 min)..."
+        echo "Step 1/2: Local optimization (~2-3 min)..."
         rm -rf Fits-Local
         peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
             --z-values data/b1_offsets.txt \
@@ -96,37 +95,24 @@ case $choice in
         echo "  ✓ Local complete"
 
         echo
-        echo "Step 2/3: Basin-hopping (~10-20 min)..."
+        echo "Step 2/2: Basin-hopping (~10-20 min)..."
         rm -rf Fits-BH
         peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
             --z-values data/b1_offsets.txt \
-            --optimizer basin-hopping \
+            --optimizer basin_hopping \
             --output Fits-BH/
         echo "  ✓ Basin-hopping complete"
 
         echo
-        echo "Step 3/3: Differential evolution (~15-30 min)..."
-        rm -rf Fits-DE
-        peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-            --z-values data/b1_offsets.txt \
-            --optimizer differential-evolution \
-            --output Fits-DE/
-        echo "  ✓ Differential evolution complete"
-
-        echo
         echo "=========================================="
-        echo "All optimizers complete!"
+        echo "Comparison of Results"
         echo "=========================================="
         echo
-        echo "Comparison:"
+        echo "Compare JSON results:"
+        echo "  diff Fits-Local/fit_results.json Fits-BH/fit_results.json"
         echo
-        grep "Successful" Fits-Local/peakfit.log | sed 's/^/  Local:        /'
-        grep "Successful" Fits-BH/peakfit.log | sed 's/^/  Basin-hop:    /'
-        grep "Successful" Fits-DE/peakfit.log | sed 's/^/  Diff-evol:    /'
-        echo
-        echo "Compare shifts:"
-        echo "  diff Fits-Local/shifts.list Fits-BH/shifts.list"
-        echo "  diff Fits-Local/shifts.list Fits-DE/shifts.list"
+        echo "Compare parameter CSVs:"
+        echo "  diff Fits-Local/parameters.csv Fits-BH/parameters.csv"
         ;;
 
     *)
@@ -140,8 +126,8 @@ echo "=========================================="
 echo "Next steps:"
 echo "=========================================="
 echo
-echo "  • View log: less Fits-*/peakfit.log"
-echo "  • Compare results: diff Fits-Local/shifts.list Fits-BH/shifts.list"
-echo "  • Check specific peak: cat Fits-*/10N-HN.out"
-echo "  • See full README for analysis tips"
+echo "  • Compare results: diff Fits-Local/fit_results.json Fits-BH/fit_results.json"
+echo "  • Compare CSVs: diff Fits-Local/parameters.csv Fits-BH/parameters.csv"
+echo "  • Check logs: less Fits-*/peakfit.log"
+echo "  • See README.md for more analysis examples"
 echo

@@ -4,13 +4,16 @@ Welcome to the PeakFit documentation. This directory contains guides for users a
 
 ## User Guides
 
+- **[Output System](output_system.md)** - Guide to PeakFit's structured output formats (JSON, CSV, Markdown)
 - **[Optimization Guide](optimization_guide.md)** - Performance tuning and best practices for fitting large datasets
+- **[MCMC Diagnostics](MCMC_DIAGNOSTICS.md)** - Understanding MCMC convergence diagnostics
 - **[Examples](../examples/)** - Comprehensive examples demonstrating PeakFit capabilities
 
 ## Development Documentation
 
 For contributors and developers:
 
+- **[Output Architecture](architecture/output_architecture.md)** - Technical guide for extending the output system
 - **[UI Style Guide](development/ui-style-guide.md)** - User interface and experience design principles
 - **[Terminal Output Style Guide](development/terminal-output-style-guide.md)** - Guidelines for consistent terminal output
 - **[Analyze Services Architecture](architecture/analyze_services.md)** - Overview of the layered analysis services and their responsibilities
@@ -31,4 +34,4 @@ See the main [README.md](../README.md) in the repository root for:
 
 ---
 
-**Last Updated**: 2025-11-20
+**Last Updated**: 2025-01-15

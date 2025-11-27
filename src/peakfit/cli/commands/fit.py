@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast, get_args
 
 import typer
 
@@ -12,9 +12,14 @@ from peakfit.core.domain.config import (
     FitConfig,
     LineshapeName,
     OutputConfig,
+    OutputFormat,
+    OutputVerbosity,
     PeakFitConfig,
 )
 from peakfit.io.config import load_config
+
+# Valid output formats for CLI validation
+VALID_OUTPUT_FORMATS = get_args(OutputFormat)  # ("csv", "json", "txt")
 
 
 def fit_command(
@@ -160,6 +165,29 @@ def fit_command(
             help="Show banner and verbose output",
         ),
     ] = False,
+    formats: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--format",
+            "-f",
+            help="Output format(s): json, csv, txt. Can be specified multiple times. "
+            "Default: json,csv,txt (all formats)",
+        ),
+    ] = None,
+    output_verbosity: Annotated[
+        OutputVerbosity,
+        typer.Option(
+            "--output-verbosity",
+            help="Output verbosity level: minimal (essential), standard (default), full (all)",
+        ),
+    ] = "standard",
+    include_legacy: Annotated[
+        bool,
+        typer.Option(
+            "--legacy/--no-legacy",
+            help="Generate legacy .out files in legacy/ subdirectory (for backward compatibility)",
+        ),
+    ] = False,
 ) -> None:
     """Fit lineshapes to peaks in pseudo-3D NMR spectrum.
 
@@ -175,11 +203,26 @@ def fit_command(
     """
     from peakfit.services.fit.pipeline import FitPipeline
 
+    # Validate and process format options
+    if formats:
+        invalid_formats = [f for f in formats if f not in VALID_OUTPUT_FORMATS]
+        if invalid_formats:
+            msg = f"Invalid format(s): {', '.join(invalid_formats)}. Valid formats: {', '.join(VALID_OUTPUT_FORMATS)}"
+            raise typer.BadParameter(msg)
+        output_formats = cast(list[OutputFormat], formats)  # Type-safe after validation
+    else:
+        # Default formats: generate all outputs (JSON, CSV, and legacy txt)
+        output_formats: list[OutputFormat] = ["json", "csv", "txt"]
+
     # Load config from file or create from CLI options
     if config is not None:
         fit_config = load_config(config)
         # Override with CLI options where explicitly set
         fit_config.output.directory = output
+        # Apply format options from CLI
+        fit_config.output.formats = output_formats
+        fit_config.output.verbosity = output_verbosity
+        fit_config.output.include_legacy = include_legacy
     else:
         fit_config = PeakFitConfig(
             fitting=FitConfig(
@@ -191,7 +234,12 @@ def fit_command(
                 fit_phase_y=phy,
             ),
             clustering=ClusterConfig(contour_level=contour_level),
-            output=OutputConfig(directory=output),
+            output=OutputConfig(
+                directory=output,
+                formats=output_formats,
+                verbosity=output_verbosity,
+                include_legacy=include_legacy,
+            ),
             noise_level=noise,
             exclude_planes=exclude or [],
         )
