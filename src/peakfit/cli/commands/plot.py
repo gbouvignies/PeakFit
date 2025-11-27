@@ -692,7 +692,6 @@ def plot_diagnostics(
             best_fit_values = np.array(best_fit_values)
 
         # Extract amplitude data if available
-        amplitude_samples = data.get("amplitude_samples", None)
         amplitude_names = data.get("amplitude_names", None)
         amplitude_values = data.get("amplitude_values", None)
         amplitude_chains = data.get("amplitude_chains", None)

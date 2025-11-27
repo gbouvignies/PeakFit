@@ -82,7 +82,6 @@ class MCMCClusterSummary:
     n_samples: int
     # Amplitude (intensity) summaries
     amplitude_summaries: list[MCMCAmplitudeSummary] = field(default_factory=list)
-    amplitude_correlation_matrix: np.ndarray | None = None
 
     @property
     def cluster_label(self) -> str:
@@ -226,7 +225,6 @@ def format_mcmc_cluster_result(
         n_chains=diagnostics.n_chains if diagnostics else 0,
         n_samples=diagnostics.n_samples if diagnostics else 0,
         amplitude_summaries=amplitude_summaries,
-        amplitude_correlation_matrix=result.amplitude_correlation_matrix,
     )
 
 

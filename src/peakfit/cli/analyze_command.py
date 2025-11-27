@@ -657,13 +657,12 @@ def _save_mcmc_chains(
                     "best_fit_values": best_fit_values,
                     # Amplitude data
                     "amplitude_names": result.amplitude_names,
-                    "amplitude_samples": result.amplitude_samples,
                     "amplitude_values": result.amplitude_values,
                     "amplitude_std_errors": result.amplitude_std_errors,
                     "amplitude_confidence_intervals_68": result.amplitude_confidence_intervals_68,
                     "amplitude_confidence_intervals_95": result.amplitude_confidence_intervals_95,
-                    "amplitude_chains": result.amplitude_chains,  # For trace/autocorrelation plots
-                    "amplitude_chain_names": result.amplitude_chain_names,  # Names: I_{peak}[plane]
+                    "amplitude_chains": result.amplitude_chains,
+                    "amplitude_chain_names": result.amplitude_chain_names,
                 }
             )
 

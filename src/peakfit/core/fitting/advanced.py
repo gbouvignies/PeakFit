@@ -88,20 +88,12 @@ class UncertaintyResult:
 
     # Amplitude (intensity) results - computed via linear least squares at each sample
     amplitude_names: list[str] | None = None  # Peak names for amplitudes
-    amplitude_values: FloatArray | None = None  # Mean/median amplitudes per plane
-    amplitude_std_errors: FloatArray | None = None  # Std errors for amplitudes
-    amplitude_confidence_intervals_68: FloatArray | None = None  # 68% CI for amplitudes
-    amplitude_confidence_intervals_95: FloatArray | None = None  # 95% CI for amplitudes
-    amplitude_correlation_matrix: FloatArray | None = None  # Correlation between amplitudes
-    amplitude_samples: FloatArray | None = (
-        None  # MCMC amplitude samples (n_samples, n_peaks, n_planes)
-    )
-    amplitude_chains: FloatArray | None = (
-        None  # MCMC amplitude chains (n_walkers, n_steps, n_peaks * n_planes)
-    )
-    amplitude_chain_names: list[str] | None = (
-        None  # Names for amplitude chains: I_{peak_name}[{plane_idx}]
-    )
+    amplitude_values: FloatArray | None = None  # Median amplitudes per plane (n_peaks, n_planes)
+    amplitude_std_errors: FloatArray | None = None  # Std errors (n_peaks, n_planes)
+    amplitude_confidence_intervals_68: FloatArray | None = None  # 68% CI (n_peaks, 2, n_planes)
+    amplitude_confidence_intervals_95: FloatArray | None = None  # 95% CI (n_peaks, 2, n_planes)
+    amplitude_chains: FloatArray | None = None  # Subsampled chains for plotting (n_walkers, n_steps, n_subsample)
+    amplitude_chain_names: list[str] | None = None  # Names for subsampled chains: I_{peak}[plane]
 
 
 def residuals_global(x: FloatArray, params: Parameters, cluster: "Cluster", noise: float) -> float:
@@ -510,69 +502,42 @@ def estimate_uncertainties_mcmc(
     # Update parameter errors
     params.set_errors(std_errors)
 
-    # Compute amplitudes for each MCMC sample to get amplitude posterior distributions
-    # This is efficient because amplitudes are computed via fast linear least-squares
+    # Compute amplitudes for each MCMC sample
+    # Amplitudes are computed via fast linear least-squares for each lineshape sample
     n_peaks = len(cluster.peaks)
-    # Data shape is (n_points, n_planes), so n_planes is shape[1]
     n_planes = cluster.corrected_data.shape[1] if cluster.corrected_data.ndim > 1 else 1
-
-    # Compute amplitude chains with same structure as parameter chains
-    # chains_full has shape (n_walkers, n_steps, n_params)
     n_walkers_chain, n_steps_chain, _ = chains_full.shape
 
-    # Pre-allocate amplitude chains array - store all planes for each peak
-    # Shape: (n_walkers, n_steps, n_peaks * n_planes)
+    # Compute amplitude chains: shape (n_walkers, n_steps, n_peaks * n_planes)
     amplitude_chains = np.zeros((n_walkers_chain, n_steps_chain, n_peaks * n_planes))
 
-    # Generate amplitude chain names: I_{peak_name}[{plane_idx}]
-    amplitude_chain_names = [
-        f"I_{peak.name}[{i_plane}]" for peak in cluster.peaks for i_plane in range(n_planes)
-    ]
-
-    # Compute amplitudes for each walker at each step
     for i_walker in range(n_walkers_chain):
         for i_step in range(n_steps_chain):
             params.set_vary_values(chains_full[i_walker, i_step])
             _shapes, amps = calculate_shape_heights(params, cluster)
-            # amps has shape (n_peaks, n_planes) or (n_peaks,)
-            if amps.ndim == 1:
-                amplitude_chains[i_walker, i_step, :] = amps
-            else:
-                # Flatten (n_peaks, n_planes) to (n_peaks * n_planes,)
-                amplitude_chains[i_walker, i_step, :] = amps.ravel()
+            amplitude_chains[i_walker, i_step, :] = amps.ravel()
 
-    # Also compute full amplitude samples (with all planes) from flattened samples
-    n_samples = samples.shape[0]
-    amplitude_samples = np.zeros((n_samples, n_peaks, n_planes))
-
-    for i_sample in range(n_samples):
-        params.set_vary_values(samples[i_sample])
-        _shapes, amps = calculate_shape_heights(params, cluster)
-        if amps.ndim == 1:
-            amplitude_samples[i_sample, :, 0] = amps
-        else:
-            amplitude_samples[i_sample] = amps
-
-    # Restore best-fit values (median)
+    # Restore best-fit values
     params.set_vary_values(percentiles[1])
 
-    # Compute amplitude statistics
+    # Compute statistics from flattened chains (same as samples)
+    # Shape: (n_walkers * n_steps, n_peaks * n_planes)
+    amp_samples = amplitude_chains.reshape(-1, n_peaks * n_planes)
+
+    # Statistics per peak per plane
     amplitude_names = [p.name for p in cluster.peaks]
-    amplitude_values = np.median(amplitude_samples, axis=0)  # (n_peaks, n_planes)
-    amplitude_std_errors = np.std(amplitude_samples, axis=0)  # (n_peaks, n_planes)
+    amplitude_chain_names = [
+        f"I_{peak.name}[{i_plane}]" for peak in cluster.peaks for i_plane in range(n_planes)
+    ]
 
-    # Amplitude confidence intervals
-    # np.percentile returns (2, n_peaks, n_planes), we need (n_peaks, 2, n_planes)
-    ci_68_raw = np.percentile(amplitude_samples, [16, 84], axis=0)  # (2, n_peaks, n_planes)
-    amplitude_ci_68 = np.moveaxis(ci_68_raw, 0, 1)  # (n_peaks, 2, n_planes)
+    # Reshape for per-peak statistics: (n_samples, n_peaks, n_planes)
+    amp_reshaped = amp_samples.reshape(-1, n_peaks, n_planes)
+    amplitude_values = np.median(amp_reshaped, axis=0)  # (n_peaks, n_planes)
+    amplitude_std_errors = np.std(amp_reshaped, axis=0)  # (n_peaks, n_planes)
 
-    ci_95_raw = np.percentile(amplitude_samples, [2.5, 97.5], axis=0)  # (2, n_peaks, n_planes)
-    amplitude_ci_95 = np.moveaxis(ci_95_raw, 0, 1)  # (n_peaks, 2, n_planes)
-
-    # Amplitude correlation matrix - computed across all peaks and planes
-    # Reshape to (n_samples, n_peaks * n_planes) for correlation computation
-    amp_flat = amplitude_samples.reshape(n_samples, -1)
-    amplitude_corr_matrix = np.corrcoef(amp_flat.T) if amp_flat.shape[1] > 1 else None
+    # Confidence intervals: percentile returns (2, n_peaks, n_planes), need (n_peaks, 2, n_planes)
+    amplitude_ci_68 = np.moveaxis(np.percentile(amp_reshaped, [16, 84], axis=0), 0, 1)
+    amplitude_ci_95 = np.moveaxis(np.percentile(amp_reshaped, [2.5, 97.5], axis=0), 0, 1)
 
     return UncertaintyResult(
         parameter_names=params.get_vary_names(),
@@ -583,7 +548,7 @@ def estimate_uncertainties_mcmc(
         correlation_matrix=corr_matrix,
         mcmc_samples=samples,
         mcmc_percentiles=percentiles,
-        mcmc_chains=chains_full,  # Full chains including burn-in for plotting
+        mcmc_chains=chains_full,
         mcmc_diagnostics=diagnostics,
         burn_in_info=burn_in_info,
         # Amplitude results
@@ -592,10 +557,8 @@ def estimate_uncertainties_mcmc(
         amplitude_std_errors=amplitude_std_errors,
         amplitude_confidence_intervals_68=amplitude_ci_68,
         amplitude_confidence_intervals_95=amplitude_ci_95,
-        amplitude_correlation_matrix=amplitude_corr_matrix,
-        amplitude_samples=amplitude_samples,
-        amplitude_chains=amplitude_chains,  # Full chains for trace/autocorrelation plots
-        amplitude_chain_names=amplitude_chain_names,  # Names: I_{peak_name}[{plane_idx}]
+        amplitude_chains=amplitude_chains,
+        amplitude_chain_names=amplitude_chain_names,
     )
 
 
