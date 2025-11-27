@@ -7,6 +7,7 @@ from rich.table import Table
 
 from peakfit.cli._analyze_formatters import (
     print_correlation_matrix,
+    print_mcmc_amplitude_table,
     print_mcmc_diagnostics_table,
     print_mcmc_results_table,
 )
@@ -169,6 +170,9 @@ def run_mcmc(
 
         # Display correlation matrix if there are multiple parameters
         print_correlation_matrix(summary)
+
+        # Display amplitude (intensity) results
+        print_mcmc_amplitude_table(summary)
 
         # Update global parameters with MCMC uncertainties
 
@@ -473,6 +477,8 @@ def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]
             peak_names = [p.name for p in cluster.peaks]
             f.write(f"# Cluster: {', '.join(peak_names)}\n")
 
+            # Write lineshape parameter results
+            f.write("# --- Lineshape Parameters ---\n")
             for i, name in enumerate(result.parameter_names):
                 ci_68 = result.confidence_intervals_68[i]
                 ci_95 = result.confidence_intervals_95[i]
@@ -480,6 +486,43 @@ def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]
                     f"{name}  {result.values[i]:.6f}  {result.std_errors[i]:.6f}  "
                     f"{ci_68[0]:.6f}  {ci_68[1]:.6f}  {ci_95[0]:.6f}  {ci_95[1]:.6f}\n"
                 )
+
+            # Write amplitude (intensity) results if available
+            if result.amplitude_names is not None and result.amplitude_values is not None:
+                f.write("\n# --- Intensities (from linear least-squares) ---\n")
+                f.write(
+                    "# Peak  Plane  Intensity  StdErr  CI_68_Low  CI_68_High  CI_95_Low  CI_95_High\n"
+                )
+
+                amp_values = result.amplitude_values
+                amp_errors = result.amplitude_std_errors
+                amp_ci_68 = result.amplitude_confidence_intervals_68
+                amp_ci_95 = result.amplitude_confidence_intervals_95
+
+                # Handle both 1D and 2D arrays
+                if amp_values.ndim == 1:
+                    amp_values = amp_values.reshape(-1, 1)
+                    if amp_errors is not None:
+                        amp_errors = amp_errors.reshape(-1, 1)
+                    if amp_ci_68 is not None:
+                        amp_ci_68 = amp_ci_68.reshape(-1, 2, 1)
+                    if amp_ci_95 is not None:
+                        amp_ci_95 = amp_ci_95.reshape(-1, 2, 1)
+
+                n_planes = amp_values.shape[1]
+
+                for i_peak, peak_name in enumerate(result.amplitude_names):
+                    for i_plane in range(n_planes):
+                        val = amp_values[i_peak, i_plane]
+                        err = amp_errors[i_peak, i_plane] if amp_errors is not None else 0.0
+                        ci68_lo = amp_ci_68[i_peak, 0, i_plane] if amp_ci_68 is not None else 0.0
+                        ci68_hi = amp_ci_68[i_peak, 1, i_plane] if amp_ci_68 is not None else 0.0
+                        ci95_lo = amp_ci_95[i_peak, 0, i_plane] if amp_ci_95 is not None else 0.0
+                        ci95_hi = amp_ci_95[i_peak, 1, i_plane] if amp_ci_95 is not None else 0.0
+                        f.write(
+                            f"{peak_name}  {i_plane}  {val:.6e}  {err:.6e}  "
+                            f"{ci68_lo:.6e}  {ci68_hi:.6e}  {ci95_lo:.6e}  {ci95_hi:.6e}\n"
+                        )
 
             # Add correlation matrix
             if result.correlation_matrix is not None and len(result.parameter_names) > 1:
@@ -612,6 +655,15 @@ def _save_mcmc_chains(
                     "burn_in_info": result.burn_in_info,  # Save full burn-in info
                     "diagnostics": result.mcmc_diagnostics,
                     "best_fit_values": best_fit_values,
+                    # Amplitude data
+                    "amplitude_names": result.amplitude_names,
+                    "amplitude_samples": result.amplitude_samples,
+                    "amplitude_values": result.amplitude_values,
+                    "amplitude_std_errors": result.amplitude_std_errors,
+                    "amplitude_confidence_intervals_68": result.amplitude_confidence_intervals_68,
+                    "amplitude_confidence_intervals_95": result.amplitude_confidence_intervals_95,
+                    "amplitude_chains": result.amplitude_chains,  # For trace/autocorrelation plots
+                    "amplitude_chain_names": result.amplitude_chain_names,  # Names: I_{peak}[plane]
                 }
             )
 
