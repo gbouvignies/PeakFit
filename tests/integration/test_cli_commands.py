@@ -191,9 +191,9 @@ class TestProfilingUtilities:
         """Profiler context manager should record timings."""
         import time
 
-        Profiler, _, _ = self._import_profiling()
+        profiler_cls, _, _ = self._import_profiling()
 
-        profiler = Profiler()
+        profiler = profiler_cls()
 
         with profiler.timer("test_operation"):
             time.sleep(0.01)
@@ -207,9 +207,9 @@ class TestProfilingUtilities:
         """Profiler start/stop should record timings."""
         import time
 
-        Profiler, _, _ = self._import_profiling()
+        profiler_cls, _, _ = self._import_profiling()
 
-        profiler = Profiler()
+        profiler = profiler_cls()
 
         profiler.start("manual_timing")
         time.sleep(0.01)
@@ -223,18 +223,18 @@ class TestProfilingUtilities:
 
     def test_timing_result_per_call(self):
         """TimingResult should compute per-call average."""
-        _, _, TimingResult = self._import_profiling()
+        _, _, timing_result_cls = self._import_profiling()
 
-        result = TimingResult(name="test", elapsed=1.0, count=10)
+        result = timing_result_cls(name="test", elapsed=1.0, count=10)
         assert result.per_call == 0.1
 
     def test_profile_report_summary(self):
         """ProfileReport should generate summary."""
-        _, ProfileReport, TimingResult = self._import_profiling()
+        _, profile_report_cls, timing_result_cls = self._import_profiling()
 
-        report = ProfileReport()
-        report.add_timing(TimingResult("op1", 0.5))
-        report.add_timing(TimingResult("op2", 1.0))
+        report = profile_report_cls()
+        report.add_timing(timing_result_cls("op1", 0.5))
+        report.add_timing(timing_result_cls("op2", 1.0))
         report.finalize()
 
         summary = report.summary()

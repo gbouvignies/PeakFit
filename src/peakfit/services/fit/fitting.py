@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 from threadpoolctl import threadpool_limits
 
-from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import create_params
 from peakfit.core.fitting.computation import update_cluster_corrections
 from peakfit.core.fitting.parameters import Parameters
@@ -21,10 +20,12 @@ from peakfit.core.shared.constants import (
     LEAST_SQUARES_MAX_NFEV,
     LEAST_SQUARES_XTOL,
 )
-from peakfit.core.shared.events import Event, EventDispatcher, EventType, FitProgressEvent
+from peakfit.core.shared.events import Event, EventType, FitProgressEvent
 from peakfit.ui import console, log, log_section, subsection_header
 
 if TYPE_CHECKING:
+    from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.shared.events import EventDispatcher
     from peakfit.services.fit.pipeline import FitArguments
 
 
@@ -50,7 +51,8 @@ def fit_all_clusters(
         verbose: Whether to show verbose output
         dispatcher: Optional event dispatcher for progress tracking
 
-    Returns:
+    Returns
+    -------
         Fitted parameters for all clusters
     """
     if clargs.noise is None:
@@ -177,7 +179,7 @@ def _print_cluster_header(
         console.print()
     console.print(
         f"[bold cyan]Cluster {cluster_idx}/{cluster_count}[/bold cyan] [dim]│[/dim] "
-        f"{peaks_str} [dim][{n_peaks} peak{'s' if n_peaks != 1 else ''}][/dim]"
+        f"{peaks_str} [dim][{n_peaks} peak{"s" if n_peaks != 1 else ""}][/dim]"
     )
 
 

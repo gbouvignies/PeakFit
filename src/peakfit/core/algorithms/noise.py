@@ -26,7 +26,8 @@ def _gaussian(x: FloatArray, amplitude: float, sigma: float) -> FloatArray:
         amplitude: Amplitude of the Gaussian
         sigma: Standard deviation (width)
 
-    Returns:
+    Returns
+    -------
         Gaussian function values
     """
     res: FloatArray = np.asarray(amplitude * np.exp(-(x**2) / (2 * sigma**2)), dtype=float)

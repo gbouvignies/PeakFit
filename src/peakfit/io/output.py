@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.core.domain.cluster import Cluster
-from peakfit.core.domain.peaks import Peak
 from peakfit.core.fitting.computation import calculate_amplitudes_with_uncertainty, calculate_shapes
-from peakfit.core.fitting.parameters import Parameters
-from peakfit.core.shared.reporter import NullReporter, Reporter
-from peakfit.core.shared.typing import FittingOptions, FloatArray
+from peakfit.core.shared.reporter import NullReporter
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.domain.peaks import Peak
+    from peakfit.core.fitting.parameters import Parameters
+    from peakfit.core.shared.reporter import Reporter
+    from peakfit.core.shared.typing import FittingOptions, FloatArray
 
 
 def write_profiles(
@@ -37,6 +42,8 @@ def write_profiles(
 
     reporter.action("Writing profiles...")
     for cluster in clusters:
+        if args.noise is None:
+            raise ValueError("Noise must be provided to compute amplitudes with uncertainty")
         # Compute amplitudes with proper uncertainty propagation from linear least-squares
         shapes = calculate_shapes(params, cluster)
         amplitudes, amplitudes_err, _covariance = calculate_amplitudes_with_uncertainty(
@@ -61,7 +68,8 @@ def write_profiles(
 def print_heights(z_values: np.ndarray, heights: FloatArray, height_err: FloatArray) -> str:
     """Print the heights and errors.
 
-    Raises:
+    Raises
+    ------
         ValueError: If array lengths don't match
     """
     if not (len(z_values) == len(heights) == len(height_err)):
@@ -71,7 +79,7 @@ def print_heights(z_values: np.ndarray, heights: FloatArray, height_err: FloatAr
         )
         raise ValueError(msg)
 
-    result = f"# {'Z':>10s}  {'I':>14s}  {'I_err':>14s}\n"
+    result = f"# {"Z":>10s}  {"I":>14s}  {"I_err":>14s}\n"
     result += "\n".join(
         f"  {z!s:>10s}  {ampl:14.6e}  {ampl_e:14.6e}"
         for z, ampl, ampl_e in zip(z_values, heights, height_err, strict=True)

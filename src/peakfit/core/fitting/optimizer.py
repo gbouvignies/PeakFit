@@ -45,7 +45,8 @@ def params_to_arrays(params: Parameters) -> tuple[np.ndarray, np.ndarray, np.nda
     Args:
         params: Parameters object to convert
 
-    Returns:
+    Returns
+    -------
         Tuple of (x0, lower, upper, names) where:
             - x0: Initial values for varying parameters
             - lower: Lower bounds
@@ -68,7 +69,8 @@ def arrays_to_params(x: np.ndarray, names: list[str], params_template: Parameter
         names: Parameter names
         params_template: Template Parameters object
 
-    Returns:
+    Returns
+    -------
         Updated Parameters object
     """
     params = params_template.copy()
@@ -90,7 +92,8 @@ def _residuals_for_optimizer(
         cluster: Cluster being fitted
         noise: Noise level for normalization
 
-    Returns:
+    Returns
+    -------
         Flattened residual array normalized by noise
     """
     from peakfit.core.fitting.computation import residuals
@@ -120,7 +123,8 @@ def compute_residuals(
         cluster: Cluster being fit
         noise: Noise level
 
-    Returns:
+    Returns
+    -------
         Residual vector normalized by noise
     """
     # Update parameters with current values
@@ -160,10 +164,12 @@ def fit_cluster(
         gtol: Tolerance for termination by gradient norm
         verbose: Verbosity level (0=silent, 1=termination, 2=iteration)
 
-    Returns:
+    Returns
+    -------
         FitResult containing optimized parameters and fit statistics
 
-    Raises:
+    Raises
+    ------
         ValueError: If noise is non-positive
         ScipyOptimizerError: If cluster has no peaks
     """
@@ -230,7 +236,8 @@ def fit_cluster_dict(
         fixed: Whether to fix positions during optimization
         params_init: Optional initial parameter values from previous fits
 
-    Returns:
+    Returns
+    -------
         Dictionary with fitted parameter values and statistics:
             - params: Dict of parameter info (value, stderr, vary, min, max)
             - success: Whether optimization converged
@@ -239,7 +246,8 @@ def fit_cluster_dict(
             - nfev: Number of function evaluations
             - message: Optimizer message
 
-    Raises:
+    Raises
+    ------
         ScipyOptimizerError: If cluster has no peaks or invalid data
         ValueError: If noise is non-positive
     """
@@ -261,7 +269,8 @@ def fit_cluster_dict(
 
     try:
         params = create_params(cluster.peaks, fixed=fixed)
-    except Exception as e:
+    except (ValueError, TypeError) as e:
+        # Create params may raise errors if peaks are invalid
         msg = f"Failed to create parameters: {e}"
         raise ScipyOptimizerError(msg) from e
 
@@ -317,7 +326,9 @@ def fit_cluster_dict(
             max_nfev=LEAST_SQUARES_MAX_NFEV,
             verbose=0,
         )
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError, np.linalg.LinAlgError) as e:
+        # SciPy may raise ValueError for invalid inputs, TypeError or RuntimeError,
+        # or low-level NumPy linear algebra errors.
         msg = f"Optimization failed: {e}"
         raise ScipyOptimizerError(msg) from e
 
@@ -408,7 +419,8 @@ def fit_clusters_sequential(
         fixed: Whether to fix peak positions
         verbose: Verbosity level
 
-    Returns:
+    Returns
+    -------
         Updated global parameters
     """
     from peakfit.core.domain.peaks import create_params
@@ -454,7 +466,8 @@ def fit_clusters(
         fixed: Whether to fix positions
         verbose: Print progress
 
-    Returns:
+    Returns
+    -------
         Combined fitted parameters
     """
     from peakfit.core.fitting.computation import update_cluster_corrections

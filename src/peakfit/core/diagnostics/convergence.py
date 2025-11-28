@@ -4,7 +4,8 @@ Implements R-hat (Gelman-Rubin statistic) and Effective Sample Size (ESS)
 following the recommendations from the Bayesian Analysis Reporting Guidelines (BARG)
 by Kruschke (2021, Nature Human Behaviour, https://doi.org/10.1038/s41562-021-01177-7).
 
-References:
+References
+----------
     - Gelman & Rubin (1992): "Inference from Iterative Simulation Using Multiple Sequences"
     - Vehtari et al. (2021): "Rank-normalization, folding, and localization:
       An improved R-hat for assessing convergence of MCMC"
@@ -22,7 +23,8 @@ from peakfit.core.shared.typing import FloatArray
 class ConvergenceDiagnostics:
     """Results of MCMC convergence diagnostics.
 
-    Attributes:
+    Attributes
+    ----------
         parameter_names: Names of parameters
         rhat: R-hat values for each parameter (should be ≤ 1.01)
         ess_bulk: Bulk effective sample size for each parameter (recommended ≥ 100 * chains)
@@ -47,7 +49,8 @@ class ConvergenceDiagnostics:
         - R-hat ≤ 1.01 for all parameters
         - ESS_bulk ≥ 100 * n_chains for all parameters
 
-        Returns:
+        Returns
+        -------
             True if converged, False otherwise
         """
         rhat_ok = np.all(self.rhat <= 1.01)
@@ -57,7 +60,8 @@ class ConvergenceDiagnostics:
     def get_warnings(self) -> list[str]:
         """Get list of convergence warnings.
 
-        Returns:
+        Returns
+        -------
             List of warning messages for parameters that haven't converged
         """
         warnings = []
@@ -106,10 +110,12 @@ def compute_rhat(chains: FloatArray) -> float:
         chains: Array of shape (n_chains, n_samples) containing MCMC samples
                 for a single parameter
 
-    Returns:
+    Returns
+    -------
         R-hat value (should be ≤ 1.01 for convergence)
 
-    References:
+    References
+    ----------
         Gelman, A., & Rubin, D. B. (1992). Inference from iterative simulation
         using multiple sequences. Statistical Science, 7(4), 457-472.
     """
@@ -159,10 +165,12 @@ def compute_ess(chains: FloatArray, method: str = "bulk") -> float:
         chains: Array of shape (n_chains, n_samples) containing MCMC samples
         method: Either "bulk" (for main distribution) or "tail" (for extremes)
 
-    Returns:
+    Returns
+    -------
         Effective sample size (recommended ≥ 100 * n_chains)
 
-    References:
+    References
+    ----------
         Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P. C. (2021).
         Rank-normalization, folding, and localization: An improved R-hat for assessing
         convergence of MCMC. Bayesian Analysis, 16(2), 667-718.
@@ -234,7 +242,8 @@ def diagnose_convergence(
         chains: Array of shape (n_chains, n_samples, n_params) containing all MCMC samples
         parameter_names: List of parameter names
 
-    Returns:
+    Returns
+    -------
         ConvergenceDiagnostics object with R-hat and ESS for all parameters
 
     Example:
@@ -277,7 +286,8 @@ def format_diagnostics_table(diagnostics: ConvergenceDiagnostics) -> str:
     Args:
         diagnostics: ConvergenceDiagnostics object
 
-    Returns:
+    Returns
+    -------
         Formatted string table with diagnostics
     """
     lines = []
@@ -296,7 +306,7 @@ def format_diagnostics_table(diagnostics: ConvergenceDiagnostics) -> str:
     lines.append(f"  • ESS_bulk ≥ {10 * diagnostics.n_chains:.0f} (minimum for rough estimates)")
     lines.append("")
     lines.append("-" * 80)
-    lines.append(f"{'Parameter':<25} {'R-hat':>10} {'ESS_bulk':>12} {'ESS_tail':>12}  {'Status'}")
+    lines.append(f"{"Parameter":<25} {"R-hat":>10} {"ESS_bulk":>12} {"ESS_tail":>12}  {"Status"}")
     lines.append("-" * 80)
 
     for i, name in enumerate(diagnostics.parameter_names):

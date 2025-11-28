@@ -6,7 +6,6 @@ all output writers to produce the complete set of output files.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from peakfit.io.writers.base import Verbosity, WriterConfig
@@ -15,6 +14,8 @@ from peakfit.io.writers.json_writer import JSONWriter
 from peakfit.io.writers.markdown_writer import MarkdownReportGenerator
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from peakfit.core.results.fit_results import FitResults
 
 
@@ -87,7 +88,8 @@ class ResultsWriter:
             results: FitResults object containing all output data
             output_dir: Base output directory
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping output type to written file paths
         """
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -132,7 +134,8 @@ class ResultsWriter:
             results: FitResults object
             output_dir: Base output directory
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping output type to written file paths
         """
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -167,7 +170,8 @@ class ResultsWriter:
             output_dir: Base output directory
             verbosity: Verbosity level controlling what to write
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping output type to written file paths
         """
         if verbosity == Verbosity.MINIMAL:

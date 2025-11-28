@@ -1,7 +1,8 @@
 """Test scipy optimizer module (direct scipy optimization)."""
 
-import numpy as np
 import pytest
+
+import numpy as np
 
 # Skip if scipy isn't available
 pytest.importorskip("scipy")

@@ -107,7 +107,8 @@ def residuals_global(x: FloatArray, params: Parameters, cluster: "Cluster", nois
         cluster: Cluster to fit
         noise: Noise level
 
-    Returns:
+    Returns
+    -------
         Sum of squared residuals
     """
     params.set_vary_values(x)
@@ -136,7 +137,8 @@ def fit_basin_hopping(
         temperature: Temperature parameter for acceptance
         step_size: Step size for random perturbations
 
-    Returns:
+    Returns
+    -------
         GlobalFitResult with optimized parameters
     """
     x0 = params.get_vary_values()
@@ -233,7 +235,8 @@ def fit_differential_evolution(
         recombination: Recombination constant
         polish: Whether to polish with L-BFGS-B
 
-    Returns:
+    Returns
+    -------
         GlobalFitResult with optimized parameters
     """
     bounds = params.get_vary_bounds_list()
@@ -304,7 +307,8 @@ def compute_profile_likelihood(
         n_points: Number of profile points
         delta_chi2: Chi-squared threshold (3.84 for 95% CI)
 
-    Returns:
+    Returns
+    -------
         Tuple of (parameter_values, chi_squared_values, confidence_interval)
     """
     # Get current best-fit chi-squared
@@ -390,10 +394,12 @@ def estimate_uncertainties_mcmc(
         burn_in: Steps to discard as burn-in. If None, automatically determined
             using R-hat convergence monitoring (recommended).
 
-    Returns:
+    Returns
+    -------
         UncertaintyResult with comprehensive uncertainty estimates and diagnostics
 
-    Raises:
+    Raises
+    ------
         ImportError: If emcee is not installed
     """
     try:
@@ -528,15 +534,13 @@ def estimate_uncertainties_mcmc(
 
     n_all_params = len(combined_names)
     ci_68 = np.array([[percentiles[0, i], percentiles[2, i]] for i in range(n_all_params)])
-    ci_95 = np.array(
+    ci_95 = np.array([
         [
-            [
-                np.percentile(combined_samples[:, i], 2.5),
-                np.percentile(combined_samples[:, i], 97.5),
-            ]
-            for i in range(n_all_params)
+            np.percentile(combined_samples[:, i], 2.5),
+            np.percentile(combined_samples[:, i], 97.5),
         ]
-    )
+        for i in range(n_all_params)
+    ])
 
     # Update lineshape parameter errors
     params.set_errors(std_errors[:n_lineshape])
@@ -577,7 +581,8 @@ def _compute_numerical_hessian(
         bounds: Parameter bounds
         epsilon: Finite difference step
 
-    Returns:
+    Returns
+    -------
         Hessian matrix
     """
     n = len(x)

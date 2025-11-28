@@ -1,7 +1,8 @@
 """Pytest fixtures for PeakFit tests."""
 
-import numpy as np
 import pytest
+
+import numpy as np
 
 
 @pytest.fixture

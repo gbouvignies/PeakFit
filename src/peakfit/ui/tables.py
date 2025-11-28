@@ -29,7 +29,8 @@ def create_table(title: str | None = None, show_header: bool = True) -> Table:
         title: Optional table title
         show_header: Whether to show table header
 
-    Returns:
+    Returns
+    -------
         Configured Table instance
     """
     return Table(
@@ -126,7 +127,7 @@ def print_performance_summary(
             avg_str = f"{avg_time * 1000:.0f}ms"
         else:
             avg_str = f"{avg_time:.3f}s"
-        table.add_row(f"Average per {item_name.rstrip('s')}", avg_str)
+        table.add_row(f"Average per {item_name.rstrip("s")}", avg_str)
 
     console.print()
     console.print(table)

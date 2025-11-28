@@ -10,17 +10,22 @@ if TYPE_CHECKING:
 
 
 class PeakInput(BaseModel):
+    """Simple CLI model for a single peak entry with 2D coordinates."""
+
     name: str
     x: float
     y: float
 
 
 class SpectraInput(BaseModel):
+    """CLI model for inputting a spectrum file with optional z-values."""
+
     path: Path
     z_values_path: Path | None = None
     exclude_list: list[int] | None = None
 
     def load(self) -> Spectra:
+        """Load and return a `Spectra` object from the provided paths."""
         from peakfit.core.domain.spectrum import read_spectra
 
         return read_spectra(self.path, self.z_values_path, self.exclude_list)

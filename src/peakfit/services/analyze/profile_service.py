@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from scipy.stats import chi2
 
-from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import create_params
-from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.advanced import compute_profile_likelihood
-from peakfit.core.fitting.parameters import Parameters
-from peakfit.core.shared.typing import FloatArray
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.domain.state import FittingState
+    from peakfit.core.fitting.parameters import Parameters
+    from peakfit.core.shared.typing import FloatArray
 
 
 @dataclass(slots=True, frozen=True)
@@ -65,6 +69,24 @@ class ProfileLikelihoodService:
         n_points: int,
         confidence_level: float,
     ) -> ProfileLikelihoodAnalysisResult:
+        """Execute a profile-likelihood analysis on the provided state.
+
+        Parameters
+        ----------
+        state : FittingState
+            Current fitting state containing clusters and global parameters.
+        param_name : str | None
+            Pattern or exact parameter name to profile. Use None to profile all varying parameters.
+        n_points : int
+            Number of points to compute in the profile for each parameter.
+        confidence_level : float
+            Confidence level for computing delta-chi2 (e.g., 0.95).
+
+        Returns
+        -------
+        ProfileLikelihoodAnalysisResult
+            Result object containing computed profiles, confidence intervals and missing params.
+        """
         params = state.params
         all_param_names = params.get_vary_names()
         if not all_param_names:
@@ -168,9 +190,8 @@ def _match_parameters(pattern: str, all_params: list[str]) -> list[str]:
                 or pattern_lower in param_lower
             ):
                 matches.append(param)
-        else:
-            if pattern_lower in param_lower:
-                matches.append(param)
+        elif pattern_lower in param_lower:
+            matches.append(param)
 
     return matches
 

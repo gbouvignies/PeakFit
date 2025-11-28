@@ -9,7 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-import numpy as np
+if TYPE_CHECKING:
+    import numpy as np
 
 if TYPE_CHECKING:
     from peakfit.core.diagnostics.convergence import ConvergenceDiagnostics
@@ -91,7 +92,8 @@ class MCMCClusterSummary:
     def get_strong_correlations(self, threshold: float = 0.7) -> list[tuple[str, str, float]]:
         """Get pairs of strongly correlated parameters.
 
-        Returns:
+        Returns
+        -------
             List of (param1, param2, correlation) tuples
         """
         if self.correlation_matrix is None:
@@ -103,19 +105,18 @@ class MCMCClusterSummary:
             for j in range(i + 1, n_params):
                 corr = self.correlation_matrix[i, j]
                 if abs(corr) >= threshold:
-                    pairs.append(
-                        (
-                            self.parameter_summaries[i].name,
-                            self.parameter_summaries[j].name,
-                            corr,
-                        )
-                    )
+                    pairs.append((
+                        self.parameter_summaries[i].name,
+                        self.parameter_summaries[j].name,
+                        corr,
+                    ))
         return pairs
 
     def get_amplitudes_by_peak(self) -> dict[str, list[MCMCAmplitudeSummary]]:
         """Group amplitude summaries by peak name.
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping peak name to list of amplitude summaries across planes
         """
         by_peak: dict[str, list[MCMCAmplitudeSummary]] = {}
@@ -138,7 +139,8 @@ def format_mcmc_cluster_result(
         diagnostics: Optional convergence diagnostics
         z_values: Optional Z-dimension values for amplitude labeling
 
-    Returns:
+    Returns
+    -------
         MCMCClusterSummary ready for display
     """
     result = cluster_result.result
@@ -182,7 +184,6 @@ def format_mcmc_cluster_result(
     # Build amplitude summaries from unified parameter arrays
     amplitude_summaries: list[MCMCAmplitudeSummary] = []
     if amp_peak_names and n_lineshape < len(result.parameter_names):
-        n_peaks = len(amp_peak_names)
         # Amplitude parameters start after lineshape parameters
         amp_start = n_lineshape
 
@@ -249,7 +250,8 @@ def format_profile_results(
         ci_upper: Upper confidence interval bound
         converged: Whether the profile converged
 
-    Returns:
+    Returns
+    -------
         ProfileParameterSummary ready for display
     """
     return ProfileParameterSummary(

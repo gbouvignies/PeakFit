@@ -7,13 +7,14 @@ diagnostic information for review by users.
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from peakfit.core.results.diagnostics import ConvergenceStatus
 from peakfit.io.writers.base import WriterConfig, format_float
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from peakfit.core.results.diagnostics import MCMCDiagnostics
     from peakfit.core.results.estimates import ClusterEstimates, ParameterEstimate
     from peakfit.core.results.fit_results import FitResults
@@ -107,7 +108,7 @@ class MarkdownReportGenerator:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         sections = [
-            f"# Cluster {cluster.cluster_id}: {', '.join(cluster.peak_names)}",
+            f"# Cluster {cluster.cluster_id}: {", ".join(cluster.peak_names)}",
             "",
             self._generate_cluster_table(cluster),
         ]
@@ -127,7 +128,7 @@ class MarkdownReportGenerator:
         lines = [
             "# PeakFit Analysis Report",
             "",
-            f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"**Generated:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}",
             f"**Software Version:** {results.metadata.software_version}",
         ]
 
@@ -164,13 +165,11 @@ class MarkdownReportGenerator:
 
             # Count problematic parameters
             n_problems = sum(
-                len(
-                    [
-                        p
-                        for p in d.parameter_diagnostics
-                        if p.status in (ConvergenceStatus.MARGINAL, ConvergenceStatus.POOR)
-                    ]
-                )
+                len([
+                    p
+                    for p in d.parameter_diagnostics
+                    if p.status in (ConvergenceStatus.MARGINAL, ConvergenceStatus.POOR)
+                ])
                 for d in results.mcmc_diagnostics
             )
             if n_problems > 0:
@@ -214,7 +213,7 @@ class MarkdownReportGenerator:
         lines = ["## Parameter Estimates", ""]
 
         for i, cluster in enumerate(results.clusters):
-            lines.append(f"### Cluster {cluster.cluster_id}: {', '.join(cluster.peak_names)}")
+            lines.append(f"### Cluster {cluster.cluster_id}: {", ".join(cluster.peak_names)}")
             lines.append("")
             lines.append(self._generate_cluster_table(cluster))
             lines.append("")
@@ -370,7 +369,7 @@ class MarkdownReportGenerator:
             return "🔒 Fixed"
         if param.is_problematic:
             return "⚠️ Check"
-        if param.is_at_boundary:
+        if param.is_at_boundary():
             return "⚠️ At bound"
         return "✓"
 
@@ -393,7 +392,7 @@ class MarkdownReportGenerator:
         # Parameter warnings
         for cluster in results.clusters:
             for param in cluster.lineshape_params:
-                if param.is_at_boundary:
+                if param.is_at_boundary():
                     warnings.append(f"Parameter {param.name} is at a fitting boundary")
                 rel_err = param.relative_error
                 if rel_err is not None and rel_err > 0.5 and not param.is_fixed:

@@ -1,7 +1,8 @@
 """Tests for writing output files."""
 
-import numpy as np
 import pytest
+
+import numpy as np
 
 from peakfit.io.output import print_heights
 

@@ -19,7 +19,11 @@ NUM_ITEMS = 4
 
 
 def register_reader(file_types: str | Iterable[str]) -> Callable[[Reader], Reader]:
-    """Decorator to register a reader function for specific file types."""
+    """Register a reader function for specific file types.
+
+    This decorator allows registering a reader function for one or more
+    file extensions (e.g., 'csv', 'json', 'xlsx').
+    """
     if isinstance(file_types, str):
         file_types = [file_types]
 
@@ -40,7 +44,8 @@ def _get_position_column_names(n_spectral_dims: int) -> list[str]:
     Args:
         n_spectral_dims: Number of spectral dimensions (excluding pseudo)
 
-    Returns:
+    Returns
+    -------
         List of column names like ['F1_ppm', 'F2_ppm'] for 2D
         Ordered from F1 (first indirect) to Fn (direct)
     """
@@ -112,7 +117,8 @@ def _detect_position_columns(df: pd.DataFrame) -> list[str]:
     - 'w1', 'w2', 'w3', 'w4' (Sparky style)
     - 'Position F1', 'Position F2', etc.
 
-    Returns:
+    Returns
+    -------
         List of column names in order (F1/w1 first, then F2/w2, etc.)
     """
     columns = df.columns.tolist()
@@ -187,6 +193,7 @@ def _read_ccpn_list(
 def read_csv_list(
     path: Path, spectra: Spectra, shape_names: list[str], args_cli: FittingOptions
 ) -> list[Peak]:
+    """Read peaks from a CSV file and return a list of Peak objects."""
     return _read_ccpn_list(path, spectra, pd.read_csv, shape_names, args_cli)
 
 
@@ -194,6 +201,7 @@ def read_csv_list(
 def read_json_list(
     path: Path, spectra: Spectra, shape_names: list[str], args_cli: FittingOptions
 ) -> list[Peak]:
+    """Read peaks from a JSON file and return a list of Peak objects."""
     return _read_ccpn_list(path, spectra, pd.read_json, shape_names, args_cli)
 
 
@@ -201,6 +209,7 @@ def read_json_list(
 def read_excel_list(
     path: Path, spectra: Spectra, shape_names: list[str], args_cli: FittingOptions
 ) -> list[Peak]:
+    """Read peaks from an Excel file (xlsx/xls) and return a list of Peak objects."""
     return _read_ccpn_list(path, spectra, pd.read_excel, shape_names, args_cli)
 
 

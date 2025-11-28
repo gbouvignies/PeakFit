@@ -25,7 +25,8 @@ __all__ = [
 def create_progress() -> Progress:
     """Create a standard progress bar with consistent styling.
 
-    Returns:
+    Returns
+    -------
         Configured Progress instance
     """
     return Progress(

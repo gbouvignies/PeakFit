@@ -16,7 +16,8 @@ def calculate_shapes(params: Parameters, cluster: Cluster) -> FloatArray:
         params: Current parameter values
         cluster: Cluster containing peaks
 
-    Returns:
+    Returns
+    -------
         Array of shape (n_peaks, n_points) with evaluated lineshapes
     """
     return np.array([peak.evaluate(cluster.positions, params) for peak in cluster.peaks])
@@ -29,7 +30,8 @@ def calculate_amplitudes(shapes: FloatArray, data: FloatArray) -> FloatArray:
         shapes: Peak lineshapes, shape (n_peaks, n_points)
         data: Data to fit, shape (n_points,) or (n_points, n_planes)
 
-    Returns:
+    Returns
+    -------
         Optimal amplitudes for each peak, shape (n_peaks,) or (n_peaks, n_planes)
     """
     return np.linalg.lstsq(shapes.T, data, rcond=None)[0]
@@ -45,7 +47,8 @@ def calculate_amplitude_covariance(shapes: FloatArray, noise: float) -> FloatArr
         shapes: Peak lineshapes, shape (n_peaks, n_points)
         noise: Standard deviation of the noise
 
-    Returns:
+    Returns
+    -------
         Covariance matrix for amplitudes, shape (n_peaks, n_peaks)
     """
     # shapes.T has shape (n_points, n_peaks)
@@ -69,7 +72,8 @@ def calculate_amplitudes_with_uncertainty(
         data: Data to fit, shape (n_points,) or (n_planes, n_points)
         noise: Standard deviation of the noise
 
-    Returns:
+    Returns
+    -------
         Tuple of (amplitudes, amplitude_errors, amplitude_covariance)
         - amplitudes: shape (n_peaks,) or (n_peaks, n_planes)
         - amplitude_errors: shape (n_peaks,) standard errors
@@ -88,7 +92,8 @@ def calculate_shape_heights(params: Parameters, cluster: Cluster) -> tuple[Float
         params: Current parameter values
         cluster: Cluster to analyze
 
-    Returns:
+    Returns
+    -------
         Tuple of (shapes, amplitudes)
     """
     shapes = calculate_shapes(params, cluster)
@@ -104,7 +109,8 @@ def residuals(params: Parameters, cluster: Cluster, noise: float) -> FloatArray:
         cluster: Cluster being fitted
         noise: Noise level for normalization
 
-    Returns:
+    Returns
+    -------
         Residual array normalized by noise
     """
     shapes, amplitudes = calculate_shape_heights(params, cluster)
@@ -128,8 +134,8 @@ def update_cluster_corrections(params: Parameters, clusters: Sequence[Cluster]) 
         indexes = [
             index for index, peak in enumerate(cluster_all.peaks) if peak not in cluster.peaks
         ]
-        shapes = np.array(
-            [cluster_all.peaks[index].evaluate(cluster.positions, params) for index in indexes]
-        ).T
+        shapes = np.array([
+            cluster_all.peaks[index].evaluate(cluster.positions, params) for index in indexes
+        ]).T
         amplitudes = amplitudes_all[indexes, :]
         cluster.corrections = shapes @ amplitudes

@@ -3,8 +3,9 @@
 Tests edge cases, error conditions, and boundary conditions.
 """
 
-import numpy as np
 import pytest
+
+import numpy as np
 
 from peakfit.core.fitting.parameters import Parameter, Parameters, ParameterType
 from peakfit.core.lineshapes import gaussian, lorentzian, pvoigt

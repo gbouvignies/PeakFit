@@ -19,7 +19,8 @@ from peakfit.core.shared.reporter import NullReporter, Reporter
 class PlotOutput:
     """Result of plot generation.
 
-    Attributes:
+    Attributes
+    ----------
         path: Path where the plot was saved
         plot_type: Type of plot generated
         n_plots: Number of individual plots in the output
@@ -75,7 +76,8 @@ class PlotService:
             output_path: Output PDF path (auto-generated if None)
             show: Whether to display interactively
 
-        Returns:
+        Returns
+        -------
             PlotOutput with path and count
         """
         from peakfit.plotting.profiles import make_intensity_figure
@@ -98,8 +100,8 @@ class PlotService:
                     if show:
                         fig = make_intensity_figure(file.stem, data)
                         fig.show()
-                except Exception:
-                    pass
+                except (OSError, ValueError, RuntimeError, TypeError) as e:
+                    self._reporter.warning(f"Failed to plot {file.name}: {e}")
 
         if show and n_plots > 0:
             plt.show()
@@ -125,7 +127,8 @@ class PlotService:
             reference_indices: Reference point indices for normalization
             show: Whether to display interactively
 
-        Returns:
+        Returns
+        -------
             PlotOutput with path and count
         """
         from peakfit.plotting.profiles import make_cest_figure
@@ -169,8 +172,8 @@ class PlotService:
                     if show:
                         fig = make_cest_figure(file.stem, offset_norm, intensity_norm, error_norm)
                         fig.show()
-                except Exception:
-                    pass
+                except (OSError, ValueError, RuntimeError, TypeError) as e:
+                    self._reporter.warning(f"Failed to plot {file.name}: {e}")
 
         if show and n_plots > 0:
             plt.show()
@@ -196,7 +199,8 @@ class PlotService:
             output_path: Output PDF path (auto-generated if None)
             show: Whether to display interactively
 
-        Returns:
+        Returns
+        -------
             PlotOutput with path and count
         """
         from peakfit.plotting.profiles import (
@@ -245,8 +249,8 @@ class PlotService:
                     if show:
                         fig = make_cpmg_figure(file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
                         fig.show()
-                except Exception:
-                    pass
+                except (OSError, ValueError, RuntimeError, TypeError) as e:
+                    self._reporter.warning(f"Failed to plot {file.name}: {e}")
 
         if show and n_plots > 0:
             plt.show()
@@ -272,7 +276,8 @@ class PlotService:
             output_path: Output PDF path (auto-generated if None)
             burn_in: Number of burn-in samples to exclude
 
-        Returns:
+        Returns
+        -------
             PlotOutput with path and count
         """
         from peakfit.plotting.diagnostics import save_diagnostic_plots

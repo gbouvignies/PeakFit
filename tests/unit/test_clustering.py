@@ -55,14 +55,12 @@ class TestMergeConnectedSegments:
         """Should not merge if no wrapping."""
         # Segments don't touch at ANY boundary (row or column)
         # and don't align when dimensions are rotated
-        segments = np.array(
-            [
-                [0, 0, 0, 0],
-                [1, 0, 0, 0],
-                [0, 0, 2, 0],
-                [0, 0, 0, 0],
-            ]
-        )
+        segments = np.array([
+            [0, 0, 0, 0],
+            [1, 0, 0, 0],
+            [0, 0, 2, 0],
+            [0, 0, 0, 0],
+        ])
         result = merge_connected_segments(segments.copy())
         # No wrapping on any boundary, so segments stay separate
         assert 1 in result
@@ -70,13 +68,11 @@ class TestMergeConnectedSegments:
 
     def test_wrapping_merge(self):
         """Should merge segments that wrap around edges."""
-        segments = np.array(
-            [
-                [1, 0, 2],
-                [0, 0, 0],
-                [2, 0, 1],
-            ]
-        )
+        segments = np.array([
+            [1, 0, 2],
+            [0, 0, 0],
+            [2, 0, 1],
+        ])
         result = merge_connected_segments(segments.copy())
         # Segments 1 and 2 should be merged (both present in first and last rows)
         unique = np.unique(result[result > 0])

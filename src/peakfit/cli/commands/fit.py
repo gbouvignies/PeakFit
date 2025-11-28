@@ -3,19 +3,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, cast, get_args
+from typing import TYPE_CHECKING, Annotated, cast, get_args
 
 import typer
 
 from peakfit.core.domain.config import (
     ClusterConfig,
     FitConfig,
-    LineshapeName,
     OutputConfig,
     OutputFormat,
-    OutputVerbosity,
     PeakFitConfig,
 )
+
+if TYPE_CHECKING:
+    from peakfit.core.domain.config import LineshapeName, OutputVerbosity
 from peakfit.io.config import load_config
 
 # Valid output formats for CLI validation
@@ -207,12 +208,12 @@ def fit_command(
     if formats:
         invalid_formats = [f for f in formats if f not in VALID_OUTPUT_FORMATS]
         if invalid_formats:
-            msg = f"Invalid format(s): {', '.join(invalid_formats)}. Valid formats: {', '.join(VALID_OUTPUT_FORMATS)}"
+            msg = f"Invalid format(s): {", ".join(invalid_formats)}. Valid formats: {", ".join(VALID_OUTPUT_FORMATS)}"
             raise typer.BadParameter(msg)
-        output_formats = cast(list[OutputFormat], formats)  # Type-safe after validation
+        output_formats = cast("list[OutputFormat]", formats)  # Type-safe after validation
     else:
         # Default formats: generate all outputs (JSON, CSV, and legacy txt)
-        output_formats: list[OutputFormat] = ["json", "csv", "txt"]
+        output_formats = ["json", "csv", "txt"]
 
     # Load config from file or create from CLI options
     if config is not None:

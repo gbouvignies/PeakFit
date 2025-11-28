@@ -9,11 +9,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    pass
+    from pathlib import Path
 
 
 class FigureCategory(str, Enum):
@@ -35,7 +34,8 @@ class FigureCategory(str, Enum):
 class FigureInfo:
     """Information about a generated figure.
 
-    Attributes:
+    Attributes
+    ----------
         filename: Name of the figure file
         category: Figure category for organization
         title: Human-readable title
@@ -131,7 +131,8 @@ class FigureRegistry:
             height_px: Height in pixels
             dpi: Resolution
 
-        Returns:
+        Returns
+        -------
             FigureInfo object for the registered figure
         """
         info = FigureInfo(
@@ -155,7 +156,8 @@ class FigureRegistry:
         Args:
             category: Figure category to filter by
 
-        Returns:
+        Returns
+        -------
             List of FigureInfo objects
         """
         return [f for f in self.figures if f.category == category]
@@ -166,7 +168,8 @@ class FigureRegistry:
         Args:
             cluster_id: Cluster ID to filter by
 
-        Returns:
+        Returns
+        -------
             List of FigureInfo objects
         """
         return [f for f in self.figures if f.cluster_id == cluster_id]
@@ -177,7 +180,8 @@ class FigureRegistry:
         Args:
             peak_name: Peak name to filter by
 
-        Returns:
+        Returns
+        -------
             List of FigureInfo objects
         """
         return [f for f in self.figures if f.peak_name == peak_name]
@@ -188,7 +192,8 @@ class FigureRegistry:
         Args:
             figures_dir: Directory to save registry
 
-        Returns:
+        Returns
+        -------
             Path to saved registry file
         """
         figures_dir.mkdir(parents=True, exist_ok=True)
@@ -221,10 +226,12 @@ class FigureRegistry:
         Args:
             figures_dir: Directory containing registry
 
-        Returns:
+        Returns
+        -------
             FigureRegistry object
 
-        Raises:
+        Raises
+        ------
             FileNotFoundError: If registry file doesn't exist
         """
         registry_path = figures_dir / "figure_registry.json"

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
-from peakfit.core.domain.spectrum import Spectra, determine_shape_name
-from peakfit.core.lineshapes.registry import SHAPES, Shape
-from peakfit.core.shared.typing import FittingOptions
+from peakfit.core.domain.spectrum import determine_shape_name
+from peakfit.core.lineshapes.registry import SHAPES
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from peakfit.core.domain.spectrum import Spectra
+    from peakfit.core.lineshapes.registry import Shape
+    from peakfit.core.shared.typing import FittingOptions
 
 
 class LineshapeFactory:
@@ -18,7 +24,6 @@ class LineshapeFactory:
 
     def available_shapes(self) -> list[str]:
         """Return the available registered shape names."""
-
         return sorted(SHAPES.keys())
 
     def create(
@@ -30,8 +35,8 @@ class LineshapeFactory:
         dim: int,
     ) -> Shape:
         """Create a single shape instance for the provided peak."""
-
         shape_cls = self._resolve_shape_class(shape_type)
+
         return shape_cls(peak_name, center, self._spectra, dim, self._options)
 
     def create_shapes(
@@ -41,7 +46,6 @@ class LineshapeFactory:
         shape_names: Sequence[str],
     ) -> list[Shape]:
         """Create shapes for each peak dimension using provided names."""
-
         self._validate_lengths(positions, shape_names)
         shapes: list[Shape] = []
         for dim, (center, shape_name) in enumerate(
@@ -59,7 +63,6 @@ class LineshapeFactory:
 
     def create_auto_shapes(self, peak_name: str, positions: Sequence[float]) -> list[Shape]:
         """Create shapes using automatically detected names for each dimension."""
-
         auto_names = self.auto_shape_names()
         if len(auto_names) < len(positions):
             msg = "Not enough automatically detected shapes for peak positions"
@@ -68,13 +71,11 @@ class LineshapeFactory:
 
     def auto_shape_names(self) -> list[str]:
         """Detect shape names for each indirect dimension."""
-
         params = self._spectra.params[1:]
         return [determine_shape_name(param) for param in params]
 
     def detect_shape_name(self, dim: int) -> str:
         """Detect the shape name for a single dimension index."""
-
         try:
             params = self._spectra.params[dim]
         except IndexError as exc:  # pragma: no cover - defensive guard
@@ -87,7 +88,7 @@ class LineshapeFactory:
             msg = "Number of positions and shape names must match"
             raise ValueError(msg)
 
-    def _resolve_shape_class(self, shape_type: str):
+    def _resolve_shape_class(self, shape_type: str) -> Callable[..., Shape]:
         try:
             return SHAPES[shape_type]
         except KeyError as exc:

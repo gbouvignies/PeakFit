@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.domain.peaks import Peak
 
 import pytest  # type: ignore[import-not-found]
 
-from peakfit.core.domain.cluster import Cluster
-from peakfit.core.domain.peaks import Peak
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.io.state import StateRepository
@@ -18,8 +21,8 @@ from peakfit.services.analyze import FittingStateService, StateFileMissingError,
 def _make_state() -> FittingState:
     params = Parameters()
     params.add("amp", value=1.0)
-    clusters = cast(list[Cluster], ["cluster-a"])
-    peaks = cast(list[Peak], ["peak-a"])
+    clusters = cast("list[Cluster]", ["cluster-a"])
+    peaks = cast("list[Peak]", ["peak-a"])
     return FittingState(clusters=clusters, params=params, noise=0.5, peaks=peaks, version="1.0")
 
 

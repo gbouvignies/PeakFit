@@ -6,8 +6,12 @@ footers, and other text-based UI elements with consistent styling.
 
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import logging
+    from datetime import datetime
 
 from .console import REPO_URL, console
 from .logging import log, log_section
@@ -34,7 +38,7 @@ __all__ = [
 _state: dict = {"logger": None}
 
 
-def set_logger(logger) -> None:
+def set_logger(logger: logging.Logger | None) -> None:
     """Set the module-level logger reference.
 
     Args:
@@ -204,14 +208,14 @@ def show_footer(start_time: datetime, end_time: datetime) -> None:
 
     console.print("\n" + "━" * 70)
     console.print(
-        f"[green]✓[/green] [dim]Completed:[/dim] {end_time.strftime('%Y-%m-%d %H:%M:%S')} | "
+        f"[green]✓[/green] [dim]Completed:[/dim] {end_time.strftime("%Y-%m-%d %H:%M:%S")} | "
         f"[dim]Total runtime:[/dim] [cyan]{runtime_str}[/cyan]"
     )
 
     # Log completion
     if _state["logger"]:
         log("=" * 60)
-        log(f"Completed: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        log(f"Completed: {end_time.strftime("%Y-%m-%d %H:%M:%S")}")
         log(f"Total runtime: {runtime_str}")
         log("=" * 60)
 
