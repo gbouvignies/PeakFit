@@ -56,7 +56,7 @@ Old imports -> New imports:
 
   - New `peakfit.fitting` module with scipy.optimize.least_squares
   - Custom Parameters class with bounds validation
-  - Reduced overhead compared to lmfit wrapper
+  - Reduced overhead compared to wrapper-based approaches
   - FitResult class with chi-squared statistics
 
 - **Modern CLI with Typer**: Intuitive command-line interface with subcommands (`fit`, `validate`, `init`, `plot`)

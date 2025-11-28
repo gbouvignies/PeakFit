@@ -28,7 +28,7 @@ peakfit fit spectrum.ft2 peaks.list
 ### 1. Scipy Least-Squares Optimization (`--optimizer leastsq`)
 
 Use the `leastsq` optimizer (default) which interfaces with `scipy.optimize.least_squares` for fast
-sequential fitting. This avoids lmfit wrapper overhead and is a good choice for single-process runs.
+sequential fitting. This avoids wrapper overhead and is a good choice for single-process runs.
 
 **When to use:**
 
@@ -36,7 +36,7 @@ sequential fitting. This avoids lmfit wrapper overhead and is a good choice for 
 - Datasets with few clusters
 - When you want consistent, predictable performance
 
-**Expected speedup:** 10-50x faster than standard lmfit fitting
+**Expected speedup:** 10-50x faster than standard wrapper-based fitting
 
 ```bash
 peakfit fit spectrum.ft2 peaks.list --optimizer leastsq

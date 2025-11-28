@@ -53,7 +53,7 @@ def benchmark_command(
 ) -> None:
     """Benchmark fitting performance with different methods.
 
-    Compare standard lmfit and fast scipy approaches
+    Compare standard wrapper-based and fast SciPy approaches
     to determine the optimal method for your data.
 
     Example:

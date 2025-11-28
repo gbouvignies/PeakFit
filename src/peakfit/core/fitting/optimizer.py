@@ -224,7 +224,7 @@ def fit_cluster_dict(
 ) -> dict[str, Any]:
     """Fit a single cluster using direct scipy optimization (dict interface).
 
-    This function bypasses lmfit overhead by directly interfacing with
+    This function bypasses wrapper overhead by directly interfacing with
     scipy.optimize.least_squares, providing significant performance gains.
 
     Note: This function returns a dictionary for backward compatibility.
