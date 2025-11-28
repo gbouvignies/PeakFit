@@ -53,13 +53,13 @@ def validate_file(py_file: Path, src_dir: Path) -> list[str]:
     source_pkg = get_package_from_path(rel_path)
 
     try:
-        with open(py_file, encoding="utf-8") as f:
+        with py_file.open(encoding="utf-8") as f:
             tree = ast.parse(f.read())
     except SyntaxError:
         return violations
 
     for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
+        if isinstance(node, ast.Import | ast.ImportFrom):
             target = get_import_target(node)
             if not target:
                 continue
@@ -90,7 +90,7 @@ def validate_imports(src_dir: Path) -> list[str]:
 
 
 def main() -> int:
-    """Main entry point."""
+    """Run the import validator CLI and exit with a code indicating status."""
     src_dir = Path("src/peakfit")
 
     if not src_dir.exists():

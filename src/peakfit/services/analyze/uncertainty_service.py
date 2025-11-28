@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from peakfit.core.domain.state import FittingState
+if TYPE_CHECKING:
+    from peakfit.core.domain.state import FittingState
 
 
 @dataclass(slots=True, frozen=True)
@@ -40,6 +42,15 @@ class ParameterUncertaintyService:
 
     @staticmethod
     def analyze(state: FittingState) -> ParameterUncertaintyResult:
+        """Analyze varying parameters in a FittingState and return uncertainty summary.
+
+        Args:
+            state: Fitting state containing parameters and fitting metadata
+
+        Returns
+        -------
+            ParameterUncertaintyResult summarizing parameter uncertainties
+        """
         params = state.params
         vary_names = params.get_vary_names()
         if not vary_names:

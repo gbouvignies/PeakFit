@@ -1,7 +1,8 @@
 """Test lineshape functions."""
 
-import numpy as np
 import pytest
+
+import numpy as np
 
 from peakfit.core.lineshapes.functions import gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
 

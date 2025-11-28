@@ -1,8 +1,11 @@
 """Tests for integrated plotting functionality."""
 
-import numpy as np
+from pathlib import Path
+
 import pytest
 from typer.testing import CliRunner
+
+import numpy as np
 
 
 class TestPlottingCLI:
@@ -235,7 +238,7 @@ class TestPlottingBackwardCompatibility:
         """Verify old peakfit-plot command entry point is removed."""
         import tomllib
 
-        with open("pyproject.toml", "rb") as f:
+        with Path("pyproject.toml").open("rb") as f:
             config = tomllib.load(f)
 
         scripts = config["project"]["scripts"]

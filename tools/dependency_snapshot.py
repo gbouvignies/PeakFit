@@ -7,17 +7,25 @@ ROOT = Path(__file__).resolve().parents[1] / "src" / "peakfit"
 
 
 def iter_modules(root: Path):
+    """Yield Python module paths and their filesystem Path under a source root.
+
+    Args:
+        root: Root directory to search for Python modules
+    """
     for path in root.rglob("*.py"):
         rel = path.relative_to(root.parent)
         module = str(rel).replace(os.sep, ".")
-        if module.endswith("__init__.py"):
-            module = module[:-12]
-        else:
-            module = module[:-3]
+        module = module[:-12] if module.endswith("__init__.py") else module[:-3]
         yield module, path
 
 
 def build_dependency_graph():
+    """Build a graph of module and package dependencies within the project.
+
+    Returns
+    -------
+        Tuple of (module_edges, package_edges)
+    """
     module_edges: dict[str, set[str]] = defaultdict(set)
     package_edges: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
@@ -55,6 +63,10 @@ def build_dependency_graph():
 
 
 def summarize(module_edges, package_edges, limit: int = 20):
+    """Print a brief summary of package dependency counts and top importing modules.
+
+    This function prints to stdout (CLI tool) and is used for quick diagnostics.
+    """
     print("Package dependency counts:")
     for src_pkg, targets in sorted(package_edges.items()):
         for tgt_pkg, count in sorted(targets.items()):

@@ -37,6 +37,10 @@ class BenchmarkResult:
     extra_info: dict[str, object] = field(default_factory=dict)
 
     def __repr__(self) -> str:
+        """Return a concise string representation of the BenchmarkResult.
+
+        Example: `<BenchmarkResult name: mean ± std>`
+        """
         return (
             f"<BenchmarkResult {self.name}: {self.mean_time * 1000:.3f} ± "
             f"{self.std_time * 1000:.3f} ms ({self.iterations} iterations)>"
@@ -57,7 +61,8 @@ def benchmark_function(
         n_iterations: Number of timed iterations
         warmup: Number of warmup iterations (not timed)
 
-    Returns:
+    Returns
+    -------
         BenchmarkResult with timing statistics
     """
     # Warmup
@@ -96,7 +101,8 @@ def benchmark_lineshape_backends(
         n_points: Number of points in the lineshape
         n_iterations: Number of iterations for timing
 
-    Returns:
+    Returns
+    -------
         Dictionary of backend name to BenchmarkResult
     """
     from peakfit.core.lineshapes.functions import gaussian, lorentzian, pvoigt
@@ -143,7 +149,8 @@ def benchmark_fitting_methods(
         noise: Noise level
         n_iterations: Number of fitting iterations
 
-    Returns:
+    Returns
+    -------
         Dictionary of method name to BenchmarkResult
     """
     from peakfit.core.fitting.optimizer import fit_cluster
@@ -169,7 +176,8 @@ def compare_backends_report(
     Args:
         results: Dictionary of benchmark results
 
-    Returns:
+    Returns
+    -------
         Formatted string report
     """
     lines = [
@@ -213,7 +221,8 @@ def profile_fit_cluster(
         cluster: Cluster to fit
         noise: Noise level
 
-    Returns:
+    Returns
+    -------
         Dictionary of stage name to time in seconds
     """
     from peakfit.core.fitting.computation import calculate_shapes, residuals
@@ -267,7 +276,8 @@ def create_synthetic_cluster(
         n_points_per_dim: Points per spectral dimension
         n_planes: Number of planes (pseudo-3D)
 
-    Returns:
+    Returns
+    -------
         Tuple of (Cluster, noise_level)
     """
     from peakfit.core.domain.cluster import Cluster

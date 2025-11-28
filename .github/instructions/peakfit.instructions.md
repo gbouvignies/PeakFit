@@ -59,7 +59,7 @@ src/peakfit/
 
 3. **Immutable data models**: Fit results and spectra should be immutable after creation (`frozen=True` dataclasses).
 
-4. **Performance-critical paths**: Lineshape evaluation and Jacobian computation are hot paths. Keep them simple, use NumPy vectorization, prepare for future Numba optimization.
+4. **Performance-critical paths**: Lineshape evaluation and Jacobian computation are hot paths. Keep them simple, use NumPy vectorization, and prepare for future performance optimizations.
 
 ## Dependencies
 
@@ -83,4 +83,4 @@ Avoid adding heavy dependencies for minor features.
 1. Consolidate codebase before optimization
 2. Complete N-dimensional support
 3. Clean output system with JSON, CSV, Markdown
-4. Prepare for future Numba optimization of hot paths
+4. Prepare for future performance optimizations of hot paths

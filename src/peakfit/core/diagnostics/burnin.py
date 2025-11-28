@@ -3,7 +3,8 @@
 Implements principled methods for automatically determining burn-in period
 based on convergence diagnostics, following modern Bayesian workflow best practices.
 
-References:
+References
+----------
     - Gelman et al. (2013): Bayesian Data Analysis (3rd ed.)
     - Vehtari et al. (2021): Rank-normalization, folding, and localization
     - Stan Development Team: Warmup and adaptation guidelines
@@ -40,7 +41,8 @@ def determine_burnin_rhat(
         min_samples: Minimum samples before checking convergence
         check_interval: How often to check convergence (in steps)
 
-    Returns:
+    Returns
+    -------
         Tuple of (burn_in, diagnostics_dict) where:
         - burn_in: Number of initial samples to discard
         - diagnostics_dict: Information about convergence detection
@@ -150,7 +152,8 @@ def determine_burnin_running_mean(
         window_size: Window for computing running statistics
         min_samples: Minimum samples before checking stability
 
-    Returns:
+    Returns
+    -------
         Tuple of (burn_in, diagnostics_dict)
     """
     n_chains, n_steps, n_params = chains.shape
@@ -212,7 +215,8 @@ def _default_burnin(n_steps: int) -> int:
     Args:
         n_steps: Total number of MCMC steps
 
-    Returns:
+    Returns
+    -------
         Conservative burn-in estimate
     """
     # Use smaller of 20% or 500 steps
@@ -232,7 +236,8 @@ def validate_burnin(
         n_steps: Total number of steps
         max_fraction: Maximum allowed fraction of chain to discard
 
-    Returns:
+    Returns
+    -------
         Tuple of (is_valid, warning_message)
     """
     if burn_in < 0:
@@ -277,7 +282,8 @@ def format_burnin_report(
         n_chains: Number of chains
         diagnostics: Diagnostics dictionary from burn-in determination
 
-    Returns:
+    Returns
+    -------
         Formatted string report
     """
     lines = []
@@ -297,7 +303,7 @@ def format_burnin_report(
         lines.append("  Method: Running mean stabilization")
         lines.append(f"  Stability threshold: {diagnostics['threshold']:.2%}")
 
-    elif method == "default" or method == "default_fallback":
+    elif method in ("default", "default_fallback"):
         lines.append("  Method: Conservative default (20% or 500 steps)")
         reason = diagnostics.get("reason", "unknown")
         lines.append(f"  Reason: {reason.replace('_', ' ')}")

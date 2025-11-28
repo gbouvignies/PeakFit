@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import numpy as np  # type: ignore[import-not-found]
 import pytest  # type: ignore[import-not-found]
+
+import numpy as np  # type: ignore[import-not-found]
 
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.parameters import Parameters

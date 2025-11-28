@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.core.shared.typing import FloatArray, IntArray
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from peakfit.core.shared.typing import FloatArray, IntArray
 
 if TYPE_CHECKING:
     from peakfit.core.domain.peaks import Peak
@@ -25,10 +27,15 @@ class Cluster:
     corrections: FloatArray = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        """Initialize correction array for this cluster (zeros of same shape)."""
         self.corrections = np.zeros_like(self.data)
 
     @classmethod
     def from_clusters(cls, clusters: list[Cluster] | Sequence[Cluster]) -> Cluster:
+        """Create a single cluster by merging a list of clusters.
+
+        Returns a combined cluster produced by summing all clusters.
+        """
         if not clusters:
             msg = "clusters list cannot be empty"
             raise ValueError(msg)
@@ -36,9 +43,11 @@ class Cluster:
 
     @property
     def corrected_data(self) -> FloatArray:
+        """Return data with corrections subtracted (ready for processing)."""
         return self.data - self.corrections
 
     def __add__(self, other: object) -> Cluster:
+        """Concatenate two clusters, preserving peaks and data arrays."""
         if not isinstance(other, Cluster):
             return NotImplemented
         return type(self)(

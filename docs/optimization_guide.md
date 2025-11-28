@@ -28,14 +28,15 @@ peakfit fit spectrum.ft2 peaks.list
 ### 1. Scipy Least-Squares Optimization (`--optimizer leastsq`)
 
 Use the `leastsq` optimizer (default) which interfaces with `scipy.optimize.least_squares` for fast
-sequential fitting. This avoids lmfit wrapper overhead and is a good choice for single-process runs.
+sequential fitting. This avoids wrapper overhead and is a good choice for single-process runs.
 
 **When to use:**
+
 - Single-core environments
 - Datasets with few clusters
 - When you want consistent, predictable performance
 
-**Expected speedup:** 10-50x faster than standard lmfit fitting
+**Expected speedup:** 10-50x faster than standard wrapper-based fitting
 
 ```bash
 peakfit fit spectrum.ft2 peaks.list --optimizer leastsq
@@ -46,6 +47,7 @@ peakfit fit spectrum.ft2 peaks.list --optimizer leastsq
 PeakFit now performs cluster fitting sequentially using scipy.optimize least squares. This conservative mode reduces the memory footprint and avoids multiprocessing overhead for reproducibility.
 
 **When to use:**
+
 - All systems; default mode: stable and predictable
 - For datasets with few clusters where parallelization overhead would be higher than the benefit
 
@@ -60,6 +62,7 @@ peakfit benchmark spectrum.ft2 peaks.list --iterations 3
 ```
 
 This will:
+
 - Benchmark the current (sequential) fitting method and report average timings
 
 ## Advanced Usage
@@ -92,11 +95,13 @@ peakfit fit spectrum.ft2 peaks.list --workers 8 --refine 2
 1. **Profile First**: Use `peakfit benchmark` to understand your data's characteristics
 
 2. **Match Method to Data**:
+
    - Few clusters (< 5): Use the default `leastsq` optimizer (`--optimizer leastsq`)
    - Many clusters (> 10): Automatic parallelism may provide benefits; consider `--workers N` to bound resource usage
    - Medium clusters: Benchmark both
 
 3. **Memory Considerations**:
+
    - Parallel fitting uses more memory (one process per worker)
    - For memory-constrained systems, reduce `--workers` and use the default `leastsq` optimizer
 
@@ -109,6 +114,7 @@ peakfit fit spectrum.ft2 peaks.list --workers 8 --refine 2
 ### Parallel fitting slower than expected
 
 1. Check the number of clusters:
+
    ```bash
    peakfit benchmark spectrum.ft2 peaks.list
    ```
@@ -148,9 +154,11 @@ PeakFit is intended to be used as a command-line application via the
 `peakfit.*`) are not a public API and may change without notice. For
 automation or scripting, prefer invoking the CLI from your script or
 workflow manager (for example, using `subprocess.run`).
+
 ```
 
 ## Version History
 
-- **v2025.12.0**: Removed Numba dependency, NumPy-only implementation
+- **v2025.12.0**: NumPy-only implementation
 - **v0.2.0**: Added fast scipy optimization, parallel fitting, profiling
+```

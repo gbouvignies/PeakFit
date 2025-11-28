@@ -5,8 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
 import pytest
+
+import numpy as np
 
 from peakfit.core.domain.spectrum import Spectra, SpectralParameters
 from peakfit.core.lineshapes.factory import LineshapeFactory

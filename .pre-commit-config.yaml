@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -11,36 +11,24 @@ repos:
       - id: debug-statements
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.0
+    rev: v0.8.6
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
+  - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
+    # The repository tags do not include a leading "v" prefix; use the available 1.24.0 tag.
+    rev: 1.24.0
     hooks:
-      - id: mypy
-        additional_dependencies:
-          - types-setuptools>=75.0
-          - numpy
-          - pydantic
-          - rich
-          - typer
-          - tomli-w
-          - tomli_w
-          - PyQt5
-          - PyQt5-stubs
-          - types-requests
-        args: [--no-error-summary]
-        pass_filenames: false
-        entry: mypy src/peakfit/
+      - id: basedpyright
 
   - repo: local
     hooks:
       - id: validate-imports
         name: Validate import architecture
-        entry: python tools/validate_imports.py
+        # Use python3 explicitly so the hook works even when 'python' is not present in PATH
+        entry: python3 tools/validate_imports.py
         language: system
         types: [python]
         pass_filenames: false

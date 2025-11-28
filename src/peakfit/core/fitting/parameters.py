@@ -71,7 +71,7 @@ class Parameter:
             raise ValueError(msg)
 
     def __repr__(self) -> str:
-        """String representation of parameter."""
+        """Return a string representation of the parameter."""
         vary_str = "vary" if self.vary else "fixed"
         min_str = f"{self.min:.4g}" if self.min > -1e10 else "-inf"
         max_str = f"{self.max:.4g}" if self.max < 1e10 else "inf"
@@ -87,7 +87,8 @@ class Parameter:
         Args:
             tol: Tolerance for boundary check
 
-        Returns:
+        Returns
+        -------
             True if at boundary
         """
         at_min = abs(self.value - self.min) < tol * (1 + abs(self.value))
@@ -97,7 +98,8 @@ class Parameter:
     def relative_position(self) -> float:
         """Get the relative position of value within bounds (0 to 1).
 
-        Returns:
+        Returns
+        -------
             0.0 if at min, 1.0 if at max, 0.5 if centered
         """
         if self.max == self.min:
@@ -218,7 +220,8 @@ class Parameters:
     def get_vary_bounds_list(self) -> list[tuple[float, float]]:
         """Get bounds for varying parameters as list of tuples.
 
-        Returns:
+        Returns
+        -------
             List of (min, max) tuples for each varying parameter
         """
         names = self.get_vary_names()
@@ -229,7 +232,7 @@ class Parameters:
         return len(self._params)
 
     def __repr__(self) -> str:
-        """String representation of parameters collection."""
+        """Return a string representation of the parameters collection."""
         n_total = len(self._params)
         n_vary = len(self.get_vary_names())
         return f"<Parameters: {n_total} total, {n_vary} varying>"
@@ -237,7 +240,8 @@ class Parameters:
     def summary(self) -> str:
         """Get a formatted summary of all parameters.
 
-        Returns:
+        Returns
+        -------
             Multi-line string with parameter details
         """
         lines = ["Parameters:", "=" * 60]
@@ -255,7 +259,8 @@ class Parameters:
     def get_boundary_params(self) -> list[str]:
         """Get names of parameters that are at their boundaries.
 
-        Returns:
+        Returns
+        -------
             List of parameter names at boundaries
         """
         return [

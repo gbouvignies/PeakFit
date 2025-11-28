@@ -16,10 +16,12 @@ def gaussian(dx: FloatArray, fwhm: float) -> FloatArray:
         dx: Frequency offset from peak center (Hz)
         fwhm: Full width at half maximum (Hz)
 
-    Returns:
+    Returns
+    -------
         Gaussian profile values
 
-    Notes:
+    Notes
+    -----
         Uses vectorized NumPy operations for performance.
         Optimized constant calculation avoids repeated computation.
     """
@@ -35,7 +37,8 @@ def lorentzian(dx: FloatArray, fwhm: float) -> FloatArray:
         dx: Frequency offset from peak center (Hz)
         fwhm: Full width at half maximum (Hz)
 
-    Returns:
+    Returns
+    -------
         Lorentzian profile values
     """
     half_width_sq = (0.5 * fwhm) ** 2
@@ -51,7 +54,8 @@ def pvoigt(dx: FloatArray, fwhm: float, eta: float) -> FloatArray:
         fwhm: Full width at half maximum (Hz)
         eta: Lorentzian fraction (0=pure Gaussian, 1=pure Lorentzian)
 
-    Returns:
+    Returns
+    -------
         Pseudo-Voigt profile values
     """
     c_gauss = 4.0 * np.log(2.0) / (fwhm * fwhm)
@@ -71,10 +75,12 @@ def no_apod(dx: FloatArray, r2: float, aq: float, phase: float = 0.0) -> FloatAr
         aq: Acquisition time (s)
         phase: Phase correction (degrees)
 
-    Returns:
+    Returns
+    -------
         Real part of lineshape after phase correction
 
-    Notes:
+    Notes
+    -----
         This represents the Fourier transform of a non-apodized
         exponentially decaying FID.
     """
@@ -97,7 +103,8 @@ def sp1(
         off: Offset parameter for sine bell
         phase: Phase correction (degrees)
 
-    Returns:
+    Returns
+    -------
         Real part of lineshape after phase correction
     """
     z1 = aq * (1j * dx + r2)
@@ -122,7 +129,8 @@ def sp2(
         off: Offset parameter for sine bell
         phase: Phase correction (degrees)
 
-    Returns:
+    Returns
+    -------
         Real part of lineshape after phase correction
     """
     z1 = aq * (1j * dx + r2)

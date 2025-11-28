@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from peakfit.core.domain.cluster import Cluster
-from peakfit.core.domain.peaks import Peak
-from peakfit.core.fitting.parameters import Parameters
+if TYPE_CHECKING:
+    from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.domain.peaks import Peak
+    from peakfit.core.fitting.parameters import Parameters
 
 
 @dataclass(slots=True)
@@ -42,13 +43,15 @@ class FittingState:
 
         # Cast values to concrete types expected by FittingState
         clusters_val = (
-            cast(list[Cluster], payload["clusters"]) if payload.get("clusters") is not None else []
+            cast("list[Cluster]", payload["clusters"])
+            if payload.get("clusters") is not None
+            else []
         )
         if payload.get("params") is None:
             raise ValueError("Missing 'params' in payload")
-        params_val = cast(Parameters, payload["params"])
-        noise_val = float(cast(float, payload["noise"]))
-        peaks_val = cast(list[Peak], payload["peaks"]) if payload.get("peaks") is not None else []
+        params_val = cast("Parameters", payload["params"])
+        noise_val = float(cast("float", payload["noise"]))
+        peaks_val = cast("list[Peak]", payload["peaks"]) if payload.get("peaks") is not None else []
         version = str(payload.get("version", "1.0"))
         return cls(
             clusters=clusters_val,

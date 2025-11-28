@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-import numpy as np
 from rich.table import Table
+
+import numpy as np
 
 from peakfit.cli._analyze_formatters import (
     print_correlation_matrix,
@@ -48,7 +49,8 @@ def load_fitting_state(results_dir: Path) -> FittingState:
     Args:
         results_dir: Path to results directory containing .peakfit_state.pkl
 
-    Returns:
+    Returns
+    -------
         FittingState with clusters, params, noise, and peaks
     """
     try:
@@ -538,21 +540,7 @@ def _save_all_profile_results(
             f.write("\n")
 
 
-def _save_profile_results(
-    output_file: Path,
-    param_name: str,
-    param_vals: np.ndarray,
-    chi2_vals: np.ndarray,
-    ci_low: float,
-    ci_high: float,
-) -> None:
-    """Save profile likelihood results to file."""
-    with output_file.open("w") as f:
-        f.write(f"# Profile Likelihood for {param_name}\n")
-        f.write(f"# CI: [{ci_low:.6f}, {ci_high:.6f}]\n")
-        f.write("# Parameter_Value  Chi_Squared\n")
-        for val, chi2 in zip(param_vals, chi2_vals, strict=True):
-            f.write(f"{val:.6f}  {chi2:.6f}\n")
+# NOTE: _save_profile_results removed as it was unused; keep per-parameter file generation centralized
 
 
 def _plot_profile_likelihood(
