@@ -509,7 +509,7 @@ def plot_autocorrelation(
     guide_text = (
         "Good mixing: autocorrelation drops quickly to ~0 (within 10-20 lags) | "
         "Red line = effective decorrelation lag\n"
-        "Slow decay (>100 lags) indicates high autocorrelation → low ESS"
+        "Slow decay (>100 lags) indicates high autocorrelation -> low ESS"
     )
     fig.text(
         0.5,

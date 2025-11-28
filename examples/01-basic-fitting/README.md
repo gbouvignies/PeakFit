@@ -8,18 +8,18 @@ This example demonstrates the simplest use case for PeakFit: fitting a 2D or pse
 
 ## What This Example Teaches
 
-✅ **Basic workflow:**
+[GOOD] **Basic workflow:**
 1. Prepare your spectrum and peak list
 2. Validate input files
 3. Run the fit with default settings
 4. Explore the new structured outputs
 
-✅ **New output formats:**
+[GOOD] **New output formats:**
 - `results.json` - Machine-readable structured data
 - `results.csv` - Spreadsheet-compatible tabular data
 - `results.md` - Human-readable Markdown report
 
-✅ **When to use basic fitting:**
+[GOOD] **When to use basic fitting:**
 - Well-resolved peaks (minimal overlap)
 - Good signal-to-noise ratio (>10:1)
 - Standard 2D experiments (HSQC, HMQC, etc.)

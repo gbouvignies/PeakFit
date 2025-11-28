@@ -105,7 +105,7 @@ def main() -> int:
     violations = validate_imports(src_dir)
 
     if violations:
-        print(f"\n❌ Found {len(violations)} import violation(s):\n")
+        print(f"\n[BAD] Found {len(violations)} import violation(s):\n")
         for v in sorted(violations):
             print(f"  ✗ {v}")
         return 1

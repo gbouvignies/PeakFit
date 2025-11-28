@@ -14,10 +14,10 @@ The new output system provides comprehensive MCMC diagnostics including converge
 | MCMC | Slow | Full posterior distribution |
 
 MCMC tells you:
-- ✅ Full shape of parameter distributions
-- ✅ Parameter correlations
-- ✅ Confidence intervals (68%, 95%, etc.)
-- ✅ Convergence diagnostics (R-hat, ESS)
+- [GOOD] Full shape of parameter distributions
+- [GOOD] Parameter correlations
+- [GOOD] Confidence intervals (68%, 95%, etc.)
+- [GOOD] Convergence diagnostics (R-hat, ESS)
 
 ## Running the Example
 

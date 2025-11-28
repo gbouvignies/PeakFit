@@ -28,11 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backend selection system removed - always uses NumPy
 
 ### Migration Guide
-Old imports → New imports:
-- `from peakfit.shapes import Gaussian` → `from peakfit.lineshapes import Gaussian`
-- `from peakfit.core.fitting import Parameters` → `from peakfit.fitting import Parameters`
-- `from peakfit.clustering import Cluster` → `from peakfit.core.domain import Cluster`
-- `from peakfit.spectra import Spectra` → `from peakfit.core.domain import Spectra`
+Old imports -> New imports:
+- `from peakfit.shapes import Gaussian` -> `from peakfit.lineshapes import Gaussian`
+- `from peakfit.core.fitting import Parameters` -> `from peakfit.fitting import Parameters`
+- `from peakfit.clustering import Cluster` -> `from peakfit.core.domain import Cluster`
+- `from peakfit.spectra import Spectra` -> `from peakfit.core.domain import Spectra`
 - And more... (see documentation)
 
 ### Removed

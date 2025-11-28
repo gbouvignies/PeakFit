@@ -8,12 +8,12 @@ echo ""
 
 # Check if uv is installed
 if ! command -v uv &> /dev/null; then
-    echo "❌ uv is not installed. Install it with:"
+    echo "[BAD] uv is not installed. Install it with:"
     echo "   curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
-echo "✅ uv is installed"
+echo "[GOOD] uv is installed"
 echo ""
 
 # Sync all dependencies

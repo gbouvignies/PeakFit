@@ -143,9 +143,9 @@ def command_name(...) -> None:
 
 ### Principle: Every error must be actionable
 
-❌ **Bad**: `Error: Invalid configuration`
+[BAD] **Bad**: `Error: Invalid configuration`
 
-✅ **Good**:
+[GOOD] **Good**:
 ```
 ✗ Error: Invalid configuration in config.toml
 
@@ -195,7 +195,7 @@ When using a smart default:
 from peakfit.messages import print_smart_default
 
 print_smart_default("--jobs", "8", "detected 8 CPU cores")
-# Output: → Using --jobs: 8 (detected 8 CPU cores)
+# Output: -> Using --jobs: 8 (detected 8 CPU cores)
 ```
 
 ### Success Messages
@@ -359,7 +359,7 @@ Use Unicode symbols consistently:
 - 📄 Document/file
 - 🎯 Target (logo title)
 - ⏱️ Timer/performance
-- → Arrow (smart defaults)
+- -> Arrow (smart defaults)
 
 ## Testing UI/UX
 
@@ -381,23 +381,23 @@ When adding new UI elements:
 
 ## Anti-Patterns to Avoid
 
-❌ **Don't**: Use emojis excessively
-✅ **Do**: Use sparingly (logo, section markers)
+[BAD] **Don't**: Use emojis excessively
+[GOOD] **Do**: Use sparingly (logo, section markers)
 
-❌ **Don't**: `Error: File not found`
-✅ **Do**: Explain what was expected and suggest fixes
+[BAD] **Don't**: `Error: File not found`
+[GOOD] **Do**: Explain what was expected and suggest fixes
 
-❌ **Don't**: Show cryptic stack traces to users
-✅ **Do**: Show user-friendly error, log technical details
+[BAD] **Don't**: Show cryptic stack traces to users
+[GOOD] **Do**: Show user-friendly error, log technical details
 
-❌ **Don't**: Use inconsistent terminology
-✅ **Do**: "spectrum" everywhere (not "spectra" sometimes)
+[BAD] **Don't**: Use inconsistent terminology
+[GOOD] **Do**: "spectrum" everywhere (not "spectra" sometimes)
 
-❌ **Don't**: Assume user knowledge
-✅ **Do**: Explain abbreviations on first use (CEST, CPMG)
+[BAD] **Don't**: Assume user knowledge
+[GOOD] **Do**: Explain abbreviations on first use (CEST, CPMG)
 
-❌ **Don't**: Show raw paths
-✅ **Do**: Highlight important parts with colors
+[BAD] **Don't**: Show raw paths
+[GOOD] **Do**: Highlight important parts with colors
 
 ## Version Information
 

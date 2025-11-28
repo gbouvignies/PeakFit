@@ -381,7 +381,7 @@ class MarkdownReportGenerator:
             ConvergenceStatus.GOOD: "✓ Good",
             ConvergenceStatus.ACCEPTABLE: "○ OK",
             ConvergenceStatus.MARGINAL: "⚠ Marginal",
-            ConvergenceStatus.POOR: "❌ Poor",
+            ConvergenceStatus.POOR: "[BAD] Poor",
             ConvergenceStatus.UNKNOWN: "? Unknown",
         }
         return badges.get(status, "?")

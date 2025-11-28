@@ -125,14 +125,14 @@ ui.print_summary({
 
 ### Table Style Rules
 
-✅ **DO**:
+[GOOD] **DO**:
 - Use `box.ROUNDED` (automatically set by `ui.create_table()`)
 - Use `"metric"` style for label columns
 - Use `"value"` style for data columns
 - Always include a title
 - Right-align numeric columns: `justify="right"`
 
-❌ **DON'T**:
+[BAD] **DON'T**:
 - Create tables with `Table()` directly
 - Use hardcoded colors like `style="green"`
 - Omit titles
@@ -213,14 +213,14 @@ Use these icons consistently:
 
 Use theme names, not hardcoded colors:
 
-✅ **DO**:
+[GOOD] **DO**:
 ```python
 console.print(f"[success]Completed[/success]")
 console.print(f"[path]{filepath}[/path]")
 console.print(f"[code]peakfit fit ...[/code]")
 ```
 
-❌ **DON'T**:
+[BAD] **DON'T**:
 ```python
 console.print(f"[green]Completed[/green]")  # Wrong!
 console.print(f"[bold cyan]{filepath}[/bold cyan]")  # Wrong!
@@ -297,24 +297,24 @@ def command_function(args, verbose: bool = False, quiet: bool = False):
 
 ### DO:
 
-✅ Use the centralized UI system for ALL output
-✅ Add `--verbose` flag to all commands
-✅ Use consistent icons and colors
-✅ Include helpful suggestions in error messages
-✅ Show next steps after completing operations
-✅ Use progress indicators for long operations
-✅ Format file paths with `[path]` style
-✅ Format code examples with `[code]` style
+[GOOD] Use the centralized UI system for ALL output
+[GOOD] Add `--verbose` flag to all commands
+[GOOD] Use consistent icons and colors
+[GOOD] Include helpful suggestions in error messages
+[GOOD] Show next steps after completing operations
+[GOOD] Use progress indicators for long operations
+[GOOD] Format file paths with `[path]` style
+[GOOD] Format code examples with `[code]` style
 
 ### DON'T:
 
-❌ Use `print()` directly
-❌ Use `logger.info()` for user-facing messages
-❌ Create your own `Console()` instances
-❌ Use hardcoded colors like `[green]` or `[red]`
-❌ Mix different table styles
-❌ Show the banner unless `--verbose` is specified
-❌ Forget to add progress indicators for slow operations
+[BAD] Use `print()` directly
+[BAD] Use `logger.info()` for user-facing messages
+[BAD] Create your own `Console()` instances
+[BAD] Use hardcoded colors like `[green]` or `[red]`
+[BAD] Mix different table styles
+[BAD] Show the banner unless `--verbose` is specified
+[BAD] Forget to add progress indicators for slow operations
 
 ---
 

@@ -62,7 +62,7 @@ Run `uv run python tools/dependency_snapshot.py` to rebuild the intra-package im
 
 ### Phase 1: Legacy File Cleanup
 - Removed unused `data/` package
-- Moved `core/diagnostics/plots.py` → `plotting/diagnostics.py`
+- Moved `core/diagnostics/plots.py` -> `plotting/diagnostics.py`
 - Created `plotting/profiles.py` from `cli/plot_command.py`
 
 ### Phase 2: CLI Delegation

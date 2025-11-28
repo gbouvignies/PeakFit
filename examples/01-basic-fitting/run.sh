@@ -14,7 +14,7 @@ echo
 
 # Check if data files exist
 if [ ! -f "data/spectrum.ft2" ] || [ ! -f "data/peaks.list" ]; then
-    echo "❌ Data files not found!"
+    echo "[BAD] Data files not found!"
     echo
     echo "To use this example:"
     echo "  1. Copy your spectrum to:  data/spectrum.ft2"

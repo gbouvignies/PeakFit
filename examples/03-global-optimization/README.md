@@ -8,13 +8,13 @@ This example demonstrates global optimization methods for fitting challenging pe
 
 ## When to Use Global Optimization
 
-✅ **Use global optimization when:**
+[GOOD] **Use global optimization when:**
 - Many peaks fail to converge
 - Severe peak overlap
 - Results are sensitive to initial conditions
 - Local optimization gets stuck in local minima
 
-❌ **Don't use when:**
+[BAD] **Don't use when:**
 - Well-resolved peaks with good S/N (use basic fitting - faster)
 - Large datasets where time is critical
 - Most peaks converge with local optimization
@@ -77,7 +77,7 @@ for l_cluster in local['clusters']:
     b_chi2 = b_cluster['fit_statistics']['chi_squared']
 
     if b_chi2 < l_chi2 * 0.95:  # >5% improvement
-        print(f"Cluster {cid}: {l_chi2:.2f} → {b_chi2:.2f} (improved)")
+        print(f"Cluster {cid}: {l_chi2:.2f} -> {b_chi2:.2f} (improved)")
 ```
 
 ## Output Structure

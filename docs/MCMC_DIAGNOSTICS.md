@@ -111,9 +111,9 @@ The diagnostic PDF includes:
 - ✗ **Bad mixing**: Chains separated, trending, or stuck
 
 **Visual indicators of problems**:
-- Chains don't overlap → Poor mixing, increase `--walkers`
-- Upward/downward trends → Not converged, increase `--steps`
-- Stuck in one region → Trapped in local mode, check initialization
+- Chains don't overlap -> Poor mixing, increase `--walkers`
+- Upward/downward trends -> Not converged, increase `--steps`
+- Stuck in one region -> Trapped in local mode, check initialization
 
 ### Corner Plots
 
