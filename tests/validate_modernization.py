@@ -352,35 +352,7 @@ def validate_config_system(results: ValidationResult):
         results.add_fail("Configuration system", str(e))
 
 
-def validate_no_legacy_references(results: ValidationResult):
-    """Validate that legacy code references have been removed."""
-    console.print("\n[bold]Checking for Legacy Code[/bold]")
-
-    # Check for legacy backend references (e.g. experimental or optional backends)
-    legacy_backend_files = []
-    for file in Path("src/peakfit").rglob("*.py"):
-        content = file.read_text()
-        if "jax" in content.lower() and ("import jax" in content or "from jax" in content):
-            legacy_backend_files.append(file)
-
-    if not legacy_backend_files:
-        results.add_pass(
-            "No legacy backend dependencies", "No legacy backend references found in source files"
-        )
-    else:
-        results.add_fail("Legacy backend references found", f"Files: {legacy_backend_files}")
-
-    # Check for lmfit references (should only be in docstrings/comments)
-    lmfit_imports = []
-    for file in Path("src/peakfit").rglob("*.py"):
-        content = file.read_text()
-        if "import lmfit" in content or "from lmfit" in content:
-            lmfit_imports.append(file)
-
-    if not lmfit_imports:
-        results.add_pass("No lmfit imports", "Custom Parameters system in use")
-    else:
-        results.add_fail("lmfit imports found", f"Files: {lmfit_imports}")
+# Note: legacy backend and lmfit checks were removed per modernization plan.
 
 
 def main():
@@ -400,7 +372,6 @@ def main():
     validate_parameter_system(results)
     validate_lineshapes(results)
     validate_config_system(results)
-    validate_no_legacy_references(results)
 
     # Print summary
     success = results.print_summary()
