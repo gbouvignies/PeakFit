@@ -460,12 +460,25 @@ def _print_spectrum_info(
     spectrum_table.add_column("Value", style="white", justify="right")
 
     shape = spectra.data.shape
-    if len(shape) == 3:
-        dim_str = f"{shape[2]} × {shape[1]} × {shape[0]}"
+    n_spectral = spectra.n_spectral_dims
+
+    # Build dimension string with Fn labels
+    if n_spectral >= 1:
+        dim_parts = []
+        for dim in spectra.dimensions:
+            size = dim.size
+            label = dim.label
+            nucleus = f" ({dim.nucleus})" if dim.nucleus else ""
+            dim_parts.append(f"{label}{nucleus}: {size} pts")
+        dim_str = ", ".join(dim_parts)
+        # Also show shape
+        shape_str = " × ".join(str(s) for s in reversed(shape[1:]))
+        dim_str = f"{shape_str} ({dim_str})"
     else:
         dim_str = str(shape)
 
-    spectrum_table.add_row("Dimensions", dim_str)
+    spectrum_table.add_row("Spectral dimensions", str(n_spectral))
+    spectrum_table.add_row("Dimension sizes", dim_str)
     spectrum_table.add_row("Number of planes", str(len(spectra.z_values)))
 
     lineshape_str = ", ".join(shape_names) if isinstance(shape_names, list) else str(shape_names)

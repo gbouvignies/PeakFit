@@ -19,7 +19,21 @@ from peakfit.core.lineshapes import functions
 from peakfit.core.lineshapes.registry import register_shape
 from peakfit.core.shared.typing import FittingOptions, FloatArray, IntArray
 
-AXIS_NAMES = ("x", "y", "z", "a")
+# Legacy axis names for backward compatibility during transition
+LEGACY_AXIS_NAMES = ("x", "y", "z", "a")
+
+
+def get_axis_label(n_spectral_dims: int, dim_index: int) -> str:
+    """Get the axis label for a dimension using NMRPipe F1/F2/F3/F4 convention.
+
+    Args:
+        n_spectral_dims: Total number of spectral dimensions
+        dim_index: 1-based dimension index (1 = first spectral dim after pseudo)
+
+    Returns:
+        Axis label like "F1", "F2", "F3", "F4"
+    """
+    return f"F{dim_index}"
 
 
 class BaseShape(ABC):
@@ -34,11 +48,13 @@ class BaseShape(ABC):
             name: Peak name
             center: Center position in ppm
             spectra: Spectra object with spectral parameters
-            dim: Dimension index (1-based)
+            dim: Dimension index (1-based, 1=first spectral dim after pseudo)
             args: Command-line arguments
         """
         self.name = name
-        self.axis = AXIS_NAMES[spectra.data[0].ndim - dim]
+        # Use NMRPipe Fn convention for axis labels
+        n_spectral_dims = spectra.data[0].ndim
+        self.axis = get_axis_label(n_spectral_dims, dim)
         self.center = center
         self.spec_params = spectra.params[dim]
         self.size = self.spec_params.size

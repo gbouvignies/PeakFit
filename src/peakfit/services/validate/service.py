@@ -23,11 +23,26 @@ class RowLike(Protocol):
 
 @dataclass
 class PeakData:
-    """Simple data class for peak information."""
+    """Simple data class for peak information with N-dimensional support."""
 
     name: str
-    x: float
-    y: float
+    positions: list[float]  # Ordered from F1 to Fn (indirect to direct)
+
+    # Legacy property accessors for backward compatibility
+    @property
+    def x(self) -> float:
+        """Get direct dimension position (last in list)."""
+        return self.positions[-1] if self.positions else 0.0
+
+    @property
+    def y(self) -> float:
+        """Get first indirect dimension position."""
+        return self.positions[0] if self.positions else 0.0
+
+    @property
+    def n_dims(self) -> int:
+        """Number of dimensions."""
+        return len(self.positions)
 
 
 @dataclass
@@ -65,20 +80,39 @@ class ValidationResult:
         return len(self.errors) == 0
 
     @property
+    def n_dims(self) -> int:
+        """Number of spectral dimensions based on peaks."""
+        if not self.peaks:
+            return 0
+        return self.peaks[0].n_dims
+
+    def get_dimension_range(self, dim_index: int) -> tuple[float, float] | None:
+        """Get position range for a specific dimension.
+
+        Args:
+            dim_index: 0-based dimension index (0=F1, 1=F2, etc.)
+
+        Returns:
+            (min, max) tuple or None if no peaks
+        """
+        if not self.peaks or dim_index >= self.n_dims:
+            return None
+        positions = [p.positions[dim_index] for p in self.peaks]
+        return (min(positions), max(positions))
+
+    @property
     def x_range(self) -> tuple[float, float] | None:
-        """Get X position range from peaks."""
+        """Get direct dimension (X/Fn) position range from peaks."""
         if not self.peaks:
             return None
-        x_positions = [p.x for p in self.peaks]
-        return (min(x_positions), max(x_positions))
+        return self.get_dimension_range(self.n_dims - 1)
 
     @property
     def y_range(self) -> tuple[float, float] | None:
-        """Get Y position range from peaks."""
+        """Get first indirect dimension (Y/F1) position range from peaks."""
         if not self.peaks:
             return None
-        y_positions = [p.y for p in self.peaks]
-        return (min(y_positions), max(y_positions))
+        return self.get_dimension_range(0)
 
 
 class ValidationService:
@@ -221,12 +255,14 @@ class ValidationService:
 
             # Add position ranges to info
             if peaks:
-                x_range = result.x_range
-                y_range = result.y_range
-                if x_range:
-                    result.info["X range (ppm)"] = f"{x_range[0]:.2f} to {x_range[1]:.2f}"
-                if y_range:
-                    result.info["Y range (ppm)"] = f"{y_range[0]:.2f} to {y_range[1]:.2f}"
+                n_dims = peaks[0].n_dims if peaks else 0
+                for dim_idx in range(n_dims):
+                    dim_label = f"F{dim_idx + 1}"
+                    dim_range = result.get_dimension_range(dim_idx)
+                    if dim_range:
+                        result.info[f"{dim_label} range (ppm)"] = (
+                            f"{dim_range[0]:.2f} to {dim_range[1]:.2f}"
+                        )
 
             # File permissions check
             result.checks.append(
@@ -249,7 +285,7 @@ class ValidationService:
 
     @staticmethod
     def _read_sparky_list(path: Path) -> list[PeakData]:
-        """Read Sparky format peak list."""
+        """Read Sparky format peak list with N-dimensional support."""
         peaks = []
         with path.open() as f:
             for line in f:
@@ -257,70 +293,114 @@ class ValidationService:
                 if not line or line.startswith(("#", "Assignment")):
                     continue
                 parts = line.split()
-                if len(parts) >= 3:
-                    peaks.append(PeakData(name=parts[0], x=float(parts[1]), y=float(parts[2])))
+                if len(parts) >= 2:  # At least name + 1 position
+                    name = parts[0]
+                    # All remaining numeric parts are positions
+                    positions = []
+                    for part in parts[1:]:
+                        try:
+                            positions.append(float(part))
+                        except ValueError:
+                            break  # Stop at first non-numeric
+                    if positions:
+                        peaks.append(PeakData(name=name, positions=positions))
         return peaks
 
     @staticmethod
     def _read_csv_list(path: Path) -> list[PeakData]:
-        """Read CSV format peak list."""
+        """Read CSV format peak list with N-dimensional support."""
         import pandas as pd
 
         df = pd.read_csv(path)
         peaks = []
 
+        # Detect position columns (Pos F1, Pos F2, ... or w1, w2, ...)
+        pos_cols = ValidationService._detect_position_columns(df)
+
         for _, row in df.iterrows():
-            name_value = row.get("Assign F1", row.get("#", ""))
-            x_primary = row.get("Pos F1")
-            y_primary = row.get("Pos F2")
-            fallback_x = ValidationService._to_float(row.iloc[0])
-            fallback_y = ValidationService._to_float(row.iloc[1])
-            peaks.append(
-                PeakData(
-                    name=str(name_value),
-                    x=ValidationService._to_float(x_primary, fallback_x),
-                    y=ValidationService._to_float(y_primary, fallback_y),
-                )
-            )
+            name_value = row.get("Assign F1", row.get("#", row.get("name", "")))
+            positions = [ValidationService._to_float(row.get(col), 0.0) for col in pos_cols]
+            if not positions:  # Fallback to first numeric columns
+                positions = [
+                    ValidationService._to_float(row.iloc[i], 0.0)
+                    for i in range(1, min(3, len(row)))
+                ]
+            peaks.append(PeakData(name=str(name_value), positions=positions))
         return peaks
 
     @staticmethod
+    def _detect_position_columns(df: Any) -> list[str]:
+        """Detect position columns in a DataFrame."""
+        columns = df.columns.tolist()
+        pos_cols = []
+
+        # Try 'Pos Fn' pattern
+        for i in range(1, 5):
+            col = f"Pos F{i}"
+            if col in columns:
+                pos_cols.append(col)
+
+        if pos_cols:
+            return pos_cols
+
+        # Try 'wn' pattern
+        for i in range(1, 5):
+            col = f"w{i}"
+            if col in columns:
+                pos_cols.append(col)
+
+        return pos_cols
+
+    @staticmethod
     def _read_json_list(path: Path) -> list[PeakData]:
-        """Read JSON format peak list."""
+        """Read JSON format peak list with N-dimensional support."""
         with path.open() as f:
             data = json.load(f)
 
         if isinstance(data, list):
-            return [
-                PeakData(
-                    name=str(p.get("name", p.get("Assign F1", ""))),
-                    x=ValidationService._to_float(p.get("x") or p.get("Pos F1"), 0.0),
-                    y=ValidationService._to_float(p.get("y") or p.get("Pos F2"), 0.0),
-                )
-                for p in data
-            ]
+            peaks = []
+            for p in data:
+                name = str(p.get("name", p.get("Assign F1", "")))
+                # Try 'positions' array first
+                if "positions" in p and isinstance(p["positions"], list):
+                    positions = [float(x) for x in p["positions"]]
+                else:
+                    # Fall back to individual position fields
+                    positions = []
+                    for i in range(1, 5):  # F1 to F4
+                        pos = p.get(f"Pos F{i}") or p.get(f"w{i}")
+                        if pos is not None:
+                            positions.append(ValidationService._to_float(pos, 0.0))
+                    # Legacy x/y fallback
+                    if not positions:
+                        if "y" in p:  # F1 (indirect)
+                            positions.append(ValidationService._to_float(p.get("y"), 0.0))
+                        if "x" in p:  # Fn (direct)
+                            positions.append(ValidationService._to_float(p.get("x"), 0.0))
+                peaks.append(PeakData(name=name, positions=positions))
+            return peaks
         return []
 
     @staticmethod
     def _read_excel_list(path: Path) -> list[PeakData]:
-        """Read Excel format peak list."""
+        """Read Excel format peak list with N-dimensional support."""
         import pandas as pd
 
         df = pd.read_excel(path)
         peaks = []
+
+        # Detect position columns
+        pos_cols = ValidationService._detect_position_columns(df)
+
         for _, row in df.iterrows():
-            name_value = row.get("Assign F1", row.get("#", ""))
-            x_primary = row.get("Pos F1")
-            y_primary = row.get("Pos F2")
-            fallback_x = ValidationService._to_float(row.iloc[0])
-            fallback_y = ValidationService._to_float(row.iloc[1])
-            peaks.append(
-                PeakData(
-                    name=str(name_value),
-                    x=ValidationService._to_float(x_primary, fallback_x),
-                    y=ValidationService._to_float(y_primary, fallback_y),
-                )
-            )
+            name_value = row.get("Assign F1", row.get("#", row.get("name", "")))
+            positions = [ValidationService._to_float(row.get(col), 0.0) for col in pos_cols]
+            if not positions:  # Fallback
+                positions = [
+                    ValidationService._to_float(row.iloc[i], 0.0)
+                    for i in range(1, min(3, len(row)))
+                ]
+            peaks.append(PeakData(name=str(name_value), positions=positions))
         return peaks
 
     @staticmethod

@@ -7,8 +7,9 @@ All legacy output is written to the legacy/ subdirectory.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -17,6 +18,9 @@ from peakfit.io.writers.base import WriterConfig, format_float
 if TYPE_CHECKING:
     from peakfit.core.results.estimates import ClusterEstimates
     from peakfit.core.results.fit_results import FitResults
+
+# Pattern to match position parameters: F10, F20, x0, y0, etc.
+POSITION_PARAM_PATTERN = re.compile(r"(F\d+0|[xyza]0)$")
 
 
 class LegacyWriter:
@@ -128,7 +132,9 @@ class LegacyWriter:
         """Write shifts.out file.
 
         Format:
-        peak_name  x0  y0  [z0...]
+        peak_name  pos_F1  pos_F2  [pos_F3...]
+
+        Supports both new Fn convention and legacy x/y/z/a naming.
 
         Args:
             results: FitResults object
@@ -136,18 +142,32 @@ class LegacyWriter:
         """
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
+        def sort_key(p: Any) -> tuple[int, int | str]:
+            """Sort position parameters by dimension label."""
+            match = POSITION_PARAM_PATTERN.search(p.name)
+            if match:
+                dim = match.group(1)
+                if dim.startswith("F"):
+                    # F10 -> (0, 1), F20 -> (0, 2)
+                    return (0, int(dim[1:-1]))
+                # x0 -> (1, 0), y0 -> (1, 1), z0 -> (1, 2), a0 -> (1, 3)
+                return (1, "xyza".index(dim[0]))
+            return (2, 0)
+
         with filepath.open("w") as f:
             for cluster in results.clusters:
                 for peak_name in cluster.peak_names:
                     # Collect position parameters for this peak
-                    positions = [
-                        param.value
+                    position_params = [
+                        param
                         for param in cluster.lineshape_params
-                        if peak_name in param.name and ("x0" in param.name or "y0" in param.name)
+                        if peak_name in param.name and POSITION_PARAM_PATTERN.search(param.name)
                     ]
 
-                    if positions:
-                        positions_str = " ".join(f"{pos:10.5f}" for pos in positions)
+                    if position_params:
+                        # Sort by dimension
+                        position_params.sort(key=sort_key)
+                        positions_str = " ".join(f"{p.value:10.5f}" for p in position_params)
                         f.write(f"{peak_name:>15s} {positions_str}\n")
 
     def write_params(self, results: FitResults, filepath: Path) -> None:

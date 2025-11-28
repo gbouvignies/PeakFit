@@ -24,37 +24,55 @@ if TYPE_CHECKING:
     from peakfit.core.results.fit_results import FitResults
 
 
-# Mapping from internal parameter suffixes to user-friendly names
-# Internal names: {peak_prefix}_x0, {peak_prefix}_y0, {peak_prefix}_x_r2, etc.
-# User-friendly: cs_x, cs_y, lw_x, lw_y
-PARAMETER_NAME_MAP = {
-    "_x0": "cs_x",
-    "_y0": "cs_y",
-    "_x_r2": "lw_x",
-    "_y_r2": "lw_y",
-    "_x_fwhm": "lw_x",
-    "_y_fwhm": "lw_y",
-    "_x_eta": "eta_x",
-    "_y_eta": "eta_y",
-    "_x_j": "j_x",
-    "_y_j": "j_y",
-}
+# Regex patterns to extract dimension label from internal parameter names
+# Internal names use F1, F2, F3, F4 convention: {peak_prefix}_F1_0, {peak_prefix}_F2_fwhm, etc.
+# Legacy names used x, y, z, a: {peak_prefix}_x0, {peak_prefix}_y0, etc.
+PARAMETER_SUFFIX_PATTERNS = [
+    # New Fn convention: _F1_0, _F2_0, _F1_fwhm, _F2_r2, etc.
+    (re.compile(r"_(F\d+)0$"), r"cs_\1"),  # Position: _F10 -> cs_F1
+    (re.compile(r"_(F\d+)_fwhm$"), r"lw_\1"),  # Linewidth FWHM
+    (re.compile(r"_(F\d+)_r2$"), r"lw_\1"),  # Linewidth R2
+    (re.compile(r"_(F\d+)_eta$"), r"eta_\1"),  # Pseudo-Voigt eta
+    (re.compile(r"_(F\d+)_j$"), r"j_\1"),  # J-coupling
+    (re.compile(r"_(F\d+)p$"), r"phase_\1"),  # Phase
+    # Legacy x/y/z/a convention (for backward compatibility)
+    (re.compile(r"_([xyza])0$"), r"cs_\1"),  # Position
+    (re.compile(r"_([xyza])_fwhm$"), r"lw_\1"),  # Linewidth FWHM
+    (re.compile(r"_([xyza])_r2$"), r"lw_\1"),  # Linewidth R2
+    (re.compile(r"_([xyza])_eta$"), r"eta_\1"),  # Pseudo-Voigt eta
+    (re.compile(r"_([xyza])_j$"), r"j_\1"),  # J-coupling
+    (re.compile(r"_([xyza])p$"), r"phase_\1"),  # Phase
+]
 
 
 def _to_user_friendly_name(internal_name: str, peak_name: str) -> str:
     """Convert internal parameter name to user-friendly name.
 
+    Handles both new Fn convention (F1, F2, F3, F4) and legacy x/y/z/a names.
+
     Args:
-        internal_name: Internal name like '_2N_H_x0'
+        internal_name: Internal name like '_2N_H_F10' or '_2N_H_x0'
         peak_name: Peak name like '2N-H'
 
     Returns:
-        User-friendly name like 'cs_x'
+        User-friendly name like 'cs_F1' or 'cs_x' (legacy)
     """
     # Try to match parameter suffix patterns
-    for suffix, friendly_name in PARAMETER_NAME_MAP.items():
-        if internal_name.endswith(suffix):
-            return friendly_name
+    for pattern, replacement in PARAMETER_SUFFIX_PATTERNS:
+        match = pattern.search(internal_name)
+        if match:
+            return pattern.sub(
+                replacement,
+                internal_name.split("_")[-1]
+                if "0" in internal_name
+                else "_" + "_".join(internal_name.split("_")[-2:]),
+            )
+
+    # More direct approach: extract suffix and map it
+    for pattern, replacement in PARAMETER_SUFFIX_PATTERNS:
+        if pattern.search(internal_name):
+            # Extract just the matched part and apply replacement
+            return pattern.sub(replacement, internal_name)
 
     # Fallback: return original name stripped of peak prefix
     # Sanitize peak name the same way Shape.prefix does
@@ -338,8 +356,12 @@ class CSVWriter:
     def write_shifts(self, results: FitResults, path: Path) -> None:
         """Write chemical shifts in wide format for easy downstream use.
 
-        Creates a simple table with one row per peak containing:
-        - peak_name, cs_x (ppm), cs_x_err, cs_y (ppm), cs_y_err
+        Creates a table with one row per peak containing chemical shifts
+        for all dimensions. Automatically adapts to the number of dimensions
+        using F1/F2/F3/F4 naming convention.
+
+        For 2D: peak_name, cs_F1_ppm, cs_F1_err, cs_F2_ppm, cs_F2_err
+        For 3D: peak_name, cs_F1_ppm, cs_F1_err, cs_F2_ppm, cs_F2_err, cs_F3_ppm, cs_F3_err
 
         Args:
             results: FitResults object
@@ -349,11 +371,18 @@ class CSVWriter:
         prec = self.config.precision
         thresh = self.config.scientific_notation_threshold
 
+        # Detect dimensions from parameter names
+        # Look for F1, F2, F3, F4 or legacy x, y, z, a patterns
+        dim_labels = self._detect_dimension_labels(results)
+
         with path.open("w", newline="") as f:
             writer = csv.writer(f, delimiter=self.config.csv_delimiter)
 
-            # Header
-            writer.writerow(["peak_name", "cs_x_ppm", "cs_x_err", "cs_y_ppm", "cs_y_err"])
+            # Build header dynamically based on detected dimensions
+            header = ["peak_name"]
+            for dim in dim_labels:
+                header.extend([f"cs_{dim}_ppm", f"cs_{dim}_err"])
+            writer.writerow(header)
 
             # Collect shift data for each peak
             for cluster in results.clusters:
@@ -363,40 +392,69 @@ class CSVWriter:
                 for param in cluster.lineshape_params:
                     peak_name = self._extract_peak_name_from_param(param.name, cluster.peak_names)
                     if peak_name not in peak_shifts:
-                        peak_shifts[peak_name] = {
-                            "cs_x": None,
-                            "cs_x_err": None,
-                            "cs_y": None,
-                            "cs_y_err": None,
-                        }
+                        # Initialize with None for all dimensions
+                        peak_shifts[peak_name] = {}
+                        for dim in dim_labels:
+                            peak_shifts[peak_name][f"cs_{dim}"] = None
+                            peak_shifts[peak_name][f"cs_{dim}_err"] = None
 
-                    # Match parameter to shift type
-                    if param.name.endswith("_x0"):
-                        peak_shifts[peak_name]["cs_x"] = param.value
-                        peak_shifts[peak_name]["cs_x_err"] = param.std_error
-                    elif param.name.endswith("_y0"):
-                        peak_shifts[peak_name]["cs_y"] = param.value
-                        peak_shifts[peak_name]["cs_y_err"] = param.std_error
+                    # Match parameter to shift type - handle both Fn and legacy patterns
+                    dim_label = self._extract_dimension_from_position_param(param.name)
+                    if dim_label:
+                        peak_shifts[peak_name][f"cs_{dim_label}"] = param.value
+                        peak_shifts[peak_name][f"cs_{dim_label}_err"] = param.std_error
 
                 # Write rows for each peak
                 for peak_name, shifts in peak_shifts.items():
-                    writer.writerow(
-                        [
-                            peak_name,
-                            format_float(shifts["cs_x"], prec, thresh)
-                            if shifts["cs_x"] is not None
-                            else "",
-                            format_float(shifts["cs_x_err"], prec, thresh)
-                            if shifts["cs_x_err"] is not None
-                            else "",
-                            format_float(shifts["cs_y"], prec, thresh)
-                            if shifts["cs_y"] is not None
-                            else "",
-                            format_float(shifts["cs_y_err"], prec, thresh)
-                            if shifts["cs_y_err"] is not None
-                            else "",
-                        ]
-                    )
+                    row = [peak_name]
+                    for dim in dim_labels:
+                        cs_val = shifts.get(f"cs_{dim}")
+                        cs_err = shifts.get(f"cs_{dim}_err")
+                        row.append(format_float(cs_val, prec, thresh) if cs_val is not None else "")
+                        row.append(format_float(cs_err, prec, thresh) if cs_err is not None else "")
+                    writer.writerow(row)
+
+    def _detect_dimension_labels(self, results: FitResults) -> list[str]:
+        """Detect dimension labels from parameter names.
+
+        Returns ordered list like ['F1', 'F2'] or ['x', 'y'] for legacy.
+        """
+        dim_labels: set[str] = set()
+
+        for cluster in results.clusters:
+            for param in cluster.lineshape_params:
+                dim = self._extract_dimension_from_position_param(param.name)
+                if dim:
+                    dim_labels.add(dim)
+
+        # Sort: F1, F2, F3, F4 or x, y, z, a
+        def sort_key(label: str) -> tuple[int, str]:
+            if label.startswith("F") and label[1:].isdigit():
+                return (0, int(label[1:]))  # type: ignore[return-value]
+            return (1, label)
+
+        return sorted(dim_labels, key=sort_key)
+
+    def _extract_dimension_from_position_param(self, param_name: str) -> str | None:
+        """Extract dimension label from a position parameter name.
+
+        Args:
+            param_name: Parameter name like '_2N_H_F10' or '_2N_H_x0'
+
+        Returns:
+            Dimension label like 'F1' or 'x', or None if not a position param
+        """
+        # New Fn convention: ends with F{n}0
+        match = re.search(r"(F\d+)0$", param_name)
+        if match:
+            return match.group(1)
+
+        # Legacy convention: ends with x0, y0, z0, a0
+        match = re.search(r"([xyza])0$", param_name)
+        if match:
+            return match.group(1)
+
+        return None
 
     def write_intensities(self, results: FitResults, path: Path) -> None:
         """Write fitted intensities for CEST/relaxation analysis.
