@@ -8,17 +8,33 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class RowLike(Protocol):
     """Minimal protocol for a pandas-like row used by CSV/Excel readers."""
 
-    def get(self, key: str, default: Any | None = None) -> Any: ...
-    def __getitem__(self, key: int | str) -> Any: ...
+    def get(self, key: str, default: Any | None = None) -> Any:
+        """Get a value by key, with an optional default if missing."""
+        ...
+
+    """Get a value by key, with an optional default if missing."""
+
+    def __getitem__(self, key: int | str) -> Any:
+        """Return value accessed by key or index."""
+        ...
+
+    """Return value accessed by key or index."""
+
     @property
-    def iloc(self) -> Any: ...
+    def iloc(self) -> Any:
+        """Index-based accessor similar to pandas `iloc` for selecting rows/columns."""
+        ...
+
+    """Index-based accessor similar to pandas `iloc` for selecting rows/columns."""
 
 
 @dataclass
@@ -92,7 +108,8 @@ class ValidationResult:
         Args:
             dim_index: 0-based dimension index (0=F1, 1=F2, etc.)
 
-        Returns:
+        Returns
+        -------
             (min, max) tuple or None if no peaks
         """
         if not self.peaks or dim_index >= self.n_dims:
@@ -138,7 +155,8 @@ class ValidationService:
             spectrum_path: Path to spectrum file.
             peaklist_path: Path to peak list file.
 
-        Returns:
+        Returns
+        -------
             ValidationResult with all validation information.
         """
         result = ValidationResult()
@@ -187,7 +205,7 @@ class ValidationService:
                 )
             )
 
-        except Exception as e:
+        except (OSError, FileNotFoundError, ValueError, ImportError, TypeError) as e:
             result.errors.append(f"Failed to read spectrum: {e}")
             result.checks.append(
                 ValidationCheck(
@@ -273,7 +291,7 @@ class ValidationService:
                 )
             )
 
-        except Exception as e:
+        except (OSError, FileNotFoundError, ValueError, ImportError, TypeError) as e:
             result.errors.append(f"Failed to read peak list: {e}")
             result.checks.append(
                 ValidationCheck(

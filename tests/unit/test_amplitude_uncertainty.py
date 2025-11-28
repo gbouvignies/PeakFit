@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
+
+import numpy as np
 
 from peakfit.core.fitting.computation import (
     calculate_amplitude_covariance,

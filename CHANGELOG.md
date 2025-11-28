@@ -8,12 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2025.12.0] - 2025-11-22
 
 ### Breaking Changes
-- **Removed Numba dependency**: PeakFit now uses pure NumPy implementations for all lineshape functions
-  - Performance impact: 2-5x slower lineshape evaluation (acceptable for most use cases)
-  - Simpler dependency stack, better compatibility, easier maintenance
-  - No action required: NumPy implementations are drop-in replacements
+
+- PeakFit uses NumPy-only implementations for all lineshape functions
+  - Performance: Implementations center on NumPy for maintainability and compatibility
 
 ### Major Refactoring
+
 - **Complete module reorganization** for improved clarity and maintainability:
   - `peakfit.core.shared/` - Project-wide constants and typing aliases
   - `peakfit.core.domain/` - Core domain models (spectra, peaks, clusters, configs)
@@ -28,15 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backend selection system removed - always uses NumPy
 
 ### Migration Guide
+
 Old imports -> New imports:
+
 - `from peakfit.shapes import Gaussian` -> `from peakfit.lineshapes import Gaussian`
 - `from peakfit.core.fitting import Parameters` -> `from peakfit.fitting import Parameters`
 - `from peakfit.clustering import Cluster` -> `from peakfit.core.domain import Cluster`
 - `from peakfit.spectra import Spectra` -> `from peakfit.core.domain import Spectra`
 - And more... (see documentation)
 
-### Removed
-- Numba JIT compilation support
+-
 - Backend selection (`--backend` option)
 - `performance` optional dependency group
 
@@ -45,29 +46,34 @@ Old imports -> New imports:
 ### Added
 
 - **Parallel Cluster Fitting**: Multi-core support for faster fitting (automatic)
+
   - Multi-core support is chosen automatically; the CLI no longer exposes a `--parallel` flag
   - Automatic CPU core detection
   - Linear scaling with number of clusters
   - Maintains refinement iterations for cross-talk correction
 
 - **Optimized Fitting Engine**: Direct scipy.optimize integration
+
   - New `peakfit.fitting` module with scipy.optimize.least_squares
   - Custom Parameters class with bounds validation
-  - Reduced overhead compared to lmfit wrapper
+  - Reduced overhead compared to wrapper-based approaches
   - FitResult class with chi-squared statistics
 
 - **Modern CLI with Typer**: Intuitive command-line interface with subcommands (`fit`, `validate`, `init`, `plot`)
+
   - `peakfit fit spectrum.ft2 peaks.list` - Clear, positional arguments
   - `peakfit init config.toml` - Generate configuration templates
   - `peakfit validate` - Input file validation
   - Rich progress bars and colored terminal output
 
 - **TOML Configuration System**: Reproducible analyses with configuration files
+
   - Full configuration validation with Pydantic models
   - Auto-generated config templates with documentation
   - Support for fitting, clustering, and output settings
 
 - **Type-Safe Data Models**: Pydantic v2 models for all configuration and data structures
+
   - `FitConfig` - Fitting parameters with validation
   - `ClusterConfig` - Clustering settings
   - `OutputConfig` - Output format configuration
@@ -75,6 +81,7 @@ Old imports -> New imports:
   - `PeakData`, `FitResult` - Structured result data
 
 - **Comprehensive Test Suite**: pytest-based testing infrastructure
+
   - Unit tests for lineshapes, models, configuration, clustering
   - Integration tests with synthetic spectrum generation
   - CLI command tests
@@ -82,6 +89,7 @@ Old imports -> New imports:
   - Test fixtures for reproducible testing
 
 - **Enhanced Project Configuration**
+
   - pytest configuration in pyproject.toml
   - Coverage reporting settings
   - Optional dependencies for development and performance
@@ -97,10 +105,12 @@ Old imports -> New imports:
 ### Changed
 
 - **CLI Interface**: From cryptic flags to intuitive commands
+
   - Old: `peakfit -s spectrum.ft2 -l peaks.list -o Fits -r 2 --pvoigt`
   - New: `peakfit fit spectrum.ft2 peaks.list --output Fits --refine 2 --lineshape pvoigt`
 
 - **Package Structure**: Modular organization
+
   - `peakfit/shared/` - Cross-cutting constants and typing helpers
   - `peakfit/domain/` - Core domain models (spectra, peaks, configs, clusters)
   - `peakfit/lineshapes/` - Lineshape functions and models
@@ -111,6 +121,7 @@ Old imports -> New imports:
   - `peakfit/cli/` - Modern Typer CLI
 
 - **Dependencies**:
+
   - Added: pydantic>=2.5.0, typer>=0.9.0, tomli-w>=1.0.0, openpyxl>=3.0.0
   - Changed: pandas dependency simplified (removed [excel] extra)
   - Python version requirement relaxed to >=3.11
@@ -127,7 +138,6 @@ Old imports -> New imports:
 ### Removed
 
 - Legacy argparse CLI (`peakfit-legacy`)
-- JAX backend support
 - Standalone `peakfit-plot` command (replaced with `peakfit plot` subcommands)
 - Compatibility shims `peakfit.models` and `peakfit.data.spectrum` (import from `peakfit.core.domain.*`)
 - Compatibility shims `peakfit.constants` and `peakfit.typing` (import from `peakfit.core.shared.*`)

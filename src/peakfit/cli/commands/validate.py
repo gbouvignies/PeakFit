@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path  # Required at runtime by Typer  # noqa: TC003
 from typing import Annotated
 
-import typer
+import typer  # Required at runtime by Typer
 
 from peakfit.ui import (
     console,

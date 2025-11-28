@@ -8,8 +8,11 @@ from __future__ import annotations
 import os
 import platform
 import sys
-from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 from rich import box
 from rich.panel import Panel
@@ -74,10 +77,7 @@ def show_run_info(start_time: datetime) -> None:
     # Simplify platform string
     platform_str = platform.platform()
     platform_parts = platform_str.split("-")
-    if len(platform_parts) > 3:
-        platform_display = "-".join(platform_parts[:3])
-    else:
-        platform_display = platform_str
+    platform_display = "-".join(platform_parts[:3]) if len(platform_parts) > 3 else platform_str
 
     # Create run information panel
     info_text = (
@@ -129,10 +129,7 @@ def show_footer(start_time: datetime, end_time: datetime) -> None:
     elapsed = end_time - start_time
     minutes, seconds = divmod(elapsed.total_seconds(), 60)
 
-    if minutes > 0:
-        time_str = f"{int(minutes)}m {seconds:.1f}s"
-    else:
-        time_str = f"{seconds:.2f}s"
+    time_str = f"{int(minutes)}m {seconds:.1f}s" if minutes > 0 else f"{seconds:.2f}s"
 
     console.print()
     console.print("━" * 70)

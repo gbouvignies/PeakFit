@@ -1,7 +1,8 @@
 """Tests for NMRPipe spectral parameters module."""
 
-import numpy as np
 import pytest
+
+import numpy as np
 
 from peakfit.core.domain.spectrum import SpectralParameters, read_spectral_parameters
 

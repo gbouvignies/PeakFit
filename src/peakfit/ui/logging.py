@@ -30,7 +30,7 @@ def setup_logging(
         verbose: If True, show all log messages in console
         level: Logging level (default: INFO)
     """
-    global _logger  # noqa: PLW0603 - necessary for module-level logger management
+    global _logger
 
     if log_file is None:
         _logger = None

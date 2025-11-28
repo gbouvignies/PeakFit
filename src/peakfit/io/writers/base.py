@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from peakfit.core.results.fit_results import FitResults
 
 
@@ -27,7 +28,8 @@ class Verbosity(str, Enum):
 class WriterConfig:
     """Configuration for output writers.
 
-    Attributes:
+    Attributes
+    ----------
         verbosity: Level of detail in outputs
         precision: Decimal precision for floating point values
         scientific_notation_threshold: Use scientific notation for values
@@ -113,7 +115,8 @@ def format_float(
         precision: Number of decimal places
         scientific_threshold: Use scientific notation if |log10(value)| > threshold
 
-    Returns:
+    Returns
+    -------
         Formatted string
     """
     import math
@@ -144,7 +147,8 @@ def format_uncertainty(
         precision: Decimal precision
         scientific_threshold: Threshold for scientific notation
 
-    Returns:
+    Returns
+    -------
         Formatted string like "1.234 ± 0.056"
     """
     val_str = format_float(value, precision, scientific_threshold)
@@ -168,7 +172,8 @@ def format_asymmetric_uncertainty(
         precision: Decimal precision
         scientific_threshold: Threshold for scientific notation
 
-    Returns:
+    Returns
+    -------
         Formatted string like "1.234 +0.056/-0.045"
     """
     val_str = format_float(value, precision, scientific_threshold)

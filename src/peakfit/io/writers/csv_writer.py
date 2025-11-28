@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import csv
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -16,6 +15,8 @@ import numpy as np
 from peakfit.io.writers.base import WriterConfig, format_float
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from peakfit.core.results.estimates import (
         AmplitudeEstimate,
         ClusterEstimates,
@@ -54,7 +55,8 @@ def _to_user_friendly_name(internal_name: str, peak_name: str) -> str:
         internal_name: Internal name like '_2N_H_F10' or '_2N_H_x0'
         peak_name: Peak name like '2N-H'
 
-    Returns:
+    Returns
+    -------
         User-friendly name like 'cs_F1' or 'cs_x' (legacy)
     """
     # Try to match parameter suffix patterns
@@ -277,7 +279,8 @@ class CSVWriter:
             param_name: Internal parameter name like '_2N_H_x0'
             peak_names: List of peak names in the cluster
 
-        Returns:
+        Returns
+        -------
             Original peak name like '2N-H'
         """
         for peak_name in peak_names:
@@ -441,7 +444,8 @@ class CSVWriter:
         Args:
             param_name: Parameter name like '_2N_H_F10' or '_2N_H_x0'
 
-        Returns:
+        Returns
+        -------
             Dimension label like 'F1' or 'x', or None if not a position param
         """
         # New Fn convention: ends with F{n}0
@@ -658,7 +662,8 @@ class CSVWriter:
         Args:
             results: FitResults object
 
-        Returns:
+        Returns
+        -------
             CSV content as string
         """
         content_lines = []

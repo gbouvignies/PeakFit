@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from peakfit.core.domain.cluster import Cluster
-from peakfit.core.domain.peaks import Peak
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.domain.peaks import Peak
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.io.state import StateRepository
@@ -16,8 +18,8 @@ def _make_state() -> FittingState:
     params = Parameters()
     params.add("amp", value=1.0)
     params["amp"].stderr = 0.1
-    clusters = cast(list[Cluster], ["cluster-a"])
-    peaks = cast(list[Peak], ["peak-a"])
+    clusters = cast("list[Cluster]", ["cluster-a"])
+    peaks = cast("list[Peak]", ["peak-a"])
     return FittingState(
         clusters=clusters,
         params=params,

@@ -7,18 +7,13 @@ including profiles, chemical shifts, simulated spectra, and HTML reports.
 from __future__ import annotations
 
 from importlib import import_module
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.core.domain.cluster import Cluster
-from peakfit.core.domain.peaks import Peak
-from peakfit.core.domain.spectrum import Spectra
 from peakfit.core.domain.state import FittingState
-from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.simulation import simulate_data
-from peakfit.core.results import FitResults, FitResultsBuilder
+from peakfit.core.results import FitResultsBuilder
 from peakfit.io.output import write_profiles, write_shifts
 from peakfit.io.state import StateRepository
 from peakfit.io.writers import ResultsWriter
@@ -26,6 +21,13 @@ from peakfit.io.writers.base import Verbosity, WriterConfig
 from peakfit.ui import console, export_html, success
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
+    from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.domain.peaks import Peak
+    from peakfit.core.domain.spectrum import Spectra
+    from peakfit.core.fitting.parameters import Parameters
+    from peakfit.core.results import FitResults
     from peakfit.services.fit.pipeline import FitArguments
 
 
@@ -57,7 +59,8 @@ def build_fit_results(
         config: Configuration dictionary for metadata
         input_files: Dictionary mapping input names to paths
 
-    Returns:
+    Returns
+    -------
         FitResults object ready for serialization
     """
     builder = FitResultsBuilder()
@@ -97,7 +100,8 @@ def write_new_format_outputs(
         verbosity: Output verbosity level ("minimal", "standard", "full")
         include_legacy: Whether to include legacy format outputs
 
-    Returns:
+    Returns
+    -------
         Dictionary mapping output type to written file paths
     """
     with console.status("[cyan]Building results...[/cyan]", spinner="dots"):
@@ -233,7 +237,8 @@ def save_fitting_state(
         noise: Noise level
         peaks: List of peaks
 
-    Returns:
+    Returns
+    -------
         Path to saved state file
     """
     with console.status("[cyan]Saving fitting state...[/cyan]", spinner="dots"):

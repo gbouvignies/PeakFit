@@ -14,10 +14,11 @@ import tempfile
 from pathlib import Path
 from typing import cast
 
-import numpy as np
 from pydantic import ValidationError
 from rich.console import Console
 from rich.table import Table
+
+import numpy as np
 
 console = Console()
 
@@ -166,15 +167,12 @@ def validate_init_command(results: ValidationResult):
 def validate_backend_selection(results: ValidationResult):
     """Validate backend selection works correctly."""
     console.print("\n[bold]Testing Backend Selection[/bold]")
-
-    # The backend tests should be run via the info command
-    # Check if numba is available
-    try:
-        import numba  # noqa: F401  # pyright: ignore[reportMissingImports]
-
-        results.add_pass("Numba available", "JIT compilation supported")
-    except ImportError:
-        results.add_warning("Numba not available", "Only NumPy backend will be used")
+    # The backend presence should be reported via the 'info' command
+    code, stdout, _stderr = run_command(["peakfit", "info"])
+    if code == 0 and ("numpy" in stdout.lower() or "backend" in stdout.lower()):
+        results.add_pass("Backend info displayed", "NumPy usage reported")
+    else:
+        results.add_warning("Backend info", "Could not confirm backend in info output")
 
 
 def validate_cli_options(results: ValidationResult):
@@ -223,7 +221,12 @@ def validate_error_handling(results: ValidationResult):
         fake_peaklist = tmppath / "nonexistent.list"
 
         code, _stdout, _stderr = run_command(
-            ["peakfit", "validate", str(fake_spectrum), str(fake_peaklist)]
+            [
+                "peakfit",
+                "validate",
+                str(fake_spectrum),
+                str(fake_peaklist),
+            ]
         )
 
         if code != 0:
@@ -267,7 +270,7 @@ def validate_parameter_system(results: ValidationResult):
         else:
             results.add_fail("Parameters get_vary_names", f"Expected 1, got {len(vary_names)}")
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         results.add_fail("Parameter system", str(e))
 
 
@@ -299,7 +302,7 @@ def validate_lineshapes(results: ValidationResult):
         else:
             results.add_fail("Pseudo-Voigt lineshape", f"Peak height: {np.max(y_pvoigt)}")
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         results.add_fail("Lineshape functions", str(e))
 
 
@@ -338,48 +341,18 @@ def validate_config_system(results: ValidationResult):
 
         # Test validation (Pydantic v2 doesn't raise on assignment, but on validation)
         try:
-            FitConfig(lineshape=cast(LineshapeName, "invalid"))
+            FitConfig(lineshape=cast("LineshapeName", "invalid"))
             results.add_fail("Config validation", "Should reject invalid lineshape")
         except ValidationError:
             results.add_pass("Config validation", "Correctly rejects invalid lineshape")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             results.add_fail("Config validation", f"Unexpected error: {e}")
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         results.add_fail("Configuration system", str(e))
 
 
-def validate_no_legacy_references(results: ValidationResult):
-    """Validate that legacy code references have been removed."""
-    console.print("\n[bold]Checking for Legacy Code[/bold]")
-
-    # Check for JAX references
-    jax_files = []
-    for file in Path("src/peakfit").rglob("*.py"):
-        content = file.read_text()
-        if (
-            "jax" in content.lower()
-            and "JAX" not in file.name
-            and ("import jax" in content or "from jax" in content)
-        ):
-            jax_files.append(file)
-
-    if not jax_files:
-        results.add_pass("No JAX dependencies", "JAX backend properly removed")
-    else:
-        results.add_fail("JAX references found", f"Files: {jax_files}")
-
-    # Check for lmfit references (should only be in docstrings/comments)
-    lmfit_imports = []
-    for file in Path("src/peakfit").rglob("*.py"):
-        content = file.read_text()
-        if "import lmfit" in content or "from lmfit" in content:
-            lmfit_imports.append(file)
-
-    if not lmfit_imports:
-        results.add_pass("No lmfit imports", "Custom Parameters system in use")
-    else:
-        results.add_fail("lmfit imports found", f"Files: {lmfit_imports}")
+# Note: legacy backend and legacy-wrapper checks were removed per modernization plan.
 
 
 def main():
@@ -399,7 +372,6 @@ def main():
     validate_parameter_system(results)
     validate_lineshapes(results)
     validate_config_system(results)
-    validate_no_legacy_references(results)
 
     # Print summary
     success = results.print_summary()

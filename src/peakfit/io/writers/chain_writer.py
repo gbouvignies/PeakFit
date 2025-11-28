@@ -7,8 +7,10 @@ compact, efficient format that can be loaded for post-hoc analysis.
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import numpy as np
 
@@ -43,7 +45,8 @@ class ChainWriter:
             results: FitResults containing MCMC data
             output_dir: Base output directory (chains will go in chains/ subdir)
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping cluster IDs to written file paths
         """
         chains_dir = output_dir / "chains"
@@ -84,7 +87,8 @@ class ChainWriter:
             cluster_id: Cluster identifier
             output_dir: Output directory for chain files
 
-        Returns:
+        Returns
+        -------
             Dictionary of written file paths
         """
         chains_dir = output_dir / "chains"
@@ -171,7 +175,8 @@ class ChainWriter:
             uncertainty_result: UncertaintyResult object
             cluster_id: Cluster identifier
 
-        Returns:
+        Returns
+        -------
             Metadata dictionary
         """
         metadata: dict = {
@@ -221,10 +226,12 @@ def load_chains(chains_dir: Path, cluster_id: int) -> dict:
         chains_dir: Directory containing chain files
         cluster_id: Cluster identifier
 
-    Returns:
+    Returns
+    -------
         Dictionary with 'chains' or 'samples' array and 'parameter_names'
 
-    Raises:
+    Raises
+    ------
         FileNotFoundError: If chain files don't exist
     """
     # Try full chains first
@@ -258,10 +265,12 @@ def load_chain_metadata(chains_dir: Path, cluster_id: int) -> dict:
         chains_dir: Directory containing chain files
         cluster_id: Cluster identifier
 
-    Returns:
+    Returns
+    -------
         Metadata dictionary
 
-    Raises:
+    Raises
+    ------
         FileNotFoundError: If metadata file doesn't exist
     """
     metadata_path = chains_dir / f"cluster_{cluster_id}_metadata.json"
@@ -270,7 +279,7 @@ def load_chain_metadata(chains_dir: Path, cluster_id: int) -> dict:
         raise FileNotFoundError(msg)
 
     with metadata_path.open() as f:
-        return json.load(f)
+        return cast("dict[str, Any]", json.load(f))
 
 
 __all__ = [

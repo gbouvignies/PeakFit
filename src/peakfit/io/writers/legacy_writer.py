@@ -8,14 +8,15 @@ All legacy output is written to the legacy/ subdirectory.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-import numpy as np
 
 from peakfit.io.writers.base import WriterConfig, format_float
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
+    import numpy as np
+
     from peakfit.core.results.estimates import ClusterEstimates
     from peakfit.core.results.fit_results import FitResults
 
@@ -206,7 +207,7 @@ class LegacyWriter:
 
 
 def write_legacy_output(results: FitResults, output_dir: Path) -> None:
-    """Convenience function to write all legacy output.
+    """Write all legacy output files.
 
     Args:
         results: FitResults object

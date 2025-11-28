@@ -1,7 +1,8 @@
 """Test Parameter and Parameters classes."""
 
-import numpy as np
 import pytest
+
+import numpy as np
 
 
 class TestParameter:

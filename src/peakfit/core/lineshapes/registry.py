@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
     from peakfit.core.domain.spectrum import SpectralParameters
     from peakfit.core.fitting.parameters import Parameters
-from peakfit.core.shared.typing import FloatArray, IntArray
+    from peakfit.core.shared.typing import FloatArray, IntArray
 
 
 class Shape(Protocol):
@@ -21,15 +22,35 @@ class Shape(Protocol):
     size: int
     spec_params: SpectralParameters
 
-    def create_params(self) -> Parameters: ...
-    def fix_params(self, params: Parameters) -> None: ...
-    def release_params(self, params: Parameters) -> None: ...
-    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray: ...
-    def print(self, params: Parameters) -> str: ...
+    def create_params(self) -> Parameters:
+        """Create a Parameters collection for the shape."""
+        ...
+
+    def fix_params(self, params: Parameters) -> None:
+        """Fix/lock parameters in a Parameters collection."""
+        ...
+
+    def release_params(self, params: Parameters) -> None:
+        """Release/unlock parameters in a Parameters collection."""
+        ...
+
+    def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
+        """Evaluate the shape at given grid point indices and params."""
+        ...
+
+    def print(self, params: Parameters) -> str:
+        """Format shape parameters to a textual representation."""
+        ...
+
     @property
-    def center_i(self) -> int: ...
+    def center_i(self) -> int:
+        """Return the center point index (in integer points) for the shape."""
+        ...
+
     @property
-    def prefix(self) -> str: ...
+    def prefix(self) -> str:
+        """Return the parameter name prefix for this shape (used in params keys)."""
+        ...
 
 
 # Global shape registry
@@ -39,13 +60,14 @@ SHAPES: dict[str, Callable[..., Shape]] = {}
 def register_shape(
     shape_names: str | Iterable[str],
 ) -> Callable[[type[Shape]], type[Shape]]:
-    """Decorator to register a shape class.
+    """Register a shape class.
 
     Args:
         shape_names: Single name or iterable of names to register the shape under
 
-    Returns:
-        Decorator function that registers the shape class
+    Returns
+    -------
+        Decorator that registers the shape class
 
     Example:
         @register_shape("gaussian")
@@ -73,10 +95,12 @@ def get_shape(name: str) -> Callable[..., Shape]:
     Args:
         name: Name of the shape to retrieve
 
-    Returns:
+    Returns
+    -------
         Shape class
 
-    Raises:
+    Raises
+    ------
         KeyError: If shape name not found in registry
     """
     return SHAPES[name]
@@ -85,7 +109,8 @@ def get_shape(name: str) -> Callable[..., Shape]:
 def list_shapes() -> list[str]:
     """List all registered shape names.
 
-    Returns:
+    Returns
+    -------
         List of registered shape names
     """
     return list(SHAPES.keys())

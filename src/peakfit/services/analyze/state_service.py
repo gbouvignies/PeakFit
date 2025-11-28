@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from peakfit.core.domain.state import FittingState
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from peakfit.core.domain.state import FittingState
 from peakfit.io.state import StateRepository
 
 

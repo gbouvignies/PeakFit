@@ -12,17 +12,22 @@ All functions are designed to be:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.core.shared.typing import FloatArray
+from peakfit.core.diagnostics.convergence import compute_ess, compute_rhat
+
+if TYPE_CHECKING:
+    from peakfit.core.shared.typing import FloatArray
 
 
 @dataclass(frozen=True)
 class TraceMetrics:
     """Computed metrics for a single parameter's trace.
 
-    Attributes:
+    Attributes
+    ----------
         mean: Mean value of samples
         std: Standard deviation of samples
         median: Median value of samples
@@ -67,7 +72,8 @@ class TraceMetrics:
 class AutocorrelationResult:
     """Autocorrelation analysis results.
 
-    Attributes:
+    Attributes
+    ----------
         lags: Array of lag values (0 to max_lag)
         autocorr: Autocorrelation values at each lag
         integrated_autocorr_time: Estimated integrated autocorrelation time
@@ -84,7 +90,8 @@ class AutocorrelationResult:
 class CorrelationPair:
     """A pair of correlated parameters.
 
-    Attributes:
+    Attributes
+    ----------
         index_i: Index of first parameter
         index_j: Index of second parameter
         correlation: Pearson correlation coefficient
@@ -110,7 +117,8 @@ def compute_trace_metrics(
         chains: Array of shape (n_chains, n_samples, n_params)
         param_index: Index of parameter to analyze
 
-    Returns:
+    Returns
+    -------
         TraceMetrics with computed statistics
     """
     # Extract parameter samples from all chains
@@ -155,7 +163,8 @@ def compute_all_trace_metrics(
         chains: Array of shape (n_chains, n_samples, n_params)
         parameter_names: Optional list of parameter names (for future use)
 
-    Returns:
+    Returns
+    -------
         List of TraceMetrics, one per parameter
     """
     n_params = chains.shape[2]
@@ -176,7 +185,8 @@ def compute_autocorrelation(
         max_lag: Maximum lag to compute (default: len(chain) // 2)
         threshold: Threshold for determining effective decorrelation lag
 
-    Returns:
+    Returns
+    -------
         AutocorrelationResult with lags and autocorrelation values
     """
     n = len(chain)
@@ -209,17 +219,15 @@ def compute_autocorrelation(
     # Integrated autocorrelation time
     # Sum until autocorrelation goes negative or below threshold
     cumsum = np.cumsum(autocorr)
-    first_negative = np.argmax(autocorr < 0)
+    first_negative = int(np.argmax(autocorr < 0))
     if first_negative == 0:
-        first_negative = max_lag + 1
-    iat = 1 + 2 * cumsum[min(first_negative - 1, max_lag)]
+        first_negative = int(max_lag) + 1
+    index = min(first_negative - 1, int(max_lag))
+    iat = 1 + 2 * float(cumsum[index])
 
     # Find effective decorrelation lag (where autocorr drops below threshold)
     below_threshold = np.where(np.abs(autocorr) < threshold)[0]
-    if len(below_threshold) > 1:
-        effective_lag = int(below_threshold[1])  # Skip lag 0
-    else:
-        effective_lag = max_lag
+    effective_lag = int(below_threshold[1]) if len(below_threshold) > 1 else max_lag
 
     return AutocorrelationResult(
         lags=lags.astype(np.float64),
@@ -235,7 +243,8 @@ def compute_correlation_matrix(samples: FloatArray) -> FloatArray:
     Args:
         samples: Array of shape (n_samples, n_params)
 
-    Returns:
+    Returns
+    -------
         Correlation matrix of shape (n_params, n_params)
     """
     return np.corrcoef(samples.T)
@@ -251,7 +260,8 @@ def find_correlated_pairs(
         samples: Array of shape (n_samples, n_params)
         min_correlation: Minimum |correlation| to report
 
-    Returns:
+    Returns
+    -------
         List of CorrelationPair, sorted by |correlation| (strongest first)
     """
     n_params = samples.shape[1]
@@ -283,7 +293,8 @@ def compute_posterior_statistics(
     Args:
         samples: Array of shape (n_samples, n_params)
 
-    Returns:
+    Returns
+    -------
         Dictionary with arrays for each statistic:
         - medians: Median for each parameter
         - ci_16, ci_84: 68% credible interval bounds
@@ -298,8 +309,7 @@ def compute_posterior_statistics(
     }
 
 
-# Use the canonical implementation from convergence.py
-from peakfit.core.diagnostics.convergence import compute_ess, compute_rhat
+# compute_ess and compute_rhat imported at top
 
 
 def _compute_ess(chains: FloatArray) -> float:
@@ -310,7 +320,8 @@ def _compute_ess(chains: FloatArray) -> float:
     Args:
         chains: Array of shape (n_chains, n_samples)
 
-    Returns:
+    Returns
+    -------
         Effective sample size estimate
     """
     return compute_ess(chains, method="bulk")
@@ -324,7 +335,8 @@ def _compute_rhat(chains: FloatArray) -> float:
     Args:
         chains: Array of shape (n_chains, n_samples)
 
-    Returns:
+    Returns
+    -------
         R-hat value (should be <= 1.01 for convergence)
     """
     return compute_rhat(chains)

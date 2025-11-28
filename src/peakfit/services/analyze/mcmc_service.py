@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from peakfit.core.domain.cluster import Cluster
-from peakfit.core.domain.peaks import Peak, create_params
-from peakfit.core.domain.state import FittingState
-from peakfit.core.fitting.advanced import UncertaintyResult, estimate_uncertainties_mcmc
-from peakfit.core.fitting.parameters import Parameters
+from peakfit.core.domain.peaks import create_params
+from peakfit.core.fitting.advanced import estimate_uncertainties_mcmc
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.domain.peaks import Peak
+    from peakfit.core.domain.state import FittingState
+    from peakfit.core.fitting.advanced import UncertaintyResult
+    from peakfit.core.fitting.parameters import Parameters
 
 
 @dataclass(slots=True, frozen=True)

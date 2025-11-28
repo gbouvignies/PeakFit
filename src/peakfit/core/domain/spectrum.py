@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from functools import cached_property
-from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 from nmrglue.fileio.pipe import guess_udic, read
 from numpy.typing import NDArray
 
-from peakfit.core.shared.typing import FittingOptions, FloatArray
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from pathlib import Path
+
+    from peakfit.core.shared.typing import FittingOptions, FloatArray
 
 ArrayInt = NDArray[np.int_]
-T = TypeVar("T", float, FloatArray)
+T = TypeVar("T", float, NDArray[Any])
 
 P1_MIN = 175.0
 P1_MAX = 185.0
@@ -31,7 +33,7 @@ NUCLEUS_LABELS: dict[str, str] = {
 }
 
 
-def get_dimension_label(n_spectral_dims: int, dim_index: int) -> str:
+def get_dimension_label(_n_spectral_dims: int, dim_index: int) -> str:
     """Get the NMRPipe-style dimension label (F1, F2, F3, F4).
 
     NMRPipe convention:
@@ -46,7 +48,8 @@ def get_dimension_label(n_spectral_dims: int, dim_index: int) -> str:
         n_spectral_dims: Total number of spectral dimensions (excluding pseudo)
         dim_index: 0-based index of the dimension (0 = first spectral dim)
 
-    Returns:
+    Returns
+    -------
         Dimension label like "F1", "F2", "F3", "F4"
     """
     # dim_index 0 corresponds to F1, dim_index 1 to F2, etc.
@@ -96,34 +99,44 @@ class SpectralParameters:
     first: float = field(init=False)
 
     def __post_init__(self) -> None:
+        """Compute derived conversion parameters (delta and first sample)."""
         self.delta = -self.sw / (self.size * self.obs) if self.size * self.obs != 0.0 else 0.0
         self.first = self.car / self.obs - self.delta * self.size / 2.0 if self.obs != 0.0 else 0.0
 
     def hz2pts_delta(self, hz: T) -> T:
+        """Convert a frequency difference in Hz into point units using delta scaling."""
         return hz / (self.obs * self.delta)
 
     def pts2hz_delta(self, pts: T) -> T:
+        """Convert a point delta count back to Hz using delta scaling."""
         return pts * self.obs * self.delta
 
     def hz2pts(self, hz: T) -> T:
+        """Convert a frequency in Hz to fractional point coordinate."""
         return ((hz / self.obs) - self.first) / self.delta
 
     def hz2pt_i(self, hz: float) -> int:
+        """Convert a frequency in Hz to the nearest integer point index within the dimension."""
         return round(self.hz2pts(hz)) % self.size
 
     def pts2hz(self, pts: T) -> T:
+        """Convert a fractional point coordinate back to frequency (Hz)."""
         return (pts * self.delta + self.first) * self.obs
 
     def ppm2pts(self, ppm: T) -> T:
+        """Convert a ppm value to fractional point coordinate using first/delta."""
         return (ppm - self.first) / self.delta
 
     def ppm2pt_i(self, ppm: float) -> int:
+        """Convert a ppm value into an integer point index (wrapped by dimension size)."""
         return round(self.ppm2pts(ppm)) % self.size
 
     def pts2ppm(self, pts: T) -> T:
+        """Convert fractional point coordinate to ppm using delta/first scaling."""
         return (pts * self.delta) + self.first
 
     def hz2ppm(self, hz: T) -> T:
+        """Convert frequency (Hz) to ppm using observation frequency (MHz)."""
         return hz / self.obs
 
 
@@ -137,7 +150,8 @@ def read_spectral_parameters(
         data: Spectrum data array
         has_pseudo_dim: If True, first dimension is pseudo (not a spectral dim)
 
-    Returns:
+    Returns
+    -------
         List of SpectralParameters, one per dimension
     """
     spec_params: list[SpectralParameters] = []
@@ -217,6 +231,11 @@ class Spectra:
     pseudo_dim_added: bool = False
 
     def __post_init__(self) -> None:
+        """Post-initialization: detect pseudo-dim and ensure `z_values` are set.
+
+        Uses `nmrglue.fileio.pipe.guess_udic` to inspect the header and
+        sets `pseudo_dim_added` if a pseudo dimension was added.
+        """
         udic = guess_udic(self.dic, self.data)
         no_pseudo_dim = udic[0]["freq"]
         if no_pseudo_dim:
@@ -268,10 +287,12 @@ class Spectra:
         Args:
             identifier: Either a label ("F1", "F2") or 0-based index
 
-        Returns:
+        Returns
+        -------
             DimensionInfo for the requested dimension
 
-        Raises:
+        Raises
+        ------
             KeyError: If dimension not found
         """
         if isinstance(identifier, int):
@@ -291,6 +312,11 @@ class Spectra:
         return [dim.label for dim in self.dimensions]
 
     def exclude_planes(self, exclude_list: Sequence[int] | None) -> None:
+        """Remove the planes (first axis) listed in `exclude_list` from the data.
+
+        Args:
+            exclude_list: Sequence of integer plane indices to exclude (first axis).
+        """
         if exclude_list is None:
             return
         mask = ~np.isin(range(self.data.shape[0]), exclude_list)
@@ -302,6 +328,11 @@ def read_spectra(
     path_z_values: Path | None = None,
     exclude_list: Sequence[int] | None = None,
 ) -> Spectra:
+    """Read an NMRPipe spectrum and optional plane/z-values file.
+
+    Returns a `Spectra` object containing the header dictionary and data, and
+    optionally a set of z-values loaded from `path_z_values`.
+    """
     dic, data = read(path_spectra)
     data = data.astype(np.float32)
 
@@ -317,6 +348,11 @@ def read_spectra(
 
 
 def determine_shape_name(dim_params: SpectralParameters) -> str:
+    """Infer default shape name for a dimension from apodization parameters.
+
+    - Returns `sp1` or `sp2` for apocode=1 with q=1 or 2 respectively, `no_apod`
+      for apocode 0 or 2, and `pvoigt` otherwise.
+    """
     if dim_params.apocode == 1.0:
         if dim_params.apodq3 == 1.0:
             return "sp1"
@@ -328,6 +364,12 @@ def determine_shape_name(dim_params: SpectralParameters) -> str:
 
 
 def get_shape_names(clargs: FittingOptions, spectra: Spectra) -> list[str]:
+    """Return a list of shape names per spectral dimension based on CLI options.
+
+    If `pvoigt`, `lorentzian` or `gaussian` are specified, that shape is used
+    for all spectral dimensions. Otherwise, the default shape is computed from
+    header params per-dimension.
+    """
     match (clargs.pvoigt, clargs.lorentzian, clargs.gaussian):
         case (True, _, _):
             shape = "pvoigt"

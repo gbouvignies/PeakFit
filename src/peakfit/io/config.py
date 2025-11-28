@@ -15,10 +15,12 @@ def load_config(path: Path) -> PeakFitConfig:
     Args:
         path: Path to the TOML configuration file.
 
-    Returns:
+    Returns
+    -------
         PeakFitConfig: Validated configuration object.
 
-    Raises:
+    Raises
+    ------
         FileNotFoundError: If the file doesn't exist.
         ValueError: If the configuration is invalid.
     """
@@ -64,7 +66,8 @@ def save_config(config: PeakFitConfig, path: Path) -> None:
 def generate_default_config() -> str:
     """Generate a default configuration file as a string.
 
-    Returns:
+    Returns
+    -------
         str: TOML-formatted default configuration.
     """
     return """# PeakFit Configuration File

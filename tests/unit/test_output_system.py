@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-import numpy as np
+if TYPE_CHECKING:
+    from pathlib import Path
+
 import pytest
+
+import numpy as np
 
 from peakfit.core.results import (
     AmplitudeEstimate,
@@ -25,9 +28,6 @@ from peakfit.core.results.estimates import ParameterCategory
 from peakfit.core.results.fit_results import RunMetadata
 from peakfit.io.writers import ResultsWriter
 from peakfit.io.writers.base import Verbosity
-
-if TYPE_CHECKING:
-    pass
 
 
 class TestParameterEstimate:

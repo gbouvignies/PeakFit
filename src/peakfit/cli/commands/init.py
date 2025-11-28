@@ -41,7 +41,8 @@ def init_command(
     Creates a TOML configuration file with default settings that can be customized.
     All parameters are documented with inline comments explaining their purpose.
 
-    Examples:
+    Examples
+    --------
       Create default config:
         $ peakfit init
 

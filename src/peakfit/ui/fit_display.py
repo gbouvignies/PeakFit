@@ -6,18 +6,17 @@ fitting results, cluster information, and data summaries.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 from .console import console
 from .tables import create_table
-
-if TYPE_CHECKING:
-    pass
 
 __all__ = [
     "create_cluster_status",
@@ -53,7 +52,8 @@ def create_cluster_status(
         status: Status message ("fitting", "optimizing", "done")
         result: Optional optimization result to display
 
-    Returns:
+    Returns
+    -------
         Panel object that can be rendered
     """
     peaks_str = ", ".join(peak_names)

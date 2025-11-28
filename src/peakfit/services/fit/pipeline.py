@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from peakfit.core.algorithms.clustering import create_clusters
 from peakfit.core.algorithms.noise import prepare_noise_level
-from peakfit.core.domain.config import PeakFitConfig
 from peakfit.core.domain.peaks_io import read_list
-from peakfit.core.domain.spectrum import Spectra, get_shape_names, read_spectra
+from peakfit.core.domain.spectrum import get_shape_names, read_spectra
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.strategies import STRATEGIES
 from peakfit.core.shared.constants import (
@@ -18,7 +18,7 @@ from peakfit.core.shared.constants import (
     LEAST_SQUARES_MAX_NFEV,
     LEAST_SQUARES_XTOL,
 )
-from peakfit.core.shared.events import Event, EventDispatcher, EventType
+from peakfit.core.shared.events import Event, EventType
 from peakfit.io.output import write_profiles, write_shifts
 from peakfit.io.state import StateRepository
 from peakfit.services.fit.fitting import fit_all_clusters
@@ -42,6 +42,11 @@ from peakfit.ui import (
     success,
     warning,
 )
+
+if TYPE_CHECKING:
+    from peakfit.core.domain.config import PeakFitConfig
+    from peakfit.core.domain.spectrum import Spectra
+    from peakfit.core.shared.events import EventDispatcher
 
 
 @dataclass
@@ -106,6 +111,14 @@ class FitPipeline:
         verbose: bool = False,
         dispatcher: EventDispatcher | None = None,
     ) -> None:
+        """Run the complete fitting pipeline using provided inputs and config.
+
+        Args:
+            spectrum_path: Path to the spectrum file
+            peaklist_path: Path to the peak list file
+            z_values_path: Optional path to z-values
+            config: PeakFitConfig instance
+        """
         FitPipeline._run_fit(
             spectrum_path,
             peaklist_path,
@@ -421,7 +434,6 @@ class FitPipeline:
 
 def _dispatch_event(dispatcher: EventDispatcher | None, event: Event) -> None:
     """Safely dispatch an event when a dispatcher is provided."""
-
     if dispatcher is None:
         return
 

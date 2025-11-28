@@ -29,7 +29,8 @@ def create_panel(
         title: Optional panel title
         style: Border style (info, success, warning, error)
 
-    Returns:
+    Returns
+    -------
         Configured Panel instance
     """
     return Panel(

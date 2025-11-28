@@ -8,26 +8,28 @@ All functions return matplotlib Figure objects for flexible usage.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.figure import Figure
 
-from peakfit.core.diagnostics.convergence import ConvergenceDiagnostics
 from peakfit.core.diagnostics.metrics import (
-    AutocorrelationResult,
-    TraceMetrics,
     compute_all_trace_metrics,
     compute_autocorrelation,
     compute_posterior_statistics,
 )
-from peakfit.core.shared.typing import FloatArray
+
+# FloatArray used only for type annotations
 
 if TYPE_CHECKING:
-    pass
+    from pathlib import Path
+
+    from matplotlib.figure import Figure
+
+    from peakfit.core.diagnostics.convergence import ConvergenceDiagnostics
+    from peakfit.core.diagnostics.metrics import AutocorrelationResult, TraceMetrics
+    from peakfit.core.shared.typing import FloatArray
 
 
 def plot_trace(
@@ -54,7 +56,8 @@ def plot_trace(
         diagnostics: Optional ConvergenceDiagnostics for R-hat values
         max_params: Maximum number of parameters to plot
 
-    Returns:
+    Returns
+    -------
         Matplotlib Figure object
     """
     n_chains, n_samples, n_params = chains.shape
@@ -192,7 +195,8 @@ def plot_marginal_distributions(
         diagnostics: Optional convergence diagnostics
         max_params_per_page: Maximum parameters per page
 
-    Returns:
+    Returns
+    -------
         List of matplotlib Figure objects (one per page)
     """
     n_total_samples, n_params = samples.shape
@@ -313,7 +317,8 @@ def plot_correlation_pairs(
         min_correlation: Minimum |correlation| to plot
         max_pairs_per_page: Maximum pairs per page
 
-    Returns:
+    Returns
+    -------
         List of matplotlib Figure objects (one per page), empty if no strong correlations
     """
     n_total_samples, n_params = samples.shape
@@ -428,7 +433,8 @@ def plot_autocorrelation(
         max_lag: Maximum lag to compute
         max_params: Maximum number of parameters to plot
 
-    Returns:
+    Returns
+    -------
         Matplotlib Figure object
     """
     n_chains, n_samples, n_params = chains.shape
@@ -545,7 +551,8 @@ def plot_corner(
         truths: Optional array of best-fit values
         max_params: Maximum number of parameters
 
-    Returns:
+    Returns
+    -------
         Matplotlib Figure object
     """
     n_total_samples, n_params = samples.shape
@@ -697,7 +704,8 @@ def plot_posterior_summary(
         parameter_names: List of parameter names
         max_params: Maximum number of parameters to display
 
-    Returns:
+    Returns
+    -------
         Matplotlib Figure object
     """
     n_total_samples, n_params = samples.shape
