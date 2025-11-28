@@ -103,7 +103,7 @@ def validate_cli_help_commands(results: ValidationResult):
     for cmd, name in commands:
         code, _stdout, stderr = run_command(cmd)
         if code == 0:
-            results.add_pass(name, f"Command: {" ".join(cmd)}")
+            results.add_pass(name, f"Command: {' '.join(cmd)}")
         else:
             results.add_fail(name, f"Exit code: {code}, stderr: {stderr}")
 
@@ -167,15 +167,12 @@ def validate_init_command(results: ValidationResult):
 def validate_backend_selection(results: ValidationResult):
     """Validate backend selection works correctly."""
     console.print("\n[bold]Testing Backend Selection[/bold]")
-
-    # The backend tests should be run via the info command
-    # Check if numba is available
-    try:
-        import numba  # noqa: F401  # pyright: ignore[reportMissingImports]
-
-        results.add_pass("Numba available", "JIT compilation supported")
-    except ImportError:
-        results.add_warning("Numba not available", "Only NumPy backend will be used")
+    # The backend presence should be reported via the 'info' command
+    code, stdout, _stderr = run_command(["peakfit", "info"])
+    if code == 0 and ("numpy" in stdout.lower() or "backend" in stdout.lower()):
+        results.add_pass("Backend info displayed", "NumPy usage reported")
+    else:
+        results.add_warning("Backend info", "Could not confirm backend in info output")
 
 
 def validate_cli_options(results: ValidationResult):
@@ -223,12 +220,14 @@ def validate_error_handling(results: ValidationResult):
         fake_spectrum = tmppath / "nonexistent.ft2"
         fake_peaklist = tmppath / "nonexistent.list"
 
-        code, _stdout, _stderr = run_command([
-            "peakfit",
-            "validate",
-            str(fake_spectrum),
-            str(fake_peaklist),
-        ])
+        code, _stdout, _stderr = run_command(
+            [
+                "peakfit",
+                "validate",
+                str(fake_spectrum),
+                str(fake_peaklist),
+            ]
+        )
 
         if code != 0:
             results.add_pass("Validate rejects missing files", "Correctly fails with missing files")
@@ -271,7 +270,7 @@ def validate_parameter_system(results: ValidationResult):
         else:
             results.add_fail("Parameters get_vary_names", f"Expected 1, got {len(vary_names)}")
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         results.add_fail("Parameter system", str(e))
 
 
@@ -303,7 +302,7 @@ def validate_lineshapes(results: ValidationResult):
         else:
             results.add_fail("Pseudo-Voigt lineshape", f"Peak height: {np.max(y_pvoigt)}")
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         results.add_fail("Lineshape functions", str(e))
 
 
@@ -342,14 +341,14 @@ def validate_config_system(results: ValidationResult):
 
         # Test validation (Pydantic v2 doesn't raise on assignment, but on validation)
         try:
-            FitConfig(lineshape=cast(LineshapeName, "invalid"))
+            FitConfig(lineshape=cast("LineshapeName", "invalid"))
             results.add_fail("Config validation", "Should reject invalid lineshape")
         except ValidationError:
             results.add_pass("Config validation", "Correctly rejects invalid lineshape")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             results.add_fail("Config validation", f"Unexpected error: {e}")
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         results.add_fail("Configuration system", str(e))
 
 
@@ -357,21 +356,19 @@ def validate_no_legacy_references(results: ValidationResult):
     """Validate that legacy code references have been removed."""
     console.print("\n[bold]Checking for Legacy Code[/bold]")
 
-    # Check for JAX references
-    jax_files = []
+    # Check for legacy backend references (e.g. experimental or optional backends)
+    legacy_backend_files = []
     for file in Path("src/peakfit").rglob("*.py"):
         content = file.read_text()
-        if (
-            "jax" in content.lower()
-            and "JAX" not in file.name
-            and ("import jax" in content or "from jax" in content)
-        ):
-            jax_files.append(file)
+        if "jax" in content.lower() and ("import jax" in content or "from jax" in content):
+            legacy_backend_files.append(file)
 
-    if not jax_files:
-        results.add_pass("No JAX dependencies", "JAX backend properly removed")
+    if not legacy_backend_files:
+        results.add_pass(
+            "No legacy backend dependencies", "No legacy backend references found in source files"
+        )
     else:
-        results.add_fail("JAX references found", f"Files: {jax_files}")
+        results.add_fail("Legacy backend references found", f"Files: {legacy_backend_files}")
 
     # Check for lmfit references (should only be in docstrings/comments)
     lmfit_imports = []

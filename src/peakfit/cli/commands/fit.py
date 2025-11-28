@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, cast, get_args
+import pathlib  # Required at runtime by Typer
+from typing import Annotated, cast, get_args
 
 import typer
 
+import peakfit.core.domain.config as domain_config  # Required at runtime by Typer  # noqa: TC001
 from peakfit.core.domain.config import (
     ClusterConfig,
     FitConfig,
@@ -14,9 +15,6 @@ from peakfit.core.domain.config import (
     OutputFormat,
     PeakFitConfig,
 )
-
-if TYPE_CHECKING:
-    from peakfit.core.domain.config import LineshapeName, OutputVerbosity
 from peakfit.io.config import load_config
 
 # Valid output formats for CLI validation
@@ -25,7 +23,7 @@ VALID_OUTPUT_FORMATS = get_args(OutputFormat)  # ("csv", "json", "txt")
 
 def fit_command(
     spectrum: Annotated[
-        Path,
+        pathlib.Path,
         typer.Argument(
             help="Path to NMRPipe spectrum file (.ft2, .ft3)",
             exists=True,
@@ -34,7 +32,7 @@ def fit_command(
         ),
     ],
     peaklist: Annotated[
-        Path,
+        pathlib.Path,
         typer.Argument(
             help="Path to peak list file (.list, .csv, .json, .xlsx)",
             exists=True,
@@ -43,7 +41,7 @@ def fit_command(
         ),
     ],
     z_values: Annotated[
-        Path | None,
+        pathlib.Path | None,
         typer.Option(
             "--z-values",
             "-z",
@@ -54,7 +52,7 @@ def fit_command(
         ),
     ] = None,
     output: Annotated[
-        Path,
+        pathlib.Path | None,
         typer.Option(
             "--output",
             "-o",
@@ -62,9 +60,9 @@ def fit_command(
             file_okay=False,
             resolve_path=True,
         ),
-    ] = Path("Fits"),
+    ] = None,
     config: Annotated[
-        Path | None,
+        pathlib.Path | None,
         typer.Option(
             "--config",
             "-c",
@@ -75,7 +73,7 @@ def fit_command(
         ),
     ] = None,
     lineshape: Annotated[
-        LineshapeName,
+        domain_config.LineshapeName,
         typer.Option(
             "--lineshape",
             "-l",
@@ -176,7 +174,7 @@ def fit_command(
         ),
     ] = None,
     output_verbosity: Annotated[
-        OutputVerbosity,
+        domain_config.OutputVerbosity,
         typer.Option(
             "--output-verbosity",
             help="Output verbosity level: minimal (essential), standard (default), full (all)",
@@ -208,14 +206,19 @@ def fit_command(
     if formats:
         invalid_formats = [f for f in formats if f not in VALID_OUTPUT_FORMATS]
         if invalid_formats:
-            msg = f"Invalid format(s): {", ".join(invalid_formats)}. Valid formats: {", ".join(VALID_OUTPUT_FORMATS)}"
+            msg = f"Invalid format(s): {', '.join(invalid_formats)}. Valid formats: {', '.join(VALID_OUTPUT_FORMATS)}"
             raise typer.BadParameter(msg)
         output_formats = cast("list[OutputFormat]", formats)  # Type-safe after validation
     else:
         # Default formats: generate all outputs (JSON, CSV, and legacy txt)
-        output_formats = ["json", "csv", "txt"]
+        # Ensure proper typing for mypy: cast to list[OutputFormat]
+        output_formats = cast("list[OutputFormat]", ["json", "csv", "txt"])
 
     # Load config from file or create from CLI options
+    # Ensure default output directory is set if not provided
+    if output is None:
+        output = pathlib.Path("Fits")
+
     if config is not None:
         fit_config = load_config(config)
         # Override with CLI options where explicitly set

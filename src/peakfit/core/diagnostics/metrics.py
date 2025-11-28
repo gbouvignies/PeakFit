@@ -227,10 +227,7 @@ def compute_autocorrelation(
 
     # Find effective decorrelation lag (where autocorr drops below threshold)
     below_threshold = np.where(np.abs(autocorr) < threshold)[0]
-    if len(below_threshold) > 1:
-        effective_lag = int(below_threshold[1])  # Skip lag 0
-    else:
-        effective_lag = max_lag
+    effective_lag = int(below_threshold[1]) if len(below_threshold) > 1 else max_lag
 
     return AutocorrelationResult(
         lags=lags.astype(np.float64),

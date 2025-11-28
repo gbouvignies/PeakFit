@@ -10,23 +10,25 @@ from rich.theme import Theme
 from peakfit import __version__
 
 # Define custom theme for consistent colors
-PEAKFIT_THEME = Theme({
-    # Status colors
-    "success": "bold green",
-    "warning": "bold yellow",
-    "error": "bold red",
-    "info": "cyan",
-    # UI elements
-    "header": "bold cyan",
-    "subheader": "bold white",
-    "emphasis": "bold",
-    "dim": "dim",
-    "code": "bold magenta",
-    # Values
-    "value": "green",
-    "metric": "cyan",
-    "path": "blue underline",
-})
+PEAKFIT_THEME = Theme(
+    {
+        # Status colors
+        "success": "bold green",
+        "warning": "bold yellow",
+        "error": "bold red",
+        "info": "cyan",
+        # UI elements
+        "header": "bold cyan",
+        "subheader": "bold white",
+        "emphasis": "bold",
+        "dim": "dim",
+        "code": "bold magenta",
+        # Values
+        "value": "green",
+        "metric": "cyan",
+        "path": "blue underline",
+    }
+)
 
 # Single console instance for entire application
 console = Console(theme=PEAKFIT_THEME, record=True)

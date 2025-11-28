@@ -147,10 +147,7 @@ def compute_rhat(chains: FloatArray) -> float:
     var_plus = ((n_split_samples - 1) / n_split_samples) * w + (1 / n_split_samples) * b
 
     # R-hat
-    if w > 0:
-        rhat = np.sqrt(var_plus / w)
-    else:
-        rhat = np.nan
+    rhat = np.sqrt(var_plus / w) if w > 0 else np.nan
 
     return float(rhat)
 
@@ -306,7 +303,7 @@ def format_diagnostics_table(diagnostics: ConvergenceDiagnostics) -> str:
     lines.append(f"  • ESS_bulk ≥ {10 * diagnostics.n_chains:.0f} (minimum for rough estimates)")
     lines.append("")
     lines.append("-" * 80)
-    lines.append(f"{"Parameter":<25} {"R-hat":>10} {"ESS_bulk":>12} {"ESS_tail":>12}  {"Status"}")
+    lines.append(f"{'Parameter':<25} {'R-hat':>10} {'ESS_bulk':>12} {'ESS_tail':>12}  {'Status'}")
     lines.append("-" * 80)
 
     for i, name in enumerate(diagnostics.parameter_names):

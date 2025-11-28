@@ -127,14 +127,16 @@ class CSVWriter:
                 f.write("#\n")
 
             # Header
-            writer.writerow([
-                "cluster_id",
-                "peak_name",
-                "n_params",
-                "n_planes",
-                "reduced_chi_squared",
-                "converged",
-            ])
+            writer.writerow(
+                [
+                    "cluster_id",
+                    "peak_name",
+                    "n_params",
+                    "n_planes",
+                    "reduced_chi_squared",
+                    "converged",
+                ]
+            )
 
             # Data rows
             for i, cluster in enumerate(results.clusters):
@@ -142,16 +144,18 @@ class CSVWriter:
                 diag = results.mcmc_diagnostics[i] if i < len(results.mcmc_diagnostics) else None
 
                 for peak_name in cluster.peak_names:
-                    writer.writerow([
-                        cluster.cluster_id,
-                        peak_name,
-                        cluster.n_lineshape_params,
-                        cluster.n_planes,
-                        format_float(stats.reduced_chi_squared, self.config.precision)
-                        if stats
-                        else "",
-                        diag.converged if diag else "",
-                    ])
+                    writer.writerow(
+                        [
+                            cluster.cluster_id,
+                            peak_name,
+                            cluster.n_lineshape_params,
+                            cluster.n_planes,
+                            format_float(stats.reduced_chi_squared, self.config.precision)
+                            if stats
+                            else "",
+                            diag.converged if diag else "",
+                        ]
+                    )
 
     def write_parameters(self, results: FitResults, path: Path) -> None:
         """Write parameters in long format.
@@ -193,23 +197,25 @@ class CSVWriter:
             writer = csv.writer(f, delimiter=self.config.csv_delimiter)
 
             # Header
-            writer.writerow([
-                "cluster_id",
-                "peak_name",
-                "parameter",
-                "category",
-                "value",
-                "std_error",
-                "ci_68_lower",
-                "ci_68_upper",
-                "ci_95_lower",
-                "ci_95_upper",
-                "unit",
-                "min_bound",
-                "max_bound",
-                "is_fixed",
-                "is_global",
-            ])
+            writer.writerow(
+                [
+                    "cluster_id",
+                    "peak_name",
+                    "parameter",
+                    "category",
+                    "value",
+                    "std_error",
+                    "ci_68_lower",
+                    "ci_68_upper",
+                    "ci_95_lower",
+                    "ci_95_upper",
+                    "unit",
+                    "min_bound",
+                    "max_bound",
+                    "is_fixed",
+                    "is_global",
+                ]
+            )
 
             # Data rows
             for cluster in results.clusters:
@@ -234,23 +240,37 @@ class CSVWriter:
         # Convert to user-friendly parameter name
         friendly_name = _to_user_friendly_name(param.name, peak_name)
 
-        writer.writerow([
-            cluster.cluster_id,
-            peak_name,
-            friendly_name,
-            param.category.value,
-            format_float(param.value, prec, thresh),
-            format_float(param.std_error, prec, thresh),
-            format_float(param.ci_68_lower, prec, thresh) if param.ci_68_lower is not None else "",
-            format_float(param.ci_68_upper, prec, thresh) if param.ci_68_upper is not None else "",
-            format_float(param.ci_95_lower, prec, thresh) if param.ci_95_lower is not None else "",
-            format_float(param.ci_95_upper, prec, thresh) if param.ci_95_upper is not None else "",
-            param.unit,
-            format_float(param.min_bound, prec, thresh) if not np.isinf(param.min_bound) else "",
-            format_float(param.max_bound, prec, thresh) if not np.isinf(param.max_bound) else "",
-            param.is_fixed,
-            param.is_global,
-        ])
+        writer.writerow(
+            [
+                cluster.cluster_id,
+                peak_name,
+                friendly_name,
+                param.category.value,
+                format_float(param.value, prec, thresh),
+                format_float(param.std_error, prec, thresh),
+                format_float(param.ci_68_lower, prec, thresh)
+                if param.ci_68_lower is not None
+                else "",
+                format_float(param.ci_68_upper, prec, thresh)
+                if param.ci_68_upper is not None
+                else "",
+                format_float(param.ci_95_lower, prec, thresh)
+                if param.ci_95_lower is not None
+                else "",
+                format_float(param.ci_95_upper, prec, thresh)
+                if param.ci_95_upper is not None
+                else "",
+                param.unit,
+                format_float(param.min_bound, prec, thresh)
+                if not np.isinf(param.min_bound)
+                else "",
+                format_float(param.max_bound, prec, thresh)
+                if not np.isinf(param.max_bound)
+                else "",
+                param.is_fixed,
+                param.is_global,
+            ]
+        )
 
     def _extract_peak_name_from_param(self, param_name: str, peak_names: list[str]) -> str:
         """Extract the original peak name from a parameter name.
@@ -295,16 +315,18 @@ class CSVWriter:
             writer = csv.writer(f, delimiter=self.config.csv_delimiter)
 
             # Header
-            writer.writerow([
-                "cluster_id",
-                "peak_name",
-                "plane_index",
-                "z_value",
-                "value",
-                "std_error",
-                "ci_68_lower",
-                "ci_68_upper",
-            ])
+            writer.writerow(
+                [
+                    "cluster_id",
+                    "peak_name",
+                    "plane_index",
+                    "z_value",
+                    "value",
+                    "std_error",
+                    "ci_68_lower",
+                    "ci_68_upper",
+                ]
+            )
 
             # Data
             for cluster in results.clusters:
@@ -321,16 +343,18 @@ class CSVWriter:
         prec = self.config.precision
         thresh = self.config.scientific_notation_threshold
 
-        writer.writerow([
-            cluster.cluster_id,
-            amp.peak_name,
-            amp.plane_index,
-            format_float(amp.z_value, prec, thresh) if amp.z_value is not None else "",
-            format_float(amp.value, prec, thresh),
-            format_float(amp.std_error, prec, thresh),
-            format_float(amp.ci_68_lower, prec, thresh) if amp.ci_68_lower is not None else "",
-            format_float(amp.ci_68_upper, prec, thresh) if amp.ci_68_upper is not None else "",
-        ])
+        writer.writerow(
+            [
+                cluster.cluster_id,
+                amp.peak_name,
+                amp.plane_index,
+                format_float(amp.z_value, prec, thresh) if amp.z_value is not None else "",
+                format_float(amp.value, prec, thresh),
+                format_float(amp.std_error, prec, thresh),
+                format_float(amp.ci_68_lower, prec, thresh) if amp.ci_68_lower is not None else "",
+                format_float(amp.ci_68_upper, prec, thresh) if amp.ci_68_upper is not None else "",
+            ]
+        )
 
     def write_shifts(self, results: FitResults, path: Path) -> None:
         """Write chemical shifts in wide format for easy downstream use.
@@ -461,12 +485,16 @@ class CSVWriter:
             # Write all amplitude data
             for cluster in results.clusters:
                 for amp in cluster.amplitudes:
-                    writer.writerow([
-                        amp.peak_name,
-                        format_float(amp.z_value, prec, thresh) if amp.z_value is not None else "",
-                        format_float(amp.value, prec, thresh),
-                        format_float(amp.std_error, prec, thresh),
-                    ])
+                    writer.writerow(
+                        [
+                            amp.peak_name,
+                            format_float(amp.z_value, prec, thresh)
+                            if amp.z_value is not None
+                            else "",
+                            format_float(amp.value, prec, thresh),
+                            format_float(amp.std_error, prec, thresh),
+                        ]
+                    )
 
     def write_statistics(self, results: FitResults, path: Path) -> None:
         """Write fit statistics to CSV.
@@ -485,18 +513,20 @@ class CSVWriter:
 
             writer = csv.writer(f, delimiter=self.config.csv_delimiter)
 
-            writer.writerow([
-                "cluster_id",
-                "peak_names",
-                "chi_squared",
-                "reduced_chi_squared",
-                "n_data",
-                "n_params",
-                "dof",
-                "aic",
-                "bic",
-                "fit_converged",
-            ])
+            writer.writerow(
+                [
+                    "cluster_id",
+                    "peak_names",
+                    "chi_squared",
+                    "reduced_chi_squared",
+                    "n_data",
+                    "n_params",
+                    "dof",
+                    "aic",
+                    "bic",
+                    "fit_converged",
+                ]
+            )
 
             for i, cluster in enumerate(results.clusters):
                 if i >= len(results.statistics):
@@ -505,18 +535,20 @@ class CSVWriter:
                 stats = results.statistics[i]
                 prec = self.config.precision
 
-                writer.writerow([
-                    cluster.cluster_id,
-                    ";".join(cluster.peak_names),
-                    format_float(stats.chi_squared, prec),
-                    format_float(stats.reduced_chi_squared, prec),
-                    stats.n_data,
-                    stats.n_params,
-                    stats.dof,
-                    format_float(stats.aic, prec) if stats.aic is not None else "",
-                    format_float(stats.bic, prec) if stats.bic is not None else "",
-                    stats.fit_converged,
-                ])
+                writer.writerow(
+                    [
+                        cluster.cluster_id,
+                        ";".join(cluster.peak_names),
+                        format_float(stats.chi_squared, prec),
+                        format_float(stats.reduced_chi_squared, prec),
+                        stats.n_data,
+                        stats.n_params,
+                        stats.dof,
+                        format_float(stats.aic, prec) if stats.aic is not None else "",
+                        format_float(stats.bic, prec) if stats.bic is not None else "",
+                        stats.fit_converged,
+                    ]
+                )
 
     def write_diagnostics(self, results: FitResults, path: Path) -> None:
         """Write MCMC diagnostics to CSV.
@@ -542,15 +574,17 @@ class CSVWriter:
 
             writer = csv.writer(f, delimiter=self.config.csv_delimiter)
 
-            writer.writerow([
-                "cluster_id",
-                "peak_names",
-                "parameter",
-                "rhat",
-                "ess_bulk",
-                "ess_tail",
-                "status",
-            ])
+            writer.writerow(
+                [
+                    "cluster_id",
+                    "peak_names",
+                    "parameter",
+                    "rhat",
+                    "ess_bulk",
+                    "ess_tail",
+                    "status",
+                ]
+            )
 
             for i, cluster in enumerate(results.clusters):
                 if i >= len(results.mcmc_diagnostics):
@@ -560,15 +594,17 @@ class CSVWriter:
                 peak_names_str = ";".join(cluster.peak_names)
 
                 for param_diag in diag.parameter_diagnostics:
-                    writer.writerow([
-                        cluster.cluster_id,
-                        peak_names_str,
-                        param_diag.name,
-                        format_float(param_diag.rhat, 4) if param_diag.rhat else "",
-                        format_float(param_diag.ess_bulk, 0) if param_diag.ess_bulk else "",
-                        format_float(param_diag.ess_tail, 0) if param_diag.ess_tail else "",
-                        param_diag.status.value,
-                    ])
+                    writer.writerow(
+                        [
+                            cluster.cluster_id,
+                            peak_names_str,
+                            param_diag.name,
+                            format_float(param_diag.rhat, 4) if param_diag.rhat else "",
+                            format_float(param_diag.ess_bulk, 0) if param_diag.ess_bulk else "",
+                            format_float(param_diag.ess_tail, 0) if param_diag.ess_tail else "",
+                            param_diag.status.value,
+                        ]
+                    )
 
     def write_correlations(self, results: FitResults, path: Path) -> None:
         """Write parameter correlations to CSV.
@@ -587,13 +623,15 @@ class CSVWriter:
 
             writer = csv.writer(f, delimiter=self.config.csv_delimiter)
 
-            writer.writerow([
-                "cluster_id",
-                "peak_names",
-                "param_1",
-                "param_2",
-                "correlation",
-            ])
+            writer.writerow(
+                [
+                    "cluster_id",
+                    "peak_names",
+                    "param_1",
+                    "param_2",
+                    "correlation",
+                ]
+            )
 
             for cluster in results.clusters:
                 if cluster.correlation_matrix is None:
@@ -606,13 +644,15 @@ class CSVWriter:
                 for i in range(n):
                     for j in range(i + 1, n):
                         corr = cluster.correlation_matrix[i, j]
-                        writer.writerow([
-                            cluster.cluster_id,
-                            peak_names_str,
-                            names[i],
-                            names[j],
-                            format_float(corr, 4),
-                        ])
+                        writer.writerow(
+                            [
+                                cluster.cluster_id,
+                                peak_names_str,
+                                names[i],
+                                names[j],
+                                format_float(corr, 4),
+                            ]
+                        )
 
     def parameters_to_string(self, results: FitResults) -> str:
         """Generate parameters CSV as a string.

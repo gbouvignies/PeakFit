@@ -1,5 +1,7 @@
 """Tests for integrated plotting functionality."""
 
+from pathlib import Path
+
 import pytest
 from typer.testing import CliRunner
 
@@ -26,13 +28,15 @@ class TestPlottingCLI:
         """Create mock intensity data file."""
         data_file = tmp_path / "test_peak.out"
         # Create sample intensity data: xlabel, intensity, error
-        data = np.array([
-            [0, 100.0, 5.0],
-            [1, 95.0, 4.5],
-            [2, 90.0, 4.0],
-            [3, 85.0, 3.5],
-            [4, 80.0, 3.0],
-        ])
+        data = np.array(
+            [
+                [0, 100.0, 5.0],
+                [1, 95.0, 4.5],
+                [2, 90.0, 4.0],
+                [3, 85.0, 3.5],
+                [4, 80.0, 3.0],
+            ]
+        )
         np.savetxt(data_file, data)
         return data_file
 
@@ -53,13 +57,15 @@ class TestPlottingCLI:
         """Create mock CPMG data file."""
         data_file = tmp_path / "cpmg_peak.out"
         # Create sample CPMG data: ncyc, intensity, error
-        data = np.array([
-            [0, 100.0, 5.0],  # Reference
-            [10, 90.0, 4.5],
-            [20, 85.0, 4.0],
-            [40, 80.0, 3.5],
-            [80, 75.0, 3.0],
-        ])
+        data = np.array(
+            [
+                [0, 100.0, 5.0],  # Reference
+                [10, 90.0, 4.5],
+                [20, 85.0, 4.0],
+                [40, 80.0, 3.5],
+                [80, 75.0, 3.0],
+            ]
+        )
         np.savetxt(data_file, data, fmt=["%d", "%.1f", "%.1f"])
         return data_file
 
@@ -232,7 +238,7 @@ class TestPlottingBackwardCompatibility:
         """Verify old peakfit-plot command entry point is removed."""
         import tomllib
 
-        with open("pyproject.toml", "rb") as f:
+        with Path("pyproject.toml").open("rb") as f:
             config = tomllib.load(f)
 
         scripts = config["project"]["scripts"]

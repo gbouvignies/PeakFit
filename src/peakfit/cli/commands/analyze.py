@@ -2,21 +2,16 @@
 
 This module contains all analyze-related commands for uncertainty estimation.
 It creates a Typer sub-application with commands for:
-- MCMC sampling (with correlation matrix display)
-- Profile likelihood
-- Uncertainty display
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from pathlib import Path  # Required at runtime by Typer  # noqa: TC003
+from typing import Annotated
 
-import typer
+import typer  # Required at runtime by Typer
 
 from peakfit.ui import info
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 # Create analyze sub-application
 analyze_app = typer.Typer(

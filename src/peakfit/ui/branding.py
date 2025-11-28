@@ -77,14 +77,11 @@ def show_run_info(start_time: datetime) -> None:
     # Simplify platform string
     platform_str = platform.platform()
     platform_parts = platform_str.split("-")
-    if len(platform_parts) > 3:
-        platform_display = "-".join(platform_parts[:3])
-    else:
-        platform_display = platform_str
+    platform_display = "-".join(platform_parts[:3]) if len(platform_parts) > 3 else platform_str
 
     # Create run information panel
     info_text = (
-        f"[cyan]Started:[/cyan] {start_time.strftime("%Y-%m-%d %H:%M:%S")}\n"
+        f"[cyan]Started:[/cyan] {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"[cyan]Command:[/cyan] {command_display}\n"
         f"[cyan]Working directory:[/cyan] {Path.cwd()}\n"
         f"[cyan]Python:[/cyan] {sys.version.split()[0]} | "
@@ -107,12 +104,12 @@ def show_run_info(start_time: datetime) -> None:
     log("=" * 60)
     log(f"PeakFit v{VERSION} started")
     log("=" * 60)
-    log(f"Started: {start_time.strftime("%Y-%m-%d %H:%M:%S")}")
+    log(f"Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     log(f"Command: {original_command}")
     log(f"Working directory: {Path.cwd()}")
     log(f"Python: {sys.version.split()[0]}")
     log(f"Platform: {platform.platform()}")
-    log(f"User: {os.getenv("USER", "unknown")}")
+    log(f"User: {os.getenv('USER', 'unknown')}")
     try:
         import socket
 
@@ -132,10 +129,7 @@ def show_footer(start_time: datetime, end_time: datetime) -> None:
     elapsed = end_time - start_time
     minutes, seconds = divmod(elapsed.total_seconds(), 60)
 
-    if minutes > 0:
-        time_str = f"{int(minutes)}m {seconds:.1f}s"
-    else:
-        time_str = f"{seconds:.2f}s"
+    time_str = f"{int(minutes)}m {seconds:.1f}s" if minutes > 0 else f"{seconds:.2f}s"
 
     console.print()
     console.print("━" * 70)

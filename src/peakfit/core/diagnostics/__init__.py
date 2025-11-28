@@ -38,20 +38,18 @@ from peakfit.core.diagnostics.metrics import (
 )
 
 __all__ = [
-    # Convergence diagnostics
-    "ConvergenceDiagnostics",
-    "compute_ess",
-    "compute_rhat",
-    "diagnose_convergence",
-    "format_diagnostics_table",
-    # Pure computation metrics
     "AutocorrelationResult",
+    "ConvergenceDiagnostics",
     "CorrelationPair",
     "TraceMetrics",
     "compute_all_trace_metrics",
     "compute_autocorrelation",
     "compute_correlation_matrix",
+    "compute_ess",
     "compute_posterior_statistics",
+    "compute_rhat",
     "compute_trace_metrics",
+    "diagnose_convergence",
     "find_correlated_pairs",
+    "format_diagnostics_table",
 ]

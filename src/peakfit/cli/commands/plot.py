@@ -187,11 +187,13 @@ def plot_intensity(
 
     spacer()
     success("Plots saved successfully!")
-    print_next_steps([
-        f"Open PDF: [cyan]open {output_path}[/cyan]",
-        f"Plot CEST profiles: [cyan]peakfit plot cest {results}/[/cyan]",
-        f"Interactive viewer: [cyan]peakfit plot spectra {results}/ --spectrum SPECTRUM.ft2[/cyan]",
-    ])
+    print_next_steps(
+        [
+            f"Open PDF: [cyan]open {output_path}[/cyan]",
+            f"Plot CEST profiles: [cyan]peakfit plot cest {results}/[/cyan]",
+            f"Interactive viewer: [cyan]peakfit plot spectra {results}/ --spectrum SPECTRUM.ft2[/cyan]",
+        ]
+    )
 
     if show and plot_data_for_display:
         for name, data in plot_data_for_display:
@@ -323,12 +325,14 @@ def plot_cest(
                 _save_figure_to_pdf(pdf, fig)
 
                 if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
-                    plot_data_for_display.append((
-                        file.stem,
-                        offset_norm,
-                        intensity_norm,
-                        error_norm,
-                    ))
+                    plot_data_for_display.append(
+                        (
+                            file.stem,
+                            offset_norm,
+                            intensity_norm,
+                            error_norm,
+                        )
+                    )
 
                 plots_saved += 1
             except (OSError, ValueError, TypeError, RuntimeError) as e:
@@ -480,13 +484,15 @@ def plot_cpmg(
                 _save_figure_to_pdf(pdf, fig)
 
                 if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
-                    plot_data_for_display.append((
-                        file.stem,
-                        nu_cpmg,
-                        r2_exp,
-                        r2_err_down,
-                        r2_err_up,
-                    ))
+                    plot_data_for_display.append(
+                        (
+                            file.stem,
+                            nu_cpmg,
+                            r2_exp,
+                            r2_err_down,
+                            r2_err_up,
+                        )
+                    )
 
                 plots_saved += 1
             except (OSError, ValueError, TypeError, RuntimeError) as e:
@@ -826,9 +832,11 @@ def plot_diagnostics(
     else:
         open_cmd = f"open {" ".join(str(f) for f in output_files)}"
 
-    print_next_steps([
-        f"Open plots: [cyan]{open_cmd}[/cyan]",
-        "Review trace plots: Check R-hat ≤ 1.01 and chain convergence",
-        "Inspect marginal distributions: Review parameter posteriors with full names",
-        "Check correlations: Look for strongly correlated parameter pairs (|r| ≥ 0.5)",
-    ])
+    print_next_steps(
+        [
+            f"Open plots: [cyan]{open_cmd}[/cyan]",
+            "Review trace plots: Check R-hat ≤ 1.01 and chain convergence",
+            "Inspect marginal distributions: Review parameter posteriors with full names",
+            "Check correlations: Look for strongly correlated parameter pairs (|r| ≥ 0.5)",
+        ]
+    )

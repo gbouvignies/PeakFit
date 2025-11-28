@@ -311,11 +311,13 @@ class ClusterEstimates:
             for j in range(i + 1, n):
                 corr = float(self.correlation_matrix[i, j])
                 if abs(corr) >= threshold:
-                    pairs.append((
-                        self.correlation_param_names[i],
-                        self.correlation_param_names[j],
-                        corr,
-                    ))
+                    pairs.append(
+                        (
+                            self.correlation_param_names[i],
+                            self.correlation_param_names[j],
+                            corr,
+                        )
+                    )
         return pairs
 
     def get_problematic_params(self) -> list[ParameterEstimate]:

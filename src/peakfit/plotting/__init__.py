@@ -25,7 +25,12 @@ from peakfit.plotting.profiles import (
 )
 
 __all__ = [
-    # Diagnostics
+    "intensity_to_r2eff",
+    "make_cest_figure",
+    "make_cpmg_figure",
+    "make_intensity_ensemble",
+    "make_intensity_figure",
+    "ncyc_to_nu_cpmg",
     "plot_autocorrelation",
     "plot_corner",
     "plot_correlation_pairs",
@@ -33,11 +38,4 @@ __all__ = [
     "plot_posterior_summary",
     "plot_trace",
     "save_diagnostic_plots",
-    # Profiles
-    "intensity_to_r2eff",
-    "make_cest_figure",
-    "make_cpmg_figure",
-    "make_intensity_ensemble",
-    "make_intensity_figure",
-    "ncyc_to_nu_cpmg",
 ]

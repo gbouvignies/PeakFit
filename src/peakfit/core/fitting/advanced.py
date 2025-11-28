@@ -534,13 +534,15 @@ def estimate_uncertainties_mcmc(
 
     n_all_params = len(combined_names)
     ci_68 = np.array([[percentiles[0, i], percentiles[2, i]] for i in range(n_all_params)])
-    ci_95 = np.array([
+    ci_95 = np.array(
         [
-            np.percentile(combined_samples[:, i], 2.5),
-            np.percentile(combined_samples[:, i], 97.5),
+            [
+                np.percentile(combined_samples[:, i], 2.5),
+                np.percentile(combined_samples[:, i], 97.5),
+            ]
+            for i in range(n_all_params)
         ]
-        for i in range(n_all_params)
-    ])
+    )
 
     # Update lineshape parameter errors
     params.set_errors(std_errors[:n_lineshape])

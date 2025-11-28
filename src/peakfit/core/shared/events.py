@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -61,10 +61,13 @@ class EventDispatcher:
         if event_type not in self._handlers:
             self._handlers[event_type] = []
 
-        if callable(handler) and not hasattr(handler, "handle"):
-            handler = _CallableHandler(handler)
+            if callable(handler) and not hasattr(handler, "handle"):
+                event_handler = _CallableHandler(handler)  # type: EventHandler
+            else:
+                # At runtime 'handler' can be a Callable or an EventHandler; cast to EventHandler for the list
+                event_handler = cast("EventHandler", handler)
 
-        self._handlers[event_type].append(handler)
+            self._handlers[event_type].append(event_handler)
 
     def dispatch(self, event: Event) -> None:
         """Send an event to all subscribed handlers."""

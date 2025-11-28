@@ -224,10 +224,7 @@ class PlotService:
                     intensity = data["intensity"]
 
                     # Reference intensity (ncyc = 0 point or first point)
-                    if 0 in ncyc:
-                        ref_idx = np.where(ncyc == 0)[0][0]
-                    else:
-                        ref_idx = np.argmin(ncyc)
+                    ref_idx = np.where(ncyc == 0)[0][0] if 0 in ncyc else np.argmin(ncyc)
                     intensity_ref = intensity[ref_idx]
 
                     # Convert to CPMG coordinates

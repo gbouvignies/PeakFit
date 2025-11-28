@@ -1,492 +1,226 @@
-#:tombi schema.strict = false
-
 [project]
 name = "peakfit"
 version = "2025.11.0"
-description = "Lineshape fitting for pseudo-3D NMR spectra"
+description = "Lineshape fitting for pseudo-ND NMR spectra"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "GPL-3.0-or-later" }
 authors = [
-    { name = "Guillaume Bouvignies", email = "guillaume.bouvignies@ens.psl.eu" },
+  { name = "Guillaume Bouvignies", email = "guillaume.bouvignies@ens.psl.eu" },
 ]
-keywords = ["NMR", "spectroscopy", "lineshape", "fitting", "chemical-exchange", "relaxation-dispersion"]
+keywords = [
+  "NMR",
+  "chemical-exchange",
+  "fitting",
+  "lineshape",
+  "relaxation-dispersion",
+  "spectroscopy",
+]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering :: Chemistry",
-    "Topic :: Scientific/Engineering :: Physics",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3 :: Only",
-    "Operating System :: OS Independent",
-    "Typing :: Typed",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Typing :: Typed",
 ]
-
 dependencies = [
-    "numpy>=2.2.0",
-    "scipy>=1.13.1",
-    "pandas>=2.2.2",
-    "matplotlib>=3.9.0",
-    "nmrglue>=0.10",
-    "pydantic>=2.5.0",
-    "networkx>=3.3",
-    "typer>=0.9.0",
-    "rich>=13.7.1",
-    "tomli-w>=1.0.0",
-    "threadpoolctl>=3.0.0",
-    "pyqt5>=5.15.11",
+  "matplotlib>=3.9.0",
+  "networkx>=3.3",
+  "nmrglue>=0.10",
+  "numpy>=2.2.0",
+  "pandas>=2.2.2",
+  "pydantic>=2.5.0",
+  "pyqt5>=5.15.11",
+  "rich>=13.7.1",
+  "scipy>=1.13.1",
+  "threadpoolctl>=3.0.0",
+  "tomli-w>=1.0.0",
+  "typer>=0.9.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "ruff>=0.8.0",
-    "mypy>=1.13",
-    "pytest>=8.3.0",
-    "pytest-cov>=6.0.0",
-    "pytest-xdist>=3.6.0",
-    "pre-commit>=4.0.0",
-]
-types = [
-    "types-setuptools>=75.0",
-    "pandas-stubs>=2.2",
-]
-mcmc = [
-    "emcee>=3.1.6",
-    "corner>=2.2.0",
-]
-performance = [
-    "numba>=0.60.0",
-]
-all = [
-    "peakfit[dev,types,mcmc,performance]",
-]
+[project.urls]
+Documentation = "https://github.com/gbouvignies/peakfit#readme"
+Homepage = "https://github.com/gbouvignies/peakfit"
+Issues = "https://github.com/gbouvignies/peakfit/issues"
+Repository = "https://github.com/gbouvignies/peakfit"
 
 [project.scripts]
 peakfit = "peakfit.cli.app:app"
 
-[project.urls]
-Homepage = "https://github.com/gbouvignies/peakfit"
-Documentation = "https://github.com/gbouvignies/peakfit#readme"
-Repository = "https://github.com/gbouvignies/peakfit"
-Issues = "https://github.com/gbouvignies/peakfit/issues"
+[project.optional-dependencies]
+all = [
+  "peakfit[dev,mcmc,performance]",
+]
+dev = [
+  "basedpyright>=1.20.0",
+  "ruff>=0.8.0",
+  "pytest>=8.3.0",
+  "pytest-cov>=6.0.0",
+  "pytest-timeout>=2.2.0",
+  "pytest-xdist>=3.6.0",
+  "pre-commit>=4.0.0",
+]
+mcmc = [
+  "emcee>=3.1.6",
+  "corner>=2.2.0",
+]
+performance = []
 
 [build-system]
 requires = ["uv_build>=0.9.10,<0.10.0"]
 build-backend = "uv_build"
 
 # ============================================================
-# RUFF: MODERN PYTHON LINTER & FORMATTER (2025)
+# BASEDPYRIGHT: STRICT TYPE CHECKING
+# ============================================================
+
+[tool.basedpyright]
+pythonVersion = "3.13"
+pythonPlatform = "All"
+typeCheckingMode = "standard"  # Use "strict" when ready
+venvPath = "."
+venv = ".venv"
+include = ["src"]
+exclude = [
+  "**/__pycache__",
+  ".venv",
+  "build",
+  "dist",
+]
+# Gradual strictness - enable more as codebase improves
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedVariable = true
+reportUnusedFunction = true
+reportDuplicateImport = true
+# Scientific computing: relax some rules
+reportUnknownMemberType = false  # numpy/scipy return complex types
+reportUnknownVariableType = false  # same
+reportUnknownArgumentType = false  # same
+reportAny = false  # too strict for scientific code
+
+# ============================================================
+# RUFF: LINTING & FORMATTING
+# ============================================================
+
+[tool.coverage.run]
+source = ["src/peakfit"]
+branch = true
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "@overload",
+  "raise NotImplementedError",
+  "@abstractmethod",
+  'if __name__ == "__main__":',
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--strict-config",
+  "--tb=short",
+  "--cov=peakfit",
+  "--cov-report=term-missing:skip-covered",
+  "--cov-branch",
+]
+markers = [
+  "slow: marks tests as slow",
+  "mcmc: tests requiring emcee",
+  "gui: tests requiring PyQt5",
+]
+filterwarnings = [
+  "error",
+  "ignore::DeprecationWarning:nmrglue.*",
+  "ignore::FutureWarning:numpy.*",
+]
+timeout = 300
+
+# ============================================================
+# COVERAGE
 # ============================================================
 
 [tool.ruff]
 line-length = 100
 target-version = "py313"
 src = ["src"]
-extend-exclude = [".venv", "*.egg-info", "build", "dist"]
+extend-exclude = [".venv", "build", "dist"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-skip-magic-trailing-comma = false
 docstring-code-format = true
-docstring-code-line-length = 88
-preview = true  # Enable 2025 style guide
 
 [tool.ruff.lint]
-# Comprehensive rule set for scientific Python (2025)
 select = [
-    # Core quality
-    "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
-    "F",      # pyflakes
-    "I",      # isort
-
-    # Code quality
-    "N",      # pep8-naming
-    "UP",     # pyupgrade (modernize syntax)
-    "B",      # flake8-bugbear (likely bugs)
-    "C4",     # flake8-comprehensions
-    "SIM",    # flake8-simplify
-    "RET",    # flake8-return
-    "PTH",    # flake8-use-pathlib
-    "FLY",    # flynt (f-string conversions)
-    "PERF",   # performance anti-patterns
-    "FURB",   # refurb (modernization)
-    "LOG",    # flake8-logging
-
-    # Scientific Python specific
-    "NPY",    # numpy-specific rules (deprecated APIs, etc.)
-
-    # Error prevention
-    "S",      # flake8-bandit (security)
-    "BLE",    # flake8-blind-except
-    "T10",    # flake8-debugger
-    "T20",    # flake8-print
-    "ARG",    # flake8-unused-arguments
-
-    # Documentation
-    "D",      # pydocstyle
-
-    # Advanced patterns
-    "RUF",    # ruff-specific rules
-    "PL",     # pylint (comprehensive)
-    "TCH",    # flake8-type-checking
-    "FA",     # flake8-future-annotations
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+  "F",  # pyflakes
+  "I",  # isort
+  "N",  # pep8-naming
+  "UP",  # pyupgrade
+  "B",  # flake8-bugbear
+  "C4",  # flake8-comprehensions
+  "SIM",  # flake8-simplify
+  "PTH",  # flake8-use-pathlib
+  "PERF",  # performance anti-patterns
+  "RUF",  # ruff-specific
+  "D",  # pydocstyle
+  "NPY",  # numpy-specific
+  "TCH",  # type-checking imports
 ]
-
 ignore = [
-    # Formatter conflicts (never enable these)
-    "W191",    # tab-indentation
-    "E111",    # indentation-is-not-a-multiple-of-four
-    "E114",    # indentation-is-not-a-multiple-of-four-comment
-    "E117",    # over-indented
-    "E501",    # line-too-long (handled by formatter)
-    "D206",    # indent-with-spaces
-    "D300",    # triple-single-quotes
-
-    # Scientific computing exceptions
-    "PLR0911", # too-many-return-statements (complex algorithms)
-    "PLR0912", # too-many-branches (analysis logic)
-    "PLR0913", # too-many-arguments (scientific functions)
-    "PLR0915", # too-many-statements (data processing)
-    "PLR2004", # magic-value-comparison (physical constants)
-
-    # Reasonable pragmatic choices
-    "RET504",  # unnecessary-assign (clarity sometimes better)
-    "RET505",  # superfluous-else-return
-    "RET506",  # superfluous-else-raise
-    "SIM108",  # if-else-block-instead-of-if-exp (ternary not always clearer)
-    "PTH123",  # builtin-open (pathlib not always better)
-    "ARG001",  # unused-function-argument (callbacks/APIs)
-    "ARG002",  # unused-method-argument (inheritance)
-
-    # Data science workflow
-    "S301",    # suspicious-pickle-usage (standard in scientific computing)
-    "S603",    # subprocess-without-shell-equals-true
-    "S607",    # start-process-with-partial-path
-
-    # Loop practices
-    "PLW2901", # redefined-loop-name (sometimes intentional)
-
-    # Unicode in scientific context (ν, δ, Δ, etc.)
-    "RUF001",  # ambiguous-unicode-character-string
-    "RUF002",  # ambiguous-unicode-character-docstring
-    "RUF003",  # ambiguous-unicode-character-comment
-
-    # Docstring flexibility
-    "D100",    # undocumented-public-module
-    "D104",    # undocumented-public-package
-    "D107",    # undocumented-public-init
+  # Line length handled by formatter
+  "E501",
+  # Scientific computing pragmatism
+  "PLR0913",  # too-many-arguments
+  "PLR2004",  # magic-value-comparison (physical constants)
+  # Docstring flexibility
+  "D100",  # undocumented-public-module
+  "D104",  # undocumented-public-package
+  "D107",  # undocumented-public-init
+  # Unicode in scientific context (δ, ν, Δ, etc.)
+  "RUF001",
+  "RUF002",
+  "RUF003",
 ]
-
-# Auto-fix when safe
-fixable = ["ALL"]
-unfixable = []
 
 [tool.ruff.lint.isort]
 known-first-party = ["peakfit"]
-section-order = ["future", "standard-library", "third-party", "scientific", "first-party", "local-folder"]
-combine-as-imports = true
-split-on-trailing-comma = false
+section-order = [
+  "future",
+  "standard-library",
+  "third-party",
+  "scientific",
+  "first-party",
+  "local-folder"
+]
 
 [tool.ruff.lint.isort.sections]
 scientific = ["numpy", "scipy", "pandas", "matplotlib", "nmrglue"]
 
 [tool.ruff.lint.pydocstyle]
-convention = "numpy"  # Standard for scientific Python
-
-[tool.ruff.lint.pylint]
-max-args = 10
-max-branches = 20
-max-returns = 8
-max-statements = 75
-
-[tool.ruff.lint.flake8-type-checking]
-strict = true
-runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
-# Test files
-"tests/**/*" = [
-    "S101",    # assert (required)
-    "D",       # docstrings
-    "ANN",     # annotations
-    "PLR2004", # magic values
-    "ARG",     # unused fixtures
-    "T20",     # print statements
-    "PLR0913", # many arguments (test parametrization)
-]
-
-# Plotting modules (inherently complex)
-"src/peakfit/plotting/**/*" = [
-    "C901",    # complex-structure
-    "PLR",     # pylint refactor
-    "T20",     # print for interactive work
-]
-
-# CLI modules
-"src/peakfit/cli/**/*" = [
-    "FBT",     # boolean-trap (standard for CLI)
-    "T20",     # print for CLI output
-    "PLC0415", # import-outside-top-level (lazy imports)
-    "BLE001",  # blind-except (user error handling)
-]
-
-# I/O operations
-"src/peakfit/io/**/*" = [
-    "PTH",     # use-pathlib (compatibility with nmrglue)
-]
-
-# Benchmarking code
-"src/peakfit/analysis/benchmarks.py" = [
-    "S311",    # suspicious-non-cryptographic-random-usage
-    "T20",     # print statements
-]
-
-# Package initialization
-"src/peakfit/__init__.py" = [
-    "E402",    # module-import-not-at-top-of-file
-    "F401",    # unused-import (public API)
-    "D104",    # undocumented-public-package
-]
+"tests/**/*" = ["S101", "D", "PLR2004", "ARG"]
+"src/peakfit/cli/**/*" = ["T20", "BLE001"]
+"src/peakfit/__init__.py" = ["F401", "E402"]
 
 # ============================================================
-# PYTEST: TESTING FRAMEWORK (2025 BEST PRACTICES)
+# PYTEST
 # ============================================================
-
-[tool.pytest.ini_options]
-minversion = "8.0"
-testpaths = ["tests"]
-pythonpath = ["src"]
-
-# Discovery patterns
-python_files = ["test_*.py", "*_test.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-
-# Output and reporting
-addopts = [
-    # Display options
-    "-ra",                           # Show all test outcomes
-    "--verbose",
-    "--strict-markers",              # Error on typos
-    "--strict-config",               # Error on config issues
-    "--tb=short",                    # Shorter tracebacks
-
-    # Coverage
-    "--cov=peakfit",
-    "--cov-report=term-missing:skip-covered",
-    "--cov-report=html",
-    "--cov-report=json",
-    "--cov-branch",                  # Branch coverage
-
-    # Doctest integration
-    "--doctest-modules",
-    "--doctest-continue-on-failure",
-
-    # Performance
-    "--import-mode=importlib",       # Modern import mode (recommended 2024+)
-
-    # Warning handling
-    # "--strict-warnings",             # Treat warnings as errors
-]
-
-# Test markers
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: integration tests requiring full setup",
-    "unit: fast unit tests",
-    "mcmc: tests requiring emcee package",
-    "gui: tests requiring PyQt5",
-    "parametric: heavily parametrized tests",
-]
-
-# Filter dependency warnings
-filterwarnings = [
-    "error",                         # Treat warnings as errors by default
-    "ignore::DeprecationWarning:nmrglue.*",
-    "ignore::FutureWarning:numpy.*",
-    "ignore::PendingDeprecationWarning",
-    "ignore:datetime.datetime.utcnow.*:DeprecationWarning",
-]
-
-# Console output
-console_output_style = "progress"
-log_cli = false
-log_cli_level = "INFO"
-
-# Performance options
-timeout = 300
-timeout_method = "thread"
-
-# Parallel execution (requires pytest-xdist)
-# Uncomment to enable: addopts = [..., "-n", "auto"]
-
-[tool.coverage.run]
-source = ["src/peakfit"]
-branch = true
-parallel = true
-omit = [
-    "*/tests/*",
-    "*/__pycache__/*",
-    "*/site-packages/*",
-    "*/.venv/*",
-]
-
-[tool.coverage.report]
-precision = 2
-show_missing = true
-skip_covered = false
-skip_empty = true
-
-exclude_lines = [
-    # Standard exclusions
-    "pragma: no cover",
-    "raise AssertionError",
-    "raise NotImplementedError",
-
-    # Type checking
-    "if TYPE_CHECKING:",
-    "if typing.TYPE_CHECKING:",
-    "@overload",
-
-    # Debugging
-    "def __repr__",
-    "def __str__",
-
-    # Main guard
-    'if __name__ == "__main__":',
-
-    # Abstract methods
-    "@abstractmethod",
-    "@abc.abstractmethod",
-
-    # Platform-specific
-    "if sys.platform",
-]
-
-[tool.coverage.html]
-directory = "htmlcov"
-
-[tool.coverage.json]
-output = "coverage.json"
-
-# ============================================================
-# MYPY: STATIC TYPE CHECKER (2025 CONFIGURATION)
-# ============================================================
-
-[tool.mypy]
-# Python version
-python_version = "3.13"
-
-# Import discovery
-mypy_path = "$MYPY_CONFIG_FILE_DIR/src"
-namespace_packages = true
-explicit_package_bases = true
-
-# Strictness (progressive typing approach)
-strict = false  # Enable gradually; see individual flags below
-
-# Type checking behavior
-warn_return_any = true
-warn_unused_configs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-
-# Untyped definitions
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = false  # Many scientific decorators untyped
-
-# None and Optional
-no_implicit_optional = true
-strict_optional = true
-
-# Advanced features
-extra_checks = true
-local_partial_types = true           # Better for scientific code
-allow_redefinition = true            # Useful in notebooks/REPL
-
-# Error messages
-show_error_codes = true
-show_column_numbers = true
-pretty = true
-color_output = true
-error_summary = true
-
-# Performance (mypy 1.13+)
-# Uncomment for faster cache: extra_checks = false
-# Install: pip install mypy[faster-cache]
-
-# Cache
-incremental = true
-cache_dir = ".mypy_cache"
-
-# Reports (optional)
-# html_report = "mypy-report"
-# txt_report = "mypy-report"
-
-# Ignore missing imports for untyped scientific libraries
-[[tool.mypy.overrides]]
-module = [
-    "nmrglue.*",
-    "scipy.*",
-    "networkx.*",
-    "emcee.*",
-    "corner.*",
-    "matplotlib.*",
-    "pandas.*",
-    "threadpoolctl.*",
-    "numba.*",
-]
-ignore_missing_imports = true
-
-# Relaxed rules for test files
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = false
-
-# ============================================================
-# PYRIGHT: ALTERNATIVE TYPE CHECKER (VSCODE)
-# ============================================================
-
-[tool.pyright]
-pythonVersion = "3.13"
-pythonPlatform = "All"
-
-# Type checking mode
-typeCheckingMode = "basic"  # or "strict" for more rigorous checking
-
-# Include/exclude
-include = ["src"]
-exclude = [
-    "**/node_modules",
-    "**/__pycache__",
-    ".venv",
-    "build",
-    "dist",
-]
-
-# Diagnostics
-reportMissingImports = true
-reportMissingTypeStubs = false
-
-# Scientific computing: lenient with dynamic types
-reportUnknownMemberType = false
-reportUnknownVariableType = false
-reportUnknownArgumentType = false
-reportPrivateUsage = false
-reportIncompatibleMethodOverride = true
-reportIncompatibleVariableOverride = true
-
-# Stubs
-stubPath = "typings"
-venvPath = "."
-venv = ".venv"

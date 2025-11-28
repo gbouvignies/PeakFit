@@ -165,11 +165,13 @@ class MarkdownReportGenerator:
 
             # Count problematic parameters
             n_problems = sum(
-                len([
-                    p
-                    for p in d.parameter_diagnostics
-                    if p.status in (ConvergenceStatus.MARGINAL, ConvergenceStatus.POOR)
-                ])
+                len(
+                    [
+                        p
+                        for p in d.parameter_diagnostics
+                        if p.status in (ConvergenceStatus.MARGINAL, ConvergenceStatus.POOR)
+                    ]
+                )
                 for d in results.mcmc_diagnostics
             )
             if n_problems > 0:
