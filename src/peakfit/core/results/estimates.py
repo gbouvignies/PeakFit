@@ -9,16 +9,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.core.shared.typing import FloatArray
+if TYPE_CHECKING:
+    from peakfit.core.shared.typing import FloatArray
 
 
 class ParameterCategory(str, Enum):
     """Categories of fitting parameters for grouping and formatting.
 
-    Attributes:
+    Attributes
+    ----------
         LINESHAPE: Shape parameters (position, FWHM, fraction, phase)
         AMPLITUDE: Peak intensities per plane
         EXCHANGE: Exchange dynamics parameters (kex, pb, dw)
@@ -43,7 +46,8 @@ class ParameterEstimate:
     - Bounds information for detecting boundary issues
     - Full posterior samples for custom analysis
 
-    Attributes:
+    Attributes
+    ----------
         name: Parameter identifier (e.g., "G23N_x0", "peak1_fwhm")
         value: Best-fit or MAP estimate
         std_error: Standard deviation (symmetric uncertainty)
@@ -72,7 +76,7 @@ class ParameterEstimate:
         ...     ci_68_lower=24.1,
         ...     ci_68_upper=26.5,
         ... )
-        >>> param.is_at_boundary  # Check for boundary issues
+        >>> param.is_at_boundary()  # Check for boundary issues
         False
         >>> param.relative_error  # Get relative uncertainty
         0.0474
@@ -126,7 +130,6 @@ class ParameterEstimate:
             return None
         return abs(self.std_error / self.value)
 
-    @property
     def is_at_boundary(self, tolerance: float = 1e-6) -> bool:
         """Check if value is at or near fitting bounds."""
         if np.isinf(self.min_bound) and np.isinf(self.max_bound):
@@ -146,7 +149,7 @@ class ParameterEstimate:
         """
         if self.is_fixed:
             return False
-        if self.is_at_boundary:
+        if self.is_at_boundary():
             return True
         if self.std_error <= 0:
             return True
@@ -159,7 +162,8 @@ class ParameterEstimate:
         Args:
             precision: Number of decimal places
 
-        Returns:
+        Returns
+        -------
             Formatted string like "25.300 ± 1.200" or "25.300 +1.200/-1.100"
         """
         if self.has_asymmetric_error:
@@ -204,7 +208,8 @@ class AmplitudeEstimate:
     - There are typically many amplitudes (n_peaks × n_planes)
     - They have different display/export requirements
 
-    Attributes:
+    Attributes
+    ----------
         peak_name: Peak identifier
         plane_index: Index in the Z-dimension (0-based)
         z_value: Physical value in Z-dimension (e.g., relaxation delay, B1 offset)
@@ -249,7 +254,8 @@ class ClusterEstimates:
     A cluster is a group of overlapping peaks fitted together.
     This dataclass groups all parameters and amplitudes for one cluster.
 
-    Attributes:
+    Attributes
+    ----------
         cluster_id: Unique cluster identifier (0-based index)
         peak_names: List of peak names in this cluster
         lineshape_params: Lineshape parameter estimates
@@ -292,7 +298,8 @@ class ClusterEstimates:
         Args:
             threshold: Minimum absolute correlation to report
 
-        Returns:
+        Returns
+        -------
             List of (param1, param2, correlation) tuples
         """
         if self.correlation_matrix is None or len(self.correlation_param_names) < 2:
@@ -304,13 +311,11 @@ class ClusterEstimates:
             for j in range(i + 1, n):
                 corr = float(self.correlation_matrix[i, j])
                 if abs(corr) >= threshold:
-                    pairs.append(
-                        (
-                            self.correlation_param_names[i],
-                            self.correlation_param_names[j],
-                            corr,
-                        )
-                    )
+                    pairs.append((
+                        self.correlation_param_names[i],
+                        self.correlation_param_names[j],
+                        corr,
+                    ))
         return pairs
 
     def get_problematic_params(self) -> list[ParameterEstimate]:

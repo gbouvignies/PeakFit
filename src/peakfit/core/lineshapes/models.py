@@ -7,17 +7,18 @@ and apodization-based shapes) for fitting NMR peaks.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from peakfit.core.domain.spectrum import Spectra
     from peakfit.core.fitting.parameters import Parameters
+    from peakfit.core.shared.typing import FittingOptions, FloatArray, IntArray
 from peakfit.core.lineshapes import functions
 from peakfit.core.lineshapes.registry import register_shape
-from peakfit.core.shared.typing import FittingOptions, FloatArray, IntArray
 
 # Legacy axis names for backward compatibility during transition
 LEGACY_AXIS_NAMES = ("x", "y", "z", "a")
@@ -30,7 +31,8 @@ def get_axis_label(n_spectral_dims: int, dim_index: int) -> str:
         n_spectral_dims: Total number of spectral dimensions
         dim_index: 1-based dimension index (1 = first spectral dim after pseudo)
 
-    Returns:
+    Returns
+    -------
         Axis label like "F1", "F2", "F3", "F4"
     """
     return f"F{dim_index}"
@@ -121,7 +123,8 @@ class BaseShape(ABC):
             x_pt: Points to evaluate
             x0: Center position in ppm
 
-        Returns:
+        Returns
+        -------
             Tuple of (corrected dx in points, sign from aliasing)
         """
         x0_pt = self.spec_params.ppm2pts(x0)

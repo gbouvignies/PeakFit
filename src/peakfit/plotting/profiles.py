@@ -10,11 +10,15 @@ All functions return matplotlib Figure objects for flexible usage.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.figure import Figure
 
-from peakfit.core.shared.typing import FloatArray
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
+    from peakfit.core.shared.typing import FloatArray
 
 
 def make_intensity_figure(name: str, data: np.ndarray) -> Figure:
@@ -24,7 +28,8 @@ def make_intensity_figure(name: str, data: np.ndarray) -> Figure:
         name: Peak/cluster name for title
         data: Structured array with 'xlabel', 'intensity', 'error' fields
 
-    Returns:
+    Returns
+    -------
         Matplotlib Figure object
     """
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -51,7 +56,8 @@ def make_cest_figure(
         intensity: Normalized intensities (I/I0)
         error: Intensity errors
 
-    Returns:
+    Returns
+    -------
         Matplotlib Figure object
     """
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -81,7 +87,8 @@ def make_cpmg_figure(
         r2_err_down: Lower error bounds
         r2_err_up: Upper error bounds
 
-    Returns:
+    Returns
+    -------
         Matplotlib Figure object
     """
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -104,7 +111,8 @@ def ncyc_to_nu_cpmg(ncyc: FloatArray, time_t2: float) -> FloatArray:
         ncyc: Number of CPMG cycles
         time_t2: T2 relaxation time in seconds
 
-    Returns:
+    Returns
+    -------
         CPMG frequencies in Hz
     """
     return np.where(ncyc > 0, ncyc / time_t2, 0.5 / time_t2)
@@ -122,10 +130,11 @@ def intensity_to_r2eff(
         intensity_ref: Reference intensity (at ncyc=0)
         time_t2: T2 relaxation time in seconds
 
-    Returns:
+    Returns
+    -------
         R2eff values in s^-1
     """
-    return -np.log(intensity / intensity_ref) / time_t2
+    return cast("FloatArray", -np.log(intensity / intensity_ref) / time_t2)
 
 
 def make_intensity_ensemble(data: np.ndarray, size: int = 1000) -> FloatArray:
@@ -135,7 +144,8 @@ def make_intensity_ensemble(data: np.ndarray, size: int = 1000) -> FloatArray:
         data: Structured array with 'intensity' and 'error' fields
         size: Number of ensemble members
 
-    Returns:
+    Returns
+    -------
         Array of shape (size, n_points) with sampled intensities
     """
     rng = np.random.default_rng()

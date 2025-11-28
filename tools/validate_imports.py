@@ -59,7 +59,7 @@ def validate_file(py_file: Path, src_dir: Path) -> list[str]:
         return violations
 
     for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
+        if isinstance(node, ast.Import | ast.ImportFrom):
             target = get_import_target(node)
             if not target:
                 continue
@@ -90,7 +90,7 @@ def validate_imports(src_dir: Path) -> list[str]:
 
 
 def main() -> int:
-    """Main entry point."""
+    """Run the import validator CLI and exit with a code indicating status."""
     src_dir = Path("src/peakfit")
 
     if not src_dir.exists():
@@ -98,19 +98,19 @@ def main() -> int:
         src_dir = Path(__file__).parent.parent / "src" / "peakfit"
 
     if not src_dir.exists():
-        print(f"Error: Could not find source directory: {src_dir}")
+        print(f"Error: Could not find source directory: {src_dir}")  # noqa: T201
         return 1
 
-    print(f"Validating imports in: {src_dir}")
+    print(f"Validating imports in: {src_dir}")  # noqa: T201
     violations = validate_imports(src_dir)
 
     if violations:
-        print(f"\n[BAD] Found {len(violations)} import violation(s):\n")
+        print(f"\n[BAD] Found {len(violations)} import violation(s):\n")  # noqa: T201
         for v in sorted(violations):
-            print(f"  ✗ {v}")
+            print(f"  ✗ {v}")  # noqa: T201
         return 1
     else:
-        print("\n✓ All imports follow architectural rules")
+        print("\n✓ All imports follow architectural rules")  # noqa: T201
         return 0
 
 

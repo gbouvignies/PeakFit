@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
+
+import numpy as np
 
 from peakfit.core.fitting.computation import (
     calculate_amplitude_covariance,
@@ -32,12 +33,10 @@ class TestAmplitudeCovariance:
     def test_two_peaks_covariance(self):
         """Test covariance for two orthogonal peaks."""
         # Two orthogonal peaks (no overlap)
-        shapes = np.array(
-            [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-            ]
-        )
+        shapes = np.array([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+        ])
         noise = 1.0
 
         cov = calculate_amplitude_covariance(shapes, noise)
@@ -64,12 +63,10 @@ class TestAmplitudeCovariance:
     def test_overlapping_peaks_covariance(self):
         """Test that overlapping peaks have correlated uncertainties."""
         # Two overlapping peaks
-        shapes = np.array(
-            [
-                [1.0, 0.5, 0.0, 0.0],
-                [0.0, 0.5, 1.0, 0.0],
-            ]
-        )
+        shapes = np.array([
+            [1.0, 0.5, 0.0, 0.0],
+            [0.0, 0.5, 1.0, 0.0],
+        ])
         noise = 1.0
 
         cov = calculate_amplitude_covariance(shapes, noise)
@@ -88,12 +85,10 @@ class TestAmplitudesWithUncertainty:
 
     def test_returns_correct_amplitudes(self):
         """Test that amplitudes match basic calculation."""
-        shapes = np.array(
-            [
-                [1.0, 0.5, 0.0],
-                [0.0, 0.5, 1.0],
-            ]
-        )
+        shapes = np.array([
+            [1.0, 0.5, 0.0],
+            [0.0, 0.5, 1.0],
+        ])
         data = np.array([2.0, 1.5, 3.0])
         noise = 0.5
 
@@ -120,12 +115,10 @@ class TestAmplitudesWithUncertainty:
         # Data should be (n_planes, n_points) = (2, 3)
         # But lstsq(shapes.T, data) expects shapes.T=(3, 1) and data=(3,) or (3, n_planes)
         # So data.T should be (3, 2) if we want (n_planes, n_points)
-        data = np.array(
-            [
-                [2.0, 1.0, 0.0],  # plane 0
-                [4.0, 2.0, 0.0],  # plane 1
-            ]
-        ).T  # Transpose to (3, 2) - (n_points, n_planes)
+        data = np.array([
+            [2.0, 1.0, 0.0],  # plane 0
+            [4.0, 2.0, 0.0],  # plane 1
+        ]).T  # Transpose to (3, 2) - (n_points, n_planes)
         noise = 1.0
 
         amps, errors, _cov = calculate_amplitudes_with_uncertainty(shapes, data, noise)

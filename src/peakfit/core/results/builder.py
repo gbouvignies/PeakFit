@@ -25,11 +25,15 @@ from peakfit.core.results.fit_results import FitMethod, FitResults, RunMetadata
 from peakfit.core.results.statistics import FitStatistics
 
 if TYPE_CHECKING:
+    # Avoid importing from services layer to preserve architecture
+    from typing import Any
+
     from peakfit.core.domain.cluster import Cluster
     from peakfit.core.domain.spectrum import Spectra
     from peakfit.core.domain.state import FittingState
     from peakfit.core.fitting.parameters import Parameters
-    from peakfit.services.analyze.mcmc_service import MCMCAnalysisResult
+
+    MCMCAnalysisResult = Any
 
 
 @dataclass
@@ -78,7 +82,8 @@ class FitResultsBuilder:
             input_files: Dictionary mapping names to file paths
             command_line: Command line string
 
-        Returns:
+        Returns
+        -------
             Self for chaining
         """
         self._metadata = RunMetadata.capture(config)
@@ -98,7 +103,8 @@ class FitResultsBuilder:
         Args:
             spectra: Spectra object with z_values
 
-        Returns:
+        Returns
+        -------
             Self for chaining
         """
         self._spectra_z_values = spectra.z_values
@@ -110,7 +116,8 @@ class FitResultsBuilder:
         Args:
             z_values: Array of z-dimension values
 
-        Returns:
+        Returns
+        -------
             Self for chaining
         """
         self._spectra_z_values = z_values
@@ -122,7 +129,8 @@ class FitResultsBuilder:
         Args:
             method: Fitting method enum
 
-        Returns:
+        Returns
+        -------
             Self for chaining
         """
         self._fit_method = method
@@ -134,7 +142,8 @@ class FitResultsBuilder:
         Args:
             exp_type: Experiment type string (e.g., "CPMG", "CEST")
 
-        Returns:
+        Returns
+        -------
             Self for chaining
         """
         self._experiment_type = exp_type
@@ -155,7 +164,8 @@ class FitResultsBuilder:
             noise: Noise level for amplitude uncertainty
             scipy_result: Optional scipy OptimizeResult for statistics
 
-        Returns:
+        Returns
+        -------
             Self for chaining
         """
         # Extract parameter estimates for this cluster's peaks
@@ -220,7 +230,8 @@ class FitResultsBuilder:
             state: FittingState containing fitted clusters
             noise: Noise level (uses state.noise if not provided)
 
-        Returns:
+        Returns
+        -------
             Self for chaining
         """
         noise_val = noise if noise is not None else state.noise
@@ -237,7 +248,8 @@ class FitResultsBuilder:
         Args:
             mcmc_result: MCMCAnalysisResult from mcmc_analysis_service
 
-        Returns:
+        Returns
+        -------
             Self for chaining
         """
         self._fit_method = FitMethod.MCMC
@@ -309,7 +321,8 @@ class FitResultsBuilder:
             peak_name: Peak identifier
             params: Parameters object
 
-        Returns:
+        Returns
+        -------
             List of ParameterEstimate objects
         """
         import re
@@ -370,7 +383,8 @@ class FitResultsBuilder:
             scipy_result: Optional scipy result
             noise: Noise level
 
-        Returns:
+        Returns
+        -------
             FitStatistics object
         """
         # Count varying parameters for this cluster's peaks
@@ -419,10 +433,12 @@ class FitResultsBuilder:
     def build(self) -> FitResults:
         """Build the final FitResults object.
 
-        Returns:
+        Returns
+        -------
             Constructed FitResults
 
-        Raises:
+        Raises
+        ------
             ValueError: If required data is missing
         """
         if not self._cluster_estimates:
@@ -450,7 +466,8 @@ class FitResultsBuilder:
     def _build_global_statistics(self) -> FitStatistics:
         """Build global fit statistics from cluster statistics.
 
-        Returns:
+        Returns
+        -------
             FitStatistics aggregating all clusters
         """
         total_chi_sq = sum(cs.chi_squared for cs in self._cluster_statistics)

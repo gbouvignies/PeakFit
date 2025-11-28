@@ -1,18 +1,22 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, cast
 
 import networkx as nx
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.ndimage import binary_dilation, generate_binary_structure, label
 
-from peakfit.core.shared.typing import FloatArray, IntArray
-
+# Type-only structured imports
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from numpy.typing import NDArray
+
     from peakfit.core.domain.peaks import Peak
     from peakfit.core.domain.spectrum import Spectra
+    from peakfit.core.shared.typing import FloatArray, IntArray
 
 from peakfit.core.domain.cluster import Cluster
 
@@ -21,7 +25,9 @@ class PeakLike(Protocol):
     """Minimal interface required for segmentation."""
 
     @property
-    def positions_i(self) -> IntArray | tuple[int, ...]: ...
+    def positions_i(self) -> IntArray | tuple[int, ...]:
+        """Return index positions for shapes in the peak."""
+        ...
 
 
 def group_connected_pairs(pairs: Iterable[tuple[int, int]]) -> list[list[int]]:
@@ -30,7 +36,8 @@ def group_connected_pairs(pairs: Iterable[tuple[int, int]]) -> list[list[int]]:
     Args:
         pairs (Iterable[tuple[int, int]]): Iterable of pairs of connected indices.
 
-    Returns:
+    Returns
+    -------
         list[list[int]]: List of grouped and sorted connected components.
     """
     graph = nx.Graph()
@@ -44,7 +51,8 @@ def merge_connected_segments(segments: IntArray) -> IntArray:
     Args:
         segments (IntArray): Array with labeled segments.
 
-    Returns:
+    Returns
+    -------
         IntArray: Array with merged segments.
     """
     for _ in range(segments.ndim):
@@ -79,7 +87,8 @@ def segment_data(
         contour_level (float): Contour level for segmenting the data.
         peaks (list[Peak]): List of detected peaks.
 
-    Returns:
+    Returns
+    -------
         IntArray: Labeled segments array.
     """
     data_above_threshold = np.any(np.abs(data) >= contour_level, axis=0)
@@ -96,7 +105,12 @@ def segment_data(
     data_around_peaks = binary_dilation(data_around_peaks, structuring_element)
     data_selected = np.logical_or(data_above_threshold, data_around_peaks)
     data_bool: NDArray[np.bool_] = np.asarray(data_selected, dtype=np.bool_)
-    labeled_segments, _ = label(data_bool, structure=structuring_element)
+    # `label` returns (labeled_array, n_features). Access the first element by
+    # index to avoid type-checking issues with tuple unpacking.
+    label_result = cast(
+        "tuple[NDArray[np.int_], int]", label(data_bool, structure=structuring_element)
+    )
+    labeled_segments = label_result[0]
     segments = np.asarray(labeled_segments, dtype=np.int_)
 
     return merge_connected_segments(segments)
@@ -109,7 +123,8 @@ def assign_peaks_to_segments(peaks: list[Peak], segments: IntArray) -> dict[int,
         peaks (list[Peak]): List of detected peaks.
         segments (IntArray): Array with labeled segments.
 
-    Returns:
+    Returns
+    -------
         dict[int, list[Peak]]: Dictionary mapping segment IDs to peaks.
     """
     peak_segments_dict: dict[int, list[Peak]] = {}
@@ -128,7 +143,8 @@ def create_clusters(spectra: Spectra, peaks: list[Peak], contour_level: float) -
         peaks (list[Peak]): List of detected peaks.
         contour_level (float): Contour level for segmenting the data.
 
-    Returns:
+    Returns
+    -------
         list[Cluster]: List of created clusters.
     """
     segments = segment_data(spectra.data, contour_level, peaks)

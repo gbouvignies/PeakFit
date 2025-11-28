@@ -1,207 +1,492 @@
 #:tombi schema.strict = false
 
 [project]
-name = "PeakFit"
+name = "peakfit"
 version = "2025.11.0"
-description = "PeakFit allow for lineshape fitting in pseudo-3D NMR spectra."
+description = "Lineshape fitting for pseudo-3D NMR spectra"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "GPL-3.0-or-later" }
 authors = [
     { name = "Guillaume Bouvignies", email = "guillaume.bouvignies@ens.psl.eu" },
 ]
+keywords = ["NMR", "spectroscopy", "lineshape", "fitting", "chemical-exchange", "relaxation-dispersion"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+
 dependencies = [
     "numpy>=2.2.0",
-    "matplotlib>=3.9.0",
-    "rich>=13.7.1",
-    "nmrglue>=0.10",
-    "pandas>=2.2.2",
     "scipy>=1.13.1",
-    "networkx>=3.3",
-    "pyqt5>=5.15.11",
+    "pandas>=2.2.2",
+    "matplotlib>=3.9.0",
+    "nmrglue>=0.10",
     "pydantic>=2.5.0",
+    "networkx>=3.3",
     "typer>=0.9.0",
+    "rich>=13.7.1",
     "tomli-w>=1.0.0",
     "threadpoolctl>=3.0.0",
+    "pyqt5>=5.15.11",
 ]
-requires-python = ">=3.13"
-readme = "README.md"
-license = { text = "GPL-3.0-or-later" }
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "mypy>=1.0",
-    "ruff>=0.7.0",
-    "pre-commit>=3.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13",
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.6.0",
+    "pre-commit>=4.0.0",
+]
+types = [
     "types-setuptools>=75.0",
+    "pandas-stubs>=2.2",
 ]
 mcmc = [
     "emcee>=3.1.6",
+    "corner>=2.2.0",
+]
+performance = [
+    "numba>=0.60.0",
+]
+all = [
+    "peakfit[dev,types,mcmc,performance]",
 ]
 
 [project.scripts]
 peakfit = "peakfit.cli.app:app"
 
+[project.urls]
+Homepage = "https://github.com/gbouvignies/peakfit"
+Documentation = "https://github.com/gbouvignies/peakfit#readme"
+Repository = "https://github.com/gbouvignies/peakfit"
+Issues = "https://github.com/gbouvignies/peakfit/issues"
+
 [build-system]
 requires = ["uv_build>=0.9.10,<0.10.0"]
 build-backend = "uv_build"
+
+# ============================================================
+# RUFF: MODERN PYTHON LINTER & FORMATTER (2025)
+# ============================================================
 
 [tool.ruff]
 line-length = 100
 target-version = "py313"
 src = ["src"]
-extend-exclude = [
-    ".venv",
-    "*.egg-info",
-    "build",
-    "dist",
-    ".git",
-    "__pycache__",
-    "*.pyc",
-]
+extend-exclude = [".venv", "*.egg-info", "build", "dist"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
-line-ending = "auto"
 docstring-code-format = true
 docstring-code-line-length = 88
+preview = true  # Enable 2025 style guide
 
 [tool.ruff.lint]
+# Comprehensive rule set for scientific Python (2025)
 select = [
+    # Core quality
     "E",      # pycodestyle errors
     "W",      # pycodestyle warnings
     "F",      # pyflakes
     "I",      # isort
+
+    # Code quality
     "N",      # pep8-naming
-    "UP",     # pyupgrade
-    "B",      # flake8-bugbear
+    "UP",     # pyupgrade (modernize syntax)
+    "B",      # flake8-bugbear (likely bugs)
     "C4",     # flake8-comprehensions
     "SIM",    # flake8-simplify
-    "ARG",    # flake8-unused-arguments
-    "PTH",    # flake8-use-pathlib
     "RET",    # flake8-return
-    "NPY",    # numpy-specific rules
+    "PTH",    # flake8-use-pathlib
+    "FLY",    # flynt (f-string conversions)
     "PERF",   # performance anti-patterns
-    "RUF",    # ruff-specific rules
+    "FURB",   # refurb (modernization)
+    "LOG",    # flake8-logging
+
+    # Scientific Python specific
+    "NPY",    # numpy-specific rules (deprecated APIs, etc.)
+
+    # Error prevention
     "S",      # flake8-bandit (security)
     "BLE",    # flake8-blind-except
     "T10",    # flake8-debugger
-    "PLW",    # pylint warnings (subset of PL)
+    "T20",    # flake8-print
+    "ARG",    # flake8-unused-arguments
+
+    # Documentation
+    "D",      # pydocstyle
+
+    # Advanced patterns
+    "RUF",    # ruff-specific rules
+    "PL",     # pylint (comprehensive)
+    "TCH",    # flake8-type-checking
+    "FA",     # flake8-future-annotations
 ]
+
 ignore = [
-    "E501",    # Line too long (handled by formatter)
-    "RET504",  # Unnecessary variable assignment before return
-    "RET505",  # Unnecessary else after return
-    "RET506",  # Unnecessary else after raise
-    "SIM108",  # Use ternary operator (sometimes less readable)
-    "PTH123",  # open() should be replaced by Path.open() (not always better)
-    "ARG001",  # Unused function argument (often needed for APIs/callbacks)
-    "ARG002",  # Unused method argument (often needed for inheritance)
-    "S301",    # pickle usage (safe in controlled contexts)
-    "S603",    # subprocess without shell=True (not applicable)
-    "S607",    # subprocess partial path (not applicable)
-    "PLW2901", # Redefined loop variable (often intentional for readability)
-    "RUF001",  # Ambiguous Unicode characters (intentional for UI: ℹ, ✓, etc.)
-    "RUF002",  # Ambiguous Unicode characters in docstrings (intentional: ν for nu)
+    # Formatter conflicts (never enable these)
+    "W191",    # tab-indentation
+    "E111",    # indentation-is-not-a-multiple-of-four
+    "E114",    # indentation-is-not-a-multiple-of-four-comment
+    "E117",    # over-indented
+    "E501",    # line-too-long (handled by formatter)
+    "D206",    # indent-with-spaces
+    "D300",    # triple-single-quotes
+
+    # Scientific computing exceptions
+    "PLR0911", # too-many-return-statements (complex algorithms)
+    "PLR0912", # too-many-branches (analysis logic)
+    "PLR0913", # too-many-arguments (scientific functions)
+    "PLR0915", # too-many-statements (data processing)
+    "PLR2004", # magic-value-comparison (physical constants)
+
+    # Reasonable pragmatic choices
+    "RET504",  # unnecessary-assign (clarity sometimes better)
+    "RET505",  # superfluous-else-return
+    "RET506",  # superfluous-else-raise
+    "SIM108",  # if-else-block-instead-of-if-exp (ternary not always clearer)
+    "PTH123",  # builtin-open (pathlib not always better)
+    "ARG001",  # unused-function-argument (callbacks/APIs)
+    "ARG002",  # unused-method-argument (inheritance)
+
+    # Data science workflow
+    "S301",    # suspicious-pickle-usage (standard in scientific computing)
+    "S603",    # subprocess-without-shell-equals-true
+    "S607",    # start-process-with-partial-path
+
+    # Loop practices
+    "PLW2901", # redefined-loop-name (sometimes intentional)
+
+    # Unicode in scientific context (ν, δ, Δ, etc.)
+    "RUF001",  # ambiguous-unicode-character-string
+    "RUF002",  # ambiguous-unicode-character-docstring
+    "RUF003",  # ambiguous-unicode-character-comment
+
+    # Docstring flexibility
+    "D100",    # undocumented-public-module
+    "D104",    # undocumented-public-package
+    "D107",    # undocumented-public-init
 ]
-# Allow fix for all enabled rules (when --fix is used)
+
+# Auto-fix when safe
 fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.isort]
 known-first-party = ["peakfit"]
+section-order = ["future", "standard-library", "third-party", "scientific", "first-party", "local-folder"]
 combine-as-imports = true
 split-on-trailing-comma = false
 
+[tool.ruff.lint.isort.sections]
+scientific = ["numpy", "scipy", "pandas", "matplotlib", "nmrglue"]
+
 [tool.ruff.lint.pydocstyle]
-convention = "google"
+convention = "numpy"  # Standard for scientific Python
+
+[tool.ruff.lint.pylint]
+max-args = 10
+max-branches = 20
+max-returns = 8
+max-statements = 75
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.ruff.lint.per-file-ignores]
+# Test files
 "tests/**/*" = [
-    "S101",    # Use of assert (required in tests)
-    "D",       # Missing docstrings (not needed in tests)
-    "ANN",     # Missing type annotations (relaxed for tests)
-    "PLR2004", # Magic values in comparisons
-    "ARG",     # Unused arguments (fixtures)
-]
-"src/peakfit/plotting/**/*" = [
-    "PLR0913", # Too many arguments
-    "PLR0912", # Too many branches
-    "PLR0915", # Too many statements
-    "C901",    # Too complex
-]
-"src/peakfit/cli/**/*" = [
-    "FBT001",  # Boolean positional arg (common in CLI)
-    "FBT002",  # Boolean default arg (common in CLI)
-    "PLC0415", # Import outside top-level (lazy imports for performance)
-    "BLE001",  # Blind exception (acceptable for validation/error reporting)
-    "N813",    # PeakFitUI imported as ui (project convention)
-]
-"src/peakfit/data/clustering.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
-"src/peakfit/data/noise.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
-"src/peakfit/io/output.py" = ["N813"]  # PeakFitUI imported as ui (project convention)
-"src/peakfit/analysis/benchmarks.py" = [
-    "S311",    # Pseudo-random generators (acceptable for benchmarks)
-]
-"src/peakfit/__init__.py" = [
-    "E402",    # Module level import not at top of file
+    "S101",    # assert (required)
+    "D",       # docstrings
+    "ANN",     # annotations
+    "PLR2004", # magic values
+    "ARG",     # unused fixtures
+    "T20",     # print statements
+    "PLR0913", # many arguments (test parametrization)
 ]
 
-[tool.pyright]
-venvPath = "."
-venv = ".venv"
+# Plotting modules (inherently complex)
+"src/peakfit/plotting/**/*" = [
+    "C901",    # complex-structure
+    "PLR",     # pylint refactor
+    "T20",     # print for interactive work
+]
+
+# CLI modules
+"src/peakfit/cli/**/*" = [
+    "FBT",     # boolean-trap (standard for CLI)
+    "T20",     # print for CLI output
+    "PLC0415", # import-outside-top-level (lazy imports)
+    "BLE001",  # blind-except (user error handling)
+]
+
+# I/O operations
+"src/peakfit/io/**/*" = [
+    "PTH",     # use-pathlib (compatibility with nmrglue)
+]
+
+# Benchmarking code
+"src/peakfit/analysis/benchmarks.py" = [
+    "S311",    # suspicious-non-cryptographic-random-usage
+    "T20",     # print statements
+]
+
+# Package initialization
+"src/peakfit/__init__.py" = [
+    "E402",    # module-import-not-at-top-of-file
+    "F401",    # unused-import (public API)
+    "D104",    # undocumented-public-package
+]
+
+# ============================================================
+# PYTEST: TESTING FRAMEWORK (2025 BEST PRACTICES)
+# ============================================================
 
 [tool.pytest.ini_options]
+minversion = "8.0"
 testpaths = ["tests"]
-python_files = ["test_*.py"]
+pythonpath = ["src"]
+
+# Discovery patterns
+python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
+
+# Output and reporting
+addopts = [
+    # Display options
+    "-ra",                           # Show all test outcomes
+    "--verbose",
+    "--strict-markers",              # Error on typos
+    "--strict-config",               # Error on config issues
+    "--tb=short",                    # Shorter tracebacks
+
+    # Coverage
+    "--cov=peakfit",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html",
+    "--cov-report=json",
+    "--cov-branch",                  # Branch coverage
+
+    # Doctest integration
+    "--doctest-modules",
+    "--doctest-continue-on-failure",
+
+    # Performance
+    "--import-mode=importlib",       # Modern import mode (recommended 2024+)
+
+    # Warning handling
+    # "--strict-warnings",             # Treat warnings as errors
+]
+
+# Test markers
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
+    "integration: integration tests requiring full setup",
+    "unit: fast unit tests",
+    "mcmc: tests requiring emcee package",
+    "gui: tests requiring PyQt5",
+    "parametric: heavily parametrized tests",
 ]
+
+# Filter dependency warnings
+filterwarnings = [
+    "error",                         # Treat warnings as errors by default
+    "ignore::DeprecationWarning:nmrglue.*",
+    "ignore::FutureWarning:numpy.*",
+    "ignore::PendingDeprecationWarning",
+    "ignore:datetime.datetime.utcnow.*:DeprecationWarning",
+]
+
+# Console output
+console_output_style = "progress"
+log_cli = false
+log_cli_level = "INFO"
+
+# Performance options
+timeout = 300
+timeout_method = "thread"
+
+# Parallel execution (requires pytest-xdist)
+# Uncomment to enable: addopts = [..., "-n", "auto"]
 
 [tool.coverage.run]
 source = ["src/peakfit"]
+branch = true
+parallel = true
 omit = [
     "*/tests/*",
     "*/__pycache__/*",
+    "*/site-packages/*",
+    "*/.venv/*",
 ]
 
 [tool.coverage.report]
+precision = 2
 show_missing = true
 skip_covered = false
-precision = 2
+skip_empty = true
+
+exclude_lines = [
+    # Standard exclusions
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Type checking
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@overload",
+
+    # Debugging
+    "def __repr__",
+    "def __str__",
+
+    # Main guard
+    'if __name__ == "__main__":',
+
+    # Abstract methods
+    "@abstractmethod",
+    "@abc.abstractmethod",
+
+    # Platform-specific
+    "if sys.platform",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.json]
+output = "coverage.json"
+
+# ============================================================
+# MYPY: STATIC TYPE CHECKER (2025 CONFIGURATION)
+# ============================================================
 
 [tool.mypy]
+# Python version
 python_version = "3.13"
+
+# Import discovery
+mypy_path = "$MYPY_CONFIG_FILE_DIR/src"
+namespace_packages = true
+explicit_package_bases = true
+
+# Strictness (progressive typing approach)
+strict = false  # Enable gradually; see individual flags below
+
+# Type checking behavior
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
-extra_checks = true
 
+# Untyped definitions
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false  # Many scientific decorators untyped
+
+# None and Optional
+no_implicit_optional = true
+strict_optional = true
+
+# Advanced features
+extra_checks = true
+local_partial_types = true           # Better for scientific code
+allow_redefinition = true            # Useful in notebooks/REPL
+
+# Error messages
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+color_output = true
+error_summary = true
+
+# Performance (mypy 1.13+)
+# Uncomment for faster cache: extra_checks = false
+# Install: pip install mypy[faster-cache]
+
+# Cache
+incremental = true
+cache_dir = ".mypy_cache"
+
+# Reports (optional)
+# html_report = "mypy-report"
+# txt_report = "mypy-report"
+
+# Ignore missing imports for untyped scientific libraries
 [[tool.mypy.overrides]]
 module = [
     "nmrglue.*",
     "scipy.*",
     "networkx.*",
     "emcee.*",
+    "corner.*",
     "matplotlib.*",
     "pandas.*",
     "threadpoolctl.*",
+    "numba.*",
 ]
 ignore_missing_imports = true
 
-[dependency-groups]
-dev = []
+# Relaxed rules for test files
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+
+# ============================================================
+# PYRIGHT: ALTERNATIVE TYPE CHECKER (VSCODE)
+# ============================================================
+
+[tool.pyright]
+pythonVersion = "3.13"
+pythonPlatform = "All"
+
+# Type checking mode
+typeCheckingMode = "basic"  # or "strict" for more rigorous checking
+
+# Include/exclude
+include = ["src"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    ".venv",
+    "build",
+    "dist",
+]
+
+# Diagnostics
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+# Scientific computing: lenient with dynamic types
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportPrivateUsage = false
+reportIncompatibleMethodOverride = true
+reportIncompatibleVariableOverride = true
+
+# Stubs
+stubPath = "typings"
+venvPath = "."
+venv = ".venv"

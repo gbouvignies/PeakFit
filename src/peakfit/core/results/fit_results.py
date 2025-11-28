@@ -12,10 +12,11 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from peakfit.core.results.diagnostics import MCMCDiagnostics
     from peakfit.core.results.estimates import ClusterEstimates
     from peakfit.core.results.statistics import FitStatistics, ModelComparison
@@ -50,7 +51,8 @@ class OutputVerbosity(str, Enum):
 class RunMetadata:
     """Metadata about the fitting run for reproducibility.
 
-    Attributes:
+    Attributes
+    ----------
         timestamp: When the analysis was run (ISO 8601)
         software_version: PeakFit version string
         git_commit: Git commit hash if in repository
@@ -79,7 +81,8 @@ class RunMetadata:
         Args:
             config: Configuration dictionary to include
 
-        Returns:
+        Returns
+        -------
             RunMetadata with populated fields
         """
         import platform
@@ -162,7 +165,8 @@ class FitResults:
     from fitting: parameter estimates, statistics, and diagnostics
     for all clusters.
 
-    Attributes:
+    Attributes
+    ----------
         metadata: Run metadata for reproducibility
         method: Fitting method used
         clusters: Per-cluster parameter estimates
@@ -226,10 +230,11 @@ class FitResults:
     def get_all_problematic_params(self) -> list[tuple[str, str]]:
         """Get all problematic parameters across clusters.
 
-        Returns:
+        Returns
+        -------
             List of (cluster_label, param_name) tuples
         """
-        problems = []
+        problems: list[tuple[str, str]] = []
         for cluster in self.clusters:
             label = ", ".join(cluster.peak_names)
             problems.extend((label, param.name) for param in cluster.get_problematic_params())
@@ -269,7 +274,7 @@ class FitResults:
 
         This is a condensed version suitable for the executive summary.
         """
-        summary = {
+        summary: dict[str, object] = {
             "timestamp": self.metadata.timestamp,
             "method": self.method.value,
             "n_clusters": self.n_clusters,
@@ -286,7 +291,7 @@ class FitResults:
             n_problematic = sum(len(d.get_problematic_parameters()) for d in self.mcmc_diagnostics)
             summary["n_problematic_params"] = n_problematic
 
-        problems = self.get_all_problematic_params()
+        problems: list[tuple[str, str]] = self.get_all_problematic_params()
         summary["n_problematic_total"] = len(problems)
         if problems:
             summary["problematic_params"] = problems[:10]  # First 10 only
@@ -301,7 +306,8 @@ def _compute_file_checksum(path: Path, algorithm: str = "sha256") -> str:
         path: Path to file
         algorithm: Hash algorithm (default sha256)
 
-    Returns:
+    Returns
+    -------
         Hex digest of file contents
     """
     h = hashlib.new(algorithm)

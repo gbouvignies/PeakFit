@@ -9,12 +9,14 @@ It creates a Typer sub-application with commands for:
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
 from peakfit.ui import info
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Create analyze sub-application
 analyze_app = typer.Typer(
@@ -92,7 +94,8 @@ def analyze_mcmc(
 
     MCMC sampling provides full posterior distributions for fitted parameters.
 
-    Examples:
+    Examples
+    --------
         peakfit analyze mcmc Fits/
         peakfit analyze mcmc Fits/ --chains 64 --samples 2000
         peakfit analyze mcmc Fits/ --walkers 64 --steps 2000
@@ -179,7 +182,8 @@ def analyze_profile(
     Profile likelihood gives accurate confidence intervals for parameters,
     especially when the likelihood surface is non-quadratic.
 
-    Examples:
+    Examples
+    --------
         peakfit analyze profile Fits/                    # All parameters
         peakfit analyze profile Fits/ --param 2N-H       # All params for peak 2N-H
         peakfit analyze profile Fits/ --param x0         # All x0 parameters
@@ -229,7 +233,8 @@ def analyze_uncertainty(
     This is a quick way to review uncertainties without running
     additional analysis.
 
-    Examples:
+    Examples
+    --------
         peakfit analyze uncertainty Fits/
         peakfit analyze uncertainty Fits/ --output uncertainties.txt
     """

@@ -35,7 +35,8 @@ class ConvergenceStatus(str, Enum):
 class ParameterDiagnostic:
     """Convergence diagnostics for a single MCMC parameter.
 
-    Attributes:
+    Attributes
+    ----------
         name: Parameter name
         rhat: R-hat (potential scale reduction factor)
         ess_bulk: Effective sample size for bulk of distribution
@@ -69,7 +70,8 @@ class ParameterDiagnostic:
             ess_tail: Tail ESS (optional)
             n_chains: Number of chains (for ESS thresholds)
 
-        Returns:
+        Returns
+        -------
             ParameterDiagnostic with computed status
         """
         warnings = []
@@ -139,7 +141,8 @@ class ParameterDiagnostic:
 class MCMCDiagnostics:
     """Complete MCMC diagnostics for a cluster or analysis.
 
-    Attributes:
+    Attributes
+    ----------
         n_chains: Number of MCMC chains
         n_samples: Number of samples per chain (after burn-in)
         burn_in: Number of burn-in samples discarded
@@ -235,7 +238,8 @@ class MCMCDiagnostics:
             burn_in_method: How burn-in was determined
             burn_in_details: Additional info about burn-in
 
-        Returns:
+        Returns
+        -------
             MCMCDiagnostics instance
         """
         param_diagnostics = []

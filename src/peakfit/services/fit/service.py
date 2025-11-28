@@ -17,7 +17,8 @@ from peakfit.core.shared.reporter import NullReporter, Reporter
 class FitResult:
     """Result of a fitting operation.
 
-    Attributes:
+    Attributes
+    ----------
         state: The final fitting state
         output_dir: Directory where results were written
         success: Whether fitting completed successfully
@@ -34,7 +35,8 @@ class FitResult:
 class ValidationResult:
     """Result of input validation.
 
-    Attributes:
+    Attributes
+    ----------
         valid: Whether all inputs are valid
         spectrum_info: Information about the spectrum file
         peaklist_info: Information about the peak list file
@@ -94,10 +96,12 @@ class FitService:
             save_state: Whether to save state for later analysis
             verbose: Whether to show detailed progress output
 
-        Returns:
+        Returns
+        -------
             FitResult with fitting state and summary
 
-        Raises:
+        Raises
+        ------
             FileNotFoundError: If spectrum or peaklist doesn't exist
             ValueError: If configuration is invalid
         """
@@ -146,7 +150,8 @@ class FitService:
             spectrum_path: Path to spectrum file
             peaklist_path: Path to peak list file
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation details
         """
         errors: list[str] = []
@@ -158,7 +163,7 @@ class FitService:
             errors.append(f"Spectrum file not found: {spectrum_path}")
         else:
             try:
-                from peakfit.io.nmrpipe import read_nmrpipe
+                from peakfit.io.nmrpipe import read_nmrpipe  # type: ignore[import-not-found]
 
                 dic, data = read_nmrpipe(spectrum_path)
                 spectrum_info = {
@@ -177,7 +182,7 @@ class FitService:
             errors.append(f"Peak list file not found: {peaklist_path}")
         else:
             try:
-                from peakfit.io.peaklist import read_peaklist
+                from peakfit.io.peaklist import read_peaklist  # type: ignore[import-not-found]
 
                 peaks_df = read_peaklist(peaklist_path)
                 peaklist_info = {

@@ -119,7 +119,8 @@ class Profiler:
             count: Number of operations
             **metadata: Additional metadata
 
-        Returns:
+        Returns
+        -------
             Elapsed time in seconds
         """
         if self._current_timer is None:
@@ -141,7 +142,8 @@ class Profiler:
     def finalize(self) -> ProfileReport:
         """Finalize the profile and return the report.
 
-        Returns:
+        Returns
+        -------
             ProfileReport with all timings
         """
         self.report.finalize()
@@ -163,7 +165,8 @@ def compare_fitting_methods(
         refine_iterations: Number of refinement iterations
         fixed: Whether to fix positions
 
-    Returns:
+    Returns
+    -------
         Dictionary mapping method name to ProfileReport
     """
     from peakfit.core.fitting.optimizer import fit_clusters
@@ -205,7 +208,8 @@ def estimate_optimal_workers(
         noise: Noise level
         max_workers: Ignored; retained for compatibility
 
-    Returns:
+    Returns
+    -------
         Tuple of (1, {1: elapsed_time})
     """
     # Parallel fitting removed - default to single worker.

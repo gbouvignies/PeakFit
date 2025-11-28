@@ -23,7 +23,6 @@ except (
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
     NavigationToolbar = None
-from matplotlib.figure import Figure
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (
     QAction,
@@ -39,6 +38,8 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from matplotlib.figure import Figure
 
 from peakfit.core.algorithms.noise import estimate_noise
 from peakfit.core.shared.typing import FloatArray
@@ -56,6 +57,8 @@ CONTOUR_COLORS = {
 
 @dataclass
 class NMRData:
+    """Container for loaded NMR data and related metadata."""
+
     filename: str
     dic: dict
     data: FloatArray
@@ -64,6 +67,7 @@ class NMRData:
 
     @classmethod
     def from_file(cls, filename: str) -> Self:
+        """Load an NMR file and return a populated NMRData instance."""
         dic, data = ng.pipe.read(filename)
         data = data.astype(np.float32)
         data, xlim, ylim = cls._process_data(dic, data)
@@ -91,13 +95,16 @@ class NMRData:
         return data, uc_x.ppm_limits(), uc_y.ppm_limits()
 
     def unalias_y(self, y0: FloatArray) -> FloatArray:
+        """Unwrap Y-axis positions if needed, keeping values within y-limits."""
         y_scale = (self.ylim[1] - self.ylim[0]) * (self.data.shape[1] + 1) / self.data.shape[1]
         return cast(
-            FloatArray, np.asarray((y0 - self.ylim[0]) % y_scale + self.ylim[0], dtype=float)
+            "FloatArray", np.asarray((y0 - self.ylim[0]) % y_scale + self.ylim[0], dtype=float)
         )
 
 
 class PlotWidget(QWidget):
+    """Matplotlib-based widget used for plotting NMR data within Qt UI."""
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.figure = Figure(figsize=(5, 5), dpi=100)
@@ -140,6 +147,10 @@ class PlotWidget(QWidget):
         *,
         reset_view: bool = False,
     ) -> None:
+        """Plot experimental and simulated spectra and difference contours.
+
+        Args: see parameters in signature. No return value.
+        """
         self.ax.clear()
         levels = contour_level * noise_level * CONTOUR_FACTOR ** np.arange(CONTOUR_NUM)
         levels = np.concatenate((-levels[::-1], levels))
@@ -179,6 +190,8 @@ class PlotWidget(QWidget):
 
 
 class ControlWidget(QWidget):
+    """Control panel for adjusting view and contour levels in the spectra viewer."""
+
     plane_changed = pyqtSignal(int)
     contour_level_changed = pyqtSignal(int)
     spectrum_toggled = pyqtSignal(str, bool)
@@ -229,6 +242,7 @@ class ControlWidget(QWidget):
         return checkbox_layout
 
     def update_plane_label(self, current_plane: int, total_planes: int) -> None:
+        """Update plane label and slider/spinbox ranges for the UI."""
         self.plane_spinbox.setRange(1, total_planes)
         self.plane_slider.setRange(1, total_planes)
         self.plane_spinbox.setValue(current_plane + 1)
@@ -236,6 +250,8 @@ class ControlWidget(QWidget):
 
 
 class SpectraViewer(QMainWindow):
+    """Top-level Qt application window containing spectra viewer and controls."""
+
     def __init__(self, data1: NMRData, data2: NMRData, plist: pd.DataFrame | None) -> None:
         super().__init__()
         self.data1, self.data2 = data1, data2
@@ -322,6 +338,7 @@ class SpectraViewer(QMainWindow):
         self.statusbar.showMessage("Ready")
 
     def update_view(self, *, reset_view: bool = False) -> None:
+        """Refresh the plot view, optionally resetting zoom to defaults."""
         xlim = sorted(self.data1.xlim, reverse=True)
         ylim = sorted(self.data1.ylim, reverse=True)
 
@@ -340,6 +357,7 @@ class SpectraViewer(QMainWindow):
         )
 
     def reset_view(self) -> None:
+        """Reset the plot view to default limits and refresh view."""
         self.update_view(reset_view=True)
 
     def _change_plane(self, value: int) -> None:
@@ -358,6 +376,7 @@ class SpectraViewer(QMainWindow):
         self.update_view()
 
     def resizeEvent(self, a0: Any) -> None:  # noqa: N802
+        """Handle window resize events and adjust layouts accordingly."""
         super().resizeEvent(a0)
         self.plot_widget.figure.tight_layout()
         self.plot_widget.canvas.draw_idle()
@@ -413,7 +432,7 @@ def plot_spectra(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    """Main entry point for the spectra viewer."""
+    """Run the spectra viewer command-line interface and display plots."""
     parser = argparse.ArgumentParser(description="NMR Spectra Viewer")
     parser.add_argument("data_exp", help="Experimental data file")
     parser.add_argument("--sim", dest="data_sim", required=True, help="Simulated data file")

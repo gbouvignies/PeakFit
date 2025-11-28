@@ -14,10 +14,11 @@ import tempfile
 from pathlib import Path
 from typing import cast
 
-import numpy as np
 from pydantic import ValidationError
 from rich.console import Console
 from rich.table import Table
+
+import numpy as np
 
 console = Console()
 
@@ -102,7 +103,7 @@ def validate_cli_help_commands(results: ValidationResult):
     for cmd, name in commands:
         code, _stdout, stderr = run_command(cmd)
         if code == 0:
-            results.add_pass(name, f"Command: {' '.join(cmd)}")
+            results.add_pass(name, f"Command: {" ".join(cmd)}")
         else:
             results.add_fail(name, f"Exit code: {code}, stderr: {stderr}")
 
@@ -222,9 +223,12 @@ def validate_error_handling(results: ValidationResult):
         fake_spectrum = tmppath / "nonexistent.ft2"
         fake_peaklist = tmppath / "nonexistent.list"
 
-        code, _stdout, _stderr = run_command(
-            ["peakfit", "validate", str(fake_spectrum), str(fake_peaklist)]
-        )
+        code, _stdout, _stderr = run_command([
+            "peakfit",
+            "validate",
+            str(fake_spectrum),
+            str(fake_peaklist),
+        ])
 
         if code != 0:
             results.add_pass("Validate rejects missing files", "Correctly fails with missing files")

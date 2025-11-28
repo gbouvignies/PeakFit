@@ -9,10 +9,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
 
 
 class OutputType(str, Enum):
@@ -89,7 +85,8 @@ class OutputDirectoryManager:
         └── legacy/
             └── *.out                 # Legacy format files
 
-    Attributes:
+    Attributes
+    ----------
         base_dir: Base output directory path
         timestamp: Timestamp string used in directory name
         include_timestamp: Whether directory name includes timestamp
@@ -170,7 +167,8 @@ class OutputDirectoryManager:
         Args:
             output_type: Type of output
 
-        Returns:
+        Returns
+        -------
             Path to the appropriate subdirectory
         """
         return self.base_dir / OUTPUT_SUBDIRS[output_type]
@@ -201,7 +199,8 @@ class OutputDirectoryManager:
             filename: Name of the file
             ensure_dir: Create subdirectory if it doesn't exist
 
-        Returns:
+        Returns
+        -------
             Full path to the file
         """
         subdir = self.get_dir(output_type)
@@ -223,7 +222,8 @@ class OutputDirectoryManager:
             filename: Name of the figure file
             ensure_dir: Create directory if needed
 
-        Returns:
+        Returns
+        -------
             Full path to the figure file
         """
         fig_subdir = self.figures_dir / category
@@ -278,7 +278,8 @@ class OutputDirectoryManager:
         Args:
             peak_name: Name of the peak
 
-        Returns:
+        Returns
+        -------
             Path to the legacy profile file
         """
         return self.get_path(OutputType.LEGACY, f"{peak_name}.out")
@@ -382,10 +383,12 @@ def generate_filename(
         extension: File extension (with or without leading dot)
         timestamp: Optional timestamp to include
 
-    Returns:
+    Returns
+    -------
         Generated filename
 
-    Examples:
+    Examples
+    --------
         >>> generate_filename("parameters", extension=".csv")
         "parameters.csv"
         >>> generate_filename("trace", cluster_id=1, extension=".pdf")

@@ -9,7 +9,8 @@ The module includes:
 
 For visualization, use `plotting.diagnostics` module.
 
-References:
+References
+----------
     Kruschke, J. K. (2021). Bayesian analysis reporting guidelines.
     Nature Human Behaviour, 5(10), 1282-1291.
     https://doi.org/10.1038/s41562-021-01177-7

@@ -8,8 +8,11 @@ from __future__ import annotations
 import os
 import platform
 import sys
-from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 from rich import box
 from rich.panel import Panel
@@ -81,7 +84,7 @@ def show_run_info(start_time: datetime) -> None:
 
     # Create run information panel
     info_text = (
-        f"[cyan]Started:[/cyan] {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"[cyan]Started:[/cyan] {start_time.strftime("%Y-%m-%d %H:%M:%S")}\n"
         f"[cyan]Command:[/cyan] {command_display}\n"
         f"[cyan]Working directory:[/cyan] {Path.cwd()}\n"
         f"[cyan]Python:[/cyan] {sys.version.split()[0]} | "
@@ -104,12 +107,12 @@ def show_run_info(start_time: datetime) -> None:
     log("=" * 60)
     log(f"PeakFit v{VERSION} started")
     log("=" * 60)
-    log(f"Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    log(f"Started: {start_time.strftime("%Y-%m-%d %H:%M:%S")}")
     log(f"Command: {original_command}")
     log(f"Working directory: {Path.cwd()}")
     log(f"Python: {sys.version.split()[0]}")
     log(f"Platform: {platform.platform()}")
-    log(f"User: {os.getenv('USER', 'unknown')}")
+    log(f"User: {os.getenv("USER", "unknown")}")
     try:
         import socket
 

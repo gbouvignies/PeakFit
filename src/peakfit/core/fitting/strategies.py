@@ -10,11 +10,11 @@ from scipy.optimize import least_squares
 
 from peakfit.core.fitting.advanced import fit_basin_hopping, fit_differential_evolution
 from peakfit.core.fitting.computation import residuals
-from peakfit.core.fitting.parameters import Parameters
-from peakfit.core.shared.typing import FloatArray
 
 if TYPE_CHECKING:  # pragma: no cover - typing aid
     from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.fitting.parameters import Parameters
+    from peakfit.core.shared.typing import FloatArray
 
 
 class OptimizationStrategy(Protocol):
@@ -65,6 +65,17 @@ class LeastSquaresStrategy:
         cluster: Cluster,
         noise: float,
     ) -> OptimizationResult:
+        """Optimize the given cluster parameters and return result.
+
+        Args:
+            params: Parameters container for the cluster
+            cluster: Cluster with peaks and data
+            noise: Noise estimate for weighting residuals
+
+        Returns
+        -------
+            OptimizationResult with final parameters and diagnostics
+        """
         vary_names = params.get_vary_names()
         x0 = params.get_vary_values()
         lower = np.array([params[name].min for name in vary_names], dtype=float)
@@ -99,7 +110,6 @@ class LeastSquaresStrategy:
     @staticmethod
     def _estimate_uncertainties(params: Parameters, result: Any) -> None:
         """Populate stderr values using the jacobian if possible."""
-
         vary_names = params.get_vary_names()
         if result.jac is None or len(result.fun) <= len(vary_names):
             return
@@ -137,6 +147,10 @@ class BasinHoppingStrategy:
         cluster: Cluster,
         noise: float,
     ) -> OptimizationResult:
+        """Perform basin-hopping global optimization on the cluster.
+
+        Returns an OptimizationResult with additional metadata about the run.
+        """
         result = fit_basin_hopping(
             params,
             cluster,
@@ -185,6 +199,10 @@ class DifferentialEvolutionStrategy:
         cluster: Cluster,
         noise: float,
     ) -> OptimizationResult:
+        """Run differential evolution to explore parameter space globally.
+
+        Returns an OptimizationResult and includes metadata for the global run.
+        """
         result = fit_differential_evolution(
             params,
             cluster,
@@ -219,7 +237,6 @@ STRATEGIES: dict[str, type[OptimizationStrategy]] = {
 
 def get_strategy(name: str, **kwargs: Any) -> OptimizationStrategy:
     """Return an instantiated strategy by name."""
-
     try:
         strategy_cls = STRATEGIES[name]
     except KeyError as exc:  # pragma: no cover - defensive guard
@@ -230,5 +247,4 @@ def get_strategy(name: str, **kwargs: Any) -> OptimizationStrategy:
 
 def register_strategy(name: str, strategy_cls: type[OptimizationStrategy]) -> None:
     """Register a custom strategy implementation."""
-
     STRATEGIES[name] = strategy_cls

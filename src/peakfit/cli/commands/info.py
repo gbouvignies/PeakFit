@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
-import typer
+if TYPE_CHECKING:
+    import typer
 
 from peakfit.ui import console
 

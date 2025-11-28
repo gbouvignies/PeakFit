@@ -18,7 +18,8 @@ def simulate_data(params: Parameters, clusters: Sequence[Cluster], data: FloatAr
         clusters: List of fitted clusters
         data: Original data (for shape information)
 
-    Returns:
+    Returns
+    -------
         Simulated spectrum with same shape as input
     """
     amplitudes_list: list[FloatArray] = []

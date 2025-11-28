@@ -7,6 +7,11 @@ ROOT = Path(__file__).resolve().parents[1] / "src" / "peakfit"
 
 
 def iter_modules(root: Path):
+    """Yield Python module paths and their filesystem Path under a source root.
+
+    Args:
+        root: Root directory to search for Python modules
+    """
     for path in root.rglob("*.py"):
         rel = path.relative_to(root.parent)
         module = str(rel).replace(os.sep, ".")
@@ -18,6 +23,12 @@ def iter_modules(root: Path):
 
 
 def build_dependency_graph():
+    """Build a graph of module and package dependencies within the project.
+
+    Returns
+    -------
+        Tuple of (module_edges, package_edges)
+    """
     module_edges: dict[str, set[str]] = defaultdict(set)
     package_edges: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
@@ -25,7 +36,7 @@ def build_dependency_graph():
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         except SyntaxError as exc:
-            print(f"Failed to parse {path}: {exc}")
+            print(f"Failed to parse {path}: {exc}")  # noqa: T201
             continue
 
         for node in ast.walk(tree):
@@ -55,16 +66,20 @@ def build_dependency_graph():
 
 
 def summarize(module_edges, package_edges, limit: int = 20):
-    print("Package dependency counts:")
+    """Print a brief summary of package dependency counts and top importing modules.
+
+    This function prints to stdout (CLI tool) and is used for quick diagnostics.
+    """
+    print("Package dependency counts:")  # noqa: T201
     for src_pkg, targets in sorted(package_edges.items()):
         for tgt_pkg, count in sorted(targets.items()):
-            print(f"{src_pkg:15s} -> {tgt_pkg:15s} : {count}")
+            print(f"{src_pkg:15s} -> {tgt_pkg:15s} : {count}")  # noqa: T201
 
-    print("\nTop modules importing many peers:")
+    print("\nTop modules importing many peers:")  # noqa: T201
     for module, targets in sorted(module_edges.items(), key=lambda kv: len(kv[1]), reverse=True)[
         :limit
     ]:
-        print(f"{module:60s} {len(targets)}")
+        print(f"{module:60s} {len(targets)}")  # noqa: T201
 
 
 if __name__ == "__main__":

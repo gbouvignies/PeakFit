@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import pickle
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from peakfit.core.domain.state import FittingState
 
@@ -44,7 +47,8 @@ class StateRepository:
         Args:
             results_dir: Results directory to search
 
-        Returns:
+        Returns
+        -------
             Path to state file if found, None otherwise
         """
         new_path = cls.default_path(results_dir)

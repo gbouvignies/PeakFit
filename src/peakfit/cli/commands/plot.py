@@ -16,11 +16,14 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
+import typer
+
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
 import matplotlib.pyplot as plt
 import numpy as np
-import typer
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.figure import Figure
 
 from peakfit.ui import (
     console,
@@ -35,9 +38,6 @@ from peakfit.ui import (
     success,
     warning,
 )
-
-if TYPE_CHECKING:
-    pass
 
 # Maximum number of plots to display interactively
 MAX_DISPLAY_PLOTS = 10
@@ -118,7 +118,8 @@ def plot_intensity(
     Creates plots showing peak intensity decay/buildup across all planes in
     pseudo-3D spectra. Useful for visualizing CEST, CPMG, or T1/T2 relaxation data.
 
-    Examples:
+    Examples
+    --------
       Save all plots to PDF:
         $ peakfit plot intensity Fits/ --output intensity.pdf
 
@@ -165,7 +166,8 @@ def plot_intensity(
                         plot_data_for_display.append((file.stem, data))
 
                     progress.update(task, advance=1)
-                except Exception as e:
+                except (OSError, ValueError, TypeError, RuntimeError) as e:
+                    # Narrowed exception handling: file read errors, invalid data, or plotting errors
                     warning(f"Failed to plot {file.name}: {e}")
                     progress.update(task, advance=1)
 
@@ -185,13 +187,11 @@ def plot_intensity(
 
     spacer()
     success("Plots saved successfully!")
-    print_next_steps(
-        [
-            f"Open PDF: [cyan]open {output_path}[/cyan]",
-            f"Plot CEST profiles: [cyan]peakfit plot cest {results}/[/cyan]",
-            f"Interactive viewer: [cyan]peakfit plot spectra {results}/ --spectrum SPECTRUM.ft2[/cyan]",
-        ]
-    )
+    print_next_steps([
+        f"Open PDF: [cyan]open {output_path}[/cyan]",
+        f"Plot CEST profiles: [cyan]peakfit plot cest {results}/[/cyan]",
+        f"Interactive viewer: [cyan]peakfit plot spectra {results}/ --spectrum SPECTRUM.ft2[/cyan]",
+    ])
 
     if show and plot_data_for_display:
         for name, data in plot_data_for_display:
@@ -255,7 +255,8 @@ def plot_cest(
     By default, reference points are auto-detected as |offset| >= 10 kHz.
     Use --ref to manually specify reference point indices.
 
-    Examples:
+    Examples
+    --------
       Auto-detect reference points:
         $ peakfit plot cest Fits/ --output cest.pdf
 
@@ -322,12 +323,16 @@ def plot_cest(
                 _save_figure_to_pdf(pdf, fig)
 
                 if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
-                    plot_data_for_display.append(
-                        (file.stem, offset_norm, intensity_norm, error_norm)
-                    )
+                    plot_data_for_display.append((
+                        file.stem,
+                        offset_norm,
+                        intensity_norm,
+                        error_norm,
+                    ))
 
                 plots_saved += 1
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError) as e:
+                # Narrowed exception handling: file read issues or invalid data
                 warning(f"Failed to plot {file.name}: {e}")
 
     if show and plot_data_for_display:
@@ -392,7 +397,8 @@ def plot_cpmg(
     The --time-t2 parameter is the constant time delay in the CPMG block (in seconds).
     Common values: 0.02-0.06s for backbone amides.
 
-    Examples:
+    Examples
+    --------
       Standard CPMG with T2 = 40ms:
         $ peakfit plot cpmg Fits/ --time-t2 0.04
 
@@ -474,12 +480,17 @@ def plot_cpmg(
                 _save_figure_to_pdf(pdf, fig)
 
                 if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
-                    plot_data_for_display.append(
-                        (file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
-                    )
+                    plot_data_for_display.append((
+                        file.stem,
+                        nu_cpmg,
+                        r2_exp,
+                        r2_err_down,
+                        r2_err_up,
+                    ))
 
                 plots_saved += 1
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError) as e:
+                # Narrowed exception handling to cover data, file, and computational issues.
                 warning(f"Failed to plot {file.name}: {e}")
 
     if show and plot_data_for_display:
@@ -529,7 +540,8 @@ def plot_spectra(
 
     Requires PyQt5 to be installed. Install with: pip install PyQt5
 
-    Examples:
+    Examples
+    --------
       Basic usage:
         $ peakfit plot spectra Fits/ --spectrum data.ft2
 
@@ -581,7 +593,8 @@ def plot_spectra(
         error(f"PyQt5 not available: {e}")
         info("Install with: [code]pip install 'peakfit[gui]'[/code]")
         raise SystemExit(1) from e
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
+        # Narrowed failure modes for launching the viewer: system-level errors or runtime failures
         error(f"Failed to launch spectra viewer: {e}")
         raise SystemExit(1) from e
 
@@ -634,7 +647,8 @@ def plot_diagnostics(
 
     This command requires MCMC results from 'peakfit analyze mcmc' with saved chain data.
 
-    Examples:
+    Examples
+    --------
       Generate diagnostics for all peaks:
         $ peakfit plot diagnostics Fits/ --output diagnostics.pdf
 
@@ -686,7 +700,6 @@ def plot_diagnostics(
         chains = data["chains"]  # Unified chains: (n_walkers, n_steps, n_all_params)
         parameter_names = list(data["parameter_names"])
         burn_in = data.get("burn_in", 0)
-        diagnostics = data.get("diagnostics", None)
         best_fit_values = data.get("best_fit_values", None)
         if best_fit_values is not None:
             best_fit_values = np.array(best_fit_values)
@@ -744,7 +757,7 @@ def plot_diagnostics(
             else:
                 cluster_output = Path(f"mcmc_diagnostics_{peak_label}.pdf")
 
-        info(f"[cyan]Cluster {i + 1}/{len(mcmc_data)}:[/cyan] {', '.join(peak_names)}")
+        info(f"[cyan]Cluster {i + 1}/{len(mcmc_data)}:[/cyan] {", ".join(peak_names)}")
         info(f"  Saving to: [path]{cluster_output}[/path]")
 
         # Generate plots for this cluster
@@ -788,7 +801,7 @@ def plot_diagnostics(
                     pdf.savefig(fig, bbox_inches="tight")
                     plt.close(fig)
             else:
-                info(f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}")
+                info(f"  No strong correlations (|r| ≥ 0.5) found for {", ".join(peak_names)}")
 
             # Autocorrelation plots (all parameters)
             fig_autocorr = plot_autocorrelation(plot_chains, plot_names)
@@ -811,13 +824,11 @@ def plot_diagnostics(
     if len(output_files) == 1:
         open_cmd = f"open {output_files[0]}"
     else:
-        open_cmd = f"open {' '.join(str(f) for f in output_files)}"
+        open_cmd = f"open {" ".join(str(f) for f in output_files)}"
 
-    print_next_steps(
-        [
-            f"Open plots: [cyan]{open_cmd}[/cyan]",
-            "Review trace plots: Check R-hat ≤ 1.01 and chain convergence",
-            "Inspect marginal distributions: Review parameter posteriors with full names",
-            "Check correlations: Look for strongly correlated parameter pairs (|r| ≥ 0.5)",
-        ]
-    )
+    print_next_steps([
+        f"Open plots: [cyan]{open_cmd}[/cyan]",
+        "Review trace plots: Check R-hat ≤ 1.01 and chain convergence",
+        "Inspect marginal distributions: Review parameter posteriors with full names",
+        "Check correlations: Look for strongly correlated parameter pairs (|r| ≥ 0.5)",
+    ])

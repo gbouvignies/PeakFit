@@ -6,15 +6,17 @@ noise levels for the fitting process.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from peakfit.core.algorithms.noise import prepare_noise_level
-from peakfit.core.domain.peaks import Peak
 from peakfit.core.domain.peaks_io import read_list
-from peakfit.core.domain.spectrum import Spectra, get_shape_names, read_spectra
+from peakfit.core.domain.spectrum import get_shape_names, read_spectra
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
+    from peakfit.core.domain.peaks import Peak
+    from peakfit.core.domain.spectrum import Spectra
     from peakfit.services.fit.pipeline import FitArguments
 
 
@@ -59,7 +61,8 @@ def load_spectrum(
         z_values_path: Optional path to z-values file
         exclude_planes: List of plane indices to exclude
 
-    Returns:
+    Returns
+    -------
         Loaded Spectra object
     """
     return read_spectra(spectrum_path, z_values_path, exclude_planes)
@@ -77,7 +80,8 @@ def load_peaks(
         shape_names: List of lineshape names
         clargs: Command line arguments
 
-    Returns:
+    Returns
+    -------
         List of Peak objects
     """
     return read_list(spectra, shape_names, clargs)
@@ -90,7 +94,8 @@ def prepare_noise(clargs: FitArguments, spectra: Spectra) -> tuple[float, str]:
         clargs: Command line arguments with optional noise value
         spectra: Loaded spectrum data
 
-    Returns:
+    Returns
+    -------
         Tuple of (noise_value, noise_source)
     """
     noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
@@ -118,7 +123,8 @@ def load_data(
         z_values_path: Optional path to z-values file
         clargs: Command line arguments
 
-    Returns:
+    Returns
+    -------
         LoadedData containing all loaded data
     """
     # Load spectrum

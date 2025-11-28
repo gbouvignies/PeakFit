@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from peakfit.core.algorithms.clustering import create_clusters
 from peakfit.core.algorithms.noise import prepare_noise_level
-from peakfit.core.domain.config import PeakFitConfig
 from peakfit.core.domain.peaks_io import read_list
-from peakfit.core.domain.spectrum import Spectra, get_shape_names, read_spectra
+from peakfit.core.domain.spectrum import get_shape_names, read_spectra
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.strategies import STRATEGIES
 from peakfit.core.shared.constants import (
@@ -18,7 +18,7 @@ from peakfit.core.shared.constants import (
     LEAST_SQUARES_MAX_NFEV,
     LEAST_SQUARES_XTOL,
 )
-from peakfit.core.shared.events import Event, EventDispatcher, EventType
+from peakfit.core.shared.events import Event, EventType
 from peakfit.io.output import write_profiles, write_shifts
 from peakfit.io.state import StateRepository
 from peakfit.services.fit.fitting import fit_all_clusters
@@ -42,6 +42,11 @@ from peakfit.ui import (
     success,
     warning,
 )
+
+if TYPE_CHECKING:
+    from peakfit.core.domain.config import PeakFitConfig
+    from peakfit.core.domain.spectrum import Spectra
+    from peakfit.core.shared.events import EventDispatcher
 
 
 @dataclass
@@ -106,6 +111,14 @@ class FitPipeline:
         verbose: bool = False,
         dispatcher: EventDispatcher | None = None,
     ) -> None:
+        """Run the complete fitting pipeline using provided inputs and config.
+
+        Args:
+            spectrum_path: Path to the spectrum file
+            peaklist_path: Path to the peak list file
+            z_values_path: Optional path to z-values
+            config: PeakFitConfig instance
+        """
         FitPipeline._run_fit(
             spectrum_path,
             peaklist_path,
@@ -160,7 +173,7 @@ class FitPipeline:
         valid_optimizers = sorted(STRATEGIES.keys())
         if optimizer not in valid_optimizers:
             error(f"Invalid optimizer: {optimizer}")
-            info(f"Valid options: {', '.join(valid_optimizers)}")
+            info(f"Valid options: {", ".join(valid_optimizers)}")
             raise SystemExit(1)
 
         if optimizer != "leastsq":
@@ -177,14 +190,12 @@ class FitPipeline:
         with console.status("[cyan]Reading spectrum...[/cyan]", spinner="dots"):
             spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
-        log_dict(
-            {
-                "Spectrum": str(spectrum_path),
-                "Dimensions": str(spectra.data.shape),
-                "Size": f"{spectrum_path.stat().st_size / 1024 / 1024:.1f} MB",
-                "Data type": str(spectra.data.dtype),
-            }
-        )
+        log_dict({
+            "Spectrum": str(spectrum_path),
+            "Dimensions": str(spectra.data.shape),
+            "Size": f"{spectrum_path.stat().st_size / 1024 / 1024:.1f} MB",
+            "Data type": str(spectra.data.dtype),
+        })
 
         log_section("Noise Estimation")
         noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
@@ -194,7 +205,7 @@ class FitPipeline:
         noise_value: float = float(clargs.noise)
         noise_source = "user-provided" if noise_was_provided else "estimated"
         log(
-            f"Method: {'User-provided' if noise_was_provided else 'Median Absolute Deviation (MAD)'}"
+            f"Method: {"User-provided" if noise_was_provided else "Median Absolute Deviation (MAD)"}"
         )
         log(f"Noise level: {noise_value:.2f} ({noise_source})")
 
@@ -210,13 +221,11 @@ class FitPipeline:
 
         log_section("Peak List")
         peaks = read_list(spectra, shape_names, clargs)
-        log_dict(
-            {
-                "Peak list": str(peaklist_path),
-                "Format": "Sparky/NMRPipe",
-                "Peaks": len(peaks),
-            }
-        )
+        log_dict({
+            "Peak list": str(peaklist_path),
+            "Format": "Sparky/NMRPipe",
+            "Peaks": len(peaks),
+        })
 
         _print_peaklist_info(peaklist_path, z_values_path, len(peaks))
 
@@ -239,20 +248,18 @@ class FitPipeline:
 
         log(f"Identified {len(clusters)} clusters")
         cluster_sizes = [len(c.peaks) for c in clusters]
-        log_dict(
-            {
-                "Min": f"{min(cluster_sizes)} peak" if cluster_sizes else "N/A",
-                "Max": f"{max(cluster_sizes)} peaks" if cluster_sizes else "N/A",
-                "Median": f"{sorted(cluster_sizes)[len(cluster_sizes) // 2]} peaks"
-                if cluster_sizes
-                else "N/A",
-            }
-        )
+        log_dict({
+            "Min": f"{min(cluster_sizes)} peak" if cluster_sizes else "N/A",
+            "Max": f"{max(cluster_sizes)} peaks" if cluster_sizes else "N/A",
+            "Median": f"{sorted(cluster_sizes)[len(cluster_sizes) // 2]} peaks"
+            if cluster_sizes
+            else "N/A",
+        })
 
         min_peaks = min(cluster_sizes) if cluster_sizes else 0
         max_peaks = max(cluster_sizes) if cluster_sizes else 0
         if min_peaks == max_peaks:
-            cluster_desc = f"{min_peaks} peak{'s' if min_peaks != 1 else ''} per cluster"
+            cluster_desc = f"{min_peaks} peak{"s" if min_peaks != 1 else ""} per cluster"
         else:
             cluster_desc = f"{min_peaks}-{max_peaks} peaks per cluster"
 
@@ -313,7 +320,7 @@ class FitPipeline:
             with console.status("[cyan]Generating HTML report...[/cyan]", spinner="dots"):
                 export_html(config.output.directory / "logs.html")
             success(f"HTML report: {config.output.directory.name}/logs.html")
-            log(f"HTML report: {config.output.directory / 'logs.html'}")
+            log(f"HTML report: {config.output.directory / "logs.html"}")
 
         if save_state:
             with console.status("[cyan]Saving fitting state...[/cyan]", spinner="dots"):
@@ -421,7 +428,6 @@ class FitPipeline:
 
 def _dispatch_event(dispatcher: EventDispatcher | None, event: Event) -> None:
     """Safely dispatch an event when a dispatcher is provided."""
-
     if dispatcher is None:
         return
 

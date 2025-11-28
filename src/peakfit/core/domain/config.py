@@ -60,7 +60,8 @@ class FitConfig(BaseModel):
         Args:
             n_spectral_dims: Number of spectral dimensions (for Fn labeling)
 
-        Returns:
+        Returns
+        -------
             List of dimension labels like ['F1', 'F2']
         """
         if self.fit_phase:
@@ -80,6 +81,12 @@ class FitConfig(BaseModel):
 
 
 class ClusterConfig(BaseModel):
+    """Configuration for peak clustering and segmentation.
+
+    Controls contour thresholds and other clustering parameters used during
+    segmentation of peaks into clusters prior to fitting.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     contour_factor: Annotated[float, Field(gt=0)] = Field(
@@ -127,6 +134,8 @@ class OutputConfig(BaseModel):
 
 
 class PeakFitConfig(BaseModel):
+    """Top-level PeakFit configuration for fitting, clustering, and output."""
+
     model_config = ConfigDict(extra="forbid")
 
     fitting: FitConfig = Field(default_factory=FitConfig)
@@ -145,6 +154,7 @@ class PeakFitConfig(BaseModel):
     @field_validator("exclude_planes")
     @classmethod
     def validate_exclude_planes(cls, v: list[int]) -> list[int]:
+        """Validate list of plane indices to ensure no negative indices are provided."""
         if any(idx < 0 for idx in v):
             msg = "Plane indices must be non-negative"
             raise ValueError(msg)
@@ -230,6 +240,8 @@ class FitResultPeak(BaseModel):
 
 
 class FitResult(BaseModel):
+    """Result record for a single fit operation (legacy model)."""
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     cluster_id: int
@@ -243,6 +255,8 @@ class FitResult(BaseModel):
 
 
 class ValidationResult(BaseModel):
+    """Result of input validation operations (spectrum/peaklist)."""
+
     valid: bool
     errors: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

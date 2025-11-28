@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 class ResidualStatistics:
     """Statistics computed from fit residuals.
 
-    Attributes:
+    Attributes
+    ----------
         raw_residuals: Unweighted residuals (data - model)
         normalized_residuals: Residuals divided by noise level
         n_points: Number of data points
@@ -66,7 +67,7 @@ class ResidualStatistics:
             return 0.0
         return float(np.std(self.raw_residuals))
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """Convert to dictionary (excludes large arrays)."""
         return {
             "n_points": self.n_points,
@@ -84,7 +85,8 @@ class ResidualStatistics:
 class FitStatistics:
     """Comprehensive fit quality statistics.
 
-    Attributes:
+    Attributes
+    ----------
         chi_squared: Chi-squared value (sum of squared normalized residuals)
         reduced_chi_squared: Chi-squared divided by degrees of freedom
         aic: Akaike Information Criterion
@@ -139,7 +141,8 @@ class FitStatistics:
             noise: Noise level for normalization
             n_params: Number of varying parameters
 
-        Returns:
+        Returns
+        -------
             FitStatistics with computed values
         """
         n_data = len(residuals)
@@ -177,7 +180,7 @@ class FitStatistics:
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
-        result = {
+        result: dict[str, object] = {
             "chi_squared": self.chi_squared,
             "reduced_chi_squared": self.reduced_chi_squared,
             "n_data": self.n_data,
@@ -207,7 +210,8 @@ class ModelComparison:
 
     Used for model selection (e.g., one-site vs two-site exchange).
 
-    Attributes:
+    Attributes
+    ----------
         model_a_name: Name/description of first model
         model_b_name: Name/description of second model
         delta_aic: AIC(model_b) - AIC(model_a), negative favors model_b
@@ -243,7 +247,8 @@ class ModelComparison:
             name_a: Name for model A
             name_b: Name for model B
 
-        Returns:
+        Returns
+        -------
             ModelComparison with computed metrics
         """
         delta_aic = None

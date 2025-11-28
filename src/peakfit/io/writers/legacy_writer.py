@@ -8,14 +8,15 @@ All legacy output is written to the legacy/ subdirectory.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-import numpy as np
 
 from peakfit.io.writers.base import WriterConfig, format_float
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
+    import numpy as np
+
     from peakfit.core.results.estimates import ClusterEstimates
     from peakfit.core.results.fit_results import FitResults
 
@@ -121,7 +122,7 @@ class LegacyWriter:
 
             # Amplitudes section
             if amplitudes and z_values is not None:
-                f.write(f"# {'Z':>10s}  {'I':>14s}  {'I_err':>14s}\n")
+                f.write(f"# {"Z":>10s}  {"I":>14s}  {"I_err":>14s}\n")
                 # Sort by plane index
                 sorted_amps = sorted(amplitudes, key=lambda a: a.plane_index)
                 for amp in sorted_amps:
@@ -186,8 +187,8 @@ class LegacyWriter:
         with filepath.open("w") as f:
             # Header
             f.write(
-                f"# {'Cluster':>8s}  {'Peak':>15s}  {'Parameter':>20s}  "
-                f"{'Value':>14s}  {'Error':>14s}  {'Unit':>8s}  {'Fixed':>5s}\n"
+                f"# {"Cluster":>8s}  {"Peak":>15s}  {"Parameter":>20s}  "
+                f"{"Value":>14s}  {"Error":>14s}  {"Unit":>8s}  {"Fixed":>5s}\n"
             )
 
             for cluster in results.clusters:
@@ -206,7 +207,7 @@ class LegacyWriter:
 
 
 def write_legacy_output(results: FitResults, output_dir: Path) -> None:
-    """Convenience function to write all legacy output.
+    """Write all legacy output files.
 
     Args:
         results: FitResults object
