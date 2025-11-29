@@ -79,7 +79,7 @@ def print_heights(z_values: np.ndarray, heights: FloatArray, height_err: FloatAr
         )
         raise ValueError(msg)
 
-    result = f"# {"Z":>10s}  {"I":>14s}  {"I_err":>14s}\n"
+    result = f"# {'Z':>10s}  {'I':>14s}  {'I_err':>14s}\n"
     result += "\n".join(
         f"  {z!s:>10s}  {ampl:14.6e}  {ampl_e:14.6e}"
         for z, ampl, ampl_e in zip(z_values, heights, height_err, strict=True)

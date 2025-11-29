@@ -161,7 +161,7 @@ def read_spectral_parameters(
 
     for i in range(data.ndim):
         size = data.shape[i]
-        fdf = f"FDF{int(dic["FDDIMORDER"][data.ndim - 1 - i])}"
+        fdf = f"FDF{int(dic['FDDIMORDER'][data.ndim - 1 - i])}"
         is_direct = i == data.ndim - 1
         ft = dic.get(f"{fdf}FTFLAG", 0.0) == 1.0
 

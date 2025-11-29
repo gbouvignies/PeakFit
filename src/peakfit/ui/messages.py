@@ -208,14 +208,14 @@ def show_footer(start_time: datetime, end_time: datetime) -> None:
 
     console.print("\n" + "━" * 70)
     console.print(
-        f"[green]✓[/green] [dim]Completed:[/dim] {end_time.strftime("%Y-%m-%d %H:%M:%S")} | "
+        f"[green]✓[/green] [dim]Completed:[/dim] {end_time.strftime('%Y-%m-%d %H:%M:%S')} | "
         f"[dim]Total runtime:[/dim] [cyan]{runtime_str}[/cyan]"
     )
 
     # Log completion
     if _state["logger"]:
         log("=" * 60)
-        log(f"Completed: {end_time.strftime("%Y-%m-%d %H:%M:%S")}")
+        log(f"Completed: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
         log(f"Total runtime: {runtime_str}")
         log("=" * 60)
 

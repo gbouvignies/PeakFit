@@ -763,7 +763,7 @@ def plot_diagnostics(
             else:
                 cluster_output = Path(f"mcmc_diagnostics_{peak_label}.pdf")
 
-        info(f"[cyan]Cluster {i + 1}/{len(mcmc_data)}:[/cyan] {", ".join(peak_names)}")
+        info(f"[cyan]Cluster {i + 1}/{len(mcmc_data)}:[/cyan] {', '.join(peak_names)}")
         info(f"  Saving to: [path]{cluster_output}[/path]")
 
         # Generate plots for this cluster
@@ -807,7 +807,7 @@ def plot_diagnostics(
                     pdf.savefig(fig, bbox_inches="tight")
                     plt.close(fig)
             else:
-                info(f"  No strong correlations (|r| ≥ 0.5) found for {", ".join(peak_names)}")
+                info(f"  No strong correlations (|r| ≥ 0.5) found for {', '.join(peak_names)}")
 
             # Autocorrelation plots (all parameters)
             fig_autocorr = plot_autocorrelation(plot_chains, plot_names)
@@ -830,7 +830,7 @@ def plot_diagnostics(
     if len(output_files) == 1:
         open_cmd = f"open {output_files[0]}"
     else:
-        open_cmd = f"open {" ".join(str(f) for f in output_files)}"
+        open_cmd = f"open {' '.join(str(f) for f in output_files)}"
 
     print_next_steps(
         [

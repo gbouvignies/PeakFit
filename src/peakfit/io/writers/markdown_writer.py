@@ -108,7 +108,7 @@ class MarkdownReportGenerator:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         sections = [
-            f"# Cluster {cluster.cluster_id}: {", ".join(cluster.peak_names)}",
+            f"# Cluster {cluster.cluster_id}: {', '.join(cluster.peak_names)}",
             "",
             self._generate_cluster_table(cluster),
         ]
@@ -128,7 +128,7 @@ class MarkdownReportGenerator:
         lines = [
             "# PeakFit Analysis Report",
             "",
-            f"**Generated:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}",
+            f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             f"**Software Version:** {results.metadata.software_version}",
         ]
 
@@ -215,7 +215,7 @@ class MarkdownReportGenerator:
         lines = ["## Parameter Estimates", ""]
 
         for i, cluster in enumerate(results.clusters):
-            lines.append(f"### Cluster {cluster.cluster_id}: {", ".join(cluster.peak_names)}")
+            lines.append(f"### Cluster {cluster.cluster_id}: {', '.join(cluster.peak_names)}")
             lines.append("")
             lines.append(self._generate_cluster_table(cluster))
             lines.append("")

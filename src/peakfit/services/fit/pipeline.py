@@ -173,7 +173,7 @@ class FitPipeline:
         valid_optimizers = sorted(STRATEGIES.keys())
         if optimizer not in valid_optimizers:
             error(f"Invalid optimizer: {optimizer}")
-            info(f"Valid options: {", ".join(valid_optimizers)}")
+            info(f"Valid options: {', '.join(valid_optimizers)}")
             raise SystemExit(1)
 
         if optimizer != "leastsq":
@@ -207,7 +207,7 @@ class FitPipeline:
         noise_value: float = float(clargs.noise)
         noise_source = "user-provided" if noise_was_provided else "estimated"
         log(
-            f"Method: {"User-provided" if noise_was_provided else "Median Absolute Deviation (MAD)"}"
+            f"Method: {'User-provided' if noise_was_provided else 'Median Absolute Deviation (MAD)'}"
         )
         log(f"Noise level: {noise_value:.2f} ({noise_source})")
 
@@ -265,7 +265,7 @@ class FitPipeline:
         min_peaks = min(cluster_sizes) if cluster_sizes else 0
         max_peaks = max(cluster_sizes) if cluster_sizes else 0
         if min_peaks == max_peaks:
-            cluster_desc = f"{min_peaks} peak{"s" if min_peaks != 1 else ""} per cluster"
+            cluster_desc = f"{min_peaks} peak{'s' if min_peaks != 1 else ''} per cluster"
         else:
             cluster_desc = f"{min_peaks}-{max_peaks} peaks per cluster"
 
@@ -326,7 +326,7 @@ class FitPipeline:
             with console.status("[cyan]Generating HTML report...[/cyan]", spinner="dots"):
                 export_html(config.output.directory / "logs.html")
             success(f"HTML report: {config.output.directory.name}/logs.html")
-            log(f"HTML report: {config.output.directory / "logs.html"}")
+            log(f"HTML report: {config.output.directory / 'logs.html'}")
 
         if save_state:
             with console.status("[cyan]Saving fitting state...[/cyan]", spinner="dots"):

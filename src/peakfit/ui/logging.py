@@ -69,7 +69,7 @@ def setup_logging(
     _logger.info("━" * 60)
     _logger.info(f"PeakFit v{VERSION} - Session Started")
     _logger.info("━" * 60)
-    _logger.info(f"Command: {" ".join(sys.argv)}")
+    _logger.info(f"Command: {' '.join(sys.argv)}")
     _logger.info(f"Working directory: {Path.cwd()}")
     _logger.info(f"Python: {sys.version.split()[0]} | Platform: {sys.platform}")
     _logger.info("")

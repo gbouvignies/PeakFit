@@ -179,7 +179,7 @@ def _print_cluster_header(
         console.print()
     console.print(
         f"[bold cyan]Cluster {cluster_idx}/{cluster_count}[/bold cyan] [dim]│[/dim] "
-        f"{peaks_str} [dim][{n_peaks} peak{"s" if n_peaks != 1 else ""}][/dim]"
+        f"{peaks_str} [dim][{n_peaks} peak{'s' if n_peaks != 1 else ''}][/dim]"
     )
 
 

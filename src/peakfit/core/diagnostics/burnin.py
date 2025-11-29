@@ -51,7 +51,7 @@ def determine_burnin_rhat(
         >>> chains = sampler.get_chain(flat=False).swapaxes(0, 1)  # (n_walkers, n_steps, n_params)
         >>> burn_in, info = determine_burnin_rhat(chains)
         >>> print(f"Burn-in: {burn_in} steps ({burn_in / chains.shape[1] * 100:.1f}% of chain)")
-        >>> print(f"Method: {info["method"]}, Max R-hat at convergence: {info["max_rhat"]:.4f}")
+        >>> print(f"Method: {info['method']}, Max R-hat at convergence: {info['max_rhat']:.4f}")
     """
     n_chains, n_steps, n_params = chains.shape
 
@@ -295,21 +295,21 @@ def format_burnin_report(
     # Method-specific details
     if method == "rhat_monitoring":
         lines.append("  Method: R-hat convergence monitoring")
-        lines.append(f"  Threshold: R̂ ≤ {diagnostics["threshold"]:.3f}")
-        lines.append(f"  Max R̂ at convergence: {diagnostics["max_rhat"]:.4f}")
-        lines.append(f"  Convergence achieved at step: {diagnostics["convergence_step"]}")
+        lines.append(f"  Threshold: R̂ ≤ {diagnostics['threshold']:.3f}")
+        lines.append(f"  Max R̂ at convergence: {diagnostics['max_rhat']:.4f}")
+        lines.append(f"  Convergence achieved at step: {diagnostics['convergence_step']}")
 
     elif method == "running_mean_stability":
         lines.append("  Method: Running mean stabilization")
-        lines.append(f"  Stability threshold: {diagnostics["threshold"]:.2%}")
+        lines.append(f"  Stability threshold: {diagnostics['threshold']:.2%}")
 
     elif method in ("default", "default_fallback"):
         lines.append("  Method: Conservative default (20% or 500 steps)")
         reason = diagnostics.get("reason", "unknown")
-        lines.append(f"  Reason: {reason.replace("_", " ")}")
+        lines.append(f"  Reason: {reason.replace('_', ' ')}")
 
         if "max_rhat" in diagnostics and not np.isnan(diagnostics["max_rhat"]):
-            lines.append(f"  Final R̂: {diagnostics["max_rhat"]:.4f}")
+            lines.append(f"  Final R̂: {diagnostics['max_rhat']:.4f}")
 
     # Effective samples
     effective_samples = n_chains * (n_steps - burn_in)

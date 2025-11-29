@@ -415,7 +415,7 @@ class JSONWriter:
         ]
         if low_ess_params:
             interpretation["recommendations"].append(
-                f"Parameters with low ESS: {", ".join(low_ess_params)}. "
+                f"Parameters with low ESS: {', '.join(low_ess_params)}. "
                 "Consider running more samples."
             )
 
@@ -425,7 +425,7 @@ class JSONWriter:
         ]
         if high_rhat_params:
             interpretation["recommendations"].append(
-                f"Parameters with high R-hat: {", ".join(high_rhat_params)}. "
+                f"Parameters with high R-hat: {', '.join(high_rhat_params)}. "
                 "Chains may not have converged."
             )
 
