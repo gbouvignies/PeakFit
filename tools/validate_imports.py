@@ -53,7 +53,7 @@ def validate_file(py_file: Path, src_dir: Path) -> list[str]:
     source_pkg = get_package_from_path(rel_path)
 
     try:
-        with open(py_file, encoding="utf-8") as f:
+        with py_file.open(encoding="utf-8") as f:
             tree = ast.parse(f.read())
     except SyntaxError:
         return violations
@@ -98,19 +98,19 @@ def main() -> int:
         src_dir = Path(__file__).parent.parent / "src" / "peakfit"
 
     if not src_dir.exists():
-        print(f"Error: Could not find source directory: {src_dir}")  # noqa: T201
+        print(f"Error: Could not find source directory: {src_dir}")
         return 1
 
-    print(f"Validating imports in: {src_dir}")  # noqa: T201
+    print(f"Validating imports in: {src_dir}")
     violations = validate_imports(src_dir)
 
     if violations:
-        print(f"\n[BAD] Found {len(violations)} import violation(s):\n")  # noqa: T201
+        print(f"\n[BAD] Found {len(violations)} import violation(s):\n")
         for v in sorted(violations):
-            print(f"  ✗ {v}")  # noqa: T201
+            print(f"  ✗ {v}")
         return 1
     else:
-        print("\n✓ All imports follow architectural rules")  # noqa: T201
+        print("\n✓ All imports follow architectural rules")
         return 0
 
 

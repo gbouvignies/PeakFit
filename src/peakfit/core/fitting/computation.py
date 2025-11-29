@@ -134,8 +134,8 @@ def update_cluster_corrections(params: Parameters, clusters: Sequence[Cluster]) 
         indexes = [
             index for index, peak in enumerate(cluster_all.peaks) if peak not in cluster.peaks
         ]
-        shapes = np.array([
-            cluster_all.peaks[index].evaluate(cluster.positions, params) for index in indexes
-        ]).T
+        shapes = np.array(
+            [cluster_all.peaks[index].evaluate(cluster.positions, params) for index in indexes]
+        ).T
         amplitudes = amplitudes_all[indexes, :]
         cluster.corrections = shapes @ amplitudes

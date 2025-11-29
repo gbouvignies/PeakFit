@@ -73,8 +73,10 @@ def init_command(
     console.print("  • [green]Advanced options[/] (backends)")
 
     # Suggest next steps
-    print_next_steps([
-        f"Review and customize: [cyan]{path}[/]",
-        f"Run fitting: [cyan]peakfit fit spectrum.ft2 peaks.list --config {path}[/]",
-        "Documentation: [cyan]https://github.com/gbouvignies/PeakFit[/]",
-    ])
+    print_next_steps(
+        [
+            f"Review and customize: [cyan]{path}[/]",
+            f"Run fitting: [cyan]peakfit fit spectrum.ft2 peaks.list --config {path}[/]",
+            "Documentation: [cyan]https://github.com/gbouvignies/PeakFit[/]",
+        ]
+    )

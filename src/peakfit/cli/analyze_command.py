@@ -143,7 +143,7 @@ def run_mcmc(
         cluster = cluster_result.cluster
         result = cluster_result.result
         peak_names = [p.name for p in cluster.peaks]
-        console.print(f"[cyan]Cluster {i + 1}/{len(clusters)}:[/cyan] {", ".join(peak_names)}")
+        console.print(f"[cyan]Cluster {i + 1}/{len(clusters)}:[/cyan] {', '.join(peak_names)}")
 
         # Display burn-in determination report
         if result.burn_in_info is not None:
@@ -193,11 +193,13 @@ def run_mcmc(
 
     # Provide next steps
     spacer()
-    print_next_steps([
-        f"Generate diagnostic plots: [cyan]peakfit plot diagnostics {results_dir}/[/cyan]",
-        "Review convergence: Check R-hat ≤ 1.01 and ESS values above",
-        "Inspect correlations: Check correlation matrices for parameter dependencies",
-    ])
+    print_next_steps(
+        [
+            f"Generate diagnostic plots: [cyan]peakfit plot diagnostics {results_dir}/[/cyan]",
+            "Review convergence: Check R-hat ≤ 1.01 and ESS values above",
+            "Inspect correlations: Check correlation matrices for parameter dependencies",
+        ]
+    )
 
 
 def run_profile_likelihood(
@@ -478,7 +480,7 @@ def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]
 
         for result, cluster in zip(results, clusters, strict=False):
             peak_names = [p.name for p in cluster.peaks]
-            f.write(f"\n# Cluster: {", ".join(peak_names)}\n")
+            f.write(f"\n# Cluster: {', '.join(peak_names)}\n")
 
             n_lineshape = getattr(result, "n_lineshape_params", len(result.parameter_names))
 
@@ -506,7 +508,7 @@ def _save_mcmc_results(output_file: Path, results: list, clusters: list[Cluster]
             # Add correlation matrix (lineshape parameters only)
             if result.correlation_matrix is not None and n_lineshape > 1:
                 lineshape_names = result.parameter_names[:n_lineshape]
-                f.write(f"\n# Correlation Matrix for Cluster: {", ".join(peak_names)}\n")
+                f.write(f"\n# Correlation Matrix for Cluster: {', '.join(peak_names)}\n")
                 f.write("# (lineshape parameters only)\n")
                 f.write("# Rows/Columns: " + "  ".join(lineshape_names) + "\n")
                 for i, row in enumerate(result.correlation_matrix):
@@ -538,21 +540,7 @@ def _save_all_profile_results(
             f.write("\n")
 
 
-def _save_profile_results(
-    output_file: Path,
-    param_name: str,
-    param_vals: np.ndarray,
-    chi2_vals: np.ndarray,
-    ci_low: float,
-    ci_high: float,
-) -> None:
-    """Save profile likelihood results to file."""
-    with output_file.open("w") as f:
-        f.write(f"# Profile Likelihood for {param_name}\n")
-        f.write(f"# CI: [{ci_low:.6f}, {ci_high:.6f}]\n")
-        f.write("# Parameter_Value  Chi_Squared\n")
-        for val, chi2 in zip(param_vals, chi2_vals, strict=True):
-            f.write(f"{val:.6f}  {chi2:.6f}\n")
+# NOTE: _save_profile_results removed as it was unused; keep per-parameter file generation centralized
 
 
 def _plot_profile_likelihood(
@@ -627,19 +615,21 @@ def _save_mcmc_chains(
             burn_in = result.burn_in_info["burn_in"] if result.burn_in_info else 0
 
             # Store data for this cluster - unified chains include all parameters
-            mcmc_data.append({
-                "peak_names": peak_names,
-                "chains": result.mcmc_chains,  # Unified chains (lineshape + amplitudes)
-                "parameter_names": result.parameter_names,  # All parameter names
-                "burn_in": burn_in,
-                "burn_in_info": result.burn_in_info,
-                "diagnostics": result.mcmc_diagnostics,
-                "best_fit_values": best_fit_values,
-                # Metadata for distinguishing parameter types
-                "n_lineshape_params": result.n_lineshape_params,
-                "amplitude_names": result.amplitude_names,
-                "n_planes": result.n_planes,
-            })
+            mcmc_data.append(
+                {
+                    "peak_names": peak_names,
+                    "chains": result.mcmc_chains,  # Unified chains (lineshape + amplitudes)
+                    "parameter_names": result.parameter_names,  # All parameter names
+                    "burn_in": burn_in,
+                    "burn_in_info": result.burn_in_info,
+                    "diagnostics": result.mcmc_diagnostics,
+                    "best_fit_values": best_fit_values,
+                    # Metadata for distinguishing parameter types
+                    "n_lineshape_params": result.n_lineshape_params,
+                    "amplitude_names": result.amplitude_names,
+                    "n_planes": result.n_planes,
+                }
+            )
 
     # Save to pickle file
     mcmc_file = results_dir / ".mcmc_chains.pkl"
@@ -658,7 +648,7 @@ def _display_burnin_report(
     from peakfit.core.diagnostics.burnin import format_burnin_report
 
     burn_in_used = burn_in_info["burn_in"]
-    console.print(f"[bold cyan]Burn-in Determination - {", ".join(peak_names)}[/bold cyan]")
+    console.print(f"[bold cyan]Burn-in Determination - {', '.join(peak_names)}[/bold cyan]")
 
     # Format and display the report
     report = format_burnin_report(

@@ -15,10 +15,7 @@ def iter_modules(root: Path):
     for path in root.rglob("*.py"):
         rel = path.relative_to(root.parent)
         module = str(rel).replace(os.sep, ".")
-        if module.endswith("__init__.py"):
-            module = module[:-12]
-        else:
-            module = module[:-3]
+        module = module[:-12] if module.endswith("__init__.py") else module[:-3]
         yield module, path
 
 
@@ -36,7 +33,7 @@ def build_dependency_graph():
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         except SyntaxError as exc:
-            print(f"Failed to parse {path}: {exc}")  # noqa: T201
+            print(f"Failed to parse {path}: {exc}")
             continue
 
         for node in ast.walk(tree):
@@ -70,16 +67,16 @@ def summarize(module_edges, package_edges, limit: int = 20):
 
     This function prints to stdout (CLI tool) and is used for quick diagnostics.
     """
-    print("Package dependency counts:")  # noqa: T201
+    print("Package dependency counts:")
     for src_pkg, targets in sorted(package_edges.items()):
         for tgt_pkg, count in sorted(targets.items()):
-            print(f"{src_pkg:15s} -> {tgt_pkg:15s} : {count}")  # noqa: T201
+            print(f"{src_pkg:15s} -> {tgt_pkg:15s} : {count}")
 
-    print("\nTop modules importing many peers:")  # noqa: T201
+    print("\nTop modules importing many peers:")
     for module, targets in sorted(module_edges.items(), key=lambda kv: len(kv[1]), reverse=True)[
         :limit
     ]:
-        print(f"{module:60s} {len(targets)}")  # noqa: T201
+        print(f"{module:60s} {len(targets)}")
 
 
 if __name__ == "__main__":

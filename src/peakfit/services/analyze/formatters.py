@@ -105,11 +105,13 @@ class MCMCClusterSummary:
             for j in range(i + 1, n_params):
                 corr = self.correlation_matrix[i, j]
                 if abs(corr) >= threshold:
-                    pairs.append((
-                        self.parameter_summaries[i].name,
-                        self.parameter_summaries[j].name,
-                        corr,
-                    ))
+                    pairs.append(
+                        (
+                            self.parameter_summaries[i].name,
+                            self.parameter_summaries[j].name,
+                            corr,
+                        )
+                    )
         return pairs
 
     def get_amplitudes_by_peak(self) -> dict[str, list[MCMCAmplitudeSummary]]:

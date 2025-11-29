@@ -190,12 +190,14 @@ class FitPipeline:
         with console.status("[cyan]Reading spectrum...[/cyan]", spinner="dots"):
             spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
-        log_dict({
-            "Spectrum": str(spectrum_path),
-            "Dimensions": str(spectra.data.shape),
-            "Size": f"{spectrum_path.stat().st_size / 1024 / 1024:.1f} MB",
-            "Data type": str(spectra.data.dtype),
-        })
+        log_dict(
+            {
+                "Spectrum": str(spectrum_path),
+                "Dimensions": str(spectra.data.shape),
+                "Size": f"{spectrum_path.stat().st_size / 1024 / 1024:.1f} MB",
+                "Data type": str(spectra.data.dtype),
+            }
+        )
 
         log_section("Noise Estimation")
         noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
@@ -221,11 +223,13 @@ class FitPipeline:
 
         log_section("Peak List")
         peaks = read_list(spectra, shape_names, clargs)
-        log_dict({
-            "Peak list": str(peaklist_path),
-            "Format": "Sparky/NMRPipe",
-            "Peaks": len(peaks),
-        })
+        log_dict(
+            {
+                "Peak list": str(peaklist_path),
+                "Format": "Sparky/NMRPipe",
+                "Peaks": len(peaks),
+            }
+        )
 
         _print_peaklist_info(peaklist_path, z_values_path, len(peaks))
 
@@ -248,13 +252,15 @@ class FitPipeline:
 
         log(f"Identified {len(clusters)} clusters")
         cluster_sizes = [len(c.peaks) for c in clusters]
-        log_dict({
-            "Min": f"{min(cluster_sizes)} peak" if cluster_sizes else "N/A",
-            "Max": f"{max(cluster_sizes)} peaks" if cluster_sizes else "N/A",
-            "Median": f"{sorted(cluster_sizes)[len(cluster_sizes) // 2]} peaks"
-            if cluster_sizes
-            else "N/A",
-        })
+        log_dict(
+            {
+                "Min": f"{min(cluster_sizes)} peak" if cluster_sizes else "N/A",
+                "Max": f"{max(cluster_sizes)} peaks" if cluster_sizes else "N/A",
+                "Median": f"{sorted(cluster_sizes)[len(cluster_sizes) // 2]} peaks"
+                if cluster_sizes
+                else "N/A",
+            }
+        )
 
         min_peaks = min(cluster_sizes) if cluster_sizes else 0
         max_peaks = max(cluster_sizes) if cluster_sizes else 0

@@ -75,10 +75,7 @@ def print_validation_table(
     table.add_column("Status", style="value", justify="center")
 
     for check_name, (passed, message) in checks.items():
-        if passed:
-            status = f"[success]✓[/success] {message}"
-        else:
-            status = f"[warning]⚠[/warning] {message}"
+        status = f"[success]✓[/success] {message}" if passed else f"[warning]⚠[/warning] {message}"
         table.add_row(check_name, status)
 
     console.print(table)
@@ -123,11 +120,8 @@ def print_performance_summary(
 
     if n_items > 0:
         avg_time = total_time / n_items
-        if avg_time < 1:
-            avg_str = f"{avg_time * 1000:.0f}ms"
-        else:
-            avg_str = f"{avg_time:.3f}s"
-        table.add_row(f"Average per {item_name.rstrip("s")}", avg_str)
+        avg_str = f"{avg_time * 1000:.0f}ms" if avg_time < 1 else f"{avg_time:.3f}s"
+        table.add_row(f"Average per {item_name.rstrip('s')}", avg_str)
 
     console.print()
     console.print(table)

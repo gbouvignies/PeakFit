@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
-if TYPE_CHECKING:
-    import typer
+import typer  # Required at runtime by Typer
 
 from peakfit.ui import console
 
@@ -40,8 +39,9 @@ def info_command(
     console.print("\n[green]Parallelization:[/green] Disabled (single-threaded execution)")
 
     # Note about backends
-    console.print("\n[dim]Note: Numba backend support has been removed.[/dim]")
-    console.print("[dim]      All computations now use optimized NumPy vectorization.[/dim]")
+    console.print(
+        "\n[dim]Note: PeakFit uses NumPy for computations and focuses on optimized, maintainable implementations.[/dim]"
+    )
 
     # Benchmark
     if benchmark:

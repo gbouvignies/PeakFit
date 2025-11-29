@@ -5,18 +5,16 @@ from peakfit.core.shared.events import Event, EventDispatcher, EventType, FitPro
 from peakfit.core.shared.reporter import CompositeReporter, LoggingReporter, NullReporter, Reporter
 
 __all__ = [
-    "constants",
-    "reporter",
-    "events",
-    "typing",
-    # Reporter classes
     "CompositeReporter",
-    "LoggingReporter",
-    "NullReporter",
-    "Reporter",
-    # Event types
     "Event",
     "EventDispatcher",
     "EventType",
     "FitProgressEvent",
+    "LoggingReporter",
+    "NullReporter",
+    "Reporter",
+    "constants",
+    "events",
+    "reporter",
+    "typing",
 ]

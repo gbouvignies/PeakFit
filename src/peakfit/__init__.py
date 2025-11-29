@@ -29,18 +29,14 @@ from peakfit.core.domain.state import FittingState
 from peakfit.services import FitResult, FitService, PlotOutput, PlotService
 
 __all__ = [
-    # Version
-    "__version__",
-    # Services
-    "FitService",
-    "FitResult",
-    "PlotService",
-    "PlotOutput",
-    # Configuration
-    "PeakFitConfig",
-    "FitConfig",
     "ClusterConfig",
-    "OutputConfig",
-    # Domain
+    "FitConfig",
+    "FitResult",
+    "FitService",
     "FittingState",
+    "OutputConfig",
+    "PeakFitConfig",
+    "PlotOutput",
+    "PlotService",
+    "__version__",
 ]

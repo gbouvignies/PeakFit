@@ -60,7 +60,8 @@ class TestCLICommands:
         result = runner.invoke(app, ["info"])
         assert result.exit_code == 0
         assert "PeakFit" in result.output
-        assert "NumPy" in result.output or "Numba" in result.output
+        # Confirm NumPy is reported
+        assert "NumPy" in result.output
 
     def test_init_command_creates_file(self, runner, app, tmp_path):
         """init command should create config file."""
@@ -183,7 +184,11 @@ class TestProfilingUtilities:
         tools_path = Path(__file__).parent.parent.parent / "tools"
         if str(tools_path) not in sys.path:
             sys.path.insert(0, str(tools_path))
-        from analysis.profiling import Profiler, ProfileReport, TimingResult
+        from analysis.profiling import (  # type: ignore[reportMissingImports]
+            Profiler,
+            ProfileReport,
+            TimingResult,
+        )
 
         return Profiler, ProfileReport, TimingResult
 

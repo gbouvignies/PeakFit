@@ -31,11 +31,13 @@ def _make_state(param_defs: list[dict[str, Any]]) -> FittingState:
 
 
 def test_analyze_builds_entries_with_metadata() -> None:
-    state = _make_state([
-        {"name": "A_x0", "value": 1.0, "stderr": 0.2},
-        {"name": "B_x0", "value": 0.0, "stderr": 0.0, "min": 0.0, "max": 1.0},
-        {"name": "C_x0", "vary": False},
-    ])
+    state = _make_state(
+        [
+            {"name": "A_x0", "value": 1.0, "stderr": 0.2},
+            {"name": "B_x0", "value": 0.0, "stderr": 0.0, "min": 0.0, "max": 1.0},
+            {"name": "C_x0", "vary": False},
+        ]
+    )
 
     result = ParameterUncertaintyService.analyze(state)
 
@@ -50,9 +52,11 @@ def test_analyze_builds_entries_with_metadata() -> None:
 
 
 def test_raises_when_no_varying_parameters() -> None:
-    state = _make_state([
-        {"name": "A_x0", "vary": False},
-    ])
+    state = _make_state(
+        [
+            {"name": "A_x0", "vary": False},
+        ]
+    )
 
     with pytest.raises(NoVaryingParametersFoundError):
         ParameterUncertaintyService.analyze(state)
