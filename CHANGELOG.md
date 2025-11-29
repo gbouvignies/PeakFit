@@ -138,6 +138,11 @@ Old imports -> New imports:
 ### Removed
 
 - Legacy argparse CLI (`peakfit-legacy`)
+### Repository housekeeping
+
+- Removed backup and review branches used during the commit reordering and cleanup process. The original `main` commit is preserved under the tag `pre-main-rewrite-2025-11-29-55052e5` for rollback/inspection.
+- Merged and cleaned up the re-ordered commits in `main` (previously `main-inverted`) to keep history tidy.
+
 - Standalone `peakfit-plot` command (replaced with `peakfit plot` subcommands)
 - Compatibility shims `peakfit.models` and `peakfit.data.spectrum` (import from `peakfit.core.domain.*`)
 - Compatibility shims `peakfit.constants` and `peakfit.typing` (import from `peakfit.core.shared.*`)
