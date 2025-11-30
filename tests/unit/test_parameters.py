@@ -122,7 +122,9 @@ class TestParameters:
         params.add("x0", value=10.0)
         params.add("fwhm", value=25.0)
 
-        values = params.valuesdict()
+        # The previous `valuesdict` helper was removed. Build an equivalent
+        # mapping using the public `items()` API and Parameter.value.
+        values = {name: p.value for name, p in params.items()}
         assert values == {"x0": 10.0, "fwhm": 25.0}
 
     def test_summary(self):

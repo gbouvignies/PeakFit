@@ -166,10 +166,6 @@ class Parameters:
         """Get parameter name-value pairs."""
         return self._params.items()
 
-    def valuesdict(self) -> dict[str, float]:
-        """Get dictionary of parameter values."""
-        return {name: param.value for name, param in self._params.items()}
-
     def update(self, other: "Parameters") -> None:
         """Update parameters from another Parameters object."""
         for name, param in other.items():
