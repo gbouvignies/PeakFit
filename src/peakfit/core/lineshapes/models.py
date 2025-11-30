@@ -226,12 +226,43 @@ class PseudoVoigt(PeakShape):
 
 
 class ApodShape(BaseShape):
-    """Base class for apodization-based lineshapes."""
+    """Base class for apodization-based lineshapes.
+
+    Subclasses must override `_create_evaluator()` to return an evaluator
+    function created via the factory functions in the functions module.
+    The evaluator pre-computes static exponentials that depend on aq, end,
+    and off parameters (which don't change during fitting).
+    """
 
     R2_START = 20.0
     FWHM_START = 25.0
-    shape_func: Callable[..., FloatArray]
     shape_name: str = "no_apod"  # Override in subclasses
+
+    def __init__(
+        self, name: str, center: float, spectra: Spectra, dim: int, args: FittingOptions
+    ) -> None:
+        """Initialize apodization shape with pre-computed evaluator."""
+        super().__init__(name, center, spectra, dim, args)
+        # Create memoized evaluator with static parameters
+        self._evaluator = self._create_evaluator()
+
+    def __getstate__(self) -> dict:
+        """Prepare state for pickling - exclude the closure."""
+        state = self.__dict__.copy()
+        # Remove the unpicklable closure
+        state.pop("_evaluator", None)
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        """Restore state from pickle - recreate the closure."""
+        self.__dict__.update(state)
+        # Recreate the evaluator
+        self._evaluator = self._create_evaluator()
+
+    @abstractmethod
+    def _create_evaluator(self) -> Callable[..., FloatArray]:
+        """Create the appropriate evaluator for this shape type."""
+        ...
 
     def create_params(self) -> Parameters:
         """Create parameters for apodization shape."""
@@ -277,34 +308,22 @@ class ApodShape(BaseShape):
         return params
 
     def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
-        """Evaluate apodization shape at given points."""
-        parvalues = params.valuesdict()
-        x0 = parvalues[f"{self.prefix}0"]
-        r2 = parvalues[f"{self.prefix}_r2"]
-        p0 = parvalues.get(f"{self.prefix_phase}p", 0.0)
-        j_hz = parvalues.get(f"{self.prefix}_j", 0.0)
+        """Evaluate apodization shape at given points using memoized evaluator."""
+        x0 = params[f"{self.prefix}0"].value
+        r2 = params[f"{self.prefix}_r2"].value
+        p0_key = f"{self.prefix_phase}p"
+        p0 = params[p0_key].value if p0_key in params else 0.0
+        j_key = f"{self.prefix}_j"
+        j_hz = params[j_key].value if j_key in params else 0.0
 
         dx_pt, sign = self._compute_dx_and_sign(self.full_grid, x0)
         dx_rads = self.spec_params.pts2hz_delta(dx_pt) * 2 * np.pi
         j_rads = np.array([[0.0]]).T if j_hz == 0.0 else j_hz * np.pi * np.array([[1.0, -1.0]]).T
         dx_rads = dx_rads + j_rads
 
-        # Select shape function
-        func: Callable[..., FloatArray]
-        if self.shape_name == "sp1":
-            func = functions.sp1
-        elif self.shape_name == "sp2":
-            func = functions.sp2
-        else:
-            func = functions.no_apod
-
-        shape_args: tuple[float, ...] = (r2, self.spec_params.aq_time)
-        if self.shape_name in ("sp1", "sp2"):
-            shape_args += (self.spec_params.apodq2, self.spec_params.apodq1)
-        shape_args += (p0,)
-
-        norm = np.sum(func(j_rads, *shape_args), axis=0)
-        shape = np.sum(func(dx_rads, *shape_args), axis=0)
+        # Use memoized evaluator instead of plain function
+        norm = np.sum(self._evaluator(j_rads, r2, p0), axis=0)
+        shape = np.sum(self._evaluator(dx_rads, r2, p0), axis=0)
 
         res: FloatArray = np.asarray(sign[x_pt] * shape[x_pt] / norm, dtype=float)
         return res
@@ -314,21 +333,40 @@ class ApodShape(BaseShape):
 class NoApod(ApodShape):
     """Non-apodized lineshape."""
 
-    shape_func = staticmethod(functions.no_apod)
     shape_name = "no_apod"
+
+    def _create_evaluator(self) -> Callable[..., FloatArray]:
+        """Create NoApod evaluator with aq bound via partial."""
+        from functools import partial
+
+        return partial(functions.no_apod, aq=self.spec_params.aq_time)
 
 
 @register_shape("sp1")
 class SP1(ApodShape):
     """SP1 apodization lineshape."""
 
-    shape_func = staticmethod(functions.sp1)
     shape_name = "sp1"
+
+    def _create_evaluator(self) -> Callable[..., FloatArray]:
+        """Create SP1 evaluator with pre-computed exponentials."""
+        return functions.make_sp1_evaluator(
+            aq=self.spec_params.aq_time,
+            end=self.spec_params.apodq2,
+            off=self.spec_params.apodq1,
+        )
 
 
 @register_shape("sp2")
 class SP2(ApodShape):
     """SP2 apodization lineshape."""
 
-    shape_func = staticmethod(functions.sp2)
     shape_name = "sp2"
+
+    def _create_evaluator(self) -> Callable[..., FloatArray]:
+        """Create SP2 evaluator with pre-computed exponentials."""
+        return functions.make_sp2_evaluator(
+            aq=self.spec_params.aq_time,
+            end=self.spec_params.apodq2,
+            off=self.spec_params.apodq1,
+        )

@@ -4,7 +4,14 @@ import pytest
 
 import numpy as np
 
-from peakfit.core.lineshapes.functions import gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
+from peakfit.core.lineshapes.functions import (
+    gaussian,
+    lorentzian,
+    no_apod,
+    pvoigt,
+    make_sp1_evaluator,
+    make_sp2_evaluator,
+)
 
 # Note: clean() function was removed during refactoring
 
@@ -161,7 +168,8 @@ class TestSp1Function:
         aq = 0.1
         end = 1.0
         off = 0.35
-        result = sp1(dx, r2, aq, end, off)
+        sp1_eval = make_sp1_evaluator(aq, end, off)
+        result = sp1_eval(dx, r2)
         assert np.all(np.isfinite(result))
 
     def test_sp1_with_phase(self):
@@ -171,8 +179,9 @@ class TestSp1Function:
         aq = 0.1
         end = 1.0
         off = 0.35
-        result_no_phase = sp1(dx, r2, aq, end, off, phase=0.0)
-        result_with_phase = sp1(dx, r2, aq, end, off, phase=90.0)
+        sp1_eval = make_sp1_evaluator(aq, end, off)
+        result_no_phase = sp1_eval(dx, r2, phase=0.0)
+        result_with_phase = sp1_eval(dx, r2, phase=90.0)
         # Results should be different with phase
         assert not np.allclose(result_no_phase, result_with_phase)
 
@@ -183,7 +192,8 @@ class TestSp1Function:
         aq = 0.1
         end = 1.0
         off = 0.35
-        result = sp1(dx, r2, aq, end, off)
+        sp1_eval = make_sp1_evaluator(aq, end, off)
+        result = sp1_eval(dx, r2)
         assert result.shape == dx.shape
 
 
@@ -197,7 +207,8 @@ class TestSp2Function:
         aq = 0.1
         end = 1.0
         off = 0.35
-        result = sp2(dx, r2, aq, end, off)
+        sp2_eval = make_sp2_evaluator(aq, end, off)
+        result = sp2_eval(dx, r2)
         assert np.all(np.isfinite(result))
 
     def test_sp2_with_phase(self):
@@ -207,8 +218,9 @@ class TestSp2Function:
         aq = 0.1
         end = 1.0
         off = 0.35
-        result_no_phase = sp2(dx, r2, aq, end, off, phase=0.0)
-        result_with_phase = sp2(dx, r2, aq, end, off, phase=90.0)
+        sp2_eval = make_sp2_evaluator(aq, end, off)
+        result_no_phase = sp2_eval(dx, r2, phase=0.0)
+        result_with_phase = sp2_eval(dx, r2, phase=90.0)
         # Results should be different with phase
         assert not np.allclose(result_no_phase, result_with_phase)
 
@@ -219,7 +231,8 @@ class TestSp2Function:
         aq = 0.1
         end = 1.0
         off = 0.35
-        result = sp2(dx, r2, aq, end, off)
+        sp2_eval = make_sp2_evaluator(aq, end, off)
+        result = sp2_eval(dx, r2)
         assert result.shape == dx.shape
 
 

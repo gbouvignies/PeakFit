@@ -4,7 +4,14 @@ import pytest
 
 import numpy as np
 
-from peakfit.core.lineshapes.functions import gaussian, lorentzian, no_apod, pvoigt, sp1, sp2
+from peakfit.core.lineshapes.functions import (
+    gaussian,
+    lorentzian,
+    no_apod,
+    pvoigt,
+    make_sp1_evaluator,
+    make_sp2_evaluator,
+)
 
 
 class TestGaussian:
@@ -155,7 +162,8 @@ class TestSP1:
         aq = 0.1
         end = 0.5
         off = 0.1
-        result = sp1(dx, r2, aq, end, off)
+        sp1_eval = make_sp1_evaluator(aq, end, off)
+        result = sp1_eval(dx, r2)
         assert result.shape == dx.shape
 
     def test_sp1_real_output(self):
@@ -165,7 +173,8 @@ class TestSP1:
         aq = 0.1
         end = 0.5
         off = 0.1
-        result = sp1(dx, r2, aq, end, off)
+        sp1_eval = make_sp1_evaluator(aq, end, off)
+        result = sp1_eval(dx, r2)
         assert np.all(np.isreal(result))
 
 
@@ -179,7 +188,8 @@ class TestSP2:
         aq = 0.1
         end = 0.5
         off = 0.1
-        result = sp2(dx, r2, aq, end, off)
+        sp2_eval = make_sp2_evaluator(aq, end, off)
+        result = sp2_eval(dx, r2)
         assert result.shape == dx.shape
 
     def test_sp2_real_output(self):
@@ -189,5 +199,6 @@ class TestSP2:
         aq = 0.1
         end = 0.5
         off = 0.1
-        result = sp2(dx, r2, aq, end, off)
+        sp2_eval = make_sp2_evaluator(aq, end, off)
+        result = sp2_eval(dx, r2)
         assert np.all(np.isreal(result))
