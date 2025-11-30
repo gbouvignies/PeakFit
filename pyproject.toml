@@ -53,7 +53,7 @@ peakfit = "peakfit.cli.app:app"
 
 [project.optional-dependencies]
 all = [
-  "peakfit[dev,mcmc,performance]",
+  "peakfit[dev,mcmc,profiling]",
 ]
 dev = [
   "basedpyright>=1.20.0",
@@ -68,7 +68,14 @@ mcmc = [
   "emcee>=3.1.6",
   "corner>=2.2.0",
 ]
-performance = []
+profiling = [
+  "pyinstrument>=4.0.0",
+  "scalene>=1.2.0",
+  "py-spy>=0.3.9",
+  "snakeviz>=2.1.0",
+  "gprof2dot>=2021.8.3",
+  "memory_profiler>=0.61.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.10,<0.10.0"]

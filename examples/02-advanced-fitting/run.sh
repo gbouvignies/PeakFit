@@ -13,7 +13,7 @@ echo
 if ! command -v peakfit &> /dev/null; then
     echo "Error: peakfit command not found"
     echo "Please install PeakFit first:"
-    echo "  pip install peakfit"
+    echo "  uv sync --extra dev    # Recommended development install"
     echo "  OR from repository: pip install -e ."
     exit 1
 fi

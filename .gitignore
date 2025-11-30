@@ -238,3 +238,11 @@ examples/*/*.pdf
 examples/*/logs/
 examples/*/all_shifts.csv
 examples/*/cest_*.csv
+
+# Local profiling artifacts (temporary) — ignore profiling outputs and tmp/ entries
+tmp/
+tmp/*.prof
+tmp/*.txt
+tmp/*.svg
+tmp/scalene*
+tmp/profiles/

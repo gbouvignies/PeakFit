@@ -14,6 +14,7 @@ bash run.sh
 ## Examples Overview
 
 ### 1. Basic Fitting
+
 **Directory:** `01-basic-fitting/`
 **Difficulty:** Beginner
 **Time:** < 1 minute
@@ -22,11 +23,13 @@ bash run.sh
 Demonstrates the most common use case: fitting a 2D or pseudo-3D spectrum with well-separated peaks.
 
 **What you'll learn:**
+
 - Loading NMRPipe spectra and peak lists
 - Running a basic fit with default settings
 - Understanding the new structured output formats (JSON, CSV, Markdown)
 
 **Command:**
+
 ```bash
 peakfit fit data/spectrum.ft2 data/peaks.list --output results/
 ```
@@ -34,6 +37,7 @@ peakfit fit data/spectrum.ft2 data/peaks.list --output results/
 ---
 
 ### 2. Advanced Fitting with CEST Analysis
+
 **Directory:** `02-advanced-fitting/`
 **Difficulty:** Intermediate
 **Time:** 2-3 minutes
@@ -42,6 +46,7 @@ peakfit fit data/spectrum.ft2 data/peaks.list --output results/
 Shows how to fit pseudo-3D CEST (Chemical Exchange Saturation Transfer) data with Z-axis values and demonstrates the full output system.
 
 **What you'll learn:**
+
 - Handling pseudo-3D experiments (CEST, CPMG, relaxation, etc.)
 - Using Z-values for plane-dependent experiments
 - Exploring the new output formats:
@@ -51,6 +56,7 @@ Shows how to fit pseudo-3D CEST (Chemical Exchange Saturation Transfer) data wit
 - Controlling output verbosity levels
 
 **Command:**
+
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
@@ -61,6 +67,7 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 ---
 
 ### 3. Global Optimization for Difficult Peaks
+
 **Directory:** `03-global-optimization/`
 **Difficulty:** Advanced
 **Time:** 5-10 minutes
@@ -69,12 +76,14 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 Demonstrates global optimization methods (basin-hopping, differential evolution) for fitting highly overlapping peaks where local optimization fails.
 
 **What you'll learn:**
+
 - When to use global optimization
 - Choosing between basin-hopping and differential evolution
 - Comparing results across optimization methods using structured outputs
 - Using JSON output for programmatic comparison
 
 **Command:**
+
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
@@ -86,6 +95,7 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 ---
 
 ### 4. Uncertainty Analysis with MCMC
+
 **Directory:** `04-uncertainty-analysis/`
 **Difficulty:** Advanced
 **Time:** 10-20 minutes
@@ -94,6 +104,7 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 Shows how to estimate parameter uncertainties using MCMC sampling and explores the comprehensive diagnostic outputs.
 
 **What you'll learn:**
+
 - Running MCMC-based uncertainty analysis
 - Understanding MCMC diagnostics (R-hat, ESS, convergence status)
 - Saving and loading MCMC chains
@@ -104,6 +115,7 @@ Shows how to estimate parameter uncertainties using MCMC sampling and explores t
 - Viewing correlation matrices and posterior distributions
 
 **Command:**
+
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
@@ -121,22 +133,22 @@ PeakFit now generates structured outputs in multiple formats. See the [Output Sy
 
 ### Quick Reference
 
-| Format | File | Use Case |
-|--------|------|----------|
-| JSON | `results.json` | Programmatic access, scripts, pipelines |
-| CSV | `results.csv` | Spreadsheets, data analysis, visualization |
-| Markdown | `results.md` | Human-readable reports, documentation |
-| Legacy | `*.out` | Backward compatibility (with `--include-legacy`) |
+| Format   | File           | Use Case                                         |
+| -------- | -------------- | ------------------------------------------------ |
+| JSON     | `results.json` | Programmatic access, scripts, pipelines          |
+| CSV      | `results.csv`  | Spreadsheets, data analysis, visualization       |
+| Markdown | `results.md`   | Human-readable reports, documentation            |
+| Legacy   | `*.out`        | Backward compatibility (with `--include-legacy`) |
 
 ### Verbosity Levels
 
 Control output detail with `--verbosity`:
 
-| Level | What's Included |
-|-------|-----------------|
-| `minimal` | Essential results only (values, uncertainties) |
+| Level      | What's Included                                     |
+| ---------- | --------------------------------------------------- |
+| `minimal`  | Essential results only (values, uncertainties)      |
 | `standard` | Adds fit statistics and basic diagnostics (default) |
-| `full` | Everything: all diagnostics, metadata, raw data |
+| `full`     | Everything: all diagnostics, metadata, raw data     |
 
 ### Example: Reading JSON Output
 
@@ -210,6 +222,7 @@ Fits/
 ## Data Format Requirements
 
 PeakFit supports:
+
 - **Spectra:** NMRPipe format (.ft2, .ft3)
 - **Peak lists:** NMRPipe, Sparky, or CSV format
 - **Z-values:** Plain text file, one value per line (for pseudo-3D experiments)
@@ -242,14 +255,17 @@ Most examples are templates showing the workflow. To use them with your data:
 ### Common Issues
 
 **"Command not found: peakfit"**
-- Make sure PeakFit is installed: `pip install peakfit`
-- Or install from source: `pip install -e .` from the repository root
+
+- Make sure PeakFit is installed: `uv sync --extra dev` (recommended for development) or `uv sync --all-extras` for all optional tooling
+- Or install from source with pip: `pip install -e .` from the repository root
 
 **"File not found" errors**
+
 - Check you're in the correct example directory
 - Verify data files exist in the `data/` subdirectory
 
 **"Fitting failed for all clusters"**
+
 - Check data quality and signal-to-noise ratio
 - Try adjusting contour level or clustering parameters
 - Consider global optimization (Example 3)
