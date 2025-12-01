@@ -9,12 +9,14 @@ This example demonstrates global optimization methods for fitting challenging pe
 ## When to Use Global Optimization
 
 [GOOD] **Use global optimization when:**
+
 - Many peaks fail to converge
 - Severe peak overlap
 - Results are sensitive to initial conditions
 - Local optimization gets stuck in local minima
 
 [BAD] **Don't use when:**
+
 - Well-resolved peaks with good S/N (use basic fitting - faster)
 - Large datasets where time is critical
 - Most peaks converge with local optimization
@@ -22,11 +24,13 @@ This example demonstrates global optimization methods for fitting challenging pe
 ## Global Optimization Methods
 
 ### Basin-Hopping
+
 - Randomly "hops" to different starting points
 - Performs local optimization from each
 - Best for moderate-sized problems
 
 ### Differential Evolution
+
 - Evolves a population of candidate solutions
 - Best for larger, multimodal problems
 
@@ -57,9 +61,9 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 import json
 
 # Load both results
-with open('Fits-Local/results.json') as f:
+with open('Fits-Local/fit_results.json') as f:
     local = json.load(f)
-with open('Fits-BH/results.json') as f:
+with open('Fits-BH/fit_results.json') as f:
     bh = json.load(f)
 
 # Compare summary statistics
@@ -86,15 +90,19 @@ Each optimization run produces the standard structured outputs:
 
 ```
 Fits-Local/
-├── results.json        # Complete structured results
-├── results.csv         # Tabular data for comparison
-├── results.md          # Human-readable report
+├── fit_results.json    # Complete structured results
+├── parameters.csv      # Parameter estimates
+├── shifts.csv          # Chemical shifts
+├── intensities.csv     # Fitted intensities
+├── report.md           # Human-readable report
 └── peakfit.log
 
 Fits-BH/
-├── results.json
-├── results.csv
-├── results.md
+├── fit_results.json
+├── parameters.csv
+├── shifts.csv
+├── intensities.csv
+├── report.md
 └── peakfit.log
 ```
 
@@ -103,8 +111,8 @@ Fits-BH/
 ```python
 import pandas as pd
 
-local_df = pd.read_csv('Fits-Local/results.csv')
-bh_df = pd.read_csv('Fits-BH/results.csv')
+local_df = pd.read_csv('Fits-Local/parameters.csv')
+bh_df = pd.read_csv('Fits-BH/parameters.csv')
 
 # Merge on cluster_id and compare chi_squared
 comparison = local_df.merge(
@@ -126,8 +134,8 @@ print(f"Improved clusters: {len(improved)}")
 # Extract chi-squared values and compare
 echo "Cluster | Local χ² | BH χ²"
 paste \
-  <(jq -r '.clusters[] | "\(.cluster_id) \(.fit_statistics.chi_squared)"' Fits-Local/results.json) \
-  <(jq -r '.clusters[] | .fit_statistics.chi_squared' Fits-BH/results.json) \
+  <(jq -r '.clusters[] | "\(.cluster_id) \(.fit_statistics.chi_squared)"' Fits-Local/fit_results.json) \
+  <(jq -r '.clusters[] | .fit_statistics.chi_squared' Fits-BH/fit_results.json) \
   | awk '{printf "%7s | %8.3f | %5.3f\n", $1, $2, $3}'
 ```
 
@@ -191,11 +199,11 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 
 ## Performance Comparison
 
-| Method | Success Rate | Avg χ² | Time |
-|--------|--------------|--------|------|
-| Local | 93% | 1.45 | ~2-3 min |
-| Basin-Hopping | 100% | 1.32 | ~10-15 min |
-| Diff. Evolution | 100% | 1.30 | ~15-25 min |
+| Method          | Success Rate | Avg χ² | Time       |
+| --------------- | ------------ | ------ | ---------- |
+| Local           | 93%          | 1.45   | ~2-3 min   |
+| Basin-Hopping   | 100%         | 1.32   | ~10-15 min |
+| Diff. Evolution | 100%         | 1.30   | ~15-25 min |
 
 ## When Global Optimization Doesn't Help
 
@@ -209,6 +217,7 @@ If global optimization doesn't improve results:
 ## Next Steps
 
 1. **MCMC Uncertainty** - [Example 4](../04-uncertainty-analysis/)
+
    - Quantify confidence in parameters
    - Full posterior distributions
 

@@ -17,9 +17,11 @@ This example demonstrates the simplest use case for PeakFit: fitting a 2D or pse
 
 [GOOD] **New output formats:**
 
-- `results.json` - Machine-readable structured data
-- `results.csv` - Spreadsheet-compatible tabular data
-- `results.md` - Human-readable Markdown report
+- `fit_results.json` - Machine-readable structured data
+- `parameters.csv` - Lineshape parameter estimates
+- `shifts.csv` - Chemical shifts (wide format)
+- `intensities.csv` - Fitted intensities
+- `report.md` - Human-readable Markdown report
 
 [GOOD] **When to use basic fitting:**
 
@@ -98,21 +100,21 @@ peakfit fit data/spectrum.ft2 data/peaks.list \
 ls -la results/
 
 # Read the human-readable report
-cat results/results.md
+cat results/report.md
 
 # Check the JSON for programmatic access
-cat results/results.json | python -m json.tool | head -50
+cat results/fit_results.json | python -m json.tool | head -50
 
-# Open the CSV in a spreadsheet
-open results/results.csv  # macOS
-# xdg-open results/results.csv  # Linux
+# Open the shifts CSV in a spreadsheet
+open results/shifts.csv  # macOS
+# xdg-open results/shifts.csv  # Linux
 ```
 
 ## Output Files
 
 After fitting, you'll find these new structured outputs:
 
-### results/results.json
+### results/fit_results.json
 
 Machine-readable structured data for programmatic access:
 
@@ -144,7 +146,7 @@ Machine-readable structured data for programmatic access:
 }
 ```
 
-### results/results.csv
+### results/parameters.csv
 
 Spreadsheet-compatible tabular data:
 
@@ -156,7 +158,7 @@ cluster_id,peak_name,parameter,value,uncertainty,unit
 1,A1N-HN,lw_F2,18.5,0.8,Hz
 ```
 
-### results/results.md
+### results/report.md
 
 Human-readable Markdown report:
 
@@ -223,7 +225,7 @@ This adds the traditional `*.out` files alongside the new formats.
 ```python
 import json
 
-with open('results/results.json') as f:
+with open('results/fit_results.json') as f:
     results = json.load(f)
 
 for cluster in results['clusters']:
@@ -237,21 +239,20 @@ for cluster in results['clusters']:
 ```python
 import pandas as pd
 
-df = pd.read_csv('results/results.csv')
+df = pd.read_csv('results/parameters.csv')
 
-# Filter to amplitudes only
-amplitudes = df[df['parameter'] == 'amplitude']
-print(amplitudes[['peak_name', 'value', 'uncertainty']])
+# View all parameters
+print(df[['peak_name', 'parameter', 'value', 'std_error']])
 ```
 
 ### Shell: Quick extraction
 
 ```bash
 # Extract all amplitudes with jq
-jq '.clusters[].amplitudes[] | "\(.peak_name): \(.value)"' results/results.json
+jq '.clusters[].amplitudes[] | "\(.peak_name): \(.value)"' results/fit_results.json
 
 # Get chi-squared values
-jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' results/results.json
+jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' results/fit_results.json
 ```
 
 ## Success Criteria
@@ -281,7 +282,7 @@ A successful fit should have:
 
 ### "Fitting failed for cluster X"
 
-- Check `results.json` for error details
+- Check `fit_results.json` for error details
 - Try global optimization (Example 3)
 
 ### "Results look wrong"

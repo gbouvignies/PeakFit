@@ -50,9 +50,11 @@ Shows how to fit pseudo-3D CEST (Chemical Exchange Saturation Transfer) data wit
 - Handling pseudo-3D experiments (CEST, CPMG, relaxation, etc.)
 - Using Z-values for plane-dependent experiments
 - Exploring the new output formats:
-  - `results.json` - Machine-readable structured data
-  - `results.csv` - Spreadsheet-compatible tabular data
-  - `results.md` - Human-readable formatted report
+  - `fit_results.json` - Machine-readable structured data
+  - `parameters.csv` - Lineshape parameter estimates
+  - `shifts.csv` - Chemical shifts (wide format)
+  - `intensities.csv` - Fitted intensities
+  - `report.md` - Human-readable formatted report
 - Controlling output verbosity levels
 
 **Command:**
@@ -133,12 +135,14 @@ PeakFit now generates structured outputs in multiple formats. See the [Output Sy
 
 ### Quick Reference
 
-| Format   | File           | Use Case                                         |
-| -------- | -------------- | ------------------------------------------------ |
-| JSON     | `results.json` | Programmatic access, scripts, pipelines          |
-| CSV      | `results.csv`  | Spreadsheets, data analysis, visualization       |
-| Markdown | `results.md`   | Human-readable reports, documentation            |
-| Legacy   | `*.out`        | Backward compatibility (with `--include-legacy`) |
+| Format   | File               | Use Case                                         |
+| -------- | ------------------ | ------------------------------------------------ |
+| JSON     | `fit_results.json` | Programmatic access, scripts, pipelines          |
+| CSV      | `parameters.csv`   | Lineshape parameters for analysis                |
+| CSV      | `shifts.csv`       | Chemical shifts in wide format                   |
+| CSV      | `intensities.csv`  | Fitted intensities for CEST/relaxation           |
+| Markdown | `report.md`        | Human-readable reports, documentation            |
+| Legacy   | `legacy/*.out`     | Backward compatibility (with `--include-legacy`) |
 
 ### Verbosity Levels
 
@@ -155,7 +159,7 @@ Control output detail with `--verbosity`:
 ```python
 import json
 
-with open('Fits/results.json') as f:
+with open('Fits/fit_results.json') as f:
     results = json.load(f)
 
 for cluster in results['clusters']:
@@ -194,26 +198,29 @@ After running Example 2, you'll see:
 │   ├── b1_offsets.txt      # Z-values
 │   └── peakfit.toml        # Optional config
 └── Fits/
-    ├── results.json        # ← NEW: Structured results
-    ├── results.csv         # ← NEW: Tabular data
-    ├── results.md          # ← NEW: Markdown report
-    ├── 2N-HN.out           # Legacy profile (if --include-legacy)
-    ├── 3N-HN.out
-    └── ...
+    ├── fit_results.json    # ← Structured results
+    ├── parameters.csv      # ← Parameter estimates
+    ├── shifts.csv          # ← Chemical shifts
+    ├── intensities.csv     # ← Fitted intensities
+    ├── report.md           # ← Markdown report
+    └── legacy/             # (if --include-legacy)
+        ├── 2N-HN.out
+        └── ...
 ```
 
 After running Example 4 (MCMC), you'll also see:
 
 ```
 Fits/
-├── results.json
-├── results.csv
-├── results.md
-├── mcmc/                    # ← NEW: MCMC outputs
-│   ├── chains.npz          # Raw chains
-│   ├── chains_meta.json    # Metadata
+├── fit_results.json
+├── parameters.csv
+├── shifts.csv
+├── intensities.csv
+├── report.md
+├── mcmc/                    # MCMC outputs
+│   ├── chains.npz          # Raw chains (if --save-chains)
 │   └── diagnostics.json    # Convergence info
-└── figures/                 # ← NEW: Figure catalog
+└── figures/                 # Figure catalog (if generated)
     ├── manifest.json
     └── *.pdf
 ```

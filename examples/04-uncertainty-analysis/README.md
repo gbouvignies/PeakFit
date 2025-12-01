@@ -48,19 +48,20 @@ MCMC fitting produces enhanced outputs:
 
 ```
 Fits/
-├── results.json        # Complete results with MCMC diagnostics
-├── results.csv         # Tabular data including uncertainties
-├── results.md          # Report with convergence status
+├── fit_results.json    # Complete results with MCMC diagnostics
+├── parameters.csv      # Parameter estimates with uncertainties
+├── shifts.csv          # Chemical shifts
+├── intensities.csv     # Fitted intensities
+├── report.md           # Report with convergence status
 ├── peakfit.log
-└── mcmc/               # ← NEW: MCMC-specific outputs
-    ├── chains.npz      # Raw MCMC chains (NumPy format)
-    ├── chains_meta.json# Chain metadata
+└── mcmc/               # MCMC-specific outputs
+    ├── chains.npz      # Raw MCMC chains (if --save-chains)
     └── diagnostics.json# Convergence diagnostics
 ```
 
 ## Understanding the Outputs
 
-### results.json - MCMC Diagnostics
+### fit_results.json - MCMC Diagnostics
 
 The JSON output includes detailed MCMC diagnostics for each cluster:
 
@@ -220,7 +221,7 @@ plt.savefig('corner_plot.pdf')
 ```python
 import json
 
-with open('Fits/results.json') as f:
+with open('Fits/fit_results.json') as f:
     results = json.load(f)
 
 # Check all clusters
@@ -283,7 +284,7 @@ cluster_id,peak_name,parameter,value,uncertainty,ci_lower_95,ci_upper_95,rhat,es
 ```python
 import pandas as pd
 
-df = pd.read_csv('Fits/results.csv')
+df = pd.read_csv('Fits/parameters.csv')
 
 # Find poorly converged parameters
 poor_convergence = df[df['rhat'] > 1.1]
@@ -299,7 +300,7 @@ print(f"\nParameters with >10% relative error: {len(large_error)}")
 
 ## Markdown Report
 
-The `results.md` includes a convergence summary:
+The `report.md` includes a convergence summary:
 
 ```markdown
 ## MCMC Diagnostics Summary
