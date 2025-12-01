@@ -64,17 +64,21 @@ class ParameterId:
 
     The full name format is: `{peak_name}.{axis}.{param_type}[{index}]`
 
+    Axis naming follows Bruker TopSpin convention:
+    - 2D: F2 (direct), F1 (indirect)
+    - 3D/pseudo-3D: F3 (direct), F2 (indirect), F1 (pseudo-dimension)
+
     Examples
     --------
-    - Chemical shift: "2N-H.F1.cs"
+    - Chemical shift: "2N-H.F2.cs" (direct), "2N-H.F1.cs" (indirect for 2D)
     - Linewidth: "2N-H.F2.lw"
-    - Amplitude: "2N-H.amplitude[0]"
-    - Phase (cluster-level): "cluster_0.F1.phase"
+    - Amplitude: "2N-H.F1.I[0]" (pseudo-dimension intensity)
+    - Phase (cluster-level): "cluster_0.F2.phase"
 
     Attributes
     ----------
         peak_name: Name of the peak (e.g., "2N-H", "G45N-HN")
-        axis: Dimension label (e.g., "F1", "F2") or None for non-axis parameters
+        axis: Dimension label (e.g., "F1", "F2", "F3")
         param_type: Type of parameter (ParameterType enum)
         index: Optional index for multi-valued parameters (e.g., amplitude per plane)
         cluster_id: Optional cluster ID for cluster-level parameters (e.g., phase)
@@ -92,8 +96,8 @@ class ParameterId:
             msg = "ParameterId requires either peak_name or cluster_id"
             raise ValueError(msg)
 
-        # Axis is required for lineshape parameters, except amplitude
-        requires_axis = self.param_type not in (ParameterType.AMPLITUDE, ParameterType.GENERIC)
+        # Axis is required for all parameter types except GENERIC
+        requires_axis = self.param_type != ParameterType.GENERIC
         if requires_axis and self.axis is None and self.cluster_id is None:
             msg = f"ParameterId for {self.param_type.value} requires axis"
             raise ValueError(msg)
@@ -107,10 +111,10 @@ class ParameterId:
 
         Examples
         --------
-        - "2N-H.F1.cs"
-        - "2N-H.F2.lw"
-        - "2N-H.amplitude[0]"
-        - "cluster_0.F1.phase"
+        - "2N-H.F2.cs"
+        - "2N-H.F3.lw"
+        - "2N-H.F1.I[0]"
+        - "cluster_0.F2.phase"
         """
         return self._build_name()
 
@@ -118,25 +122,20 @@ class ParameterId:
     def user_name(self) -> str:
         """User-friendly parameter name for output.
 
-        Format: `{type}_{axis}` or `{type}[{index}]`
+        Format: `{type}_{axis}` or `{type}_{axis}[{index}]`
 
         Examples
         --------
-        - "cs_F1", "lw_F2"
-        - "I[0]", "I[5]"
-        - "phase_F1"
+        - "cs_F2", "lw_F3"
+        - "I_F1[0]", "I_F1[5]"
+        - "phase_F2"
         """
         short_name = _PARAM_TYPE_SHORT_NAMES.get(self.param_type, self.param_type.value)
+        base = f"{short_name}_{self.axis}" if self.axis else short_name
 
-        if self.param_type == ParameterType.AMPLITUDE:
-            if self.index is not None:
-                return f"{short_name}[{self.index}]"
-            return short_name
-
-        if self.axis:
-            return f"{short_name}_{self.axis}"
-
-        return short_name
+        if self.index is not None:
+            return f"{base}[{self.index}]"
+        return base
 
     def _build_name(self) -> str:
         """Build the full parameter name."""
@@ -196,10 +195,20 @@ class ParameterId:
         return cls(peak_name=peak_name, axis=axis, param_type=ParameterType.JCOUPLING)
 
     @classmethod
-    def amplitude(cls, peak_name: str, plane_index: int) -> ParameterId:
-        """Create an amplitude parameter ID."""
+    def amplitude(cls, peak_name: str, plane_index: int, axis: str = "F1") -> ParameterId:
+        """Create an amplitude parameter ID.
+
+        Args:
+            peak_name: Name of the peak
+            plane_index: Index of the plane (0-based)
+            axis: Dimension label for the pseudo-dimension (default "F1")
+                  Following Bruker convention, F1 is the highest indirect dimension.
+        """
         return cls(
-            peak_name=peak_name, axis=None, param_type=ParameterType.AMPLITUDE, index=plane_index
+            peak_name=peak_name,
+            axis=axis,
+            param_type=ParameterType.AMPLITUDE,
+            index=plane_index,
         )
 
     @classmethod
@@ -244,10 +253,12 @@ def _parse_parameter_name(name: str) -> ParameterId:
     """
     import re
 
-    # Handle amplitude format: "peak.I[idx]"
-    amp_match = re.match(r"^(.+)\.I\[(\d+)\]$", name)
+    # Handle amplitude format: "peak.F1.I[idx]" (with axis) or "peak.I[idx]" (legacy)
+    amp_match = re.match(r"^(.+)\.(F\d+)\.I\[(\d+)\]$", name)
     if amp_match:
-        return ParameterId.amplitude(amp_match.group(1), int(amp_match.group(2)))
+        return ParameterId.amplitude(
+            amp_match.group(1), int(amp_match.group(3)), amp_match.group(2)
+        )
 
     # Handle dot-notation: "peak.axis.type" or "cluster_N.axis.type"
     dot_match = re.match(r"^(.+)\.(F\d+)\.(\w+)$", name)
