@@ -25,7 +25,7 @@ from peakfit.core.lineshapes import functions
 from peakfit.core.lineshapes.registry import register_shape
 
 
-def get_axis_label(n_spectral_dims: int, dim_index: int) -> str:
+def get_axis_label(dim_index: int) -> str:
     """Get the axis label for a dimension using Bruker Topspin convention.
 
     For pseudo-3D experiments:
@@ -34,7 +34,6 @@ def get_axis_label(n_spectral_dims: int, dim_index: int) -> str:
     - F3 = second spectral dimension (direct/acquisition, e.g., 1H)
 
     Args:
-        n_spectral_dims: Total number of spectral dimensions (not used, kept for API)
         dim_index: 1-based dimension index (1 = first spectral dim after pseudo)
 
     Returns
@@ -65,8 +64,7 @@ class BaseShape(ABC):
         """
         self.name = name
         # Use NMRPipe Fn convention for axis labels
-        n_spectral_dims = spectra.data[0].ndim
-        self.axis = get_axis_label(n_spectral_dims, dim)
+        self.axis = get_axis_label(dim)
         self.center = center
         self.spec_params = spectra.params[dim]
         self.size = self.spec_params.size
