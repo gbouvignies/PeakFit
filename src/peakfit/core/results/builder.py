@@ -329,33 +329,16 @@ class FitResultsBuilder:
         -------
             List of ParameterEstimate objects
         """
-        import re
-
         estimates: list[ParameterEstimate] = []
 
-        # Sanitize peak name the same way Shape.prefix does
-        safe_prefix = re.sub(r"\W+|^(?=\d)", "_", peak_name)
-
-        # Find all parameters that belong to this peak
-        # Parameter naming convention from lineshape models:
-        # - Position: {name}_{axis}0 (e.g., G45N-H_x0, G45N-H_y0)
-        # - FWHM: {name}_{axis}_fwhm (e.g., G45N-H_x_fwhm)
-        # - R2: {name}_{axis}_r2 (e.g., G45N-H_x_r2)
-        # - Eta: {name}_{axis}_eta (e.g., G45N-H_x_eta)
-        # - J: {name}_{axis}_j (e.g., G45N-H_x_j)
-
         for param_name, param in params.items():
-            # Check if this parameter belongs to the peak
-            # The prefix is {peak_name}_{axis} where axis is x, y, z, or a
-            if not param_name.startswith(safe_prefix + "_"):
+            # Check if this parameter belongs to the peak (dot-notation: "peak_name.axis.type")
+            if not param_name.startswith(peak_name + "."):
                 continue
 
-            # Skip phase parameters (they use cluster_id prefix, not peak name)
-            if param_name.endswith("p"):
+            # Skip phase parameters (they use cluster_id prefix: "cluster_N.axis.phase")
+            if param_name.startswith("cluster_"):
                 continue
-
-            # Determine the category from parameter type
-            category = ParameterCategory.LINESHAPE
 
             estimates.append(
                 ParameterEstimate(
@@ -363,10 +346,11 @@ class FitResultsBuilder:
                     value=param.value,
                     std_error=param.stderr,
                     unit=param.unit,
-                    category=category,
+                    category=ParameterCategory.LINESHAPE,
                     min_bound=param.min,
                     max_bound=param.max,
                     is_fixed=not param.vary,
+                    param_id=param.param_id,
                 )
             )
 

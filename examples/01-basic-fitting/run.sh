@@ -70,11 +70,13 @@ echo "Fitting complete!"
 echo "=========================================="
 echo
 echo "Results saved to: results/"
-echo "  - results/*.out        : Individual peak profiles"
-echo "  - results/shifts.list  : Fitted chemical shifts"
-echo "  - results/peakfit.log  : Detailed log file"
+echo "  - results/fit_results.json : Complete results (machine-readable)"
+echo "  - results/parameters.csv   : Parameter table (for Excel/pandas)"
+echo "  - results/shifts.csv       : Chemical shifts"
+echo "  - results/report.md        : Human-readable summary"
+echo "  - results/peakfit.log      : Detailed log file"
 echo
 echo "Next steps:"
-echo "  • View shifts: cat results/shifts.list"
+echo "  • View results: cat results/fit_results.json | head -50"
 echo "  • Check log: less results/peakfit.log"
 echo

@@ -7,15 +7,18 @@ This example demonstrates fitting a pseudo-3D CEST (Chemical Exchange Saturation
 ## Dataset
 
 **Spectrum:** `data/pseudo3d.ft2`
+
 - **Type:** Pseudo-3D CEST experiment
 - **Dimensions:** 131 planes × 256 × 546 points
 - **Size:** ~70 MB
 
 **Peak list:** `data/pseudo3d.list`
+
 - **Format:** Sparky format
 - **Number of peaks:** 166 peaks
 
 **Z-values:** `data/b1_offsets.txt`
+
 - **Range:** -5000 to +5000 Hz
 - **Number of points:** 131 (one per plane)
 
@@ -49,13 +52,15 @@ After fitting, the `Fits/` directory contains the **new structured outputs**:
 
 ```
 Fits/
-├── results.json        # Machine-readable structured results
-├── results.csv         # Spreadsheet-compatible tabular data
-├── results.md          # Human-readable Markdown report
+├── fit_results.json    # Machine-readable structured results
+├── parameters.csv      # Lineshape parameters (long format)
+├── shifts.csv          # Chemical shifts (wide format)
+├── intensities.csv     # Fitted intensities for all peaks
+├── report.md           # Human-readable Markdown report
 └── peakfit.log         # Detailed execution log
 ```
 
-### results.json - Structured Data
+### fit_results.json - Structured Data
 
 Complete structured results for programmatic access:
 
@@ -82,7 +87,23 @@ Complete structured results for programmatic access:
         "reduced_chi_squared": 1.02,
         "degrees_of_freedom": 260
       },
-      "parameters": [...],
+      "parameters": [
+        {
+          "name": "cs_F1",
+          "value": 115.632,
+          "uncertainty": 0.001
+        },
+        {
+          "name": "cs_F2",
+          "value": 6.869,
+          "uncertainty": 0.002
+        },
+        {
+          "name": "lw_F1",
+          "value": 25.3,
+          "uncertainty": 1.2
+        }
+      ],
       "amplitudes": [
         {
           "peak_name": "2N-HN",
@@ -126,21 +147,24 @@ Markdown-formatted report for documentation:
 
 ## Summary
 
-| Metric | Value |
-|--------|-------|
-| Clusters fitted | 45 |
-| Total peaks | 166 |
-| Overall χ² | 1.05 |
+| Metric          | Value |
+| --------------- | ----- |
+| Clusters fitted | 45    |
+| Total peaks     | 166   |
+| Overall χ²      | 1.05  |
 
 ## Cluster 1: 2N-HN, 3N-HN
 
 **Fit Quality**: χ² = 1.234 (reduced: 1.02)
 
 ### Parameters
-| Parameter | Value | Uncertainty |
-|-----------|-------|-------------|
-| position_x | 115.632 | ±0.001 |
-| position_y | 6.869 | ±0.002 |
+
+| Parameter | Value   | Uncertainty |
+| --------- | ------- | ----------- |
+| cs_F1     | 115.632 | ±0.001      |
+| cs_F2     | 6.869   | ±0.002      |
+| lw_F1     | 25.3    | ±1.2        |
+| lw_F2     | 18.5    | ±0.8        |
 ```
 
 ## Verbosity Levels
@@ -182,12 +206,16 @@ This adds the traditional `*.out` profile files alongside the new formats:
 
 ```
 Fits/
-├── results.json
-├── results.csv
-├── results.md
-├── 2N-HN.out           # Legacy profile file
-├── 3N-HN.out
-└── ...
+├── fit_results.json
+├── parameters.csv
+├── shifts.csv
+├── intensities.csv
+├── report.md
+├── legacy/
+│   ├── 2N-HN.out       # Legacy profile file
+│   ├── 3N-HN.out
+│   └── ...
+└── peakfit.log
 ```
 
 ## Working with the Outputs
@@ -197,7 +225,7 @@ Fits/
 ```python
 import json
 
-with open('Fits/results.json') as f:
+with open('Fits/fit_results.json') as f:
     results = json.load(f)
 
 # Get summary
@@ -216,37 +244,34 @@ for cluster in results['clusters']:
 ```python
 import pandas as pd
 
-df = pd.read_csv('Fits/results.csv')
-
-# Summary statistics by cluster
-cluster_stats = df.groupby('cluster_id').agg({
-    'chi_squared': 'mean',
-    'amplitude': 'mean',
-    'uncertainty': 'mean'
-})
-print(cluster_stats)
+# Load intensities for CEST analysis
+df = pd.read_csv('Fits/intensities.csv')
 
 # Plot CEST profile for a specific peak
 peak_data = df[df['peak_name'] == '2N-HN']
 import matplotlib.pyplot as plt
-plt.plot(peak_data['z_value'], peak_data['amplitude'])
+plt.plot(peak_data['offset'], peak_data['intensity'])
 plt.xlabel('B1 Offset (Hz)')
 plt.ylabel('Intensity')
 plt.title('CEST Profile: 2N-HN')
 plt.show()
+
+# Load parameters for detailed analysis
+params_df = pd.read_csv('Fits/parameters.csv')
+print(params_df[['peak_name', 'parameter', 'value', 'std_error']])
 ```
 
 ### Shell: Quick extraction with jq
 
 ```bash
 # Get list of all peaks
-jq -r '.clusters[].peaks[]' Fits/results.json | sort -u
+jq -r '.clusters[].peaks[]' Fits/fit_results.json | sort -u
 
 # Get chi-squared for each cluster
-jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' Fits/results.json
+jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' Fits/fit_results.json
 
 # Count successful clusters
-jq '[.clusters[] | select(.fit_statistics.chi_squared < 2.0)] | length' Fits/results.json
+jq '[.clusters[] | select(.fit_statistics.chi_squared < 2.0)] | length' Fits/fit_results.json
 ```
 
 ## Expected Terminal Output
@@ -276,9 +301,10 @@ jq '[.clusters[] | select(.fit_statistics.chi_squared < 2.0)] | length' Fits/res
 ✓ Fitted 45 clusters (166 peaks) in 2m 25s
 
 Output files:
-  ‣ Fits/results.json  (structured data)
-  ‣ Fits/results.csv   (tabular data)
-  ‣ Fits/results.md    (human-readable report)
+  ‣ Fits/fit_results.json  (structured data)
+  ‣ Fits/parameters.csv    (parameter estimates)
+  ‣ Fits/intensities.csv   (fitted intensities)
+  ‣ Fits/report.md         (human-readable report)
 ```
 
 ## Advanced Options
@@ -312,14 +338,17 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 ## Troubleshooting
 
 ### "Z-values file has wrong number of entries"
+
 - Must have exactly 131 values (one per plane)
 - Check: `wc -l data/b1_offsets.txt`
 
 ### "Fitting failed for some clusters"
-- Check `Fits/results.json` for error details
+
+- Check `Fits/fit_results.json` for error details
 - Try global optimization: [Example 3](../03-global-optimization/)
 
 ### Output files missing
+
 - Check `Fits/peakfit.log` for errors
 - Verify output directory is writable
 

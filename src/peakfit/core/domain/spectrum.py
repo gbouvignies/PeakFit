@@ -10,6 +10,8 @@ import numpy as np
 from nmrglue.fileio.pipe import guess_udic, read
 from numpy.typing import NDArray
 
+from peakfit.core.fitting.parameters import PSEUDO_AXIS
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
@@ -33,27 +35,27 @@ NUCLEUS_LABELS: dict[str, str] = {
 }
 
 
-def get_dimension_label(_n_spectral_dims: int, dim_index: int) -> str:
-    """Get the NMRPipe-style dimension label (F1, F2, F3, F4).
+def get_dimension_label(dim_index: int) -> str:
+    """Get the dimension label using Bruker Topspin convention for pseudo-nD.
 
-    NMRPipe convention:
-    - F1 is the first indirect dimension (lowest frequency, first acquired)
-    - Fn (highest n) is the direct/acquisition dimension
+    Bruker Topspin convention for pseudo-3D experiments:
+    - F1 = pseudo-dimension (intensities, CEST offsets, relaxation delays)
+    - F2 = first spectral dimension (indirect, e.g., 15N)
+    - F3 = second spectral dimension (direct/acquisition, e.g., 1H)
 
-    For a 2D spectrum: F1 (indirect), F2 (direct)
-    For a 3D spectrum: F1, F2 (indirect), F3 (direct)
-    For a 4D spectrum: F1, F2, F3 (indirect), F4 (direct)
+    For pseudo-3D (2 spectral dims): F2 (indirect), F3 (direct)
+    For pseudo-4D (3 spectral dims): F2, F3 (indirect), F4 (direct)
 
     Args:
-        n_spectral_dims: Total number of spectral dimensions (excluding pseudo)
-        dim_index: 0-based index of the dimension (0 = first spectral dim)
+        dim_index: 0-based index of the spectral dimension (0 = first spectral dim)
 
     Returns
     -------
-        Dimension label like "F1", "F2", "F3", "F4"
+        Dimension label like "F2", "F3", "F4"
     """
-    # dim_index 0 corresponds to F1, dim_index 1 to F2, etc.
-    return f"F{dim_index + 1}"
+    # Offset by 2: dim_index 0 → F2, dim_index 1 → F3, etc.
+    # F1 is reserved for the pseudo-dimension
+    return f"F{dim_index + 2}"
 
 
 @dataclass
@@ -156,9 +158,6 @@ def read_spectral_parameters(
     """
     spec_params: list[SpectralParameters] = []
 
-    # Count spectral dimensions (excluding pseudo if present)
-    n_spectral_dims = data.ndim - 1 if has_pseudo_dim else data.ndim
-
     for i in range(data.ndim):
         size = data.shape[i]
         fdf = f"FDF{int(dic['FDDIMORDER'][data.ndim - 1 - i])}"
@@ -168,12 +167,13 @@ def read_spectral_parameters(
         # Determine dimension label
         if has_pseudo_dim and i == 0:
             # First dimension is pseudo (CEST offsets, relaxation delays, etc.)
-            dim_label = "pseudo"
+            # Use F1 label following Bruker convention
+            dim_label = PSEUDO_AXIS
             nucleus = None
         else:
-            # Spectral dimension - use F1, F2, F3, F4 convention
+            # Spectral dimension - use F2, F3, F4 convention
             spectral_index = i - 1 if has_pseudo_dim else i
-            dim_label = get_dimension_label(n_spectral_dims, spectral_index)
+            dim_label = get_dimension_label(spectral_index)
             # Try to get nucleus from header
             nucleus_code = str(int(dic.get(f"{fdf}OBS", 0) % 100))  # Rough heuristic
             # Better: use FDLABEL if available

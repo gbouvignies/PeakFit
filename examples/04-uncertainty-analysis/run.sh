@@ -52,12 +52,14 @@ case $choice in
         echo "=========================================="
         echo
         echo "Output files:"
-        echo "  • Fits/results.json  - Structured results with uncertainties"
-        echo "  • Fits/results.csv   - Tabular data"
-        echo "  • Fits/results.md    - Human-readable report"
+        echo "  • Fits/fit_results.json  - Structured results with uncertainties"
+        echo "  • Fits/parameters.csv    - All parameters"
+        echo "  • Fits/shifts.csv        - Chemical shifts"
+        echo "  • Fits/intensities.csv   - Fitted intensities"
+        echo "  • Fits/report.md         - Human-readable report"
         echo
         echo "View uncertainties:"
-        echo "  jq '.clusters[0].parameters' Fits/results.json"
+        echo "  jq '.clusters[0].parameters' Fits/fit_results.json"
         echo
         ;;
 

@@ -6,12 +6,14 @@ This document describes the redesigned output system for PeakFit, which provides
 
 The new output system generates multiple output formats from a single fitting run:
 
-| Format | File | Purpose |
-|--------|------|---------|
-| JSON | `results.json` | Machine-readable, complete structured data |
-| CSV | `results.csv` | Spreadsheet-compatible tabular data |
-| Markdown | `results.md` | Human-readable formatted report |
-| Legacy | `*.out` | Backward-compatible text format |
+| Format   | File               | Purpose                                    |
+| -------- | ------------------ | ------------------------------------------ |
+| JSON     | `fit_results.json` | Machine-readable, complete structured data |
+| CSV      | `parameters.csv`   | Lineshape parameter estimates              |
+| CSV      | `shifts.csv`       | Chemical shifts (wide format)              |
+| CSV      | `intensities.csv`  | Fitted intensities                         |
+| Markdown | `report.md`        | Human-readable formatted report            |
+| Legacy   | `legacy/*.out`     | Backward-compatible text format            |
 
 ## Output Directory Structure
 
@@ -19,19 +21,21 @@ When `peakfit fit` completes, outputs are organized as follows:
 
 ```
 output/
-├── results.json        # Complete structured results
-├── results.csv         # Parameter estimates table
-├── results.md          # Human-readable report
-├── results.out         # Legacy format (if enabled)
+├── fit_results.json    # Complete structured results
+├── parameters.csv      # Lineshape parameter estimates
+├── shifts.csv          # Chemical shifts (wide format)
+├── intensities.csv     # Fitted intensities
+├── report.md           # Human-readable report
+├── peakfit.log         # Execution log
 ├── mcmc/               # MCMC outputs (if applicable)
-│   ├── chains.npz      # Raw MCMC chains
-│   ├── chains_meta.json# Chain metadata
+│   ├── chains.npz      # Raw MCMC chains (if --save-chains)
 │   └── diagnostics.json# Convergence diagnostics
+├── legacy/             # Legacy outputs (if --include-legacy)
+│   ├── peak_name.out
+│   └── ...
 └── figures/            # Generated plots
     ├── manifest.json   # Figure metadata catalog
-    ├── cluster_001_profile.pdf
-    ├── cluster_001_correlation.pdf
-    └── ...
+    └── *.pdf
 ```
 
 ## Configuration
@@ -59,11 +63,11 @@ peakfit fit spectrum.ft2 peaks.list -m mcmc --save-chains
 
 The `--verbosity` option controls how much detail is included:
 
-| Level | Description |
-|-------|-------------|
-| `minimal` | Essential results only (parameter values, uncertainties) |
-| `standard` | Includes fit statistics and basic diagnostics (default) |
-| `full` | Complete output including all diagnostics and metadata |
+| Level      | Description                                              |
+| ---------- | -------------------------------------------------------- |
+| `minimal`  | Essential results only (parameter values, uncertainties) |
+| `standard` | Includes fit statistics and basic diagnostics (default)  |
+| `full`     | Complete output including all diagnostics and metadata   |
 
 ### Configuration File (peakfit.toml)
 
@@ -79,7 +83,7 @@ include_timestamp = true # Add timestamp to directory name
 
 ## Output Formats
 
-### JSON Output (results.json)
+### JSON Output (fit_results.json)
 
 The JSON output provides complete, structured access to all fitting results:
 
@@ -110,11 +114,18 @@ The JSON output provides complete, structured access to all fitting results:
       },
       "parameters": [
         {
-          "name": "position_x",
+          "name": "cs_F1",
           "value": 8.234,
           "uncertainty": 0.002,
-          "ci_lower_95": 8.230,
+          "ci_lower_95": 8.23,
           "ci_upper_95": 8.238
+        },
+        {
+          "name": "cs_F2",
+          "value": 120.5,
+          "uncertainty": 0.05,
+          "ci_lower_95": 120.4,
+          "ci_upper_95": 120.6
         }
       ],
       "amplitudes": [
@@ -145,18 +156,19 @@ The JSON output provides complete, structured access to all fitting results:
 }
 ```
 
-### CSV Output (results.csv)
+### CSV Output (parameters.csv)
 
 Tabular output optimized for spreadsheet analysis:
 
 ```csv
-cluster_id,peak_name,parameter,value,uncertainty,ci_lower_95,ci_upper_95,units
-1,G23,amplitude,1500000.0,23000.0,1455000.0,1545000.0,intensity
-1,G23,position_x,8.234,0.002,8.230,8.238,ppm
-1,G23,position_y,120.5,0.05,120.4,120.6,ppm
+cluster_id,peak_name,parameter,value,uncertainty,ci_lower_95,ci_upper_95,unit
+1,G23,cs_F1,8.234,0.002,8.230,8.238,ppm
+1,G23,cs_F2,120.5,0.05,120.4,120.6,ppm
+1,G23,lw_F1,25.3,1.2,23.0,27.8,Hz
+1,G23,lw_F2,18.5,0.8,16.9,20.1,Hz
 ```
 
-### Markdown Report (results.md)
+### Markdown Report (report.md)
 
 Human-readable formatted report:
 
@@ -176,16 +188,20 @@ Human-readable formatted report:
 ## Cluster 1: G23, S24
 
 ### Fit Quality
+
 - χ² = 1.234 (reduced: 1.02)
 - MCMC Status: ✓ GOOD
 
 ### Parameters
-| Parameter | Value | Uncertainty | 95% CI |
-|-----------|-------|-------------|--------|
-| position_x | 8.234 | ±0.002 | [8.230, 8.238] |
+
+| Parameter | Value | Uncertainty | 95% CI         |
+| --------- | ----- | ----------- | -------------- |
+| cs_F1     | 8.234 | ±0.002      | [8.230, 8.238] |
+| cs_F2     | 120.5 | ±0.05       | [120.4, 120.6] |
+| lw_F1     | 25.3  | ±1.2        | [23.0, 27.8]   |
 ```
 
-### Legacy Output (*.out)
+### Legacy Output (\*.out)
 
 For backward compatibility with existing analysis pipelines:
 
@@ -316,6 +332,7 @@ If you have scripts that parse the legacy `.out` format:
 ### Example Migration
 
 **Before (parsing .out file):**
+
 ```python
 # Fragile regex parsing
 with open('results.out') as f:
@@ -325,10 +342,11 @@ with open('results.out') as f:
 ```
 
 **After (using JSON):**
+
 ```python
 import json
 
-with open('results.json') as f:
+with open('fit_results.json') as f:
     results = json.load(f)
 
 for cluster in results['clusters']:

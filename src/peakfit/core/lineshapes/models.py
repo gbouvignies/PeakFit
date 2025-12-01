@@ -2,12 +2,14 @@
 
 This module provides various lineshape model classes (Gaussian, Lorentzian, Pseudo-Voigt,
 and apodization-based shapes) for fitting NMR peaks.
+
+All lineshape models use the unified ParameterId system for parameter naming,
+producing names like "2N-H.F1.cs" instead of legacy "_2N_H_F10".
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from functools import cached_property
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -18,29 +20,35 @@ if TYPE_CHECKING:
     from peakfit.core.domain.spectrum import Spectra
     from peakfit.core.fitting.parameters import Parameters
     from peakfit.core.shared.typing import FittingOptions, FloatArray, IntArray
+from peakfit.core.fitting.parameters import ParameterId
 from peakfit.core.lineshapes import functions
 from peakfit.core.lineshapes.registry import register_shape
 
-# Legacy axis names for backward compatibility during transition
-LEGACY_AXIS_NAMES = ("x", "y", "z", "a")
 
+def get_axis_label(dim_index: int) -> str:
+    """Get the axis label for a dimension using Bruker Topspin convention.
 
-def get_axis_label(n_spectral_dims: int, dim_index: int) -> str:
-    """Get the axis label for a dimension using NMRPipe F1/F2/F3/F4 convention.
+    For pseudo-3D experiments:
+    - F1 = pseudo-dimension (intensities, CEST offsets, etc.)
+    - F2 = first spectral dimension (indirect, e.g., 15N)
+    - F3 = second spectral dimension (direct/acquisition, e.g., 1H)
 
     Args:
-        n_spectral_dims: Total number of spectral dimensions
         dim_index: 1-based dimension index (1 = first spectral dim after pseudo)
 
     Returns
     -------
-        Axis label like "F1", "F2", "F3", "F4"
+        Axis label like "F2", "F3", "F4"
     """
-    return f"F{dim_index}"
+    # Offset by 1: F1 is reserved for pseudo-dimension
+    return f"F{dim_index + 1}"
 
 
 class BaseShape(ABC):
-    """Base class for all lineshape models."""
+    """Base class for all lineshape models.
+
+    Uses the ParameterId system for consistent parameter naming with dot-notation.
+    """
 
     def __init__(
         self, name: str, center: float, spectra: Spectra, dim: int, args: FittingOptions
@@ -56,29 +64,35 @@ class BaseShape(ABC):
         """
         self.name = name
         # Use NMRPipe Fn convention for axis labels
-        n_spectral_dims = spectra.data[0].ndim
-        self.axis = get_axis_label(n_spectral_dims, dim)
+        self.axis = get_axis_label(dim)
         self.center = center
         self.spec_params = spectra.params[dim]
         self.size = self.spec_params.size
         self.param_names: list[str] = []
+        self._param_ids: list[ParameterId] = []  # Store ParameterIds for this shape
         self.cluster_id = 0
         self.args = args
         self.full_grid = np.arange(self.size)
 
-    @cached_property
-    def prefix(self) -> str:
-        """Parameter name prefix for this shape."""
-        import re
+    def _position_id(self) -> ParameterId:
+        """Create ParameterId for position (chemical shift) parameter."""
+        return ParameterId.position(self.name, self.axis)
 
-        return re.sub(r"\W+|^(?=\d)", "_", f"{self.name}_{self.axis}")
+    def _linewidth_id(self) -> ParameterId:
+        """Create ParameterId for linewidth parameter."""
+        return ParameterId.linewidth(self.name, self.axis)
 
-    @cached_property
-    def prefix_phase(self) -> str:
-        """Parameter name prefix for phase parameters."""
-        import re
+    def _fraction_id(self) -> ParameterId:
+        """Create ParameterId for fraction (eta) parameter."""
+        return ParameterId.fraction(self.name, self.axis)
 
-        return re.sub(r"\W+|^(?=\d)", "_", f"{self.cluster_id}_{self.axis}")
+    def _jcoupling_id(self) -> ParameterId:
+        """Create ParameterId for J-coupling parameter."""
+        return ParameterId.jcoupling(self.name, self.axis)
+
+    def _phase_id(self) -> ParameterId:
+        """Create ParameterId for phase parameter (cluster-level)."""
+        return ParameterId.phase(self.cluster_id, self.axis)
 
     @abstractmethod
     def create_params(self) -> Parameters:
@@ -104,10 +118,14 @@ class BaseShape(ABC):
         """Format parameters as string for output."""
         lines = []
         for name in self.param_names:
-            fullname = name
-            shortname = name.replace(self.prefix[:-1], "").replace(self.prefix_phase[:-1], "")
-            value = params[fullname].value
-            stderr_val = params[fullname].stderr
+            param = params[name]
+            # Use ParameterId's user_name if available
+            if param.param_id is not None:
+                shortname = param.param_id.user_name
+            else:
+                shortname = name.split(".")[-1] if "." in name else name
+            value = param.value
+            stderr_val = param.stderr
             line = f"# {shortname:<10s}: {value:10.5f} ± {stderr_val:10.5f}"
             lines.append(line)
         return "\n".join(lines)
@@ -147,33 +165,40 @@ class PeakShape(BaseShape):
 
     def create_params(self) -> Parameters:
         """Create parameters for peak shape (position and FWHM)."""
-        # Import ParameterType at runtime to avoid circular imports during module import
-        from peakfit.core.fitting.parameters import Parameters, ParameterType
+        from peakfit.core.fitting.parameters import Parameters
 
         params = Parameters()
+
+        # Position parameter using ParameterId
+        pos_id = self._position_id()
         params.add(
-            f"{self.prefix}0",
+            pos_id,
             value=self.center,
             min=self.center - self.spec_params.hz2ppm(self.FWHM_START),
             max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
-            param_type=ParameterType.POSITION,
             unit="ppm",
         )
+
+        # Linewidth parameter using ParameterId
+        lw_id = self._linewidth_id()
         params.add(
-            f"{self.prefix}_fwhm",
+            lw_id,
             value=self.FWHM_START,
             min=0.1,
             max=200.0,
-            param_type=ParameterType.FWHM,
             unit="Hz",
         )
+
+        self._param_ids = [pos_id, lw_id]
         self.param_names = list(params.keys())
         return params
 
     def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
         """Evaluate peak shape at given points."""
-        x0 = params[f"{self.prefix}0"].value
-        fwhm = params[f"{self.prefix}_fwhm"].value
+        pos_name = self._position_id().name
+        lw_name = self._linewidth_id().name
+        x0 = params[pos_name].value
+        fwhm = params[lw_name].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
         res: FloatArray = np.asarray(sign * self.shape_func(dx_hz, fwhm), dtype=float)
@@ -201,25 +226,28 @@ class PseudoVoigt(PeakShape):
     def create_params(self) -> Parameters:
         """Create parameters including eta mixing factor."""
         params = super().create_params()
-        # Import ParameterType at runtime to avoid circular imports
-        from peakfit.core.fitting.parameters import ParameterType
 
+        # Eta (fraction) parameter using ParameterId
+        eta_id = self._fraction_id()
         params.add(
-            f"{self.prefix}_eta",
+            eta_id,
             value=0.5,
             min=-1.0,
             max=1.0,
-            param_type=ParameterType.FRACTION,
             unit="",
         )
+        self._param_ids.append(eta_id)
         self.param_names = list(params.keys())
         return params
 
     def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
         """Evaluate pseudo-Voigt at given points."""
-        x0 = params[f"{self.prefix}0"].value
-        fwhm = params[f"{self.prefix}_fwhm"].value
-        eta = params[f"{self.prefix}_eta"].value
+        pos_name = self._position_id().name
+        lw_name = self._linewidth_id().name
+        eta_name = self._fraction_id().name
+        x0 = params[pos_name].value
+        fwhm = params[lw_name].value
+        eta = params[eta_name].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
         res: FloatArray = np.asarray(sign * functions.pvoigt(dx_hz, fwhm, eta), dtype=float)
@@ -267,55 +295,72 @@ class ApodShape(BaseShape):
 
     def create_params(self) -> Parameters:
         """Create parameters for apodization shape."""
-        # Import ParameterType and Parameters at runtime to avoid circular imports
-        from peakfit.core.fitting.parameters import Parameters, ParameterType
+        from peakfit.core.fitting.parameters import Parameters
 
         params = Parameters()
+        param_ids: list[ParameterId] = []
+
+        # Position parameter
+        pos_id = self._position_id()
         params.add(
-            f"{self.prefix}0",
+            pos_id,
             value=self.center,
             min=self.center - self.spec_params.hz2ppm(self.FWHM_START),
             max=self.center + self.spec_params.hz2ppm(self.FWHM_START),
-            param_type=ParameterType.POSITION,
             unit="ppm",
         )
+        param_ids.append(pos_id)
+
+        # Linewidth (R2) parameter
+        lw_id = self._linewidth_id()
         params.add(
-            f"{self.prefix}_r2",
+            lw_id,
             value=self.R2_START,
             min=0.1,
             max=200.0,
-            param_type=ParameterType.FWHM,  # R2 is related to linewidth
             unit="Hz",
         )
+        param_ids.append(lw_id)
+
+        # J-coupling parameter (optional)
         if self.args.jx and self.spec_params.direct:
+            j_id = self._jcoupling_id()
             params.add(
-                f"{self.prefix}_j",
+                j_id,
                 value=5.0,
                 min=1.0,
                 max=10.0,
-                param_type=ParameterType.JCOUPLING,
                 unit="Hz",
             )
+            param_ids.append(j_id)
+
+        # Phase parameter (optional, cluster-level)
         if (self.args.phx and self.spec_params.direct) or self.args.phy:
+            phase_id = self._phase_id()
             params.add(
-                f"{self.prefix_phase}p",
+                phase_id,
                 value=0.0,
                 min=-5.0,
                 max=5.0,
-                param_type=ParameterType.PHASE,
                 unit="deg",
             )
+            param_ids.append(phase_id)
+
+        self._param_ids = param_ids
         self.param_names = list(params.keys())
         return params
 
     def evaluate(self, x_pt: IntArray, params: Parameters) -> FloatArray:
         """Evaluate apodization shape at given points using memoized evaluator."""
-        x0 = params[f"{self.prefix}0"].value
-        r2 = params[f"{self.prefix}_r2"].value
-        p0_key = f"{self.prefix_phase}p"
-        p0 = params[p0_key].value if p0_key in params else 0.0
-        j_key = f"{self.prefix}_j"
-        j_hz = params[j_key].value if j_key in params else 0.0
+        pos_name = self._position_id().name
+        lw_name = self._linewidth_id().name
+        phase_name = self._phase_id().name
+        j_name = self._jcoupling_id().name
+
+        x0 = params[pos_name].value
+        r2 = params[lw_name].value
+        p0 = params[phase_name].value if phase_name in params else 0.0
+        j_hz = params[j_name].value if j_name in params else 0.0
 
         dx_pt, sign = self._compute_dx_and_sign(self.full_grid, x0)
         dx_rads = self.spec_params.pts2hz_delta(dx_pt) * 2 * np.pi

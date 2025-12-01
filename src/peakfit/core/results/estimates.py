@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
+    from peakfit.core.fitting.parameters import ParameterId
     from peakfit.core.shared.typing import FloatArray
 
 
@@ -103,6 +104,20 @@ class ParameterEstimate:
 
     # Full posterior (optional, for detailed analysis)
     posterior_samples: FloatArray | None = None
+
+    # Structured parameter identifier (for consistent naming)
+    param_id: ParameterId | None = None
+
+    @property
+    def user_name(self) -> str:
+        """User-friendly parameter name.
+
+        Returns the user_name from param_id if available,
+        otherwise falls back to the raw name.
+        """
+        if self.param_id is not None:
+            return self.param_id.user_name
+        return self.name
 
     @property
     def has_asymmetric_error(self) -> bool:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from peakfit.core.shared.typing import FloatArray, IntArray
 
 
+@runtime_checkable
 class Shape(Protocol):
     """Protocol for lineshape models."""
 
@@ -47,14 +48,9 @@ class Shape(Protocol):
         """Return the center point index (in integer points) for the shape."""
         ...
 
-    @property
-    def prefix(self) -> str:
-        """Return the parameter name prefix for this shape (used in params keys)."""
-        ...
-
 
 # Global shape registry
-SHAPES: dict[str, Callable[..., Shape]] = {}
+SHAPES: dict[str, type[Shape]] = {}
 
 
 def register_shape(
@@ -89,7 +85,7 @@ def register_shape(
     return decorator
 
 
-def get_shape(name: str) -> Callable[..., Shape]:
+def get_shape(name: str) -> type[Shape]:
     """Get a shape class by name.
 
     Args:

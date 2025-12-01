@@ -9,17 +9,22 @@ This example demonstrates the simplest use case for PeakFit: fitting a 2D or pse
 ## What This Example Teaches
 
 [GOOD] **Basic workflow:**
+
 1. Prepare your spectrum and peak list
 2. Validate input files
 3. Run the fit with default settings
 4. Explore the new structured outputs
 
 [GOOD] **New output formats:**
-- `results.json` - Machine-readable structured data
-- `results.csv` - Spreadsheet-compatible tabular data
-- `results.md` - Human-readable Markdown report
+
+- `fit_results.json` - Machine-readable structured data
+- `parameters.csv` - Lineshape parameter estimates
+- `shifts.csv` - Chemical shifts (wide format)
+- `intensities.csv` - Fitted intensities
+- `report.md` - Human-readable Markdown report
 
 [GOOD] **When to use basic fitting:**
+
 - Well-resolved peaks (minimal overlap)
 - Good signal-to-noise ratio (>10:1)
 - Standard 2D experiments (HSQC, HMQC, etc.)
@@ -31,11 +36,13 @@ This example demonstrates the simplest use case for PeakFit: fitting a 2D or pse
 Place your own data files in the `data/` subdirectory:
 
 1. **Spectrum file:**
+
    - Format: NMRPipe `.ft2` or `.ft3`
    - Type: 2D or pseudo-3D
    - Example: `data/spectrum.ft2`
 
 2. **Peak list:**
+
    - Format: Sparky (`.list`), NMRPipe, or CSV
    - Example: `data/peaks.list`
 
@@ -93,21 +100,21 @@ peakfit fit data/spectrum.ft2 data/peaks.list \
 ls -la results/
 
 # Read the human-readable report
-cat results/results.md
+cat results/report.md
 
 # Check the JSON for programmatic access
-cat results/results.json | python -m json.tool | head -50
+cat results/fit_results.json | python -m json.tool | head -50
 
-# Open the CSV in a spreadsheet
-open results/results.csv  # macOS
-# xdg-open results/results.csv  # Linux
+# Open the shifts CSV in a spreadsheet
+open results/shifts.csv  # macOS
+# xdg-open results/shifts.csv  # Linux
 ```
 
 ## Output Files
 
 After fitting, you'll find these new structured outputs:
 
-### results/results.json
+### results/fit_results.json
 
 Machine-readable structured data for programmatic access:
 
@@ -139,18 +146,19 @@ Machine-readable structured data for programmatic access:
 }
 ```
 
-### results/results.csv
+### results/parameters.csv
 
 Spreadsheet-compatible tabular data:
 
 ```csv
-cluster_id,peak_name,parameter,value,uncertainty,units
-1,A1N-HN,amplitude,1500000.0,23000.0,intensity
-1,A1N-HN,position_x,115.632,0.001,ppm
-1,A1N-HN,position_y,6.869,0.002,ppm
+cluster_id,peak_name,parameter,value,uncertainty,unit
+1,A1N-HN,cs_F1,115.632,0.001,ppm
+1,A1N-HN,cs_F2,6.869,0.002,ppm
+1,A1N-HN,lw_F1,25.3,1.2,Hz
+1,A1N-HN,lw_F2,18.5,0.8,Hz
 ```
 
-### results/results.md
+### results/report.md
 
 Human-readable Markdown report:
 
@@ -162,15 +170,19 @@ Human-readable Markdown report:
 **Runtime**: 12.5 seconds
 
 ## Summary
+
 - Clusters fitted: 15
 - Total peaks: 42
 - Overall χ²: 1.05
 
 ## Cluster 1: A1N-HN
-| Parameter | Value | Uncertainty |
-|-----------|-------|-------------|
-| amplitude | 1.50e+06 | ±2.30e+04 |
-| position_x | 115.632 | ±0.001 |
+
+| Parameter | Value   | Uncertainty |
+| --------- | ------- | ----------- |
+| cs_F1     | 115.632 | ±0.001      |
+| cs_F2     | 6.869   | ±0.002      |
+| lw_F1     | 25.3    | ±1.2        |
+| lw_F2     | 18.5    | ±0.8        |
 ```
 
 ## Controlling Output Verbosity
@@ -213,7 +225,7 @@ This adds the traditional `*.out` files alongside the new formats.
 ```python
 import json
 
-with open('results/results.json') as f:
+with open('results/fit_results.json') as f:
     results = json.load(f)
 
 for cluster in results['clusters']:
@@ -227,26 +239,26 @@ for cluster in results['clusters']:
 ```python
 import pandas as pd
 
-df = pd.read_csv('results/results.csv')
+df = pd.read_csv('results/parameters.csv')
 
-# Filter to amplitudes only
-amplitudes = df[df['parameter'] == 'amplitude']
-print(amplitudes[['peak_name', 'value', 'uncertainty']])
+# View all parameters
+print(df[['peak_name', 'parameter', 'value', 'std_error']])
 ```
 
 ### Shell: Quick extraction
 
 ```bash
 # Extract all amplitudes with jq
-jq '.clusters[].amplitudes[] | "\(.peak_name): \(.value)"' results/results.json
+jq '.clusters[].amplitudes[] | "\(.peak_name): \(.value)"' results/fit_results.json
 
 # Get chi-squared values
-jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' results/results.json
+jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' results/fit_results.json
 ```
 
 ## Success Criteria
 
 A successful fit should have:
+
 - ✓ All (or most) peaks converged
 - ✓ Reasonable χ² values (~1.0-2.0)
 - ✓ Small residuals (observed - fitted)
@@ -254,24 +266,27 @@ A successful fit should have:
 
 ## When Basic Fitting Isn't Enough
 
-| Problem | Solution |
-|---------|----------|
-| Many failed fits | Try [Example 3: Global Optimization](../03-global-optimization/) |
-| Uncertain results | Try [Example 4: MCMC Uncertainty](../04-uncertainty-analysis/) |
-| Poor convergence | Increase refinement: `--refine 3` |
-| Severe overlap | Global optimization or adjust clustering |
+| Problem           | Solution                                                         |
+| ----------------- | ---------------------------------------------------------------- |
+| Many failed fits  | Try [Example 3: Global Optimization](../03-global-optimization/) |
+| Uncertain results | Try [Example 4: MCMC Uncertainty](../04-uncertainty-analysis/)   |
+| Poor convergence  | Increase refinement: `--refine 3`                                |
+| Severe overlap    | Global optimization or adjust clustering                         |
 
 ## Troubleshooting
 
 ### "No peaks found"
+
 - Check peak list format matches spectrum dimensions
 - Verify peaks are within spectral bounds
 
 ### "Fitting failed for cluster X"
-- Check `results.json` for error details
+
+- Check `fit_results.json` for error details
 - Try global optimization (Example 3)
 
 ### "Results look wrong"
+
 - Verify peak list coordinates are correct
 - Check lineshape model with `--lineshape auto`
 
