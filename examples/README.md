@@ -177,6 +177,7 @@ param_names = data['param_names']
 
 print(f"Chains shape: {chains.shape}")
 print(f"Parameters: {list(param_names)}")
+# Example output: ['2N-HN.F1.cs', '2N-HN.F2.cs', '2N-HN.F1.lw', ...]
 ```
 
 ---

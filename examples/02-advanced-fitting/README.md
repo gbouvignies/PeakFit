@@ -7,15 +7,18 @@ This example demonstrates fitting a pseudo-3D CEST (Chemical Exchange Saturation
 ## Dataset
 
 **Spectrum:** `data/pseudo3d.ft2`
+
 - **Type:** Pseudo-3D CEST experiment
 - **Dimensions:** 131 planes × 256 × 546 points
 - **Size:** ~70 MB
 
 **Peak list:** `data/pseudo3d.list`
+
 - **Format:** Sparky format
 - **Number of peaks:** 166 peaks
 
 **Z-values:** `data/b1_offsets.txt`
+
 - **Range:** -5000 to +5000 Hz
 - **Number of points:** 131 (one per plane)
 
@@ -82,7 +85,23 @@ Complete structured results for programmatic access:
         "reduced_chi_squared": 1.02,
         "degrees_of_freedom": 260
       },
-      "parameters": [...],
+      "parameters": [
+        {
+          "name": "cs_F1",
+          "value": 115.632,
+          "uncertainty": 0.001
+        },
+        {
+          "name": "cs_F2",
+          "value": 6.869,
+          "uncertainty": 0.002
+        },
+        {
+          "name": "lw_F1",
+          "value": 25.3,
+          "uncertainty": 1.2
+        }
+      ],
       "amplitudes": [
         {
           "peak_name": "2N-HN",
@@ -126,21 +145,24 @@ Markdown-formatted report for documentation:
 
 ## Summary
 
-| Metric | Value |
-|--------|-------|
-| Clusters fitted | 45 |
-| Total peaks | 166 |
-| Overall χ² | 1.05 |
+| Metric          | Value |
+| --------------- | ----- |
+| Clusters fitted | 45    |
+| Total peaks     | 166   |
+| Overall χ²      | 1.05  |
 
 ## Cluster 1: 2N-HN, 3N-HN
 
 **Fit Quality**: χ² = 1.234 (reduced: 1.02)
 
 ### Parameters
-| Parameter | Value | Uncertainty |
-|-----------|-------|-------------|
-| position_x | 115.632 | ±0.001 |
-| position_y | 6.869 | ±0.002 |
+
+| Parameter | Value   | Uncertainty |
+| --------- | ------- | ----------- |
+| cs_F1     | 115.632 | ±0.001      |
+| cs_F2     | 6.869   | ±0.002      |
+| lw_F1     | 25.3    | ±1.2        |
+| lw_F2     | 18.5    | ±0.8        |
 ```
 
 ## Verbosity Levels
@@ -312,14 +334,17 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 ## Troubleshooting
 
 ### "Z-values file has wrong number of entries"
+
 - Must have exactly 131 values (one per plane)
 - Check: `wc -l data/b1_offsets.txt`
 
 ### "Fitting failed for some clusters"
+
 - Check `Fits/results.json` for error details
 - Try global optimization: [Example 3](../03-global-optimization/)
 
 ### Output files missing
+
 - Check `Fits/peakfit.log` for errors
 - Verify output directory is writable
 

@@ -8,12 +8,13 @@ The new output system provides comprehensive MCMC diagnostics including converge
 
 ## Why MCMC?
 
-| Method | Speed | What You Get |
-|--------|-------|--------------|
-| Covariance | Fast | Point estimate ± std |
-| MCMC | Slow | Full posterior distribution |
+| Method     | Speed | What You Get                |
+| ---------- | ----- | --------------------------- |
+| Covariance | Fast  | Point estimate ± std        |
+| MCMC       | Slow  | Full posterior distribution |
 
 MCMC tells you:
+
 - [GOOD] Full shape of parameter distributions
 - [GOOD] Parameter correlations
 - [GOOD] Confidence intervals (68%, 95%, etc.)
@@ -85,20 +86,33 @@ The JSON output includes detailed MCMC diagnostics for each cluster:
         },
         "parameters": [
           {
-            "name": "position_x",
+            "name": "2N-HN.F1.cs",
             "rhat": 1.01,
             "ess": 4500,
+            "converged": true
+          },
+          {
+            "name": "2N-HN.F2.cs",
+            "rhat": 1.02,
+            "ess": 4300,
             "converged": true
           }
         ]
       },
       "parameters": [
         {
-          "name": "position_x",
+          "name": "cs_F1",
           "value": 115.632,
           "uncertainty": 0.002,
           "ci_lower_95": 115.628,
           "ci_upper_95": 115.636
+        },
+        {
+          "name": "cs_F2",
+          "value": 6.869,
+          "uncertainty": 0.001,
+          "ci_lower_95": 6.867,
+          "ci_upper_95": 6.871
         }
       ]
     }
@@ -108,12 +122,12 @@ The JSON output includes detailed MCMC diagnostics for each cluster:
 
 ### MCMC Status Indicators
 
-| Status | Meaning | R-hat | Action |
-|--------|---------|-------|--------|
-| `GOOD` | Well converged | < 1.05 | Trust results |
-| `ACCEPTABLE` | Minor issues | 1.05-1.1 | Results usable |
-| `MARGINAL` | Convergence concerns | 1.1-1.2 | Run longer |
-| `POOR` | Not converged | > 1.2 | Don't trust |
+| Status       | Meaning              | R-hat    | Action         |
+| ------------ | -------------------- | -------- | -------------- |
+| `GOOD`       | Well converged       | < 1.05   | Trust results  |
+| `ACCEPTABLE` | Minor issues         | 1.05-1.1 | Results usable |
+| `MARGINAL`   | Convergence concerns | 1.1-1.2  | Run longer     |
+| `POOR`       | Not converged        | > 1.2    | Don't trust    |
 
 ### Loading MCMC Chains
 
@@ -229,12 +243,14 @@ jq '.clusters[] | "\(.cluster_id): \(.status) R-hat=\(.rhat_max)"' Fits/mcmc/dia
 ## Interpreting Results
 
 ### Good Convergence
+
 - R-hat < 1.05 for all parameters
 - ESS > 100 per parameter (preferably > 1000)
 - Trace plots show good mixing (no trends)
 - Status: `GOOD` or `ACCEPTABLE`
 
 ### Poor Convergence
+
 - R-hat > 1.1
 - ESS < 100
 - Trace plots show drifting or stuck chains
@@ -257,9 +273,9 @@ The CSV includes full uncertainty information:
 
 ```csv
 cluster_id,peak_name,parameter,value,uncertainty,ci_lower_95,ci_upper_95,rhat,ess
-1,2N-HN,position_x,115.632,0.002,115.628,115.636,1.01,4500
-1,2N-HN,position_y,6.869,0.001,6.867,6.871,1.02,4200
-1,2N-HN,amplitude,1500000.0,23000.0,1455000.0,1545000.0,1.01,3800
+1,2N-HN,cs_F1,115.632,0.002,115.628,115.636,1.01,4500
+1,2N-HN,cs_F2,6.869,0.001,6.867,6.871,1.02,4200
+1,2N-HN,lw_F1,25.3,1.2,23.0,27.8,1.01,3900
 ```
 
 ### Analyzing with pandas
@@ -288,23 +304,26 @@ The `results.md` includes a convergence summary:
 ```markdown
 ## MCMC Diagnostics Summary
 
-| Status | Count |
-|--------|-------|
-| ✓ GOOD | 42 |
-| ⚠ ACCEPTABLE | 2 |
-| ✗ MARGINAL | 1 |
+| Status       | Count |
+| ------------ | ----- |
+| ✓ GOOD       | 42    |
+| ⚠ ACCEPTABLE | 2     |
+| ✗ MARGINAL   | 1     |
 
 ### Cluster 1: 2N-HN
 
 **MCMC Status**: ✓ GOOD
+
 - Samples: 10,000
 - Chains: 4
 - Max R-hat: 1.02
 - Min ESS: 3,200
 
-| Parameter | Value | 95% CI | R-hat | ESS |
-|-----------|-------|--------|-------|-----|
-| position_x | 115.632 | [115.628, 115.636] | 1.01 | 4500 |
+| Parameter | Value   | 95% CI             | R-hat | ESS  |
+| --------- | ------- | ------------------ | ----- | ---- |
+| cs_F1     | 115.632 | [115.628, 115.636] | 1.01  | 4500 |
+| cs_F2     | 6.869   | [6.867, 6.871]     | 1.02  | 4200 |
+| lw_F1     | 25.3    | [23.0, 27.8]       | 1.01  | 3900 |
 ```
 
 ## Performance Tips
@@ -328,15 +347,18 @@ peakfit fit ... --method mcmc --mcmc-samples 10000 --mcmc-warmup 2000
 ## Troubleshooting
 
 ### "MCMC not converging"
+
 - Increase warmup: `--mcmc-warmup 5000`
 - Increase samples: `--mcmc-samples 20000`
 - Check if local optimization succeeds first
 
 ### "Chains look stuck"
+
 - Poor initial guess - run local optimization first
 - Model mismatch - check lineshape
 
 ### "Memory error"
+
 - Reduce number of samples
 - Use fewer chains
 - Don't save chains: remove `--save-chains`
