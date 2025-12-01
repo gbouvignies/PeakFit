@@ -79,7 +79,7 @@ class UncertaintyResult:
     and included alongside lineshape parameters in the chains and statistics.
     """
 
-    # Combined parameter names: lineshape params + amplitude params (I_{peak}[plane])
+    # Combined parameter names: lineshape params + amplitude params ({peak}.I[plane])
     parameter_names: list[str]
     values: FloatArray  # Best-fit values for all parameters
     std_errors: FloatArray  # Standard errors for all parameters
@@ -523,9 +523,13 @@ def estimate_uncertainties_mcmc(
             _shapes, amps = calculate_shape_heights(params, cluster)
             amp_chains[i_walker, i_step, :] = amps.ravel()
 
-    # Generate amplitude parameter names: I_{peak_name}[plane_idx]
+    # Generate amplitude parameter names using ParameterId for consistency
+    from peakfit.core.fitting.parameters import ParameterId
+
     amp_names = [
-        f"I_{peak.name}[{i_plane}]" for peak in cluster.peaks for i_plane in range(n_planes)
+        ParameterId.amplitude(peak.name, i_plane).name
+        for peak in cluster.peaks
+        for i_plane in range(n_planes)
     ]
     amplitude_peak_names = [p.name for p in cluster.peaks]
 
