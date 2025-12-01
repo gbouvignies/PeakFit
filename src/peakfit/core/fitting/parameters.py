@@ -19,6 +19,9 @@ import numpy as np
 if TYPE_CHECKING:
     from collections.abc import ItemsView, Iterator, KeysView, ValuesView
 
+# Pseudo-dimension axis label (Bruker convention: F1 for highest indirect dimension)
+PSEUDO_AXIS = "F1"
+
 
 class ParameterType(str, Enum):
     """Types of NMR fitting parameters."""

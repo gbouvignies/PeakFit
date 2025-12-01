@@ -10,6 +10,8 @@ import numpy as np
 from nmrglue.fileio.pipe import guess_udic, read
 from numpy.typing import NDArray
 
+from peakfit.core.fitting.parameters import PSEUDO_AXIS
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
@@ -169,7 +171,8 @@ def read_spectral_parameters(
         # Determine dimension label
         if has_pseudo_dim and i == 0:
             # First dimension is pseudo (CEST offsets, relaxation delays, etc.)
-            dim_label = "pseudo"
+            # Use F1 label following Bruker convention
+            dim_label = PSEUDO_AXIS
             nucleus = None
         else:
             # Spectral dimension - use F1, F2, F3, F4 convention

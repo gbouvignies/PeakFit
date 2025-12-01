@@ -524,10 +524,10 @@ def estimate_uncertainties_mcmc(
             amp_chains[i_walker, i_step, :] = amps.ravel()
 
     # Generate amplitude parameter names using ParameterId for consistency
-    from peakfit.core.fitting.parameters import ParameterId
+    from peakfit.core.fitting.parameters import PSEUDO_AXIS, ParameterId
 
     amp_names = [
-        ParameterId.amplitude(peak.name, "F1", i_plane).name
+        ParameterId.amplitude(peak.name, PSEUDO_AXIS, i_plane).name
         for peak in cluster.peaks
         for i_plane in range(n_planes)
     ]

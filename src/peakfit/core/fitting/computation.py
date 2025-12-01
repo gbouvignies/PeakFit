@@ -5,7 +5,7 @@ from collections.abc import Sequence
 import numpy as np
 
 from peakfit.core.domain.cluster import Cluster
-from peakfit.core.fitting.parameters import Parameters
+from peakfit.core.fitting.parameters import PSEUDO_AXIS, ParameterId, Parameters
 from peakfit.core.shared.typing import FloatArray
 
 
@@ -165,8 +165,6 @@ def inject_amplitude_parameters(
         This function modifies params in-place. Amplitudes are added with
         param_type=AMPLITUDE and computed=True.
     """
-    from peakfit.core.fitting.parameters import ParameterId
-
     shapes = calculate_shapes(params, cluster)
     amplitudes, errors, _covariance = calculate_amplitudes_with_uncertainty(
         shapes, cluster.corrected_data, noise
@@ -185,7 +183,7 @@ def inject_amplitude_parameters(
                 if np.ndim(peak_amplitudes) == 0
                 else float(peak_amplitudes[0])
             )
-            amp_id = ParameterId.amplitude(peak.name, "F1")
+            amp_id = ParameterId.amplitude(peak.name, PSEUDO_AXIS)
             params.add(
                 amp_id,
                 value=amp_value,
@@ -198,7 +196,7 @@ def inject_amplitude_parameters(
         else:
             # Multi-plane case
             for j in range(n_planes):
-                amp_id = ParameterId.amplitude(peak.name, "F1", j)
+                amp_id = ParameterId.amplitude(peak.name, PSEUDO_AXIS, j)
                 params.add(
                     amp_id,
                     value=float(peak_amplitudes[j]),
