@@ -189,6 +189,8 @@ def inject_amplitude_parameters(
             params.add(
                 amp_id,
                 value=amp_value,
+                min=-np.inf,  # Allow negative amplitudes (e.g., CEST, anti-phase)
+                max=np.inf,
                 vary=False,
                 computed=True,
             )
@@ -200,6 +202,8 @@ def inject_amplitude_parameters(
                 params.add(
                     amp_id,
                     value=float(peak_amplitudes[j]),
+                    min=-np.inf,  # Allow negative amplitudes (e.g., CEST, anti-phase)
+                    max=np.inf,
                     vary=False,
                     computed=True,
                 )

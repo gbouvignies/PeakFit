@@ -39,7 +39,7 @@ _DEFAULT_BOUNDS: dict[ParameterType, tuple[float, float]] = {
     ParameterType.FRACTION: (0.0, 1.0),  # Mixing fractions
     ParameterType.PHASE: (-180.0, 180.0),  # Phase in degrees
     ParameterType.JCOUPLING: (0.0, 20.0),  # Typical J-couplings
-    ParameterType.AMPLITUDE: (0.0, np.inf),  # Positive amplitudes
+    ParameterType.AMPLITUDE: (-np.inf, np.inf),  # Allow negative (CEST, anti-phase)
     ParameterType.GENERIC: (-np.inf, np.inf),
 }
 

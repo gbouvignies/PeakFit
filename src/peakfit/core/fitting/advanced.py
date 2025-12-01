@@ -569,12 +569,16 @@ def estimate_uncertainties_mcmc(
 
     # Inject amplitude parameters as computed parameters
     # This allows uniform treatment in statistics and reporting
+    # Note: We use explicit bounds (-inf, inf) because MCMC-derived amplitudes
+    # can be negative (e.g., in CEST experiments with inverted signals)
     from peakfit.core.fitting.parameters import ParameterType
 
     for i, amp_name in enumerate(amp_names):
         params.add(
             amp_name,
             value=float(percentiles[1, n_lineshape + i]),  # Median value
+            min=-np.inf,  # Allow negative amplitudes from MCMC
+            max=np.inf,
             vary=False,
             param_type=ParameterType.AMPLITUDE,
             computed=True,
