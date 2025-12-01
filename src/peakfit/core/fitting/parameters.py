@@ -51,9 +51,15 @@ class Parameter:
     param_type: ParameterType = ParameterType.GENERIC
     unit: str = ""  # Optional unit string (e.g., "Hz", "ppm", "deg")
     stderr: float = 0.0  # Standard error from fitting
+    computed: bool = False  # True for parameters computed analytically (e.g., amplitudes)
 
     def __post_init__(self) -> None:
         """Validate parameter bounds and apply type-specific defaults."""
+        # Enforce invariant: computed parameters cannot vary
+        if self.computed and self.vary:
+            msg = f"Parameter {self.name}: computed=True requires vary=False"
+            raise ValueError(msg)
+
         # Apply type-specific defaults if bounds not explicitly set
         if self.min == -np.inf and self.max == np.inf and self.param_type != ParameterType.GENERIC:
             default_min, default_max = _DEFAULT_BOUNDS[self.param_type]
@@ -72,7 +78,12 @@ class Parameter:
 
     def __repr__(self) -> str:
         """Return a string representation of the parameter."""
-        vary_str = "vary" if self.vary else "fixed"
+        if self.computed:
+            vary_str = "computed"
+        elif self.vary:
+            vary_str = "vary"
+        else:
+            vary_str = "fixed"
         min_str = f"{self.min:.4g}" if self.min > -1e10 else "-inf"
         max_str = f"{self.max:.4g}" if self.max < 1e10 else "inf"
         unit_str = f" {self.unit}" if self.unit else ""
@@ -124,6 +135,7 @@ class Parameters:
         vary: bool = True,
         param_type: ParameterType = ParameterType.GENERIC,
         unit: str = "",
+        computed: bool = False,
     ) -> None:
         """Add a parameter.
 
@@ -135,8 +147,11 @@ class Parameters:
             vary: Whether parameter varies during fitting
             param_type: Type of NMR parameter (affects default bounds)
             unit: Unit string (e.g., "Hz", "ppm", "deg")
+            computed: Whether parameter is computed analytically (implies vary=False)
         """
-        self._params[name] = Parameter(name, value, min, max, vary, param_type, unit)
+        self._params[name] = Parameter(
+            name, value, min, max, vary, param_type, unit, stderr=0.0, computed=computed
+        )
 
     def __getitem__(self, key: str) -> Parameter:
         """Get parameter by name."""
@@ -176,15 +191,43 @@ class Parameters:
         new_params = Parameters()
         for name, param in self._params.items():
             new_params.add(
-                name, param.value, param.min, param.max, param.vary, param.param_type, param.unit
+                name,
+                param.value,
+                param.min,
+                param.max,
+                param.vary,
+                param.param_type,
+                param.unit,
+                param.computed,
             )
             # Preserve stderr
             new_params[name].stderr = param.stderr
         return new_params
 
     def get_vary_names(self) -> list[str]:
-        """Get names of parameters that vary."""
+        """Get names of parameters that vary (nonlinear optimization)."""
         return [name for name, param in self._params.items() if param.vary]
+
+    def get_computed_names(self) -> list[str]:
+        """Get names of computed parameters (e.g., amplitudes)."""
+        return [name for name, param in self._params.items() if param.computed]
+
+    def get_fitted_names(self) -> list[str]:
+        """Get names of all fitted parameters (vary=True or computed=True).
+
+        This includes both nonlinearly optimized parameters and analytically
+        computed parameters like amplitudes.
+        """
+        return [name for name, param in self._params.items() if param.vary or param.computed]
+
+    def get_n_fitted_params(self) -> int:
+        """Get total number of fitted parameters for DOF calculation.
+
+        This counts both nonlinearly optimized (vary=True) and analytically
+        computed (computed=True) parameters. Used for correct degrees of
+        freedom in reduced chi-square calculation.
+        """
+        return sum(1 for param in self._params.values() if param.vary or param.computed)
 
     def get_vary_values(self) -> np.ndarray:
         """Get values of varying parameters as array."""
@@ -231,6 +274,9 @@ class Parameters:
         """Return a string representation of the parameters collection."""
         n_total = len(self._params)
         n_vary = len(self.get_vary_names())
+        n_computed = len(self.get_computed_names())
+        if n_computed > 0:
+            return f"<Parameters: {n_total} total, {n_vary} varying, {n_computed} computed>"
         return f"<Parameters: {n_total} total, {n_vary} varying>"
 
     def summary(self) -> str:
@@ -243,7 +289,12 @@ class Parameters:
         lines = ["Parameters:", "=" * 60]
         for name in self._params:
             param = self._params[name]
-            vary_str = "vary" if param.vary else "fixed"
+            if param.computed:
+                vary_str = "computed"
+            elif param.vary:
+                vary_str = "vary"
+            else:
+                vary_str = "fixed"
             min_str = f"{param.min:.4g}" if param.min > -1e10 else "-inf"
             max_str = f"{param.max:.4g}" if param.max < 1e10 else "inf"
             lines.append(

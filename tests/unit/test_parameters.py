@@ -416,3 +416,145 @@ class TestNMRSpecificParameters:
 
         param = Parameter("x", 100.0)  # Default unbounded
         assert param.relative_position() == 0.5
+
+
+class TestComputedParameters:
+    """Tests for computed parameter functionality."""
+
+    def test_computed_parameter_creation(self):
+        """Should create a computed parameter with vary=False."""
+        from peakfit.core.fitting.parameters import Parameter, ParameterType
+
+        param = Parameter(
+            "I_peak1[0]",
+            1000.0,
+            vary=False,
+            param_type=ParameterType.AMPLITUDE,
+            computed=True,
+        )
+        assert param.computed is True
+        assert param.vary is False
+        assert param.param_type == ParameterType.AMPLITUDE
+
+    def test_computed_with_vary_raises(self):
+        """Should raise error when computed=True and vary=True."""
+        from peakfit.core.fitting.parameters import Parameter
+
+        with pytest.raises(ValueError, match="computed=True requires vary=False"):
+            Parameter("bad", 10.0, vary=True, computed=True)
+
+    def test_parameter_repr_computed(self):
+        """String representation should show 'computed' status."""
+        from peakfit.core.fitting.parameters import Parameter
+
+        param = Parameter("I_peak[0]", 1000.0, vary=False, computed=True)
+        repr_str = repr(param)
+        assert "computed" in repr_str
+
+    def test_parameters_add_computed(self):
+        """Should add computed parameter via add()."""
+        from peakfit.core.fitting.parameters import Parameters, ParameterType
+
+        params = Parameters()
+        params.add(
+            "I_peak1[0]",
+            value=1000.0,
+            vary=False,
+            param_type=ParameterType.AMPLITUDE,
+            computed=True,
+        )
+
+        assert params["I_peak1[0]"].computed is True
+        assert params["I_peak1[0]"].vary is False
+
+    def test_get_computed_names(self):
+        """Should return names of computed parameters."""
+        from peakfit.core.fitting.parameters import Parameters
+
+        params = Parameters()
+        params.add("x0", value=10.0, vary=True)
+        params.add("I_peak1[0]", value=1000.0, vary=False, computed=True)
+        params.add("I_peak2[0]", value=2000.0, vary=False, computed=True)
+        params.add("fixed", value=0.0, vary=False)
+
+        computed_names = params.get_computed_names()
+        assert "I_peak1[0]" in computed_names
+        assert "I_peak2[0]" in computed_names
+        assert "x0" not in computed_names
+        assert "fixed" not in computed_names
+
+    def test_get_fitted_names(self):
+        """Should return names of all fitted parameters (vary or computed)."""
+        from peakfit.core.fitting.parameters import Parameters
+
+        params = Parameters()
+        params.add("x0", value=10.0, vary=True)
+        params.add("I_peak1[0]", value=1000.0, vary=False, computed=True)
+        params.add("fixed", value=0.0, vary=False)
+
+        fitted_names = params.get_fitted_names()
+        assert "x0" in fitted_names
+        assert "I_peak1[0]" in fitted_names
+        assert "fixed" not in fitted_names
+
+    def test_get_n_fitted_params(self):
+        """Should count both varying and computed parameters."""
+        from peakfit.core.fitting.parameters import Parameters
+
+        params = Parameters()
+        params.add("x0", value=10.0, vary=True)
+        params.add("fwhm", value=25.0, vary=True)
+        params.add("I_peak1[0]", value=1000.0, vary=False, computed=True)
+        params.add("I_peak2[0]", value=2000.0, vary=False, computed=True)
+        params.add("fixed", value=0.0, vary=False)
+
+        # 2 varying + 2 computed = 4 fitted
+        assert params.get_n_fitted_params() == 4
+
+    def test_copy_preserves_computed(self):
+        """Copy should preserve computed flag."""
+        from peakfit.core.fitting.parameters import Parameters
+
+        original = Parameters()
+        original.add("x0", value=10.0, vary=True)
+        original.add("I_peak1[0]", value=1000.0, vary=False, computed=True)
+
+        copy = original.copy()
+
+        assert copy["I_peak1[0]"].computed is True
+        assert copy["x0"].computed is False
+
+    def test_repr_with_computed(self):
+        """Parameters repr should show computed count."""
+        from peakfit.core.fitting.parameters import Parameters
+
+        params = Parameters()
+        params.add("x0", value=10.0, vary=True)
+        params.add("I_peak1[0]", value=1000.0, vary=False, computed=True)
+
+        repr_str = repr(params)
+        assert "1 computed" in repr_str
+
+    def test_summary_shows_computed(self):
+        """Summary should show 'computed' status."""
+        from peakfit.core.fitting.parameters import Parameters
+
+        params = Parameters()
+        params.add("x0", value=10.0, vary=True)
+        params.add("I_peak1[0]", value=1000.0, vary=False, computed=True)
+
+        summary = params.summary()
+        assert "(computed)" in summary
+        assert "(vary)" in summary
+
+    def test_get_vary_names_excludes_computed(self):
+        """get_vary_names should exclude computed parameters."""
+        from peakfit.core.fitting.parameters import Parameters
+
+        params = Parameters()
+        params.add("x0", value=10.0, vary=True)
+        params.add("I_peak1[0]", value=1000.0, vary=False, computed=True)
+
+        vary_names = params.get_vary_names()
+        assert "x0" in vary_names
+        assert "I_peak1[0]" not in vary_names

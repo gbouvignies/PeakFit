@@ -7,6 +7,7 @@ and apodization-based shapes) for fitting NMR peaks.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -65,14 +66,14 @@ class BaseShape(ABC):
         self.args = args
         self.full_grid = np.arange(self.size)
 
-    @property
+    @cached_property
     def prefix(self) -> str:
         """Parameter name prefix for this shape."""
         import re
 
         return re.sub(r"\W+|^(?=\d)", "_", f"{self.name}_{self.axis}")
 
-    @property
+    @cached_property
     def prefix_phase(self) -> str:
         """Parameter name prefix for phase parameters."""
         import re

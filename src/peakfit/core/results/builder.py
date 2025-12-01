@@ -22,7 +22,11 @@ from peakfit.core.results.estimates import (
     ParameterEstimate,
 )
 from peakfit.core.results.fit_results import FitMethod, FitResults, RunMetadata
-from peakfit.core.results.statistics import FitStatistics
+from peakfit.core.results.statistics import (
+    FitStatistics,
+    compute_chi_squared,
+    compute_reduced_chi_squared,
+)
 
 if TYPE_CHECKING:
     # Avoid importing from services layer to preserve architecture
@@ -388,17 +392,23 @@ class FitResultsBuilder:
             FitStatistics object
         """
         # Count varying parameters for this cluster's peaks
-        n_params = 0
+        n_lineshape_params = 0
         for peak in cluster.peaks:
             import re
 
             safe_prefix = re.sub(r"\W+|^(?=\d)", "_", peak.name)
             for param_name, param in params.items():
                 if param_name.startswith(safe_prefix + "_") and param.vary:
-                    n_params += 1
+                    n_lineshape_params += 1
 
+        # Add amplitude parameters to DOF calculation
+        # Each peak has one amplitude per plane, computed via linear least-squares
+        n_peaks = len(cluster.peaks)
+        n_planes = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
+        n_amplitude_params = n_peaks * n_planes
+
+        n_params = n_lineshape_params + n_amplitude_params
         n_data = cluster.corrected_data.size
-        dof = max(1, n_data - n_params)
 
         # Extract metrics from scipy result if available
         if scipy_result is not None and hasattr(scipy_result, "cost"):
@@ -413,7 +423,7 @@ class FitResultsBuilder:
 
             try:
                 resid = residuals(params, cluster, noise)
-                chi_squared = float(np.sum(resid**2))
+                chi_squared = compute_chi_squared(resid)
             except (ValueError, KeyError, AttributeError):
                 chi_squared = 0.0
             nfev = 0
@@ -422,7 +432,7 @@ class FitResultsBuilder:
 
         return FitStatistics(
             chi_squared=chi_squared,
-            reduced_chi_squared=chi_squared / dof,
+            reduced_chi_squared=compute_reduced_chi_squared(chi_squared, n_data, n_params),
             n_data=n_data,
             n_params=n_params,
             fit_converged=success,
@@ -476,11 +486,9 @@ class FitResultsBuilder:
         total_nfev = sum(cs.n_function_evals for cs in self._cluster_statistics)
         all_converged = all(cs.fit_converged for cs in self._cluster_statistics)
 
-        dof = max(1, total_data - total_params)
-
         return FitStatistics(
             chi_squared=total_chi_sq,
-            reduced_chi_squared=total_chi_sq / dof,
+            reduced_chi_squared=compute_reduced_chi_squared(total_chi_sq, total_data, total_params),
             n_data=total_data,
             n_params=total_params,
             fit_converged=all_converged,

@@ -10,6 +10,7 @@ from scipy.optimize import least_squares
 
 from peakfit.core.fitting.advanced import fit_basin_hopping, fit_differential_evolution
 from peakfit.core.fitting.computation import residuals
+from peakfit.core.results.statistics import compute_chi_squared, compute_reduced_chi_squared
 
 if TYPE_CHECKING:  # pragma: no cover - typing aid
     from peakfit.core.domain.cluster import Cluster
@@ -96,7 +97,7 @@ class LeastSquaresStrategy:
         )
 
         params.set_vary_values(result.x)
-        self._estimate_uncertainties(params, result)
+        self._estimate_uncertainties(params, result, cluster)
 
         return OptimizationResult(
             x=result.x,
@@ -108,8 +109,14 @@ class LeastSquaresStrategy:
         )
 
     @staticmethod
-    def _estimate_uncertainties(params: Parameters, result: Any) -> None:
-        """Populate stderr values using the jacobian if possible."""
+    def _estimate_uncertainties(params: Parameters, result: Any, cluster: Cluster) -> None:
+        """Populate stderr values using the jacobian if possible.
+
+        Args:
+            params: Parameters container
+            result: scipy least_squares result object
+            cluster: Cluster with peaks and data (needed for amplitude DOF)
+        """
         vary_names = params.get_vary_names()
         if result.jac is None or len(result.fun) <= len(vary_names):
             return
@@ -117,7 +124,13 @@ class LeastSquaresStrategy:
         try:
             ndata = len(result.fun)
             nvarys = len(vary_names)
-            redchi = np.sum(result.fun**2) / max(1, ndata - nvarys)
+            # Degrees of freedom must include amplitude parameters
+            n_peaks = len(cluster.peaks)
+            n_planes = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
+            n_amplitude_params = n_peaks * n_planes
+            n_total_fitted = nvarys + n_amplitude_params
+            chisqr = compute_chi_squared(result.fun)
+            redchi = compute_reduced_chi_squared(chisqr, ndata, n_total_fitted)
             jtj = result.jac.T @ result.jac
             cov = np.linalg.inv(jtj) * redchi
             stderr = np.sqrt(np.diag(cov))

@@ -19,6 +19,7 @@ from scipy.optimize import least_squares
 
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.results import FitResult
+from peakfit.core.results.statistics import compute_chi_squared, compute_reduced_chi_squared
 from peakfit.core.shared.constants import (
     LEAST_SQUARES_FTOL,
     LEAST_SQUARES_MAX_NFEV,
@@ -186,6 +187,11 @@ def fit_cluster(
     x0 = params.get_vary_values()
     lower, upper = params.get_vary_bounds()
 
+    # Calculate number of amplitude parameters for DOF
+    n_peaks = len(cluster.peaks)
+    n_planes = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
+    n_amplitude_params = n_peaks * n_planes
+
     # Run optimization
     result = least_squares(
         _residuals_for_optimizer,
@@ -212,6 +218,7 @@ def fit_cluster(
         success=result.success,
         message=result.message,
         optimality=result.optimality if hasattr(result, "optimality") else 0.0,
+        n_amplitude_params=n_amplitude_params,
     )
 
 
@@ -346,10 +353,17 @@ def fit_cluster_dict(
 
     # Calculate chi-square
     residual = compute_residuals(result.x, names, params, cluster, noise)
-    chisqr = float(np.sum(residual**2))
+    chisqr = compute_chi_squared(residual)
     ndata = len(residual)
+    # Degrees of freedom must account for both nonlinearly optimized parameters
+    # (nvarys) and analytically computed amplitudes (n_peaks * n_planes).
+    # For linear least-squares: each amplitude per plane is a fitted parameter.
     nvarys = len(x0)
-    redchi = chisqr / max(1, ndata - nvarys)
+    n_peaks = len(cluster.peaks)
+    n_planes = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
+    n_amplitude_params = n_peaks * n_planes
+    n_total_fitted = nvarys + n_amplitude_params
+    redchi = compute_reduced_chi_squared(chisqr, ndata, n_total_fitted)
 
     # Check for potential issues
     if redchi > 100:

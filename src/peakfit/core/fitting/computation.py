@@ -139,3 +139,85 @@ def update_cluster_corrections(params: Parameters, clusters: Sequence[Cluster]) 
         ).T
         amplitudes = amplitudes_all[indexes, :]
         cluster.corrections = shapes @ amplitudes
+
+
+def inject_amplitude_parameters(
+    params: Parameters,
+    cluster: Cluster,
+    noise: float,
+) -> None:
+    """Inject amplitude parameters computed via linear least-squares.
+
+    Computes amplitudes and their uncertainties analytically and adds them
+    as computed parameters (computed=True) to the Parameters collection.
+    This allows amplitudes to be included in statistics and reporting while
+    remaining excluded from nonlinear optimization.
+
+    The amplitude naming convention follows MCMC: I_{peak_name}[{plane_idx}]
+
+    Args:
+        params: Parameters collection to update in-place
+        cluster: Cluster containing peaks and data
+        noise: Noise standard deviation for uncertainty estimation
+
+    Note:
+        This function modifies params in-place. Amplitudes are added with
+        param_type=AMPLITUDE and computed=True.
+    """
+    from peakfit.core.fitting.parameters import ParameterType
+
+    shapes = calculate_shapes(params, cluster)
+    amplitudes, errors, _covariance = calculate_amplitudes_with_uncertainty(
+        shapes, cluster.corrected_data, noise
+    )
+
+    n_planes = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
+
+    for i, peak in enumerate(cluster.peaks):
+        peak_amplitudes = amplitudes[i]
+        peak_error = errors[i]  # Same error for all planes (from covariance diagonal)
+
+        if n_planes == 1:
+            # Single plane case
+            amp_value = (
+                float(peak_amplitudes)
+                if np.ndim(peak_amplitudes) == 0
+                else float(peak_amplitudes[0])
+            )
+            name = f"I_{peak.name}[0]"
+            params.add(
+                name,
+                value=amp_value,
+                vary=False,
+                param_type=ParameterType.AMPLITUDE,
+                computed=True,
+            )
+            params[name].stderr = float(peak_error)
+        else:
+            # Multi-plane case
+            for j in range(n_planes):
+                name = f"I_{peak.name}[{j}]"
+                params.add(
+                    name,
+                    value=float(peak_amplitudes[j]),
+                    vary=False,
+                    param_type=ParameterType.AMPLITUDE,
+                    computed=True,
+                )
+                params[name].stderr = float(peak_error)
+
+
+def inject_amplitude_parameters_multi(
+    params: Parameters,
+    clusters: Sequence[Cluster],
+    noise: float,
+) -> None:
+    """Inject amplitude parameters for multiple clusters.
+
+    Args:
+        params: Parameters collection to update in-place
+        clusters: Clusters containing peaks and data
+        noise: Noise standard deviation for uncertainty estimation
+    """
+    for cluster in clusters:
+        inject_amplitude_parameters(params, cluster, noise)

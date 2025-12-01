@@ -15,6 +15,62 @@ if TYPE_CHECKING:
     from peakfit.core.shared.typing import FloatArray
 
 
+def compute_chi_squared(residuals: FloatArray) -> float:
+    """Compute chi-squared (sum of squared residuals).
+
+    This is the single source of truth for chi-squared calculation.
+
+    Args:
+        residuals: Normalized residuals (data - model) / noise
+
+    Returns
+    -------
+        Chi-squared value (sum of residuals squared)
+    """
+    return float(np.sum(residuals**2))
+
+
+def compute_degrees_of_freedom(n_data: int, n_params: int) -> int:
+    """Compute degrees of freedom for statistical calculations.
+
+    This is the single source of truth for DOF calculation.
+
+    Args:
+        n_data: Number of data points
+        n_params: Total number of fitted parameters (lineshape + amplitudes)
+
+    Returns
+    -------
+        Degrees of freedom, minimum of 1 to avoid division by zero
+    """
+    return max(1, n_data - n_params)
+
+
+def compute_reduced_chi_squared(
+    chi_squared: float,
+    n_data: int,
+    n_params: int,
+) -> float:
+    """Compute reduced chi-squared with proper degrees of freedom.
+
+    This is the single source of truth for reduced chi-squared calculation.
+    The degrees of freedom is n_data - n_params, where n_params should include
+    all fitted parameters (both nonlinearly optimized lineshape parameters
+    and analytically computed amplitude parameters).
+
+    Args:
+        chi_squared: Sum of squared normalized residuals
+        n_data: Number of data points
+        n_params: Total number of fitted parameters (lineshape + amplitudes)
+
+    Returns
+    -------
+        Reduced chi-squared value (chi_squared / dof)
+    """
+    dof = compute_degrees_of_freedom(n_data, n_params)
+    return chi_squared / dof
+
+
 @dataclass(slots=True)
 class ResidualStatistics:
     """Statistics computed from fit residuals.
@@ -37,14 +93,14 @@ class ResidualStatistics:
     @property
     def dof(self) -> int:
         """Degrees of freedom (n_points - n_params)."""
-        return max(1, self.n_points - self.n_params)
+        return compute_degrees_of_freedom(self.n_points, self.n_params)
 
     @property
     def sum_squared(self) -> float:
         """Sum of squared normalized residuals (chi-squared)."""
         if self.normalized_residuals is None:
             return 0.0
-        return float(np.sum(self.normalized_residuals**2))
+        return compute_chi_squared(self.normalized_residuals)
 
     @property
     def rms(self) -> float:
@@ -115,7 +171,7 @@ class FitStatistics:
     @property
     def dof(self) -> int:
         """Degrees of freedom."""
-        return max(1, self.n_data - self.n_params)
+        return compute_degrees_of_freedom(self.n_data, self.n_params)
 
     @property
     def is_good_fit(self) -> bool:
@@ -139,7 +195,7 @@ class FitStatistics:
         Args:
             residuals: Raw residuals (data - model)
             noise: Noise level for normalization
-            n_params: Number of varying parameters
+            n_params: Total number of fitted parameters (lineshape + amplitudes)
 
         Returns
         -------
@@ -147,9 +203,8 @@ class FitStatistics:
         """
         n_data = len(residuals)
         normalized = residuals / noise
-        chi2 = float(np.sum(normalized**2))
-        dof = max(1, n_data - n_params)
-        red_chi2 = chi2 / dof
+        chi2 = compute_chi_squared(normalized)
+        red_chi2 = compute_reduced_chi_squared(chi2, n_data, n_params)
 
         # Compute information criteria
         # AIC = -2 * log_likelihood + 2 * k

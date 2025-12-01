@@ -13,6 +13,7 @@ from scipy import optimize
 
 from peakfit.core.fitting.computation import calculate_shape_heights, residuals
 from peakfit.core.fitting.parameters import Parameters
+from peakfit.core.results.statistics import compute_chi_squared, compute_reduced_chi_squared
 from peakfit.core.shared.constants import (
     BASIN_HOPPING_LOCAL_MAXITER,
     BASIN_HOPPING_NITER,
@@ -49,20 +50,24 @@ class GlobalFitResult:
     global_minimum_found: bool = False
     basin_hopping_temperature: float = 1.0
     covar: FloatArray | None = None
+    n_amplitude_params: int = 0  # Number of analytically computed amplitude parameters
 
     @property
     def chisqr(self) -> float:
         """Chi-squared value."""
-        return float(np.sum(self.residual**2))
+        return compute_chi_squared(self.residual)
 
     @property
     def redchi(self) -> float:
-        """Reduced chi-squared."""
+        """Reduced chi-squared.
+
+        Degrees of freedom includes both nonlinearly optimized parameters
+        (vary=True) and analytically computed amplitude parameters.
+        """
         ndata = len(self.residual)
         nvarys = len(self.params.get_vary_names())
-        if ndata > nvarys:
-            return self.chisqr / (ndata - nvarys)
-        return self.chisqr
+        n_total_fitted = nvarys + self.n_amplitude_params
+        return compute_reduced_chi_squared(self.chisqr, ndata, n_total_fitted)
 
 
 @dataclass
@@ -144,6 +149,11 @@ def fit_basin_hopping(
     x0 = params.get_vary_values()
     bounds = params.get_vary_bounds_list()
 
+    # Calculate number of amplitude parameters for DOF
+    n_peaks = len(cluster.peaks)
+    n_planes = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
+    n_amplitude_params = n_peaks * n_planes
+
     # Objective function
     def objective(x: FloatArray) -> float:
         return residuals_global(x, params, cluster, noise)
@@ -207,6 +217,7 @@ def fit_basin_hopping(
         global_minimum_found=result.lowest_optimization_result.success,
         basin_hopping_temperature=temperature,
         covar=covar,
+        n_amplitude_params=n_amplitude_params,
     )
 
 
@@ -240,6 +251,11 @@ def fit_differential_evolution(
         GlobalFitResult with optimized parameters
     """
     bounds = params.get_vary_bounds_list()
+
+    # Calculate number of amplitude parameters for DOF
+    n_peaks = len(cluster.peaks)
+    n_planes = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
+    n_amplitude_params = n_peaks * n_planes
 
     def objective(x: FloatArray) -> float:
         return residuals_global(x, params, cluster, noise)
@@ -283,6 +299,7 @@ def fit_differential_evolution(
         local_minimizations=1 if polish else 0,
         global_minimum_found=result.success,
         covar=covar,
+        n_amplitude_params=n_amplitude_params,
     )
 
 
@@ -549,6 +566,20 @@ def estimate_uncertainties_mcmc(
 
     # Restore best-fit values for lineshape params
     params.set_vary_values(percentiles[1, :n_lineshape])
+
+    # Inject amplitude parameters as computed parameters
+    # This allows uniform treatment in statistics and reporting
+    from peakfit.core.fitting.parameters import ParameterType
+
+    for i, amp_name in enumerate(amp_names):
+        params.add(
+            amp_name,
+            value=float(percentiles[1, n_lineshape + i]),  # Median value
+            vary=False,
+            param_type=ParameterType.AMPLITUDE,
+            computed=True,
+        )
+        params[amp_name].stderr = float(std_errors[n_lineshape + i])
 
     return UncertaintyResult(
         parameter_names=combined_names,

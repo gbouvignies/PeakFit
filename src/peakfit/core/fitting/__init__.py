@@ -22,6 +22,8 @@ from peakfit.core.fitting.computation import (
     calculate_amplitudes_with_uncertainty,
     calculate_shape_heights,
     calculate_shapes,
+    inject_amplitude_parameters,
+    inject_amplitude_parameters_multi,
     residuals,
     update_cluster_corrections,
 )
@@ -76,6 +78,8 @@ __all__ = [
     "fit_clusters_sequential",
     "fit_differential_evolution",
     "get_strategy",
+    "inject_amplitude_parameters",
+    "inject_amplitude_parameters_multi",
     "register_strategy",
     "residuals",
     "simulate_data",
