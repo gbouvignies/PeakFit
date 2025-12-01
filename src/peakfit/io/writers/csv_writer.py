@@ -373,7 +373,7 @@ class CSVWriter:
     def _detect_dimension_labels(self, results: FitResults) -> list[str]:
         """Detect dimension labels from parameter names.
 
-        Returns ordered list like ['F1', 'F2'].
+        Returns ordered list like ['F2', 'F3'] for pseudo-3D.
         """
         dim_labels: set[str] = set()
 

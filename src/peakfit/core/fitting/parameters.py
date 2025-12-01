@@ -62,18 +62,19 @@ class ParameterId:
     Provides a unified naming system using dot-notation for consistent
     parameter identification across fitting, output, and configuration.
 
-    The full name format is: `{peak_name}.{axis}.{param_type}[{index}]`
+    The full name format is: `{peak_name}.{axis}.{param_type}` or `{peak_name}.{axis}.I{index}`
 
-    Axis naming follows Bruker TopSpin convention:
-    - 2D: F2 (direct), F1 (indirect)
-    - 3D/pseudo-3D: F3 (direct), F2 (indirect), F1 (pseudo-dimension)
+    Axis naming follows Bruker TopSpin convention for pseudo-3D experiments:
+    - F1 = pseudo-dimension (intensities, CEST offsets, relaxation delays)
+    - F2 = first spectral dimension (indirect, e.g., 15N)
+    - F3 = second spectral dimension (direct/acquisition, e.g., 1H)
 
     Examples
     --------
-    - Chemical shift: "2N-H.F2.cs" (direct), "2N-H.F1.cs" (indirect for 2D)
-    - Linewidth: "2N-H.F2.lw"
-    - Amplitude: "2N-H.F1.I[0]" (pseudo-dimension intensity)
-    - Phase (cluster-level): "cluster_0.F2.phase"
+    - Chemical shift: "2N-H.F3.cs" (direct/1H), "2N-H.F2.cs" (indirect/15N)
+    - Linewidth: "2N-H.F3.lw", "2N-H.F2.lw"
+    - Amplitude: "2N-H.F1.I0" (pseudo-dimension intensity, plane 0)
+    - Phase (cluster-level): "cluster_0.F3.phase"
 
     Attributes
     ----------
@@ -114,7 +115,7 @@ class ParameterId:
         - "2N-H.F2.cs"
         - "2N-H.F3.lw"
         - "2N-H.F1.I0"
-        - "cluster_0.F2.phase"
+        - "cluster_0.F3.phase"
         """
         return self._build_name()
 
