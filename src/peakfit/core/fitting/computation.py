@@ -153,7 +153,8 @@ def inject_amplitude_parameters(
     This allows amplitudes to be included in statistics and reporting while
     remaining excluded from nonlinear optimization.
 
-    The amplitude naming convention follows MCMC: I_{peak_name}[{plane_idx}]
+    The amplitude naming convention uses ParameterId for consistency:
+    "{peak_name}.I[{plane_idx}]"
 
     Args:
         params: Parameters collection to update in-place
@@ -164,7 +165,7 @@ def inject_amplitude_parameters(
         This function modifies params in-place. Amplitudes are added with
         param_type=AMPLITUDE and computed=True.
     """
-    from peakfit.core.fitting.parameters import ParameterType
+    from peakfit.core.fitting.parameters import ParameterId
 
     shapes = calculate_shapes(params, cluster)
     amplitudes, errors, _covariance = calculate_amplitudes_with_uncertainty(
@@ -184,24 +185,22 @@ def inject_amplitude_parameters(
                 if np.ndim(peak_amplitudes) == 0
                 else float(peak_amplitudes[0])
             )
-            name = f"I_{peak.name}[0]"
+            amp_id = ParameterId.amplitude(peak.name, 0)
             params.add(
-                name,
+                amp_id,
                 value=amp_value,
                 vary=False,
-                param_type=ParameterType.AMPLITUDE,
                 computed=True,
             )
-            params[name].stderr = float(peak_error)
+            params[amp_id.name].stderr = float(peak_error)
         else:
             # Multi-plane case
             for j in range(n_planes):
-                name = f"I_{peak.name}[{j}]"
+                amp_id = ParameterId.amplitude(peak.name, j)
                 params.add(
-                    name,
+                    amp_id,
                     value=float(peak_amplitudes[j]),
                     vary=False,
-                    param_type=ParameterType.AMPLITUDE,
                     computed=True,
                 )
-                params[name].stderr = float(peak_error)
+                params[amp_id.name].stderr = float(peak_error)

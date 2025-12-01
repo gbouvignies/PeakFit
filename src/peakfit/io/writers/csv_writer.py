@@ -25,66 +25,6 @@ if TYPE_CHECKING:
     from peakfit.core.results.fit_results import FitResults
 
 
-# Regex patterns to extract dimension label from internal parameter names
-# Internal names use F1, F2, F3, F4 convention: {peak_prefix}_F1_0, {peak_prefix}_F2_fwhm, etc.
-# Legacy names used x, y, z, a: {peak_prefix}_x0, {peak_prefix}_y0, etc.
-PARAMETER_SUFFIX_PATTERNS = [
-    # New Fn convention: _F1_0, _F2_0, _F1_fwhm, _F2_r2, etc.
-    (re.compile(r"_(F\d+)0$"), r"cs_\1"),  # Position: _F10 -> cs_F1
-    (re.compile(r"_(F\d+)_fwhm$"), r"lw_\1"),  # Linewidth FWHM
-    (re.compile(r"_(F\d+)_r2$"), r"lw_\1"),  # Linewidth R2
-    (re.compile(r"_(F\d+)_eta$"), r"eta_\1"),  # Pseudo-Voigt eta
-    (re.compile(r"_(F\d+)_j$"), r"j_\1"),  # J-coupling
-    (re.compile(r"_(F\d+)p$"), r"phase_\1"),  # Phase
-    # Legacy x/y/z/a convention (for backward compatibility)
-    (re.compile(r"_([xyza])0$"), r"cs_\1"),  # Position
-    (re.compile(r"_([xyza])_fwhm$"), r"lw_\1"),  # Linewidth FWHM
-    (re.compile(r"_([xyza])_r2$"), r"lw_\1"),  # Linewidth R2
-    (re.compile(r"_([xyza])_eta$"), r"eta_\1"),  # Pseudo-Voigt eta
-    (re.compile(r"_([xyza])_j$"), r"j_\1"),  # J-coupling
-    (re.compile(r"_([xyza])p$"), r"phase_\1"),  # Phase
-]
-
-
-def _to_user_friendly_name(internal_name: str, peak_name: str) -> str:
-    """Convert internal parameter name to user-friendly name.
-
-    Handles both new Fn convention (F1, F2, F3, F4) and legacy x/y/z/a names.
-
-    Args:
-        internal_name: Internal name like '_2N_H_F10' or '_2N_H_x0'
-        peak_name: Peak name like '2N-H'
-
-    Returns
-    -------
-        User-friendly name like 'cs_F1' or 'cs_x' (legacy)
-    """
-    # Try to match parameter suffix patterns
-    for pattern, replacement in PARAMETER_SUFFIX_PATTERNS:
-        match = pattern.search(internal_name)
-        if match:
-            return pattern.sub(
-                replacement,
-                internal_name.split("_")[-1]
-                if "0" in internal_name
-                else "_" + "_".join(internal_name.split("_")[-2:]),
-            )
-
-    # More direct approach: extract suffix and map it
-    for pattern, replacement in PARAMETER_SUFFIX_PATTERNS:
-        if pattern.search(internal_name):
-            # Extract just the matched part and apply replacement
-            return pattern.sub(replacement, internal_name)
-
-    # Fallback: return original name stripped of peak prefix
-    # Sanitize peak name the same way Shape.prefix does
-    safe_prefix = re.sub(r"\W+|^(?=\d)", "_", peak_name)
-    if internal_name.startswith(safe_prefix + "_"):
-        return internal_name[len(safe_prefix) + 1 :]
-
-    return internal_name
-
-
 class CSVWriter:
     """Writer for CSV format outputs.
 
@@ -233,12 +173,12 @@ class CSVWriter:
         prec = self.config.precision
         thresh = self.config.scientific_notation_threshold
 
-        # Determine peak name from parameter name
-        # Parameters are named like {peak_prefix}_{axis}0 or {peak_prefix}_{axis}_r2
-        peak_name = self._extract_peak_name_from_param(param.name, cluster.peak_names)
+        # Determine peak name from parameter
+        peak_name = self._extract_peak_name_from_param(param, cluster.peak_names)
 
-        # Convert to user-friendly parameter name
-        friendly_name = _to_user_friendly_name(param.name, peak_name)
+        # Get user-friendly parameter name
+        # Use ParameterEstimate.user_name which uses param_id if available
+        friendly_name = param.user_name
 
         writer.writerow(
             [
@@ -272,22 +212,32 @@ class CSVWriter:
             ]
         )
 
-    def _extract_peak_name_from_param(self, param_name: str, peak_names: list[str]) -> str:
-        """Extract the original peak name from a parameter name.
+    def _extract_peak_name_from_param(self, param: ParameterEstimate, peak_names: list[str]) -> str:
+        """Extract the original peak name from a parameter.
 
         Args:
-            param_name: Internal parameter name like '_2N_H_x0'
+            param: ParameterEstimate object
             peak_names: List of peak names in the cluster
 
         Returns
         -------
             Original peak name like '2N-H'
         """
+        # Use param_id if available (new format)
+        if param.param_id is not None:
+            return param.param_id.peak_name
+
+        # Legacy fallback: parse from internal name
+        param_name = param.name
         for peak_name in peak_names:
-            # Sanitize peak name the same way Shape.prefix does
+            # New format: "peak_name.axis.type"
+            if param_name.startswith(peak_name + "."):
+                return peak_name
+            # Legacy format: sanitized prefix
             safe_prefix = re.sub(r"\W+|^(?=\d)", "_", peak_name)
             if param_name.startswith(safe_prefix + "_"):
                 return peak_name
+
         # Fallback to first peak
         return peak_names[0] if peak_names else ""
 
@@ -375,7 +325,6 @@ class CSVWriter:
         thresh = self.config.scientific_notation_threshold
 
         # Detect dimensions from parameter names
-        # Look for F1, F2, F3, F4 or legacy x, y, z, a patterns
         dim_labels = self._detect_dimension_labels(results)
 
         with path.open("w", newline="") as f:
@@ -393,7 +342,7 @@ class CSVWriter:
                 peak_shifts: dict[str, dict[str, float | None]] = {}
 
                 for param in cluster.lineshape_params:
-                    peak_name = self._extract_peak_name_from_param(param.name, cluster.peak_names)
+                    peak_name = self._extract_peak_name_from_param(param, cluster.peak_names)
                     if peak_name not in peak_shifts:
                         # Initialize with None for all dimensions
                         peak_shifts[peak_name] = {}
@@ -401,9 +350,13 @@ class CSVWriter:
                             peak_shifts[peak_name][f"cs_{dim}"] = None
                             peak_shifts[peak_name][f"cs_{dim}_err"] = None
 
-                    # Match parameter to shift type - handle both Fn and legacy patterns
-                    dim_label = self._extract_dimension_from_position_param(param.name)
-                    if dim_label:
+                    # Extract dimension from param_id for position parameters
+                    if (
+                        param.param_id is not None
+                        and param.param_id.param_type.value == "position"
+                        and param.param_id.axis
+                    ):
+                        dim_label = param.param_id.axis
                         peak_shifts[peak_name][f"cs_{dim_label}"] = param.value
                         peak_shifts[peak_name][f"cs_{dim_label}_err"] = param.std_error
 
@@ -420,45 +373,17 @@ class CSVWriter:
     def _detect_dimension_labels(self, results: FitResults) -> list[str]:
         """Detect dimension labels from parameter names.
 
-        Returns ordered list like ['F1', 'F2'] or ['x', 'y'] for legacy.
+        Returns ordered list like ['F1', 'F2'].
         """
         dim_labels: set[str] = set()
 
         for cluster in results.clusters:
             for param in cluster.lineshape_params:
-                dim = self._extract_dimension_from_position_param(param.name)
-                if dim:
-                    dim_labels.add(dim)
+                if param.param_id is not None and param.param_id.axis:
+                    dim_labels.add(param.param_id.axis)
 
-        # Sort: F1, F2, F3, F4 or x, y, z, a
-        def sort_key(label: str) -> tuple[int, str]:
-            if label.startswith("F") and label[1:].isdigit():
-                return (0, int(label[1:]))  # type: ignore[return-value]
-            return (1, label)
-
-        return sorted(dim_labels, key=sort_key)
-
-    def _extract_dimension_from_position_param(self, param_name: str) -> str | None:
-        """Extract dimension label from a position parameter name.
-
-        Args:
-            param_name: Parameter name like '_2N_H_F10' or '_2N_H_x0'
-
-        Returns
-        -------
-            Dimension label like 'F1' or 'x', or None if not a position param
-        """
-        # New Fn convention: ends with F{n}0
-        match = re.search(r"(F\d+)0$", param_name)
-        if match:
-            return match.group(1)
-
-        # Legacy convention: ends with x0, y0, z0, a0
-        match = re.search(r"([xyza])0$", param_name)
-        if match:
-            return match.group(1)
-
-        return None
+        # Sort: F1, F2, F3, F4
+        return sorted(dim_labels, key=lambda x: int(x[1:]) if x.startswith("F") else 999)
 
     def write_intensities(self, results: FitResults, path: Path) -> None:
         """Write fitted intensities for CEST/relaxation analysis.
