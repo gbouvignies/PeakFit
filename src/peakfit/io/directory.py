@@ -173,13 +173,11 @@ class OutputDirectoryManager:
         """
         return self.base_dir / OUTPUT_SUBDIRS[output_type]
 
-    def ensure_structure(self, *, include_all: bool = False) -> None:
-        """Create the directory structure.
+    def ensure_structure(self) -> None:
+        """Create the base directory structure.
 
-        Args:
-            include_all: Deprecated, ignored. Directories are now created lazily.
-                        Only base dir is created here; subdirs are created when
-                        files are written using get_path() with ensure_dir=True.
+        Only the base directory is created here; subdirectories are created
+        lazily when files are written using get_path() with ensure_dir=True.
         """
         self.base_dir.mkdir(parents=True, exist_ok=True)
         # Directories are created lazily by get_path() when files are written

@@ -68,6 +68,3 @@ class ConsoleReporter:
 # Verify protocol compliance at import time
 if not isinstance(ConsoleReporter(), Reporter):
     raise TypeError("ConsoleReporter must satisfy Reporter protocol")
-
-# Default reporter instance for CLI usage
-default_reporter: Reporter = ConsoleReporter()

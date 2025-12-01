@@ -205,19 +205,3 @@ def inject_amplitude_parameters(
                     computed=True,
                 )
                 params[name].stderr = float(peak_error)
-
-
-def inject_amplitude_parameters_multi(
-    params: Parameters,
-    clusters: Sequence[Cluster],
-    noise: float,
-) -> None:
-    """Inject amplitude parameters for multiple clusters.
-
-    Args:
-        params: Parameters collection to update in-place
-        clusters: Clusters containing peaks and data
-        noise: Noise standard deviation for uncertainty estimation
-    """
-    for cluster in clusters:
-        inject_amplitude_parameters(params, cluster, noise)

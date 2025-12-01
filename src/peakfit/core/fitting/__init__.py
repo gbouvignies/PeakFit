@@ -23,7 +23,6 @@ from peakfit.core.fitting.computation import (
     calculate_shape_heights,
     calculate_shapes,
     inject_amplitude_parameters,
-    inject_amplitude_parameters_multi,
     residuals,
     update_cluster_corrections,
 )
@@ -33,7 +32,6 @@ from peakfit.core.fitting.optimizer import (
     fit_cluster,
     fit_cluster_dict,
     fit_clusters,
-    fit_clusters_sequential,
 )
 from peakfit.core.fitting.parameters import Parameter, Parameters, ParameterType
 
@@ -75,11 +73,9 @@ __all__ = [
     "fit_cluster",
     "fit_cluster_dict",
     "fit_clusters",
-    "fit_clusters_sequential",
     "fit_differential_evolution",
     "get_strategy",
     "inject_amplitude_parameters",
-    "inject_amplitude_parameters_multi",
     "register_strategy",
     "residuals",
     "simulate_data",

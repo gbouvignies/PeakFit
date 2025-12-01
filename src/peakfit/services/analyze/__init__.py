@@ -4,9 +4,7 @@ from .formatters import (
     MCMCAmplitudeSummary,
     MCMCClusterSummary,
     MCMCParameterSummary,
-    ProfileParameterSummary,
     format_mcmc_cluster_result,
-    format_profile_results,
 )
 from .mcmc_service import (
     ClusterMCMCResult,
@@ -53,9 +51,7 @@ __all__ = [
     "ProfileLikelihoodAnalysisResult",
     "ProfileLikelihoodService",
     "ProfileParameterResult",
-    "ProfileParameterSummary",
     "StateFileMissingError",
     "StateLoadError",
     "format_mcmc_cluster_result",
-    "format_profile_results",
 ]

@@ -27,8 +27,6 @@ from peakfit.core.shared.constants import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from peakfit.core.domain.cluster import Cluster
 
 
@@ -412,55 +410,6 @@ def fit_cluster_dict(
         "nfev": result.nfev,
         "message": result.message,
     }
-
-
-def fit_clusters_sequential(
-    clusters: "Sequence[Cluster]",
-    params_all: Parameters,
-    noise: float,
-    refine_iterations: int = 1,
-    *,
-    fixed: bool = False,
-    verbose: int = 0,
-) -> Parameters:
-    """Fit all clusters sequentially with refinement.
-
-    Args:
-        clusters: List of clusters to fit
-        params_all: Global parameters (updated in place)
-        noise: Noise level
-        refine_iterations: Number of refinement passes
-        fixed: Whether to fix peak positions
-        verbose: Verbosity level
-
-    Returns
-    -------
-        Updated global parameters
-    """
-    from peakfit.core.domain.peaks import create_params
-    from peakfit.core.fitting.computation import update_cluster_corrections
-
-    for iteration in range(refine_iterations + 1):
-        if iteration > 0:
-            # Update corrections for cross-talk
-            update_cluster_corrections(params_all, clusters)
-
-        for cluster in clusters:
-            # Create parameters for this cluster
-            cluster_params = create_params(cluster.peaks, fixed=fixed)
-
-            # Merge with global parameters
-            for key in cluster_params:
-                if key in params_all:
-                    cluster_params[key] = params_all[key]
-
-            # Fit cluster
-            result = fit_cluster(cluster_params, cluster, noise, verbose=verbose)
-
-            # Update global parameters
-            params_all.update(result.params)
-
-    return params_all
 
 
 def fit_clusters(

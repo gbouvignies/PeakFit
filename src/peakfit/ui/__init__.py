@@ -10,27 +10,14 @@ Submodules:
 - tables: Table display utilities
 - panels: Panel display utilities
 - progress: Progress bar utilities
-- fit_display: Fit-specific display components
-
-Note: The PeakFitUI class has been deprecated. Use the direct function
-imports instead (success, error, info, warning, etc.).
+- fit_display: HTML export utility
 """
 
 from peakfit.ui.branding import show_banner, show_run_info, show_version
 
 # Re-export submodule contents for direct access
 from peakfit.ui.console import LOGO_ASCII, PEAKFIT_THEME, REPO_URL, VERSION, console
-from peakfit.ui.fit_display import (
-    create_cluster_status,
-    export_html,
-    print_cluster_info,
-    print_data_summary,
-    print_file_item,
-    print_fit_report,
-    print_fit_summary,
-    print_optimization_settings,
-    print_peaks_panel,
-)
+from peakfit.ui.fit_display import export_html
 from peakfit.ui.logging import close_logging, log, log_dict, log_section, setup_logging
 from peakfit.ui.messages import (
     action,
@@ -51,10 +38,9 @@ from peakfit.ui.messages import (
 )
 from peakfit.ui.panels import create_panel, print_panel
 from peakfit.ui.progress import create_progress
-from peakfit.ui.reporter import ConsoleReporter, default_reporter
+from peakfit.ui.reporter import ConsoleReporter
 from peakfit.ui.tables import (
     create_table,
-    print_performance_summary,
     print_summary,
     print_validation_table,
 )
@@ -69,27 +55,17 @@ __all__ = [
     "bullet",
     "close_logging",
     "console",
-    "create_cluster_status",
     "create_panel",
     "create_progress",
     "create_table",
-    "default_reporter",
     "error",
     "export_html",
     "info",
     "log",
     "log_dict",
     "log_section",
-    "print_cluster_info",
-    "print_data_summary",
-    "print_file_item",
-    "print_fit_report",
-    "print_fit_summary",
     "print_next_steps",
-    "print_optimization_settings",
     "print_panel",
-    "print_peaks_panel",
-    "print_performance_summary",
     "print_summary",
     "print_validation_table",
     "separator",

@@ -6,7 +6,6 @@ with consistent styling across the application.
 
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Any
 
 from rich import box
@@ -16,7 +15,6 @@ from .console import console
 
 __all__ = [
     "create_table",
-    "print_performance_summary",
     "print_summary",
     "print_validation_table",
 ]
@@ -79,50 +77,3 @@ def print_validation_table(
         table.add_row(check_name, status)
 
     console.print(table)
-
-
-def print_performance_summary(
-    total_time: float,
-    n_items: int,
-    item_name: str = "items",
-    successful: int | None = None,
-) -> None:
-    """Print a performance summary table.
-
-    Args:
-        total_time: Total elapsed time in seconds
-        n_items: Number of items processed
-        item_name: Name of items being processed
-        successful: Optional number of successful items
-    """
-    table = create_table("⏱️  Performance Summary", show_header=False)
-    table.add_column("Metric", style="cyan", width=25)
-    table.add_column("Value", style="green")
-
-    table.add_row(f"Total {item_name}", str(n_items))
-    if successful is not None:
-        success_rate = (successful / n_items * 100) if n_items > 0 else 0
-        table.add_row("Successful", f"{successful} ({success_rate:.1f}%)")
-        if successful < n_items:
-            failed = n_items - successful
-            table.add_row("Failed", f"[red]{failed}[/]")
-
-    # Format time nicely
-    td = timedelta(seconds=total_time)
-    if total_time < 60:
-        time_str = f"{total_time:.2f}s"
-    elif total_time < 3600:
-        time_str = f"{td.seconds // 60}m {td.seconds % 60}s"
-    else:
-        time_str = str(td)
-
-    table.add_row("Total time", time_str)
-
-    if n_items > 0:
-        avg_time = total_time / n_items
-        avg_str = f"{avg_time * 1000:.0f}ms" if avg_time < 1 else f"{avg_time:.3f}s"
-        table.add_row(f"Average per {item_name.rstrip('s')}", avg_str)
-
-    console.print()
-    console.print(table)
-    console.print()
