@@ -113,7 +113,7 @@ class ParameterId:
         --------
         - "2N-H.F2.cs"
         - "2N-H.F3.lw"
-        - "2N-H.F1.I[0]"
+        - "2N-H.F1.I0"
         - "cluster_0.F2.phase"
         """
         return self._build_name()
@@ -122,20 +122,20 @@ class ParameterId:
     def user_name(self) -> str:
         """User-friendly parameter name for output.
 
-        Format: `{type}_{axis}` or `{type}_{axis}[{index}]`
+        Format: `{type}_{axis}` or `{type}{index}_{axis}`
 
         Examples
         --------
         - "cs_F2", "lw_F3"
-        - "I_F1[0]", "I_F1[5]"
+        - "I0_F1", "I5_F1"
         - "phase_F2"
         """
         short_name = _PARAM_TYPE_SHORT_NAMES.get(self.param_type, self.param_type.value)
-        base = f"{short_name}_{self.axis}" if self.axis else short_name
 
-        if self.index is not None:
-            return f"{base}[{self.index}]"
-        return base
+        # For indexed parameters (amplitudes), include index in the name: I0_F1, I1_F1
+        base = f"{short_name}{self.index}" if self.index is not None else short_name
+
+        return f"{base}_{self.axis}" if self.axis else base
 
     def _build_name(self) -> str:
         """Build the full parameter name."""
@@ -158,9 +158,9 @@ class ParameterId:
         # Build base name with dots
         base_name = ".".join(parts)
 
-        # Add index suffix if present
+        # Add index suffix if present (e.g., I0, I1 for amplitudes)
         if self.index is not None:
-            return f"{base_name}[{self.index}]"
+            return f"{base_name}{self.index}"
 
         return base_name
 
@@ -253,8 +253,8 @@ def _parse_parameter_name(name: str) -> ParameterId:
     """
     import re
 
-    # Handle amplitude format: "peak.F1.I[idx]" (with axis) or "peak.I[idx]" (legacy)
-    amp_match = re.match(r"^(.+)\.(F\d+)\.I\[(\d+)\]$", name)
+    # Handle amplitude format: "peak.F1.I0" (with axis)
+    amp_match = re.match(r"^(.+)\.(F\d+)\.I(\d+)$", name)
     if amp_match:
         return ParameterId.amplitude(
             amp_match.group(1), int(amp_match.group(3)), amp_match.group(2)
