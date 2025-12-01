@@ -185,7 +185,7 @@ def inject_amplitude_parameters(
                 if np.ndim(peak_amplitudes) == 0
                 else float(peak_amplitudes[0])
             )
-            amp_id = ParameterId.amplitude(peak.name, 0)
+            amp_id = ParameterId.amplitude(peak.name, "F1")
             params.add(
                 amp_id,
                 value=amp_value,
@@ -198,7 +198,7 @@ def inject_amplitude_parameters(
         else:
             # Multi-plane case
             for j in range(n_planes):
-                amp_id = ParameterId.amplitude(peak.name, j)
+                amp_id = ParameterId.amplitude(peak.name, "F1", j)
                 params.add(
                     amp_id,
                     value=float(peak_amplitudes[j]),

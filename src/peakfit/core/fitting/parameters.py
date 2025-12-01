@@ -196,14 +196,13 @@ class ParameterId:
         return cls(peak_name=peak_name, axis=axis, param_type=ParameterType.JCOUPLING)
 
     @classmethod
-    def amplitude(cls, peak_name: str, plane_index: int, axis: str = "F1") -> ParameterId:
+    def amplitude(cls, peak_name: str, axis: str, plane_index: int = 0) -> ParameterId:
         """Create an amplitude parameter ID.
 
         Args:
             peak_name: Name of the peak
-            plane_index: Index of the plane (0-based)
-            axis: Dimension label for the pseudo-dimension (default "F1")
-                  Following Bruker convention, F1 is the highest indirect dimension.
+            axis: Dimension label (e.g., "F1" for pseudo-dimension)
+            plane_index: Index of the plane (0-based, default 0)
         """
         return cls(
             peak_name=peak_name,
@@ -258,7 +257,7 @@ def _parse_parameter_name(name: str) -> ParameterId:
     amp_match = re.match(r"^(.+)\.(F\d+)\.I(\d+)$", name)
     if amp_match:
         return ParameterId.amplitude(
-            amp_match.group(1), int(amp_match.group(3)), amp_match.group(2)
+            amp_match.group(1), amp_match.group(2), int(amp_match.group(3))
         )
 
     # Handle dot-notation: "peak.axis.type" or "cluster_N.axis.type"

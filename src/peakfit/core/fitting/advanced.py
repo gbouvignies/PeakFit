@@ -527,7 +527,7 @@ def estimate_uncertainties_mcmc(
     from peakfit.core.fitting.parameters import ParameterId
 
     amp_names = [
-        ParameterId.amplitude(peak.name, i_plane).name
+        ParameterId.amplitude(peak.name, "F1", i_plane).name
         for peak in cluster.peaks
         for i_plane in range(n_planes)
     ]
