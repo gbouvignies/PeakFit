@@ -10,7 +10,7 @@ refine_iterations = 1
 position_window = 0.1
 
 [parameters.position_windows]
-F2 = 0.3   # 15N
+F2 = 0.3  # 15N
 F3 = 0.03  # 1H
 
 # Pattern-based defaults for all peaks
@@ -31,7 +31,7 @@ position_window = 0.01
 position_window = 0.2
 
 [parameters.peaks."4N-H".position_windows]
-F2 = 0.5   # Allow significant 15N movement
+F2 = 0.5  # Allow significant 15N movement
 F3 = 0.05  # But keep 1H reasonably tight
 
 [clustering]

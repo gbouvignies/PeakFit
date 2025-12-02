@@ -172,7 +172,7 @@ directory = "Fits/scenario3"
 ### How Protocols Work
 
 1. **Step 1**: Fix positions, only fit linewidths → stable initial estimate
-2. **Step 2**: Release positions with tight bounds → refine peak locations  
+2. **Step 2**: Release positions with tight bounds → refine peak locations
 3. **Step 3**: Full optimization → final polish
 
 This staged approach helps when:
@@ -217,16 +217,16 @@ directory = "Fits/scenario4"
 
 Constraints use glob-style pattern matching on parameter names. Parameter names follow the format: `{peak_name}.{axis}.{type}`
 
-| Pattern | Matches | Example |
-|---------|---------|---------|
-| `*.*.cs` | All chemical shifts | `2N-H.F2.cs`, `G45N-HN.F3.cs` |
-| `*.*.lw` | All linewidths | `2N-H.F2.lw`, `W50N-HE1.F3.lw` |
-| `*.*.eta` | All lineshape mixing | `Peak1.F2.eta` |
-| `*.F2.*` | All F2 (indirect) params | `2N-H.F2.cs`, `2N-H.F2.lw` |
-| `*.F3.*` | All F3 (direct) params | `2N-H.F3.cs`, `2N-H.F3.lw` |
-| `2N-H.*.*` | All params for peak 2N-H | `2N-H.F2.cs`, `2N-H.F3.lw` |
-| `G*.*.*` | All glycine peaks | `G45N-HN.F2.cs`, `G12N-HN.F3.lw` |
-| `*` | Everything | All parameters |
+| Pattern    | Matches                  | Example                          |
+| ---------- | ------------------------ | -------------------------------- |
+| `*.*.cs`   | All chemical shifts      | `2N-H.F2.cs`, `G45N-HN.F3.cs`    |
+| `*.*.lw`   | All linewidths           | `2N-H.F2.lw`, `W50N-HE1.F3.lw`   |
+| `*.*.eta`  | All lineshape mixing     | `Peak1.F2.eta`                   |
+| `*.F2.*`   | All F2 (indirect) params | `2N-H.F2.cs`, `2N-H.F2.lw`       |
+| `*.F3.*`   | All F3 (direct) params   | `2N-H.F3.cs`, `2N-H.F3.lw`       |
+| `2N-H.*.*` | All params for peak 2N-H | `2N-H.F2.cs`, `2N-H.F3.lw`       |
+| `G*.*.*`   | All glycine peaks        | `G45N-HN.F2.cs`, `G12N-HN.F3.lw` |
+| `*`        | Everything               | All parameters                   |
 
 ---
 

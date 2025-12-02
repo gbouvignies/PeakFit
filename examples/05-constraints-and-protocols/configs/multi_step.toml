@@ -10,27 +10,21 @@ lineshape = "auto"
 [[fitting.steps]]
 name = "linewidths_only"
 description = "First optimize linewidths with fixed positions"
-fix = ["*.*.cs"]           # Fix all chemical shifts
+fix = ["*.*.cs"]  # Fix all chemical shifts
 iterations = 1
 
 [[fitting.steps]]
-name = "release_positions"
-description = "Now release positions with constraints"
-vary = ["*"]               # Vary everything
-iterations = 1
-
-[[fitting.steps]]
-name = "final_refinement"
-description = "Final refinement pass"
-vary = ["*"]
-iterations = 1
+name = "full_optimization"
+description = "Full optimization of all parameters"
+vary = ["*"]  # Vary everything
+iterations = 2
 
 [parameters]
 # Position windows apply throughout all steps
 position_window = 0.1
 
 [parameters.position_windows]
-F2 = 0.3   # 15N
+F2 = 0.3  # 15N
 F3 = 0.03  # 1H
 
 [clustering]
