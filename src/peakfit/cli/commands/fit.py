@@ -187,6 +187,16 @@ def fit_command(
             help="Generate legacy .out files in legacy/ subdirectory (for backward compatibility)",
         ),
     ] = False,
+    workers: Annotated[
+        int,
+        typer.Option(
+            "--workers",
+            "-w",
+            help="Number of parallel workers for cluster fitting. "
+            "Use -1 for all CPUs, 1 for sequential (default: -1)",
+            min=-1,
+        ),
+    ] = -1,
 ) -> None:
     """Fit lineshapes to peaks in pseudo-3D NMR spectrum.
 
@@ -261,4 +271,5 @@ def fit_command(
         optimizer=optimizer,
         save_state=save_state,
         verbose=verbose,
+        workers=workers,
     )
