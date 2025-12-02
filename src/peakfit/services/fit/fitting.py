@@ -1,7 +1,10 @@
 """Fitting execution logic for the fit pipeline.
 
 This module handles the core fitting loop including parameter initialization,
-cluster fitting, refinement iterations, and progress tracking.
+cluster fitting, refinement iterations, progress tracking, and constraint application.
+
+Supports both legacy single-pass fitting and modern multi-step protocols with
+parameter constraints.
 """
 
 from __future__ import annotations
@@ -13,7 +16,14 @@ from threadpoolctl import threadpool_limits
 
 from peakfit.core.domain.peaks import create_params
 from peakfit.core.fitting.computation import update_cluster_corrections
+from peakfit.core.fitting.constraints import ParameterConfig, apply_constraints
 from peakfit.core.fitting.parameters import Parameters
+from peakfit.core.fitting.protocol import (
+    FitProtocol,
+    FitStep,
+    apply_step_constraints,
+    create_protocol_from_config,
+)
 from peakfit.core.fitting.strategies import get_strategy
 from peakfit.core.shared.constants import (
     LEAST_SQUARES_FTOL,
@@ -31,6 +41,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "fit_all_clusters",
+    "fit_all_clusters_with_protocol",
 ]
 
 
@@ -41,8 +52,12 @@ def fit_all_clusters(
     optimizer: str,
     verbose: bool,
     dispatcher: EventDispatcher | None = None,
+    parameter_config: ParameterConfig | None = None,
+    protocol: FitProtocol | None = None,
 ) -> Parameters:
     """Fit all clusters with the requested optimization strategy.
+
+    Supports both legacy mode (using refine_nb) and modern protocol mode.
 
     Args:
         clargs: Command line arguments
@@ -50,6 +65,8 @@ def fit_all_clusters(
         optimizer: Name of optimizer to use
         verbose: Whether to show verbose output
         dispatcher: Optional event dispatcher for progress tracking
+        parameter_config: Optional parameter constraints configuration
+        protocol: Optional multi-step fitting protocol
 
     Returns
     -------
@@ -60,7 +77,6 @@ def fit_all_clusters(
         raise ValueError(msg)
 
     noise_value = float(clargs.noise)
-    total_iterations = clargs.refine_nb + 1
     strategy_kwargs: dict[str, Any] = {}
 
     if optimizer == "leastsq":
@@ -72,53 +88,169 @@ def fit_all_clusters(
         }
 
     strategy = get_strategy(optimizer, **strategy_kwargs)
+
+    # Use protocol if provided, otherwise create from legacy options
+    if protocol is None:
+        protocol = create_protocol_from_config(
+            steps=None,
+            refine_iterations=clargs.refine_nb,
+            fixed=clargs.fixed,
+        )
+
+    # Execute protocol-based fitting
+    return _fit_with_protocol(
+        clusters=clusters,
+        protocol=protocol,
+        strategy=strategy,
+        noise_value=noise_value,
+        parameter_config=parameter_config,
+        verbose=verbose,
+        dispatcher=dispatcher,
+    )
+
+
+def fit_all_clusters_with_protocol(
+    clusters: list[Cluster],
+    noise: float,
+    protocol: FitProtocol,
+    *,
+    optimizer: str = "leastsq",
+    parameter_config: ParameterConfig | None = None,
+    verbose: bool = False,
+    dispatcher: EventDispatcher | None = None,
+) -> Parameters:
+    """Fit clusters using a multi-step protocol.
+
+    This is the modern API for fitting with full control over the process.
+
+    Args:
+        clusters: List of clusters to fit
+        noise: Noise level
+        protocol: Multi-step fitting protocol
+        optimizer: Name of optimizer to use
+        parameter_config: Optional parameter constraints
+        verbose: Whether to show verbose output
+        dispatcher: Optional event dispatcher
+
+    Returns
+    -------
+        Fitted parameters for all clusters
+    """
+    strategy_kwargs: dict[str, Any] = {}
+
+    if optimizer == "leastsq":
+        strategy_kwargs = {
+            "ftol": LEAST_SQUARES_FTOL,
+            "xtol": LEAST_SQUARES_XTOL,
+            "max_nfev": LEAST_SQUARES_MAX_NFEV,
+            "verbose": 2 if verbose else 0,
+        }
+
+    strategy = get_strategy(optimizer, **strategy_kwargs)
+
+    return _fit_with_protocol(
+        clusters=clusters,
+        protocol=protocol,
+        strategy=strategy,
+        noise_value=noise,
+        parameter_config=parameter_config,
+        verbose=verbose,
+        dispatcher=dispatcher,
+    )
+
+
+def _fit_with_protocol(
+    clusters: list[Cluster],
+    protocol: FitProtocol,
+    strategy: Any,
+    noise_value: float,
+    parameter_config: ParameterConfig | None,
+    verbose: bool,
+    dispatcher: EventDispatcher | None,
+) -> Parameters:
+    """Internal implementation of protocol-based fitting.
+
+    Args:
+        clusters: Clusters to fit
+        protocol: Fitting protocol
+        strategy: Optimization strategy
+        noise_value: Noise level
+        parameter_config: Parameter constraints
+        verbose: Verbose output
+        dispatcher: Event dispatcher
+
+    Returns
+    -------
+        Fitted parameters
+    """
     params_all = Parameters()
     cluster_count = len(clusters)
+    total_iterations = sum(step.iterations for step in protocol.steps)
 
     with threadpool_limits(limits=1, user_api="blas"):
-        for iteration in range(total_iterations):
-            iteration_idx = iteration + 1
-            if iteration == 0:
-                subsection_header("Initial Fit")
-            else:
-                subsection_header(f"Refining Parameters (Iteration {iteration_idx})")
-                log_section(f"Refinement Iteration {iteration_idx}")
-                update_cluster_corrections(params_all, clusters)
+        global_iteration = 0
 
-            _fit_iteration(
-                clusters=clusters,
-                params_all=params_all,
-                clargs=clargs,
-                strategy=strategy,
-                noise_value=noise_value,
-                cluster_count=cluster_count,
-                iteration_idx=iteration_idx,
-                total_iterations=total_iterations,
-                dispatcher=dispatcher,
-            )
+        for step_idx, step in enumerate(protocol.steps):
+            step_name = step.name or f"Step {step_idx + 1}"
+
+            if verbose:
+                _log_step_header(step, step_idx, len(protocol.steps))
+
+            for iteration in range(step.iterations):
+                global_iteration += 1
+                iteration_idx = global_iteration
+
+                # Log iteration header
+                if step.iterations > 1:
+                    iter_label = f"{step_name} (Iteration {iteration + 1}/{step.iterations})"
+                else:
+                    iter_label = step_name
+
+                if iteration == 0 and step_idx == 0:
+                    subsection_header("Initial Fit" if not step.name else iter_label)
+                else:
+                    subsection_header(f"Refining Parameters: {iter_label}")
+                    log_section(f"Protocol: {iter_label}")
+                    update_cluster_corrections(params_all, clusters)
+
+                # Fit all clusters
+                _fit_iteration_with_constraints(
+                    clusters=clusters,
+                    params_all=params_all,
+                    step=step,
+                    strategy=strategy,
+                    noise_value=noise_value,
+                    parameter_config=parameter_config,
+                    cluster_count=cluster_count,
+                    iteration_idx=iteration_idx,
+                    total_iterations=total_iterations,
+                    dispatcher=dispatcher,
+                )
 
     return params_all
 
 
-def _fit_iteration(
+def _fit_iteration_with_constraints(
     clusters: list[Cluster],
     params_all: Parameters,
-    clargs: FitArguments,
+    step: FitStep,
     strategy: Any,
     noise_value: float,
+    parameter_config: ParameterConfig | None,
     cluster_count: int,
     iteration_idx: int,
     total_iterations: int,
     dispatcher: EventDispatcher | None,
 ) -> None:
-    """Fit all clusters in a single iteration.
+    """Fit all clusters in a single iteration with constraints.
 
     Args:
         clusters: List of clusters to fit
         params_all: Global parameters to update
-        clargs: Command line arguments
+        step: Current protocol step
         strategy: Optimization strategy
         noise_value: Noise level
+        parameter_config: Parameter constraints
         cluster_count: Total number of clusters
         iteration_idx: Current iteration (1-based)
         total_iterations: Total number of iterations
@@ -136,7 +268,17 @@ def _fit_iteration(
         log(f"Cluster {cluster_idx}/{cluster_count}: {peaks_str}")
         log(f"  - Peaks: {len(cluster.peaks)}")
 
-        params = create_params(cluster.peaks, fixed=clargs.fixed)
+        # Create parameters for this cluster
+        params = create_params(cluster.peaks, fixed=False)
+
+        # Apply parameter constraints from config
+        if parameter_config is not None:
+            params = apply_constraints(params, parameter_config)
+
+        # Apply step-level fix/vary patterns
+        params = apply_step_constraints(params, step)
+
+        # Update with values from previous iterations
         params = _update_params(params, params_all)
 
         vary_names = params.get_vary_names()
@@ -166,6 +308,27 @@ def _fit_iteration(
         _log_cluster_result(result, cluster_time)
 
         params_all.update(params)
+
+
+def _log_step_header(step: FitStep, step_idx: int, total_steps: int) -> None:
+    """Log step header information."""
+    step_name = step.name or f"Step {step_idx + 1}"
+    console.print()
+    console.print(
+        f"[bold magenta]═══ Protocol Step {step_idx + 1}/{total_steps}: "
+        f"{step_name} ═══[/bold magenta]"
+    )
+
+    if step.description:
+        console.print(f"  [dim]{step.description}[/dim]")
+
+    if step.fix:
+        console.print(f"  [yellow]Fix:[/yellow] {', '.join(step.fix)}")
+    if step.vary:
+        console.print(f"  [green]Vary:[/green] {', '.join(step.vary)}")
+
+    console.print(f"  [cyan]Iterations:[/cyan] {step.iterations}")
+    console.print()
 
 
 def _print_cluster_header(
@@ -219,7 +382,9 @@ def _update_params(params: Parameters, params_all: Parameters) -> Parameters:
     """Update parameters with global parameters."""
     for key in params:
         if key in params_all:
-            params[key] = params_all[key]
+            params[key].value = params_all[key].value
+            # Preserve vary status from step constraints, not from params_all
+            # params[key].vary = params_all[key].vary
     return params
 
 

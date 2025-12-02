@@ -129,6 +129,37 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 
 ---
 
+### 5. Parameter Constraints and Multi-Step Protocols
+
+**Directory:** `05-constraints-and-protocols/`
+**Difficulty:** Intermediate
+**Time:** 5-10 minutes
+**Status:** Ready to run with real data
+
+Demonstrates advanced parameter control including position windows, per-peak constraints, and multi-step fitting protocols for complex spectra.
+
+**What you'll learn:**
+
+- Setting position windows (global, per-dimension, per-peak)
+- Using pattern-based constraints with glob syntax
+- Creating multi-step fitting protocols
+- Loading starting values from previous fits
+- Combining constraints with staged optimization
+
+**Command:**
+
+```bash
+# Run all scenarios
+bash run.sh
+
+# Or run individually with specific config
+peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
+  --z-values data/b1_offsets.txt \
+  --config configs/multi_step.toml
+```
+
+---
+
 ## Output Formats
 
 PeakFit now generates structured outputs in multiple formats. See the [Output System Documentation](../docs/output_system.md) for complete details.

@@ -27,6 +27,18 @@ from peakfit.core.fitting.computation import (
     update_cluster_corrections,
 )
 
+# Constraints system
+from peakfit.core.fitting.constraints import (
+    ConstraintResolver,
+    ParameterConfig,
+    ParameterConstraint,
+    ParameterDefaults,
+    PeakConstraints,
+    PositionWindowConfig,
+    apply_constraints,
+    constraints_from_cli,
+)
+
 # Basic optimization
 from peakfit.core.fitting.optimizer import (
     fit_cluster,
@@ -34,6 +46,17 @@ from peakfit.core.fitting.optimizer import (
     fit_clusters,
 )
 from peakfit.core.fitting.parameters import Parameter, Parameters, ParameterType
+
+# Multi-step protocol
+from peakfit.core.fitting.protocol import (
+    FitProtocol,
+    FitStep,
+    ProtocolExecutor,
+    ProtocolResult,
+    StepResult,
+    apply_step_constraints,
+    create_protocol_from_config,
+)
 
 # Fit results
 from peakfit.core.fitting.results import FitResult
@@ -52,22 +75,37 @@ from peakfit.core.fitting.strategies import (
 
 __all__ = [
     "BasinHoppingStrategy",
+    "ConstraintResolver",
     "DifferentialEvolutionStrategy",
+    "FitProtocol",
     "FitResult",
+    "FitStep",
     "GlobalFitResult",
     "LeastSquaresStrategy",
     "OptimizationResult",
     "OptimizationStrategy",
     "Parameter",
+    "ParameterConfig",
+    "ParameterConstraint",
+    "ParameterDefaults",
     "ParameterType",
     "Parameters",
+    "PeakConstraints",
+    "PositionWindowConfig",
+    "ProtocolExecutor",
+    "ProtocolResult",
+    "StepResult",
     "UncertaintyResult",
+    "apply_constraints",
+    "apply_step_constraints",
     "calculate_amplitude_covariance",
     "calculate_amplitudes",
     "calculate_amplitudes_with_uncertainty",
     "calculate_shape_heights",
     "calculate_shapes",
     "compute_profile_likelihood",
+    "constraints_from_cli",
+    "create_protocol_from_config",
     "estimate_uncertainties_mcmc",
     "fit_basin_hopping",
     "fit_cluster",

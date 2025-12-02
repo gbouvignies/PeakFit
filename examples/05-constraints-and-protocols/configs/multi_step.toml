@@ -1,0 +1,35 @@
+# Scenario 3: Multi-Step Fitting Protocol
+# Demonstrates staged fitting for difficult spectra
+
+[fitting]
+lineshape = "auto"
+
+# Multi-step protocol: each step modifies which parameters vary
+# This staged approach helps when peaks overlap or initial guesses are poor
+
+[[fitting.steps]]
+name = "linewidths_only"
+description = "First optimize linewidths with fixed positions"
+fix = ["*.*.cs"]  # Fix all chemical shifts
+iterations = 1
+
+[[fitting.steps]]
+name = "full_optimization"
+description = "Full optimization of all parameters"
+vary = ["*"]  # Vary everything
+iterations = 2
+
+[parameters]
+# Position windows apply throughout all steps
+position_window = 0.1
+
+[parameters.position_windows]
+F2 = 0.3  # 15N
+F3 = 0.03  # 1H
+
+[clustering]
+contour_factor = 5.0
+
+[output]
+directory = "Fits/scenario3"
+formats = ["json", "csv"]

@@ -215,19 +215,29 @@ def fit_command(
         output_formats = cast("list[OutputFormat]", ["json", "csv", "txt"])
 
     # Load config from file or create from CLI options
-    # Ensure default output directory is set if not provided
-    if output is None:
-        output = pathlib.Path("Fits")
-
     if config is not None:
         fit_config = load_config(config)
-        # Override with CLI options where explicitly set
-        fit_config.output.directory = output
-        # Apply format options from CLI
-        fit_config.output.formats = output_formats
+        # Override with CLI options only where explicitly set
+        if output is not None:
+            fit_config.output.directory = output
+        # Only override formats if explicitly provided via --format
+        if formats is not None:
+            fit_config.output.formats = output_formats
+        # Note: verbosity and include_legacy are always applied from CLI
+        # since there's no way to detect if they were explicitly set
+        # (they have non-None defaults). Users should set these in config.
         fit_config.output.verbosity = output_verbosity
         fit_config.output.include_legacy = include_legacy
     else:
+        # Build output config - use CLI output if provided, otherwise use default
+        output_config = OutputConfig(
+            formats=output_formats,
+            verbosity=output_verbosity,
+            include_legacy=include_legacy,
+        )
+        if output is not None:
+            output_config.directory = output
+
         fit_config = PeakFitConfig(
             fitting=FitConfig(
                 lineshape=lineshape,
@@ -238,12 +248,7 @@ def fit_command(
                 fit_phase_y=phy,
             ),
             clustering=ClusterConfig(contour_level=contour_level),
-            output=OutputConfig(
-                directory=output,
-                formats=output_formats,
-                verbosity=output_verbosity,
-                include_legacy=include_legacy,
-            ),
+            output=output_config,
             noise_level=noise,
             exclude_planes=exclude or [],
         )
