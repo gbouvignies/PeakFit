@@ -1,1 +1,1 @@
-../02-advanced-fitting/data/b1_offsets.txt
+../../02-advanced-fitting/data/b1_offsets.txt
