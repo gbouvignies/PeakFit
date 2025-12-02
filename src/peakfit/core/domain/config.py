@@ -5,13 +5,49 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from peakfit.core.fitting.constraints import ParameterConfig
+from peakfit.core.fitting.protocol import FitStep
+
 LineshapeName = Literal["auto", "gaussian", "lorentzian", "pvoigt", "sp1", "sp2", "no_apod"]
 OutputFormat = Literal["csv", "json", "txt"]
 OutputVerbosity = Literal["minimal", "standard", "full"]
 
 
 class FitConfig(BaseModel):
-    """Configuration for the fitting process."""
+    """Configuration for the fitting process.
+
+    Supports both simple configuration (legacy) and advanced multi-step
+    protocols with parameter constraints.
+
+    Simple usage (legacy):
+        [fitting]
+        lineshape = "auto"
+        refine_iterations = 2
+        fix_positions = false
+
+    Advanced multi-step protocol:
+        [[fitting.steps]]
+        name = "fix_positions"
+        fix = ["*.*.cs"]
+        iterations = 1
+
+        [[fitting.steps]]
+        name = "full_optimization"
+        vary = ["*"]
+        iterations = 2
+
+    Parameter constraints:
+        [parameters]
+        position_window = 0.1
+
+        [parameters.position_windows]
+        F2 = 0.5
+        F3 = 0.05
+
+        [parameters.peaks."2N-H"]
+        position_window = 0.02
+        "F2.cs" = { vary = false }
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -52,6 +88,12 @@ class FitConfig(BaseModel):
         description="Convergence tolerance for optimizer.",
     )
 
+    # Multi-step fitting protocol
+    steps: list[FitStep] = Field(
+        default_factory=list,
+        description="Multi-step fitting protocol. If empty, uses refine_iterations.",
+    )
+
     def get_phase_dimensions(self, n_spectral_dims: int = 2) -> list[str]:
         """Get list of dimension labels to fit phase for.
 
@@ -78,6 +120,10 @@ class FitConfig(BaseModel):
             # Direct dimension (F2 for 2D, F3 for 3D)
             dims.append(f"F{n_spectral_dims}")
         return dims
+
+    def has_protocol(self) -> bool:
+        """Check if a multi-step protocol is defined."""
+        return len(self.steps) > 0
 
 
 class ClusterConfig(BaseModel):
@@ -134,13 +180,56 @@ class OutputConfig(BaseModel):
 
 
 class PeakFitConfig(BaseModel):
-    """Top-level PeakFit configuration for fitting, clustering, and output."""
+    """Top-level PeakFit configuration for fitting, clustering, and output.
+
+    Example TOML configuration:
+        [fitting]
+        lineshape = "auto"
+        refine_iterations = 2
+
+        # Optional: multi-step protocol
+        [[fitting.steps]]
+        name = "fix_positions"
+        fix = ["*.*.cs"]
+        iterations = 1
+
+        [[fitting.steps]]
+        name = "full_optimization"
+        vary = ["*"]
+        iterations = 2
+
+        [clustering]
+        contour_factor = 5.0
+
+        [output]
+        directory = "Fits"
+        formats = ["json", "csv"]
+
+        # Parameter constraints
+        [parameters]
+        position_window = 0.1
+
+        [parameters.position_windows]
+        F2 = 0.5   # 15N dimension
+        F3 = 0.05  # 1H dimension
+
+        [parameters.defaults]
+        "*.*.lw" = { min = 5.0, max = 100.0 }
+
+        [parameters.peaks."2N-H"]
+        position_window = 0.02
+        "F2.cs" = { vary = false }
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     fitting: FitConfig = Field(default_factory=FitConfig)
     clustering: ClusterConfig = Field(default_factory=ClusterConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
+    parameters: ParameterConfig = Field(
+        default_factory=ParameterConfig,
+        description="Parameter constraints and position windows.",
+    )
     noise_level: float | None = Field(
         default=None,
         description="Manual noise level. If None, estimated automatically.",
@@ -268,10 +357,12 @@ __all__ = [
     "FitConfig",
     "FitResult",
     "FitResultPeak",
+    "FitStep",
     "LineshapeName",
     "OutputConfig",
     "OutputFormat",
     "OutputVerbosity",
+    "ParameterConfig",
     "PeakData",
     "PeakFitConfig",
     "ValidationResult",

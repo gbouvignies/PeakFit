@@ -279,10 +279,37 @@ class FitPipeline:
         if optimizer == "leastsq":
             log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
             log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
+
+        # Log parameter constraints if configured
+        if config.parameters.position_window is not None:
+            log(f"Global position window: ±{config.parameters.position_window} ppm")
+        if config.parameters.position_windows.F2 is not None:
+            log(f"F2 position window: ±{config.parameters.position_windows.F2} ppm")
+        if config.parameters.position_windows.F3 is not None:
+            log(f"F3 position window: ±{config.parameters.position_windows.F3} ppm")
+
+        # Log protocol if multi-step
+        if config.fitting.has_protocol():
+            log(f"Protocol steps: {len(config.fitting.steps)}")
+            for i, step in enumerate(config.fitting.steps):
+                step_name = step.name or f"Step {i + 1}"
+                log(f"  {i + 1}. {step_name}: {step.iterations} iteration(s)")
         log("")
 
         if optimizer != "leastsq":
             info(f"Using {optimizer} optimizer...")
+
+        # Create protocol from config
+        from peakfit.core.fitting.protocol import FitProtocol, create_protocol_from_config
+
+        if config.fitting.has_protocol():
+            protocol = FitProtocol(steps=config.fitting.steps)
+        else:
+            protocol = create_protocol_from_config(
+                steps=None,
+                refine_iterations=clargs.refine_nb,
+                fixed=clargs.fixed,
+            )
 
         params = fit_all_clusters(
             clargs,
@@ -290,6 +317,8 @@ class FitPipeline:
             optimizer=optimizer,
             verbose=verbose,
             dispatcher=dispatcher,
+            parameter_config=config.parameters,
+            protocol=protocol,
         )
 
         console.print()
