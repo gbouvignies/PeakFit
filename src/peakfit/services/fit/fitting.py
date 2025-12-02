@@ -121,6 +121,7 @@ def fit_all_clusters_with_protocol(
     parameter_config: ParameterConfig | None = None,
     verbose: bool = False,
     dispatcher: EventDispatcher | None = None,
+    workers: int = 1,
 ) -> Parameters:
     """Fit clusters using a multi-step protocol.
 
@@ -134,6 +135,7 @@ def fit_all_clusters_with_protocol(
         parameter_config: Optional parameter constraints
         verbose: Whether to show verbose output
         dispatcher: Optional event dispatcher
+        workers: Number of parallel workers (-1 for all CPUs, 1 for sequential)
 
     Returns
     -------
@@ -159,6 +161,7 @@ def fit_all_clusters_with_protocol(
         parameter_config=parameter_config,
         verbose=verbose,
         dispatcher=dispatcher,
+        workers=workers,
     )
 
 
@@ -582,16 +585,6 @@ def _log_cluster_result(result: Any, cluster_time: float) -> None:
     log(f"  - Cost: {result.cost:.3e}")
     log(f"  - Function evaluations: {result.n_evaluations}")
     log(f"  - Time: {cluster_time:.1f}s")
-
-
-def _update_params(params: Parameters, params_all: Parameters) -> Parameters:
-    """Update parameters with global parameters."""
-    for key in params:
-        if key in params_all:
-            params[key].value = params_all[key].value
-            # Preserve vary status from step constraints, not from params_all
-            # params[key].vary = params_all[key].vary
-    return params
 
 
 def _dispatch_cluster_started(
