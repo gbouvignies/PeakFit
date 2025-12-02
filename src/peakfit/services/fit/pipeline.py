@@ -109,6 +109,7 @@ class FitPipeline:
         optimizer: str = "leastsq",
         save_state: bool = True,
         verbose: bool = False,
+        workers: int = -1,
         dispatcher: EventDispatcher | None = None,
     ) -> None:
         """Run the complete fitting pipeline using provided inputs and config.
@@ -118,6 +119,11 @@ class FitPipeline:
             peaklist_path: Path to the peak list file
             z_values_path: Optional path to z-values
             config: PeakFitConfig instance
+            optimizer: Optimization algorithm
+            save_state: Whether to save fitting state
+            verbose: Whether to show verbose output
+            workers: Number of parallel workers (-1 for all CPUs, 1 for sequential)
+            dispatcher: Optional event dispatcher
         """
         FitPipeline._run_fit(
             spectrum_path,
@@ -127,6 +133,7 @@ class FitPipeline:
             optimizer=optimizer,
             save_state=save_state,
             verbose=verbose,
+            workers=workers,
             dispatcher=dispatcher,
         )
 
@@ -140,6 +147,7 @@ class FitPipeline:
         optimizer: str,
         save_state: bool,
         verbose: bool,
+        workers: int,
         dispatcher: EventDispatcher | None,
     ) -> None:
         """Run the fitting process with the given configuration."""
@@ -180,7 +188,7 @@ class FitPipeline:
             warning(f"Using global optimizer: {optimizer}")
             console.print("  [dim]This may take significantly longer than standard fitting[/dim]")
 
-        _print_configuration(config.output.directory)
+        _print_configuration(config.output.directory, workers)
 
         console.print()
         show_header("Loading Input Files")
@@ -319,6 +327,7 @@ class FitPipeline:
             dispatcher=dispatcher,
             parameter_config=config.parameters,
             protocol=protocol,
+            workers=workers,
         )
 
         console.print()
@@ -469,7 +478,7 @@ def _dispatch_event(dispatcher: EventDispatcher | None, event: Event) -> None:
     dispatcher.dispatch(event)
 
 
-def _print_configuration(output_dir: Path) -> None:
+def _print_configuration(output_dir: Path, workers: int) -> None:
     """Print configuration information in a consolidated table."""
     spacer()
 
@@ -478,7 +487,19 @@ def _print_configuration(output_dir: Path) -> None:
     config_table.add_column("Value", style="white", justify="right")
 
     config_table.add_row("Backend", "numpy")
-    config_table.add_row("Parallel processing", "disabled")
+
+    # Show parallel processing status
+    if workers == 1:
+        parallel_str = "disabled (sequential)"
+    elif workers == -1:
+        import os
+
+        cpu_count = os.cpu_count() or 1
+        parallel_str = f"enabled (all {cpu_count} CPUs)"
+    else:
+        parallel_str = f"enabled ({workers} workers)"
+    config_table.add_row("Parallel processing", parallel_str)
+
     config_table.add_row("Output directory", str(output_dir.name))
 
     console.print(config_table)

@@ -4,16 +4,21 @@ Provides global optimization algorithms and improved uncertainty estimation
 beyond basic least-squares fitting.
 """
 
-from collections.abc import Callable
+from __future__ import annotations
+
 from dataclasses import dataclass
+from multiprocessing import Pool
 from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy import optimize
 
-from peakfit.core.fitting.computation import calculate_shape_heights, residuals
-from peakfit.core.fitting.parameters import Parameters
-from peakfit.core.results.statistics import compute_chi_squared, compute_reduced_chi_squared
+from peakfit.core.fitting.computation import residuals
+from peakfit.core.fitting.parameters import Parameters  # noqa: TC001 (used at runtime)
+from peakfit.core.results.statistics import (
+    compute_chi_squared,
+    compute_reduced_chi_squared,
+)
 from peakfit.core.shared.constants import (
     BASIN_HOPPING_LOCAL_MAXITER,
     BASIN_HOPPING_NITER,
@@ -28,11 +33,197 @@ from peakfit.core.shared.constants import (
     PROFILE_LIKELIHOOD_DELTA_CHI2,
     PROFILE_LIKELIHOOD_NPOINTS,
 )
-from peakfit.core.shared.typing import FloatArray
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from peakfit.core.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.shared.typing import FloatArray
+
+
+# Module-level globals for MCMC parallelization
+# These are set before running MCMC and used by the log-likelihood function
+# This pattern avoids pickling large data structures on each likelihood call
+# (see https://emcee.readthedocs.io/en/stable/tutorials/parallel/)
+_mcmc_params: Parameters | None = None
+_mcmc_cluster: Cluster | None = None
+_mcmc_noise: float = 0.0
+_mcmc_bounds: list[tuple[float, float]] = []
+
+# Module-level globals for amplitude computation parallelization
+# Same pattern as MCMC - avoids pickling overhead
+_amp_params: Parameters | None = None
+_amp_cluster: Cluster | None = None
+
+
+def _init_mcmc_worker(
+    params: Parameters,
+    cluster: Cluster,
+    noise: float,
+    bounds: list[tuple[float, float]],
+) -> None:
+    """Initialize globals in worker processes for MCMC parallelization.
+
+    This function is called once per worker process when the Pool is created.
+    It sets the module-level globals that _log_likelihood_global needs.
+    """
+    global _mcmc_params, _mcmc_cluster, _mcmc_noise, _mcmc_bounds
+    _mcmc_params = params
+    _mcmc_cluster = cluster
+    _mcmc_noise = noise
+    _mcmc_bounds = bounds
+
+
+def _log_likelihood_global(x: FloatArray) -> float:
+    """Log-likelihood function for MCMC using global state.
+
+    This function uses module-level globals to avoid pickling overhead
+    when using multiprocessing with emcee.
+    """
+    global _mcmc_params, _mcmc_cluster, _mcmc_noise, _mcmc_bounds
+
+    if _mcmc_params is None or _mcmc_cluster is None:
+        return float(-np.inf)
+
+    # Check bounds
+    for i, (lb, ub) in enumerate(_mcmc_bounds):
+        if not lb <= x[i] <= ub:
+            return float(-np.inf)
+
+    # Create a copy of params for thread safety
+    params_copy = _mcmc_params.copy()
+    params_copy.set_vary_values(x)
+    res = residuals(params_copy, _mcmc_cluster, _mcmc_noise)
+    return float(-0.5 * np.sum(res**2))
+
+
+def _compute_amplitudes_for_sample(
+    sample: FloatArray,
+    params: Parameters,
+    cluster: Cluster,
+) -> FloatArray:
+    """Compute amplitudes for a single MCMC sample.
+
+    Args:
+        sample: Parameter values for this sample
+        params: Parameters object (will be modified)
+        cluster: Cluster data
+
+    Returns
+    -------
+        Flattened amplitudes array
+    """
+    from peakfit.core.fitting.computation import calculate_shape_heights
+
+    params.set_vary_values(sample)
+    _shapes, amps = calculate_shape_heights(params, cluster)
+    return amps.ravel()
+
+
+def _init_amp_worker(params: Parameters, cluster: Cluster) -> None:
+    """Initialize globals in worker processes for amplitude computation.
+
+    This function is called once per worker process when the Pool is created.
+    It sets the module-level globals that _compute_amplitudes_for_sample_global needs.
+
+    Following emcee best practices: data is passed once at pool creation,
+    not pickled on every function call.
+    """
+    global _amp_params, _amp_cluster
+    _amp_params = params
+    _amp_cluster = cluster
+
+
+def _compute_amplitudes_for_sample_global(sample: FloatArray) -> FloatArray:
+    """Compute amplitudes for a single MCMC sample using global state.
+
+    This function uses module-level globals to avoid pickling overhead
+    when using multiprocessing. The pattern follows emcee's recommendation:
+    https://emcee.readthedocs.io/en/stable/tutorials/parallel/
+
+    Args:
+        sample: Parameter values for this sample
+
+    Returns
+    -------
+        Flattened amplitudes array
+    """
+    global _amp_params, _amp_cluster
+    from peakfit.core.fitting.computation import calculate_shape_heights
+
+    if _amp_params is None or _amp_cluster is None:
+        return np.array([])
+
+    # Create a copy of params for thread safety
+    params_copy = _amp_params.copy()
+    params_copy.set_vary_values(sample)
+    _shapes, amps = calculate_shape_heights(params_copy, _amp_cluster)
+    return amps.ravel()
+
+
+def _compute_amplitude_chains_parallel(
+    chains: FloatArray,
+    params: Parameters,
+    cluster: Cluster,
+    n_amp_params: int,
+    workers: int,
+) -> FloatArray:
+    """Compute amplitude chains for all MCMC samples, optionally in parallel.
+
+    This is a performance-critical function that processes all MCMC samples
+    to compute amplitudes via linear least-squares. For large chains
+    (e.g., 64 walkers × 5000 steps = 320,000 samples), this can be slow.
+
+    Args:
+        chains: MCMC chains, shape (n_walkers, n_steps, n_lineshape_params)
+        params: Parameters object (template)
+        cluster: Cluster data
+        n_amp_params: Number of amplitude parameters per sample
+        workers: Number of parallel workers (1 = sequential, -1 = all CPUs)
+
+    Returns
+    -------
+        Amplitude chains, shape (n_walkers, n_steps, n_amp_params)
+    """
+    n_walkers, n_steps, _ = chains.shape
+
+    # Flatten chains for easier processing
+    flat_chains = chains.reshape(-1, chains.shape[-1])
+    n_samples = flat_chains.shape[0]
+
+    if workers == 1:
+        # Sequential processing - simple loop
+        amp_flat = np.zeros((n_samples, n_amp_params))
+        params_copy = params.copy()
+        for i in range(n_samples):
+            amp_flat[i] = _compute_amplitudes_for_sample(flat_chains[i], params_copy, cluster)
+    else:
+        # Parallel processing using multiprocessing.Pool with initializer
+        # Following emcee best practices: data is passed once via initializer,
+        # not pickled on every function call
+        # (see https://emcee.readthedocs.io/en/stable/tutorials/parallel/)
+        import os
+
+        from threadpoolctl import threadpool_limits
+
+        n_processes = workers if workers > 0 else os.cpu_count() or 1
+
+        # Limit BLAS threads to 1 during parallel execution to avoid
+        # oversubscription (each worker would spawn its own BLAS threads)
+        with (
+            threadpool_limits(limits=1, user_api="blas"),
+            Pool(
+                processes=n_processes,
+                initializer=_init_amp_worker,
+                initargs=(params.copy(), cluster),
+            ) as pool,
+        ):
+            results = pool.map(_compute_amplitudes_for_sample_global, flat_chains)
+        amp_flat = np.array(results)
+
+    # Reshape back to (n_walkers, n_steps, n_amp_params)
+    return amp_flat.reshape(n_walkers, n_steps, n_amp_params)
 
 
 @dataclass
@@ -91,7 +282,7 @@ class UncertaintyResult:
     mcmc_samples: FloatArray | None = None  # Flattened samples (n_samples, n_all_params)
     mcmc_percentiles: FloatArray | None = None  # 16th, 50th, 84th percentiles
     mcmc_chains: FloatArray | None = None  # Full chains (n_walkers, n_steps, n_all_params)
-    mcmc_diagnostics: "ConvergenceDiagnostics | None" = None  # Convergence diagnostics
+    mcmc_diagnostics: ConvergenceDiagnostics | None = None  # Convergence diagnostics
     burn_in_info: dict | None = None  # Burn-in determination information
 
     # Metadata for distinguishing parameter types
@@ -103,7 +294,7 @@ class UncertaintyResult:
     profile_likelihood_ci: FloatArray | None = None
 
 
-def residuals_global(x: FloatArray, params: Parameters, cluster: "Cluster", noise: float) -> float:
+def residuals_global(x: FloatArray, params: Parameters, cluster: Cluster, noise: float) -> float:
     """Compute sum of squared residuals for global optimization.
 
     Args:
@@ -123,7 +314,7 @@ def residuals_global(x: FloatArray, params: Parameters, cluster: "Cluster", nois
 
 def fit_basin_hopping(
     params: Parameters,
-    cluster: "Cluster",
+    cluster: Cluster,
     noise: float,
     n_iterations: int = BASIN_HOPPING_NITER,
     temperature: float = BASIN_HOPPING_TEMPERATURE,
@@ -223,7 +414,7 @@ def fit_basin_hopping(
 
 def fit_differential_evolution(
     params: Parameters,
-    cluster: "Cluster",
+    cluster: Cluster,
     noise: float,
     max_iterations: int = DIFF_EVOLUTION_MAXITER,
     population_size: int = DIFF_EVOLUTION_POPSIZE,
@@ -305,7 +496,7 @@ def fit_differential_evolution(
 
 def compute_profile_likelihood(
     params: Parameters,
-    cluster: "Cluster",
+    cluster: Cluster,
     noise: float,
     param_name: str,
     n_points: int = PROFILE_LIKELIHOOD_NPOINTS,
@@ -384,11 +575,12 @@ def compute_profile_likelihood(
 
 def estimate_uncertainties_mcmc(
     params: Parameters,
-    cluster: "Cluster",
+    cluster: Cluster,
     noise: float,
     n_walkers: int = MCMC_N_WALKERS,
     n_steps: int = MCMC_N_STEPS,
     burn_in: int | None = None,
+    workers: int = 1,
 ) -> UncertaintyResult:
     """Estimate parameter uncertainties using MCMC sampling.
 
@@ -410,35 +602,21 @@ def estimate_uncertainties_mcmc(
         n_steps: Number of MCMC steps per walker
         burn_in: Steps to discard as burn-in. If None, automatically determined
             using R-hat convergence monitoring (recommended).
+        workers: Number of parallel workers for likelihood evaluation.
+            Use 1 for sequential (default), -1 for all CPUs.
 
     Returns
     -------
         UncertaintyResult with comprehensive uncertainty estimates and diagnostics
 
-    Raises
-    ------
-        ImportError: If emcee is not installed
     """
-    try:
-        import emcee
-    except ImportError as e:
-        msg = "emcee required for MCMC. Install with: pip install emcee"
-        raise ImportError(msg) from e
+    global _mcmc_params, _mcmc_cluster, _mcmc_noise, _mcmc_bounds
+
+    import emcee
 
     x0 = params.get_vary_values()
     bounds = params.get_vary_bounds_list()
     ndim = len(x0)
-
-    # Log-likelihood function
-    def log_likelihood(x: FloatArray) -> float:
-        # Check bounds
-        for i, (lb, ub) in enumerate(bounds):
-            if not lb <= x[i] <= ub:
-                return float(-np.inf)
-
-        params.set_vary_values(x)
-        res = residuals(params, cluster, noise)
-        return float(-0.5 * np.sum(res**2))
 
     # Initialize walkers near best-fit
     rng = np.random.default_rng()
@@ -448,9 +626,45 @@ def estimate_uncertainties_mcmc(
     for i, (lb, ub) in enumerate(bounds):
         pos[:, i] = np.clip(pos[:, i], lb + 1e-10, ub - 1e-10)
 
-    # Run MCMC
-    sampler = emcee.EnsembleSampler(n_walkers, ndim, log_likelihood)
-    sampler.run_mcmc(pos, n_steps, progress=False)
+    # Determine if parallel execution should be used
+    use_parallel = workers != 1
+
+    if use_parallel:
+        import os
+
+        from threadpoolctl import threadpool_limits
+
+        # Use Pool initializer to set globals in worker processes
+        # This pattern ensures each worker has access to the shared data
+        # (see https://emcee.readthedocs.io/en/stable/tutorials/parallel/)
+        n_processes = workers if workers > 0 else os.cpu_count() or 1
+
+        # Limit BLAS threads to 1 during parallel execution to avoid
+        # oversubscription (each worker would spawn its own BLAS threads)
+        with (
+            threadpool_limits(limits=1, user_api="blas"),
+            Pool(
+                processes=n_processes,
+                initializer=_init_mcmc_worker,
+                initargs=(params.copy(), cluster, noise, bounds),
+            ) as pool,
+        ):
+            sampler = emcee.EnsembleSampler(n_walkers, ndim, _log_likelihood_global, pool=pool)
+            sampler.run_mcmc(pos, n_steps, progress=False)
+    else:
+        # Sequential execution with local closure (simpler, no globals needed)
+        def log_likelihood(x: FloatArray) -> float:
+            # Check bounds
+            for i, (lb, ub) in enumerate(bounds):
+                if not lb <= x[i] <= ub:
+                    return float(-np.inf)
+
+            params.set_vary_values(x)
+            res = residuals(params, cluster, noise)
+            return float(-0.5 * np.sum(res**2))
+
+        sampler = emcee.EnsembleSampler(n_walkers, ndim, log_likelihood)
+        sampler.run_mcmc(pos, n_steps, progress=False)
 
     # Get FULL chains including burn-in for diagnostic plotting
     # emcee returns shape (n_steps, n_walkers, n_params)
@@ -512,16 +726,14 @@ def estimate_uncertainties_mcmc(
     # Compute amplitudes for each MCMC sample (via fast linear least-squares)
     n_peaks = len(cluster.peaks)
     n_planes = cluster.corrected_data.shape[1] if cluster.corrected_data.ndim > 1 else 1
-    n_walkers_chain, n_steps_chain, n_lineshape = chains_full.shape
+    _n_walkers_chain, _n_steps_chain, n_lineshape = chains_full.shape
     n_amp_params = n_peaks * n_planes
 
     # Compute amplitude chains: shape (n_walkers, n_steps, n_peaks * n_planes)
-    amp_chains = np.zeros((n_walkers_chain, n_steps_chain, n_amp_params))
-    for i_walker in range(n_walkers_chain):
-        for i_step in range(n_steps_chain):
-            params.set_vary_values(chains_full[i_walker, i_step])
-            _shapes, amps = calculate_shape_heights(params, cluster)
-            amp_chains[i_walker, i_step, :] = amps.ravel()
+    # Optimize by flattening and using parallel processing
+    amp_chains = _compute_amplitude_chains_parallel(
+        chains_full, params, cluster, n_amp_params, workers
+    )
 
     # Generate amplitude parameter names using ParameterId for consistency
     from peakfit.core.fitting.parameters import PSEUDO_AXIS, ParameterId

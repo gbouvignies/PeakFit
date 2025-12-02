@@ -49,9 +49,8 @@ class TestCLICommands:
         result = runner.invoke(app, ["fit", "--help"])
         assert result.exit_code == 0
         # Check for options (may have ANSI codes, so check for key parts)
-        # Parallel options were removed; ensure they are not present
-        assert "parallel" not in result.output.lower()
-        assert "workers" not in result.output.lower() and "worker" not in result.output.lower()
+        # Parallel worker option should be present
+        assert "workers" in result.output.lower() or "worker" in result.output.lower()
         assert "refine" in result.output.lower()
         assert "lineshape" in result.output.lower()
 
