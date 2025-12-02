@@ -4,8 +4,11 @@ Provides global optimization algorithms and improved uncertainty estimation
 beyond basic least-squares fitting.
 """
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass
+from multiprocessing import Pool
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -13,7 +16,10 @@ from scipy import optimize
 
 from peakfit.core.fitting.computation import calculate_shape_heights, residuals
 from peakfit.core.fitting.parameters import Parameters
-from peakfit.core.results.statistics import compute_chi_squared, compute_reduced_chi_squared
+from peakfit.core.results.statistics import (
+    compute_chi_squared,
+    compute_reduced_chi_squared,
+)
 from peakfit.core.shared.constants import (
     BASIN_HOPPING_LOCAL_MAXITER,
     BASIN_HOPPING_NITER,
@@ -33,6 +39,39 @@ from peakfit.core.shared.typing import FloatArray
 if TYPE_CHECKING:
     from peakfit.core.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.core.domain.cluster import Cluster
+
+
+# Module-level globals for MCMC parallelization
+# These are set before running MCMC and used by the log-likelihood function
+# This pattern avoids pickling large data structures on each likelihood call
+# (see https://emcee.readthedocs.io/en/stable/tutorials/parallel/)
+_mcmc_params: Parameters | None = None
+_mcmc_cluster: Cluster | None = None
+_mcmc_noise: float = 0.0
+_mcmc_bounds: list[tuple[float, float]] = []
+
+
+def _log_likelihood_global(x: FloatArray) -> float:
+    """Log-likelihood function for MCMC using global state.
+
+    This function uses module-level globals to avoid pickling overhead
+    when using multiprocessing with emcee.
+    """
+    global _mcmc_params, _mcmc_cluster, _mcmc_noise, _mcmc_bounds
+
+    if _mcmc_params is None or _mcmc_cluster is None:
+        return float(-np.inf)
+
+    # Check bounds
+    for i, (lb, ub) in enumerate(_mcmc_bounds):
+        if not lb <= x[i] <= ub:
+            return float(-np.inf)
+
+    # Create a copy of params for thread safety
+    params_copy = _mcmc_params.copy()
+    params_copy.set_vary_values(x)
+    res = residuals(params_copy, _mcmc_cluster, _mcmc_noise)
+    return float(-0.5 * np.sum(res**2))
 
 
 @dataclass
@@ -422,6 +461,8 @@ def estimate_uncertainties_mcmc(
     ------
         ImportError: If emcee is not installed
     """
+    global _mcmc_params, _mcmc_cluster, _mcmc_noise, _mcmc_bounds
+
     try:
         import emcee
     except ImportError as e:
@@ -432,17 +473,6 @@ def estimate_uncertainties_mcmc(
     bounds = params.get_vary_bounds_list()
     ndim = len(x0)
 
-    # Log-likelihood function
-    def log_likelihood(x: FloatArray) -> float:
-        # Check bounds
-        for i, (lb, ub) in enumerate(bounds):
-            if not lb <= x[i] <= ub:
-                return float(-np.inf)
-
-        params.set_vary_values(x)
-        res = residuals(params, cluster, noise)
-        return float(-0.5 * np.sum(res**2))
-
     # Initialize walkers near best-fit
     rng = np.random.default_rng()
     pos = x0 + 1e-4 * rng.standard_normal((n_walkers, ndim))
@@ -451,15 +481,47 @@ def estimate_uncertainties_mcmc(
     for i, (lb, ub) in enumerate(bounds):
         pos[:, i] = np.clip(pos[:, i], lb + 1e-10, ub - 1e-10)
 
-    # Note: workers parameter is accepted for API consistency but not currently used.
-    # emcee's EnsembleSampler can accept a pool for parallel likelihood evaluation,
-    # but for typical NMR peak fitting (few parameters per cluster), the overhead
-    # of multiprocessing exceeds the benefit. The main parallelization benefit
-    # comes from fitting multiple clusters in parallel (via fit_all_clusters).
-    _ = workers  # Reserved for future use
+    # Determine if parallel execution should be used
+    use_parallel = workers != 1
 
-    sampler = emcee.EnsembleSampler(n_walkers, ndim, log_likelihood)
-    sampler.run_mcmc(pos, n_steps, progress=False)
+    if use_parallel:
+        import os
+
+        # Set up global state for parallel execution
+        # This pattern avoids pickling large data on each likelihood call
+        # (see https://emcee.readthedocs.io/en/stable/tutorials/parallel/)
+        _mcmc_params = params.copy()
+        _mcmc_cluster = cluster
+        _mcmc_noise = noise
+        _mcmc_bounds = bounds
+
+        n_processes = workers if workers > 0 else os.cpu_count() or 1
+
+        with Pool(processes=n_processes) as pool:
+            sampler = emcee.EnsembleSampler(
+                n_walkers, ndim, _log_likelihood_global, pool=pool
+            )
+            sampler.run_mcmc(pos, n_steps, progress=False)
+
+        # Clear global state
+        _mcmc_params = None
+        _mcmc_cluster = None
+        _mcmc_noise = 0.0
+        _mcmc_bounds = []
+    else:
+        # Sequential execution with local closure (simpler, no globals needed)
+        def log_likelihood(x: FloatArray) -> float:
+            # Check bounds
+            for i, (lb, ub) in enumerate(bounds):
+                if not lb <= x[i] <= ub:
+                    return float(-np.inf)
+
+            params.set_vary_values(x)
+            res = residuals(params, cluster, noise)
+            return float(-0.5 * np.sum(res**2))
+
+        sampler = emcee.EnsembleSampler(n_walkers, ndim, log_likelihood)
+        sampler.run_mcmc(pos, n_steps, progress=False)
 
     # Get FULL chains including burn-in for diagnostic plotting
     # emcee returns shape (n_steps, n_walkers, n_params)
