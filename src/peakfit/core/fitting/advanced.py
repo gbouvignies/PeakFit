@@ -6,7 +6,6 @@ beyond basic least-squares fitting.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from multiprocessing import Pool
 from typing import TYPE_CHECKING
@@ -15,7 +14,7 @@ import numpy as np
 from scipy import optimize
 
 from peakfit.core.fitting.computation import residuals
-from peakfit.core.fitting.parameters import Parameters
+from peakfit.core.fitting.parameters import Parameters  # noqa: TC001 (used at runtime)
 from peakfit.core.results.statistics import (
     compute_chi_squared,
     compute_reduced_chi_squared,
@@ -34,11 +33,13 @@ from peakfit.core.shared.constants import (
     PROFILE_LIKELIHOOD_DELTA_CHI2,
     PROFILE_LIKELIHOOD_NPOINTS,
 )
-from peakfit.core.shared.typing import FloatArray
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from peakfit.core.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.core.domain.cluster import Cluster
+    from peakfit.core.shared.typing import FloatArray
 
 
 # Module-level globals for MCMC parallelization
