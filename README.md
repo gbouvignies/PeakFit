@@ -178,21 +178,84 @@ Options:
 ```
 
 ### `peakfit plot`
-
-Generate plots from fitting results.
-
-```bash
-peakfit plot RESULTS [OPTIONS]
-
-Arguments:
-  RESULTS                 Path to results directory or file
-
-Options:
-  -s, --spectrum PATH     Path to original spectrum for overlay
-  -o, --output PATH       Output file for plots (PDF)
-  --show/--no-show        Display plots interactively
-  -t, --type TEXT         Plot type: intensity, cest, cpmg, spectra
-```
+ 
+ Generate plots from fitting results using subcommands.
+ 
+ ```bash
+ peakfit plot [SUBCOMMAND] [RESULTS] [OPTIONS]
+ ```
+ 
+ #### `peakfit plot intensity`
+ 
+ Plot intensity profiles vs. plane index.
+ 
+ ```bash
+ peakfit plot intensity RESULTS [--output PATH] [--show]
+ ```
+ 
+ #### `peakfit plot cest`
+ 
+ Plot CEST profiles (normalized intensity vs. B1 offset).
+ 
+ ```bash
+ peakfit plot cest RESULTS [--output PATH] [--show] [--ref INDICES...]
+ ```
+ 
+ #### `peakfit plot cpmg`
+ 
+ Plot CPMG relaxation dispersion (R2eff vs. νCPMG).
+ 
+ ```bash
+ peakfit plot cpmg RESULTS --time-t2 FLOAT [--output PATH] [--show]
+ ```
+ 
+ #### `peakfit plot spectra`
+ 
+ Launch interactive spectra viewer.
+ 
+ ```bash
+ peakfit plot spectra RESULTS --spectrum PATH
+ ```
+ 
+ #### `peakfit plot diagnostics`
+ 
+ Generate MCMC diagnostic plots.
+ 
+ ```bash
+ peakfit plot diagnostics RESULTS [--output PATH] [--peaks NAMES...]
+ ```
+ 
+ ### `peakfit analyze`
+ 
+ Perform uncertainty analysis on fitting results.
+ 
+ ```bash
+ peakfit analyze [SUBCOMMAND] [RESULTS] [OPTIONS]
+ ```
+ 
+ #### `peakfit analyze mcmc`
+ 
+ Run MCMC sampling for uncertainty estimation.
+ 
+ ```bash
+ peakfit analyze mcmc RESULTS [--chains INT] [--samples INT] [--burn-in INT]
+ ```
+ 
+ #### `peakfit analyze profile`
+ 
+ Compute profile likelihood confidence intervals.
+ 
+ ```bash
+ peakfit analyze profile RESULTS [--param NAME] [--points INT] [--confidence FLOAT]
+ ```
+ 
+ #### `peakfit analyze uncertainty`
+ 
+ Display parameter uncertainties from fitting results.
+ 
+ ```bash
+ peakfit analyze uncertainty RESULTS [--output PATH]
+ ```
 
 ## Peak List Formats
 
@@ -328,32 +391,23 @@ uv build
 
 ```
 peakfit/
-├── lineshapes/         # Lineshape functions and models
-│   ├── gaussian.py     # Gaussian lineshape
-│   ├── lorentzian.py   # Lorentzian lineshape
-│   ├── pvoigt.py       # Pseudo-Voigt lineshape
-│   └── ...
-├── fitting/            # Fitting algorithms and parameters
-│   ├── parameters.py   # Parameter system
-│   ├── fit.py          # Fitting engine
-│   └── ...
-├── data/               # Data structures
-│   ├── spectrum.py     # Spectrum data
-│   ├── cluster.py      # Peak clusters
-│   └── ...
-├── models/             # Configuration models
-│   └── config.py       # Pydantic models
-├── analysis/           # Analysis tools
-│   ├── benchmarks.py   # Performance benchmarking
-│   ├── profiling.py    # Profiling utilities
-│   └── ...
-├── io/                 # Input/output operations
-│   └── readers.py      # File readers
 ├── cli/                # Modern CLI with Typer
 │   ├── app.py          # Main Typer application
-│   └── ...
-└── plotting/           # Visualization
-    └── plots/          # Individual plot generators
+│   └── commands/       # Command implementations
+├── core/               # Core domain logic
+│   ├── domain/         # Data models (Spectrum, Peak, Config)
+│   ├── fitting/        # Fitting algorithms and protocols
+│   └── lineshapes/     # Lineshape functions
+├── io/                 # Input/output operations
+│   ├── readers/        # File readers (Sparky, NMRPipe)
+│   └── writers/        # File writers
+├── plotting/           # Visualization
+│   └── plots/          # Plot generators
+├── services/           # Application services
+│   ├── fit/            # Fitting pipeline service
+│   └── validate/       # Validation service
+└── ui/                 # User interface
+    └── console.py      # Rich console integration
 ```
 
 ## Plotting

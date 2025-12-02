@@ -12,7 +12,7 @@ class TestParameter:
         """Should create a basic parameter."""
         from peakfit.core.fitting.parameters import Parameter
 
-        param = Parameter("x0", 10.0, min=0.0, max=20.0, vary=True)
+        param = Parameter(name="x0", value=10.0, min=0.0, max=20.0, vary=True)
         assert param.name == "x0"
         assert param.value == 10.0
         assert param.min == 0.0
@@ -24,20 +24,20 @@ class TestParameter:
         from peakfit.core.fitting.parameters import Parameter
 
         with pytest.raises(ValueError, match=r"min.*>.*max"):
-            Parameter("bad", 10.0, min=20.0, max=10.0)
+            Parameter(name="bad", value=10.0, min=20.0, max=10.0)
 
     def test_value_outside_bounds_raises(self):
         """Should raise error when value outside bounds."""
         from peakfit.core.fitting.parameters import Parameter
 
         with pytest.raises(ValueError, match="outside bounds"):
-            Parameter("bad", 30.0, min=0.0, max=20.0)
+            Parameter(name="bad", value=30.0, min=0.0, max=20.0)
 
     def test_repr(self):
         """Should have readable string representation."""
         from peakfit.core.fitting.parameters import Parameter
 
-        param = Parameter("fwhm", 25.5, min=1.0, max=100.0, vary=True)
+        param = Parameter(name="fwhm", value=25.5, min=1.0, max=100.0, vary=True)
         repr_str = repr(param)
         assert "fwhm" in repr_str
         assert "25.5" in repr_str
@@ -47,21 +47,21 @@ class TestParameter:
         """Should detect parameter at lower boundary."""
         from peakfit.core.fitting.parameters import Parameter
 
-        param = Parameter("x", 0.0, min=0.0, max=10.0)
+        param = Parameter(name="x", value=0.0, min=0.0, max=10.0)
         assert param.is_at_boundary() is True
 
     def test_is_at_boundary_upper(self):
         """Should detect parameter at upper boundary."""
         from peakfit.core.fitting.parameters import Parameter
 
-        param = Parameter("x", 10.0, min=0.0, max=10.0)
+        param = Parameter(name="x", value=10.0, min=0.0, max=10.0)
         assert param.is_at_boundary() is True
 
     def test_not_at_boundary(self):
         """Should detect parameter not at boundary."""
         from peakfit.core.fitting.parameters import Parameter
 
-        param = Parameter("x", 5.0, min=0.0, max=10.0)
+        param = Parameter(name="x", value=5.0, min=0.0, max=10.0)
         assert param.is_at_boundary() is False
 
 
@@ -301,8 +301,8 @@ class TestNMRSpecificParameters:
         from peakfit.core.fitting.parameters import Parameter, ParameterType
 
         param = Parameter(
-            "peak1_fwhm",
-            25.0,
+            name="peak1_fwhm",
+            value=25.0,
             min=0.1,
             max=200.0,
             vary=True,
@@ -317,7 +317,7 @@ class TestNMRSpecificParameters:
         from peakfit.core.fitting.parameters import Parameter, ParameterType
 
         # Only provide value and type - should get default bounds
-        param = Parameter("lw", 25.0, param_type=ParameterType.FWHM)
+        param = Parameter(name="lw", value=25.0, param_type=ParameterType.FWHM)
         assert param.min == 0.1
         assert param.max == 200.0
 
@@ -325,7 +325,7 @@ class TestNMRSpecificParameters:
         """Should apply default bounds for FRACTION type."""
         from peakfit.core.fitting.parameters import Parameter, ParameterType
 
-        param = Parameter("eta", 0.5, param_type=ParameterType.FRACTION)
+        param = Parameter(name="eta", value=0.5, param_type=ParameterType.FRACTION)
         assert param.min == 0.0
         assert param.max == 1.0
 
@@ -333,7 +333,7 @@ class TestNMRSpecificParameters:
         """Should apply default bounds for PHASE type."""
         from peakfit.core.fitting.parameters import Parameter, ParameterType
 
-        param = Parameter("ph", 0.0, param_type=ParameterType.PHASE)
+        param = Parameter(name="ph", value=0.0, param_type=ParameterType.PHASE)
         assert param.min == -180.0
         assert param.max == 180.0
 
@@ -341,7 +341,7 @@ class TestNMRSpecificParameters:
         """Should apply default bounds for JCOUPLING type."""
         from peakfit.core.fitting.parameters import Parameter, ParameterType
 
-        param = Parameter("j", 7.0, param_type=ParameterType.JCOUPLING)
+        param = Parameter(name="j", value=7.0, param_type=ParameterType.JCOUPLING)
         assert param.min == 0.0
         assert param.max == 20.0
 
@@ -350,7 +350,7 @@ class TestNMRSpecificParameters:
         from peakfit.core.fitting.parameters import Parameter, ParameterType
 
         # Explicitly set bounds should be used
-        param = Parameter("lw", 25.0, min=5.0, max=50.0, param_type=ParameterType.FWHM)
+        param = Parameter(name="lw", value=25.0, min=5.0, max=50.0, param_type=ParameterType.FWHM)
         assert param.min == 5.0
         assert param.max == 50.0
 
@@ -385,7 +385,9 @@ class TestNMRSpecificParameters:
         """String representation should include unit."""
         from peakfit.core.fitting.parameters import Parameter, ParameterType
 
-        param = Parameter("lw", 25.5, min=1.0, max=100.0, param_type=ParameterType.FWHM, unit="Hz")
+        param = Parameter(
+            name="lw", value=25.5, min=1.0, max=100.0, param_type=ParameterType.FWHM, unit="Hz"
+        )
         repr_str = repr(param)
         assert "Hz" in repr_str
         assert "lw" in repr_str
@@ -395,26 +397,26 @@ class TestNMRSpecificParameters:
         from peakfit.core.fitting.parameters import Parameter
 
         # At minimum
-        param1 = Parameter("x", 0.0, min=0.0, max=10.0)
+        param1 = Parameter(name="x", value=0.0, min=0.0, max=10.0)
         assert param1.relative_position() == 0.0
 
         # At maximum
-        param2 = Parameter("x", 10.0, min=0.0, max=10.0)
+        param2 = Parameter(name="x", value=10.0, min=0.0, max=10.0)
         assert param2.relative_position() == 1.0
 
         # In middle
-        param3 = Parameter("x", 5.0, min=0.0, max=10.0)
+        param3 = Parameter(name="x", value=5.0, min=0.0, max=10.0)
         assert param3.relative_position() == 0.5
 
         # At 25%
-        param4 = Parameter("x", 2.5, min=0.0, max=10.0)
+        param4 = Parameter(name="x", value=2.5, min=0.0, max=10.0)
         assert param4.relative_position() == 0.25
 
     def test_parameter_relative_position_infinite_bounds(self):
         """Relative position with infinite bounds should return 0.5."""
         from peakfit.core.fitting.parameters import Parameter
 
-        param = Parameter("x", 100.0)  # Default unbounded
+        param = Parameter(name="x", value=100.0)  # Default unbounded
         assert param.relative_position() == 0.5
 
 
@@ -426,8 +428,8 @@ class TestComputedParameters:
         from peakfit.core.fitting.parameters import Parameter, ParameterType
 
         param = Parameter(
-            "I_peak1[0]",
-            1000.0,
+            name="I_peak1[0]",
+            value=1000.0,
             vary=False,
             param_type=ParameterType.AMPLITUDE,
             computed=True,
@@ -441,13 +443,13 @@ class TestComputedParameters:
         from peakfit.core.fitting.parameters import Parameter
 
         with pytest.raises(ValueError, match="computed=True requires vary=False"):
-            Parameter("bad", 10.0, vary=True, computed=True)
+            Parameter(name="bad", value=10.0, vary=True, computed=True)
 
     def test_parameter_repr_computed(self):
         """String representation should show 'computed' status."""
         from peakfit.core.fitting.parameters import Parameter
 
-        param = Parameter("I_peak[0]", 1000.0, vary=False, computed=True)
+        param = Parameter(name="I_peak[0]", value=1000.0, vary=False, computed=True)
         repr_str = repr(param)
         assert "computed" in repr_str
 

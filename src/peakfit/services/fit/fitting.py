@@ -175,7 +175,7 @@ def _fit_with_protocol(
     dispatcher: EventDispatcher | None,
     workers: int = 1,
 ) -> Parameters:
-    """Internal implementation of protocol-based fitting.
+    """Run protocol-based fitting internally.
 
     Args:
         clusters: Clusters to fit
@@ -251,6 +251,7 @@ def _fit_with_protocol(
                         iteration_idx=iteration_idx,
                         total_iterations=total_iterations,
                         dispatcher=dispatcher,
+                        verbose=verbose,
                     )
 
     return params_all
@@ -318,6 +319,7 @@ def _fit_iteration_sequential(
     iteration_idx: int,
     total_iterations: int,
     dispatcher: EventDispatcher | None,
+    verbose: bool = False,
 ) -> None:
     """Fit all clusters sequentially in a single iteration.
 
@@ -332,6 +334,7 @@ def _fit_iteration_sequential(
         iteration_idx: Current iteration (1-based)
         total_iterations: Total number of iterations
         dispatcher: Optional event dispatcher
+        verbose: Whether to show verbose output
     """
     # Extract current parameter values for initialization
     params_init = {key: params_all[key].value for key in params_all}
@@ -341,7 +344,8 @@ def _fit_iteration_sequential(
         peaks_str = ", ".join(peak_names)
         n_peaks = len(cluster.peaks)
 
-        _print_cluster_header(cluster_idx, cluster_count, peaks_str, n_peaks)
+        if verbose:
+            _print_cluster_header(cluster_idx, cluster_count, peaks_str, n_peaks)
 
         log("")
         log(f"Cluster {cluster_idx}/{cluster_count}: {peaks_str}")
@@ -382,7 +386,8 @@ def _fit_iteration_sequential(
                 self.message = "Converged" if success else "Did not converge"
 
         result_proxy = _ResultProxy(cost, success)
-        _print_cluster_result(result_proxy, cluster_time)
+        if verbose:
+            _print_cluster_result(result_proxy, cluster_time)
         _log_cluster_result(result_proxy, cluster_time)
 
         params_all.update(params)
@@ -518,6 +523,7 @@ def _fit_iteration_with_constraints(
         iteration_idx=iteration_idx,
         total_iterations=total_iterations,
         dispatcher=dispatcher,
+        verbose=False,
     )
 
 

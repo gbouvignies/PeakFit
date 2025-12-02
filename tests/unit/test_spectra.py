@@ -22,7 +22,7 @@ class TestSpectraExcludePlanes:
         data = rng.standard_normal((5, 10, 10)).astype(np.float32)
         z_values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        spectra = Spectra(dic, data, z_values)
+        spectra = Spectra(dic=dic, data=data, z_values=z_values)
 
         # Exclude planes 1 and 3 (0-indexed)
         spectra.exclude_planes([1, 3])
@@ -44,7 +44,7 @@ class TestSpectraExcludePlanes:
         data = rng.standard_normal((5, 10, 10)).astype(np.float32)
         z_values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        spectra = Spectra(dic, data, z_values)
+        spectra = Spectra(dic=dic, data=data, z_values=z_values)
         original_shape = spectra.data.shape
         original_z = spectra.z_values.copy()
 
@@ -65,7 +65,7 @@ class TestSpectraExcludePlanes:
         data = rng.standard_normal((5, 10, 10)).astype(np.float32)
         z_values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        spectra = Spectra(dic, data, z_values)
+        spectra = Spectra(dic=dic, data=data, z_values=z_values)
         original_shape = spectra.data.shape
 
         spectra.exclude_planes([])
@@ -128,7 +128,7 @@ class TestSpectraPostInit:
 
         with patch("peakfit.core.domain.spectrum.guess_udic") as mock_udic:
             mock_udic.return_value = {0: {"freq": True}, 1: {"freq": True}}
-            spectra = Spectra(dic, data, z_values)
+            spectra = Spectra(dic=dic, data=data, z_values=z_values)
 
         assert spectra.pseudo_dim_added is True
         assert spectra.data.ndim == 3
@@ -146,7 +146,7 @@ class TestSpectraPostInit:
         data = rng.standard_normal((5, 10, 10)).astype(np.float32)
         z_values = np.array([])
 
-        spectra = Spectra(dic, data, z_values)
+        spectra = Spectra(dic=dic, data=data, z_values=z_values)
 
         assert len(spectra.z_values) == 5
         np.testing.assert_array_equal(spectra.z_values, np.arange(5))

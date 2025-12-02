@@ -18,6 +18,30 @@ from peakfit.ui.console import VERSION, console
 _logger: logging.Logger | None = None
 
 
+class JSONFormatter(logging.Formatter):
+    """JSON log formatter."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format log record as JSON."""
+        import json
+        from datetime import datetime
+
+        log_record = {
+            "timestamp": datetime.fromtimestamp(record.created).isoformat(),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "logger": record.name,
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
+        }
+
+        if record.exc_info:
+            log_record["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(log_record)
+
+
 def setup_logging(
     log_file: Path | None = None,
     verbose: bool = False,
@@ -47,10 +71,15 @@ def setup_logging(
     # File handler with structured format
     file_handler = logging.FileHandler(log_file, mode="w")
     file_handler.setLevel(level)
-    file_formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)-5s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+
+    if log_file.suffix == ".json":
+        file_formatter = JSONFormatter()
+    else:
+        file_formatter = logging.Formatter(
+            "%(asctime)s | %(levelname)-5s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+
     file_handler.setFormatter(file_formatter)
     _logger.addHandler(file_handler)
 

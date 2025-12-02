@@ -2,61 +2,35 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import Any
 
-if TYPE_CHECKING:
-    from peakfit.core.domain.cluster import Cluster
-    from peakfit.core.domain.peaks import Peak
-    from peakfit.core.fitting.parameters import Parameters
+from pydantic import BaseModel, ConfigDict, Field
+
+from peakfit.core.fitting.parameters import Parameters  # noqa: TC001
 
 
-@dataclass(slots=True)
-class FittingState:
+class FittingState(BaseModel):
     """In-memory representation of a saved fitting run."""
 
-    clusters: list[Cluster]
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    clusters: list[Any] = Field(description="List of Cluster objects")
     params: Parameters
     noise: float
-    peaks: list[Peak]
-    version: str = "1.0"
+    peaks: list[Any] = Field(description="List of Peak objects")
+    version: str = Field(default="1.0")
 
     def to_payload(self) -> dict[str, object]:
-        """Convert the state into a pickle-friendly payload."""
-        return {
-            "clusters": self.clusters,
-            "params": self.params,
-            "noise": float(self.noise),
-            "peaks": self.peaks,
-            "version": self.version,
-        }
+        """Convert the state into a pickle-friendly payload.
+
+        Deprecated: Use model_dump() instead.
+        """
+        return self.model_dump()
 
     @classmethod
     def from_payload(cls, payload: dict[str, object]) -> FittingState:
-        """Construct a state object from a serialized payload."""
-        required_keys = {"clusters", "params", "noise", "peaks"}
-        missing = required_keys - payload.keys()
-        if missing:
-            missing_list = ", ".join(sorted(missing))
-            msg = f"Missing state fields: {missing_list}"
-            raise ValueError(msg)
+        """Construct a state object from a serialized payload.
 
-        # Cast values to concrete types expected by FittingState
-        clusters_val = (
-            cast("list[Cluster]", payload["clusters"])
-            if payload.get("clusters") is not None
-            else []
-        )
-        if payload.get("params") is None:
-            raise ValueError("Missing 'params' in payload")
-        params_val = cast("Parameters", payload["params"])
-        noise_val = float(cast("float", payload["noise"]))
-        peaks_val = cast("list[Peak]", payload["peaks"]) if payload.get("peaks") is not None else []
-        version = str(payload.get("version", "1.0"))
-        return cls(
-            clusters=clusters_val,
-            params=params_val,
-            noise=noise_val,
-            peaks=peaks_val,
-            version=version,
-        )
+        Deprecated: Use model_validate() instead.
+        """
+        return cls.model_validate(payload)

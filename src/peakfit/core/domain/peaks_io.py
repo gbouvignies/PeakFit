@@ -7,8 +7,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from peakfit.core.domain.peaks import Peak, create_params, create_peak
+from peakfit.core.domain.peaks import Peak, create_params
 from peakfit.core.domain.spectrum import Spectra
+from peakfit.core.factories import create_peak
 from peakfit.core.shared.typing import FittingOptions
 
 Reader = Callable[[Path, Spectra, list[str], FittingOptions], list[Peak]]
@@ -160,15 +161,11 @@ def _read_ccpn_list(
     position_cols = _detect_position_columns(peaks_csv)
 
     if not position_cols:
-        # Fallback: use columns 'Pos F2', 'Pos F1' if available (legacy 2D format)
-        if "Pos F2" in peaks_csv.columns and "Pos F1" in peaks_csv.columns:
-            position_cols = ["Pos F1", "Pos F2"]
-        else:
-            msg = (
-                f"Could not detect position columns in {path}. "
-                "Expected 'Pos F1', 'Pos F2', ... or 'w1', 'w2', ..."
-            )
-            raise ValueError(msg)
+        msg = (
+            f"Could not detect position columns in {path}. "
+            "Expected 'Pos F1', 'Pos F2', ... or 'w1', 'w2', ..."
+        )
+        raise ValueError(msg)
 
     # Build peak names from assignment columns if available
     if "Assign F2" in peaks_csv.columns and "Assign F1" in peaks_csv.columns:

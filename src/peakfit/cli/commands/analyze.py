@@ -92,6 +92,14 @@ def analyze_mcmc(
             resolve_path=True,
         ),
     ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
 ) -> None:
     """Run MCMC sampling for uncertainty estimation.
 
@@ -99,10 +107,14 @@ def analyze_mcmc(
 
     Examples
     --------
-        peakfit analyze mcmc Fits/
-        peakfit analyze mcmc Fits/ --chains 64 --samples 2000
-        peakfit analyze mcmc Fits/ --walkers 64 --steps 2000
-        peakfit analyze mcmc Fits/ --peaks 2N-H --peaks 3N-H
+    Basic usage:
+        $ peakfit analyze mcmc Fits/
+
+    Customize walkers and steps:
+        $ peakfit analyze mcmc Fits/ --chains 64 --samples 2000
+
+    Analyze specific peaks:
+        $ peakfit analyze mcmc Fits/ --peaks 2N-H --peaks 3N-H
     """
     from peakfit.cli.analyze_command import run_mcmc
 
@@ -120,7 +132,7 @@ def analyze_mcmc(
         peaks=peaks,
         output_file=output,
         workers=workers,
-        verbose=False,
+        verbose=verbose,
     )
 
 
@@ -180,6 +192,14 @@ def analyze_profile(
             resolve_path=True,
         ),
     ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
 ) -> None:
     """Compute profile likelihood confidence intervals.
 
@@ -188,10 +208,17 @@ def analyze_profile(
 
     Examples
     --------
-        peakfit analyze profile Fits/                    # All parameters
-        peakfit analyze profile Fits/ --param 2N-H       # All params for peak 2N-H
-        peakfit analyze profile Fits/ --param x0         # All x0 parameters
-        peakfit analyze profile Fits/ --param 2N-H_x0    # Specific parameter
+    Profile all parameters:
+        $ peakfit analyze profile Fits/
+
+    Profile specific peak:
+        $ peakfit analyze profile Fits/ --param 2N-H
+
+    Profile specific parameter type:
+        $ peakfit analyze profile Fits/ --param x0
+
+    Profile specific parameter:
+        $ peakfit analyze profile Fits/ --param 2N-H_x0
     """
     from peakfit.cli.analyze_command import run_profile_likelihood
 
@@ -202,7 +229,7 @@ def analyze_profile(
         confidence_level=confidence,
         plot=plot,
         output_file=output,
-        verbose=False,
+        verbose=verbose,
     )
 
 
@@ -230,6 +257,14 @@ def analyze_uncertainty(
             resolve_path=True,
         ),
     ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Show banner and verbose output",
+        ),
+    ] = False,
 ) -> None:
     """Display parameter uncertainties from fitting results.
 
@@ -239,13 +274,16 @@ def analyze_uncertainty(
 
     Examples
     --------
-        peakfit analyze uncertainty Fits/
-        peakfit analyze uncertainty Fits/ --output uncertainties.txt
+    View uncertainties:
+        $ peakfit analyze uncertainty Fits/
+
+    Save to file:
+        $ peakfit analyze uncertainty Fits/ --output uncertainties.txt
     """
     from peakfit.cli.analyze_command import run_uncertainty
 
     run_uncertainty(
         results_dir=results,
         output_file=output,
-        verbose=False,
+        verbose=verbose,
     )

@@ -44,6 +44,7 @@ def validate_command(
         bool,
         typer.Option(
             "--verbose",
+            "-v",
             help="Show banner and verbose output",
         ),
     ] = False,
@@ -51,6 +52,11 @@ def validate_command(
     """Validate input files before fitting.
 
     Check that spectrum and peak list files are readable and compatible.
+
+    Examples
+    --------
+    Validate files:
+        $ peakfit validate spectrum.ft2 peaks.list
     """
     from peakfit.services.validate import ValidationService
 

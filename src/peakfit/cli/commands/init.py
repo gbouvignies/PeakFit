@@ -32,6 +32,7 @@ def init_command(
         bool,
         typer.Option(
             "--verbose",
+            "-v",
             help="Show banner and verbose output",
         ),
     ] = False,
@@ -43,13 +44,13 @@ def init_command(
 
     Examples
     --------
-      Create default config:
+    Create default config:
         $ peakfit init
 
-      Create config with custom name:
+    Create config with custom name:
         $ peakfit init my_analysis.toml
 
-      Overwrite existing config:
+    Overwrite existing config:
         $ peakfit init --force
     """
     # Show banner based on verbosity

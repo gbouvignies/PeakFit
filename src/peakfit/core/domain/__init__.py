@@ -11,9 +11,10 @@ from peakfit.core.domain.config import (
     PeakFitConfig,
     ValidationResult,
 )
-from peakfit.core.domain.peaks import Peak, create_params, create_peak
+from peakfit.core.domain.peaks import Peak, create_params
 from peakfit.core.domain.spectrum import Spectra, SpectralParameters
 from peakfit.core.domain.state import FittingState
+from peakfit.core.factories import create_peak
 
 __all__ = [
     "Cluster",

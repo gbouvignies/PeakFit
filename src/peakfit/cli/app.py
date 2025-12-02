@@ -47,7 +47,21 @@ def main(
 ) -> None:
     """PeakFit - Modern lineshape fitting for pseudo-3D NMR spectra.
 
-    Perform automated peak integration and lineshape analysis on NMR data.
+    PeakFit provides a comprehensive workflow for analyzing pseudo-3D NMR relaxation
+    and dynamics data (e.g., CEST, CPMG, T1/T2).
+
+    Key Features:
+    * **Fit**: Automated peak integration and lineshape analysis.
+    * **Analyze**: MCMC uncertainty estimation and profile likelihoods.
+    * **Plot**: Interactive visualization and publication-quality figures.
+    * **Validate**: Check input files before processing.
+
+    Get started:
+        $ peakfit init
+        $ peakfit fit spectrum.ft2 peaks.list
+
+    For detailed help on a command:
+        $ peakfit fit --help
     """
 
 

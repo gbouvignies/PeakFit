@@ -78,8 +78,7 @@ lineshape = "auto"  # auto, gaussian, lorentzian, pvoigt, sp1, sp2, no_apod
 refine_iterations = 1
 fix_positions = false
 fit_j_coupling = false
-fit_phase_x = false
-fit_phase_y = false
+fit_phase = []  # List of dimensions to fit phase for, e.g. ["F2"]
 max_iterations = 1000
 tolerance = 1e-8
 
@@ -89,7 +88,7 @@ contour_factor = 5.0
 
 [output]
 directory = "Fits"
-formats = ["txt"]
+formats = ["json", "csv", "txt"]
 save_simulated = true
 save_html_report = true
 

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, TypeVar
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 import numpy as np
 from nmrglue.fileio.pipe import guess_udic, read
@@ -58,12 +59,13 @@ def get_dimension_label(dim_index: int) -> str:
     return f"F{dim_index + 2}"
 
 
-@dataclass
-class DimensionInfo:
+class DimensionInfo(BaseModel):
     """Metadata for a single spectral dimension.
 
     Follows NMRPipe convention where F1 is first indirect, Fn is direct.
     """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     index: int  # 0-based index within spectral dimensions
     label: str  # "F1", "F2", "F3", "F4"
@@ -75,13 +77,14 @@ class DimensionInfo:
     is_pseudo: bool = False  # True for the series dimension (CEST offsets, etc.)
 
 
-@dataclass
-class SpectralParameters:
+class SpectralParameters(BaseModel):
     """Parameters for a single spectral dimension.
 
     Contains both NMRPipe header information and derived values
     for unit conversions.
     """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     size: int
     sw: float  # Spectral width in Hz
@@ -97,13 +100,15 @@ class SpectralParameters:
     ft: bool
     label: str = ""  # Dimension label: "F1", "F2", etc.
     nucleus: str | None = None  # Nucleus label: "1H", "15N", etc.
-    delta: float = field(init=False)
-    first: float = field(init=False)
+    delta: float = Field(default=0.0, init=False)
+    first: float = Field(default=0.0, init=False)
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def compute_derived_params(self) -> SpectralParameters:
         """Compute derived conversion parameters (delta and first sample)."""
         self.delta = -self.sw / (self.size * self.obs) if self.size * self.obs != 0.0 else 0.0
         self.first = self.car / self.obs - self.delta * self.size / 2.0 if self.obs != 0.0 else 0.0
+        return self
 
     def hz2pts_delta(self, hz: T) -> T:
         """Convert a frequency difference in Hz into point units using delta scaling."""
@@ -216,8 +221,7 @@ def read_spectral_parameters(
     return spec_params
 
 
-@dataclass
-class Spectra:
+class Spectra(BaseModel):
     """Container for NMR spectrum data with metadata.
 
     Handles pseudo-ND experiments where the first dimension represents
@@ -225,17 +229,24 @@ class Spectra:
     spectral dimension.
     """
 
-    dic: dict
-    data: FloatArray
-    z_values: np.ndarray
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    dic: dict[str, Any]
+    data: Any = Field(description="Spectrum data (FloatArray)")
+    z_values: Any = Field(description="Z-values array (numpy array)")
     pseudo_dim_added: bool = False
 
-    def __post_init__(self) -> None:
-        """Post-initialization: detect pseudo-dim and ensure `z_values` are set.
+    @model_validator(mode="after")
+    def initialize_spectra(self) -> Spectra:
+        """Post-initialization: detect pseudo-dim and ensure `z_values` are set."""
+        # Ensure data is numpy array
+        if not isinstance(self.data, np.ndarray):
+            self.data = np.array(self.data, dtype=float)
 
-        Uses `nmrglue.fileio.pipe.guess_udic` to inspect the header and
-        sets `pseudo_dim_added` if a pseudo dimension was added.
-        """
+        # Ensure z_values is numpy array
+        if not isinstance(self.z_values, np.ndarray):
+            self.z_values = np.array(self.z_values)
+
         udic = guess_udic(self.dic, self.data)
         no_pseudo_dim = udic[0]["freq"]
         if no_pseudo_dim:
@@ -243,6 +254,7 @@ class Spectra:
             self.pseudo_dim_added = True
         if self.z_values.size == 0:
             self.z_values = np.arange(self.data.shape[0])
+        return self
 
     @cached_property
     def params(self) -> list[SpectralParameters]:
@@ -341,7 +353,7 @@ def read_spectra(
     else:
         z_values = np.array([])
 
-    spectra = Spectra(dic, data, z_values)
+    spectra = Spectra(dic=dic, data=data, z_values=z_values)
     spectra.exclude_planes(exclude_list)
 
     return spectra

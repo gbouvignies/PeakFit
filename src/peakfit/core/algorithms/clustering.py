@@ -158,6 +158,13 @@ def create_clusters(spectra: Spectra, peaks: list[Peak], contour_level: float) -
         segment_positions = [*positions]
         indices: tuple[slice | NDArray[np.int_], ...] = (slice(None), *positions)
         segmented_data = spectra.data[indices].T
-        clusters.append(Cluster(segment_id, peaks_in_segment, segment_positions, segmented_data))
+        clusters.append(
+            Cluster(
+                cluster_id=segment_id,
+                peaks=peaks_in_segment,
+                positions=segment_positions,
+                data=segmented_data,
+            )
+        )
 
     return sorted(clusters, key=lambda cluster: len(cluster.peaks))

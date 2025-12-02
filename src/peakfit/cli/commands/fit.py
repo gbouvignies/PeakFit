@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pathlib  # Required at runtime by Typer
+import pathlib  # noqa: TC003
 from typing import Annotated, cast, get_args
 
 import typer
@@ -161,6 +161,7 @@ def fit_command(
         bool,
         typer.Option(
             "--verbose",
+            "-v",
             help="Show banner and verbose output",
         ),
     ] = False,
@@ -180,13 +181,6 @@ def fit_command(
             help="Output verbosity level: minimal (essential), standard (default), full (all)",
         ),
     ] = "standard",
-    include_legacy: Annotated[
-        bool,
-        typer.Option(
-            "--legacy/--no-legacy",
-            help="Generate legacy .out files in legacy/ subdirectory (for backward compatibility)",
-        ),
-    ] = False,
     workers: Annotated[
         int,
         typer.Option(
@@ -200,17 +194,38 @@ def fit_command(
 ) -> None:
     """Fit lineshapes to peaks in pseudo-3D NMR spectrum.
 
-    Example:
-        peakfit fit spectrum.ft2 peaks.list --output results --refine 2
+    This is the main command for processing NMR relaxation data. It fits lineshapes
+    (Gaussian, Lorentzian, etc.) to peaks in a series of 2D planes (pseudo-3D).
 
-    For difficult peaks with overlaps, use global optimization:
-        peakfit fit spectrum.ft2 peaks.list --optimizer basin-hopping
+    Examples
+    --------
+    Basic usage:
+        $ peakfit fit spectrum.ft2 peaks.list --output results
 
-    To perform uncertainty analysis later:
-        peakfit fit spectrum.ft2 peaks.list --save-state
-        peakfit analyze mcmc Fits/  # Compute MCMC uncertainties
+    Advanced fitting (refinement + global optimization):
+        $ peakfit fit spectrum.ft2 peaks.list --refine 2 --optimizer basin-hopping
+
+    Prepare for uncertainty analysis:
+        $ peakfit fit spectrum.ft2 peaks.list --save-state
+        $ peakfit analyze mcmc Fits/
+
+    Using a configuration file:
+        $ peakfit fit spectrum.ft2 peaks.list --config peakfit.toml
     """
+    from peakfit.core.shared.events import EventDispatcher, EventType
     from peakfit.services.fit.pipeline import FitPipeline
+    from peakfit.ui.handlers import RichProgressHandler
+
+    # Setup event dispatcher for UI updates
+    dispatcher = EventDispatcher()
+    progress_handler = RichProgressHandler()
+
+    # Subscribe handler to fitting events
+    dispatcher.subscribe(EventType.FIT_STARTED, progress_handler)
+    dispatcher.subscribe(EventType.CLUSTER_STARTED, progress_handler)
+    dispatcher.subscribe(EventType.CLUSTER_COMPLETED, progress_handler)
+    dispatcher.subscribe(EventType.FIT_COMPLETED, progress_handler)
+    dispatcher.subscribe(EventType.FIT_PROGRESS, progress_handler)
 
     # Validate and process format options
     if formats:
@@ -233,20 +248,25 @@ def fit_command(
         # Only override formats if explicitly provided via --format
         if formats is not None:
             fit_config.output.formats = output_formats
-        # Note: verbosity and include_legacy are always applied from CLI
-        # since there's no way to detect if they were explicitly set
-        # (they have non-None defaults). Users should set these in config.
+        # Note: verbosity is always applied from CLI
+        # since there's no way to detect if it was explicitly set
+        # (it has non-None default). Users should set this in config.
         fit_config.output.verbosity = output_verbosity
-        fit_config.output.include_legacy = include_legacy
     else:
         # Build output config - use CLI output if provided, otherwise use default
         output_config = OutputConfig(
             formats=output_formats,
             verbosity=output_verbosity,
-            include_legacy=include_legacy,
         )
         if output is not None:
             output_config.directory = output
+
+        # Build fit_phase list from legacy flags
+        fit_phase = []
+        if phx:
+            fit_phase.append("F3")  # Direct dimension in pseudo-3D
+        if phy:
+            fit_phase.append("F2")  # Indirect dimension in pseudo-3D
 
         fit_config = PeakFitConfig(
             fitting=FitConfig(
@@ -254,8 +274,7 @@ def fit_command(
                 refine_iterations=refine,
                 fix_positions=fixed,
                 fit_j_coupling=jx,
-                fit_phase_x=phx,
-                fit_phase_y=phy,
+                fit_phase=fit_phase,
             ),
             clustering=ClusterConfig(contour_level=contour_level),
             output=output_config,
@@ -263,13 +282,20 @@ def fit_command(
             exclude_planes=exclude or [],
         )
 
-    FitPipeline.run(
-        spectrum_path=spectrum,
-        peaklist_path=peaklist,
-        z_values_path=z_values,
-        config=fit_config,
-        optimizer=optimizer,
-        save_state=save_state,
-        verbose=verbose,
-        workers=workers,
-    )
+    try:
+        FitPipeline.run(
+            spectrum_path=spectrum,
+            peaklist_path=peaklist,
+            z_values_path=z_values,
+            config=fit_config,
+            optimizer=optimizer,
+            save_state=save_state,
+            verbose=verbose,
+            workers=workers,
+            dispatcher=dispatcher,
+        )
+    except Exception as e:
+        from peakfit.ui.messages import show_error_with_details
+
+        show_error_with_details("Fitting process", e)
+        raise typer.Exit(code=1) from e

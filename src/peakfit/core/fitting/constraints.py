@@ -50,9 +50,7 @@ class ParameterConstraint(BaseModel):
 
     def is_empty(self) -> bool:
         """Check if constraint has any non-None fields."""
-        return all(
-            v is None for v in [self.value, self.min, self.max, self.vary]
-        )
+        return all(v is None for v in [self.value, self.min, self.max, self.vary])
 
 
 class PositionWindowConfig(BaseModel):
@@ -120,15 +118,13 @@ class PeakConstraints(BaseModel):
 
         # Move any unknown keys that look like parameter specs into parameters
         for key in list(data.keys()):
-            if key not in known_fields:
-                # Check if it looks like a parameter spec (e.g., "F2.cs")
-                if re.match(r"^F\d+\.\w+$", key):
-                    value = data.pop(key)
-                    if isinstance(value, dict):
-                        parameters[key] = value
-                    else:
-                        # Allow shorthand: "F2.cs" = 120.5 means { value = 120.5 }
-                        parameters[key] = {"value": value}
+            if key not in known_fields and re.match(r"^F\d+\.\w+$", key):
+                value = data.pop(key)
+                if isinstance(value, dict):
+                    parameters[key] = value
+                else:
+                    # Allow shorthand: "F2.cs" = 120.5 means { value = 120.5 }
+                    parameters[key] = {"value": value}
 
         data["parameters"] = parameters
         return data
@@ -141,7 +137,8 @@ class ParameterDefaults(BaseModel):
     - "*" matches any sequence of characters
     - "?" matches any single character
 
-    Examples:
+    Examples
+    --------
         "*.*.cs" - all chemical shift parameters
         "*.*.lw" - all linewidth parameters
         "*.F2.*" - all F2 dimension parameters
@@ -344,9 +341,7 @@ class ConstraintResolver:
 
         return resolved
 
-    def _apply_pattern_defaults(
-        self, resolved: ResolvedConstraint, param_name: str
-    ) -> None:
+    def _apply_pattern_defaults(self, resolved: ResolvedConstraint, param_name: str) -> None:
         """Apply pattern-based default constraints."""
         for pattern, constraint in self.config.defaults.patterns.items():
             if self._matches_pattern(param_name, pattern):
@@ -422,7 +417,8 @@ class ConstraintResolver:
         - "?" matches single character
         - "." is treated literally
 
-        Examples:
+        Examples
+        --------
             "*.*.cs" matches "2N-H.F2.cs"
             "*.F2.*" matches "2N-H.F2.cs", "Peak1.F2.lw"
         """
@@ -475,21 +471,27 @@ def apply_constraints(
             current_value=param.value,
         )
 
-        # Apply resolved constraints
-        if resolved.value is not None:
-            param.value = resolved.value
-        if resolved.min is not None:
-            param.min = resolved.min
-        if resolved.max is not None:
-            param.max = resolved.max
+        # Apply resolved constraints safely
+        # We calculate new values first and update via __dict__ to avoid
+        # validation errors during intermediate states (e.g. setting min > current value)
+
+        new_min = resolved.min if resolved.min is not None else param.min
+        new_max = resolved.max if resolved.max is not None else param.max
+        new_value = resolved.value if resolved.value is not None else param.value
+
+        # Clamp value to new bounds
+        if new_value < new_min:
+            new_value = new_min
+        if new_value > new_max:
+            new_value = new_max
+
+        # Update attributes directly
+        param.__dict__["min"] = new_min
+        param.__dict__["max"] = new_max
+        param.__dict__["value"] = new_value
+
         if resolved.vary is not None:
             param.vary = resolved.vary
-
-        # Ensure value is within bounds
-        if param.value < param.min:
-            param.value = param.min
-        if param.value > param.max:
-            param.value = param.max
 
     return params
 

@@ -16,31 +16,31 @@ class TestParameterEdgeCases:
 
     def test_parameter_at_lower_bound(self):
         """Test parameter at lower boundary."""
-        p = Parameter("test", value=0.0, min=0.0, max=10.0)
+        p = Parameter(name="test", value=0.0, min=0.0, max=10.0)
         assert p.is_at_boundary()
         assert p.relative_position() == 0.0
 
     def test_parameter_at_upper_bound(self):
         """Test parameter at upper boundary."""
-        p = Parameter("test", value=10.0, min=0.0, max=10.0)
+        p = Parameter(name="test", value=10.0, min=0.0, max=10.0)
         assert p.is_at_boundary()
         assert p.relative_position() == 1.0
 
     def test_parameter_infinite_bounds(self):
         """Test parameter with infinite bounds."""
-        p = Parameter("test", value=100.0, min=-np.inf, max=np.inf)
+        p = Parameter(name="test", value=100.0, min=-np.inf, max=np.inf)
         assert not p.is_at_boundary()
         # With infinite bounds, relative_position returns 0.5 (middle)
         assert p.relative_position() == 0.5
 
     def test_parameter_negative_values(self):
         """Test parameter with negative values."""
-        p = Parameter("test", value=-5.0, min=-10.0, max=0.0)
+        p = Parameter(name="test", value=-5.0, min=-10.0, max=0.0)
         assert -10.0 <= p.value <= 0.0
 
     def test_parameter_very_small_range(self):
         """Test parameter with very small range."""
-        p = Parameter("test", value=1e-10, min=0.0, max=1e-9, vary=True)
+        p = Parameter(name="test", value=1e-10, min=0.0, max=1e-9, vary=True)
         assert 0.0 <= p.value <= 1e-9
 
     def test_parameters_empty_collection(self):
@@ -83,7 +83,7 @@ class TestParameterEdgeCases:
 
         for param_type in ParameterType:
             value = type_values.get(param_type, 100.0)  # Default to 100.0
-            p = Parameter(f"test_{param_type.name}", value=value, param_type=param_type)
+            p = Parameter(name=f"test_{param_type.name}", value=value, param_type=param_type)
             assert p.param_type == param_type
             # Parameter type is set correctly
             assert isinstance(p.param_type, ParameterType)
@@ -347,11 +347,11 @@ class TestTypeHints:
 
     def test_parameter_unit_attribute(self):
         """Test parameter unit attribute."""
-        p1 = Parameter("test", value=100.0, unit="Hz")
+        p1 = Parameter(name="test", value=100.0, unit="Hz")
         assert p1.unit == "Hz"
 
-        p2 = Parameter("test", value=5.0, unit="ppm")
+        p2 = Parameter(name="test", value=5.0, unit="ppm")
         assert p2.unit == "ppm"
 
-        p3 = Parameter("test", value=90.0, unit="deg")
+        p3 = Parameter(name="test", value=90.0, unit="deg")
         assert p3.unit == "deg"
