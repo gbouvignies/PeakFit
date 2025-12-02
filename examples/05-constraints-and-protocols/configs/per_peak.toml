@@ -1,0 +1,42 @@
+# Scenario 2: Per-Peak Constraints
+# Demonstrates peak-specific constraint overrides
+
+[fitting]
+lineshape = "auto"
+refine_iterations = 1
+
+[parameters]
+# Default position windows
+position_window = 0.1
+
+[parameters.position_windows]
+F2 = 0.3   # 15N
+F3 = 0.03  # 1H
+
+# Pattern-based defaults for all peaks
+[parameters.defaults]
+# Set reasonable linewidth bounds for all peaks
+"*.*.lw" = { min = 5.0, max = 100.0 }
+
+# Peak-specific overrides
+# These peaks are well-resolved - use tighter constraints
+[parameters.peaks."2N-H"]
+position_window = 0.01
+
+[parameters.peaks."3N-H"]
+position_window = 0.01
+
+# This peak may be exchanging - allow more movement
+[parameters.peaks."4N-H"]
+position_window = 0.2
+
+[parameters.peaks."4N-H".position_windows]
+F2 = 0.5   # Allow significant 15N movement
+F3 = 0.05  # But keep 1H reasonably tight
+
+[clustering]
+contour_factor = 5.0
+
+[output]
+directory = "Fits/scenario2"
+formats = ["json", "csv"]
