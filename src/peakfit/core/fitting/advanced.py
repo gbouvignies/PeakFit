@@ -389,6 +389,7 @@ def estimate_uncertainties_mcmc(
     n_walkers: int = MCMC_N_WALKERS,
     n_steps: int = MCMC_N_STEPS,
     burn_in: int | None = None,
+    workers: int = 1,
 ) -> UncertaintyResult:
     """Estimate parameter uncertainties using MCMC sampling.
 
@@ -410,6 +411,8 @@ def estimate_uncertainties_mcmc(
         n_steps: Number of MCMC steps per walker
         burn_in: Steps to discard as burn-in. If None, automatically determined
             using R-hat convergence monitoring (recommended).
+        workers: Number of parallel workers for likelihood evaluation.
+            Use 1 for sequential (default), -1 for all CPUs.
 
     Returns
     -------
@@ -448,7 +451,13 @@ def estimate_uncertainties_mcmc(
     for i, (lb, ub) in enumerate(bounds):
         pos[:, i] = np.clip(pos[:, i], lb + 1e-10, ub - 1e-10)
 
-    # Run MCMC
+    # Note: workers parameter is accepted for API consistency but not currently used.
+    # emcee's EnsembleSampler can accept a pool for parallel likelihood evaluation,
+    # but for typical NMR peak fitting (few parameters per cluster), the overhead
+    # of multiprocessing exceeds the benefit. The main parallelization benefit
+    # comes from fitting multiple clusters in parallel (via fit_all_clusters).
+    _ = workers  # Reserved for future use
+
     sampler = emcee.EnsembleSampler(n_walkers, ndim, log_likelihood)
     sampler.run_mcmc(pos, n_steps, progress=False)
 

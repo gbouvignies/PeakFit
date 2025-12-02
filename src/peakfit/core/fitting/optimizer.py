@@ -112,8 +112,8 @@ def compute_residuals(
 ) -> np.ndarray:
     """Compute residuals for scipy.optimize.least_squares.
 
-    This function computes residuals directly by evaluating peak shapes
-    and solving for amplitudes using least squares.
+    This is a thin wrapper around the canonical residuals function
+    that updates parameters before computing.
 
     Args:
         x: Current parameter values (varying only)
@@ -126,19 +126,13 @@ def compute_residuals(
     -------
         Residual vector normalized by noise
     """
+    from peakfit.core.fitting.computation import residuals
+
     # Update parameters with current values
     for i, name in enumerate(names):
         params_template[name].value = x[i]
 
-    # Calculate shapes
-    shapes = np.array([peak.evaluate(cluster.positions, params_template) for peak in cluster.peaks])
-
-    # Least squares for amplitudes
-    amplitudes = np.linalg.lstsq(shapes.T, cluster.corrected_data, rcond=None)[0]
-
-    # Residual
-    residuals_arr: np.ndarray = (cluster.corrected_data - shapes.T @ amplitudes).ravel() / noise
-    return residuals_arr
+    return residuals(params_template, cluster, noise)
 
 
 def fit_cluster(

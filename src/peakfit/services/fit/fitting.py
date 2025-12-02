@@ -464,7 +464,9 @@ def _fit_iteration_parallel(
         )
 
         # Log each result
-        log(f"Cluster {cluster_idx}: {', '.join(peak_names)} - cost={cost:.2e}, time={cluster_time:.2f}s")
+        log(
+            f"Cluster {cluster_idx}: {', '.join(peak_names)} - cost={cost:.2e}, time={cluster_time:.2f}s"
+        )
 
         params_all.update(params)
 
