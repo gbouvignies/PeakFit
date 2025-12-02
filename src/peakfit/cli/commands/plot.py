@@ -341,7 +341,7 @@ def plot_cest(
     show_header("Generating CEST Profile Plots")
 
     files = _get_result_files(results, "*.out")
-    
+
     # Check for intensities.csv if no .out files found
     csv_file = None
     if not files and results.is_dir():
@@ -362,11 +362,7 @@ def plot_cest(
         try:
             # Read CSV using numpy
             data_all = np.genfromtxt(
-                csv_file, 
-                delimiter=",", 
-                names=True, 
-                dtype=None, 
-                encoding="utf-8"
+                csv_file, delimiter=",", names=True, dtype=None, encoding="utf-8"
             )
             all_peaks = np.unique(data_all["peak_name"])
             total_items = len(all_peaks)
@@ -395,11 +391,11 @@ def plot_cest(
                 for idx, peak_name in enumerate(all_peaks):
                     mask = data_all["peak_name"] == peak_name
                     peak_data = data_all[mask]
-                    
+
                     offset = peak_data["offset"]
                     intensity = peak_data["intensity"]
-                    error = peak_data["intensity_err"]
-                    
+                    intensity_err = peak_data["intensity_err"]
+
                     try:
                         # Determine reference points
                         if ref_points == [-1]:
@@ -419,12 +415,16 @@ def plot_cest(
                         intensity_ref = np.mean(intensity[ref_mask])
                         offset_norm = offset[~ref_mask]
                         intensity_norm = intensity[~ref_mask] / intensity_ref
-                        error_norm = error[~ref_mask] / np.abs(intensity_ref)
+                        error_norm = intensity_err[~ref_mask] / np.abs(intensity_ref)
 
                         fig = make_cest_figure(peak_name, offset_norm, intensity_norm, error_norm)
                         _save_figure_to_pdf(pdf, fig)
 
-                        if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
+                        if (
+                            show
+                            and plots_saved < MAX_DISPLAY_PLOTS
+                            and plot_data_for_display is not None
+                        ):
                             plot_data_for_display.append(
                                 (
                                     peak_name,
@@ -442,10 +442,7 @@ def plot_cest(
                 # Plot from .out files (Legacy)
                 for file in files:
                     try:
-                        offset, intensity, error = np.loadtxt(file, unpack=True)
-                        # ... (rest of legacy logic)
-            try:
-                offset, intensity, error = np.loadtxt(file, unpack=True)
+                        offset, intensity, intensity_err = np.loadtxt(file, unpack=True)
 
                         # Determine reference points
                         if ref_points == [-1]:
@@ -464,12 +461,16 @@ def plot_cest(
                         intensity_ref = np.mean(intensity[ref_mask])
                         offset_norm = offset[~ref_mask]
                         intensity_norm = intensity[~ref_mask] / intensity_ref
-                        error_norm = error[~ref_mask] / np.abs(intensity_ref)
+                        error_norm = intensity_err[~ref_mask] / np.abs(intensity_ref)
 
                         fig = make_cest_figure(file.stem, offset_norm, intensity_norm, error_norm)
                         _save_figure_to_pdf(pdf, fig)
 
-                        if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
+                        if (
+                            show
+                            and plots_saved < MAX_DISPLAY_PLOTS
+                            and plot_data_for_display is not None
+                        ):
                             plot_data_for_display.append(
                                 (
                                     file.stem,
@@ -573,7 +574,7 @@ def plot_cpmg(
     show_header("Generating CPMG Relaxation Dispersion Plots")
 
     files = _get_result_files(results, "*.out")
-    
+
     # Check for intensities.csv if no .out files found
     csv_file = None
     if not files and results.is_dir():
@@ -593,11 +594,7 @@ def plot_cpmg(
         try:
             # Read CSV using numpy
             data_all = np.genfromtxt(
-                csv_file, 
-                delimiter=",", 
-                names=True, 
-                dtype=None, 
-                encoding="utf-8"
+                csv_file, delimiter=",", names=True, dtype=None, encoding="utf-8"
             )
             all_peaks = np.unique(data_all["peak_name"])
             total_items = len(all_peaks)
@@ -626,21 +623,21 @@ def plot_cpmg(
                 for idx, peak_name in enumerate(all_peaks):
                     mask = data_all["peak_name"] == peak_name
                     peak_data = data_all[mask]
-                    
+
                     # Map columns: offset -> ncyc
                     ncyc = peak_data["offset"].astype(int)
                     intensity = peak_data["intensity"]
-                    error = peak_data["intensity_err"]
-                    
+                    intensity_err = peak_data["intensity_err"]
+
                     try:
                         # Separate reference (ncyc=0) and CPMG data
                         ref_mask = ncyc == 0
                         data_ref_intensity = intensity[ref_mask]
-                        data_ref_error = error[ref_mask]
-                        
+                        data_ref_error = intensity_err[ref_mask]
+
                         data_cpmg_ncyc = ncyc[~ref_mask]
                         data_cpmg_intensity = intensity[~ref_mask]
-                        data_cpmg_error = error[~ref_mask]
+                        data_cpmg_error = intensity_err[~ref_mask]
 
                         if len(data_ref_intensity) == 0:
                             warning(f"No reference point (ncyc=0) in {peak_name}")
@@ -658,15 +655,15 @@ def plot_cpmg(
                         # Bootstrap error estimation (simplified for CSV)
                         # Reconstruct structured array for helper functions if needed, or adapt logic
                         # Here we adapt logic to use arrays directly
-                        
+
                         # make_intensity_ensemble expects structured array with 'intensity' and 'error'
                         # We can create temporary structured arrays
                         dt = [("intensity", float), ("error", float)]
-                        
+
                         cpmg_struct = np.zeros(len(data_cpmg_intensity), dtype=dt)
                         cpmg_struct["intensity"] = data_cpmg_intensity
                         cpmg_struct["error"] = data_cpmg_error
-                        
+
                         ref_struct = np.zeros(1, dtype=dt)
                         ref_struct["intensity"] = intensity_ref
                         ref_struct["error"] = error_ref
@@ -683,7 +680,11 @@ def plot_cpmg(
                         fig = make_cpmg_figure(peak_name, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
                         _save_figure_to_pdf(pdf, fig)
 
-                        if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
+                        if (
+                            show
+                            and plots_saved < MAX_DISPLAY_PLOTS
+                            and plot_data_for_display is not None
+                        ):
                             plot_data_for_display.append(
                                 (
                                     peak_name,
@@ -705,14 +706,11 @@ def plot_cpmg(
                     try:
                         data = np.loadtxt(
                             file,
-                            dtype={"names": ("ncyc", "intensity", "error"), "formats": ("i4", "f8", "f8")},
+                            dtype={
+                                "names": ("ncyc", "intensity", "error"),
+                                "formats": ("i4", "f8", "f8"),
+                            },
                         )
-                        # ... (rest of legacy logic)
-            try:
-                data = np.loadtxt(
-                    file,
-                    dtype={"names": ("ncyc", "intensity", "error"), "formats": ("i4", "f8", "f8")},
-                )
 
                         # Separate reference (ncyc=0) and CPMG data
                         data_ref = data[data["ncyc"] == 0]
@@ -732,7 +730,8 @@ def plot_cpmg(
 
                         # Bootstrap error estimation
                         data_ref_ens = np.array(
-                            [(intensity_ref, error_ref)], dtype=[("intensity", float), ("error", float)]
+                            [(intensity_ref, error_ref)],
+                            dtype=[("intensity", float), ("error", float)],
                         )
                         r2_ensemble = intensity_to_r2eff(
                             make_intensity_ensemble(data_cpmg),
@@ -746,7 +745,11 @@ def plot_cpmg(
                         fig = make_cpmg_figure(file.stem, nu_cpmg, r2_exp, r2_err_down, r2_err_up)
                         _save_figure_to_pdf(pdf, fig)
 
-                        if show and plots_saved < MAX_DISPLAY_PLOTS and plot_data_for_display is not None:
+                        if (
+                            show
+                            and plots_saved < MAX_DISPLAY_PLOTS
+                            and plot_data_for_display is not None
+                        ):
                             plot_data_for_display.append(
                                 (
                                     file.stem,

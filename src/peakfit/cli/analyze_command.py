@@ -304,12 +304,36 @@ def run_profile_likelihood(
 
     state = load_fitting_state(results_dir)
     try:
-        analysis = ProfileLikelihoodService.run(
-            state,
-            param_name=param_name,
-            n_points=n_points,
-            confidence_level=confidence_level,
+        from rich.progress import (
+            BarColumn,
+            Progress,
+            SpinnerColumn,
+            TextColumn,
+            TimeRemainingColumn,
         )
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress_bar:
+            profile_task = progress_bar.add_task("Initializing...", total=100, visible=False)
+
+            def progress_callback(step: int, total: int, description: str) -> None:
+                progress_bar.update(
+                    profile_task, completed=step, total=total, description=description, visible=True
+                )
+
+            analysis = ProfileLikelihoodService.run(
+                state,
+                param_name=param_name,
+                n_points=n_points,
+                confidence_level=confidence_level,
+                progress_callback=progress_callback,
+            )
     except NoVaryingParametersError as exc:
         error("No varying parameters found")
         raise SystemExit(1) from exc

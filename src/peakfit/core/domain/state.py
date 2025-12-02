@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from peakfit.core.domain.cluster import Cluster
+from peakfit.core.domain.peaks import Peak
 from peakfit.core.fitting.parameters import Parameters  # noqa: TC001
 
 
@@ -14,10 +15,10 @@ class FittingState(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
-    clusters: list[Any] = Field(description="List of Cluster objects")
+    clusters: list[Cluster] = Field(description="List of Cluster objects")
     params: Parameters
     noise: float
-    peaks: list[Any] = Field(description="List of Peak objects")
+    peaks: list[Peak] = Field(description="List of Peak objects")
     version: str = Field(default="1.0")
 
     def to_payload(self) -> dict[str, object]:

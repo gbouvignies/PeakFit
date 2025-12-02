@@ -9,7 +9,7 @@ from peakfit.core.domain.peaks import create_params
 from peakfit.core.fitting.advanced import estimate_uncertainties_mcmc
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from peakfit.core.domain.cluster import Cluster
     from peakfit.core.domain.peaks import Peak
@@ -59,6 +59,7 @@ class MCMCAnalysisService:
         burn_in: int | None,
         auto_burnin: bool,
         workers: int = 1,
+        progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> MCMCAnalysisResult:
         """Run MCMC analysis for the provided fitting state."""
         clusters = _filter_clusters(state.clusters, peaks)
@@ -71,6 +72,19 @@ class MCMCAnalysisService:
 
         for cluster in clusters:
             cluster_params = _create_cluster_params(cluster, params)
+
+            # Create a context-aware callback for this cluster
+            current_callback = None
+            if progress_callback:
+                peak_names = ", ".join(p.name for p in cluster.peaks)
+                description = f"Sampling {peak_names}..."
+
+                # Use default argument to bind loop variable 'description'
+                def _cb(step: int, total: int, desc: str = description) -> None:
+                    progress_callback(step, total, desc)
+
+                current_callback = _cb
+
             result = estimate_uncertainties_mcmc(
                 cluster_params,
                 cluster,
@@ -79,6 +93,7 @@ class MCMCAnalysisService:
                 n_steps=n_steps,
                 burn_in=burn_in_arg,
                 workers=workers,
+                progress_callback=current_callback,
             )
             _update_global_errors(params, result)
             results.append(ClusterMCMCResult(cluster=cluster, result=result))
