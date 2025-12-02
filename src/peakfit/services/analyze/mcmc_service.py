@@ -58,6 +58,7 @@ class MCMCAnalysisService:
         n_steps: int,
         burn_in: int | None,
         auto_burnin: bool,
+        workers: int = 1,
     ) -> MCMCAnalysisResult:
         """Run MCMC analysis for the provided fitting state."""
         clusters = _filter_clusters(state.clusters, peaks)
@@ -77,6 +78,7 @@ class MCMCAnalysisService:
                 n_walkers=n_walkers,
                 n_steps=n_steps,
                 burn_in=burn_in_arg,
+                workers=workers,
             )
             _update_global_errors(params, result)
             results.append(ClusterMCMCResult(cluster=cluster, result=result))

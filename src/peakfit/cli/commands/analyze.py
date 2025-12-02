@@ -74,6 +74,14 @@ def analyze_mcmc(
             help="Automatically determine burn-in using R-hat convergence monitoring",
         ),
     ] = True,
+    workers: Annotated[
+        int,
+        typer.Option(
+            "--workers",
+            "-w",
+            help="Number of parallel workers for MCMC (-1 = all CPUs, 1 = sequential)",
+        ),
+    ] = 1,
     output: Annotated[
         Path | None,
         typer.Option(
@@ -111,6 +119,7 @@ def analyze_mcmc(
         auto_burnin=auto_burnin,
         peaks=peaks,
         output_file=output,
+        workers=workers,
         verbose=False,
     )
 

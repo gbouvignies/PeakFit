@@ -82,6 +82,7 @@ def run_mcmc(
     auto_burnin: bool = True,
     peaks: list[str] | None = None,
     output_file: Path | None = None,
+    workers: int = 1,
     verbose: bool = False,
 ) -> None:
     """Run MCMC uncertainty estimation on fitted results.
@@ -94,6 +95,7 @@ def run_mcmc(
         auto_burnin: Automatically determine burn-in using R-hat monitoring
         peaks: Optional list of peak names to analyze (default: all)
         output_file: Optional output file for results
+        workers: Number of parallel workers (-1 = all CPUs, 1 = sequential)
         verbose: Show banner and verbose output
     """
     # Show banner based on verbosity
@@ -115,6 +117,7 @@ def run_mcmc(
             n_steps=n_steps,
             burn_in=burn_in,
             auto_burnin=auto_burnin,
+            workers=workers,
         )
     except PeaksNotFoundError as exc:
         error(str(exc))

@@ -28,6 +28,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "emcee>=3.1.6",
   "joblib>=1.4.0",
   "matplotlib>=3.9.0",
   "networkx>=3.3",
@@ -66,7 +67,6 @@ dev = [
   "pre-commit>=4.0.0",
 ]
 mcmc = [
-  "emcee>=3.1.6",
   "corner>=2.2.0",
 ]
 profiling = [
@@ -198,7 +198,7 @@ select = [
   "RUF",  # ruff-specific
   "D",  # pydocstyle
   "NPY",  # numpy-specific
-  "TCH",  # type-checking imports
+  "TC",  # type-checking imports
 ]
 ignore = [
   # Line length handled by formatter
