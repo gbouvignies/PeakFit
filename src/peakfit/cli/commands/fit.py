@@ -220,8 +220,12 @@ def fit_command(
         # Override with CLI options only where explicitly set
         if output is not None:
             fit_config.output.directory = output
-        # Apply format options from CLI
-        fit_config.output.formats = output_formats
+        # Only override formats if explicitly provided via --format
+        if formats is not None:
+            fit_config.output.formats = output_formats
+        # Note: verbosity and include_legacy are always applied from CLI
+        # since there's no way to detect if they were explicitly set
+        # (they have non-None defaults). Users should set these in config.
         fit_config.output.verbosity = output_verbosity
         fit_config.output.include_legacy = include_legacy
     else:
