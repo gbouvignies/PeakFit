@@ -81,7 +81,7 @@ def analyze_mcmc(
             "-w",
             help="Number of parallel workers for MCMC (-1 = all CPUs, 1 = sequential)",
         ),
-    ] = 1,
+    ] = -1,
     output: Annotated[
         Path | None,
         typer.Option(

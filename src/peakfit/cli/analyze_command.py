@@ -43,11 +43,42 @@ from peakfit.ui import (
 )
 
 
-def load_fitting_state(results_dir: Path) -> FittingState:
+from datetime import datetime
+
+from peakfit import __version__
+
+
+def _show_analysis_header(title: str) -> None:
+    """Show standardized analysis header with version and timestamp."""
+    from rich.table import Table
+    from rich.panel import Panel
+
+    grid = Table.grid(expand=True)
+    grid.add_column(justify="left", ratio=1)
+    grid.add_column(justify="right", ratio=1)
+
+    grid.add_row(
+        f"[bold cyan]PeakFit v{__version__}[/bold cyan]",
+        f"[dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
+    )
+
+    console.print(
+        Panel(
+            grid,
+            title=f"[bold]{title}[/bold]",
+            border_style="cyan",
+            subtitle="[dim]Advanced Analysis Module[/dim]",
+        )
+    )
+    console.print()
+
+
+def load_fitting_state(results_dir: Path, verbose: bool = True) -> FittingState:
     """Load fitting state from results directory.
 
     Args:
         results_dir: Path to results directory containing .peakfit_state.pkl
+        verbose: Whether to print the state summary (deprecated, now handled by caller)
 
     Returns
     -------
@@ -63,15 +94,7 @@ def load_fitting_state(results_dir: Path) -> FittingState:
         error(str(exc))
         raise SystemExit(1) from exc
 
-    state = loaded_state.state
-    state_file = loaded_state.path
-
-    success(f"Loaded fitting state: [path]{state_file}[/path]")
-    console.print(f"  Clusters: {len(state.clusters)}")
-    console.print(f"  Peaks: {len(state.peaks)}")
-    console.print(f"  Parameters: {len(state.params)}")
-
-    return state
+    return loaded_state.state
 
 
 def run_mcmc(
@@ -82,7 +105,7 @@ def run_mcmc(
     auto_burnin: bool = True,
     peaks: list[str] | None = None,
     output_file: Path | None = None,
-    workers: int = 1,
+    workers: int = -1,
     verbose: bool = False,
 ) -> None:
     """Run MCMC uncertainty estimation on fitted results.
@@ -98,10 +121,10 @@ def run_mcmc(
         workers: Number of parallel workers (-1 = all CPUs, 1 = sequential)
         verbose: Show banner and verbose output
     """
-    # Show banner based on verbosity
-    show_banner(verbose)
+    # Show header
+    _show_analysis_header("MCMC Uncertainty Analysis")
 
-    state = load_fitting_state(results_dir)
+    state = load_fitting_state(results_dir, verbose=False)
 
     # Handle auto vs manual burn-in
     if not auto_burnin and burn_in is None:
@@ -109,16 +132,77 @@ def run_mcmc(
         burn_in = 200
         warning("Both auto-burnin and manual burn-in disabled. Using default: 200 steps")
 
+    # Display Consolidated Configuration Panel
+    from rich.panel import Panel
+    from rich.table import Table
+
+    # Settings Table
+    settings_grid = Table.grid(padding=(0, 2))
+    settings_grid.add_column(style="cyan", justify="right")
+    settings_grid.add_column(style="white")
+
+    settings_grid.add_row("Walkers:", str(n_walkers))
+    settings_grid.add_row("Steps:", str(n_steps))
+
+    burn_in_str = "[cyan]Auto (R-hat)[/cyan]" if auto_burnin else f"{burn_in} (manual)"
+    settings_grid.add_row("Burn-in:", burn_in_str)
+
+    target_str = f"{len(peaks)} specific peaks" if peaks else "All peaks"
+    settings_grid.add_row("Target:", target_str)
+
+    # State Table
+    state_grid = Table.grid(padding=(0, 2))
+    state_grid.add_column(style="green", justify="right")
+    state_grid.add_column(style="white")
+
+    state_grid.add_row("Source:", f"[dim]{results_dir.name}[/dim]")
+    state_grid.add_row("Clusters:", str(len(state.clusters)))
+    state_grid.add_row("Peaks:", str(len(state.peaks)))
+    state_grid.add_row("Noise:", f"{state.noise:.2f}")
+
+    # Main Grid
+    main_grid = Table.grid(expand=True)
+    main_grid.add_column(ratio=1)
+    main_grid.add_column(ratio=1)
+
+    main_grid.add_row(
+        Panel(settings_grid, title="[bold]Analysis Settings[/bold]", border_style="cyan"),
+        Panel(state_grid, title="[bold]Fitting State[/bold]", border_style="green"),
+    )
+
+    console.print(main_grid)
+    console.print()
+
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
+
     try:
-        analysis = MCMCAnalysisService.run(
-            state,
-            peaks=peaks,
-            n_walkers=n_walkers,
-            n_steps=n_steps,
-            burn_in=burn_in,
-            auto_burnin=auto_burnin,
-            workers=workers,
-        )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress_bar:
+            # Create a task for MCMC sampling
+            mcmc_task = progress_bar.add_task("Initializing...", total=n_steps, visible=False)
+
+            def progress_callback(step: int, total: int, description: str = "Sampling...") -> None:
+                """Update progress bar."""
+                progress_bar.update(
+                    mcmc_task, completed=step, total=total, description=description, visible=True
+                )
+
+            analysis = MCMCAnalysisService.run(
+                state,
+                peaks=peaks,
+                n_walkers=n_walkers,
+                n_steps=n_steps,
+                burn_in=burn_in,
+                auto_burnin=auto_burnin,
+                workers=workers,
+                progress_callback=progress_callback,
+            )
     except PeaksNotFoundError as exc:
         error(str(exc))
         raise SystemExit(1) from exc
@@ -128,17 +212,7 @@ def run_mcmc(
     all_peaks: list[Peak] = analysis.peaks
     cluster_results = analysis.cluster_results
 
-    if peaks is not None:
-        info(f"Analyzing {len(clusters)} cluster(s) for peaks: {peaks}")
-
-    show_header("Running MCMC Uncertainty Estimation")
-    console.print(f"  Walkers: {n_walkers}")
-    console.print(f"  Steps: {n_steps}")
-    if auto_burnin:
-        console.print("  Burn-in: [cyan]Auto-determined using R-hat convergence[/cyan]")
-    else:
-        console.print(f"  Burn-in: {burn_in} (manual)")
-    console.print("")
+    console.print()  # Add spacing after progress bar
 
     all_results = [cr.result for cr in cluster_results]
 
@@ -311,12 +385,14 @@ def run_profile_likelihood(
 
             profile_lower = best_value - result.ci_low
             profile_upper = result.ci_high - best_value
-            asymmetry = abs(profile_upper - profile_lower) / (profile_upper + profile_lower) * 200
-            if asymmetry > 20:
-                result_table.add_row(
-                    "Asymmetry:",
-                    f"[yellow]{asymmetry:.1f}% (non-linear parameter)[/yellow]",
-                )
+            denominator = profile_upper + profile_lower
+            if denominator > 0:
+                asymmetry = abs(profile_upper - profile_lower) / denominator * 200
+                if asymmetry > 20:
+                    result_table.add_row(
+                        "Asymmetry:",
+                        f"[yellow]{asymmetry:.1f}% (non-linear parameter)[/yellow]",
+                    )
 
         console.print(result_table)
         console.print("")

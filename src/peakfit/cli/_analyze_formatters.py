@@ -120,13 +120,24 @@ def print_correlation_matrix(summary: MCMCClusterSummary) -> None:
     table.add_column("", style="cyan", width=15)
 
     param_names = [p.name for p in summary.parameter_summaries]
+
+    # Use multiline headers to save horizontal space
+    # Format: PeakName\nParamName (e.g. "41N-H\nF2.cs")
     for name in param_names:
-        short_name = name.split("_")[-1] if "_" in name else name
-        table.add_column(short_name[:8], justify="right", width=9)
+        if "." in name:
+            parts = name.split(".")
+            # Heuristic: First part is usually peak name
+            header = f"{parts[0]}\n{'.'.join(parts[1:])}"
+            table.add_column(header, justify="right")
+        else:
+            table.add_column(name, justify="right")
 
     for i, param in enumerate(summary.parameter_summaries):
-        short_name = param.name.split("_")[-1] if "_" in param.name else param.name
-        row = [short_name[:15]]
+        # Use simple name for row label to save space
+        # e.g. "41N-H.F2.cs" -> "F2.cs" (if unambiguous) or keep full
+        # For now, keep full name but truncate if too long to be safe
+        row_label = param.name
+        row = [row_label[:20]]
 
         for j in range(len(summary.parameter_summaries)):
             val = summary.correlation_matrix[i, j]
