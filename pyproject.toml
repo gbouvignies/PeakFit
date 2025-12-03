@@ -28,6 +28,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "PyYAML>=6.0",
   "emcee>=3.1.6",
   "joblib>=1.4.0",
   "matplotlib>=3.9.0",
@@ -37,7 +38,6 @@ dependencies = [
   "pandas>=2.2.2",
   "pydantic>=2.5.0",
   "pyqt5>=5.15.11",
-  "PyYAML>=6.0",
   "rich>=13.7.1",
   "scipy>=1.13.1",
   "threadpoolctl>=3.0.0",
@@ -233,6 +233,12 @@ scientific = ["numpy", "scipy", "pandas", "matplotlib", "nmrglue"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
+
+[tool.ruff.lint.flake8-type-checking]
+# Pydantic models need these imports at runtime for validation
+runtime-evaluated-base-classes = [
+  "pydantic.BaseModel",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["S101", "D", "PLR2004", "ARG"]

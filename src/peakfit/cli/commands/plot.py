@@ -389,7 +389,7 @@ def plot_cest(
         with PdfPages(output_path) as pdf:
             if csv_file:
                 # Plot from CSV
-                for idx, peak_name in enumerate(all_peaks):
+                for _idx, peak_name in enumerate(all_peaks):
                     mask = data_all["peak_name"] == peak_name
                     peak_data = data_all[mask]
 
@@ -621,7 +621,7 @@ def plot_cpmg(
         with PdfPages(output_path) as pdf:
             if csv_file:
                 # Plot from CSV
-                for idx, peak_name in enumerate(all_peaks):
+                for _idx, peak_name in enumerate(all_peaks):
                     mask = data_all["peak_name"] == peak_name
                     peak_data = data_all[mask]
 

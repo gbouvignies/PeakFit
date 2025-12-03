@@ -3,8 +3,9 @@
 import warnings as py_warnings
 from pathlib import Path
 
-import numpy as np
 from rich.table import Table
+
+import numpy as np
 
 from peakfit.cli._analyze_formatters import (
     print_correlation_matrix,

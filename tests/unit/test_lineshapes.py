@@ -7,10 +7,10 @@ import numpy as np
 from peakfit.core.lineshapes.functions import (
     gaussian,
     lorentzian,
-    no_apod,
-    pvoigt,
     make_sp1_evaluator,
     make_sp2_evaluator,
+    no_apod,
+    pvoigt,
 )
 
 

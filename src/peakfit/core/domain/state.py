@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
-from peakfit.core.fitting.parameters import Parameters  # noqa: TC001
+from peakfit.core.fitting.parameters import Parameters
 
 
 class FittingState(BaseModel):

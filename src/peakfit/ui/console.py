@@ -53,9 +53,9 @@ __all__ = [
     "PEAKFIT_THEME",
     "REPO_URL",
     "VERSION",
+    "Verbosity",
     "console",
     "set_verbosity",
-    "Verbosity",
 ]
 
 

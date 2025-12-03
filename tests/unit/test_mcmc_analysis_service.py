@@ -2,16 +2,32 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest  # type: ignore[import-not-found]
 
-import numpy as np  # type: ignore[import-not-found]
+import numpy as np
 
+from peakfit.core.domain.cluster import Cluster
+from peakfit.core.domain.peaks import Peak
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.advanced import UncertaintyResult
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.services.analyze import MCMCAnalysisService, PeaksNotFoundError
+
+
+def _make_peak(name: str) -> Peak:
+    """Create a minimal valid Peak object for testing."""
+    return Peak(name=name, positions=np.array([1.0, 2.0]), shapes=[])
+
+
+def _make_cluster(cluster_id: int, peak_names: list[str]) -> Cluster:
+    """Create a minimal valid Cluster object for testing."""
+    peaks = [_make_peak(name) for name in peak_names]
+    return Cluster(
+        cluster_id=cluster_id,
+        peaks=peaks,
+        positions=[np.array([0, 1, 2])],
+        data=np.zeros((3,)),
+    )
 
 
 def _make_uncertainty(std_err: float = 0.2) -> UncertaintyResult:
@@ -28,13 +44,13 @@ def _make_uncertainty(std_err: float = 0.2) -> UncertaintyResult:
 def _make_state() -> FittingState:
     params = Parameters()
     params.add("amp", value=1.0)
-    cluster = SimpleNamespace(peaks=[SimpleNamespace(name="A")])
-    peak = SimpleNamespace(name="A")
+    peak = _make_peak("A")
+    cluster = _make_cluster(0, ["A"])
     return FittingState(
-        clusters=[cluster],  # type: ignore[arg-type]
+        clusters=[cluster],
         params=params,
         noise=0.5,
-        peaks=[peak],  # type: ignore[arg-type]
+        peaks=[peak],
     )
 
 
@@ -71,8 +87,8 @@ def test_service_updates_parameter_stderr(monkeypatch):
 
 def test_service_filters_peaks(monkeypatch):
     state = _make_state()
-    extra_cluster = SimpleNamespace(peaks=[SimpleNamespace(name="B")])
-    state.clusters.append(extra_cluster)  # type: ignore[arg-type]
+    extra_cluster = _make_cluster(1, ["B"])
+    state.clusters.append(extra_cluster)
 
     monkeypatch.setattr(
         "peakfit.services.analyze.mcmc_service.create_params",

@@ -23,6 +23,7 @@ from peakfit.io.state import StateRepository
 from peakfit.services.fit.fitting import fit_all_clusters
 from peakfit.services.fit.writer import write_new_format_outputs, write_simulated_spectra
 from peakfit.ui import (
+    Verbosity,
     close_logging,
     console,
     create_table,
@@ -40,7 +41,6 @@ from peakfit.ui import (
     spacer,
     success,
     warning,
-    Verbosity,
 )
 
 if TYPE_CHECKING:

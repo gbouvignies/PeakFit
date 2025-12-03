@@ -9,10 +9,8 @@ from __future__ import annotations
 import pytest
 
 from peakfit.core.fitting.parameters import (
-    Parameter,
-    Parameters,
     ParameterId,
-    ParameterType,
+    Parameters,
 )
 from peakfit.core.fitting.protocol import (
     FitProtocol,

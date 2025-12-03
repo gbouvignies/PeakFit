@@ -50,7 +50,7 @@ class TestFitConfig:
     def test_invalid_lineshape(self):
         """FitConfig should reject invalid lineshape values."""
         with pytest.raises(ValidationError):
-            FitConfig(lineshape=cast(LineshapeName, "invalid"))
+            FitConfig(lineshape=cast("LineshapeName", "invalid"))
 
     def test_refine_iterations_bounds(self):
         """FitConfig should validate refine_iterations bounds."""
@@ -119,7 +119,7 @@ class TestOutputConfig:
     def test_invalid_format(self):
         """OutputConfig should reject invalid format values."""
         with pytest.raises(ValidationError):
-            OutputConfig(formats=cast(list[OutputFormat], ["invalid"]))
+            OutputConfig(formats=cast("list[OutputFormat]", ["invalid"]))
 
 
 class TestPeakFitConfig:

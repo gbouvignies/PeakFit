@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 import pytest  # type: ignore[import-not-found]
 
-from peakfit.core.domain.cluster import Cluster
-from peakfit.core.domain.peaks import Peak
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.services.analyze import NoVaryingParametersFoundError, ParameterUncertaintyService
@@ -25,9 +23,8 @@ def _make_state(param_defs: list[dict[str, Any]]) -> FittingState:
             vary=definition.get("vary", True),
         )
         params[name].stderr = definition.get("stderr", 0.1)
-    clusters = cast(list[Cluster], [])
-    peaks = cast(list[Peak], [])
-    return FittingState(clusters=clusters, params=params, noise=0.1, peaks=peaks)
+    # Empty lists are valid for Pydantic - no cast needed
+    return FittingState(clusters=[], params=params, noise=0.1, peaks=[])
 
 
 def test_analyze_builds_entries_with_metadata() -> None:
