@@ -214,7 +214,11 @@ def fit_command(
     """
     from peakfit.core.shared.events import EventDispatcher, EventType
     from peakfit.services.fit.pipeline import FitPipeline
+    from peakfit.ui import Verbosity, set_verbosity
     from peakfit.ui.handlers import RichProgressHandler
+
+    # Set verbosity
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
 
     # Setup event dispatcher for UI updates
     dispatcher = EventDispatcher()

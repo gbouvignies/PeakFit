@@ -38,14 +38,22 @@ def calculate_amplitudes(shapes: FloatArray, data: FloatArray) -> FloatArray:
     -------
         Optimal amplitudes for each peak, shape (n_peaks,) or (n_peaks, n_planes)
     """
+    # Check for non-finite values to avoid RuntimeWarning in matmul
+    if not np.all(np.isfinite(shapes)) or not np.all(np.isfinite(data)):
+        # Return NaNs of appropriate shape if inputs are invalid
+        shape = (shapes.shape[0], *data.shape[1:])
+        return np.full(shape, np.nan)
+
     # Normal equations: (S @ S.T) @ a = S @ data
     # This is ~3-8x faster than lstsq when n_peaks << n_points
-    sts = shapes @ shapes.T  # (n_peaks, n_peaks)
-    rhs = shapes @ data  # (n_peaks,) or (n_peaks, n_planes)
     try:
-        return np.linalg.solve(sts, rhs)
-    except np.linalg.LinAlgError:
-        # Fallback to lstsq for singular matrices
+        with np.errstate(over="raise", invalid="raise"):
+            sts = shapes @ shapes.T  # (n_peaks, n_peaks)
+            rhs = shapes @ data  # (n_peaks,) or (n_peaks, n_planes)
+            return np.linalg.solve(sts, rhs)
+    except (FloatingPointError, np.linalg.LinAlgError):
+        # Fallback to lstsq for singular matrices or overflow
+        # If overflow persists in lstsq, it will return NaNs/Infs which is acceptable
         return np.linalg.lstsq(shapes.T, data, rcond=None)[0]
 
 

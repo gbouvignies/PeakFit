@@ -26,14 +26,15 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 
 from peakfit.ui import (
+    Verbosity,
     console,
     create_progress,
     create_table,
     error,
     info,
     print_next_steps,
-    show_banner,
-    show_header,
+    set_verbosity,
+    show_standard_header,
     spacer,
     success,
     warning,
@@ -132,9 +133,9 @@ def plot_intensity(
     """
     from peakfit.plotting.profiles import make_intensity_figure
 
-    # Show banner based on verbosity
-    show_banner(verbose)
-    show_header("Generating Intensity Profile Plots")
+    # Set verbosity and show header
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+    show_standard_header("Generating Intensity Profile Plots")
 
     files = _get_result_files(results, "*.out")
 
@@ -336,9 +337,9 @@ def plot_cest(
 
     ref_points = ref or [-1]
 
-    # Show banner based on verbosity
-    show_banner(verbose)
-    show_header("Generating CEST Profile Plots")
+    # Set verbosity and show header
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+    show_standard_header("Generating CEST Profile Plots")
 
     files = _get_result_files(results, "*.out")
 
@@ -569,9 +570,9 @@ def plot_cpmg(
         ncyc_to_nu_cpmg,
     )
 
-    # Show banner based on verbosity
-    show_banner(verbose)
-    show_header("Generating CPMG Relaxation Dispersion Plots")
+    # Set verbosity and show header
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+    show_standard_header("Generating CPMG Relaxation Dispersion Plots")
 
     files = _get_result_files(results, "*.out")
 
@@ -826,8 +827,9 @@ def plot_spectra(
     """
     import sys
 
-    # Show banner based on verbosity
-    show_banner(verbose)
+    # Set verbosity and show header
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+    show_standard_header("Interactive Spectra Viewer")
     info("Launching interactive spectra viewer...")
 
     try:
@@ -941,9 +943,9 @@ def plot_diagnostics(
         plot_trace,
     )
 
-    # Show banner based on verbosity
-    show_banner(verbose)
-    show_header("Generating MCMC Diagnostic Plots")
+    # Set verbosity and show header
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+    show_standard_header("Generating MCMC Diagnostic Plots")
 
     # Load MCMC chain data
     mcmc_file = results / ".mcmc_chains.pkl"

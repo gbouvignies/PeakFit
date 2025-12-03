@@ -1,10 +1,10 @@
 """Implementation of the analyze command for uncertainty estimation."""
 
+import warnings as py_warnings
 from pathlib import Path
 
-from rich.table import Table
-
 import numpy as np
+from rich.table import Table
 
 from peakfit.cli._analyze_formatters import (
     print_correlation_matrix,
@@ -31,46 +31,19 @@ from peakfit.services.analyze import (
 )
 from peakfit.services.analyze.formatters import format_mcmc_cluster_result
 from peakfit.ui import (
+    Verbosity,
     console,
+    create_progress,
     error,
     info,
     print_next_steps,
-    show_banner,
+    set_verbosity,
     show_header,
+    show_standard_header,
     spacer,
     success,
     warning,
 )
-
-
-from datetime import datetime
-
-from peakfit import __version__
-
-
-def _show_analysis_header(title: str) -> None:
-    """Show standardized analysis header with version and timestamp."""
-    from rich.table import Table
-    from rich.panel import Panel
-
-    grid = Table.grid(expand=True)
-    grid.add_column(justify="left", ratio=1)
-    grid.add_column(justify="right", ratio=1)
-
-    grid.add_row(
-        f"[bold cyan]PeakFit v{__version__}[/bold cyan]",
-        f"[dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
-    )
-
-    console.print(
-        Panel(
-            grid,
-            title=f"[bold]{title}[/bold]",
-            border_style="cyan",
-            subtitle="[dim]Advanced Analysis Module[/dim]",
-        )
-    )
-    console.print()
 
 
 def load_fitting_state(results_dir: Path, verbose: bool = True) -> FittingState:
@@ -121,8 +94,9 @@ def run_mcmc(
         workers: Number of parallel workers (-1 = all CPUs, 1 = sequential)
         verbose: Show banner and verbose output
     """
-    # Show header
-    _show_analysis_header("MCMC Uncertainty Analysis")
+    # Set verbosity and show header
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+    show_standard_header("MCMC Uncertainty Analysis")
 
     state = load_fitting_state(results_dir, verbose=False)
 
@@ -173,17 +147,8 @@ def run_mcmc(
     console.print(main_grid)
     console.print()
 
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
-
     try:
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            TimeRemainingColumn(),
-            console=console,
-        ) as progress_bar:
+        with create_progress(transient=True) as progress_bar:
             # Create a task for MCMC sampling
             mcmc_task = progress_bar.add_task("Initializing...", total=n_steps, visible=False)
 
@@ -193,16 +158,35 @@ def run_mcmc(
                     mcmc_task, completed=step, total=total, description=description, visible=True
                 )
 
-            analysis = MCMCAnalysisService.run(
-                state,
-                peaks=peaks,
-                n_walkers=n_walkers,
-                n_steps=n_steps,
-                burn_in=burn_in,
-                auto_burnin=auto_burnin,
-                workers=workers,
-                progress_callback=progress_callback,
-            )
+            with py_warnings.catch_warnings(record=True) as caught_warnings:
+                py_warnings.simplefilter("always")
+                analysis = MCMCAnalysisService.run(
+                    state,
+                    peaks=peaks,
+                    n_walkers=n_walkers,
+                    n_steps=n_steps,
+                    burn_in=burn_in,
+                    auto_burnin=auto_burnin,
+                    workers=workers,
+                    progress_callback=progress_callback,
+                )
+
+            # Process warnings
+            for w in caught_warnings:
+                if issubclass(w.category, UserWarning) and "R-hat did not converge" in str(
+                    w.message
+                ):
+                    console.print()
+                    warning(str(w.message))
+                else:
+                    # Re-emit other warnings
+                    py_warnings.warn_explicit(
+                        message=w.message,
+                        category=w.category,
+                        filename=w.filename,
+                        lineno=w.lineno,
+                        source=w.source,
+                    )
     except PeaksNotFoundError as exc:
         error(str(exc))
         raise SystemExit(1) from exc
@@ -299,27 +283,13 @@ def run_profile_likelihood(
         output_file: Optional output file for results
         verbose: Show banner and verbose output
     """
-    # Show banner based on verbosity
-    show_banner(verbose)
+    # Set verbosity and show header
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+    show_standard_header("Profile Likelihood Analysis")
 
     state = load_fitting_state(results_dir)
     try:
-        from rich.progress import (
-            BarColumn,
-            Progress,
-            SpinnerColumn,
-            TextColumn,
-            TimeRemainingColumn,
-        )
-
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            TimeRemainingColumn(),
-            console=console,
-        ) as progress_bar:
+        with create_progress(transient=True) as progress_bar:
             profile_task = progress_bar.add_task("Initializing...", total=100, visible=False)
 
             def progress_callback(step: int, total: int, description: str) -> None:
@@ -449,8 +419,9 @@ def run_uncertainty(
         output_file: Optional output file for uncertainty summary
         verbose: Show banner and verbose output
     """
-    # Show banner based on verbosity
-    show_banner(verbose)
+    # Set verbosity and show header
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+    show_standard_header("Parameter Uncertainties")
 
     state = load_fitting_state(results_dir)
     try:
@@ -459,7 +430,6 @@ def run_uncertainty(
         warning("No varying parameters found")
         return
 
-    show_header("Parameter Uncertainties")
     console.print("  Source: Covariance matrix from least-squares fit")
     console.print(f"  Parameters: {len(analysis.parameters)}")
     console.print("")

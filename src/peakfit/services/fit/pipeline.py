@@ -32,14 +32,15 @@ from peakfit.ui import (
     log,
     log_dict,
     log_section,
+    set_verbosity,
     setup_logging,
-    show_banner,
     show_footer,
     show_header,
-    show_run_info,
+    show_standard_header,
     spacer,
     success,
     warning,
+    Verbosity,
 )
 
 if TYPE_CHECKING:
@@ -168,10 +169,9 @@ class FitPipeline:
         log_file = config.output.directory / log_filename
         setup_logging(log_file=log_file, verbose=False)
 
-        if verbose:
-            show_banner(verbose)
-        else:
-            show_run_info(start_time_dt)
+        # Set verbosity and show header
+        set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+        show_standard_header("Fitting Process")
 
         # NOTE: we do not mutate the configuration object to set a runtime
         # 'verbose' flag; instead, pass the `verbose` value explicitly to any
@@ -330,11 +330,24 @@ class FitPipeline:
             workers=workers,
         )
 
-        console.print()
-        show_header("Fitting Complete")
-
         end_time_dt = datetime.now()
         total_time = (end_time_dt - start_time_dt).total_seconds()
+
+        _dispatch_event(
+            dispatcher,
+            Event(
+                event_type=EventType.FIT_COMPLETED,
+                data={
+                    "clusters": len(clusters),
+                    "peaks": len(peaks),
+                    "total_time_sec": total_time,
+                    "output_dir": str(config.output.directory),
+                },
+            ),
+        )
+
+        console.print()
+        show_header("Fitting Complete")
 
         log_section("Output Files")
         config.output.directory.mkdir(parents=True, exist_ok=True)
@@ -394,19 +407,6 @@ class FitPipeline:
 
         output_dir_name = config.output.directory.name
         spectrum_name = spectrum_path.name
-
-        _dispatch_event(
-            dispatcher,
-            Event(
-                event_type=EventType.FIT_COMPLETED,
-                data={
-                    "clusters": len(clusters),
-                    "peaks": len(peaks),
-                    "total_time_sec": total_time,
-                    "output_dir": str(config.output.directory),
-                },
-            ),
-        )
 
         show_header("Next Steps")
         console.print("1. View intensity profiles:")

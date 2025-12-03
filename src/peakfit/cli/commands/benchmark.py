@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer  # Required at runtime by Typer
 
-from peakfit.ui import console
+from peakfit.ui import console, show_standard_header
 
 
 def benchmark_command(
@@ -69,7 +69,7 @@ def benchmark_command(
     from peakfit.core.fitting.optimizer import fit_clusters
     from peakfit.services.fit import FitArguments
 
-    console.print("[bold]PeakFit Performance Benchmark[/bold]\n")
+    show_standard_header("Performance Benchmark")
 
     # Load data
     with console.status("[yellow]Loading spectrum..."):

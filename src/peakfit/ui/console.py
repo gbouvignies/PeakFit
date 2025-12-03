@@ -54,4 +54,35 @@ __all__ = [
     "REPO_URL",
     "VERSION",
     "console",
+    "set_verbosity",
+    "Verbosity",
 ]
+
+
+class Verbosity:
+    """Verbosity levels for UI output."""
+
+    QUIET = 0  # Errors only
+    NORMAL = 1  # Standard output (headers, progress, results)
+    VERBOSE = 2  # Detailed output (banners, debug info)
+
+
+# Global verbosity state
+_verbosity = Verbosity.NORMAL
+
+
+def set_verbosity(level: int) -> None:
+    """Set the global verbosity level.
+
+    Args:
+        level: Verbosity level (0=QUIET, 1=NORMAL, 2=VERBOSE)
+    """
+    global _verbosity
+    _verbosity = level
+    # Update console quiet mode
+    console.quiet = level == Verbosity.QUIET
+
+
+def get_verbosity() -> int:
+    """Get the current verbosity level."""
+    return _verbosity

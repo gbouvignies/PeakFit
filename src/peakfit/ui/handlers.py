@@ -39,7 +39,7 @@ class RichProgressHandler:
     def _start_progress(self) -> None:
         """Initialize and start the progress bar."""
         if self.progress is None:
-            self.progress = create_progress()
+            self.progress = create_progress(transient=True)
             self.progress.start()
             self.task_id = self.progress.add_task("Fitting clusters...", total=100)
 

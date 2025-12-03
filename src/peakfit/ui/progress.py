@@ -22,8 +22,11 @@ __all__ = [
 ]
 
 
-def create_progress() -> Progress:
+def create_progress(transient: bool = False) -> Progress:
     """Create a standard progress bar with consistent styling.
+
+    Args:
+        transient: Whether the progress bar should disappear when complete
 
     Returns
     -------
@@ -33,7 +36,8 @@ def create_progress() -> Progress:
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(complete_style="cyan", finished_style="green"),
-        TaskProgressColumn(),
+        TaskProgressColumn(show_speed=True),
         TimeRemainingColumn(),
         console=console,
+        transient=transient,
     )

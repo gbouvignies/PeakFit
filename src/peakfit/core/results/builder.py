@@ -186,6 +186,16 @@ class FitResultsBuilder:
         if z_values is None:
             z_values = np.arange(amplitudes.shape[1])
 
+        # Build cluster statistics
+        cluster_stats = self._build_cluster_statistics(cluster, params, scipy_result, noise)
+        self._cluster_statistics.append(cluster_stats)
+
+        # Scale amplitude uncertainties if reduced chi-squared > 1
+        # This accounts for underestimated noise or lack of fit
+        scale_factor = 1.0
+        if cluster_stats.reduced_chi_squared > 1.0:
+            scale_factor = np.sqrt(cluster_stats.reduced_chi_squared)
+
         for i, peak in enumerate(cluster.peaks):
             # Extract lineshape parameters for this peak
             peak_params = self._extract_peak_parameters(peak.name, params)
@@ -196,7 +206,8 @@ class FitResultsBuilder:
             for j in range(n_planes):
                 amp = float(amplitudes[i, j])
                 # amplitudes_err[i] is scalar per peak
-                amp_err = float(amplitudes_err[i])
+                # Scale the error by sqrt(redchi)
+                amp_err = float(amplitudes_err[i]) * scale_factor
                 z_val = float(z_values[j]) if j < len(z_values) else float(j)
                 all_amplitudes.append(
                     AmplitudeEstimate(
@@ -216,10 +227,6 @@ class FitResultsBuilder:
             amplitudes=all_amplitudes,
         )
         self._cluster_estimates.append(cluster_est)
-
-        # Build cluster statistics
-        cluster_stats = self._build_cluster_statistics(cluster, params, scipy_result, noise)
-        self._cluster_statistics.append(cluster_stats)
 
         return self
 
