@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -11,7 +12,7 @@ from peakfit.core.domain.peaks import create_params
 from peakfit.core.fitting.advanced import compute_profile_likelihood
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from peakfit.core.domain.cluster import Cluster
     from peakfit.core.domain.state import FittingState
@@ -68,6 +69,7 @@ class ProfileLikelihoodService:
         param_name: str | None,
         n_points: int,
         confidence_level: float,
+        progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> ProfileLikelihoodAnalysisResult:
         """Execute a profile-likelihood analysis on the provided state.
 
@@ -81,6 +83,8 @@ class ProfileLikelihoodService:
             Number of points to compute in the profile for each parameter.
         confidence_level : float
             Confidence level for computing delta-chi2 (e.g., 0.95).
+        progress_callback : Callable[[int, int, str], None] | None
+            Optional callback(step, total, description) for progress reporting.
 
         Returns
         -------
@@ -104,7 +108,11 @@ class ProfileLikelihoodService:
         results: list[ProfileParameterResult] = []
         missing_parameters: list[str] = []
 
-        for target in target_parameters:
+        total_params = len(target_parameters)
+        for i, target in enumerate(target_parameters):
+            if progress_callback:
+                progress_callback(i, total_params, f"Profiling {target}...")
+
             cluster, cluster_params = _locate_cluster_params(state.clusters, params, target, cache)
             if cluster is None or cluster_params is None:
                 missing_parameters.append(target)

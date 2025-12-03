@@ -50,7 +50,7 @@ class TestFitConfig:
     def test_invalid_lineshape(self):
         """FitConfig should reject invalid lineshape values."""
         with pytest.raises(ValidationError):
-            FitConfig(lineshape=cast(LineshapeName, "invalid"))
+            FitConfig(lineshape=cast("LineshapeName", "invalid"))
 
     def test_refine_iterations_bounds(self):
         """FitConfig should validate refine_iterations bounds."""
@@ -110,8 +110,6 @@ class TestOutputConfig:
         # Default formats include all structured outputs plus legacy txt
         assert config.formats == ["json", "csv", "txt"]
         assert config.save_simulated is True
-        # Legacy is opt-in, not default
-        assert config.include_legacy is False
 
     def test_valid_formats(self):
         """OutputConfig should accept valid format values."""
@@ -121,7 +119,7 @@ class TestOutputConfig:
     def test_invalid_format(self):
         """OutputConfig should reject invalid format values."""
         with pytest.raises(ValidationError):
-            OutputConfig(formats=cast(list[OutputFormat], ["invalid"]))
+            OutputConfig(formats=cast("list[OutputFormat]", ["invalid"]))
 
 
 class TestPeakFitConfig:
@@ -178,21 +176,20 @@ class TestPeakData:
 
     def test_basic_peak(self):
         """PeakData should store peak information."""
-        peak = PeakData(name="Peak1", position_x=8.5, position_y=120.5)
+        peak = PeakData(name="Peak1", positions=[8.5, 120.5])
         assert peak.name == "Peak1"
-        assert peak.position_x == 8.5
-        assert peak.position_y == 120.5
-        assert peak.position_z is None
+        assert peak.positions[0] == 8.5
+        assert peak.positions[1] == 120.5
         assert peak.cluster_id is None
 
     def test_peak_with_z(self):
         """PeakData should handle 3D peak positions."""
-        peak = PeakData(name="Peak1", position_x=8.5, position_y=120.5, position_z=10.0)
-        assert peak.position_z == 10.0
+        peak = PeakData(name="Peak1", positions=[8.5, 120.5, 10.0])
+        assert peak.positions[2] == 10.0
 
     def test_peak_with_cluster(self):
         """PeakData should track cluster assignment."""
-        peak = PeakData(name="Peak1", position_x=8.5, position_y=120.5, cluster_id=3)
+        peak = PeakData(name="Peak1", positions=[8.5, 120.5], cluster_id=3)
         assert peak.cluster_id == 3
 
 

@@ -12,6 +12,7 @@ from peakfit.io.writers.base import Verbosity, WriterConfig
 from peakfit.io.writers.csv_writer import CSVWriter
 from peakfit.io.writers.json_writer import JSONWriter
 from peakfit.io.writers.markdown_writer import MarkdownReportGenerator
+from peakfit.io.writers.yaml_writer import YAMLWriter
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -28,6 +29,7 @@ class ResultsWriter:
     Output Structure (default):
         output_dir/
         ├── fit_results.json      # Complete machine-readable results
+        ├── fit_results.yaml      # Human-readable results
         ├── parameters.csv        # All parameters (long format)
         ├── shifts.csv            # Chemical shifts (wide format, easy to use)
         ├── intensities.csv       # Fitted intensities for all peaks
@@ -40,6 +42,7 @@ class ResultsWriter:
     With MCMC diagnostics:
         output_dir/
         ├── fit_results.json
+        ├── fit_results.yaml
         ├── parameters.csv
         ├── shifts.csv
         ├── intensities.csv
@@ -53,6 +56,7 @@ class ResultsWriter:
     With legacy files (--legacy):
         output_dir/
         ├── fit_results.json
+        ├── fit_results.yaml
         ├── parameters.csv
         ├── shifts.csv
         ├── intensities.csv
@@ -78,6 +82,7 @@ class ResultsWriter:
 
         # Initialize individual writers
         self.json_writer = JSONWriter(self.config)
+        self.yaml_writer = YAMLWriter(self.config)
         self.csv_writer = CSVWriter(self.config)
         self.markdown_writer = MarkdownReportGenerator(self.config)
 
@@ -98,7 +103,11 @@ class ResultsWriter:
         # Main files at root level
         fit_json = output_dir / "fit_results.json"
         self.json_writer.write_results(results, fit_json)
-        written_files["fit_results"] = fit_json
+        written_files["fit_results_json"] = fit_json
+
+        fit_yaml = output_dir / "fit_results.yaml"
+        self.yaml_writer.write_results(results, fit_yaml)
+        written_files["fit_results_yaml"] = fit_yaml
 
         report_md = output_dir / "report.md"
         self.markdown_writer.generate_full_report(results, report_md)
@@ -144,7 +153,11 @@ class ResultsWriter:
         # Essential: fit results JSON and parameters CSV
         fit_json = output_dir / "fit_results.json"
         self.json_writer.write_results(results, fit_json)
-        written_files["fit_results"] = fit_json
+        written_files["fit_results_json"] = fit_json
+
+        fit_yaml = output_dir / "fit_results.yaml"
+        self.yaml_writer.write_results(results, fit_yaml)
+        written_files["fit_results_yaml"] = fit_yaml
 
         params_csv = output_dir / "parameters.csv"
         self.csv_writer.write_parameters(results, params_csv)
@@ -189,7 +202,11 @@ class ResultsWriter:
         # Main files at root level
         fit_json = output_dir / "fit_results.json"
         self.json_writer.write_results(results, fit_json)
-        written_files["fit_results"] = fit_json
+        written_files["fit_results_json"] = fit_json
+
+        fit_yaml = output_dir / "fit_results.yaml"
+        self.yaml_writer.write_results(results, fit_yaml)
+        written_files["fit_results_yaml"] = fit_yaml
 
         report_md = output_dir / "report.md"
         self.markdown_writer.generate_summary_report(results, report_md)

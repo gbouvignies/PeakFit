@@ -82,12 +82,10 @@ def write_new_format_outputs(
     config: dict | None = None,
     input_files: dict[str, Path] | None = None,
     verbosity: str = "standard",
-    include_legacy: bool = True,
 ) -> dict[str, Path]:
     """Write outputs in the new structured format.
 
-    This function generates outputs using the new output system while
-    optionally maintaining backward compatibility with legacy formats.
+    This function generates outputs using the new output system.
 
     Args:
         output_dir: Base output directory
@@ -98,7 +96,6 @@ def write_new_format_outputs(
         config: Configuration dictionary
         input_files: Input file paths for metadata
         verbosity: Output verbosity level ("minimal", "standard", "full")
-        include_legacy: Whether to include legacy format outputs
 
     Returns
     -------
@@ -116,7 +113,7 @@ def write_new_format_outputs(
     verb = verbosity_map.get(verbosity, Verbosity.STANDARD)
 
     writer_config = WriterConfig(verbosity=verb)
-    writer = ResultsWriter(config=writer_config, include_legacy=include_legacy)
+    writer = ResultsWriter(config=writer_config)
 
     with console.status("[cyan]Writing outputs...[/cyan]", spinner="dots"):
         written_files = writer.write_for_verbosity(results, output_dir, verb)

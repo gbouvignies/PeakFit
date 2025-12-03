@@ -215,10 +215,8 @@ def _apply_pattern(params: Parameters, pattern: str, *, vary: bool) -> None:
     regex = fnmatch.translate(pattern)
 
     for name, param in params.items():
-        if re.match(regex, name):
-            # Don't modify computed parameters
-            if not param.computed:
-                param.vary = vary
+        if re.match(regex, name) and not param.computed:
+            param.vary = vary
 
 
 @dataclass
@@ -341,9 +339,7 @@ class ProtocolExecutor:
             message=f"Step '{step.name}': {n_converged}/{n_total} converged",
         )
 
-    def _get_cluster_params(
-        self, params: Parameters, cluster: Cluster
-    ) -> Parameters:
+    def _get_cluster_params(self, params: Parameters, cluster: Cluster) -> Parameters:
         """Extract parameters relevant to a cluster.
 
         Args:
@@ -369,9 +365,7 @@ class ProtocolExecutor:
 
         return cluster_params
 
-    def _log_step_start(
-        self, step: FitStep, step_idx: int, n_vary: int, n_fixed: int
-    ) -> None:
+    def _log_step_start(self, step: FitStep, step_idx: int, n_vary: int, n_fixed: int) -> None:
         """Log step start information."""
         from peakfit.ui import console
 

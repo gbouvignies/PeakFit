@@ -19,11 +19,11 @@ from peakfit.core.shared.constants import (
     LEAST_SQUARES_XTOL,
 )
 from peakfit.core.shared.events import Event, EventType
-from peakfit.io.output import write_profiles, write_shifts
 from peakfit.io.state import StateRepository
 from peakfit.services.fit.fitting import fit_all_clusters
 from peakfit.services.fit.writer import write_new_format_outputs, write_simulated_spectra
 from peakfit.ui import (
+    Verbosity,
     close_logging,
     console,
     create_table,
@@ -33,11 +33,11 @@ from peakfit.ui import (
     log,
     log_dict,
     log_section,
+    set_verbosity,
     setup_logging,
-    show_banner,
     show_footer,
     show_header,
-    show_run_info,
+    show_standard_header,
     spacer,
     success,
     warning,
@@ -87,8 +87,8 @@ def config_to_fit_args(
         refine_nb=config.fitting.refine_iterations,
         fixed=config.fitting.fix_positions,
         jx=config.fitting.fit_j_coupling,
-        phx=config.fitting.fit_phase_x,
-        phy=config.fitting.fit_phase_y,
+        phx="F3" in config.fitting.fit_phase,
+        phy="F2" in config.fitting.fit_phase,
         exclude=config.exclude_planes,
         pvoigt=config.fitting.lineshape == "pvoigt",
         lorentzian=config.fitting.lineshape == "lorentzian",
@@ -165,13 +165,13 @@ class FitPipeline:
         )
 
         # Setup logging
-        log_file = config.output.directory / "peakfit.log"
+        log_filename = "peakfit.json" if config.output.log_format == "json" else "peakfit.log"
+        log_file = config.output.directory / log_filename
         setup_logging(log_file=log_file, verbose=False)
 
-        if verbose:
-            show_banner(verbose)
-        else:
-            show_run_info(start_time_dt)
+        # Set verbosity and show header
+        set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+        show_standard_header("Fitting Process")
 
         # NOTE: we do not mutate the configuration object to set a runtime
         # 'verbose' flag; instead, pass the `verbose` value explicitly to any
@@ -330,31 +330,27 @@ class FitPipeline:
             workers=workers,
         )
 
-        console.print()
-        show_header("Fitting Complete")
-
         end_time_dt = datetime.now()
         total_time = (end_time_dt - start_time_dt).total_seconds()
 
+        _dispatch_event(
+            dispatcher,
+            Event(
+                event_type=EventType.FIT_COMPLETED,
+                data={
+                    "clusters": len(clusters),
+                    "peaks": len(peaks),
+                    "total_time_sec": total_time,
+                    "output_dir": str(config.output.directory),
+                },
+            ),
+        )
+
+        console.print()
+        show_header("Fitting Complete")
+
         log_section("Output Files")
         config.output.directory.mkdir(parents=True, exist_ok=True)
-
-        # Write legacy .out files only if --legacy flag is set
-        if config.output.include_legacy:
-            legacy_dir = config.output.directory / "legacy"
-            legacy_dir.mkdir(parents=True, exist_ok=True)
-
-            with console.status("[cyan]Writing legacy profiles...[/cyan]", spinner="dots"):
-                write_profiles(legacy_dir, spectra.z_values, clusters, params, clargs)
-            success(
-                f"Legacy profiles: {config.output.directory.name}/legacy/{len(peaks)} *.out files"
-            )
-            log(f"Legacy profile files: {len(peaks)} *.out files in legacy/")
-
-            with console.status("[cyan]Writing legacy shifts...[/cyan]", spinner="dots"):
-                write_shifts(peaks, params, legacy_dir / "shifts.list")
-            success(f"Legacy shifts: {config.output.directory.name}/legacy/shifts.list")
-            log("Legacy shifts file: legacy/shifts.list")
 
         if config.output.save_simulated:
             write_simulated_spectra(config.output.directory, spectra, clusters, params)
@@ -395,7 +391,6 @@ class FitPipeline:
                 config=config.model_dump(),
                 input_files=input_files,
                 verbosity=config.output.verbosity,
-                include_legacy=config.output.include_legacy,
             )
 
         log(f"Log file: {log_file}")
@@ -406,52 +401,12 @@ class FitPipeline:
         log(f"Total time: {total_time:.0f}s ({total_time / 60:.1f}m)")
         log(f"Average time per cluster: {total_time / len(clusters):.1f}s")
 
-        console.print()
-        summary_table = create_table("Results Summary")
-        summary_table.add_column("Metric", style="cyan")
-        summary_table.add_column("Value", style="white", justify="right")
+        from peakfit.ui.fit_display import print_fit_summary
 
-        summary_table.add_row("Total clusters", str(len(clusters)))
-        summary_table.add_row("Total peaks", str(len(peaks)))
-
-        successful_clusters = len(clusters)
-        if len(clusters) > 0:
-            success_pct = successful_clusters / len(clusters) * 100
-            summary_table.add_row(
-                "Successful fits",
-                f"{successful_clusters}/{len(clusters)} ({success_pct:.0f}%)",
-            )
-        else:
-            summary_table.add_row("Successful fits", "0/0 (0%)")
-
-        if total_time < 60:
-            time_str = f"{total_time:.1f}s"
-        else:
-            time_str = f"{int(total_time // 60)}m {int(total_time % 60)}s"
-        summary_table.add_row("Total time", time_str)
-
-        avg_time_per_cluster = total_time / len(clusters) if len(clusters) > 0 else 0
-        summary_table.add_row("Time per cluster", f"{avg_time_per_cluster:.1f}s")
-        summary_table.add_row("Mode", "Automatic")
-
-        console.print(summary_table)
-        console.print()
+        print_fit_summary(clusters, peaks, total_time)
 
         output_dir_name = config.output.directory.name
         spectrum_name = spectrum_path.name
-
-        _dispatch_event(
-            dispatcher,
-            Event(
-                event_type=EventType.FIT_COMPLETED,
-                data={
-                    "clusters": len(clusters),
-                    "peaks": len(peaks),
-                    "total_time_sec": total_time,
-                    "output_dir": str(config.output.directory),
-                },
-            ),
-        )
 
         show_header("Next Steps")
         console.print("1. View intensity profiles:")

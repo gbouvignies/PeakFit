@@ -8,7 +8,16 @@ from typing import Annotated
 import typer
 
 from peakfit.io.config import generate_default_config
-from peakfit.ui import console, error, info, print_next_steps, show_banner, success
+from peakfit.ui import (
+    Verbosity,
+    console,
+    error,
+    info,
+    print_next_steps,
+    set_verbosity,
+    show_standard_header,
+    success,
+)
 
 
 def init_command(
@@ -32,6 +41,7 @@ def init_command(
         bool,
         typer.Option(
             "--verbose",
+            "-v",
             help="Show banner and verbose output",
         ),
     ] = False,
@@ -43,17 +53,18 @@ def init_command(
 
     Examples
     --------
-      Create default config:
+    Create default config:
         $ peakfit init
 
-      Create config with custom name:
+    Create config with custom name:
         $ peakfit init my_analysis.toml
 
-      Overwrite existing config:
+    Overwrite existing config:
         $ peakfit init --force
     """
-    # Show banner based on verbosity
-    show_banner(verbose)
+    # Set verbosity and show header
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+    show_standard_header("Configuration Initialization")
 
     if path.exists() and not force:
         error(f"File already exists: [path]{path}[/path]")

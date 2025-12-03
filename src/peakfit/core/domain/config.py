@@ -11,6 +11,7 @@ from peakfit.core.fitting.protocol import FitStep
 LineshapeName = Literal["auto", "gaussian", "lorentzian", "pvoigt", "sp1", "sp2", "no_apod"]
 OutputFormat = Literal["csv", "json", "txt"]
 OutputVerbosity = Literal["minimal", "standard", "full"]
+LogFormat = Literal["text", "json"]
 
 
 class FitConfig(BaseModel):
@@ -70,15 +71,6 @@ class FitConfig(BaseModel):
         default_factory=list,
         description="Dimensions to fit phase correction for (e.g., ['F1', 'F2']).",
     )
-    # Legacy aliases for backward compatibility
-    fit_phase_x: bool = Field(
-        default=False,
-        description="Fit phase correction in direct dimension (deprecated, use fit_phase).",
-    )
-    fit_phase_y: bool = Field(
-        default=False,
-        description="Fit phase correction in indirect dimension (deprecated, use fit_phase).",
-    )
     max_iterations: Annotated[int, Field(gt=0)] = Field(
         default=1000,
         description="Maximum iterations for optimizer.",
@@ -97,8 +89,6 @@ class FitConfig(BaseModel):
     def get_phase_dimensions(self, n_spectral_dims: int = 2) -> list[str]:
         """Get list of dimension labels to fit phase for.
 
-        Handles both new fit_phase list and legacy fit_phase_x/y flags.
-
         Args:
             n_spectral_dims: Number of spectral dimensions (for Fn labeling)
 
@@ -106,20 +96,7 @@ class FitConfig(BaseModel):
         -------
             List of dimension labels like ['F1', 'F2']
         """
-        if self.fit_phase:
-            return self.fit_phase
-
-        # Convert legacy flags to dimension labels
-        # For 2D: x = F2 (direct), y = F1 (indirect)
-        # For 3D: x = F3 (direct), y = F2 (first indirect)
-        dims = []
-        if self.fit_phase_y:
-            # Indirect dimension (F1 for 2D, F2 for 3D)
-            dims.append(f"F{n_spectral_dims - 1}")
-        if self.fit_phase_x:
-            # Direct dimension (F2 for 2D, F3 for 3D)
-            dims.append(f"F{n_spectral_dims}")
-        return dims
+        return self.fit_phase
 
     def has_protocol(self) -> bool:
         """Check if a multi-step protocol is defined."""
@@ -164,10 +141,6 @@ class OutputConfig(BaseModel):
     )
     save_simulated: bool = Field(default=True, description="Save simulated spectrum to file.")
     save_html_report: bool = Field(default=False, description="Save HTML report of fitting.")
-    include_legacy: bool = Field(
-        default=False,
-        description="Generate legacy format output files in legacy/ subdirectory.",
-    )
     save_chains: bool = Field(
         default=False,
         description="Save MCMC chains to disk (requires significant storage).",
@@ -176,6 +149,10 @@ class OutputConfig(BaseModel):
     include_timestamp: bool = Field(
         default=False,
         description="Include timestamp in output directory name.",
+    )
+    log_format: LogFormat = Field(
+        default="text",
+        description="Format for log file: text (human-readable) or json (structured).",
     )
 
 
@@ -260,31 +237,11 @@ class PeakData(BaseModel):
         default_factory=list,
         description="Peak positions in ppm, ordered from F1 to Fn (indirect to direct).",
     )
-    # Legacy fields for backward compatibility (2D spectra)
-    position_x: float | None = Field(
-        default=None, description="X/direct dimension position in ppm (deprecated)"
-    )
-    position_y: float | None = Field(
-        default=None, description="Y/indirect dimension position in ppm (deprecated)"
-    )
-    position_z: float | None = Field(
-        default=None, description="Z position in ppm for 3D (deprecated)"
-    )
     cluster_id: int | None = Field(default=None, description="Assigned cluster ID")
 
     def get_positions(self) -> list[float]:
-        """Get positions as a list, handling both new and legacy formats."""
-        if self.positions:
-            return self.positions
-        # Convert legacy x/y/z to list
-        pos = []
-        if self.position_y is not None:
-            pos.append(self.position_y)  # F1 (indirect)
-        if self.position_z is not None:
-            pos.append(self.position_z)  # F2 for 3D
-        if self.position_x is not None:
-            pos.append(self.position_x)  # Fn (direct)
-        return pos
+        """Get positions as a list."""
+        return self.positions
 
 
 class FitResultPeak(BaseModel):
@@ -315,15 +272,6 @@ class FitResultPeak(BaseModel):
         default_factory=list,
         description="Dimension labels like ['F1', 'F2'].",
     )
-    # Legacy fields for backward compatibility
-    position_x: float | None = None
-    position_x_error: float | None = None
-    position_y: float | None = None
-    position_y_error: float | None = None
-    fwhm_x: float | None = None
-    fwhm_x_error: float | None = None
-    fwhm_y: float | None = None
-    fwhm_y_error: float | None = None
     amplitudes: list[float] = Field(default_factory=list)
     amplitude_errors: list[float] = Field(default_factory=list)
 
@@ -359,6 +307,7 @@ __all__ = [
     "FitResultPeak",
     "FitStep",
     "LineshapeName",
+    "LogFormat",
     "OutputConfig",
     "OutputFormat",
     "OutputVerbosity",

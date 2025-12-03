@@ -7,7 +7,7 @@ for the output format.
 
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -46,8 +46,7 @@ class FittingConfiguration(BaseModel):
     refine_iterations: int = Field(default=1, ge=0)
     fix_positions: bool = Field(default=False)
     fit_j_coupling: bool = Field(default=False)
-    fit_phase_x: bool = Field(default=False)
-    fit_phase_y: bool = Field(default=False)
+    fit_phase: list[str] = Field(default_factory=list)
     max_iterations: int = Field(default=1000, gt=0)
     tolerance: float = Field(default=1e-8, gt=0)
 

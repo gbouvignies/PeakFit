@@ -2,36 +2,40 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 import numpy as np
-
-from peakfit.core.fitting.parameters import Parameters
-from peakfit.core.lineshapes import LineshapeFactory
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from peakfit.core.lineshapes import Shape
-    from peakfit.core.shared.typing import FittingOptions, FloatArray, IntArray
-
-if TYPE_CHECKING:
-    from peakfit.core.domain.spectrum import Spectra
+    from peakfit.core.fitting.parameters import Parameters
+    from peakfit.core.shared.typing import FloatArray, IntArray
 
 
-@dataclass
-class Peak:
+class Peak(BaseModel):
     """Represents a single NMR peak with parameterized shapes."""
 
-    name: str
-    positions: FloatArray
-    shapes: list[Shape]
-    positions_start: FloatArray = field(init=False)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
-    def __post_init__(self) -> None:
+    name: str
+    positions: Any = Field(description="Peak positions (FloatArray)")
+    shapes: list[Any] = Field(description="List of Shape objects")
+    positions_start: Any = Field(
+        default=None, init=False, description="Initial positions (FloatArray)"
+    )
+
+    @model_validator(mode="after")
+    def initialize_positions_start(self) -> Peak:
         """Store a copy of initial positions for later reference."""
-        self.positions_start = self.positions.copy()
+        if self.positions_start is None:
+            # Ensure positions is a numpy array
+            if not isinstance(self.positions, np.ndarray):
+                self.positions = np.array(self.positions, dtype=float)
+            self.positions_start = self.positions.copy()
+        return self
 
     def set_cluster_id(self, cluster_id: int) -> None:
         """Assign cluster_id to all shapes belonging to this peak."""
@@ -40,6 +44,8 @@ class Peak:
 
     def create_params(self) -> Parameters:
         """Create `Parameters` for each shape in this peak and return combined result."""
+        from peakfit.core.fitting.parameters import Parameters
+
         params = Parameters()
         for shape in self.shapes:
             params.update(shape.create_params())
@@ -93,27 +99,6 @@ class Peak:
             shape.center = position
 
 
-def create_peak(
-    name: str,
-    positions: Sequence[float],
-    shape_names: list[str],
-    spectra: Spectra,
-    args: FittingOptions,
-) -> Peak:
-    """Create a `Peak` object with shapes constructed from `shape_names`.
-
-    Args:
-        name: Peak name
-        positions: Positions per dimension (ppm)
-        shape_names: Shape names per dimension
-        spectra: Spectra metadata object
-        args: CLI fitting options
-    """
-    factory = LineshapeFactory(spectra, args)
-    shapes = factory.create_shapes(name, positions, shape_names)
-    return Peak(name, np.array(positions), shapes)
-
-
 def create_params(peaks: list[Peak], *, fixed: bool = False) -> Parameters:
     """Combine parameters from a list of `Peak` objects into a single `Parameters`.
 
@@ -121,6 +106,8 @@ def create_params(peaks: list[Peak], *, fixed: bool = False) -> Parameters:
         peaks: List of peaks
         fixed: If True, set position parameters to not vary
     """
+    from peakfit.core.fitting.parameters import Parameters
+
     params = Parameters()
     for peak in peaks:
         params.update(peak.create_params())
@@ -133,4 +120,4 @@ def create_params(peaks: list[Peak], *, fixed: bool = False) -> Parameters:
     return params
 
 
-__all__ = ["Peak", "create_params", "create_peak"]
+__all__ = ["Peak", "create_params"]

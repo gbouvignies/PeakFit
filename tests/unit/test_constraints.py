@@ -10,7 +10,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from peakfit.core.fitting.constraints import (
@@ -25,10 +24,8 @@ from peakfit.core.fitting.constraints import (
     constraints_from_cli,
 )
 from peakfit.core.fitting.parameters import (
-    Parameter,
-    Parameters,
     ParameterId,
-    ParameterType,
+    Parameters,
 )
 
 

@@ -13,10 +13,24 @@ Submodules:
 - fit_display: HTML export utility
 """
 
-from peakfit.ui.branding import show_banner, show_run_info, show_version
+from peakfit.ui.branding import (
+    show_banner,
+    show_run_info,
+    show_standard_header,
+    show_version,
+)
 
 # Re-export submodule contents for direct access
-from peakfit.ui.console import LOGO_ASCII, PEAKFIT_THEME, REPO_URL, VERSION, console
+from peakfit.ui.console import (
+    LOGO_ASCII,
+    PEAKFIT_THEME,
+    REPO_URL,
+    VERSION,
+    Verbosity,
+    console,
+    get_verbosity,
+    set_verbosity,
+)
 from peakfit.ui.fit_display import export_html
 from peakfit.ui.logging import close_logging, log, log_dict, log_section, setup_logging
 from peakfit.ui.messages import (
@@ -51,6 +65,7 @@ __all__ = [
     "REPO_URL",
     "VERSION",
     "ConsoleReporter",
+    "Verbosity",
     "action",
     "bullet",
     "close_logging",
@@ -60,6 +75,7 @@ __all__ = [
     "create_table",
     "error",
     "export_html",
+    "get_verbosity",
     "info",
     "log",
     "log_dict",
@@ -69,6 +85,7 @@ __all__ = [
     "print_summary",
     "print_validation_table",
     "separator",
+    "set_verbosity",
     "setup_logging",
     "show_banner",
     "show_error_with_details",
@@ -76,6 +93,7 @@ __all__ = [
     "show_footer",
     "show_header",
     "show_run_info",
+    "show_standard_header",
     "show_subheader",
     "show_version",
     "spacer",

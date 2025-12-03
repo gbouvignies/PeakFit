@@ -339,40 +339,40 @@ class TestResultsWriter:
 
     def test_write_minimal(self, tmp_path: Path, sample_results: FitResults) -> None:
         """Test minimal output writing."""
-        writer = ResultsWriter(include_legacy=False)
+        writer = ResultsWriter()
         written = writer.write_minimal(sample_results, tmp_path)
 
         # New flat structure uses simpler keys
         assert "parameters" in written
-        assert "fit_results" in written
+        assert "fit_results_json" in written
         assert written["parameters"].exists()
-        assert written["fit_results"].exists()
+        assert written["fit_results_json"].exists()
 
     def test_write_all(self, tmp_path: Path, sample_results: FitResults) -> None:
         """Test full output writing."""
-        writer = ResultsWriter(include_legacy=False)
+        writer = ResultsWriter()
         written = writer.write_all(sample_results, tmp_path)
 
         # Check essential outputs (new flat structure)
         assert "parameters" in written
-        assert "fit_results" in written
+        assert "fit_results_json" in written
         assert "report" in written
 
         # Verify JSON is valid
-        fit_json = written["fit_results"]
+        fit_json = written["fit_results_json"]
         data = json.loads(fit_json.read_text())
         assert "metadata" in data
         assert "clusters" in data
 
     def test_write_for_verbosity(self, tmp_path: Path, sample_results: FitResults) -> None:
         """Test verbosity-controlled writing."""
-        writer = ResultsWriter(include_legacy=False)
+        writer = ResultsWriter()
 
         # Minimal
         minimal_dir = tmp_path / "minimal"
         minimal_dir.mkdir()
         minimal_written = writer.write_for_verbosity(sample_results, minimal_dir, Verbosity.MINIMAL)
-        assert len(minimal_written) < 5  # Few files
+        assert len(minimal_written) == 5  # Essential files
 
         # Full
         full_dir = tmp_path / "full"

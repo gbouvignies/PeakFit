@@ -30,14 +30,58 @@ class _SpectraStub(Spectra):
     """Lightweight spectra stub for factory tests."""
 
     def __init__(self, params: list[SpectralParameters]) -> None:
-        self.dic = {}
-        self.data = np.zeros((1, 8, 8), dtype=np.float32)
-        self.z_values = np.arange(self.data.shape[0])
+        # Initialize parent with required fields
+        dic = {
+            "FDDIMORDER": [2.0, 1.0, 3.0, 4.0],
+            "FD2DPHASE": 0.0,
+            "FDQUADFLAG": 0.0,
+            "FDF1SW": 1000.0,
+            "FDF1OBS": 500.0,
+            "FDF1ORIG": 0.0,
+            "FDF1FTFLAG": 1.0,
+            "FDF1CAR": 0.0,
+            "FDF1APOD": 0.0,
+            "FDF1P1": 0.0,
+            "FDF1LABEL": "N",
+            "FDF1QUADFLAG": 0.0,
+            "FDF2SW": 1000.0,
+            "FDF2OBS": 500.0,
+            "FDF2ORIG": 0.0,
+            "FDF2FTFLAG": 1.0,
+            "FDF2CAR": 0.0,
+            "FDF2APOD": 0.0,
+            "FDF2P1": 0.0,
+            "FDF2LABEL": "C",
+            "FDF2QUADFLAG": 0.0,
+            "FDF3SW": 1000.0,
+            "FDF3OBS": 500.0,
+            "FDF3ORIG": 0.0,
+            "FDF3FTFLAG": 1.0,
+            "FDF3CAR": 0.0,
+            "FDF3APOD": 0.0,
+            "FDF3P1": 0.0,
+            "FDF3LABEL": "H",
+            "FDF3QUADFLAG": 0.0,
+            "FDF4SW": 1000.0,
+            "FDF4OBS": 500.0,
+            "FDF4ORIG": 0.0,
+            "FDF4FTFLAG": 1.0,
+            "FDF4CAR": 0.0,
+            "FDF4APOD": 0.0,
+            "FDF4P1": 0.0,
+            "FDF4LABEL": "X",
+            "FDF4QUADFLAG": 0.0,
+        }
+        super().__init__(
+            dic=dic,
+            data=np.zeros((1, 8, 8), dtype=np.float32),
+            z_values=np.arange(1),
+        )
         self.pseudo_dim_added = False
         self._params = params
 
     @property
-    def params(self) -> list[SpectralParameters]:  # type: ignore[override]
+    def params(self) -> list[SpectralParameters]:
         return self._params
 
 

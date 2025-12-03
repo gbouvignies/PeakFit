@@ -8,13 +8,14 @@ from typing import Annotated
 import typer  # Required at runtime by Typer
 
 from peakfit.ui import (
+    Verbosity,
     console,
     error,
     info,
     print_summary,
     print_validation_table,
-    show_banner,
-    show_header,
+    set_verbosity,
+    show_standard_header,
     spacer,
     success,
     warning,
@@ -44,6 +45,7 @@ def validate_command(
         bool,
         typer.Option(
             "--verbose",
+            "-v",
             help="Show banner and verbose output",
         ),
     ] = False,
@@ -51,13 +53,19 @@ def validate_command(
     """Validate input files before fitting.
 
     Check that spectrum and peak list files are readable and compatible.
+
+    Examples
+    --------
+    Validate files:
+        $ peakfit validate spectrum.ft2 peaks.list
     """
     from peakfit.services.validate import ValidationService
 
-    # Show banner based on verbosity
-    show_banner(verbose)
+    # Set verbosity
+    set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
 
-    show_header("Validating Input Files")
+    # Show standard header
+    show_standard_header("Validating Input Files")
 
     # Run validation
     result = ValidationService.validate(spectrum, peaklist)

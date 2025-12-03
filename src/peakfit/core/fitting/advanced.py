@@ -581,6 +581,7 @@ def estimate_uncertainties_mcmc(
     n_steps: int = MCMC_N_STEPS,
     burn_in: int | None = None,
     workers: int = 1,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> UncertaintyResult:
     """Estimate parameter uncertainties using MCMC sampling.
 
@@ -604,6 +605,7 @@ def estimate_uncertainties_mcmc(
             using R-hat convergence monitoring (recommended).
         workers: Number of parallel workers for likelihood evaluation.
             Use 1 for sequential (default), -1 for all CPUs.
+        progress_callback: Optional callback(step, total_steps, status) for progress reporting.
 
     Returns
     -------
@@ -650,7 +652,10 @@ def estimate_uncertainties_mcmc(
             ) as pool,
         ):
             sampler = emcee.EnsembleSampler(n_walkers, ndim, _log_likelihood_global, pool=pool)
-            sampler.run_mcmc(pos, n_steps, progress=False)
+            # Run MCMC with progress callback
+            for i, _sample in enumerate(sampler.sample(pos, iterations=n_steps, progress=False)):
+                if progress_callback:
+                    progress_callback(i + 1, n_steps)
     else:
         # Sequential execution with local closure (simpler, no globals needed)
         def log_likelihood(x: FloatArray) -> float:
@@ -664,7 +669,14 @@ def estimate_uncertainties_mcmc(
             return float(-0.5 * np.sum(res**2))
 
         sampler = emcee.EnsembleSampler(n_walkers, ndim, log_likelihood)
-        sampler.run_mcmc(pos, n_steps, progress=False)
+        # Run MCMC with progress callback
+        for i, _sample in enumerate(sampler.sample(pos, iterations=n_steps, progress=False)):
+            if progress_callback:
+                progress_callback(i + 1, n_steps)
+
+    # Signal processing phase
+    if progress_callback:
+        progress_callback(n_steps, n_steps, "Processing results...")
 
     # Get FULL chains including burn-in for diagnostic plotting
     # emcee returns shape (n_steps, n_walkers, n_params)

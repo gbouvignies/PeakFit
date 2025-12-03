@@ -277,14 +277,15 @@ class ApodShape(BaseShape):
 
     def __getstate__(self) -> dict:
         """Prepare state for pickling - exclude the closure."""
-        state = self.__dict__.copy()
+        state = vars(self).copy()
         # Remove the unpicklable closure
         state.pop("_evaluator", None)
         return state
 
     def __setstate__(self, state: dict) -> None:
         """Restore state from pickle - recreate the closure."""
-        self.__dict__.update(state)
+        for key, value in state.items():
+            setattr(self, key, value)
         # Recreate the evaluator
         self._evaluator = self._create_evaluator()
 

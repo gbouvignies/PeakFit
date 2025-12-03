@@ -18,19 +18,40 @@ from rich import box
 from rich.panel import Panel
 from rich.text import Text
 
-from peakfit.ui.console import LOGO_ASCII, LOGO_EMOJI, REPO_URL, VERSION, console
+from peakfit.ui.console import (
+    LOGO_ASCII,
+    LOGO_EMOJI,
+    REPO_URL,
+    VERSION,
+    Verbosity,
+    console,
+    get_verbosity,
+)
 from peakfit.ui.logging import log
 
 
-def show_banner(verbose: bool = False) -> None:
-    """Show PeakFit banner based on verbosity level.
+def show_standard_header(title: str | None = None) -> None:
+    """Show standard header based on current verbosity level.
 
     Args:
-        verbose: If True, show full banner with logo
+        title: Optional title for the header (e.g. "Fitting Process")
     """
-    if not verbose:
+    verbosity = get_verbosity()
+
+    if verbosity == Verbosity.QUIET:
         return
 
+    if verbosity == Verbosity.VERBOSE:
+        # Verbose: Show full ASCII banner and run info
+        _show_full_banner()
+        _show_run_info_panel()
+    else:
+        # Normal: Show compact header
+        _show_compact_header(title)
+
+
+def _show_full_banner() -> None:
+    """Show full ASCII banner."""
     logo_text = Text(LOGO_ASCII, style="bold cyan")
     description_text = Text(
         f"Modern NMR Peak Fitting for Pseudo-3D Spectra\n{REPO_URL}\n\n",
@@ -43,21 +64,11 @@ def show_banner(verbose: bool = False) -> None:
     console.print(panel)
 
 
-def show_version() -> None:
-    """Show version information (for --version flag)."""
-    console.print(f"\n{LOGO_EMOJI} [header]PeakFit[/header] [dim]v{VERSION}[/dim]")
-    console.print(f"[dim]{REPO_URL}[/dim]\n")
+def _show_run_info_panel() -> None:
+    """Show detailed run information panel."""
+    from datetime import datetime
 
-
-def show_run_info(start_time: datetime) -> None:
-    """Show run information header with context.
-
-    Args:
-        start_time: When the program started
-    """
-    # Logo and version
-    console.print(f"\n{LOGO_EMOJI} [bold cyan]PeakFit[/bold cyan] [dim]v{VERSION}[/dim]")
-    console.print("━" * 70 + "\n")
+    start_time = datetime.now()
 
     # Get command line arguments and clean them
     if sys.argv and ("peakfit" in sys.argv[0] or sys.argv[0].endswith(".py")):
@@ -100,12 +111,46 @@ def show_run_info(start_time: datetime) -> None:
     console.print()
 
     # Log this information
-    original_command = " ".join(sys.argv)
+    _log_run_info(start_time, command_args)
+
+
+def _show_compact_header(title: str | None) -> None:
+    """Show compact header with version and timestamp."""
+    from datetime import datetime
+
+    from rich.table import Table
+
+    grid = Table.grid(expand=True)
+    grid.add_column(justify="left", ratio=1)
+    grid.add_column(justify="right", ratio=1)
+
+    grid.add_row(
+        f"{LOGO_EMOJI} [bold cyan]PeakFit v{VERSION}[/bold cyan]",
+        f"[dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
+    )
+
+    if title:
+        console.print(
+            Panel(
+                grid,
+                title=f"[bold]{title}[/bold]",
+                border_style="cyan",
+                subtitle="[dim]Modern NMR Analysis[/dim]",
+            )
+        )
+    else:
+        console.print(grid)
+        console.print("━" * 70)
+    console.print()
+
+
+def _log_run_info(start_time: datetime, command_args: str) -> None:
+    """Log run information to file."""
     log("=" * 60)
     log(f"PeakFit v{VERSION} started")
     log("=" * 60)
     log(f"Started: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    log(f"Command: {original_command}")
+    log(f"Command: {command_args}")
     log(f"Working directory: {Path.cwd()}")
     log(f"Python: {sys.version.split()[0]}")
     log(f"Platform: {platform.platform()}")
@@ -119,13 +164,29 @@ def show_run_info(start_time: datetime) -> None:
     log("=" * 60)
 
 
-def show_footer(start_time: datetime, end_time: datetime) -> None:
-    """Show run completion footer.
+# Deprecated functions kept for backward compatibility
+def show_banner(verbose: bool = False) -> None:
+    """Show PeakFit banner (Deprecated: use show_standard_header)."""
+    if verbose:
+        _show_full_banner()
 
-    Args:
-        start_time: When the program started
-        end_time: When the program ended
-    """
+
+def show_run_info(start_time: datetime) -> None:
+    """Show run info (Deprecated: use show_standard_header)."""
+    _show_run_info_panel()
+
+
+def show_version() -> None:
+    """Show version information (for --version flag)."""
+    console.print(f"\n{LOGO_EMOJI} [header]PeakFit[/header] [dim]v{VERSION}[/dim]")
+    console.print(f"[dim]{REPO_URL}[/dim]\n")
+
+
+def show_footer(start_time: datetime, end_time: datetime) -> None:
+    """Show run completion footer."""
+    if get_verbosity() == Verbosity.QUIET:
+        return
+
     elapsed = end_time - start_time
     minutes, seconds = divmod(elapsed.total_seconds(), 60)
 
@@ -142,5 +203,6 @@ __all__ = [
     "show_banner",
     "show_footer",
     "show_run_info",
+    "show_standard_header",
     "show_version",
 ]
