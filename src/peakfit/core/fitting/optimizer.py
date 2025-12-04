@@ -135,6 +135,103 @@ def compute_residuals(
     return residuals(params_template, cluster, noise)
 
 
+def compute_jacobian(
+    x: np.ndarray,
+    names: list[str],
+    params_template: Parameters,
+    cluster: "Cluster",
+    noise: float,
+) -> np.ndarray:
+    """Compute Jacobian for scipy.optimize.least_squares using VarPro.
+
+    Uses the Kaufman approximation for the Variable Projection Jacobian:
+    J approx - (I - P_S) (dS/dtheta) c
+    where P_S is the projector onto the subspace spanned by the shape functions S,
+    and c are the linear amplitudes.
+
+    Args:
+        x: Current parameter values (varying only)
+        names: Parameter names
+        params_template: Template Parameters with fixed values
+        cluster: Cluster being fit
+        noise: Noise level
+
+    Returns
+    -------
+        Jacobian matrix of shape (n_residuals, n_params)
+    """
+    from peakfit.core.fitting.computation import calculate_amplitudes
+
+    # Update parameters with current values
+    for i, name in enumerate(names):
+        params_template[name].value = x[i]
+
+    # 1. Evaluate shapes and derivatives
+    shapes_list = []
+    derivs_list = []
+
+    for peak in cluster.peaks:
+        # evaluate_derivatives returns (val, dict_derivs)
+        val, derivs = peak.evaluate_derivatives(cluster.positions, params_template)
+        shapes_list.append(val)
+        derivs_list.append(derivs)
+
+    shapes = np.array(shapes_list)  # (n_peaks, n_points)
+    n_points = shapes.shape[1]
+
+    # 2. Compute optimal amplitudes
+    # amplitudes: (n_peaks,) or (n_peaks, n_planes)
+    amplitudes = calculate_amplitudes(shapes, cluster.corrected_data)
+
+    # Handle dimensions for multi-plane data
+    if amplitudes.ndim == 1:
+        amplitudes = amplitudes[:, np.newaxis]  # (n_peaks, 1)
+    n_planes = amplitudes.shape[1]
+
+    # 3. Construct V matrix (unprojected Jacobian components)
+    # V_tensor: (n_points, n_planes, n_params)
+    n_params = len(names)
+    V_tensor = np.zeros((n_points, n_planes, n_params))
+    param_name_to_idx = {name: i for i, name in enumerate(names)}
+
+    for i, peak in enumerate(cluster.peaks):
+        amp = amplitudes[i]  # (n_planes,)
+        peak_derivs = derivs_list[i]
+
+        for p_name, d_val in peak_derivs.items():
+            if p_name in param_name_to_idx:
+                idx = param_name_to_idx[p_name]
+                # d_val is (n_points,)
+                # V[:, :, idx] += np.outer(d_val, amp)
+                # Manual outer product to avoid broadcasting issues if shapes mismatch
+                V_tensor[:, :, idx] += d_val[:, np.newaxis] * amp[np.newaxis, :]
+
+    # 4. Project V onto orthogonal complement of S (VarPro)
+    # Flatten planes and params to treat as multiple RHS for linear solve
+    # V_flat: (n_points, n_planes * n_params)
+    V_flat = V_tensor.reshape(n_points, -1)
+
+    # X = (S^T S)^-1 S^T V_flat
+    # This projects V_flat onto the subspace S
+    X = calculate_amplitudes(shapes, V_flat)
+
+    # P_perp V = V - S X
+    # S is shapes.T in matrix notation (n_points, n_peaks)
+    projection = shapes.T @ X
+    P_perp_V_flat = V_flat - projection
+
+    # 5. Reshape and scale
+    # We need to flatten (n_points, n_planes) to match residuals.ravel()
+    # P_perp_V_flat is (n_points, n_planes * n_params)
+    # Reshape to (n_points, n_planes, n_params)
+    P_perp_V_tensor = P_perp_V_flat.reshape(n_points, n_planes, n_params)
+
+    # Flatten first two dims: (n_points * n_planes, n_params)
+    J = -P_perp_V_tensor.reshape(-1, n_params)
+
+    return J / noise
+
+
 def fit_cluster(
     params: Parameters,
     cluster: "Cluster",
@@ -317,6 +414,7 @@ def fit_cluster_dict(
         result = least_squares(
             compute_residuals,
             x0,
+            jac=compute_jacobian,
             args=(names, params, cluster, noise),
             bounds=(lower, upper),
             method="trf",

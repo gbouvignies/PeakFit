@@ -161,7 +161,19 @@ class PeakShape(BaseShape):
     """Base class for simple peak shapes (Gaussian, Lorentzian, Pseudo-Voigt)."""
 
     FWHM_START = 25.0
-    shape_func: Callable[..., FloatArray]
+    FWHM_START = 25.0
+    evaluator: Any  # Should be a Protocol for Evaluator
+
+    def __init__(
+        self, name: str, center: float, spectra: Spectra, dim: int, args: FittingOptions
+    ) -> None:
+        super().__init__(name, center, spectra, dim, args)
+        self.evaluator = self._create_evaluator()
+
+    @abstractmethod
+    def _create_evaluator(self) -> Any:
+        """Create the evaluator for this shape."""
+        ...
 
     def create_params(self) -> Parameters:
         """Create parameters for peak shape (position and FWHM)."""
@@ -201,27 +213,74 @@ class PeakShape(BaseShape):
         fwhm = params[lw_name].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-        res: FloatArray = np.asarray(sign * self.shape_func(dx_hz, fwhm), dtype=float)
+        # Evaluator returns tuple, first element is value
+        res_tuple = self.evaluator.evaluate(dx_hz, fwhm)
+        res: FloatArray = np.asarray(sign * res_tuple[0], dtype=float)
         return res
+
+    def evaluate_derivatives(
+        self, x_pt: IntArray, params: Parameters
+    ) -> tuple[FloatArray, dict[str, FloatArray]]:
+        """Evaluate shape and derivatives at given points.
+
+        Returns
+        -------
+            Tuple of (values, dict of derivatives w.r.t parameter names)
+        """
+        pos_name = self._position_id().name
+        lw_name = self._linewidth_id().name
+        x0 = params[pos_name].value
+        fwhm = params[lw_name].value
+
+        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
+        dx_hz = self.spec_params.pts2hz_delta(dx_pt)
+
+        # Call evaluator
+        # Expects (dx, fwhm, j_hz=0.0) -> (val, d_dx, d_fwhm, d_jhz)
+        val, d_dx, d_fwhm, _ = self.evaluator.evaluate(dx_hz, fwhm)
+
+        # Apply sign (aliasing)
+        val = sign * val
+        d_dx = sign * d_dx
+        d_fwhm = sign * d_fwhm
+
+        # Derivatives w.r.t parameters
+        derivs = {}
+
+        # Position (ppm)
+        # d_model/d_x0_ppm = d_model/d_dx_hz * d_dx_hz/d_x0_ppm
+        # d_dx_hz/d_x0_ppm = -Hz/ppm
+        hz_per_ppm = self.spec_params.ppm2hz(1.0)
+        derivs[pos_name] = d_dx * (-hz_per_ppm)
+
+        # Linewidth (Hz)
+        derivs[lw_name] = d_fwhm
+
+        return val, derivs
 
 
 @register_shape("lorentzian")
 class Lorentzian(PeakShape):
     """Lorentzian lineshape."""
 
-    shape_func = staticmethod(functions.lorentzian)
+    def _create_evaluator(self) -> Any:
+        return functions.LorentzianEvaluator()
 
 
 @register_shape("gaussian")
 class Gaussian(PeakShape):
     """Gaussian lineshape."""
 
-    shape_func = staticmethod(functions.gaussian)
+    def _create_evaluator(self) -> Any:
+        return functions.GaussianEvaluator()
 
 
 @register_shape("pvoigt")
 class PseudoVoigt(PeakShape):
     """Pseudo-Voigt lineshape (mixture of Gaussian and Lorentzian)."""
+
+    def _create_evaluator(self) -> Any:
+        return functions.PseudoVoigtEvaluator()
 
     def create_params(self) -> Parameters:
         """Create parameters including eta mixing factor."""
@@ -250,8 +309,42 @@ class PseudoVoigt(PeakShape):
         eta = params[eta_name].value
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
-        res: FloatArray = np.asarray(sign * functions.pvoigt(dx_hz, fwhm, eta), dtype=float)
+        # Evaluator returns tuple, first element is value
+        res_tuple = self.evaluator.evaluate(dx_hz, fwhm, eta)
+        res: FloatArray = np.asarray(sign * res_tuple[0], dtype=float)
         return res
+
+    def evaluate_derivatives(
+        self, x_pt: IntArray, params: Parameters
+    ) -> tuple[FloatArray, dict[str, FloatArray]]:
+        """Evaluate pseudo-Voigt shape and derivatives."""
+        pos_name = self._position_id().name
+        lw_name = self._linewidth_id().name
+        eta_name = self._fraction_id().name
+        x0 = params[pos_name].value
+        fwhm = params[lw_name].value
+        eta = params[eta_name].value
+
+        dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
+        dx_hz = self.spec_params.pts2hz_delta(dx_pt)
+
+        # Call evaluator
+        # (dx, fwhm, eta, j_hz=0.0) -> (val, d_dx, d_fwhm, d_eta, d_jhz)
+        val, d_dx, d_fwhm, d_eta, _ = self.evaluator.evaluate(dx_hz, fwhm, eta)
+
+        # Apply sign
+        val = sign * val
+        d_dx = sign * d_dx
+        d_fwhm = sign * d_fwhm
+        d_eta = sign * d_eta
+
+        derivs = {}
+        hz_per_ppm = self.spec_params.ppm2hz(1.0)
+        derivs[pos_name] = d_dx * (-hz_per_ppm)
+        derivs[lw_name] = d_fwhm
+        derivs[eta_name] = d_eta
+
+        return val, derivs
 
 
 class ApodShape(BaseShape):
@@ -290,7 +383,7 @@ class ApodShape(BaseShape):
         self._evaluator = self._create_evaluator()
 
     @abstractmethod
-    def _create_evaluator(self) -> Callable[..., FloatArray]:
+    def _create_evaluator(self) -> functions.EvaluatorFunc:
         """Create the appropriate evaluator for this shape type."""
         ...
 
@@ -369,8 +462,9 @@ class ApodShape(BaseShape):
         dx_rads = dx_rads + j_rads
 
         # Use memoized evaluator instead of plain function
-        norm = np.sum(self._evaluator(j_rads, r2, p0), axis=0)
-        shape = np.sum(self._evaluator(dx_rads, r2, p0), axis=0)
+        # Evaluator classes have an evaluate method
+        norm = np.sum(self._evaluator.evaluate(j_rads, r2, p0), axis=0)
+        shape = np.sum(self._evaluator.evaluate(dx_rads, r2, p0), axis=0)
 
         res: FloatArray = np.asarray(sign[x_pt] * shape[x_pt] / norm, dtype=float)
         return res
@@ -382,11 +476,9 @@ class NoApod(ApodShape):
 
     shape_name = "no_apod"
 
-    def _create_evaluator(self) -> Callable[..., FloatArray]:
-        """Create NoApod evaluator with aq bound via partial."""
-        from functools import partial
-
-        return partial(functions.no_apod, aq=self.spec_params.aq_time)
+    def _create_evaluator(self) -> Any:
+        """Create NoApod evaluator."""
+        return functions.NoApodEvaluator(aq=self.spec_params.aq_time)
 
 
 @register_shape("sp1")
@@ -395,9 +487,9 @@ class SP1(ApodShape):
 
     shape_name = "sp1"
 
-    def _create_evaluator(self) -> Callable[..., FloatArray]:
+    def _create_evaluator(self) -> Any:
         """Create SP1 evaluator with pre-computed exponentials."""
-        return functions.make_sp1_evaluator(
+        return functions.SP1Evaluator(
             aq=self.spec_params.aq_time,
             end=self.spec_params.apodq2,
             off=self.spec_params.apodq1,
@@ -410,9 +502,9 @@ class SP2(ApodShape):
 
     shape_name = "sp2"
 
-    def _create_evaluator(self) -> Callable[..., FloatArray]:
+    def _create_evaluator(self) -> Any:
         """Create SP2 evaluator with pre-computed exponentials."""
-        return functions.make_sp2_evaluator(
+        return functions.SP2Evaluator(
             aq=self.spec_params.aq_time,
             end=self.spec_params.apodq2,
             off=self.spec_params.apodq1,

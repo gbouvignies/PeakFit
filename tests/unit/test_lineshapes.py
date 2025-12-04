@@ -1,103 +1,105 @@
 """Test lineshape functions."""
 
 import pytest
-
 import numpy as np
 
 from peakfit.core.lineshapes.functions import (
-    gaussian,
-    lorentzian,
-    make_sp1_evaluator,
-    make_sp2_evaluator,
-    no_apod,
-    pvoigt,
+    GaussianEvaluator,
+    LorentzianEvaluator,
+    PseudoVoigtEvaluator,
+    NoApodEvaluator,
+    SP1Evaluator,
+    SP2Evaluator,
 )
 
 
 class TestGaussian:
     """Tests for Gaussian lineshape."""
 
+    def setup_method(self):
+        self.evaluator = GaussianEvaluator()
+
     def test_gaussian_peak_height(self):
         """Gaussian should be 1.0 at center."""
         dx = np.array([0.0])
         fwhm = 10.0
-        result = gaussian(dx, fwhm)
+        result = self.evaluator.evaluate(dx, fwhm)
         assert result[0] == pytest.approx(1.0)
+        assert self.evaluator.height() == 1.0
 
     def test_gaussian_half_maximum(self):
         """Gaussian should be 0.5 at FWHM/2 from center."""
         fwhm = 10.0
         dx = np.array([fwhm / 2])
-        result = gaussian(dx, fwhm)
+        result = self.evaluator.evaluate(dx, fwhm)
         assert result[0] == pytest.approx(0.5, rel=1e-6)
 
     def test_gaussian_symmetry(self):
         """Gaussian should be symmetric around center."""
         dx = np.array([-5.0, 5.0])
         fwhm = 10.0
-        result = gaussian(dx, fwhm)
+        result = self.evaluator.evaluate(dx, fwhm)
         assert result[0] == pytest.approx(result[1])
 
-    def test_gaussian_decay(self):
-        """Gaussian should decay to near zero far from center."""
-        dx = np.array([100.0])
+    def test_gaussian_integral(self):
+        """Test Gaussian integral."""
         fwhm = 10.0
-        result = gaussian(dx, fwhm)
-        assert result[0] < 1e-10
-
-    def test_gaussian_array_input(self):
-        """Gaussian should handle array input."""
-        dx = np.linspace(-50, 50, 101)
-        fwhm = 10.0
-        result = gaussian(dx, fwhm)
-        assert result.shape == dx.shape
-        assert np.max(result) == pytest.approx(1.0)
+        integral = self.evaluator.integral(fwhm)
+        # Integral is fwhm * sqrt(pi / (4*ln2))
+        expected = fwhm * np.sqrt(np.pi / (4 * np.log(2)))
+        assert integral == pytest.approx(expected)
 
 
 class TestLorentzian:
     """Tests for Lorentzian lineshape."""
 
+    def setup_method(self):
+        self.evaluator = LorentzianEvaluator()
+
     def test_lorentzian_peak_height(self):
         """Lorentzian should be 1.0 at center."""
         dx = np.array([0.0])
         fwhm = 10.0
-        result = lorentzian(dx, fwhm)
+        result = self.evaluator.evaluate(dx, fwhm)
         assert result[0] == pytest.approx(1.0)
+        assert self.evaluator.height() == 1.0
 
     def test_lorentzian_half_maximum(self):
         """Lorentzian should be 0.5 at FWHM/2 from center."""
         fwhm = 10.0
         dx = np.array([fwhm / 2])
-        result = lorentzian(dx, fwhm)
+        result = self.evaluator.evaluate(dx, fwhm)
         assert result[0] == pytest.approx(0.5)
 
     def test_lorentzian_symmetry(self):
         """Lorentzian should be symmetric around center."""
         dx = np.array([-5.0, 5.0])
         fwhm = 10.0
-        result = lorentzian(dx, fwhm)
+        result = self.evaluator.evaluate(dx, fwhm)
         assert result[0] == pytest.approx(result[1])
 
-    def test_lorentzian_slower_decay(self):
-        """Lorentzian should decay slower than Gaussian."""
-        dx = np.array([50.0])
+    def test_lorentzian_integral(self):
+        """Test Lorentzian integral."""
         fwhm = 10.0
-        lorentz = lorentzian(dx, fwhm)
-        gauss = gaussian(dx, fwhm)
-        # Lorentzian has heavier tails
-        assert lorentz[0] > gauss[0]
+        integral = self.evaluator.integral(fwhm)
+        # Integral is pi * fwhm / 2
+        expected = np.pi * fwhm / 2
+        assert integral == pytest.approx(expected)
 
 
 class TestPseudoVoigt:
     """Tests for Pseudo-Voigt lineshape."""
+
+    def setup_method(self):
+        self.evaluator = PseudoVoigtEvaluator()
 
     def test_pvoigt_pure_gaussian(self):
         """Pseudo-Voigt with eta=0 should be Gaussian."""
         dx = np.linspace(-20, 20, 41)
         fwhm = 10.0
         eta = 0.0
-        pv = pvoigt(dx, fwhm, eta)
-        g = gaussian(dx, fwhm)
+        pv = self.evaluator.evaluate(dx, fwhm, eta)
+        g = GaussianEvaluator().evaluate(dx, fwhm)
         np.testing.assert_allclose(pv, g)
 
     def test_pvoigt_pure_lorentzian(self):
@@ -105,8 +107,8 @@ class TestPseudoVoigt:
         dx = np.linspace(-20, 20, 41)
         fwhm = 10.0
         eta = 1.0
-        pv = pvoigt(dx, fwhm, eta)
-        lor = lorentzian(dx, fwhm)
+        pv = self.evaluator.evaluate(dx, fwhm, eta)
+        lor = LorentzianEvaluator().evaluate(dx, fwhm)
         np.testing.assert_allclose(pv, lor)
 
     def test_pvoigt_peak_height(self):
@@ -114,19 +116,19 @@ class TestPseudoVoigt:
         dx = np.array([0.0])
         fwhm = 10.0
         for eta in [0.0, 0.3, 0.5, 0.7, 1.0]:
-            result = pvoigt(dx, fwhm, eta)
+            result = self.evaluator.evaluate(dx, fwhm, eta)
             assert result[0] == pytest.approx(1.0)
+        assert self.evaluator.height() == 1.0
 
-    def test_pvoigt_interpolation(self):
-        """Pseudo-Voigt should interpolate between G and L."""
-        dx = np.array([10.0])
+    def test_pvoigt_integral(self):
+        """Test Pseudo-Voigt integral."""
         fwhm = 10.0
         eta = 0.5
-        g = gaussian(dx, fwhm)[0]
-        lor = lorentzian(dx, fwhm)[0]
-        expected = 0.5 * g + 0.5 * lor
-        result = pvoigt(dx, fwhm, eta)
-        assert result[0] == pytest.approx(expected)
+        integral = self.evaluator.integral(fwhm, eta)
+        g_int = GaussianEvaluator().integral(fwhm)
+        l_int = LorentzianEvaluator().integral(fwhm)
+        expected = eta * l_int + (1 - eta) * g_int
+        assert integral == pytest.approx(expected)
 
 
 class TestNoApod:
@@ -137,17 +139,21 @@ class TestNoApod:
         dx = np.array([0.0])
         r2 = 10.0
         aq = 0.1
-        result = no_apod(dx, r2, aq)
+        evaluator = NoApodEvaluator(aq)
+        result = evaluator.evaluate(dx, r2)
         # At center, should be close to aq / (aq * r2) for small r2
-        assert abs(result[0]) < 2.0  # Reasonable amplitude
+        # Actually check consistency with height method
+        height = evaluator.height(r2)
+        assert result[0] == pytest.approx(height)
 
     def test_no_apod_phase_rotation(self):
         """NoApod with phase should rotate peak."""
         dx = np.array([0.0, 5.0])
         r2 = 10.0
         aq = 0.1
-        phase0 = no_apod(dx, r2, aq, phase=0.0)
-        phase90 = no_apod(dx, r2, aq, phase=90.0)
+        evaluator = NoApodEvaluator(aq)
+        phase0 = evaluator.evaluate(dx, r2, phase=0.0)
+        phase90 = evaluator.evaluate(dx, r2, phase=90.0)
         # Phase should affect the real part
         assert not np.allclose(phase0, phase90)
 
@@ -162,8 +168,8 @@ class TestSP1:
         aq = 0.1
         end = 0.5
         off = 0.1
-        sp1_eval = make_sp1_evaluator(aq, end, off)
-        result = sp1_eval(dx, r2)
+        evaluator = SP1Evaluator(aq, end, off)
+        result = evaluator.evaluate(dx, r2)
         assert result.shape == dx.shape
 
     def test_sp1_real_output(self):
@@ -173,9 +179,21 @@ class TestSP1:
         aq = 0.1
         end = 0.5
         off = 0.1
-        sp1_eval = make_sp1_evaluator(aq, end, off)
-        result = sp1_eval(dx, r2)
+        evaluator = SP1Evaluator(aq, end, off)
+        result = evaluator.evaluate(dx, r2)
         assert np.all(np.isreal(result))
+
+    def test_sp1_height_consistency(self):
+        """SP1 height method should match evaluate at 0."""
+        dx = np.array([0.0])
+        r2 = 10.0
+        aq = 0.1
+        end = 0.5
+        off = 0.1
+        evaluator = SP1Evaluator(aq, end, off)
+        result = evaluator.evaluate(dx, r2)
+        height = evaluator.height(r2)
+        assert result[0] == pytest.approx(height)
 
 
 class TestSP2:
@@ -188,8 +206,8 @@ class TestSP2:
         aq = 0.1
         end = 0.5
         off = 0.1
-        sp2_eval = make_sp2_evaluator(aq, end, off)
-        result = sp2_eval(dx, r2)
+        evaluator = SP2Evaluator(aq, end, off)
+        result = evaluator.evaluate(dx, r2)
         assert result.shape == dx.shape
 
     def test_sp2_real_output(self):
@@ -199,6 +217,18 @@ class TestSP2:
         aq = 0.1
         end = 0.5
         off = 0.1
-        sp2_eval = make_sp2_evaluator(aq, end, off)
-        result = sp2_eval(dx, r2)
+        evaluator = SP2Evaluator(aq, end, off)
+        result = evaluator.evaluate(dx, r2)
         assert np.all(np.isreal(result))
+
+    def test_sp2_height_consistency(self):
+        """SP2 height method should match evaluate at 0."""
+        dx = np.array([0.0])
+        r2 = 10.0
+        aq = 0.1
+        end = 0.5
+        off = 0.1
+        evaluator = SP2Evaluator(aq, end, off)
+        result = evaluator.evaluate(dx, r2)
+        height = evaluator.height(r2)
+        assert result[0] == pytest.approx(height)

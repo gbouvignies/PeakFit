@@ -73,6 +73,51 @@ class Peak(BaseModel):
         result: FloatArray = np.asarray(prod_res, dtype=float)
         return result
 
+    def evaluate_derivatives(
+        self, grid: Sequence[IntArray], params: Parameters
+    ) -> tuple[FloatArray, dict[str, FloatArray]]:
+        """Evaluate peak and its derivatives w.r.t parameters.
+
+        Returns
+        -------
+            Tuple of (peak_values, dict of derivatives w.r.t parameter names)
+        """
+        evaluations = []
+        shape_derivs = []
+
+        # 1. Evaluate all shapes and their derivatives
+        for pts, shape in zip(grid, self.shapes, strict=False):
+            val, derivs = shape.evaluate_derivatives(pts, params)
+            evaluations.append(np.asarray(val, dtype=float))
+            shape_derivs.append(derivs)
+
+        # 2. Compute product of shapes (the peak value)
+        if not evaluations:
+            # Should not happen for valid peak
+            return np.array([]), {}
+
+        raw_evals_arr = np.stack(evaluations, axis=0)
+        peak_val = np.prod(raw_evals_arr, axis=0)
+
+        # 3. Compute derivatives of the product
+        # d(S1*S2*...)/dtheta = (dS_i/dtheta) * product(S_j for j!=i)
+        total_derivs = {}
+
+        for i, shape in enumerate(self.shapes):
+            # Calculate product of all other shapes
+            others = evaluations[:i] + evaluations[i + 1 :]
+            if others:
+                others_arr = np.stack(others, axis=0)
+                others_prod = np.prod(others_arr, axis=0)
+            else:
+                others_prod = 1.0
+
+            # Add derivatives from this shape
+            for param_name, d_shape in shape_derivs[i].items():
+                total_derivs[param_name] = d_shape * others_prod
+
+        return peak_val, total_derivs
+
     def print(self, params: Parameters) -> str:
         """Return textual representation of the peak parameters for output."""
         result = f"# Name: {self.name}\n"

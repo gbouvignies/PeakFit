@@ -9,14 +9,9 @@ This package provides:
 # Import functions for direct access
 from peakfit.core.lineshapes import functions
 from peakfit.core.lineshapes.factory import LineshapeFactory
-from peakfit.core.lineshapes.functions import (
-    gaussian,
-    lorentzian,
-    make_sp1_evaluator,
-    make_sp2_evaluator,
-    no_apod,
-    pvoigt,
-)
+
+# Import convenience functions for simple lineshape evaluation
+from peakfit.core.lineshapes.functions import gaussian, lorentzian, pvoigt
 
 # Import models (this will populate SHAPES via decorators)
 from peakfit.core.lineshapes.models import (
@@ -51,12 +46,7 @@ __all__ = [
     "Shape",
     "functions",
     "gaussian",
-    "get_shape",
-    "list_shapes",
     "lorentzian",
-    "make_sp1_evaluator",
-    "make_sp2_evaluator",
-    "no_apod",
     "pvoigt",
     "register_shape",
 ]
