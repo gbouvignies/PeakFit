@@ -146,10 +146,11 @@ def fit_command(
         str,
         typer.Option(
             "--optimizer",
-            help="Optimization algorithm: leastsq (fast), basin-hopping (global), "
+            help="Optimization algorithm: varpro (fast, analytical Jacobian), "
+            "leastsq (numerical Jacobian), basin-hopping (global), "
             "differential-evolution (global)",
         ),
-    ] = "leastsq",
+    ] = "varpro",
     save_state: Annotated[
         bool,
         typer.Option(

@@ -114,7 +114,7 @@ open results/shifts.csv  # macOS
 
 After fitting, you'll find these new structured outputs:
 
-### results/fit_results.json
+### results/summary/fit_summary.json
 
 Machine-readable structured data for programmatic access:
 
@@ -146,7 +146,7 @@ Machine-readable structured data for programmatic access:
 }
 ```
 
-### results/parameters.csv
+### results/parameters/parameters.csv
 
 Spreadsheet-compatible tabular data:
 
@@ -158,7 +158,7 @@ cluster_id,peak_name,parameter,value,uncertainty,unit
 1,A1N-HN,lw_F2,18.5,0.8,Hz
 ```
 
-### results/report.md
+### results/summary/analysis_report.md
 
 Human-readable Markdown report:
 
@@ -225,7 +225,7 @@ This adds the traditional `*.out` files alongside the new formats.
 ```python
 import json
 
-with open('results/fit_results.json') as f:
+with open('results/summary/fit_summary.json') as f:
     results = json.load(f)
 
 for cluster in results['clusters']:
@@ -239,7 +239,7 @@ for cluster in results['clusters']:
 ```python
 import pandas as pd
 
-df = pd.read_csv('results/parameters.csv')
+df = pd.read_csv('results/parameters/parameters.csv')
 
 # View all parameters
 print(df[['peak_name', 'parameter', 'value', 'std_error']])
@@ -249,10 +249,10 @@ print(df[['peak_name', 'parameter', 'value', 'std_error']])
 
 ```bash
 # Extract all amplitudes with jq
-jq '.clusters[].amplitudes[] | "\(.peak_name): \(.value)"' results/fit_results.json
+jq '.clusters[].amplitudes[] | "\(.peak_name): \(.value)"' results/summary/fit_summary.json
 
 # Get chi-squared values
-jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' results/fit_results.json
+jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' results/summary/fit_summary.json
 ```
 
 ## Success Criteria
@@ -282,7 +282,7 @@ A successful fit should have:
 
 ### "Fitting failed for cluster X"
 
-- Check `fit_results.json` for error details
+- Check `summary/fit_summary.json` for error details
 - Try global optimization (Example 3)
 
 ### "Results look wrong"

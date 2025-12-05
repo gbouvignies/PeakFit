@@ -48,20 +48,37 @@ MCMC fitting produces enhanced outputs:
 
 ```
 Fits/
-├── fit_results.json    # Complete results with MCMC diagnostics
-├── parameters.csv      # Parameter estimates with uncertainties
-├── shifts.csv          # Chemical shifts
-├── intensities.csv     # Fitted intensities
-├── report.md           # Report with convergence status
-├── peakfit.log
-└── mcmc/               # MCMC-specific outputs
-    ├── chains.npz      # Raw MCMC chains (if --save-chains)
-    └── diagnostics.json# Convergence diagnostics
+├── README.md                 # Auto-generated directory guide
+├── summary/
+│   ├── fit_summary.json      # Complete results with MCMC diagnostics
+│   ├── analysis_report.md    # Report with convergence status
+│   └── quick_results.csv
+├── parameters/
+│   ├── parameters.csv        # Parameter estimates with uncertainties
+│   ├── amplitudes.csv
+│   └── parameters.json
+├── statistics/
+│   ├── fit_statistics.json
+│   └── residuals.csv
+├── diagnostics/              # MCMC-specific diagnostics
+│   ├── mcmc_diagnostics.json # R-hat, ESS, convergence status
+│   ├── convergence.csv       # Per-parameter convergence
+│   └── warnings.txt          # Collected warnings
+├── chains/                   # Full MCMC chains (if --save-chains)
+│   ├── mcmc_chains.h5        # HDF5 format (preferred)
+│   └── mcmc_chains.npz       # NumPy archive (fallback)
+├── figures/
+│   ├── profiles/
+│   ├── diagnostics/          # MCMC trace plots, autocorrelation
+│   └── correlations/         # Corner plots
+└── metadata/
+    ├── run_metadata.json
+    └── configuration.toml
 ```
 
 ## Understanding the Outputs
 
-### fit_results.json - MCMC Diagnostics
+### summary/fit_summary.json - MCMC Diagnostics
 
 The JSON output includes detailed MCMC diagnostics for each cluster:
 
@@ -136,18 +153,26 @@ The JSON output includes detailed MCMC diagnostics for each cluster:
 import numpy as np
 import json
 
-# Load chains
-data = np.load('Fits/mcmc/chains.npz')
+# Load chains (NumPy fallback format)
+data = np.load('Fits/chains/mcmc_chains.npz')
 chains = data['chains']      # Shape: (n_chains, n_samples, n_params)
 param_names = list(data['param_names'])
 
 print(f"Shape: {chains.shape}")
 print(f"Parameters: {param_names}")
 
-# Load metadata
-with open('Fits/mcmc/chains_meta.json') as f:
-    meta = json.load(f)
-print(f"Samples per chain: {meta['n_samples']}")
+# Load diagnostics metadata
+with open('Fits/diagnostics/mcmc_diagnostics.json') as f:
+    diagnostics = json.load(f)
+print(f"Samples per chain: {diagnostics['n_samples']}")
+print(f"R-hat max: {diagnostics['convergence']['rhat_max']:.3f}")
+
+# Or use HDF5 format (preferred, if h5py available)
+import h5py
+
+with h5py.File('Fits/chains/mcmc_chains.h5', 'r') as f:
+    chains = f['chains'][:]
+    param_names = [name.decode() for name in f['param_names'][:]]
 ```
 
 ### Analyzing Posteriors

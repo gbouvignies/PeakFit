@@ -131,6 +131,10 @@ class SpectralParameters(BaseModel):
         """Convert frequency (Hz) to ppm using observation frequency (MHz)."""
         return hz / self.obs
 
+    def ppm2hz(self, ppm: T) -> T:
+        """Convert ppm to frequency (Hz) using observation frequency (MHz)."""
+        return ppm * self.obs
+
 
 def read_spectral_parameters(
     dic: dict[str, Any], data: FloatArray, *, has_pseudo_dim: bool = False

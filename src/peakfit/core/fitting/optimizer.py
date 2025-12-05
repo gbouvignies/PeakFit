@@ -2,15 +2,21 @@
 
 This module provides fitting functions that directly interface with
 scipy.optimize.least_squares for efficient parameter optimization.
+
+The VarProOptimizer implements Variable Projection (VarPro), which
+analytically solves for linear parameters (amplitudes) while optimizing
+nonlinear parameters (positions, linewidths). This reduces the problem
+dimensionality and improves convergence.
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from dataclasses import dataclass
-
 import numpy as np
+from scipy.linalg import solve_triangular
 from scipy.optimize import least_squares
-
 
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.results import FitResult
@@ -25,191 +31,181 @@ class ScipyOptimizerError(Exception):
 
 @dataclass
 class VarProOptimizer:
-    """Variable Projection Optimizer state manager.
+    """Variable Projection Optimizer with efficient caching.
 
-    This class manages the state for Variable Projection optimization,
+    This class manages state for Variable Projection optimization,
     caching intermediate results to avoid duplicate calculations between
     residuals and Jacobian computations.
+
+    The key optimization is computing shapes and derivatives together
+    via evaluate_derivatives(), which avoids redundant lineshape evaluations.
+    Results are cached and reused when parameters haven't changed.
     """
 
-    cluster: "Cluster"
+    cluster: Cluster
     names: list[str]
     params_template: Parameters
     noise: float
-    # Cache fields
-    _last_x: np.ndarray | None = None
-    _shapes: np.ndarray | None = None
-    _q: np.ndarray | None = None
-    _r: np.ndarray | None = None
-    _amplitudes: np.ndarray | None = None
-    _residuals: np.ndarray | None = None
+
+    # Cache fields - use field(default=None) for mutable defaults
+    _cache_hash: int | None = field(default=None, init=False, repr=False)
+    _shapes: np.ndarray | None = field(default=None, init=False, repr=False)
+    _derivs_list: list[dict[str, np.ndarray]] | None = field(default=None, init=False, repr=False)
+    _q: np.ndarray | None = field(default=None, init=False, repr=False)
+    _r: np.ndarray | None = field(default=None, init=False, repr=False)
+    _amplitudes: np.ndarray | None = field(default=None, init=False, repr=False)
+    _residuals: np.ndarray | None = field(default=None, init=False, repr=False)
+    _phi_pinv: np.ndarray | None = field(default=None, init=False, repr=False)
+
+    # Pre-computed constants
+    _param_map: dict[str, int] | None = field(default=None, init=False, repr=False)
+    _data_matrix: np.ndarray | None = field(default=None, init=False, repr=False)
+    _data_is_1d: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Pre-compute constants that don't change during optimization."""
+        # Parameter index mapping
+        self._param_map = {name: i for i, name in enumerate(self.names)}
+
+        # Pre-process data matrix (doesn't change during optimization)
+        data = self.cluster.corrected_data
+        self._data_is_1d = data.ndim == 1
+        self._data_matrix = data[:, np.newaxis] if self._data_is_1d else data
+
+    def _compute_cache_hash(self, x: np.ndarray) -> int:
+        """Compute hash for parameter array to detect changes."""
+        # Use tobytes() for fast comparison - faster than np.array_equal
+        return hash(x.tobytes())
 
     def _update_state(self, x: np.ndarray) -> None:
-        """Update cached state if parameters have changed."""
-        if self._last_x is not None and np.array_equal(x, self._last_x):
+        """Update cached state if parameters have changed.
+
+        This method:
+        1. Evaluates shapes AND derivatives in a single pass per peak
+        2. Performs QR decomposition for amplitude solution
+        3. Caches all intermediate results for Jacobian computation
+        """
+        cache_hash = self._compute_cache_hash(x)
+        if self._cache_hash == cache_hash:
             return
 
-        # Update parameters
+        # Update parameter values
+        params = self.params_template
         for i, name in enumerate(self.names):
-            self.params_template[name].value = x[i]
+            params[name].value = x[i]
 
-        # 1. Evaluate shapes
+        # Evaluate shapes AND derivatives together (single pass per peak)
         positions = self.cluster.positions
-        # We only need values here, derivatives are computed in Jacobian
-        # But BaseShape handles caching, so evaluate() is efficient
-        shapes_list = [
-            peak.evaluate(positions, self.params_template) for peak in self.cluster.peaks
-        ]
+        shapes_list = []
+        derivs_list = []
 
-        # (n_peaks, n_points)
-        shapes = np.array(shapes_list)
+        for peak in self.cluster.peaks:
+            shape_val, derivs = peak.evaluate_derivatives(positions, params)
+            shapes_list.append(shape_val)
+            derivs_list.append(derivs)
 
-        # 2. QR Decomposition of Transposed Shapes (Features matrix)
-        # We need to solve: shapes.T @ amplitudes = data
-        # Let A = shapes.T (n_points, n_peaks)
-        # A = Q R
-        # Q (n_points, K), R (K, n_peaks), where K = min(n_points, n_peaks) usually n_peaks
+        # Stack shapes: (n_peaks, n_points)
+        shapes = np.vstack(shapes_list)
 
-        # Note: numpy's qr returns Q(M, K), R(K, N) for mode='reduced'
-        # shapes.T is (n_points, n_peaks)
+        # QR Decomposition: A = Q @ R where A = shapes.T (n_points, n_peaks)
+        # Using reduced QR: Q (n_points, n_peaks), R (n_peaks, n_peaks)
         q, r = np.linalg.qr(shapes.T, mode="reduced")
 
-        # 3. Solve for amplitudes: R @ amplitudes = Q.T @ data
-        data = self.cluster.corrected_data
+        # Solve for amplitudes: R @ amplitudes = Q.T @ data
+        qty = q.T @ self._data_matrix
 
-        # Handle broadcasting for data (n_points,) or (n_points, n_planes)
-        data_matrix = data[:, np.newaxis] if data.ndim == 1 else data
-
-        qty = q.T @ data_matrix
-
-        # Solve R @ amp = qty
-        # R is upper triangular (n_peaks, n_peaks)
+        # Use triangular solver (faster than general solve for upper triangular R)
         try:
-            amplitudes = np.linalg.solve(r, qty)
+            amplitudes = solve_triangular(r, qty, check_finite=False)
         except np.linalg.LinAlgError:
             # Fallback for singular R
-            amplitudes = np.linalg.lstsq(r, qty, rcond=None)[0]
+            amplitudes, *_ = np.linalg.lstsq(r, qty, rcond=None)
 
-        if data.ndim == 1:
-            amplitudes = amplitudes.flatten()
-
-        # 4. Compute residuals: r = data - A @ amplitudes
-        # Using Q: proj_y = Q @ (Q.T @ y) = Q @ qty
-        # residuals = y - proj_y
-        # This is strictly correct for least squares residual vector
-
+        # Compute residuals: residuals = data - Q @ Q.T @ data = data - Q @ qty
         proj_data = q @ qty
-        if data.ndim == 1:
-            proj_data = proj_data.flatten()
+        residuals = self._data_matrix - proj_data
 
-        residuals = data - proj_data
+        # Compute pseudo-inverse helper: phi_pinv = R^-1 @ Q.T
+        # Used in Jacobian for correction term
+        try:
+            phi_pinv = solve_triangular(r, q.T, check_finite=False)
+        except np.linalg.LinAlgError:
+            phi_pinv = np.linalg.pinv(r) @ q.T
 
-        # Cache results
-        self._last_x = x.copy()
+        # Cache all results
+        self._cache_hash = cache_hash
         self._shapes = shapes
+        self._derivs_list = derivs_list
         self._q = q
         self._r = r
         self._amplitudes = amplitudes
         self._residuals = residuals
+        self._phi_pinv = phi_pinv
 
     def compute_residuals(self, x: np.ndarray) -> np.ndarray:
         """Compute residuals for optimization."""
         self._update_state(x)
         assert self._residuals is not None
-        # Normalize by noise for least_squares
+        # Flatten and normalize by noise
         return self._residuals.ravel() / self.noise
 
     def compute_jacobian(self, x: np.ndarray) -> np.ndarray:
-        """Compute Jacobian for optimization."""
+        """Compute Jacobian for optimization.
+
+        Uses cached shapes, derivatives, and QR factors from compute_residuals.
+        The Jacobian for Variable Projection includes correction terms
+        accounting for the implicit dependence of amplitudes on parameters.
+        """
         self._update_state(x)
 
-        shapes = self._shapes
-        q = self._q
-        r = self._r
-        residuals = self._residuals
-        amplitudes = self._amplitudes
+        # Retrieve cached values (all guaranteed non-None after _update_state)
+        assert self._q is not None
+        assert self._shapes is not None
+        assert self._residuals is not None
+        assert self._amplitudes is not None
+        assert self._phi_pinv is not None
+        assert self._derivs_list is not None
+        assert self._param_map is not None
 
-        # 1. Evaluate shapes and derivatives
-        # Logic from previous jacobian.py
-        # If shapes provided (cached), we still need derivatives.
-        # BaseShape caches, so calling evaluate_derivatives should be fast if evaluate was just called.
-        derivs_list = []
-        positions = self.cluster.positions
-
-        # We assume _update_state called evaluate(), so cache is hot
-        for peak in self.cluster.peaks:
-            # We don't need the value if we have shapes, but evaluate_derivatives returns both
-            _, derivs = peak.evaluate_derivatives(positions, self.params_template)
-            derivs_list.append(derivs)
-
-        n_points = shapes.shape[1]
-
-        # 2. Amplitudes and residuals are cached
-
-        # Dimensions check
-        amplitudes_mat = amplitudes[:, np.newaxis] if amplitudes.ndim == 1 else amplitudes
-        n_planes = amplitudes_mat.shape[1]
-
-        # Ensure residuals is 2D
-        if residuals.ndim == 1:
-            residuals = residuals[:, np.newaxis]
-
-        # 3. Compute Projection matrices helpers
-        # phi_pinv = (S^T)+ = R^-1 Q^T
-
-        try:
-            # r is upper triangular
-            # solve r X = Q.T
-            # We want R^-1 Q^T.
-            # Let X = R^-1 Q^T. Then R X = Q.T.
-            phi_pinv = np.linalg.solve(r, q.T)
-        except np.linalg.LinAlgError:
-            # Fallback
-            r_inv = np.linalg.pinv(r)
-            phi_pinv = r_inv @ q.T
-
-        # 4. Accumulate V (unprojected Jacobian) and Correction terms
+        n_points = self._shapes.shape[1]
         n_params = len(self.names)
-        param_map = {name: i for i, name in enumerate(self.names)}
+        n_planes = self._amplitudes.shape[1]
+        n_peaks = len(self._derivs_list)
 
-        # Initialize tensors
-        v_tensor = np.zeros((n_points, n_planes, n_params))
-        correction = np.zeros((n_points, n_planes, n_params))
-
-        for i, peak_derivs in enumerate(derivs_list):
-            amp = amplitudes_mat[i]  # (n_planes,)
-            phi_row = phi_pinv[i]  # (n_points,)
-
+        # Build per-peak derivative matrix: (n_peaks, n_params, n_points)
+        deriv_by_peak = np.zeros((n_peaks, n_params, n_points))
+        for peak_idx, peak_derivs in enumerate(self._derivs_list):
             for name, d_val in peak_derivs.items():
-                if name in param_map:
-                    idx = param_map[name]
+                param_idx = self._param_map.get(name)
+                if param_idx is not None:
+                    deriv_by_peak[peak_idx, param_idx, :] = d_val
 
-                    # V term: (dS/dtheta) * c
-                    v_tensor[:, :, idx] += d_val[:, np.newaxis] * amp[np.newaxis, :]
+        # V term: V[pt, plane, param] = sum_peak(deriv[peak, param, pt] * amp[peak, plane])
+        # Using einsum: deriv(k,p,x) @ amp(k,y) -> result(x,y,p)
+        v_tensor = np.einsum("kpx,ky->xyp", deriv_by_peak, self._amplitudes)
 
-                    # Correction term: (Phi^dagger)^T * (dS/dtheta)^T * r
-                    w = d_val @ residuals
-                    correction[:, :, idx] += phi_row[:, np.newaxis] * w[np.newaxis, :]
+        # Correction term for VarPro:
+        # w[peak, param, plane] = deriv[peak, param, :] @ residuals[:, plane]
+        w = np.einsum("kpx,xy->kpy", deriv_by_peak, self._residuals)
+        # correction[pt, plane, param] = sum_peak(phi_pinv[peak, pt] * w[peak, param, plane])
+        correction = np.einsum("kx,kpy->xyp", self._phi_pinv, w)
 
-        # 5. Project V onto orthogonal complement of S: P_perp V = V - P_S V
-        # P_S = Q Q^T
+        # Project V onto orthogonal complement of column space of shapes
+        # P_perp = I - Q @ Q.T
         v_flat = v_tensor.reshape(n_points, -1)
-
-        # Project: Q (Q^T V)
-        projection = q @ (q.T @ v_flat)
+        projection = self._q @ (self._q.T @ v_flat)
         p_perp_v = (v_flat - projection).reshape(n_points, n_planes, n_params)
 
-        # 6. Combine and normalize
-        # J = - (P_perp V + Correction)
+        # Combine: J = -(P_perp @ V + Correction)
         j_tensor = -(p_perp_v + correction)
 
-        # Final reshape to (n_residuals, n_params)
+        # Reshape and normalize
         return j_tensor.reshape(-1, n_params) / self.noise
 
 
 def fit_cluster(
     params: Parameters,
-    cluster: "Cluster",
+    cluster: Cluster,
     noise: float,
     max_nfev: int = 1000,
     ftol: float = 1e-8,
@@ -231,7 +227,6 @@ def fit_cluster(
 
     Returns
     -------
-    FitResult
         FitResult containing optimized parameters and fit statistics
     """
     if noise <= 0:
@@ -286,8 +281,58 @@ def fit_cluster(
     )
 
 
+def _init_cluster_params(cluster: Cluster, params_all: Parameters, fixed: bool) -> bool:
+    """Initialize parameters for a cluster, adding them to params_all.
+
+    Returns True if successful, False on error.
+    """
+    from peakfit.core.domain.peaks import create_params
+
+    try:
+        cluster_params = create_params(cluster.peaks, fixed=fixed)
+    except (ValueError, TypeError):
+        return False
+
+    for name, param in cluster_params.items():
+        params_all.add(name, value=param.value, vary=param.vary, min=param.min, max=param.max)
+    return True
+
+
+def _sync_and_fit_cluster(
+    cluster: Cluster, params_all: Parameters, noise: float, fixed: bool
+) -> FitResult | None:
+    """Synchronize parameters and fit a single cluster.
+
+    Returns FitResult on success, None on error.
+    """
+    from peakfit.core.domain.peaks import create_params
+
+    cluster_params = create_params(cluster.peaks, fixed=fixed)
+
+    # Synchronize current global parameters to cluster
+    for name in cluster_params:
+        if name in params_all:
+            cluster_params[name].value = params_all[name].value
+
+    return fit_cluster(cluster_params, cluster, noise)
+
+
+def _update_params_from_result(params_all: Parameters, result: FitResult) -> None:
+    """Update global parameters from a fit result."""
+    for name, param in result.params.items():
+        target = params_all[name] if name in params_all else params_all.add(name, value=param.value)
+
+        if target is not None:
+            target.value = param.value
+            target.stderr = param.stderr
+            target.vary = param.vary
+            target.min = param.min
+            target.max = param.max
+            target.computed = param.computed
+
+
 def fit_clusters(
-    clusters: list["Cluster"],
+    clusters: list[Cluster],
     noise: float,
     refine_iterations: int = 1,
     *,
@@ -305,57 +350,28 @@ def fit_clusters(
 
     Returns
     -------
-    Parameters
         Combined fitted parameters
     """
-    from peakfit.core.domain.peaks import create_params
     from peakfit.core.fitting.computation import update_cluster_corrections
 
     params_all = Parameters()
 
-    # Initialize with all parameters
+    # Initialize parameters from all clusters
     for cluster in clusters:
-        try:
-            cluster_params = create_params(cluster.peaks, fixed=fixed)
-            for name, param in cluster_params.items():
-                params_all.add(
-                    name, value=param.value, vary=param.vary, min=param.min, max=param.max
-                )
-        except (ValueError, TypeError):
-            continue
+        _init_cluster_params(cluster, params_all, fixed)
 
+    # Iterate: fit all clusters, optionally refine corrections
     for iteration in range(refine_iterations + 1):
         if iteration > 0:
             update_cluster_corrections(params_all, clusters)
 
         for cluster in clusters:
             try:
-                # Synchronize current global parameters to cluster
-                cluster_params = create_params(cluster.peaks, fixed=fixed)
-                for name in cluster_params:
-                    if name in params_all:
-                        cluster_params[name].value = params_all[name].value
-
-                result = fit_cluster(cluster_params, cluster, noise)
-
-                # Update global parameters from result
-                for name, param in result.params.items():
-                    target = (
-                        params_all[name]
-                        if name in params_all
-                        else params_all.add(name, value=param.value)
-                    )
-
-                    target.value = param.value
-                    target.stderr = param.stderr
-                    target.vary = param.vary
-                    target.min = param.min
-                    target.max = param.max
-                    target.computed = param.computed
-
+                result = _sync_and_fit_cluster(cluster, params_all, noise, fixed)
+                if result is not None:
+                    _update_params_from_result(params_all, result)
             except ScipyOptimizerError:
                 if verbose:
                     print("Skipping cluster with error")
-                continue
 
     return params_all

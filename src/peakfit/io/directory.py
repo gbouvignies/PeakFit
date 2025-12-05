@@ -195,6 +195,51 @@ class OutputDirectoryManager:
         """Path to MCMC chains as NumPy archive (fallback)."""
         return self.get_path(OutputType.CHAINS, "mcmc_chains.npz")
 
+    # Summary files
+    @property
+    def quick_results_csv_path(self) -> Path:
+        """Path to quick_results.csv for spreadsheet import."""
+        return self.get_path(OutputType.SUMMARY, "quick_results.csv")
+
+    # Parameters files
+    @property
+    def parameters_json_path(self) -> Path:
+        """Path to parameters.json with full metadata."""
+        return self.get_path(OutputType.PARAMETERS, "parameters.json")
+
+    # Statistics files
+    @property
+    def fit_statistics_path(self) -> Path:
+        """Path to fit_statistics.json."""
+        return self.get_path(OutputType.STATISTICS, "fit_statistics.json")
+
+    @property
+    def residuals_csv_path(self) -> Path:
+        """Path to residuals.csv."""
+        return self.get_path(OutputType.STATISTICS, "residuals.csv")
+
+    @property
+    def model_comparison_path(self) -> Path:
+        """Path to model_comparison.json."""
+        return self.get_path(OutputType.STATISTICS, "model_comparison.json")
+
+    # Diagnostics files
+    @property
+    def convergence_csv_path(self) -> Path:
+        """Path to convergence.csv for per-parameter diagnostics."""
+        return self.get_path(OutputType.DIAGNOSTICS, "convergence.csv")
+
+    @property
+    def warnings_path(self) -> Path:
+        """Path to warnings.txt for collected warnings."""
+        return self.get_path(OutputType.DIAGNOSTICS, "warnings.txt")
+
+    # Metadata files
+    @property
+    def configuration_path(self) -> Path:
+        """Path to configuration.toml copy."""
+        return self.get_path(OutputType.METADATA, "configuration.toml")
+
     def get_legacy_profile_path(self, peak_name: str) -> Path:
         """Get path for legacy .out profile file."""
         return self.get_path(OutputType.LEGACY, f"{peak_name}.out")

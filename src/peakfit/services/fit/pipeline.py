@@ -108,7 +108,7 @@ class FitPipeline:
         z_values_path: Path | None,
         config: PeakFitConfig,
         *,
-        optimizer: str = "leastsq",
+        optimizer: str = "varpro",
         save_state: bool = True,
         verbose: bool = False,
         workers: int = -1,
@@ -186,7 +186,9 @@ class FitPipeline:
             info(f"Valid options: {', '.join(valid_optimizers)}")
             raise SystemExit(1)
 
-        if optimizer != "leastsq":
+        # Warn only for truly global optimizers that are slower
+        global_optimizers = {"basin-hopping", "differential-evolution"}
+        if optimizer in global_optimizers:
             warning(f"Using global optimizer: {optimizer}")
             console.print("  [dim]This may take significantly longer than standard fitting[/dim]")
 
@@ -287,7 +289,7 @@ class FitPipeline:
         log_section("Fitting")
         log(f"Optimizer: {optimizer}")
         log("Backend: numpy (default)")
-        if optimizer == "leastsq":
+        if optimizer in ("leastsq", "varpro"):
             log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
             log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
 

@@ -191,7 +191,7 @@ outputs = writer.write_all(
 )
 
 # Returns dict of format -> output path
-print(outputs["json"])  # Path("results/results.json")
+print(outputs["json"])  # Path("results/summary/fit_summary.json")
 ```
 
 ## Adding a New Output Format

@@ -6,16 +6,36 @@ PeakFit produces structured outputs for downstream analysis (ChemEx, plotting, a
 
 ## Output Directory Structure
 ```
-output_dir/
-├── fit_results.json      # Complete machine-readable results
-├── parameters.csv        # All parameters (long format)
-├── shifts.csv            # Chemical shifts (wide format)
-├── intensities.csv       # Fitted intensities per peak/plane
-├── report.md             # Human-readable summary
-├── peakfit.log           # Run log
-├── simulated.ft3         # Simulated spectrum (optional)
+output_YYYYMMDD_HHMMSS/
+├── summary/
+│   ├── fit_summary.json      # Main results file
+│   ├── analysis_report.md    # Human-readable report
+│   └── quick_results.csv     # Key results for quick import
+├── parameters/
+│   ├── parameters.csv        # All parameters (long format)
+│   ├── amplitudes.csv        # Intensities per plane
+│   └── parameters.json       # Parameters with full metadata
+├── statistics/
+│   ├── fit_statistics.json   # Chi-squared, AIC, BIC
+│   ├── residuals.csv         # Residual values
+│   └── model_comparison.json # If multiple models
+├── diagnostics/
+│   ├── mcmc_diagnostics.json # R-hat, ESS, convergence
+│   ├── convergence.csv       # Per-parameter convergence
+│   └── warnings.txt          # Collected warnings
+├── figures/
+│   ├── profiles/             # Fit profiles per peak
+│   ├── diagnostics/          # MCMC diagnostic plots
+│   └── correlations/         # Correlation plots
+├── metadata/
+│   ├── run_metadata.json     # Reproducibility info
+│   └── configuration.toml    # Copy of input config
+├── chains/
+│   └── mcmc_chains.h5        # Full MCMC chains (HDF5)
+├── legacy/
+│   └── *.out                 # Legacy format files
 └── cache/
-    └── state.pkl         # Internal state for MCMC continuation
+    └── state.pkl             # Internal state for MCMC continuation
 ```
 
 ## File Formats
@@ -172,13 +192,15 @@ class ResultsWriter:
 
 Legacy `.out` files are opt-in only:
 ```bash
-peakfit fit spectrum.ft2 peaks.list --legacy
+peakfit fit spectrum.ft2 peaks.list --include-legacy
 ```
 
 When enabled, legacy files go in `legacy/` subdirectory:
 ```
-output_dir/
-├── ... (new outputs)
+output_YYYYMMDD_HHMMSS/
+├── summary/
+├── parameters/
+├── ... (other subdirectories)
 └── legacy/
     ├── 2N-H.out
     ├── 4N-H.out
@@ -187,16 +209,19 @@ output_dir/
 
 ## MCMC-Specific Outputs
 
-For MCMC runs, additional outputs:
+For MCMC runs, outputs are organized within the standard structure:
 ```
-output_dir/
-├── ... (standard outputs)
-├── mcmc/
-│   ├── diagnostics.json    # R-hat, ESS, convergence status
-│   └── chains.h5           # Posterior samples (HDF5)
+output_YYYYMMDD_HHMMSS/
+├── diagnostics/
+│   ├── mcmc_diagnostics.json # R-hat, ESS, convergence status
+│   ├── convergence.csv       # Per-parameter convergence
+│   └── warnings.txt          # Collected warnings
+├── chains/
+│   ├── mcmc_chains.h5        # Full MCMC chains (HDF5)
+│   └── mcmc_chains.npz       # NumPy archive (fallback)
 └── figures/
-    ├── trace_plots.png
-    └── corner.png
+    ├── diagnostics/          # MCMC trace plots, autocorrelation
+    └── correlations/         # Corner plots, parameter correlations
 ```
 
 ## What NOT to Do

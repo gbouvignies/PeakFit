@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Any, Protocol
 import numpy as np
 from scipy.optimize import least_squares
 
+from peakfit.core.fitting.computation import residuals
 from peakfit.core.fitting.global_optimization import (
     fit_basin_hopping,
     fit_differential_evolution,
 )
-from peakfit.core.fitting.computation import residuals
 from peakfit.core.results.statistics import compute_chi_squared, compute_reduced_chi_squared
 
 if TYPE_CHECKING:  # pragma: no cover - typing aid
@@ -242,8 +242,79 @@ class DifferentialEvolutionStrategy:
         )
 
 
+class VarProStrategy:
+    """Variable Projection optimizer with analytical Jacobian.
+
+    This strategy uses the VarProOptimizer which:
+    1. Analytically solves for amplitudes (linear parameters)
+    2. Provides an analytical Jacobian for faster convergence
+    3. Caches intermediate results to avoid redundant computations
+
+    This is typically 2-5x faster than LeastSquaresStrategy for NMR peak fitting.
+    """
+
+    def __init__(
+        self,
+        *,
+        ftol: float = 1e-8,
+        xtol: float = 1e-8,
+        gtol: float = 1e-8,
+        max_nfev: int = 1000,
+        verbose: int = 0,
+    ) -> None:
+        self._ftol = ftol
+        self._xtol = xtol
+        self._gtol = gtol
+        self._max_nfev = max_nfev
+        self._verbose = verbose
+
+    def optimize(
+        self,
+        params: Parameters,
+        cluster: Cluster,
+        noise: float,
+    ) -> OptimizationResult:
+        """Optimize using Variable Projection with analytical Jacobian.
+
+        Args:
+            params: Parameters container for the cluster
+            cluster: Cluster with peaks and data
+            noise: Noise estimate for weighting residuals
+
+        Returns
+        -------
+            OptimizationResult with final parameters and diagnostics
+        """
+        from peakfit.core.fitting.optimizer import fit_cluster
+
+        result = fit_cluster(
+            params,
+            cluster,
+            noise,
+            max_nfev=self._max_nfev,
+            ftol=self._ftol,
+            xtol=self._xtol,
+            gtol=self._gtol,
+            verbose=self._verbose,
+        )
+
+        return OptimizationResult(
+            x=result.params.get_vary_values(),
+            cost=float(result.cost),
+            success=result.success,
+            message=result.message,
+            n_evaluations=result.nfev,
+            params=result.params,
+            metadata={
+                "njev": result.njev,
+                "optimality": result.optimality,
+            },
+        )
+
+
 STRATEGIES: dict[str, type[OptimizationStrategy]] = {
     "leastsq": LeastSquaresStrategy,
+    "varpro": VarProStrategy,
     "basin-hopping": BasinHoppingStrategy,
     "differential-evolution": DifferentialEvolutionStrategy,
 }
