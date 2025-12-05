@@ -193,8 +193,8 @@ class PseudoVoigt(PeakShape):
         dx_pt, sign = self._compute_dx_and_sign(x_pt, x0)
         dx_hz = self.spec_params.pts2hz_delta(dx_pt)
         # Evaluator returns tuple, first element is value
-        res_tuple = self.evaluator.evaluate(dx_hz, fwhm, eta)
-        res: FloatArray = np.asarray(sign * res_tuple[0], dtype=float)
+        val = self.evaluator.evaluate(dx_hz, fwhm, eta)
+        res: FloatArray = np.asarray(sign * val, dtype=float)
         return res
 
     def evaluate_derivatives(

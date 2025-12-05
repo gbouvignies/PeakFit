@@ -3,8 +3,7 @@ import numpy as np
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
 from peakfit.core.fitting.computation import calculate_shape_heights
-from peakfit.core.fitting.jacobian import compute_jacobian
-from peakfit.core.fitting.optimizer import compute_residuals
+from peakfit.core.fitting.optimizer import VarProOptimizer
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.lineshapes import LorentzianEvaluator
 
@@ -84,14 +83,23 @@ def finite_difference_jacobian(params, cluster, noise=1.0, epsilon=1e-8):
 
     jac = np.zeros((n_points, n_params))
 
-    f0 = compute_residuals(x0, names, params, cluster, noise)
+    # Initialize optimizer for base residuals
+    opt = VarProOptimizer(cluster, names, params, noise)
+    f0 = opt.compute_residuals(x0)
 
     for i in range(n_params):
         x_plus = x0.copy()
         x_plus[i] += epsilon
-        f_plus = compute_residuals(x_plus, names, params, cluster, noise)
+
+        # New optimizer instance or update state (update_state is implicit)
+        # We can reuse the optimizer instance as it updates state
+        f_plus = opt.compute_residuals(x_plus)
 
         jac[:, i] = (f_plus - f0) / epsilon
+
+    # Reset params in template just in case
+    for i, name in enumerate(names):
+        params[name].value = x0[i]
 
     return jac
 
@@ -105,7 +113,8 @@ def main():
     lower, upper = params.get_vary_bounds()
 
     # Analytical Jacobian (Current)
-    jac_analytical = compute_jacobian(x0, names, params, cluster, noise)
+    opt = VarProOptimizer(cluster, names, params, noise)
+    jac_analytical = opt.compute_jacobian(x0)
 
     # Check orthogonality
     shapes, amplitudes = calculate_shape_heights(params, cluster)

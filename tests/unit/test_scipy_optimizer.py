@@ -14,12 +14,12 @@ class TestScipyOptimizerModuleImports:
     def test_import_scipy_optimizer_module(self):
         """Should be able to import scipy_optimizer module."""
         from peakfit.core.fitting.optimizer import (
-            compute_residuals,
+            VarProOptimizer,
             fit_cluster,
             fit_clusters,
         )
 
-        assert callable(compute_residuals)
+        assert callable(VarProOptimizer)
         assert callable(fit_cluster)
         assert callable(fit_clusters)
 

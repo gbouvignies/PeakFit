@@ -1,8 +1,8 @@
 import numpy as np
-from peakfit.core.fitting.optimizer import compute_jacobian, compute_residuals
-from peakfit.core.fitting.parameters import Parameters
+from peakfit.core.fitting.optimizer import VarProOptimizer
 from peakfit.core.domain.cluster import Cluster
-from peakfit.core.lineshapes.models import Gaussian, PseudoVoigt
+from peakfit.core.lineshapes.gaussian import Gaussian
+from peakfit.core.lineshapes.pvoigt import PseudoVoigt
 from peakfit.core.shared.typing import FittingOptions
 
 
@@ -100,11 +100,17 @@ def verify():
     x_test = np.array([true_x0, true_lw])
     noise = 1.0
 
+    def create_optimizer(x, names, params, cluster, noise):
+        opt = VarProOptimizer(cluster, names, params, noise)
+        return opt
+
     def func(x):
-        return compute_residuals(x, names, params, cluster, noise)
+        opt = create_optimizer(x, names, params, cluster, noise)
+        return opt.compute_residuals(x)
 
     def jac(x):
-        return compute_jacobian(x, names, params, cluster, noise)
+        opt = create_optimizer(x, names, params, cluster, noise)
+        return opt.compute_jacobian(x)
 
     # Verify values manually
     J_ana = jac(x_test)
@@ -166,10 +172,12 @@ def verify():
     x_pv_test = np.array([true_x0, true_lw, true_eta])  # At optimum
 
     def func_pv(x):
-        return compute_residuals(x, names_pv, params_pv, cluster_pv, noise)
+        opt = create_optimizer(x, names_pv, params_pv, cluster_pv, noise)
+        return opt.compute_residuals(x)
 
     def jac_pv(x):
-        return compute_jacobian(x, names_pv, params_pv, cluster_pv, noise)
+        opt = create_optimizer(x, names_pv, params_pv, cluster_pv, noise)
+        return opt.compute_jacobian(x)
 
     J_ana_pv = jac_pv(x_pv_test)
     J_fd_pv = np.zeros_like(J_ana_pv)
