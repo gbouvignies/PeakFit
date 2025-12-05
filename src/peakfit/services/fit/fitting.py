@@ -9,6 +9,7 @@ parameter constraints.
 
 from __future__ import annotations
 
+import os
 import time as time_module
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -32,7 +33,7 @@ from peakfit.core.shared.constants import (
     LEAST_SQUARES_XTOL,
 )
 from peakfit.core.shared.events import Event, EventType, FitProgressEvent
-from peakfit.ui import console, log, log_section, subsection_header
+from peakfit.ui import LiveClusterDisplay, console, log, log_section, subsection_header
 
 if TYPE_CHECKING:
     from peakfit.core.domain.cluster import Cluster
@@ -352,25 +353,48 @@ def _fit_iteration_sequential(
     dispatcher: EventDispatcher | None,
     verbose: bool = False,
 ) -> None:
-    """Fit all clusters sequentially in a single iteration."""
+    """Fit all clusters sequentially in a single iteration with live display."""
     params_init = {key: params_all[key].value for key in params_all}
 
-    for cluster_idx, cluster in enumerate(clusters, 1):
-        result = _fit_and_report_cluster(
-            cluster=cluster,
-            cluster_idx=cluster_idx,
-            cluster_count=cluster_count,
-            step=step,
-            strategy=strategy,
-            noise_value=noise_value,
-            parameter_config=parameter_config,
-            params_init=params_init,
-            iteration_idx=iteration_idx,
-            total_iterations=total_iterations,
-            dispatcher=dispatcher,
-            verbose=verbose,
-        )
-        params_all.update(result.params)
+    log(f"Sequential fitting: {cluster_count} clusters")
+
+    # Create the live display
+    display = LiveClusterDisplay.from_clusters(clusters)
+    display.set_step_name(step.name or "Fitting")
+    display.set_workers(1)
+
+    with display:
+        for cluster_idx, cluster in enumerate(clusters, 1):
+            # Mark as running
+            display.mark_running(cluster_idx)
+
+            result = _fit_and_report_cluster(
+                cluster=cluster,
+                cluster_idx=cluster_idx,
+                cluster_count=cluster_count,
+                step=step,
+                strategy=strategy,
+                noise_value=noise_value,
+                parameter_config=parameter_config,
+                params_init=params_init,
+                iteration_idx=iteration_idx,
+                total_iterations=total_iterations,
+                dispatcher=dispatcher,
+                verbose=verbose,
+                use_live_display=True,
+            )
+
+            # Mark as completed
+            display.mark_completed(
+                cluster_idx,
+                cost=result.cost,
+                n_evaluations=result.n_evaluations,
+                time_sec=result.time,
+                success=result.success,
+                message=result.message if not result.success else None,
+            )
+
+            params_all.update(result.params)
 
 
 def _fit_and_report_cluster(
@@ -386,12 +410,35 @@ def _fit_and_report_cluster(
     total_iterations: int,
     dispatcher: EventDispatcher | None,
     verbose: bool,
+    *,
+    use_live_display: bool = True,
 ) -> ClusterFitResult:
-    """Fit a single cluster and report progress."""
+    """Fit a single cluster and report progress.
+
+    Args:
+        cluster: Cluster to fit
+        cluster_idx: Index of this cluster (1-based)
+        cluster_count: Total number of clusters
+        step: Current fitting step
+        strategy: Optimization strategy
+        noise_value: Noise value for chi-squared calculation
+        parameter_config: Optional parameter constraints
+        params_init: Initial parameter values
+        iteration_idx: Current iteration index
+        total_iterations: Total number of iterations
+        dispatcher: Event dispatcher for progress events
+        verbose: Whether to log verbose output
+        use_live_display: Whether live display is active (suppresses console prints)
+
+    Returns
+    -------
+        ClusterFitResult with fitted parameters and statistics
+    """
     peak_names = [peak.name for peak in cluster.peaks]
     peaks_str = ", ".join(peak_names)
 
-    if verbose:
+    # Only print to console if verbose AND not using live display
+    if verbose and not use_live_display:
         _print_cluster_header(cluster_idx, cluster_count, peaks_str, len(peak_names))
 
     log("")
@@ -422,7 +469,8 @@ def _fit_and_report_cluster(
         result.time,
     )
 
-    if verbose:
+    # Only print to console if verbose AND not using live display
+    if verbose and not use_live_display:
         _print_cluster_result(result)
     _log_cluster_result(result)
 
@@ -442,29 +490,55 @@ def _fit_iteration_parallel(
     dispatcher: EventDispatcher | None,
     workers: int,
 ) -> None:
-    """Fit all clusters in parallel using joblib."""
+    """Fit all clusters in parallel using joblib with live status display."""
     from joblib import Parallel, delayed
 
     params_init = {key: params_all[key].value for key in params_all}
 
-    console.print(f"[cyan]Fitting {cluster_count} clusters in parallel...[/cyan]")
-    log(f"Parallel fitting: {cluster_count} clusters with {workers} workers")
+    # Determine actual number of workers
+    actual_workers = (os.cpu_count() or 1) if workers == -1 else workers
 
-    parallel_results = Parallel(n_jobs=workers, backend="loky")(
-        delayed(_fit_single_cluster)(
-            cluster=cluster,
-            step=step,
-            strategy=strategy,
-            noise_value=noise_value,
-            parameter_config=parameter_config,
-            params_init=params_init,
+    log(f"Parallel fitting: {cluster_count} clusters with {actual_workers} workers")
+
+    # Create the live display
+    display = LiveClusterDisplay.from_clusters(clusters)
+    display.set_step_name(step.name or "Fitting")
+    display.set_workers(actual_workers)
+
+    with display:
+        # Mark all clusters as running since they'll be processed in parallel
+        for idx in range(1, cluster_count + 1):
+            display.mark_running(idx)
+
+        # Run parallel fitting
+        # Note: loky backend doesn't support streaming results, so we get all at once
+        parallel_results = Parallel(n_jobs=workers, backend="loky")(
+            delayed(_fit_single_cluster)(
+                cluster=cluster,
+                step=step,
+                strategy=strategy,
+                noise_value=noise_value,
+                parameter_config=parameter_config,
+                params_init=params_init,
+            )
+            for cluster in clusters
         )
-        for cluster in clusters
-    )
 
-    # Type assertion: joblib returns list matching delayed function return type
-    results = [r for r in parallel_results if isinstance(r, ClusterFitResult)]
+        # Type assertion: joblib returns list matching delayed function return type
+        results = [r for r in parallel_results if isinstance(r, ClusterFitResult)]
 
+        # Update display with all results
+        for cluster_idx, result in enumerate(results, 1):
+            display.mark_completed(
+                cluster_idx,
+                cost=result.cost,
+                n_evaluations=result.n_evaluations,
+                time_sec=result.time,
+                success=result.success,
+                message=result.message if not result.success else None,
+            )
+
+    # Collect and update parameters
     _collect_parallel_results(
         clusters,
         results,
@@ -514,10 +588,8 @@ def _collect_parallel_results(
 
         params_all.update(result.params)
 
-    console.print(
-        f"[green]✓[/green] Completed {cluster_count} clusters "
-        f"({successful}/{cluster_count} converged, total CPU time: {total_time:.1f}s)"
-    )
+    # Log summary (display already shows visual feedback)
+    log(f"Completed {cluster_count} clusters ({successful} converged, CPU time: {total_time:.1f}s)")
 
 
 def _log_step_header(step: FitStep, step_idx: int, total_steps: int) -> None:

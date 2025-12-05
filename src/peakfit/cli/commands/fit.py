@@ -213,24 +213,17 @@ def fit_command(
     Using a configuration file:
         $ peakfit fit spectrum.ft2 peaks.list --config peakfit.toml
     """
-    from peakfit.core.shared.events import EventDispatcher, EventType
+    from peakfit.core.shared.events import EventDispatcher
     from peakfit.services.fit.pipeline import FitPipeline
     from peakfit.ui import Verbosity, set_verbosity
-    from peakfit.ui.handlers import RichProgressHandler
 
     # Set verbosity
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
 
     # Setup event dispatcher for UI updates
+    # Note: The live cluster display is now built into the fitting functions,
+    # so we no longer need the RichProgressHandler
     dispatcher = EventDispatcher()
-    progress_handler = RichProgressHandler()
-
-    # Subscribe handler to fitting events
-    dispatcher.subscribe(EventType.FIT_STARTED, progress_handler)
-    dispatcher.subscribe(EventType.CLUSTER_STARTED, progress_handler)
-    dispatcher.subscribe(EventType.CLUSTER_COMPLETED, progress_handler)
-    dispatcher.subscribe(EventType.FIT_COMPLETED, progress_handler)
-    dispatcher.subscribe(EventType.FIT_PROGRESS, progress_handler)
 
     # Validate and process format options
     if formats:
