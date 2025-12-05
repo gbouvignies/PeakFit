@@ -8,7 +8,7 @@ import numpy as np
 
 from peakfit.core.lineshapes.base import PeakShape
 from peakfit.core.lineshapes.registry import register_shape
-from peakfit.core.lineshapes.utils import _LN2, _SQRT_PI_4LN2, CachedResult
+from peakfit.core.lineshapes.utils import _LN2, CachedResult
 
 if TYPE_CHECKING:
     from peakfit.core.fitting.parameters import Parameters
@@ -16,32 +16,19 @@ if TYPE_CHECKING:
 
 
 class PseudoVoigtEvaluator:
-    """Pseudo-Voigt lineshape evaluator.
-
-    V(dx) = η * L(dx) + (1-η) * G(dx)
-
-    Linear combination of Lorentzian and Gaussian with mixing parameter η ∈ [0,1].
-    Height-normalized to 1.0 at center.
-
-    Caching Strategy:
-        Similar to BaseEvaluator, caches results from evaluate() calls
-        for efficient subsequent get_cached_derivatives() calls.
-    """
+    """Pseudo-Voigt: V(dx) = η * L(dx) + (1-η) * G(dx)."""
 
     def __init__(self) -> None:
-        """Initialize with empty cache."""
         self._cache = CachedResult()
 
     def _compute_single(
         self, dx: FloatArray, fwhm: float, eta: float, calc_derivs: bool
     ) -> tuple[FloatArray, FloatArray | None, FloatArray | None, FloatArray | None]:
-        """Compute PseudoVoigt for single component."""
         gamma = 0.5 * fwhm
         gamma2 = gamma * gamma
         c = 4.0 * _LN2 / (fwhm * fwhm)
         dx2 = dx * dx
 
-        # Component values
         denom = gamma2 + dx2
         lorentz = gamma2 / denom
         gauss = np.exp(-c * dx2)
@@ -50,17 +37,14 @@ class PseudoVoigtEvaluator:
         if not calc_derivs:
             return pvoigt, None, None, None
 
-        # Lorentzian derivatives
         denom_inv2 = 1.0 / (denom * denom)
         d_lor_dx = -2.0 * gamma2 * dx * denom_inv2
         d_lor_fwhm = gamma * dx2 * denom_inv2
 
-        # Gaussian derivatives
         c2 = 2.0 * c
         d_gau_dx = -c2 * dx * gauss
         d_gau_fwhm = (c2 / fwhm) * dx2 * gauss
 
-        # Combined derivatives
         one_minus_eta = 1.0 - eta
         d_dx = eta * d_lor_dx + one_minus_eta * d_gau_dx
         d_fwhm = eta * d_lor_fwhm + one_minus_eta * d_gau_fwhm
@@ -173,16 +157,6 @@ class PseudoVoigtEvaluator:
         """Clear the cached results."""
         self._cache = CachedResult()
 
-    def height(self, j_hz: float = 0.0) -> float:
-        """Height at peak center (always 1.0)."""
-        del j_hz
-        return 1.0
-
-    def integral(self, fwhm: float, eta: float, j_hz: float = 0.0) -> float:
-        """Analytical integral as weighted sum of components."""
-        integral = eta * (np.pi * fwhm / 2.0) + (1.0 - eta) * (fwhm * _SQRT_PI_4LN2)
-        return integral * 2.0 if j_hz != 0.0 else integral
-
 
 @register_shape("pvoigt")
 class PseudoVoigt(PeakShape):
@@ -239,7 +213,7 @@ class PseudoVoigt(PeakShape):
 
         # Call evaluator
         # (dx, fwhm, eta, j_hz=0.0) -> (val, d_dx, d_fwhm, d_eta, d_jhz)
-        val, d_dx, d_fwhm, d_eta, _ = self.evaluator.evaluate(dx_hz, fwhm, eta)
+        val, d_dx, d_fwhm, d_eta, _ = self.evaluator.evaluate_derivatives(dx_hz, fwhm, eta)
 
         # Apply sign
         val = sign * val
@@ -256,25 +230,9 @@ class PseudoVoigt(PeakShape):
         return val, derivs
 
 
-# Module-level evaluator instance
 _pvoigt_evaluator = PseudoVoigtEvaluator()
 
 
 def pvoigt(dx: FloatArray, fwhm: float, eta: float, j_hz: float = 0.0) -> FloatArray:
-    """Evaluate Pseudo-Voigt lineshape.
-
-    Convenience function for simple evaluation without managing evaluator instances.
-    For repeated evaluations or when derivatives are needed, use PseudoVoigtEvaluator
-    directly to benefit from caching.
-
-    Args:
-        dx: Frequency offset array (Hz)
-        fwhm: Full width at half maximum (Hz)
-        eta: Mixing parameter (0=Gaussian, 1=Lorentzian)
-        j_hz: J-coupling constant (Hz), default 0.0
-
-    Returns
-    -------
-        Lineshape values at given offsets
-    """
+    """Evaluate Pseudo-Voigt lineshape."""
     return _pvoigt_evaluator.evaluate(np.asarray(dx), fwhm, eta, j_hz)

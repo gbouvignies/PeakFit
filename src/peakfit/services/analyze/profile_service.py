@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from scipy.stats import chi2
 
 from peakfit.core.domain.peaks import create_params
-from peakfit.core.fitting.advanced import compute_profile_likelihood
+from peakfit.core.fitting.profile import compute_profile_likelihood
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable

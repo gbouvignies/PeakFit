@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -77,30 +77,11 @@ class SP2Evaluator(ApodizationEvaluator):
 
         return val, d_dx, d_r2  # type: ignore[return-value]
 
-    def height(self, r2: float, j_hz: float = 0.0) -> float:
-        """Compute height at peak position."""
-        del j_hz  # Unused but part of interface
-        z1 = self.aq * r2
-        emz1 = np.exp(-z1)
-        ez1 = 1.0 / emz1
-
-        a1 = self._aq_quarter * (self._e2if2 - ez1) * self._e2if1 * emz1 / (z1 - self._i2f2)
-        a2 = self._aq_quarter * (self._em2if2 - ez1) * self._em2if1 * emz1 / (z1 + self._i2f2)
-        a3 = self._aq_half * (1 - emz1) / z1
-
-        val = a1 + a2 + a3
-        return float(val.real)
-
-    def integral(self, j_hz: float = 0.0) -> float:
-        """Compute analytical integral."""
-        integral = np.pi * np.sin(self.f1) ** 2
-        return integral * 2.0 if j_hz != 0.0 else integral
-
 
 def create_sp2_shape(
     name: str, center: float, spectra: Spectra, dim: int, args: FittingOptions
 ) -> ApodShape:
-    """Factory function to create an SP2 lineshape."""
+    """Create an SP2 lineshape."""
     spec_params = spectra.params[dim]
     evaluator = SP2Evaluator(
         aq=spec_params.aq_time,

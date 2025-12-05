@@ -1,8 +1,4 @@
-"""UI messages and status indicators.
-
-This module provides functions for displaying status messages, headers,
-footers, and other text-based UI elements with consistent styling.
-"""
+"""UI messages and status indicators."""
 
 from __future__ import annotations
 
@@ -39,23 +35,12 @@ _state: dict = {"logger": None}
 
 
 def set_logger(logger: logging.Logger | None) -> None:
-    """Set the module-level logger reference.
-
-    Args:
-        logger: Logger instance to use for file logging
-    """
+    """Set the module-level logger reference."""
     _state["logger"] = logger
 
 
 def show_header(text: str, do_log: bool = True) -> None:
-    """Display a prominent section header with consistent spacing.
-
-    Spacing: Calling code must add ONE blank line before. ZERO blank lines after.
-
-    Args:
-        text: Header text to display
-        do_log: Whether to log this header to file
-    """
+    """Display a prominent section header."""
     console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
     console.print(f"[bold cyan]  {text}[/bold cyan]")
     console.print("[bold cyan]" + "━" * 60 + "[/bold cyan]")
@@ -64,36 +49,20 @@ def show_header(text: str, do_log: bool = True) -> None:
 
 
 def show_subheader(text: str) -> None:
-    """Display a standard subheader.
-
-    Args:
-        text: Subheader text to display
-    """
+    """Display a standard subheader."""
     console.print(f"\n[bold white]{text}[/bold white]")
     console.print("[dim]" + "─" * 40 + "[/dim]")
 
 
 def subsection_header(title: str) -> None:
-    """Print subsection header with correct spacing.
-
-    Spacing: ONE blank line before, ONE blank line after.
-
-    Args:
-        title: Subsection title to display
-    """
-    console.print()  # ONE blank line before
+    """Print subsection header with correct spacing."""
+    console.print()
     console.print(f"[bold]{title}[/bold]")
-    console.print()  # ONE blank line after
+    console.print()
 
 
 def success(message: str, indent: int = 0, do_log: bool = True) -> None:
-    """Display a success message.
-
-    Args:
-        message: Success message to display
-        indent: Indentation level (spaces = indent * 2)
-        do_log: Whether to log this message to file
-    """
+    """Display a success message."""
     spaces = "  " * indent
     console.print(f"{spaces}[success]✓[/success] {message}")
     if do_log:
@@ -101,13 +70,7 @@ def success(message: str, indent: int = 0, do_log: bool = True) -> None:
 
 
 def warning(message: str, indent: int = 0, do_log: bool = True) -> None:
-    """Display a warning message.
-
-    Args:
-        message: Warning message to display
-        indent: Indentation level (spaces = indent * 2)
-        do_log: Whether to log this message to file
-    """
+    """Display a warning message."""
     spaces = "  " * indent
     console.print(f"{spaces}[warning]⚠[/warning]  {message}")
     if do_log:
@@ -115,13 +78,7 @@ def warning(message: str, indent: int = 0, do_log: bool = True) -> None:
 
 
 def error(message: str, indent: int = 0, do_log: bool = True) -> None:
-    """Display an error message.
-
-    Args:
-        message: Error message to display
-        indent: Indentation level (spaces = indent * 2)
-        do_log: Whether to log this message to file
-    """
+    """Display an error message."""
     spaces = "  " * indent
     console.print(f"{spaces}[error]✗[/error] {message}")
     if do_log:
@@ -129,13 +86,7 @@ def error(message: str, indent: int = 0, do_log: bool = True) -> None:
 
 
 def info(message: str, indent: int = 0, do_log: bool = True) -> None:
-    """Display an info message.
-
-    Args:
-        message: Info message to display
-        indent: Indentation level (spaces = indent * 2)
-        do_log: Whether to log this message to file
-    """
+    """Display an info message."""
     spaces = "  " * indent
     console.print(f"{spaces}[dim]▸[/dim] {message}")
     if do_log:
@@ -143,24 +94,12 @@ def info(message: str, indent: int = 0, do_log: bool = True) -> None:
 
 
 def action(message: str) -> None:
-    """Display an action/process message with visual separation.
-
-    Use this for ongoing operations like 'Fitting peaks...', 'Loading data...'
-
-    Args:
-        message: Action message to display
-    """
+    """Display an action/process message with visual separation."""
     console.print(f"\n[bold yellow]—[/bold yellow] {message}")
 
 
 def bullet(message: str, indent: int = 1, style: str = "default") -> None:
-    """Display a bullet point item.
-
-    Args:
-        message: Message to display
-        indent: Indentation level (spaces = indent * 2)
-        style: Style name (success/warning/error/default)
-    """
+    """Display a bullet point item."""
     spaces = "  " * indent
     if style == "success":
         icon = "[success]‣[/success]"
@@ -179,23 +118,12 @@ def spacer() -> None:
 
 
 def separator(char: str = "─", width: int = 60, style: str = "dim") -> None:
-    """Print a visual separator line.
-
-    Args:
-        char: Character to use for separator
-        width: Width of separator
-        style: Rich style to apply
-    """
+    """Print a visual separator line."""
     console.print(f"[{style}]{char * width}[/{style}]")
 
 
 def show_footer(start_time: datetime, end_time: datetime) -> None:
-    """Show completion footer with timing information.
-
-    Args:
-        start_time: When the program started
-        end_time: When the program completed
-    """
+    """Show completion footer with timing information."""
     runtime = (end_time - start_time).total_seconds()
 
     # Format runtime
@@ -225,18 +153,11 @@ def show_error_with_details(
     err: Exception,
     suggestion: str | None = None,
 ) -> None:
-    """Display an error with details in a panel.
-
-    Args:
-        context: Context of where the error occurred
-        err: The exception that was raised
-        suggestion: Optional suggestion for fixing the error
-    """
+    """Display an error with details in a panel."""
     from .panels import create_panel
 
     error(f"{context} failed")
 
-    # Show error details in panel
     error_panel = create_panel(
         f"[error]{type(err).__name__}[/error]: {err!s}",
         title="Error Details",
@@ -244,11 +165,9 @@ def show_error_with_details(
     )
     console.print(error_panel)
 
-    # Show suggestion if available
     if suggestion:
         info(f"Suggestion: {suggestion}")
 
-    # Link to docs
     console.print(f"\n[dim]See documentation: {REPO_URL}/docs[/dim]")
 
 
@@ -256,12 +175,7 @@ def show_file_not_found(
     filepath: Path,
     similar_files: list[Path] | None = None,
 ) -> None:
-    """Show file not found error with suggestions.
-
-    Args:
-        filepath: Path that was not found
-        similar_files: Optional list of similar files to suggest
-    """
+    """Show file not found error with suggestions."""
     error(f"File not found: [path]{filepath}[/path]")
 
     if similar_files:
@@ -269,7 +183,6 @@ def show_file_not_found(
         for file in similar_files[:5]:
             console.print(f"  • [path]{file}[/path]")
 
-    # Show files in current directory
     parent = filepath.parent if filepath.parent.exists() else Path()
     if parent.is_dir():
         pattern = f"*{filepath.suffix}" if filepath.suffix else "*"
@@ -283,11 +196,7 @@ def show_file_not_found(
 
 
 def print_next_steps(steps: list[str]) -> None:
-    """Print suggested next steps for the user.
-
-    Args:
-        steps: List of suggested commands or actions
-    """
+    """Print suggested next steps for the user."""
     console.print("\n[bold cyan]📋 Next steps:[/]")
     for i, step in enumerate(steps, 1):
         console.print(f"  {i}. {step}")

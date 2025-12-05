@@ -8,7 +8,10 @@ from typing import TYPE_CHECKING, Any, Protocol
 import numpy as np
 from scipy.optimize import least_squares
 
-from peakfit.core.fitting.advanced import fit_basin_hopping, fit_differential_evolution
+from peakfit.core.fitting.global_optimization import (
+    fit_basin_hopping,
+    fit_differential_evolution,
+)
 from peakfit.core.fitting.computation import residuals
 from peakfit.core.results.statistics import compute_chi_squared, compute_reduced_chi_squared
 
@@ -125,9 +128,7 @@ class LeastSquaresStrategy:
             ndata = len(result.fun)
             nvarys = len(vary_names)
             # Degrees of freedom must include amplitude parameters
-            n_peaks = len(cluster.peaks)
-            n_planes = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
-            n_amplitude_params = n_peaks * n_planes
+            n_amplitude_params = cluster.n_amplitude_params
             n_total_fitted = nvarys + n_amplitude_params
             chisqr = compute_chi_squared(result.fun)
             redchi = compute_reduced_chi_squared(chisqr, ndata, n_total_fitted)

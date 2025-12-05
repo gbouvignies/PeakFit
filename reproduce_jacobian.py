@@ -1,10 +1,12 @@
 import numpy as np
-from peakfit.core.fitting.optimizer import compute_jacobian, compute_residuals, params_to_arrays
-from peakfit.core.fitting.parameters import Parameters
+
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
-from peakfit.core.lineshapes import LorentzianEvaluator
 from peakfit.core.fitting.computation import calculate_shape_heights
+from peakfit.core.fitting.jacobian import compute_jacobian
+from peakfit.core.fitting.optimizer import compute_residuals
+from peakfit.core.fitting.parameters import Parameters
+from peakfit.core.lineshapes import LorentzianEvaluator
 
 
 # Mock Peak and Cluster for testing
@@ -75,7 +77,8 @@ def setup_test_case():
 
 
 def finite_difference_jacobian(params, cluster, noise=1.0, epsilon=1e-8):
-    x0, lower, upper, names = params_to_arrays(params)
+    x0 = params.get_vary_values()
+    names = params.get_vary_names()
     n_params = len(x0)
     n_points = len(cluster.positions[0])
 
@@ -97,7 +100,9 @@ def main():
     params, cluster, x = setup_test_case()
     noise = 1.0
 
-    x0, lower, upper, names = params_to_arrays(params)
+    x0 = params.get_vary_values()
+    names = params.get_vary_names()
+    lower, upper = params.get_vary_bounds()
 
     # Analytical Jacobian (Current)
     jac_analytical = compute_jacobian(x0, names, params, cluster, noise)

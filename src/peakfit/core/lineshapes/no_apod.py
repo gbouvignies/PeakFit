@@ -40,13 +40,6 @@ class NoApodEvaluator(ApodizationEvaluator):
         d_r2 = aq * dval_dz1
         return val, d_dx, d_r2  # type: ignore[return-value]
 
-    def height(self, r2: float, j_hz: float = 0.0) -> float:
-        """Compute height at peak position."""
-        del j_hz  # Unused but part of interface
-        z1 = self.aq * r2
-        height = np.real(self.aq * (1.0 - np.exp(-z1)) / z1)
-        return float(height)
-
 
 @register_shape("no_apod")
 class NoApod(ApodShape):
@@ -62,21 +55,6 @@ class NoApod(ApodShape):
 def no_apod(
     dx: FloatArray, r2: float, aq: float, phase: float = 0.0, j_hz: float = 0.0
 ) -> FloatArray:
-    """Evaluate non-apodized lineshape.
-
-    Convenience function that creates a temporary NoApodEvaluator.
-    For repeated evaluations with the same aq, use NoApodEvaluator directly.
-
-    Args:
-        dx: Frequency offset array (radians/s)
-        r2: R2 relaxation rate (Hz)
-        aq: Acquisition time in seconds
-        phase: Phase correction in degrees, default 0.0
-        j_hz: J-coupling constant (Hz), default 0.0
-
-    Returns
-    -------
-        Lineshape values at given offsets
-    """
+    """Convenience function to evaluate non-apodized lineshape."""
     evaluator = NoApodEvaluator(aq)
     return evaluator.evaluate(np.asarray(dx), r2, phase, j_hz)

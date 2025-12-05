@@ -1,12 +1,4 @@
-"""Parameter management for NMR peak fitting.
-
-This module provides Parameter and Parameters classes for managing
-fitting parameters with bounds, types, and metadata.
-
-The ParameterId class provides a unified parameter identification system
-using dot-notation (e.g., '2N-H.F1.cs') for consistent naming across
-fitting, output, and user configuration.
-"""
+"""Parameter management for NMR peak fitting."""
 
 from __future__ import annotations
 
@@ -61,22 +53,8 @@ _PARAM_TYPE_SHORT_NAMES: dict[ParameterType, str] = {
 class ParameterId(BaseModel):
     """Structured identifier for NMR fitting parameters.
 
-    Provides a unified naming system using dot-notation for consistent
-    parameter identification across fitting, output, and configuration.
-
-    The full name format is: `{peak_name}.{axis}.{param_type}` or `{peak_name}.{axis}.I{index}`
-
-    Axis naming follows Bruker TopSpin convention for pseudo-3D experiments:
-    - F1 = pseudo-dimension (intensities, CEST offsets, relaxation delays)
-    - F2 = first spectral dimension (indirect, e.g., 15N)
-    - F3 = second spectral dimension (direct/acquisition, e.g., 1H)
-
-    Examples
-    --------
-    - Chemical shift: "2N-H.F3.cs" (direct/1H), "2N-H.F2.cs" (indirect/15N)
-    - Linewidth: "2N-H.F3.lw", "2N-H.F2.lw"
-    - Amplitude: "2N-H.F1.I0" (pseudo-dimension intensity, plane 0)
-    - Phase (cluster-level): "cluster_0.F3.phase"
+    Full name format: {peak_name}.{axis}.{param_type} or {peak_name}.{axis}.I{index}
+    Axis naming follows Bruker TopSpin convention (F1=pseudo, F2/F3=spectral).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -103,37 +81,14 @@ class ParameterId(BaseModel):
 
     @property
     def name(self) -> str:
-        """Full parameter name in dot-notation.
-
-        Format: `{entity}.{axis}.{type}[{index}]`
-        where entity is peak_name or cluster_id.
-
-        Examples
-        --------
-        - "2N-H.F2.cs"
-        - "2N-H.F3.lw"
-        - "2N-H.F1.I0"
-        - "cluster_0.F3.phase"
-        """
+        """Full parameter name in dot-notation."""
         return self._build_name()
 
     @property
     def user_name(self) -> str:
-        """User-friendly parameter name for output.
-
-        Format: `{type}_{axis}` or `{type}{index}_{axis}`
-
-        Examples
-        --------
-        - "cs_F2", "lw_F3"
-        - "I0_F1", "I5_F1"
-        - "phase_F2"
-        """
+        """User-friendly parameter name for output (e.g., 'cs_F2', 'I0_F1')."""
         short_name = _PARAM_TYPE_SHORT_NAMES.get(self.param_type, self.param_type.value)
-
-        # For indexed parameters (amplitudes), include index in the name: I0_F1, I1_F1
         base = f"{short_name}{self.index}" if self.index is not None else short_name
-
         return f"{base}_{self.axis}" if self.axis else base
 
     def _build_name(self) -> str:
@@ -195,13 +150,7 @@ class ParameterId(BaseModel):
 
     @classmethod
     def amplitude(cls, peak_name: str, axis: str, plane_index: int = 0) -> ParameterId:
-        """Create an amplitude parameter ID.
-
-        Args:
-            peak_name: Name of the peak
-            axis: Dimension label (e.g., "F1" for pseudo-dimension)
-            plane_index: Index of the plane (0-based, default 0)
-        """
+        """Create an amplitude parameter ID."""
         return cls(
             peak_name=peak_name,
             axis=axis,
@@ -211,19 +160,7 @@ class ParameterId(BaseModel):
 
     @classmethod
     def from_name(cls, name: str) -> ParameterId:
-        """Parse a parameter name back into a ParameterId.
-
-        Args:
-            name: Parameter name like "2N-H.F1.cs"
-
-        Returns
-        -------
-            Parsed ParameterId
-
-        Raises
-        ------
-            ValueError: If name cannot be parsed
-        """
+        """Parse a parameter name back into a ParameterId."""
         return _parse_parameter_name(name)
 
     def __str__(self) -> str:
@@ -236,19 +173,7 @@ class ParameterId(BaseModel):
 
 
 def _parse_parameter_name(name: str) -> ParameterId:
-    """Parse a parameter name into a ParameterId.
-
-    Args:
-        name: Parameter name to parse (dot-notation format)
-
-    Returns
-    -------
-        Parsed ParameterId
-
-    Raises
-    ------
-        ValueError: If name cannot be parsed
-    """
+    """Parse a parameter name into a ParameterId."""
     # Handle amplitude format: "peak.F1.I0" (with axis)
     amp_match = re.match(r"^(.+)\.(F\d+)\.I(\d+)$", name)
     if amp_match:
@@ -293,11 +218,7 @@ def _name_to_param_type(type_name: str) -> ParameterType:
 
 
 class Parameter(BaseModel):
-    """Single NMR fitting parameter with bounds and metadata.
-
-    Designed specifically for NMR lineshape fitting with support for
-    different parameter types (position, FWHM, phase, etc.).
-    """
+    """Single NMR fitting parameter with bounds and metadata."""
 
     model_config = ConfigDict(validate_assignment=True, extra="forbid")
 

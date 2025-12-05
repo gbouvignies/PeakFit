@@ -14,12 +14,7 @@ if TYPE_CHECKING:
 
 
 class LorentzianEvaluator(BaseEvaluator):
-    """Lorentzian lineshape evaluator.
-
-    L(dx) = γ² / (γ² + dx²)  where γ = fwhm/2
-
-    Height-normalized to 1.0 at center.
-    """
+    """Lorentzian lineshape: L(dx) = γ² / (γ² + dx²) where γ = fwhm/2."""
 
     def _compute_single(
         self, dx: FloatArray, fwhm: float, calc_derivs: bool
@@ -38,11 +33,6 @@ class LorentzianEvaluator(BaseEvaluator):
         d_fwhm = gamma * dx2 * denom_inv2
         return lorentz, d_dx, d_fwhm
 
-    def integral(self, fwhm: float, j_hz: float = 0.0) -> float:
-        """Analytical integral: π * fwhm / 2."""
-        integral = np.pi * fwhm / 2.0
-        return integral * 2.0 if j_hz != 0.0 else integral
-
 
 @register_shape("lorentzian")
 class Lorentzian(PeakShape):
@@ -52,24 +42,9 @@ class Lorentzian(PeakShape):
         return LorentzianEvaluator()
 
 
-# Module-level evaluator instance
 _lorentzian_evaluator = LorentzianEvaluator()
 
 
 def lorentzian(dx: FloatArray, fwhm: float, j_hz: float = 0.0) -> FloatArray:
-    """Evaluate Lorentzian lineshape.
-
-    Convenience function for simple evaluation without managing evaluator instances.
-    For repeated evaluations or when derivatives are needed, use LorentzianEvaluator
-    directly to benefit from caching.
-
-    Args:
-        dx: Frequency offset array (Hz)
-        fwhm: Full width at half maximum (Hz)
-        j_hz: J-coupling constant (Hz), default 0.0
-
-    Returns
-    -------
-        Lineshape values at given offsets
-    """
+    """Evaluate Lorentzian lineshape."""
     return _lorentzian_evaluator.evaluate(np.asarray(dx), fwhm, j_hz)

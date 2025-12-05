@@ -37,25 +37,10 @@ NUCLEUS_LABELS: dict[str, str] = {
 
 
 def get_dimension_label(dim_index: int) -> str:
-    """Get the dimension label using Bruker Topspin convention for pseudo-nD.
+    """Get dimension label using Bruker Topspin convention.
 
-    Bruker Topspin convention for pseudo-3D experiments:
-    - F1 = pseudo-dimension (intensities, CEST offsets, relaxation delays)
-    - F2 = first spectral dimension (indirect, e.g., 15N)
-    - F3 = second spectral dimension (direct/acquisition, e.g., 1H)
-
-    For pseudo-3D (2 spectral dims): F2 (indirect), F3 (direct)
-    For pseudo-4D (3 spectral dims): F2, F3 (indirect), F4 (direct)
-
-    Args:
-        dim_index: 0-based index of the spectral dimension (0 = first spectral dim)
-
-    Returns
-    -------
-        Dimension label like "F2", "F3", "F4"
+    F1 = pseudo-dimension, F2/F3/F4 = spectral dimensions.
     """
-    # Offset by 2: dim_index 0 → F2, dim_index 1 → F3, etc.
-    # F1 is reserved for the pseudo-dimension
     return f"F{dim_index + 2}"
 
 
@@ -150,17 +135,7 @@ class SpectralParameters(BaseModel):
 def read_spectral_parameters(
     dic: dict[str, Any], data: FloatArray, *, has_pseudo_dim: bool = False
 ) -> list[SpectralParameters]:
-    """Read spectral parameters from NMRPipe dictionary.
-
-    Args:
-        dic: NMRPipe header dictionary
-        data: Spectrum data array
-        has_pseudo_dim: If True, first dimension is pseudo (not a spectral dim)
-
-    Returns
-    -------
-        List of SpectralParameters, one per dimension
-    """
+    """Read spectral parameters from NMRPipe dictionary."""
     spec_params: list[SpectralParameters] = []
 
     for i in range(data.ndim):
@@ -294,19 +269,7 @@ class Spectra(BaseModel):
         return dims
 
     def get_dimension(self, identifier: str | int) -> DimensionInfo:
-        """Get dimension info by label or index.
-
-        Args:
-            identifier: Either a label ("F1", "F2") or 0-based index
-
-        Returns
-        -------
-            DimensionInfo for the requested dimension
-
-        Raises
-        ------
-            KeyError: If dimension not found
-        """
+        """Get dimension info by label or index."""
         if isinstance(identifier, int):
             if 0 <= identifier < len(self.dimensions):
                 return self.dimensions[identifier]
@@ -324,11 +287,7 @@ class Spectra(BaseModel):
         return [dim.label for dim in self.dimensions]
 
     def exclude_planes(self, exclude_list: Sequence[int] | None) -> None:
-        """Remove the planes (first axis) listed in `exclude_list` from the data.
-
-        Args:
-            exclude_list: Sequence of integer plane indices to exclude (first axis).
-        """
+        """Remove planes (first axis) listed in exclude_list from the data."""
         if exclude_list is None:
             return
         mask = ~np.isin(range(self.data.shape[0]), exclude_list)
@@ -340,11 +299,7 @@ def read_spectra(
     path_z_values: Path | None = None,
     exclude_list: Sequence[int] | None = None,
 ) -> Spectra:
-    """Read an NMRPipe spectrum and optional plane/z-values file.
-
-    Returns a `Spectra` object containing the header dictionary and data, and
-    optionally a set of z-values loaded from `path_z_values`.
-    """
+    """Read an NMRPipe spectrum and optional plane/z-values file."""
     dic, data = read(path_spectra)
     data = data.astype(np.float32)
 
@@ -360,11 +315,7 @@ def read_spectra(
 
 
 def determine_shape_name(dim_params: SpectralParameters) -> str:
-    """Infer default shape name for a dimension from apodization parameters.
-
-    - Returns `sp1` or `sp2` for apocode=1 with q=1 or 2 respectively, `no_apod`
-      for apocode 0 or 2, and `pvoigt` otherwise.
-    """
+    """Infer default shape name for a dimension from apodization parameters."""
     if dim_params.apocode == 1.0:
         if dim_params.apodq3 == 1.0:
             return "sp1"
@@ -376,12 +327,7 @@ def determine_shape_name(dim_params: SpectralParameters) -> str:
 
 
 def get_shape_names(clargs: FittingOptions, spectra: Spectra) -> list[str]:
-    """Return a list of shape names per spectral dimension based on CLI options.
-
-    If `pvoigt`, `lorentzian` or `gaussian` are specified, that shape is used
-    for all spectral dimensions. Otherwise, the default shape is computed from
-    header params per-dimension.
-    """
+    """Return a list of shape names per spectral dimension based on CLI options."""
     match (clargs.pvoigt, clargs.lorentzian, clargs.gaussian):
         case (True, _, _):
             shape = "pvoigt"

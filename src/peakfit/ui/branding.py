@@ -1,7 +1,4 @@
-"""Branding and banner display for PeakFit UI.
-
-This module provides banner, version, and run info display functions.
-"""
+"""Branding and banner display for PeakFit UI."""
 
 from __future__ import annotations
 
@@ -31,11 +28,7 @@ from peakfit.ui.logging import log
 
 
 def show_standard_header(title: str | None = None) -> None:
-    """Show standard header based on current verbosity level.
-
-    Args:
-        title: Optional title for the header (e.g. "Fitting Process")
-    """
+    """Show standard header based on current verbosity level."""
     verbosity = get_verbosity()
 
     if verbosity == Verbosity.QUIET:
