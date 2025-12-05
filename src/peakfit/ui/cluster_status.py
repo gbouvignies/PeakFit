@@ -1,32 +1,37 @@
 """Live cluster status display for fitting progress.
 
 This module provides a live-updating display that shows fitting progress
-with spinners for in-progress clusters and updates as they complete,
-similar to uv sync or homebrew.
+similar to uv sync or homebrew - with a clean progress bar and status updates.
+
+Design principles:
+- Clean, minimal UI with clear progress indication
+- Progress bar with percentage and counts
+- Elapsed time display
+- Summary of failures (if any) shown at the end
+- No scrolling list during progress (cleaner, less noisy)
 """
 
 from __future__ import annotations
 
-from collections import deque
+import time as time_module
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from rich.console import Group
-from rich.live import Live
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn
-from rich.text import Text
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskID,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
 from peakfit.ui.console import console
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-# Maximum number of recently completed clusters to show
-MAX_RECENT_COMPLETED = 8
-
-# Threshold for using compact mode (progress bar only)
-COMPACT_MODE_THRESHOLD = 20
 
 
 class ClusterState(Enum):
@@ -55,11 +60,11 @@ class ClusterStatus:
 class LiveClusterDisplay:
     """Live display showing cluster fitting progress.
 
-    For small numbers of clusters, shows each cluster with status.
-    For large numbers, shows a compact progress bar with recent completions.
+    Shows a clean progress bar with spinner, percentage, and elapsed time.
+    Failed clusters are summarized at the end.
 
     Usage:
-        with LiveClusterDisplay(clusters) as display:
+        with LiveClusterDisplay.from_clusters(clusters) as display:
             display.mark_running(cluster_id)
             # ... fit cluster ...
             display.mark_completed(cluster_id, cost=1.23e-4, n_evaluations=42, time_sec=1.5)
@@ -67,15 +72,11 @@ class LiveClusterDisplay:
 
     cluster_names: dict[int, list[str]] = field(default_factory=dict)
     _statuses: dict[int, ClusterStatus] = field(default_factory=dict, init=False)
-    _live: Live | None = field(default=None, init=False)
     _progress: Progress | None = field(default=None, init=False)
     _task_id: TaskID | None = field(default=None, init=False)
     _step_name: str = field(default="Fitting", init=False)
     _n_workers: int = field(default=1, init=False)
-    _recent_completed: deque[Any] = field(
-        default_factory=lambda: deque(maxlen=MAX_RECENT_COMPLETED)
-    )
-    _use_compact_mode: bool = field(default=False, init=False)
+    _start_time: float = field(default=0.0, init=False)
 
     def __post_init__(self) -> None:
         """Initialize cluster statuses."""
@@ -84,8 +85,6 @@ class LiveClusterDisplay:
                 cluster_id=cluster_id,
                 peak_names=peak_names,
             )
-        # Use compact mode for many clusters
-        self._use_compact_mode = len(self._statuses) > COMPACT_MODE_THRESHOLD
 
     @classmethod
     def from_clusters(cls, clusters: Sequence) -> LiveClusterDisplay:
@@ -114,41 +113,37 @@ class LiveClusterDisplay:
 
     def __enter__(self) -> LiveClusterDisplay:
         """Start the live display."""
+        self._start_time = time_module.time()
+
         if not console.is_terminal:
             return self
 
-        # Create progress bar for compact mode
+        # Create a clean progress bar (similar to uv/homebrew style)
         self._progress = Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(complete_style="cyan", finished_style="green"),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            TextColumn("[dim]{task.completed}/{task.total}[/dim]"),
+            SpinnerColumn(finished_text="[green]✓[/green]"),
+            TextColumn("[bold]{task.description}[/bold]"),
+            BarColumn(bar_width=40, complete_style="cyan", finished_style="green"),
+            MofNCompleteColumn(),
+            TextColumn("[dim]•[/dim]"),
+            TimeElapsedColumn(),
             console=console,
-            transient=True,
+            transient=True,  # Progress bar disappears, replaced by summary
         )
 
         total = len(self._statuses)
         description = self._get_description()
         self._task_id = self._progress.add_task(description, total=total)
 
-        self._live = Live(
-            self._render(),
-            console=console,
-            refresh_per_second=10,
-            transient=True,  # Display disappears when done
-        )
-        self._live.__enter__()
+        self._progress.start()
         return self
 
     def __exit__(self, *args) -> None:
         """Stop the live display and print summary."""
-        if self._live is not None:
-            self._live.__exit__(*args)
-            self._live = None
+        if self._progress is not None:
+            self._progress.stop()
             self._progress = None
 
-        # Print final summary
+        # Print final summary (this replaces the progress bar line)
         self._print_summary()
 
     def _get_description(self) -> str:
@@ -161,7 +156,6 @@ class LiveClusterDisplay:
         """Mark a cluster as currently being fitted."""
         if cluster_id in self._statuses:
             self._statuses[cluster_id].state = ClusterState.RUNNING
-            self._refresh()
 
     def mark_completed(
         self,
@@ -193,81 +187,41 @@ class LiveClusterDisplay:
         status.time_sec = time_sec
         status.message = message
 
-        # Track recently completed for display
-        self._recent_completed.append(status)
-
         # Update progress bar
         if self._progress is not None and self._task_id is not None:
             self._progress.update(self._task_id, advance=1)
-
-        self._refresh()
-
-    def _refresh(self) -> None:
-        """Refresh the live display."""
-        if self._live is not None:
-            self._live.update(self._render())
 
     def _print_summary(self) -> None:
         """Print a summary line after all fitting is complete."""
         total = len(self._statuses)
         successful = sum(1 for s in self._statuses.values() if s.state == ClusterState.COMPLETED)
         failed = sum(1 for s in self._statuses.values() if s.state == ClusterState.FAILED)
-        total_time = sum(s.time_sec or 0.0 for s in self._statuses.values())
+        elapsed = time_module.time() - self._start_time
 
+        # Main summary line
         if failed == 0:
             console.print(
-                f"[green]✓[/green] All {total} clusters converged "
-                f"[dim](total time: {total_time:.1f}s)[/dim]"
+                f"[green]✓[/green] [bold]Fitted {total} clusters[/bold] "
+                f"[dim]in {elapsed:.1f}s[/dim]"
             )
         else:
             console.print(
-                f"[yellow]⚠[/yellow] {successful}/{total} clusters converged, "
-                f"{failed} did not converge [dim](total time: {total_time:.1f}s)[/dim]"
+                f"[yellow]⚠[/yellow] [bold]Fitted {total} clusters[/bold] "
+                f"({successful} converged, {failed} failed) "
+                f"[dim]in {elapsed:.1f}s[/dim]"
             )
 
-    def _render(self) -> Group:
-        """Render the current status display."""
-        elements = []
+            # Show failed clusters
+            failed_statuses = [s for s in self._statuses.values() if s.state == ClusterState.FAILED]
+            for status in failed_statuses[:5]:  # Limit to first 5
+                peaks_str = ", ".join(status.peak_names[:3])
+                if len(status.peak_names) > 3:
+                    peaks_str += f" (+{len(status.peak_names) - 3})"
+                msg = status.message or "Did not converge"
+                console.print(f"  [dim]•[/dim] {peaks_str}: [yellow]{msg}[/yellow]")
 
-        # Progress bar
-        if self._progress is not None:
-            elements.append(self._progress)
-
-        # Recently completed clusters (scrolling list)
-        if self._recent_completed:
-            recent_lines = []
-            for status in self._recent_completed:
-                line = self._format_completed_line(status)
-                recent_lines.append(line)
-            if recent_lines:
-                elements.append(Text("\n".join(recent_lines)))
-
-        return Group(*elements) if elements else Group(Text(""))
-
-    def _format_completed_line(self, status: ClusterStatus) -> str:
-        """Format a single completed cluster line."""
-        # Build peak names string
-        peaks_str = ", ".join(status.peak_names[:3])
-        if len(status.peak_names) > 3:
-            peaks_str += f" (+{len(status.peak_names) - 3})"
-
-        # Pad to align results
-        peaks_str = peaks_str.ljust(30)
-
-        if status.state == ClusterState.COMPLETED:
-            return (
-                f"[green]✓[/green] {peaks_str} "
-                f"[dim]χ²=[/dim][cyan]{status.cost:.2e}[/cyan] "
-                f"[dim]iter=[/dim]{status.n_evaluations} "
-                f"[dim]time=[/dim]{status.time_sec:.1f}s"
-            )
-        else:
-            msg = status.message or "Did not converge"
-            return (
-                f"[yellow]✗[/yellow] {peaks_str} "
-                f"[yellow]{msg}[/yellow] "
-                f"[dim]χ²={status.cost:.2e}[/dim]"
-            )
+            if len(failed_statuses) > 5:
+                console.print(f"  [dim]... and {len(failed_statuses) - 5} more[/dim]")
 
 
 __all__ = ["ClusterState", "ClusterStatus", "LiveClusterDisplay"]

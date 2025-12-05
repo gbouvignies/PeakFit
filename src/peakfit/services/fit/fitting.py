@@ -260,10 +260,15 @@ def _log_iteration_header(
     ctx: _IterationContext, params_all: Parameters, clusters: list[Cluster]
 ) -> None:
     """Log the header for a fitting iteration."""
+    # Don't print "default" step name - use descriptive labels instead
+    use_label = ctx.step.name and ctx.step.name.lower() != "default"
+
     if ctx.is_first:
-        subsection_header("Initial Fit" if not ctx.step.name else ctx.label)
+        subsection_header("Initial Fit" if not use_label else ctx.label)
     else:
-        subsection_header(f"Refining Parameters: {ctx.label}")
+        subsection_header(
+            f"Refining Parameters: {ctx.label}" if use_label else "Refining Parameters"
+        )
         log_section(f"Protocol: {ctx.label}")
         update_cluster_corrections(params_all, clusters)
 
