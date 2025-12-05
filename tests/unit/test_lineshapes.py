@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 
-from peakfit.core.lineshapes.functions import (
+from peakfit.core.lineshapes import (
     GaussianEvaluator,
     LorentzianEvaluator,
     PseudoVoigtEvaluator,

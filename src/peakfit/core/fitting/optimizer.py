@@ -213,21 +213,76 @@ def compute_jacobian(
 
     # X = (S^T S)^-1 S^T V_flat
     # This projects V_flat onto the subspace S
-    X = calculate_amplitudes(shapes, V_flat)
+    # sts_inv is needed for the second term anyway, so let's compute it explicitly
+    sts = shapes @ shapes.T
+    try:
+        sts_inv = np.linalg.inv(sts)
+    except np.linalg.LinAlgError:
+        sts_inv = np.linalg.pinv(sts)
+
+    # phi_pinv = (S^T S)^-1 S^T  (shape: n_peaks, n_points)
+    # S = shapes.T
+    phi_pinv = sts_inv @ shapes
+
+    # X = phi_pinv @ V_flat (n_peaks, n_planes * n_params)
+    X = phi_pinv @ V_flat
 
     # P_perp V = V - S X
     # S is shapes.T in matrix notation (n_points, n_peaks)
     projection = shapes.T @ X
     P_perp_V_flat = V_flat - projection
 
-    # 5. Reshape and scale
-    # We need to flatten (n_points, n_planes) to match residuals.ravel()
-    # P_perp_V_flat is (n_points, n_planes * n_params)
-    # Reshape to (n_points, n_planes, n_params)
+    # --- Full Jacobian Correction ---
+    # The full Jacobian includes a term: - (Phi^dagger)^T D_k^T r
+    # where r is the residual vector.
+
+    # Compute residuals: r = y - S c
+    # amplitudes: (n_peaks, n_planes)
+    data = cluster.corrected_data
+    if data.ndim == 1:
+        data = data[:, np.newaxis]
+    residuals = data - shapes.T @ amplitudes  # (n_points, n_planes)
+
+    # We need to compute the correction for each parameter k.
+    # Correction_k = (Phi^dagger)^T D_k^T r
+    # Note: The formula is J = -P_perp V - (Phi^dagger)^T D^T r
+    # We computed -P_perp V (stored as -P_perp_V_flat later).
+    # So we need to subtract the correction term.
+
+    # Reshape P_perp_V_flat back to tensor for easier indexing
     P_perp_V_tensor = P_perp_V_flat.reshape(n_points, n_planes, n_params)
+    correction_tensor = np.zeros((n_points, n_planes, n_params))
+
+    for i, peak in enumerate(cluster.peaks):
+        # i is the peak index
+        peak_derivs = derivs_list[i]
+
+        # phi_pinv[i] is the i-th row of phi_pinv (n_points,)
+        # It corresponds to the i-th column of (Phi^dagger)^T
+        phi_pinv_i = phi_pinv[i]
+
+        for p_name, d_val in peak_derivs.items():
+            if p_name in param_name_to_idx:
+                idx = param_name_to_idx[p_name]
+
+                # d_val is D_k (n_points,)
+                # residuals is r (n_points, n_planes)
+                # w = D_k^T r = d_val @ residuals -> (n_planes,)
+                w = d_val @ residuals
+
+                # correction = (Phi^dagger)^T[:, i] * w
+                # correction = phi_pinv_i[:, None] * w[None, :]
+                correction_tensor[:, :, idx] += phi_pinv_i[:, np.newaxis] * w[np.newaxis, :]
+
+    # Subtract correction
+    # J_tensor = - (P_perp_V_tensor + correction_tensor)
+    # Wait, the formula is J = - P_perp D c - (Phi^dagger)^T D^T r
+    # We have P_perp_V_tensor = P_perp D c
+    # So J = - (P_perp_V_tensor + correction_tensor)
+    J_tensor = -(P_perp_V_tensor + correction_tensor)
 
     # Flatten first two dims: (n_points * n_planes, n_params)
-    J = -P_perp_V_tensor.reshape(-1, n_params)
+    J = J_tensor.reshape(-1, n_params)
 
     return J / noise
 
@@ -283,9 +338,10 @@ def fit_cluster(
 
     # Run optimization
     result = least_squares(
-        _residuals_for_optimizer,
+        compute_residuals,
         x0,
-        args=(params, cluster, noise),
+        jac=compute_jacobian,
+        args=(params.get_vary_names(), params, cluster, noise),
         bounds=(lower, upper),
         method="trf",  # Trust Region Reflective - good for bounded problems
         ftol=ftol,
@@ -297,6 +353,11 @@ def fit_cluster(
 
     # Update parameters with final values
     params.set_vary_values(result.x)
+
+    # Estimate uncertainties using Jacobian
+    # Note: fit_cluster_matrix handles this internally in _estimate_uncertainties
+    # We should probably do it here too if possible, but least_squares result
+    # only has jac if we ask for it or it estimates it. Here we provide it.
 
     return FitResult(
         params=params,

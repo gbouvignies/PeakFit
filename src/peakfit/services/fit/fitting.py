@@ -266,7 +266,7 @@ def _fit_single_cluster(
     noise_value: float,
     parameter_config: ParameterConfig | None,
     params_init: dict[str, float],
-) -> tuple[Parameters, float, float, bool]:
+) -> tuple[Parameters, float, float, bool, int]:
     """Fit a single cluster (used by both sequential and parallel execution).
 
     Args:
@@ -281,7 +281,7 @@ def _fit_single_cluster(
 
     Returns
     -------
-        Tuple of (fitted_params, cost, time, success)
+        Tuple of (fitted_params, cost, time, success, n_evaluations)
     """
     cluster_start = time_module.time()
 
@@ -305,7 +305,10 @@ def _fit_single_cluster(
 
     cluster_time = time_module.time() - cluster_start
 
-    return result.params, result.cost, cluster_time, result.success
+    # Extract n_evaluations safely
+    n_evals = int(result.n_evaluations) if hasattr(result, "n_evaluations") else 0
+
+    return result.params, result.cost, cluster_time, result.success, n_evals
 
 
 def _fit_iteration_sequential(
@@ -355,7 +358,7 @@ def _fit_iteration_sequential(
             dispatcher, cluster_idx, cluster_count, iteration_idx, total_iterations, peak_names
         )
 
-        params, cost, cluster_time, success = _fit_single_cluster(
+        params, cost, cluster_time, success, n_evals = _fit_single_cluster(
             cluster=cluster,
             cluster_idx=cluster_idx,
             cluster_count=cluster_count,
@@ -385,7 +388,7 @@ def _fit_iteration_sequential(
                 self.n_evaluations = n_evals
                 self.message = "Converged" if success else "Did not converge"
 
-        result_proxy = _ResultProxy(cost, success)
+        result_proxy = _ResultProxy(cost, success, n_evals)
         if verbose:
             _print_cluster_result(result_proxy, cluster_time)
         _log_cluster_result(result_proxy, cluster_time)
@@ -448,7 +451,7 @@ def _fit_iteration_parallel(
     # Collect results and update parameters
     total_time = 0.0
     successful = 0
-    for cluster_idx, (cluster, (params, cost, cluster_time, success)) in enumerate(
+    for cluster_idx, (cluster, (params, cost, cluster_time, success, n_evals)) in enumerate(
         zip(clusters, results, strict=True), 1
     ):
         total_time += cluster_time
@@ -468,9 +471,9 @@ def _fit_iteration_parallel(
             cluster_time,
         )
 
-        # Log each result
+        # Log each result with iteration count
         log(
-            f"Cluster {cluster_idx}: {', '.join(peak_names)} - cost={cost:.2e}, time={cluster_time:.2f}s"
+            f"Cluster {cluster_idx}: {', '.join(peak_names)} - cost={cost:.2e}, iter={n_evals}, time={cluster_time:.2f}s"
         )
 
         params_all.update(params)
