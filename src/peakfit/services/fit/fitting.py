@@ -33,6 +33,7 @@ from peakfit.core.shared.constants import (
     LEAST_SQUARES_MAX_NFEV,
 )
 from peakfit.core.shared.events import Event, EventType, FitProgressEvent
+from peakfit.core.shared.reporter import NullReporter, Reporter
 from peakfit.ui import LiveClusterDisplay, console, log, log_section, subsection_header
 
 if TYPE_CHECKING:
@@ -82,6 +83,8 @@ def fit_all_clusters(
     dispatcher: EventDispatcher | None = None,
     parameter_config: ParameterConfig | None = None,
     workers: int = -1,
+    reporter: Reporter | None = None,
+    headless: bool = False,
 ) -> Parameters:
     """Fit all clusters with the requested optimization strategy.
 
@@ -118,6 +121,8 @@ def fit_all_clusters(
         verbose=verbose,
         dispatcher=dispatcher,
         workers=workers,
+        headless=headless,
+        reporter=reporter,
     )
     return runner.run()
 
@@ -135,6 +140,8 @@ def fit_all_clusters_with_protocol(
     verbose: bool = False,
     dispatcher: EventDispatcher | None = None,
     workers: int = 1,
+    headless: bool = False,
+    reporter: Reporter | None = None,
 ) -> Parameters:
     """Fit clusters using a multi-step protocol.
 
@@ -152,6 +159,7 @@ def fit_all_clusters_with_protocol(
         verbose: Whether to show verbose output
         dispatcher: Optional event dispatcher
         workers: Number of parallel workers (-1 for all CPUs, 1 for sequential)
+        headless: Disable live display/UI elements during fitting
 
     Returns
     -------
@@ -168,7 +176,9 @@ def fit_all_clusters_with_protocol(
         parameter_config=parameter_config,
         verbose=verbose,
         dispatcher=dispatcher,
+        headless=headless,
         workers=workers,
+        reporter=reporter,
     )
     return runner.run()
 
@@ -188,7 +198,9 @@ class FitRunner:
         parameter_config: ParameterConfig | None = None,
         verbose: bool = False,
         dispatcher: EventDispatcher | None = None,
+        headless: bool = False,
         workers: int = 1,
+        reporter: Reporter | None = None,
     ) -> None:
         self.clusters = clusters
         self.protocol = protocol
@@ -200,7 +212,9 @@ class FitRunner:
         self.parameter_config = parameter_config
         self.verbose = verbose
         self.dispatcher = dispatcher
+        self.headless = headless
         self.workers = workers
+        self.reporter = reporter or NullReporter()
 
         self.strategy = self._create_strategy()
         self.params_all = Parameters()
@@ -251,6 +265,10 @@ class FitRunner:
         # Determine actual number of workers for logging
         actual_workers = (os.cpu_count() or 1) if self.workers == -1 else self.workers
 
+        self.reporter.action(
+            f"Fitting {len(self.clusters)} clusters across {self.total_iterations} iteration(s)"
+        )
+
         with threadpool_limits(limits=1, user_api="blas"):
             for step_idx, step in enumerate(self.protocol.steps):
                 self._log_step_header(step, step_idx, len(self.protocol.steps))
@@ -275,6 +293,8 @@ class FitRunner:
                     else:
                         self._run_sequential(ctx)
 
+        self.reporter.success("Cluster fitting complete")
+
         return self.params_all
 
     def _run_sequential(self, ctx: _IterationContext) -> None:
@@ -282,32 +302,46 @@ class FitRunner:
         log(f"Sequential fitting: {len(self.clusters)} clusters")
         params_init = {key: self.params_all[key].value for key in self.params_all}
 
-        display = LiveClusterDisplay.from_clusters(self.clusters)
-        display.set_step_name(ctx.step_name)
-        display.set_workers(1)
-
-        with display:
+        if self.headless:
             for cluster_idx, cluster in enumerate(self.clusters, 1):
-                display.mark_running(cluster_idx)
-
                 result = self._fit_and_report_cluster(
                     cluster=cluster,
                     cluster_idx=cluster_idx,
                     step=ctx.step,
                     params_init=params_init,
-                    use_live_display=True,
+                    use_live_display=False,
                 )
-
-                display.mark_completed(
-                    cluster_idx,
-                    cost=result.cost,
-                    n_evaluations=result.n_evaluations,
-                    time_sec=result.time,
-                    success=result.success,
-                    message=result.message if not result.success else None,
-                )
-
                 self.params_all.update(result.params)
+                self.reporter.info(
+                    f"Cluster {cluster_idx}/{len(self.clusters)} cost={result.cost:.2e}"
+                )
+        else:
+            display = LiveClusterDisplay.from_clusters(self.clusters)
+            display.set_step_name(ctx.step_name)
+            display.set_workers(1)
+
+            with display:
+                for cluster_idx, cluster in enumerate(self.clusters, 1):
+                    display.mark_running(cluster_idx)
+
+                    result = self._fit_and_report_cluster(
+                        cluster=cluster,
+                        cluster_idx=cluster_idx,
+                        step=ctx.step,
+                        params_init=params_init,
+                        use_live_display=True,
+                    )
+
+                    display.mark_completed(
+                        cluster_idx,
+                        cost=result.cost,
+                        n_evaluations=result.n_evaluations,
+                        time_sec=result.time,
+                        success=result.success,
+                        message=result.message if not result.success else None,
+                    )
+
+                    self.params_all.update(result.params)
 
     def _run_parallel(self, ctx: _IterationContext, actual_workers: int) -> None:
         """Run iteration using joblib parallelism."""
@@ -316,14 +350,7 @@ class FitRunner:
         log(f"Parallel fitting: {len(self.clusters)} clusters with {actual_workers} workers")
         params_init = {key: self.params_all[key].value for key in self.params_all}
 
-        display = LiveClusterDisplay.from_clusters(self.clusters)
-        display.set_step_name(ctx.step_name)
-        display.set_workers(actual_workers)
-
-        with display:
-            for idx in range(1, len(self.clusters) + 1):
-                display.mark_running(idx)
-
+        if self.headless:
             parallel_results = Parallel(n_jobs=self.workers, backend="loky")(
                 delayed(_fit_single_cluster)(
                     cluster=cluster,
@@ -336,18 +363,40 @@ class FitRunner:
                 for cluster in self.clusters
             )
 
-            # Filter valid results
             results = [r for r in parallel_results if isinstance(r, ClusterFitResult)]
+        else:
+            display = LiveClusterDisplay.from_clusters(self.clusters)
+            display.set_step_name(ctx.step_name)
+            display.set_workers(actual_workers)
 
-            for cluster_idx, result in enumerate(results, 1):
-                display.mark_completed(
-                    cluster_idx,
-                    cost=result.cost,
-                    n_evaluations=result.n_evaluations,
-                    time_sec=result.time,
-                    success=result.success,
-                    message=result.message if not result.success else None,
+            with display:
+                for idx in range(1, len(self.clusters) + 1):
+                    display.mark_running(idx)
+
+                parallel_results = Parallel(n_jobs=self.workers, backend="loky")(
+                    delayed(_fit_single_cluster)(
+                        cluster=cluster,
+                        step=ctx.step,
+                        strategy=self.strategy,
+                        noise_value=self.noise,
+                        parameter_config=self.parameter_config,
+                        params_init=params_init,
+                    )
+                    for cluster in self.clusters
                 )
+
+                # Filter valid results
+                results = [r for r in parallel_results if isinstance(r, ClusterFitResult)]
+
+                for cluster_idx, result in enumerate(results, 1):
+                    display.mark_completed(
+                        cluster_idx,
+                        cost=result.cost,
+                        n_evaluations=result.n_evaluations,
+                        time_sec=result.time,
+                        success=result.success,
+                        message=result.message if not result.success else None,
+                    )
 
         # Collect results and update parameters
         self._collect_results(results)
