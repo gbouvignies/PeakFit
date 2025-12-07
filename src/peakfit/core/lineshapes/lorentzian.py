@@ -21,16 +21,33 @@ class LorentzianEvaluator(BaseEvaluator):
     ) -> tuple[FloatArray, FloatArray | None, FloatArray | None]:
         gamma = 0.5 * fwhm
         gamma2 = gamma * gamma
-        dx2 = dx * dx
+        dx_arr = np.asarray(dx)
+        dx2 = dx_arr * dx_arr
         denom = gamma2 + dx2
         lorentz = gamma2 / denom
+
+        mask_nan = np.isnan(dx_arr)
+        mask_inf = np.isinf(dx_arr)
+        if mask_inf.any():
+            lorentz = np.where(mask_inf, 0.0, lorentz)
+        if mask_nan.any():
+            lorentz = np.where(mask_nan, np.nan, lorentz)
 
         if not calc_derivs:
             return lorentz, None, None
 
         denom_inv2 = 1.0 / (denom * denom)
-        d_dx = -2.0 * gamma2 * dx * denom_inv2
-        d_fwhm = gamma * dx2 * denom_inv2
+        d_dx = np.zeros_like(lorentz)
+        d_fwhm = np.zeros_like(lorentz)
+        mask_finite = ~(mask_nan | mask_inf)
+        if mask_finite.any():
+            d_dx_finite = -2.0 * gamma2 * dx_arr[mask_finite] * denom_inv2[mask_finite]
+            d_fwhm_finite = gamma * dx2[mask_finite] * denom_inv2[mask_finite]
+            d_dx[mask_finite] = d_dx_finite
+            d_fwhm[mask_finite] = d_fwhm_finite
+        if mask_nan.any():
+            d_dx = np.where(mask_nan, np.nan, d_dx)
+            d_fwhm = np.where(mask_nan, np.nan, d_fwhm)
         return lorentz, d_dx, d_fwhm
 
 

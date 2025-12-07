@@ -1,13 +1,35 @@
-"""MCMC uncertainty estimation for NMR peak fitting."""
+r"""Bayesian uncertainty estimation using Affine Invariant MCMC.
+
+This module implements Markov Chain Monte Carlo (MCMC) sampling to estimate
+parameter uncertainties and posterior distributions. It uses the `emcee` library,
+which implements the Affine Invariant Ensemble Sampler (Goodman & Weare).
+
+Sampling Strategy
+-----------------
+*   **Nonlinear Parameters** (positions, linewidths): Sampled directly using MCMC.
+    *   **Priors**: Uniform (Flat) within the bounds defined in `Parameters`.
+    *   **Likelihood**: Gaussian, assuming independent identically distributed (i.i.d.) noise.
+        $ \ln L \propto -\frac{1}{2} \sum (y_{obs} - y_{model})^2 $
+
+*   **Linear Parameters** (amplitudes): Solved marginal optimization.
+    *   For each MCMC sample of nonlinear parameters, amplitudes are computed analytically
+        using Linear Least Squares ($R\alpha = Q^T y$).
+    *   This is known as "concentrating out" the linear parameters, effectively sampling
+        from the profile likelihood of the nonlinear parameters.
+
+This hybrid approach drastically reduces the dimensionality of the sampling space
+(by $N_{peaks} \times N_{planes}$), improving convergence and mixing.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from multiprocessing import Pool
-from typing import TYPE_CHECKING
 import os
-import numpy as np
+from typing import TYPE_CHECKING, Any
+
 import emcee
+import numpy as np
 
 from peakfit.core.fitting.computation import residuals
 from peakfit.core.fitting.parameters import Parameters  # noqa: TC001
@@ -40,9 +62,41 @@ _amp_cluster: Cluster | None = None
 class UncertaintyResult:
     """Comprehensive uncertainty estimates for fitted parameters.
 
-    All parameters (lineshape and amplitudes) are treated uniformly.
-    Amplitudes are computed via linear least-squares for each MCMC sample
-    and included alongside lineshape parameters in the chains and statistics.
+    Results include both sampled nonlinear parameters and analytically projected
+    amplitudes, providing a unified view of the posterior.
+
+    Attributes
+    ----------
+    parameter_names : list[str]
+        Names of all parameters (lineshape + amplitudes).
+    values : FloatArray
+        Best-fit values (median of posterior) for all parameters.
+    std_errors : FloatArray
+        Standard errors (std dev of posterior) for all parameters.
+    confidence_intervals_68 : FloatArray
+        68% Credible Intervals (16th-84th percentile), shape (n_params, 2).
+    confidence_intervals_95 : FloatArray
+        95% Credible Intervals (2.5th-97.5th percentile), shape (n_params, 2).
+    correlation_matrix : FloatArray
+        Correlation matrix for separate lineshape parameters.
+    mcmc_samples : FloatArray | None
+        Flattened posterior samples. Shape: `(n_samples, n_params)`.
+    mcmc_percentiles : FloatArray | None
+        16th, 50th, 84th percentiles. Shape: `(3, n_params)`.
+    mcmc_chains : FloatArray | None
+        Full MCMC chains. Shape: `(n_walkers, n_steps, n_params)`.
+    mcmc_diagnostics : ConvergenceDiagnostics | None
+        Convergence metrics (R-hat, ESS) for all parameters.
+    burn_in_info : dict[str, Any] | None
+        Metadata about the burn-in phase (e.g., number of steps discarded).
+    n_lineshape_params : int
+        Count of nonlinear parameters sampled directly.
+    amplitude_names : list[str] | None
+        Names of peaks (used for grouping amplitudes).
+    n_planes : int
+        Number of spectral planes (used for amplitude indexing).
+    profile_likelihood_ci : FloatArray | None
+        Legacy field for profile likelihood results.
     """
 
     # Combined parameter names: lineshape params + amplitude params ({peak}.I[plane])
@@ -58,7 +112,7 @@ class UncertaintyResult:
     mcmc_percentiles: FloatArray | None = None  # 16th, 50th, 84th percentiles
     mcmc_chains: FloatArray | None = None  # Full chains (n_walkers, n_steps, n_all_params)
     mcmc_diagnostics: ConvergenceDiagnostics | None = None  # Convergence diagnostics
-    burn_in_info: dict | None = None  # Burn-in determination information
+    burn_in_info: dict[str, Any] | None = None  # Burn-in determination information
 
     # Metadata for distinguishing parameter types
     n_lineshape_params: int = 0  # Number of lineshape parameters
@@ -247,34 +301,47 @@ def estimate_uncertainties_mcmc(
     workers: int = 1,
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> UncertaintyResult:
-    """Estimate parameter uncertainties using MCMC sampling.
+    r"""Estimate parameter uncertainties using Affine Invariant MCMC (emcee).
 
-    Uses emcee for Markov Chain Monte Carlo sampling to get
-    full posterior distributions for parameters.
+    Samples the posterior distribution of the nonlinear parameters (positions,
+    linewidths) while treating amplitudes as nuisance parameters that are
+    marginalized out (via analytical optimization at each step).
 
-    This function now computes comprehensive convergence diagnostics following
-    the Bayesian Analysis Reporting Guidelines (BARG):
-    - R-hat (Gelman-Rubin statistic) for convergence assessment
-    - Effective Sample Size (ESS) for sample quality
-    - Full chain data for diagnostic plotting
-    - Adaptive burn-in determination using R-hat monitoring
+    Priors
+    ------
+    - **Nonlinear Parameters**: Uniform (Flat) distribution within the min/max
+        bounds specified in the `params` object.
+    - **Amplitudes**: Uninformative (Uniform on $(-\infty, \infty)$), implied
+        by the linear least squares solution.
 
-    Args:
-        params: Fitted parameters (starting point)
-        cluster: Cluster data
-        noise: Noise level
-        n_walkers: Number of MCMC walkers/chains
-        n_steps: Number of MCMC steps per walker
-        burn_in: Steps to discard as burn-in. If None, automatically determined
-            using R-hat convergence monitoring (recommended).
-        workers: Number of parallel workers for likelihood evaluation.
-            Use 1 for sequential (default), -1 for all CPUs.
-        progress_callback: Optional callback(step, total_steps, status) for progress reporting.
+    Parameters
+    ----------
+    params : Parameters
+        Fitted parameters serving as the starting point (mean of the initial ball).
+    cluster : Cluster
+        The spectral cluster containing data and peaks.
+    noise : float
+        Noise level (sigma) of the data. Used in the Gaussian likelihood function.
+    n_walkers : int, optional
+        Number of MCMC walkers (chains). Should be at least 2 * n_params.
+        Default is defined in constants.
+    n_steps : int, optional
+        Number of steps to run for each walker. Default is defined in constants.
+    burn_in : int, optional
+        Number of initial steps to discard. If None, it is automatically
+        determined using the R-hat statistic (recommended).
+    workers : int, optional
+        Number of parallel processes to use.
+        * 1: Sequential execution (default).
+        * -1: Use all available CPU cores.
+    progress_callback : Callable[[int, int, str], None], optional
+        Function to be called with (step, total_steps, status_message) for UI updates.
 
     Returns
     -------
-        UncertaintyResult with comprehensive uncertainty estimates and diagnostics
-
+    UncertaintyResult
+        Data object containing the full chains, statistical summaries (CI, geometric means),
+        and convergence diagnostics (R-hat, ESS).
     """
     global _mcmc_params, _mcmc_cluster, _mcmc_noise, _mcmc_bounds
 

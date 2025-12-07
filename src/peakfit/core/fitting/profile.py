@@ -8,7 +8,7 @@ import numpy as np
 from scipy import optimize
 
 from peakfit.core.fitting.computation import residuals
-from peakfit.core.fitting.global_optimization import residuals_global
+from peakfit.core.algorithms.global_optimization import residuals_global
 from peakfit.core.fitting.parameters import Parameters  # noqa: TC001
 from peakfit.core.shared.constants import (
     PROFILE_LIKELIHOOD_DELTA_CHI2,

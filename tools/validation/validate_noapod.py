@@ -2,6 +2,14 @@ import numpy as np
 import sys
 import os
 
+# Ensure this developer script is not collected by pytest
+try:  # pragma: no cover - only relevant in pytest collection
+    import pytest
+
+    pytestmark = pytest.mark.skip("Developer validation script; not part of the test suite")
+except Exception:  # pragma: no cover
+    pytestmark = None
+
 # Define FloatArray for type hinting
 FloatArray = np.ndarray
 

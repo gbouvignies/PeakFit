@@ -91,6 +91,7 @@ directory = "Fits"
 formats = ["json", "csv", "txt"]
 save_simulated = true
 save_html_report = true
+headless = false
 
 # Optional settings
 # noise_level = 100.0  # Uncomment to set manual noise level

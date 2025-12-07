@@ -1,15 +1,24 @@
+"""Regression tests for VarProOptimizer consistency.
+
+This module formalizes the logic from `tools/validation/reproduce_jacobian.py`
+to ensure the Variable Projection algorithm remains numerically stable
+and consistent with finite difference approximations.
+"""
+
 import numpy as np
+import pytest
 
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
 from peakfit.core.fitting.computation import calculate_shape_heights
-from peakfit.core.fitting.optimizer import VarProOptimizer
+from peakfit.core.algorithms.varpro import VarProOptimizer
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.lineshapes import LorentzianEvaluator
 
 
-# Mock Peak and Cluster for testing
 class MockPeak(Peak):
+    """Minimal Peak subclass to test Jacobian reproduction."""
+
     model_config = {"extra": "allow"}
 
     def __init__(self, name, x0, fwhm):
@@ -20,8 +29,7 @@ class MockPeak(Peak):
         self.evaluator = LorentzianEvaluator()
 
     def evaluate(self, grid, params):
-        # Simple Lorentzian
-        # grid is expected to be a list of arrays, we take the first one
+        # Grid is expected to be a list of arrays, we take the first one
         x = grid[0] if isinstance(grid, (list, tuple)) else grid
 
         p_x0 = params[f"{self.name}.x0"].value
@@ -38,15 +46,14 @@ class MockPeak(Peak):
         # Unpack 4 values: val, d_dx, d_fwhm, d_j
         val, d_dx, d_fwhm, d_j = self.evaluator.evaluate_derivatives(dx, p_fwhm)
 
-        # d_dx is derivative w.r.t dx.
-        # dx = x - x0. d(dx)/dx0 = -1.
-        # d_model/dx0 = d_model/d_dx * d_dx/dx0 = d_dx * (-1) = -d_dx.
-
+        # d_model/dx0 = -d_model/d_dx
         mapped_derivs = {f"{self.name}.x0": -d_dx, f"{self.name}.fwhm": d_fwhm}
         return val, mapped_derivs
 
 
-def setup_test_case():
+@pytest.fixture
+def varpro_test_case():
+    """Setup a standard test case for VarPro validation."""
     # Create data
     x = np.linspace(0, 10, 100)
 
@@ -63,19 +70,18 @@ def setup_test_case():
     data = true_amp * shape
 
     # Create Cluster
-    # positions should be a list of arrays
     cluster = Cluster(cluster_id=1, peaks=[peak], positions=[x], data=data)
-    # cluster.corrected_data is a property, no need to set it. corrections are 0 by default.
 
-    # Create Parameters
+    # Create Parameters (started slightly off)
     params = Parameters()
-    params.add("p1.x0", value=5.1, vary=True)  # Slightly off
-    params.add("p1.fwhm", value=1.2, vary=True)  # Slightly off
+    params.add("p1.x0", value=5.1, vary=True)
+    params.add("p1.fwhm", value=1.2, vary=True)
 
     return params, cluster, x
 
 
 def finite_difference_jacobian(params, cluster, noise=1.0, epsilon=1e-8):
+    """Compute Jacobian via finite differences."""
     x0 = params.get_vary_values()
     names = params.get_vary_names()
     n_params = len(x0)
@@ -90,90 +96,78 @@ def finite_difference_jacobian(params, cluster, noise=1.0, epsilon=1e-8):
     for i in range(n_params):
         x_plus = x0.copy()
         x_plus[i] += epsilon
-
-        # New optimizer instance or update state (update_state is implicit)
-        # We can reuse the optimizer instance as it updates state
         f_plus = opt.compute_residuals(x_plus)
-
         jac[:, i] = (f_plus - f0) / epsilon
 
-    # Reset params in template just in case
+    # Reset params
     for i, name in enumerate(names):
         params[name].value = x0[i]
 
     return jac
 
 
-def main():
-    params, cluster, x = setup_test_case()
+def test_orthogonality(varpro_test_case):
+    """Verify that residuals are orthogonal to the subspace spanned by shapes.
+
+    This is a core property of Variable Projection:
+    The residual vector must be orthogonal to the basis functions at the optimum
+    for linear parameters (projected out).
+    """
+    params, cluster, _ = varpro_test_case
     noise = 1.0
 
-    x0 = params.get_vary_values()
+    # Initialize optimizer
     names = params.get_vary_names()
-    lower, upper = params.get_vary_bounds()
-
-    # Analytical Jacobian (Current)
+    x0 = params.get_vary_values()
     opt = VarProOptimizer(cluster, names, params, noise)
-    jac_analytical = opt.compute_jacobian(x0)
 
-    # Check orthogonality
+    # Run residual computation to populate state
+    _ = opt.compute_residuals(x0)
+
+    # Get shapes and amplitudes using the external computation helper for verification
     shapes, amplitudes = calculate_shape_heights(params, cluster)
     if amplitudes.ndim == 1:
         amplitudes = amplitudes[:, np.newaxis]
 
-    # Ensure data is reshaped if needed
     data = cluster.corrected_data
     if data.ndim == 1:
         data = data[:, np.newaxis]
 
     residuals = data - shapes.T @ amplitudes
-    orthogonality = shapes @ residuals
-    print(f"Orthogonality check (S^T r): max abs = {np.max(np.abs(orthogonality))}")
 
-    # Finite Difference Jacobian
+    # Check orthogonality: S^T @ r ≈ 0
+    orthogonality = shapes @ residuals
+    max_ortho = np.max(np.abs(orthogonality))
+
+    # Expected to be very close to machine epsilon
+    assert max_ortho < 1e-14, f"Orthogonality violation: {max_ortho}"
+
+
+def test_jacobian_analytical_consistency(varpro_test_case):
+    """Verify that the analytical Jacobian matches finite differences.
+
+    This ensures that the VarPro correction terms (accounting for implicit
+    amplitude dependence) are correctly implemented in VarProOptimizer.
+    """
+    params, cluster, _ = varpro_test_case
+    noise = 1.0
+    names = params.get_vary_names()
+    x0 = params.get_vary_values()
+
+    # 1. Analytical Jacobian
+    opt = VarProOptimizer(cluster, names, params, noise)
+    jac_analytical = opt.compute_jacobian(x0)
+
+    # 2. Finite Difference Jacobian
     jac_fd = finite_difference_jacobian(params, cluster, noise)
 
-    print("Jacobian Comparison:")
-    print(f"Shape: {jac_analytical.shape}")
-
+    # 3. Compare
     diff = np.abs(jac_analytical - jac_fd)
     max_diff = np.max(diff)
-    mean_diff = np.mean(diff)
 
-    print(f"Max Difference: {max_diff}")
-    print(f"Mean Difference: {mean_diff}")
+    # Threshold: Finite differences are approximate (1e-6 to 1e-7 usually)
+    # We expect close agreement.
+    assert max_diff < 1e-6, f"Jacobian mismatch: {max_diff}"
 
-    # Check specific columns
-    for i, name in enumerate(names):
-        col_diff = np.max(np.abs(jac_analytical[:, i] - jac_fd[:, i]))
-        print(f"Param {name} max diff: {col_diff}")
-
-    # Verify derivatives of the peak itself
-    print("\nVerifying Peak Derivatives:")
-    peak = cluster.peaks[0]
-    p_x0 = params[f"{peak.name}.x0"].value
-    p_fwhm = params[f"{peak.name}.fwhm"].value
-    x = cluster.positions[0]
-
-    val, derivs = peak.evaluate_derivatives([x], params)
-
-    # FD for x0
-    eps = 1e-8
-    params[f"{peak.name}.x0"].value = p_x0 + eps
-    val_plus = peak.evaluate([x], params)
-    d_x0_fd = (val_plus - val) / eps
-    params[f"{peak.name}.x0"].value = p_x0  # Reset
-
-    print(f"d/dx0 max diff: {np.max(np.abs(derivs[f'{peak.name}.x0'] - d_x0_fd))}")
-
-    # FD for fwhm
-    params[f"{peak.name}.fwhm"].value = p_fwhm + eps
-    val_plus = peak.evaluate([x], params)
-    d_fwhm_fd = (val_plus - val) / eps
-    params[f"{peak.name}.fwhm"].value = p_fwhm  # Reset
-
-    print(f"d/dfwhm max diff: {np.max(np.abs(derivs[f'{peak.name}.fwhm'] - d_fwhm_fd))}")
-
-
-if __name__ == "__main__":
-    main()
+    # Also check shapes match
+    assert jac_analytical.shape == jac_fd.shape

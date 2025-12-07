@@ -9,7 +9,7 @@ import numpy as np
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
 from peakfit.core.domain.state import FittingState
-from peakfit.core.fitting.mcmc import UncertaintyResult
+from peakfit.core.algorithms.mcmc import UncertaintyResult
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.services.analyze import MCMCAnalysisService, PeaksNotFoundError
 

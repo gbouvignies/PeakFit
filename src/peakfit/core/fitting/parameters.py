@@ -377,7 +377,7 @@ class Parameters(BaseModel):
         """Check if parameter exists."""
         return key in self.params
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> Iterator[str]:  # type: ignore[override]
         """Iterate over parameter names."""
         return iter(self.params)
 
@@ -398,7 +398,7 @@ class Parameters(BaseModel):
         for name, param in other.items():
             self.params[name] = param
 
-    def copy(self) -> Parameters:
+    def copy(self) -> Parameters:  # type: ignore[override]
         """Create a copy of parameters."""
         new_params = Parameters()
         for name, param in self.params.items():

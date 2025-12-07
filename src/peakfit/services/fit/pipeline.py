@@ -2,26 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from peakfit.core.algorithms.clustering import create_clusters
-from peakfit.core.algorithms.noise import prepare_noise_level
-from peakfit.core.domain.peaks_io import read_list
-from peakfit.core.domain.spectrum import get_shape_names, read_spectra
 from peakfit.core.domain.state import FittingState
-from peakfit.core.fitting.strategies import STRATEGIES
-from peakfit.core.shared.constants import (
-    LEAST_SQUARES_FTOL,
-    LEAST_SQUARES_MAX_NFEV,
-    LEAST_SQUARES_XTOL,
-)
 from peakfit.core.shared.events import Event, EventType
+from peakfit.core.shared.exceptions import DataIOError, OptimizationError, PeakFitError
 from peakfit.io.state import StateRepository
-from peakfit.services.fit.fitting import fit_all_clusters
-from peakfit.services.fit.writer import write_new_format_outputs, write_simulated_spectra
+from peakfit.services.fit.writer import (
+    write_all_outputs,
+    write_new_format_outputs,
+    write_simulated_spectra,
+)
 from peakfit.ui import (
     Verbosity,
     close_logging,
@@ -45,61 +38,29 @@ from peakfit.ui.fitting_reporter import (
     print_peaklist_info,
     print_spectrum_info,
 )
+from peakfit.ui.reporter import ConsoleReporter
 
 if TYPE_CHECKING:
     from peakfit.core.domain.config import PeakFitConfig
     from peakfit.core.shared.events import EventDispatcher
+    from peakfit.core.shared.reporter import Reporter
 
 
-@dataclass
-class FitArguments:
-    """Arguments for fitting process."""
-
-    path_spectra: Path = field(default_factory=Path)
-    path_list: Path = field(default_factory=Path)
-    path_z_values: Path | None = None
-    path_output: Path = field(default_factory=lambda: Path("Fits"))
-    contour_level: float | None = None
-    noise: float | None = None
-    refine_nb: int = 1
-    fixed: bool = False
-    jx: bool = False
-    phx: bool = False
-    phy: bool = False
-    exclude: list[int] = field(default_factory=list)
-    pvoigt: bool = False
-    lorentzian: bool = False
-    gaussian: bool = False
-
-
-def config_to_fit_args(
-    config: PeakFitConfig,
-    spectrum_path: Path,
-    peaklist_path: Path,
-    z_values_path: Path | None,
-) -> FitArguments:
-    """Convert modern config to FitArguments."""
-    return FitArguments(
-        path_spectra=spectrum_path,
-        path_list=peaklist_path,
-        path_z_values=z_values_path,
-        contour_level=config.clustering.contour_level,
-        noise=config.noise_level,
-        path_output=config.output.directory,
-        refine_nb=config.fitting.refine_iterations,
-        fixed=config.fitting.fix_positions,
-        jx=config.fitting.fit_j_coupling,
-        phx="F3" in config.fitting.fit_phase,
-        phy="F2" in config.fitting.fit_phase,
-        exclude=config.exclude_planes,
-        pvoigt=config.fitting.lineshape == "pvoigt",
-        lorentzian=config.fitting.lineshape == "lorentzian",
-        gaussian=config.fitting.lineshape == "gaussian",
-    )
+from peakfit.core.fitting.strategies import STRATEGIES
+from peakfit.services.fit.runner import PipelineRunner, config_to_fit_args
 
 
 class FitPipeline:
-    """High-level orchestrator for running the fitting workflow."""
+    """Presentation Layer orchestrator for the fitting workflow.
+
+    This class corresponds to the 'View' in a Model-View-Controller architecture.
+    It is responsible for:
+    1.  **Orchestration**: Directing the `PipelineRunner` (Service/Controller) to execute steps.
+    2.  **Presentation**: reporting progress, warnings, and results to the UI via `reporter`.
+    3.  **Error Handling**: catching domain exceptions and presenting them user-friendly.
+
+    This class should NOT contain mathematical logic or complex data transformations.
+    """
 
     @staticmethod
     def run(
@@ -113,6 +74,8 @@ class FitPipeline:
         verbose: bool = False,
         workers: int = -1,
         dispatcher: EventDispatcher | None = None,
+        reporter: Reporter | None = None,
+        headless: bool | None = None,
     ) -> None:
         """Run the complete fitting pipeline using provided inputs and config.
 
@@ -126,18 +89,32 @@ class FitPipeline:
             verbose: Whether to show verbose output
             workers: Number of parallel workers (-1 for all CPUs, 1 for sequential)
             dispatcher: Optional event dispatcher
+            headless: Disable interactive/live display; defaults to config.output.headless if not set
         """
-        FitPipeline._run_fit(
-            spectrum_path,
-            peaklist_path,
-            z_values_path,
-            config,
-            optimizer=optimizer,
-            save_state=save_state,
-            verbose=verbose,
-            workers=workers,
-            dispatcher=dispatcher,
-        )
+        effective_headless = config.output.headless if headless is None else headless
+        try:
+            FitPipeline._run_fit(
+                spectrum_path,
+                peaklist_path,
+                z_values_path,
+                config,
+                optimizer=optimizer,
+                save_state=save_state,
+                verbose=verbose,
+                workers=workers,
+                dispatcher=dispatcher,
+                reporter=reporter,
+                headless=effective_headless,
+            )
+        except PeakFitError as e:
+            error(str(e))
+            if verbose:
+                console.print_exception()
+            raise SystemExit(1) from e
+        except Exception as e:
+            error(f"An unexpected error occurred: {e}")
+            console.print_exception()
+            raise SystemExit(1) from e
 
     @staticmethod
     def _run_fit(
@@ -151,8 +128,12 @@ class FitPipeline:
         verbose: bool,
         workers: int,
         dispatcher: EventDispatcher | None,
+        reporter: Reporter | None,
+        headless: bool,
     ) -> None:
         """Run the fitting process with the given configuration."""
+        reporter = reporter or ConsoleReporter()
+
         start_time_dt = datetime.now()
         _dispatch_event(
             dispatcher,
@@ -170,6 +151,8 @@ class FitPipeline:
         log_filename = "peakfit.json" if config.output.log_format == "json" else "peakfit.log"
         log_file = config.output.directory / log_filename
         setup_logging(log_file=log_file, verbose=False)
+
+        reporter.action("Starting fitting pipeline")
 
         # Set verbosity and show header
         set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
@@ -199,8 +182,12 @@ class FitPipeline:
 
         clargs = config_to_fit_args(config, spectrum_path, peaklist_path, z_values_path)
 
+        runner = PipelineRunner(config, clargs)
+
         with console.status("[info]Reading spectrum...[/info]", spinner="dots"):
-            spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
+            spectra = runner.load_data()
+
+        reporter.info("Spectrum loaded")
 
         log_dict(
             {
@@ -212,11 +199,8 @@ class FitPipeline:
         )
 
         log_section("Noise Estimation")
-        noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
-        clargs.noise = prepare_noise_level(clargs, spectra)
-        if clargs.noise is None:
-            raise ValueError("Noise must be set by prepare_noise_level")
-        noise_value: float = float(clargs.noise)
+        noise_value, noise_was_provided = runner.estimate_noise(spectra)
+
         noise_source = "user-provided" if noise_was_provided else "estimated"
         log(
             f"Method: {'User-provided' if noise_was_provided else 'Median Absolute Deviation (MAD)'}"
@@ -224,7 +208,7 @@ class FitPipeline:
         log(f"Noise level: {noise_value:.2f} ({noise_source})")
 
         log_section("Lineshape Detection")
-        shape_names = get_shape_names(clargs, spectra)
+        shape_names = runner.detect_lineshapes(spectra)
         log(f"Selected lineshape: {shape_names}")
 
         if clargs.contour_level is None:
@@ -235,7 +219,7 @@ class FitPipeline:
         )
 
         log_section("Peak List")
-        peaks = read_list(spectra, shape_names, clargs)
+        peaks = runner.load_peaks(spectra, shape_names)
         log_dict(
             {
                 "Peak list": str(peaklist_path),
@@ -245,12 +229,13 @@ class FitPipeline:
         )
 
         print_peaklist_info(peaklist_path, z_values_path, len(peaks))
+        reporter.info(f"Loaded peak list with {len(peaks)} peaks")
 
         console.print()
         show_header("Clustering Peaks")
         log_section("Clustering")
         log("Algorithm: DBSCAN")
-        if clargs.noise > 0:
+        if clargs.noise and clargs.noise > 0:
             noise_multiplier = f"{clargs.contour_level / clargs.noise:.1f} * noise"
         else:
             # Noise can be zero when estimated from silent regions; avoid division by zero
@@ -261,7 +246,9 @@ class FitPipeline:
         with console.status(
             "[info]Segmenting spectra and clustering peaks...[/info]", spinner="dots"
         ):
-            clusters = create_clusters(spectra, peaks, clargs.contour_level)
+            clusters = runner.cluster_peaks(spectra, peaks)
+
+        reporter.info(f"Identified {len(clusters)} clusters")
 
         log(f"Identified {len(clusters)} clusters")
         cluster_sizes = [len(c.peaks) for c in clusters]
@@ -290,8 +277,14 @@ class FitPipeline:
         log(f"Optimizer: {optimizer}")
         log("Backend: numpy (default)")
         if optimizer in ("leastsq", "varpro"):
-            log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
-            log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
+            log(
+                f"Tolerances: ftol={config.fitting.tolerance:.0e}, xtol={config.fitting.tolerance:.0e}"
+            )
+            log(f"Max iterations: {config.fitting.max_iterations}")
+        if config.fitting.optimizer_seed is not None:
+            log(f"Optimizer seed: {config.fitting.optimizer_seed}")
+        if config.fitting.max_iterations:
+            log(f"Iteration budget: {config.fitting.max_iterations}")
 
         # Log parameter constraints if configured
         if config.parameters.position_window is not None:
@@ -301,7 +294,7 @@ class FitPipeline:
         if config.parameters.position_windows.F3 is not None:
             log(f"F3 position window: ±{config.parameters.position_windows.F3} ppm")
 
-        # Log protocol if multi-step
+        # Log protocol if multi-step (runner handles creation but logging is UI)
         if config.fitting.has_protocol():
             log(f"Protocol steps: {len(config.fitting.steps)}")
             for i, step in enumerate(config.fitting.steps):
@@ -312,27 +305,17 @@ class FitPipeline:
         if optimizer != "leastsq":
             info(f"Using {optimizer} optimizer...")
 
-        # Create protocol from config
-        from peakfit.core.fitting.protocol import FitProtocol, create_protocol_from_config
+        protocol = runner.get_protocol()
 
-        if config.fitting.has_protocol():
-            protocol = FitProtocol(steps=config.fitting.steps)
-        else:
-            protocol = create_protocol_from_config(
-                steps=None,
-                refine_iterations=clargs.refine_nb,
-                fixed=clargs.fixed,
-            )
-
-        params = fit_all_clusters(
-            clargs,
-            clusters,
+        params = runner.fit_clusters(
+            clusters=clusters,
             optimizer=optimizer,
-            verbose=verbose,
-            dispatcher=dispatcher,
-            parameter_config=config.parameters,
             protocol=protocol,
+            verbose=verbose,
             workers=workers,
+            dispatcher=dispatcher,
+            reporter=reporter,
+            headless=headless,
         )
 
         end_time_dt = datetime.now()
@@ -353,6 +336,8 @@ class FitPipeline:
 
         console.print()
         show_header("Fitting Complete")
+
+        reporter.success("Fitting complete")
 
         log_section("Output Files")
         config.output.directory.mkdir(parents=True, exist_ok=True)
@@ -377,9 +362,9 @@ class FitPipeline:
             success(f"Fitting state: {config.output.directory.name}/cache/state.pkl")
             log(f"State file: {state_file}")
 
-        # Write structured outputs (JSON, CSV, Markdown)
-        # These are in addition to the legacy .out files
-        if "json" in config.output.formats or "csv" in config.output.formats:
+        # Write structured outputs (JSON, CSV, Markdown/YAML as configured)
+        wants_outputs = any(fmt in {"json", "csv", "txt", "yaml"} for fmt in config.output.formats)
+        if wants_outputs:
             input_files = {
                 "spectrum": spectrum_path,
                 "peaklist": peaklist_path,
@@ -396,6 +381,19 @@ class FitPipeline:
                 config=config.model_dump(),
                 input_files=input_files,
                 verbosity=config.output.verbosity,
+            )
+
+        # Legacy outputs (opt-in)
+        if getattr(config.output, "include_legacy", False):
+            write_all_outputs(
+                output_dir=config.output.directory,
+                spectra=spectra,
+                clusters=clusters,
+                peaks=peaks,
+                params=params,
+                clargs=clargs,
+                save_simulated=config.output.save_simulated,
+                save_html_report=config.output.save_html_report,
             )
 
         log(f"Log file: {log_file}")

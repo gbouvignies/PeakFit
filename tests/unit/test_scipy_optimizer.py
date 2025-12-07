@@ -13,7 +13,7 @@ class TestScipyOptimizerModuleImports:
 
     def test_import_scipy_optimizer_module(self):
         """Should be able to import scipy_optimizer module."""
-        from peakfit.core.fitting.optimizer import (
+        from peakfit.core.algorithms.varpro import (
             VarProOptimizer,
             fit_cluster,
             fit_clusters,
@@ -27,7 +27,7 @@ class TestScipyOptimizerModuleImports:
         """fit_cluster should have correct signature."""
         import inspect
 
-        from peakfit.core.fitting.optimizer import fit_cluster
+        from peakfit.core.algorithms.varpro import fit_cluster
 
         sig = inspect.signature(fit_cluster)
         params = list(sig.parameters.keys())
@@ -40,7 +40,7 @@ class TestScipyOptimizerModuleImports:
         """fit_clusters should have correct signature."""
         import inspect
 
-        from peakfit.core.fitting.optimizer import fit_clusters
+        from peakfit.core.algorithms.varpro import fit_clusters
 
         sig = inspect.signature(fit_clusters)
         params = list(sig.parameters.keys())

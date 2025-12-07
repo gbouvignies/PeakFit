@@ -192,6 +192,13 @@ def fit_command(
             min=-1,
         ),
     ] = -1,
+    headless: Annotated[
+        bool | None,
+        typer.Option(
+            "--headless/--interactive",
+            help="Disable live UI (headless) or force interactive display (default: config.output.headless)",
+        ),
+    ] = None,
 ) -> None:
     """Fit lineshapes to peaks in pseudo-3D NMR spectrum.
 
@@ -246,6 +253,8 @@ def fit_command(
         # Only override formats if explicitly provided via --format
         if formats is not None:
             fit_config.output.formats = output_formats
+        if headless is not None:
+            fit_config.output.headless = headless
         # Note: verbosity is always applied from CLI
         # since there's no way to detect if it was explicitly set
         # (it has non-None default). Users should set this in config.
@@ -255,6 +264,7 @@ def fit_command(
         output_config = OutputConfig(
             formats=output_formats,
             verbosity=output_verbosity,
+            headless=headless if headless is not None else False,
         )
         if output is not None:
             output_config.directory = output
@@ -291,6 +301,7 @@ def fit_command(
             verbose=verbose,
             workers=workers,
             dispatcher=dispatcher,
+            headless=headless,
         )
     except Exception as e:
         from peakfit.ui.messages import show_error_with_details

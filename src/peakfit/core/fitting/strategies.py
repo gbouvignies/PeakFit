@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import perf_counter
 from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 from scipy.optimize import least_squares
 
 from peakfit.core.fitting.computation import residuals
-from peakfit.core.fitting.global_optimization import (
+from peakfit.core.algorithms.global_optimization import (
     fit_basin_hopping,
     fit_differential_evolution,
 )
@@ -150,10 +151,12 @@ class BasinHoppingStrategy:
         n_iterations: int = 50,
         temperature: float = 1.0,
         step_size: float = 0.5,
+        seed: int | None = None,
     ) -> None:
         self._n_iterations = n_iterations
         self._temperature = temperature
         self._step_size = step_size
+        self._seed = seed
 
     def optimize(
         self,
@@ -165,6 +168,8 @@ class BasinHoppingStrategy:
 
         Returns an OptimizationResult with additional metadata about the run.
         """
+        start = perf_counter()
+        initial_cost = float(np.sum(residuals(params, cluster, noise) ** 2))
         result = fit_basin_hopping(
             params,
             cluster,
@@ -172,7 +177,9 @@ class BasinHoppingStrategy:
             n_iterations=self._n_iterations,
             temperature=self._temperature,
             step_size=self._step_size,
+            seed=self._seed,
         )
+        wall_time = perf_counter() - start
 
         return OptimizationResult(
             x=result.params.get_vary_values(),
@@ -185,6 +192,12 @@ class BasinHoppingStrategy:
                 "global_iterations": result.global_iterations,
                 "local_minimizations": result.local_minimizations,
                 "global_minimum_found": result.global_minimum_found,
+                "seed": self._seed,
+                "temperature": self._temperature,
+                "step_size": self._step_size,
+                "initial_cost": initial_cost,
+                "final_cost": float(result.cost),
+                "wall_time_sec": wall_time,
             },
         )
 
@@ -200,12 +213,14 @@ class DifferentialEvolutionStrategy:
         mutation: tuple[float, float] = (0.5, 1.0),
         recombination: float = 0.7,
         polish: bool = True,
+        seed: int | None = None,
     ) -> None:
         self._max_iterations = max_iterations
         self._population_size = population_size
         self._mutation = mutation
         self._recombination = recombination
         self._polish = polish
+        self._seed = seed
 
     def optimize(
         self,
@@ -217,6 +232,8 @@ class DifferentialEvolutionStrategy:
 
         Returns an OptimizationResult and includes metadata for the global run.
         """
+        start = perf_counter()
+        initial_cost = float(np.sum(residuals(params, cluster, noise) ** 2))
         result = fit_differential_evolution(
             params,
             cluster,
@@ -226,7 +243,9 @@ class DifferentialEvolutionStrategy:
             mutation=self._mutation,
             recombination=self._recombination,
             polish=self._polish,
+            seed=self._seed,
         )
+        wall_time = perf_counter() - start
 
         return OptimizationResult(
             x=result.params.get_vary_values(),
@@ -238,6 +257,10 @@ class DifferentialEvolutionStrategy:
             metadata={
                 "global_iterations": result.global_iterations,
                 "polished": self._polish,
+                "seed": self._seed,
+                "initial_cost": initial_cost,
+                "final_cost": float(result.cost),
+                "wall_time_sec": wall_time,
             },
         )
 
@@ -285,7 +308,7 @@ class VarProStrategy:
         -------
             OptimizationResult with final parameters and diagnostics
         """
-        from peakfit.core.fitting.optimizer import fit_cluster
+        from peakfit.core.algorithms.varpro import fit_cluster
 
         result = fit_cluster(
             params,
@@ -316,7 +339,9 @@ STRATEGIES: dict[str, type[OptimizationStrategy]] = {
     "leastsq": LeastSquaresStrategy,
     "varpro": VarProStrategy,
     "basin-hopping": BasinHoppingStrategy,
+    "basin_hopping": BasinHoppingStrategy,
     "differential-evolution": DifferentialEvolutionStrategy,
+    "differential_evolution": DifferentialEvolutionStrategy,
 }
 
 

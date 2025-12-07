@@ -6,12 +6,11 @@ including parameter management, optimization algorithms, and simulation capabili
 
 # Parameter management
 # Advanced optimization
-from peakfit.core.fitting.global_optimization import (
-    GlobalFitResult,
+from peakfit.core.algorithms.global_optimization import (
     fit_basin_hopping,
     fit_differential_evolution,
 )
-from peakfit.core.fitting.mcmc import UncertaintyResult, estimate_uncertainties_mcmc
+from peakfit.core.algorithms.mcmc import UncertaintyResult, estimate_uncertainties_mcmc
 from peakfit.core.fitting.profile import compute_profile_likelihood
 
 # Core computation functions
@@ -39,7 +38,8 @@ from peakfit.core.fitting.constraints import (
 )
 
 # Basic optimization
-from peakfit.core.fitting.optimizer import (
+from peakfit.core.algorithms.varpro import (
+    VarProOptimizer,
     fit_cluster,
     fit_clusters,
 )
