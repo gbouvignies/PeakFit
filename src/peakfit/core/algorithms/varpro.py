@@ -1,12 +1,23 @@
-"""Least-squares optimization for NMR peak fitting.
+r"""Least-squares optimization for NMR peak fitting using Variable Projection.
 
-This module provides fitting functions that directly interface with
-scipy.optimize.least_squares for efficient parameter optimization.
+This module provides the core solvability logic for peak fitting, utilizing the
+Variable Projection (VarPro) algorithm to separate the optimization problem into
+two parts:
 
-The VarProOptimizer implements Variable Projection (VarPro), which
-analytically solves for linear parameters (amplitudes) while optimizing
-nonlinear parameters (positions, linewidths). This reduces the problem
-dimensionality and improves convergence.
+1.  **Nonlinear Parameters** (positions, linewidths, scalar couplings):
+    Optimized iteratively using `scipy.optimize.least_squares` (Trust Region Reflective).
+
+2.  **Linear Parameters** (amplitudes):
+    Solved analytically at each step using Linear Least Squares ($R\alpha = Q^T y$).
+
+This separation reduces the dimensionality of the search space significantly,
+improving both convergence speed and stability.
+
+References
+----------
+Golub, G. H., & Pereyra, V. (1973). The differentiation of pseudo-inverses and
+nonlinear least squares problems whose variables separate.
+SIAM Journal on Numerical Analysis, 10(2), 413-432.
 """
 
 from __future__ import annotations
@@ -31,15 +42,24 @@ class ScipyOptimizerError(Exception):
 
 @dataclass
 class VarProOptimizer:
-    """Variable Projection Optimizer with efficient caching.
+    r"""Variable Projection Optimizer state manager.
 
-    This class manages state for Variable Projection optimization,
-    caching intermediate results to avoid duplicate calculations between
-    residuals and Jacobian computations.
+    This class handles the separation of linear and nonlinear parameters, managing
+    the caching of shape matrices and their factorizations to efficiently compute
+    residuals and Jacobians.
 
-    The key optimization is computing shapes and derivatives together
-    via evaluate_derivatives(), which avoids redundant lineshape evaluations.
-    Results are cached and reused when parameters haven't changed.
+    Mathematical Formulation
+    ------------------------
+    The model is defined as:
+    $$ f(x, \\alpha) = \\Phi(x) \\alpha $$
+
+    Where:
+    - $x$ are the nonlinear parameters (lineshape properties).
+    - $\\alpha$ are the linear parameters (amplitudes).
+    - $\\Phi(x)$ is the matrix of basis functions (lineshapes).
+
+    The algorithm minimizes the functional:
+    $$ r(x) = y - \\Phi(x) \\Phi(x)^\\dagger y $$
     """
 
     cluster: Cluster
@@ -139,11 +159,20 @@ class VarProOptimizer:
         return cast("np.ndarray", self._residuals.ravel() / self.noise)
 
     def compute_jacobian(self, x: np.ndarray) -> np.ndarray:
-        """Compute Jacobian for optimization.
+        r"""Compute the Jacobian of the Variable Projection functional.
 
-        Uses cached shapes, derivatives, and QR factors from compute_residuals.
-        The Jacobian for Variable Projection includes correction terms
-        accounting for the implicit dependence of amplitudes on parameters.
+        The Jacobian of the reduced residual vector $r(x) = P_{\\perp}y$ is given by:
+
+        $$ J = -(P_{\\perp} D \\Phi(x) + (P_{\\perp} D \\Phi(x))^T P_{\\perp} y) $$
+
+        Where:
+        - $P_{\\perp} = I - \\Phi \\Phi^\\dagger$ is the projector onto the orthogonal complement of the column space of $\\Phi$.
+        - $D \\Phi(x)$ is the tensor of derivatives of shape functions.
+
+        Returns
+        -------
+        np.ndarray
+            Jacobian matrix of shape (n_residuals, n_nonlinear_params).
         """
         self._update_state(x)
 
@@ -202,21 +231,45 @@ def fit_cluster(
     gtol: float = 1e-8,
     verbose: int = 0,
 ) -> FitResult:
-    """Fit a single cluster using scipy.optimize.least_squares.
+    """Fit a single cluster using the Trust Region Reflective algorithm.
 
-    Args:
-        params: Initial parameters
-        cluster: Cluster to fit
-        noise: Noise level (must be positive)
-        max_nfev: Maximum number of function evaluations
-        ftol: Tolerance for termination by change of cost function
-        xtol: Tolerance for termination by change of variables
-        gtol: Tolerance for termination by gradient norm
-        verbose: Verbosity level
+    Iteratively minimizes the sum of squared residuals using `scipy.optimize.least_squares`
+    with the VarPro optimizer for analytical amplitude elimination.
+
+    Parameters
+    ----------
+    params : Parameters
+        Initial guess for the parameters.
+    cluster : Cluster
+        The spectral cluster containing peaks and data to fit.
+    noise : float
+        Noise level (sigma) of the data. Must be > 0.
+    max_nfev : int, optional
+        Maximum number of function evaluations, by default 1000.
+    ftol : float, optional
+        Tolerance for termination by the change of the cost function, by default 1e-8.
+    xtol : float, optional
+        Tolerance for termination by the change of the independent variables, by default 1e-8.
+    gtol : float, optional
+        Tolerance for termination by the norm of the gradient, by default 1e-8.
+    verbose : int, optional
+        Level of algorithm's verbosity:
+        * 0 (default) : work silently.
+        * 1 : display a termination report.
+        * 2 : display progress during iterations.
 
     Returns
     -------
-        FitResult containing optimized parameters and fit statistics
+    FitResult
+        Object containing appropriate optimized parameters, covariance (if available),
+        and optimization statistics.
+
+    Raises
+    ------
+    ValueError
+        If noise is non-positive.
+    ScipyOptimizerError
+        If the cluster has no peaks to fit.
     """
     if noise <= 0:
         raise ValueError(f"Noise must be positive, got {noise}")

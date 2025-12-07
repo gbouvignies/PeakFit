@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from peakfit.core.domain.state import FittingState
 from peakfit.core.shared.events import Event, EventType
+from peakfit.core.shared.exceptions import DataIOError, OptimizationError, PeakFitError
 from peakfit.io.state import StateRepository
 from peakfit.services.fit.writer import (
     write_all_outputs,
@@ -50,7 +51,16 @@ from peakfit.services.fit.runner import PipelineRunner, config_to_fit_args
 
 
 class FitPipeline:
-    """High-level orchestrator for running the fitting workflow."""
+    """Presentation Layer orchestrator for the fitting workflow.
+
+    This class corresponds to the 'View' in a Model-View-Controller architecture.
+    It is responsible for:
+    1.  **Orchestration**: Directing the `PipelineRunner` (Service/Controller) to execute steps.
+    2.  **Presentation**: reporting progress, warnings, and results to the UI via `reporter`.
+    3.  **Error Handling**: catching domain exceptions and presenting them user-friendly.
+
+    This class should NOT contain mathematical logic or complex data transformations.
+    """
 
     @staticmethod
     def run(
@@ -82,19 +92,29 @@ class FitPipeline:
             headless: Disable interactive/live display; defaults to config.output.headless if not set
         """
         effective_headless = config.output.headless if headless is None else headless
-        FitPipeline._run_fit(
-            spectrum_path,
-            peaklist_path,
-            z_values_path,
-            config,
-            optimizer=optimizer,
-            save_state=save_state,
-            verbose=verbose,
-            workers=workers,
-            dispatcher=dispatcher,
-            reporter=reporter,
-            headless=effective_headless,
-        )
+        try:
+            FitPipeline._run_fit(
+                spectrum_path,
+                peaklist_path,
+                z_values_path,
+                config,
+                optimizer=optimizer,
+                save_state=save_state,
+                verbose=verbose,
+                workers=workers,
+                dispatcher=dispatcher,
+                reporter=reporter,
+                headless=effective_headless,
+            )
+        except PeakFitError as e:
+            error(str(e))
+            if verbose:
+                console.print_exception()
+            raise SystemExit(1) from e
+        except Exception as e:
+            error(f"An unexpected error occurred: {e}")
+            console.print_exception()
+            raise SystemExit(1) from e
 
     @staticmethod
     def _run_fit(

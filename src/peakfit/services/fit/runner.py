@@ -73,23 +73,66 @@ def config_to_fit_args(
 
 @dataclass
 class PipelineRunner:
-    """Orchestrates the fitting process logic, decoupled from UI."""
+    """Orchestrates the fitting process logic, acting as the bridge between UI and Domain.
+
+    This class manages the lifecycle of the fitting data, transforming it through
+    discrete stages (Loaded -> Noisy -> Clustered -> Fitted). It encapsulates
+    all domain logic required to execute a fit, allowing the UI to focus strictly
+    on presentation.
+
+    Attributes
+    ----------
+    config : PeakFitConfig
+        The global configuration object.
+    clargs : FitArguments
+        Runtime arguments derived from CLI flags and config.
+    """
 
     config: PeakFitConfig
     clargs: FitArguments
 
     def load_data(self) -> SpectrumData:
-        """Load spectral data."""
+        """Load and preprocess spectral data from disk.
+
+        Reads the NMR pipe file specified in `clargs.path_spectra`, applies
+        plane exclusions (`clargs.exclude`), and loads associated Z-series
+        data if available.
+
+        Returns
+        -------
+        SpectrumData
+            The loaded and partially pre-processed spectral data.
+        """
         return read_spectra(
             self.clargs.path_spectra, self.clargs.path_z_values, self.clargs.exclude
         )
 
     def estimate_noise(self, spectra: SpectrumData) -> tuple[float, bool]:
-        """Estimate and update noise level.
+        """Estimate noise level for the spectrum.
+
+        If a noise level was provided by the user (`clargs.noise`), it is used directly.
+        Otherwise, estimates noise from the spectrum data.
+
+        **State Update**:
+        Updates `self.clargs.noise` with the estimated (or provided) value to ensure
+        consistency for subsequent steps (clustering, fitting).
+
+        Parameters
+        ----------
+        spectra : SpectrumData
+            The spectral data to analyze.
 
         Returns
         -------
-            Tuple of (noise_value, was_provided_by_user)
+        tuple[float, bool]
+            A tuple containing:
+            1. The effective noise level (sigma).
+            2. A boolean indicating if the noise was explicitly provided by the user.
+
+        Raises
+        ------
+        DataIOError
+            If noise cannot be estimated or determined.
         """
         noise_was_provided = self.clargs.noise is not None and self.clargs.noise > 0.0
 
@@ -102,15 +145,65 @@ class PipelineRunner:
         return float(self.clargs.noise), noise_was_provided
 
     def detect_lineshapes(self, spectra: SpectrumData) -> list[str]:
-        """Detect lineshapes for dimensions."""
+        """Determine the lineshape model for each spectral dimension.
+
+        Inspects the spectral metadata and configuration to decide which lineshape
+        function (e.g., Lorentzian, Gaussian, Pseudo-Voigt) to apply for each dimension.
+
+        Parameters
+        ----------
+        spectra : SpectrumData
+            The spectral data context.
+
+        Returns
+        -------
+        list[str]
+            List of lineshape identifiers (e.g., ["lorentzian", "lorentzian", "gaussian"]).
+        """
         return get_shape_names(self.clargs, spectra)
 
     def load_peaks(self, spectra: SpectrumData, shape_names: list[str]) -> list[Peak]:
-        """Load peak list."""
+        """Parse and validate the peak list.
+
+        Reads peaks from the file specified in `clargs.path_list`.
+        Initializes parameter bounds and properties based on the detected `shape_names`.
+
+        Parameters
+        ----------
+        spectra : SpectrumData
+            The spectral data (used for validation and dimension checks).
+        shape_names : list[str]
+            Lineshape models for each dimension.
+
+        Returns
+        -------
+        list[Peak]
+            List of validated Peak domain objects.
+        """
         return read_list(spectra, shape_names, self.clargs)
 
     def cluster_peaks(self, spectra: SpectrumData, peaks: list[Peak]) -> list[Cluster]:
-        """Cluster peaks using DBSCAN."""
+        """Partition peaks into isolated clusters for parallel fitting.
+
+        Grouping is performed using DBSCAN density clustering based on peak positions
+        and linewidths.
+
+        **State Update**:
+        If `clargs.contour_level` is unset, it defaults to `5.0 * noise`.
+
+        Parameters
+        ----------
+        spectra : SpectrumData
+            The spectral data.
+        peaks : list[Peak]
+            The full list of peaks to be clustered.
+
+        Returns
+        -------
+        list[Cluster]
+            List of Cluster objects, each containing a subset of peaks and the
+            corresponding spectral data region.
+        """
         if self.clargs.contour_level is None:
             # Should have been set by now or defaulted, ensuring it for safety
             if self.clargs.noise:
@@ -121,7 +214,17 @@ class PipelineRunner:
         return create_clusters(spectra, peaks, self.clargs.contour_level)
 
     def get_protocol(self) -> FitProtocol:
-        """Get or create the fitting protocol."""
+        """Construct the execution protocol for the fit.
+
+        Determines the sequence of fitting steps (e.g., Fixed Position -> Refine -> Float All).
+        If a custom protocol is defined in `config`, it takes precedence. Otherwise,
+        a standard protocol is generated based on `clargs`.
+
+        Returns
+        -------
+        FitProtocol
+            The sequence of steps to be executed by the optimizer.
+        """
         if self.config.fitting.has_protocol():
             return FitProtocol(steps=self.config.fitting.steps)
 
@@ -142,7 +245,35 @@ class PipelineRunner:
         reporter: Reporter | None = None,
         headless: bool = False,
     ) -> Parameters:
-        """Run the fitting process on clusters."""
+        """Execute the fitting protocol on all clusters.
+
+        This is the computationally intensive phase. It iterates through the
+        protocol steps, optimizing parameters for each cluster.
+
+        Parameters
+        ----------
+        clusters : list[Cluster]
+            The clusters to fit.
+        optimizer : str
+            Optimizer identifier (e.g., "varpro", "basin_hopping").
+        protocol : FitProtocol
+            The fitting steps to execute.
+        verbose : bool, optional
+            Whether to print verbose optimizer output.
+        workers : int, optional
+            Number of parallel workers (-1 for all CPUs).
+        dispatcher : EventDispatcher, optional
+            Event system for progress updates.
+        reporter : Reporter, optional
+            System for structured logging.
+        headless : bool, optional
+            If True, disables rich UI components (useful for tests/scripts).
+
+        Returns
+        -------
+        Parameters
+            The final optimized global parameters.
+        """
         return fit_all_clusters(
             self.clargs,
             clusters,
