@@ -31,7 +31,6 @@ class Peak(BaseModel):
     def initialize_positions_start(self) -> Peak:
         """Store a copy of initial positions for later reference."""
         if self.positions_start is None:
-            # Ensure positions is a numpy array
             if not isinstance(self.positions, np.ndarray):
                 self.positions = np.array(self.positions, dtype=float)
             self.positions_start = self.positions.copy()
@@ -43,7 +42,7 @@ class Peak(BaseModel):
             shape.cluster_id = cluster_id
 
     def create_params(self) -> Parameters:
-        """Create `Parameters` for each shape in this peak and return combined result."""
+        """Create Parameters for each shape in this peak."""
         from peakfit.core.fitting.parameters import Parameters
 
         params = Parameters()
@@ -52,17 +51,17 @@ class Peak(BaseModel):
         return params
 
     def fix_params(self, params: Parameters) -> None:
-        """Fix (set `vary` to False) all parameters for this peak's shapes."""
+        """Fix (set vary=False) all parameters for this peak's shapes."""
         for shape in self.shapes:
             shape.fix_params(params)
 
     def release_params(self, params: Parameters) -> None:
-        """Release (set `vary` to True) all parameters for this peak's shapes."""
+        """Release (set vary=True) all parameters for this peak's shapes."""
         for shape in self.shapes:
             shape.release_params(params)
 
     def evaluate(self, grid: Sequence[IntArray], params: Parameters) -> FloatArray:
-        """Evaluate the peak's combined lineshape product across provided grid points."""
+        """Evaluate the peak's combined lineshape product across grid points."""
         raw_evals: list[FloatArray] = [
             np.asarray(shape.evaluate(pts, params), dtype=float)
             for pts, shape in zip(grid, self.shapes, strict=False)
@@ -72,6 +71,40 @@ class Peak(BaseModel):
         prod_res = np.prod(evaluations, axis=0)
         result: FloatArray = np.asarray(prod_res, dtype=float)
         return result
+
+    def evaluate_derivatives(
+        self, grid: Sequence[IntArray], params: Parameters
+    ) -> tuple[FloatArray, dict[str, FloatArray]]:
+        """Evaluate peak and its derivatives w.r.t parameters."""
+        evaluations = []
+        shape_derivs = []
+
+        for pts, shape in zip(grid, self.shapes, strict=False):
+            val, derivs = shape.evaluate_derivatives(pts, params)
+            evaluations.append(np.asarray(val, dtype=float))
+            shape_derivs.append(derivs)
+
+        if not evaluations:
+            return np.array([]), {}
+
+        raw_evals_arr = np.stack(evaluations, axis=0)
+        peak_val = np.prod(raw_evals_arr, axis=0)
+
+        # d(S1*S2*...)/dtheta = (dS_i/dtheta) * product(S_j for j!=i)
+        total_derivs = {}
+
+        for i, shape in enumerate(self.shapes):
+            others = evaluations[:i] + evaluations[i + 1 :]
+            if others:
+                others_arr = np.stack(others, axis=0)
+                others_prod = np.prod(others_arr, axis=0)
+            else:
+                others_prod = 1.0
+
+            for param_name, d_shape in shape_derivs[i].items():
+                total_derivs[param_name] = d_shape * others_prod
+
+        return peak_val, total_derivs
 
     def print(self, params: Parameters) -> str:
         """Return textual representation of the peak parameters for output."""
@@ -100,12 +133,7 @@ class Peak(BaseModel):
 
 
 def create_params(peaks: list[Peak], *, fixed: bool = False) -> Parameters:
-    """Combine parameters from a list of `Peak` objects into a single `Parameters`.
-
-    Args:
-        peaks: List of peaks
-        fixed: If True, set position parameters to not vary
-    """
+    """Combine parameters from a list of Peak objects into a single Parameters."""
     from peakfit.core.fitting.parameters import Parameters
 
     params = Parameters()

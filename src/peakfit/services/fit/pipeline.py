@@ -26,7 +26,6 @@ from peakfit.ui import (
     Verbosity,
     close_logging,
     console,
-    create_table,
     error,
     export_html,
     info,
@@ -38,14 +37,17 @@ from peakfit.ui import (
     show_footer,
     show_header,
     show_standard_header,
-    spacer,
     success,
     warning,
+)
+from peakfit.ui.fitting_reporter import (
+    print_configuration,
+    print_peaklist_info,
+    print_spectrum_info,
 )
 
 if TYPE_CHECKING:
     from peakfit.core.domain.config import PeakFitConfig
-    from peakfit.core.domain.spectrum import Spectra
     from peakfit.core.shared.events import EventDispatcher
 
 
@@ -106,7 +108,7 @@ class FitPipeline:
         z_values_path: Path | None,
         config: PeakFitConfig,
         *,
-        optimizer: str = "leastsq",
+        optimizer: str = "varpro",
         save_state: bool = True,
         verbose: bool = False,
         workers: int = -1,
@@ -184,18 +186,20 @@ class FitPipeline:
             info(f"Valid options: {', '.join(valid_optimizers)}")
             raise SystemExit(1)
 
-        if optimizer != "leastsq":
+        # Warn only for truly global optimizers that are slower
+        global_optimizers = {"basin-hopping", "differential-evolution"}
+        if optimizer in global_optimizers:
             warning(f"Using global optimizer: {optimizer}")
             console.print("  [dim]This may take significantly longer than standard fitting[/dim]")
 
-        _print_configuration(config.output.directory, workers)
+        print_configuration(config.output.directory, workers)
 
         console.print()
         show_header("Loading Input Files")
 
         clargs = config_to_fit_args(config, spectrum_path, peaklist_path, z_values_path)
 
-        with console.status("[cyan]Reading spectrum...[/cyan]", spinner="dots"):
+        with console.status("[info]Reading spectrum...[/info]", spinner="dots"):
             spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
         log_dict(
@@ -223,9 +227,10 @@ class FitPipeline:
         shape_names = get_shape_names(clargs, spectra)
         log(f"Selected lineshape: {shape_names}")
 
-        clargs.contour_level = clargs.contour_level or 5.0 * clargs.noise
+        if clargs.contour_level is None:
+            clargs.contour_level = 5.0 * clargs.noise
 
-        _print_spectrum_info(
+        print_spectrum_info(
             spectrum_path, spectra, shape_names, clargs.noise, noise_source, clargs.contour_level
         )
 
@@ -239,7 +244,7 @@ class FitPipeline:
             }
         )
 
-        _print_peaklist_info(peaklist_path, z_values_path, len(peaks))
+        print_peaklist_info(peaklist_path, z_values_path, len(peaks))
 
         console.print()
         show_header("Clustering Peaks")
@@ -254,7 +259,7 @@ class FitPipeline:
         log(f"Contour level: {clargs.contour_level:.2f} ({noise_multiplier})")
 
         with console.status(
-            "[cyan]Segmenting spectra and clustering peaks...[/cyan]", spinner="dots"
+            "[info]Segmenting spectra and clustering peaks...[/info]", spinner="dots"
         ):
             clusters = create_clusters(spectra, peaks, clargs.contour_level)
 
@@ -284,7 +289,7 @@ class FitPipeline:
         log_section("Fitting")
         log(f"Optimizer: {optimizer}")
         log("Backend: numpy (default)")
-        if optimizer == "leastsq":
+        if optimizer in ("leastsq", "varpro"):
             log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
             log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
 
@@ -357,13 +362,13 @@ class FitPipeline:
             success(f"Simulated spectra: {config.output.directory.name}/simulated_*.ft*")
 
         if config.output.save_html_report:
-            with console.status("[cyan]Generating HTML report...[/cyan]", spinner="dots"):
+            with console.status("[info]Generating HTML report...[/info]", spinner="dots"):
                 export_html(config.output.directory / "logs.html")
             success(f"HTML report: {config.output.directory.name}/logs.html")
             log(f"HTML report: {config.output.directory / 'logs.html'}")
 
         if save_state:
-            with console.status("[cyan]Saving fitting state...[/cyan]", spinner="dots"):
+            with console.status("[info]Saving fitting state...[/info]", spinner="dots"):
                 state_file = StateRepository.default_path(config.output.directory)
                 state = FittingState(
                     clusters=clusters, params=params, noise=clargs.noise, peaks=peaks
@@ -410,15 +415,15 @@ class FitPipeline:
 
         show_header("Next Steps")
         console.print("1. View intensity profiles:")
-        console.print(f"   [cyan]peakfit plot intensity {output_dir_name}/[/cyan]")
+        console.print(f"   [url]peakfit plot intensity {output_dir_name}/[/url]")
         console.print("2. View fitted spectra:")
         console.print(
-            f"   [cyan]peakfit plot spectra {output_dir_name}/ --spectrum {spectrum_name}[/cyan]"
+            f"   [url]peakfit plot spectra {output_dir_name}/ --spectrum {spectrum_name}[/url]"
         )
         console.print("3. Uncertainty analysis:")
-        console.print(f"   [cyan]peakfit analyze mcmc {output_dir_name}/[/cyan]")
+        console.print(f"   [url]peakfit analyze mcmc {output_dir_name}/[/url]")
         console.print("4. Check log file:")
-        console.print(f"   [cyan]less {output_dir_name}/peakfit.log[/cyan]")
+        console.print(f"   [url]less {output_dir_name}/peakfit.log[/url]")
         console.print()
 
         show_footer(start_time_dt, end_time_dt)
@@ -431,109 +436,3 @@ def _dispatch_event(dispatcher: EventDispatcher | None, event: Event) -> None:
         return
 
     dispatcher.dispatch(event)
-
-
-def _print_configuration(output_dir: Path, workers: int) -> None:
-    """Print configuration information in a consolidated table."""
-    spacer()
-
-    config_table = create_table("Configuration")
-    config_table.add_column("Setting", style="cyan")
-    config_table.add_column("Value", style="white", justify="right")
-
-    config_table.add_row("Backend", "numpy")
-
-    # Show parallel processing status
-    if workers == 1:
-        parallel_str = "disabled (sequential)"
-    elif workers == -1:
-        import os
-
-        cpu_count = os.cpu_count() or 1
-        parallel_str = f"enabled (all {cpu_count} CPUs)"
-    else:
-        parallel_str = f"enabled ({workers} workers)"
-    config_table.add_row("Parallel processing", parallel_str)
-
-    config_table.add_row("Output directory", str(output_dir.name))
-
-    console.print(config_table)
-    spacer()
-
-
-def _print_spectrum_info(
-    spectrum_path: Path,
-    spectra: Spectra,
-    shape_names: list[str],
-    noise: float,
-    noise_source: str,
-    contour_level: float,
-) -> None:
-    """Print consolidated spectrum information table."""
-    spacer()
-
-    spectrum_table = create_table(f"Spectrum: {spectrum_path.name}")
-    spectrum_table.add_column("Property", style="cyan")
-    spectrum_table.add_column("Value", style="white", justify="right")
-
-    shape = spectra.data.shape
-    n_spectral = spectra.n_spectral_dims
-
-    # Build dimension string with Fn labels
-    if n_spectral >= 1:
-        dim_parts = []
-        for dim in spectra.dimensions:
-            size = dim.size
-            label = dim.label
-            nucleus = f" ({dim.nucleus})" if dim.nucleus else ""
-            dim_parts.append(f"{label}{nucleus}: {size} pts")
-        dim_str = ", ".join(dim_parts)
-        # Also show shape
-        shape_str = " × ".join(str(s) for s in reversed(shape[1:]))
-        dim_str = f"{shape_str} ({dim_str})"
-    else:
-        dim_str = str(shape)
-
-    spectrum_table.add_row("Spectral dimensions", str(n_spectral))
-    spectrum_table.add_row("Dimension sizes", dim_str)
-    spectrum_table.add_row("Number of planes", str(len(spectra.z_values)))
-
-    lineshape_str = ", ".join(shape_names) if isinstance(shape_names, list) else str(shape_names)
-    spectrum_table.add_row("Lineshapes", lineshape_str)
-    spectrum_table.add_row("Noise level", f"{noise:.2f} ({noise_source})")
-    spectrum_table.add_row("Contour level", f"{contour_level:.2f}")
-
-    console.print(spectrum_table)
-    spacer()
-
-
-def _print_peaklist_info(peaklist_path: Path, z_values_path: Path | None, n_peaks: int) -> None:
-    """Print consolidated peak list information table."""
-    spacer()
-
-    peaklist_table = create_table(f"Peak List: {peaklist_path.name}")
-    peaklist_table.add_column("Property", style="cyan")
-    peaklist_table.add_column("Value", style="white", justify="right")
-
-    suffix = peaklist_path.suffix.lower()
-    if suffix == ".list":
-        format_str = "Sparky/NMRPipe"
-    elif suffix == ".csv":
-        format_str = "CSV"
-    elif suffix == ".json":
-        format_str = "JSON"
-    elif suffix in {".xlsx", ".xls"}:
-        format_str = "Excel"
-    else:
-        format_str = "Unknown"
-
-    peaklist_table.add_row("Format", format_str)
-    peaklist_table.add_row("Number of peaks", str(n_peaks))
-
-    if z_values_path:
-        peaklist_table.add_row("Z-values file", z_values_path.name)
-    else:
-        peaklist_table.add_row("Z-values file", "auto-detected")
-
-    console.print(peaklist_table)
-    spacer()

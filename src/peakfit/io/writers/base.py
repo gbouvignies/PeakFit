@@ -6,13 +6,16 @@ for all output writers.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from pathlib import Path
 
+    from peakfit.core.results.estimates import ParameterEstimate
     from peakfit.core.results.fit_results import FitResults
 
 
@@ -180,3 +183,61 @@ def format_asymmetric_uncertainty(
     up_str = format_float(error_upper, precision, scientific_threshold)
     lo_str = format_float(error_lower, precision, scientific_threshold)
     return f"{val_str} +{up_str}/-{lo_str}"
+
+
+def get_peak_name(param: ParameterEstimate, peak_names: list[str]) -> str:
+    """Extract the original peak name from a parameter.
+
+    Args:
+        param: ParameterEstimate object
+        peak_names: List of peak names in the cluster
+
+    Returns
+    -------
+        Original peak name like '2N-H'
+    """
+    # Use param_id if available (new format)
+    if param.param_id is not None:
+        return param.param_id.peak_name
+
+    # Legacy fallback: parse from internal name
+    param_name = param.name
+    for peak_name in peak_names:
+        # New format: "peak_name.axis.type"
+        if param_name.startswith(peak_name + "."):
+            return peak_name
+        # Legacy format: sanitized prefix
+        safe_prefix = re.sub(r"\W+|^(?=\d)", "_", peak_name)
+        if param_name.startswith(safe_prefix + "_"):
+            return peak_name
+
+    # Fallback to first peak
+    return peak_names[0] if peak_names else ""
+
+
+def flatten_diagnostics(
+    results: FitResults,
+) -> Generator[tuple[int, list[str], str, float | None, float | None, float | None, str]]:
+    """Yield flattened diagnostic data.
+
+    Yields
+    ------
+        Tuple of (cluster_id, peak_names, param_name, rhat, ess_bulk, ess_tail, status)
+    """
+    if not results.mcmc_diagnostics:
+        return
+
+    for i, diag in enumerate(results.mcmc_diagnostics):
+        cluster_id = results.clusters[i].cluster_id
+        peak_names = results.clusters[i].peak_names
+
+        for pd in diag.parameter_diagnostics:
+            yield (
+                cluster_id,
+                peak_names,
+                pd.name,
+                pd.rhat,
+                pd.ess_bulk,
+                pd.ess_tail,
+                pd.status.value,
+            )

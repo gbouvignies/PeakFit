@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 import numpy as np
 
 if TYPE_CHECKING:
-    from peakfit.core.fitting.advanced import UncertaintyResult
+    from peakfit.core.fitting.mcmc import UncertaintyResult
     from peakfit.core.results.fit_results import FitResults
 
 

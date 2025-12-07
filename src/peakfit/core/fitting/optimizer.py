@@ -3,28 +3,23 @@
 This module provides fitting functions that directly interface with
 scipy.optimize.least_squares for efficient parameter optimization.
 
-Key features:
-- Direct scipy.optimize.least_squares integration
-- Bounded optimization using Trust Region Reflective (TRF) algorithm
-- Sequential cluster fitting with refinement iterations
-- Parameter array manipulation utilities
-- Robust error handling and convergence warnings
+The VarProOptimizer implements Variable Projection (VarPro), which
+analytically solves for linear parameters (amplitudes) while optimizing
+nonlinear parameters (positions, linewidths). This reduces the problem
+dimensionality and improves convergence.
 """
 
-import warnings
-from typing import TYPE_CHECKING, Any
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
+from scipy.linalg import solve_triangular
 from scipy.optimize import least_squares
 
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.results import FitResult
-from peakfit.core.results.statistics import compute_chi_squared, compute_reduced_chi_squared
-from peakfit.core.shared.constants import (
-    LEAST_SQUARES_FTOL,
-    LEAST_SQUARES_MAX_NFEV,
-    LEAST_SQUARES_XTOL,
-)
 
 if TYPE_CHECKING:
     from peakfit.core.domain.cluster import Cluster
@@ -34,110 +29,183 @@ class ScipyOptimizerError(Exception):
     """Exception raised for errors in scipy optimization."""
 
 
-class ConvergenceWarning(UserWarning):
-    """Warning for convergence issues."""
+@dataclass
+class VarProOptimizer:
+    """Variable Projection Optimizer with efficient caching.
 
+    This class manages state for Variable Projection optimization,
+    caching intermediate results to avoid duplicate calculations between
+    residuals and Jacobian computations.
 
-def params_to_arrays(params: Parameters) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
-    """Convert Parameters to numpy arrays.
-
-    Args:
-        params: Parameters object to convert
-
-    Returns
-    -------
-        Tuple of (x0, lower, upper, names) where:
-            - x0: Initial values for varying parameters
-            - lower: Lower bounds
-            - upper: Upper bounds
-            - names: Parameter names (in order)
+    The key optimization is computing shapes and derivatives together
+    via evaluate_derivatives(), which avoids redundant lineshape evaluations.
+    Results are cached and reused when parameters haven't changed.
     """
-    names = params.get_vary_names()
-    x0 = params.get_vary_values()
-    lower = np.array([params[name].min for name in names])
-    upper = np.array([params[name].max for name in names])
 
-    return x0, lower, upper, names
+    cluster: Cluster
+    names: list[str]
+    params_template: Parameters
+    noise: float
 
+    # Cache fields - use field(default=None) for mutable defaults
+    _cache_hash: int | None = field(default=None, init=False, repr=False)
+    _shapes: np.ndarray | None = field(default=None, init=False, repr=False)
+    _derivs_list: list[dict[str, np.ndarray]] | None = field(default=None, init=False, repr=False)
+    _q: np.ndarray | None = field(default=None, init=False, repr=False)
+    _r: np.ndarray | None = field(default=None, init=False, repr=False)
+    _amplitudes: np.ndarray | None = field(default=None, init=False, repr=False)
+    _residuals: np.ndarray | None = field(default=None, init=False, repr=False)
+    _phi_pinv: np.ndarray | None = field(default=None, init=False, repr=False)
 
-def arrays_to_params(x: np.ndarray, names: list[str], params_template: Parameters) -> Parameters:
-    """Update Parameters with optimized values.
+    # Pre-computed constants
+    _param_map: dict[str, int] | None = field(default=None, init=False, repr=False)
+    _data_matrix: np.ndarray | None = field(default=None, init=False, repr=False)
+    _data_is_1d: bool = field(default=False, init=False, repr=False)
 
-    Args:
-        x: Optimized parameter values
-        names: Parameter names
-        params_template: Template Parameters object
+    def __post_init__(self) -> None:
+        """Pre-compute constants that don't change during optimization."""
+        # Parameter index mapping
+        self._param_map = {name: i for i, name in enumerate(self.names)}
 
-    Returns
-    -------
-        Updated Parameters object
-    """
-    params = params_template.copy()
-    for i, name in enumerate(names):
-        params[name].value = x[i]
-    return params
+        # Pre-process data matrix (doesn't change during optimization)
+        data = self.cluster.corrected_data
+        self._data_is_1d = data.ndim == 1
+        self._data_matrix = data[:, np.newaxis] if self._data_is_1d else data
 
+    def _compute_cache_hash(self, x: np.ndarray) -> int:
+        """Compute hash for parameter array to detect changes."""
+        # Use tobytes() for fast comparison - faster than np.array_equal
+        return hash(x.tobytes())
 
-def _residuals_for_optimizer(
-    x: np.ndarray, params: Parameters, cluster: "Cluster", noise: float
-) -> np.ndarray:
-    """Compute residuals for scipy.optimize.least_squares.
+    def _update_state(self, x: np.ndarray) -> None:
+        """Update cached state if parameters have changed.
 
-    This function delegates to the main residuals computation function.
+        This method:
+        1. Evaluates shapes AND derivatives in a single pass per peak
+        2. Performs QR decomposition for amplitude solution
+        3. Caches all intermediate results for Jacobian computation
+        """
+        cache_hash = self._compute_cache_hash(x)
+        if self._cache_hash == cache_hash:
+            return
 
-    Args:
-        x: Array of varying parameter values
-        params: Parameters object (will be updated in-place)
-        cluster: Cluster being fitted
-        noise: Noise level for normalization
+        # Update parameter values
+        params = self.params_template
+        for i, name in enumerate(self.names):
+            params[name].value = x[i]
 
-    Returns
-    -------
-        Flattened residual array normalized by noise
-    """
-    from peakfit.core.fitting.computation import residuals
+        # Evaluate shapes AND derivatives together (single pass per peak)
+        positions = self.cluster.positions
+        shapes_list = []
+        derivs_list = []
 
-    # Update parameters with current values
-    params.set_vary_values(x)
+        for peak in self.cluster.peaks:
+            shape_val, derivs = peak.evaluate_derivatives(positions, params)
+            shapes_list.append(shape_val)
+            derivs_list.append(derivs)
 
-    return residuals(params, cluster, noise)
+        # Stack shapes: (n_peaks, n_points)
+        shapes = np.vstack(shapes_list)
 
+        # QR Decomposition: A = Q @ R where A = shapes.T (n_points, n_peaks)
+        # Using reduced QR: Q (n_points, n_peaks), R (n_peaks, n_peaks)
+        q, r = np.linalg.qr(shapes.T, mode="reduced")
 
-def compute_residuals(
-    x: np.ndarray,
-    names: list[str],
-    params_template: Parameters,
-    cluster: "Cluster",
-    noise: float,
-) -> np.ndarray:
-    """Compute residuals for scipy.optimize.least_squares.
+        # Solve for amplitudes: R @ amplitudes = Q.T @ data
+        qty = q.T @ self._data_matrix
 
-    This is a thin wrapper around the canonical residuals function
-    that updates parameters before computing.
+        # Use triangular solver (faster than general solve for upper triangular R)
+        try:
+            amplitudes = solve_triangular(r, qty, check_finite=False)
+        except np.linalg.LinAlgError:
+            # Fallback for singular R
+            amplitudes, *_ = np.linalg.lstsq(r, qty, rcond=None)
 
-    Args:
-        x: Current parameter values (varying only)
-        names: Parameter names
-        params_template: Template Parameters with fixed values
-        cluster: Cluster being fit
-        noise: Noise level
+        # Compute residuals: residuals = data - Q @ Q.T @ data = data - Q @ qty
+        proj_data = q @ qty
+        residuals = self._data_matrix - proj_data
 
-    Returns
-    -------
-        Residual vector normalized by noise
-    """
-    from peakfit.core.fitting.computation import residuals
+        # Compute pseudo-inverse helper: phi_pinv = R^-1 @ Q.T
+        # Used in Jacobian for correction term
+        try:
+            phi_pinv = solve_triangular(r, q.T, check_finite=False)
+        except np.linalg.LinAlgError:
+            phi_pinv = np.linalg.pinv(r) @ q.T
 
-    # Update parameters with current values
-    for i, name in enumerate(names):
-        params_template[name].value = x[i]
+        # Cache all results
+        self._cache_hash = cache_hash
+        self._shapes = shapes
+        self._derivs_list = derivs_list
+        self._q = q
+        self._r = r
+        self._amplitudes = amplitudes
+        self._residuals = residuals
+        self._phi_pinv = phi_pinv
 
-    return residuals(params_template, cluster, noise)
+    def compute_residuals(self, x: np.ndarray) -> np.ndarray:
+        """Compute residuals for optimization."""
+        self._update_state(x)
+        assert self._residuals is not None
+        # Flatten and normalize by noise
+        return self._residuals.ravel() / self.noise
+
+    def compute_jacobian(self, x: np.ndarray) -> np.ndarray:
+        """Compute Jacobian for optimization.
+
+        Uses cached shapes, derivatives, and QR factors from compute_residuals.
+        The Jacobian for Variable Projection includes correction terms
+        accounting for the implicit dependence of amplitudes on parameters.
+        """
+        self._update_state(x)
+
+        # Retrieve cached values (all guaranteed non-None after _update_state)
+        assert self._q is not None
+        assert self._shapes is not None
+        assert self._residuals is not None
+        assert self._amplitudes is not None
+        assert self._phi_pinv is not None
+        assert self._derivs_list is not None
+        assert self._param_map is not None
+
+        n_points = self._shapes.shape[1]
+        n_params = len(self.names)
+        n_planes = self._amplitudes.shape[1]
+        n_peaks = len(self._derivs_list)
+
+        # Build per-peak derivative matrix: (n_peaks, n_params, n_points)
+        deriv_by_peak = np.zeros((n_peaks, n_params, n_points))
+        for peak_idx, peak_derivs in enumerate(self._derivs_list):
+            for name, d_val in peak_derivs.items():
+                param_idx = self._param_map.get(name)
+                if param_idx is not None:
+                    deriv_by_peak[peak_idx, param_idx, :] = d_val
+
+        # V term: V[pt, plane, param] = sum_peak(deriv[peak, param, pt] * amp[peak, plane])
+        # Using einsum: deriv(k,p,x) @ amp(k,y) -> result(x,y,p)
+        v_tensor = np.einsum("kpx,ky->xyp", deriv_by_peak, self._amplitudes)
+
+        # Correction term for VarPro:
+        # w[peak, param, plane] = deriv[peak, param, :] @ residuals[:, plane]
+        w = np.einsum("kpx,xy->kpy", deriv_by_peak, self._residuals)
+        # correction[pt, plane, param] = sum_peak(phi_pinv[peak, pt] * w[peak, param, plane])
+        correction = np.einsum("kx,kpy->xyp", self._phi_pinv, w)
+
+        # Project V onto orthogonal complement of column space of shapes
+        # P_perp = I - Q @ Q.T
+        v_flat = v_tensor.reshape(n_points, -1)
+        projection = self._q @ (self._q.T @ v_flat)
+        p_perp_v = (v_flat - projection).reshape(n_points, n_planes, n_params)
+
+        # Combine: J = -(P_perp @ V + Correction)
+        j_tensor = -(p_perp_v + correction)
+
+        # Reshape and normalize
+        return j_tensor.reshape(-1, n_params) / self.noise
 
 
 def fit_cluster(
     params: Parameters,
-    cluster: "Cluster",
+    cluster: Cluster,
     noise: float,
     max_nfev: int = 1000,
     ftol: float = 1e-8,
@@ -155,42 +223,41 @@ def fit_cluster(
         ftol: Tolerance for termination by change of cost function
         xtol: Tolerance for termination by change of variables
         gtol: Tolerance for termination by gradient norm
-        verbose: Verbosity level (0=silent, 1=termination, 2=iteration)
+        verbose: Verbosity level
 
     Returns
     -------
         FitResult containing optimized parameters and fit statistics
-
-    Raises
-    ------
-        ValueError: If noise is non-positive
-        ScipyOptimizerError: If cluster has no peaks
     """
-    # Validate inputs
     if noise <= 0:
-        msg = f"Noise must be positive, got {noise}"
-        raise ValueError(msg)
+        raise ValueError(f"Noise must be positive, got {noise}")
 
     if not cluster.peaks:
-        msg = "Cluster has no peaks to fit"
-        raise ScipyOptimizerError(msg)
+        raise ScipyOptimizerError("Cluster has no peaks to fit")
 
-    # Get initial values and bounds for varying parameters
+    # Get initial values and bounds
     x0 = params.get_vary_values()
     lower, upper = params.get_vary_bounds()
+    vary_names = params.get_vary_names()
 
     # Calculate number of amplitude parameters for DOF
-    n_peaks = len(cluster.peaks)
-    n_planes = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
-    n_amplitude_params = n_peaks * n_planes
+    n_amplitude_params = cluster.n_amplitude_params
+
+    # Initialize Optimizer
+    optimizer = VarProOptimizer(
+        cluster=cluster,
+        names=vary_names,
+        params_template=params,
+        noise=noise,
+    )
 
     # Run optimization
     result = least_squares(
-        _residuals_for_optimizer,
+        optimizer.compute_residuals,
         x0,
-        args=(params, cluster, noise),
+        jac=optimizer.compute_jacobian,
         bounds=(lower, upper),
-        method="trf",  # Trust Region Reflective - good for bounded problems
+        method="trf",
         ftol=ftol,
         xtol=xtol,
         gtol=gtol,
@@ -198,7 +265,7 @@ def fit_cluster(
         verbose=verbose,
     )
 
-    # Update parameters with final values
+    # Update parameters
     params.set_vary_values(result.x)
 
     return FitResult(
@@ -206,208 +273,66 @@ def fit_cluster(
         residual=result.fun,
         cost=result.cost,
         nfev=result.nfev,
-        njev=result.njev if hasattr(result, "njev") else 0,
+        njev=getattr(result, "njev", 0),
         success=result.success,
         message=result.message,
-        optimality=result.optimality if hasattr(result, "optimality") else 0.0,
+        optimality=getattr(result, "optimality", 0.0),
         n_amplitude_params=n_amplitude_params,
     )
 
 
-def fit_cluster_dict(
-    cluster: "Cluster",
-    noise: float,
-    *,
-    fixed: bool = False,
-    params_init: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Fit a single cluster using direct scipy optimization (dict interface).
+def _init_cluster_params(cluster: Cluster, params_all: Parameters, fixed: bool) -> bool:
+    """Initialize parameters for a cluster, adding them to params_all.
 
-    This function bypasses wrapper overhead by directly interfacing with
-    scipy.optimize.least_squares, providing significant performance gains.
-
-    Note: This function returns a dictionary for backward compatibility.
-    For new code, prefer using fit_cluster which returns a FitResult.
-
-    Args:
-        cluster: Cluster to fit
-        noise: Noise level (must be positive)
-        fixed: Whether to fix positions during optimization
-        params_init: Optional initial parameter values from previous fits
-
-    Returns
-    -------
-        Dictionary with fitted parameter values and statistics:
-            - params: Dict of parameter info (value, stderr, vary, min, max)
-            - success: Whether optimization converged
-            - chisqr: Chi-squared statistic
-            - redchi: Reduced chi-squared
-            - nfev: Number of function evaluations
-            - message: Optimizer message
-
-    Raises
-    ------
-        ScipyOptimizerError: If cluster has no peaks or invalid data
-        ValueError: If noise is non-positive
+    Returns True if successful, False on error.
     """
-    # Validate inputs
-    if noise <= 0:
-        msg = f"Noise must be positive, got {noise}"
-        raise ValueError(msg)
-
-    if not cluster.peaks:
-        msg = "Cluster has no peaks to fit"
-        raise ScipyOptimizerError(msg)
-
-    if not hasattr(cluster, "corrected_data") or cluster.corrected_data is None:
-        msg = "Cluster has no data to fit"
-        raise ScipyOptimizerError(msg)
-
-    # Create parameters
     from peakfit.core.domain.peaks import create_params
 
     try:
-        params = create_params(cluster.peaks, fixed=fixed)
-    except (ValueError, TypeError) as e:
-        # Create params may raise errors if peaks are invalid
-        msg = f"Failed to create parameters: {e}"
-        raise ScipyOptimizerError(msg) from e
+        cluster_params = create_params(cluster.peaks, fixed=fixed)
+    except (ValueError, TypeError):
+        return False
 
-    # Update with initial values if provided
-    if params_init:
-        for key in params:
-            if key in params_init:
-                params[key].value = params_init[key]
+    for name, param in cluster_params.items():
+        params_all.add(name, value=param.value, vary=param.vary, min=param.min, max=param.max)
+    return True
 
-    # Convert to arrays
-    x0, lower, upper, names = params_to_arrays(params)
 
-    if len(x0) == 0:
-        # No varying parameters, return as-is
-        fitted_params = {}
-        for name in params:
-            param = params[name]
-            fitted_params[name] = {
-                "value": param.value,
-                "stderr": None,
-                "vary": param.vary,
-                "min": param.min,
-                "max": param.max,
-            }
-        return {
-            "params": fitted_params,
-            "success": True,
-            "chisqr": 0.0,
-            "redchi": 0.0,
-            "nfev": 0,
-            "message": "No varying parameters",
-        }
+def _sync_and_fit_cluster(
+    cluster: Cluster, params_all: Parameters, noise: float, fixed: bool
+) -> FitResult | None:
+    """Synchronize parameters and fit a single cluster.
 
-    # Validate bounds
-    if np.any(lower >= upper):
-        msg = "Invalid parameter bounds: lower bound >= upper bound"
-        raise ScipyOptimizerError(msg)
+    Returns FitResult on success, None on error.
+    """
+    from peakfit.core.domain.peaks import create_params
 
-    if np.any((x0 < lower) | (x0 > upper)):
-        msg = "Initial values outside bounds"
-        raise ScipyOptimizerError(msg)
+    cluster_params = create_params(cluster.peaks, fixed=fixed)
 
-    # Direct scipy optimization
-    try:
-        result = least_squares(
-            compute_residuals,
-            x0,
-            args=(names, params, cluster, noise),
-            bounds=(lower, upper),
-            method="trf",
-            ftol=LEAST_SQUARES_FTOL,
-            xtol=LEAST_SQUARES_XTOL,
-            max_nfev=LEAST_SQUARES_MAX_NFEV,
-            verbose=0,
-        )
-    except (ValueError, TypeError, RuntimeError, np.linalg.LinAlgError) as e:
-        # SciPy may raise ValueError for invalid inputs, TypeError or RuntimeError,
-        # or low-level NumPy linear algebra errors.
-        msg = f"Optimization failed: {e}"
-        raise ScipyOptimizerError(msg) from e
+    # Synchronize current global parameters to cluster
+    for name in cluster_params:
+        if name in params_all:
+            cluster_params[name].value = params_all[name].value
 
-    # Check for convergence issues
-    if not result.success:
-        warnings.warn(
-            f"Optimization did not converge: {result.message}",
-            ConvergenceWarning,
-            stacklevel=2,
-        )
+    return fit_cluster(cluster_params, cluster, noise)
 
-    # Update parameters with optimized values
-    for i, name in enumerate(names):
-        params[name].value = result.x[i]
 
-    # Calculate chi-square
-    residual = compute_residuals(result.x, names, params, cluster, noise)
-    chisqr = compute_chi_squared(residual)
-    ndata = len(residual)
-    # Degrees of freedom must account for both nonlinearly optimized parameters
-    # (nvarys) and analytically computed amplitudes (n_peaks * n_planes).
-    # For linear least-squares: each amplitude per plane is a fitted parameter.
-    nvarys = len(x0)
-    n_peaks = len(cluster.peaks)
-    n_planes = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
-    n_amplitude_params = n_peaks * n_planes
-    n_total_fitted = nvarys + n_amplitude_params
-    redchi = compute_reduced_chi_squared(chisqr, ndata, n_total_fitted)
+def _update_params_from_result(params_all: Parameters, result: FitResult) -> None:
+    """Update global parameters from a fit result."""
+    for name, param in result.params.items():
+        target = params_all[name] if name in params_all else params_all.add(name, value=param.value)
 
-    # Check for potential issues
-    if redchi > 100:
-        warnings.warn(
-            f"Poor fit quality: reduced chi-squared = {redchi:.2f}",
-            ConvergenceWarning,
-            stacklevel=2,
-        )
-
-    # Compute standard errors from Jacobian
-    stderr_dict: dict[str, float] = {}
-    try:
-        if result.jac is not None and ndata > nvarys:
-            jac = result.jac
-            # Compute covariance matrix
-            jtj = jac.T @ jac
-            try:
-                cov = np.linalg.inv(jtj) * redchi
-                stderr = np.sqrt(np.diag(cov))
-                for i, name in enumerate(names):
-                    stderr_dict[name] = float(stderr[i])
-            except np.linalg.LinAlgError:
-                # Singular matrix, can't compute errors
-                pass
-    except (ValueError, RuntimeError):
-        # If error computation fails due to numerical issues, continue without errors
-        pass
-
-    # Extract results
-    fitted_params = {}
-    for name in params:
-        param = params[name]
-        fitted_params[name] = {
-            "value": param.value,
-            "stderr": stderr_dict.get(name, 0.0),
-            "vary": param.vary,
-            "min": param.min,
-            "max": param.max,
-        }
-
-    return {
-        "params": fitted_params,
-        "success": result.success,
-        "chisqr": chisqr,
-        "redchi": redchi,
-        "nfev": result.nfev,
-        "message": result.message,
-    }
+        if target is not None:
+            target.value = param.value
+            target.stderr = param.stderr
+            target.vary = param.vary
+            target.min = param.min
+            target.max = param.max
+            target.computed = param.computed
 
 
 def fit_clusters(
-    clusters: list["Cluster"],
+    clusters: list[Cluster],
     noise: float,
     refine_iterations: int = 1,
     *,
@@ -430,32 +355,23 @@ def fit_clusters(
     from peakfit.core.fitting.computation import update_cluster_corrections
 
     params_all = Parameters()
-    params_dict: dict[str, Any] = {}
 
+    # Initialize parameters from all clusters
+    for cluster in clusters:
+        _init_cluster_params(cluster, params_all, fixed)
+
+    # Iterate: fit all clusters, optionally refine corrections
     for iteration in range(refine_iterations + 1):
-        # Update corrections if not first iteration
         if iteration > 0:
             update_cluster_corrections(params_all, clusters)
 
-        # Fit all clusters sequentially
         for cluster in clusters:
-            result = fit_cluster_dict(cluster, noise, fixed=fixed, params_init=params_dict)
-
-            # Update global parameters
-            for name, param_info in result["params"].items():
-                params_dict[name] = param_info["value"]
-                if name not in params_all:
-                    params_all.add(
-                        name,
-                        value=param_info["value"],
-                        vary=param_info["vary"],
-                        min=param_info["min"],
-                        max=param_info["max"],
-                    )
-                else:
-                    params_all[name].value = param_info["value"]
-                # Propagate standard errors from fitting
-                if "stderr" in param_info and param_info["stderr"] is not None:
-                    params_all[name].stderr = param_info["stderr"]
+            try:
+                result = _sync_and_fit_cluster(cluster, params_all, noise, fixed)
+                if result is not None:
+                    _update_params_from_result(params_all, result)
+            except ScipyOptimizerError:
+                if verbose:
+                    print("Skipping cluster with error")
 
     return params_all

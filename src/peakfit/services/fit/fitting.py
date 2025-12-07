@@ -9,7 +9,9 @@ parameter constraints.
 
 from __future__ import annotations
 
+import os
 import time as time_module
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from threadpoolctl import threadpool_limits
@@ -31,7 +33,7 @@ from peakfit.core.shared.constants import (
     LEAST_SQUARES_XTOL,
 )
 from peakfit.core.shared.events import Event, EventType, FitProgressEvent
-from peakfit.ui import console, log, log_section, subsection_header
+from peakfit.ui import LiveClusterDisplay, console, log, log_section, subsection_header
 
 if TYPE_CHECKING:
     from peakfit.core.domain.cluster import Cluster
@@ -45,12 +47,33 @@ __all__ = [
 ]
 
 
+# Default optimizer uses VarPro with analytical Jacobian for best performance
+DEFAULT_OPTIMIZER = "varpro"
+
+
+@dataclass(slots=True)
+class ClusterFitResult:
+    """Result from fitting a single cluster."""
+
+    params: Parameters
+    cost: float
+    time: float
+    success: bool
+    n_evaluations: int
+    message: str = "Converged"
+
+    @property
+    def converged(self) -> bool:
+        """Alias for success."""
+        return self.success
+
+
 def fit_all_clusters(
     clargs: FitArguments,
     clusters: list[Cluster],
     *,
-    optimizer: str,
-    verbose: bool,
+    optimizer: str = DEFAULT_OPTIMIZER,
+    verbose: bool = False,
     dispatcher: EventDispatcher | None = None,
     parameter_config: ParameterConfig | None = None,
     protocol: FitProtocol | None = None,
@@ -63,7 +86,7 @@ def fit_all_clusters(
     Args:
         clargs: Command line arguments
         clusters: List of clusters to fit
-        optimizer: Name of optimizer to use
+        optimizer: Name of optimizer to use (default: "varpro" with analytical Jacobian)
         verbose: Whether to show verbose output
         dispatcher: Optional event dispatcher for progress tracking
         parameter_config: Optional parameter constraints configuration
@@ -78,18 +101,7 @@ def fit_all_clusters(
         msg = "Noise must be specified before fitting clusters"
         raise ValueError(msg)
 
-    noise_value = float(clargs.noise)
-    strategy_kwargs: dict[str, Any] = {}
-
-    if optimizer == "leastsq":
-        strategy_kwargs = {
-            "ftol": LEAST_SQUARES_FTOL,
-            "xtol": LEAST_SQUARES_XTOL,
-            "max_nfev": LEAST_SQUARES_MAX_NFEV,
-            "verbose": 2 if verbose else 0,
-        }
-
-    strategy = get_strategy(optimizer, **strategy_kwargs)
+    strategy = _create_strategy(optimizer, verbose)
 
     # Use protocol if provided, otherwise create from legacy options
     if protocol is None:
@@ -99,12 +111,11 @@ def fit_all_clusters(
             fixed=clargs.fixed,
         )
 
-    # Execute protocol-based fitting
     return _fit_with_protocol(
         clusters=clusters,
         protocol=protocol,
         strategy=strategy,
-        noise_value=noise_value,
+        noise_value=float(clargs.noise),
         parameter_config=parameter_config,
         verbose=verbose,
         dispatcher=dispatcher,
@@ -117,7 +128,7 @@ def fit_all_clusters_with_protocol(
     noise: float,
     protocol: FitProtocol,
     *,
-    optimizer: str = "leastsq",
+    optimizer: str = DEFAULT_OPTIMIZER,
     parameter_config: ParameterConfig | None = None,
     verbose: bool = False,
     dispatcher: EventDispatcher | None = None,
@@ -131,7 +142,7 @@ def fit_all_clusters_with_protocol(
         clusters: List of clusters to fit
         noise: Noise level
         protocol: Multi-step fitting protocol
-        optimizer: Name of optimizer to use
+        optimizer: Name of optimizer to use (default: "varpro" with analytical Jacobian)
         parameter_config: Optional parameter constraints
         verbose: Whether to show verbose output
         dispatcher: Optional event dispatcher
@@ -141,17 +152,7 @@ def fit_all_clusters_with_protocol(
     -------
         Fitted parameters for all clusters
     """
-    strategy_kwargs: dict[str, Any] = {}
-
-    if optimizer == "leastsq":
-        strategy_kwargs = {
-            "ftol": LEAST_SQUARES_FTOL,
-            "xtol": LEAST_SQUARES_XTOL,
-            "max_nfev": LEAST_SQUARES_MAX_NFEV,
-            "verbose": 2 if verbose else 0,
-        }
-
-    strategy = get_strategy(optimizer, **strategy_kwargs)
+    strategy = _create_strategy(optimizer, verbose)
 
     return _fit_with_protocol(
         clusters=clusters,
@@ -165,6 +166,41 @@ def fit_all_clusters_with_protocol(
     )
 
 
+def _create_strategy(optimizer: str, verbose: bool) -> Any:
+    """Create optimization strategy with appropriate settings."""
+    strategy_kwargs: dict[str, Any] = {}
+
+    if optimizer in ("leastsq", "varpro"):
+        strategy_kwargs = {
+            "ftol": LEAST_SQUARES_FTOL,
+            "xtol": LEAST_SQUARES_XTOL,
+            "max_nfev": LEAST_SQUARES_MAX_NFEV,
+            "verbose": 2 if verbose else 0,
+        }
+
+    return get_strategy(optimizer, **strategy_kwargs)
+
+
+@dataclass
+class _IterationContext:
+    """Context for a single fitting iteration."""
+
+    step: FitStep
+    step_idx: int
+    step_name: str
+    iteration: int
+    global_iteration: int
+    total_iterations: int
+    is_first: bool
+
+    @property
+    def label(self) -> str:
+        """Get human-readable iteration label."""
+        if self.step.iterations > 1:
+            return f"{self.step_name} (Iteration {self.iteration + 1}/{self.step.iterations})"
+        return self.step_name
+
+
 def _fit_with_protocol(
     clusters: list[Cluster],
     protocol: FitProtocol,
@@ -175,27 +211,10 @@ def _fit_with_protocol(
     dispatcher: EventDispatcher | None,
     workers: int = 1,
 ) -> Parameters:
-    """Run protocol-based fitting internally.
-
-    Args:
-        clusters: Clusters to fit
-        protocol: Fitting protocol
-        strategy: Optimization strategy
-        noise_value: Noise level
-        parameter_config: Parameter constraints
-        verbose: Verbose output
-        dispatcher: Event dispatcher
-        workers: Number of parallel workers (-1 for all CPUs, 1 for sequential)
-
-    Returns
-    -------
-        Fitted parameters
-    """
+    """Run protocol-based fitting internally."""
     params_all = Parameters()
     cluster_count = len(clusters)
     total_iterations = sum(step.iterations for step in protocol.steps)
-
-    # Determine if parallel execution is enabled
     use_parallel = workers != 1
 
     with threadpool_limits(limits=1, user_api="blas"):
@@ -209,103 +228,121 @@ def _fit_with_protocol(
 
             for iteration in range(step.iterations):
                 global_iteration += 1
-                iteration_idx = global_iteration
+                ctx = _IterationContext(
+                    step=step,
+                    step_idx=step_idx,
+                    step_name=step_name,
+                    iteration=iteration,
+                    global_iteration=global_iteration,
+                    total_iterations=total_iterations,
+                    is_first=(iteration == 0 and step_idx == 0),
+                )
 
-                # Log iteration header
-                if step.iterations > 1:
-                    iter_label = f"{step_name} (Iteration {iteration + 1}/{step.iterations})"
-                else:
-                    iter_label = step_name
-
-                if iteration == 0 and step_idx == 0:
-                    subsection_header("Initial Fit" if not step.name else iter_label)
-                else:
-                    subsection_header(f"Refining Parameters: {iter_label}")
-                    log_section(f"Protocol: {iter_label}")
-                    update_cluster_corrections(params_all, clusters)
-
-                # Fit all clusters (parallel or sequential)
-                if use_parallel:
-                    _fit_iteration_parallel(
-                        clusters=clusters,
-                        params_all=params_all,
-                        step=step,
-                        strategy=strategy,
-                        noise_value=noise_value,
-                        parameter_config=parameter_config,
-                        cluster_count=cluster_count,
-                        iteration_idx=iteration_idx,
-                        total_iterations=total_iterations,
-                        dispatcher=dispatcher,
-                        workers=workers,
-                    )
-                else:
-                    _fit_iteration_sequential(
-                        clusters=clusters,
-                        params_all=params_all,
-                        step=step,
-                        strategy=strategy,
-                        noise_value=noise_value,
-                        parameter_config=parameter_config,
-                        cluster_count=cluster_count,
-                        iteration_idx=iteration_idx,
-                        total_iterations=total_iterations,
-                        dispatcher=dispatcher,
-                        verbose=verbose,
-                    )
+                _log_iteration_header(ctx, params_all, clusters)
+                _run_iteration(
+                    ctx,
+                    clusters,
+                    params_all,
+                    strategy,
+                    noise_value,
+                    parameter_config,
+                    cluster_count,
+                    dispatcher,
+                    workers,
+                    use_parallel,
+                    verbose,
+                )
 
     return params_all
 
 
+def _log_iteration_header(
+    ctx: _IterationContext, params_all: Parameters, clusters: list[Cluster]
+) -> None:
+    """Log the header for a fitting iteration."""
+    # Don't print "default" step name - use descriptive labels instead
+    use_label = ctx.step.name and ctx.step.name.lower() != "default"
+
+    if ctx.is_first:
+        subsection_header("Initial Fit" if not use_label else ctx.label)
+    else:
+        subsection_header(
+            f"Refining Parameters: {ctx.label}" if use_label else "Refining Parameters"
+        )
+        log_section(f"Protocol: {ctx.label}")
+        update_cluster_corrections(params_all, clusters)
+
+
+def _run_iteration(
+    ctx: _IterationContext,
+    clusters: list[Cluster],
+    params_all: Parameters,
+    strategy: Any,
+    noise_value: float,
+    parameter_config: ParameterConfig | None,
+    cluster_count: int,
+    dispatcher: EventDispatcher | None,
+    workers: int,
+    use_parallel: bool,
+    verbose: bool,
+) -> None:
+    """Run a single fitting iteration (parallel or sequential)."""
+    common_args = {
+        "clusters": clusters,
+        "params_all": params_all,
+        "step": ctx.step,
+        "strategy": strategy,
+        "noise_value": noise_value,
+        "parameter_config": parameter_config,
+        "cluster_count": cluster_count,
+        "iteration_idx": ctx.global_iteration,
+        "total_iterations": ctx.total_iterations,
+        "dispatcher": dispatcher,
+    }
+
+    if use_parallel:
+        _fit_iteration_parallel(**common_args, workers=workers)
+    else:
+        _fit_iteration_sequential(**common_args, verbose=verbose)
+
+
 def _fit_single_cluster(
     cluster: Cluster,
-    cluster_idx: int,
-    cluster_count: int,
     step: FitStep,
     strategy: Any,
     noise_value: float,
     parameter_config: ParameterConfig | None,
     params_init: dict[str, float],
-) -> tuple[Parameters, float, float, bool]:
-    """Fit a single cluster (used by both sequential and parallel execution).
-
-    Args:
-        cluster: Cluster to fit
-        cluster_idx: Index of this cluster (1-based)
-        cluster_count: Total number of clusters
-        step: Current protocol step
-        strategy: Optimization strategy
-        noise_value: Noise level
-        parameter_config: Parameter constraints
-        params_init: Initial parameter values from previous iterations
-
-    Returns
-    -------
-        Tuple of (fitted_params, cost, time, success)
-    """
+) -> ClusterFitResult:
+    """Fit a single cluster (used by both sequential and parallel execution)."""
     cluster_start = time_module.time()
 
-    # Create parameters for this cluster
+    # Create and configure parameters
     params = create_params(cluster.peaks, fixed=False)
-
-    # Apply parameter constraints from config
     if parameter_config is not None:
         params = apply_constraints(params, parameter_config)
-
-    # Apply step-level fix/vary patterns
     params = apply_step_constraints(params, step)
 
-    # Update with values from previous iterations
+    # Initialize from previous iterations
     for key in params:
         if key in params_init:
             params[key].value = params_init[key]
 
     # Run optimization
     result = strategy.optimize(params, cluster, noise_value)
-
     cluster_time = time_module.time() - cluster_start
 
-    return result.params, result.cost, cluster_time, result.success
+    n_evals = int(result.n_evaluations) if hasattr(result, "n_evaluations") else 0
+    message = getattr(result, "message", "Converged" if result.success else "Did not converge")
+
+    return ClusterFitResult(
+        params=result.params,
+        cost=result.cost,
+        time=cluster_time,
+        success=result.success,
+        n_evaluations=n_evals,
+        message=message,
+    )
 
 
 def _fit_iteration_sequential(
@@ -321,76 +358,128 @@ def _fit_iteration_sequential(
     dispatcher: EventDispatcher | None,
     verbose: bool = False,
 ) -> None:
-    """Fit all clusters sequentially in a single iteration.
-
-    Args:
-        clusters: List of clusters to fit
-        params_all: Global parameters to update
-        step: Current protocol step
-        strategy: Optimization strategy
-        noise_value: Noise level
-        parameter_config: Parameter constraints
-        cluster_count: Total number of clusters
-        iteration_idx: Current iteration (1-based)
-        total_iterations: Total number of iterations
-        dispatcher: Optional event dispatcher
-        verbose: Whether to show verbose output
-    """
-    # Extract current parameter values for initialization
+    """Fit all clusters sequentially in a single iteration with live display."""
     params_init = {key: params_all[key].value for key in params_all}
 
-    for cluster_idx, cluster in enumerate(clusters, 1):
-        peak_names = [peak.name for peak in cluster.peaks]
-        peaks_str = ", ".join(peak_names)
-        n_peaks = len(cluster.peaks)
+    log(f"Sequential fitting: {cluster_count} clusters")
 
-        if verbose:
-            _print_cluster_header(cluster_idx, cluster_count, peaks_str, n_peaks)
+    # Create the live display
+    display = LiveClusterDisplay.from_clusters(clusters)
+    display.set_step_name(step.name or "Fitting")
+    display.set_workers(1)
 
-        log("")
-        log(f"Cluster {cluster_idx}/{cluster_count}: {peaks_str}")
-        log(f"  - Peaks: {len(cluster.peaks)}")
+    with display:
+        for cluster_idx, cluster in enumerate(clusters, 1):
+            # Mark as running
+            display.mark_running(cluster_idx)
 
-        _dispatch_cluster_started(
-            dispatcher, cluster_idx, cluster_count, iteration_idx, total_iterations, peak_names
-        )
+            result = _fit_and_report_cluster(
+                cluster=cluster,
+                cluster_idx=cluster_idx,
+                cluster_count=cluster_count,
+                step=step,
+                strategy=strategy,
+                noise_value=noise_value,
+                parameter_config=parameter_config,
+                params_init=params_init,
+                iteration_idx=iteration_idx,
+                total_iterations=total_iterations,
+                dispatcher=dispatcher,
+                verbose=verbose,
+                use_live_display=True,
+            )
 
-        params, cost, cluster_time, success = _fit_single_cluster(
-            cluster=cluster,
-            cluster_idx=cluster_idx,
-            cluster_count=cluster_count,
-            step=step,
-            strategy=strategy,
-            noise_value=noise_value,
-            parameter_config=parameter_config,
-            params_init=params_init,
-        )
+            # Mark as completed
+            display.mark_completed(
+                cluster_idx,
+                cost=result.cost,
+                n_evaluations=result.n_evaluations,
+                time_sec=result.time,
+                success=result.success,
+                message=result.message if not result.success else None,
+            )
 
-        _dispatch_cluster_completed(
-            dispatcher,
-            cluster_idx,
-            cluster_count,
-            iteration_idx,
-            total_iterations,
-            cost,
-            success,
-            cluster_time,
-        )
+            params_all.update(result.params)
 
-        # Create a result-like object for printing
-        class _ResultProxy:
-            def __init__(self, cost: float, success: bool, n_evals: int = 0) -> None:
-                self.cost = cost
-                self.success = success
-                self.n_evaluations = n_evals
-                self.message = "Converged" if success else "Did not converge"
 
-        result_proxy = _ResultProxy(cost, success)
-        if verbose:
-            _print_cluster_result(result_proxy, cluster_time)
-        _log_cluster_result(result_proxy, cluster_time)
+def _fit_and_report_cluster(
+    cluster: Cluster,
+    cluster_idx: int,
+    cluster_count: int,
+    step: FitStep,
+    strategy: Any,
+    noise_value: float,
+    parameter_config: ParameterConfig | None,
+    params_init: dict[str, float],
+    iteration_idx: int,
+    total_iterations: int,
+    dispatcher: EventDispatcher | None,
+    verbose: bool,
+    *,
+    use_live_display: bool = True,
+) -> ClusterFitResult:
+    """Fit a single cluster and report progress.
 
-        params_all.update(params)
+    Args:
+        cluster: Cluster to fit
+        cluster_idx: Index of this cluster (1-based)
+        cluster_count: Total number of clusters
+        step: Current fitting step
+        strategy: Optimization strategy
+        noise_value: Noise value for chi-squared calculation
+        parameter_config: Optional parameter constraints
+        params_init: Initial parameter values
+        iteration_idx: Current iteration index
+        total_iterations: Total number of iterations
+        dispatcher: Event dispatcher for progress events
+        verbose: Whether to log verbose output
+        use_live_display: Whether live display is active (suppresses console prints)
+
+    Returns
+    -------
+        ClusterFitResult with fitted parameters and statistics
+    """
+    peak_names = [peak.name for peak in cluster.peaks]
+    peaks_str = ", ".join(peak_names)
+
+    # Only print to console if verbose AND not using live display
+    if verbose and not use_live_display:
+        _print_cluster_header(cluster_idx, cluster_count, peaks_str, len(peak_names))
+
+    log("")
+    log(f"Cluster {cluster_idx}/{cluster_count}: {peaks_str}")
+    log(f"  - Peaks: {len(cluster.peaks)}")
+
+    _dispatch_cluster_started(
+        dispatcher, cluster_idx, cluster_count, iteration_idx, total_iterations, peak_names
+    )
+
+    result = _fit_single_cluster(
+        cluster=cluster,
+        step=step,
+        strategy=strategy,
+        noise_value=noise_value,
+        parameter_config=parameter_config,
+        params_init=params_init,
+    )
+
+    _dispatch_cluster_completed(
+        dispatcher,
+        cluster_idx,
+        cluster_count,
+        iteration_idx,
+        total_iterations,
+        result.cost,
+        result.success,
+        result.time,
+    )
+
+    # Only print to console if verbose AND not using live display
+    if verbose and not use_live_display:
+        _print_cluster_result(result)
+    _log_cluster_result(result)
+
+    return result
 
 
 def _fit_iteration_parallel(
@@ -406,53 +495,82 @@ def _fit_iteration_parallel(
     dispatcher: EventDispatcher | None,
     workers: int,
 ) -> None:
-    """Fit all clusters in parallel using joblib.
-
-    Args:
-        clusters: List of clusters to fit
-        params_all: Global parameters to update
-        step: Current protocol step
-        strategy: Optimization strategy
-        noise_value: Noise level
-        parameter_config: Parameter constraints
-        cluster_count: Total number of clusters
-        iteration_idx: Current iteration (1-based)
-        total_iterations: Total number of iterations
-        dispatcher: Optional event dispatcher
-        workers: Number of parallel workers (-1 for all CPUs)
-    """
+    """Fit all clusters in parallel using joblib with live status display."""
     from joblib import Parallel, delayed
 
-    # Extract current parameter values for initialization
     params_init = {key: params_all[key].value for key in params_all}
 
-    # Print header for parallel execution
-    console.print(f"[cyan]Fitting {cluster_count} clusters in parallel...[/cyan]")
-    log(f"Parallel fitting: {cluster_count} clusters with {workers} workers")
+    # Determine actual number of workers
+    actual_workers = (os.cpu_count() or 1) if workers == -1 else workers
 
-    # Run all cluster fits in parallel
-    results = Parallel(n_jobs=workers, backend="loky")(
-        delayed(_fit_single_cluster)(
-            cluster=cluster,
-            cluster_idx=cluster_idx,
-            cluster_count=cluster_count,
-            step=step,
-            strategy=strategy,
-            noise_value=noise_value,
-            parameter_config=parameter_config,
-            params_init=params_init,
+    log(f"Parallel fitting: {cluster_count} clusters with {actual_workers} workers")
+
+    # Create the live display
+    display = LiveClusterDisplay.from_clusters(clusters)
+    display.set_step_name(step.name or "Fitting")
+    display.set_workers(actual_workers)
+
+    with display:
+        # Mark all clusters as running since they'll be processed in parallel
+        for idx in range(1, cluster_count + 1):
+            display.mark_running(idx)
+
+        # Run parallel fitting
+        # Note: loky backend doesn't support streaming results, so we get all at once
+        parallel_results = Parallel(n_jobs=workers, backend="loky")(
+            delayed(_fit_single_cluster)(
+                cluster=cluster,
+                step=step,
+                strategy=strategy,
+                noise_value=noise_value,
+                parameter_config=parameter_config,
+                params_init=params_init,
+            )
+            for cluster in clusters
         )
-        for cluster_idx, cluster in enumerate(clusters, 1)
+
+        # Type assertion: joblib returns list matching delayed function return type
+        results = [r for r in parallel_results if isinstance(r, ClusterFitResult)]
+
+        # Update display with all results
+        for cluster_idx, result in enumerate(results, 1):
+            display.mark_completed(
+                cluster_idx,
+                cost=result.cost,
+                n_evaluations=result.n_evaluations,
+                time_sec=result.time,
+                success=result.success,
+                message=result.message if not result.success else None,
+            )
+
+    # Collect and update parameters
+    _collect_parallel_results(
+        clusters,
+        results,
+        params_all,
+        dispatcher,
+        cluster_count,
+        iteration_idx,
+        total_iterations,
     )
 
-    # Collect results and update parameters
+
+def _collect_parallel_results(
+    clusters: list[Cluster],
+    results: list[ClusterFitResult],
+    params_all: Parameters,
+    dispatcher: EventDispatcher | None,
+    cluster_count: int,
+    iteration_idx: int,
+    total_iterations: int,
+) -> None:
+    """Collect results from parallel fitting and update parameters."""
     total_time = 0.0
     successful = 0
-    for cluster_idx, (cluster, (params, cost, cluster_time, success)) in enumerate(
-        zip(clusters, results, strict=True), 1
-    ):
-        total_time += cluster_time
-        if success:
+
+    for cluster_idx, (cluster, result) in enumerate(zip(clusters, results, strict=True), 1):
+        total_time += result.time
+        if result.success:
             successful += 1
 
         peak_names = [peak.name for peak in cluster.peaks]
@@ -463,68 +581,20 @@ def _fit_iteration_parallel(
             cluster_count,
             iteration_idx,
             total_iterations,
-            cost,
-            success,
-            cluster_time,
+            result.cost,
+            result.success,
+            result.time,
         )
 
-        # Log each result
         log(
-            f"Cluster {cluster_idx}: {', '.join(peak_names)} - cost={cost:.2e}, time={cluster_time:.2f}s"
+            f"Cluster {cluster_idx}: {', '.join(peak_names)} - "
+            f"cost={result.cost:.2e}, iter={result.n_evaluations}, time={result.time:.2f}s"
         )
 
-        params_all.update(params)
+        params_all.update(result.params)
 
-    # Print summary
-    console.print(
-        f"[green]✓[/green] Completed {cluster_count} clusters "
-        f"({successful}/{cluster_count} converged, total CPU time: {total_time:.1f}s)"
-    )
-
-
-def _fit_iteration_with_constraints(
-    clusters: list[Cluster],
-    params_all: Parameters,
-    step: FitStep,
-    strategy: Any,
-    noise_value: float,
-    parameter_config: ParameterConfig | None,
-    cluster_count: int,
-    iteration_idx: int,
-    total_iterations: int,
-    dispatcher: EventDispatcher | None,
-) -> None:
-    """Fit all clusters in a single iteration with constraints.
-
-    Args:
-        clusters: List of clusters to fit
-        params_all: Global parameters to update
-        step: Current protocol step
-        strategy: Optimization strategy
-        noise_value: Noise level
-        parameter_config: Parameter constraints
-        cluster_count: Total number of clusters
-        iteration_idx: Current iteration (1-based)
-        total_iterations: Total number of iterations
-        dispatcher: Optional event dispatcher
-
-    Note:
-        This function is deprecated. Use _fit_iteration_sequential or
-        _fit_iteration_parallel instead.
-    """
-    _fit_iteration_sequential(
-        clusters=clusters,
-        params_all=params_all,
-        step=step,
-        strategy=strategy,
-        noise_value=noise_value,
-        parameter_config=parameter_config,
-        cluster_count=cluster_count,
-        iteration_idx=iteration_idx,
-        total_iterations=total_iterations,
-        dispatcher=dispatcher,
-        verbose=False,
-    )
+    # Log summary (display already shows visual feedback)
+    log(f"Completed {cluster_count} clusters ({successful} converged, CPU time: {total_time:.1f}s)")
 
 
 def _log_step_header(step: FitStep, step_idx: int, total_steps: int) -> None:
@@ -532,19 +602,18 @@ def _log_step_header(step: FitStep, step_idx: int, total_steps: int) -> None:
     step_name = step.name or f"Step {step_idx + 1}"
     console.print()
     console.print(
-        f"[bold magenta]═══ Protocol Step {step_idx + 1}/{total_steps}: "
-        f"{step_name} ═══[/bold magenta]"
+        f"[header]═══ Protocol Step {step_idx + 1}/{total_steps}: {step_name} ═══[/header]"
     )
 
     if step.description:
         console.print(f"  [dim]{step.description}[/dim]")
 
     if step.fix:
-        console.print(f"  [yellow]Fix:[/yellow] {', '.join(step.fix)}")
+        console.print(f"  [warning]Fix:[/warning] {', '.join(step.fix)}")
     if step.vary:
-        console.print(f"  [green]Vary:[/green] {', '.join(step.vary)}")
+        console.print(f"  [success]Vary:[/success] {', '.join(step.vary)}")
 
-    console.print(f"  [cyan]Iterations:[/cyan] {step.iterations}")
+    console.print(f"  [key]Iterations:[/key] {step.iterations}")
     console.print()
 
 
@@ -558,32 +627,30 @@ def _print_cluster_header(
     if cluster_idx > 1:
         console.print()
     console.print(
-        f"[bold cyan]Cluster {cluster_idx}/{cluster_count}[/bold cyan] [dim]│[/dim] "
+        f"[header]Cluster {cluster_idx}/{cluster_count}[/header] [dim]│[/dim] "
         f"{peaks_str} [dim][{n_peaks} peak{'s' if n_peaks != 1 else ''}][/dim]"
     )
 
 
-def _print_cluster_result(result: Any, cluster_time: float) -> None:
+def _print_cluster_result(result: ClusterFitResult) -> None:
     """Print cluster fitting result."""
-    evaluations = result.n_evaluations
-
     if result.success:
         console.print(
-            f"[green]✓[/green] Converged [dim]│[/dim] "
-            f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
-            f"{evaluations} evaluations [dim]│[/dim] "
-            f"{cluster_time:.1f}s"
+            f"[success]✓[/success] Converged [dim]│[/dim] "
+            f"χ² = [metric]{result.cost:.2e}[/metric] [dim]│[/dim] "
+            f"{result.n_evaluations} evaluations [dim]│[/dim] "
+            f"{result.time:.1f}s"
         )
     else:
         console.print(
-            f"[yellow]⚠[/yellow] {result.message} [dim]│[/dim] "
-            f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
-            f"{evaluations} evaluations [dim]│[/dim] "
-            f"{cluster_time:.1f}s"
+            f"[warning]⚠[/warning] {result.message} [dim]│[/dim] "
+            f"χ² = [metric]{result.cost:.2e}[/metric] [dim]│[/dim] "
+            f"{result.n_evaluations} evaluations [dim]│[/dim] "
+            f"{result.time:.1f}s"
         )
 
 
-def _log_cluster_result(result: Any, cluster_time: float) -> None:
+def _log_cluster_result(result: ClusterFitResult) -> None:
     """Log cluster fitting result."""
     if result.success:
         log("  - Status: Converged", level="info")
@@ -592,7 +659,7 @@ def _log_cluster_result(result: Any, cluster_time: float) -> None:
 
     log(f"  - Cost: {result.cost:.3e}")
     log(f"  - Function evaluations: {result.n_evaluations}")
-    log(f"  - Time: {cluster_time:.1f}s")
+    log(f"  - Time: {result.time:.1f}s")
 
 
 def _dispatch_cluster_started(

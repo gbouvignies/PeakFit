@@ -61,9 +61,9 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 import json
 
 # Load both results
-with open('Fits-Local/fit_results.json') as f:
+with open('Fits-Local/summary/fit_summary.json') as f:
     local = json.load(f)
-with open('Fits-BH/fit_results.json') as f:
+with open('Fits-BH/summary/fit_summary.json') as f:
     bh = json.load(f)
 
 # Compare summary statistics
@@ -84,35 +84,47 @@ for l_cluster in local['clusters']:
         print(f"Cluster {cid}: {l_chi2:.2f} -> {b_chi2:.2f} (improved)")
 ```
 
+```
+
 ## Output Structure
 
 Each optimization run produces the standard structured outputs:
 
 ```
+
 Fits-Local/
-├── fit_results.json    # Complete structured results
-├── parameters.csv      # Parameter estimates
-├── shifts.csv          # Chemical shifts
-├── intensities.csv     # Fitted intensities
-├── report.md           # Human-readable report
-└── peakfit.log
+├── README.md
+├── summary/
+│ ├── fit_summary.json
+│ ├── analysis_report.md
+│ └── quick_results.csv
+├── parameters/
+│ ├── parameters.csv
+│ ├── amplitudes.csv
+│ └── parameters.json
+├── statistics/
+│ ├── fit_statistics.json
+│ └── residuals.csv
+└── metadata/
+├── run_metadata.json
+└── configuration.toml
 
 Fits-BH/
-├── fit_results.json
-├── parameters.csv
-├── shifts.csv
-├── intensities.csv
-├── report.md
-└── peakfit.log
-```
+├── README.md
+├── summary/
+├── parameters/
+├── statistics/
+└── metadata/
+
+````
 
 ### Comparing with CSV
 
 ```python
 import pandas as pd
 
-local_df = pd.read_csv('Fits-Local/parameters.csv')
-bh_df = pd.read_csv('Fits-BH/parameters.csv')
+local_df = pd.read_csv('Fits-Local/parameters/parameters.csv')
+bh_df = pd.read_csv('Fits-BH/parameters/parameters.csv')
 
 # Merge on cluster_id and compare chi_squared
 comparison = local_df.merge(
@@ -126,7 +138,7 @@ improved = comparison[
     comparison['chi_squared_bh'] < comparison['chi_squared_local'] * 0.95
 ]
 print(f"Improved clusters: {len(improved)}")
-```
+````
 
 ### Comparing with Shell
 
@@ -134,8 +146,8 @@ print(f"Improved clusters: {len(improved)}")
 # Extract chi-squared values and compare
 echo "Cluster | Local χ² | BH χ²"
 paste \
-  <(jq -r '.clusters[] | "\(.cluster_id) \(.fit_statistics.chi_squared)"' Fits-Local/fit_results.json) \
-  <(jq -r '.clusters[] | .fit_statistics.chi_squared' Fits-BH/fit_results.json) \
+  <(jq -r '.clusters[] | "\(.cluster_id) \(.fit_statistics.chi_squared)"' Fits-Local/summary/fit_summary.json) \
+  <(jq -r '.clusters[] | .fit_statistics.chi_squared' Fits-BH/summary/fit_summary.json) \
   | awk '{printf "%7s | %8.3f | %5.3f\n", $1, $2, $3}'
 ```
 

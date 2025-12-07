@@ -11,6 +11,7 @@ Submodules:
 - panels: Panel display utilities
 - progress: Progress bar utilities
 - fit_display: HTML export utility
+- cluster_status: Live cluster fitting status display
 """
 
 from peakfit.ui.branding import (
@@ -21,6 +22,11 @@ from peakfit.ui.branding import (
 )
 
 # Re-export submodule contents for direct access
+from peakfit.ui.cluster_status import (
+    ClusterState,
+    ClusterStatus,
+    LiveClusterDisplay,
+)
 from peakfit.ui.console import (
     LOGO_ASCII,
     PEAKFIT_THEME,
@@ -28,6 +34,8 @@ from peakfit.ui.console import (
     VERSION,
     Verbosity,
     console,
+    icon,
+    hr,
     get_verbosity,
     set_verbosity,
 )
@@ -64,12 +72,17 @@ __all__ = [
     "PEAKFIT_THEME",
     "REPO_URL",
     "VERSION",
+    "ClusterState",
+    "ClusterStatus",
     "ConsoleReporter",
+    "LiveClusterDisplay",
     "Verbosity",
     "action",
     "bullet",
     "close_logging",
     "console",
+    "icon",
+    "hr",
     "create_panel",
     "create_progress",
     "create_table",

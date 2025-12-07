@@ -1,8 +1,4 @@
-"""Output directory management for PeakFit results.
-
-This module provides the OutputDirectoryManager class for creating
-and managing the standardized output directory structure.
-"""
+"""Output directory management for PeakFit results."""
 
 from __future__ import annotations
 
@@ -53,44 +49,7 @@ OUTPUT_SUBDIRS: dict[OutputType, str] = {
 
 
 class OutputDirectoryManager:
-    """Manages the standardized output directory structure.
-
-    Directory Structure:
-        output_YYYYMMDD_HHMMSS/
-        ├── summary/
-        │   ├── fit_summary.json      # Main results file
-        │   ├── analysis_report.md    # Human-readable report
-        │   └── quick_results.csv     # Key results for quick import
-        ├── parameters/
-        │   ├── parameters.csv        # All parameters (long format)
-        │   ├── amplitudes.csv        # Intensities per plane
-        │   └── parameters.json       # Parameters with full metadata
-        ├── statistics/
-        │   ├── fit_statistics.json   # Chi-squared, AIC, BIC
-        │   ├── residuals.csv         # Residual values
-        │   └── model_comparison.json # If multiple models
-        ├── diagnostics/
-        │   ├── mcmc_diagnostics.json # R-hat, ESS, convergence
-        │   ├── convergence.csv       # Per-parameter convergence
-        │   └── warnings.txt          # Collected warnings
-        ├── figures/
-        │   ├── profiles/             # Fit profiles per peak
-        │   ├── diagnostics/          # MCMC diagnostic plots
-        │   └── correlations/         # Correlation plots
-        ├── metadata/
-        │   ├── run_metadata.json     # Reproducibility info
-        │   └── configuration.toml    # Copy of input config
-        ├── chains/
-        │   └── mcmc_chains.h5        # Full MCMC chains (HDF5)
-        └── legacy/
-            └── *.out                 # Legacy format files
-
-    Attributes
-    ----------
-        base_dir: Base output directory path
-        timestamp: Timestamp string used in directory name
-        include_timestamp: Whether directory name includes timestamp
-    """
+    """Manages the standardized output directory structure."""
 
     def __init__(
         self,
@@ -99,13 +58,7 @@ class OutputDirectoryManager:
         include_timestamp: bool = True,
         timestamp: str | None = None,
     ) -> None:
-        """Initialize output directory manager.
-
-        Args:
-            base_dir: Base directory path (will be created if needed)
-            include_timestamp: Whether to add timestamp to directory name
-            timestamp: Custom timestamp string (auto-generated if None)
-        """
+        """Initialize output directory manager."""
         self.include_timestamp = include_timestamp
 
         if timestamp:
@@ -162,15 +115,7 @@ class OutputDirectoryManager:
         return self.base_dir / OUTPUT_SUBDIRS[OutputType.CHAINS]
 
     def get_dir(self, output_type: OutputType) -> Path:
-        """Get directory path for an output type.
-
-        Args:
-            output_type: Type of output
-
-        Returns
-        -------
-            Path to the appropriate subdirectory
-        """
+        """Get directory path for an output type."""
         return self.base_dir / OUTPUT_SUBDIRS[output_type]
 
     def ensure_structure(self) -> None:
@@ -190,17 +135,7 @@ class OutputDirectoryManager:
         *,
         ensure_dir: bool = True,
     ) -> Path:
-        """Get full path for an output file.
-
-        Args:
-            output_type: Type of output (determines subdirectory)
-            filename: Name of the file
-            ensure_dir: Create subdirectory if it doesn't exist
-
-        Returns
-        -------
-            Full path to the file
-        """
+        """Get full path for an output file."""
         subdir = self.get_dir(output_type)
         if ensure_dir:
             subdir.mkdir(parents=True, exist_ok=True)
@@ -213,17 +148,7 @@ class OutputDirectoryManager:
         *,
         ensure_dir: bool = True,
     ) -> Path:
-        """Get path for a figure file.
-
-        Args:
-            category: Figure category (profiles, diagnostics, correlations)
-            filename: Name of the figure file
-            ensure_dir: Create directory if needed
-
-        Returns
-        -------
-            Full path to the figure file
-        """
+        """Get path for a figure file."""
         fig_subdir = self.figures_dir / category
         if ensure_dir:
             fig_subdir.mkdir(parents=True, exist_ok=True)
@@ -270,16 +195,53 @@ class OutputDirectoryManager:
         """Path to MCMC chains as NumPy archive (fallback)."""
         return self.get_path(OutputType.CHAINS, "mcmc_chains.npz")
 
+    # Summary files
+    @property
+    def quick_results_csv_path(self) -> Path:
+        """Path to quick_results.csv for spreadsheet import."""
+        return self.get_path(OutputType.SUMMARY, "quick_results.csv")
+
+    # Parameters files
+    @property
+    def parameters_json_path(self) -> Path:
+        """Path to parameters.json with full metadata."""
+        return self.get_path(OutputType.PARAMETERS, "parameters.json")
+
+    # Statistics files
+    @property
+    def fit_statistics_path(self) -> Path:
+        """Path to fit_statistics.json."""
+        return self.get_path(OutputType.STATISTICS, "fit_statistics.json")
+
+    @property
+    def residuals_csv_path(self) -> Path:
+        """Path to residuals.csv."""
+        return self.get_path(OutputType.STATISTICS, "residuals.csv")
+
+    @property
+    def model_comparison_path(self) -> Path:
+        """Path to model_comparison.json."""
+        return self.get_path(OutputType.STATISTICS, "model_comparison.json")
+
+    # Diagnostics files
+    @property
+    def convergence_csv_path(self) -> Path:
+        """Path to convergence.csv for per-parameter diagnostics."""
+        return self.get_path(OutputType.DIAGNOSTICS, "convergence.csv")
+
+    @property
+    def warnings_path(self) -> Path:
+        """Path to warnings.txt for collected warnings."""
+        return self.get_path(OutputType.DIAGNOSTICS, "warnings.txt")
+
+    # Metadata files
+    @property
+    def configuration_path(self) -> Path:
+        """Path to configuration.toml copy."""
+        return self.get_path(OutputType.METADATA, "configuration.toml")
+
     def get_legacy_profile_path(self, peak_name: str) -> Path:
-        """Get path for legacy .out profile file.
-
-        Args:
-            peak_name: Name of the peak
-
-        Returns
-        -------
-            Path to the legacy profile file
-        """
+        """Get path for legacy .out profile file."""
         return self.get_path(OutputType.LEGACY, f"{peak_name}.out")
 
     def write_readme(self) -> None:
@@ -367,40 +329,13 @@ def generate_filename(
     extension: str = "",
     timestamp: str | None = None,
 ) -> str:
-    """Generate a standardized filename.
-
-    Naming convention:
-    - Use underscores for word separation
-    - Include identifiers when relevant
-    - Avoid spaces and special characters
-
-    Args:
-        base_name: Base name for the file (e.g., "parameters", "trace_plot")
-        cluster_id: Optional cluster identifier
-        peak_names: Optional list of peak names
-        extension: File extension (with or without leading dot)
-        timestamp: Optional timestamp to include
-
-    Returns
-    -------
-        Generated filename
-
-    Examples
-    --------
-        >>> generate_filename("parameters", extension=".csv")
-        "parameters.csv"
-        >>> generate_filename("trace", cluster_id=1, extension=".pdf")
-        "trace_cluster_1.pdf"
-        >>> generate_filename("profile", peak_names=["G23N", "G23H"])
-        "profile_G23N_G23H"
-    """
+    """Generate a standardized filename."""
     parts = [base_name]
 
     if cluster_id is not None:
         parts.append(f"cluster_{cluster_id}")
 
     if peak_names:
-        # Sanitize peak names
         sanitized = [_sanitize_filename_part(name) for name in peak_names]
         parts.append("_".join(sanitized))
 
@@ -418,10 +353,7 @@ def generate_filename(
 
 
 def _sanitize_filename_part(name: str) -> str:
-    """Sanitize a string for use in filenames.
-
-    Replaces or removes characters that may cause issues.
-    """
+    """Sanitize a string for use in filenames."""
     # Replace common problematic characters
     replacements = {
         " ": "_",

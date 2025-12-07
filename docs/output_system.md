@@ -6,36 +6,58 @@ This document describes the redesigned output system for PeakFit, which provides
 
 The new output system generates multiple output formats from a single fitting run:
 
-| Format   | File               | Purpose                                    |
-| -------- | ------------------ | ------------------------------------------ |
-| JSON     | `fit_results.json` | Machine-readable, complete structured data |
-| CSV      | `parameters.csv`   | Lineshape parameter estimates              |
-| CSV      | `shifts.csv`       | Chemical shifts (wide format)              |
-| CSV      | `intensities.csv`  | Fitted intensities                         |
-| Markdown | `report.md`        | Human-readable formatted report            |
-| Legacy   | `legacy/*.out`     | Backward-compatible text format            |
+| Category    | File                                | Purpose                              |
+| ----------- | ----------------------------------- | ------------------------------------ |
+| Summary     | `summary/fit_summary.json`          | Complete structured results          |
+| Summary     | `summary/analysis_report.md`        | Human-readable formatted report      |
+| Summary     | `summary/quick_results.csv`         | Key results for spreadsheet import   |
+| Parameters  | `parameters/parameters.csv`         | Lineshape parameter estimates (long) |
+| Parameters  | `parameters/amplitudes.csv`         | Fitted intensities per plane         |
+| Parameters  | `parameters/parameters.json`        | Parameters with full metadata        |
+| Statistics  | `statistics/fit_statistics.json`    | Chi-squared, AIC, BIC                |
+| Statistics  | `statistics/residuals.csv`          | Fit residual values                  |
+| Diagnostics | `diagnostics/mcmc_diagnostics.json` | R-hat, ESS, convergence              |
+| Diagnostics | `diagnostics/warnings.txt`          | Collected warnings                   |
+| Metadata    | `metadata/run_metadata.json`        | Reproducibility info                 |
+| Metadata    | `metadata/configuration.toml`       | Copy of input config                 |
+| Chains      | `chains/mcmc_chains.h5`             | Full MCMC chains (HDF5)              |
+| Legacy      | `legacy/*.out`                      | Backward-compatible text format      |
 
 ## Output Directory Structure
 
-When `peakfit fit` completes, outputs are organized as follows:
+When `peakfit fit` completes, outputs are organized in a structured hierarchy:
 
 ```
-output/
-├── fit_results.json    # Complete structured results
-├── parameters.csv      # Lineshape parameter estimates
-├── shifts.csv          # Chemical shifts (wide format)
-├── intensities.csv     # Fitted intensities
-├── report.md           # Human-readable report
-├── peakfit.log         # Execution log
-├── mcmc/               # MCMC outputs (if applicable)
-│   ├── chains.npz      # Raw MCMC chains (if --save-chains)
-│   └── diagnostics.json# Convergence diagnostics
-├── legacy/             # Legacy outputs (if --include-legacy)
-│   ├── peak_name.out
-│   └── ...
-└── figures/            # Generated plots
-    ├── manifest.json   # Figure metadata catalog
-    └── *.pdf
+output_YYYYMMDD_HHMMSS/
+├── README.md                 # Auto-generated directory guide
+├── summary/
+│   ├── fit_summary.json      # Main results file
+│   ├── analysis_report.md    # Human-readable report
+│   └── quick_results.csv     # Key results for quick import
+├── parameters/
+│   ├── parameters.csv        # All parameters (long format)
+│   ├── amplitudes.csv        # Intensities per plane
+│   └── parameters.json       # Parameters with full metadata
+├── statistics/
+│   ├── fit_statistics.json   # Chi-squared, AIC, BIC
+│   ├── residuals.csv         # Residual values
+│   └── model_comparison.json # If multiple models
+├── diagnostics/
+│   ├── mcmc_diagnostics.json # R-hat, ESS, convergence
+│   ├── convergence.csv       # Per-parameter convergence
+│   └── warnings.txt          # Collected warnings
+├── figures/
+│   ├── profiles/             # Fit profiles per peak
+│   ├── diagnostics/          # MCMC diagnostic plots
+│   └── correlations/         # Correlation plots
+├── metadata/
+│   ├── run_metadata.json     # Reproducibility info
+│   └── configuration.toml    # Copy of input config
+├── chains/
+│   ├── mcmc_chains.h5        # Full MCMC chains (HDF5)
+│   └── mcmc_chains.npz       # NumPy archive (fallback)
+└── legacy/                   # Legacy outputs (if --include-legacy)
+    └── *.out
 ```
 
 ## Configuration
@@ -83,7 +105,7 @@ include_timestamp = true # Add timestamp to directory name
 
 ## Output Formats
 
-### JSON Output (fit_results.json)
+### JSON Output (summary/fit_summary.json)
 
 The JSON output provides complete, structured access to all fitting results:
 
@@ -156,7 +178,7 @@ The JSON output provides complete, structured access to all fitting results:
 }
 ```
 
-### CSV Output (parameters.csv)
+### CSV Output (parameters/parameters.csv)
 
 Tabular output optimized for spreadsheet analysis:
 
@@ -168,7 +190,7 @@ cluster_id,peak_name,parameter,value,uncertainty,ci_lower_95,ci_upper_95,unit
 1,G23,lw_F2,18.5,0.8,16.9,20.1,Hz
 ```
 
-### Markdown Report (report.md)
+### Markdown Report (summary/analysis_report.md)
 
 Human-readable formatted report:
 
@@ -222,59 +244,62 @@ CLUSTER 1
 
 When using MCMC fitting with `--save-chains`:
 
-### chains.npz (NumPy compressed archive)
+### chains/mcmc_chains.h5 (HDF5 format - preferred)
+
+```python
+import h5py
+
+with h5py.File('output/chains/mcmc_chains.h5', 'r') as f:
+    chains = f['chains'][:]      # Shape: (n_chains, n_samples, n_params)
+    param_names = [name.decode() for name in f['param_names'][:]]
+```
+
+### chains/mcmc_chains.npz (NumPy compressed archive - fallback)
 
 ```python
 import numpy as np
 
 # Load chains
-data = np.load('output/mcmc/chains.npz')
+data = np.load('output/chains/mcmc_chains.npz')
 chains = data['chains']      # Shape: (n_chains, n_samples, n_params)
 param_names = data['param_names']
 ```
 
-### chains_meta.json
+### diagnostics/mcmc_diagnostics.json
 
 ```json
 {
   "n_chains": 4,
   "n_samples": 10000,
   "n_parameters": 12,
-  "parameter_names": ["pos_x_0", "pos_y_0", "width_x_0", ...],
-  "compression": "gzip",
-  "dtype": "float64",
+  "parameter_names": ["cs_F1_0", "cs_F2_0", "lw_F1_0", ...],
+  "convergence": {
+    "all_rhat_below_threshold": true,
+    "rhat_max": 1.02,
+    "ess_min": 3200
+  },
   "created": "2025-01-15T14:30:00Z"
 }
 ```
 
+```
+
 ## Figure Registry
 
-The figure manifest (`figures/manifest.json`) catalogs all generated plots:
+Figures are organized by category in subdirectories:
 
-```json
-{
-  "generated": "2025-01-15T14:30:00Z",
-  "n_figures": 45,
-  "figures": [
-    {
-      "filename": "cluster_001_profile.pdf",
-      "category": "profile",
-      "title": "Cluster 1 Profile Fit",
-      "cluster_id": 1,
-      "dimensions": {
-        "width_px": 800,
-        "height_px": 600,
-        "dpi": 150
-      }
-    }
-  ],
-  "by_category": {
-    "profile": 15,
-    "correlation": 15,
-    "residual": 15
-  }
-}
 ```
+
+figures/
+├── profiles/ # Fit profiles per peak
+│ ├── cluster_001_profile.pdf
+│ └── cluster_002_profile.pdf
+├── diagnostics/ # MCMC trace plots, autocorrelation
+│ └── trace_cluster_001.pdf
+└── correlations/ # Corner plots, parameter correlations
+└── corner_cluster_001.pdf
+
+````
 
 ## Programmatic Access
 
@@ -283,9 +308,10 @@ The figure manifest (`figures/manifest.json`) catalogs all generated plots:
 ```python
 from peakfit.core.results import FitResults
 from peakfit.io.writers import JSONWriter
+import json
 
 # Load results from JSON
-with open('results.json') as f:
+with open('output/summary/fit_summary.json') as f:
     data = json.load(f)
 
 # Or access directly after fitting
@@ -301,7 +327,7 @@ for cluster in results.clusters:
 
     for param in cluster.parameters:
         print(f"  {param.name}: {param.value} ± {param.uncertainty}")
-```
+````
 
 ### Custom Output Writers
 
@@ -346,7 +372,7 @@ with open('results.out') as f:
 ```python
 import json
 
-with open('fit_results.json') as f:
+with open('output/summary/fit_summary.json') as f:
     results = json.load(f)
 
 for cluster in results['clusters']:

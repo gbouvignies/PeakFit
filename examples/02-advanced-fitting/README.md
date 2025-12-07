@@ -52,15 +52,24 @@ After fitting, the `Fits/` directory contains the **new structured outputs**:
 
 ```
 Fits/
-├── fit_results.json    # Machine-readable structured results
-├── parameters.csv      # Lineshape parameters (long format)
-├── shifts.csv          # Chemical shifts (wide format)
-├── intensities.csv     # Fitted intensities for all peaks
-├── report.md           # Human-readable Markdown report
-└── peakfit.log         # Detailed execution log
+├── README.md                 # Auto-generated directory guide
+├── summary/
+│   ├── fit_summary.json      # Main results file
+│   ├── analysis_report.md    # Human-readable report
+│   └── quick_results.csv     # Key results for quick import
+├── parameters/
+│   ├── parameters.csv        # All parameters (long format)
+│   ├── amplitudes.csv        # Intensities per plane
+│   └── parameters.json       # Parameters with full metadata
+├── statistics/
+│   ├── fit_statistics.json   # Chi-squared, AIC, BIC
+│   └── residuals.csv         # Residual values
+└── metadata/
+    ├── run_metadata.json     # Reproducibility info
+    └── configuration.toml    # Copy of input config
 ```
 
-### fit_results.json - Structured Data
+### summary/fit_summary.json - Structured Data
 
 Complete structured results for programmatic access:
 
@@ -122,19 +131,20 @@ Complete structured results for programmatic access:
 }
 ```
 
-### results.csv - Tabular Data
+### parameters/parameters.csv - Tabular Data
 
 Easy-to-analyze tabular format:
 
 ```csv
-cluster_id,peak_name,plane,z_value,amplitude,uncertainty,chi_squared
-1,2N-HN,0,-5000.0,1500000.0,23000.0,1.02
-1,2N-HN,1,-4900.0,1480000.0,22000.0,1.01
-1,2N-HN,2,-4800.0,1450000.0,21500.0,1.03
+cluster_id,peak_name,parameter,value,uncertainty,unit
+1,2N-HN,cs_F1,115.632,0.001,ppm
+1,2N-HN,cs_F2,6.869,0.002,ppm
+1,2N-HN,lw_F1,25.3,1.2,Hz
+1,2N-HN,lw_F2,18.5,0.8,Hz
 ...
 ```
 
-### results.md - Human-Readable Report
+### summary/analysis_report.md - Human-Readable Report
 
 Markdown-formatted report for documentation:
 
@@ -206,16 +216,17 @@ This adds the traditional `*.out` profile files alongside the new formats:
 
 ```
 Fits/
-├── fit_results.json
-├── parameters.csv
-├── shifts.csv
-├── intensities.csv
-├── report.md
-├── legacy/
-│   ├── 2N-HN.out       # Legacy profile file
-│   ├── 3N-HN.out
-│   └── ...
-└── peakfit.log
+├── summary/
+│   ├── fit_summary.json
+│   ├── analysis_report.md
+│   └── quick_results.csv
+├── parameters/
+├── statistics/
+├── metadata/
+└── legacy/
+    ├── 2N-HN.out       # Legacy profile file
+    ├── 3N-HN.out
+    └── ...
 ```
 
 ## Working with the Outputs
@@ -225,7 +236,7 @@ Fits/
 ```python
 import json
 
-with open('Fits/fit_results.json') as f:
+with open('Fits/summary/fit_summary.json') as f:
     results = json.load(f)
 
 # Get summary
@@ -244,8 +255,8 @@ for cluster in results['clusters']:
 ```python
 import pandas as pd
 
-# Load intensities for CEST analysis
-df = pd.read_csv('Fits/intensities.csv')
+# Load amplitudes for CEST analysis
+df = pd.read_csv('Fits/parameters/amplitudes.csv')
 
 # Plot CEST profile for a specific peak
 peak_data = df[df['peak_name'] == '2N-HN']
@@ -257,7 +268,7 @@ plt.title('CEST Profile: 2N-HN')
 plt.show()
 
 # Load parameters for detailed analysis
-params_df = pd.read_csv('Fits/parameters.csv')
+params_df = pd.read_csv('Fits/parameters/parameters.csv')
 print(params_df[['peak_name', 'parameter', 'value', 'std_error']])
 ```
 
@@ -265,13 +276,13 @@ print(params_df[['peak_name', 'parameter', 'value', 'std_error']])
 
 ```bash
 # Get list of all peaks
-jq -r '.clusters[].peaks[]' Fits/fit_results.json | sort -u
+jq -r '.clusters[].peaks[]' Fits/summary/fit_summary.json | sort -u
 
 # Get chi-squared for each cluster
-jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' Fits/fit_results.json
+jq '.clusters[] | "\(.cluster_id): χ²=\(.fit_statistics.chi_squared)"' Fits/summary/fit_summary.json
 
 # Count successful clusters
-jq '[.clusters[] | select(.fit_statistics.chi_squared < 2.0)] | length' Fits/fit_results.json
+jq '[.clusters[] | select(.fit_statistics.chi_squared < 2.0)] | length' Fits/summary/fit_summary.json
 ```
 
 ## Expected Terminal Output
@@ -301,10 +312,10 @@ jq '[.clusters[] | select(.fit_statistics.chi_squared < 2.0)] | length' Fits/fit
 ✓ Fitted 45 clusters (166 peaks) in 2m 25s
 
 Output files:
-  ‣ Fits/fit_results.json  (structured data)
-  ‣ Fits/parameters.csv    (parameter estimates)
-  ‣ Fits/intensities.csv   (fitted intensities)
-  ‣ Fits/report.md         (human-readable report)
+  ‣ Fits/summary/fit_summary.json   (structured data)
+  ‣ Fits/parameters/parameters.csv  (parameter estimates)
+  ‣ Fits/parameters/amplitudes.csv  (fitted intensities)
+  ‣ Fits/summary/analysis_report.md (human-readable report)
 ```
 
 ## Advanced Options
@@ -344,7 +355,7 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 
 ### "Fitting failed for some clusters"
 
-- Check `Fits/fit_results.json` for error details
+- Check `Fits/summary/fit_summary.json` for error details
 - Try global optimization: [Example 3](../03-global-optimization/)
 
 ### Output files missing

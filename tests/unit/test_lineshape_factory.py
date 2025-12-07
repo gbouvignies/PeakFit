@@ -11,7 +11,10 @@ import numpy as np
 
 from peakfit.core.domain.spectrum import Spectra, SpectralParameters
 from peakfit.core.lineshapes.factory import LineshapeFactory
-from peakfit.core.lineshapes.models import SP1, Gaussian, Lorentzian, NoApod
+from peakfit.core.lineshapes.apodization import ApodShape
+from peakfit.core.lineshapes.gaussian import Gaussian
+from peakfit.core.lineshapes.lorentzian import Lorentzian
+from peakfit.core.lineshapes.no_apod import NoApod
 
 
 @dataclass
@@ -181,7 +184,8 @@ class TestLineshapeFactory:
 
         shapes = factory.create_auto_shapes("Peak-2", [1.0, 2.0])
 
-        assert isinstance(shapes[0], SP1)
+        assert isinstance(shapes[0], ApodShape)
+        assert shapes[0].shape_name == "sp1"
         assert isinstance(shapes[1], NoApod)
         assert shapes[0].name == "Peak-2"
 

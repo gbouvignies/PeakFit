@@ -166,14 +166,18 @@ PeakFit now generates structured outputs in multiple formats. See the [Output Sy
 
 ### Quick Reference
 
-| Format   | File               | Use Case                                         |
-| -------- | ------------------ | ------------------------------------------------ |
-| JSON     | `fit_results.json` | Programmatic access, scripts, pipelines          |
-| CSV      | `parameters.csv`   | Lineshape parameters for analysis                |
-| CSV      | `shifts.csv`       | Chemical shifts in wide format                   |
-| CSV      | `intensities.csv`  | Fitted intensities for CEST/relaxation           |
-| Markdown | `report.md`        | Human-readable reports, documentation            |
-| Legacy   | `legacy/*.out`     | Backward compatibility (with `--include-legacy`) |
+| Category    | File                                | Use Case                                         |
+| ----------- | ----------------------------------- | ------------------------------------------------ |
+| Summary     | `summary/fit_summary.json`          | Programmatic access, scripts, pipelines          |
+| Summary     | `summary/analysis_report.md`        | Human-readable reports, documentation            |
+| Summary     | `summary/quick_results.csv`         | Key results for spreadsheet import               |
+| Parameters  | `parameters/parameters.csv`         | Lineshape parameters for analysis                |
+| Parameters  | `parameters/amplitudes.csv`         | Fitted intensities for CEST/relaxation           |
+| Statistics  | `statistics/fit_statistics.json`    | Chi-squared, AIC, BIC                            |
+| Diagnostics | `diagnostics/mcmc_diagnostics.json` | R-hat, ESS, convergence                          |
+| Metadata    | `metadata/run_metadata.json`        | Reproducibility info                             |
+| Chains      | `chains/mcmc_chains.h5`             | Full MCMC chains                                 |
+| Legacy      | `legacy/*.out`                      | Backward compatibility (with `--include-legacy`) |
 
 ### Verbosity Levels
 
@@ -190,7 +194,7 @@ Control output detail with `--verbosity`:
 ```python
 import json
 
-with open('Fits/fit_results.json') as f:
+with open('Fits/summary/fit_summary.json') as f:
     results = json.load(f)
 
 for cluster in results['clusters']:
@@ -205,14 +209,21 @@ for cluster in results['clusters']:
 ```python
 import numpy as np
 
-# Load chains
-data = np.load('Fits/mcmc/chains.npz')
+# Load chains (NumPy fallback format)
+data = np.load('Fits/chains/mcmc_chains.npz')
 chains = data['chains']      # Shape: (n_chains, n_samples, n_params)
 param_names = data['param_names']
 
 print(f"Chains shape: {chains.shape}")
 print(f"Parameters: {list(param_names)}")
-# Example output: ['2N-HN.F2.cs', '2N-HN.F3.cs', '2N-HN.F2.lw', ...]
+# Example output: ['cs_F1_0', 'cs_F2_0', 'lw_F1_0', ...]
+
+# Or use HDF5 format (preferred)
+import h5py
+
+with h5py.File('Fits/chains/mcmc_chains.h5', 'r') as f:
+    chains = f['chains'][:]
+    param_names = [name.decode() for name in f['param_names'][:]]
 ```
 
 ---
@@ -229,11 +240,21 @@ After running Example 2, you'll see:
 │   ├── b1_offsets.txt      # Z-values
 │   └── peakfit.toml        # Optional config
 └── Fits/
-    ├── fit_results.json    # ← Structured results
-    ├── parameters.csv      # ← Parameter estimates
-    ├── shifts.csv          # ← Chemical shifts
-    ├── intensities.csv     # ← Fitted intensities
-    ├── report.md           # ← Markdown report
+    ├── README.md           # Auto-generated guide
+    ├── summary/
+    │   ├── fit_summary.json
+    │   ├── analysis_report.md
+    │   └── quick_results.csv
+    ├── parameters/
+    │   ├── parameters.csv
+    │   ├── amplitudes.csv
+    │   └── parameters.json
+    ├── statistics/
+    │   ├── fit_statistics.json
+    │   └── residuals.csv
+    ├── metadata/
+    │   ├── run_metadata.json
+    │   └── configuration.toml
     └── legacy/             # (if --include-legacy)
         ├── 2N-HN.out
         └── ...
@@ -243,18 +264,34 @@ After running Example 4 (MCMC), you'll also see:
 
 ```
 Fits/
-├── fit_results.json
-├── parameters.csv
-├── shifts.csv
-├── intensities.csv
-├── report.md
-├── mcmc/                    # MCMC outputs
-│   ├── chains.npz          # Raw chains (if --save-chains)
-│   └── diagnostics.json    # Convergence info
-└── figures/                 # Figure catalog (if generated)
-    ├── manifest.json
-    └── *.pdf
+├── summary/
+│   ├── fit_summary.json
+│   ├── analysis_report.md
+│   └── quick_results.csv
+├── parameters/
+├── statistics/
+├── diagnostics/
+│   ├── mcmc_diagnostics.json
+│   ├── convergence.csv
+│   └── warnings.txt
+├── chains/
+│   ├── mcmc_chains.h5
+│   └── mcmc_chains.npz
+├── figures/
+│   ├── profiles/
+│   ├── diagnostics/
+│   └── correlations/
+└── metadata/
 ```
+
+├── mcmc/ # MCMC outputs
+│ ├── chains.npz # Raw chains (if --save-chains)
+│ └── diagnostics.json # Convergence info
+└── figures/ # Figure catalog (if generated)
+├── manifest.json
+└── \*.pdf
+
+````
 
 ---
 
@@ -275,7 +312,7 @@ Start with **Example 2** (Advanced Fitting) since it contains real data and is r
 ```bash
 cd 02-advanced-fitting
 bash run.sh
-```
+````
 
 This will fit the provided CEST spectrum and generate results in the `Fits/` directory.
 

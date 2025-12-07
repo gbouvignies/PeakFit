@@ -7,12 +7,16 @@ pandas, R, Excel, and other analysis tools.
 from __future__ import annotations
 
 import csv
-import re
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from peakfit.io.writers.base import WriterConfig, format_float
+from peakfit.io.writers.base import (
+    WriterConfig,
+    flatten_diagnostics,
+    format_float,
+    get_peak_name,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -174,7 +178,7 @@ class CSVWriter:
         thresh = self.config.scientific_notation_threshold
 
         # Determine peak name from parameter
-        peak_name = self._extract_peak_name_from_param(param, cluster.peak_names)
+        peak_name = get_peak_name(param, cluster.peak_names)
 
         # Get user-friendly parameter name
         # Use ParameterEstimate.user_name which uses param_id if available
@@ -211,35 +215,6 @@ class CSVWriter:
                 param.is_global,
             ]
         )
-
-    def _extract_peak_name_from_param(self, param: ParameterEstimate, peak_names: list[str]) -> str:
-        """Extract the original peak name from a parameter.
-
-        Args:
-            param: ParameterEstimate object
-            peak_names: List of peak names in the cluster
-
-        Returns
-        -------
-            Original peak name like '2N-H'
-        """
-        # Use param_id if available (new format)
-        if param.param_id is not None:
-            return param.param_id.peak_name
-
-        # Legacy fallback: parse from internal name
-        param_name = param.name
-        for peak_name in peak_names:
-            # New format: "peak_name.axis.type"
-            if param_name.startswith(peak_name + "."):
-                return peak_name
-            # Legacy format: sanitized prefix
-            safe_prefix = re.sub(r"\W+|^(?=\d)", "_", peak_name)
-            if param_name.startswith(safe_prefix + "_"):
-                return peak_name
-
-        # Fallback to first peak
-        return peak_names[0] if peak_names else ""
 
     def write_amplitudes(self, results: FitResults, path: Path) -> None:
         """Write amplitude (intensity) values to CSV.
@@ -342,7 +317,7 @@ class CSVWriter:
                 peak_shifts: dict[str, dict[str, float | None]] = {}
 
                 for param in cluster.lineshape_params:
-                    peak_name = self._extract_peak_name_from_param(param, cluster.peak_names)
+                    peak_name = get_peak_name(param, cluster.peak_names)
                     if peak_name not in peak_shifts:
                         # Initialize with None for all dimensions
                         peak_shifts[peak_name] = {}
@@ -511,25 +486,26 @@ class CSVWriter:
                 ]
             )
 
-            for i, cluster in enumerate(results.clusters):
-                if i >= len(results.mcmc_diagnostics):
-                    continue
-
-                diag = results.mcmc_diagnostics[i]
-                peak_names_str = ";".join(cluster.peak_names)
-
-                for param_diag in diag.parameter_diagnostics:
-                    writer.writerow(
-                        [
-                            cluster.cluster_id,
-                            peak_names_str,
-                            param_diag.name,
-                            format_float(param_diag.rhat, 4) if param_diag.rhat else "",
-                            format_float(param_diag.ess_bulk, 0) if param_diag.ess_bulk else "",
-                            format_float(param_diag.ess_tail, 0) if param_diag.ess_tail else "",
-                            param_diag.status.value,
-                        ]
-                    )
+            for (
+                cluster_id,
+                peak_names,
+                param_name,
+                rhat,
+                ess_bulk,
+                ess_tail,
+                status,
+            ) in flatten_diagnostics(results):
+                writer.writerow(
+                    [
+                        cluster_id,
+                        ";".join(peak_names),
+                        param_name,
+                        format_float(rhat, 4) if rhat else "",
+                        format_float(ess_bulk, 0) if ess_bulk else "",
+                        format_float(ess_tail, 0) if ess_tail else "",
+                        status,
+                    ]
+                )
 
     def write_correlations(self, results: FitResults, path: Path) -> None:
         """Write parameter correlations to CSV.

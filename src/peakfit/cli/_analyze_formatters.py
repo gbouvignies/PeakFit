@@ -19,46 +19,46 @@ if TYPE_CHECKING:
 def format_rhat(rhat: float | None) -> str:
     """Format R-hat value with color coding."""
     if rhat is None:
-        return "[dim]N/A[/dim]"
+        return "[neutral]N/A[/neutral]"
     if rhat <= 1.01:
-        return f"[green]{rhat:.4f}[/green]"
+        return f"[success]{rhat:.4f}[/success]"
     if rhat <= 1.05:
-        return f"[cyan]{rhat:.4f}[/cyan]"
-    return f"[red]{rhat:.4f}[/red]"
+        return f"[info]{rhat:.4f}[/info]"
+    return f"[error]{rhat:.4f}[/error]"
 
 
 def format_ess(ess: float | None, target: int = 10000) -> str:
     """Format ESS value with percentage toward target."""
     if ess is None:
-        return "[dim]N/A[/dim]"
+        return "[neutral]N/A[/neutral]"
 
     pct = min(100, (ess / target) * 100)
     if ess >= target:
-        return f"[green]{ess:.0f} (100%)[/green]"
+        return f"[success]{ess:.0f} (100%)[/success]"
     if ess >= 100:
-        return f"[green]{ess:.0f} ({pct:.0f}%)[/green]"
+        return f"[success]{ess:.0f} ({pct:.0f}%)[/success]"
     if ess >= 10:
-        return f"[yellow]{ess:.0f} ({pct:.0f}%)[/yellow]"
-    return f"[red]{ess:.0f} ({pct:.0f}%)[/red]"
+        return f"[warning]{ess:.0f} ({pct:.0f}%)[/warning]"
+    return f"[error]{ess:.0f} ({pct:.0f}%)[/error]"
 
 
 def format_status(summary: MCMCParameterSummary) -> str:
     """Format convergence status with icon and color."""
     status = summary.convergence_status
     status_map = {
-        "excellent": "[green]✓ Excellent[/green]",
-        "good": "[green]✓ Good[/green]",
-        "acceptable": "[cyan]○ Acceptable[/cyan]",
-        "marginal": "[yellow]⚠ Marginal[/yellow]",
-        "poor": "[red]✗ Poor[/red]",
-        "unknown": "[dim]? Unknown[/dim]",
+        "excellent": "[success]✓ Excellent[/success]",
+        "good": "[success]✓ Good[/success]",
+        "acceptable": "[info]○ Acceptable[/info]",
+        "marginal": "[warning]⚠ Marginal[/warning]",
+        "poor": "[error]✗ Poor[/error]",
+        "unknown": "[neutral]? Unknown[/neutral]",
     }
-    return status_map.get(status, "[dim]?[/dim]")
+    return status_map.get(status, "[neutral]?[/neutral]")
 
 
 def print_mcmc_diagnostics_table(summary: MCMCClusterSummary) -> None:
     """Print convergence diagnostics table for a cluster."""
-    console.print(f"[bold cyan]Convergence Diagnostics - {summary.cluster_label}[/bold cyan]")
+    console.print(f"[header]Convergence Diagnostics - {summary.cluster_label}[/header]")
     console.print(f"  Chains: {summary.n_chains}, Samples per chain: {summary.n_samples}")
     console.print(
         "  [dim]BARG Guidelines: R-hat ≤ 1.01 (excellent), "
@@ -66,8 +66,8 @@ def print_mcmc_diagnostics_table(summary: MCMCClusterSummary) -> None:
     )
     console.print("")
 
-    table = Table(show_header=True, header_style="bold cyan")
-    table.add_column("Parameter", style="cyan", width=20)
+    table = Table(show_header=True, header_style="header")
+    table.add_column("Parameter", style="key", width=20)
     table.add_column("R-hat", justify="right", width=10)
     table.add_column("ESS_bulk", justify="right", width=14)
     table.add_column("ESS_tail", justify="right", width=14)
@@ -89,8 +89,8 @@ def print_mcmc_diagnostics_table(summary: MCMCClusterSummary) -> None:
 def print_mcmc_results_table(summary: MCMCClusterSummary) -> None:
     """Print MCMC results table for a cluster."""
     table = Table(title=f"MCMC Results - {summary.cluster_label}")
-    table.add_column("Parameter", style="cyan")
-    table.add_column("Value", justify="right")
+    table.add_column("Parameter", style="key")
+    table.add_column("Value", justify="right", style="value")
     table.add_column("Std Error", justify="right")
     table.add_column("68% CI", justify="right")
     table.add_column("95% CI", justify="right")
@@ -113,11 +113,11 @@ def print_correlation_matrix(summary: MCMCClusterSummary) -> None:
     if summary.correlation_matrix is None or len(summary.parameter_summaries) < 2:
         return
 
-    console.print(f"[bold cyan]Correlation Matrix - {summary.cluster_label}[/bold cyan]")
+    console.print(f"[header]Correlation Matrix - {summary.cluster_label}[/header]")
     console.print("  (Strong correlations: |r| > 0.7)")
 
-    table = Table(show_header=True, header_style="bold cyan")
-    table.add_column("", style="cyan", width=15)
+    table = Table(show_header=True, header_style="header")
+    table.add_column("", style="key", width=15)
 
     param_names = [p.name for p in summary.parameter_summaries]
 
@@ -142,11 +142,11 @@ def print_correlation_matrix(summary: MCMCClusterSummary) -> None:
         for j in range(len(summary.parameter_summaries)):
             val = summary.correlation_matrix[i, j]
             if i == j:
-                row.append("[dim]1.0000[/dim]")
+                row.append("[neutral]1.0000[/neutral]")
             elif abs(val) > 0.7:
-                row.append(f"[bold yellow]{val:7.4f}[/bold yellow]")
+                row.append(f"[warning]{val:7.4f}[/warning]")
             elif abs(val) > 0.3:
-                row.append(f"[yellow]{val:7.4f}[/yellow]")
+                row.append(f"[string]{val:7.4f}[/string]")
             else:
                 row.append(f"{val:7.4f}")
 
@@ -167,8 +167,8 @@ def print_profile_likelihood_table(
         results: List of (param_name, best_fit, ci_lower, ci_upper)
     """
     table = Table(title=f"Profile Likelihood Results - {cluster_name}")
-    table.add_column("Parameter", style="cyan")
-    table.add_column("Best Fit", justify="right")
+    table.add_column("Parameter", style="key")
+    table.add_column("Best Fit", justify="right", style="value")
     table.add_column("Lower 68% CI", justify="right")
     table.add_column("Upper 68% CI", justify="right")
     table.add_column("Uncertainty", justify="right")
@@ -198,8 +198,8 @@ def print_uncertainty_table(
         results: List of (param_name, value, error, lower, upper)
     """
     table = Table(title=f"Parameter Uncertainties - {cluster_name}")
-    table.add_column("Parameter", style="cyan")
-    table.add_column("Value", justify="right")
+    table.add_column("Parameter", style="key")
+    table.add_column("Value", justify="right", style="value")
     table.add_column("Error", justify="right")
     table.add_column("Lower Bound", justify="right")
     table.add_column("Upper Bound", justify="right")
@@ -230,20 +230,20 @@ def print_correlation_analysis_table(
         return
 
     table = Table(title="Parameter Correlations")
-    table.add_column("Parameter 1", style="cyan")
-    table.add_column("Parameter 2", style="cyan")
+    table.add_column("Parameter 1", style="key")
+    table.add_column("Parameter 2", style="key")
     table.add_column("Correlation", justify="right")
     table.add_column("Strength", justify="center")
 
     for param1, param2, corr in sorted(results, key=lambda x: abs(x[2]), reverse=True):
         if abs(corr) > 0.9:
-            strength = "[red]Very Strong[/red]"
+            strength = "[error]Very Strong[/error]"
         elif abs(corr) > 0.7:
-            strength = "[yellow]Strong[/yellow]"
+            strength = "[warning]Strong[/warning]"
         elif abs(corr) > 0.5:
-            strength = "[cyan]Moderate[/cyan]"
+            strength = "[info]Moderate[/info]"
         else:
-            strength = "[dim]Weak[/dim]"
+            strength = "[neutral]Weak[/neutral]"
 
         corr_str = f"[bold]{corr:+.4f}[/bold]" if abs(corr) > 0.7 else f"{corr:+.4f}"
         table.add_row(param1, param2, corr_str, strength)
@@ -262,7 +262,7 @@ def print_mcmc_amplitude_table(summary: MCMCClusterSummary, max_rows: int = 10) 
     if not summary.amplitude_summaries:
         return
 
-    console.print(f"[bold cyan]Intensity Results - {summary.cluster_label}[/bold cyan]")
+    console.print(f"[header]Intensity Results - {summary.cluster_label}[/header]")
     console.print("  [dim]Intensities computed from linear least-squares at each MCMC sample[/dim]")
     console.print("")
 
@@ -278,7 +278,7 @@ def print_mcmc_amplitude_table(summary: MCMCClusterSummary, max_rows: int = 10) 
         table.add_column(
             "Z-value" if amplitudes[0].z_value is not None else "Plane", justify="right"
         )
-        table.add_column("Intensity", justify="right")
+        table.add_column("Intensity", justify="right", style="value")
         table.add_column("Std Error", justify="right")
         table.add_column("68% CI", justify="right")
         table.add_column("Rel. Error (%)", justify="right")
@@ -306,7 +306,7 @@ def print_mcmc_amplitude_table(summary: MCMCClusterSummary, max_rows: int = 10) 
             rel_err = abs(amp.std_error / amp.value * 100) if amp.value != 0 else 0.0
             rel_err_str = f"{rel_err:.1f}%"
             if rel_err > 10:
-                rel_err_str = f"[yellow]{rel_err:.1f}%[/yellow]"
+                rel_err_str = f"[warning]{rel_err:.1f}%[/warning]"
 
             table.add_row(
                 z_str,

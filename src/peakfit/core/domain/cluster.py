@@ -39,14 +39,10 @@ class Cluster(BaseModel):
 
     @classmethod
     def from_clusters(cls, clusters: list[Cluster] | Sequence[Cluster]) -> Cluster:
-        """Create a single cluster by merging a list of clusters.
-
-        Returns a combined cluster produced by summing all clusters.
-        """
+        """Create a single cluster by merging a list of clusters."""
         if not clusters:
             msg = "clusters list cannot be empty"
             raise ValueError(msg)
-        # Start with the first cluster and add the rest
         result = clusters[0]
         for other in clusters[1:]:
             result = result + other
@@ -56,6 +52,16 @@ class Cluster(BaseModel):
     def corrected_data(self) -> FloatArray:
         """Return data with corrections subtracted (ready for processing)."""
         return self.data - self.corrections
+
+    @property
+    def n_planes(self) -> int:
+        """Return the number of planes in the data (1 for 1D, >1 for 2D/pseudo-3D)."""
+        return self.corrected_data.shape[0] if self.corrected_data.ndim > 1 else 1
+
+    @property
+    def n_amplitude_params(self) -> int:
+        """Return the number of amplitude parameters (DOF)."""
+        return len(self.peaks) * self.n_planes
 
     def __add__(self, other: object) -> Cluster:
         """Concatenate two clusters, preserving peaks and data arrays."""

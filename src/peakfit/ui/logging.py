@@ -1,8 +1,4 @@
-"""Logging configuration for PeakFit UI.
-
-This module provides logging setup and helper functions for
-structured logging to files.
-"""
+"""Logging configuration for PeakFit UI."""
 
 from __future__ import annotations
 
@@ -47,13 +43,7 @@ def setup_logging(
     verbose: bool = False,
     level: int = logging.INFO,
 ) -> None:
-    """Configure logging for PeakFit.
-
-    Args:
-        log_file: Path to log file. If None, logging is disabled.
-        verbose: If True, show all log messages in console
-        level: Logging level (default: INFO)
-    """
+    """Configure logging for PeakFit."""
     global _logger
 
     if log_file is None:
@@ -105,12 +95,7 @@ def setup_logging(
 
 
 def log(message: str, level: str = "info") -> None:
-    """Log a message to file (if logging is enabled).
-
-    Args:
-        message: Message to log
-        level: Log level (info, warning, error, debug)
-    """
+    """Log a message to file (if logging is enabled)."""
     if _logger is None:
         return
 
@@ -127,11 +112,7 @@ def log(message: str, level: str = "info") -> None:
 
 
 def log_section(title: str) -> None:
-    """Log a section header.
-
-    Args:
-        title: Section title
-    """
+    """Log a section header."""
     if _logger is None:
         return
 
@@ -140,12 +121,7 @@ def log_section(title: str) -> None:
 
 
 def log_dict(data: dict[str, object], indent: str = "  ") -> None:
-    """Log a dictionary as key-value pairs.
-
-    Args:
-        data: Dictionary to log
-        indent: Indentation string
-    """
+    """Log a dictionary as key-value pairs."""
     if _logger is None:
         return
 
