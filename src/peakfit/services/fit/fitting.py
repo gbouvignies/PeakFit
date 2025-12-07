@@ -27,9 +27,10 @@ from peakfit.core.fitting.protocol import (
 )
 from peakfit.core.fitting.strategies import get_strategy
 from peakfit.core.shared.constants import (
+    BASIN_HOPPING_NITER,
+    DIFF_EVOLUTION_MAXITER,
     LEAST_SQUARES_FTOL,
     LEAST_SQUARES_MAX_NFEV,
-    LEAST_SQUARES_XTOL,
 )
 from peakfit.core.shared.events import Event, EventType, FitProgressEvent
 from peakfit.ui import LiveClusterDisplay, console, log, log_section, subsection_header
@@ -60,6 +61,7 @@ class ClusterFitResult:
     success: bool
     n_evaluations: int
     message: str = "Converged"
+    metadata: dict[str, Any] | None = None
 
     @property
     def converged(self) -> bool:
@@ -73,6 +75,9 @@ def fit_all_clusters(
     protocol: FitProtocol,
     *,
     optimizer: str = DEFAULT_OPTIMIZER,
+    optimizer_seed: int | None = None,
+    max_iterations: int | None = None,
+    tolerance: float | None = None,
     verbose: bool = False,
     dispatcher: EventDispatcher | None = None,
     parameter_config: ParameterConfig | None = None,
@@ -85,6 +90,9 @@ def fit_all_clusters(
         clusters: List of clusters to fit
         protocol: Multi-step fitting protocol
         optimizer: Name of optimizer to use (default: "varpro" with analytical Jacobian)
+        optimizer_seed: Seed for stochastic optimizers (basin-hopping, differential evolution)
+        max_iterations: Iteration budget for optimizers
+        tolerance: Convergence tolerance for optimizers
         verbose: Whether to show verbose output
         dispatcher: Optional event dispatcher for progress tracking
         parameter_config: Optional parameter constraints configuration
@@ -103,6 +111,9 @@ def fit_all_clusters(
         protocol=protocol,
         optimizer=optimizer,
         noise=float(clargs.noise),
+        optimizer_seed=optimizer_seed,
+        max_nfev=max_iterations,
+        tolerance=tolerance,
         parameter_config=parameter_config,
         verbose=verbose,
         dispatcher=dispatcher,
@@ -117,6 +128,9 @@ def fit_all_clusters_with_protocol(
     protocol: FitProtocol,
     *,
     optimizer: str = DEFAULT_OPTIMIZER,
+    optimizer_seed: int | None = None,
+    max_iterations: int | None = None,
+    tolerance: float | None = None,
     parameter_config: ParameterConfig | None = None,
     verbose: bool = False,
     dispatcher: EventDispatcher | None = None,
@@ -131,6 +145,9 @@ def fit_all_clusters_with_protocol(
         noise: Noise level
         protocol: Multi-step fitting protocol
         optimizer: Name of optimizer to use (default: "varpro" with analytical Jacobian)
+        optimizer_seed: Seed for stochastic optimizers (basin-hopping, differential evolution)
+        max_iterations: Iteration budget for optimizers
+        tolerance: Convergence tolerance for optimizers
         parameter_config: Optional parameter constraints
         verbose: Whether to show verbose output
         dispatcher: Optional event dispatcher
@@ -145,6 +162,9 @@ def fit_all_clusters_with_protocol(
         protocol=protocol,
         optimizer=optimizer,
         noise=noise,
+        optimizer_seed=optimizer_seed,
+        max_nfev=max_iterations,
+        tolerance=tolerance,
         parameter_config=parameter_config,
         verbose=verbose,
         dispatcher=dispatcher,
@@ -162,6 +182,9 @@ class FitRunner:
         protocol: FitProtocol,
         noise: float,
         optimizer: str = DEFAULT_OPTIMIZER,
+        optimizer_seed: int | None = None,
+        max_nfev: int | None = None,
+        tolerance: float | None = None,
         parameter_config: ParameterConfig | None = None,
         verbose: bool = False,
         dispatcher: EventDispatcher | None = None,
@@ -171,6 +194,9 @@ class FitRunner:
         self.protocol = protocol
         self.noise = noise
         self.optimizer = optimizer
+        self.optimizer_seed = optimizer_seed
+        self.max_nfev = max_nfev
+        self.tolerance = tolerance
         self.parameter_config = parameter_config
         self.verbose = verbose
         self.dispatcher = dispatcher
@@ -186,11 +212,34 @@ class FitRunner:
         strategy_kwargs: dict[str, Any] = {}
 
         if self.optimizer in ("leastsq", "varpro"):
+            tol = self.tolerance or LEAST_SQUARES_FTOL
+            max_nfev = self.max_nfev or LEAST_SQUARES_MAX_NFEV
             strategy_kwargs = {
-                "ftol": LEAST_SQUARES_FTOL,
-                "xtol": LEAST_SQUARES_XTOL,
-                "max_nfev": LEAST_SQUARES_MAX_NFEV,
+                "ftol": tol,
+                "xtol": tol,
+                "max_nfev": max_nfev,
                 "verbose": 2 if self.verbose else 0,
+            }
+
+            if self.optimizer == "varpro":
+                strategy_kwargs["gtol"] = tol
+
+        if self.optimizer in ("basin-hopping", "basin_hopping"):
+            bh_iterations = BASIN_HOPPING_NITER
+            if self.max_nfev is not None:
+                bh_iterations = min(self.max_nfev, BASIN_HOPPING_NITER)
+            strategy_kwargs = {
+                "n_iterations": bh_iterations,
+                "seed": self.optimizer_seed,
+            }
+
+        if self.optimizer in ("differential-evolution", "differential_evolution"):
+            de_iterations = DIFF_EVOLUTION_MAXITER
+            if self.max_nfev is not None:
+                de_iterations = min(self.max_nfev, DIFF_EVOLUTION_MAXITER)
+            strategy_kwargs = {
+                "max_iterations": de_iterations,
+                "seed": self.optimizer_seed,
             }
 
         return get_strategy(self.optimizer, **strategy_kwargs)
@@ -322,6 +371,7 @@ class FitRunner:
                 cost=result.cost,
                 success=result.success,
                 cluster_time=result.time,
+                metadata=result.metadata,
             )
 
             # Log specific details (since live display is gone)
@@ -369,7 +419,7 @@ class FitRunner:
         )
 
         self._dispatch_cluster_completed(
-            cluster_idx, cluster_count, result.cost, result.success, result.time
+            cluster_idx, cluster_count, result.cost, result.success, result.time, result.metadata
         )
 
         if self.verbose and not use_live_display:
@@ -432,7 +482,13 @@ class FitRunner:
         )
 
     def _dispatch_cluster_completed(
-        self, cluster_idx: int, cluster_count: int, cost: float, success: bool, cluster_time: float
+        self,
+        cluster_idx: int,
+        cluster_count: int,
+        cost: float,
+        success: bool,
+        cluster_time: float,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         if self.dispatcher is None:
             return
@@ -448,6 +504,7 @@ class FitRunner:
                     "cost": cost,
                     "success": success,
                     "time_sec": cluster_time,
+                    "metadata": metadata,
                 },
             )
         )
@@ -459,6 +516,7 @@ class FitRunner:
                     "iteration": self.global_iteration,
                     "cost": cost,
                     "success": success,
+                    "metadata": metadata,
                 },
                 current_cluster=cluster_idx,
                 total_clusters=cluster_count,
@@ -524,6 +582,7 @@ def _fit_single_cluster(
         success=result.success,
         n_evaluations=n_evals,
         message=message,
+        metadata=getattr(result, "metadata", None),
     )
 
 
@@ -570,3 +629,24 @@ def _log_cluster_result(result: ClusterFitResult) -> None:
     log(f"  - Cost: {result.cost:.3e}")
     log(f"  - Function evaluations: {result.n_evaluations}")
     log(f"  - Time: {result.time:.1f}s")
+    if result.metadata:
+        _log_metadata(result.metadata)
+
+
+def _log_metadata(metadata: dict[str, Any]) -> None:
+    """Log supplemental optimizer metadata."""
+    numeric_fields = {
+        "initial_cost": "Initial cost",
+        "final_cost": "Final cost",
+        "wall_time_sec": "Wall time (s)",
+    }
+    for key, label in numeric_fields.items():
+        if key in metadata:
+            value = metadata[key]
+            if isinstance(value, (int, float)):
+                display = f"{value:.3e}" if isinstance(value, float) else f"{value}"
+                log(f"  - {label}: {display}")
+
+    for key in ("global_iterations", "local_minimizations", "polished", "seed"):
+        if key in metadata:
+            log(f"  - {key.replace('_', ' ').title()}: {metadata[key]}")

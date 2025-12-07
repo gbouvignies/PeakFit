@@ -79,6 +79,10 @@ class FitConfig(BaseModel):
         default=1e-8,
         description="Convergence tolerance for optimizer.",
     )
+    optimizer_seed: Annotated[int, Field(ge=0)] | None = Field(
+        default=None,
+        description="Random seed for stochastic optimizers (e.g., basin-hopping, differential evolution).",
+    )
 
     # Multi-step fitting protocol
     steps: list[FitStep] = Field(

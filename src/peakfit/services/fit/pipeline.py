@@ -13,13 +13,8 @@ from peakfit.core.domain.peaks_io import read_list
 from peakfit.core.domain.spectrum import get_shape_names, read_spectra
 from peakfit.core.domain.state import FittingState
 from peakfit.core.fitting.strategies import STRATEGIES
-from peakfit.core.shared.constants import (
-    LEAST_SQUARES_FTOL,
-    LEAST_SQUARES_MAX_NFEV,
-    LEAST_SQUARES_XTOL,
-)
-from peakfit.core.shared.events import Event, EventType
 from peakfit.core.shared import DataIOError
+from peakfit.core.shared.events import Event, EventType
 from peakfit.io.state import StateRepository
 from peakfit.services.fit.fitting import fit_all_clusters
 from peakfit.services.fit.writer import write_new_format_outputs, write_simulated_spectra
@@ -291,8 +286,14 @@ class FitPipeline:
         log(f"Optimizer: {optimizer}")
         log("Backend: numpy (default)")
         if optimizer in ("leastsq", "varpro"):
-            log(f"Tolerances: ftol={LEAST_SQUARES_FTOL:.0e}, xtol={LEAST_SQUARES_XTOL:.0e}")
-            log(f"Max iterations: {LEAST_SQUARES_MAX_NFEV}")
+            log(
+                f"Tolerances: ftol={config.fitting.tolerance:.0e}, xtol={config.fitting.tolerance:.0e}"
+            )
+            log(f"Max iterations: {config.fitting.max_iterations}")
+        if config.fitting.optimizer_seed is not None:
+            log(f"Optimizer seed: {config.fitting.optimizer_seed}")
+        if config.fitting.max_iterations:
+            log(f"Iteration budget: {config.fitting.max_iterations}")
 
         # Log parameter constraints if configured
         if config.parameters.position_window is not None:
@@ -329,6 +330,9 @@ class FitPipeline:
             clargs,
             clusters,
             optimizer=optimizer,
+            optimizer_seed=config.fitting.optimizer_seed,
+            max_iterations=config.fitting.max_iterations,
+            tolerance=config.fitting.tolerance,
             verbose=verbose,
             dispatcher=dispatcher,
             parameter_config=config.parameters,

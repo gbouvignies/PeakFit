@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy import optimize
@@ -66,18 +67,7 @@ class GlobalFitResult:
 
 
 def residuals_global(x: FloatArray, params: Parameters, cluster: Cluster, noise: float) -> float:
-    """Compute sum of squared residuals for global optimization.
-
-    Args:
-        x: Parameter values (varying only)
-        params: Parameters object
-        cluster: Cluster to fit
-        noise: Noise level
-
-    Returns
-    -------
-        Sum of squared residuals
-    """
+    """Compute sum of squared residuals for global optimization."""
     params.set_vary_values(x)
     res = residuals(params, cluster, noise)
     return float(np.sum(res**2))
@@ -89,30 +79,18 @@ def _compute_numerical_hessian(
     bounds: list[tuple[float, float]],
     epsilon: float = 1e-8,
 ) -> FloatArray:
-    """Compute numerical Hessian matrix.
-
-    Args:
-        func: Objective function
-        x: Parameter values
-        bounds: Parameter bounds
-        epsilon: Finite difference step
-
-    Returns
-    -------
-        Hessian matrix
-    """
+    """Compute numerical Hessian matrix."""
     n = len(x)
     hessian = np.zeros((n, n))
 
     f0 = func(x)
 
     for i in range(n):
-        # Compute step size respecting bounds
         hi = epsilon * max(1.0, abs(x[i]))
         if x[i] + hi > bounds[i][1]:
             hi = -hi
         if x[i] + hi < bounds[i][0]:
-            hi = epsilon  # Try positive direction
+            hi = epsilon
 
         xi_plus = x.copy()
         xi_plus[i] += hi
@@ -122,10 +100,8 @@ def _compute_numerical_hessian(
         xi_minus[i] -= hi
         fi_minus = func(xi_minus)
 
-        # Diagonal element (second derivative)
         hessian[i, i] = (fi_plus - 2 * f0 + fi_minus) / hi**2
 
-        # Off-diagonal elements
         for j in range(i + 1, n):
             hj = epsilon * max(1.0, abs(x[j]))
             if x[j] + hj > bounds[j][1]:
@@ -167,49 +143,28 @@ def fit_basin_hopping(
     n_iterations: int = BASIN_HOPPING_NITER,
     temperature: float = BASIN_HOPPING_TEMPERATURE,
     step_size: float = BASIN_HOPPING_STEPSIZE,
+    seed: int | None = None,
 ) -> GlobalFitResult:
-    """Fit cluster using basin-hopping global optimization.
-
-    Basin-hopping is effective for avoiding local minima in complex
-    fitting problems with multiple overlapping peaks.
-
-    Args:
-        params: Initial parameters
-        cluster: Cluster to fit
-        noise: Noise level
-        n_iterations: Number of basin-hopping iterations
-        temperature: Temperature parameter for acceptance
-        step_size: Step size for random perturbations
-
-    Returns
-    -------
-        GlobalFitResult with optimized parameters
-    """
+    """Fit cluster using basin-hopping global optimization."""
     x0 = params.get_vary_values()
     bounds = params.get_vary_bounds_list()
-
-    # Calculate number of amplitude parameters for DOF
-    # Calculate number of amplitude parameters for DOF
     n_amplitude_params = cluster.n_amplitude_params
 
-    # Objective function
     def objective(x: FloatArray) -> float:
         return residuals_global(x, params, cluster, noise)
 
-    # Custom step-taking that respects bounds
+    rng = np.random.default_rng(seed)
+
     class BoundedStep:
-        def __init__(self, step_size: float) -> None:
-            self.step_size = step_size
+        def __init__(self, step: float) -> None:
+            self.step = step
 
         def __call__(self, x: FloatArray) -> FloatArray:
-            rng = np.random.default_rng()
-            x_new = x + rng.uniform(-self.step_size, self.step_size, len(x))
-            # Clip to bounds
+            x_new = x + rng.uniform(-self.step, self.step, len(x))
             for i, (lb, ub) in enumerate(bounds):
                 x_new[i] = np.clip(x_new[i], lb, ub)
             return x_new
 
-    # Run basin-hopping
     minimizer_kwargs = {
         "method": "L-BFGS-B",
         "bounds": bounds,
@@ -224,20 +179,16 @@ def fit_basin_hopping(
         take_step=BoundedStep(step_size),
         minimizer_kwargs=minimizer_kwargs,
         disp=False,
+        seed=seed,
     )
 
-    # Update parameters with result
     params.set_vary_values(result.x)
-
-    # Compute final statistics
     final_residuals = residuals(params, cluster, noise)
 
-    # Compute covariance from final local minimum
     covar = None
     try:
-        # Use numerical Hessian for covariance
         hessian = _compute_numerical_hessian(objective, result.x, bounds)
-        covar = np.linalg.inv(hessian) * 2.0  # Factor of 2 for least-squares
+        covar = np.linalg.inv(hessian) * 2.0
         std_errors = np.sqrt(np.diag(covar))
         params.set_errors(std_errors)
     except (np.linalg.LinAlgError, ValueError):
@@ -268,30 +219,10 @@ def fit_differential_evolution(
     mutation: tuple[float, float] = DIFF_EVOLUTION_MUTATION,
     recombination: float = DIFF_EVOLUTION_RECOMBINATION,
     polish: bool = True,
+    seed: int | None = None,
 ) -> GlobalFitResult:
-    """Fit cluster using differential evolution.
-
-    Differential evolution is a population-based optimizer that's
-    good for finding global optima in high-dimensional spaces.
-
-    Args:
-        params: Initial parameters
-        cluster: Cluster to fit
-        noise: Noise level
-        max_iterations: Maximum generations
-        population_size: Population multiplier
-        mutation: Mutation constant range
-        recombination: Recombination constant
-        polish: Whether to polish with L-BFGS-B
-
-    Returns
-    -------
-        GlobalFitResult with optimized parameters
-    """
+    """Fit cluster using differential evolution."""
     bounds = params.get_vary_bounds_list()
-
-    # Calculate number of amplitude parameters for DOF
-    # Calculate number of amplitude parameters for DOF
     n_amplitude_params = cluster.n_amplitude_params
 
     def objective(x: FloatArray) -> float:
@@ -306,16 +237,13 @@ def fit_differential_evolution(
         recombination=recombination,
         polish=polish,
         disp=False,
-        workers=1,  # Single worker for now
+        workers=1,
+        seed=seed,
     )
 
-    # Update parameters
     params.set_vary_values(result.x)
-
-    # Compute statistics
     final_residuals = residuals(params, cluster, noise)
 
-    # Compute covariance
     covar = None
     try:
         hessian = _compute_numerical_hessian(objective, result.x, bounds)
