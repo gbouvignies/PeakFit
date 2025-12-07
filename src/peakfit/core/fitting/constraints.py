@@ -95,7 +95,7 @@ class PeakConstraints(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def collect_inline_constraints(cls, data: dict[str, Any]) -> dict[str, Any]:
+    def collect_inline_constraints(cls, data: Any) -> Any:
         """Collect inline parameter constraints from TOML.
 
         Allows users to write:
@@ -152,7 +152,7 @@ class ParameterDefaults(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def collect_patterns(cls, data: dict[str, Any]) -> dict[str, Any]:
+    def collect_patterns(cls, data: Any) -> Any:
         """Collect pattern constraints from flat TOML structure."""
         if not isinstance(data, dict):
             return data

@@ -12,12 +12,12 @@ dimensionality and improves convergence.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from scipy.optimize import least_squares
 
-from peakfit.core.fitting.linear_algebra import LinearAlgebraHelper
+from peakfit.core.algorithms.linear_algebra import LinearAlgebraHelper
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.results import FitResult
 
@@ -111,6 +111,7 @@ class VarProOptimizer:
         q, r = LinearAlgebraHelper.qr_decomposition(shapes)
 
         # 2. Solve for amplitudes
+        assert self._data_matrix is not None
         amplitudes = LinearAlgebraHelper.solve_amplitudes(q, r, self._data_matrix)
 
         # 3. Compute residuals
@@ -135,7 +136,7 @@ class VarProOptimizer:
         self._update_state(x)
         assert self._residuals is not None
         # Flatten and normalize by noise
-        return self._residuals.ravel() / self.noise
+        return cast("np.ndarray", self._residuals.ravel() / self.noise)
 
     def compute_jacobian(self, x: np.ndarray) -> np.ndarray:
         """Compute Jacobian for optimization.
@@ -188,7 +189,7 @@ class VarProOptimizer:
         j_tensor = -(p_perp_v + correction)
 
         # Reshape and normalize
-        return j_tensor.reshape(-1, n_params) / self.noise
+        return cast("np.ndarray", j_tensor.reshape(-1, n_params) / self.noise)
 
 
 def fit_cluster(
@@ -308,7 +309,9 @@ def _sync_and_fit_cluster(
 def _update_params_from_result(params_all: Parameters, result: FitResult) -> None:
     """Update global parameters from a fit result."""
     for name, param in result.params.items():
-        target = params_all[name] if name in params_all else params_all.add(name, value=param.value)
+        if name not in params_all:
+            params_all.add(name, value=param.value)
+        target = params_all[name]
 
         if target is not None:
             target.value = param.value

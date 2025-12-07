@@ -39,7 +39,7 @@ from pydantic import BaseModel, Field
 if TYPE_CHECKING:
     from peakfit.core.domain.cluster import Cluster
     from peakfit.core.fitting.parameters import Parameters
-    from peakfit.core.fitting.strategies import FitStrategy
+    from peakfit.core.fitting.strategies import OptimizationStrategy
 
 
 class FitStep(BaseModel):
@@ -228,7 +228,7 @@ class ProtocolExecutor:
     """
 
     protocol: FitProtocol
-    strategy: FitStrategy
+    strategy: OptimizationStrategy
     noise: float
     verbose: bool = False
 

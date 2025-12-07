@@ -6,7 +6,7 @@ import pytest
 
 import numpy as np
 
-from peakfit.core.fitting.global_optimization import GlobalFitResult
+from peakfit.core.algorithms.global_optimization import GlobalFitResult
 from peakfit.core.fitting.protocol import FitProtocol
 from peakfit.core.fitting.strategies import (
     BasinHoppingStrategy,

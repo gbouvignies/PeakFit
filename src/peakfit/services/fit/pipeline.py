@@ -2,21 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from peakfit.core.algorithms.clustering import create_clusters
-from peakfit.core.algorithms.noise import prepare_noise_level
-from peakfit.core.domain.peaks_io import read_list
-from peakfit.core.domain.spectrum import get_shape_names, read_spectra
 from peakfit.core.domain.state import FittingState
-from peakfit.core.fitting.strategies import STRATEGIES
-from peakfit.core.shared import DataIOError
 from peakfit.core.shared.events import Event, EventType
 from peakfit.io.state import StateRepository
-from peakfit.services.fit.fitting import fit_all_clusters
 from peakfit.services.fit.writer import (
     write_all_outputs,
     write_new_format_outputs,
@@ -53,51 +45,8 @@ if TYPE_CHECKING:
     from peakfit.core.shared.reporter import Reporter
 
 
-@dataclass
-class FitArguments:
-    """Arguments for fitting process."""
-
-    path_spectra: Path = field(default_factory=Path)
-    path_list: Path = field(default_factory=Path)
-    path_z_values: Path | None = None
-    path_output: Path = field(default_factory=lambda: Path("Fits"))
-    contour_level: float | None = None
-    noise: float | None = None
-    refine_nb: int = 1
-    fixed: bool = False
-    jx: bool = False
-    phx: bool = False
-    phy: bool = False
-    exclude: list[int] = field(default_factory=list)
-    pvoigt: bool = False
-    lorentzian: bool = False
-    gaussian: bool = False
-
-
-def config_to_fit_args(
-    config: PeakFitConfig,
-    spectrum_path: Path,
-    peaklist_path: Path,
-    z_values_path: Path | None,
-) -> FitArguments:
-    """Convert modern config to FitArguments."""
-    return FitArguments(
-        path_spectra=spectrum_path,
-        path_list=peaklist_path,
-        path_z_values=z_values_path,
-        contour_level=config.clustering.contour_level,
-        noise=config.noise_level,
-        path_output=config.output.directory,
-        refine_nb=config.fitting.refine_iterations,
-        fixed=config.fitting.fix_positions,
-        jx=config.fitting.fit_j_coupling,
-        phx="F3" in config.fitting.fit_phase,
-        phy="F2" in config.fitting.fit_phase,
-        exclude=config.exclude_planes,
-        pvoigt=config.fitting.lineshape == "pvoigt",
-        lorentzian=config.fitting.lineshape == "lorentzian",
-        gaussian=config.fitting.lineshape == "gaussian",
-    )
+from peakfit.core.fitting.strategies import STRATEGIES
+from peakfit.services.fit.runner import PipelineRunner, config_to_fit_args
 
 
 class FitPipeline:
@@ -213,8 +162,10 @@ class FitPipeline:
 
         clargs = config_to_fit_args(config, spectrum_path, peaklist_path, z_values_path)
 
+        runner = PipelineRunner(config, clargs)
+
         with console.status("[info]Reading spectrum...[/info]", spinner="dots"):
-            spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
+            spectra = runner.load_data()
 
         reporter.info("Spectrum loaded")
 
@@ -228,11 +179,8 @@ class FitPipeline:
         )
 
         log_section("Noise Estimation")
-        noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
-        clargs.noise = prepare_noise_level(clargs, spectra)
-        if clargs.noise is None:
-            raise DataIOError("Noise must be set by prepare_noise_level")
-        noise_value: float = float(clargs.noise)
+        noise_value, noise_was_provided = runner.estimate_noise(spectra)
+
         noise_source = "user-provided" if noise_was_provided else "estimated"
         log(
             f"Method: {'User-provided' if noise_was_provided else 'Median Absolute Deviation (MAD)'}"
@@ -240,7 +188,7 @@ class FitPipeline:
         log(f"Noise level: {noise_value:.2f} ({noise_source})")
 
         log_section("Lineshape Detection")
-        shape_names = get_shape_names(clargs, spectra)
+        shape_names = runner.detect_lineshapes(spectra)
         log(f"Selected lineshape: {shape_names}")
 
         if clargs.contour_level is None:
@@ -251,7 +199,7 @@ class FitPipeline:
         )
 
         log_section("Peak List")
-        peaks = read_list(spectra, shape_names, clargs)
+        peaks = runner.load_peaks(spectra, shape_names)
         log_dict(
             {
                 "Peak list": str(peaklist_path),
@@ -267,7 +215,7 @@ class FitPipeline:
         show_header("Clustering Peaks")
         log_section("Clustering")
         log("Algorithm: DBSCAN")
-        if clargs.noise > 0:
+        if clargs.noise and clargs.noise > 0:
             noise_multiplier = f"{clargs.contour_level / clargs.noise:.1f} * noise"
         else:
             # Noise can be zero when estimated from silent regions; avoid division by zero
@@ -278,7 +226,7 @@ class FitPipeline:
         with console.status(
             "[info]Segmenting spectra and clustering peaks...[/info]", spinner="dots"
         ):
-            clusters = create_clusters(spectra, peaks, clargs.contour_level)
+            clusters = runner.cluster_peaks(spectra, peaks)
 
         reporter.info(f"Identified {len(clusters)} clusters")
 
@@ -326,7 +274,7 @@ class FitPipeline:
         if config.parameters.position_windows.F3 is not None:
             log(f"F3 position window: ±{config.parameters.position_windows.F3} ppm")
 
-        # Log protocol if multi-step
+        # Log protocol if multi-step (runner handles creation but logging is UI)
         if config.fitting.has_protocol():
             log(f"Protocol steps: {len(config.fitting.steps)}")
             for i, step in enumerate(config.fitting.steps):
@@ -337,30 +285,15 @@ class FitPipeline:
         if optimizer != "leastsq":
             info(f"Using {optimizer} optimizer...")
 
-        # Create protocol from config
-        from peakfit.core.fitting.protocol import FitProtocol, create_protocol_from_config
+        protocol = runner.get_protocol()
 
-        if config.fitting.has_protocol():
-            protocol = FitProtocol(steps=config.fitting.steps)
-        else:
-            protocol = create_protocol_from_config(
-                steps=None,
-                refine_iterations=clargs.refine_nb,
-                fixed=clargs.fixed,
-            )
-
-        params = fit_all_clusters(
-            clargs,
-            clusters,
+        params = runner.fit_clusters(
+            clusters=clusters,
             optimizer=optimizer,
-            optimizer_seed=config.fitting.optimizer_seed,
-            max_iterations=config.fitting.max_iterations,
-            tolerance=config.fitting.tolerance,
-            verbose=verbose,
-            dispatcher=dispatcher,
-            parameter_config=config.parameters,
             protocol=protocol,
+            verbose=verbose,
             workers=workers,
+            dispatcher=dispatcher,
             reporter=reporter,
             headless=headless,
         )

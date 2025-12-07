@@ -11,7 +11,7 @@ import pytest
 from peakfit.core.domain.cluster import Cluster
 from peakfit.core.domain.peaks import Peak
 from peakfit.core.fitting.computation import calculate_shape_heights
-from peakfit.core.fitting.optimizer import VarProOptimizer
+from peakfit.core.algorithms.varpro import VarProOptimizer
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.lineshapes import LorentzianEvaluator
 

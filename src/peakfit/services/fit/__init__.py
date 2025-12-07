@@ -2,7 +2,8 @@
 
 from peakfit.services.fit.fitting import fit_all_clusters
 from peakfit.services.fit.loader import LoadedData, load_data
-from peakfit.services.fit.pipeline import FitArguments, FitPipeline
+from peakfit.services.fit.pipeline import FitPipeline
+from peakfit.services.fit.runner import FitArguments, PipelineRunner
 from peakfit.services.fit.service import FitResult, FitService, ValidationResult
 from peakfit.services.fit.writer import (
     save_fitting_state,
@@ -16,6 +17,7 @@ __all__ = [
     "FitResult",
     "FitService",
     "LoadedData",
+    "PipelineRunner",
     "ValidationResult",
     "fit_all_clusters",
     "load_data",

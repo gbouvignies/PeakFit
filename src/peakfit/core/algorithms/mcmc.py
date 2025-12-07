@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from multiprocessing import Pool
-from typing import TYPE_CHECKING
 import os
-import numpy as np
+from typing import TYPE_CHECKING, Any
+
 import emcee
+import numpy as np
 
 from peakfit.core.fitting.computation import residuals
 from peakfit.core.fitting.parameters import Parameters  # noqa: TC001
@@ -58,7 +59,7 @@ class UncertaintyResult:
     mcmc_percentiles: FloatArray | None = None  # 16th, 50th, 84th percentiles
     mcmc_chains: FloatArray | None = None  # Full chains (n_walkers, n_steps, n_all_params)
     mcmc_diagnostics: ConvergenceDiagnostics | None = None  # Convergence diagnostics
-    burn_in_info: dict | None = None  # Burn-in determination information
+    burn_in_info: dict[str, Any] | None = None  # Burn-in determination information
 
     # Metadata for distinguishing parameter types
     n_lineshape_params: int = 0  # Number of lineshape parameters

@@ -10,7 +10,10 @@ import numpy as np
 from scipy.optimize import least_squares
 
 from peakfit.core.fitting.computation import residuals
-from peakfit.core.fitting.global_optimization import fit_basin_hopping, fit_differential_evolution
+from peakfit.core.algorithms.global_optimization import (
+    fit_basin_hopping,
+    fit_differential_evolution,
+)
 from peakfit.core.results.statistics import compute_chi_squared, compute_reduced_chi_squared
 
 if TYPE_CHECKING:  # pragma: no cover - typing aid
@@ -305,7 +308,7 @@ class VarProStrategy:
         -------
             OptimizationResult with final parameters and diagnostics
         """
-        from peakfit.core.fitting.optimizer import fit_cluster
+        from peakfit.core.algorithms.varpro import fit_cluster
 
         result = fit_cluster(
             params,

@@ -7,6 +7,8 @@ linear parameters (amplitudes).
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from scipy.linalg import solve_triangular
 
@@ -49,11 +51,11 @@ class LinearAlgebraHelper:
 
         # Use simple try-except block for the solver
         try:
-            return solve_triangular(r, qty, check_finite=False)
+            return cast("np.ndarray", solve_triangular(r, qty, check_finite=False))
         except np.linalg.LinAlgError:
             # Fallback for singular R (rank deficient cases)
             result, *_ = np.linalg.lstsq(r, qty, rcond=None)
-            return result
+            return cast("np.ndarray", result)
 
     @staticmethod
     def compute_phi_pinv(q: np.ndarray, r: np.ndarray) -> np.ndarray:
@@ -70,9 +72,9 @@ class LinearAlgebraHelper:
             phi_pinv matrix
         """
         try:
-            return solve_triangular(r, q.T, check_finite=False)
+            return cast("np.ndarray", solve_triangular(r, q.T, check_finite=False))
         except np.linalg.LinAlgError:
-            return np.linalg.pinv(r) @ q.T
+            return cast("np.ndarray", np.linalg.pinv(r) @ q.T)
 
     @staticmethod
     def project_residuals(data: np.ndarray, q: np.ndarray, amplitudes: np.ndarray) -> np.ndarray:
@@ -101,4 +103,4 @@ class LinearAlgebraHelper:
         # Note: (Q.T @ data) is 'qty' which we computed in solve_amplitudes
 
         qty = q.T @ data
-        return data - q @ qty
+        return cast("np.ndarray", data - q @ qty)

@@ -66,7 +66,7 @@ def benchmark_command(
     from peakfit.core.algorithms.noise import prepare_noise_level
     from peakfit.core.domain.peaks_io import read_list
     from peakfit.core.domain.spectrum import get_shape_names
-    from peakfit.core.fitting.optimizer import fit_clusters
+    from peakfit.core.algorithms.varpro import fit_clusters
     from peakfit.services.fit import FitArguments
 
     show_standard_header("Performance Benchmark")
