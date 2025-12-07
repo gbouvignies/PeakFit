@@ -26,9 +26,10 @@ from rich.progress import (
     TaskID,
     TextColumn,
     TimeElapsedColumn,
+    TaskProgressColumn,
 )
 
-from peakfit.ui.console import console
+from peakfit.ui.console import console, icon
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -120,9 +121,15 @@ class LiveClusterDisplay:
 
         # Create a clean progress bar (similar to uv/homebrew style)
         self._progress = Progress(
-            SpinnerColumn(finished_text="[green]✓[/green]"),
-            TextColumn("[bold]{task.description}[/bold]"),
-            BarColumn(bar_width=40, complete_style="cyan", finished_style="green"),
+            SpinnerColumn(finished_text=f"[success]{icon('check')}[/success]", spinner_name="dots"),
+            TextColumn("[progress.description]{task.description}[/progress.description]", justify="left"),
+            BarColumn(
+                bar_width=40,
+                style="dim blue",
+                complete_style="green",
+                finished_style="success",
+            ),
+            TaskProgressColumn(),
             MofNCompleteColumn(),
             TextColumn("[dim]•[/dim]"),
             TimeElapsedColumn(),
@@ -201,14 +208,14 @@ class LiveClusterDisplay:
         # Main summary line
         if failed == 0:
             console.print(
-                f"[green]✓[/green] [bold]Fitted {total} clusters[/bold] "
-                f"[dim]in {elapsed:.1f}s[/dim]"
+                f"[success]{icon('check')}[/success] [bold]Fitted {total} clusters[/bold] "
+                f"[progress.elapsed]in {elapsed:.1f}s[/progress.elapsed]"
             )
         else:
             console.print(
-                f"[yellow]⚠[/yellow] [bold]Fitted {total} clusters[/bold] "
+                f"[warning]{icon('warn')}[/warning] [bold]Fitted {total} clusters[/bold] "
                 f"({successful} converged, {failed} failed) "
-                f"[dim]in {elapsed:.1f}s[/dim]"
+                f"[progress.elapsed]in {elapsed:.1f}s[/progress.elapsed]"
             )
 
             # Show failed clusters
@@ -218,7 +225,7 @@ class LiveClusterDisplay:
                 if len(status.peak_names) > 3:
                     peaks_str += f" (+{len(status.peak_names) - 3})"
                 msg = status.message or "Did not converge"
-                console.print(f"  [dim]•[/dim] {peaks_str}: [yellow]{msg}[/yellow]")
+                console.print(f"  [dim]•[/dim] {peaks_str}: [warning]{msg}[/warning]")
 
             if len(failed_statuses) > 5:
                 console.print(f"  [dim]... and {len(failed_statuses) - 5} more[/dim]")

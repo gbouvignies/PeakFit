@@ -22,6 +22,8 @@ from peakfit.ui.console import (
     VERSION,
     Verbosity,
     console,
+    hr,
+    icon,
     get_verbosity,
 )
 from peakfit.ui.logging import log
@@ -45,15 +47,15 @@ def show_standard_header(title: str | None = None) -> None:
 
 def _show_full_banner() -> None:
     """Show full ASCII banner."""
-    logo_text = Text(LOGO_ASCII, style="bold cyan")
+    logo_text = Text(LOGO_ASCII, style="header")
     description_text = Text(
         f"Modern NMR Peak Fitting for Pseudo-3D Spectra\n{REPO_URL}\n\n",
         style="dim",
     )
     version_text = Text("Version: ", style="dim")
-    version_number_text = Text(f"{VERSION}", style="bold green")
+    version_number_text = Text(f"{VERSION}", style="success")
     all_text = Text.assemble(logo_text, description_text, version_text, version_number_text)
-    panel = Panel.fit(all_text, border_style="cyan", title=f"{LOGO_EMOJI} PeakFit")
+    panel = Panel.fit(all_text, border_style="panel.border", title=f"{LOGO_EMOJI} PeakFit")
     console.print(panel)
 
 
@@ -85,17 +87,17 @@ def _show_run_info_panel() -> None:
 
     # Create run information panel
     info_text = (
-        f"[cyan]Started:[/cyan] {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-        f"[cyan]Command:[/cyan] {command_display}\n"
-        f"[cyan]Working directory:[/cyan] {Path.cwd()}\n"
-        f"[cyan]Python:[/cyan] {sys.version.split()[0]} | "
-        f"[cyan]Platform:[/cyan] {platform_display}"
+        f"[key]Started:[/key] {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"[key]Command:[/key] {command_display}\n"
+        f"[key]Working directory:[/key] {Path.cwd()}\n"
+        f"[key]Python:[/key] {sys.version.split()[0]} | "
+        f"[key]Platform:[/key] {platform_display}"
     )
 
     run_info_panel = Panel(
         info_text,
         title="Run Information",
-        border_style="cyan",
+        border_style="panel.border",
         box=box.ROUNDED,
         padding=(0, 2),
         expand=False,
@@ -118,7 +120,7 @@ def _show_compact_header(title: str | None) -> None:
     grid.add_column(justify="right", ratio=1)
 
     grid.add_row(
-        f"{LOGO_EMOJI} [bold cyan]PeakFit v{VERSION}[/bold cyan]",
+        f"{LOGO_EMOJI} [header]PeakFit v{VERSION}[/header]",
         f"[dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
     )
 
@@ -126,14 +128,14 @@ def _show_compact_header(title: str | None) -> None:
         console.print(
             Panel(
                 grid,
-                title=f"[bold]{title}[/bold]",
-                border_style="cyan",
+                title=f"[header]{title}[/header]",
+                border_style="panel.border",
                 subtitle="[dim]Modern NMR Analysis[/dim]",
             )
         )
     else:
         console.print(grid)
-        console.print("━" * 70)
+        console.print(hr())
     console.print()
 
 
@@ -186,9 +188,9 @@ def show_footer(start_time: datetime, end_time: datetime) -> None:
     time_str = f"{int(minutes)}m {seconds:.1f}s" if minutes > 0 else f"{seconds:.2f}s"
 
     console.print()
-    console.print("━" * 70)
-    console.print(f"{LOGO_EMOJI} [bold green]Complete![/bold green] [dim]Elapsed: {time_str}[/dim]")
-    console.print("━" * 70)
+    console.print(hr())
+    console.print(f"{LOGO_EMOJI} [success]{icon('check')} Complete![/success] [dim]Elapsed: {time_str}[/dim]")
+    console.print(hr())
     console.print()
 
 

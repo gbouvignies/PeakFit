@@ -330,13 +330,13 @@ def _display_mcmc_config_panel(
     """Display the MCMC configuration and state panel."""
     # Settings Table
     settings_grid = Table.grid(padding=(0, 2))
-    settings_grid.add_column(style="cyan", justify="right")
+    settings_grid.add_column(style="key", justify="right")
     settings_grid.add_column(style="white")
 
     settings_grid.add_row("Walkers:", str(n_walkers))
     settings_grid.add_row("Steps:", str(n_steps))
 
-    burn_in_str = "[cyan]Auto (R-hat)[/cyan]" if auto_burnin else f"{burn_in} (manual)"
+    burn_in_str = "[info]Auto (R-hat)[/info]" if auto_burnin else f"{burn_in} (manual)"
     settings_grid.add_row("Burn-in:", burn_in_str)
 
     target_str = f"{len(peaks)} specific peaks" if peaks else "All peaks"
@@ -344,10 +344,10 @@ def _display_mcmc_config_panel(
 
     # State Table
     state_grid = Table.grid(padding=(0, 2))
-    state_grid.add_column(style="green", justify="right")
+    state_grid.add_column(style="success", justify="right")
     state_grid.add_column(style="white")
 
-    state_grid.add_row("Source:", f"[dim]{results_dir.name}[/dim]")
+    state_grid.add_row("Source:", f"[path]{results_dir.name}[/path]")
     state_grid.add_row("Clusters:", str(len(state.clusters)))
     state_grid.add_row("Peaks:", str(len(state.peaks)))
     state_grid.add_row("Noise:", f"{state.noise:.2f}")
@@ -358,8 +358,10 @@ def _display_mcmc_config_panel(
     main_grid.add_column(ratio=1)
 
     main_grid.add_row(
-        Panel(settings_grid, title="[bold]Analysis Settings[/bold]", border_style="cyan"),
-        Panel(state_grid, title="[bold]Fitting State[/bold]", border_style="green"),
+        Panel(
+            settings_grid, title="[header]Analysis Settings[/header]", border_style="panel.border"
+        ),
+        Panel(state_grid, title="[header]Fitting State[/header]", border_style="panel.border"),
     )
 
     console.print(main_grid)

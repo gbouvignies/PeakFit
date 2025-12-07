@@ -34,6 +34,8 @@ from peakfit.ui.console import (
     VERSION,
     Verbosity,
     console,
+    icon,
+    hr,
     get_verbosity,
     set_verbosity,
 )
@@ -79,6 +81,8 @@ __all__ = [
     "bullet",
     "close_logging",
     "console",
+    "icon",
+    "hr",
     "create_panel",
     "create_progress",
     "create_table",

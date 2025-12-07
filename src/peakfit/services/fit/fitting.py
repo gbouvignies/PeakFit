@@ -602,19 +602,18 @@ def _log_step_header(step: FitStep, step_idx: int, total_steps: int) -> None:
     step_name = step.name or f"Step {step_idx + 1}"
     console.print()
     console.print(
-        f"[bold magenta]═══ Protocol Step {step_idx + 1}/{total_steps}: "
-        f"{step_name} ═══[/bold magenta]"
+        f"[header]═══ Protocol Step {step_idx + 1}/{total_steps}: {step_name} ═══[/header]"
     )
 
     if step.description:
         console.print(f"  [dim]{step.description}[/dim]")
 
     if step.fix:
-        console.print(f"  [yellow]Fix:[/yellow] {', '.join(step.fix)}")
+        console.print(f"  [warning]Fix:[/warning] {', '.join(step.fix)}")
     if step.vary:
-        console.print(f"  [green]Vary:[/green] {', '.join(step.vary)}")
+        console.print(f"  [success]Vary:[/success] {', '.join(step.vary)}")
 
-    console.print(f"  [cyan]Iterations:[/cyan] {step.iterations}")
+    console.print(f"  [key]Iterations:[/key] {step.iterations}")
     console.print()
 
 
@@ -628,7 +627,7 @@ def _print_cluster_header(
     if cluster_idx > 1:
         console.print()
     console.print(
-        f"[bold cyan]Cluster {cluster_idx}/{cluster_count}[/bold cyan] [dim]│[/dim] "
+        f"[header]Cluster {cluster_idx}/{cluster_count}[/header] [dim]│[/dim] "
         f"{peaks_str} [dim][{n_peaks} peak{'s' if n_peaks != 1 else ''}][/dim]"
     )
 
@@ -637,15 +636,15 @@ def _print_cluster_result(result: ClusterFitResult) -> None:
     """Print cluster fitting result."""
     if result.success:
         console.print(
-            f"[green]✓[/green] Converged [dim]│[/dim] "
-            f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
+            f"[success]✓[/success] Converged [dim]│[/dim] "
+            f"χ² = [metric]{result.cost:.2e}[/metric] [dim]│[/dim] "
             f"{result.n_evaluations} evaluations [dim]│[/dim] "
             f"{result.time:.1f}s"
         )
     else:
         console.print(
-            f"[yellow]⚠[/yellow] {result.message} [dim]│[/dim] "
-            f"χ² = [cyan]{result.cost:.2e}[/cyan] [dim]│[/dim] "
+            f"[warning]⚠[/warning] {result.message} [dim]│[/dim] "
+            f"χ² = [metric]{result.cost:.2e}[/metric] [dim]│[/dim] "
             f"{result.n_evaluations} evaluations [dim]│[/dim] "
             f"{result.time:.1f}s"
         )

@@ -199,7 +199,7 @@ class FitPipeline:
 
         clargs = config_to_fit_args(config, spectrum_path, peaklist_path, z_values_path)
 
-        with console.status("[cyan]Reading spectrum...[/cyan]", spinner="dots"):
+        with console.status("[info]Reading spectrum...[/info]", spinner="dots"):
             spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
 
         log_dict(
@@ -259,7 +259,7 @@ class FitPipeline:
         log(f"Contour level: {clargs.contour_level:.2f} ({noise_multiplier})")
 
         with console.status(
-            "[cyan]Segmenting spectra and clustering peaks...[/cyan]", spinner="dots"
+            "[info]Segmenting spectra and clustering peaks...[/info]", spinner="dots"
         ):
             clusters = create_clusters(spectra, peaks, clargs.contour_level)
 
@@ -362,13 +362,13 @@ class FitPipeline:
             success(f"Simulated spectra: {config.output.directory.name}/simulated_*.ft*")
 
         if config.output.save_html_report:
-            with console.status("[cyan]Generating HTML report...[/cyan]", spinner="dots"):
+            with console.status("[info]Generating HTML report...[/info]", spinner="dots"):
                 export_html(config.output.directory / "logs.html")
             success(f"HTML report: {config.output.directory.name}/logs.html")
             log(f"HTML report: {config.output.directory / 'logs.html'}")
 
         if save_state:
-            with console.status("[cyan]Saving fitting state...[/cyan]", spinner="dots"):
+            with console.status("[info]Saving fitting state...[/info]", spinner="dots"):
                 state_file = StateRepository.default_path(config.output.directory)
                 state = FittingState(
                     clusters=clusters, params=params, noise=clargs.noise, peaks=peaks
@@ -415,15 +415,15 @@ class FitPipeline:
 
         show_header("Next Steps")
         console.print("1. View intensity profiles:")
-        console.print(f"   [cyan]peakfit plot intensity {output_dir_name}/[/cyan]")
+        console.print(f"   [url]peakfit plot intensity {output_dir_name}/[/url]")
         console.print("2. View fitted spectra:")
         console.print(
-            f"   [cyan]peakfit plot spectra {output_dir_name}/ --spectrum {spectrum_name}[/cyan]"
+            f"   [url]peakfit plot spectra {output_dir_name}/ --spectrum {spectrum_name}[/url]"
         )
         console.print("3. Uncertainty analysis:")
-        console.print(f"   [cyan]peakfit analyze mcmc {output_dir_name}/[/cyan]")
+        console.print(f"   [url]peakfit analyze mcmc {output_dir_name}/[/url]")
         console.print("4. Check log file:")
-        console.print(f"   [cyan]less {output_dir_name}/peakfit.log[/cyan]")
+        console.print(f"   [url]less {output_dir_name}/peakfit.log[/url]")
         console.print()
 
         show_footer(start_time_dt, end_time_dt)

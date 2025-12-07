@@ -8,14 +8,16 @@ from __future__ import annotations
 
 from rich.progress import (
     BarColumn,
+    MofNCompleteColumn,
     Progress,
     SpinnerColumn,
     TaskProgressColumn,
     TextColumn,
+    TimeElapsedColumn,
     TimeRemainingColumn,
 )
 
-from .console import console
+from .console import console, icon
 
 __all__ = [
     "create_progress",
@@ -33,10 +35,13 @@ def create_progress(transient: bool = False) -> Progress:
         Configured Progress instance
     """
     return Progress(
-        SpinnerColumn(),
+        SpinnerColumn(finished_text=f"[success]{icon('check')}[/success]", spinner_name="dots"),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(complete_style="cyan", finished_style="green"),
         TaskProgressColumn(show_speed=True),
+        MofNCompleteColumn(),
+        TextColumn("[dim]•[/dim]"),
+        TimeElapsedColumn(),
         TimeRemainingColumn(),
         console=console,
         transient=transient,
