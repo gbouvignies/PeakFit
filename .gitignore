@@ -246,3 +246,11 @@ tmp/*.txt
 tmp/*.svg
 tmp/scalene*
 tmp/profiles/
+
+# Coverage / profiling / benchmarks
+htmlcov/
+.prof/
+*.prof
+*.scalene
+.pyinstrument/
+.benchmarks/

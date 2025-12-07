@@ -105,7 +105,8 @@ def benchmark_lineshape_backends(
     -------
         Dictionary of backend name to BenchmarkResult
     """
-    from peakfit.core.lineshapes.functions import gaussian, lorentzian, pvoigt
+    # Import public lineshape functions from the package namespace
+    from peakfit.core.lineshapes import gaussian, lorentzian, pvoigt
 
     x = np.linspace(-50, 50, n_points).astype(np.float64)
     fwhm = 10.0
@@ -281,7 +282,8 @@ def create_synthetic_cluster(
         Tuple of (Cluster, noise_level)
     """
     from peakfit.core.domain.cluster import Cluster
-    from peakfit.core.domain.peaks import create_params, create_peak
+    # create_peak is provided by core.factories and re-exported from core.domain
+    from peakfit.core.domain import create_params, create_peak
     from peakfit.core.domain.spectrum import Spectra, SpectralParameters
 
     noise_level = 10.0

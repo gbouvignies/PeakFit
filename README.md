@@ -565,7 +565,15 @@ print(params.summary())  # Formatted parameter table
 The fitting engine uses `scipy.optimize.least_squares` directly for optimal performance:
 
 ```python
+from typing import Any
+
 from peakfit.fitting import fit_cluster, FitResult
+
+# Example placeholders for demonstration purposes
+# In real code, construct these via peak lists and spectra
+params: Any = ...  # Parameters
+cluster: Any = ...  # Cluster
+noise: float = 1.0
 
 # Fit a single cluster
 result: FitResult = fit_cluster(
@@ -592,14 +600,19 @@ These are available as development utilities in `tools/analysis/`:
 
 ```python
 # From tools/analysis (development utilities, not part of installed package)
-from analysis.benchmarks import (
+from typing import Any
+
+from tools.analysis import (
     benchmark_lineshape_backends,
     profile_fit_cluster,
-)
-from analysis.profiling import (
     Profiler,
     estimate_optimal_workers,
 )
+
+# Example placeholders for demonstration purposes
+params: Any = ...
+cluster: Any = ...
+noise: float = 1.0
 
 # Profile fitting stages
 profile = profile_fit_cluster(params, cluster, noise)

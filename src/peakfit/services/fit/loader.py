@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from peakfit.core.algorithms.noise import prepare_noise_level
+from peakfit.core.shared import DataIOError
 from peakfit.core.domain.peaks_io import read_list
 from peakfit.core.domain.spectrum import get_shape_names, read_spectra
 
@@ -101,7 +102,7 @@ def prepare_noise(clargs: FitArguments, spectra: Spectra) -> tuple[float, str]:
     noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
     noise = prepare_noise_level(clargs, spectra)
     if noise is None:
-        raise ValueError("Noise must be set by prepare_noise_level")
+        raise DataIOError("Noise must be set by prepare_noise_level")
 
     noise_value = float(noise)
     noise_source = "user-provided" if noise_was_provided else "estimated"

@@ -19,6 +19,7 @@ from peakfit.core.shared.constants import (
     LEAST_SQUARES_XTOL,
 )
 from peakfit.core.shared.events import Event, EventType
+from peakfit.core.shared import DataIOError
 from peakfit.io.state import StateRepository
 from peakfit.services.fit.fitting import fit_all_clusters
 from peakfit.services.fit.writer import write_new_format_outputs, write_simulated_spectra
@@ -215,7 +216,7 @@ class FitPipeline:
         noise_was_provided = clargs.noise is not None and clargs.noise > 0.0
         clargs.noise = prepare_noise_level(clargs, spectra)
         if clargs.noise is None:
-            raise ValueError("Noise must be set by prepare_noise_level")
+            raise DataIOError("Noise must be set by prepare_noise_level")
         noise_value: float = float(clargs.noise)
         noise_source = "user-provided" if noise_was_provided else "estimated"
         log(

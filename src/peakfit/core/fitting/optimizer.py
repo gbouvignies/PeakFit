@@ -15,9 +15,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy.linalg import solve_triangular
 from scipy.optimize import least_squares
 
+from peakfit.core.fitting.linear_algebra import LinearAlgebraHelper
 from peakfit.core.fitting.parameters import Parameters
 from peakfit.core.fitting.results import FitResult
 
@@ -107,30 +107,18 @@ class VarProOptimizer:
         # Stack shapes: (n_peaks, n_points)
         shapes = np.vstack(shapes_list)
 
-        # QR Decomposition: A = Q @ R where A = shapes.T (n_points, n_peaks)
-        # Using reduced QR: Q (n_points, n_peaks), R (n_peaks, n_peaks)
-        q, r = np.linalg.qr(shapes.T, mode="reduced")
+        # 1. QR Decomposition
+        q, r = LinearAlgebraHelper.qr_decomposition(shapes)
 
-        # Solve for amplitudes: R @ amplitudes = Q.T @ data
-        qty = q.T @ self._data_matrix
+        # 2. Solve for amplitudes
+        amplitudes = LinearAlgebraHelper.solve_amplitudes(q, r, self._data_matrix)
 
-        # Use triangular solver (faster than general solve for upper triangular R)
-        try:
-            amplitudes = solve_triangular(r, qty, check_finite=False)
-        except np.linalg.LinAlgError:
-            # Fallback for singular R
-            amplitudes, *_ = np.linalg.lstsq(r, qty, rcond=None)
+        # 3. Compute residuals
+        # Using helper method which is more stable: data - Q @ (Q.T @ data)
+        residuals = LinearAlgebraHelper.project_residuals(self._data_matrix, q, amplitudes)
 
-        # Compute residuals: residuals = data - Q @ Q.T @ data = data - Q @ qty
-        proj_data = q @ qty
-        residuals = self._data_matrix - proj_data
-
-        # Compute pseudo-inverse helper: phi_pinv = R^-1 @ Q.T
-        # Used in Jacobian for correction term
-        try:
-            phi_pinv = solve_triangular(r, q.T, check_finite=False)
-        except np.linalg.LinAlgError:
-            phi_pinv = np.linalg.pinv(r) @ q.T
+        # 4. Compute pseudo-inverse helper for Jacobian
+        phi_pinv = LinearAlgebraHelper.compute_phi_pinv(q, r)
 
         # Cache all results
         self._cache_hash = cache_hash

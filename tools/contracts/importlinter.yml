@@ -1,0 +1,41 @@
+# Import Linter contracts for PeakFit
+# Run locally:  importlinter lint --config tools/contracts/importlinter.yml
+contracts:
+  - name: CLI may only depend on Services
+    type: forbidden
+    source: peakfit.cli
+    forbidden:
+      - peakfit.core
+      - peakfit.io
+      - peakfit.plotting
+      - peakfit.ui
+
+  - name: Core is UI- and Services-agnostic
+    type: forbidden
+    source: peakfit.core
+    forbidden:
+      - peakfit.ui
+      - peakfit.services
+
+  - name: IO should not depend on UI
+    type: forbidden
+    source: peakfit.io
+    forbidden:
+      - peakfit.ui
+
+  - name: Plotting is not used by Core/IO
+    type: forbidden
+    source:
+      - peakfit.core
+      - peakfit.io
+    forbidden:
+      - peakfit.plotting
+
+  - name: Services act as the integration hub
+    type: independence
+    modules:
+      - peakfit.services
+      - peakfit.core
+      - peakfit.io
+      - peakfit.ui
+      - peakfit.plotting

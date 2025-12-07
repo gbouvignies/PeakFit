@@ -8,7 +8,7 @@ Modules:
     - profiling: Execution timing and profiling
 """
 
-from analysis.benchmarks import (
+from .benchmarks import (
     BenchmarkResult,
     benchmark_fitting_methods,
     benchmark_function,
@@ -17,7 +17,7 @@ from analysis.benchmarks import (
     create_synthetic_cluster,
     profile_fit_cluster,
 )
-from analysis.profiling import (
+from .profiling import (
     Profiler,
     ProfileReport,
     TimingResult,
