@@ -83,6 +83,7 @@ class FitService:
         optimizer: str = "leastsq",
         save_state: bool = True,
         verbose: bool = False,
+        headless: bool | None = None,
     ) -> FitResult:
         """Perform peak fitting on a spectrum.
 
@@ -120,6 +121,8 @@ class FitService:
             optimizer=optimizer,
             save_state=save_state,
             verbose=verbose,
+            reporter=self._reporter,
+            headless=headless,
         )
 
         # Load the state that was saved

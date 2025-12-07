@@ -17,7 +17,11 @@ from peakfit.core.shared import DataIOError
 from peakfit.core.shared.events import Event, EventType
 from peakfit.io.state import StateRepository
 from peakfit.services.fit.fitting import fit_all_clusters
-from peakfit.services.fit.writer import write_new_format_outputs, write_simulated_spectra
+from peakfit.services.fit.writer import (
+    write_all_outputs,
+    write_new_format_outputs,
+    write_simulated_spectra,
+)
 from peakfit.ui import (
     Verbosity,
     close_logging,
@@ -41,10 +45,12 @@ from peakfit.ui.fitting_reporter import (
     print_peaklist_info,
     print_spectrum_info,
 )
+from peakfit.ui.reporter import ConsoleReporter
 
 if TYPE_CHECKING:
     from peakfit.core.domain.config import PeakFitConfig
     from peakfit.core.shared.events import EventDispatcher
+    from peakfit.core.shared.reporter import Reporter
 
 
 @dataclass
@@ -109,6 +115,8 @@ class FitPipeline:
         verbose: bool = False,
         workers: int = -1,
         dispatcher: EventDispatcher | None = None,
+        reporter: Reporter | None = None,
+        headless: bool | None = None,
     ) -> None:
         """Run the complete fitting pipeline using provided inputs and config.
 
@@ -122,7 +130,9 @@ class FitPipeline:
             verbose: Whether to show verbose output
             workers: Number of parallel workers (-1 for all CPUs, 1 for sequential)
             dispatcher: Optional event dispatcher
+            headless: Disable interactive/live display; defaults to config.output.headless if not set
         """
+        effective_headless = config.output.headless if headless is None else headless
         FitPipeline._run_fit(
             spectrum_path,
             peaklist_path,
@@ -133,6 +143,8 @@ class FitPipeline:
             verbose=verbose,
             workers=workers,
             dispatcher=dispatcher,
+            reporter=reporter,
+            headless=effective_headless,
         )
 
     @staticmethod
@@ -147,8 +159,12 @@ class FitPipeline:
         verbose: bool,
         workers: int,
         dispatcher: EventDispatcher | None,
+        reporter: Reporter | None,
+        headless: bool,
     ) -> None:
         """Run the fitting process with the given configuration."""
+        reporter = reporter or ConsoleReporter()
+
         start_time_dt = datetime.now()
         _dispatch_event(
             dispatcher,
@@ -166,6 +182,8 @@ class FitPipeline:
         log_filename = "peakfit.json" if config.output.log_format == "json" else "peakfit.log"
         log_file = config.output.directory / log_filename
         setup_logging(log_file=log_file, verbose=False)
+
+        reporter.action("Starting fitting pipeline")
 
         # Set verbosity and show header
         set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
@@ -197,6 +215,8 @@ class FitPipeline:
 
         with console.status("[info]Reading spectrum...[/info]", spinner="dots"):
             spectra = read_spectra(clargs.path_spectra, clargs.path_z_values, clargs.exclude)
+
+        reporter.info("Spectrum loaded")
 
         log_dict(
             {
@@ -241,6 +261,7 @@ class FitPipeline:
         )
 
         print_peaklist_info(peaklist_path, z_values_path, len(peaks))
+        reporter.info(f"Loaded peak list with {len(peaks)} peaks")
 
         console.print()
         show_header("Clustering Peaks")
@@ -258,6 +279,8 @@ class FitPipeline:
             "[info]Segmenting spectra and clustering peaks...[/info]", spinner="dots"
         ):
             clusters = create_clusters(spectra, peaks, clargs.contour_level)
+
+        reporter.info(f"Identified {len(clusters)} clusters")
 
         log(f"Identified {len(clusters)} clusters")
         cluster_sizes = [len(c.peaks) for c in clusters]
@@ -338,6 +361,8 @@ class FitPipeline:
             parameter_config=config.parameters,
             protocol=protocol,
             workers=workers,
+            reporter=reporter,
+            headless=headless,
         )
 
         end_time_dt = datetime.now()
@@ -358,6 +383,8 @@ class FitPipeline:
 
         console.print()
         show_header("Fitting Complete")
+
+        reporter.success("Fitting complete")
 
         log_section("Output Files")
         config.output.directory.mkdir(parents=True, exist_ok=True)
@@ -382,9 +409,9 @@ class FitPipeline:
             success(f"Fitting state: {config.output.directory.name}/cache/state.pkl")
             log(f"State file: {state_file}")
 
-        # Write structured outputs (JSON, CSV, Markdown)
-        # These are in addition to the legacy .out files
-        if "json" in config.output.formats or "csv" in config.output.formats:
+        # Write structured outputs (JSON, CSV, Markdown/YAML as configured)
+        wants_outputs = any(fmt in {"json", "csv", "txt", "yaml"} for fmt in config.output.formats)
+        if wants_outputs:
             input_files = {
                 "spectrum": spectrum_path,
                 "peaklist": peaklist_path,
@@ -401,6 +428,19 @@ class FitPipeline:
                 config=config.model_dump(),
                 input_files=input_files,
                 verbosity=config.output.verbosity,
+            )
+
+        # Legacy outputs (opt-in)
+        if getattr(config.output, "include_legacy", False):
+            write_all_outputs(
+                output_dir=config.output.directory,
+                spectra=spectra,
+                clusters=clusters,
+                peaks=peaks,
+                params=params,
+                clargs=clargs,
+                save_simulated=config.output.save_simulated,
+                save_html_report=config.output.save_html_report,
             )
 
         log(f"Log file: {log_file}")

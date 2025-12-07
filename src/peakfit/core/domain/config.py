@@ -154,6 +154,14 @@ class OutputConfig(BaseModel):
         default=False,
         description="Include timestamp in output directory name.",
     )
+    headless: bool = Field(
+        default=False,
+        description="Disable interactive/live display (use reporter-only output).",
+    )
+    include_legacy: bool = Field(
+        default=False,
+        description="Write legacy .out outputs alongside structured outputs (opt-in).",
+    )
     log_format: LogFormat = Field(
         default="text",
         description="Format for log file: text (human-readable) or json (structured).",

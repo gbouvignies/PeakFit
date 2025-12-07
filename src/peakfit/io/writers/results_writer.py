@@ -70,6 +70,7 @@ class ResultsWriter:
         self,
         config: WriterConfig | None = None,
         include_legacy: bool = False,
+        formats: set[str] | None = None,
     ) -> None:
         """Initialize results writer.
 
@@ -79,12 +80,22 @@ class ResultsWriter:
         """
         self.config = config or WriterConfig()
         self.include_legacy = include_legacy
+        self.formats = formats or {"json", "csv", "txt", "yaml"}
 
-        # Initialize individual writers
-        self.json_writer = JSONWriter(self.config)
-        self.yaml_writer = YAMLWriter(self.config)
-        self.csv_writer = CSVWriter(self.config)
-        self.markdown_writer = MarkdownReportGenerator(self.config)
+        # Initialize individual writers conditionally to gate optional formats
+        self.json_writer: JSONWriter | None = (
+            JSONWriter(self.config) if "json" in self.formats else None
+        )
+        self.yaml_writer: YAMLWriter | None = (
+            YAMLWriter(self.config) if "yaml" in self.formats else None
+        )
+        self.csv_writer: CSVWriter | None = (
+            CSVWriter(self.config) if "csv" in self.formats else None
+        )
+        # Markdown report maps to the legacy "txt" format name in OutputConfig
+        self.markdown_writer: MarkdownReportGenerator | None = (
+            MarkdownReportGenerator(self.config) if "txt" in self.formats else None
+        )
 
     def write_all(self, results: FitResults, output_dir: Path) -> dict[str, Path]:
         """Write all output files.
@@ -101,32 +112,36 @@ class ResultsWriter:
         written_files: dict[str, Path] = {}
 
         # Main files at root level
-        fit_json = output_dir / "fit_results.json"
-        self.json_writer.write_results(results, fit_json)
-        written_files["fit_results_json"] = fit_json
+        if self.json_writer:
+            fit_json = output_dir / "fit_results.json"
+            self.json_writer.write_results(results, fit_json)
+            written_files["fit_results_json"] = fit_json
 
-        fit_yaml = output_dir / "fit_results.yaml"
-        self.yaml_writer.write_results(results, fit_yaml)
-        written_files["fit_results_yaml"] = fit_yaml
+        if self.yaml_writer:
+            fit_yaml = output_dir / "fit_results.yaml"
+            self.yaml_writer.write_results(results, fit_yaml)
+            written_files["fit_results_yaml"] = fit_yaml
 
-        report_md = output_dir / "report.md"
-        self.markdown_writer.generate_full_report(results, report_md)
-        written_files["report"] = report_md
+        if self.markdown_writer:
+            report_md = output_dir / "report.md"
+            self.markdown_writer.generate_full_report(results, report_md)
+            written_files["report"] = report_md
 
-        params_csv = output_dir / "parameters.csv"
-        self.csv_writer.write_parameters(results, params_csv)
-        written_files["parameters"] = params_csv
+        if self.csv_writer:
+            params_csv = output_dir / "parameters.csv"
+            self.csv_writer.write_parameters(results, params_csv)
+            written_files["parameters"] = params_csv
 
-        shifts_csv = output_dir / "shifts.csv"
-        self.csv_writer.write_shifts(results, shifts_csv)
-        written_files["shifts"] = shifts_csv
+            shifts_csv = output_dir / "shifts.csv"
+            self.csv_writer.write_shifts(results, shifts_csv)
+            written_files["shifts"] = shifts_csv
 
-        intensities_csv = output_dir / "intensities.csv"
-        self.csv_writer.write_intensities(results, intensities_csv)
-        written_files["intensities"] = intensities_csv
+            intensities_csv = output_dir / "intensities.csv"
+            self.csv_writer.write_intensities(results, intensities_csv)
+            written_files["intensities"] = intensities_csv
 
         # MCMC diagnostics in mcmc/ subdirectory (if applicable)
-        if results.mcmc_diagnostics:
+        if results.mcmc_diagnostics and self.json_writer:
             mcmc_dir = output_dir / "mcmc"
             mcmc_dir.mkdir(exist_ok=True)
 
@@ -151,25 +166,28 @@ class ResultsWriter:
         written_files: dict[str, Path] = {}
 
         # Essential: fit results JSON and parameters CSV
-        fit_json = output_dir / "fit_results.json"
-        self.json_writer.write_results(results, fit_json)
-        written_files["fit_results_json"] = fit_json
+        if self.json_writer:
+            fit_json = output_dir / "fit_results.json"
+            self.json_writer.write_results(results, fit_json)
+            written_files["fit_results_json"] = fit_json
 
-        fit_yaml = output_dir / "fit_results.yaml"
-        self.yaml_writer.write_results(results, fit_yaml)
-        written_files["fit_results_yaml"] = fit_yaml
+        if self.yaml_writer:
+            fit_yaml = output_dir / "fit_results.yaml"
+            self.yaml_writer.write_results(results, fit_yaml)
+            written_files["fit_results_yaml"] = fit_yaml
 
-        params_csv = output_dir / "parameters.csv"
-        self.csv_writer.write_parameters(results, params_csv)
-        written_files["parameters"] = params_csv
+        if self.csv_writer:
+            params_csv = output_dir / "parameters.csv"
+            self.csv_writer.write_parameters(results, params_csv)
+            written_files["parameters"] = params_csv
 
-        shifts_csv = output_dir / "shifts.csv"
-        self.csv_writer.write_shifts(results, shifts_csv)
-        written_files["shifts"] = shifts_csv
+            shifts_csv = output_dir / "shifts.csv"
+            self.csv_writer.write_shifts(results, shifts_csv)
+            written_files["shifts"] = shifts_csv
 
-        intensities_csv = output_dir / "intensities.csv"
-        self.csv_writer.write_intensities(results, intensities_csv)
-        written_files["intensities"] = intensities_csv
+            intensities_csv = output_dir / "intensities.csv"
+            self.csv_writer.write_intensities(results, intensities_csv)
+            written_files["intensities"] = intensities_csv
 
         return written_files
 
@@ -200,28 +218,32 @@ class ResultsWriter:
         written_files: dict[str, Path] = {}
 
         # Main files at root level
-        fit_json = output_dir / "fit_results.json"
-        self.json_writer.write_results(results, fit_json)
-        written_files["fit_results_json"] = fit_json
+        if self.json_writer:
+            fit_json = output_dir / "fit_results.json"
+            self.json_writer.write_results(results, fit_json)
+            written_files["fit_results_json"] = fit_json
 
-        fit_yaml = output_dir / "fit_results.yaml"
-        self.yaml_writer.write_results(results, fit_yaml)
-        written_files["fit_results_yaml"] = fit_yaml
+        if self.yaml_writer:
+            fit_yaml = output_dir / "fit_results.yaml"
+            self.yaml_writer.write_results(results, fit_yaml)
+            written_files["fit_results_yaml"] = fit_yaml
 
-        report_md = output_dir / "report.md"
-        self.markdown_writer.generate_summary_report(results, report_md)
-        written_files["report"] = report_md
+        if self.markdown_writer:
+            report_md = output_dir / "report.md"
+            self.markdown_writer.generate_summary_report(results, report_md)
+            written_files["report"] = report_md
 
-        params_csv = output_dir / "parameters.csv"
-        self.csv_writer.write_parameters(results, params_csv)
-        written_files["parameters"] = params_csv
+        if self.csv_writer:
+            params_csv = output_dir / "parameters.csv"
+            self.csv_writer.write_parameters(results, params_csv)
+            written_files["parameters"] = params_csv
 
-        shifts_csv = output_dir / "shifts.csv"
-        self.csv_writer.write_shifts(results, shifts_csv)
-        written_files["shifts"] = shifts_csv
+            shifts_csv = output_dir / "shifts.csv"
+            self.csv_writer.write_shifts(results, shifts_csv)
+            written_files["shifts"] = shifts_csv
 
-        intensities_csv = output_dir / "intensities.csv"
-        self.csv_writer.write_intensities(results, intensities_csv)
-        written_files["intensities"] = intensities_csv
+            intensities_csv = output_dir / "intensities.csv"
+            self.csv_writer.write_intensities(results, intensities_csv)
+            written_files["intensities"] = intensities_csv
 
         return written_files

@@ -113,7 +113,28 @@ def write_new_format_outputs(
     verb = verbosity_map.get(verbosity, Verbosity.STANDARD)
 
     writer_config = WriterConfig(verbosity=verb)
-    writer = ResultsWriter(config=writer_config)
+
+    formats: set[str] | None = None
+    output_cfg: dict | None = None
+    if config:
+        if isinstance(config, dict):
+            output_cfg = config.get("output") if isinstance(config.get("output"), dict) else None
+        else:
+            # Fallback for Pydantic PeakFitConfig
+            output_cfg = getattr(config, "output", None)
+            if output_cfg is not None:
+                output_cfg = (
+                    output_cfg.model_dump()
+                    if hasattr(output_cfg, "model_dump")
+                    else output_cfg.__dict__
+                )
+
+    if output_cfg:
+        formats_list = output_cfg.get("formats")
+        if isinstance(formats_list, list):
+            formats = {str(fmt) for fmt in formats_list}
+
+    writer = ResultsWriter(config=writer_config, formats=formats)
 
     with console.status("[cyan]Writing outputs...[/cyan]", spinner="dots"):
         written_files = writer.write_for_verbosity(results, output_dir, verb)
