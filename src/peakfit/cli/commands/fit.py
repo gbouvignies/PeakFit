@@ -32,7 +32,6 @@ from peakfit.io.config import load_config
 from peakfit.io.paths import resolve_output_path
 from peakfit.shared.constants import BASIN_HOPPING_NITER, DIFF_EVOLUTION_MAXITER
 from peakfit.ui import Verbosity, console, display_path, set_verbosity, show_command_manifest
-from peakfit.ui.auto_pick_stepper import AutoPickStepController
 from peakfit.ui.messages import bullet, error, show_error_with_details
 from peakfit.ui.prefit import show_prefit_check
 from peakfit.ui.reporter import ConsoleReporter
@@ -42,6 +41,7 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.peaks import Peak
     from peakfit.fit.fitting import LoadedData
     from peakfit.shared.reporter import Reporter
+    from peakfit.ui.auto_pick_stepper import AutoPickStepController
 
 VALID_OUTPUT_FORMATS = get_args(OutputFormat)
 
@@ -332,6 +332,8 @@ def _load_fit_data(
             error("--auto-pick-step requires interactive mode (disable --headless).")
             raise typer.Exit(1)
         else:
+            from peakfit.ui.auto_pick_stepper import AutoPickStepController  # noqa: PLC0415
+
             stepper = AutoPickStepController()
 
     callback_builder = stepper.bind if stepper is not None else None
