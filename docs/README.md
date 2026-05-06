@@ -1,37 +1,38 @@
 # PeakFit Documentation
 
-Welcome to the PeakFit documentation. This directory contains guides for users and contributors.
+This directory contains user and developer documentation aligned with the current codebase.
 
 ## User Guides
 
-- **[Output System](output_system.md)** - Guide to PeakFit's structured output formats (JSON, CSV, Markdown)
-- **[Optimization Guide](optimization_guide.md)** - Performance tuning and best practices for fitting large datasets
-- **[MCMC Diagnostics](MCMC_DIAGNOSTICS.md)** - Understanding MCMC convergence diagnostics
-- **[Examples](../examples/)** - Comprehensive examples demonstrating PeakFit capabilities
+- **[Output System](output_system.md)** - Output directory structure and file formats
+- **[Optimization Guide](optimization_guide.md)** - Performance tuning and runtime tips
+- **[Optimization Strategies](strategies.md)** - Available optimizers and how to choose them
+- **[Constraints & Protocols](constraints_and_protocols.md)** - Parameter constraints and multi-step protocols
+- **[MCMC Diagnostics](mcmc_diagnostics.md)** - Uncertainty analysis and convergence metrics
+- **[Examples](../examples/)** - End-to-end usage examples
 
-## Development Documentation
+## Architecture
 
-For contributors and developers:
+- **[Architecture Overview](architecture/overview.md)** - Vertical slice architecture and data flow
+- **[Fit Pipeline](architecture/fit-pipeline.md)** - Core fitting pipeline responsibilities
+- **[MCMC Architecture](architecture/analyze_services.md)** - Uncertainty analysis workflows
+- **[Output Architecture](architecture/output_architecture.md)** - Output system internals for contributors
 
-- **[Output Architecture](architecture/output_architecture.md)** - Technical guide for extending the output system
-- **[UI Style Guide](development/ui-style-guide.md)** - User interface and experience design principles
-- **[Terminal Output Style Guide](development/terminal-output-style-guide.md)** - Guidelines for consistent terminal output
-- **[Analyze Services Architecture](architecture/analyze_services.md)** - Overview of the layered analysis services and their responsibilities
+## Development
+
+- **[CLI UI Specification](development/cli_ui_specification.md)** - Stream + sticky footer UX spec
+- **[Terminal Output Style Guide](development/terminal-output-style-guide.md)** - Console output conventions
 
 ## Main Documentation
 
-See the main [README.md](../README.md) in the repository root for:
-- Installation instructions
-- Quick start guide
-- Command-line interface reference
-- Contributing guidelines
+See the main [README.md](../README.md) in the repository root for installation, quick start, CLI reference, and contributing guidelines.
 
 ## Getting Help
 
-- **Examples**: See [examples/](../examples/) for practical usage demonstrations
+- **Examples**: [examples/](../examples/)
 - **GitHub Repository**: https://github.com/gbouvignies/PeakFit
 - **Issue Tracker**: https://github.com/gbouvignies/PeakFit/issues
 
 ---
 
-**Last Updated**: 2025-01-15
+**Last Updated**: 2026-01-19

@@ -1,0 +1,1 @@
+"""Plot viewer interface protocols."""

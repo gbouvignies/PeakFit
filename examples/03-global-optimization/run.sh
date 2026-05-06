@@ -1,133 +1,73 @@
-#!/bin/bash
-# Example 3: Global Optimization for Difficult Peaks
-# Compares local vs global optimization with structured output comparison
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -e  # Exit on error
+mode="${1:-both}"
 
-echo "=========================================="
-echo "PeakFit Example 3: Global Optimization"
-echo "=========================================="
-echo
-echo "This example compares local vs. global optimization methods"
-echo "using the new structured JSON outputs for comparison."
-echo
-echo "⚠️  Warning: Global optimization is MUCH slower (10-30 minutes)"
-echo
-
-# Check if PeakFit is installed
-if ! command -v peakfit &> /dev/null; then
-    echo "Error: peakfit command not found"
-    echo "Please install PeakFit first:"
-    echo "  pip install peakfit"
-    exit 1
+if [[ "$mode" != "local" && "$mode" != "basin" && "$mode" != "both" ]]; then
+  echo "Usage: bash run.sh [local|basin|both]"
+  exit 1
 fi
 
-# Check data files exist
-if [ ! -f "data/pseudo3d.ft2" ]; then
-    echo "Error: Data files not found"
-    echo "Make sure symbolic links are set up correctly"
-    exit 1
+if ! command -v peakfit >/dev/null 2>&1; then
+  echo "Error: 'peakfit' command not found."
+  exit 1
 fi
 
-# Ask user which method to run
-echo "Which optimization method would you like to run?"
-echo "  1) Local optimization (fast, ~2-3 min) - baseline"
-echo "  2) Basin-hopping (slow, ~10-20 min)"
-echo "  3) Both and compare results"
-echo
-read -p "Enter choice [1-3]: " choice
+for f in data/pseudo3d.ft2 data/pseudo3d.list data/b1_offsets.txt; do
+  if [[ ! -f "$f" ]]; then
+    echo "Missing input file: $f"
+    exit 1
+  fi
+done
 
-case $choice in
-    1)
-        echo
-        echo "=========================================="
-        echo "Running LOCAL optimization..."
-        echo "=========================================="
-        echo
-        rm -rf Fits-Local
-        peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-            --z-values data/b1_offsets.txt \
-            --output Fits-Local/
+run_fit() {
+  optimizer="$1"
+  out_root="$2"
 
-        echo
-        echo "✓ Local optimization complete"
-        echo
-        echo "Results in: Fits-Local/"
-        echo "  - fit_results.json  : Complete results"
-        echo "  - parameters.csv    : Parameter table"
-        echo "  - report.md         : Summary"
-        ;;
+  peakfit fit \
+    data/pseudo3d.ft2 \
+    data/pseudo3d.list \
+    --z-values data/b1_offsets.txt \
+    --optimizer "$optimizer" \
+    --output "$out_root" \
+    --output-verbosity standard >&2
 
-    2)
-        echo
-        echo "=========================================="
-        echo "Running BASIN-HOPPING optimization..."
-        echo "  This will take 10-20 minutes..."
-        echo "=========================================="
-        echo
-        rm -rf Fits-BH
-        peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-            --z-values data/b1_offsets.txt \
-            --optimizer basin_hopping \
-            --output Fits-BH/
+  find "$out_root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1
+}
 
-        echo
-        echo "✓ Basin-hopping complete"
-        echo
-        echo "Results in: Fits-BH/"
-        echo "  - fit_results.json  : Complete results"
-        echo "  - parameters.csv    : Parameter table"
-        echo "  - report.md         : Summary"
-        ;;
+local_run=""
+basin_run=""
 
-    3)
-        echo
-        echo "=========================================="
-        echo "Running BOTH optimizers for comparison"
-        echo "=========================================="
-        echo
+if [[ "$mode" == "local" || "$mode" == "both" ]]; then
+  echo "Running local fit (varpro)..."
+  local_run="$(run_fit varpro Fits-local)"
+  echo "Local results: $local_run"
+fi
 
-        echo "Step 1/2: Local optimization (~2-3 min)..."
-        rm -rf Fits-Local
-        peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-            --z-values data/b1_offsets.txt \
-            --output Fits-Local/
-        echo "  ✓ Local complete"
+if [[ "$mode" == "basin" || "$mode" == "both" ]]; then
+  echo "Running global fit (basin_hopping)..."
+  basin_run="$(run_fit basin_hopping Fits-basin)"
+  echo "Basin-hopping results: $basin_run"
+fi
 
-        echo
-        echo "Step 2/2: Basin-hopping (~10-20 min)..."
-        rm -rf Fits-BH
-        peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
-            --z-values data/b1_offsets.txt \
-            --optimizer basin_hopping \
-            --output Fits-BH/
-        echo "  ✓ Basin-hopping complete"
+if [[ "$mode" == "both" ]]; then
+  python - "$local_run" "$basin_run" <<'PY'
+import json
+import sys
 
-        echo
-        echo "=========================================="
-        echo "Comparison of Results"
-        echo "=========================================="
-        echo
-        echo "Compare JSON results:"
-        echo "  diff Fits-Local/fit_results.json Fits-BH/fit_results.json"
-        echo
-        echo "Compare parameter CSVs:"
-        echo "  diff Fits-Local/parameters.csv Fits-BH/parameters.csv"
-        ;;
+local_dir, basin_dir = sys.argv[1], sys.argv[2]
 
-    *)
-        echo "Invalid choice"
-        exit 1
-        ;;
-esac
 
-echo
-echo "=========================================="
-echo "Next steps:"
-echo "=========================================="
-echo
-echo "  • Compare results: diff Fits-Local/fit_results.json Fits-BH/fit_results.json"
-echo "  • Compare CSVs: diff Fits-Local/parameters.csv Fits-BH/parameters.csv"
-echo "  • Check logs: less Fits-*/peakfit.log"
-echo "  • See README.md for more analysis examples"
-echo
+def read_chi2(run_dir: str) -> float:
+    with open(f"{run_dir}/summary/fit_summary.json", encoding="utf-8") as f:
+        data = json.load(f)
+    return float(data["global_statistics"]["chi_squared"])
+
+local_chi2 = read_chi2(local_dir)
+basin_chi2 = read_chi2(basin_dir)
+
+print("\nChi-squared comparison")
+print(f"  varpro        : {local_chi2:.6g}")
+print(f"  basin_hopping : {basin_chi2:.6g}")
+PY
+fi

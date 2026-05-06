@@ -1,82 +1,37 @@
-#!/bin/bash
-# Example 1: Basic Fitting Template
-# This is a template - you need to provide your own data files
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -e  # Exit on error
+echo "== PeakFit Example 1: Basic Fitting Template =="
 
-echo "=========================================="
-echo "PeakFit Example 1: Basic Fitting"
-echo "=========================================="
-echo
-echo "This is a template example."
-echo "You need to add your own data files to run it."
-echo
-
-# Check if data files exist
-if [ ! -f "data/spectrum.ft2" ] || [ ! -f "data/peaks.list" ]; then
-    echo "[BAD] Data files not found!"
-    echo
-    echo "To use this example:"
-    echo "  1. Copy your spectrum to:  data/spectrum.ft2"
-    echo "  2. Copy your peak list to: data/peaks.list"
-    echo "  3. (Optional) Z-values to: data/z_values.txt"
-    echo
-    echo "For a ready-to-run example with real data, see:"
-    echo "  ../02-advanced-fitting/"
-    echo
-    exit 1
+if ! command -v peakfit >/dev/null 2>&1; then
+  echo "Error: 'peakfit' command not found."
+  echo "Install PeakFit first, then rerun this script."
+  exit 1
 fi
 
-echo "✓ Data files found"
-echo
-
-# Check if PeakFit is installed
-if ! command -v peakfit &> /dev/null; then
-    echo "Error: peakfit command not found"
-    echo "Please install PeakFit first:"
-    echo "  pip install peakfit"
-    exit 1
+if [[ ! -f "data/spectrum.ft2" || ! -f "data/peaks.list" ]]; then
+  echo "Missing input files in data/."
+  echo "Required: data/spectrum.ft2 and data/peaks.list"
+  echo "Optional: data/z_values.txt"
+  exit 1
 fi
 
-# Clean previous results
-if [ -d "results" ]; then
-    echo "Cleaning previous results..."
-    rm -rf results
+rm -rf results
+
+cmd=(peakfit fit data/spectrum.ft2 data/peaks.list --output results --output-verbosity standard)
+if [[ -f "data/z_values.txt" ]]; then
+  cmd+=(--z-values data/z_values.txt)
 fi
 
-echo "Step 1: Validating inputs..."
-echo
-peakfit validate data/spectrum.ft2 data/peaks.list
+"${cmd[@]}"
 
-echo
-echo "Step 2: Running fit..."
-echo
-
-# Check for Z-values file
-if [ -f "data/z_values.txt" ]; then
-    echo "  Detected Z-values file - running pseudo-3D fit"
-    peakfit fit data/spectrum.ft2 data/peaks.list \
-        --z-values data/z_values.txt \
-        --output results/
+if [[ -d "results/summary" ]]; then
+  latest_run="results"
 else
-    echo "  Running 2D fit (no Z-values file)"
-    peakfit fit data/spectrum.ft2 data/peaks.list \
-        --output results/
+  latest_run="$(find results -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
 fi
 
 echo
-echo "=========================================="
-echo "Fitting complete!"
-echo "=========================================="
-echo
-echo "Results saved to: results/"
-echo "  - results/fit_results.json : Complete results (machine-readable)"
-echo "  - results/parameters.csv   : Parameter table (for Excel/pandas)"
-echo "  - results/shifts.csv       : Chemical shifts"
-echo "  - results/report.md        : Human-readable summary"
-echo "  - results/peakfit.log      : Detailed log file"
-echo
-echo "Next steps:"
-echo "  • View results: cat results/fit_results.json | head -50"
-echo "  • Check log: less results/peakfit.log"
-echo
+echo "Run complete."
+echo "Latest results: ${latest_run}"
+echo "Inspect: ${latest_run}/summary/fit_summary.json"

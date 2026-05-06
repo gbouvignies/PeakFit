@@ -107,11 +107,15 @@ save_html_report = true
 exclude_planes = []
 ```
 
-### Validation
+### Input validation
+
+`peakfit fit` automatically validates inputs before fitting and fails fast if any errors are found.
+
+### MCMC Uncertainty Analysis
 
 ```bash
-# Validate input files before fitting
-peakfit validate spectrum.ft2 peaks.list
+# Run MCMC sampling on fit results
+peakfit mcmc Results/ --walkers 32 --steps 1000
 ```
 
 ### Plotting
@@ -120,8 +124,11 @@ peakfit validate spectrum.ft2 peaks.list
 # Generate intensity plots
 peakfit plot intensity Results/ --show
 
-# Launch interactive spectra viewer
-peakfit plot spectra Results/ --spectrum spectrum.ft2
+# Plot CEST profiles
+peakfit plot cest Results/ --output cest.pdf
+
+# Launch interactive spectrum viewer
+peakfit plot spectrum --spectrum spectrum.ft2 --results Results/
 ```
 
 ## CLI Reference
@@ -155,12 +162,22 @@ Options:
 Note: The CLI option `--workers` has been removed. PeakFit now runs sequentially by default.
 ```
 
-### `peakfit validate`
+### `peakfit mcmc`
 
-Validate input files before fitting.
+Run MCMC sampling for uncertainty estimation on existing fit results.
 
 ```bash
-peakfit validate SPECTRUM PEAKLIST
+peakfit mcmc RESULTS [OPTIONS]
+
+Arguments:
+  RESULTS                 Path to results directory from 'peakfit fit'
+
+Options:
+  --peaks TEXT            Peak names to analyze (default: all)
+  -w, --walkers INTEGER   Number of MCMC walkers [default: 32]
+  -s, --steps INTEGER     MCMC steps per walker [default: 1000]
+  -b, --burn-in INTEGER   Burn-in steps (default: auto)
+  --workers INTEGER       Parallel workers (-1 = all CPUs)
 ```
 
 ### `peakfit init`
@@ -178,84 +195,52 @@ Options:
 ```
 
 ### `peakfit plot`
- 
- Generate plots from fitting results using subcommands.
- 
- ```bash
- peakfit plot [SUBCOMMAND] [RESULTS] [OPTIONS]
- ```
- 
- #### `peakfit plot intensity`
- 
- Plot intensity profiles vs. plane index.
- 
- ```bash
- peakfit plot intensity RESULTS [--output PATH] [--show]
- ```
- 
- #### `peakfit plot cest`
- 
- Plot CEST profiles (normalized intensity vs. B1 offset).
- 
- ```bash
- peakfit plot cest RESULTS [--output PATH] [--show] [--ref INDICES...]
- ```
- 
- #### `peakfit plot cpmg`
- 
- Plot CPMG relaxation dispersion (R2eff vs. νCPMG).
- 
- ```bash
- peakfit plot cpmg RESULTS --time-t2 FLOAT [--output PATH] [--show]
- ```
- 
- #### `peakfit plot spectra`
- 
- Launch interactive spectra viewer.
- 
- ```bash
- peakfit plot spectra RESULTS --spectrum PATH
- ```
- 
- #### `peakfit plot diagnostics`
- 
- Generate MCMC diagnostic plots.
- 
- ```bash
- peakfit plot diagnostics RESULTS [--output PATH] [--peaks NAMES...]
- ```
- 
- ### `peakfit analyze`
- 
- Perform uncertainty analysis on fitting results.
- 
- ```bash
- peakfit analyze [SUBCOMMAND] [RESULTS] [OPTIONS]
- ```
- 
- #### `peakfit analyze mcmc`
- 
- Run MCMC sampling for uncertainty estimation.
- 
- ```bash
- peakfit analyze mcmc RESULTS [--chains INT] [--samples INT] [--burn-in INT]
- ```
- 
- #### `peakfit analyze profile`
- 
- Compute profile likelihood confidence intervals.
- 
- ```bash
- peakfit analyze profile RESULTS [--param NAME] [--points INT] [--confidence FLOAT]
- ```
- 
- #### `peakfit analyze uncertainty`
- 
- Display parameter uncertainties from fitting results.
- 
- ```bash
- peakfit analyze uncertainty RESULTS [--output PATH]
- ```
+
+Generate plots from fitting results using subcommands.
+
+```bash
+peakfit plot [SUBCOMMAND] [RESULTS] [OPTIONS]
+```
+
+#### `peakfit plot intensity`
+
+Plot intensity profiles vs. plane index.
+
+```bash
+peakfit plot intensity RESULTS [--output PATH] [--show]
+```
+
+#### `peakfit plot cest`
+
+Plot CEST profiles (normalized intensity vs. B1 offset).
+
+```bash
+peakfit plot cest RESULTS [--output PATH] [--show] [--ref INDICES...]
+```
+
+#### `peakfit plot spectrum`
+
+Launch interactive spectrum viewer.
+
+```bash
+peakfit plot spectrum --spectrum PATH [--results PATH]
+```
+
+#### `peakfit plot cpmg`
+
+Plot CPMG relaxation dispersion (R2eff vs νCPMG).
+
+```bash
+peakfit plot cpmg RESULTS --time-t2 FLOAT [--output PATH] [--show]
+```
+
+#### `peakfit plot mcmc`
+
+Generate MCMC diagnostic plots (traces and corners).
+
+```bash
+peakfit plot mcmc RESULTS [--output PATH] [--burn-in INT]
+```
 
 ## Peak List Formats
 
@@ -281,8 +266,8 @@ Peak2,Peak2,7.80,115.3
 
 ```json
 [
-  {"name": "Peak1", "x": 8.50, "y": 120.5},
-  {"name": "Peak2", "x": 7.80, "y": 115.3}
+  { "name": "Peak1", "positions": [8.5, 120.5] },
+  { "name": "Peak2", "positions": [7.8, 115.3] }
 ]
 ```
 
@@ -316,6 +301,7 @@ After fitting, PeakFit generates the following files in the output directory:
 PeakFit performs sequential cluster fitting using scipy.optimize least squares for predictable execution and minimal memory usage.
 
 **Notes:**
+
 - Multi-process/parallel cluster fitting was removed to simplify the execution model.
 - For datasets with many clusters, performance can be improved by optimizing lineshape calculations or using the benchmark tools to tune your environment.
 
@@ -369,7 +355,7 @@ uv run pytest tests/unit/test_lineshapes.py
 uv run ruff check peakfit/
 
 # Type checking
-uv run mypy peakfit/
+uv run ty check
 
 # Format code
 uv run ruff format peakfit/
@@ -391,22 +377,17 @@ uv build
 
 ```
 peakfit/
-├── cli/                # Modern CLI with Typer
+├── cli/                # Modern CLI with Typer + Rich
 │   ├── app.py          # Main Typer application
 │   └── commands/       # Command implementations
-├── core/               # Core domain logic
-│   ├── domain/         # Data models (Spectrum, Peak, Config)
-│   ├── fitting/        # Fitting algorithms and protocols
-│   └── lineshapes/     # Lineshape functions
+├── engine/             # Pure computation (domain, algorithms, lineshapes)
+├── fit/                # Fit workflow (validation, orchestration, outputs)
+├── mcmc/               # MCMC workflows and diagnostics
 ├── io/                 # Input/output operations
 │   ├── readers/        # File readers (Sparky, NMRPipe)
 │   └── writers/        # File writers
-├── plotting/           # Visualization
-│   └── plots/          # Plot generators
-├── services/           # Application services
-│   ├── fit/            # Fitting pipeline service
-│   └── validate/       # Validation service
-└── ui/                 # User interface
+├── plot/               # Visualization (plots + Qt spectrum viewer)
+└── ui/                 # User interface (Rich + Qt viewer)
     └── console.py      # Rich console integration
 ```
 
@@ -458,11 +439,11 @@ peakfit plot spectra Fits/ --spectrum data.ft2
 
 The new CLI provides a more intuitive interface while maintaining all functionality:
 
-| Old Command | New Command |
-|-------------|-------------|
-| `peakfit -s spec.ft2 -l peaks.list` | `peakfit fit spec.ft2 peaks.list` |
+| Old Command                                     | New Command                                               |
+| ----------------------------------------------- | --------------------------------------------------------- |
+| `peakfit -s spec.ft2 -l peaks.list`             | `peakfit fit spec.ft2 peaks.list`                         |
 | `peakfit -s spec.ft2 -l peaks.list -o Out -r 3` | `peakfit fit spec.ft2 peaks.list --output Out --refine 3` |
-| `peakfit -s spec.ft2 -l peaks.list --pvoigt` | `peakfit fit spec.ft2 peaks.list --lineshape pvoigt` |
+| `peakfit -s spec.ft2 -l peaks.list --pvoigt`    | `peakfit fit spec.ft2 peaks.list --lineshape pvoigt`      |
 
 ## Citation
 

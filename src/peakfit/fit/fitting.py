@@ -1,0 +1,610 @@
+"""Fit workflow orchestration for PeakFit.
+
+Public API:
+- LoadedData: Container for all loaded fitting data
+- load_data: Function to load spectrum, peaks, and compute clusters
+- RunSummary: Statistics for a fitting run
+- ServiceResult: Result of a fitting operation
+- run_fit: Execute the fitting pipeline
+- write_service_results: Write outputs from a ServiceResult
+- ProgressStart: Event emitted at pipeline start with total steps
+- ClusterReview: Data for a cluster that needs review
+- find_review_clusters: Identify clusters needing review
+"""
+
+from __future__ import annotations
+
+import logging
+import multiprocessing
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
+
+from peakfit.engine.algorithms.clustering import create_clusters
+from peakfit.engine.algorithms.noise import prepare_noise_level
+from peakfit.engine.domain.params_scalar import Parameters
+from peakfit.engine.domain.spectrum import get_shape_names
+from peakfit.fit.auto_pick import AutoPickCycleReport, auto_pick_peaks
+from peakfit.fit.builder import FitResultsBuilder
+from peakfit.fit.pipeline import FitPipeline, PipelineResult
+from peakfit.io.readers.peaks import read_list
+from peakfit.io.readers.spectrum import read_spectra
+from peakfit.io.state import default_state_path, save_state
+from peakfit.io.utils import format_path
+from peakfit.io.writers.config import Verbosity, WriterConfig
+from peakfit.io.writers.orchestrator import ResultsWriter
+from peakfit.shared.exceptions import DataIOError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+    from pathlib import Path
+
+    from peakfit.engine.domain.cluster import Cluster
+    from peakfit.engine.domain.config import PeakFitConfig
+    from peakfit.engine.domain.peaks import Peak
+    from peakfit.engine.domain.spectrum import Spectra
+    from peakfit.engine.domain.state import FittingState
+    from peakfit.engine.results import FitResult
+    from peakfit.fit.auto_pick import AutoPickCycleAction
+    from peakfit.shared.reporter import Reporter
+
+    type AutoPickCallbackBuilder = Callable[
+        [Spectra, float], Callable[[AutoPickCycleReport], AutoPickCycleAction | bool]
+    ]
+
+
+# =============================================================================
+# Data Loading
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class LoadedData:
+    """Container for loaded fitting data."""
+
+    spectra: Spectra
+    peaks: list[Peak]
+    noise: float
+    noise_source: str
+    shape_names: list[str]
+    contour_level: float
+    clusters: list[Cluster]
+
+
+def _format_auto_pick_tuple(values: tuple[float | int, ...], precision: int = 3) -> str:
+    """Format tuple values for compact progress logs."""
+    return "(" + ", ".join(f"{float(v):.{precision}f}" for v in values) + ")"
+
+
+def _log_auto_pick_cycle(reporter: Reporter, cycle: AutoPickCycleReport) -> None:
+    """Emit detailed auto-pick progress for one ROI cycle."""
+    if cycle.stage == "peak_added":
+        if cycle.feedback_message:
+            reporter.info(f"[auto-pick] cycle={cycle.iteration} note={cycle.feedback_message}")
+
+        trial = cycle.trials[-1] if cycle.trials else None
+        if trial is None:
+            reporter.info(
+                f"[auto-pick] cycle={cycle.iteration} stage=peak_added "
+                f"peaks_in_roi={cycle.peaks_added} total_peaks={cycle.total_peaks}"
+            )
+            return
+
+        prefix = (
+            f"[auto-pick] cycle={cycle.iteration} stage=peak_added "
+            f"trial={trial.trial_index} peaks_in_roi={cycle.peaks_added} "
+            f"total_peaks={cycle.total_peaks}"
+        )
+        if trial.f_test is None:
+            reporter.info(
+                f"{prefix} decision={'accept' if trial.accepted else 'reject'} "
+                f"reason={trial.reason}"
+            )
+            return
+
+        ftest = trial.f_test
+        if ftest.f_stat is None or ftest.p_value is None:
+            reporter.info(
+                f"{prefix} decision={'accept' if trial.accepted else 'reject'} "
+                f"reason={trial.reason} f_test=skipped"
+            )
+            return
+
+        f_stat = ftest.f_stat
+        p_value = ftest.p_value
+        reporter.info(
+            f"{prefix} decision={'accept' if trial.accepted else 'reject'} "
+            f"f={f_stat:.3e} p={p_value:.3e} reason={trial.reason}"
+        )
+        return
+
+    header = (
+        f"[auto-pick] cycle={cycle.iteration} seed_pts={cycle.seed_point} "
+        f"seed_ppm={_format_auto_pick_tuple(cycle.seed_ppm)} "
+        f"seed={cycle.seed_height:.3e} roi_size={cycle.roi_size} "
+        f"threshold={cycle.add_threshold:.3e}"
+    )
+    reporter.info(header)
+    if cycle.feedback_message:
+        reporter.info(f"[auto-pick] cycle={cycle.iteration} note={cycle.feedback_message}")
+
+    if not cycle.trials:
+        reporter.info("[auto-pick]   no candidate above addition threshold")
+    for trial in cycle.trials:
+        stage_info = (
+            f"protocol_rounds={trial.protocol_rounds} "
+            f"cs_at_constraint={'yes' if trial.cs_at_constraint else 'no'} "
+            f"zero_amplitude_peak={'yes' if trial.zero_amplitude_peak else 'no'}"
+        )
+        prefix = (
+            f"[auto-pick]   trial={trial.trial_index} score={trial.candidate_score:.3e} "
+            f"pts={trial.candidate_point} ppm={_format_auto_pick_tuple(trial.candidate_ppm)} "
+            f"{stage_info}"
+        )
+        if not trial.fit_success:
+            reporter.info(f"{prefix} fit=failed decision=reject reason={trial.reason}")
+            continue
+
+        if trial.f_test is None:
+            reporter.info(f"{prefix} fit=ok decision=reject reason={trial.reason}")
+            continue
+
+        ftest = trial.f_test
+        if ftest.f_stat is None or ftest.p_value is None:
+            reporter.info(
+                f"{prefix} fit=ok rss_old={ftest.old_rss:.3e} rss_new={ftest.new_rss:.3e} "
+                f"df=({ftest.df1},{ftest.df2}) decision="
+                f"{'accept' if trial.accepted else 'reject'} reason={trial.reason} "
+                "f_test=skipped"
+            )
+            continue
+
+        f_stat = ftest.f_stat
+        p_value = ftest.p_value
+        reporter.info(
+            f"{prefix} fit=ok rss_old={ftest.old_rss:.3e} rss_new={ftest.new_rss:.3e} "
+            f"df=({ftest.df1},{ftest.df2}) f={f_stat:.3e} p={p_value:.3e} "
+            f"decision={'accept' if trial.accepted else 'reject'} reason={trial.reason}"
+        )
+
+    reporter.info(
+        f"[auto-pick] cycle={cycle.iteration} result="
+        f"{'accepted' if cycle.accepted else 'rejected'} "
+        f"peaks_added={cycle.peaks_added} total_peaks={cycle.total_peaks} "
+        f"residual_max={cycle.working_max_after:.3e}"
+    )
+
+
+def load_data(
+    spectrum_path: Path,
+    peaklist_path: Path | None,
+    z_values_path: Path | None,
+    config: PeakFitConfig,
+    reporter: Reporter | None = None,
+    auto_pick_callback_builder: AutoPickCallbackBuilder | None = None,
+) -> LoadedData:
+    """Load all data required for fitting.
+
+    Args:
+        spectrum_path: Path to spectrum file
+        peaklist_path: Path to peak list file (optional)
+        z_values_path: Path to Z-series file
+        config: Full configuration object
+        reporter: Optional progress reporter for auto-pick logs
+        auto_pick_callback_builder: Optional callback builder for step-wise auto-pick control
+
+    Returns:
+        LoadedData container with spectra, peaks, noise, clusters, etc.
+    """
+    # 1. Load Spectra
+    spectra = read_spectra(spectrum_path, z_values_path, config.exclude_planes)
+
+    # 2. Estimate Noise
+    computed_noise = prepare_noise_level(config.noise_level, spectra)
+    if computed_noise is None:
+        raise DataIOError("Could not estimate noise level.")
+
+    noise_val = float(computed_noise)
+    noise_source = "user-provided" if config.noise_level and config.noise_level > 0 else "estimated"
+
+    # 3. Detect Lineshapes
+    shape_names = get_shape_names(config.fitting, spectra)
+
+    # 4. Contour Level
+    contour = (
+        config.clustering.contour_level
+        if config.clustering.contour_level is not None
+        else config.clustering.contour_factor * noise_val
+    )
+
+    # 5. Load or Auto-Pick Peaks
+    if peaklist_path is None:
+        if not config.auto_peak.enabled:
+            raise DataIOError("No peak list provided and automatic peak picking is disabled.")
+        if reporter is not None:
+            reporter.action("Running automatic peak picking (no peak list provided)...")
+
+        user_cycle_callback = (
+            auto_pick_callback_builder(spectra, contour)
+            if auto_pick_callback_builder is not None
+            else None
+        )
+
+        def _cycle_callback(cycle: AutoPickCycleReport) -> AutoPickCycleAction | bool:
+            if reporter is not None:
+                _log_auto_pick_cycle(reporter, cycle)
+            if user_cycle_callback is None:
+                return True
+            return user_cycle_callback(cycle)
+
+        auto_result = auto_pick_peaks(
+            spectra,
+            shape_names,
+            noise_val,
+            contour,
+            config,
+            cycle_callback=_cycle_callback if (reporter or user_cycle_callback) else None,
+        )
+        peaks = auto_result.peaks
+        if reporter is not None:
+            stop_msg = " (stopped by user)" if auto_result.diagnostics.stopped_by_user else ""
+            reporter.success(
+                "Automatic peak picking completed"
+                f"{stop_msg}: peaks={len(peaks)} "
+                f"accepted_rois={auto_result.diagnostics.accepted_rois} "
+                f"rejected_rois={auto_result.diagnostics.rejected_rois}"
+            )
+        if not peaks:
+            if auto_result.diagnostics.stopped_by_user:
+                raise DataIOError(
+                    "Automatic peak picking was stopped before any peak was accepted."
+                )
+            raise DataIOError(
+                "Automatic peak picking found no peaks above threshold. "
+                "Lower auto_peak.start_threshold_sigma or provide a peak list."
+            )
+    else:
+        peaks = read_list(peaklist_path, spectra, shape_names, config.fitting)
+
+    # 6. Create Clusters
+    clusters = create_clusters(spectra, peaks, contour)
+
+    return LoadedData(
+        spectra=spectra,
+        peaks=peaks,
+        noise=noise_val,
+        noise_source=noise_source,
+        shape_names=shape_names,
+        contour_level=contour,
+        clusters=clusters,
+    )
+
+
+# =============================================================================
+# Result Containers
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class RunSummary:
+    """Summary statistics for a fitting run."""
+
+    n_clusters: int
+    n_peaks: int
+    success_rate: float
+    n_converged: int
+    mean_redchi: float
+    std_redchi: float
+    median_redchi: float
+
+
+@dataclass(frozen=True)
+class ServiceResult:
+    """Result of a fitting operation service call."""
+
+    state: FittingState
+    results: list[FitResult]
+    output_dir: Path
+    success: bool
+    summary: RunSummary
+    spectra: Spectra | None = None
+
+
+# =============================================================================
+# Progress Events
+# =============================================================================
+
+# Threshold for high reduced chi-squared
+HIGH_REDCHI = 5.0
+
+
+@dataclass(frozen=True)
+class ProgressStart:
+    """Event emitted at pipeline start with total steps."""
+
+    total_steps: int
+    n_clusters: int
+    n_workers: int
+
+
+@dataclass(frozen=True)
+class ClusterReview:
+    """Data for a cluster that needs review."""
+
+    cluster_id: str
+    peak_names: list[str]
+    reason: str  # "diverged", "high_chi", "at_bounds"
+    redchi: float
+    at_bounds: list[str]  # parameter names at bounds
+
+
+def find_review_clusters(result: ServiceResult) -> list[ClusterReview]:
+    """Identify clusters needing review.
+
+    Args:
+        result: ServiceResult from a fitting run
+
+    Returns:
+        List of ClusterReview objects for clusters that need attention
+    """
+    reviews = []
+    for fit_res in result.results:
+        at_bounds = [p.name for p in fit_res.params.values() if p.is_at_boundary()]
+        needs_review = not fit_res.success or fit_res.redchi > HIGH_REDCHI or at_bounds
+
+        if not needs_review:
+            continue
+
+        if not fit_res.success:
+            reason = "diverged"
+        elif fit_res.redchi > HIGH_REDCHI:
+            reason = "high_chi"
+        else:
+            reason = "at_bounds"
+
+        reviews.append(
+            ClusterReview(
+                cluster_id=str(fit_res.metadata.get("cluster_id", "??")),
+                peak_names=fit_res.metadata.get("peak_names", []),
+                reason=reason,
+                redchi=fit_res.redchi,
+                at_bounds=at_bounds,
+            )
+        )
+
+    return reviews
+
+
+# =============================================================================
+# Fitting Pipeline
+# =============================================================================
+
+
+def run_fit(
+    data: LoadedData,
+    config: PeakFitConfig,
+    output_dir: Path,
+    *,
+    optimizer: str = "varpro",
+    workers: int = -1,
+    reporter: Reporter | None = None,
+    progress_callback: Callable[[Any], None] | None = None,
+) -> ServiceResult:
+    """Execute the fitting pipeline.
+
+    Args:
+        data: Loaded spectrum, peaks, clusters, etc.
+        config: Fitting configuration
+        output_dir: Directory for outputs
+        optimizer: Optimizer name (varpro, basin_hopping, etc.)
+        workers: Number of parallel workers (-1 = all CPUs)
+        reporter: Optional reporter for headless progress
+        progress_callback: Optional callback for interactive progress.
+            Receives ProgressStart at start, then FitResult for each fit.
+
+    Returns:
+        ServiceResult with fitting state, results, and summary
+    """
+    logger = logging.getLogger("peakfit")
+    prev_level = logger.level
+    logger.setLevel(logging.CRITICAL)
+
+    try:
+        pipeline = FitPipeline(config, reporter=reporter)
+        params = Parameters.from_peaks(data.peaks, fixed=False)
+        n_workers = workers if workers > 0 else multiprocessing.cpu_count()
+
+        if reporter:
+            reporter.info(f"Fitting {len(data.clusters)} clusters with {n_workers} workers.")
+
+        # Emit progress start event with total steps
+        if progress_callback:
+            total_steps = _calc_total_steps(data, config)
+            progress_callback(ProgressStart(total_steps, len(data.clusters), n_workers))
+
+        items = _iter_pipeline(pipeline, data, params, optimizer, n_workers)
+
+        if progress_callback:
+            pipeline_result = _consume_with_callback(items, progress_callback)
+        else:
+            pipeline_result = _consume_simple(items)
+
+        if pipeline_result is None:
+            raise RuntimeError("Pipeline produced no result")
+
+        summary = _build_summary(data, pipeline_result)
+
+        return ServiceResult(
+            state=pipeline_result.state,
+            results=pipeline_result.results,
+            output_dir=output_dir,
+            success=summary.success_rate == 1.0 if data.clusters else True,
+            summary=summary,
+            spectra=data.spectra,
+        )
+    finally:
+        logger.setLevel(prev_level)
+
+
+def _calc_total_steps(data: LoadedData, config: PeakFitConfig) -> int:
+    """Calculate total steps for progress display."""
+    n_clusters = len(data.clusters) if data.clusters else 0
+    if config.fitting.steps:
+        n_passes = sum(step.iterations for step in config.fitting.steps)
+    else:
+        n_passes = config.fitting.refine_iterations + 1
+    return n_clusters * n_passes
+
+
+def _iter_pipeline(
+    pipeline: FitPipeline,
+    data: LoadedData,
+    params: Parameters,
+    optimizer: str,
+    n_workers: int,
+) -> Iterator[Any]:
+    """Iterate over pipeline, optionally in parallel."""
+    if n_workers > 1:
+        with multiprocessing.Pool(processes=n_workers) as pool:
+            yield from pipeline.run_iter(
+                data.clusters,
+                data.noise,
+                params,
+                data.peaks,
+                data.spectra,
+                optimizer=optimizer,
+                executor=pool.imap_unordered,
+            )
+    else:
+        yield from pipeline.run_iter(
+            data.clusters,
+            data.noise,
+            params,
+            data.peaks,
+            data.spectra,
+            optimizer=optimizer,
+            executor=None,
+        )
+
+
+def _consume_simple(items: Iterator[Any]) -> PipelineResult | None:
+    """Consume pipeline items without callback."""
+    result = None
+    for item in items:
+        if isinstance(item, PipelineResult):
+            result = item
+    return result
+
+
+def _consume_with_callback(
+    items: Iterator[Any],
+    callback: Callable[[Any], None],
+) -> PipelineResult | None:
+    """Consume pipeline items with callback for each item."""
+    result = None
+    for item in items:
+        if isinstance(item, PipelineResult):
+            result = item
+        else:
+            callback(item)
+    return result
+
+
+def _build_summary(data: LoadedData, result: PipelineResult) -> RunSummary:
+    """Build summary from pipeline result."""
+    success_count = sum(1 for r in result.results if r.success)
+    redchis = [r.redchi for r in result.results if r.success]
+    return RunSummary(
+        n_clusters=len(data.clusters),
+        n_peaks=len(data.peaks),
+        success_rate=success_count / len(data.clusters) if data.clusters else 0,
+        n_converged=success_count,
+        mean_redchi=float(np.mean(redchis)) if redchis else 0.0,
+        std_redchi=float(np.std(redchis)) if redchis else 0.0,
+        median_redchi=float(np.median(redchis)) if redchis else 0.0,
+    )
+
+
+# =============================================================================
+# Output Writing
+# =============================================================================
+
+
+def write_service_results(
+    service_result: ServiceResult,
+    spectra: Spectra,
+    config: PeakFitConfig,
+    input_paths: dict[str, Path],
+    reporter: Reporter | None = None,
+) -> None:
+    """Write outputs from a ServiceResult.
+
+    Args:
+        service_result: The fitting result to write
+        spectra: Spectra data for output
+        config: Configuration used for the fit
+        input_paths: Dictionary of input file paths
+        reporter: Optional reporter for progress updates
+    """
+    output_dir = service_result.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build results
+    builder = FitResultsBuilder()
+    builder.set_metadata(config=config.model_dump(), input_files=input_paths)
+    builder.set_spectra(spectra)
+    builder.add_cluster_from_state(service_result.state)
+    results = builder.build()
+
+    # Writer Configuration
+    try:
+        verbosity = Verbosity(config.output.verbosity)
+    except ValueError:
+        verbosity = Verbosity.STANDARD
+
+    writer_config = WriterConfig(
+        verbosity=verbosity,
+        formats=tuple(config.output.formats),
+        include_legacy=getattr(config.output, "include_legacy", False),
+        save_simulated=config.output.save_simulated,
+    )
+
+    writer = ResultsWriter(config=writer_config)
+
+    if reporter:
+        reporter.action("Writing outputs...")
+
+    writer.write_for_verbosity(results, output_dir, writer_config.verbosity)
+
+    if reporter:
+        reporter.success(f"Results written to [path]{format_path(output_dir)}[/path]")
+
+    # Simulations
+    writer.write_simulation(
+        output_dir,
+        spectra,
+        service_result.state.clusters,
+        service_result.state.scalar_params,
+        reporter,
+    )
+
+    # State
+    state_file = default_state_path(output_dir)
+    save_state(state_file, service_result.state)
+
+    # README
+    writer.write_readme(output_dir, service_result.summary)
+
+
+__all__ = [
+    "ClusterReview",
+    "LoadedData",
+    "ProgressStart",
+    "RunSummary",
+    "ServiceResult",
+    "find_review_clusters",
+    "load_data",
+    "run_fit",
+    "write_service_results",
+]

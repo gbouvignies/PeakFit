@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Complete module reorganization** for improved clarity and maintainability:
   - `peakfit.core.shared/` - Project-wide constants and typing aliases
   - `peakfit.core.domain/` - Core domain models (spectra, peaks, clusters, configs)
-  - `peakfit.lineshapes/` - All lineshape functions and models
+  - `peakfit.core.lineshapes/` - All lineshape functions and models
   - `peakfit.fitting/` - Fitting algorithms, parameters, and results
   - `peakfit.data/` - File readers and adapters around the domain layer
   - `peakfit.io/` - Input/output operations (including state persistence)
@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Old imports -> New imports:
 
-- `from peakfit.shapes import Gaussian` -> `from peakfit.lineshapes import Gaussian`
+- `from peakfit.shapes import Gaussian` -> `from peakfit.core.lineshapes import Gaussian`
 - `from peakfit.core.fitting import Parameters` -> `from peakfit.fitting import Parameters`
 - `from peakfit.clustering import Cluster` -> `from peakfit.core.domain import Cluster`
 - `from peakfit.spectra import Spectra` -> `from peakfit.core.domain import Spectra`

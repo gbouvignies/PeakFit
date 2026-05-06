@@ -8,27 +8,40 @@ repos:
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: check-toml
-      - id: debug-statements
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
-
-  - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
-    # The repository tags do not include a leading "v" prefix; use the available 1.24.0 tag.
-    rev: 1.24.0
-    hooks:
-      - id: basedpyright
+      # debug-statements is kept as a safety net (catches pdb/breakpoints)
 
   - repo: local
     hooks:
-      - id: validate-imports
-        name: Validate import architecture
-        # Use python3 explicitly so the hook works even when 'python' is not present in PATH
-        entry: python3 tools/validate_imports.py
+      - id: ruff
+        name: Ruff Check
+        # Uses config from pyproject.toml. --fix automatically corrects simple errors.
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+        require_serial: true
+
+      - id: ruff-format
+        name: Ruff Format
+        # Enforces the format defined in pyproject.toml (quotes, indentation, etc.)
+        entry: uv run ruff format
+        language: system
+        types: [python]
+        require_serial: true
+
+      - id: ty
+        name: ty
+        # Type checking with ty.
+        # pass_filenames: false -> Runs on the whole project.
+        # Since ty is extremely fast, checking the whole project is preferred
+        # to ensure no regression in files you didn't touch.
+        entry: uv run ty check
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: lint-imports
+        name: Import Linter
+        entry: uv run lint-imports
         language: system
         types: [python]
         pass_filenames: false

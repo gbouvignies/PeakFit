@@ -5,21 +5,45 @@ JSON output files. These serve as both documentation and validation
 for the output format.
 """
 
-from __future__ import annotations
-
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+import numpy as np
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from peakfit.engine.domain.cluster import Cluster
+from peakfit.engine.domain.peaks import Peak
+from peakfit.engine.types import Shape
+from peakfit.shared.typing import FloatArray, IntArray
 
 
-class OutputFormat(str, Enum):
+def _normalize_optional_std_error(value: Any) -> float | None:
+    """Normalize nullable/non-finite uncertainty values."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if cleaned.lower() in {"", "nan", "none", "null", "na", "n/a"}:
+            return None
+        value = cleaned
+
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError) as exc:
+        msg = "std_error must be numeric or null"
+        raise ValueError(msg) from exc
+
+    if not np.isfinite(numeric):
+        return None
+    return numeric
+
+
+class OutputFormat(StrEnum):
     """Supported output formats."""
 
     JSON = "json"
     CSV = "csv"
-    TXT = "txt"  # Legacy
     TOML = "toml"
     MARKDOWN = "markdown"
 
@@ -80,7 +104,7 @@ class RunMetadataSchema(BaseModel):
     command_line: str = Field(default="", description="Command line arguments")
     run_duration_seconds: float | None = Field(default=None)
 
-    model_config = {"extra": "allow"}
+    model_config = ConfigDict(extra="allow")
 
 
 # =============================================================================
@@ -93,7 +117,10 @@ class ParameterSchema(BaseModel):
 
     name: str = Field(description="Parameter identifier")
     value: float = Field(description="Best-fit value")
-    std_error: float = Field(description="Standard error (symmetric uncertainty)")
+    std_error: float | None = Field(
+        default=None,
+        description="Standard error (symmetric uncertainty), if available",
+    )
     unit: str = Field(default="", description="Physical unit")
     category: str = Field(
         default="lineshape",
@@ -112,6 +139,12 @@ class ParameterSchema(BaseModel):
     is_fixed: bool = Field(default=False, description="Whether parameter was fixed")
     is_global: bool = Field(default=False, description="Whether shared across clusters")
 
+    @field_validator("std_error", mode="before")
+    @classmethod
+    def normalize_std_error(cls, value: Any) -> float | None:
+        """Normalize nullable/non-finite uncertainty values."""
+        return _normalize_optional_std_error(value)
+
 
 class AmplitudeSchema(BaseModel):
     """Schema for an amplitude (intensity) value."""
@@ -120,8 +153,14 @@ class AmplitudeSchema(BaseModel):
     plane_index: int = Field(ge=0)
     z_value: float | None = Field(default=None, description="Z-dimension value")
     value: float
-    std_error: float
+    std_error: float | None = None
     ci_68: tuple[float, float] | None = Field(default=None)
+
+    @field_validator("std_error", mode="before")
+    @classmethod
+    def normalize_std_error(cls, value: Any) -> float | None:
+        """Normalize nullable/non-finite uncertainty values."""
+        return _normalize_optional_std_error(value)
 
 
 class CorrelationMatrixSchema(BaseModel):
@@ -136,9 +175,17 @@ class ClusterResultSchema(BaseModel):
 
     cluster_id: int
     peak_names: list[str]
-    lineshape_parameters: list[ParameterSchema]
+    lineshape_parameters: list[ParameterSchema] = Field(alias="parameters")
     amplitudes: list[AmplitudeSchema] = Field(default_factory=list)
     correlation: CorrelationMatrixSchema | None = Field(default=None)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ZAxisSchema(BaseModel):
+    """Schema for z-axis metadata."""
+
+    values: list[float]
 
 
 # =============================================================================
@@ -166,7 +213,7 @@ class FitStatisticsSchema(BaseModel):
     reduced_chi_squared: float
     n_data: int
     n_params: int
-    dof: int
+    dof: int | None = Field(default=None, alias="degrees_of_freedom")
     aic: float | None = Field(default=None, description="Akaike Information Criterion")
     bic: float | None = Field(default=None, description="Bayesian Information Criterion")
     log_likelihood: float | None = Field(default=None)
@@ -174,6 +221,8 @@ class FitStatisticsSchema(BaseModel):
     n_function_evals: int = Field(default=0)
     fit_message: str = Field(default="")
     residuals: ResidualStatsSchema | None = Field(default=None)
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class ModelComparisonSchema(BaseModel):
@@ -248,12 +297,14 @@ class FitSummarySchema(BaseModel):
     This aggregates all results from a fitting run.
     """
 
+    # Versioning
+    schema_version: str | None = Field(default=None)
+
     # Metadata
     metadata: RunMetadataSchema
 
     # Method
     method: str = Field(description="Fitting method used")
-    experiment_type: str = Field(default="", description="CPMG, CEST, R1, etc.")
 
     # Counts
     n_clusters: int
@@ -274,9 +325,9 @@ class FitSummarySchema(BaseModel):
 
     # Z-axis information
     z_values: list[float] | None = Field(default=None)
-    z_unit: str = Field(default="")
+    z_axis: ZAxisSchema | None = Field(default=None)
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
 
 # =============================================================================
@@ -302,7 +353,7 @@ PARAMETER_CSV_COLUMNS: list[CSVColumnDefinition] = [
     ),
     CSVColumnDefinition(
         name="peak_name",
-        description="Peak identifier from input peak list",
+        description="Peak identifier from input peak list (or cluster_N for shared params)",
         data_type="str",
     ),
     CSVColumnDefinition(
@@ -397,3 +448,117 @@ def get_csv_header_comment(columns: list[CSVColumnDefinition]) -> str:
         unit_str = f" ({col.unit})" if col.unit else ""
         lines.append(f"#   {col.name}: {col.description}{unit_str} [{col.data_type}]")
     return "\n".join(lines)
+
+
+# =============================================================================
+# Domain Object Schemas (Moved from core/domain)
+# =============================================================================
+
+
+class PeakSchema(BaseModel):
+    """Represents a single NMR peak (Schema for I/O)."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    name: str = Field(description="Unique identifier for the peak")
+    positions: FloatArray = Field(description="Peak positions in ppm [dim]")
+    shapes: list[Shape] = Field(description="List of Shape objects (one per dimension)")
+    positions_start: FloatArray | None = Field(
+        default=None, init=False, description="Initial positions copy"
+    )
+
+    @field_validator("positions", mode="before")
+    @classmethod
+    def ensure_float_array(cls, v: Any) -> Any:
+        """Convert list/tuple to ndarray before Pydantic validation."""
+        if isinstance(v, (list, tuple)):
+            return np.array(v, dtype=np.float64)
+        return v
+
+    @model_validator(mode="after")
+    def validate_and_init(self) -> PeakSchema:
+        """Validate shapes/positions consistency and initialize positions_start."""
+        if not isinstance(self.positions, np.ndarray):
+            self.positions = np.asarray(self.positions, dtype=np.float64)
+
+        if len(self.positions) != len(self.shapes):
+            msg = (
+                f"Peak '{self.name}': dimensionality mismatch - "
+                f"{len(self.positions)} positions but {len(self.shapes)} shapes"
+            )
+            raise ValueError(msg)
+
+        if self.positions_start is None:
+            self.positions_start = self.positions.copy()
+
+        return self
+
+    def to_domain(self) -> Peak:
+        """Convert this schema to a domain Peak entity."""
+        return Peak(
+            name=self.name,
+            positions=self.positions,
+            shapes=self.shapes,
+        )
+
+
+class ClusterSchema(BaseModel):
+    """Grouped peaks sharing a contiguous spectral segment (Schema for I/O)."""
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        extra="forbid",
+    )
+
+    cluster_id: int
+    peaks: list[PeakSchema] = Field(description="List of PeakSchema objects")
+    grid_indices: list[IntArray] = Field(
+        description="List of IntArray grid indices",
+    )
+    data: FloatArray = Field(description="Spectral data (FloatArray)")
+    corrections: FloatArray | None = Field(
+        default=None, init=False, description="Correction array (FloatArray)"
+    )
+
+    @field_validator("data", mode="before")
+    @classmethod
+    def ensure_float_array(cls, v: Any) -> Any:
+        """Convert list/tuple to ndarray before Pydantic validation."""
+        if isinstance(v, (list, tuple)):
+            return np.array(v, dtype=np.float64)
+        return v
+
+    @field_validator("grid_indices", mode="before")
+    @classmethod
+    def ensure_int_arrays(cls, v: Any) -> Any:
+        """Convert list of lists to list of ndarrays."""
+        if isinstance(v, (list, tuple)):
+            new_pos = []
+            for p in v:
+                new_pos.append(np.asarray(p, dtype=int))
+            return new_pos
+        return v
+
+    @model_validator(mode="after")
+    def validate_and_init(self) -> ClusterSchema:
+        """Validate consistency and initialize corrections."""
+        if not self.peaks:
+            msg = "Cluster must contain at least one peak"
+            raise ValueError(msg)
+
+        if not isinstance(self.data, np.ndarray):
+            self.data = np.asarray(self.data)
+
+        if self.corrections is None:
+            self.corrections = np.zeros_like(self.data)
+
+        return self
+
+    def to_domain(self) -> Cluster:
+        """Convert this schema to a domain Cluster entity."""
+        return Cluster(
+            cluster_id=self.cluster_id,
+            peaks=[peak.to_domain() for peak in self.peaks],
+            grid_indices=self.grid_indices,
+            data=self.data,
+        )

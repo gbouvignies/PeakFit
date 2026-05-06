@@ -1,12 +1,12 @@
 """Configuration file loading and saving."""
 
 import tomllib
-from collections.abc import Mapping
 from pathlib import Path
 
 import tomli_w
 
-from peakfit.core.domain.config import PeakFitConfig
+from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.io.utils import format_path
 
 
 def load_config(path: Path) -> PeakFitConfig:
@@ -15,17 +15,17 @@ def load_config(path: Path) -> PeakFitConfig:
     Args:
         path: Path to the TOML configuration file.
 
-    Returns
+    Returns:
     -------
         PeakFitConfig: Validated configuration object.
 
-    Raises
+    Raises:
     ------
         FileNotFoundError: If the file doesn't exist.
         ValueError: If the configuration is invalid.
     """
     if not path.exists():
-        msg = f"Configuration file not found: {path}"
+        msg = f"Configuration file not found: {format_path(path)}"
         raise FileNotFoundError(msg)
 
     with path.open("rb") as f:
@@ -41,32 +41,42 @@ def save_config(config: PeakFitConfig, path: Path) -> None:
         config: Configuration object to save.
         path: Path where to save the TOML file.
     """
-    data: dict[str, object] = config.model_dump(mode="json", exclude_none=True)
+    data = config.model_dump(mode="json", exclude_none=True)
 
-    # Convert Path objects to strings
-    def convert_paths(obj: object) -> object:
-        if isinstance(obj, dict):
-            return {k: convert_paths(v) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [convert_paths(v) for v in obj]
+    type TomlScalar = str | int | float | bool
+    type TomlValue = TomlScalar | list["TomlValue"] | dict[str, "TomlValue"]
+
+    def to_toml_value(obj: object) -> TomlValue:
         if isinstance(obj, Path):
             return str(obj)
-        return obj
+        if isinstance(obj, (str, int, float, bool)):
+            return obj
+        if isinstance(obj, list):
+            return [to_toml_value(v) for v in obj]
+        if isinstance(obj, dict):
+            out: dict[str, TomlValue] = {}
+            for k, v in obj.items():
+                if not isinstance(k, str):
+                    msg = f"TOML keys must be strings (got {type(k).__name__})"
+                    raise TypeError(msg)
+                out[k] = to_toml_value(v)
+            return out
+        msg = f"Unsupported value type for TOML serialization: {type(obj).__name__}"
+        raise TypeError(msg)
 
-    normalized = convert_paths(data)
-    if not isinstance(normalized, Mapping):
+    normalized = to_toml_value(data)
+    if not isinstance(normalized, dict):
         msg = "Serialized configuration must be a mapping"
         raise TypeError(msg)
 
     with path.open("wb") as f:
-        # `convert_paths` returns a Mapping[str, object] after validation above.
         tomli_w.dump(normalized, f)
 
 
 def generate_default_config() -> str:
     """Generate a default configuration file as a string.
 
-    Returns
+    Returns:
     -------
         str: TOML-formatted default configuration.
     """
@@ -86,9 +96,25 @@ tolerance = 1e-8
 contour_factor = 5.0
 # contour_level = 1000.0  # Uncomment to set explicit contour level
 
+[auto_peak]
+enabled = true
+start_threshold_sigma = 15.0
+add_threshold_sigma = 3.0
+f_test_pvalue = 1e-6
+max_clusters = 2000
+# max_peaks_per_roi = 12  # Optional hard cap per ROI (omit for no fixed limit)
+min_peak_separation_pts = 5
+position_window_ppm = 0.05
+max_nfev_per_fit = 250
+position_constraint_factor = 1.5
+max_constraint_refits = 3
+proton_constraint_margin_ppm = 0.002
+heteronuclear_constraint_margin_ppm = 0.02
+amplitude_zero_tolerance = 1e-12
+
 [output]
 directory = "Fits"
-formats = ["json", "csv", "txt"]
+formats = ["json", "csv"]
 save_simulated = true
 save_html_report = true
 headless = false

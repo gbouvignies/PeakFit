@@ -1,11 +1,6 @@
 """Main Typer application for PeakFit.
 
-This module provides a thin orchestration layer that:
-1. Creates the main Typer application
-2. Imports commands from the commands/ subpackage
-3. Registers commands and sub-applications
-
-Target: <150 LOC as per architecture refactoring plan.
+Thin orchestration layer that registers commands from the commands/ subpackage.
 """
 
 from typing import Annotated
@@ -13,17 +8,8 @@ from typing import Annotated
 import typer
 
 from peakfit.cli.callbacks import version_callback
-from peakfit.cli.commands import (
-    analyze_app,
-    benchmark_command,
-    fit_command,
-    info_command,
-    init_command,
-    plot_app,
-    validate_command,
-)
+from peakfit.cli.commands import fit_command, init_command, mcmc_command, plot_app
 
-# Create main application
 app = typer.Typer(
     name="peakfit",
     help="PeakFit - Lineshape fitting for pseudo-3D NMR spectra",
@@ -47,31 +33,20 @@ def main(
 ) -> None:
     """PeakFit - Modern lineshape fitting for pseudo-3D NMR spectra.
 
-    PeakFit provides a comprehensive workflow for analyzing pseudo-3D NMR relaxation
-    and dynamics data (e.g., CEST, CPMG, T1/T2).
+    Workflow:
+        1. peakfit fit spectrum.ft2 [peaks.list]   # Fit (auto-pick if omitted)
+        2. peakfit mcmc results/                   # Uncertainty estimation
+        3. peakfit plot cest results/              # Visualize
 
-    Key Features:
-    * **Fit**: Automated peak integration and lineshape analysis.
-    * **Analyze**: MCMC uncertainty estimation and profile likelihoods.
-    * **Plot**: Interactive visualization and publication-quality figures.
-    * **Validate**: Check input files before processing.
-
-    Get started:
-        $ peakfit init
-        $ peakfit fit spectrum.ft2 peaks.list
-
-    For detailed help on a command:
-        $ peakfit fit --help
+    For help on any command:
+        peakfit <command> --help
     """
 
 
-# Register commands
+# Top-level commands
 app.command(name="fit")(fit_command)
-app.command(name="validate")(validate_command)
+app.command(name="mcmc")(mcmc_command)
 app.command(name="init")(init_command)
-app.command(name="info")(info_command)
-app.command(name="benchmark")(benchmark_command)
 
-# Register sub-applications
-app.add_typer(analyze_app, name="analyze")
+# Sub-applications
 app.add_typer(plot_app, name="plot")

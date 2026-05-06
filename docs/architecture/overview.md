@@ -1,40 +1,48 @@
 # PeakFit Architecture Overview
 
-This document summarizes the layered architecture and the critical fitting path.
+## Vertical Slice Model
 
-## Layering and allowed imports
-- CLI → Services (only)
-- Services → Core, IO, UI, Plotting
-- Core → Domain, Algorithms, Lineshapes, Fitting; must NOT import UI or Services
-- IO → Config/State/Writers; must NOT import UI
-- Plotting/UI → Presentation only (never imported by Core)
+PeakFit is organized by feature slices on top of a minimal computation engine.
 
-ASCII map:
+```mermaid
+graph TD
+    CLI[CLI (Typer + Rich)] --> Fit
+    CLI --> MCMC
+    CLI --> Plot
+    Fit --> Engine
+    Fit --> IO
+    Fit --> Shared
+    MCMC --> Engine
+    MCMC --> IO
+    MCMC --> Shared
+    Plot --> Engine
+    Plot --> IO
+    Plot --> Shared
+    Engine --> Shared
+    IO --> Shared
+```
 
-CLI → Services → Core → (Domain, Algorithms, Lineshapes, Fitting)
-             ├────────→ IO (config/state/writers)
-             └────────→ UI/Plotting (rendering only)
+### Key Decisions
 
-See also:
-- Output system details: `docs/architecture/output_architecture.md`
+1. **Minimal engine**
+   - `peakfit.engine` contains pure computation only.
+   - No UI dependencies, no file I/O, no side effects.
 
-## Critical path (fit workflow)
-1. CLI: `peakfit/cli/commands/fit.py`
-2. Services: `services/fit/pipeline.FitPipeline.run/_run_fit`
-3. Core setup: domain IO (`core/domain/{spectrum,peaks_io}.py`), clustering/noise (`core/algorithms`), parameter creation
-4. Optimization orchestration: `services/fit/fitting.fit_all_clusters` → `core/fitting/strategies.get_strategy`
-5. Numerics: `core/fitting/computation.py`, `core/fitting/optimizer.py` (VarPro), `core/domain/peaks.py` (evaluate + derivatives)
-6. Results & output: `core/results/*`, `io/writers/*`, UI events via `ui/*`
+2. **Feature slices own orchestration**
+   - `fit`, `mcmc`, and `plot` orchestrate workflows and adapt data to user-facing outputs.
+   - Slices do not import each other directly.
 
-## Strategy options (available)
-- Default: `varpro`
-- Alternatives: `leastsq`, `basin_hopping`, `differential_evolution`, `mcmc`
-- Protocol (optional): global warm‑start (BH/DE/MCMC) → local refine (VarPro)
+3. **Single install path**
+   - Dependencies for Rich and Qt/Matplotlib are mandatory.
+   - No optional extras are required for core features.
 
-## Parallelism & determinism
-- Parallel cluster fitting via services; NumPy threads managed by `threadpoolctl`
-- For global/MCMC strategies: set seeds and iteration/time budgets for reproducibility
+4. **Validation is mandatory**
+   - Input validation runs at the beginning of every fit.
+   - There is no standalone `check` CLI command.
 
-## Exception & logging guidance (to be introduced)
-- Small exception taxonomy in `core/shared/exceptions.py`
-- Core uses `logging`; Services/UI handle rich rendering
+## Critical Path (Fit Workflow)
+
+1. **CLI** builds config and routes to `peakfit.fit`.
+2. **Fit slice** validates inputs, loads spectra and peaks, and constructs clusters.
+3. **Engine** executes optimization and produces fit results.
+4. **Fit slice** writes outputs via `peakfit.io` writers.

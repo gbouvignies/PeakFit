@@ -3,281 +3,204 @@ name = "peakfit"
 version = "2025.11.0"
 description = "Lineshape fitting for pseudo-ND NMR spectra"
 readme = "README.md"
-requires-python = ">=3.13"
-license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.14"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 authors = [
-  { name = "Guillaume Bouvignies", email = "guillaume.bouvignies@ens.psl.eu" },
+  { name = "Guillaume Bouvignies", email = "guillaume.bouvignies@ens.psl.eu" }
 ]
-keywords = [
-  "NMR",
-  "chemical-exchange",
-  "fitting",
-  "lineshape",
-  "relaxation-dispersion",
-  "spectroscopy",
-]
+keywords = ["NMR", "fitting", "spectroscopy"]  # Shortened list for brevity
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
-  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.13",
-  "Topic :: Scientific/Engineering :: Chemistry",
-  "Topic :: Scientific/Engineering :: Physics",
+  "Programming Language :: Python :: 3.14",
   "Typing :: Typed",
 ]
 dependencies = [
-  "PyYAML>=6.0",
   "emcee>=3.1.6",
-  "joblib>=1.4.0",
-  "matplotlib>=3.9.0",
-  "networkx>=3.3",
-  "nmrglue>=0.10",
-  "numpy>=2.2.0",
-  "pandas>=2.2.2",
+  "h5py>=3.15.1",
+  "matplotlib>=3.10.8",
+  "nmrglue>=0.11",
+  "numpy>=2.4.0",
+  "pandas>=3.0.0",
   "pydantic>=2.5.0",
-  "pyqt5>=5.15.11",
+  "pyside6>=6.6.0",
   "rich>=13.7.1",
-  "scipy>=1.13.1",
-  "scipy-stubs==1.16.3.2",
+  "scipy>=1.17.0",
   "threadpoolctl>=3.0.0",
   "tomli-w>=1.0.0",
   "typer>=0.9.0",
 ]
 
 [project.urls]
-Documentation = "https://github.com/gbouvignies/peakfit#readme"
-Homepage = "https://github.com/gbouvignies/peakfit"
-Issues = "https://github.com/gbouvignies/peakfit/issues"
 Repository = "https://github.com/gbouvignies/peakfit"
 
 [project.scripts]
 peakfit = "peakfit.cli.app:app"
 
-[project.optional-dependencies]
-all = [
-  "peakfit[dev,mcmc,profiling]",
-]
+# Development tools managed by `uv sync` / `uv run`
+[dependency-groups]
 dev = [
-  "basedpyright>=1.20.0",
-  "ruff>=0.8.0",
+  "import-linter>=2.0",
+  "pre-commit>=4.0.0",
   "pytest>=8.3.0",
   "pytest-cov>=6.0.0",
   "pytest-timeout>=2.2.0",
   "pytest-xdist>=3.6.0",
-  "pre-commit>=4.0.0",
+  "ruff>=0.8.0",
+  "ty>=0.0.11",
+  "types-pyyaml>=6.0.0",
 ]
-mcmc = [
-  "corner>=2.2.0",
-]
-profiling = [
-  "pyinstrument>=4.0.0",
-  "scalene>=1.2.0",
-  "py-spy>=0.3.9",
-  "snakeviz>=2.1.0",
-  "gprof2dot>=2021.8.3",
-  "memory_profiler>=0.61.0",
-]
-
-[dependency-groups]
-dev = [
-  "vulture>=2.14",
-]
-
-# ============================================================
-# PYTEST
-# ============================================================
 
 [build-system]
-requires = ["uv_build>=0.9.10,<0.10.0"]
+requires = ["uv_build>=0.5.0"]
 build-backend = "uv_build"
 
-# ============================================================
-# BASEDPYRIGHT: STRICT TYPE CHECKING
-# ============================================================
-
-[tool.basedpyright]
-pythonVersion = "3.13"
-pythonPlatform = "All"
-typeCheckingMode = "standard"  # Use "strict" when ready
-venvPath = "."
-venv = ".venv"
-include = ["src"]
-exclude = [
-  "**/__pycache__",
-  ".venv",
-  "build",
-  "dist",
-]
-# Gradual strictness - enable more as codebase improves
-reportMissingImports = true
-reportMissingTypeStubs = false
-reportUnusedImport = true
-reportUnusedVariable = true
-reportUnusedFunction = true
-reportDuplicateImport = true
-# Scientific computing: relax some rules
-reportUnknownMemberType = false  # numpy/scipy return complex types
-reportUnknownVariableType = false  # same
-reportUnknownArgumentType = false  # same
-reportAny = false  # too strict for scientific code
-
-# ============================================================
-# RUFF: LINTING & FORMATTING
-# ============================================================
-
-[tool.coverage.run]
-source = ["src/peakfit"]
-branch = true
-omit = ["*/tests/*", "*/__pycache__/*"]
+# --- Tool Configurations ---
 
 [tool.coverage.report]
 precision = 2
 show_missing = true
+skip_covered = true
 exclude_lines = [
+  # --- Standard ---
   "pragma: no cover",
   "if TYPE_CHECKING:",
   "@overload",
-  "raise NotImplementedError",
   "@abstractmethod",
   'if __name__ == "__main__":',
+  # --- Scientific / Architecture Specific ---
+  "raise NotImplementedError",  # Common in abstract base classes
+  "\\.\\.\\.",  # Regex for "..." (Ellipsis)
 ]
 
-[tool.pytest.ini_options]
-minversion = "8.0"
-testpaths = ["tests"]
-pythonpath = ["src"]
-addopts = [
-  "-ra",
-  "--strict-markers",
-  "--strict-config",
-  "--tb=short",
-  "--cov=peakfit",
-  "--cov-report=term-missing:skip-covered",
-  "--cov-branch",
+[tool.importlinter]
+root_package = "peakfit"
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Layering"
+type = "layers"
+layers = [
+  "__main__",
+  "cli",
+  "ui",
+  "fit",
+  "mcmc",
+  "plot",
+  "io",
+  "engine",
+  "shared"
 ]
-markers = [
-  "slow: marks tests as slow",
-  "mcmc: tests requiring emcee",
-  "gui: tests requiring PyQt5",
+containers = ["peakfit"]
+exhaustive = true
+
+[[tool.importlinter.contracts]]
+name = "Independence: Modules"
+type = "acyclic_siblings"
+ancestors = [
+  "peakfit.engine",
+  "peakfit.fit",
+  "peakfit.io",
+  "peakfit.mcmc",
+  "peakfit.plot",
+  "peakfit.shared",
+  "peakfit.ui"
 ]
+
+[tool.pytest]
+addopts = ["--strict-config", "--strict-markers", "-ra"]
 filterwarnings = [
   "error",
   "ignore::DeprecationWarning:nmrglue.*",
   "ignore::FutureWarning:numpy.*",
 ]
-timeout = 300
-
-# ============================================================
-# COVERAGE
-# ============================================================
+markers = [
+  "gui: tests requiring PySide6",
+  "mcmc: tests requiring emcee",
+  "slow: marks tests as slow",
+]
+minversion = "9.0"
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py313"
-src = ["src"]
-extend-exclude = [".venv", "build", "dist"]
 
 [tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
 docstring-code-format = true
 
 [tool.ruff.lint]
+# Selected high-value rules.
+# Defaults (E, F) + Imports (I) + Upgrades (UP) + Bugbear (B) + Numpy (NPY) + TypeCheck (TC)
 select = [
-  "E",  # pycodestyle errors
-  "W",  # pycodestyle warnings
-  "F",  # pyflakes
-  "I",  # isort
-  "N",  # pep8-naming
-  "UP",  # pyupgrade
-  "B",  # flake8-bugbear
-  "C4",  # flake8-comprehensions
-  "SIM",  # flake8-simplify
-  "PTH",  # flake8-use-pathlib
-  "PERF",  # performance anti-patterns
-  "RUF",  # ruff-specific
-  "D",  # pydocstyle
-  "NPY",  # numpy-specific
-  "TC",  # type-checking imports
+  "E",
+  "W",
+  "F",
+  "I",
+  "N",
+  "UP",
+  "B",
+  "C4",
+  "SIM",
+  "PTH",
+  "PL",
+  "RUF",
+  "D",
+  "NPY",
+  "TC"
 ]
 ignore = [
-  # Line length handled by formatter
-  "E501",
-  # Scientific computing pragmatism
-  "PLR0913",  # too-many-arguments
-  "PLR2004",  # magic-value-comparison (physical constants)
-  # Docstring flexibility
-  "D100",  # undocumented-public-module
-  "D104",  # undocumented-public-package
-  "D107",  # undocumented-public-init
-  # Unicode in scientific context (δ, ν, Δ, etc.)
+  "D100",
+  "D104",
+  "D107",  # Missing docstrings in public modules/init (optional)
+  "PLR0913",  # Too many arguments
   "RUF001",
   "RUF002",
-  "RUF003",
+  "RUF003",  # Unicode (Greek letters)
 ]
-
-[tool.ruff.lint.isort]
-known-first-party = ["peakfit"]
-section-order = [
-  "future",
-  "standard-library",
-  "third-party",
-  "scientific",
-  "first-party",
-  "local-folder"
-]
-
-[tool.ruff.lint.isort.sections]
-scientific = ["numpy", "scipy", "pandas", "matplotlib", "nmrglue"]
 
 [tool.ruff.lint.pydocstyle]
-convention = "numpy"
+convention = "google"
 
-[tool.ruff.lint.flake8-type-checking]
-# Pydantic models need these imports at runtime for validation
-runtime-evaluated-base-classes = [
-  "pydantic.BaseModel",
-]
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow relative imports from parent directories (e.g. from ..utils import x)
+# This forces you to use 'from peakfit.core.utils import x', making architecture clear.
+ban-relative-imports = "parents"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*" = ["S101", "D", "PLR2004", "ARG"]
-"src/peakfit/cli/**/*" = ["T20", "BLE001"]
-"src/peakfit/__init__.py" = ["F401", "E402"]
-
-# ============================================================
-# MYPY: STATIC TYPE CHECKING
-# ============================================================
-
-[tool.mypy]
-python_version = "3.13"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-
-[[tool.mypy.overrides]]
-module = [
-    "scipy.*",
-    "numpy.*",
-    "pandas.*",
-    "matplotlib.*",
-    "nmrglue.*",
-    "joblib.*",
-    "networkx.*",
-    "emcee.*",
-    "corner.*",
-    "rich.*",
-    "typer.*",
-    "PyQt5.*",
-    "threadpoolctl.*",
+"tests/**/*" = [
+  "S101",  # Allow 'assert' (Mandatory for pytest)
+  "D",  # Documentation not needed in tests
+  "PLR2004",  # Allow magic values in tests (assert x == 5)
+  "ARG",  # Unused arguments are common in pytest fixtures
 ]
-ignore_missing_imports = true
+"src/peakfit/cli/**/*" = ["T201"]  # Allow print() in the CLI
+"tools/**/*" = ["T201", "D"]  # Scripts can print and don't need docs
+"src/peakfit/engine/domain/cluster.py" = ["TC001"]
+"src/peakfit/fit/auto_pick.py" = ["PLR0912", "PLR0915"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+runtime-evaluated-decorators = [
+  "pydantic.validate_call",
+  "pydantic.field_validator",
+  "pydantic.model_validator",
+]
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = [
+  # Allow Pydantic's `@validator` decorator to trigger class method treatment.
+  "pydantic.validator",
+  "pydantic.field_validator",
+]
+
+[tool.ruff.lint.flake8-boolean-trap]
+extend-allowed-calls = ["pydantic.Field"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["pydantic.Field"]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
