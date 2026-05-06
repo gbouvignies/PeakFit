@@ -1,7 +1,5 @@
 """Init command implementation."""
 
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Annotated
 
@@ -10,12 +8,13 @@ import typer
 from peakfit.io.config import generate_default_config
 from peakfit.ui import (
     Verbosity,
-    console,
+    bullet,
+    display_path,
     error,
     info,
     print_next_steps,
     set_verbosity,
-    show_standard_header,
+    show_command_manifest,
     success,
 )
 
@@ -51,7 +50,7 @@ def init_command(
     Creates a TOML configuration file with default settings that can be customized.
     All parameters are documented with inline comments explaining their purpose.
 
-    Examples
+    Examples:
     --------
     Create default config:
         $ peakfit init
@@ -64,10 +63,21 @@ def init_command(
     """
     # Set verbosity and show header
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
-    show_standard_header("Configuration Initialization")
+    show_command_manifest(
+        "Configuration Initialization",
+        sections=[
+            (
+                "Configuration",
+                {
+                    "Target file": display_path(path),
+                    "Overwrite": "Yes" if force else "No",
+                },
+            )
+        ],
+    )
 
     if path.exists() and not force:
-        error(f"File already exists: [path]{path}[/path]")
+        error(f"File already exists: [path]{display_path(path)}[/path]")
         info("Use [code]--force[/code] to overwrite")
         raise typer.Exit(1)
 
@@ -75,19 +85,22 @@ def init_command(
     path.write_text(config_content)
 
     # Enhanced success message with details
-    success(f"Created configuration file: [path]{path}[/path]")
+    success(f"Created configuration file: [path]{display_path(path)}[/path]")
 
-    console.print("\n[bold cyan]📄 Configuration includes:[/]")
-    console.print("  • [green]Fitting parameters[/] (optimizer, lineshape, tolerances)")
-    console.print("  • [green]Clustering settings[/] (algorithm, thresholds)")
-    console.print("  • [green]Output preferences[/] (formats, directories)")
-    console.print("  • [green]Advanced options[/] (backends)")
+    info("Configuration includes:")
+    bullet("[value]Fitting parameters[/value] (optimizer, lineshape, tolerances)")
+    bullet("[value]Clustering settings[/value] (algorithm, thresholds)")
+    bullet("[value]Output preferences[/value] (formats, directories)")
+    bullet("[value]Advanced options[/value] (backends)")
 
     # Suggest next steps
     print_next_steps(
         [
-            f"Review and customize: [cyan]{path}[/]",
-            f"Run fitting: [cyan]peakfit fit spectrum.ft2 peaks.list --config {path}[/]",
-            "Documentation: [cyan]https://github.com/gbouvignies/PeakFit[/]",
+            f"Review and customize: [path]{display_path(path)}[/path]",
+            (
+                "Run fitting: [code]peakfit fit spectrum.ft2 [peaks.list] --config "
+                f"{display_path(path)}[/code]"
+            ),
+            "Documentation: [url]https://github.com/gbouvignies/PeakFit[/url]",
         ]
     )

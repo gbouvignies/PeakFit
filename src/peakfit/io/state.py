@@ -5,65 +5,37 @@ from __future__ import annotations
 import pickle
 from typing import TYPE_CHECKING
 
+from peakfit.engine.domain.state import FittingState
+
 if TYPE_CHECKING:
     from pathlib import Path
 
-from peakfit.core.domain.state import FittingState
-
-# State file location: cache/state.pkl (no hidden files)
-STATE_SUBDIR = "cache"
-STATE_FILENAME = "state.pkl"
+# State file location: metadata/fitting_state.pkl
+STATE_SUBDIR = "metadata"
+STATE_FILENAME = "fitting_state.pkl"
 
 
-class StateRepository:
-    """Infrastructure boundary for saving/loading fitting state blobs."""
+def default_state_path(results_dir: Path) -> Path:
+    """Return the conventional state-file path under a results directory.
 
-    subdir: str = STATE_SUBDIR
-    filename: str = STATE_FILENAME
+    Returns: results_dir/metadata/fitting_state.pkl
+    """
+    return results_dir / STATE_SUBDIR / STATE_FILENAME
 
-    @classmethod
-    def default_path(cls, results_dir: Path) -> Path:
-        """Return the conventional state-file path under a results directory.
 
-        Returns: results_dir/cache/state.pkl
-        """
-        return results_dir / cls.subdir / cls.filename
+def save_state(path: Path, state: FittingState) -> Path:
+    """Serialize the fitting state to *path* and return it."""
+    payload = state.model_dump()
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    @classmethod
-    def find_state_file(cls, results_dir: Path) -> Path | None:
-        """Find state file, checking new location first then legacy.
+    with path.open("wb") as fh:
+        pickle.dump(payload, fh)
 
-        Args:
-            results_dir: Results directory to search
+    return path
 
-        Returns
-        -------
-            Path to state file if found, None otherwise
-        """
-        new_path = cls.default_path(results_dir)
-        return new_path if new_path.exists() else None
 
-    @classmethod
-    def save(cls, path: Path, state: FittingState) -> Path:
-        """Serialize the fitting state to *path* and return it."""
-        payload = state.to_payload()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        cls._write(path, payload)
-        return path
-
-    @classmethod
-    def load(cls, path: Path) -> FittingState:
-        """Load a serialized fitting state from disk."""
-        payload = cls._read(path)
-        return FittingState.from_payload(payload)
-
-    @staticmethod
-    def _write(path: Path, state: dict[str, object]) -> None:
-        with path.open("wb") as fh:
-            pickle.dump(state, fh)
-
-    @staticmethod
-    def _read(path: Path) -> dict[str, object]:
-        with path.open("rb") as fh:
-            payload: dict[str, object] = pickle.load(fh)
-            return payload
+def load_state(path: Path) -> FittingState:
+    """Load a serialized fitting state from *path*."""
+    with path.open("rb") as fh:
+        payload = pickle.load(fh)
+    return FittingState.model_validate(payload)

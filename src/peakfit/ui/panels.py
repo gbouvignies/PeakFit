@@ -4,8 +4,6 @@ This module provides functions for creating and displaying Rich panels
 with consistent styling across the application.
 """
 
-from __future__ import annotations
-
 from rich import box
 from rich.panel import Panel
 
@@ -29,7 +27,7 @@ def create_panel(
         title: Optional panel title
         style: Border style (info, success, warning, error)
 
-    Returns
+    Returns:
     -------
         Configured Panel instance
     """

@@ -1,26 +1,24 @@
-# PeakFit Configuration File for CEST Analysis Example
-# This configuration works with the pseudo3d.ft2 example data
+# Config-driven workflow for Example 2.
+# This writes a stable, non-timestamped output directory.
+
+exclude_planes = []
 
 [fitting]
-lineshape = "auto"  # Automatically detect from NMRPipe apodization
-refine_iterations = 1  # Number of cross-talk correction cycles
-fix_positions = false  # Allow peak positions to vary
+lineshape = "auto"
+strategy_name = "varpro"
+refine_iterations = 1
+fix_positions = false
 fit_j_coupling = false
-fit_phase_x = false
-fit_phase_y = false
-max_iterations = 1000
-tolerance = 1e-8
+fit_phase = []
 
 [clustering]
-contour_factor = 5.0  # Contour level = 5.0 * noise level
-# contour_level = 1000.0  # Uncomment to set explicit contour level
+contour_factor = 5.0
 
 [output]
-directory = "Fits"
-formats = ["txt"]
-save_simulated = true
-save_html_report = true
-
-# Optional: exclude specific planes
-exclude_planes = []
-# exclude_planes = [0, 127]  # Exclude first and last planes if noisy
+directory = "Fits-config"
+formats = ["json", "csv", "txt"]
+verbosity = "standard"
+include_timestamp = false
+headless = true
+save_simulated = false
+save_html_report = false

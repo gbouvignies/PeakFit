@@ -1,17 +1,23 @@
 """Logging configuration for PeakFit UI."""
 
-from __future__ import annotations
-
+import json
 import logging
 import sys
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from rich.logging import RichHandler
 
-from peakfit.ui.console import VERSION, console
+from peakfit.ui.console import VERSION, console, display_path
 
-# Module-level logger (configured by setup_logging)
-_logger: logging.Logger | None = None
+
+@dataclass
+class _LoggingState:
+    logger: logging.Logger | None = None
+
+
+_logging_state = _LoggingState()
 
 
 class JSONFormatter(logging.Formatter):
@@ -19,9 +25,6 @@ class JSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON."""
-        import json
-        from datetime import datetime
-
         log_record = {
             "timestamp": datetime.fromtimestamp(record.created).isoformat(),
             "level": record.levelname,
@@ -44,26 +47,24 @@ def setup_logging(
     level: int = logging.INFO,
 ) -> None:
     """Configure logging for PeakFit."""
-    global _logger
-
     if log_file is None:
-        _logger = None
+        _logging_state.logger = None
         return
 
     # Create log directory if needed
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Configure logger
-    _logger = logging.getLogger("peakfit")
-    _logger.setLevel(level)
-    _logger.handlers.clear()
+    logger = logging.getLogger("peakfit")
+    logger.setLevel(level)
+    logger.handlers.clear()
 
     # File handler with structured format
     file_handler = logging.FileHandler(log_file, mode="w")
     file_handler.setLevel(level)
 
     if log_file.suffix == ".json":
-        file_formatter = JSONFormatter()
+        file_formatter: logging.Formatter = JSONFormatter()
     else:
         file_formatter = logging.Formatter(
             "%(asctime)s | %(levelname)-5s | %(message)s",
@@ -71,7 +72,7 @@ def setup_logging(
         )
 
     file_handler.setFormatter(file_formatter)
-    _logger.addHandler(file_handler)
+    logger.addHandler(file_handler)
 
     # Console handler (only if verbose)
     if verbose:
@@ -82,21 +83,24 @@ def setup_logging(
             markup=True,
         )
         console_handler.setLevel(level)
-        _logger.addHandler(console_handler)
+        logger.addHandler(console_handler)
+
+    _logging_state.logger = logger
 
     # Log session start
-    _logger.info("━" * 60)
-    _logger.info(f"PeakFit v{VERSION} - Session Started")
-    _logger.info("━" * 60)
-    _logger.info(f"Command: {' '.join(sys.argv)}")
-    _logger.info(f"Working directory: {Path.cwd()}")
-    _logger.info(f"Python: {sys.version.split()[0]} | Platform: {sys.platform}")
-    _logger.info("")
+    logger.info("━" * 60)
+    logger.info(f"PeakFit v{VERSION} - Session Started")
+    logger.info("━" * 60)
+    logger.info(f"Command: {' '.join(sys.argv)}")
+    logger.info(f"Working directory: {display_path(Path.cwd())}")
+    logger.info(f"Python: {sys.version.split()[0]} | Platform: {sys.platform}")
+    logger.info("")
 
 
 def log(message: str, level: str = "info") -> None:
     """Log a message to file (if logging is enabled)."""
-    if _logger is None:
+    logger = _logging_state.logger
+    if logger is None:
         return
 
     level_map = {
@@ -108,41 +112,46 @@ def log(message: str, level: str = "info") -> None:
     }
 
     log_level = level_map.get(level.lower(), logging.INFO)
-    _logger.log(log_level, message)
+    logger.log(log_level, message)
 
 
 def log_section(title: str) -> None:
     """Log a section header."""
-    if _logger is None:
+    logger = _logging_state.logger
+    if logger is None:
         return
 
-    _logger.info("")
-    _logger.info(f"=== {title.upper()} ===")
+    logger.info("")
+    logger.info(f"=== {title.upper()} ===")
 
 
 def log_dict(data: dict[str, object], indent: str = "  ") -> None:
     """Log a dictionary as key-value pairs."""
-    if _logger is None:
+    logger = _logging_state.logger
+    if logger is None:
         return
 
     for key, value in data.items():
-        _logger.info(f"{indent}- {key}: {value}")
+        logger.info(f"{indent}- {key}: {value}")
 
 
 def close_logging() -> None:
     """Close logging and finalize log file."""
-    if _logger is None:
+    logger = _logging_state.logger
+    if logger is None:
         return
 
-    _logger.info("")
-    _logger.info("━" * 60)
-    _logger.info("PeakFit Session Completed Successfully")
-    _logger.info("━" * 60)
+    logger.info("")
+    logger.info("━" * 60)
+    logger.info("PeakFit Session Completed Successfully")
+    logger.info("━" * 60)
 
     # Close all handlers
-    for handler in _logger.handlers[:]:
+    for handler in logger.handlers[:]:
         handler.close()
-        _logger.removeHandler(handler)
+        logger.removeHandler(handler)
+
+    _logging_state.logger = None
 
 
 __all__ = [

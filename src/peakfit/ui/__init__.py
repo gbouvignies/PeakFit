@@ -10,22 +10,14 @@ Submodules:
 - tables: Table display utilities
 - panels: Panel display utilities
 - progress: Progress bar utilities
-- fit_display: HTML export utility
-- cluster_status: Live cluster fitting status display
+- panels: Panel display utilities
+- progress: Progress bar utilities
 """
 
 from peakfit.ui.branding import (
-    show_banner,
-    show_run_info,
+    show_command_manifest,
     show_standard_header,
     show_version,
-)
-
-# Re-export submodule contents for direct access
-from peakfit.ui.cluster_status import (
-    ClusterState,
-    ClusterStatus,
-    LiveClusterDisplay,
 )
 from peakfit.ui.console import (
     LOGO_ASCII,
@@ -34,12 +26,13 @@ from peakfit.ui.console import (
     VERSION,
     Verbosity,
     console,
-    icon,
-    hr,
+    display_path,
+    export_html,
     get_verbosity,
+    hr,
+    icon,
     set_verbosity,
 )
-from peakfit.ui.fit_display import export_html
 from peakfit.ui.logging import close_logging, log, log_dict, log_section, setup_logging
 from peakfit.ui.messages import (
     action,
@@ -59,9 +52,11 @@ from peakfit.ui.messages import (
     warning,
 )
 from peakfit.ui.panels import create_panel, print_panel
-from peakfit.ui.progress import create_progress
+from peakfit.ui.progress import create_mcmc_progress, create_progress
 from peakfit.ui.reporter import ConsoleReporter
 from peakfit.ui.tables import (
+    create_live_metrics_table,
+    create_metadata_grid,
     create_table,
     print_summary,
     print_validation_table,
@@ -72,23 +67,24 @@ __all__ = [
     "PEAKFIT_THEME",
     "REPO_URL",
     "VERSION",
-    "ClusterState",
-    "ClusterStatus",
     "ConsoleReporter",
-    "LiveClusterDisplay",
     "Verbosity",
     "action",
     "bullet",
     "close_logging",
     "console",
-    "icon",
-    "hr",
+    "create_live_metrics_table",
+    "create_mcmc_progress",
+    "create_metadata_grid",
     "create_panel",
     "create_progress",
     "create_table",
+    "display_path",
     "error",
     "export_html",
     "get_verbosity",
+    "hr",
+    "icon",
     "info",
     "log",
     "log_dict",
@@ -100,12 +96,11 @@ __all__ = [
     "separator",
     "set_verbosity",
     "setup_logging",
-    "show_banner",
+    "show_command_manifest",
     "show_error_with_details",
     "show_file_not_found",
     "show_footer",
     "show_header",
-    "show_run_info",
     "show_standard_header",
     "show_subheader",
     "show_version",

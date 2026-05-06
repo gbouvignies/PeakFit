@@ -5,9 +5,8 @@ styling system for rich console output. It adapts the Reporter protocol
 to the existing UI infrastructure.
 """
 
-from __future__ import annotations
-
-from peakfit.core.shared.reporter import Reporter
+from peakfit.shared.reporter import Reporter
+from peakfit.ui import Verbosity, get_verbosity
 from peakfit.ui.messages import action, error, info, success, warning
 
 
@@ -30,7 +29,8 @@ class ConsoleReporter:
         Args:
             message: Action being performed
         """
-        action(message)
+        if get_verbosity() >= Verbosity.NORMAL:
+            action(message)
 
     def info(self, message: str) -> None:
         """Display an informational message.
@@ -38,7 +38,8 @@ class ConsoleReporter:
         Args:
             message: Informational message
         """
-        info(message)
+        if get_verbosity() >= Verbosity.NORMAL:
+            info(message)
 
     def warning(self, message: str) -> None:
         """Display a warning message.
@@ -46,7 +47,8 @@ class ConsoleReporter:
         Args:
             message: Warning message
         """
-        warning(message)
+        if get_verbosity() >= Verbosity.QUIET:
+            warning(message)
 
     def error(self, message: str) -> None:
         """Display an error message.
@@ -54,7 +56,8 @@ class ConsoleReporter:
         Args:
             message: Error message
         """
-        error(message)
+        if get_verbosity() >= Verbosity.QUIET:
+            error(message)
 
     def success(self, message: str) -> None:
         """Display a success message.
@@ -62,7 +65,8 @@ class ConsoleReporter:
         Args:
             message: Success message
         """
-        success(message)
+        if get_verbosity() >= Verbosity.NORMAL:
+            success(message)
 
 
 # Verify protocol compliance at import time

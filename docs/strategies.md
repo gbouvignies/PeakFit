@@ -1,42 +1,37 @@
-# Optimizers and Protocols
+# Optimization Strategies
 
-## Available strategies
-- `varpro` (default): variable projection with analytical Jacobians where available
-- `leastsq`: SciPy `least_squares`
-- `basin_hopping`: global search warm‑start
-- `differential_evolution`: global search warm‑start
-- `mcmc`: posterior exploration and uncertainty estimation (requires `emcee`)
+PeakFit exposes the optimizer choice via the CLI `--optimizer` flag. The current
+pipeline supports the following strategies:
 
-## Choosing a strategy
-CLI examples:
+## Available Strategies
+
+- `varpro` (default)
+  - Variable projection with analytical Jacobian and `scipy.optimize.least_squares`.
+  - Fast and robust for most datasets.
+
+- `basin_hopping`
+  - Global search warm‑start followed by local refinement.
+  - Useful when initial guesses are poor or peaks overlap heavily.
+
+- `differential_evolution`
+  - Global optimizer for difficult landscapes.
+  - Significantly slower; use when other strategies fail.
+
+## CLI Examples
 
 ```bash
-peakfit fit --optimizer varpro  # default
-peakfit fit --optimizer basin_hopping
-peakfit fit --optimizer differential_evolution
-peakfit fit --optimizer leastsq
-peakfit fit --optimizer mcmc
+peakfit fit spectrum.ft2 peaks.list --optimizer varpro
+peakfit fit spectrum.ft2 peaks.list --optimizer basin_hopping
+peakfit fit spectrum.ft2 peaks.list --optimizer differential_evolution
 ```
 
-YAML config snippet:
+## Choosing a Strategy
 
-```yaml
-fit:
-  optimizer: basin_hopping
-  optimizer_params:
-    n_iterations: 50
-    temperature: 1.0
-    step_size: 0.5
-    seed: 1234
-```
+- Start with `varpro` for speed and stability.
+- Switch to `basin_hopping` when fits diverge or local minima are common.
+- Use `differential_evolution` only as a last resort for extremely difficult cases.
 
-## Recommended defaults (configurable)
-- Basin hopping: `n_iterations=50`, `temperature=1.0`, `step_size=0.5`, `seed=1234`
-- Differential evolution: `max_iterations=200`, `population_size=15`, `mutation=(0.5,1.0)`, `recombination=0.7`, `polish=True`, `seed=1234`
-- MCMC: `chains=2`, `steps=1000`, `warmup=200`, `thin=1`, `seed=1234`
+## Notes
 
-## Protocol: Global warm‑start → VarPro refine (optional)
-- Stage 1: run BH/DE/MCMC to obtain an initial parameter set
-- Stage 2: run `varpro` to refine to local optimum
-- Benefits: robustness when initial guesses are poor; predictable convergence
-- Caveats: apply time/iteration budgets; fix seeds for reproducibility
+- MCMC is **not** a fitting optimizer in the CLI workflow. Uncertainty analysis is
+  performed via `peakfit mcmc` (see [mcmc_diagnostics.md](mcmc_diagnostics.md)).

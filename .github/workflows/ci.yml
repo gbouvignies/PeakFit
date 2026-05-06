@@ -7,7 +7,39 @@ on:
     branches: [main, master, develop]
 
 jobs:
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        # 'uv sync' automatically installs the project + 'dev' dependency group
+        run: uv sync
+
+      - name: Lint (Ruff)
+        run: uv run ruff check
+
+      - name: Format (Ruff)
+        run: uv run ruff format --check
+
+      - name: Type Check (ty)
+        # Checks entire project by default.
+        run: uv run ty check
+
+      - name: Import Linter
+        run: uv run lint-imports
+
   test:
+    name: Test
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -26,60 +58,22 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
+        # --all-extras installs 'mcmc', 'profiling' etc.
         run: uv sync --all-extras
 
-      - name: Run tests with coverage
+      - name: Run tests
         env:
           QT_QPA_PLATFORM: offscreen
           MPLBACKEND: Agg
-        run: uv run pytest tests/ --cov=src/peakfit --cov-report=xml --cov-report=term
+        # pyproject.toml already handles coverage paths and branch settings.
+        # We only need to specify the XML report for Codecov here.
+        run: uv run pytest --cov-report=xml --cov-report=term
 
-      - name: Upload coverage reports
+      - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.13
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-
-      - name: Run ruff check
-        run: uv run ruff check src/peakfit/
-
-      - name: Run ruff format check
-        run: uv run ruff format --check src/peakfit/
-
-  type-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.13
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-
-      - name: Run mypy
-        run: uv run mypy src/peakfit/
-        continue-on-error: true  # Allow failures initially
+          token: ${{ secrets.CODECOV_TOKEN }} # Recommended for v4+

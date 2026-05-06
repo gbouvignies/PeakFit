@@ -22,21 +22,16 @@ with contextlib.suppress(metadata.PackageNotFoundError):
 
 # Services (primary API)
 # Configuration
-from peakfit.core.domain.config import ClusterConfig, FitConfig, OutputConfig, PeakFitConfig
+from peakfit.engine.domain.config import ClusterConfig, FitConfig, OutputConfig, PeakFitConfig
 
 # Domain objects (read-only access)
-from peakfit.core.domain.state import FittingState
-from peakfit.services import FitResult, FitService, PlotOutput, PlotService
+from peakfit.engine.domain.state import FittingState
 
 __all__ = [
     "ClusterConfig",
     "FitConfig",
-    "FitResult",
-    "FitService",
     "FittingState",
     "OutputConfig",
     "PeakFitConfig",
-    "PlotOutput",
-    "PlotService",
     "__version__",
 ]

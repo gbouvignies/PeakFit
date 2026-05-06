@@ -55,12 +55,14 @@ F3 = 0.01  # But keep ¹H very tight
 ### Position Windows
 
 Position windows define how far a peak can move from its starting position. The bounds are computed as:
+
 ```
 min = starting_position - window
 max = starting_position + window
 ```
 
 **Priority order (low to high):**
+
 1. Code default (±1 FWHM)
 2. `parameters.position_window` (global)
 3. `parameters.position_windows.{axis}` (per-axis)
@@ -87,13 +89,15 @@ For non-position parameters, or when you need explicit bounds:
 ### Pattern Syntax
 
 Patterns use glob-style matching:
+
 - `*` matches any sequence of characters
 - `?` matches any single character
 - `.` is literal
 
 **Examples:**
+
 - `*.*.cs` - all chemical shift parameters
-- `*.*.lw` - all linewidth parameters  
+- `*.*.lw` - all linewidth parameters
 - `*.F2.*` - all F2 (indirect) dimension parameters
 - `2N-H.*.*` - all parameters for peak "2N-H"
 - `G4?N-HN.*.cs` - CS parameters for peaks matching "G4?N-HN"
@@ -104,10 +108,11 @@ Start from a previous fit result:
 
 ```toml
 [parameters]
-from_file = "previous_fit/fit_summary.json"
+from_file = "previous_fit/summary/fit_summary.json"
 ```
 
-This loads parameter values as starting points while respecting any other constraints you define.
+This loads parameter values from a JSON fit summary and uses them as starting points while
+respecting any other constraints you define.
 
 ## Multi-Step Fitting Protocols
 
@@ -157,15 +162,16 @@ iterations = 3
 
 Each step supports:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Human-readable step name (for logging) |
-| `description` | string | Optional description |
-| `fix` | list[string] | Patterns for parameters to fix |
-| `vary` | list[string] | Patterns for parameters to vary |
-| `iterations` | int | Number of refinement iterations |
+| Field         | Type         | Description                            |
+| ------------- | ------------ | -------------------------------------- |
+| `name`        | string       | Human-readable step name (for logging) |
+| `description` | string       | Optional description                   |
+| `fix`         | list[string] | Patterns for parameters to fix         |
+| `vary`        | list[string] | Patterns for parameters to vary        |
+| `iterations`  | int          | Number of refinement iterations        |
 
 **Note:** `vary` patterns are applied after `fix` patterns, so you can do:
+
 ```toml
 fix = ["*"]           # Fix everything
 vary = ["*.*.lw"]     # Except linewidths
@@ -227,26 +233,6 @@ position_window = 0.02  # Very tight for this peak
 [parameters.peaks."W50N-HE1".position_windows]
 F2 = 1.0   # Large movement allowed
 F3 = 0.02  # But keep 1H tight
-```
-
-## CLI Options
-
-Quick constraints can also be set via command line:
-
-```bash
-# Global position window
-peakfit fit spectrum.ft2 peaks.list --position-window 0.1
-
-# Per-dimension windows
-peakfit fit spectrum.ft2 peaks.list \
-    --position-window-f2 0.5 \
-    --position-window-f3 0.05
-
-# Fix patterns
-peakfit fit spectrum.ft2 peaks.list --fix "*.*.cs" --fix "*.*.eta"
-
-# Start from previous fit
-peakfit fit spectrum.ft2 peaks.list --start-from previous/fit_summary.json
 ```
 
 ## Best Practices
