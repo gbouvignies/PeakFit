@@ -12,15 +12,14 @@ import typer
 
 from peakfit.io.readers import ResultsLoader
 from peakfit.plot.manager import PlotOutput, PlotService
-from peakfit.plot.qt_core import QApplication
 from peakfit.plot.reconstruction import SpectraReconstructor
-from peakfit.plot.spectra_viewer import NMRData, SpectraViewer
 from peakfit.ui import Verbosity, display_path, set_verbosity, show_command_manifest
 from peakfit.ui.messages import show_error_with_details, success, warning
 from peakfit.ui.reporter import ConsoleReporter
 
 if TYPE_CHECKING:
     from typing import Any
+
 
 _MIN_PEAK_POSITIONS_FOR_2D = 2
 _MAX_REF_POINTS_SHOWN = 6
@@ -178,6 +177,9 @@ def plot_spectrum(
     plist = _extract_peaks(reconstructor, data_exp)
 
     try:
+        from peakfit.plot.qt_core import QApplication  # noqa: PLC0415
+        from peakfit.plot.spectra_viewer import SpectraViewer  # noqa: PLC0415
+
         app = QApplication.instance() or QApplication(sys.argv)
         viewer = SpectraViewer(data1=data_exp, data2=None, plist=plist, reconstructor=reconstructor)
         viewer.show()
@@ -371,6 +373,8 @@ def plot_mcmc(
 def _load_spectrum(path: Path) -> Any:
     """Load NMR spectrum data."""
     try:
+        from peakfit.plot.spectra_viewer import NMRData  # noqa: PLC0415
+
         return NMRData.from_file(str(path))
     except Exception as e:
         show_error_with_details("loading spectrum", e)
