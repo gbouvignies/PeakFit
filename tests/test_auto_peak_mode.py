@@ -4,7 +4,9 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pytest
+from typer.testing import CliRunner
 
+from peakfit.cli.app import app
 from peakfit.cli.commands.fit import _write_autopicked_peaklist
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.peaks import Peak
@@ -123,3 +125,66 @@ def test_write_autopicked_peaklist(tmp_path: Path) -> None:
     assert lines[0] == "Assignment w1 w2"
     assert lines[1] == "p1 8.123456 120.654321"
     assert lines[2] == "p2 7.987654 118.123456"
+
+
+def test_fit_cli_without_peaklist_records_autopicked_peaklist(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`peakfit fit spectrum` should use auto-picked peaks as the run peak list."""
+    spectrum_path = tmp_path / "spectrum.ft2"
+    spectrum_path.write_text("placeholder", encoding="utf-8")
+    output_base = tmp_path / "results"
+    auto_peak = SimpleNamespace(name="auto1", positions=np.array([8.1, 120.2], dtype=np.float64))
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "peakfit.cli.commands.fit.ValidationService.validate",
+        lambda _spectrum, _peaklist: SimpleNamespace(errors=[]),
+    )
+
+    def _load_fit_data(*, peaklist: Path | None, **_kwargs: object) -> object:
+        captured["peaklist_arg"] = peaklist
+        return SimpleNamespace(peaks=[auto_peak])
+
+    def _run_fit(_data: object, _config: object, output_dir: Path, **_kwargs: object) -> object:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return SimpleNamespace(output_dir=output_dir, spectra=SimpleNamespace())
+
+    def _write_service_results(
+        _result: object,
+        _spectra: object,
+        _config: object,
+        input_paths: dict[str, Path],
+        _reporter: object,
+    ) -> None:
+        captured["input_paths"] = input_paths
+
+    monkeypatch.setattr("peakfit.cli.commands.fit._load_fit_data", _load_fit_data)
+    monkeypatch.setattr("peakfit.cli.commands.fit.run_fit", _run_fit)
+    monkeypatch.setattr("peakfit.cli.commands.fit.write_service_results", _write_service_results)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "fit",
+            str(spectrum_path),
+            "--output",
+            str(output_base),
+            "--headless",
+            "--format",
+            "json",
+            "--format",
+            "csv",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["peaklist_arg"] is None
+
+    input_paths = cast("dict[str, Path]", captured["input_paths"])
+    peaklist_path = input_paths["peaklist"]
+
+    assert peaklist_path.name == "autopicked.list"
+    assert peaklist_path.exists()
+    assert "auto1 8.100000 120.200000" in peaklist_path.read_text(encoding="utf-8")

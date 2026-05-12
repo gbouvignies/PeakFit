@@ -10,6 +10,7 @@ Run with: uv run pytest tests/integration/test_safety_harness.py -v
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,6 +23,7 @@ from peakfit.engine.algorithms.varpro import fit_cluster
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.lineshapes.gaussian.kernel import kernel as gaussian_kernel
 from peakfit.engine.lineshapes.lorentzian.kernel import kernel as lorentzian_kernel
+from peakfit.io.schemas import FitSummarySchema
 
 # --- Configuration ---
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -45,6 +47,31 @@ def _load_baseline() -> dict[str, float | int]:
     with BASELINE_PATH.open() as f:
         data: dict[str, float | int] = json.load(f)
     return data
+
+
+def _cli_env(tmp_path: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env["MPLBACKEND"] = "Agg"
+    mpl_config = tmp_path / "matplotlib"
+    mpl_config.mkdir(exist_ok=True)
+    env["MPLCONFIGDIR"] = str(mpl_config)
+    return env
+
+
+def _link_example_inputs_for_mcmc(results_dir: Path) -> None:
+    """Mirror the current MCMC input-resolution convention in a temp tree."""
+    data_dir = results_dir.parent.parent / "data"
+    data_dir.mkdir(exist_ok=True)
+    for source in [SPECTRUM_FILE, PEAKLIST_FILE, Z_VALUES_FILE]:
+        target = data_dir / source.name
+        if not target.exists():
+            target.symlink_to(source)
+
+
+def _first_peak_name(results_dir: Path) -> str:
+    with (results_dir / "summary" / "fit_summary.json").open() as f:
+        data = json.load(f)
+    return str(data["clusters"][0]["peak_names"][0])
 
 
 # =============================================================================
@@ -114,6 +141,7 @@ class TestOutputStructure:
         required_files = [
             "summary/fit_summary.json",
             "parameters/parameters.csv",
+            "parameters/intensities.csv",
         ]
         for filepath in required_files:
             file_path = fit_output_dir / filepath
@@ -125,6 +153,135 @@ class TestOutputStructure:
         with json_path.open() as f:
             data = json.load(f)
         assert isinstance(data, dict), "JSON root should be a dictionary"
+
+
+# =============================================================================
+# Test 1b: Public Workflow Characterization
+# =============================================================================
+
+
+class TestPublicWorkflows:
+    """Characterize public workflows without depending on internal architecture."""
+
+    def test_explicit_peaklist_fit_writes_core_outputs(self, fit_output_dir):
+        """`peakfit fit spectrum peaklist` should produce the core public outputs."""
+        core_outputs = [
+            fit_output_dir / "summary" / "fit_summary.json",
+            fit_output_dir / "parameters" / "parameters.csv",
+            fit_output_dir / "parameters" / "intensities.csv",
+        ]
+
+        for path in core_outputs:
+            assert path.exists(), f"Core output missing: {path.relative_to(fit_output_dir)}"
+            assert path.stat().st_size > 0, (
+                f"Core output is empty: {path.relative_to(fit_output_dir)}"
+            )
+
+    def test_summary_json_is_readable(self, fit_output_dir):
+        """The summary JSON should be parseable and schema-readable."""
+        summary_path = fit_output_dir / "summary" / "fit_summary.json"
+
+        with summary_path.open() as f:
+            payload = json.load(f)
+
+        summary = FitSummarySchema.model_validate(payload)
+
+        assert summary.clusters
+        assert payload["global_statistics"]["chi_squared"] > 0
+
+    def test_parameters_csv_excludes_amplitudes(self, fit_output_dir):
+        """Model parameters and per-plane amplitudes should not be mixed."""
+        params_path = fit_output_dir / "parameters" / "parameters.csv"
+        df = pd.read_csv(params_path, comment="#")
+
+        assert len(df) > 0
+        assert "parameter_name" in df.columns
+        assert "intensity" not in df.columns
+        assert not df["parameter_name"].str.contains(r"\.I\d+$", regex=True).any()
+        assert not df["parameter_name"].str.contains("amplitude", case=False, regex=False).any()
+
+    def test_intensities_csv_contains_amplitudes(self, fit_output_dir):
+        """Per-plane fitted amplitudes should be written to intensities.csv."""
+        intensities_path = fit_output_dir / "parameters" / "intensities.csv"
+        df = pd.read_csv(intensities_path, comment="#")
+
+        required_columns = {
+            "cluster_id",
+            "peak_name",
+            "plane_index",
+            "intensity",
+            "intensity_err",
+        }
+        assert required_columns <= set(df.columns)
+        assert len(df) > 0
+        assert df["intensity"].notna().all()
+
+    def test_plot_intensity_consumes_fit_output(self, fit_output_dir, tmp_path):
+        """Plotting should consume a fit output directory and produce a PDF artifact."""
+        output_path = tmp_path / "intensity_profiles.pdf"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "peakfit",
+                "plot",
+                "intensity",
+                str(fit_output_dir),
+                "--output",
+                str(output_path),
+                "--no-show",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=_cli_env(tmp_path),
+            timeout=60,
+        )
+
+        assert result.returncode == 0, (
+            f"plot intensity failed.\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
+        assert output_path.exists()
+        assert output_path.stat().st_size > 0
+
+    @pytest.mark.mcmc
+    def test_mcmc_can_start_from_fit_output(self, fit_output_dir, tmp_path):
+        """MCMC should run for a selected peak from a completed fit output."""
+        _link_example_inputs_for_mcmc(fit_output_dir)
+        peak_name = _first_peak_name(fit_output_dir)
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "peakfit",
+                "mcmc",
+                str(fit_output_dir),
+                "--peaks",
+                peak_name,
+                "--walkers",
+                "32",
+                "--steps",
+                "100",
+                "--burn-in",
+                "0",
+                "--no-auto-burnin",
+                "--workers",
+                "1",
+                "--no-save-chains",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=_cli_env(tmp_path),
+            timeout=90,
+        )
+
+        combined_output = f"{result.stdout}\n{result.stderr}"
+        assert result.returncode == 0, (
+            f"mcmc failed for peak {peak_name}.\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
+        assert "Sampling complete" in combined_output
 
 
 # =============================================================================
@@ -423,6 +580,28 @@ class TestCLIEntrypoints:
         assert not phase_rows.empty, "F3 phase parameter is missing from parameters.csv with --phx"
         assert phase_rows["peak_name"].str.startswith("cluster_").all()
 
+    def test_fit_missing_spectrum_error_is_actionable(self, tmp_path):
+        """Invalid input errors should name the missing user-provided path."""
+        missing_spectrum = tmp_path / "missing.ft2"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "peakfit",
+                "fit",
+                str(missing_spectrum),
+                "--headless",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        combined_output = f"{result.stdout}\n{result.stderr}"
+        assert result.returncode != 0
+        assert "missing.ft2" in combined_output
+        assert "does not exist" in combined_output
+
 
 # =============================================================================
 # Test 6: Core Algorithm Unit Tests
@@ -453,6 +632,21 @@ class TestCoreAlgorithms:
         assert result.shape == (201, 1), f"Unexpected shape: {result.shape}"
         assert np.all(result >= 0), "Gaussian should be non-negative"
         assert np.isclose(result[100, 0], 1.0, rtol=1e-6), "Peak should be 1.0 at center"
+
+    @pytest.mark.parametrize(
+        "kernel",
+        [gaussian_kernel, lorentzian_kernel],
+        ids=["gaussian", "lorentzian"],
+    )
+    def test_lineshape_fwhm_convention_is_stable(self, kernel):
+        """Representative lineshapes should be half-height at +/- FWHM/2."""
+        linewidth = 25.0
+        dw = np.array([[-0.5 * linewidth], [0.0], [0.5 * linewidth]])
+        values = kernel(dw, np.array([linewidth]))
+
+        assert values.shape == (3, 1)
+        assert np.isclose(values[1, 0], 1.0, rtol=1e-12, atol=1e-12)
+        assert np.allclose(values[[0, 2], 0], 0.5, rtol=1e-12, atol=1e-12)
 
     def test_varpro_fit_converges(self):
         """Variable projection fitting should converge on simple data."""
