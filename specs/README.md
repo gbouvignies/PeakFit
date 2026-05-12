@@ -1,6 +1,8 @@
-# Feature Specs
+# Design Specs
 
-Create a spec for each core change: `specs/<feature>.md`.
+Use this directory for design notes and implementation plans that are too detailed for
+the main documentation. Specs are optional working documents, not required AI workflow
+files and not immutable architecture contracts.
 
 ## Template
 

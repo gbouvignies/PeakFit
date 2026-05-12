@@ -1,4 +1,3 @@
-````markdown
 # Typing Guidelines for NumPy/SciPy-Style Functions (Python 3.14+)
 
 ## Goals
@@ -18,7 +17,7 @@
 from typing import Any, overload, TypeVar
 import numpy as np
 import numpy.typing as npt
-````
+```
 
 ---
 
@@ -187,7 +186,7 @@ def needs_1d(x: npt.ArrayLike) -> npt.NDArray[np.float64]:
 
 ---
 
-## 7) Decision checklist for an AI agent
+## 7) Decision checklist
 
 1. **Is the input “array-like”?** → `npt.ArrayLike` and `np.asarray(...)` immediately.
 2. **Can the function be treated as vectorized?** → return `npt.NDArray[...]`.

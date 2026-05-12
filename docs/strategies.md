@@ -34,4 +34,4 @@ peakfit fit spectrum.ft2 peaks.list --optimizer differential_evolution
 ## Notes
 
 - MCMC is **not** a fitting optimizer in the CLI workflow. Uncertainty analysis is
-  performed via `peakfit mcmc` (see [mcmc_diagnostics.md](mcmc_diagnostics.md)).
+  performed via `peakfit mcmc` (see [MCMC_DIAGNOSTICS.md](MCMC_DIAGNOSTICS.md)).

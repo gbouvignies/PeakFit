@@ -1,32 +1,23 @@
-# MCMC Architecture
+# MCMC Workflow Notes
 
-This document describes the MCMC workflow in the vertical‑slice architecture.
+This document describes the current MCMC workflow. It is a contributor note, not a
+permanent architecture constraint. Revisit it after the next architecture pass.
 
-## Responsibilities
+## Current Responsibilities
 
-```
-CLI (Typer + Rich)
-   → peakfit.mcmc (workflow + diagnostics)
-      → peakfit.engine (computation)
-      → peakfit.io (load/save chains + summaries)
-```
+- Select clusters and parameters for uncertainty analysis.
+- Run MCMC sampling from previous fit results.
+- Save chain data and structured diagnostics.
+- Support `peakfit mcmc` and MCMC plotting workflows.
 
-### `peakfit.mcmc`
+## Current Flow
 
-- Filters clusters and parameters for analysis.
-- Runs MCMC sampling via engine algorithms.
-- Produces diagnostics and structured summaries.
-- Exposes a first‑class CLI command (`peakfit mcmc`).
+1. The CLI resolves the results directory and MCMC options.
+2. The workflow loads fit state or chain data.
+3. Sampling or diagnostic calculations run.
+4. Summaries, chain files, and plots are written or rendered.
 
-### Decoupling Rules
+## Next Architecture Pass
 
-- MCMC does not import `fit` or `plot`.
-- Engine stays pure (no I/O, no Rich/Qt).
-- CLI handles all formatting and user messaging.
-
-## Adapter Interaction Pattern
-
-1. CLI resolves input paths and options.
-2. MCMC slice loads state/chains using `peakfit.io` helpers.
-3. Engine computes diagnostics and parameter updates.
-4. CLI renders tables or invokes plot helpers.
+Check whether MCMC needs a separate slice or can share simpler result-loading,
+diagnostic, and output utilities with fitting without reintroducing hidden coupling.

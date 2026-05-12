@@ -1,30 +1,27 @@
-# Fit Pipeline Architecture
+# Fit Pipeline Notes
 
-The fit pipeline orchestrates the optimization workflow and lives in the `fit` slice. It is
-UI‑agnostic and depends on the pure `engine` for computation.
+This document describes the current fit workflow. It is context for contributors, not a
+binding architecture rule. Revisit it after the next architecture pass.
 
-## Responsibilities
+## Current Responsibilities
 
-1. **Validation gating:** Ensure inputs are valid before any fitting begins.
-2. **Iteration control:** Manage refinement loops and protocol steps.
-3. **Optimization dispatch:** Execute per‑cluster fits via engine algorithms.
-4. **Parameter synchronization:** Update global parameters from per‑cluster results.
-5. **Result aggregation:** Build result objects for downstream writing.
+- Validate spectra, peak lists, and configuration before expensive fitting work starts.
+- Load spectra, peaks, noise estimates, and clusters.
+- Manage refinement iterations and multi-step protocols.
+- Dispatch per-cluster optimization through numerical code.
+- Synchronize parameters across refinement steps.
+- Assemble fit results and coordinate output writing.
 
-## Flow
+## Current Flow
 
-1. **Initialize**: The CLI builds config and calls `peakfit.fit.run`.
-2. **Validate**: `fit` validates spectrum + peak list and fails fast on errors.
-3. **Load**: `fit` loads spectra, peaks, noise, and clusters.
-4. **Optimize**:
-   - Build per‑cluster parameters
-   - Apply constraints and step rules
-   - Call engine optimizers for each cluster
-5. **Aggregate**: Assemble `FitResult` objects and update global state.
-6. **Write**: Serialize outputs using `peakfit.io` writers.
+1. The CLI builds configuration and calls the fit workflow.
+2. Inputs are validated and loaded.
+3. Clusters and per-cluster parameters are prepared.
+4. Optimizers run for each cluster.
+5. Results are aggregated into models used by writers and downstream workflows.
+6. Outputs are serialized.
 
-## Decoupling Rules
+## Next Architecture Pass
 
-- **No UI imports in engine**: Rich/Qt stay in CLI/plot.
-- **No file I/O in engine**: pipeline returns data; writing is in `fit`.
-- **No cross‑slice imports**: `fit` does not import `plot` or `mcmc`.
+Check whether the fit workflow can be made more direct by merging thin wrappers, reducing
+configuration translation, and moving output planning closer to the result data it writes.

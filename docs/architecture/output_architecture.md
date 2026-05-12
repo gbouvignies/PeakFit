@@ -1,37 +1,24 @@
-# Output System Architecture
+# Output Architecture Notes
 
-This document describes how PeakFit builds and writes structured results in the
-vertical‑slice architecture.
+This document describes the current output system at a high level. The concrete user-facing
+layout is documented in [docs/output_system.md](../output_system.md), and the proposed
+redesign is tracked in [specs/output-revamp-plan.md](../../specs/output-revamp-plan.md).
 
-## Overview
+## Current Shape
 
-```
-Fit pipeline → Result models → Writers → JSON/CSV/Markdown/PDF
-```
+- Fit results are assembled into structured result models.
+- Writers serialize selected data to JSON, CSV, Markdown, and related artifacts.
+- The fit workflow currently coordinates output writing.
+- Output files support both humans reviewing a run and tools consuming fit results.
 
-## Core Components
+## Known Cleanup Direction
 
-### Result Models
+The output revamp should reduce duplicated data, avoid placeholder files and empty
+directories, make format and verbosity options real, and keep dense data in table or array
+formats instead of bloating summary reports.
 
-Result dataclasses live in the **engine** so they can be used by `fit`, `plot`, and `mcmc`
-without cross‑slice imports.
+## Next Architecture Pass
 
-### Results Builder
-
-A results builder in the **fit** slice assembles engine results, diagnostics, and metadata
-into a single structured object.
-
-### Writers
-
-Writers live in `peakfit.io` and are coordinated by the **fit** slice. Each writer is
-format‑specific and handles serialization only.
-
-Supported outputs:
-- JSON
-- CSV
-- Markdown
-- PDF (Matplotlib‑generated pages; no ReportLab/PyPDF dependency)
-
-## Output Directory Structure
-
-The concrete file layout is documented in [docs/output_system.md](docs/output_system.md).
+Decide whether output planning belongs in the fit workflow, a small output module, or a
+data-driven writer layer. Keep the result model and file layout easy to inspect from a
+completed run.

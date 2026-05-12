@@ -1,54 +1,47 @@
-# Architecture Boundaries (PeakFit)
+# PeakFit Architecture Guide
 
-This file defines responsibility boundaries. If a change violates these, it is wrong.
+This is a short map of the current repository, not an immutable contract. `AGENTS.md`
+is the source of truth for AI-assisted work and explicitly allows architecture changes
+when they simplify the project while preserving scientific correctness and useful
+workflows.
 
-## Vertical Slice Model
-- **CLI**: User interaction, argument parsing, Rich output.
-- **Fit**: Orchestration of validation, data loading, pipeline, and output writing.
-- **MCMC**: Uncertainty estimation workflows and diagnostics.
-- **Plot**: Matplotlib plotting and the Qt-based spectrum viewer.
-- **Engine**: Pure computation (domain models, algorithms, lineshapes, fitting math).
-- **IO**: Parsing and serialization only (no fitting logic).
-- **Shared**: Small cross-cutting utilities (exceptions, typing helpers).
+## Purpose
 
-```mermaid
-graph TD
-    CLI[CLI (Typer + Rich)] --> Fit
-    CLI --> MCMC
-    CLI --> Plot
-    Fit --> Engine
-    Fit --> IO
-    Fit --> Shared
-    MCMC --> Engine
-    MCMC --> IO
-    MCMC --> Shared
-    Plot --> Engine
-    Plot --> IO
-    Plot --> Shared
-    Engine --> Shared
-    IO --> Shared
-```
+PeakFit fits lineshape models to pseudo-ND NMR spectra through a Python package and CLI.
+The important domains are spectra and peak inputs, clustering, lineshapes, optimization,
+fit orchestration, uncertainty analysis, plotting, and output generation.
 
-## Ownership Map
-- **Engine** (`src/peakfit/engine/`)
-  - Domain models, algorithms, lineshapes, fitting math.
-- **Fit** (`src/peakfit/fit/`)
-  - Config, validation, data loading, pipeline orchestration, results building, output writing.
-- **MCMC** (`src/peakfit/mcmc/`)
-  - MCMC sampling, diagnostics, CLI-facing workflow APIs.
-- **Plot** (`src/peakfit/plot/`)
-  - Matplotlib plots and Qt spectrum viewer.
-- **CLI** (`src/peakfit/cli/`)
-  - Typer app, Rich output, pre-fit manifest.
-- **IO** (`src/peakfit/io/`)
-  - Readers/writers, file format translation only.
-- **Shared** (`src/peakfit/shared/`)
-  - Exceptions, typing utilities, small helpers.
+## Current Package Map
 
-## Design Constraints
-- Engine is pure computation: **no I/O, Rich, Qt, or filesystem side effects**.
-- IO parses/serializes only; it must not contain fitting logic.
-- Fit always performs validation before any fitting.
-- Plot spectrum uses Qt + Matplotlib (no optional install paths).
-- Feature slices (**fit**, **mcmc**, **plot**) do not import each other directly.
-- CLI contains presentation logic only; it does not own business rules.
+- `src/peakfit/cli/` - Typer command-line entrypoints and terminal presentation.
+- `src/peakfit/ui/` - Rich terminal helpers used by the current CLI.
+- `src/peakfit/fit/` - validation, data loading, fitting workflow, result assembly, and output coordination.
+- `src/peakfit/mcmc/` - uncertainty sampling, diagnostics, and MCMC-facing workflows.
+- `src/peakfit/plot/` - plotting and the spectrum viewer.
+- `src/peakfit/io/` - parsing, serialization, and file-format handling.
+- `src/peakfit/engine/` - domain models, numerical algorithms, lineshapes, and fitting math.
+- `src/peakfit/shared/` - small cross-cutting helpers.
+
+## Current Flow
+
+1. `cli` parses user intent and builds configuration.
+2. `fit`, `mcmc`, or `plot` runs the selected workflow.
+3. `engine` performs numerical work.
+4. `io` reads inputs or writes structured outputs.
+5. `ui` renders terminal output where the CLI needs it.
+
+## Invariants To Preserve Or Change Explicitly
+
+- Numerical and scientific behavior should remain correct and tested.
+- Expensive fit work should fail early on invalid inputs.
+- Input parsing errors should be clear and actionable.
+- Long-running jobs should show understandable progress and failures.
+- Pure numerical code should not accidentally depend on terminal UI, Typer, Qt, or filesystem side effects.
+- Public behavior changes should be documented with migration notes when needed.
+
+## Simplification Notes
+
+The current vertical-slice shape is a starting point. It is acceptable to merge packages,
+rename modules, delete thin wrappers, or move responsibilities when that makes the code
+easier to understand and test. Prefer direct data flow and domain names over generic
+services, managers, factories, adapters, or registries.
