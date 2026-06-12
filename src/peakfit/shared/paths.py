@@ -1,4 +1,4 @@
-"""IO utilities."""
+"""Shared path formatting helpers."""
 
 import os
 from pathlib import Path
@@ -14,3 +14,6 @@ def format_path(path: Path | str) -> str:
         return os.path.relpath(p.resolve(), Path.cwd().resolve())
     except Exception:
         return str(p)
+
+
+__all__ = ["format_path"]

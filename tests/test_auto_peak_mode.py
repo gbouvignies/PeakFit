@@ -12,7 +12,7 @@ from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.peaks import Peak
 from peakfit.fit.auto_pick import AutoPickDiagnostics, AutoPickResult
 from peakfit.fit.fitting import load_data
-from peakfit.fit.validation import ValidationService
+from peakfit.fit.validation import validate_inputs
 from peakfit.shared.exceptions import DataIOError
 
 if TYPE_CHECKING:
@@ -102,11 +102,11 @@ def test_load_data_raises_when_auto_pick_disabled(monkeypatch: pytest.MonkeyPatc
 
 def test_validation_skips_peaklist_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "peakfit.fit.validation.ValidationService._validate_spectrum",
+        "peakfit.fit.validation._validate_spectrum",
         lambda _spectrum_path, _result: None,
     )
 
-    result = ValidationService.validate(Path("spectrum.ft2"), None)
+    result = validate_inputs(Path("spectrum.ft2"), None)
 
     assert result.errors == []
     assert result.info["Peaks"] == "Auto-detect"
@@ -139,7 +139,7 @@ def test_fit_cli_without_peaklist_records_autopicked_peaklist(
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(
-        "peakfit.cli.commands.fit.ValidationService.validate",
+        "peakfit.cli.commands.fit.validate_inputs",
         lambda _spectrum, _peaklist: SimpleNamespace(errors=[]),
     )
 

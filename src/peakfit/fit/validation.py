@@ -128,296 +128,271 @@ class ValidationResult:
         return self.get_dimension_range(0)
 
 
-# =============================================================================
-# Validation Service
-# =============================================================================
+def validate_inputs(spectrum_path: Path, peaklist_path: Path | None) -> ValidationResult:
+    """Validate input files.
 
+    Args:
+        spectrum_path: Path to spectrum file.
+        peaklist_path: Path to peak list file (optional).
 
-class ValidationService:
-    """Service for validating input files.
-
-    Validates spectrum and peak list files for compatibility and correctness.
-    Returns structured results that can be displayed by any UI layer.
-
-    Example:
-        result = ValidationService.validate(
-            spectrum_path=Path("spectrum.ft2"),
-            peaklist_path=None,
-        )
-        if result.is_valid:
-            print("Validation passed!")
+    Returns:
+    -------
+        ValidationResult with all validation information.
     """
+    result = ValidationResult()
 
-    @staticmethod
-    def validate(spectrum_path: Path, peaklist_path: Path | None) -> ValidationResult:
-        """Validate input files.
+    _validate_spectrum(spectrum_path, result)
 
-        Args:
-            spectrum_path: Path to spectrum file.
-            peaklist_path: Path to peak list file (optional).
+    # Validate peak list when provided
+    if peaklist_path is not None:
+        _validate_peaklist(peaklist_path, result)
+    else:
+        result.info["Peaks"] = "Auto-detect"
+        result.checks.append(
+            ValidationCheck(
+                name="Peak list readable",
+                passed=True,
+                message="Skipped (automatic peak picking enabled)",
+            )
+        )
 
-        Returns:
-        -------
-            ValidationResult with all validation information.
-        """
-        result = ValidationResult()
+    return result
 
-        # Validate spectrum
-        ValidationService._validate_spectrum(spectrum_path, result)
 
-        # Validate peak list when provided
-        if peaklist_path is not None:
-            ValidationService._validate_peaklist(peaklist_path, result)
-        else:
-            result.info["Peaks"] = "Auto-detect"
-            result.checks.append(
-                ValidationCheck(
-                    name="Peak list readable",
-                    passed=True,
-                    message="Skipped (automatic peak picking enabled)",
+def _validate_spectrum(spectrum_path: Path, result: ValidationResult) -> None:
+    """Validate spectrum file and update result."""
+    try:
+        spectra_input = SpectraInput(path=spectrum_path)
+        spectra = spectra_input.load()
+
+        n_series = spectra.data.shape[0]
+        spectrum_type = f"Pseudo-ND ({n_series} spectra)"
+
+        result.spectrum = SpectrumData(
+            shape=spectra.data.shape,
+            ndim=spectra.data.ndim,
+            spectrum_type=spectrum_type,
+        )
+
+        result.info["Spectrum shape"] = str(spectra.data.shape)
+        result.info["Dimensions"] = str(spectra.data.ndim)
+        result.info["Type"] = spectrum_type
+
+        result.checks.append(
+            ValidationCheck(
+                name="Spectrum file readable",
+                passed=True,
+                message="Pass",
+            )
+        )
+
+    except (OSError, FileNotFoundError, ValueError, ImportError, TypeError) as e:
+        result.errors.append(f"Failed to read spectrum: {e}")
+        result.checks.append(
+            ValidationCheck(
+                name="Spectrum file readable",
+                passed=False,
+                message=f"Failed: {e}",
+            )
+        )
+
+
+def _validate_peaklist(peaklist_path: Path, result: ValidationResult) -> None:
+    """Validate peak list file and update result."""
+    try:
+        # 1. Load peaks based on file format
+        peaks = _load_peaks(peaklist_path)
+
+        result.peaks = peaks
+        result.info["Peaks"] = str(len(peaks))
+
+        result.checks.append(
+            ValidationCheck(
+                name="Peak list readable",
+                passed=True,
+                message="Pass",
+            )
+        )
+
+        # 2. Validate consistency (duplicates, dimensions, etc.)
+        _validate_peak_consistency(peaks, result)
+
+        # File permissions check
+        result.checks.append(
+            ValidationCheck(
+                name="File permissions",
+                passed=True,
+                message="Pass",
+            )
+        )
+
+    except (OSError, FileNotFoundError, ValueError, ImportError, TypeError) as e:
+        result.errors.append(f"Failed to read peak list: {e}")
+        result.checks.append(
+            ValidationCheck(
+                name="Peak list readable",
+                passed=False,
+                message=f"Failed: {e}",
+            )
+        )
+
+
+def _load_peaks(peaklist_path: Path) -> list[PeakData]:
+    """Load peaks from file based on extension."""
+    suffix = peaklist_path.suffix.lower()
+
+    if suffix == ".list":
+        return _read_sparky_list(peaklist_path)
+    elif suffix == ".csv":
+        return _read_csv_list(peaklist_path)
+    elif suffix == ".json":
+        return _read_json_list(peaklist_path)
+    elif suffix in {".xlsx", ".xls"}:
+        return _read_excel_list(peaklist_path)
+    else:
+        raise ValueError(f"Unknown peak list format: {suffix}")
+
+
+def _validate_peak_consistency(peaks: list[PeakData], result: ValidationResult) -> None:
+    """Check peak list for logical consistency."""
+    # Check for duplicate names
+    names = [p.name for p in peaks]
+    if len(names) != len(set(names)):
+        result.warnings.append("Duplicate peak names found")
+        result.checks.append(
+            ValidationCheck(
+                name="No duplicate peaks",
+                passed=False,
+                message="Duplicates found",
+            )
+        )
+    else:
+        result.checks.append(
+            ValidationCheck(
+                name="No duplicate peaks",
+                passed=True,
+                message="Pass",
+            )
+        )
+
+    # Add position ranges to info
+    if peaks:
+        n_dims = peaks[0].n_dims if peaks else 0
+        for dim_idx in range(n_dims):
+            dim_label = f"F{dim_idx + 1}"
+            dim_range = result.get_dimension_range(dim_idx)
+            if dim_range:
+                result.info[f"{dim_label} range (ppm)"] = (
+                    f"{dim_range[0]:.2f} to {dim_range[1]:.2f}"
                 )
-            )
 
-        return result
 
-    @staticmethod
-    def _validate_spectrum(spectrum_path: Path, result: ValidationResult) -> None:
-        """Validate spectrum file and update result."""
-        try:
-            spectra_input = SpectraInput(path=spectrum_path)
-            spectra = spectra_input.load()
+def _read_sparky_list(path: Path) -> list[PeakData]:
+    """Read Sparky format peak list with N-dimensional support."""
+    peaks = []
+    with path.open() as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line or line.startswith(("#", "Assignment")):
+                continue
+            parts = line.split()
+            if len(parts) >= _MIN_PARTS_FOR_NAME_AND_POSITION:  # At least name + 1 position
+                name = parts[0]
+                # All remaining numeric parts are positions
+                positions = []
+                for part in parts[1:]:
+                    try:
+                        positions.append(float(part))
+                    except ValueError:
+                        break  # Stop at first non-numeric
+                if positions:
+                    peaks.append(PeakData(name=name, positions=positions))
+    return peaks
 
-            n_series = spectra.data.shape[0]
-            spectrum_type = f"Pseudo-ND ({n_series} spectra)"
 
-            result.spectrum = SpectrumData(
-                shape=spectra.data.shape,
-                ndim=spectra.data.ndim,
-                spectrum_type=spectrum_type,
-            )
+def _read_csv_list(path: Path) -> list[PeakData]:
+    """Read CSV format peak list with N-dimensional support."""
+    df = pd.read_csv(path)
+    return _parse_peaks_from_dataframe(df)
 
-            result.info["Spectrum shape"] = str(spectra.data.shape)
-            result.info["Dimensions"] = str(spectra.data.ndim)
-            result.info["Type"] = spectrum_type
 
-            result.checks.append(
-                ValidationCheck(
-                    name="Spectrum file readable",
-                    passed=True,
-                    message="Pass",
-                )
-            )
+def _read_excel_list(path: Path) -> list[PeakData]:
+    """Read Excel format peak list with N-dimensional support."""
+    df = pd.read_excel(path)
+    return _parse_peaks_from_dataframe(df)
 
-        except (OSError, FileNotFoundError, ValueError, ImportError, TypeError) as e:
-            result.errors.append(f"Failed to read spectrum: {e}")
-            result.checks.append(
-                ValidationCheck(
-                    name="Spectrum file readable",
-                    passed=False,
-                    message=f"Failed: {e}",
-                )
-            )
 
-    @staticmethod
-    def _validate_peaklist(peaklist_path: Path, result: ValidationResult) -> None:
-        """Validate peak list file and update result."""
-        try:
-            # 1. Load peaks based on file format
-            peaks = ValidationService._load_peaks(peaklist_path)
+def _parse_peaks_from_dataframe(df: Any) -> list[PeakData]:
+    """Parse peaks from a pandas DataFrame."""
+    peaks = []
+    pos_cols = _detect_position_columns(df)
 
-            result.peaks = peaks
-            result.info["Peaks"] = str(len(peaks))
+    for _, row in df.iterrows():
+        name_value = row.get("Assign F1", row.get("#", row.get("name", "")))
+        positions = [_to_float(row.get(col), 0.0) for col in pos_cols]
+        if not positions:  # Fallback to first numeric columns
+            positions = [_to_float(row.iloc[i], 0.0) for i in range(1, min(3, len(row)))]
+        peaks.append(PeakData(name=str(name_value), positions=positions))
+    return peaks
 
-            result.checks.append(
-                ValidationCheck(
-                    name="Peak list readable",
-                    passed=True,
-                    message="Pass",
-                )
-            )
 
-            # 2. Validate consistency (duplicates, dimensions, etc.)
-            ValidationService._validate_peak_consistency(peaks, result)
+def _detect_position_columns(df: Any) -> list[str]:
+    """Detect position columns in a DataFrame."""
+    columns = df.columns.tolist()
+    pos_cols = []
 
-            # File permissions check
-            result.checks.append(
-                ValidationCheck(
-                    name="File permissions",
-                    passed=True,
-                    message="Pass",
-                )
-            )
+    # Try 'Pos Fn' pattern
+    for i in range(1, 5):
+        col = f"Pos F{i}"
+        if col in columns:
+            pos_cols.append(col)
 
-        except (OSError, FileNotFoundError, ValueError, ImportError, TypeError) as e:
-            result.errors.append(f"Failed to read peak list: {e}")
-            result.checks.append(
-                ValidationCheck(
-                    name="Peak list readable",
-                    passed=False,
-                    message=f"Failed: {e}",
-                )
-            )
-
-    @staticmethod
-    def _load_peaks(peaklist_path: Path) -> list[PeakData]:
-        """Load peaks from file based on extension."""
-        suffix = peaklist_path.suffix.lower()
-
-        if suffix == ".list":
-            return ValidationService._read_sparky_list(peaklist_path)
-        elif suffix == ".csv":
-            return ValidationService._read_csv_list(peaklist_path)
-        elif suffix == ".json":
-            return ValidationService._read_json_list(peaklist_path)
-        elif suffix in {".xlsx", ".xls"}:
-            return ValidationService._read_excel_list(peaklist_path)
-        else:
-            raise ValueError(f"Unknown peak list format: {suffix}")
-
-    @staticmethod
-    def _validate_peak_consistency(peaks: list[PeakData], result: ValidationResult) -> None:
-        """Check peak list for logical consistency."""
-        # Check for duplicate names
-        names = [p.name for p in peaks]
-        if len(names) != len(set(names)):
-            result.warnings.append("Duplicate peak names found")
-            result.checks.append(
-                ValidationCheck(
-                    name="No duplicate peaks",
-                    passed=False,
-                    message="Duplicates found",
-                )
-            )
-        else:
-            result.checks.append(
-                ValidationCheck(
-                    name="No duplicate peaks",
-                    passed=True,
-                    message="Pass",
-                )
-            )
-
-        # Add position ranges to info
-        if peaks:
-            n_dims = peaks[0].n_dims if peaks else 0
-            for dim_idx in range(n_dims):
-                dim_label = f"F{dim_idx + 1}"
-                dim_range = result.get_dimension_range(dim_idx)
-                if dim_range:
-                    result.info[f"{dim_label} range (ppm)"] = (
-                        f"{dim_range[0]:.2f} to {dim_range[1]:.2f}"
-                    )
-
-    @staticmethod
-    def _read_sparky_list(path: Path) -> list[PeakData]:
-        """Read Sparky format peak list with N-dimensional support."""
-        peaks = []
-        with path.open() as f:
-            for raw_line in f:
-                line = raw_line.strip()
-                if not line or line.startswith(("#", "Assignment")):
-                    continue
-                parts = line.split()
-                if len(parts) >= _MIN_PARTS_FOR_NAME_AND_POSITION:  # At least name + 1 position
-                    name = parts[0]
-                    # All remaining numeric parts are positions
-                    positions = []
-                    for part in parts[1:]:
-                        try:
-                            positions.append(float(part))
-                        except ValueError:
-                            break  # Stop at first non-numeric
-                    if positions:
-                        peaks.append(PeakData(name=name, positions=positions))
-        return peaks
-
-    @staticmethod
-    def _read_csv_list(path: Path) -> list[PeakData]:
-        """Read CSV format peak list with N-dimensional support."""
-        df = pd.read_csv(path)
-        return ValidationService._parse_peaks_from_dataframe(df)
-
-    @staticmethod
-    def _read_excel_list(path: Path) -> list[PeakData]:
-        """Read Excel format peak list with N-dimensional support."""
-        df = pd.read_excel(path)
-        return ValidationService._parse_peaks_from_dataframe(df)
-
-    @staticmethod
-    def _parse_peaks_from_dataframe(df: Any) -> list[PeakData]:
-        """Parse peaks from a pandas DataFrame."""
-        peaks = []
-        pos_cols = ValidationService._detect_position_columns(df)
-
-        for _, row in df.iterrows():
-            name_value = row.get("Assign F1", row.get("#", row.get("name", "")))
-            positions = [ValidationService._to_float(row.get(col), 0.0) for col in pos_cols]
-            if not positions:  # Fallback to first numeric columns
-                positions = [
-                    ValidationService._to_float(row.iloc[i], 0.0)
-                    for i in range(1, min(3, len(row)))
-                ]
-            peaks.append(PeakData(name=str(name_value), positions=positions))
-        return peaks
-
-    @staticmethod
-    def _detect_position_columns(df: Any) -> list[str]:
-        """Detect position columns in a DataFrame."""
-        columns = df.columns.tolist()
-        pos_cols = []
-
-        # Try 'Pos Fn' pattern
-        for i in range(1, 5):
-            col = f"Pos F{i}"
-            if col in columns:
-                pos_cols.append(col)
-
-        if pos_cols:
-            return pos_cols
-
-        # Try 'wn' pattern
-        for i in range(1, 5):
-            col = f"w{i}"
-            if col in columns:
-                pos_cols.append(col)
-
+    if pos_cols:
         return pos_cols
 
-    @staticmethod
-    def _read_json_list(path: Path) -> list[PeakData]:
-        """Read JSON format peak list with N-dimensional support."""
-        with path.open() as f:
-            data = json.load(f)
+    # Try 'wn' pattern
+    for i in range(1, 5):
+        col = f"w{i}"
+        if col in columns:
+            pos_cols.append(col)
 
-        if isinstance(data, list):
-            peaks = []
-            for p in data:
-                name = str(p.get("name", p.get("Assign F1", "")))
-                # Try 'positions' array first
-                if "positions" in p and isinstance(p["positions"], list):
-                    positions = [float(x) for x in p["positions"]]
-                else:
-                    # Fall back to individual position fields
-                    positions = []
-                    for i in range(1, 5):  # F1 to F4
-                        pos = p.get(f"Pos F{i}") or p.get(f"w{i}")
-                        if pos is not None:
-                            positions.append(ValidationService._to_float(pos, 0.0))
-                # Removed legacy 'x'/'y' fallback
-                peaks.append(PeakData(name=name, positions=positions))
-            return peaks
-        return []
+    return pos_cols
 
-    @staticmethod
-    def _to_float(value: Any, fallback: float = 0.0) -> float:
-        """Convert arbitrary values to float with graceful fallback."""
-        if value is None:
-            return fallback
 
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return fallback
+def _read_json_list(path: Path) -> list[PeakData]:
+    """Read JSON format peak list with N-dimensional support."""
+    with path.open() as f:
+        data = json.load(f)
+
+    if isinstance(data, list):
+        peaks = []
+        for p in data:
+            name = str(p.get("name", p.get("Assign F1", "")))
+            # Try 'positions' array first
+            if "positions" in p and isinstance(p["positions"], list):
+                positions = [float(x) for x in p["positions"]]
+            else:
+                # Fall back to individual position fields
+                positions = []
+                for i in range(1, 5):  # F1 to F4
+                    pos = p.get(f"Pos F{i}") or p.get(f"w{i}")
+                    if pos is not None:
+                        positions.append(_to_float(pos, 0.0))
+            # Removed legacy 'x'/'y' fallback
+            peaks.append(PeakData(name=name, positions=positions))
+        return peaks
+    return []
+
+
+def _to_float(value: Any, fallback: float = 0.0) -> float:
+    """Convert arbitrary values to float with graceful fallback."""
+    if value is None:
+        return fallback
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
 
 
 __all__ = [
@@ -427,5 +402,5 @@ __all__ = [
     "SpectrumData",
     "ValidationCheck",
     "ValidationResult",
-    "ValidationService",
+    "validate_inputs",
 ]

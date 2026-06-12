@@ -1,4 +1,4 @@
-"""Markdown report generator for human-readable output."""
+"""Concise Markdown report writer."""
 
 from __future__ import annotations
 
@@ -20,487 +20,345 @@ if TYPE_CHECKING:
         ParameterEstimate,
     )
 
-# Constants for markdown formatting
-_REDUCED_CHI2_GOOD_MIN = 0.5
-_REDUCED_CHI2_GOOD_MAX = 2.0
-_MAX_PEAK_NAMES_IN_SUMMARY = 3
-_MAX_WARNINGS_IN_BRIEF = 5
-_MAX_PARAMETERS_IN_REPORT = 80
-_SECONDS_PER_MINUTE = 60
+
+_GOOD_REDCHI_MIN = 0.5
+_GOOD_REDCHI_MAX = 2.0
+_MAX_CLUSTER_ROWS = 40
+_MAX_PARAMETER_ROWS = 40
+_MAX_WARNING_ROWS = 20
+_MAX_MCMC_ROWS = 40
+_MAX_PEAK_NAMES = 3
 _POOR_RELATIVE_ERROR_THRESHOLD = 0.5
 
 
-class MarkdownReportGenerator:
-    """Generate human-readable Markdown reports from fit results.
+def write_report(
+    results: FitResults,
+    path: Path,
+    config: WriterConfig | None = None,
+) -> Path:
+    """Write a compact human-readable fit report.
 
-    Creates structured reports including:
-    - Executive summary with key metrics
-    - Per-cluster parameter tables
-    - Convergence diagnostics (for MCMC)
-    - Warnings and recommendations
+    CSV and JSON remain the source for complete per-parameter data. The Markdown
+    report is intentionally bounded so large runs stay readable in terminals,
+    notebooks, and code review diffs.
     """
+    cfg = config or WriterConfig()
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    def __init__(self, config: WriterConfig | None = None) -> None:
-        """Initialize report generator.
+    warnings = _collect_warnings(results)
+    sections = [
+        _summary_section(results),
+        _warning_section(warnings),
+        _cluster_section(results),
+        _parameter_section(results, cfg),
+    ]
+    if results.mcmc_diagnostics:
+        sections.append(_mcmc_section(results))
 
-        Args:
-            config: Writer configuration for formatting.
-        """
-        self.config = config or WriterConfig()
+    path.write_text("\n\n".join(section for section in sections if section) + "\n")
+    return path
 
-    def generate_full_report(self, results: FitResults, path: Path) -> None:
-        """Generate complete analysis report.
 
-        Args:
-            results: FitResults object
-            path: Output file path (e.g., results/reports/analysis_report.md)
-        """
-        path.parent.mkdir(parents=True, exist_ok=True)
+def _summary_section(results: FitResults) -> str:
+    lines = [
+        "# PeakFit Report",
+        "",
+        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- Method: {results.method.value}",
+        f"- Clusters: {results.n_clusters}",
+        f"- Peaks: {results.n_peaks}",
+    ]
 
-        sections = [
-            self._generate_header(results),
-            self._generate_executive_summary(results),
-            self._generate_cluster_summary(results),
-            self._generate_key_parameters(results),
-        ]
-
-        # Add MCMC diagnostics section if applicable
-        if results.mcmc_diagnostics:
-            sections.append(self._generate_diagnostics_section(results))
-
-        # Add warnings section if any
-        warnings = self._collect_all_warnings(results)
-        if warnings:
-            sections.append(self._generate_warnings_section(warnings))
-
-        sections.append(self._generate_footer(results))
-
-        content = "\n\n".join(sections)
-        path.write_text(content)
-
-    def generate_summary_report(self, results: FitResults, path: Path) -> None:
-        """Generate brief summary report.
-
-        Suitable for quick review with essential information only.
-
-        Args:
-            results: FitResults object
-            path: Output file path
-        """
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        sections = [
-            self._generate_header(results),
-            self._generate_executive_summary(results),
-            self._generate_cluster_summary(results),
-        ]
-
-        # Brief warnings if any
-        warnings = self._collect_all_warnings(results)
-        if warnings:
-            sections.append(self._generate_brief_warnings(warnings))
-
-        sections.append(self._generate_footer(results))
-
-        content = "\n\n".join(sections)
-        path.write_text(content)
-
-    def generate_cluster_report(
-        self, cluster: ClusterEstimates, statistics: FitStatistics | None, path: Path
-    ) -> None:
-        """Generate report for a single cluster.
-
-        Args:
-            cluster: ClusterEstimates object
-            statistics: FitStatistics for this cluster (optional)
-            path: Output file path
-        """
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        sections = [
-            f"# Cluster {cluster.cluster_id}: {', '.join(cluster.peak_names)}",
-            "",
-            self._generate_cluster_table(cluster),
-        ]
-
-        if statistics:
-            sections.append(self._generate_statistics_summary(statistics))
-
-        content = "\n\n".join(sections)
-        path.write_text(content)
-
-    # ----------------------------------------------------------------
-    # Section generators
-    # ----------------------------------------------------------------
-
-    def _generate_header(self, results: FitResults) -> str:
-        """Generate report header."""
-        lines = [
-            "# PeakFit Analysis Report",
-            "",
-            f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"**Software Version:** {results.metadata.software_version}",
-        ]
-
-        if results.metadata.git_commit:
-            lines.append(f"**Git Commit:** {results.metadata.git_commit}")
-
-        lines.append(f"**Fitting Method:** {results.method.value}")
-
-        return "\n".join(lines)
-
-    def _generate_executive_summary(self, results: FitResults) -> str:
-        """Generate executive summary section."""
-        lines = [
-            "## Executive Summary",
-            "",
-            f"- **Clusters analyzed:** {results.n_clusters}",
-            f"- **Total peaks:** {results.n_peaks}",
-        ]
-
-        # Global fit quality
-        if results.global_statistics:
-            red_chi2 = results.global_statistics.reduced_chi_squared
-            status = (
-                "✓ Good"
-                if _REDUCED_CHI2_GOOD_MIN <= red_chi2 <= _REDUCED_CHI2_GOOD_MAX
-                else "⚠ Check"
-            )
-            lines.append(f"- **Reduced χ²:** {red_chi2:.4f} ({status})")
-
-        # MCMC convergence summary
-        if results.mcmc_diagnostics:
-            converged = results.has_converged
-            status = "✓ Converged" if converged else "⚠ Issues"
-            lines.append(f"- **MCMC Convergence:** {status}")
-
-            # Count problematic parameters
-            n_problems = sum(
-                len(
-                    [
-                        p
-                        for p in d.parameter_diagnostics
-                        if p.status in (ConvergenceStatus.MARGINAL, ConvergenceStatus.POOR)
-                    ]
-                )
-                for d in results.mcmc_diagnostics
-            )
-            if n_problems > 0:
-                lines.append(f"- **Parameters with issues:** {n_problems}")
-
-        return "\n".join(lines)
-
-    def _generate_cluster_summary(self, results: FitResults) -> str:
-        """Generate summary table of cluster statistics."""
-        lines = [
-            "## Cluster Summary",
-            "",
-            "| Cluster | Peaks | χ² | Reduced χ² | Status |",
-            "|---------|-------|-----|------------|--------|",
-        ]
-
-        for i, cluster in enumerate(results.clusters):
-            peak_names = ", ".join(cluster.peak_names[:_MAX_PEAK_NAMES_IN_SUMMARY])
-            if len(cluster.peak_names) > _MAX_PEAK_NAMES_IN_SUMMARY:
-                peak_names += f" +{len(cluster.peak_names) - _MAX_PEAK_NAMES_IN_SUMMARY}"
-
-            if i < len(results.statistics):
-                stats = results.statistics[i]
-                chi2_str = f"{stats.chi_squared:.1f}"
-                red_chi2 = stats.reduced_chi_squared
-                red_chi2_str = f"{red_chi2:.2f}"
-                status = (
-                    "✓" if _REDUCED_CHI2_GOOD_MIN <= red_chi2 <= _REDUCED_CHI2_GOOD_MAX else "⚠"
-                )
-            else:
-                chi2_str = "—"
-                red_chi2_str = "—"
-                status = "?"
-
-            lines.append(
-                f"| {cluster.cluster_id} | {peak_names} | {chi2_str} | {red_chi2_str} | {status} |"
-            )
-
-        return "\n".join(lines)
-
-    def _generate_parameter_summary(self, results: FitResults) -> str:
-        """Generate parameter summary tables."""
-        lines = ["## Parameter Estimates", ""]
-
-        for i, cluster in enumerate(results.clusters):
-            lines.append(f"### Cluster {cluster.cluster_id}: {', '.join(cluster.peak_names)}")
-            lines.append("")
-            lines.append(self._generate_cluster_table(cluster))
-            lines.append("")
-
-            # Add statistics if available
-            if i < len(results.statistics):
-                lines.append(self._generate_statistics_summary(results.statistics[i]))
-                lines.append("")
-
-        return "\n".join(lines)
-
-    def _generate_key_parameters(self, results: FitResults) -> str:
-        """Generate a compact parameter table focused on relevant entries."""
-        candidates: list[tuple[int, int, str, ParameterEstimate]] = []
-
-        for cluster in results.clusters:
-            for param in cluster.lineshape_params:
-                priority = 2
-                if param.is_problematic:
-                    priority = 0
-                elif param.name.endswith(".cs") or param.name.endswith(".lw"):
-                    priority = 1
-
-                peak_name = (
-                    param.param_id.peak_name
-                    if param.param_id is not None and param.param_id.peak_name
-                    else (
-                        param.name.split(".", 1)[0]
-                        if "." in param.name
-                        else (
-                            cluster.peak_names[0]
-                            if cluster.peak_names
-                            else f"cluster_{cluster.cluster_id}"
-                        )
-                    )
-                )
-                candidates.append((priority, cluster.cluster_id, peak_name, param))
-
-        if not candidates:
-            return "## Key Parameters\n\nNo parameters were exported."
-
-        candidates.sort(key=lambda item: (item[0], item[1], item[2], item[3].name))
-        selected = candidates[:_MAX_PARAMETERS_IN_REPORT]
-
-        lines = [
-            "## Key Parameters",
-            "",
-            "| Cluster | Peak | Parameter | Value | Uncertainty | Status |",
-            "|---------|------|-----------|-------|-------------|--------|",
-        ]
-
-        prec = self.config.precision
-        thresh = self.config.scientific_notation_threshold
-        for _, cluster_id, peak_name, param in selected:
-            value_str = format_float(param.value, prec, thresh)
-            unc_str = self._format_uncertainty(param, prec, thresh)
-            status = self._get_param_status_indicator(param)
-            param_name = param.param_id.name if param.param_id is not None else param.name
-            row = (
-                f"| {cluster_id} | {peak_name} | {param_name} | "
-                f"{value_str} | {unc_str} | {status} |"
-            )
-            lines.append(row)
-
-        hidden = len(candidates) - len(selected)
-        if hidden > 0:
-            lines.append("")
-            lines.append(
-                f"_Showing top {_MAX_PARAMETERS_IN_REPORT} parameters ({hidden} omitted)._"
-            )
-
-        return "\n".join(lines)
-
-    def _generate_cluster_table(self, cluster: ClusterEstimates) -> str:
-        """Generate parameter table for a cluster."""
-        lines = [
-            "| Parameter | Value | Uncertainty | Unit | Status |",
-            "|-----------|-------|-------------|------|--------|",
-        ]
-
-        prec = self.config.precision
-        thresh = self.config.scientific_notation_threshold
-
+    if results.global_statistics is not None:
+        stats = results.global_statistics
         lines.extend(
-            self._format_parameter_row(param, prec, thresh) for param in cluster.lineshape_params
+            [
+                f"- Reduced chi2: {stats.reduced_chi_squared:.4g} "
+                f"({_fit_status(stats.reduced_chi_squared, stats.fit_converged)})",
+                f"- Data points: {stats.n_data}",
+                f"- Fit parameters: {stats.n_params}",
+            ]
         )
 
-        return "\n".join(lines)
+    if results.mcmc_diagnostics:
+        status = "ok" if results.has_converged else "check"
+        n_problematic = sum(
+            len(diag.get_problematic_parameters()) for diag in results.mcmc_diagnostics
+        )
+        lines.append(f"- MCMC convergence: {status}")
+        if n_problematic:
+            lines.append(f"- MCMC parameters to check: {n_problematic}")
 
-    def _generate_statistics_summary(self, stats: FitStatistics) -> str:
-        """Generate statistics summary."""
-        prec = self.config.precision
+    return "\n".join(lines)
 
-        lines = [
-            "**Fit Statistics:**",
-            f"- χ² = {stats.chi_squared:.{prec}f}",
-            f"- Reduced χ² = {stats.reduced_chi_squared:.{prec}f}",
-            f"- DOF = {stats.dof}",
-        ]
 
-        if stats.aic is not None:
-            lines.append(f"- AIC = {stats.aic:.{prec}f}")
-        if stats.bic is not None:
-            lines.append(f"- BIC = {stats.bic:.{prec}f}")
+def _warning_section(warnings: list[str]) -> str:
+    if not warnings:
+        return "## Checks\n\nNo warnings."
 
-        return "\n".join(lines)
+    shown = warnings[:_MAX_WARNING_ROWS]
+    lines = [f"## Checks ({len(warnings)})", ""]
+    lines.extend(f"- {warning}" for warning in shown)
+    lines.extend(_omitted_note(len(warnings), len(shown), "warnings"))
+    return "\n".join(lines)
 
-    def _generate_diagnostics_section(self, results: FitResults) -> str:
-        """Generate MCMC diagnostics section."""
-        lines = ["## MCMC Convergence Diagnostics", ""]
 
-        for i, diag in enumerate(results.mcmc_diagnostics):
-            cluster_label = (
-                ", ".join(results.clusters[i].peak_names)
-                if i < len(results.clusters)
-                else f"Cluster {i}"
+def _cluster_section(results: FitResults) -> str:
+    rows = list(_cluster_rows(results))
+    shown = rows[:_MAX_CLUSTER_ROWS]
+
+    lines = [
+        "## Clusters",
+        "",
+        "| Cluster | Peaks | Reduced chi2 | Status |",
+        "| --- | --- | ---: | --- |",
+    ]
+    lines.extend(shown)
+    lines.extend(_omitted_note(len(rows), len(shown), "clusters"))
+    return "\n".join(lines)
+
+
+def _cluster_rows(results: FitResults) -> list[str]:
+    rows: list[tuple[int, int, str]] = []
+    for index, cluster in enumerate(results.clusters):
+        stats = results.statistics[index] if index < len(results.statistics) else None
+        sort_key = _cluster_sort_key(stats)
+        redchi = f"{stats.reduced_chi_squared:.4g}" if stats is not None else ""
+        status = _cluster_status(stats)
+        rows.append(
+            (
+                sort_key,
+                cluster.cluster_id,
+                f"| {cluster.cluster_id} | {_peak_label(cluster)} | {redchi} | {status} |",
+            )
+        )
+
+    rows.sort(key=lambda row: (row[0], row[1]))
+    return [row for _, _, row in rows]
+
+
+def _parameter_section(results: FitResults, config: WriterConfig) -> str:
+    rows = list(_parameter_rows(results, config))
+    if not rows:
+        return "## Parameters To Check\n\nNo parameter warnings."
+
+    shown = rows[:_MAX_PARAMETER_ROWS]
+    lines = [
+        "## Parameters To Check",
+        "",
+        "| Cluster | Peak | Parameter | Value | Error | Status |",
+        "| --- | --- | --- | ---: | ---: | --- |",
+    ]
+    lines.extend(shown)
+    lines.extend(_omitted_note(len(rows), len(shown), "parameters"))
+    return "\n".join(lines)
+
+
+def _parameter_rows(results: FitResults, config: WriterConfig) -> list[str]:
+    rows: list[tuple[int, int, str, str, str]] = []
+    for cluster in results.clusters:
+        for param in cluster.lineshape_params:
+            if not _show_parameter(param):
+                continue
+            rows.append(
+                (
+                    _parameter_sort_key(param),
+                    cluster.cluster_id,
+                    _peak_name(cluster, param),
+                    param.name,
+                    _parameter_row(cluster, param, config),
+                )
             )
 
-            lines.append(f"### {cluster_label}")
-            lines.append("")
-            lines.append(f"**Overall Status:** {self._status_badge(diag.overall_status)}")
-            lines.append(f"- Chains: {diag.n_chains}")
-            lines.append(f"- Samples per chain: {diag.n_samples}")
-            lines.append(f"- Burn-in: {diag.burn_in}")
-            lines.append("")
+    rows.sort(key=lambda row: (row[0], row[1], row[2], row[3]))
+    return [row for *_, row in rows]
 
-            # Parameter diagnostics table
-            if diag.parameter_diagnostics:
-                lines.append(self._generate_diagnostics_table(diag))
-                lines.append("")
 
-        return "\n".join(lines)
+def _parameter_row(
+    cluster: ClusterEstimates,
+    param: ParameterEstimate,
+    config: WriterConfig,
+) -> str:
+    precision = config.precision
+    threshold = config.scientific_notation_threshold
+    value = format_float(param.value, precision, threshold)
+    error = _format_error(param, precision, threshold)
+    return (
+        f"| {cluster.cluster_id} | {_peak_name(cluster, param)} | {param.name} | "
+        f"{value} | {error} | {_parameter_status(param)} |"
+    )
 
-    def _generate_diagnostics_table(self, diag: MCMCDiagnostics) -> str:
-        """Generate diagnostics table for a cluster."""
-        lines = [
-            "| Parameter | R-hat | ESS (bulk) | ESS (tail) | Status |",
-            "|-----------|-------|------------|------------|--------|",
-        ]
 
-        for pd in diag.parameter_diagnostics:
-            rhat_str = f"{pd.rhat:.4f}" if pd.rhat is not None else "—"
-            ess_bulk_str = f"{pd.ess_bulk:.0f}" if pd.ess_bulk is not None else "—"
-            ess_tail_str = f"{pd.ess_tail:.0f}" if pd.ess_tail is not None else "—"
-            status = self._status_badge(pd.status)
+def _mcmc_section(results: FitResults) -> str:
+    rows = list(_mcmc_rows(results))
+    if not rows:
+        return ""
 
-            lines.append(f"| {pd.name} | {rhat_str} | {ess_bulk_str} | {ess_tail_str} | {status} |")
+    shown = rows[:_MAX_MCMC_ROWS]
+    lines = [
+        "## MCMC Diagnostics",
+        "",
+        "| Cluster | Parameter | R-hat | ESS bulk | ESS tail | Status |",
+        "| --- | --- | ---: | ---: | ---: | --- |",
+    ]
+    lines.extend(shown)
+    lines.extend(_omitted_note(len(rows), len(shown), "MCMC diagnostics"))
+    return "\n".join(lines)
 
-        return "\n".join(lines)
 
-    def _generate_warnings_section(self, warnings: list[str]) -> str:
-        """Generate warnings section."""
-        lines = ["## ⚠️ Warnings", ""]
-        lines.extend(f"- {warning}" for warning in warnings)
-        return "\n".join(lines)
+def _mcmc_rows(results: FitResults) -> list[str]:
+    rows: list[tuple[int, int, str]] = []
+    for index, diag in enumerate(results.mcmc_diagnostics):
+        cluster_id = results.clusters[index].cluster_id if index < len(results.clusters) else index
+        for param in diag.parameter_diagnostics:
+            if param.status not in (ConvergenceStatus.MARGINAL, ConvergenceStatus.POOR):
+                continue
+            rhat = f"{param.rhat:.4g}" if param.rhat is not None else ""
+            ess_bulk = f"{param.ess_bulk:.0f}" if param.ess_bulk is not None else ""
+            ess_tail = f"{param.ess_tail:.0f}" if param.ess_tail is not None else ""
+            rows.append(
+                (
+                    _mcmc_sort_key(diag),
+                    cluster_id,
+                    (
+                        f"| {cluster_id} | {param.name} | {rhat} | {ess_bulk} | {ess_tail} | "
+                        f"{param.status.value} |"
+                    ),
+                )
+            )
 
-    def _generate_brief_warnings(self, warnings: list[str]) -> str:
-        """Generate brief warnings for summary report."""
-        n_warnings = len(warnings)
-        if n_warnings == 0:
-            return ""
+    rows.sort(key=lambda row: (row[0], row[1], row[2]))
+    return [row for _, _, row in rows]
 
-        lines = [
-            f"## ⚠️ Warnings ({n_warnings})",
-            "",
-        ]
 
-        # Show first 5 only
-        lines.extend(f"- {warning}" for warning in warnings[:_MAX_WARNINGS_IN_BRIEF])
+def _collect_warnings(results: FitResults) -> list[str]:
+    warnings: list[str] = []
 
-        if n_warnings > _MAX_WARNINGS_IN_BRIEF:
-            lines.append(f"- ... and {n_warnings - _MAX_WARNINGS_IN_BRIEF} more")
+    for index, cluster in enumerate(results.clusters):
+        stats = results.statistics[index] if index < len(results.statistics) else None
+        if stats is not None and not stats.fit_converged:
+            warnings.append(f"Cluster {cluster.cluster_id} did not converge.")
+        if stats is not None and not _is_good_redchi(stats.reduced_chi_squared):
+            warnings.append(
+                f"Cluster {cluster.cluster_id} has reduced chi2 {stats.reduced_chi_squared:.4g}."
+            )
 
-        return "\n".join(lines)
+        for param in cluster.lineshape_params:
+            if param.is_fixed:
+                continue
+            if param.is_at_boundary():
+                warnings.append(f"{param.name} is at a fitting boundary.")
+            rel_err = param.relative_error
+            if rel_err is not None and rel_err > _POOR_RELATIVE_ERROR_THRESHOLD:
+                warnings.append(f"{param.name} has relative uncertainty {rel_err:.0%}.")
+            elif param.std_error <= 0:
+                warnings.append(f"{param.name} has no positive uncertainty estimate.")
 
-    def _generate_footer(self, results: FitResults) -> str:
-        """Generate report footer."""
-        lines = [
-            "---",
-            "",
-            "*This report was automatically generated by PeakFit.*",
-        ]
+    for diag in results.mcmc_diagnostics:
+        warnings.extend(diag.all_warnings)
 
-        if results.metadata.run_duration_seconds:
-            duration = results.metadata.run_duration_seconds
-            if duration < _SECONDS_PER_MINUTE:
-                time_str = f"{duration:.1f} seconds"
-            else:
-                minutes = int(duration // _SECONDS_PER_MINUTE)
-                seconds = duration % _SECONDS_PER_MINUTE
-                time_str = f"{minutes} min {seconds:.0f} sec"
-            lines.append(f"*Analysis completed in {time_str}.*")
+    return list(dict.fromkeys(warnings))
 
-        return "\n".join(lines)
 
-    # ----------------------------------------------------------------
-    # Helper methods
-    # ----------------------------------------------------------------
+def _show_parameter(param: ParameterEstimate) -> bool:
+    if param.is_fixed:
+        return False
+    if param.is_problematic:
+        return True
+    return param.name.endswith(".cs") or param.name.endswith(".lw")
 
-    def _format_parameter_row(self, param: ParameterEstimate, prec: int, thresh: int) -> str:
-        """Format a single parameter row."""
-        value_str = format_float(param.value, prec, thresh)
-        unc_str = self._format_uncertainty(param, prec, thresh)
-        status = self._get_param_status_indicator(param)
-        return f"| {param.name} | {value_str} | {unc_str} | {param.unit} | {status} |"
 
-    def _format_uncertainty(self, param: ParameterEstimate, prec: int, thresh: int) -> str:
-        """Format uncertainty string."""
-        if param.has_asymmetric_error and param.ci_68_lower is not None:
-            upper_diff = param.ci_68_upper - param.value if param.ci_68_upper else 0
-            lower_diff = param.value - param.ci_68_lower
-            upper_str = format_float(upper_diff, prec, thresh)
-            lower_str = format_float(lower_diff, prec, thresh)
-            return f"+{upper_str}/−{lower_str}"
-        return format_float(param.std_error, prec, thresh)
+def _parameter_sort_key(param: ParameterEstimate) -> int:
+    if param.is_at_boundary():
+        return 0
+    if param.is_problematic:
+        return 1
+    return 2
 
-    def _get_param_status_indicator(self, param: ParameterEstimate) -> str:
-        """Get status indicator for a parameter."""
-        if param.is_fixed:
-            return "🔒 Fixed"
-        if param.is_problematic:
-            return "⚠️ Check"
-        if param.is_at_boundary():
-            return "⚠️ At bound"
-        return "✓"
 
-    def _status_badge(self, status: ConvergenceStatus) -> str:
-        """Get badge for convergence status."""
-        badges = {
-            ConvergenceStatus.EXCELLENT: "✓ Excellent",
-            ConvergenceStatus.GOOD: "✓ Good",
-            ConvergenceStatus.ACCEPTABLE: "○ OK",
-            ConvergenceStatus.MARGINAL: "⚠ Marginal",
-            ConvergenceStatus.POOR: "[BAD] Poor",
-            ConvergenceStatus.UNKNOWN: "? Unknown",
-        }
-        return badges.get(status, "?")
+def _cluster_sort_key(stats: FitStatistics | None) -> int:
+    if stats is None:
+        return 2
+    if not stats.fit_converged:
+        return 0
+    if not _is_good_redchi(stats.reduced_chi_squared):
+        return 1
+    return 2
 
-    def _collect_all_warnings(self, results: FitResults) -> list[str]:
-        """Collect all warnings from results."""
-        warnings = []
-        warnings.extend(self._collect_parameter_warnings(results))
-        warnings.extend(self._collect_mcmc_warnings(results))
-        return warnings
 
-    def _collect_parameter_warnings(self, results: FitResults) -> list[str]:
-        """Collect warnings from parameters."""
-        warnings = []
-        for cluster in results.clusters:
-            for param in cluster.lineshape_params:
-                if param.is_at_boundary():
-                    warnings.append(f"Parameter {param.name} is at a fitting boundary")
-                rel_err = param.relative_error
-                if (
-                    rel_err is not None
-                    and rel_err > _POOR_RELATIVE_ERROR_THRESHOLD
-                    and not param.is_fixed
-                ):
-                    warnings.append(
-                        f"Parameter {param.name} is poorly determined "
-                        f"(uncertainty > {rel_err * 100:.0f}%)"
-                    )
-        return warnings
+def _mcmc_sort_key(diag: MCMCDiagnostics) -> int:
+    if diag.overall_status == ConvergenceStatus.POOR:
+        return 0
+    if diag.overall_status == ConvergenceStatus.MARGINAL:
+        return 1
+    return 2
 
-    def _collect_mcmc_warnings(self, results: FitResults) -> list[str]:
-        """Collect warnings from MCMC diagnostics."""
-        warnings = []
-        for diag in results.mcmc_diagnostics:
-            warnings.extend(diag.all_warnings)
-        return warnings
+
+def _cluster_status(stats: FitStatistics | None) -> str:
+    if stats is None:
+        return "missing statistics"
+    return _fit_status(stats.reduced_chi_squared, stats.fit_converged)
+
+
+def _fit_status(redchi: float, converged: bool) -> str:
+    if not converged:
+        return "failed"
+    if _is_good_redchi(redchi):
+        return "ok"
+    return "check"
+
+
+def _parameter_status(param: ParameterEstimate) -> str:
+    if param.is_at_boundary():
+        return "at boundary"
+    if param.is_problematic:
+        return "check"
+    return "ok"
+
+
+def _peak_label(cluster: ClusterEstimates) -> str:
+    names = cluster.peak_names[:_MAX_PEAK_NAMES]
+    suffix = (
+        f" +{len(cluster.peak_names) - len(names)}" if len(cluster.peak_names) > len(names) else ""
+    )
+    return ", ".join(names) + suffix
+
+
+def _peak_name(cluster: ClusterEstimates, param: ParameterEstimate) -> str:
+    if param.param_id is not None and param.param_id.peak_name:
+        return param.param_id.peak_name
+    if "." in param.name:
+        return param.name.split(".", 1)[0]
+    if cluster.peak_names:
+        return cluster.peak_names[0]
+    return f"cluster_{cluster.cluster_id}"
+
+
+def _format_error(param: ParameterEstimate, precision: int, threshold: int) -> str:
+    if (
+        param.has_asymmetric_error
+        and param.ci_68_lower is not None
+        and param.ci_68_upper is not None
+    ):
+        upper = param.ci_68_upper - param.value
+        lower = param.value - param.ci_68_lower
+        upper_text = format_float(upper, precision, threshold)
+        lower_text = format_float(lower, precision, threshold)
+        return f"+{upper_text}/-{lower_text}"
+    return format_float(param.std_error, precision, threshold)
+
+
+def _is_good_redchi(redchi: float) -> bool:
+    return _GOOD_REDCHI_MIN <= redchi <= _GOOD_REDCHI_MAX
+
+
+def _omitted_note(total: int, shown: int, label: str) -> list[str]:
+    omitted = total - shown
+    if omitted <= 0:
+        return []
+    return ["", f"_Showing {shown} of {total} {label}. See JSON/CSV outputs for full detail._"]
 
 
 __all__ = [
-    "MarkdownReportGenerator",
+    "write_report",
 ]

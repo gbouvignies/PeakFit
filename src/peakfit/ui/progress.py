@@ -11,7 +11,6 @@ from rich.progress import (
     SpinnerColumn,
     TaskProgressColumn,
     TextColumn,
-    TimeElapsedColumn,
     TimeRemainingColumn,
 )
 
@@ -19,32 +18,7 @@ from .console import console, icon
 
 __all__ = [
     "create_mcmc_progress",
-    "create_progress",
 ]
-
-
-def create_progress(transient: bool = False) -> Progress:
-    """Create a standard progress bar with consistent styling.
-
-    Args:
-        transient: Whether the progress bar should disappear when complete
-
-    Returns:
-    -------
-        Configured Progress instance
-    """
-    return Progress(
-        SpinnerColumn(finished_text=f"[success]{icon('check')}[/success]", spinner_name="dots"),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(complete_style="progress.percentage", finished_style="success"),
-        TaskProgressColumn(show_speed=True),
-        MofNCompleteColumn(),
-        TextColumn("[neutral]•[/neutral]"),
-        TimeElapsedColumn(),
-        TimeRemainingColumn(),
-        console=console,
-        transient=transient,
-    )
 
 
 def create_mcmc_progress(transient: bool = False) -> Progress:

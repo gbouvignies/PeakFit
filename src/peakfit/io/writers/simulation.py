@@ -18,8 +18,6 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.shared.reporter import Reporter
 
-    from .config import WriterConfig
-
 
 def write_simulated_spectra(
     output_dir: Path,
@@ -27,7 +25,7 @@ def write_simulated_spectra(
     clusters: list[Cluster],
     params: Parameters,
     reporter: Reporter | None = None,
-) -> None:
+) -> Path | None:
     """Write simulated spectra to file.
 
     Simulates the spectra based on the fitted parameters and writes it to an NMRPipe file.
@@ -42,7 +40,7 @@ def write_simulated_spectra(
     try:
         ng = import_module("nmrglue")
     except ModuleNotFoundError:
-        return
+        return None
 
     if reporter:
         reporter.action("Writing simulated spectra...")
@@ -52,56 +50,55 @@ def write_simulated_spectra(
     if spectra.pseudo_dim_added:
         data_simulated = np.squeeze(data_simulated, axis=0)
 
+    output_path = output_dir / f"simulated.ft{data_simulated.ndim}"
     ng.pipe.write(
-        str(output_dir / f"simulated.ft{data_simulated.ndim}"),
+        str(output_path),
         spectra.dic,
         data_simulated.astype(np.float32),
         overwrite=True,
     )
+    return output_path
 
 
-def write_readme(output_dir: Path, config: WriterConfig, summary: Any) -> None:
+def write_readme(output_dir: Path, summary: Any) -> Path:
     """Generate a README.md file for the output directory.
 
     Args:
         output_dir: Path to the output directory.
-        config: The configuration object used for the run.
         summary: RunSummary object containing run metrics.
     """
     readme_path = output_dir / "README.md"
 
     lines = [
-        "# PeakFit Run Results",
+        "# PeakFit Run",
+        "",
+        "## Summary",
         "",
         f"- **Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"- **Clusters**: {summary.n_clusters}",
-        f"- **Success Rate**: {summary.success_rate:.1%}",
+        f"- **Peaks**: {summary.n_peaks}",
+        f"- **Converged clusters**: {summary.n_converged}/{summary.n_clusters} "
+        f"({summary.success_rate:.1%})",
+        f"- **Median reduced chi2**: {summary.median_redchi:.4g}",
         "",
-        "## File Guide",
+        "## Files",
         "",
     ]
 
     file_descriptions = [
-        ("manifest.json", "Run manifest with a full file index and run metrics."),
-        ("summary/fit_summary.json", "Canonical structured fit summary for downstream tools."),
+        ("summary/fit.json", "Main machine-readable fit summary."),
         ("summary/report.md", "Concise human-readable report."),
-        ("parameters/parameters.csv", "Model parameters (one row per parameter)."),
-        ("parameters/intensities.csv", "Per-plane fitted intensities and errors."),
-        ("parameters/shifts.csv", "Wide-format chemical shifts by peak."),
-        ("statistics/fit_statistics.json", "Per-cluster and global fit quality statistics."),
-        ("diagnostics/mcmc_diagnostics.json", "MCMC convergence diagnostics."),
-        ("metadata/run_metadata.json", "Run metadata and reproducibility context."),
-        ("metadata/fitting_state.pkl", "Serialized fitting state for reuse."),
+        ("tables/parameters.csv", "Model parameters."),
+        ("tables/intensities.csv", "Per-plane fitted intensities and errors."),
+        ("tables/shifts.csv", "Chemical shifts by peak."),
+        ("metadata/fitting_state.pkl", "Saved state for MCMC and plotting workflows."),
     ]
 
     for rel_path, description in file_descriptions:
         if (output_dir / rel_path).exists():
             lines.append(f"- `{rel_path}`: {description}")
 
-    if config.include_legacy and (output_dir / "legacy").exists():
-        lines.append("- `legacy/`: Legacy `.out` outputs for backward compatibility.")
-
-    readme_path.write_text("\n".join(lines))
+    readme_path.write_text("\n".join(lines) + "\n")
+    return readme_path
 
 
 __all__ = [

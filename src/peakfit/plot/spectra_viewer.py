@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from peakfit.shared.typing import FloatArray
 
 from peakfit.engine.algorithms.noise import estimate_noise
-from peakfit.io.utils import format_path
 from peakfit.plot.qt_core import (
     QAction,
     QApplication,
@@ -32,6 +31,7 @@ from peakfit.plot.qt_core import (
     QWidget,
     Signal,
 )
+from peakfit.shared.paths import format_path
 
 # Configuration
 CONTOUR_NUM = 25

@@ -1,16 +1,4 @@
-"""PeakFit - Lineshape fitting for pseudo-3D NMR spectra.
-
-Public API:
-    - FitService: Main fitting service
-    - PlotService: Visualization generation
-
-Configuration:
-    - PeakFitConfig: Main configuration object
-    - FitConfig, ClusterConfig, OutputConfig: Sub-configurations
-
-Domain Objects:
-    - FittingState: Complete fitting state
-"""
+"""PeakFit - lineshape fitting for pseudo-3D NMR spectra."""
 
 import contextlib
 from importlib import metadata

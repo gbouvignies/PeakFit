@@ -29,19 +29,13 @@ A fit run produces a results directory with this structure:
 ```text
 <run_dir>/
 ├── summary/
-│   ├── fit_summary.json
-│   └── report.md
-├── parameters/
+│   └── fit.json
+├── tables/
 │   ├── parameters.csv
 │   ├── intensities.csv
 │   └── shifts.csv
-├── statistics/
-│   └── fit_statistics.json
 ├── metadata/
-│   ├── run_metadata.json
 │   └── fitting_state.pkl
-└── diagnostics/
-    └── mcmc_diagnostics.json   # only when present
 ```
 
 By default, `peakfit fit --output Fits` writes to a timestamped subdirectory (for example `Fits/20260205_153012`).

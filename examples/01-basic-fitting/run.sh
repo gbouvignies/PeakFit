@@ -18,7 +18,7 @@ fi
 
 rm -rf results
 
-cmd=(peakfit fit data/spectrum.ft2 data/peaks.list --output results --output-verbosity standard)
+cmd=(peakfit fit data/spectrum.ft2 data/peaks.list --output results)
 if [[ -f "data/z_values.txt" ]]; then
   cmd+=(--z-values data/z_values.txt)
 fi
@@ -34,4 +34,4 @@ fi
 echo
 echo "Run complete."
 echo "Latest results: ${latest_run}"
-echo "Inspect: ${latest_run}/summary/fit_summary.json"
+echo "Inspect: ${latest_run}/summary/fit.json"

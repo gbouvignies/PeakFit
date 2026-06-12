@@ -119,20 +119,6 @@ class FitMethod(StrEnum):
     PROFILE_LIKELIHOOD = "profile_likelihood"
 
 
-class OutputVerbosity(StrEnum):
-    """Output verbosity levels.
-
-    Controls which outputs are generated:
-    - MINIMAL: Essential outputs only (parameters CSV, summary JSON)
-    - STANDARD: Default outputs (+ diagnostics, figures)
-    - FULL: All outputs including posteriors and debug info
-    """
-
-    MINIMAL = "minimal"
-    STANDARD = "standard"
-    FULL = "full"
-
-
 # =============================================================================
 # Statistics Functions
 # =============================================================================
@@ -1436,7 +1422,6 @@ __all__ = [
     "MCMCAnalysisResult",
     "MCMCDiagnostics",
     "ModelComparison",
-    "OutputVerbosity",
     "ParameterCategory",
     "ParameterDiagnostic",
     "ParameterEstimate",

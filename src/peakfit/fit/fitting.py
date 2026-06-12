@@ -25,16 +25,17 @@ from peakfit.engine.algorithms.clustering import create_clusters
 from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
-from peakfit.fit.auto_pick import AutoPickCycleReport, auto_pick_peaks
+from peakfit.fit.auto_pick import AutoPickCycleAction, AutoPickCycleReport, auto_pick_peaks
 from peakfit.fit.builder import FitResultsBuilder
 from peakfit.fit.pipeline import FitPipeline, PipelineResult
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
 from peakfit.io.state import default_state_path, save_state
-from peakfit.io.utils import format_path
-from peakfit.io.writers.config import Verbosity, WriterConfig
-from peakfit.io.writers.orchestrator import ResultsWriter
+from peakfit.io.writers.config import WriterConfig
+from peakfit.io.writers.orchestrator import write_fit_outputs
+from peakfit.io.writers.simulation import write_readme, write_simulated_spectra
 from peakfit.shared.exceptions import DataIOError
+from peakfit.shared.paths import format_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -46,11 +47,10 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.engine.domain.state import FittingState
     from peakfit.engine.results import FitResult
-    from peakfit.fit.auto_pick import AutoPickCycleAction
     from peakfit.shared.reporter import Reporter
 
     type AutoPickCallbackBuilder = Callable[
-        [Spectra, float], Callable[[AutoPickCycleReport], AutoPickCycleAction | bool]
+        [Spectra, float], Callable[[AutoPickCycleReport], AutoPickCycleAction]
     ]
 
 
@@ -231,11 +231,11 @@ def load_data(
             else None
         )
 
-        def _cycle_callback(cycle: AutoPickCycleReport) -> AutoPickCycleAction | bool:
+        def _cycle_callback(cycle: AutoPickCycleReport) -> AutoPickCycleAction:
             if reporter is not None:
                 _log_auto_pick_cycle(reporter, cycle)
             if user_cycle_callback is None:
-                return True
+                return AutoPickCycleAction()
             return user_cycle_callback(cycle)
 
         auto_result = auto_pick_peaks(
@@ -557,44 +557,28 @@ def write_service_results(
     builder.add_cluster_from_state(service_result.state)
     results = builder.build()
 
-    # Writer Configuration
-    try:
-        verbosity = Verbosity(config.output.verbosity)
-    except ValueError:
-        verbosity = Verbosity.STANDARD
-
-    writer_config = WriterConfig(
-        verbosity=verbosity,
-        formats=tuple(config.output.formats),
-        include_legacy=getattr(config.output, "include_legacy", False),
-        save_simulated=config.output.save_simulated,
-    )
-
-    writer = ResultsWriter(config=writer_config)
+    writer_config = WriterConfig(formats=tuple(config.output.formats))
 
     if reporter:
         reporter.action("Writing outputs...")
 
-    writer.write_for_verbosity(results, output_dir, writer_config.verbosity)
+    write_fit_outputs(results, output_dir, writer_config)
+
+    if config.output.save_simulated:
+        write_simulated_spectra(
+            output_dir,
+            spectra,
+            service_result.state.clusters,
+            service_result.state.scalar_params,
+            reporter,
+        )
+
+    state_file = default_state_path(output_dir)
+    save_state(state_file, service_result.state)
+    write_readme(output_dir, service_result.summary)
 
     if reporter:
         reporter.success(f"Results written to [path]{format_path(output_dir)}[/path]")
-
-    # Simulations
-    writer.write_simulation(
-        output_dir,
-        spectra,
-        service_result.state.clusters,
-        service_result.state.scalar_params,
-        reporter,
-    )
-
-    # State
-    state_file = default_state_path(output_dir)
-    save_state(state_file, service_result.state)
-
-    # README
-    writer.write_readme(output_dir, service_result.summary)
 
 
 __all__ = [

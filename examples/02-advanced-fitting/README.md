@@ -28,8 +28,7 @@ The script runs a fit and creates profile PDFs from the generated results.
 ```bash
 peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
-  --output Fits \
-  --output-verbosity standard
+  --output Fits
 ```
 
 Get the latest run directory:
@@ -67,9 +66,7 @@ This variant writes to `Fits-config/` without a timestamp.
 
 From `LATEST_RUN`:
 
-- `summary/fit_summary.json`
-- `summary/report.md`
-- `parameters/parameters.csv`
-- `parameters/intensities.csv`
-- `statistics/fit_statistics.json`
+- `summary/fit.json`
+- `tables/parameters.csv`
+- `tables/intensities.csv`
 - `metadata/fitting_state.pkl` (used by `peakfit mcmc`)

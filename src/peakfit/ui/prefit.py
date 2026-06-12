@@ -1,8 +1,6 @@
-"""Pre-Fit "Manifest" UI component.
+"""Pre-fit setup summary UI component.
 
-Displays a boxed, static manifest summarizing the run configuration
-before any computation starts. Establishes trust by proving the program
-understands the inputs.
+Displays a compact setup summary before any computation starts.
 
 Design Philosophy:
 - Fit entirely on one terminal screen
@@ -91,7 +89,6 @@ def _relative_path(path: Path) -> str:
 def _build_prefit_panel(
     *,
     version: str,
-    author: str,
     method_str: str,
     contour_str: str,
     n_clusters: int,
@@ -106,12 +103,7 @@ def _build_prefit_panel(
     noise_source: str,
     rel_output: str,
 ) -> Panel:
-    # --- Build Content ---
-    content_table = Table.grid(padding=(0, 2))
-    content_table.add_column(width=14, style="bold")
-    content_table.add_column()
-
-    section_header = Text("Input Manifest", style="bold underline")
+    section_header = Text("Run Setup", style="bold underline")
 
     input_table = Table.grid(padding=(0, 2))
     input_table.add_column(width=2)
@@ -157,7 +149,6 @@ def _build_prefit_panel(
     panel_content = Table.grid(padding=(0, 0))
     panel_content.add_column()
     panel_content.add_row(Text("Command: Fitting", style="dim"))
-    panel_content.add_row(Text(f"Author: {author}", style="dim"))
     panel_content.add_row(Text(""))
     panel_content.add_row(section_header)
     panel_content.add_row(input_table)
@@ -173,7 +164,7 @@ def _build_prefit_panel(
         title=f"[header]PeakFit v{version}[/header]",
         title_align="left",
         border_style="panel.border",
-        box=box.HEAVY,
+        box=box.ROUNDED,
         padding=(1, 2),
     )
 
@@ -187,11 +178,10 @@ def show_prefit_check(
     peaklist_path: Path | None,
     workers: int | str = 1,
 ) -> None:
-    """Display the pre-fit manifest panel.
+    """Display the pre-fit setup panel.
 
     Shows a boxed summary of:
     - Program name and version
-    - Author credit
     - Input files with metadata
     - Configuration parameters
     - Output directory
@@ -199,7 +189,6 @@ def show_prefit_check(
     This is an informational display only; fitting starts immediately after.
     """
     version = _get_version()
-    author = "Guillaume Bouvignies"
 
     shape_type, n_series = _summarize_spectra(loaded_data)
     n_peaks = len(loaded_data.peaks)
@@ -220,7 +209,6 @@ def show_prefit_check(
 
     panel = _build_prefit_panel(
         version=version,
-        author=author,
         method_str=method_str,
         contour_str=contour_str,
         n_clusters=n_clusters,

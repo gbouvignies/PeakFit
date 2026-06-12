@@ -1,6 +1,4 @@
-from types import SimpleNamespace
-
-from peakfit.plot.manager.service import PlotService
+from peakfit.plot.service import generate_cest_plots, generate_intensity_plots
 
 
 def _write_intensities_csv(path, rows) -> None:
@@ -11,28 +9,18 @@ def _write_intensities_csv(path, rows) -> None:
     )
 
 
-class _SummaryOnlyLoader:
-    def __init__(self, _directory) -> None:
-        pass
-
-    def load_summary(self):
-        return SimpleNamespace(clusters=[SimpleNamespace(amplitudes=[])])
-
-
-def test_intensity_plots_fall_back_to_intensities_csv(tmp_path, monkeypatch) -> None:
-    params_dir = tmp_path / "parameters"
-    params_dir.mkdir()
+def test_intensity_plots_use_intensities_csv(tmp_path) -> None:
+    tables_dir = tmp_path / "tables"
+    tables_dir.mkdir()
     _write_intensities_csv(
-        params_dir / "intensities.csv",
+        tables_dir / "intensities.csv",
         [
             "1,P0001,0,100.0,2.0,-12000.0",
             "1,P0001,1,50.0,2.0,-100.0",
             "1,P0001,2,100.0,2.0,12000.0",
         ],
     )
-    monkeypatch.setattr("peakfit.plot.manager.service.ResultsLoader", _SummaryOnlyLoader)
-
-    output = PlotService().generate_intensity_plots(
+    output = generate_intensity_plots(
         tmp_path,
         output_path=tmp_path / "intensity_profiles.pdf",
         show=False,
@@ -42,20 +30,18 @@ def test_intensity_plots_fall_back_to_intensities_csv(tmp_path, monkeypatch) -> 
     assert output.path.exists()
 
 
-def test_cest_plots_fall_back_to_intensities_csv(tmp_path, monkeypatch) -> None:
-    params_dir = tmp_path / "parameters"
-    params_dir.mkdir()
+def test_cest_plots_use_intensities_csv(tmp_path) -> None:
+    tables_dir = tmp_path / "tables"
+    tables_dir.mkdir()
     _write_intensities_csv(
-        params_dir / "intensities.csv",
+        tables_dir / "intensities.csv",
         [
             "1,P0001,0,100.0,2.0,-12000.0",
             "1,P0001,1,50.0,2.0,-100.0",
             "1,P0001,2,100.0,2.0,12000.0",
         ],
     )
-    monkeypatch.setattr("peakfit.plot.manager.service.ResultsLoader", _SummaryOnlyLoader)
-
-    output = PlotService().generate_cest_plots(
+    output = generate_cest_plots(
         tmp_path,
         output_path=tmp_path / "cest_profiles.pdf",
         reference_indices=[0, 2],
@@ -66,11 +52,11 @@ def test_cest_plots_fall_back_to_intensities_csv(tmp_path, monkeypatch) -> None:
     assert output.path.exists()
 
 
-def test_cest_plots_auto_reference_fallback_for_indexed_z_axis(tmp_path, monkeypatch) -> None:
-    params_dir = tmp_path / "parameters"
-    params_dir.mkdir()
+def test_cest_plots_auto_reference_fallback_for_indexed_z_axis(tmp_path) -> None:
+    tables_dir = tmp_path / "tables"
+    tables_dir.mkdir()
     _write_intensities_csv(
-        params_dir / "intensities.csv",
+        tables_dir / "intensities.csv",
         [
             "1,P0001,0,100.0,2.0,0.0",
             "1,P0001,1,60.0,2.0,1.0",
@@ -79,9 +65,7 @@ def test_cest_plots_auto_reference_fallback_for_indexed_z_axis(tmp_path, monkeyp
             "1,P0001,4,100.0,2.0,4.0",
         ],
     )
-    monkeypatch.setattr("peakfit.plot.manager.service.ResultsLoader", _SummaryOnlyLoader)
-
-    output = PlotService().generate_cest_plots(
+    output = generate_cest_plots(
         tmp_path,
         output_path=tmp_path / "cest_profiles.pdf",
         show=False,

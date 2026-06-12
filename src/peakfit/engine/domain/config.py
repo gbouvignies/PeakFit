@@ -37,8 +37,6 @@ LineshapeName = Literal[
     "no_apod_doublet",
 ]
 OutputFormat = Literal["csv", "json", "txt"]
-OutputVerbosity = Literal["minimal", "standard", "full"]
-LogFormat = Literal["text", "json"]
 StrategyName = Literal["varpro", "lm", "basin_hopping"]
 
 
@@ -227,27 +225,18 @@ class AutoPeakConfig(BaseModel):
 class OutputConfig(BaseModel):
     """Configuration for output file generation.
 
-    Supports both new structured output system and legacy formats.
+    Keep this model limited to fit-output controls that are actually
+    implemented by the writer path.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     directory: Path = Field(default=Path("Fits"), description="Output directory for results.")
     formats: list[OutputFormat] = Field(
-        default=["json", "csv", "txt"],
-        description="Output formats for results. Default includes all formats.",
-    )
-    verbosity: OutputVerbosity = Field(
-        default="standard",
-        description="Output verbosity: minimal (essential), standard (default), full (all).",
+        default=["json", "csv"],
+        description="Output formats for results. Add 'txt' to write a Markdown report.",
     )
     save_simulated: bool = Field(default=False, description="Save simulated spectrum to file.")
-    save_html_report: bool = Field(default=False, description="Save HTML report of fitting.")
-    save_chains: bool = Field(
-        default=False,
-        description="Save MCMC chains to disk (requires significant storage).",
-    )
-    save_figures: bool = Field(default=True, description="Generate and save diagnostic figures.")
     include_timestamp: bool = Field(
         default=True,
         description="Include timestamp in output directory name.",
@@ -255,14 +244,6 @@ class OutputConfig(BaseModel):
     headless: bool = Field(
         default=False,
         description="Disable interactive/live display (use reporter-only output).",
-    )
-    include_legacy: bool = Field(
-        default=False,
-        description="Write legacy .out outputs alongside structured outputs (opt-in).",
-    )
-    log_format: LogFormat = Field(
-        default="text",
-        description="Format for log file: text (human-readable) or json (structured).",
     )
 
 
@@ -406,11 +387,9 @@ __all__ = [
     "FitConfig",
     "FitStep",
     "LineshapeName",
-    "LogFormat",
     "MCMCConfig",
     "OutputConfig",
     "OutputFormat",
-    "OutputVerbosity",
     "ParameterConfig",
     "PeakData",
     "PeakFitConfig",

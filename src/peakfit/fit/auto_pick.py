@@ -132,7 +132,7 @@ class AutoPickCycleAction:
     allow_suggested_fallback: bool = True
 
 
-AutoPickCycleCallback = Callable[[AutoPickCycleReport], AutoPickCycleAction | bool]
+AutoPickCycleCallback = Callable[[AutoPickCycleReport], AutoPickCycleAction]
 
 
 @dataclass(frozen=True)
@@ -298,7 +298,7 @@ def auto_pick_peaks(
                 feedback_message=feedback_message,
                 stage="peak_added",
             )
-            return _normalize_cycle_action(cycle_callback(report))
+            return cycle_callback(report)
 
         roi_result = _fit_roi_iteratively(
             spectra=spectra,
@@ -386,7 +386,7 @@ def auto_pick_peaks(
                 feedback_message=None,
                 stage="cycle_complete",
             )
-            action = _normalize_cycle_action(cycle_callback(report))
+            action = cycle_callback(report)
             if action.command == "stop":
                 stopped_by_user = True
                 break
@@ -448,13 +448,6 @@ def _candidate_ppm_for_plot(
     point = tuple(int(v) for v in roi_points[candidate_idx])
     point_ppm = _point_to_ppm(point, spectra)
     return float(point_ppm[0]), float(point_ppm[-1])
-
-
-def _normalize_cycle_action(action: AutoPickCycleAction | bool) -> AutoPickCycleAction:
-    """Coerce legacy boolean callback responses into explicit actions."""
-    if isinstance(action, AutoPickCycleAction):
-        return action
-    return AutoPickCycleAction(command="continue" if action else "stop")
 
 
 def _roi_plot_limits(

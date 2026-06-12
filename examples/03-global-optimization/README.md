@@ -47,8 +47,7 @@ Each command writes to a timestamped run under the selected output root.
 
 Inspect:
 
-- `summary/fit_summary.json`
-- `statistics/fit_statistics.json`
-- `parameters/parameters.csv`
+- `summary/fit.json`
+- `tables/parameters.csv`
 
-The script prints a simple comparison using values from `summary/fit_summary.json`.
+The script prints a simple comparison using values from `summary/fit.json`.

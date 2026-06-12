@@ -68,8 +68,6 @@ def run_golden_fit(tmp_path_factory):
         str(output_dir),
         "--refine",
         "1",
-        "--output-verbosity",
-        "standard",
         "--headless",
         "--verbose",
     ]
@@ -84,7 +82,7 @@ def run_golden_fit(tmp_path_factory):
 
     # Smart detection of output root
     # 1. Check if we generated directly into output_dir (no timestamp/subdir mode)
-    if (output_dir / "summary").exists() or (output_dir / "fit_results.json").exists():
+    if (output_dir / "summary").exists():
         return output_dir
 
     # 2. Check for timestamped subdirectory (standard PeakFit mode)
@@ -98,7 +96,7 @@ def run_golden_fit(tmp_path_factory):
 
 def test_json_output_integrity(run_golden_fit):
     """
-    Tests fit_summary.json structure and reasonable fit quality.
+    Tests fit.json structure and reasonable fit quality.
 
     We cannot test exact values due to stochastic optimization, but we can:
     1. Verify the output file exists and has correct structure
@@ -106,7 +104,7 @@ def test_json_output_integrity(run_golden_fit):
     3. Verify expected keys are present
     """
     output_dir = run_golden_fit
-    new_json_path = output_dir / "summary" / "fit_summary.json"
+    new_json_path = output_dir / "summary" / "fit.json"
 
     # Unconditional debug of directory structure
     sys.stderr.write(f"\n[DEBUG] Checking output in: {output_dir}\n")
@@ -119,7 +117,7 @@ def test_json_output_integrity(run_golden_fit):
     sys.stderr.flush()
 
     if not new_json_path.exists():
-        pytest.fail(f"fit_summary.json missing at {new_json_path}")
+        pytest.fail(f"fit.json missing at {new_json_path}")
 
     with new_json_path.open() as f:
         new_data = json.load(f)
@@ -170,7 +168,7 @@ def test_csv_parameters_integrity(run_golden_fit):
     4. Values and uncertainties are well-formed
     """
     output_dir = run_golden_fit
-    new_csv_path = output_dir / "parameters" / "parameters.csv"
+    new_csv_path = output_dir / "tables" / "parameters.csv"
     assert new_csv_path.exists(), f"parameters.csv missing at {new_csv_path}"
 
     # Read CSV file, skipping comment lines

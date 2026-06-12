@@ -10,8 +10,7 @@ from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra
 from peakfit.engine.lineshapes import LineshapeFactory
-from peakfit.io.schemas import PeakSchema
-from peakfit.io.utils import format_path
+from peakfit.shared.paths import format_path
 
 Reader = Callable[[Path, Spectra, list[str], FitConfig], list[Peak]]
 
@@ -61,7 +60,7 @@ def _create_peak_list(
 
     The DataFrame must have a 'name' column followed by position columns.
     Position columns should be ordered from F1 (first indirect) to Fn (direct).
-    Uses PeakSchema for validation before creating domain objects.
+    Peak domain construction validates dimensionality.
     """
     factory = LineshapeFactory(spectra, config)
     peak_list: list[Peak] = []
@@ -70,15 +69,8 @@ def _create_peak_list(
         pos_values = tuple(float(p) for p in positions)
         pos_array = np.array(pos_values, dtype=np.float64)
 
-        # 1. Create shapes (Core logic)
         shapes = factory.create_shapes(str(name), pos_values, shape_names)
-
-        # 2. Validate via Schema (IO logic)
-        # Note: positions comes as a tuple of floats from itertuples
-        schema = PeakSchema(name=str(name), positions=pos_array, shapes=shapes)
-
-        # 3. Convert to Domain Entity (Fast Dataclass)
-        peak_list.append(schema.to_domain())
+        peak_list.append(Peak(name=str(name), positions=pos_array, shapes=shapes))
 
     return peak_list
 
@@ -99,8 +91,7 @@ def _create_peak_list_from_rows(
         pos_array = np.array(pos_values, dtype=np.float64)
 
         shapes = factory.create_shapes(str(name), pos_values, shape_names)
-        schema = PeakSchema(name=str(name), positions=pos_array, shapes=shapes)
-        peak_list.append(schema.to_domain())
+        peak_list.append(Peak(name=str(name), positions=pos_array, shapes=shapes))
 
     return peak_list
 

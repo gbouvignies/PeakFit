@@ -9,7 +9,6 @@ from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.types import ParamSpec
 from peakfit.fit.auto_pick import (
-    AutoPickCycleAction,
     _accept_trial,
     _addition_threshold,
     _any_cs_close_to_constraint,
@@ -20,7 +19,6 @@ from peakfit.fit.auto_pick import (
     _initial_local_maxima_candidates,
     _initialize_existing_params_from_previous,
     _initialize_new_peak_from_median,
-    _normalize_cycle_action,
     _rollback_next_peak_number,
     _select_manual_candidate,
     _select_next_candidate,
@@ -284,13 +282,6 @@ def test_auto_peak_default_has_no_per_roi_peak_cap() -> None:
 def test_auto_peak_accepts_optional_per_roi_peak_cap() -> None:
     config = PeakFitConfig.model_validate({"auto_peak": {"max_peaks_per_roi": 8}})
     assert config.auto_peak.max_peaks_per_roi == 8
-
-
-def test_normalize_cycle_action_supports_legacy_bool() -> None:
-    assert _normalize_cycle_action(True).command == "continue"
-    assert _normalize_cycle_action(False).command == "stop"
-    action = AutoPickCycleAction(command="next_cluster")
-    assert _normalize_cycle_action(action) == action
 
 
 def test_select_manual_candidate_uses_clicked_position() -> None:

@@ -12,9 +12,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
-
-    from peakfit.engine.results import FitResults, ParameterEstimate
+    from peakfit.engine.results import ParameterEstimate
     from peakfit.engine.types import JsonValue
 
 
@@ -90,37 +88,6 @@ def get_peak_name(param: ParameterEstimate, peak_names: list[str]) -> str:
     return peak_names[0] if peak_names else ""
 
 
-def flatten_diagnostics(
-    results: FitResults,
-) -> Generator[tuple[int, list[str], str, float | None, float | None, float | None, str]]:
-    """Yield flattened diagnostic data.
-
-    Yields:
-    ------
-        Tuple of (cluster_id, peak_names, param_name, rhat, ess_bulk, ess_tail, status)
-    """
-    if not results.mcmc_diagnostics:
-        return
-
-    for i, diag in enumerate(results.mcmc_diagnostics):
-        cluster_id = results.clusters[i].cluster_id
-        peak_names = results.clusters[i].peak_names
-
-        for pd in diag.parameter_diagnostics:
-            status_val = pd.status
-            status_str = str(status_val.value) if hasattr(status_val, "value") else str(status_val)
-
-            yield (
-                cluster_id,
-                peak_names,
-                pd.name,
-                pd.rhat,
-                pd.ess_bulk,
-                pd.ess_tail,
-                status_str,
-            )
-
-
 class NumpyEncoder(json.JSONEncoder):
     """JSON encoder that handles numpy types and Path objects."""
 
@@ -141,7 +108,6 @@ class NumpyEncoder(json.JSONEncoder):
 
 __all__ = [
     "NumpyEncoder",
-    "flatten_diagnostics",
     "format_float",
     "get_peak_name",
 ]

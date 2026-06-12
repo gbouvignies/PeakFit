@@ -1,24 +1,27 @@
 # Output Architecture Notes
 
 This document describes the current output system at a high level. The concrete user-facing
-layout is documented in [docs/output_system.md](../output_system.md), and the proposed
-redesign is tracked in [specs/output-revamp-plan.md](../../specs/output-revamp-plan.md).
+layout is documented in [docs/output_system.md](../output_system.md).
 
 ## Current Shape
 
 - Fit results are assembled into structured result models.
-- Writers serialize selected data to JSON, CSV, Markdown, and related artifacts.
-- The fit workflow currently coordinates output writing.
+- `build_output_plan()` resolves concrete files from requested formats and available data.
+- Writers serialize selected data to JSON, CSV, Markdown, and optional simulated spectra.
+- The fit workflow coordinates fit artifacts, serialized state, and the output `README.md`.
 - Output files support both humans reviewing a run and tools consuming fit results.
+- Markdown reports are intentionally compact. Complete numeric detail belongs in JSON and CSV.
 
-## Known Cleanup Direction
+## Deliberate Simplifications
 
-The output revamp should reduce duplicated data, avoid placeholder files and empty
-directories, make format and verbosity options real, and keep dense data in table or array
-formats instead of bloating summary reports.
+- There is no writer manager class; direct functions keep output flow visible.
+- There is no output manifest; the file layout is fixed and documented.
+- Run metadata, fit statistics, and MCMC diagnostics live in `summary/fit.json`.
+- Per-plane amplitudes are exported only in `tables/intensities.csv`.
+- Optional Markdown reports are bounded summaries, not full numeric exports.
 
 ## Next Architecture Pass
 
-Decide whether output planning belongs in the fit workflow, a small output module, or a
-data-driven writer layer. Keep the result model and file layout easy to inspect from a
-completed run.
+Keep output planning close to the writer functions unless a larger workflow split becomes
+necessary. Avoid reintroducing manager, registry, or compatibility layers without a concrete
+user workflow that justifies them.

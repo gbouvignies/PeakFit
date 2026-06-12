@@ -15,7 +15,7 @@ This directory contains user and developer documentation aligned with the curren
 
 - **[Architecture Guide](../ARCHITECTURE.md)** - Current repository map and simplification notes
 - **[Fit Pipeline Notes](architecture/fit-pipeline.md)** - Current fitting workflow context
-- **[MCMC Workflow Notes](architecture/analyze_services.md)** - Current uncertainty workflow context
+- **[MCMC Workflow](architecture/mcmc_workflow.md)** - Current uncertainty workflow context
 - **[Output Architecture Notes](architecture/output_architecture.md)** - Current output internals and cleanup direction
 
 ## Development
@@ -32,7 +32,3 @@ See the main [README.md](../README.md) in the repository root for installation, 
 - **Examples**: [examples/](../examples/)
 - **GitHub Repository**: https://github.com/gbouvignies/PeakFit
 - **Issue Tracker**: https://github.com/gbouvignies/PeakFit/issues
-
----
-
-**Last Updated**: 2026-01-19

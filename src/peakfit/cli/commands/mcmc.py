@@ -12,20 +12,19 @@ from rich.console import Group
 from rich.live import Live
 
 from peakfit.mcmc.analysis import (
-    MCMCAnalysisService,
     format_mcmc_cluster_result,
+    run_mcmc_analysis,
 )
-from peakfit.ui import (
+from peakfit.ui.branding import show_command_summary
+from peakfit.ui.console import (
     Verbosity,
     console,
-    create_live_metrics_table,
-    create_mcmc_progress,
-    create_table,
     display_path,
     set_verbosity,
-    show_command_manifest,
 )
 from peakfit.ui.messages import info, show_error_with_details
+from peakfit.ui.progress import create_mcmc_progress
+from peakfit.ui.tables import create_live_metrics_table, create_table
 
 # Thresholds
 _ACCEPTANCE_GOOD = (0.2, 0.5)
@@ -115,7 +114,7 @@ def mcmc_command(  # noqa: PLR0915
         info("Manual burn-in specified; disabling auto-burnin")
         auto_burnin = False
 
-    show_command_manifest(
+    show_command_summary(
         "MCMC Uncertainty Analysis",
         sections=[
             (
@@ -209,7 +208,7 @@ def mcmc_command(  # noqa: PLR0915
             )
 
         try:
-            result = MCMCAnalysisService.run(
+            result = run_mcmc_analysis(
                 results_dir=results,
                 target_peaks=peaks,
                 n_walkers=walkers,
@@ -218,7 +217,6 @@ def mcmc_command(  # noqa: PLR0915
                 auto_burnin=auto_burnin,
                 workers=workers,
                 progress_callback=on_progress,
-                headless=True,
             )
         except Exception as e:
             run_error = e

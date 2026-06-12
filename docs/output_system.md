@@ -4,7 +4,7 @@ This document describes the output files produced by `peakfit fit` in the curren
 
 ## Overview
 
-PeakFit writes a structured results directory (default: `Fits` or a timestamped subdirectory when enabled). The content depends on selected output formats and verbosity.
+PeakFit writes a structured results directory (default: `Fits` or a timestamped subdirectory when enabled). The content depends on selected output formats and available result data.
 
 ### Default Formats
 
@@ -12,48 +12,39 @@ The default output formats are:
 
 - `json` → machine‑readable summaries
 - `csv` → tabular data
-- `txt` → Markdown report (`report.md`)
 
-These are configured via `[output] formats` or the CLI `--format` option.
+Markdown reports are optional. Add `txt` to `[output] formats` or pass
+`--format txt` to write `summary/report.md`.
 
 ## Output Directory Layout
 
 ```
 <output_dir>/
 ├── README.md
-├── manifest.json
 ├── summary/
-│   ├── fit_summary.json
-│   └── report.md                 # only if txt format is enabled
-├── parameters/
+│   ├── fit.json
+│   └── report.md                 # optional: only if txt format is enabled
+├── tables/
 │   ├── parameters.csv            # model parameters only
 │   ├── intensities.csv           # per-plane amplitudes
-│   └── shifts.csv                # omitted for minimal verbosity
-├── statistics/
-│   └── fit_statistics.json       # omitted for minimal verbosity
-├── diagnostics/
-│   └── mcmc_diagnostics.json     # only if MCMC diagnostics are present
+│   └── shifts.csv                # only when shift parameters are present
 ├── metadata/
-│   ├── run_metadata.json
 │   └── fitting_state.pkl
-└── legacy/                       # only if legacy output is enabled
 ```
 
 ### Notes
 
-- `README.md` is generated for each run and summarizes the results directory.
+- `README.md` is generated for each run and summarizes the result status and files.
 - `metadata/fitting_state.pkl` is the serialized state used by post-fit workflows.
-- `summary/report.md` is created only when `txt` is in `output.formats`.
-- `mcmc_diagnostics.json` is written only when the fit results include MCMC diagnostics.
-- `legacy/` is written only when `output.include_legacy = true`.
-- `manifest.json` indexes generated files and key run metrics.
+- Run metadata, fit statistics, and MCMC diagnostics are embedded in `summary/fit.json`.
+- `summary/report.md` is created only when `txt` is in `output.formats`; it is a
+  bounded review report, not a complete parameter export.
 
 ## Optional Artifacts
 
 These files are written only when explicitly enabled:
 
 - `simulated.ftN` (at output dir root) when `output.save_simulated = true` and `nmrglue` is installed.
-- `logs.html` when `output.save_html_report = true`.
 
 ## Configuration
 
@@ -61,19 +52,15 @@ These files are written only when explicitly enabled:
 
 ```
 peakfit fit spectrum.ft2 peaks.list \
-  --format json --format csv --format txt \
-  --output-verbosity standard
+  --format json --format csv
 ```
 
 ### TOML
 
 ```toml
 [output]
-formats = ["json", "csv", "txt"]
-verbosity = "standard"        # minimal, standard, full
-include_legacy = false
+formats = ["json", "csv"]
 save_simulated = false
-save_html_report = false
 include_timestamp = true
 ```
 
@@ -81,6 +68,6 @@ include_timestamp = true
 
 The primary JSON entry point is:
 
-- `summary/fit_summary.json`
+- `summary/fit.json`
 
 This file is the canonical machine-readable summary for downstream analysis.

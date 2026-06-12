@@ -100,9 +100,8 @@ contour_factor = 5.0
 
 [output]
 directory = "Fits"
-formats = ["txt"]
-save_simulated = true
-save_html_report = true
+formats = ["json", "csv"]
+save_simulated = false
 
 exclude_planes = []
 ```
@@ -138,18 +137,18 @@ peakfit plot spectrum --spectrum spectrum.ft2 --results Results/
 Fit lineshapes to peaks in pseudo-3D NMR spectrum.
 
 ```bash
-peakfit fit SPECTRUM PEAKLIST [OPTIONS]
+peakfit fit SPECTRUM [PEAKLIST] [OPTIONS]
 
 Arguments:
   SPECTRUM                Path to NMRPipe spectrum file (.ft2, .ft3)
-  PEAKLIST                Path to peak list file (.list, .csv, .json, .xlsx)
+  PEAKLIST                Peak list file (.list, .csv); omit for automatic peak picking
 
 Options:
   -z, --z-values PATH     Path to Z-dimension values file
   -o, --output PATH       Output directory [default: Fits]
   -c, --config PATH       Path to TOML configuration file
   -l, --lineshape TEXT    Lineshape: auto, gaussian, lorentzian, pvoigt, sp1, sp2
-  -r, --refine INTEGER    Number of refinement iterations [default: 1]
+  -r, --refine INTEGER    Number of refinement iterations [default: 2]
   -t, --contour FLOAT     Contour level for segmentation
   -n, --noise FLOAT       Manual noise level
   --fixed/--no-fixed      Fix peak positions
@@ -157,9 +156,10 @@ Options:
   --phx/--no-phx          Fit phase correction in X
   --phy/--no-phy          Fit phase correction in Y
   -e, --exclude INTEGER   Plane indices to exclude
+  -f, --format TEXT       Output format: json, csv, txt
+  -w, --workers INTEGER   Parallel workers (-1 = all CPUs)
+  --headless              Disable live UI
   --help                  Show this message and exit
-
-Note: The CLI option `--workers` has been removed. PeakFit now runs sequentially by default.
 ```
 
 ### `peakfit mcmc`
@@ -275,10 +275,17 @@ Peak2,Peak2,7.80,115.3
 
 After fitting, PeakFit generates the following files in the output directory:
 
-- **`{peak_name}.out`** - Per-peak fitting results with intensity profiles
-- **`shifts.list`** - Fitted chemical shift positions
-- **`simulated.ft2/ft3`** - Reconstructed spectrum from fitted parameters
-- **`logs.html`** - HTML report with detailed fitting information
+- **`README.md`** - short guide to the generated run files
+- **`summary/fit.json`** - canonical machine-readable fit summary
+- **`tables/parameters.csv`** - fitted model parameters
+- **`tables/intensities.csv`** - per-plane fitted intensities and errors
+- **`tables/shifts.csv`** - fitted chemical shifts when shift parameters are present
+- **`metadata/fitting_state.pkl`** - saved state for plotting and MCMC workflows
+
+Optional outputs:
+
+- **`summary/report.md`** when `txt` is requested with `--format txt`
+- **`simulated.ft2/ft3`** when `save_simulated = true`
 
 ## Lineshape Models
 
@@ -345,20 +352,20 @@ uv run pytest
 uv run pytest --cov=peakfit --cov-report=html
 
 # Run specific test file
-uv run pytest tests/unit/test_lineshapes.py
+uv run pytest tests/test_lineshapes_equivalence.py
 ```
 
 ### Code Quality
 
 ```bash
 # Linting with Ruff
-uv run ruff check peakfit/
+uv run ruff check src tests
 
 # Type checking
 uv run ty check
 
 # Format code
-uv run ruff format peakfit/
+uv run ruff format src tests
 
 # Run pre-commit hooks
 uv run pre-commit run --all-files
@@ -376,7 +383,7 @@ uv build
 ### Project Structure
 
 ```
-peakfit/
+src/peakfit/
 ├── cli/                # Modern CLI with Typer + Rich
 │   ├── app.py          # Main Typer application
 │   └── commands/       # Command implementations
@@ -432,7 +439,7 @@ peakfit plot cpmg Fits/ --time-t2 0.04 --show
 
 ```bash
 # Launch PyQt5 viewer with spectrum overlay
-peakfit plot spectra Fits/ --spectrum data.ft2
+peakfit plot spectrum --spectrum data.ft2 --results Fits/
 ```
 
 ## Migration from Previous Version
@@ -466,142 +473,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - NMRPipe file format support via [nmrglue](https://www.nmrglue.com/)
 - Rich terminal output via [Rich](https://github.com/Textualize/rich)
 - CLI framework via [Typer](https://typer.tiangolo.com/)
-
-## API Reference
-
-### Parameters System
-
-PeakFit uses a custom parameter system optimized for NMR fitting with domain-specific bounds and metadata:
-
-```python
-from peakfit.fitting import Parameters, Parameter, ParameterType
-
-# Create parameters with NMR-specific types
-params = Parameters()
-
-# Position parameter (ppm)
-params.add(
-    "peak1_x0",
-    value=8.50,
-    min=8.40,
-    max=8.60,
-    param_type=ParameterType.POSITION,
-    unit="ppm"
-)
-
-# Linewidth parameter with automatic bounds
-# FWHM type defaults to bounds (0.1, 200.0) Hz
-params.add(
-    "peak1_fwhm",
-    value=25.0,
-    param_type=ParameterType.FWHM,
-    unit="Hz"
-)
-
-# Phase correction with automatic bounds
-# PHASE type defaults to bounds (-180.0, 180.0) degrees
-params.add(
-    "peak1_phase",
-    value=0.0,
-    param_type=ParameterType.PHASE,
-    unit="deg"
-)
-
-# J-coupling constant with automatic bounds
-# JCOUPLING type defaults to bounds (0.0, 20.0) Hz
-params.add(
-    "peak1_j",
-    value=7.0,
-    param_type=ParameterType.JCOUPLING,
-    unit="Hz"
-)
-
-# Fraction (mixing) parameter
-# FRACTION type defaults to bounds (0.0, 1.0)
-params.add(
-    "peak1_eta",
-    value=0.5,
-    param_type=ParameterType.FRACTION
-)
-
-# Parameter operations
-params.freeze(["peak1_x0"])  # Fix parameters
-params.unfreeze(["peak1_x0"])  # Release parameters
-boundary_params = params.get_boundary_params()  # Check for boundary issues
-print(params.summary())  # Formatted parameter table
-```
-
-### NMR Parameter Types
-
-- **POSITION**: Peak center position (units: ppm or points)
-- **FWHM**: Full width at half maximum (units: Hz, bounds: 0.1-200.0)
-- **FRACTION**: Mixing parameters like eta (bounds: 0.0-1.0)
-- **PHASE**: Phase correction (units: deg, bounds: -180.0 to 180.0)
-- **JCOUPLING**: J-coupling constants (units: Hz, bounds: 0.0-20.0)
-- **AMPLITUDE**: Peak amplitudes (bounds: 0.0 to inf)
-- **GENERIC**: Other parameters (no default bounds)
-
-### Fitting Engine
-
-The fitting engine uses `scipy.optimize.least_squares` directly for optimal performance:
-
-```python
-from typing import Any
-
-from peakfit.fitting import fit_cluster, FitResult
-
-# Example placeholders for demonstration purposes
-# In real code, construct these via peak lists and spectra
-params: Any = ...  # Parameters
-cluster: Any = ...  # Cluster
-noise: float = 1.0
-
-# Fit a single cluster
-result: FitResult = fit_cluster(
-    params,
-    cluster,
-    noise,
-    max_nfev=1000,
-    ftol=1e-8,
-    xtol=1e-8,
-    gtol=1e-8
-)
-
-# Access fit statistics
-print(f"Chi-squared: {result.chisqr}")
-print(f"Reduced chi-squared: {result.redchi}")
-print(f"Function evaluations: {result.nfev}")
-print(f"Success: {result.success}")
-```
-
-### Advanced Optimization
-
-PeakFit includes global optimization methods for difficult fitting problems.
-These are available as development utilities in `tools/analysis/`:
-
-```python
-# From tools/analysis (development utilities, not part of installed package)
-from typing import Any
-
-from tools.analysis import (
-    benchmark_lineshape_backends,
-    profile_fit_cluster,
-    Profiler,
-    estimate_optimal_workers,
-)
-
-# Example placeholders for demonstration purposes
-params: Any = ...
-cluster: Any = ...
-noise: float = 1.0
-
-# Profile fitting stages
-profile = profile_fit_cluster(params, cluster, noise)
-print(f"Shape calculation: {profile['shape_calculation']*1000:.3f} ms")
-print(f"Residual calculation: {profile['residual_calculation']*1000:.3f} ms")
-print(f"Full fit: {profile['full_fit']*1000:.3f} ms")
-
-# Benchmark different lineshape backends
-results = benchmark_lineshape_backends(n_points=1000, n_iterations=100)
-print(results)
-```

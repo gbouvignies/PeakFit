@@ -1,21 +1,17 @@
-"""JSON schema definitions for PeakFit output files.
+"""Schema definitions for PeakFit JSON output files.
 
 This module provides Pydantic models that define the structure of
-JSON output files. These serve as both documentation and validation
-for the output format.
+JSON output files. These serve as both documentation and validation for
+the output format used by current writers.
 """
 
 from datetime import datetime
-from enum import StrEnum
 from typing import Any
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.types import Shape
-from peakfit.shared.typing import FloatArray, IntArray
+OUTPUT_SCHEMA_VERSION = "2.0.0"
 
 
 def _normalize_optional_std_error(value: Any) -> float | None:
@@ -39,68 +35,24 @@ def _normalize_optional_std_error(value: Any) -> float | None:
     return numeric
 
 
-class OutputFormat(StrEnum):
-    """Supported output formats."""
-
-    JSON = "json"
-    CSV = "csv"
-    TOML = "toml"
-    MARKDOWN = "markdown"
-
-
 # =============================================================================
 # Run Metadata Schema
 # =============================================================================
 
 
-class InputFileInfo(BaseModel):
-    """Information about an input file."""
-
-    path: str = Field(description="Relative path to the file")
-    checksum_sha256: str = Field(description="SHA-256 checksum for verification")
-
-
-class FittingConfiguration(BaseModel):
-    """Configuration used for fitting."""
-
-    lineshape: str = Field(
-        default="auto",
-        description="Lineshape model (auto, gaussian, lorentzian, pvoigt, etc.)",
-    )
-    refine_iterations: int = Field(default=1, ge=0)
-    fix_positions: bool = Field(default=False)
-    fit_j_coupling: bool = Field(default=False)
-    fit_phase: list[str] = Field(default_factory=list)
-    max_iterations: int = Field(default=1000, gt=0)
-    tolerance: float = Field(default=1e-8, gt=0)
-
-
-class MCMCConfiguration(BaseModel):
-    """Configuration for MCMC analysis."""
-
-    n_walkers: int = Field(default=32, ge=2)
-    n_steps: int = Field(default=5000, gt=0)
-    burn_in: int | None = Field(default=None, ge=0)
-    auto_burnin: bool = Field(default=True)
-
-
 class RunMetadataSchema(BaseModel):
-    """Schema for run_metadata.json.
-
-    This file captures everything needed for reproducibility.
-    """
+    """Run metadata embedded in summary/fit.json."""
 
     timestamp: datetime = Field(description="When analysis was run (ISO 8601)")
     software_version: str = Field(description="PeakFit version")
     git_commit: str | None = Field(default=None, description="Git commit hash")
     python_version: str = Field(description="Python interpreter version")
     platform: str = Field(description="OS platform")
-    input_files: dict[str, InputFileInfo] = Field(
+    input_files: dict[str, dict[str, str]] = Field(
         default_factory=dict,
-        description="Input files with checksums",
+        description="Input file paths and checksums",
     )
-    fitting_config: FittingConfiguration | None = Field(default=None)
-    mcmc_config: MCMCConfiguration | None = Field(default=None)
+    configuration: dict[str, Any] = Field(default_factory=dict)
     command_line: str = Field(default="", description="Command line arguments")
     run_duration_seconds: float | None = Field(default=None)
 
@@ -146,23 +98,6 @@ class ParameterSchema(BaseModel):
         return _normalize_optional_std_error(value)
 
 
-class AmplitudeSchema(BaseModel):
-    """Schema for an amplitude (intensity) value."""
-
-    peak_name: str
-    plane_index: int = Field(ge=0)
-    z_value: float | None = Field(default=None, description="Z-dimension value")
-    value: float
-    std_error: float | None = None
-    ci_68: tuple[float, float] | None = Field(default=None)
-
-    @field_validator("std_error", mode="before")
-    @classmethod
-    def normalize_std_error(cls, value: Any) -> float | None:
-        """Normalize nullable/non-finite uncertainty values."""
-        return _normalize_optional_std_error(value)
-
-
 class CorrelationMatrixSchema(BaseModel):
     """Schema for parameter correlations."""
 
@@ -176,7 +111,6 @@ class ClusterResultSchema(BaseModel):
     cluster_id: int
     peak_names: list[str]
     lineshape_parameters: list[ParameterSchema] = Field(alias="parameters")
-    amplitudes: list[AmplitudeSchema] = Field(default_factory=list)
     correlation: CorrelationMatrixSchema | None = Field(default=None)
 
     model_config = ConfigDict(populate_by_name=True)
@@ -270,7 +204,7 @@ class ParameterDiagnosticSchema(BaseModel):
 
 
 class MCMCDiagnosticsSchema(BaseModel):
-    """Schema for mcmc_diagnostics.json."""
+    """Schema for MCMC diagnostics embedded in summary/fit.json."""
 
     n_chains: int
     n_samples: int = Field(description="Samples per chain after burn-in")
@@ -292,13 +226,13 @@ class MCMCDiagnosticsSchema(BaseModel):
 
 
 class FitSummarySchema(BaseModel):
-    """Schema for fit_summary.json - the main output file.
+    """Schema for summary/fit.json - the main output file.
 
     This aggregates all results from a fitting run.
     """
 
     # Versioning
-    schema_version: str | None = Field(default=None)
+    schema_version: str = Field(description="Output schema version")
 
     # Metadata
     metadata: RunMetadataSchema
@@ -328,237 +262,3 @@ class FitSummarySchema(BaseModel):
     z_axis: ZAxisSchema | None = Field(default=None)
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
-
-
-# =============================================================================
-# CSV Format Definitions
-# =============================================================================
-
-
-class CSVColumnDefinition(BaseModel):
-    """Definition of a CSV column for documentation."""
-
-    name: str
-    description: str
-    unit: str = ""
-    data_type: str = "float"  # float, int, str, bool
-
-
-# Long-format parameter CSV columns
-PARAMETER_CSV_COLUMNS: list[CSVColumnDefinition] = [
-    CSVColumnDefinition(
-        name="cluster_id",
-        description="Cluster identifier",
-        data_type="int",
-    ),
-    CSVColumnDefinition(
-        name="peak_name",
-        description="Peak identifier from input peak list (or cluster_N for shared params)",
-        data_type="str",
-    ),
-    CSVColumnDefinition(
-        name="parameter",
-        description="Parameter name",
-        data_type="str",
-    ),
-    CSVColumnDefinition(
-        name="category",
-        description="Parameter category (lineshape, amplitude, etc.)",
-        data_type="str",
-    ),
-    CSVColumnDefinition(
-        name="value",
-        description="Best-fit value",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="std_error",
-        description="Standard error (symmetric uncertainty)",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="ci_68_lower",
-        description="Lower bound of 68% CI",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="ci_68_upper",
-        description="Upper bound of 68% CI",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="ci_95_lower",
-        description="Lower bound of 95% CI",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="ci_95_upper",
-        description="Upper bound of 95% CI",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="unit",
-        description="Physical unit",
-        data_type="str",
-    ),
-    CSVColumnDefinition(
-        name="min_bound",
-        description="Lower fitting bound",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="max_bound",
-        description="Upper fitting bound",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="is_fixed",
-        description="Whether parameter was fixed",
-        data_type="bool",
-    ),
-    CSVColumnDefinition(
-        name="is_global",
-        description="Whether shared across clusters",
-        data_type="bool",
-    ),
-]
-
-# Amplitude CSV columns (separate file for intensities)
-AMPLITUDE_CSV_COLUMNS: list[CSVColumnDefinition] = [
-    CSVColumnDefinition(name="cluster_id", description="Cluster identifier", data_type="int"),
-    CSVColumnDefinition(name="peak_name", description="Peak identifier", data_type="str"),
-    CSVColumnDefinition(name="plane_index", description="Z-dimension index", data_type="int"),
-    CSVColumnDefinition(name="z_value", description="Z-dimension value"),
-    CSVColumnDefinition(name="value", description="Fitted amplitude"),
-    CSVColumnDefinition(name="std_error", description="Amplitude uncertainty"),
-    CSVColumnDefinition(name="ci_68_lower", description="Lower 68% CI"),
-    CSVColumnDefinition(name="ci_68_upper", description="Upper 68% CI"),
-]
-
-
-def get_csv_header(columns: list[CSVColumnDefinition]) -> str:
-    """Generate CSV header line from column definitions."""
-    return ",".join(col.name for col in columns)
-
-
-def get_csv_header_comment(columns: list[CSVColumnDefinition]) -> str:
-    """Generate commented header documentation for CSV."""
-    lines = ["# Column definitions:"]
-    for col in columns:
-        unit_str = f" ({col.unit})" if col.unit else ""
-        lines.append(f"#   {col.name}: {col.description}{unit_str} [{col.data_type}]")
-    return "\n".join(lines)
-
-
-# =============================================================================
-# Domain Object Schemas (Moved from core/domain)
-# =============================================================================
-
-
-class PeakSchema(BaseModel):
-    """Represents a single NMR peak (Schema for I/O)."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
-
-    name: str = Field(description="Unique identifier for the peak")
-    positions: FloatArray = Field(description="Peak positions in ppm [dim]")
-    shapes: list[Shape] = Field(description="List of Shape objects (one per dimension)")
-    positions_start: FloatArray | None = Field(
-        default=None, init=False, description="Initial positions copy"
-    )
-
-    @field_validator("positions", mode="before")
-    @classmethod
-    def ensure_float_array(cls, v: Any) -> Any:
-        """Convert list/tuple to ndarray before Pydantic validation."""
-        if isinstance(v, (list, tuple)):
-            return np.array(v, dtype=np.float64)
-        return v
-
-    @model_validator(mode="after")
-    def validate_and_init(self) -> PeakSchema:
-        """Validate shapes/positions consistency and initialize positions_start."""
-        if not isinstance(self.positions, np.ndarray):
-            self.positions = np.asarray(self.positions, dtype=np.float64)
-
-        if len(self.positions) != len(self.shapes):
-            msg = (
-                f"Peak '{self.name}': dimensionality mismatch - "
-                f"{len(self.positions)} positions but {len(self.shapes)} shapes"
-            )
-            raise ValueError(msg)
-
-        if self.positions_start is None:
-            self.positions_start = self.positions.copy()
-
-        return self
-
-    def to_domain(self) -> Peak:
-        """Convert this schema to a domain Peak entity."""
-        return Peak(
-            name=self.name,
-            positions=self.positions,
-            shapes=self.shapes,
-        )
-
-
-class ClusterSchema(BaseModel):
-    """Grouped peaks sharing a contiguous spectral segment (Schema for I/O)."""
-
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        extra="forbid",
-    )
-
-    cluster_id: int
-    peaks: list[PeakSchema] = Field(description="List of PeakSchema objects")
-    grid_indices: list[IntArray] = Field(
-        description="List of IntArray grid indices",
-    )
-    data: FloatArray = Field(description="Spectral data (FloatArray)")
-    corrections: FloatArray | None = Field(
-        default=None, init=False, description="Correction array (FloatArray)"
-    )
-
-    @field_validator("data", mode="before")
-    @classmethod
-    def ensure_float_array(cls, v: Any) -> Any:
-        """Convert list/tuple to ndarray before Pydantic validation."""
-        if isinstance(v, (list, tuple)):
-            return np.array(v, dtype=np.float64)
-        return v
-
-    @field_validator("grid_indices", mode="before")
-    @classmethod
-    def ensure_int_arrays(cls, v: Any) -> Any:
-        """Convert list of lists to list of ndarrays."""
-        if isinstance(v, (list, tuple)):
-            new_pos = []
-            for p in v:
-                new_pos.append(np.asarray(p, dtype=int))
-            return new_pos
-        return v
-
-    @model_validator(mode="after")
-    def validate_and_init(self) -> ClusterSchema:
-        """Validate consistency and initialize corrections."""
-        if not self.peaks:
-            msg = "Cluster must contain at least one peak"
-            raise ValueError(msg)
-
-        if not isinstance(self.data, np.ndarray):
-            self.data = np.asarray(self.data)
-
-        if self.corrections is None:
-            self.corrections = np.zeros_like(self.data)
-
-        return self
-
-    def to_domain(self) -> Cluster:
-        """Convert this schema to a domain Cluster entity."""
-        return Cluster(
-            cluster_id=self.cluster_id,
-            peaks=[peak.to_domain() for peak in self.peaks],
-            grid_indices=self.grid_indices,
-            data=self.data,
-        )

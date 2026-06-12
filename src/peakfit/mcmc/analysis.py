@@ -1,4 +1,4 @@
-"""MCMC workflow services for post-fit uncertainty estimation.
+"""MCMC workflow helpers for post-fit uncertainty estimation.
 
 This module consolidates MCMC analysis and formatting utilities for CLI use.
 """
@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, Any
 from peakfit.engine.algorithms.mcmc import estimate_uncertainties_mcmc
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.results import ClusterMCMCResult, MCMCAnalysisResult
-from peakfit.io.readers import ResultsLoader
+from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.state import default_state_path, load_state
-from peakfit.io.utils import format_path
+from peakfit.shared.paths import format_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
     from peakfit.engine.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.engine.domain.cluster import Cluster
-    from peakfit.engine.domain.state import FittingState
     from peakfit.shared.typing import FloatArray
 
 
@@ -38,11 +37,6 @@ _ESS_GOOD_THRESHOLD = 100
 _ESS_MARGINAL_THRESHOLD = 10
 
 
-# =============================================================================
-# MCMC Analysis Service
-# =============================================================================
-
-
 class PeaksNotFoundError(ValueError):
     """Raised when requested peaks cannot be matched to clusters."""
 
@@ -51,273 +45,155 @@ class PeaksNotFoundError(ValueError):
         self.peaks = peaks
 
 
-class MCMCAnalysisService:
-    """High-level service for running MCMC uncertainty estimation."""
+_DEFAULT_NOISE = 1.0
 
-    _DEFAULT_LINESHAPE = "lorentzian"
-    _DEFAULT_NOISE = 1.0
-    _DEFAULT_CONTOUR_MULTIPLIER = 3.0
 
-    @classmethod
-    def run(
-        cls,
-        results_dir: Path,
-        *,
-        target_peaks: list[str] | None = None,
-        n_walkers: int = 32,
-        n_steps: int = 1000,
-        burn_in: int | None = None,
-        auto_burnin: bool = True,
-        workers: int = 1,
-        progress_callback: Callable[[int, int, str, float | None], None] | None = None,
-        headless: bool = False,
-    ) -> MCMCAnalysisResult:
-        """Run MCMC sampling for the results in the given directory."""
-        results_dir = Path(results_dir)
-        loader = ResultsLoader(results_dir)
-        state_path = default_state_path(results_dir)
-        state = load_state(state_path) if state_path.exists() else loader.load_fitting_state()
-        summary = loader.load_summary()
+def run_mcmc_analysis(
+    results_dir: Path,
+    *,
+    target_peaks: list[str] | None = None,
+    n_walkers: int = 32,
+    n_steps: int = 1000,
+    burn_in: int | None = None,
+    auto_burnin: bool = True,
+    workers: int = 1,
+    progress_callback: Callable[[int, int, str, float | None], None] | None = None,
+) -> MCMCAnalysisResult:
+    """Run MCMC sampling for the results in the given directory."""
+    results_dir = Path(results_dir)
+    loader = ResultsLoader(results_dir)
+    state_path = default_state_path(results_dir)
+    state = load_state(state_path) if state_path.exists() else loader.load_fitting_state()
+    summary = loader.load_summary()
 
-        # Validate that input files are accessible (for error reporting)
-        spec_path, list_path = cls._resolve_input_paths(results_dir, summary.metadata.input_files)
-        if not spec_path.exists():
-            raise FileNotFoundError(f"Spectrum file not found: {format_path(spec_path)}")
-        if not list_path.exists():
-            raise FileNotFoundError(f"Peak list file not found: {format_path(list_path)}")
+    spec_path, list_path = _resolve_input_paths(results_dir, summary.metadata.input_files)
+    if not spec_path.exists():
+        raise FileNotFoundError(f"Spectrum file not found: {format_path(spec_path)}")
+    if not list_path.exists():
+        raise FileNotFoundError(f"Peak list file not found: {format_path(list_path)}")
 
-        # Use the noise from the saved state when available, else fall back.
-        noise = state.noise if state.noise is not None else cls._DEFAULT_NOISE
+    noise = state.noise if state.noise is not None else _DEFAULT_NOISE
+    target_clusters = _filter_clusters(state.clusters, target_peaks)
+    if target_peaks and not target_clusters:
+        raise PeaksNotFoundError(target_peaks)
 
-        # Use saved clusters from fitting state
-        # The clusters were already computed during fitting and contain the correct
-        # peak groupings. Recreating them could yield different results.
-        real_clusters = state.clusters
+    results: list[ClusterMCMCResult] = []
+    burn_in_arg = None if auto_burnin else burn_in
 
-        target_clusters = cls._filter_clusters(real_clusters, target_peaks)
-        if target_peaks and not target_clusters:
-            raise PeaksNotFoundError(target_peaks)
+    def _progress_callback(i: int, n: int, msg: str, acceptance: float | None) -> None:
+        if progress_callback is not None:
+            progress_callback(i, n, msg, acceptance)
 
-        results: list[ClusterMCMCResult] = []
-        burn_in_arg = None if auto_burnin else burn_in
-
-        def _progress_callback(i: int, n: int, msg: str, acceptance: float | None) -> None:
-            if progress_callback is not None:
-                progress_callback(i, n, msg, acceptance)
-
-        callback = _progress_callback if progress_callback is not None else None
-
-        n_clusters = len(target_clusters)
-        for i_cluster, cluster in enumerate(target_clusters, start=1):
-            if callback is not None:
-                callback(
-                    0,
-                    n_steps,
-                    f"Preparing cluster {i_cluster}/{n_clusters} ({len(cluster.peaks)} peaks)...",
-                    None,
-                )
-            # Apply best-fit params to this cluster
-            cluster_params = cls._create_cluster_params(cluster, state.scalar_params)
-            if callback is not None:
-                callback(
-                    0,
-                    n_steps,
-                    (
-                        f"Prepared {len(cluster_params)} parameters "
-                        f"for cluster {i_cluster}/{n_clusters}"
-                    ),
-                    None,
-                )
-
-            result = estimate_uncertainties_mcmc(
-                cluster_params,
-                cluster,
-                noise,
-                n_walkers=n_walkers,
-                n_steps=n_steps,
-                burn_in=burn_in_arg,
-                workers=workers,
-                progress_callback=callback,
+    callback = _progress_callback if progress_callback is not None else None
+    n_clusters = len(target_clusters)
+    for i_cluster, cluster in enumerate(target_clusters, start=1):
+        if callback is not None:
+            callback(
+                0,
+                n_steps,
+                f"Preparing cluster {i_cluster}/{n_clusters} ({len(cluster.peaks)} peaks)...",
+                None,
             )
 
-            results.append(ClusterMCMCResult(cluster=cluster, result=result))
-
-        return MCMCAnalysisResult(
-            clusters=target_clusters,
-            params=state.scalar_params,
-            noise=state.noise or 0.0,
-            peaks=state.peaks,
-            cluster_results=results,
-        )
-
-    @staticmethod
-    def _resolve_input_paths(results_dir: Path, input_files: dict[str, Any]) -> tuple[Path, Path]:
-        """Resolve spectrum and peaklist paths, handling potential relocation."""
-        spectrum_info = input_files.get("spectrum")
-        peaklist_info = input_files.get("peaklist")
-
-        if spectrum_info is None or peaklist_info is None:
-            raise ValueError("Input paths missing from results metadata.")
-
-        # Handle both dict (legacy) and InputFileInfo (new schema) formats
-        if hasattr(spectrum_info, "path"):
-            spec_path_str = spectrum_info.path
-        else:
-            spec_path_str = spectrum_info.get("path") if isinstance(spectrum_info, dict) else None
-
-        if hasattr(peaklist_info, "path"):
-            list_path_str = peaklist_info.path
-        else:
-            list_path_str = peaklist_info.get("path") if isinstance(peaklist_info, dict) else None
-
-        if not spec_path_str or not list_path_str:
-            raise ValueError("Input paths missing from results metadata.")
-
-        spec_path = Path(spec_path_str)
-        list_path = Path(list_path_str)
-
-        def _find_file(path: Path, results_dir: Path) -> Path:
-            """Try multiple locations to find a file."""
-            parent = results_dir.parent
-            grandparent = parent.parent
-
-            # List of candidate paths to check
-            candidates = [
-                path,  # as-is (absolute or relative to CWD)
-                results_dir / path.name,  # relative to results_dir
-                parent / path.name,  # relative to parent of results_dir
-                grandparent / path.name,  # relative to grandparent
-                grandparent / "data" / path.name,  # in data/ subdirectory
-                grandparent / path,  # full path relative to grandparent
-            ]
-
-            for candidate in candidates:
-                if candidate.exists():
-                    return candidate
-
-            # Return original path if not found (will raise error later)
-            return path
-
-        spec_path = _find_file(spec_path, results_dir)
-        list_path = _find_file(list_path, results_dir)
-
-        if not spec_path.exists():
-            raise FileNotFoundError(f"Spectrum file not found: {format_path(spec_path_str)}")
-        if not list_path.exists():
-            raise FileNotFoundError(f"Peak list file not found: {format_path(list_path_str)}")
-
-        return spec_path, list_path
-
-    @staticmethod
-    def _filter_clusters(clusters: list[Cluster], peaks: list[str] | None) -> list[Cluster]:
-        if not peaks:
-            return list(clusters)
-        peak_set = set(peaks)
-        return [cluster for cluster in clusters if any(p.name in peak_set for p in cluster.peaks)]
-
-    @staticmethod
-    def _create_cluster_params(cluster: Cluster, params_all: Parameters) -> Parameters:
-        """Extract parameters for peaks in the cluster from the full parameter set."""
-        # Get the names of peaks in this cluster
-        peak_names = {p.name for p in cluster.peaks}
-        prefixes = tuple(f"{peak_name}." for peak_name in peak_names)
-
-        # Filter params_all to include only parameters for these peaks
-        # Parameters are named like "103N-H.F2.cs", "103N-H.F2.lw", etc.
-        cluster_params = Parameters()
-        for key, param in params_all.items():
-            if key.startswith(prefixes):
-                # Shallow copy is enough here (scalar fields), and avoids expensive deep-copy cost.
-                cluster_params[key] = param.model_copy(deep=False)
-
-        return cluster_params
-
-
-# =============================================================================
-# Parameter Uncertainty Service (Covariance-based)
-# =============================================================================
-
-
-@dataclass(slots=True, frozen=True)
-class ParameterUncertaintyEntry:
-    """Snapshot of a varying parameter with relative-error metadata."""
-
-    name: str
-    value: float
-    stderr: float
-    rel_error_pct: float | None
-    at_boundary: bool
-    min_bound: float
-    max_bound: float
-
-
-@dataclass(slots=True, frozen=True)
-class ParameterUncertaintyResult:
-    """Aggregate result for uncertainty reporting."""
-
-    parameters: list[ParameterUncertaintyEntry]
-    boundary_parameters: list[ParameterUncertaintyEntry]
-    large_uncertainty_parameters: list[ParameterUncertaintyEntry]
-
-
-class NoVaryingParametersFoundError(RuntimeError):
-    """Raised when the state contains no varying parameters."""
-
-
-class ParameterUncertaintyService:
-    """Builds parameter uncertainty summaries from a fitting state."""
-
-    LARGE_UNCERTAINTY_THRESHOLD = 0.1  # 10%
-
-    @classmethod
-    def run(cls, results_dir: Path) -> ParameterUncertaintyResult:
-        """Analyze varying parameters from results directory."""
-        loader = ResultsLoader(Path(results_dir))
-        state = loader.load_fitting_state()
-        return cls.analyze(state)
-
-    @staticmethod
-    def analyze(state: FittingState) -> ParameterUncertaintyResult:
-        """Analyze varying parameters in a FittingState and return uncertainty summary."""
-        params = state.scalar_params
-        vary_names = params.get_vary_names()
-        if not vary_names:
-            raise NoVaryingParametersFoundError("No varying parameters found")
-
-        entries: list[ParameterUncertaintyEntry] = []
-        boundary_entries: list[ParameterUncertaintyEntry] = []
-        large_uncertainty: list[ParameterUncertaintyEntry] = []
-
-        for name in vary_names:
-            param = params[name]
-            rel_error = None
-            if param.value != 0 and param.stderr > 0:
-                rel_error = abs(param.stderr / param.value)
-
-            entry = ParameterUncertaintyEntry(
-                name=name,
-                value=param.value,
-                stderr=param.stderr,
-                rel_error_pct=rel_error * 100 if rel_error is not None else None,
-                at_boundary=param.is_at_boundary(),
-                min_bound=param.min,
-                max_bound=param.max,
+        cluster_params = _create_cluster_params(cluster, state.scalar_params)
+        if callback is not None:
+            callback(
+                0,
+                n_steps,
+                f"Prepared {len(cluster_params)} parameters for cluster {i_cluster}/{n_clusters}",
+                None,
             )
-            entries.append(entry)
 
-            if entry.at_boundary:
-                boundary_entries.append(entry)
-            if (
-                rel_error is not None
-                and rel_error > ParameterUncertaintyService.LARGE_UNCERTAINTY_THRESHOLD
-            ):
-                large_uncertainty.append(entry)
-
-        return ParameterUncertaintyResult(
-            parameters=entries,
-            boundary_parameters=boundary_entries,
-            large_uncertainty_parameters=large_uncertainty,
+        result = estimate_uncertainties_mcmc(
+            cluster_params,
+            cluster,
+            noise,
+            n_walkers=n_walkers,
+            n_steps=n_steps,
+            burn_in=burn_in_arg,
+            workers=workers,
+            progress_callback=callback,
         )
+        results.append(ClusterMCMCResult(cluster=cluster, result=result))
+
+    return MCMCAnalysisResult(
+        clusters=target_clusters,
+        params=state.scalar_params,
+        noise=state.noise or 0.0,
+        peaks=state.peaks,
+        cluster_results=results,
+    )
+
+
+def _resolve_input_paths(results_dir: Path, input_files: dict[str, Any]) -> tuple[Path, Path]:
+    """Resolve spectrum and peaklist paths, handling potential relocation."""
+    spectrum_info = input_files.get("spectrum")
+    peaklist_info = input_files.get("peaklist")
+
+    if spectrum_info is None or peaklist_info is None:
+        raise ValueError("Input paths missing from results metadata.")
+
+    if hasattr(spectrum_info, "path"):
+        spec_path_str = spectrum_info.path
+    else:
+        spec_path_str = spectrum_info.get("path") if isinstance(spectrum_info, dict) else None
+
+    if hasattr(peaklist_info, "path"):
+        list_path_str = peaklist_info.path
+    else:
+        list_path_str = peaklist_info.get("path") if isinstance(peaklist_info, dict) else None
+
+    if not spec_path_str or not list_path_str:
+        raise ValueError("Input paths missing from results metadata.")
+
+    spec_path = _find_input_file(Path(spec_path_str), results_dir)
+    list_path = _find_input_file(Path(list_path_str), results_dir)
+
+    if not spec_path.exists():
+        raise FileNotFoundError(f"Spectrum file not found: {format_path(spec_path_str)}")
+    if not list_path.exists():
+        raise FileNotFoundError(f"Peak list file not found: {format_path(list_path_str)}")
+
+    return spec_path, list_path
+
+
+def _find_input_file(path: Path, results_dir: Path) -> Path:
+    """Find an input file after a results directory has moved."""
+    parent = results_dir.parent
+    grandparent = parent.parent
+    candidates = [
+        path,
+        results_dir / path.name,
+        parent / path.name,
+        grandparent / path.name,
+        grandparent / "data" / path.name,
+        grandparent / path,
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return path
+
+
+def _filter_clusters(clusters: list[Cluster], peaks: list[str] | None) -> list[Cluster]:
+    if not peaks:
+        return list(clusters)
+    peak_set = set(peaks)
+    return [cluster for cluster in clusters if any(p.name in peak_set for p in cluster.peaks)]
+
+
+def _create_cluster_params(cluster: Cluster, params_all: Parameters) -> Parameters:
+    """Extract parameters for peaks in the cluster from the full parameter set."""
+    peak_names = {p.name for p in cluster.peaks}
+    prefixes = tuple(f"{peak_name}." for peak_name in peak_names)
+
+    cluster_params = Parameters()
+    for key, param in params_all.items():
+        if key.startswith(prefixes):
+            cluster_params[key] = param.model_copy(deep=False)
+
+    return cluster_params
 
 
 # =============================================================================
@@ -561,13 +437,9 @@ def format_mcmc_cluster_result(
 
 __all__ = [
     "MCMCAmplitudeSummary",
-    "MCMCAnalysisService",
     "MCMCClusterSummary",
     "MCMCParameterSummary",
-    "NoVaryingParametersFoundError",
-    "ParameterUncertaintyEntry",
-    "ParameterUncertaintyResult",
-    "ParameterUncertaintyService",
     "PeaksNotFoundError",
     "format_mcmc_cluster_result",
+    "run_mcmc_analysis",
 ]

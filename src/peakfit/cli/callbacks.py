@@ -2,7 +2,7 @@
 
 import typer
 
-from peakfit.ui import show_version
+from peakfit.ui.branding import show_version
 
 
 def version_callback(value: bool | None) -> None:

@@ -1,7 +1,7 @@
-# MCMC Workflow Notes
+# MCMC Workflow
 
 This document describes the current MCMC workflow. It is a contributor note, not a
-permanent architecture constraint. Revisit it after the next architecture pass.
+permanent architecture constraint.
 
 ## Current Responsibilities
 
@@ -13,11 +13,11 @@ permanent architecture constraint. Revisit it after the next architecture pass.
 ## Current Flow
 
 1. The CLI resolves the results directory and MCMC options.
-2. The workflow loads fit state or chain data.
-3. Sampling or diagnostic calculations run.
-4. Summaries, chain files, and plots are written or rendered.
+2. `run_mcmc_analysis()` loads the fit state and selects target clusters.
+3. Sampling runs with progress callbacks for the terminal UI.
+4. Summaries, chain files, and plots are written or rendered by the caller.
 
 ## Next Architecture Pass
 
-Check whether MCMC needs a separate slice or can share simpler result-loading,
-diagnostic, and output utilities with fitting without reintroducing hidden coupling.
+Keep MCMC as direct functions plus result formatters unless there is a concrete
+need for shared infrastructure with fitting.

@@ -108,7 +108,7 @@ Start from a previous fit result:
 
 ```toml
 [parameters]
-from_file = "previous_fit/summary/fit_summary.json"
+from_file = "previous_fit/summary/fit.json"
 ```
 
 This loads parameter values from a JSON fit summary and uses them as starting points while

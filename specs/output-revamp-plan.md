@@ -7,7 +7,7 @@ Make PeakFit output deterministic, compact, and easy to navigate by:
 - writing only relevant information by default,
 - assigning one clear purpose per file,
 - using the right format per data shape (summary vs tables vs dense arrays),
-- preserving a compatibility path for downstream tooling.
+- documenting intentional breaking changes clearly.
 
 ## What is wrong today
 
@@ -16,11 +16,11 @@ Make PeakFit output deterministic, compact, and easy to navigate by:
 Sample run: `examples/02-advanced-fitting/Fits/20260206_153332`
 
 - `summary/analysis_report.md`: 23,771 lines
-- `parameters/parameters.csv`: 22,531 rows
-- `parameters/amplitudes.csv`: 21,746 rows
+- `tables/parameters.csv`: 22,531 rows
+- legacy amplitude table: 21,746 rows
 - 96.5% of `parameters.csv` rows are amplitude-like `I*` rows (`21746 / 22531`)
-- `statistics/residuals.csv` has headers only (no residual data rows)
-- `diagnostics/`, `figures/`, and `legacy/` are created even when empty
+- legacy residuals CSV has headers only (no residual data rows)
+- empty placeholder output directories may be created without useful content
 
 ### Functional inconsistencies (code-level)
 
@@ -45,7 +45,7 @@ Sample run: `examples/02-advanced-fitting/Fits/20260206_153332`
      - `src/peakfit/io/writers/json.py:139`
      - `src/peakfit/io/writers/json.py:141`
 
-4. `residuals.csv` is effectively a stub.
+4. Legacy residual table export is effectively a stub.
    - Header only, placeholder logic
    - References:
      - `src/peakfit/io/writers/csv.py:413`
@@ -59,7 +59,7 @@ Sample run: `examples/02-advanced-fitting/Fits/20260206_153332`
      - `src/peakfit/fit/builder.py:385`
      - `src/peakfit/fit/builder.py:391`
      - `src/peakfit/io/writers/orchestrator.py:68`
-   - In sample output, all amplitude-like rows in `parameters.csv` have `std_error=0`, while `amplitudes.csv` has non-zero errors for all rows.
+   - In sample output, all amplitude-like rows in `parameters.csv` have `std_error=0`, while the separate amplitude table has non-zero errors for all rows.
 
 6. Human report is overwhelmed by irrelevant volume.
    - Markdown includes every `lineshape_param`, including `I*` blocks
@@ -76,8 +76,8 @@ Sample run: `examples/02-advanced-fitting/Fits/20260206_153332`
      - `src/peakfit/io/writers/json.py:410`
 
 8. Metadata and summary are duplicated with overlap.
-   - `fit_summary.json` includes metadata + config payload
-   - `run_metadata.json` repeats metadata and adds aggregate counts
+   - `summary/fit.json` includes metadata + config payload
+   - separate metadata JSON files repeat metadata and aggregate counts
    - References:
      - `src/peakfit/io/writers/json.py:62`
      - `src/peakfit/io/writers/json.py:107`
@@ -98,7 +98,7 @@ Sample run: `examples/02-advanced-fitting/Fits/20260206_153332`
 4. Do not create empty directories.
 5. Default output should be concise and analysis-ready.
 6. Large/tabular dense data should be exported in table format, not embedded in summary objects.
-7. Keep a migration bridge for existing consumers of `summary/fit_summary.json`.
+7. Document public output breaks instead of preserving obsolete formats indefinitely.
 
 ## Target output contract (v2)
 
@@ -107,7 +107,6 @@ Sample run: `examples/02-advanced-fitting/Fits/20260206_153332`
 ```text
 <run_dir>/
 ├── README.md
-├── manifest.json
 ├── summary/
 │   ├── fit.json
 │   └── report.md
@@ -115,16 +114,8 @@ Sample run: `examples/02-advanced-fitting/Fits/20260206_153332`
 │   ├── parameters.csv
 │   ├── intensities.csv
 │   └── shifts.csv
-├── diagnostics/
-│   ├── statistics.json
-│   ├── residuals.npz          # only when requested
-│   └── mcmc.json              # only for MCMC runs
 ├── metadata/
-│   ├── run.json
-│   ├── config.toml
 │   └── fitting_state.pkl
-└── compatibility/             # only when compatibility mode is enabled
-    └── summary/fit_summary.json
 ```
 
 ### Why these formats
@@ -132,9 +123,9 @@ Sample run: `examples/02-advanced-fitting/Fits/20260206_153332`
 - `summary/fit.json`: canonical machine-readable summary object.
 - `summary/report.md`: concise human report.
 - `tables/*.csv`: user-facing and spreadsheet/pandas-friendly tables.
-- `diagnostics/residuals.npz`: dense numeric arrays are compact and lossless in NPZ.
-- `metadata/config.toml`: human-readable configuration snapshot.
-- `manifest.json`: stable run index with schema version, file inventory, and quick metrics.
+- Run metadata, fit statistics, MCMC diagnostics, and input checksums live in
+  `summary/fit.json`; separate diagnostic JSON files would duplicate the
+  canonical summary.
 
 ## Data inclusion policy
 
@@ -168,58 +159,37 @@ Never dump full amplitude series.
 Include:
 
 - run headline (cluster count, peak count, reduced chi2)
-- outlier/problem clusters
-- top-N parameter warnings (boundary hits, high relative error)
-- compact per-cluster stats table
+- bounded outlier/problem cluster table
+- bounded parameter-to-check table (boundary hits, high relative error)
+- bounded warnings section
 
-### `diagnostics/statistics.json`
+Do not include:
 
-Use actual `cluster_id` values, not list position.
+- full amplitude series
+- every parameter for every cluster
+- decorative status glyphs that make logs harder to scan
 
-## Verbosity redesign (strict matrix)
+## Output selection
 
-- `minimal`
-  - `summary/fit.json`
-  - `tables/parameters.csv`
-  - `tables/intensities.csv`
-  - `metadata/run.json`
-  - `manifest.json`
+- `summary/fit.json` when `json` is enabled.
+- `tables/parameters.csv` and `tables/intensities.csv` when `csv` is enabled.
+- `tables/shifts.csv` when `csv` is enabled and shift parameters are present.
+- `summary/report.md` when `txt` is enabled.
 
-- `standard`
-  - everything in `minimal`
-  - `summary/report.md`
-  - `tables/shifts.csv`
-  - `diagnostics/statistics.json`
+## Migration
 
-- `full`
-  - everything in `standard`
-  - `diagnostics/residuals.npz`
-  - `diagnostics/mcmc.json` (if MCMC)
-  - correlation exports (if available)
-
-## Migration and compatibility
-
-### Phase-in strategy
-
-1. Add v2 writers and emit `manifest.json` with `schema_version: "2.0.0"`.
-2. Add compatibility writer for old paths when `output.compatibility = "v1"` (default for one release).
-3. Switch default to v2-only after one stable release.
-4. Remove v1 compatibility after deprecation window.
-
-### Compatibility adapter outputs
-
-- `compatibility/summary/fit_summary.json` generated from v2 canonical data.
-- Optional root-level symlink/copy strategy can be provided by config.
+Breaking output changes are acceptable when they simplify the contract. Each break should be
+documented with the old path or option, the replacement, and the reason the simpler output
+model is better.
 
 ## Implementation plan
 
 ### Step 1: Introduce output plan object
 
-- Add `OutputPlan` model in `fit` slice.
+- Resolve planned output paths with a plain mapping.
 - Resolve files to write from:
   - `output.formats`
-  - `output.verbosity`
-  - runtime data availability (MCMC, residuals, figures).
+  - runtime data availability (shifts, optional reports).
 - Create directories lazily from planned files.
 
 ### Step 2: Normalize result extraction
@@ -231,13 +201,13 @@ Use actual `cluster_id` values, not list position.
 ### Step 3: Replace writer orchestration
 
 - Remove hard-coded `_write_all`/`_write_minimal`.
-- Implement table/summary/metadata/diagnostic writers behind `OutputPlan`.
+- Implement table and summary writers behind the planned path mapping.
 - Delete placeholder writers (or gate them behind actual data availability).
 
 ### Step 4: Redesign report generator
 
 - New concise report sections.
-- Add configurable limits:
+- Add fixed, documented limits:
   - max clusters in body
   - max warnings shown
   - no amplitude series dumps.
@@ -254,30 +224,27 @@ Use actual `cluster_id` values, not list position.
 - Keep only wired fields or wire currently declared fields fully.
 - Add:
   - `output.schema_version`
-  - `output.compatibility`
   - `output.include_residual_arrays`
 - Remove/retire dead options after deprecation.
 
 ### Step 7: Tests and golden baselines
 
 - Unit tests:
-  - output planning matrix (format × verbosity × data availability)
+  - output planning matrix (format × data availability)
   - parameter classification and de-duplication
   - no-empty-directory guarantee
 - Integration tests:
   - `--format` gating correctness
-  - `fit_statistics` cluster IDs match `summary` cluster IDs
-  - residuals file is either valid data or absent
+  - output directories contain only useful files
+  - no duplicate JSON diagnostic files are written
 - Golden:
-  - new v2 goldens for `summary/fit.json`, `tables/*.csv`, `manifest.json`
-  - compatibility goldens for v1 adapter during migration window.
+  - new v2 goldens for `summary/fit.json` and `tables/*.csv`
 
 ## Definition of done
 
-- `--format` and `verbosity` strictly determine written files.
+- `--format` and result data strictly determine written files.
 - Output directory has no empty structural directories.
 - `parameters.csv` excludes `I*` rows.
 - `intensities.csv` is the single amplitude source.
 - `report.md` remains compact on large datasets.
-- `statistics.json` uses real cluster IDs.
 - Docs and code match exactly.

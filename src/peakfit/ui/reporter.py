@@ -6,7 +6,7 @@ to the existing UI infrastructure.
 """
 
 from peakfit.shared.reporter import Reporter
-from peakfit.ui import Verbosity, get_verbosity
+from peakfit.ui.console import Verbosity, get_verbosity
 from peakfit.ui.messages import action, error, info, success, warning
 
 

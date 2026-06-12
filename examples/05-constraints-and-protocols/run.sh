@@ -35,7 +35,7 @@ import json
 import sys
 
 out_dir = sys.argv[1]
-with open(f"{out_dir}/summary/fit_summary.json", encoding="utf-8") as f:
+with open(f"{out_dir}/summary/fit.json", encoding="utf-8") as f:
     data = json.load(f)
 chi2 = float(data["global_statistics"]["chi_squared"])
 print(f"  chi-squared: {chi2:.6g}")

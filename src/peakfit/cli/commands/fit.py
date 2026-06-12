@@ -14,7 +14,6 @@ from peakfit.engine.domain.config import (
     LineshapeName,
     OutputConfig,
     OutputFormat,
-    OutputVerbosity,
     PeakFitConfig,
 )
 from peakfit.engine.results import FitResult
@@ -27,11 +26,12 @@ from peakfit.fit.fitting import (
     run_fit,
     write_service_results,
 )
-from peakfit.fit.validation import ValidationService
+from peakfit.fit.validation import validate_inputs
 from peakfit.io.config import load_config
 from peakfit.io.paths import resolve_output_path
 from peakfit.shared.constants import BASIN_HOPPING_NITER, DIFF_EVOLUTION_MAXITER
-from peakfit.ui import Verbosity, console, display_path, set_verbosity, show_command_manifest
+from peakfit.ui.branding import show_command_summary
+from peakfit.ui.console import Verbosity, console, display_path, set_verbosity
 from peakfit.ui.messages import bullet, error, show_error_with_details
 from peakfit.ui.prefit import show_prefit_check
 from peakfit.ui.reporter import ConsoleReporter
@@ -135,10 +135,6 @@ def fit_command(
         list[str] | None,
         typer.Option("--format", "-f", help="Output formats: json, csv, txt"),
     ] = None,
-    output_verbosity: Annotated[
-        OutputVerbosity,
-        typer.Option("--output-verbosity", help="Output detail level"),
-    ] = "standard",
     workers: Annotated[
         int,
         typer.Option("--workers", "-w", help="Parallel workers (-1 = all CPUs)", min=-1),
@@ -179,7 +175,7 @@ def fit_command(
     reporter = ConsoleReporter()
 
     # === 1. MANDATORY VALIDATION ===
-    validation = ValidationService.validate(spectrum, peaklist)
+    validation = validate_inputs(spectrum, peaklist)
     if validation.errors:
         error("Validation failed. Fix the errors below before fitting.")
         for e in validation.errors:
@@ -192,7 +188,6 @@ def fit_command(
         output=output,
         formats=formats,
         headless=headless,
-        output_verbosity=output_verbosity,
         noise=noise,
         contour_level=contour_level,
         lineshape=lineshape,
@@ -205,9 +200,9 @@ def fit_command(
         optimizer=optimizer,
     )
 
-    # Interactive fits show the boxed prefit manifest, so avoid a redundant compact header.
+    # Interactive fits show the richer pre-fit setup panel, so avoid a redundant header.
     if fit_config.output.headless:
-        show_command_manifest(
+        show_command_summary(
             "Fitting",
             sections=[
                 (
@@ -233,7 +228,6 @@ def fit_command(
                     {
                         "Base directory": display_path(fit_config.output.directory or Path("./")),
                         "Formats": ", ".join(fit_config.output.formats),
-                        "Verbosity": fit_config.output.verbosity,
                     },
                 ),
             ],
@@ -367,7 +361,6 @@ def _build_config(
     output: Path | None,
     formats: list[str] | None,
     headless: bool | None,
-    output_verbosity: OutputVerbosity,
     noise: float | None,
     contour_level: float | None,
     lineshape: LineshapeName,
@@ -380,15 +373,16 @@ def _build_config(
     optimizer: str,
 ) -> PeakFitConfig:
     """Build config from CLI args or file."""
+    normalized_formats = _normalize_output_formats(formats)
+
     if config is not None:
         cfg = load_config(config)
         if output:
             cfg.output.directory = output
-        if formats:
-            cfg.output.formats = cast("list[OutputFormat]", formats)
+        if normalized_formats is not None:
+            cfg.output.formats = normalized_formats
         if headless is not None:
             cfg.output.headless = headless
-        cfg.output.verbosity = output_verbosity
         if noise is not None:
             cfg.noise_level = noise
         if contour_level is not None:
@@ -402,9 +396,9 @@ def _build_config(
     if phy:
         fit_phase.append("F2")
 
+    default_formats: list[OutputFormat] = ["json", "csv"]
     output_config = OutputConfig(
-        formats=cast("list[OutputFormat]", formats or ["json", "csv", "txt"]),
-        verbosity=output_verbosity,
+        formats=normalized_formats if normalized_formats is not None else default_formats,
         headless=headless if headless is not None else False,
     )
     if output:
@@ -430,6 +424,25 @@ def _build_config(
         cfg.fitting.max_iterations = BASIN_HOPPING_NITER
 
     return cfg
+
+
+def _normalize_output_formats(formats: list[str] | None) -> list[OutputFormat] | None:
+    """Validate and normalize repeated --format values."""
+    if not formats:
+        return None
+
+    allowed = set(VALID_OUTPUT_FORMATS)
+    normalized = [fmt.lower() for fmt in formats]
+    invalid = sorted({fmt for fmt in normalized if fmt not in allowed})
+    if invalid:
+        allowed_text = ", ".join(VALID_OUTPUT_FORMATS)
+        invalid_text = ", ".join(invalid)
+        raise typer.BadParameter(
+            f"Unknown output format(s): {invalid_text}. Choose from: {allowed_text}."
+        )
+
+    deduped = list(dict.fromkeys(normalized))
+    return cast("list[OutputFormat]", deduped)
 
 
 def _resolve_output(fit_config: PeakFitConfig) -> Path:

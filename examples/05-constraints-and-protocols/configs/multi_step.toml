@@ -27,6 +27,5 @@ contour_factor = 5.0
 
 [output]
 directory = "Fits/scenario3"
-formats = ["json", "csv", "txt"]
-verbosity = "standard"
+formats = ["json", "csv"]
 include_timestamp = false

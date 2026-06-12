@@ -40,8 +40,7 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
 
 For each scenario, inspect:
 
-- `summary/fit_summary.json`
-- `parameters/parameters.csv`
-- `statistics/fit_statistics.json`
+- `summary/fit.json`
+- `tables/parameters.csv`
 
 The run script prints each scenario's global chi-squared value for a quick comparison.

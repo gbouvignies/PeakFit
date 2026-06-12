@@ -6,15 +6,17 @@ from typing import Annotated
 import typer
 
 from peakfit.io.config import generate_default_config
-from peakfit.ui import (
+from peakfit.ui.branding import show_command_summary
+from peakfit.ui.console import (
     Verbosity,
-    bullet,
     display_path,
+    set_verbosity,
+)
+from peakfit.ui.messages import (
+    bullet,
     error,
     info,
     print_next_steps,
-    set_verbosity,
-    show_command_manifest,
     success,
 )
 
@@ -41,7 +43,7 @@ def init_command(
         typer.Option(
             "--verbose",
             "-v",
-            help="Show banner and verbose output",
+            help="Show verbose output",
         ),
     ] = False,
 ) -> None:
@@ -63,7 +65,7 @@ def init_command(
     """
     # Set verbosity and show header
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
-    show_command_manifest(
+    show_command_summary(
         "Configuration Initialization",
         sections=[
             (

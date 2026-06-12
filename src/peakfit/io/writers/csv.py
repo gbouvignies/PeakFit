@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import csv
 import re
-from io import StringIO
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from peakfit.io.writers.config import WriterConfig
-from peakfit.io.writers.utils import flatten_diagnostics, format_float, get_peak_name
+from peakfit.io.writers.utils import format_float, get_peak_name
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -35,43 +34,6 @@ class CSVWriter:
     def has_shift_parameters(self, results: FitResults) -> bool:
         """Return whether shift parameters are present in results."""
         return bool(self._detect_dimension_labels(results))
-
-    def write_results(self, results: FitResults, path: Path) -> None:
-        """Write a compact per-cluster summary table."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        with path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(
-                f,
-                delimiter=self.config.csv_delimiter,
-                quoting=csv.QUOTE_MINIMAL if self.config.csv_quoting else csv.QUOTE_NONE,
-            )
-
-            self._write_header_comments(f, "PeakFit Results Summary", results)
-            writer.writerow(
-                [
-                    "cluster_id",
-                    "peak_name",
-                    "n_parameters",
-                    "n_series",
-                    "reduced_chi_squared",
-                    "fit_converged",
-                ]
-            )
-
-            for i, cluster in enumerate(results.clusters):
-                stats = results.statistics[i] if i < len(results.statistics) else None
-                for peak_name in cluster.peak_names:
-                    writer.writerow(
-                        [
-                            cluster.cluster_id,
-                            peak_name,
-                            cluster.n_lineshape_params,
-                            cluster.n_series,
-                            self._fmt_required(stats.reduced_chi_squared if stats else None),
-                            stats.fit_converged if stats else "",
-                        ]
-                    )
 
     def write_parameters(self, results: FitResults, path: Path) -> None:
         """Write model parameters with canonical identifiers.
@@ -111,13 +73,7 @@ class CSVWriter:
 
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", newline="", encoding="utf-8") as f:
-            self._write_header_comments(
-                f,
-                "PeakFit Parameter Estimates",
-                results,
-                extra_lines=["Format: Long format (one row per model parameter)"],
-            )
-            writer = csv.writer(f, delimiter=self.config.csv_delimiter)
+            writer = csv.writer(f)
             writer.writerow(header)
             for row in rows:
                 writer.writerow([row.get(col, "") for col in header])
@@ -190,10 +146,6 @@ class CSVWriter:
 
         return f"{peak_name}.F0.{name.replace('.', '_')}"
 
-    def write_amplitudes(self, results: FitResults, path: Path) -> None:
-        """Backward-compatible alias for `write_intensities`."""
-        self.write_intensities(results, path)
-
     def write_intensities(self, results: FitResults, path: Path) -> None:
         """Write per-plane fitted amplitudes for each peak."""
         rows = self._build_intensity_rows(results)
@@ -219,7 +171,7 @@ class CSVWriter:
 
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f, delimiter=self.config.csv_delimiter)
+            writer = csv.writer(f)
             writer.writerow(header)
             for row in rows:
                 writer.writerow([row.get(col, "") for col in header])
@@ -255,7 +207,7 @@ class CSVWriter:
 
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f, delimiter=self.config.csv_delimiter)
+            writer = csv.writer(f)
             header = ["peak_name"]
             for dim in dim_labels:
                 header.extend([f"cs_{dim}_ppm", f"cs_{dim}_err"])
@@ -319,236 +271,6 @@ class CSVWriter:
                 rows.append(row)
 
         return rows
-
-    def write_statistics(self, results: FitResults, path: Path) -> None:
-        """Write per-cluster fit statistics to CSV."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        with path.open("w", newline="", encoding="utf-8") as f:
-            if self.config.include_comments:
-                f.write("# PeakFit Statistics\n")
-                f.write(f"# Generated: {results.metadata.timestamp}\n")
-                f.write("#\n")
-
-            writer = csv.writer(f, delimiter=self.config.csv_delimiter)
-            writer.writerow(
-                [
-                    "cluster_id",
-                    "peak_names",
-                    "chi_squared",
-                    "reduced_chi_squared",
-                    "n_data",
-                    "n_params",
-                    "dof",
-                    "aic",
-                    "bic",
-                    "fit_converged",
-                ]
-            )
-
-            for i, cluster in enumerate(results.clusters):
-                if i >= len(results.statistics):
-                    continue
-
-                stats = results.statistics[i]
-                writer.writerow(
-                    [
-                        cluster.cluster_id,
-                        ";".join(cluster.peak_names),
-                        self._fmt_required(stats.chi_squared),
-                        self._fmt_required(stats.reduced_chi_squared),
-                        stats.n_data,
-                        stats.n_params,
-                        stats.dof,
-                        self._fmt_optional(stats.aic),
-                        self._fmt_optional(stats.bic),
-                        stats.fit_converged,
-                    ]
-                )
-
-    def write_residuals(self, results: FitResults, path: Path) -> None:
-        """Write residual arrays when available.
-
-        This method skips file creation when no residual arrays are present.
-        """
-        rows: list[list[Any]] = []
-
-        for i, cluster in enumerate(results.clusters):
-            if i >= len(results.statistics):
-                continue
-
-            residuals = results.statistics[i].residuals
-            raw = residuals.raw_residuals
-            norm = residuals.normalized_residuals
-            if raw is None and norm is None:
-                continue
-
-            n_points = 0
-            if raw is not None:
-                n_points = len(raw)
-            elif norm is not None:
-                n_points = len(norm)
-
-            for idx in range(n_points):
-                raw_val = float(raw[idx]) if raw is not None else None
-                norm_val = float(norm[idx]) if norm is not None else None
-                rows.append(
-                    [
-                        cluster.cluster_id,
-                        idx,
-                        self._fmt_optional(raw_val),
-                        self._fmt_optional(norm_val),
-                    ]
-                )
-
-        if not rows:
-            return
-
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f, delimiter=self.config.csv_delimiter)
-            writer.writerow(["cluster_id", "index", "raw_residual", "normalized_residual"])
-            writer.writerows(rows)
-
-    def write_correlations(self, results: FitResults, path: Path) -> None:
-        """Write pairwise parameter correlations when available."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        with path.open("w", newline="", encoding="utf-8") as f:
-            if self.config.include_comments:
-                f.write("# PeakFit Parameter Correlations\n")
-                f.write(f"# Generated: {results.metadata.timestamp}\n")
-                f.write("#\n")
-
-            writer = csv.writer(f, delimiter=self.config.csv_delimiter)
-            writer.writerow(["cluster_id", "peak_names", "param_1", "param_2", "correlation"])
-
-            for cluster in results.clusters:
-                if cluster.correlation_matrix is None:
-                    continue
-
-                peak_names_str = ";".join(cluster.peak_names)
-                names = cluster.correlation_param_names
-                n = len(names)
-
-                for i in range(n):
-                    for j in range(i + 1, n):
-                        corr = cluster.correlation_matrix[i, j]
-                        writer.writerow(
-                            [
-                                cluster.cluster_id,
-                                peak_names_str,
-                                names[i],
-                                names[j],
-                                format_float(float(corr), 4),
-                            ]
-                        )
-
-    def parameters_to_string(self, results: FitResults) -> str:
-        """Generate parameters CSV as a string."""
-        buffer = StringIO()
-        writer = csv.writer(buffer, delimiter=self.config.csv_delimiter)
-
-        rows = self._build_parameter_rows(results)
-        required_columns = [
-            "cluster_id",
-            "peak_name",
-            "parameter_name",
-            "category",
-            "value",
-            "std_error",
-            "is_fixed",
-            "is_global",
-        ]
-        optional_columns = [
-            "ci_68_lower",
-            "ci_68_upper",
-            "ci_95_lower",
-            "ci_95_upper",
-            "unit",
-            "min_bound",
-            "max_bound",
-        ]
-        present_optional = [
-            col
-            for col in optional_columns
-            if any(self._is_present(row.get(col, "")) for row in rows)
-        ]
-        header = required_columns + present_optional
-
-        writer.writerow(header)
-        for row in rows:
-            writer.writerow([row.get(col, "") for col in header])
-
-        return buffer.getvalue().rstrip("\n")
-
-    def write_diagnostics(self, results: FitResults, path: Path) -> None:
-        """Write flattened MCMC diagnostics to CSV."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        with path.open("w", newline="", encoding="utf-8") as f:
-            if self.config.include_comments:
-                f.write("# PeakFit MCMC Diagnostics\n")
-                f.write(f"# Generated: {results.metadata.timestamp}\n")
-                f.write(f"# Method: {results.method.value}\n")
-                f.write("#\n")
-
-            writer = csv.writer(f, delimiter=self.config.csv_delimiter)
-            writer.writerow(
-                [
-                    "cluster_id",
-                    "peak_names",
-                    "parameter",
-                    "rhat",
-                    "ess_bulk",
-                    "ess_tail",
-                    "convergence",
-                ]
-            )
-
-            for (
-                cluster_id,
-                peak_names,
-                param_name,
-                rhat,
-                ess_bulk,
-                ess_tail,
-                status,
-            ) in flatten_diagnostics(results):
-                writer.writerow(
-                    [
-                        cluster_id,
-                        ";".join(peak_names),
-                        param_name,
-                        self._fmt_optional(rhat),
-                        f"{ess_bulk:.0f}" if ess_bulk is not None else "",
-                        f"{ess_tail:.0f}" if ess_tail is not None else "",
-                        status,
-                    ]
-                )
-
-    def _write_header_comments(
-        self, f: Any, title: str, results: FitResults, extra_lines: list[str] | None = None
-    ) -> None:
-        """Write standard header comments."""
-        if not self.config.include_comments:
-            return
-
-        f.write(f"# {title}\n")
-        f.write(f"# Generated: {results.metadata.timestamp}\n")
-
-        if hasattr(results, "method") and results.method:
-            f.write(f"# Method: {results.method.value}\n")
-
-        if extra_lines:
-            for line in extra_lines:
-                if line.startswith("#"):
-                    f.write(f"{line}\n")
-                else:
-                    f.write(f"# {line}\n")
-
-        if not extra_lines or extra_lines[-1].strip() != "#":
-            f.write("#\n")
 
     def _fmt_required(self, value: float | None) -> str:
         """Format required numeric value; never emits empty strings."""

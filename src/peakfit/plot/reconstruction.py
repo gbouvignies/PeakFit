@@ -6,7 +6,7 @@ import numpy as np
 
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.fitting.computation import calculate_shape_heights
-from peakfit.io.readers import ResultsLoader
+from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.state import default_state_path, load_state
 
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ class SpectraReconstructor:
         """Initialize reconstructor with path to results directory.
 
         Args:
-            results_dir: Path to results directory containing summary/fit_summary.json
+            results_dir: Path to results directory containing summary/fit.json
         """
         self.results_dir = results_dir
         self._loader = ResultsLoader(results_dir)

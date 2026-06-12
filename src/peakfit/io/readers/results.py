@@ -21,7 +21,7 @@ from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.types import ClusterParameters, LineshapeResult, ParamSpec, Shape
 from peakfit.io.schemas import ClusterResultSchema, FitSummarySchema
-from peakfit.io.utils import format_path
+from peakfit.shared.paths import format_path
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -127,13 +127,13 @@ class ResultsLoader:
             directory: Path to results directory (or its summary subdirectory)
 
         Raises:
-            FileNotFoundError: If fit_summary.json is not found
+            FileNotFoundError: If summary/fit.json is not found
         """
         self.directory = directory
         if directory.name == "summary":
-            self.summary_path = directory / "fit_summary.json"
+            self.summary_path = directory / "fit.json"
         else:
-            self.summary_path = directory / "summary" / "fit_summary.json"
+            self.summary_path = directory / "summary" / "fit.json"
 
         if not self.summary_path.exists():
             raise FileNotFoundError(f"Results file not found: {format_path(self.summary_path)}")

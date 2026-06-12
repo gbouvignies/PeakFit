@@ -43,9 +43,8 @@ peakfit fit data/spectrum.ft2 data/peaks.list \
 
 After a run:
 
-- `summary/fit_summary.json`
-- `summary/report.md`
-- `parameters/parameters.csv`
-- `statistics/fit_statistics.json`
+- `summary/fit.json`
+- `tables/parameters.csv`
+- `tables/intensities.csv`
 
 Next: use `../02-advanced-fitting/` for a real dataset workflow.

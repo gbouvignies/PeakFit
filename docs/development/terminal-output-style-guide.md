@@ -15,11 +15,12 @@ or merging `peakfit.ui` helpers, do that deliberately and update this document.
 
 ## Current Helper Pattern
 
-The current CLI often uses helpers from `peakfit.ui` for messages, tables, progress, and
-error rendering. This is useful when it keeps output consistent:
+The current CLI imports concrete helpers from `peakfit.ui` submodules for messages,
+tables, progress, and error rendering. This keeps dependencies explicit while preserving
+consistent wording:
 
 ```python
-from peakfit.ui import error, info, success, warning
+from peakfit.ui.messages import error, info, success, warning
 
 info("Loading spectrum...")
 success("Fitting complete")

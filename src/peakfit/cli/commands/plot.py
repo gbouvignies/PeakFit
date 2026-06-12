@@ -10,10 +10,17 @@ import numpy as np
 import pandas as pd
 import typer
 
-from peakfit.io.readers import ResultsLoader
-from peakfit.plot.manager import PlotOutput, PlotService
+from peakfit.io.readers.results import ResultsLoader
 from peakfit.plot.reconstruction import SpectraReconstructor
-from peakfit.ui import Verbosity, display_path, set_verbosity, show_command_manifest
+from peakfit.plot.service import (
+    PlotOutput,
+    generate_cest_plots,
+    generate_cpmg_plots,
+    generate_intensity_plots,
+    generate_mcmc_diagnostics,
+)
+from peakfit.ui.branding import show_command_summary
+from peakfit.ui.console import Verbosity, display_path, set_verbosity
 from peakfit.ui.messages import show_error_with_details, success, warning
 from peakfit.ui.reporter import ConsoleReporter
 
@@ -36,9 +43,9 @@ def _configure_plot_ui(
     title: str,
     sections: list[tuple[str, dict[str, str]]],
 ) -> None:
-    """Configure terminal verbosity and print a consistent manifest box."""
+    """Configure terminal verbosity and print a compact command summary."""
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
-    show_command_manifest(title, sections)
+    show_command_summary(title, sections)
 
 
 def _print_plot_success(out: PlotOutput, label: str) -> None:
@@ -111,14 +118,13 @@ def plot_cest(
             ),
         ],
     )
-    service = PlotService(reporter=ConsoleReporter())
-
     try:
-        out = service.generate_cest_plots(
+        out = generate_cest_plots(
             results,
             output_path=output_path,
             reference_indices=ref,
             show=show,
+            reporter=ConsoleReporter(),
         )
         _print_plot_success(out, "CEST")
     except Exception as e:
@@ -229,10 +235,13 @@ def plot_intensity(
             ),
         ],
     )
-    service = PlotService(reporter=ConsoleReporter())
-
     try:
-        out = service.generate_intensity_plots(results, output_path=output_path, show=show)
+        out = generate_intensity_plots(
+            results,
+            output_path=output_path,
+            show=show,
+            reporter=ConsoleReporter(),
+        )
         _print_plot_success(out, "intensity")
     except Exception as e:
         show_error_with_details("generating plots", e)
@@ -289,14 +298,13 @@ def plot_cpmg(
             ),
         ],
     )
-    service = PlotService(reporter=ConsoleReporter())
-
     try:
-        out = service.generate_cpmg_plots(
+        out = generate_cpmg_plots(
             results,
             time_t2=time_t2,
             output_path=output_path,
             show=show,
+            reporter=ConsoleReporter(),
         )
         _print_plot_success(out, "CPMG")
     except Exception as e:
@@ -345,8 +353,6 @@ def plot_mcmc(
         ],
     )
 
-    service = PlotService(reporter=ConsoleReporter())
-
     try:
         loader = ResultsLoader(results)
         chains = loader.load_mcmc_chains()
@@ -358,7 +364,7 @@ def plot_mcmc(
             )
             raise typer.Exit(1)
 
-        out = service.generate_mcmc_diagnostics(chains, output_path=output_path, burn_in=burn_in)
+        out = generate_mcmc_diagnostics(chains, output_path=output_path, burn_in=burn_in)
         _print_plot_success(out, "MCMC diagnostic")
     except typer.Exit:
         raise
@@ -386,7 +392,7 @@ def _init_reconstructor(results: Path | None) -> Any | None:
     if not results:
         return None
 
-    summary_path = results / "summary" / "fit_summary.json"
+    summary_path = results / "summary" / "fit.json"
     if not summary_path.exists():
         warning(f"No fit summary found in [path]{display_path(results / 'summary')}[/path]")
         return None
