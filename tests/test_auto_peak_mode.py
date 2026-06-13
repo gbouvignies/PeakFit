@@ -151,7 +151,7 @@ def test_fit_cli_without_peaklist_records_autopicked_peaklist(
         output_dir.mkdir(parents=True, exist_ok=True)
         return SimpleNamespace(output_dir=output_dir, spectra=SimpleNamespace())
 
-    def _write_service_results(
+    def _write_fit_run_outputs(
         _result: object,
         _spectra: object,
         _config: object,
@@ -162,7 +162,7 @@ def test_fit_cli_without_peaklist_records_autopicked_peaklist(
 
     monkeypatch.setattr("peakfit.cli.commands.fit._load_fit_data", _load_fit_data)
     monkeypatch.setattr("peakfit.cli.commands.fit.run_fit", _run_fit)
-    monkeypatch.setattr("peakfit.cli.commands.fit.write_service_results", _write_service_results)
+    monkeypatch.setattr("peakfit.cli.commands.fit.write_fit_run_outputs", _write_fit_run_outputs)
 
     result = CliRunner().invoke(
         app,

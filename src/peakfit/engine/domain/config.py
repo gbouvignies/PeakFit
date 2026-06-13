@@ -13,12 +13,6 @@ from peakfit.shared.constants import (
     BASIN_HOPPING_NITER,
     BASIN_HOPPING_STEPSIZE,
     BASIN_HOPPING_TEMPERATURE,
-    DIFF_EVOLUTION_INIT,
-    DIFF_EVOLUTION_MAXITER,
-    DIFF_EVOLUTION_MUTATION,
-    DIFF_EVOLUTION_RECOMBINATION,
-    MCMC_N_STEPS,
-    MCMC_N_WALKERS,
 )
 
 LineshapeName = Literal[
@@ -37,14 +31,13 @@ LineshapeName = Literal[
     "no_apod_doublet",
 ]
 OutputFormat = Literal["csv", "json", "txt"]
-StrategyName = Literal["varpro", "lm", "basin_hopping"]
 
 
 class FitConfig(BaseModel):
     """Configuration for the fitting process.
 
-    Supports both simple configuration (legacy) and advanced multi-step
-    protocols with parameter constraints.
+    Supports the common one-step configuration and optional multi-step protocols
+    with parameter constraints.
 
     Simple usage:
         [fitting]
@@ -82,10 +75,6 @@ class FitConfig(BaseModel):
         default="auto",
         description="Lineshape model to use. 'auto' detects from NMRPipe apodization.",
     )
-    strategy_name: StrategyName = Field(
-        default="varpro",
-        description="Optimization strategy to use.",
-    )
     refine_iterations: Annotated[int, Field(ge=0, le=20)] = Field(
         default=1,
         description="Number of refinement iterations for cross-talk correction.",
@@ -109,9 +98,7 @@ class FitConfig(BaseModel):
     )
     optimizer_seed: Annotated[int, Field(ge=0)] | None = Field(
         default=None,
-        description=(
-            "Random seed for stochastic optimizers (e.g., basin-hopping, differential evolution)."
-        ),
+        description="Random seed for stochastic optimizers such as basin-hopping.",
     )
 
     # Multi-step fitting protocol
@@ -119,22 +106,6 @@ class FitConfig(BaseModel):
         default_factory=list,
         description="Multi-step fitting protocol. If empty, uses refine_iterations.",
     )
-
-    def get_phase_dimensions(self, n_spectral_dims: int = 2) -> list[str]:
-        """Get list of dimension labels to fit phase for.
-
-        Args:
-            n_spectral_dims: Number of spectral dimensions (for Fn labeling)
-
-        Returns:
-        -------
-            List of dimension labels like ['F1', 'F2']
-        """
-        return self.fit_phase
-
-    def has_protocol(self) -> bool:
-        """Check if a multi-step protocol is defined."""
-        return len(self.steps) > 0
 
 
 class ClusterConfig(BaseModel):
@@ -329,7 +300,7 @@ class ValidationResult(BaseModel):
 
 
 # =============================================================================
-# Strategy Configurations
+# Optimizer Configurations
 # =============================================================================
 
 
@@ -346,7 +317,7 @@ class VarProConfig:
 
 @dataclass(frozen=True)
 class BasinHoppingConfig:
-    """Configuration for Basin Hopping global optimizer."""
+    """Configuration for the basin-hopping optimizer."""
 
     n_iterations: int = BASIN_HOPPING_NITER
     temperature: float = BASIN_HOPPING_TEMPERATURE
@@ -354,47 +325,22 @@ class BasinHoppingConfig:
     seed: int | None = None
 
 
-@dataclass(frozen=True)
-class DiffEvoConfig:
-    """Configuration for Differential Evolution global optimizer."""
-
-    max_iterations: int = DIFF_EVOLUTION_MAXITER
-    mutation: tuple[float, float] = DIFF_EVOLUTION_MUTATION
-    recombination: float = DIFF_EVOLUTION_RECOMBINATION
-    init: str = DIFF_EVOLUTION_INIT
-    polish: bool = True
-    seed: int | None = None
-
-
-@dataclass(frozen=True)
-class MCMCConfig:
-    """Configuration for MCMC uncertainty estimation."""
-
-    n_walkers: int = MCMC_N_WALKERS
-    n_steps: int = MCMC_N_STEPS
-    burn_in: int | None = None
-    workers: int = 1
-
-
-StrategyConfig = VarProConfig | BasinHoppingConfig | DiffEvoConfig | MCMCConfig
+OptimizerConfig = VarProConfig | BasinHoppingConfig
 
 
 __all__ = [
     "AutoPeakConfig",
     "BasinHoppingConfig",
     "ClusterConfig",
-    "DiffEvoConfig",
     "FitConfig",
     "FitStep",
     "LineshapeName",
-    "MCMCConfig",
+    "OptimizerConfig",
     "OutputConfig",
     "OutputFormat",
     "ParameterConfig",
     "PeakData",
     "PeakFitConfig",
-    "StrategyConfig",
-    "StrategyName",
     "ValidationResult",
     "VarProConfig",
 ]

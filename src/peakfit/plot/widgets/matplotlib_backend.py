@@ -181,7 +181,7 @@ def _calculate_1d_slice(
 
 
 class MatplotlibBackend(QWidget):
-    """Matplotlib implementation of SpectraViewerBackend with view-slicing optimization."""
+    """Matplotlib widget for the spectrum viewer with view-slicing optimization."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         QWidget.__init__(self, parent)

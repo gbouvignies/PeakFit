@@ -159,22 +159,6 @@ class FitStatisticsSchema(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
-class ModelComparisonSchema(BaseModel):
-    """Schema for model comparison."""
-
-    model_a: str
-    model_b: str
-    delta_aic: float | None = Field(
-        default=None,
-        description="AIC(B) - AIC(A), negative favors B",
-    )
-    delta_bic: float | None = Field(default=None)
-    likelihood_ratio: float | None = Field(default=None)
-    p_value: float | None = Field(default=None)
-    preferred_model: str
-    evidence_strength: str = Field(description="strong, moderate, weak, inconclusive")
-
-
 # =============================================================================
 # MCMC Diagnostics Schema
 # =============================================================================
@@ -253,9 +237,6 @@ class FitSummarySchema(BaseModel):
 
     # MCMC diagnostics (one per cluster, if MCMC used)
     mcmc_diagnostics: list[MCMCDiagnosticsSchema] = Field(default_factory=list)
-
-    # Model comparisons
-    model_comparisons: list[ModelComparisonSchema] = Field(default_factory=list)
 
     # Z-axis information
     z_values: list[float] | None = Field(default=None)

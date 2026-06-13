@@ -24,7 +24,7 @@ from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.constraints import apply_constraints
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.lineshapes import LineshapeFactory
+from peakfit.engine.lineshapes.create import create_shapes
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.config import PeakFitConfig
@@ -197,7 +197,6 @@ def auto_pick_peaks(
         raise ValueError(f"Noise must be positive, got {noise}")
 
     auto_cfg = config.auto_peak
-    factory = LineshapeFactory(spectra, config.fitting)
     working_data = np.asarray(spectra.data, dtype=np.float64).copy()
     calculated_data = np.zeros_like(working_data, dtype=np.float64)
     experimental_projection = np.max(
@@ -303,7 +302,6 @@ def auto_pick_peaks(
         roi_result = _fit_roi_iteratively(
             spectra=spectra,
             working_data=working_data,
-            factory=factory,
             shape_names=shape_names,
             roi_indices=roi_indices,
             noise=noise,
@@ -520,7 +518,6 @@ def _extract_roi_indices(
 def _fit_roi_iteratively(
     spectra: Spectra,
     working_data: FloatArray,
-    factory: LineshapeFactory,
     shape_names: list[str],
     roi_indices: list[IntArray],
     noise: float,
@@ -810,7 +807,7 @@ def _fit_roi_iteratively(
                 _create_peak(
                     point_indices=candidate_point,
                     spectra=spectra,
-                    factory=factory,
+                    config=config,
                     shape_names=shape_names,
                     peak_name=candidate_name,
                 )
@@ -1220,13 +1217,13 @@ def _stack_roi_points(roi_indices: list[IntArray]) -> np.ndarray:
 def _create_peak(
     point_indices: tuple[int, ...],
     spectra: Spectra,
-    factory: LineshapeFactory,
+    config: PeakFitConfig,
     shape_names: list[str],
     peak_name: str,
 ) -> Peak:
     """Create a Peak object at a grid point."""
     positions = _point_to_ppm(point_indices, spectra)
-    shapes = factory.create_shapes(peak_name, positions, shape_names)
+    shapes = create_shapes(spectra, config.fitting, peak_name, positions, shape_names)
     return Peak(name=peak_name, positions=np.array(positions, dtype=np.float64), shapes=shapes)
 
 

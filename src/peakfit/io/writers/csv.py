@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import re
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -20,8 +19,6 @@ if TYPE_CHECKING:
     )
 
 
-_LEGACY_USER_NAME_PATTERN = re.compile(r"^(?P<label>[A-Za-z]+)(?P<index>\d+)?_(?P<axis>F\d+)$")
-_LEGACY_PARAM_PATTERN = re.compile(r"^(?P<peak>.+)_(?P<label>[A-Za-z]+\d*)$")
 _CANONICAL_NAME_PARTS = 3
 
 
@@ -129,20 +126,6 @@ class CSVWriter:
         parts = name.split(".")
         if len(parts) == _CANONICAL_NAME_PARTS:
             return name
-
-        # Legacy fallback from user_name style (e.g., cs_F2, I0_F1).
-        user_name = param.user_name
-        match = _LEGACY_USER_NAME_PATTERN.match(user_name)
-        if match:
-            label = match.group("label")
-            index = match.group("index") or ""
-            axis = match.group("axis")
-            return f"{peak_name}.{axis}.{label}{index}"
-
-        # Last-resort fallback keeps identifier deterministic.
-        legacy_match = _LEGACY_PARAM_PATTERN.match(name)
-        if legacy_match:
-            return f"{peak_name}.F0.{legacy_match.group('label')}"
 
         return f"{peak_name}.F0.{name.replace('.', '_')}"
 

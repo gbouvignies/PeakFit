@@ -9,11 +9,10 @@ license-files = ["LICENSE"]
 authors = [
   { name = "Guillaume Bouvignies", email = "guillaume.bouvignies@ens.psl.eu" }
 ]
-keywords = ["NMR", "fitting", "spectroscopy"]  # Shortened list for brevity
+keywords = ["NMR", "fitting", "spectroscopy"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.14",
   "Typing :: Typed",
@@ -55,7 +54,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.5.0"]
+requires = ["uv_build>=0.5.0,<0.12"]
 build-backend = "uv_build"
 
 # --- Tool Configurations ---

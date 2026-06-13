@@ -9,7 +9,7 @@ import numpy as np
 
 from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION
 from peakfit.io.writers.config import WriterConfig
-from peakfit.io.writers.utils import NumpyEncoder
+from peakfit.io.writers.utils import JsonValue, NumpyEncoder
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
         ParameterEstimate,
         RunMetadata,
     )
-    from peakfit.engine.types import JsonValue
 
 
 def write_summary(
@@ -38,7 +37,7 @@ def write_summary(
     output: dict[str, JsonValue] = {
         "schema_version": OUTPUT_SCHEMA_VERSION,
         "metadata": _serialize_metadata(results.metadata),
-        "method": results.method.value,
+        "method": results.method,
         "n_clusters": results.n_clusters,
         "n_peaks": results.n_peaks,
         "clusters": [_serialize_cluster(cluster, cfg) for cluster in results.clusters],
@@ -53,11 +52,6 @@ def write_summary(
     if results.mcmc_diagnostics:
         output["mcmc_diagnostics"] = [
             _serialize_mcmc_diagnostics(diagnostic, cfg) for diagnostic in results.mcmc_diagnostics
-        ]
-
-    if results.model_comparisons:
-        output["model_comparisons"] = [
-            comparison.to_dict() for comparison in results.model_comparisons
         ]
 
     if results.z_values is not None:

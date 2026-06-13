@@ -13,10 +13,8 @@ from peakfit.ui.console import (
     set_verbosity,
 )
 from peakfit.ui.messages import (
-    bullet,
     error,
     info,
-    print_next_steps,
     success,
 )
 
@@ -88,21 +86,4 @@ def init_command(
 
     # Enhanced success message with details
     success(f"Created configuration file: [path]{display_path(path)}[/path]")
-
-    info("Configuration includes:")
-    bullet("[value]Fitting parameters[/value] (optimizer, lineshape, tolerances)")
-    bullet("[value]Clustering settings[/value] (algorithm, thresholds)")
-    bullet("[value]Output preferences[/value] (formats, directories)")
-    bullet("[value]Advanced options[/value] (backends)")
-
-    # Suggest next steps
-    print_next_steps(
-        [
-            f"Review and customize: [path]{display_path(path)}[/path]",
-            (
-                "Run fitting: [code]peakfit fit spectrum.ft2 [peaks.list] --config "
-                f"{display_path(path)}[/code]"
-            ),
-            "Documentation: [url]https://github.com/gbouvignies/PeakFit[/url]",
-        ]
-    )
+    info(f"Next: [code]peakfit fit spectrum.ft2 [peaks.list] --config {display_path(path)}[/code]")

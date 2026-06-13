@@ -5,8 +5,8 @@ This guide covers practical performance tips and the current optimizer options.
 ## Overview
 
 PeakFit uses NumPy-based lineshape evaluation and a VarPro (variable projection) solver
-backed by `scipy.optimize.least_squares`. Global optimizers are available for difficult
-initialization cases but are slower.
+backed by `scipy.optimize.least_squares`. Basin-hopping is available for difficult
+initialization cases but is slower.
 
 ## Quick Start
 
@@ -17,11 +17,10 @@ peakfit fit spectrum.ft2 peaks.list
 
 ## Optimization Options
 
-Use `--optimizer` to select a strategy:
+Use `--optimizer` to select an optimizer:
 
 - `varpro` (default): Fast and robust for most datasets
 - `basin_hopping`: Global warm‑start followed by local refinement
-- `differential_evolution`: Global search for difficult initial guesses
 
 Example:
 

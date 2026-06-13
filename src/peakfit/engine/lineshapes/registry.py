@@ -1,25 +1,26 @@
 """Shape registry for lineshape model registration."""
 
 import importlib
-from typing import TYPE_CHECKING, TypeVar, cast
-
-from peakfit.engine.types import Shape
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
-    from types import ModuleType
 
-    from peakfit.engine.lineshapes.protocol import LineshapeProtocol
-
-
-TShape = TypeVar("TShape", bound=Shape)
+    from peakfit.engine.types import Shape
 
 
 # Global shape registry
 SHAPES: dict[str, Callable[..., Shape]] = {}
-LINESHAPE_MODULES: dict[str, LineshapeProtocol] = {}
 
 _DISCOVERY_STATE = {"done": False}
+_BUILTIN_LINESHAPE_MODULES = (
+    "peakfit.engine.lineshapes.gaussian.model",
+    "peakfit.engine.lineshapes.lorentzian.model",
+    "peakfit.engine.lineshapes.no_apod.model",
+    "peakfit.engine.lineshapes.pvoigt.model",
+    "peakfit.engine.lineshapes.sp1.model",
+    "peakfit.engine.lineshapes.sp2.model",
+)
 
 
 def register_shape(
@@ -83,49 +84,19 @@ def list_shapes() -> list[str]:
     return list(SHAPES.keys())
 
 
-def register_lineshape(module: LineshapeProtocol | ModuleType) -> LineshapeProtocol:
-    """Register a module-based lineshape."""
-    shape = cast("LineshapeProtocol", module)
-    LINESHAPE_MODULES[shape.NAME] = shape
-    return shape
-
-
 def discover_lineshapes() -> None:
     """Import explicitly registered lineshapes so they can self-register."""
     if _DISCOVERY_STATE["done"]:
         return
-    importlib.import_module("peakfit.engine.lineshapes")
+    for module_name in _BUILTIN_LINESHAPE_MODULES:
+        importlib.import_module(module_name)
     _DISCOVERY_STATE["done"] = True
 
 
-def get_lineshape(name: str) -> LineshapeProtocol:
-    """Get a registered module-based lineshape by name."""
-    discover_lineshapes()
-    return LINESHAPE_MODULES[name]
-
-
-def list_lineshapes() -> list[str]:
-    """List all registered module-based lineshape names."""
-    discover_lineshapes()
-    return sorted(LINESHAPE_MODULES.keys())
-
-
-def reset_registry() -> None:
-    """Reset registry state (useful for tests)."""
-    SHAPES.clear()
-    LINESHAPE_MODULES.clear()
-    _DISCOVERY_STATE["done"] = False
-
-
 __all__ = [
-    "LINESHAPE_MODULES",
     "SHAPES",
     "discover_lineshapes",
-    "get_lineshape",
     "get_shape",
-    "list_lineshapes",
     "list_shapes",
-    "register_lineshape",
     "register_shape",
-    "reset_registry",
 ]

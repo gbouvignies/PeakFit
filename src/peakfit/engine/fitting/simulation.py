@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from peakfit.engine.algorithms.common import calculate_shape_heights
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.fitting.computation import calculate_shape_heights
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

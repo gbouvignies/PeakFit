@@ -1,46 +1,24 @@
-"""Pre-fit setup summary UI component.
-
-Displays a compact setup summary before any computation starts.
-
-Design Philosophy:
-- Fit entirely on one terminal screen
-- Readable at a glance
-- No "PASS" or "OK" indicators unless something is actually wrong
-"""
+"""Pre-fit setup summary."""
 
 import multiprocessing
-from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from rich import box
-from rich.panel import Panel
-from rich.table import Table
-from rich.text import Text
-
-from peakfit.ui.console import VERSION, console, icon
+from peakfit.ui.branding import show_command_summary
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.config import PeakFitConfig
     from peakfit.fit.fitting import LoadedData
 
 
-def _get_version() -> str:
-    """Get package version dynamically."""
-    try:
-        return version("peakfit")
-    except Exception:
-        return VERSION or "dev"
-
-
 def _format_workers(workers: int) -> str:
     """Format workers count for display."""
     if workers == -1:
         cpu_count = multiprocessing.cpu_count()
-        return f"{cpu_count} (Parallel)"
+        return f"{cpu_count} parallel"
     if workers == 1:
-        return "1 (Sequential)"
-    return f"{workers} (Parallel)"
+        return "1 sequential"
+    return f"{workers} parallel"
 
 
 def _format_noise_source(noise_source: str) -> str:
@@ -63,8 +41,6 @@ def _describe_method(optimizer: str) -> str:
         return "VARPRO (Variable Projection)"
     if opt == "basin_hopping":
         return "Basin Hopping (Global)"
-    if opt == "differential_evolution":
-        return "Differential Evolution (Global)"
     return optimizer.upper()
 
 
@@ -74,7 +50,7 @@ def _format_contour(config: PeakFitConfig, noise_val: float) -> str:
 
     factor = config.clustering.contour_factor
     contour_val = factor * noise_val
-    return f"{contour_val:.2e} (Auto: {factor} × noise)"
+    return f"{contour_val:.2e} ({factor:g} x noise)"
 
 
 def _relative_path(path: Path) -> str:
@@ -84,89 +60,6 @@ def _relative_path(path: Path) -> str:
         return str(resolved.relative_to(cwd))
     except Exception:
         return str(resolved)
-
-
-def _build_prefit_panel(
-    *,
-    version: str,
-    method_str: str,
-    contour_str: str,
-    n_clusters: int,
-    refine_str: str,
-    worker_str: str,
-    spectrum_path: Path,
-    peaklist_path: Path | None,
-    n_series: int,
-    shape_type: str,
-    n_peaks: int,
-    noise_val: float,
-    noise_source: str,
-    rel_output: str,
-) -> Panel:
-    section_header = Text("Run Setup", style="bold underline")
-
-    input_table = Table.grid(padding=(0, 2))
-    input_table.add_column(width=2)
-    input_table.add_column(width=12, style="cyan")
-    input_table.add_column()
-
-    input_table.add_row(icon("bullet"), "Method:", f"{method_str}")
-    input_table.add_row(icon("bullet"), "Contour:", contour_str)
-    input_table.add_row(
-        icon("bullet"), "Clusters:", f"{n_clusters} (Segmentation based on contour)"
-    )
-    input_table.add_row(icon("bullet"), "Refine:", refine_str)
-    input_table.add_row(icon("bullet"), "Workers:", worker_str)
-
-    files_header = Text("Input Files", style="bold underline")
-    files_table = Table.grid(padding=(0, 2))
-    files_table.add_column(width=2)
-    files_table.add_column(width=12, style="cyan")
-    files_table.add_column()
-
-    files_table.add_row(
-        icon("bullet"),
-        "Spectrum:",
-        f"{spectrum_path.name} ({n_series} spectra, {shape_type})",
-    )
-    if peaklist_path is None:
-        files_table.add_row(icon("bullet"), "Peak List:", f"Auto-detected ({n_peaks} peaks)")
-    else:
-        files_table.add_row(icon("bullet"), "Peak List:", f"{peaklist_path.name} ({n_peaks} peaks)")
-    files_table.add_row(
-        icon("bullet"),
-        "Noise:",
-        f"{noise_val:.2e} ({_format_noise_source(noise_source)})",
-    )
-
-    output_header = Text("Output", style="bold underline")
-    output_table = Table.grid(padding=(0, 2))
-    output_table.add_column(width=2)
-    output_table.add_column(width=12, style="cyan")
-    output_table.add_column()
-    output_table.add_row(icon("bullet"), "Directory:", rel_output)
-
-    panel_content = Table.grid(padding=(0, 0))
-    panel_content.add_column()
-    panel_content.add_row(Text("Command: Fitting", style="dim"))
-    panel_content.add_row(Text(""))
-    panel_content.add_row(section_header)
-    panel_content.add_row(input_table)
-    panel_content.add_row(Text(""))
-    panel_content.add_row(files_header)
-    panel_content.add_row(files_table)
-    panel_content.add_row(Text(""))
-    panel_content.add_row(output_header)
-    panel_content.add_row(output_table)
-
-    return Panel(
-        panel_content,
-        title=f"[header]PeakFit v{version}[/header]",
-        title_align="left",
-        border_style="panel.border",
-        box=box.ROUNDED,
-        padding=(1, 2),
-    )
 
 
 def show_prefit_check(
@@ -188,8 +81,6 @@ def show_prefit_check(
 
     This is an informational display only; fitting starts immediately after.
     """
-    version = _get_version()
-
     shape_type, n_series = _summarize_spectra(loaded_data)
     n_peaks = len(loaded_data.peaks)
     n_clusters = len(loaded_data.clusters) if loaded_data.clusters else 0
@@ -207,23 +98,33 @@ def show_prefit_check(
 
     rel_output = _relative_path(output_dir)
 
-    panel = _build_prefit_panel(
-        version=version,
-        method_str=method_str,
-        contour_str=contour_str,
-        n_clusters=n_clusters,
-        refine_str=refine_str,
-        worker_str=worker_str,
-        spectrum_path=spectrum_path,
-        peaklist_path=peaklist_path,
-        n_series=n_series,
-        shape_type=shape_type,
-        n_peaks=n_peaks,
-        noise_val=noise_val,
-        noise_source=noise_source,
-        rel_output=rel_output,
+    peaklist_label = (
+        f"Auto-detected ({n_peaks} peaks)"
+        if peaklist_path is None
+        else f"{peaklist_path.name} ({n_peaks} peaks)"
     )
 
-    console.print()
-    console.print(panel)
-    console.print()
+    show_command_summary(
+        "Fitting",
+        sections=[
+            (
+                "Run Setup",
+                {
+                    "Method": method_str,
+                    "Contour": contour_str,
+                    "Clusters": str(n_clusters),
+                    "Refine": refine_str,
+                    "Workers": worker_str,
+                },
+            ),
+            (
+                "Input Files",
+                {
+                    "Spectrum": f"{spectrum_path.name} ({n_series} spectra, {shape_type})",
+                    "Peak list": peaklist_label,
+                    "Noise": f"{noise_val:.2e} ({_format_noise_source(noise_source)})",
+                },
+            ),
+            ("Output", {"Directory": rel_output}),
+        ],
+    )

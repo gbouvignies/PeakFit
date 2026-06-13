@@ -71,3 +71,13 @@ The primary JSON entry point is:
 - `summary/fit.json`
 
 This file is the canonical machine-readable summary for downstream analysis.
+
+## Implementation Notes
+
+- `build_output_plan()` resolves concrete files from requested formats and
+  available data.
+- Direct writer functions serialize JSON, CSV, optional Markdown, and optional
+  simulated spectra.
+- There is no writer manager class and no output manifest; the fixed layout is
+  the contract.
+- Per-plane amplitudes are exported only in `tables/intensities.csv`.

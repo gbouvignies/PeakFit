@@ -1,4 +1,4 @@
-"""Global optimization methods for NMR peak fitting."""
+"""Basin-hopping optimizer for NMR peak fitting."""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -19,11 +19,6 @@ from peakfit.shared.constants import (
     BASIN_HOPPING_NITER,
     BASIN_HOPPING_STEPSIZE,
     BASIN_HOPPING_TEMPERATURE,
-    DIFF_EVOLUTION_INIT,
-    DIFF_EVOLUTION_MAXITER,
-    DIFF_EVOLUTION_MUTATION,
-    DIFF_EVOLUTION_RECOMBINATION,
-    DIFF_EVOLUTION_STRATEGY,
 )
 
 if TYPE_CHECKING:
@@ -35,8 +30,8 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class GlobalFitResult:
-    """Extended fit result with global optimization info."""
+class BasinHoppingResult:
+    """Basin-hopping fit result with optimizer diagnostics."""
 
     params: Parameters
     residual: FloatArray
@@ -63,18 +58,6 @@ class GlobalFitResult:
         nvarys = len(self.params.get_vary_names())
         n_total_fitted = nvarys + self.n_amplitude_params
         return compute_reduced_chi_squared(self.chisqr, ndata, n_total_fitted)
-
-
-def residuals_global(
-    x: FloatArray,
-    params: Parameters,
-    cluster: Cluster,
-    noise: float,
-) -> float:
-    """Compute sum of squared residuals for global optimization."""
-    params.set_vary_values(x)
-    res_vec = residuals(params, cluster, noise)
-    return float(np.sum(res_vec**2))
 
 
 def _compute_numerical_hessian(
@@ -167,8 +150,8 @@ def fit_basin_hopping(
     temperature: float = BASIN_HOPPING_TEMPERATURE,
     step_size: float = BASIN_HOPPING_STEPSIZE,
     seed: int | None = None,
-) -> GlobalFitResult:
-    """Fit cluster using basin-hopping global optimization."""
+) -> BasinHoppingResult:
+    """Fit cluster using basin-hopping optimization."""
     amplitude_params_state: dict[str, bool] = {}
 
     # Identify amplitude parameters and temporarily set vary=False (VarPro principle)
@@ -243,7 +226,7 @@ def fit_basin_hopping(
             if "completed successfully" in msg or "requested number" in msg:
                 success = True
 
-        return GlobalFitResult(
+        return BasinHoppingResult(
             params=params,
             residual=final_residuals,
             cost=result.fun,
@@ -276,7 +259,6 @@ def _restore_amplitude_params(
     varpro_optimizer.compute_residuals(optimized_x)
     final_amplitudes = varpro_optimizer.get_optimized_amplitudes()
 
-    final_amplitudes = varpro_optimizer.get_optimized_amplitudes()
     for i, peak in enumerate(cluster.peaks):
         axis = peak.shapes[0].axis if peak.shapes else "pseudo"
         for plane_idx in range(final_amplitudes.shape[1]):
@@ -300,96 +282,3 @@ def _restore_amplitude_params(
             if pid.name in params:
                 params[pid.name].value = val
                 params[pid.name].computed = True
-
-
-def fit_differential_evolution(
-    params: Parameters,
-    cluster: Cluster,
-    noise: float,
-    max_iterations: int = DIFF_EVOLUTION_MAXITER,
-    mutation: tuple[float, float] = DIFF_EVOLUTION_MUTATION,
-    recombination: float = DIFF_EVOLUTION_RECOMBINATION,
-    strategy: str = DIFF_EVOLUTION_STRATEGY,
-    init: str = DIFF_EVOLUTION_INIT,
-    polish: bool = True,
-    seed: int | None = None,
-) -> GlobalFitResult:
-    """Fit cluster using differential evolution."""
-    bounds = params.get_vary_bounds_list()
-    # Note: DE optimizes all 'vary' parameters directly without VarPro in this
-    # implementation.
-
-    def objective(x: FloatArray) -> float:
-        return residuals_global(x, params, cluster, noise)
-
-    result = optimize.differential_evolution(
-        objective,
-        bounds,
-        maxiter=max_iterations,
-        mutation=mutation,
-        recombination=recombination,
-        strategy=strategy,
-        init=init,
-        polish=False,
-        disp=False,
-        workers=1,
-        seed=seed,
-    )
-
-    if polish:
-        vary_names = params.get_vary_names()
-        fit_params = FitParameters.from_parameters(params, cluster.peaks)
-        varpro_optimizer = VarProOptimizer(
-            cluster=cluster,
-            names=vary_names,
-            params_template=params,
-            fit_params=fit_params,
-            noise=noise,
-        )
-
-        def polish_objective(x: FloatArray) -> float:
-            r = varpro_optimizer.compute_residuals(x)
-            return float(np.sum(r**2))
-
-        def polish_jacobian(x: FloatArray) -> FloatArray:
-            r = varpro_optimizer.compute_residuals(x)
-            jac = varpro_optimizer.compute_jacobian(x)
-            return 2.0 * r @ jac
-
-        polish_result = optimize.minimize(
-            polish_objective,
-            result.x,
-            method="L-BFGS-B",
-            bounds=bounds,
-            jac=polish_jacobian,
-        )
-
-        if polish_result.success:
-            result.x = polish_result.x
-            result.fun = float(polish_result.fun)
-            result.nfev += polish_result.nfev
-
-    lower, upper = params.get_vary_bounds()
-    result.x = np.clip(result.x, lower, upper)
-    params.set_vary_values(result.x)
-
-    final_residuals = residuals(params, cluster, noise)
-    covar = _compute_covariance_and_errors(objective, result.x, bounds, params)
-
-    success = result.success
-    if not success and "Maximum number of iterations" in str(result.message):
-        success = True
-
-    return GlobalFitResult(
-        params=params,
-        residual=final_residuals,
-        cost=result.fun,
-        nfev=result.nfev,
-        success=success,
-        message=str(result.message),
-        global_iterations=result.nit,
-        local_minimizations=1 if polish else 0,
-        global_minimum_found=result.success,
-        covar=covar,
-        n_amplitude_params=cluster.n_amplitude_params,
-    )

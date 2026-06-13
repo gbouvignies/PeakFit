@@ -50,8 +50,8 @@ def write_fit_outputs(
 ) -> dict[str, Path]:
     """Write fit result artifacts to output files.
 
-    Run-level files such as README.md and fitting state are written by the
-    service layer after fit artifacts are known.
+    Run-level files such as README.md and fitting state are written by the fit
+    workflow after fit artifacts are known.
 
     Args:
         results: FitResults object containing all output data

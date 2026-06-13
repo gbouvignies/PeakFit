@@ -1,7 +1,7 @@
 """Utilities for lineshape modules."""
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, TypeGuard, overload
+from typing import TYPE_CHECKING, Any, TypeGuard, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from peakfit.engine.lineshapes.grid import SpectralGrid
-    from peakfit.engine.lineshapes.protocol import LineshapeContext
     from peakfit.shared.typing import ComplexArray, FloatArray
 
 # =============================================================================
@@ -21,6 +20,14 @@ _LN2 = np.log(2.0)
 _SQRT_PI_4LN2 = np.sqrt(np.pi / (4.0 * _LN2))
 
 _J_COUPLING_ABS_THRESHOLD_RAD_S = 1e-10
+
+
+@dataclass(frozen=True, slots=True)
+class LineshapeContext:
+    """Optional context for lineshape evaluation and parameter defaults."""
+
+    grid: SpectralGrid | None = None
+    extras: dict[str, Any] = field(default_factory=dict)
 
 
 def get_axis_label(dim_index: int) -> str:

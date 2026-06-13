@@ -13,7 +13,8 @@ import numpy as np
 
 if TYPE_CHECKING:
     from peakfit.engine.results import ParameterEstimate
-    from peakfit.engine.types import JsonValue
+
+type JsonValue = dict[str, "JsonValue"] | list["JsonValue"] | str | int | float | bool | None
 
 
 def format_float(
@@ -61,30 +62,21 @@ def get_peak_name(param: ParameterEstimate, peak_names: list[str]) -> str:
     -------
         Original peak name like '2N-H'
     """
-    # Use param_id if available (new format)
     if param.param_id is not None:
         if param.param_id.peak_name:
             return param.param_id.peak_name
         if param.param_id.cluster_id is not None:
             return f"cluster_{param.param_id.cluster_id}"
 
-    # Legacy fallback: parse from internal name
     param_name = param.name
     cluster_match = re.match(r"cluster_(\d+)\.", param_name)
     if cluster_match:
         return f"cluster_{cluster_match.group(1)}"
 
     for peak_name in peak_names:
-        # New format: "peak_name.axis.type"
         if param_name.startswith(f"{peak_name}."):
             return peak_name
-        # Legacy format: sanitized prefix
-        safe_prefix = re.sub(r"\W+|^(?=\d)", "_", peak_name)
-        if param_name.startswith(f"{safe_prefix}_"):
-            return peak_name
 
-    # Fallback to first peak if available (often safe for single-peak clusters)
-    # or empty string if no match found
     return peak_names[0] if peak_names else ""
 
 
@@ -107,6 +99,7 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 __all__ = [
+    "JsonValue",
     "NumpyEncoder",
     "format_float",
     "get_peak_name",

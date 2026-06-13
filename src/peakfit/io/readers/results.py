@@ -183,7 +183,7 @@ class ResultsLoader:
         for c_data in cluster_schemas:
             cluster_peaks = []
             for name in c_data.peak_names:
-                # Find canonical position params first (peak.F*.cs), fallback to legacy x0/y0.
+                # Find canonical position params (peak.F*.cs).
                 axis_values: dict[str, float] = {}
                 for param in c_data.lineshape_parameters:
                     if not param.name.startswith(f"{name}."):
@@ -206,16 +206,6 @@ class ResultsLoader:
                     x_val = axis_values[ordered_axes[0]]
                     y_val = axis_values[ordered_axes[1]] if len(ordered_axes) > 1 else 0.0
 
-                if x_val == 0.0 and y_val == 0.0:
-                    x_param = next(
-                        (p for p in c_data.lineshape_parameters if p.name == f"{name}_x0"), None
-                    )
-                    y_param = next(
-                        (p for p in c_data.lineshape_parameters if p.name == f"{name}_y0"), None
-                    )
-                    x_val = x_param.value if x_param else 0.0
-                    y_val = y_param.value if y_param else 0.0
-
                 shapes_list: list[Shape] = [
                     cast("Shape", ReconstructedShape(x_val, "F2")),
                     cast("Shape", ReconstructedShape(y_val, "F1")),
@@ -229,7 +219,7 @@ class ResultsLoader:
                 cluster_peaks.append(peak)
                 all_peaks.append(peak)
 
-            # Minimal 1-point cluster placeholder
+            # Minimal 1-point cluster reconstruction for post-fit workflows.
             dummy_grid_indices = [np.array([0])]
             dummy_data = np.array([[0.0]])
 

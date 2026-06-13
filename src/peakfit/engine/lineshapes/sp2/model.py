@@ -1,4 +1,4 @@
-"""SP2 lineshape plugin.
+"""SP2 lineshape model.
 
 SP2 uses squared sine-bell apodization with phase correction.
 Parameters: cs (chemical shift), lw (linewidth), phase, and optionally j (coupling).
@@ -6,14 +6,13 @@ Parameters: cs (chemical shift), lw (linewidth), phase, and optionally j (coupli
 
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import numpy.typing as npt
 
 from peakfit.engine.lineshapes.doublet import doublet_kernel
-from peakfit.engine.lineshapes.registry import register_lineshape, register_shape
+from peakfit.engine.lineshapes.registry import register_shape
 from peakfit.engine.lineshapes.templates import PhasedDoubletBase, PhasedSingletBase
 from peakfit.engine.lineshapes.utils import (
     apply_phase,
@@ -26,7 +25,7 @@ from peakfit.engine.types import ParamSpec
 from .kernel import kernel, kernel_with_derivs, make_state
 
 if TYPE_CHECKING:
-    from peakfit.engine.lineshapes.protocol import LineshapeContext
+    from peakfit.engine.lineshapes.utils import LineshapeContext
     from peakfit.shared.typing import FloatArray
 
 
@@ -111,9 +110,6 @@ class SP2(PhasedSingletBase):
     kernel: ClassVar = staticmethod(kernel)
     kernel_with_derivs: ClassVar = staticmethod(kernel_with_derivs)
     make_state: ClassVar = staticmethod(make_state)
-
-
-register_lineshape(sys.modules[__name__])
 
 
 # =============================================================================

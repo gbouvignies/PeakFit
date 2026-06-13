@@ -1,7 +1,5 @@
 """Domain representation of serialized fitting state artifacts."""
 
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from peakfit.engine.domain.cluster import Cluster
@@ -20,18 +18,11 @@ class FittingState(BaseModel):
     clusters: list[Cluster] = Field(description="List of Cluster objects")
     params: FitParameters = Field(description="Vectorized fitting parameters")
     scalar_params: Parameters = Field(
-        default_factory=Parameters, description="Rich parameter metadata (legacy)"
+        default_factory=Parameters,
+        description="Scalar parameter metadata used for output and reuse",
     )
     noise: float | None = Field(default=None, description="Estimated noise level")
     version: str = Field(default="1.1", description="State format version")
-
-    @model_validator(mode="before")
-    @classmethod
-    def strip_legacy_peaks(cls, data: Any) -> Any:
-        """Drop legacy top-level peaks from serialized state inputs."""
-        if isinstance(data, dict):
-            data.pop("peaks", None)
-        return data
 
     @property
     def peaks(self):

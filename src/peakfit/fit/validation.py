@@ -326,12 +326,13 @@ def _parse_peaks_from_dataframe(df: Any) -> list[PeakData]:
     """Parse peaks from a pandas DataFrame."""
     peaks = []
     pos_cols = _detect_position_columns(df)
+    if not pos_cols:
+        msg = "Peak table must include position columns named F1_ppm, w1, or Pos F1"
+        raise ValueError(msg)
 
     for _, row in df.iterrows():
         name_value = row.get("Assign F1", row.get("#", row.get("name", "")))
-        positions = [_to_float(row.get(col), 0.0) for col in pos_cols]
-        if not positions:  # Fallback to first numeric columns
-            positions = [_to_float(row.iloc[i], 0.0) for i in range(1, min(3, len(row)))]
+        positions = [_to_float(row.get(col)) for col in pos_cols]
         peaks.append(PeakData(name=str(name_value), positions=positions))
     return peaks
 
@@ -341,7 +342,16 @@ def _detect_position_columns(df: Any) -> list[str]:
     columns = df.columns.tolist()
     pos_cols = []
 
-    # Try 'Pos Fn' pattern
+    # Try canonical 'Fn_ppm' pattern.
+    for i in range(1, 5):
+        col = f"F{i}_ppm"
+        if col in columns:
+            pos_cols.append(col)
+
+    if pos_cols:
+        return pos_cols
+
+    # Try CCPN 'Pos Fn' pattern.
     for i in range(1, 5):
         col = f"Pos F{i}"
         if col in columns:
@@ -350,7 +360,7 @@ def _detect_position_columns(df: Any) -> list[str]:
     if pos_cols:
         return pos_cols
 
-    # Try 'wn' pattern
+    # Try Sparky 'wn' pattern.
     for i in range(1, 5):
         col = f"w{i}"
         if col in columns:
@@ -377,22 +387,21 @@ def _read_json_list(path: Path) -> list[PeakData]:
                 for i in range(1, 5):  # F1 to F4
                     pos = p.get(f"Pos F{i}") or p.get(f"w{i}")
                     if pos is not None:
-                        positions.append(_to_float(pos, 0.0))
-            # Removed legacy 'x'/'y' fallback
+                        positions.append(_to_float(pos))
             peaks.append(PeakData(name=name, positions=positions))
         return peaks
     return []
 
 
-def _to_float(value: Any, fallback: float = 0.0) -> float:
-    """Convert arbitrary values to float with graceful fallback."""
+def _to_float(value: Any) -> float:
+    """Convert a peak-list value to float."""
     if value is None:
-        return fallback
+        raise ValueError("Missing peak position value")
 
     try:
         return float(value)
-    except (TypeError, ValueError):
-        return fallback
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid peak position value: {value!r}") from exc
 
 
 __all__ = [

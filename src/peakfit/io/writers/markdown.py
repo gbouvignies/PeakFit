@@ -64,7 +64,7 @@ def _summary_section(results: FitResults) -> str:
         "# PeakFit Report",
         "",
         f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"- Method: {results.method.value}",
+        f"- Method: {results.method}",
         f"- Clusters: {results.n_clusters}",
         f"- Peaks: {results.n_peaks}",
     ]

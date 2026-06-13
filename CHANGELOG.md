@@ -1,162 +1,55 @@
 # Changelog
 
-All notable changes to PeakFit will be documented in this file.
+Notable user-facing and architecture changes are recorded here.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [2025.12.0] - 2025-11-22
-
-### Breaking Changes
-
-- PeakFit uses NumPy-only implementations for all lineshape functions
-  - Performance: Implementations center on NumPy for maintainability and compatibility
-
-### Major Refactoring
-
-- **Complete module reorganization** for improved clarity and maintainability:
-  - `peakfit.core.shared/` - Project-wide constants and typing aliases
-  - `peakfit.core.domain/` - Core domain models (spectra, peaks, clusters, configs)
-  - `peakfit.core.lineshapes/` - All lineshape functions and models
-  - `peakfit.fitting/` - Fitting algorithms, parameters, and results
-  - `peakfit.data/` - File readers and adapters around the domain layer
-  - `peakfit.io/` - Input/output operations (including state persistence)
-  - `tools/analysis/` - Benchmarking and profiling (development utilities)
-- Removed `core/` module - functionality redistributed to logical packages
-- Removed `infra/` module - merged into `io/`
-- Removed `plotting/plots/` - orphan wrappers deleted, spectra.py moved up
-- Backend selection system removed - always uses NumPy
-
-### Migration Guide
-
-Old imports -> New imports:
-
-- `from peakfit.shapes import Gaussian` -> `from peakfit.core.lineshapes import Gaussian`
-- `from peakfit.core.fitting import Parameters` -> `from peakfit.fitting import Parameters`
-- `from peakfit.clustering import Cluster` -> `from peakfit.core.domain import Cluster`
-- `from peakfit.spectra import Spectra` -> `from peakfit.core.domain import Spectra`
-- And more... (see documentation)
-
--
-- Backend selection (`--backend` option)
-- `performance` optional dependency group
-
-## [Unreleased]
-
-### Added
-
-- **Parallel Cluster Fitting**: Multi-core support for faster fitting (automatic)
-
-  - Multi-core support is chosen automatically; the CLI no longer exposes a `--parallel` flag
-  - Automatic CPU core detection
-  - Linear scaling with number of clusters
-  - Maintains refinement iterations for cross-talk correction
-
-- **Optimized Fitting Engine**: Direct scipy.optimize integration
-
-  - New `peakfit.fitting` module with scipy.optimize.least_squares
-  - Custom Parameters class with bounds validation
-  - Reduced overhead compared to wrapper-based approaches
-  - FitResult class with chi-squared statistics
-
-- **Modern CLI with Typer**: Intuitive command-line interface with subcommands (`fit`, `validate`, `init`, `plot`)
-
-  - `peakfit fit spectrum.ft2 peaks.list` - Clear, positional arguments
-  - `peakfit init config.toml` - Generate configuration templates
-  - `peakfit validate` - Input file validation
-  - Rich progress bars and colored terminal output
-
-- **TOML Configuration System**: Reproducible analyses with configuration files
-
-  - Full configuration validation with Pydantic models
-  - Auto-generated config templates with documentation
-  - Support for fitting, clustering, and output settings
-
-- **Type-Safe Data Models**: Pydantic v2 models for all configuration and data structures
-
-  - `FitConfig` - Fitting parameters with validation
-  - `ClusterConfig` - Clustering settings
-  - `OutputConfig` - Output format configuration
-  - `PeakFitConfig` - Main configuration container
-  - `PeakData`, `FitResult` - Structured result data
-
-- **Comprehensive Test Suite**: pytest-based testing infrastructure
-
-  - Unit tests for lineshapes, models, configuration, clustering
-  - Integration tests with synthetic spectrum generation
-  - CLI command tests
-  - Coverage reporting configuration
-  - Test fixtures for reproducible testing
-
-- **Enhanced Project Configuration**
-
-  - pytest configuration in pyproject.toml
-  - Coverage reporting settings
-  - Optional dependencies for development and profiling
-  - Proper package structure with submodules
-
-- **Improved Documentation**
-  - Comprehensive README with usage examples
-  - CLI reference documentation
-  - Migration guide from old CLI
-  - Development setup instructions
-  - Code quality guidelines
+## Unreleased
 
 ### Changed
 
-- **CLI Interface**: From cryptic flags to intuitive commands
-
-  - Old: `peakfit -s spectrum.ft2 -l peaks.list -o Fits -r 2 --pvoigt`
-  - New: `peakfit fit spectrum.ft2 peaks.list --output Fits --refine 2 --lineshape pvoigt`
-
-- **Package Structure**: Modular organization
-
-  - `peakfit/shared/` - Cross-cutting constants and typing helpers
-  - `peakfit/domain/` - Core domain models (spectra, peaks, configs, clusters)
-  - `peakfit/lineshapes/` - Lineshape functions and models
-  - `peakfit/fitting/` - Fitting algorithms and parameters
-  - `peakfit/data/` - File readers, clustering, and noise estimation utilities
-  - `peakfit/analysis/` - Benchmarking and profiling
-  - `peakfit/io/` - Input/output operations
-  - `peakfit/cli/` - Modern Typer CLI
-
-- **Dependencies**:
-
-  - Added: pydantic>=2.5.0, typer>=0.9.0, tomli-w>=1.0.0, openpyxl>=3.0.0
-  - Changed: pandas dependency simplified (removed [excel] extra)
-  - Python version requirement relaxed to >=3.11
-
-- **Entry Points**:
-  - `peakfit` now launches modern Typer CLI with integrated plotting
-  - Plotting now accessible via `peakfit plot` subcommands (cest, cpmg, intensity, spectra)
-
-### Fixed
-
-- Version discovery with fallback for development installations
-- CLI module renamed to avoid namespace conflicts
+- Simplified the public Python package surface; import concrete modules instead of package
+  facades.
+- Simplified fit output generation around the canonical files documented in
+  `docs/output_system.md`.
+- Renamed fit orchestration concepts from service-oriented names to fit-run terminology.
+- Made the CLI summaries more concise and consistent across commands.
+- Simplified MCMC progress output to show observed progress and acceptance only.
+- Simplified optimizer configuration to the two supported fit paths: `varpro`
+  and `basin_hopping`.
+- Renamed internal optimizer configuration and documentation from "strategy"
+  terminology to direct optimizer terminology.
+- Renamed the basin-hopping implementation module from generic global
+  optimization terminology to direct basin-hopping terminology.
+- Simplified lineshape registration to the active shape-class registry and moved
+  lineshape context helpers into the concrete utilities module.
+- Simplified fit-step orchestration, optimizer execution, and peak-list reader
+  dispatch to direct functions instead of wrapper objects or local registries.
+- Simplified plotting around profile plots generated from the canonical
+  `tables/intensities.csv` output.
+- Restored CEST and CPMG profile plotting with deterministic error propagation
+  instead of random bootstrap-derived error bars.
+- Renamed plot generation code from service terminology to direct output
+  terminology.
+- Merged duplicate output architecture notes into the main output-system
+  documentation.
 
 ### Removed
 
-- Legacy argparse CLI (`peakfit-legacy`)
+- Removed legacy and duplicate output concepts, including model-comparison output,
+  legacy parameter-name fallbacks, placeholder/manifest output paths, and duplicate
+  dataclass serialization helpers.
+- Removed unused import hubs and compatibility modules.
+- Removed unused plot backend interface abstractions.
+- Removed the stale `differential_evolution` optimizer path and redundant
+  `[fitting].strategy_name` config key.
+- Removed unused result helpers/constants and the obsolete module-based
+  lineshape protocol.
+- Removed unused fit protocol result wrappers, optimizer wrapper classes, and
+  the legacy serialized-state `peaks` fallback.
 
-### Repository housekeeping
+### Compatibility
 
-- Removed backup and review branches used during the commit reordering and cleanup process. The original `main` commit is preserved under the tag `pre-main-rewrite-2025-11-29-55052e5` for rollback/inspection.
-- Merged and cleaned up the re-ordered commits in `main` (previously `main-inverted`) to keep history tidy.
-
-- Standalone `peakfit-plot` command (replaced with `peakfit plot` subcommands)
-- Compatibility shims `peakfit.models` and `peakfit.data.spectrum` (import from `peakfit.core.domain.*`)
-- Compatibility shims `peakfit.constants` and `peakfit.typing` (import from `peakfit.core.shared.*`)
-
-## [Previous] - Legacy Versions
-
-### Features from Original Implementation
-
-- Multiple lineshape models (Gaussian, Lorentzian, Pseudo-Voigt, SP1, SP2, No-Apod)
-- Automatic lineshape detection from NMRPipe apodization parameters
-- Peak clustering using connected components analysis
-- Iterative refinement for cross-talk correction
-- NMRPipe format support via nmrglue
-- Rich console output with HTML reports
-- Interactive PyQt5-based spectra viewer
-- Multiple peak list format support (Sparky, CSV, JSON, Excel)
+- This development cycle intentionally breaks several internal Python imports as part of
+  the architecture cleanup. CLI workflows and scientific behavior remain covered by tests.
+- `peakfit fit --optimizer differential_evolution` and configs containing
+  `[fitting].strategy_name` are no longer accepted; use the default `varpro` or
+  `--optimizer basin_hopping`.

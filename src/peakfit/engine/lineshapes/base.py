@@ -7,7 +7,7 @@ import numpy as np
 from peakfit.engine.domain.param_id import ParameterId
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.lineshapes.grid import SpectralGrid
-from peakfit.engine.lineshapes.protocol import LineshapeContext
+from peakfit.engine.lineshapes.utils import LineshapeContext
 from peakfit.engine.types import ClusterParameters, ParamSpec
 
 if TYPE_CHECKING:

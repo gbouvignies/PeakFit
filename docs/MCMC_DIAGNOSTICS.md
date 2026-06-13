@@ -147,7 +147,8 @@ those files directly.
 
 **Example**: In NMR fitting, you might see:
 
-- Strong correlation between `x0` (chemical shift) and `fwhm` (linewidth) for overlapping peaks
+- Strong correlation between `peak.F2.cs` (chemical shift) and `peak.F2.lw` (linewidth)
+  for overlapping peaks
 - Weak correlation between well-separated peaks
 
 ### Autocorrelation Plots
@@ -320,7 +321,7 @@ peakfit plot mcmc Fits/
 **Solutions**:
 
 - Use fewer walkers for quick tests (but more for final analysis)
-- Consider using global optimization first to get better starting point
+- Consider fitting with `--optimizer basin_hopping` first to get a better starting point
 - Run overnight for publication-quality results
 
 ## References

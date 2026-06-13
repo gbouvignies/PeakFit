@@ -19,17 +19,16 @@ from peakfit.engine.domain.config import (
 from peakfit.engine.results import FitResult
 from peakfit.fit.fitting import (
     ClusterReview,
+    FitRun,
     ProgressStart,
-    ServiceResult,
     find_review_clusters,
     load_data,
     run_fit,
-    write_service_results,
+    write_fit_run_outputs,
 )
 from peakfit.fit.validation import validate_inputs
 from peakfit.io.config import load_config
-from peakfit.io.paths import resolve_output_path
-from peakfit.shared.constants import BASIN_HOPPING_NITER, DIFF_EVOLUTION_MAXITER
+from peakfit.shared.constants import BASIN_HOPPING_NITER
 from peakfit.ui.branding import show_command_summary
 from peakfit.ui.console import Verbosity, console, display_path, set_verbosity
 from peakfit.ui.messages import bullet, error, show_error_with_details
@@ -44,6 +43,7 @@ if TYPE_CHECKING:
     from peakfit.ui.auto_pick_stepper import AutoPickStepController
 
 VALID_OUTPUT_FORMATS = get_args(OutputFormat)
+VALID_OPTIMIZERS = ("varpro", "basin_hopping")
 
 
 def fit_command(
@@ -129,7 +129,7 @@ def fit_command(
     ] = None,
     optimizer: Annotated[
         str,
-        typer.Option("--optimizer", help="Optimizer: varpro, basin-hopping"),
+        typer.Option("--optimizer", help="Optimizer: varpro, basin_hopping"),
     ] = "varpro",
     formats: Annotated[
         list[str] | None,
@@ -298,7 +298,7 @@ def fit_command(
             if result.spectra is None:
                 raise ValueError("No spectra in result")
 
-            write_service_results(result, result.spectra, fit_config, input_paths, reporter)
+            write_fit_run_outputs(result, result.spectra, fit_config, input_paths, reporter)
 
     except Exception as e:
         show_error_with_details("Fitting", e)
@@ -373,6 +373,7 @@ def _build_config(
     optimizer: str,
 ) -> PeakFitConfig:
     """Build config from CLI args or file."""
+    _validate_optimizer(optimizer)
     normalized_formats = _normalize_output_formats(formats)
 
     if config is not None:
@@ -418,12 +419,19 @@ def _build_config(
         exclude_planes=exclude or [],
     )
 
-    if optimizer == "differential_evolution":
-        cfg.fitting.max_iterations = DIFF_EVOLUTION_MAXITER
-    elif optimizer == "basin_hopping":
+    if optimizer == "basin_hopping":
         cfg.fitting.max_iterations = BASIN_HOPPING_NITER
 
     return cfg
+
+
+def _validate_optimizer(optimizer: str) -> None:
+    """Reject unsupported optimizer names before data loading starts."""
+    if optimizer in VALID_OPTIMIZERS:
+        return
+
+    choices = ", ".join(VALID_OPTIMIZERS)
+    raise typer.BadParameter(f"Unknown optimizer: {optimizer}. Choose from: {choices}.")
 
 
 def _normalize_output_formats(formats: list[str] | None) -> list[OutputFormat] | None:
@@ -448,7 +456,15 @@ def _normalize_output_formats(formats: list[str] | None) -> list[OutputFormat] |
 def _resolve_output(fit_config: PeakFitConfig) -> Path:
     """Resolve output directory with timestamp."""
     base = fit_config.output.directory or Path("./")
-    output_dir = resolve_output_path(base, include_timestamp=fit_config.output.include_timestamp)
+    output_dir = Path(base)
+    if fit_config.output.include_timestamp:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        if str(output_dir) == ".":
+            output_dir = Path(f"output_{timestamp}")
+        else:
+            output_dir = output_dir / timestamp
+
+    output_dir.mkdir(parents=True, exist_ok=True)
     fit_config.output.directory = output_dir
     fit_config.output.include_timestamp = False
     return output_dir
@@ -478,7 +494,7 @@ def _run_interactive_fit(
     output_dir: Path,
     optimizer: str,
     workers: int,
-) -> ServiceResult:
+) -> FitRun:
     """Run fitting with interactive live display."""
     # Use a mutable container for the live display context
     live_ctx: dict[str, Any] = {"update": None}
@@ -486,7 +502,7 @@ def _run_interactive_fit(
     def progress_callback(item: Any) -> None:
         """Handle progress events from pipeline."""
         if isinstance(item, ProgressStart):
-            # Start the live display with total from service
+            # Start the live display with the pipeline total
             live_ctx["display"] = live_fit_display(total_steps=item.total_steps)
             live_ctx["update"] = live_ctx["display"].__enter__()
         elif isinstance(item, tuple) and item[0] == "status":

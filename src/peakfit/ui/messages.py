@@ -10,7 +10,6 @@ __all__ = [
     "bullet",
     "error",
     "info",
-    "print_next_steps",
     "show_error_with_details",
     "success",
     "warning",
@@ -77,11 +76,3 @@ def show_error_with_details(
     console.print(error_panel)
 
     console.print(f"\n[dim]See documentation: {REPO_URL}/docs[/dim]")
-
-
-def print_next_steps(steps: list[str]) -> None:
-    """Print suggested next steps for the user."""
-    console.print(f"\n[header]{icon('bullet')} Next steps:[/header]")
-    for i, step in enumerate(steps, 1):
-        console.print(f"  {i}. {step}")
-    console.print()

@@ -1,4 +1,4 @@
-"""Base classes for lineshape plugins.
+"""Base classes for lineshape models.
 
 This module provides template base classes for lineshape implementations.
 There are two families:

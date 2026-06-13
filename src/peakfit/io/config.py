@@ -116,6 +116,7 @@ amplitude_zero_tolerance = 1e-12
 directory = "Fits"
 formats = ["json", "csv"]
 save_simulated = false
+include_timestamp = true
 headless = false
 
 # Optional settings

@@ -1,3 +1,5 @@
+"""Generate plot output files from PeakFit results."""
+
 import csv
 import re
 from collections import defaultdict
@@ -15,12 +17,9 @@ from peakfit.plot.diagnostics.corner import plot_correlation_pairs
 from peakfit.plot.diagnostics.summary import plot_marginal_distributions
 from peakfit.plot.diagnostics.trace import plot_trace
 from peakfit.plot.profiles import (
-    intensity_to_r2eff,
     make_cest_figure,
     make_cpmg_figure,
-    make_intensity_ensemble,
     make_intensity_figure,
-    ncyc_to_nu_cpmg,
 )
 from peakfit.plot.reporting import generate_mcmc_report_page
 from peakfit.shared.reporter import NullReporter, Reporter
@@ -81,7 +80,12 @@ def generate_cest_plots(
     show: bool = False,
     reporter: Reporter | None = None,
 ) -> PlotOutput:
-    """Generate CEST profile plots."""
+    """Generate CEST profiles from fit intensities.
+
+    Intensities are normalized to reference points. With no explicit references,
+    points at |offset| >= 10000 Hz are used; if none exist, the farthest points
+    from the profile center are used.
+    """
     if output_path is None:
         output_path = results_dir / "cest_profiles.pdf"
 
@@ -90,16 +94,12 @@ def generate_cest_plots(
     def _prepare_data(points: list[tuple[float, float, float]]) -> Any | None:
         return _prepare_cest_data(points, ref_points)
 
-    def _make_figure(peak: str, data: Any) -> Figure:
-        offset_norm, intensity_norm, error_norm = data
-        return make_cest_figure(peak, offset_norm, intensity_norm, error_norm)
-
     return _generate_paginated_plots(
         results_dir=results_dir,
         output_path=output_path,
         plot_type="cest",
         prepare_data_fn=_prepare_data,
-        make_figure_fn=_make_figure,
+        make_figure_fn=make_cest_figure,
         show=show,
         reporter=reporter,
     )
@@ -112,23 +112,22 @@ def generate_cpmg_plots(
     show: bool = False,
     reporter: Reporter | None = None,
 ) -> PlotOutput:
-    """Generate CPMG profile plots."""
+    """Generate CPMG R2eff profiles from fit intensities."""
+    if time_t2 <= 0:
+        raise ValueError("time_t2 must be greater than zero")
+
     if output_path is None:
         output_path = results_dir / "cpmg_profiles.pdf"
 
-    def _prepare_data(points: list[tuple[float, float, float]]) -> Any:
+    def _prepare_data(points: list[tuple[float, float, float]]) -> Any | None:
         return _prepare_cpmg_data(points, time_t2)
-
-    def _make_figure(peak: str, data: Any) -> Figure:
-        nu_cpmg, r2_exp, r2_err = data
-        return make_cpmg_figure(peak, nu_cpmg, r2_exp, r2_err, r2_err)
 
     return _generate_paginated_plots(
         results_dir=results_dir,
         output_path=output_path,
         plot_type="cpmg",
         prepare_data_fn=_prepare_data,
-        make_figure_fn=_make_figure,
+        make_figure_fn=make_cpmg_figure,
         show=show,
         reporter=reporter,
     )
@@ -239,82 +238,121 @@ def _resolve_intensities_csv(results_dir: Path) -> Path | None:
 
 def _prepare_cest_data(
     points: list[tuple[float, float, float]], ref_points: list[int]
-) -> tuple[Any, Any, Any] | None:
-    """Process raw points into normalized CEST data."""
-    offset = np.array([p[0] for p in points])
-    intensity = np.array([p[1] for p in points])
-    error = np.array([p[2] for p in points])
+) -> Any | None:
+    """Normalize CEST intensities against explicit or inferred references."""
+    offset = np.array([p[0] for p in points], dtype=float)
+    intensity = np.array([p[1] for p in points], dtype=float)
+    error = np.array([p[2] for p in points], dtype=float)
 
-    # Reference Logic
+    ref_mask = _cest_reference_mask(offset, ref_points)
+    if not np.any(ref_mask) or np.all(ref_mask):
+        return None
+
+    intensity_ref = float(np.mean(intensity[ref_mask]))
+    if not np.isfinite(intensity_ref) or intensity_ref == 0:
+        return None
+
+    ref_error = _mean_error(error[ref_mask])
+    data_mask = ~ref_mask
+    normalized = intensity[data_mask] / intensity_ref
+    normalized_error = _ratio_error(
+        numerator=intensity[data_mask],
+        numerator_error=error[data_mask],
+        denominator=intensity_ref,
+        denominator_error=ref_error,
+    )
+
+    dtype = [("offset", "f8"), ("intensity", "f8"), ("error", "f8")]
+    return np.array(
+        list(zip(offset[data_mask], normalized, normalized_error, strict=True)), dtype=dtype
+    )
+
+
+def _cest_reference_mask(offset: np.ndarray, ref_points: list[int]) -> np.ndarray:
+    """Return the points used as CEST references."""
     if ref_points == [-1]:
         ref_mask = np.abs(offset) >= _CEST_AUTO_REF_OFFSET_THRESHOLD
-        if not np.any(ref_mask):
-            n_points = len(offset)
-            if n_points <= 1:
-                return None
-            n_fallback = min(_CEST_AUTO_REF_FALLBACK_POINTS, n_points - 1)
-            distance_to_center = np.abs(offset - np.median(offset))
-            fallback_indices = np.argsort(distance_to_center)[-n_fallback:]
-            ref_mask = np.zeros_like(offset, dtype=bool)
-            ref_mask[fallback_indices] = True
-    else:
+        if np.any(ref_mask):
+            return ref_mask
+
+        n_points = len(offset)
+        if n_points <= 1:
+            return np.zeros_like(offset, dtype=bool)
+
+        n_fallback = min(_CEST_AUTO_REF_FALLBACK_POINTS, n_points - 1)
+        distance_to_center = np.abs(offset - np.median(offset))
+        fallback_indices = np.argsort(distance_to_center)[-n_fallback:]
         ref_mask = np.zeros_like(offset, dtype=bool)
-        for idx in ref_points:
-            if 0 <= idx < len(offset):
-                ref_mask[idx] = True
+        ref_mask[fallback_indices] = True
+        return ref_mask
 
-    if not np.any(ref_mask):
-        return None
-
-    intensity_ref = np.mean(intensity[ref_mask])
-
-    # Avoid division by zero
-    if intensity_ref == 0:
-        return None
-
-    offset_norm = offset[~ref_mask]
-    intensity_norm = intensity[~ref_mask] / intensity_ref
-    error_norm = error[~ref_mask] / np.abs(intensity_ref)
-
-    return offset_norm, intensity_norm, error_norm
+    ref_mask = np.zeros_like(offset, dtype=bool)
+    for idx in ref_points:
+        if 0 <= idx < len(offset):
+            ref_mask[idx] = True
+    return ref_mask
 
 
-def _prepare_cpmg_data(
-    points: list[tuple[float, float, float]], time_t2: float
-) -> tuple[Any, Any, Any]:
-    """Process raw points into CPMG R2eff data with errors."""
-    ncyc = np.array([p[0] for p in points])
-    intensity = np.array([p[1] for p in points])
-    error = np.array([p[2] for p in points])
+def _prepare_cpmg_data(points: list[tuple[float, float, float]], time_t2: float) -> Any | None:
+    """Convert CPMG intensities to R2eff with deterministic error propagation."""
+    ncyc = np.array([p[0] for p in points], dtype=float)
+    intensity = np.array([p[1] for p in points], dtype=float)
+    error = np.array([p[2] for p in points], dtype=float)
 
-    # Reference Logic (ncyc=0)
     ref_mask = ncyc == 0
     if not np.any(ref_mask):
-        # Fallback: assume first point
         ref_mask[0] = True
 
-    intensity_ref = np.mean(intensity[ref_mask])
+    intensity_ref = float(np.mean(intensity[ref_mask]))
+    if not np.isfinite(intensity_ref) or intensity_ref == 0:
+        return None
 
-    # Filter
-    ncyc_cpmg = ncyc[~ref_mask]
-    intensity_cpmg = intensity[~ref_mask]
-    error_cpmg = error[~ref_mask]
+    ref_error = _mean_error(error[ref_mask])
+    ratio = intensity / intensity_ref
+    data_mask = (~ref_mask) & np.isfinite(ratio) & (ratio > 0)
+    if not np.any(data_mask):
+        return None
 
-    nu_cpmg = ncyc_to_nu_cpmg(ncyc_cpmg, time_t2)
-    r2_exp = intensity_to_r2eff(intensity_cpmg, intensity_ref, time_t2)
+    nu_cpmg = np.where(ncyc[data_mask] > 0, ncyc[data_mask] / time_t2, 0.5 / time_t2)
+    r2eff = -np.log(ratio[data_mask]) / time_t2
+    r2eff_error = (
+        _ratio_error(
+            numerator=intensity[data_mask],
+            numerator_error=error[data_mask],
+            denominator=intensity_ref,
+            denominator_error=ref_error,
+        )
+        / time_t2
+    )
 
-    # Bootstrap Error
-    # Build structured array for helper compatibility
-    dt = [("intensity", float), ("error", float)]
-    cpmg_data = np.zeros(len(intensity_cpmg), dtype=dt)
-    cpmg_data["intensity"] = intensity_cpmg
-    cpmg_data["error"] = error_cpmg
+    dtype = [("nu_cpmg", "f8"), ("r2eff", "f8"), ("error", "f8")]
+    return np.array(list(zip(nu_cpmg, r2eff, r2eff_error, strict=True)), dtype=dtype)
 
-    ens = make_intensity_ensemble(cpmg_data, size=1000)
-    r2_ens = intensity_to_r2eff(ens, intensity_ref, time_t2)
-    r2_err = np.std(r2_ens, axis=0)
 
-    return nu_cpmg, r2_exp, r2_err
+def _mean_error(errors: np.ndarray) -> float:
+    """Standard error of a mean from independent point errors."""
+    if len(errors) == 0:
+        return 0.0
+    return float(np.sqrt(np.sum(np.square(errors))) / len(errors))
+
+
+def _ratio_error(
+    *,
+    numerator: np.ndarray,
+    numerator_error: np.ndarray,
+    denominator: float,
+    denominator_error: float,
+) -> np.ndarray:
+    """Propagate uncertainty for numerator / denominator."""
+    relative_num = np.divide(
+        numerator_error,
+        np.abs(numerator),
+        out=np.zeros_like(numerator_error, dtype=float),
+        where=numerator != 0,
+    )
+    relative_den = abs(denominator_error / denominator) if denominator != 0 else 0.0
+    ratio = numerator / denominator
+    return np.abs(ratio) * np.sqrt(np.square(relative_num) + relative_den**2)
 
 
 def generate_mcmc_diagnostics(

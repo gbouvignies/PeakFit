@@ -1,6 +1,6 @@
 # PeakFit
 
-Modern lineshape fitting for pseudo-3D NMR spectra.
+Lineshape fitting for pseudo-ND NMR spectra.
 
 ## Features
 
@@ -54,7 +54,7 @@ uv sync --all-extras  # Install all dependencies including dev tools
 
 ## Requirements
 
-- Python >= 3.13
+- Python >= 3.14
 - NMRPipe format spectrum files (.ft2, .ft3)
 
 ## Quick Start
@@ -98,12 +98,14 @@ tolerance = 1e-8
 [clustering]
 contour_factor = 5.0
 
+noise_level = 100.0  # optional
+exclude_planes = []
+
 [output]
 directory = "Fits"
 formats = ["json", "csv"]
 save_simulated = false
-
-exclude_planes = []
+include_timestamp = true
 ```
 
 ### Input validation
@@ -123,8 +125,9 @@ peakfit mcmc Results/ --walkers 32 --steps 1000
 # Generate intensity plots
 peakfit plot intensity Results/ --show
 
-# Plot CEST profiles
-peakfit plot cest Results/ --output cest.pdf
+# Generate CEST and CPMG profiles from fitted intensities
+peakfit plot cest Results/
+peakfit plot cpmg Results/ --time-t2 0.04
 
 # Launch interactive spectrum viewer
 peakfit plot spectrum --spectrum spectrum.ft2 --results Results/
@@ -204,7 +207,7 @@ peakfit plot [SUBCOMMAND] [RESULTS] [OPTIONS]
 
 #### `peakfit plot intensity`
 
-Plot intensity profiles vs. plane index.
+Plot raw fitted intensity profiles vs. plane index or Z value.
 
 ```bash
 peakfit plot intensity RESULTS [--output PATH] [--show]
@@ -212,10 +215,18 @@ peakfit plot intensity RESULTS [--output PATH] [--show]
 
 #### `peakfit plot cest`
 
-Plot CEST profiles (normalized intensity vs. B1 offset).
+Plot normalized CEST profiles from fitted intensities.
 
 ```bash
-peakfit plot cest RESULTS [--output PATH] [--show] [--ref INDICES...]
+peakfit plot cest RESULTS [--ref INDEX] [--output PATH] [--show]
+```
+
+#### `peakfit plot cpmg`
+
+Plot CPMG relaxation-dispersion profiles from fitted intensities.
+
+```bash
+peakfit plot cpmg RESULTS --time-t2 SECONDS [--output PATH] [--show]
 ```
 
 #### `peakfit plot spectrum`
@@ -224,14 +235,6 @@ Launch interactive spectrum viewer.
 
 ```bash
 peakfit plot spectrum --spectrum PATH [--results PATH]
-```
-
-#### `peakfit plot cpmg`
-
-Plot CPMG relaxation dispersion (R2eff vs νCPMG).
-
-```bash
-peakfit plot cpmg RESULTS --time-t2 FLOAT [--output PATH] [--show]
 ```
 
 #### `peakfit plot mcmc`
@@ -305,12 +308,9 @@ Optional outputs:
 
 ### Fitting behavior
 
-PeakFit performs sequential cluster fitting using scipy.optimize least squares for predictable execution and minimal memory usage.
-
-**Notes:**
-
-- Multi-process/parallel cluster fitting was removed to simplify the execution model.
-- For datasets with many clusters, performance can be improved by optimizing lineshape calculations or using the benchmark tools to tune your environment.
+PeakFit fits each cluster with scipy.optimize least squares. Use `--workers` to control
+parallel cluster execution; `--workers 1` is the simplest deterministic mode and
+`--workers -1` uses all available CPUs.
 
 ### Excluding Planes
 
@@ -400,7 +400,7 @@ src/peakfit/
 
 ## Plotting
 
-PeakFit provides comprehensive plotting capabilities through the `peakfit plot` command with dedicated subcommands for each plot type:
+PeakFit provides result plotting through `peakfit plot` subcommands:
 
 ### Intensity Profiles
 
@@ -412,33 +412,20 @@ peakfit plot intensity Fits/ --output plots.pdf
 peakfit plot intensity Fits/ --show
 ```
 
-### CEST Plots
+### CEST And CPMG Profiles
 
 ```bash
-# Auto-detect reference points (|offset| >= 10 kHz)
-peakfit plot cest Fits/ --output cest.pdf
+# CEST uses high-offset reference points automatically; pass --ref to override
+peakfit plot cest Fits/ --output cest_profiles.pdf
 
-# Manually specify reference point indices
-peakfit plot cest Fits/ --ref 0 1 2
-
-# Interactive display (limited to first 10 plots)
-peakfit plot cest Fits/ --show
-```
-
-### CPMG Relaxation Dispersion
-
-```bash
-# Generate CPMG plots (--time-t2 is required)
-peakfit plot cpmg Fits/ --time-t2 0.04 --output cpmg.pdf
-
-# With interactive display
-peakfit plot cpmg Fits/ --time-t2 0.04 --show
+# CPMG converts fitted intensities to R2eff with deterministic error propagation
+peakfit plot cpmg Fits/ --time-t2 0.04 --output cpmg_profiles.pdf
 ```
 
 ### Interactive Spectra Viewer
 
 ```bash
-# Launch PyQt5 viewer with spectrum overlay
+# Launch Qt viewer with spectrum overlay
 peakfit plot spectrum --spectrum data.ft2 --results Fits/
 ```
 

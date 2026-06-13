@@ -11,14 +11,14 @@ import pandas as pd
 import typer
 
 from peakfit.io.readers.results import ResultsLoader
-from peakfit.plot.reconstruction import SpectraReconstructor
-from peakfit.plot.service import (
+from peakfit.plot.outputs import (
     PlotOutput,
     generate_cest_plots,
     generate_cpmg_plots,
     generate_intensity_plots,
     generate_mcmc_diagnostics,
 )
+from peakfit.plot.reconstruction import SpectraReconstructor
 from peakfit.ui.branding import show_command_summary
 from peakfit.ui.console import Verbosity, display_path, set_verbosity
 from peakfit.ui.messages import show_error_with_details, success, warning
@@ -30,7 +30,6 @@ if TYPE_CHECKING:
 
 _MIN_PEAK_POSITIONS_FOR_2D = 2
 _MAX_REF_POINTS_SHOWN = 6
-
 # Create plot sub-application
 plot_app = typer.Typer(
     help="Plotting commands for PeakFit results",
@@ -61,11 +60,11 @@ def _format_bool(flag: bool) -> str:
 def _format_reference_indices(ref: list[int] | None) -> str:
     """Format CEST reference point indices for compact display."""
     if not ref:
-        return "Auto (-1)"
+        return "Auto"
     if len(ref) <= _MAX_REF_POINTS_SHOWN:
         return ", ".join(str(i) for i in ref)
     shown = ", ".join(str(i) for i in ref[:_MAX_REF_POINTS_SHOWN])
-    return f"{shown}, … ({len(ref)} total)"
+    return f"{shown}, ... ({len(ref)} total)"
 
 
 @plot_app.command("cest")
@@ -76,7 +75,7 @@ def plot_cest(
     ],
     ref: Annotated[
         list[int] | None,
-        typer.Option("--ref", "-r", help="Reference point indices"),
+        typer.Option("--ref", "-r", help="Reference point indices; omit for auto"),
     ] = None,
     output: Annotated[
         Path | None,
@@ -91,12 +90,7 @@ def plot_cest(
         typer.Option("--verbose", "-v", help="Verbose output"),
     ] = False,
 ) -> None:
-    """Plot CEST profiles (normalized intensity vs B1 offset).
-
-    Examples:
-        peakfit plot cest Fits/20240101_120000/
-        peakfit plot cest results/ --output cest.pdf --show
-    """
+    """Plot CEST profiles as normalized intensity vs B1 offset."""
     output_path = output or (results / "cest_profiles.pdf")
     _configure_plot_ui(
         verbose,
@@ -271,12 +265,7 @@ def plot_cpmg(
         typer.Option("--verbose", "-v", help="Verbose output"),
     ] = False,
 ) -> None:
-    """Plot CPMG relaxation dispersion (R2eff vs νCPMG).
-
-    Examples:
-        peakfit plot cpmg Fits/20240101_120000/ --time-t2 0.04
-        peakfit plot cpmg results/ -t 0.04 --output cpmg.pdf
-    """
+    """Plot CPMG relaxation dispersion as R2eff vs nuCPMG."""
     output_path = output or (results / "cpmg_profiles.pdf")
     _configure_plot_ui(
         verbose,

@@ -11,22 +11,20 @@ from typing import TYPE_CHECKING, Any
 from peakfit.engine.algorithms.common import update_cluster_corrections
 from peakfit.engine.domain.config import (
     BasinHoppingConfig,
-    DiffEvoConfig,
     FitConfig,
+    OptimizerConfig,
     PeakFitConfig,
-    StrategyConfig,
     VarProConfig,
 )
 from peakfit.engine.domain.constraints import apply_constraints
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.protocol import (
-    FitProtocol,
     apply_step_constraints,
-    create_protocol_from_config,
+    build_fit_steps,
 )
 from peakfit.engine.domain.state import FittingState
-from peakfit.engine.fitting.computation import fit_cluster_worker
+from peakfit.engine.fitting.optimizers import fit_with_optimizer
 from peakfit.shared.reporter import NullReporter, Reporter
 
 if TYPE_CHECKING:
@@ -34,6 +32,7 @@ if TYPE_CHECKING:
 
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.peaks import Peak
+    from peakfit.engine.domain.protocol import FitStep
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.engine.results import FitResult
 
@@ -46,13 +45,24 @@ class PipelineResult:
     results: list[FitResult]
 
 
+def fit_cluster_worker(
+    cluster: Cluster,
+    params: Parameters,
+    noise: float,
+    config: OptimizerConfig,
+    optimizer: str = "varpro",
+) -> FitResult:
+    """Fit one cluster using the selected optimizer."""
+    return fit_with_optimizer(optimizer, params, cluster, noise, config)
+
+
 def fit_single_cluster_task(
-    args: tuple[int, Cluster, Parameters, float, str, StrategyConfig | None],
+    args: tuple[int, Cluster, Parameters, float, str, OptimizerConfig],
 ) -> tuple[int, FitResult]:
     """Execute fitting for a single cluster task.
 
     Args:
-        args: Tuple containing (task_idx, cluster, params, noise, strategy, config)
+        args: Tuple containing (task_idx, cluster, params, noise, optimizer, config)
 
     Returns:
     -------
@@ -63,11 +73,11 @@ def fit_single_cluster_task(
         cluster,
         params,
         noise,
-        strategy,
+        optimizer,
         config,
     ) = args
 
-    result = fit_cluster_worker(cluster, params, noise, strategy, config)
+    result = fit_cluster_worker(cluster, params, noise, config, optimizer)
     return task_idx, result
 
 
@@ -135,7 +145,7 @@ class FitPipeline:
              FitResult: incrementally as tasks complete.
              PipelineResult: once at the very end.
         """
-        protocol = self._get_protocol(self._config)
+        steps = self._get_steps(self._config)
 
         # Default to serial execution if no executor provided
         mapper = executor or map
@@ -143,10 +153,10 @@ class FitPipeline:
         final_params = base_params
         current_fit_results: list[FitResult] = []
 
-        strategy_config = self._build_strategy_config(optimizer)
+        optimizer_config = self._build_optimizer_config(optimizer)
 
-        for step_idx, step in enumerate(protocol.steps):
-            step_msg = f"Step {step_idx + 1}/{len(protocol.steps)}: {step.name}"
+        for step_idx, step in enumerate(steps):
+            step_msg = f"Step {step_idx + 1}/{len(steps)}: {step.name}"
 
             if progress_callback:
                 progress_callback("step_start", step_msg)
@@ -160,7 +170,7 @@ class FitPipeline:
 
                 # Prepare tasks
                 tasks = self._prepare_cluster_tasks(
-                    clusters, final_params, step, data_noise, optimizer, strategy_config
+                    clusters, final_params, step, data_noise, optimizer, optimizer_config
                 )
 
                 step_results_map: dict[int, FitResult] = {}
@@ -200,11 +210,11 @@ class FitPipeline:
         self,
         clusters: Sequence[Cluster],
         current_params: Parameters,
-        step: Any,
+        step: FitStep,
         data_noise: float,
         optimizer: str,
-        strategy_config: StrategyConfig | None,
-    ) -> list[tuple[int, Cluster, Parameters, float, str, StrategyConfig | None]]:
+        optimizer_config: OptimizerConfig,
+    ) -> list[tuple[int, Cluster, Parameters, float, str, OptimizerConfig]]:
         """Prepare task arguments for cluster fitting."""
         tasks = []
         for idx, cluster in enumerate(clusters):
@@ -217,7 +227,7 @@ class FitPipeline:
                 if pid in current_params:
                     cluster_params[pid].value = current_params[pid].value
 
-            tasks.append((idx, cluster, cluster_params, data_noise, optimizer, strategy_config))
+            tasks.append((idx, cluster, cluster_params, data_noise, optimizer, optimizer_config))
         return tasks
 
     def _process_execution_results(
@@ -240,16 +250,13 @@ class FitPipeline:
                     {"idx": task_idx, "success": result.success, "result": result},
                 )
 
-    def _get_protocol(self, config: PeakFitConfig) -> FitProtocol:
-        if config.fitting.has_protocol():
-            return FitProtocol(steps=config.fitting.steps)
-
-        return create_protocol_from_config(
-            steps=None,
+    def _get_steps(self, config: PeakFitConfig) -> list[FitStep]:
+        return build_fit_steps(
+            steps=config.fitting.steps,
             refine_iterations=config.fitting.refine_iterations,
         )
 
-    def _build_strategy_config(self, optimizer: str) -> StrategyConfig | None:
+    def _build_optimizer_config(self, optimizer: str) -> OptimizerConfig:
         if optimizer == "varpro":
             return VarProConfig(
                 ftol=self._config.fitting.tolerance,
@@ -258,9 +265,7 @@ class FitPipeline:
             )
         if optimizer == "basin_hopping":
             return BasinHoppingConfig(seed=self._config.fitting.optimizer_seed)
-        if optimizer == "differential_evolution":
-            return DiffEvoConfig(max_iterations=self._config.fitting.max_iterations)
-        return None
+        raise ValueError(f"Unknown optimizer: {optimizer}")
 
 
 __all__ = ["FitPipeline", "PipelineResult", "fit_single_cluster_task"]

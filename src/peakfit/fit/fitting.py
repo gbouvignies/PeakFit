@@ -4,9 +4,9 @@ Public API:
 - LoadedData: Container for all loaded fitting data
 - load_data: Function to load spectrum, peaks, and compute clusters
 - RunSummary: Statistics for a fitting run
-- ServiceResult: Result of a fitting operation
+- FitRun: Result of a fitting operation
 - run_fit: Execute the fitting pipeline
-- write_service_results: Write outputs from a ServiceResult
+- write_fit_run_outputs: Write outputs from a FitRun
 - ProgressStart: Event emitted at pipeline start with total steps
 - ClusterReview: Data for a cluster that needs review
 - find_review_clusters: Identify clusters needing review
@@ -26,8 +26,8 @@ from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.fit.auto_pick import AutoPickCycleAction, AutoPickCycleReport, auto_pick_peaks
-from peakfit.fit.builder import FitResultsBuilder
 from peakfit.fit.pipeline import FitPipeline, PipelineResult
+from peakfit.fit.results import build_fit_results
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
 from peakfit.io.state import default_state_path, save_state
@@ -300,8 +300,8 @@ class RunSummary:
 
 
 @dataclass(frozen=True)
-class ServiceResult:
-    """Result of a fitting operation service call."""
+class FitRun:
+    """Result of a complete fitting run."""
 
     state: FittingState
     results: list[FitResult]
@@ -339,11 +339,11 @@ class ClusterReview:
     at_bounds: list[str]  # parameter names at bounds
 
 
-def find_review_clusters(result: ServiceResult) -> list[ClusterReview]:
+def find_review_clusters(result: FitRun) -> list[ClusterReview]:
     """Identify clusters needing review.
 
     Args:
-        result: ServiceResult from a fitting run
+        result: FitRun from a fitting run
 
     Returns:
         List of ClusterReview objects for clusters that need attention
@@ -390,21 +390,21 @@ def run_fit(
     workers: int = -1,
     reporter: Reporter | None = None,
     progress_callback: Callable[[Any], None] | None = None,
-) -> ServiceResult:
+) -> FitRun:
     """Execute the fitting pipeline.
 
     Args:
         data: Loaded spectrum, peaks, clusters, etc.
         config: Fitting configuration
         output_dir: Directory for outputs
-        optimizer: Optimizer name (varpro, basin_hopping, etc.)
+        optimizer: Optimizer name (varpro or basin_hopping)
         workers: Number of parallel workers (-1 = all CPUs)
         reporter: Optional reporter for headless progress
         progress_callback: Optional callback for interactive progress.
             Receives ProgressStart at start, then FitResult for each fit.
 
     Returns:
-        ServiceResult with fitting state, results, and summary
+        FitRun with fitting state, results, and summary
     """
     logger = logging.getLogger("peakfit")
     prev_level = logger.level
@@ -435,7 +435,7 @@ def run_fit(
 
         summary = _build_summary(data, pipeline_result)
 
-        return ServiceResult(
+        return FitRun(
             state=pipeline_result.state,
             results=pipeline_result.results,
             output_dir=output_dir,
@@ -531,31 +531,31 @@ def _build_summary(data: LoadedData, result: PipelineResult) -> RunSummary:
 # =============================================================================
 
 
-def write_service_results(
-    service_result: ServiceResult,
+def write_fit_run_outputs(
+    fit_run: FitRun,
     spectra: Spectra,
     config: PeakFitConfig,
     input_paths: dict[str, Path],
     reporter: Reporter | None = None,
 ) -> None:
-    """Write outputs from a ServiceResult.
+    """Write outputs from a FitRun.
 
     Args:
-        service_result: The fitting result to write
+        fit_run: The fitting result to write
         spectra: Spectra data for output
         config: Configuration used for the fit
         input_paths: Dictionary of input file paths
         reporter: Optional reporter for progress updates
     """
-    output_dir = service_result.output_dir
+    output_dir = fit_run.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Build results
-    builder = FitResultsBuilder()
-    builder.set_metadata(config=config.model_dump(), input_files=input_paths)
-    builder.set_spectra(spectra)
-    builder.add_cluster_from_state(service_result.state)
-    results = builder.build()
+    results = build_fit_results(
+        state=fit_run.state,
+        spectra=spectra,
+        config=config.model_dump(),
+        input_files=input_paths,
+    )
 
     writer_config = WriterConfig(formats=tuple(config.output.formats))
 
@@ -568,14 +568,14 @@ def write_service_results(
         write_simulated_spectra(
             output_dir,
             spectra,
-            service_result.state.clusters,
-            service_result.state.scalar_params,
+            fit_run.state.clusters,
+            fit_run.state.scalar_params,
             reporter,
         )
 
     state_file = default_state_path(output_dir)
-    save_state(state_file, service_result.state)
-    write_readme(output_dir, service_result.summary)
+    save_state(state_file, fit_run.state)
+    write_readme(output_dir, fit_run.summary)
 
     if reporter:
         reporter.success(f"Results written to [path]{format_path(output_dir)}[/path]")
@@ -583,12 +583,12 @@ def write_service_results(
 
 __all__ = [
     "ClusterReview",
+    "FitRun",
     "LoadedData",
     "ProgressStart",
     "RunSummary",
-    "ServiceResult",
     "find_review_clusters",
     "load_data",
     "run_fit",
-    "write_service_results",
+    "write_fit_run_outputs",
 ]

@@ -23,7 +23,6 @@ if TYPE_CHECKING:
         ValuesView,
     )
 
-    from peakfit.engine.domain.parameters import Parameters as PublicParameters
     from peakfit.engine.domain.peaks import Peak
 
 
@@ -239,7 +238,7 @@ class Parameters(BaseModel):
         """Get parameter name-value pairs."""
         return self.params.items()
 
-    def update(self, other: Parameters | PublicParameters) -> None:
+    def update(self, other: Parameters) -> None:
         """Update parameters from another Parameters object."""
         for name, param in other.items():
             self.params[name] = param

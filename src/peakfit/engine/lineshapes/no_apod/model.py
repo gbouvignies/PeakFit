@@ -1,4 +1,4 @@
-"""NoApod lineshape plugin.
+"""NoApod lineshape model.
 
 NoApod (no apodization) uses simple exponential decay with phase correction.
 Parameters: cs (chemical shift), lw (linewidth), phase, and optionally j (coupling).
@@ -6,14 +6,13 @@ Parameters: cs (chemical shift), lw (linewidth), phase, and optionally j (coupli
 
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 import numpy.typing as npt
 
 from peakfit.engine.lineshapes.doublet import doublet_kernel
-from peakfit.engine.lineshapes.registry import register_lineshape, register_shape
+from peakfit.engine.lineshapes.registry import register_shape
 from peakfit.engine.lineshapes.templates import PhasedDoubletBase, PhasedSingletBase
 from peakfit.engine.lineshapes.utils import (
     apply_phase,
@@ -25,7 +24,7 @@ from peakfit.engine.types import ParamSpec
 from .kernel import kernel, kernel_with_derivs
 
 if TYPE_CHECKING:
-    from peakfit.engine.lineshapes.protocol import LineshapeContext
+    from peakfit.engine.lineshapes.utils import LineshapeContext
     from peakfit.shared.typing import FloatArray
 
 
@@ -128,9 +127,6 @@ class NoApod(PhasedSingletBase):
 
     def _param_context_extras(self) -> dict[str, Any]:
         return {"aq": self._aq}
-
-
-register_lineshape(sys.modules[__name__])
 
 
 # =============================================================================

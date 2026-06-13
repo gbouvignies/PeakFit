@@ -33,7 +33,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from peakfit.engine.algorithms.mcmc import UncertaintyResult
-    from peakfit.engine.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.param_id import ParameterId
     from peakfit.engine.domain.params_scalar import Parameters
@@ -47,7 +46,6 @@ if TYPE_CHECKING:
 
 _ZERO_VALUE_THRESHOLD = 1e-15
 _POOR_RELATIVE_ERROR_THRESHOLD = 0.5
-_MIN_CORRELATION_PARAMS = 2
 
 _RHAT_EXCELLENT_THRESHOLD = 1.01
 _RHAT_ACCEPTABLE_THRESHOLD = 1.05
@@ -59,13 +57,6 @@ _ESS_MARGINAL_THRESHOLD = 100
 
 _RECOMMENDED_ESS_PER_CHAIN = 100
 _LOW_ESS_PER_CHAIN = 10
-
-_REDUCED_CHI2_GOOD_MIN = 0.5
-_REDUCED_CHI2_GOOD_MAX = 2.0
-
-_AIC_STRONG_EVIDENCE = 10
-_AIC_MODERATE_EVIDENCE = 4
-_AIC_WEAK_EVIDENCE = 2
 
 
 # =============================================================================
@@ -107,16 +98,6 @@ class ConvergenceStatus(StrEnum):
     MARGINAL = "marginal"  # R-hat ≤ 1.05, ESS ≥ 100
     POOR = "poor"  # R-hat > 1.05 or ESS < 100
     UNKNOWN = "unknown"  # Diagnostics not computed
-
-
-class FitMethod(StrEnum):
-    """Fitting method used."""
-
-    LEAST_SQUARES = "least_squares"
-    BASIN_HOPPING = "basin_hopping"
-    DIFFERENTIAL_EVOLUTION = "differential_evolution"
-    MCMC = "mcmc"
-    PROFILE_LIKELIHOOD = "profile_likelihood"
 
 
 # =============================================================================
@@ -237,19 +218,6 @@ class ResidualStatistics:
             return 0.0
         return float(np.std(self.raw_residuals))
 
-    def to_dict(self) -> dict[str, object]:
-        """Convert to dictionary (excludes large arrays)."""
-        return {
-            "n_points": self.n_points,
-            "n_params": self.n_params,
-            "dof": self.dof,
-            "noise_level": self.noise_level,
-            "sum_squared": self.sum_squared,
-            "rms": self.rms,
-            "mean": self.mean,
-            "std": self.std,
-        }
-
 
 @dataclass(slots=True)
 class FitStatistics:
@@ -287,206 +255,6 @@ class FitStatistics:
         """Degrees of freedom."""
         return compute_degrees_of_freedom(self.n_data, self.n_params)
 
-    @property
-    def is_good_fit(self) -> bool:
-        """Check if fit quality is acceptable.
-
-        A fit is considered good if:
-        - Reduced chi-squared is between 0.5 and 2.0
-        - The fit converged
-        """
-        return (
-            self.fit_converged
-            and _REDUCED_CHI2_GOOD_MIN <= self.reduced_chi_squared <= _REDUCED_CHI2_GOOD_MAX
-        )
-
-    @classmethod
-    def from_residuals(
-        cls,
-        residuals: FloatArray,
-        noise: float,
-        n_params: int,
-    ) -> FitStatistics:
-        """Compute statistics from fit residuals.
-
-        Args:
-            residuals: Raw residuals (data - model)
-            noise: Noise level for normalization
-            n_params: Total number of fitted parameters (lineshape + amplitudes)
-
-        Returns:
-        -------
-            FitStatistics with computed values
-        """
-        n_data = len(residuals)
-        normalized = residuals / noise
-        chi2 = compute_chi_squared(normalized)
-        red_chi2 = compute_reduced_chi_squared(chi2, n_data, n_params)
-
-        # Compute information criteria
-        # Formula for AIC: -2 * log_likelihood + 2 * k
-        # Formula for BIC: -2 * log_likelihood + k * log(n)
-        # Formula for log_likelihood: -0.5 * chi2 - n * log(noise) - 0.5 * n * log(2*pi)
-        log_like = -0.5 * chi2 - n_data * np.log(noise) - 0.5 * n_data * np.log(2 * np.pi)
-        aic = -2 * log_like + 2 * n_params
-        bic = -2 * log_like + n_params * np.log(n_data) if n_data > 0 else None
-
-        residual_stats = ResidualStatistics(
-            raw_residuals=residuals,
-            normalized_residuals=normalized,
-            n_points=n_data,
-            n_params=n_params,
-            noise_level=noise,
-        )
-
-        return cls(
-            chi_squared=chi2,
-            reduced_chi_squared=red_chi2,
-            aic=aic,
-            bic=bic,
-            log_likelihood=log_like,
-            n_data=n_data,
-            n_params=n_params,
-            residuals=residual_stats,
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        result: dict[str, object] = {
-            "chi_squared": self.chi_squared,
-            "reduced_chi_squared": self.reduced_chi_squared,
-            "n_data": self.n_data,
-            "n_params": self.n_params,
-            "dof": self.dof,
-            "fit_converged": self.fit_converged,
-            "n_function_evals": self.n_function_evals,
-        }
-
-        if self.aic is not None:
-            result["aic"] = self.aic
-        if self.bic is not None:
-            result["bic"] = self.bic
-        if self.log_likelihood is not None:
-            result["log_likelihood"] = self.log_likelihood
-        if self.fit_message:
-            result["fit_message"] = self.fit_message
-
-        result["residuals"] = self.residuals.to_dict()
-
-        return result
-
-
-@dataclass(slots=True)
-class ModelComparison:
-    """Comparison between two fitted models.
-
-    Used for model selection (e.g., one-site vs two-site exchange).
-
-    Attributes:
-    ----------
-        model_a_name: Name/description of first model
-        model_b_name: Name/description of second model
-        delta_aic: AIC(model_b) - AIC(model_a), negative favors model_b
-        delta_bic: BIC(model_b) - BIC(model_a), negative favors model_b
-        likelihood_ratio: Ratio of likelihoods
-        p_value: P-value for likelihood ratio test (if nested models)
-        preferred_model: Name of preferred model based on criteria
-        evidence_strength: Qualitative assessment of evidence
-    """
-
-    model_a_name: str
-    model_b_name: str
-    delta_aic: float | None = None
-    delta_bic: float | None = None
-    likelihood_ratio: float | None = None
-    p_value: float | None = None
-    preferred_model: str = ""
-    evidence_strength: str = ""  # "strong", "moderate", "weak", "inconclusive"
-
-    @classmethod
-    def compare(
-        cls,
-        stats_a: FitStatistics,
-        stats_b: FitStatistics,
-        name_a: str = "Model A",
-        name_b: str = "Model B",
-    ) -> ModelComparison:
-        """Compare two models using their fit statistics.
-
-        Args:
-            stats_a: Statistics for model A
-            stats_b: Statistics for model B
-            name_a: Name for model A
-            name_b: Name for model B
-
-        Returns:
-        -------
-            ModelComparison with computed metrics
-        """
-        delta_aic = None
-        delta_bic = None
-
-        if stats_a.aic is not None and stats_b.aic is not None:
-            delta_aic = stats_b.aic - stats_a.aic
-
-        if stats_a.bic is not None and stats_b.bic is not None:
-            delta_bic = stats_b.bic - stats_a.bic
-
-        # Determine preferred model based on AIC
-        preferred = ""
-        evidence = "inconclusive"
-        if delta_aic is not None:
-            if delta_aic < -_AIC_STRONG_EVIDENCE:
-                preferred = name_b
-                evidence = "strong"
-            elif delta_aic < -_AIC_MODERATE_EVIDENCE:
-                preferred = name_b
-                evidence = "moderate"
-            elif delta_aic < -_AIC_WEAK_EVIDENCE:
-                preferred = name_b
-                evidence = "weak"
-            elif delta_aic > _AIC_STRONG_EVIDENCE:
-                preferred = name_a
-                evidence = "strong"
-            elif delta_aic > _AIC_MODERATE_EVIDENCE:
-                preferred = name_a
-                evidence = "moderate"
-            elif delta_aic > _AIC_WEAK_EVIDENCE:
-                preferred = name_a
-                evidence = "weak"
-
-        return cls(
-            model_a_name=name_a,
-            model_b_name=name_b,
-            delta_aic=delta_aic,
-            delta_bic=delta_bic,
-            preferred_model=preferred,
-            evidence_strength=evidence,
-        )
-
-    def to_dict(self) -> dict[str, object]:
-        """Convert to dictionary for JSON serialization."""
-        result: dict[str, object] = {
-            "model_a": self.model_a_name,
-            "model_b": self.model_b_name,
-            "preferred_model": self.preferred_model,
-            "evidence_strength": self.evidence_strength,
-        }
-        if self.delta_aic is not None:
-            result["delta_aic"] = self.delta_aic
-        if self.delta_bic is not None:
-            result["delta_bic"] = self.delta_bic
-        if self.likelihood_ratio is not None:
-            result["likelihood_ratio"] = self.likelihood_ratio
-        if self.p_value is not None:
-            result["p_value"] = self.p_value
-        return result
-
-
-# =============================================================================
-# Parameter Estimates
-# =============================================================================
-
 
 @dataclass(slots=True)
 class ParameterEstimate:
@@ -500,7 +268,7 @@ class ParameterEstimate:
 
     Attributes:
     ----------
-        name: Parameter identifier (e.g., "G23N_x0", "peak1_fwhm")
+        name: Canonical parameter identifier (e.g., "G23N.F2.cs", "peak1.F1.lw")
         value: Best-fit or MAP estimate
         std_error: Standard deviation (symmetric uncertainty)
         unit: Physical unit string (e.g., "Hz", "ppm", "s^-1")
@@ -520,7 +288,7 @@ class ParameterEstimate:
 
     Example:
         >>> param = ParameterEstimate(
-        ...     name="G23N_fwhm",
+        ...     name="G23N.F2.lw",
         ...     value=25.3,
         ...     std_error=1.2,
         ...     unit="Hz",
@@ -560,34 +328,9 @@ class ParameterEstimate:
     param_id: ParameterId | None = None
 
     @property
-    def user_name(self) -> str:
-        """User-friendly parameter name.
-
-        Returns the user_name from param_id if available,
-        otherwise falls back to the raw name.
-        """
-        if self.param_id is not None:
-            return self.param_id.user_name
-        return self.name
-
-    @property
     def has_asymmetric_error(self) -> bool:
         """Check if asymmetric confidence intervals are available."""
         return self.ci_68_lower is not None and self.ci_68_upper is not None
-
-    @property
-    def error_lower(self) -> float:
-        """Lower error bar (value - ci_68_lower, or std_error)."""
-        if self.ci_68_lower is not None:
-            return self.value - self.ci_68_lower
-        return self.std_error
-
-    @property
-    def error_upper(self) -> float:
-        """Upper error bar (ci_68_upper - value, or std_error)."""
-        if self.ci_68_upper is not None:
-            return self.ci_68_upper - self.value
-        return self.std_error
 
     @property
     def relative_error(self) -> float | None:
@@ -622,48 +365,6 @@ class ParameterEstimate:
         rel_err = self.relative_error
         return bool(rel_err is not None and rel_err > _POOR_RELATIVE_ERROR_THRESHOLD)
 
-    def format_value(self, precision: int = 6) -> str:
-        """Format value with uncertainty for display.
-
-        Args:
-            precision: Number of decimal places
-
-        Returns:
-        -------
-            Formatted string like "25.300 ± 1.200" or "25.300 +1.200/-1.100"
-        """
-        if self.has_asymmetric_error:
-            return (
-                f"{self.value:.{precision}f} "
-                f"+{self.error_upper:.{precision}f}/-{self.error_lower:.{precision}f}"
-            )
-        return f"{self.value:.{precision}f} ± {self.std_error:.{precision}f}"
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        result = {
-            "name": self.name,
-            "value": self.value,
-            "std_error": self.std_error,
-            "unit": self.unit,
-            "category": self.category.value,
-            "is_fixed": self.is_fixed,
-            "is_global": self.is_global,
-        }
-
-        # Add optional fields if present
-        if self.ci_68_lower is not None:
-            result["ci_68"] = [self.ci_68_lower, self.ci_68_upper]
-        if self.ci_95_lower is not None:
-            result["ci_95"] = [self.ci_95_lower, self.ci_95_upper]
-        if not np.isinf(self.min_bound):
-            result["min_bound"] = self.min_bound
-        if not np.isinf(self.max_bound):
-            result["max_bound"] = self.max_bound
-
-        # Don't include posterior_samples in JSON (too large)
-        return result
-
 
 @dataclass(slots=True)
 class AmplitudeEstimate:
@@ -692,25 +393,6 @@ class AmplitudeEstimate:
     std_error: float
     ci_68_lower: float | None = None
     ci_68_upper: float | None = None
-
-    @property
-    def has_asymmetric_error(self) -> bool:
-        """Check if asymmetric confidence intervals are available."""
-        return self.ci_68_lower is not None and self.ci_68_upper is not None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        result = {
-            "peak_name": self.peak_name,
-            "plane_index": self.plane_index,
-            "value": self.value,
-            "std_error": self.std_error,
-        }
-        if self.z_value is not None:
-            result["z_value"] = self.z_value
-        if self.ci_68_lower is not None:
-            result["ci_68"] = [self.ci_68_lower, self.ci_68_upper]
-        return result
 
 
 @dataclass(slots=True)
@@ -741,77 +423,6 @@ class ClusterEstimates:
     def n_peaks(self) -> int:
         """Number of peaks in cluster."""
         return len(self.peak_names)
-
-    @property
-    def n_lineshape_params(self) -> int:
-        """Number of lineshape parameters."""
-        return len(self.lineshape_params)
-
-    @property
-    def n_series(self) -> int:
-        """Number of spectra in the pseudo dimension (inferred from amplitudes)."""
-        if not self.amplitudes:
-            return 0
-        return max(a.plane_index for a in self.amplitudes) + 1
-
-    def get_amplitudes_for_peak(self, peak_name: str) -> list[AmplitudeEstimate]:
-        """Get all amplitudes for a specific peak."""
-        return [a for a in self.amplitudes if a.peak_name == peak_name]
-
-    def get_strong_correlations(
-        self,
-        threshold: float = 0.7,
-    ) -> list[tuple[str, str, float]]:
-        """Find pairs of strongly correlated parameters.
-
-        Args:
-            threshold: Minimum absolute correlation to report
-
-        Returns:
-        -------
-            List of (param1, param2, correlation) tuples
-        """
-        if (
-            self.correlation_matrix is None
-            or len(self.correlation_param_names) < _MIN_CORRELATION_PARAMS
-        ):
-            return []
-
-        pairs = []
-        n = len(self.correlation_param_names)
-        for i in range(n):
-            for j in range(i + 1, n):
-                corr = float(self.correlation_matrix[i, j])
-                if abs(corr) >= threshold:
-                    pairs.append(
-                        (
-                            self.correlation_param_names[i],
-                            self.correlation_param_names[j],
-                            corr,
-                        )
-                    )
-        return pairs
-
-    def get_problematic_params(self) -> list[ParameterEstimate]:
-        """Get list of parameters flagged as problematic."""
-        return [p for p in self.lineshape_params if p.is_problematic]
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        result = {
-            "cluster_id": self.cluster_id,
-            "peak_names": self.peak_names,
-            "lineshape_parameters": [p.to_dict() for p in self.lineshape_params],
-            "amplitudes": [a.to_dict() for a in self.amplitudes],
-        }
-
-        if self.correlation_matrix is not None:
-            result["correlation"] = {
-                "parameter_names": self.correlation_param_names,
-                "matrix": self.correlation_matrix.tolist(),
-            }
-
-        return result
 
 
 # =============================================================================
@@ -912,22 +523,6 @@ class ParameterDiagnostic:
             warnings=warnings,
         )
 
-    def to_dict(self) -> dict[str, object]:
-        """Convert to dictionary for JSON serialization."""
-        result: dict[str, object] = {
-            "name": self.name,
-            "status": self.status.value,
-        }
-        if self.rhat is not None:
-            result["rhat"] = self.rhat
-        if self.ess_bulk is not None:
-            result["ess_bulk"] = self.ess_bulk
-        if self.ess_tail is not None:
-            result["ess_tail"] = self.ess_tail
-        if self.warnings:
-            result["warnings"] = self.warnings
-        return result
-
 
 @dataclass(slots=True)
 class MCMCDiagnostics:
@@ -1005,75 +600,6 @@ class MCMCDiagnostics:
             for d in self.parameter_diagnostics
             if d.status in (ConvergenceStatus.POOR, ConvergenceStatus.MARGINAL)
         ]
-
-    def get_rhat_values(self) -> dict[str, float]:
-        """Get dictionary of R-hat values by parameter name."""
-        return {d.name: d.rhat for d in self.parameter_diagnostics if d.rhat is not None}
-
-    def get_ess_values(self) -> dict[str, float]:
-        """Get dictionary of bulk ESS values by parameter name."""
-        return {d.name: d.ess_bulk for d in self.parameter_diagnostics if d.ess_bulk is not None}
-
-    @classmethod
-    def from_convergence_diagnostics(
-        cls,
-        conv_diag: ConvergenceDiagnostics,
-        burn_in: int = 0,
-        burn_in_method: str = "manual",
-        burn_in_details: dict[str, Any] | None = None,
-    ) -> MCMCDiagnostics:
-        """Create from existing ConvergenceDiagnostics object.
-
-        Args:
-            conv_diag: Convergence diagnostics from core module
-            burn_in: Number of burn-in samples
-            burn_in_method: How burn-in was determined
-            burn_in_details: Additional info about burn-in
-
-        Returns:
-        -------
-            MCMCDiagnostics instance
-        """
-        param_diagnostics = []
-        for i, name in enumerate(conv_diag.parameter_names):
-            rhat = float(conv_diag.rhat[i]) if i < len(conv_diag.rhat) else None
-            ess_bulk = float(conv_diag.ess_bulk[i]) if i < len(conv_diag.ess_bulk) else None
-            ess_tail = float(conv_diag.ess_tail[i]) if i < len(conv_diag.ess_tail) else None
-
-            diag = ParameterDiagnostic.from_values(
-                name=name,
-                rhat=rhat,
-                ess_bulk=ess_bulk,
-                ess_tail=ess_tail,
-                n_chains=conv_diag.n_chains,
-            )
-            param_diagnostics.append(diag)
-
-        result = cls(
-            n_chains=conv_diag.n_chains,
-            n_samples=conv_diag.n_samples,
-            burn_in=burn_in,
-            parameter_diagnostics=param_diagnostics,
-            burn_in_method=burn_in_method,
-            burn_in_details=burn_in_details or {},
-        )
-        result.update_overall_status()
-
-        return result
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "n_chains": self.n_chains,
-            "n_samples": self.n_samples,
-            "burn_in": self.burn_in,
-            "burn_in_method": self.burn_in_method,
-            "total_samples": self.total_samples,
-            "overall_status": self.overall_status.value,
-            "converged": self.converged,
-            "parameters": [d.to_dict() for d in self.parameter_diagnostics],
-            "burn_in_details": self.burn_in_details,
-        }
 
 
 # =============================================================================
@@ -1157,35 +683,12 @@ class RunMetadata:
                 "checksum_sha256": checksum,
             }
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        result: dict[str, Any] = {
-            "timestamp": self.timestamp,
-            "software_version": self.software_version,
-            "python_version": self.python_version,
-            "platform": self.platform,
-        }
-
-        if self.git_commit:
-            result["git_commit"] = self.git_commit
-        if self.input_files:
-            result["input_files"] = self.input_files
-        if self.configuration:
-            result["configuration"] = self.configuration
-        if self.command_line:
-            result["command_line"] = self.command_line
-        if self.run_duration_seconds is not None:
-            result["run_duration_seconds"] = self.run_duration_seconds
-
-        return result
-
 
 @dataclass
 class FitResult:
     """Result of optimization for a single cluster.
 
-    Encapsulates all outputs from an optimization strategy, whether it be
-    Iterative Least Squares, VarPro, or MCMC.
+    Encapsulates the optimizer output used by fit orchestration.
     """
 
     params: Parameters
@@ -1235,22 +738,19 @@ class FitResults:
     Attributes:
     ----------
         metadata: Run metadata for reproducibility
-        method: Fitting method used
         clusters: Per-cluster parameter estimates
         statistics: Per-cluster fit statistics
         global_statistics: Overall fit statistics (if applicable)
         mcmc_diagnostics: Per-cluster MCMC diagnostics (if MCMC used)
-        model_comparisons: Model comparison results (if multiple models)
         z_values: Z-dimension values (e.g., relaxation delays)
     """
 
     metadata: RunMetadata = field(default_factory=RunMetadata)
-    method: FitMethod = FitMethod.LEAST_SQUARES
+    method: str = "least_squares"
     clusters: list[ClusterEstimates] = field(default_factory=list)
     statistics: list[FitStatistics] = field(default_factory=list)
     global_statistics: FitStatistics | None = None
     mcmc_diagnostics: list[MCMCDiagnostics] = field(default_factory=list)
-    model_comparisons: list[ModelComparison] = field(default_factory=list)
     z_values: FloatArray | None = None
 
     @property
@@ -1264,99 +764,11 @@ class FitResults:
         return sum(c.n_peaks for c in self.clusters)
 
     @property
-    def all_peak_names(self) -> list[str]:
-        """List of all peak names across clusters."""
-        names = []
-        for cluster in self.clusters:
-            names.extend(cluster.peak_names)
-        return names
-
-    @property
-    def is_mcmc(self) -> bool:
-        """Check if MCMC was used."""
-        return self.method == FitMethod.MCMC
-
-    @property
     def has_converged(self) -> bool:
         """Check if all MCMC analyses converged."""
         if not self.mcmc_diagnostics:
             return True  # Non-MCMC assumed converged
         return all(d.converged for d in self.mcmc_diagnostics)
-
-    def get_cluster_by_peak(self, peak_name: str) -> ClusterEstimates | None:
-        """Find cluster containing a specific peak."""
-        for cluster in self.clusters:
-            if peak_name in cluster.peak_names:
-                return cluster
-        return None
-
-    def get_all_problematic_params(self) -> list[tuple[str, str]]:
-        """Get all problematic parameters across clusters.
-
-        Returns:
-        -------
-            List of (cluster_label, param_name) tuples
-        """
-        problems: list[tuple[str, str]] = []
-        for cluster in self.clusters:
-            label = ", ".join(cluster.peak_names)
-            problems.extend((label, param.name) for param in cluster.get_problematic_params())
-        return problems
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        result = {
-            "metadata": self.metadata.to_dict(),
-            "method": self.method.value,
-            "n_clusters": self.n_clusters,
-            "n_peaks": self.n_peaks,
-            "clusters": [c.to_dict() for c in self.clusters],
-        }
-
-        if self.statistics:
-            result["statistics"] = [s.to_dict() for s in self.statistics]
-
-        if self.global_statistics:
-            result["global_statistics"] = self.global_statistics.to_dict()
-
-        if self.mcmc_diagnostics:
-            result["mcmc_diagnostics"] = [d.to_dict() for d in self.mcmc_diagnostics]
-
-        if self.model_comparisons:
-            result["model_comparisons"] = [m.to_dict() for m in self.model_comparisons]
-
-        if self.z_values is not None:
-            result["z_values"] = self.z_values.tolist()
-
-        return result
-
-    def summary_dict(self) -> dict[str, Any]:
-        """Generate a summary dictionary for quick inspection.
-
-        This is a condensed version suitable for the executive summary.
-        """
-        summary: dict[str, object] = {
-            "timestamp": self.metadata.timestamp,
-            "method": self.method.value,
-            "n_clusters": self.n_clusters,
-            "n_peaks": self.n_peaks,
-        }
-
-        if self.global_statistics:
-            summary["reduced_chi_squared"] = self.global_statistics.reduced_chi_squared
-            summary["fit_converged"] = self.global_statistics.fit_converged
-
-        if self.mcmc_diagnostics:
-            summary["mcmc_converged"] = self.has_converged
-            n_problematic = sum(len(d.get_problematic_parameters()) for d in self.mcmc_diagnostics)
-            summary["n_problematic_params"] = n_problematic
-
-        problems: list[tuple[str, str]] = self.get_all_problematic_params()
-        summary["n_problematic_total"] = len(problems)
-        if problems:
-            summary["problematic_params"] = problems[:10]  # First 10 only
-
-        return summary
 
 
 # =============================================================================
@@ -1415,13 +827,11 @@ __all__ = [
     "ClusterEstimates",
     "ClusterMCMCResult",
     "ConvergenceStatus",
-    "FitMethod",
     "FitResult",
     "FitResults",
     "FitStatistics",
     "MCMCAnalysisResult",
     "MCMCDiagnostics",
-    "ModelComparison",
     "ParameterCategory",
     "ParameterDiagnostic",
     "ParameterEstimate",

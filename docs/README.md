@@ -6,7 +6,7 @@ This directory contains user and developer documentation aligned with the curren
 
 - **[Output System](output_system.md)** - Output directory structure and file formats
 - **[Optimization Guide](optimization_guide.md)** - Performance tuning and runtime tips
-- **[Optimization Strategies](strategies.md)** - Available optimizers and how to choose them
+- **[Optimizers](optimizers.md)** - Available optimizers and how to choose them
 - **[Constraints & Protocols](constraints_and_protocols.md)** - Parameter constraints and multi-step protocols
 - **[MCMC Diagnostics](MCMC_DIAGNOSTICS.md)** - Uncertainty analysis and convergence metrics
 - **[Examples](../examples/)** - End-to-end usage examples
@@ -16,7 +16,6 @@ This directory contains user and developer documentation aligned with the curren
 - **[Architecture Guide](../ARCHITECTURE.md)** - Current repository map and simplification notes
 - **[Fit Pipeline Notes](architecture/fit-pipeline.md)** - Current fitting workflow context
 - **[MCMC Workflow](architecture/mcmc_workflow.md)** - Current uncertainty workflow context
-- **[Output Architecture Notes](architecture/output_architecture.md)** - Current output internals and cleanup direction
 
 ## Development
 

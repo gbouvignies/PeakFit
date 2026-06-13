@@ -29,7 +29,6 @@ from peakfit.ui.tables import create_live_metrics_table, create_table
 # Thresholds
 _ACCEPTANCE_GOOD = (0.2, 0.5)
 _ACCEPTANCE_BAD = (0.1, 0.9)
-_RHAT_WARN = 1.1
 _MAX_AMPS_SHOWN = 5
 _MAX_PEAKS_IN_HEADER = 4
 
@@ -51,7 +50,7 @@ def _format_workers(workers: int) -> str:
     return str(workers)
 
 
-def mcmc_command(  # noqa: PLR0915
+def mcmc_command(
     results: Annotated[
         Path,
         typer.Argument(
@@ -151,7 +150,7 @@ def mcmc_command(  # noqa: PLR0915
         stats="",
     )
 
-    metrics_table = create_live_metrics_table({"Acceptance": "0%", "R-hat": "..."})
+    metrics_table = create_live_metrics_table({"Step": f"0/{steps}", "Acceptance": "..."})
     dashboard = Group(metrics_table, progress)
 
     console.print(f"[header]Sampling ({walkers} walkers × {steps} steps)[/header]")
@@ -187,20 +186,12 @@ def mcmc_command(  # noqa: PLR0915
                 acc_fmt = "..."
                 acc_style = "neutral"
 
-            if step > 0 and total > 0:
-                r_hat = 1.05 - (0.04 * (step / total))  # Converges to ~1.01
-                r_style = "metric.good" if r_hat < _RHAT_WARN else "metric.warn"
-                rhat_fmt = f"{r_hat:.3f}"
-            else:
-                r_style = "neutral"
-                rhat_fmt = "..."
-
             live.update(
                 Group(
                     create_live_metrics_table(
                         {
+                            "Step": (f"{step}/{total}", "neutral"),
                             "Acceptance": (acc_fmt, acc_style),
-                            "R-hat": (rhat_fmt, r_style),
                         }
                     ),
                     progress,
