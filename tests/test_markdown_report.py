@@ -1,4 +1,4 @@
-from peakfit.engine.results import ClusterEstimates, FitResults, FitStatistics, ParameterEstimate
+from peakfit.fit.results import ClusterEstimates, FitResults, FitStatistics, ParameterEstimate
 from peakfit.io.writers.markdown import write_report
 
 

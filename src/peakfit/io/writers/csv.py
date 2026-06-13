@@ -13,7 +13,7 @@ from peakfit.io.writers.utils import format_float, get_peak_name
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.engine.results import (
+    from peakfit.fit.results import (
         FitResults,
         ParameterEstimate,
     )

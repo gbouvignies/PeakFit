@@ -19,6 +19,12 @@ Notable user-facing and architecture changes are recorded here.
   terminology to direct optimizer terminology.
 - Renamed the basin-hopping implementation module from generic global
   optimization terminology to direct basin-hopping terminology.
+- Moved fit-output result models out of the numerical engine and into the fit
+  output boundary.
+- Renamed internal multi-step fitting modules and docs from protocol terminology
+  to fit-step terminology.
+- Replaced the `FitPipeline` class wrapper with direct fit pipeline functions.
+- Merged the fit-pipeline architecture note into the main architecture guide.
 - Simplified lineshape registration to the active shape-class registry and moved
   lineshape context helpers into the concrete utilities module.
 - Simplified fit-step orchestration, optimizer execution, and peak-list reader
@@ -43,7 +49,7 @@ Notable user-facing and architecture changes are recorded here.
   `[fitting].strategy_name` config key.
 - Removed unused result helpers/constants and the obsolete module-based
   lineshape protocol.
-- Removed unused fit protocol result wrappers, optimizer wrapper classes, and
+- Removed unused fit-step result wrappers, optimizer wrapper classes, and
   the legacy serialized-state `peaks` fallback.
 
 ### Compatibility

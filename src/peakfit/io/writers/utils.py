@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
-    from peakfit.engine.results import ParameterEstimate
+    from peakfit.fit.results import ParameterEstimate
 
 type JsonValue = dict[str, "JsonValue"] | list["JsonValue"] | str | int | float | bool | None
 

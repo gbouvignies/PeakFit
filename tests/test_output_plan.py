@@ -1,6 +1,6 @@
 import json
 
-from peakfit.engine.results import (
+from peakfit.fit.results import (
     AmplitudeEstimate,
     ClusterEstimates,
     ConvergenceStatus,

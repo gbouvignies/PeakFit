@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.engine.domain.data import PeakData
-from peakfit.engine.domain.protocol import FitStep
+from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.shared.constants import (
     BASIN_HOPPING_NITER,
     BASIN_HOPPING_STEPSIZE,
@@ -36,7 +36,7 @@ OutputFormat = Literal["csv", "json", "txt"]
 class FitConfig(BaseModel):
     """Configuration for the fitting process.
 
-    Supports the common one-step configuration and optional multi-step protocols
+    Supports the common one-step configuration and optional multi-step fit steps
     with parameter constraints.
 
     Simple usage:
@@ -45,7 +45,7 @@ class FitConfig(BaseModel):
         refine_iterations = 2
         fix_positions = false
 
-    Advanced multi-step protocol:
+    Advanced multi-step fit:
         [[fitting.steps]]
         name = "fix_positions"
         fix = ["*.*.cs"]
@@ -101,10 +101,10 @@ class FitConfig(BaseModel):
         description="Random seed for stochastic optimizers such as basin-hopping.",
     )
 
-    # Multi-step fitting protocol
+    # Multi-step fitting steps
     steps: list[FitStep] = Field(
         default_factory=list,
-        description="Multi-step fitting protocol. If empty, uses refine_iterations.",
+        description="Multi-step fitting steps. If empty, uses refine_iterations.",
     )
 
 
@@ -226,7 +226,7 @@ class PeakFitConfig(BaseModel):
         lineshape = "auto"
         refine_iterations = 2
 
-        # Optional: multi-step protocol
+        # Optional: multi-step fit
         [[fitting.steps]]
         name = "fix_positions"
         fix = ["*.*.cs"]

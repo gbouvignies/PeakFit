@@ -5,14 +5,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from peakfit.engine.results import ConvergenceStatus
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.utils import format_float
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.engine.results import (
+    from peakfit.fit.results import (
         ClusterEstimates,
         FitResults,
         FitStatistics,
@@ -29,6 +28,8 @@ _MAX_WARNING_ROWS = 20
 _MAX_MCMC_ROWS = 40
 _MAX_PEAK_NAMES = 3
 _POOR_RELATIVE_ERROR_THRESHOLD = 0.5
+_MCMC_MARGINAL = "marginal"
+_MCMC_POOR = "poor"
 
 
 def write_report(
@@ -211,7 +212,8 @@ def _mcmc_rows(results: FitResults) -> list[str]:
     for index, diag in enumerate(results.mcmc_diagnostics):
         cluster_id = results.clusters[index].cluster_id if index < len(results.clusters) else index
         for param in diag.parameter_diagnostics:
-            if param.status not in (ConvergenceStatus.MARGINAL, ConvergenceStatus.POOR):
+            status = _status_value(param.status)
+            if status not in (_MCMC_MARGINAL, _MCMC_POOR):
                 continue
             rhat = f"{param.rhat:.4g}" if param.rhat is not None else ""
             ess_bulk = f"{param.ess_bulk:.0f}" if param.ess_bulk is not None else ""
@@ -222,7 +224,7 @@ def _mcmc_rows(results: FitResults) -> list[str]:
                     cluster_id,
                     (
                         f"| {cluster_id} | {param.name} | {rhat} | {ess_bulk} | {ess_tail} | "
-                        f"{param.status.value} |"
+                        f"{status} |"
                     ),
                 )
             )
@@ -287,11 +289,16 @@ def _cluster_sort_key(stats: FitStatistics | None) -> int:
 
 
 def _mcmc_sort_key(diag: MCMCDiagnostics) -> int:
-    if diag.overall_status == ConvergenceStatus.POOR:
+    status = _status_value(diag.overall_status)
+    if status == _MCMC_POOR:
         return 0
-    if diag.overall_status == ConvergenceStatus.MARGINAL:
+    if status == _MCMC_MARGINAL:
         return 1
     return 2
+
+
+def _status_value(status: object) -> str:
+    return str(getattr(status, "value", status))
 
 
 def _cluster_status(stats: FitStatistics | None) -> str:

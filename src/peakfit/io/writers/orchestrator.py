@@ -12,7 +12,7 @@ from peakfit.io.writers.markdown import write_report
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.engine.results import FitResults
+    from peakfit.fit.results import FitResults
 
 
 def build_output_plan(

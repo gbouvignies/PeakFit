@@ -1,6 +1,6 @@
-# Parameter Constraints and Multi-Step Fitting Protocols
+# Parameter Constraints and Fit Steps
 
-PeakFit supports advanced parameter control through constraints and multi-step fitting protocols. This allows you to:
+PeakFit supports advanced parameter control through constraints and multi-step fitting steps. This allows you to:
 
 - Set custom starting values, bounds, and fix/vary status for parameters
 - Define position windows relative to peak positions (per-peak and per-axis)
@@ -114,11 +114,11 @@ from_file = "previous_fit/summary/fit.json"
 This loads parameter values from a JSON fit summary and uses them as starting points while
 respecting any other constraints you define.
 
-## Multi-Step Fitting Protocols
+## Multi-Step Fit Steps
 
-Protocols define a sequence of fitting steps with different parameter constraints at each step.
+`[[fitting.steps]]` defines a sequence of fitting steps with different parameter constraints.
 
-### Basic Two-Step Protocol
+### Basic Two-Step Fit
 
 A common workflow: fit linewidths with fixed positions, then refine everything:
 
@@ -134,7 +134,7 @@ vary = ["*"]
 iterations = 2
 ```
 
-### Complex Protocol Example
+### Complex Fit-Step Example
 
 ```toml
 [[fitting.steps]]
@@ -186,7 +186,7 @@ vary = ["*.*.lw"]     # Except linewidths
 lineshape = "auto"
 refine_iterations = 1  # Ignored when steps are defined
 
-# Multi-step protocol
+# Multi-step fit
 [[fitting.steps]]
 name = "initial_fit"
 description = "Fix positions, optimize linewidths"
@@ -239,10 +239,10 @@ F3 = 0.02  # But keep 1H tight
 
 1. **Start with position windows**: Most fitting problems benefit from reasonable position constraints. Use per-dimension windows matching the expected peak movement.
 
-2. **Use multi-step protocols for difficult fits**: When peaks overlap or initial estimates are poor, a protocol that fixes positions first often helps.
+2. **Use multi-step fits for difficult fits**: When peaks overlap or initial estimates are poor, a first step that fixes positions often helps.
 
 3. **Be conservative with bounds**: Overly tight bounds can prevent convergence; overly loose bounds can lead to unphysical results.
 
 4. **Load from previous fits**: When refitting similar data or refining fits, use `from_file` to start from known-good values.
 
-5. **Document your protocol**: Use the `description` field in steps to explain your fitting strategy for reproducibility.
+5. **Document your fit steps**: Use the `description` field to explain the fitting sequence for reproducibility.

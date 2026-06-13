@@ -26,7 +26,7 @@ from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.fit.auto_pick import AutoPickCycleAction, AutoPickCycleReport, auto_pick_peaks
-from peakfit.fit.pipeline import FitPipeline, PipelineResult
+from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 from peakfit.fit.results import build_fit_results
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
@@ -411,7 +411,6 @@ def run_fit(
     logger.setLevel(logging.CRITICAL)
 
     try:
-        pipeline = FitPipeline(config, reporter=reporter)
         params = Parameters.from_peaks(data.peaks, fixed=False)
         n_workers = workers if workers > 0 else multiprocessing.cpu_count()
 
@@ -423,7 +422,7 @@ def run_fit(
             total_steps = _calc_total_steps(data, config)
             progress_callback(ProgressStart(total_steps, len(data.clusters), n_workers))
 
-        items = _iter_pipeline(pipeline, data, params, optimizer, n_workers)
+        items = _iter_pipeline(config, data, params, optimizer, n_workers)
 
         if progress_callback:
             pipeline_result = _consume_with_callback(items, progress_callback)
@@ -458,7 +457,7 @@ def _calc_total_steps(data: LoadedData, config: PeakFitConfig) -> int:
 
 
 def _iter_pipeline(
-    pipeline: FitPipeline,
+    config: PeakFitConfig,
     data: LoadedData,
     params: Parameters,
     optimizer: str,
@@ -467,7 +466,8 @@ def _iter_pipeline(
     """Iterate over pipeline, optionally in parallel."""
     if n_workers > 1:
         with multiprocessing.Pool(processes=n_workers) as pool:
-            yield from pipeline.run_iter(
+            yield from run_pipeline_iter(
+                config,
                 data.clusters,
                 data.noise,
                 params,
@@ -477,7 +477,8 @@ def _iter_pipeline(
                 executor=pool.imap_unordered,
             )
     else:
-        yield from pipeline.run_iter(
+        yield from run_pipeline_iter(
+            config,
             data.clusters,
             data.noise,
             params,

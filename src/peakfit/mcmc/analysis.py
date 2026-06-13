@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 from peakfit.engine.algorithms.mcmc import estimate_uncertainties_mcmc
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.results import ClusterMCMCResult, MCMCAnalysisResult
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.state import default_state_path, load_state
 from peakfit.shared.paths import format_path
@@ -21,8 +20,10 @@ if TYPE_CHECKING:
 
     import numpy as np
 
+    from peakfit.engine.algorithms.mcmc import UncertaintyResult
     from peakfit.engine.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.engine.domain.cluster import Cluster
+    from peakfit.engine.domain.peaks import Peak
     from peakfit.shared.typing import FloatArray
 
 
@@ -46,6 +47,25 @@ class PeaksNotFoundError(ValueError):
 
 
 _DEFAULT_NOISE = 1.0
+
+
+@dataclass(slots=True, frozen=True)
+class ClusterMCMCResult:
+    """Container for the uncertainty result of a single cluster."""
+
+    cluster: Cluster
+    result: UncertaintyResult
+
+
+@dataclass(slots=True, frozen=True)
+class MCMCAnalysisResult:
+    """Aggregate result for an MCMC uncertainty run."""
+
+    clusters: list[Cluster]
+    params: Parameters
+    noise: float
+    peaks: list[Peak]
+    cluster_results: list[ClusterMCMCResult]
 
 
 def run_mcmc_analysis(

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 
 class FitStep(BaseModel):
-    """Single step in a multi-step fitting protocol.
+    """Single step in a multi-step fit.
 
     Each step can modify which parameters are fixed/varied before
     running the optimization.

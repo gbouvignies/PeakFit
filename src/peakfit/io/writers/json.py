@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
-from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION
+from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION, FitSummarySchema
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.utils import JsonValue, NumpyEncoder
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.engine.results import (
+    from peakfit.fit.results import (
         ClusterEstimates,
         FitResults,
         FitStatistics,
@@ -57,6 +57,7 @@ def write_summary(
     if results.z_values is not None:
         output["z_axis"] = {"values": results.z_values.tolist()}
 
+    FitSummarySchema.model_validate(output)
     _write_json(output, path)
     return path
 
