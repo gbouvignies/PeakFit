@@ -135,7 +135,7 @@ uv run ruff check .
 uv run ruff format --check .
 uv run ty check
 uv run lint-imports
-uv run pre-commit run --all-files
+uv run prek run --all-files
 uv build
 ```
 

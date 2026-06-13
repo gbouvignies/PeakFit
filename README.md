@@ -367,8 +367,8 @@ uv run ty check
 # Format code
 uv run ruff format src tests
 
-# Run pre-commit hooks
-uv run pre-commit run --all-files
+# Run Git hooks
+uv run prek run --all-files
 ```
 
 ### Building the Package
