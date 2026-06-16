@@ -12,7 +12,6 @@ import numpy as np
 import numpy.typing as npt
 
 from peakfit.engine.lineshapes.doublet import doublet_kernel
-from peakfit.engine.lineshapes.registry import register_shape
 from peakfit.engine.lineshapes.templates import PhasedDoubletBase, PhasedSingletBase
 from peakfit.engine.lineshapes.utils import (
     apply_phase,
@@ -101,7 +100,6 @@ def function(
     return values
 
 
-@register_shape(NAME)
 class SP2(PhasedSingletBase):
     """SP2 singlet lineshape with squared sine-bell apodization."""
 
@@ -175,7 +173,6 @@ def function_doublet(
     return values
 
 
-@register_shape(NAME_DOUBLET)
 class SP2Doublet(PhasedDoubletBase):
     """SP2 doublet lineshape with squared sine-bell apodization."""
 

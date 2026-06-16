@@ -1,24 +1,46 @@
-"""Construct registered lineshape model instances."""
+"""Construct built-in lineshape model instances."""
+
+from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from peakfit.engine.domain.spectrum import determine_shape_name
-from peakfit.engine.lineshapes import registry
+from peakfit.engine.lineshapes.gaussian.model import Gaussian, GaussianDoublet
+from peakfit.engine.lineshapes.lorentzian.model import Lorentzian, LorentzianDoublet
+from peakfit.engine.lineshapes.no_apod.model import NoApod, NoApodDoublet
+from peakfit.engine.lineshapes.pvoigt.model import PseudoVoigt, PseudoVoigtDoublet
+from peakfit.engine.lineshapes.sp1.model import SP1, SP1Doublet
+from peakfit.engine.lineshapes.sp2.model import SP2, SP2Doublet
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from peakfit.engine.domain.config import FitConfig
     from peakfit.engine.domain.spectrum import Spectra
-    from peakfit.engine.lineshapes.registry import Shape
+    from peakfit.engine.types import Shape
 
 
-def available_shapes() -> list[str]:
-    """Return the available registered shape names."""
-    return sorted(registry.list_shapes())
+SHAPES: dict[str, Callable[..., Shape]] = {
+    "gaussian": Gaussian,
+    "gaussian_doublet": GaussianDoublet,
+    "lorentzian": Lorentzian,
+    "lorentzian_doublet": LorentzianDoublet,
+    "no_apod": NoApod,
+    "no_apod_doublet": NoApodDoublet,
+    "pvoigt": PseudoVoigt,
+    "pvoigt_doublet": PseudoVoigtDoublet,
+    "sp1": SP1,
+    "sp1_doublet": SP1Doublet,
+    "sp2": SP2,
+    "sp2_doublet": SP2Doublet,
+}
 
 
-def create_shape(
+def _available_shapes() -> list[str]:
+    """Return the available built-in shape names."""
+    return sorted(SHAPES)
+
+
+def _create_shape(
     spectra: Spectra,
     config: FitConfig,
     shape_type: str,
@@ -47,7 +69,7 @@ def create_shapes(
     shapes: list[Shape] = []
     for dim, (center, shape_name) in enumerate(zip(positions, shape_names, strict=False), start=1):
         shapes.append(
-            create_shape(
+            _create_shape(
                 spectra,
                 config,
                 shape_name,
@@ -59,33 +81,13 @@ def create_shapes(
     return shapes
 
 
-def auto_shape_names(spectra: Spectra) -> list[str]:
-    """Detect shape names for each indirect dimension."""
-    return [determine_shape_name(param) for param in spectra.params[1:]]
-
-
-def detect_shape_name(spectra: Spectra, dim: int) -> str:
-    """Detect the shape name for a single dimension index."""
-    try:
-        params = spectra.params[dim]
-    except IndexError as exc:  # pragma: no cover - defensive guard
-        raise ValueError("Dimension index out of range for spectra") from exc
-    return determine_shape_name(params)
-
-
 def _resolve_shape_provider(shape_type: str) -> Callable[..., Shape]:
     try:
-        return registry.get_shape(shape_type)
+        return SHAPES[shape_type]
     except KeyError as exc:
-        available = ", ".join(available_shapes())
+        available = ", ".join(_available_shapes())
         msg = f"Unknown lineshape '{shape_type}'. Available: {available}"
         raise ValueError(msg) from exc
 
 
-__all__ = [
-    "auto_shape_names",
-    "available_shapes",
-    "create_shape",
-    "create_shapes",
-    "detect_shape_name",
-]
+__all__ = ["create_shapes"]

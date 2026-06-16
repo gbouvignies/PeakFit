@@ -12,7 +12,6 @@ import numpy as np
 import numpy.typing as npt
 
 from peakfit.engine.lineshapes.doublet import doublet_kernel
-from peakfit.engine.lineshapes.registry import register_shape
 from peakfit.engine.lineshapes.templates import PhasedDoubletBase, PhasedSingletBase
 from peakfit.engine.lineshapes.utils import (
     apply_phase,
@@ -115,7 +114,6 @@ def function(
     return values
 
 
-@register_shape(NAME)
 class NoApod(PhasedSingletBase):
     """NoApod singlet lineshape (no apodization, exponential decay)."""
 
@@ -193,7 +191,6 @@ def function_doublet(
     return values
 
 
-@register_shape(NAME_DOUBLET)
 class NoApodDoublet(PhasedDoubletBase):
     """NoApod doublet lineshape (no apodization, exponential decay)."""
 

@@ -11,20 +11,40 @@ from peakfit.engine.types import ParamSpec
 from peakfit.fit.auto_pick import (
     _accept_trial,
     _addition_threshold,
-    _any_cs_close_to_constraint,
-    _build_shared_param_aliases,
     _calculate_dof_scale_from_header,
-    _extract_roi_indices,
-    _find_global_seed,
-    _initial_local_maxima_candidates,
-    _initialize_existing_params_from_previous,
-    _initialize_new_peak_from_median,
     _rollback_next_peak_number,
-    _select_manual_candidate,
-    _select_next_candidate,
-    _select_seed_candidate,
     _TrialState,
     _update_peak_positions,
+)
+from peakfit.fit.auto_pick_candidates import (
+    extract_roi_indices as _extract_roi_indices,
+)
+from peakfit.fit.auto_pick_candidates import (
+    find_global_seed as _find_global_seed,
+)
+from peakfit.fit.auto_pick_candidates import (
+    initial_local_maxima_candidates as _initial_local_maxima_candidates,
+)
+from peakfit.fit.auto_pick_candidates import (
+    select_manual_candidate as _select_manual_candidate,
+)
+from peakfit.fit.auto_pick_candidates import (
+    select_next_candidate as _select_next_candidate,
+)
+from peakfit.fit.auto_pick_candidates import (
+    select_seed_candidate as _select_seed_candidate,
+)
+from peakfit.fit.auto_pick_parameters import (
+    any_cs_close_to_constraint as _any_cs_close_to_constraint,
+)
+from peakfit.fit.auto_pick_parameters import (
+    build_shared_param_aliases as _build_shared_param_aliases,
+)
+from peakfit.fit.auto_pick_parameters import (
+    initialize_existing_params_from_previous as _initialize_existing_params_from_previous,
+)
+from peakfit.fit.auto_pick_parameters import (
+    initialize_new_peak_from_median as _initialize_new_peak_from_median,
 )
 
 

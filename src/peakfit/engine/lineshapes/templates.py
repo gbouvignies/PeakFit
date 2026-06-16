@@ -18,7 +18,7 @@ In all cases, `lw` represents the FWHM (Full Width at Half Maximum) in Hz.
 For apodized lineshapes, this is the FWHM as if there were no apodization.
 
 Subclasses only need to define:
-- `shape_name`: The lineshape name for registry
+- `shape_name`: The lineshape name used by the constructor map
 - `param_specs`: Static method returning parameter specs
 - `kernel` / `kernel_with_derivs`: The mathematical kernel function
 """

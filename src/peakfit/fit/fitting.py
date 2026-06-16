@@ -25,7 +25,8 @@ from peakfit.engine.algorithms.clustering import create_clusters
 from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
-from peakfit.fit.auto_pick import AutoPickCycleAction, AutoPickCycleReport, auto_pick_peaks
+from peakfit.fit.auto_pick import auto_pick_peaks
+from peakfit.fit.auto_pick_types import AutoPickCycleAction, AutoPickCycleReport
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 from peakfit.fit.results import build_fit_results
 from peakfit.io.readers.peaks import read_list
@@ -133,7 +134,7 @@ def _log_auto_pick_cycle(reporter: Reporter, cycle: AutoPickCycleReport) -> None
         reporter.info("[auto-pick]   no candidate above addition threshold")
     for trial in cycle.trials:
         stage_info = (
-            f"protocol_rounds={trial.protocol_rounds} "
+            f"fit_steps={trial.fit_step_rounds} "
             f"cs_at_constraint={'yes' if trial.cs_at_constraint else 'no'} "
             f"zero_amplitude_peak={'yes' if trial.zero_amplitude_peak else 'no'}"
         )

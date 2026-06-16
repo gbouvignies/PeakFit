@@ -11,7 +11,6 @@ import numpy as np
 import numpy.typing as npt
 
 from peakfit.engine.lineshapes.doublet import doublet_kernel
-from peakfit.engine.lineshapes.registry import register_shape
 from peakfit.engine.lineshapes.templates import SimpleDoubletBase, SimpleSingletBase
 from peakfit.engine.lineshapes.utils import estimate_cs_bounds_ppm, require_grid
 from peakfit.engine.types import ParamSpec
@@ -24,7 +23,7 @@ if TYPE_CHECKING:
 
 
 # =============================================================================
-# Module-level protocol attributes
+# Lineshape metadata
 # =============================================================================
 
 NAME = "lorentzian"
@@ -89,7 +88,6 @@ def function(
 # =============================================================================
 
 
-@register_shape(NAME)
 class Lorentzian(SimpleSingletBase):
     """Lorentzian singlet lineshape: L(Δω) = 1 / (1 + (2Δω/R)²)."""
 
@@ -174,7 +172,6 @@ def function_doublet(
     )
 
 
-@register_shape(NAME_DOUBLET)
 class LorentzianDoublet(SimpleDoubletBase):
     """Lorentzian doublet lineshape with J-coupling."""
 

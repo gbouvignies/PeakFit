@@ -9,13 +9,10 @@ The implementation follows a residual-driven ROI strategy:
 
 from __future__ import annotations
 
-from collections import defaultdict
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy.ndimage import binary_dilation, generate_binary_structure, label, maximum_filter
 from scipy.stats import f as f_dist
 
 from peakfit.engine.algorithms.common import calculate_shape_heights
@@ -25,8 +22,79 @@ from peakfit.engine.domain.constraints import apply_constraints
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.lineshapes.create import create_shapes
+from peakfit.fit.auto_pick_candidates import (
+    candidate_ppm_for_plot as _candidate_ppm_for_plot,
+)
+from peakfit.fit.auto_pick_candidates import (
+    extract_roi_data as _extract_roi_data,
+)
+from peakfit.fit.auto_pick_candidates import (
+    extract_roi_indices as _extract_roi_indices,
+)
+from peakfit.fit.auto_pick_candidates import (
+    far_from_existing as _far_from_existing,
+)
+from peakfit.fit.auto_pick_candidates import (
+    find_global_seed as _find_global_seed,
+)
+from peakfit.fit.auto_pick_candidates import (
+    initial_local_maxima_candidates as _initial_local_maxima_candidates,
+)
+from peakfit.fit.auto_pick_candidates import (
+    point_to_ppm as _point_to_ppm,
+)
+from peakfit.fit.auto_pick_candidates import (
+    roi_plot_limits as _roi_plot_limits,
+)
+from peakfit.fit.auto_pick_candidates import (
+    select_manual_candidate as _select_manual_candidate,
+)
+from peakfit.fit.auto_pick_candidates import (
+    select_next_candidate as _select_next_candidate,
+)
+from peakfit.fit.auto_pick_candidates import (
+    stack_roi_points as _stack_roi_points,
+)
+from peakfit.fit.auto_pick_parameters import (
+    any_cs_close_to_constraint as _any_cs_close_to_constraint,
+)
+from peakfit.fit.auto_pick_parameters import (
+    apply_cs_bounds_from_lw as _apply_cs_bounds_from_lw,
+)
+from peakfit.fit.auto_pick_parameters import (
+    apply_position_windows as _apply_position_windows,
+)
+from peakfit.fit.auto_pick_parameters import (
+    build_shared_param_aliases as _build_shared_param_aliases,
+)
+from peakfit.fit.auto_pick_parameters import (
+    has_zero_amplitude_peak as _has_zero_amplitude_peak,
+)
+from peakfit.fit.auto_pick_parameters import (
+    initialize_existing_params_from_previous as _initialize_existing_params_from_previous,
+)
+from peakfit.fit.auto_pick_parameters import (
+    initialize_new_peak_from_median as _initialize_new_peak_from_median,
+)
+from peakfit.fit.auto_pick_parameters import (
+    set_stage_vary_flags as _set_stage_vary_flags,
+)
+from peakfit.fit.auto_pick_parameters import (
+    sync_shared_params as _sync_shared_params,
+)
+from peakfit.fit.auto_pick_types import (
+    AutoPickCycleAction,
+    AutoPickCycleCallback,
+    AutoPickCycleReport,
+    AutoPickDiagnostics,
+    AutoPickResult,
+    AutoPickTrialReport,
+    FTestDecision,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from peakfit.engine.domain.config import PeakFitConfig
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.shared.typing import FloatArray, IntArray
@@ -34,105 +102,6 @@ if TYPE_CHECKING:
 
 _FLOAT_EPS = 1e-12
 _HISTORY_REWIND_STEPS = 2
-_MIN_PLOT_DIMS = 2
-
-
-@dataclass(frozen=True)
-class AutoPickDiagnostics:
-    """Diagnostic counters for automatic peak picking."""
-
-    iterations: int
-    accepted_rois: int
-    rejected_rois: int
-    accepted_peaks: int
-    stopped_by_user: bool
-
-
-@dataclass(frozen=True)
-class AutoPickResult:
-    """Result container for automatic peak picking."""
-
-    peaks: list[Peak]
-    diagnostics: AutoPickDiagnostics
-
-
-@dataclass(frozen=True)
-class FTestDecision:
-    """Detailed F-test acceptance decision for one trial."""
-
-    accepted: bool
-    reason: str
-    old_rss: float
-    new_rss: float
-    df1: int
-    df2: int
-    f_stat: float | None
-    p_value: float | None
-
-
-@dataclass(frozen=True)
-class AutoPickTrialReport:
-    """Per-trial report inside one ROI cycle."""
-
-    trial_index: int
-    candidate_point: tuple[int, ...]
-    candidate_ppm: tuple[float, ...]
-    candidate_score: float
-    fit_success: bool
-    accepted: bool
-    reason: str
-    f_test: FTestDecision | None
-    protocol_rounds: int
-    cs_at_constraint: bool
-    zero_amplitude_peak: bool
-
-
-@dataclass(frozen=True)
-class AutoPickCycleReport:
-    """Cycle-level report used for terminal logging and step-wise control."""
-
-    iteration: int
-    seed_point: tuple[int, ...]
-    seed_ppm: tuple[float, ...]
-    seed_height: float
-    roi_size: int
-    add_threshold: float
-    accepted: bool
-    peaks_added: int
-    total_peaks: int
-    working_max_after: float
-    trials: list[AutoPickTrialReport]
-    contour_level: float
-    experimental_projection: np.ndarray
-    simulated_projection: np.ndarray
-    current_peaks: list[Peak]
-    roi_peaks: list[Peak]
-    roi_x_limits: tuple[float, float] | None
-    roi_y_limits: tuple[float, float] | None
-    next_candidate_ppm: tuple[float, float] | None
-    next_candidate_name: str | None
-    feedback_message: str | None = None
-    stage: str = "cycle_complete"
-
-
-@dataclass(frozen=True)
-class AutoPickCycleAction:
-    """User action for interactive auto-pick stepping."""
-
-    command: Literal[
-        "continue",
-        "remove_last_peak",
-        "release_linewidths",
-        "next_cluster",
-        "previous_cluster",
-        "stop",
-    ] = "continue"
-    candidate_ppm: tuple[float, float] | None = None
-    candidate_ppm_list: list[tuple[float, float]] | None = None
-    allow_suggested_fallback: bool = True
-
-
-AutoPickCycleCallback = Callable[[AutoPickCycleReport], AutoPickCycleAction]
 
 
 @dataclass(frozen=True)
@@ -165,7 +134,7 @@ class _TrialFitOutcome:
     """Detailed fit outcome for one trial peak candidate."""
 
     state: _TrialState
-    protocol_rounds: int
+    fit_step_rounds: int
     cs_at_constraint: bool
     zero_amplitude_peak: bool
 
@@ -424,95 +393,6 @@ def auto_pick_peaks(
         stopped_by_user=stopped_by_user,
     )
     return AutoPickResult(peaks=accepted_peaks, diagnostics=diagnostics)
-
-
-def _point_to_ppm(point_indices: tuple[int, ...], spectra: Spectra) -> tuple[float, ...]:
-    """Convert integer grid coordinates to ppm coordinates."""
-    return tuple(
-        float(spectral_param.pts2ppm(float(point_indices[i])))
-        for i, spectral_param in enumerate(spectra.spectral_params)
-    )
-
-
-def _candidate_ppm_for_plot(
-    candidate: tuple[int, float] | None,
-    roi_points: np.ndarray,
-    spectra: Spectra,
-) -> tuple[float, float] | None:
-    """Convert a candidate ROI index to (y_ppm, x_ppm) for plotting."""
-    if candidate is None:
-        return None
-    candidate_idx, _score = candidate
-    point = tuple(int(v) for v in roi_points[candidate_idx])
-    point_ppm = _point_to_ppm(point, spectra)
-    return float(point_ppm[0]), float(point_ppm[-1])
-
-
-def _roi_plot_limits(
-    roi_indices: list[IntArray],
-    spectra: Spectra,
-) -> tuple[tuple[float, float] | None, tuple[float, float] | None]:
-    """Return X/Y ppm limits for visual zoom on the active ROI."""
-    if not roi_indices or spectra.n_spectral_dims < _MIN_PLOT_DIMS:
-        return None, None
-
-    x_values = np.asarray(spectra.spectral_params[-1].pts2ppm(roi_indices[-1]), dtype=np.float64)
-    y_values = np.asarray(spectra.spectral_params[0].pts2ppm(roi_indices[0]), dtype=np.float64)
-    if x_values.size == 0 or y_values.size == 0:
-        return None, None
-
-    x_limits = (float(np.min(x_values)), float(np.max(x_values)))
-    y_limits = (float(np.min(y_values)), float(np.max(y_values)))
-    return x_limits, y_limits
-
-
-def _find_global_seed(
-    data: FloatArray,
-    blocked_mask: np.ndarray | None = None,
-) -> tuple[tuple[int, ...] | None, float]:
-    """Find the highest-intensity point in a pseudo-ND data cube."""
-    if data.size == 0:
-        return None, 0.0
-
-    intensity = np.max(np.abs(data), axis=0)
-    if intensity.size == 0:
-        return None, 0.0
-    if blocked_mask is not None:
-        if blocked_mask.shape != intensity.shape:
-            raise ValueError("blocked_mask shape must match spectral grid shape")
-        if np.all(blocked_mask):
-            return None, 0.0
-        intensity = intensity.copy()
-        intensity[blocked_mask] = -np.inf
-
-    max_flat = int(np.argmax(intensity))
-    max_value = float(intensity.flat[max_flat])
-    max_point = tuple(int(x) for x in np.unravel_index(max_flat, intensity.shape))
-    return max_point, max_value
-
-
-def _extract_roi_indices(
-    data: FloatArray,
-    contour_level: float,
-    seed_point: tuple[int, ...],
-) -> list[IntArray]:
-    """Extract non-wrapping contour-connected ROI indices containing the seed point."""
-    mask = np.any(np.abs(data) >= contour_level, axis=0)
-    if mask.ndim == 0:
-        return [np.asarray([coord], dtype=np.int_) for coord in seed_point]
-
-    structure = generate_binary_structure(mask.ndim, mask.ndim)
-    seed_mask = np.zeros_like(mask, dtype=bool)
-    seed_mask[seed_point] = True
-    selected = mask | binary_dilation(seed_mask, structure=structure)
-
-    segments, _ = label(selected, structure=structure)
-    segment_id = int(segments[seed_point])
-    if segment_id <= 0:
-        return [np.asarray([coord], dtype=np.int_) for coord in seed_point]
-
-    coords = np.where(segments == segment_id)
-    return [np.asarray(axis_coords, dtype=np.int_) for axis_coords in coords]
 
 
 def _fit_roi_iteratively(
@@ -842,7 +722,7 @@ def _fit_roi_iteratively(
                     accepted=False,
                     reason="fit_failed",
                     f_test=None,
-                    protocol_rounds=0,
+                    fit_step_rounds=0,
                     cs_at_constraint=False,
                     zero_amplitude_peak=False,
                 )
@@ -877,7 +757,7 @@ def _fit_roi_iteratively(
                     accepted=False,
                     reason="zero_amplitude_peak",
                     f_test=None,
-                    protocol_rounds=trial_outcome.protocol_rounds,
+                    fit_step_rounds=trial_outcome.fit_step_rounds,
                     cs_at_constraint=trial_outcome.cs_at_constraint,
                     zero_amplitude_peak=True,
                 )
@@ -917,7 +797,7 @@ def _fit_roi_iteratively(
                 accepted=decision.accepted,
                 reason=decision.reason,
                 f_test=decision,
-                protocol_rounds=trial_outcome.protocol_rounds,
+                fit_step_rounds=trial_outcome.fit_step_rounds,
                 cs_at_constraint=trial_outcome.cs_at_constraint,
                 zero_amplitude_peak=False,
             )
@@ -1131,89 +1011,6 @@ def _linewidth_change_stats(
     return changed, total, max_delta
 
 
-def _select_seed_candidate(
-    residual: FloatArray,
-    roi_points: np.ndarray,
-    seed_point: tuple[int, ...],
-    threshold: float,
-) -> tuple[int, float] | None:
-    """Use the ROI seed point as first candidate when it is above threshold."""
-    if roi_points.size == 0:
-        return None
-
-    matches = np.flatnonzero(np.all(roi_points == np.asarray(seed_point, dtype=np.int_), axis=1))
-    if matches.size == 0:
-        return None
-
-    idx = int(matches[0])
-    score = float(np.max(np.abs(residual[idx])))
-    if not np.isfinite(score) or score < threshold:
-        return None
-    return idx, score
-
-
-def _initial_local_maxima_candidates(
-    working_data: FloatArray,
-    roi_indices: list[IntArray],
-    roi_points: np.ndarray,
-    threshold: float | None,
-) -> list[tuple[int, float]]:
-    """Return ROI local maxima as initial candidate list (sorted by intensity)."""
-    if not roi_indices or roi_points.size == 0:
-        return []
-
-    intensity = np.max(np.abs(working_data), axis=0)
-    if intensity.size == 0:
-        return []
-
-    roi_mask = np.zeros_like(intensity, dtype=bool)
-    roi_mask[tuple(roi_indices)] = True
-    if not np.any(roi_mask):
-        return []
-
-    structure = generate_binary_structure(intensity.ndim, intensity.ndim)
-    local_mask = roi_mask & (
-        intensity == maximum_filter(intensity, footprint=structure, mode="nearest")
-    )
-    if threshold is not None:
-        local_mask &= intensity >= threshold
-
-    labeled, n_labels = label(local_mask, structure=structure)
-    if n_labels <= 0:
-        return []
-
-    index_by_point = {tuple(int(v) for v in point): idx for idx, point in enumerate(roi_points)}
-    candidates: list[tuple[int, float]] = []
-    for label_id in range(1, n_labels + 1):
-        points = np.column_stack(np.where(labeled == label_id))
-        if points.size == 0:
-            continue
-        scores = intensity[tuple(points.T)]
-        best_idx = int(np.argmax(scores))
-        best_point = tuple(int(v) for v in points[best_idx])
-        roi_idx = index_by_point.get(best_point)
-        if roi_idx is None:
-            continue
-        best_score = float(scores[best_idx])
-        if best_score <= _FLOAT_EPS:
-            continue
-        candidates.append((roi_idx, best_score))
-
-    candidates.sort(key=lambda item: item[1], reverse=True)
-    return candidates
-
-
-def _extract_roi_data(data: FloatArray, roi_indices: list[IntArray]) -> FloatArray:
-    """Extract ROI data as (n_points, n_series)."""
-    roi_slice = (slice(None), *roi_indices)
-    return np.asarray(data[roi_slice].T, dtype=np.float64)
-
-
-def _stack_roi_points(roi_indices: list[IntArray]) -> np.ndarray:
-    """Stack ROI coordinate arrays into shape (n_points, n_dims)."""
-    return np.column_stack(roi_indices)
-
-
 def _create_peak(
     point_indices: tuple[int, ...],
     spectra: Spectra,
@@ -1239,7 +1036,7 @@ def _fit_trial_state(
     new_peak_names: str | list[str] | None = None,
     dof_scale: float = 1.0,
 ) -> _TrialFitOutcome | None:
-    """Fit a trial peak set using the staged SI protocol."""
+    """Fit a trial peak set using the staged SI fit steps."""
     cluster = Cluster(cluster_id=cluster_id, peaks=peaks, grid_indices=roi_indices, data=roi_data)
     params = Parameters.from_peaks(peaks, fixed=True)
     params = apply_constraints(params, config.parameters)
@@ -1265,12 +1062,12 @@ def _fit_trial_state(
     except ValueError:
         return None
 
-    protocol_rounds = 0
+    fit_step_rounds = 0
     cs_at_constraint = False
     max_rounds = 1 + config.auto_peak.max_constraint_refits
 
     for round_idx in range(1, max_rounds + 1):
-        protocol_rounds = round_idx
+        fit_step_rounds = round_idx
 
         # Stage 2 (SI): release non-CS parameters and refit.
         _set_stage_vary_flags(
@@ -1329,135 +1126,10 @@ def _fit_trial_state(
 
     return _TrialFitOutcome(
         state=state,
-        protocol_rounds=protocol_rounds,
+        fit_step_rounds=fit_step_rounds,
         cs_at_constraint=cs_at_constraint,
         zero_amplitude_peak=zero_amplitude_peak,
     )
-
-
-def _apply_position_windows(params: Parameters, window_ppm: float) -> None:
-    """Apply symmetric windows to chemical-shift parameters."""
-    for param in params.values():
-        if param.name.endswith(".cs"):
-            center = float(param.value)
-            param.min = center - window_ppm
-            param.max = center + window_ppm
-
-
-def _initialize_existing_params_from_previous(
-    params: Parameters,
-    previous_params: Parameters | None,
-    new_peak_names: str | list[str] | None = None,
-    *,
-    new_peak_name: str | None = None,
-) -> None:
-    """Warm-start existing parameters from the last accepted trial."""
-    if previous_params is None:
-        return
-
-    new_peak_name_set = _normalize_new_peak_names(new_peak_names)
-    if new_peak_name:
-        new_peak_name_set.add(new_peak_name)
-    for name, current in params.items():
-        if name not in previous_params:
-            continue
-
-        param_id = current.param_id
-        if param_id is not None and param_id.peak_name in new_peak_name_set:
-            continue
-
-        previous_value = float(previous_params[name].value)
-        if not np.isfinite(previous_value):
-            continue
-        current.value = float(np.clip(previous_value, current.min, current.max))
-
-
-def _initialize_new_peak_from_median(
-    params: Parameters,
-    previous_params: Parameters | None,
-    new_peak_names: str | list[str] | None = None,
-    *,
-    new_peak_name: str | None = None,
-) -> None:
-    """Initialize new-peak starts from median values of previously fitted peaks."""
-    new_peak_name_set = _normalize_new_peak_names(new_peak_names)
-    if new_peak_name:
-        new_peak_name_set.add(new_peak_name)
-    if previous_params is None or not new_peak_name_set:
-        return
-
-    grouped_values: dict[tuple[str, str], list[float]] = defaultdict(list)
-    for previous in previous_params.values():
-        param_id = previous.param_id
-        if param_id is None or not param_id.peak_name:
-            continue
-        if param_id.label in {"cs", "I"}:
-            continue
-        key = (param_id.axis or "", param_id.label)
-        grouped_values[key].append(float(previous.value))
-
-    if not grouped_values:
-        return
-
-    for current in params.values():
-        param_id = current.param_id
-        if param_id is None or param_id.peak_name not in new_peak_name_set:
-            continue
-        if param_id.label in {"cs", "I"}:
-            continue
-
-        key = (param_id.axis or "", param_id.label)
-        values = grouped_values.get(key)
-        if not values:
-            continue
-
-        median_value = float(np.median(np.asarray(values, dtype=np.float64)))
-        current.value = float(np.clip(median_value, current.min, current.max))
-
-
-def _normalize_new_peak_names(new_peak_names: str | list[str] | None) -> set[str]:
-    """Normalize new-peak names to a non-empty set."""
-    if new_peak_names is None:
-        return set()
-    if isinstance(new_peak_names, str):
-        return {new_peak_names} if new_peak_names else set()
-    return {name for name in new_peak_names if name}
-
-
-def _build_shared_param_aliases(
-    params: Parameters,
-    shared_labels: set[str] | None = None,
-) -> dict[str, str]:
-    """Build target->source alias map for in-cluster shared shape parameters."""
-    anchor_for_key: dict[tuple[str, str], str] = {}
-    aliases: dict[str, str] = {}
-    if shared_labels is None:
-        shared_labels = {"lw", "j"}
-
-    for name, param in params.items():
-        param_id = param.param_id
-        if param_id is None or not param_id.peak_name:
-            continue
-        if param_id.label not in shared_labels:
-            continue
-
-        key = (param_id.axis or "", param_id.label)
-        anchor = anchor_for_key.get(key)
-        if anchor is None:
-            anchor_for_key[key] = name
-            continue
-        aliases[name] = anchor
-
-    return aliases
-
-
-def _sync_shared_params(params: Parameters, shared_aliases: dict[str, str]) -> None:
-    """Force aliased target parameters to match their source values."""
-    for target_name, source_name in shared_aliases.items():
-        if target_name not in params or source_name not in params:
-            continue
-        params[target_name].value = params[source_name].value
-        params[target_name].vary = False
 
 
 def _fit_with_varpro(
@@ -1577,97 +1249,6 @@ def _calculate_dof_scale_from_header(spectra: Spectra) -> float:
     return float(max(scale, _FLOAT_EPS))
 
 
-def _set_stage_vary_flags(
-    params: Parameters,
-    *,
-    allowed_vary: set[str],
-    release_cs: bool,
-    force_fix_positions: bool,
-) -> None:
-    """Set vary flags for staged fitting passes."""
-    for name, param in params.items():
-        if param.computed:
-            continue
-        if name not in allowed_vary:
-            param.vary = False
-            continue
-        if param.name.endswith(".cs"):
-            param.vary = release_cs and not force_fix_positions
-        else:
-            param.vary = True
-
-
-def _apply_cs_bounds_from_lw(params: Parameters, spectra: Spectra, config: PeakFitConfig) -> None:
-    """Constrain CS to +/- factor * linewidth converted to ppm."""
-    obs_by_axis = {
-        spectral_param.label: float(spectral_param.obs)
-        for spectral_param in spectra.spectral_params
-        if spectral_param.label
-    }
-    factor = float(config.auto_peak.position_constraint_factor)
-    fallback = float(config.auto_peak.position_window_ppm)
-
-    for name, param in params.items():
-        if not name.endswith(".cs"):
-            continue
-
-        peak_name, axis, _ = name.rsplit(".", 2)
-        lw_name = f"{peak_name}.{axis}.lw"
-
-        if lw_name in params and axis in obs_by_axis and obs_by_axis[axis] > _FLOAT_EPS:
-            lw_hz = max(float(params[lw_name].value), _FLOAT_EPS)
-            ppm_halfwidth = factor * lw_hz / obs_by_axis[axis]
-        else:
-            ppm_halfwidth = fallback
-
-        center = float(param.value)
-        param.min = center - ppm_halfwidth
-        param.max = center + ppm_halfwidth
-
-
-def _any_cs_close_to_constraint(
-    params: Parameters,
-    spectra: Spectra,
-    config: PeakFitConfig,
-) -> bool:
-    """Check if any CS parameter is near bounds using SI ppm tolerances."""
-    proton_tol = float(config.auto_peak.proton_constraint_margin_ppm)
-    hetero_tol = float(config.auto_peak.heteronuclear_constraint_margin_ppm)
-    tol_by_axis = {}
-    for spectral_param in spectra.spectral_params:
-        nucleus = (spectral_param.nucleus or "").upper()
-        tol_by_axis[spectral_param.label] = proton_tol if "1H" in nucleus else hetero_tol
-
-    for name, param in params.items():
-        if not name.endswith(".cs"):
-            continue
-        if not np.isfinite(param.min) or not np.isfinite(param.max):
-            continue
-        param_id = param.param_id
-        axis = param_id.axis if param_id is not None else name.rsplit(".", 2)[1]
-        margin = tol_by_axis.get(axis, hetero_tol)
-        if (param.value - param.min) <= margin or (param.max - param.value) <= margin:
-            return True
-    return False
-
-
-def _has_zero_amplitude_peak(params: Parameters, peaks: list[Peak], atol: float) -> bool:
-    """Return True if any peak has near-zero amplitudes in all spectra."""
-    amplitudes_by_peak: dict[str, list[float]] = defaultdict(list)
-
-    for param in params.values():
-        param_id = param.param_id
-        if param_id is None or param_id.label != "I":
-            continue
-        amplitudes_by_peak[param_id.peak_name].append(abs(float(param.value)))
-
-    for peak in peaks:
-        amplitudes = amplitudes_by_peak.get(peak.name)
-        if amplitudes and all(value <= atol for value in amplitudes):
-            return True
-    return False
-
-
 def _accept_trial(
     previous: _TrialState | None,
     new: _TrialState,
@@ -1747,88 +1328,6 @@ def _rss(residual: FloatArray, mask: np.ndarray, noise: float) -> float:
         return float("inf")
     masked = residual[mask, :]
     return float(np.sum((masked / noise) ** 2))
-
-
-def _select_manual_candidate(
-    residual: FloatArray,
-    roi_points: np.ndarray,
-    spectra: Spectra,
-    target_ppm: tuple[float, float],
-    used_points: list[tuple[int, ...]],
-    min_separation_pts: int,
-    threshold: float | None,
-    eligible_mask: np.ndarray | None = None,
-) -> tuple[int, float] | None:
-    """Pick the closest ROI point to a user-selected ppm target."""
-    if roi_points.size == 0:
-        return None
-
-    y_ppm, x_ppm = target_ppm
-    x_param = spectra.spectral_params[-1]
-    y_param = spectra.spectral_params[0]
-    x_values = np.asarray(x_param.pts2ppm(roi_points[:, -1]), dtype=np.float64)
-    y_values = np.asarray(y_param.pts2ppm(roi_points[:, 0]), dtype=np.float64)
-    distances = (x_values - x_ppm) ** 2 + (y_values - y_ppm) ** 2
-
-    point_scores = np.max(np.abs(residual), axis=1)
-    for idx in np.argsort(distances):
-        if eligible_mask is not None and not bool(eligible_mask[idx]):
-            continue
-        score = float(point_scores[idx])
-        if threshold is not None and score < threshold:
-            continue
-
-        candidate = tuple(int(v) for v in roi_points[idx])
-        if _far_from_existing(candidate, used_points, min_separation_pts):
-            return int(idx), score
-
-    return None
-
-
-def _select_next_candidate(
-    residual: FloatArray,
-    roi_points: np.ndarray,
-    used_points: list[tuple[int, ...]],
-    min_separation_pts: int,
-    threshold: float | None,
-    eligible_mask: np.ndarray | None = None,
-) -> tuple[int, float] | None:
-    """Select the next residual maximum that is sufficiently separated."""
-    point_scores = np.max(np.abs(residual), axis=1)
-    order = np.argsort(point_scores)[::-1]
-
-    for idx in order:
-        if eligible_mask is not None and not bool(eligible_mask[idx]):
-            continue
-        score = float(point_scores[idx])
-        if threshold is not None and score < threshold:
-            return None
-        if score <= _FLOAT_EPS:
-            return None
-
-        candidate = tuple(int(v) for v in roi_points[idx])
-        if _far_from_existing(candidate, used_points, min_separation_pts):
-            return int(idx), score
-
-    return None
-
-
-def _far_from_existing(
-    point: tuple[int, ...],
-    others: list[tuple[int, ...]],
-    min_separation_pts: int,
-) -> bool:
-    """Check whether a candidate point is sufficiently separated from existing points."""
-    if not others or min_separation_pts <= 0:
-        return True
-
-    candidate = np.asarray(point, dtype=np.float64)
-    threshold_sq = float(min_separation_pts**2)
-    for other in others:
-        distance_sq = float(np.sum((candidate - np.asarray(other, dtype=np.float64)) ** 2))
-        if distance_sq < threshold_sq:
-            return False
-    return True
 
 
 def _subtract_roi_model(

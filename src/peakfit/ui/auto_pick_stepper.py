@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 
-from peakfit.fit.auto_pick import AutoPickCycleAction
+from peakfit.fit.auto_pick_types import AutoPickCycleAction
 from peakfit.plot.qt_core import (
     QApplication,
     QComboBox,
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra
-    from peakfit.fit.auto_pick import AutoPickCycleReport
+    from peakfit.fit.auto_pick_types import AutoPickCycleReport
 
 
 _MIN_SPECTRAL_DIMS = 2
@@ -492,7 +492,7 @@ class _AutoPickStepWindow(QMainWindow):
 
         accepted_trials = sum(1 for trial in cycle.trials if trial.accepted)
         last_reason = cycle.trials[-1].reason if cycle.trials else "no_trial"
-        last_protocol = cycle.trials[-1].protocol_rounds if cycle.trials else 0
+        last_fit_steps = cycle.trials[-1].fit_step_rounds if cycle.trials else 0
         last_cs_bound = cycle.trials[-1].cs_at_constraint if cycle.trials else False
         stage_label = "peak-added" if cycle.stage == "peak_added" else "cycle-complete"
         self._summary.setText(
@@ -502,7 +502,7 @@ class _AutoPickStepWindow(QMainWindow):
             f"result={'accepted' if cycle.accepted else 'rejected'} | "
             f"peaks +{cycle.peaks_added} (total {cycle.total_peaks}) | "
             f"residual max={cycle.working_max_after:.3e} | "
-            f"last={last_reason} rounds={last_protocol} "
+            f"last={last_reason} fit_steps={last_fit_steps} "
             f"cs_bound={'yes' if last_cs_bound else 'no'}"
         )
         self._update_diagnostics(cycle)
@@ -581,7 +581,7 @@ class _AutoPickStepWindow(QMainWindow):
             f"reason={trial.reason} "
             f"F={f_text} p={p_text} "
             f"RSS={rss_text} "
-            f"rounds={trial.protocol_rounds} "
+            f"fit_steps={trial.fit_step_rounds} "
             f"cs_bound={'yes' if trial.cs_at_constraint else 'no'}"
         )
 

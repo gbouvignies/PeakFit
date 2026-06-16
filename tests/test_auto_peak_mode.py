@@ -10,7 +10,7 @@ from peakfit.cli.app import app
 from peakfit.cli.commands.fit import _write_autopicked_peaklist
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.peaks import Peak
-from peakfit.fit.auto_pick import AutoPickDiagnostics, AutoPickResult
+from peakfit.fit.auto_pick_types import AutoPickDiagnostics, AutoPickResult
 from peakfit.fit.fitting import load_data
 from peakfit.fit.validation import validate_inputs
 from peakfit.shared.exceptions import DataIOError
