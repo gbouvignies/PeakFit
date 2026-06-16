@@ -4,7 +4,7 @@ import pytest
 import typer
 from pydantic import ValidationError
 
-from peakfit.cli.commands.fit import _normalize_output_formats, _validate_optimizer
+from peakfit.cli.commands.fit_setup import normalize_output_formats, validate_optimizer
 from peakfit.engine.domain.config import OutputConfig, PeakFitConfig
 from peakfit.io.config import generate_default_config
 from peakfit.io.writers.config import WriterConfig
@@ -40,17 +40,17 @@ def test_redundant_strategy_name_config_is_rejected() -> None:
 
 
 def test_cli_output_formats_are_normalized_and_deduped() -> None:
-    assert _normalize_output_formats(["JSON", "csv", "json"]) == ["json", "csv"]
+    assert normalize_output_formats(["JSON", "csv", "json"]) == ["json", "csv"]
 
 
 def test_invalid_cli_output_format_is_actionable() -> None:
     with pytest.raises(typer.BadParameter, match="Unknown output format"):
-        _normalize_output_formats(["json", "html"])
+        normalize_output_formats(["json", "html"])
 
 
 def test_invalid_cli_optimizer_is_actionable() -> None:
     with pytest.raises(typer.BadParameter, match="Unknown optimizer"):
-        _validate_optimizer("differential_evolution")
+        validate_optimizer("differential_evolution")
 
 
 @pytest.mark.parametrize(

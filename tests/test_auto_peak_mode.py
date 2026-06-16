@@ -7,7 +7,7 @@ import pytest
 from typer.testing import CliRunner
 
 from peakfit.cli.app import app
-from peakfit.cli.commands.fit import _write_autopicked_peaklist
+from peakfit.cli.commands.fit_setup import write_autopicked_peaklist
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.peaks import Peak
 from peakfit.fit.auto_pick_types import AutoPickDiagnostics, AutoPickResult
@@ -119,7 +119,7 @@ def test_validation_skips_peaklist_when_missing(monkeypatch: pytest.MonkeyPatch)
 def test_write_autopicked_peaklist(tmp_path: Path) -> None:
     peaks = [_peak("p1", (8.123456, 120.654321)), _peak("p2", (7.987654, 118.123456))]
 
-    peaklist_path = _write_autopicked_peaklist(tmp_path, peaks)
+    peaklist_path = write_autopicked_peaklist(tmp_path, peaks)
 
     lines = peaklist_path.read_text().splitlines()
     assert lines[0] == "Assignment w1 w2"
