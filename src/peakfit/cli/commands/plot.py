@@ -25,6 +25,7 @@ from peakfit.ui.messages import show_error_with_details, success, warning
 from peakfit.ui.reporter import ConsoleReporter
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from typing import Any
 
 
@@ -50,6 +51,20 @@ def _configure_plot_ui(
 def _print_plot_success(out: PlotOutput, label: str) -> None:
     """Print a consistent success message for generated plot artifacts."""
     success(f"Saved {out.n_plots} {label} plot(s) to [path]{display_path(out.path)}[/path]")
+
+
+def _run_plot_generation(
+    label: str,
+    error_context: str,
+    generate: Callable[[], PlotOutput],
+) -> None:
+    """Run a plot generator with consistent success and error handling."""
+    try:
+        out = generate()
+        _print_plot_success(out, label)
+    except Exception as e:
+        show_error_with_details(error_context, e)
+        raise typer.Exit(1) from e
 
 
 def _format_bool(flag: bool) -> str:
@@ -112,18 +127,17 @@ def plot_cest(
             ),
         ],
     )
-    try:
-        out = generate_cest_plots(
+    _run_plot_generation(
+        "CEST",
+        "generating CEST plots",
+        lambda: generate_cest_plots(
             results,
             output_path=output_path,
             reference_indices=ref,
             show=show,
             reporter=ConsoleReporter(),
-        )
-        _print_plot_success(out, "CEST")
-    except Exception as e:
-        show_error_with_details("generating CEST plots", e)
-        raise typer.Exit(1) from e
+        ),
+    )
 
 
 @plot_app.command("spectrum")
@@ -229,17 +243,16 @@ def plot_intensity(
             ),
         ],
     )
-    try:
-        out = generate_intensity_plots(
+    _run_plot_generation(
+        "intensity",
+        "generating plots",
+        lambda: generate_intensity_plots(
             results,
             output_path=output_path,
             show=show,
             reporter=ConsoleReporter(),
-        )
-        _print_plot_success(out, "intensity")
-    except Exception as e:
-        show_error_with_details("generating plots", e)
-        raise typer.Exit(1) from e
+        ),
+    )
 
 
 @plot_app.command("cpmg")
@@ -287,18 +300,17 @@ def plot_cpmg(
             ),
         ],
     )
-    try:
-        out = generate_cpmg_plots(
+    _run_plot_generation(
+        "CPMG",
+        "generating CPMG plots",
+        lambda: generate_cpmg_plots(
             results,
             time_t2=time_t2,
             output_path=output_path,
             show=show,
             reporter=ConsoleReporter(),
-        )
-        _print_plot_success(out, "CPMG")
-    except Exception as e:
-        show_error_with_details("generating CPMG plots", e)
-        raise typer.Exit(1) from e
+        ),
+    )
 
 
 @plot_app.command("mcmc")
