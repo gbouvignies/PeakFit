@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 __all__ = ["ResultsLoader"]
 _PARAM_NAME_PARTS = 3
+type MCMCChainRecord = tuple[Any, list[str], int, int, int]
 
 
 @dataclass
@@ -264,7 +265,7 @@ class ResultsLoader:
             return summary.statistics[0].residuals.noise_level
         return 1.0
 
-    def load_mcmc_chains(self) -> list[tuple[Any, list[str], int, int, int]]:
+    def load_mcmc_chains(self) -> list[MCMCChainRecord]:
         """Load MCMC chains from HDF5 files for all clusters.
 
         Returns:
@@ -279,35 +280,41 @@ class ResultsLoader:
         if not chains_dir.exists():
             return []
 
-        results = []
+        results: list[MCMCChainRecord] = []
         for h5_path in sorted(chains_dir.glob("cluster_*_chains.h5")):
-            try:
-                # Extract ID from filename "cluster_{id}_chains.h5"
-                cluster_id = int(h5_path.name.split("_")[1])
-
-                with h5py.File(str(h5_path), "r") as f:
-                    grp = f[f"cluster_{cluster_id}"]
-
-                    if "chains" in grp:
-                        chain = grp["chains"][()]
-                        nonlinear_names = [n.decode() for n in grp["nonlinear_names"][:]]
-
-                        # Try to read burn-in index and thinning
-                        burn_in = 0
-                        thin = 1
-                        if "burn_in" in grp:
-                            b_grp = grp["burn_in"]
-                            if "thin" in b_grp.attrs:
-                                thin = int(b_grp.attrs["thin"])
-
-                            if "burn_in_idx" in b_grp.attrs:
-                                burn_in = int(b_grp.attrs["burn_in_idx"])
-                            elif "burn_in" in b_grp.attrs:
-                                val = int(b_grp.attrs["burn_in"])
-                                burn_in = int(np.ceil(val / thin))
-
-                        results.append((chain, nonlinear_names, cluster_id, burn_in, thin))
-            except Exception:
-                continue
+            if record := _load_mcmc_chain_file(h5_path):
+                results.append(record)
 
         return results
+
+
+def _load_mcmc_chain_file(path: Path) -> MCMCChainRecord | None:
+    """Load one MCMC chain file, returning None when it is incomplete."""
+    try:
+        cluster_id = int(path.name.split("_")[1])
+        with h5py.File(str(path), "r") as handle:
+            group = handle[f"cluster_{cluster_id}"]
+            if "chains" not in group:
+                return None
+
+            chain = group["chains"][()]
+            nonlinear_names = [name.decode() for name in group["nonlinear_names"][:]]
+            burn_in, thin = _load_burn_in_metadata(group)
+            return chain, nonlinear_names, cluster_id, burn_in, thin
+    except (KeyError, OSError, ValueError):
+        return None
+
+
+def _load_burn_in_metadata(group: Any) -> tuple[int, int]:
+    """Read burn-in and thinning metadata from an MCMC HDF5 group."""
+    if "burn_in" not in group:
+        return 0, 1
+
+    burn_in_group = group["burn_in"]
+    thin = int(burn_in_group.attrs.get("thin", 1))
+    if "burn_in_idx" in burn_in_group.attrs:
+        return int(burn_in_group.attrs["burn_in_idx"]), thin
+    if "burn_in" in burn_in_group.attrs:
+        burn_in = int(np.ceil(int(burn_in_group.attrs["burn_in"]) / thin))
+        return burn_in, thin
+    return 0, thin
