@@ -34,6 +34,7 @@ from peakfit.ui.views import display_post_fit_summary, live_fit_display
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.config import PeakFitConfig
+    from peakfit.engine.domain.peaks import Peak
     from peakfit.fit.fitting import LoadedData
     from peakfit.shared.reporter import Reporter
     from peakfit.ui.auto_pick_stepper import AutoPickStepController
@@ -279,18 +280,16 @@ def fit_command(
 
         # === 7. WRITE OUTPUTS ===
         with console.status("[info]Writing results...[/info]", spinner="dots"):
-            input_paths = {"spectrum": spectrum}
-            if peaklist is not None:
-                input_paths["peaklist"] = peaklist
-            else:
-                auto_peaklist = write_autopicked_peaklist(result.output_dir, data.peaks)
-                input_paths["peaklist"] = auto_peaklist
-            if z_values:
-                input_paths["z_values"] = z_values
-
             if result.spectra is None:
                 raise ValueError("No spectra in result")
 
+            input_paths = _collect_input_paths(
+                spectrum=spectrum,
+                peaklist=peaklist,
+                z_values=z_values,
+                output_dir=result.output_dir,
+                peaks=data.peaks,
+            )
             write_fit_run_outputs(result, result.spectra, fit_config, input_paths, reporter)
 
     except Exception as e:
@@ -347,6 +346,24 @@ def _load_fit_data(
     finally:
         if stepper is not None:
             stepper.close()
+
+
+def _collect_input_paths(
+    *,
+    spectrum: Path,
+    peaklist: Path | None,
+    z_values: Path | None,
+    output_dir: Path,
+    peaks: list[Peak],
+) -> dict[str, Path]:
+    """Collect reproducibility input paths for output metadata."""
+    input_paths = {"spectrum": spectrum}
+    input_paths["peaklist"] = (
+        peaklist if peaklist is not None else write_autopicked_peaklist(output_dir, peaks)
+    )
+    if z_values is not None:
+        input_paths["z_values"] = z_values
+    return input_paths
 
 
 def _run_interactive_fit(
