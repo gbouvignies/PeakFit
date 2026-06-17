@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 import multiprocessing
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -29,6 +28,7 @@ from peakfit.fit.auto_pick import auto_pick_peaks
 from peakfit.fit.auto_pick_types import AutoPickCycleAction, AutoPickCycleReport
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 from peakfit.fit.results import build_fit_results
+from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart, RunSummary
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
 from peakfit.io.state import default_state_path, save_state
@@ -42,35 +42,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
 
-    from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.config import PeakFitConfig
-    from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra
-    from peakfit.engine.domain.state import FittingState
-    from peakfit.engine.results import FitResult
     from peakfit.shared.reporter import Reporter
 
     type AutoPickCallbackBuilder = Callable[
         [Spectra, float], Callable[[AutoPickCycleReport], AutoPickCycleAction]
     ]
-
-
-# =============================================================================
-# Data Loading
-# =============================================================================
-
-
-@dataclass(frozen=True)
-class LoadedData:
-    """Container for loaded fitting data."""
-
-    spectra: Spectra
-    peaks: list[Peak]
-    noise: float
-    noise_source: str
-    shape_names: list[str]
-    contour_level: float
-    clusters: list[Cluster]
 
 
 def _format_auto_pick_tuple(values: tuple[float | int, ...], precision: int = 3) -> str:
@@ -282,62 +260,7 @@ def load_data(
     )
 
 
-# =============================================================================
-# Result Containers
-# =============================================================================
-
-
-@dataclass(frozen=True)
-class RunSummary:
-    """Summary statistics for a fitting run."""
-
-    n_clusters: int
-    n_peaks: int
-    success_rate: float
-    n_converged: int
-    mean_redchi: float
-    std_redchi: float
-    median_redchi: float
-
-
-@dataclass(frozen=True)
-class FitRun:
-    """Result of a complete fitting run."""
-
-    state: FittingState
-    results: list[FitResult]
-    output_dir: Path
-    success: bool
-    summary: RunSummary
-    spectra: Spectra | None = None
-
-
-# =============================================================================
-# Progress Events
-# =============================================================================
-
-# Threshold for high reduced chi-squared
 HIGH_REDCHI = 5.0
-
-
-@dataclass(frozen=True)
-class ProgressStart:
-    """Event emitted at pipeline start with total steps."""
-
-    total_steps: int
-    n_clusters: int
-    n_workers: int
-
-
-@dataclass(frozen=True)
-class ClusterReview:
-    """Data for a cluster that needs review."""
-
-    cluster_id: str
-    peak_names: list[str]
-    reason: str  # "diverged", "high_chi", "at_bounds"
-    redchi: float
-    at_bounds: list[str]  # parameter names at bounds
 
 
 def find_review_clusters(result: FitRun) -> list[ClusterReview]:
