@@ -12,7 +12,7 @@ from peakfit.fit.auto_pick import (
     _accept_trial,
     _addition_threshold,
     _calculate_dof_scale_from_header,
-    _rollback_next_peak_number,
+    _PeakNameCounter,
     _TrialState,
     _update_peak_positions,
 )
@@ -86,10 +86,15 @@ def test_select_seed_candidate_uses_seed_point_as_first_trial() -> None:
     assert score == 3.0
 
 
-def test_rollback_next_peak_number_decrements_counter() -> None:
-    counter = [4]
-    _rollback_next_peak_number(counter)
-    assert counter == [3]
+def test_peak_name_counter_allocates_and_rolls_back() -> None:
+    counter = _PeakNameCounter(value=4)
+
+    assert counter.peek() == "ap4"
+    assert counter.consume() == "ap4"
+    assert counter.value == 5
+
+    counter.rollback()
+    assert counter.value == 4
 
 
 def test_extract_roi_indices_does_not_wrap_edges() -> None:

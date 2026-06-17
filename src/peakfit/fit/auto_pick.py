@@ -9,6 +9,7 @@ The implementation follows a residual-driven ROI strategy:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -109,6 +110,24 @@ _FLOAT_EPS = 1e-12
 _HISTORY_REWIND_STEPS = 2
 
 
+@dataclass
+class _PeakNameCounter:
+    """Allocate reproducible names for automatically picked peaks."""
+
+    value: int = 1
+
+    def peek(self) -> str:
+        return f"ap{self.value}"
+
+    def consume(self) -> str:
+        name = self.peek()
+        self.value += 1
+        return name
+
+    def rollback(self, count: int = 1) -> None:
+        self.value = max(1, self.value - count)
+
+
 def auto_pick_peaks(
     spectra: Spectra,
     shape_names: list[str],
@@ -129,7 +148,7 @@ def auto_pick_peaks(
         axis=0,
     ).copy()
 
-    next_peak_number = [1]
+    next_peak_number = _PeakNameCounter()
     accepted_peaks: list[Peak] = []
     accepted_rois = 0
     rejected_rois = 0
@@ -157,7 +176,7 @@ def auto_pick_peaks(
                     accepted_rois=accepted_rois,
                     rejected_rois=rejected_rois,
                     iterations=iterations,
-                    next_peak_number=next_peak_number[0],
+                    next_peak_number=next_peak_number.value,
                 )
             )
         iterations += 1
@@ -247,7 +266,7 @@ def auto_pick_peaks(
                 accepted_rois = target.accepted_rois
                 rejected_rois = target.rejected_rois
                 iterations = target.iterations
-                next_peak_number[0] = target.next_peak_number
+                next_peak_number.value = target.next_peak_number
                 iteration = max(1, iteration - 1)
             else:
                 first = history[-1]
@@ -259,7 +278,7 @@ def auto_pick_peaks(
                 accepted_rois = first.accepted_rois
                 rejected_rois = first.rejected_rois
                 iterations = first.iterations
-                next_peak_number[0] = first.next_peak_number
+                next_peak_number.value = first.next_peak_number
                 iteration = 1
             continue
 
@@ -324,7 +343,7 @@ def auto_pick_peaks(
                     accepted_rois = target.accepted_rois
                     rejected_rois = target.rejected_rois
                     iterations = target.iterations
-                    next_peak_number[0] = target.next_peak_number
+                    next_peak_number.value = target.next_peak_number
                     iteration = max(1, iteration - 1)
                 else:
                     first = history[-1]
@@ -336,7 +355,7 @@ def auto_pick_peaks(
                     accepted_rois = first.accepted_rois
                     rejected_rois = first.rejected_rois
                     iterations = first.iterations
-                    next_peak_number[0] = first.next_peak_number
+                    next_peak_number.value = first.next_peak_number
                     iteration = 1
                 continue
 
@@ -357,7 +376,7 @@ def _fit_roi_iteratively(
     shape_names: list[str],
     roi_indices: list[IntArray],
     noise: float,
-    next_peak_number: list[int],
+    next_peak_number: _PeakNameCounter,
     seed_point: tuple[int, ...],
     config: PeakFitConfig,
     peak_added_callback: Callable[
@@ -453,7 +472,7 @@ def _fit_roi_iteratively(
         accepted_states.pop()
         rollback_count = accepted_batch_sizes.pop() if accepted_batch_sizes else 1
         for _ in range(rollback_count):
-            _rollback_next_peak_number(next_peak_number)
+            next_peak_number.rollback()
         if used_points and rollback_count > 0:
             del used_points[-min(rollback_count, len(used_points)) :]
 
@@ -490,7 +509,7 @@ def _fit_roi_iteratively(
                 trial_reports,
                 add_threshold,
                 _candidate_ppm_for_plot(suggested_candidate, roi_points, spectra),
-                _peek_peak_name(next_peak_number) if suggested_candidate is not None else None,
+                next_peak_number.peek() if suggested_candidate is not None else None,
                 feedback_message,
             )
             feedback_message = None
@@ -637,7 +656,7 @@ def _fit_roi_iteratively(
             candidate_points.append(candidate_point)
             candidate_ppms.append(_point_to_ppm(candidate_point, spectra))
             candidate_scores.append(candidate_score)
-            candidate_name = _consume_peak_name(next_peak_number)
+            candidate_name = next_peak_number.consume()
             candidate_names.append(candidate_name)
             candidate_peaks.append(
                 _create_peak(
@@ -684,7 +703,7 @@ def _fit_roi_iteratively(
                 )
             )
             for _ in candidate_names:
-                _rollback_next_peak_number(next_peak_number)
+                next_peak_number.rollback()
             if peak_added_callback is None:
                 break
             command, selected = _wait_for_user_candidate(accepted_state)
@@ -719,7 +738,7 @@ def _fit_roi_iteratively(
                 )
             )
             for _ in candidate_names:
-                _rollback_next_peak_number(next_peak_number)
+                next_peak_number.rollback()
             if peak_added_callback is None:
                 break
             command, selected = _wait_for_user_candidate(accepted_state)
@@ -761,7 +780,7 @@ def _fit_roi_iteratively(
 
         if not decision.accepted:
             for _ in candidate_names:
-                _rollback_next_peak_number(next_peak_number)
+                next_peak_number.rollback()
             if peak_added_callback is None:
                 break
             command, selected = _wait_for_user_candidate(accepted_state)
@@ -925,24 +944,6 @@ def _refit_state_with_released_linewidths(
         refined_state,
         f"Release LWs applied: changed {changed}/{total} linewidths (max Δ={max_delta:.3g} Hz).",
     )
-
-
-def _peek_peak_name(next_peak_number: list[int]) -> str:
-    """Return the name that will be assigned to the next trial peak."""
-    return f"ap{next_peak_number[0]}"
-
-
-def _consume_peak_name(next_peak_number: list[int]) -> str:
-    """Allocate and advance the global peak name counter."""
-    name = _peek_peak_name(next_peak_number)
-    next_peak_number[0] += 1
-    return name
-
-
-def _rollback_next_peak_number(next_peak_number: list[int]) -> None:
-    """Rollback peak numbering by one (used when undoing last accepted peak)."""
-    if next_peak_number[0] > 1:
-        next_peak_number[0] -= 1
 
 
 def _linewidth_change_stats(
