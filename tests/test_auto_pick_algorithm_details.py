@@ -9,11 +9,7 @@ from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.types import ParamSpec
 from peakfit.fit.auto_pick import (
-    _accept_trial,
-    _addition_threshold,
-    _calculate_dof_scale_from_header,
     _PeakNameCounter,
-    _TrialState,
     _update_peak_positions,
 )
 from peakfit.fit.auto_pick_candidates import (
@@ -34,6 +30,15 @@ from peakfit.fit.auto_pick_candidates import (
 from peakfit.fit.auto_pick_candidates import (
     select_seed_candidate as _select_seed_candidate,
 )
+from peakfit.fit.auto_pick_decision import (
+    accept_trial as _accept_trial,
+)
+from peakfit.fit.auto_pick_decision import (
+    addition_threshold as _addition_threshold,
+)
+from peakfit.fit.auto_pick_decision import (
+    calculate_dof_scale_from_header as _calculate_dof_scale_from_header,
+)
 from peakfit.fit.auto_pick_parameters import (
     any_cs_close_to_constraint as _any_cs_close_to_constraint,
 )
@@ -46,6 +51,7 @@ from peakfit.fit.auto_pick_parameters import (
 from peakfit.fit.auto_pick_parameters import (
     initialize_new_peak_from_median as _initialize_new_peak_from_median,
 )
+from peakfit.fit.auto_pick_state import TrialState as _TrialState
 
 
 def test_select_next_candidate_respects_eligible_mask() -> None:

@@ -55,6 +55,7 @@ from peakfit.fit.auto_pick_candidates import (
     stack_roi_points as _stack_roi_points,
 )
 from peakfit.fit.auto_pick_decision import accept_trial as _accept_trial
+from peakfit.fit.auto_pick_decision import addition_threshold as _addition_threshold
 from peakfit.fit.auto_pick_decision import (
     calculate_dof_scale_from_header as _calculate_dof_scale_from_header,
 )
@@ -850,19 +851,6 @@ def _fit_roi_iteratively(
         stopped_by_user=stopped_by_user,
         previous_cluster_requested=previous_cluster_requested,
     )
-
-
-def _addition_threshold(config: PeakFitConfig, noise: float) -> float:
-    """Threshold for adding peaks inside an ROI.
-
-    Uses a residual-noise cutoff, but never below the contour level that
-    defined the ROI.
-    """
-    add_threshold = float(config.auto_peak.add_threshold_sigma) * float(noise)
-    contour_level = config.clustering.contour_level
-    if contour_level is None:
-        contour_level = config.clustering.contour_factor * noise
-    return max(add_threshold, float(contour_level))
 
 
 def _refit_state_with_released_linewidths(

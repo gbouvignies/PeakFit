@@ -35,6 +35,15 @@ def calculate_dof_scale_from_header(spectra: Spectra) -> float:
     return float(max(scale, _FLOAT_EPS))
 
 
+def addition_threshold(config: PeakFitConfig, noise: float) -> float:
+    """Threshold for adding peaks inside an ROI."""
+    add_threshold = float(config.auto_peak.add_threshold_sigma) * float(noise)
+    contour_level = config.clustering.contour_level
+    if contour_level is None:
+        contour_level = config.clustering.contour_factor * noise
+    return max(add_threshold, float(contour_level))
+
+
 def accept_trial(
     previous: TrialState | None,
     new: TrialState,
@@ -118,5 +127,6 @@ def _rss(residual: FloatArray, mask: np.ndarray, noise: float) -> float:
 
 __all__ = [
     "accept_trial",
+    "addition_threshold",
     "calculate_dof_scale_from_header",
 ]
