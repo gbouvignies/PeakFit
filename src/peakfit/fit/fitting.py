@@ -246,10 +246,7 @@ def run_fit(
 
         items = _iter_pipeline(config, data, params, optimizer, n_workers)
 
-        if progress_callback:
-            pipeline_result = _consume_with_callback(items, progress_callback)
-        else:
-            pipeline_result = _consume_simple(items)
+        pipeline_result = _consume_pipeline(items, progress_callback)
 
         if pipeline_result is None:
             raise RuntimeError("Pipeline produced no result")
@@ -311,25 +308,16 @@ def _iter_pipeline(
         )
 
 
-def _consume_simple(items: Iterator[Any]) -> PipelineResult | None:
-    """Consume pipeline items without callback."""
-    result = None
-    for item in items:
-        if isinstance(item, PipelineResult):
-            result = item
-    return result
-
-
-def _consume_with_callback(
+def _consume_pipeline(
     items: Iterator[Any],
-    callback: Callable[[Any], None],
+    callback: Callable[[Any], None] | None,
 ) -> PipelineResult | None:
-    """Consume pipeline items with callback for each item."""
+    """Consume yielded progress items and return the final pipeline result."""
     result = None
     for item in items:
         if isinstance(item, PipelineResult):
             result = item
-        else:
+        elif callback is not None:
             callback(item)
     return result
 
