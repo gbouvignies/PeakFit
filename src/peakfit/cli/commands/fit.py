@@ -168,7 +168,6 @@ def fit_command(
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
     reporter = ConsoleReporter()
 
-    # === 1. MANDATORY VALIDATION ===
     validation = validate_inputs(spectrum, peaklist)
     if validation.errors:
         error("Validation failed. Fix the errors below before fitting.")
@@ -176,7 +175,6 @@ def fit_command(
             bullet(str(e), style="error")
         raise typer.Exit(1)
 
-    # === 2. BUILD CONFIG ===
     fit_config = build_fit_config(
         config=config,
         output=output,
@@ -194,40 +192,17 @@ def fit_command(
         optimizer=optimizer,
     )
 
-    # Interactive fits show the richer pre-fit setup panel, so avoid a redundant header.
     if fit_config.output.headless:
-        show_command_summary(
-            "Fitting",
-            sections=[
-                (
-                    "Inputs",
-                    {
-                        "Spectrum": display_path(spectrum),
-                        "Peak list": display_path(peaklist) if peaklist is not None else "Auto",
-                        "Z values": display_path(z_values) if z_values is not None else "None",
-                    },
-                ),
-                (
-                    "Fitting",
-                    {
-                        "Optimizer": optimizer,
-                        "Lineshape": str(fit_config.fitting.lineshape),
-                        "Refine iterations": str(fit_config.fitting.refine_iterations),
-                        "Auto-pick step mode": "Yes" if auto_pick_step else "No",
-                        "Workers": "All CPUs" if workers == -1 else str(workers),
-                    },
-                ),
-                (
-                    "Output",
-                    {
-                        "Base directory": display_path(fit_config.output.directory or Path("./")),
-                        "Formats": ", ".join(fit_config.output.formats),
-                    },
-                ),
-            ],
+        _show_headless_command_summary(
+            spectrum=spectrum,
+            peaklist=peaklist,
+            z_values=z_values,
+            fit_config=fit_config,
+            optimizer=optimizer,
+            auto_pick_step=auto_pick_step,
+            workers=workers,
         )
 
-    # === 3. LOAD DATA ===
     data = _load_fit_data(
         spectrum=spectrum,
         peaklist=peaklist,
@@ -237,16 +212,13 @@ def fit_command(
         reporter=reporter,
     )
 
-    # === 4. RESOLVE OUTPUT ===
     output_dir = resolve_output_dir(fit_config)
 
     if not fit_config.output.headless:
         show_prefit_check(data, output_dir, optimizer, fit_config, spectrum, peaklist, workers)
 
-    # === 5. FIT ===
     try:
         if fit_config.output.headless:
-            # Headless mode: use reporter for progress
             result = run_fit(
                 data,
                 fit_config,
@@ -256,12 +228,10 @@ def fit_command(
                 reporter=reporter,
             )
         else:
-            # Interactive mode: use live display with callback
             result = _run_interactive_fit(data, fit_config, output_dir, optimizer, workers)
 
         duration = (datetime.datetime.now() - start_time).total_seconds()
 
-        # === 6. POST-FIT SUMMARY ===
         if not fit_config.output.headless:
             reviews = find_review_clusters(result)
             clusters_to_review = _format_review_clusters(reviews)
@@ -278,7 +248,6 @@ def fit_command(
                 output_dir=display_path(result.output_dir),
             )
 
-        # === 7. WRITE OUTPUTS ===
         with console.status("[info]Writing results...[/info]", spinner="dots"):
             if result.spectra is None:
                 raise ValueError("No spectra in result")
@@ -297,7 +266,47 @@ def fit_command(
         raise typer.Exit(1) from e
 
 
-# === HELPERS ===
+def _show_headless_command_summary(
+    *,
+    spectrum: Path,
+    peaklist: Path | None,
+    z_values: Path | None,
+    fit_config: PeakFitConfig,
+    optimizer: str,
+    auto_pick_step: bool,
+    workers: int,
+) -> None:
+    """Show the compact header used when the live pre-fit panel is disabled."""
+    show_command_summary(
+        "Fitting",
+        sections=[
+            (
+                "Inputs",
+                {
+                    "Spectrum": display_path(spectrum),
+                    "Peak list": display_path(peaklist) if peaklist is not None else "Auto",
+                    "Z values": display_path(z_values) if z_values is not None else "None",
+                },
+            ),
+            (
+                "Fitting",
+                {
+                    "Optimizer": optimizer,
+                    "Lineshape": str(fit_config.fitting.lineshape),
+                    "Refine iterations": str(fit_config.fitting.refine_iterations),
+                    "Auto-pick step mode": "Yes" if auto_pick_step else "No",
+                    "Workers": "All CPUs" if workers == -1 else str(workers),
+                },
+            ),
+            (
+                "Output",
+                {
+                    "Base directory": display_path(fit_config.output.directory or Path("./")),
+                    "Formats": ", ".join(fit_config.output.formats),
+                },
+            ),
+        ],
+    )
 
 
 def _load_fit_data(
