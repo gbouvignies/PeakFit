@@ -11,13 +11,26 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from peakfit.engine.domain.data import PeakData
 from peakfit.io.readers.spectrum import read_spectra
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 _MIN_PARTS_FOR_NAME_AND_POSITION = 2
+
+
+@dataclass
+class PeakData:
+    """Peak metadata with N-dimensional position support."""
+
+    name: str
+    positions: list[float]
+    cluster_id: int | None = None
+
+    @property
+    def n_dims(self) -> int:
+        """Number of dimensions represented by the peak."""
+        return len(self.positions)
 
 
 @dataclass
