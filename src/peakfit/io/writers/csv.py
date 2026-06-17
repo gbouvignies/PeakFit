@@ -8,13 +8,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from peakfit.io.writers.config import WriterConfig
-from peakfit.io.writers.utils import format_float, get_peak_name
+from peakfit.io.writers.utils import canonical_parameter_name, format_float, get_peak_name
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.fit.results import FitResults, ParameterEstimate
-
+    from peakfit.fit.results import FitResults
 
 _CANONICAL_NAME_PARTS = 3
 
@@ -118,12 +117,12 @@ def _build_parameter_rows(results: FitResults, config: WriterConfig) -> list[dic
     for cluster in results.clusters:
         for param in cluster.lineshape_params:
             peak_name = get_peak_name(param, cluster.peak_names)
-            canonical_name = _canonical_parameter_name(param, peak_name)
+            parameter_name = canonical_parameter_name(param, peak_name)
 
             row: dict[str, Any] = {
                 "cluster_id": cluster.cluster_id,
                 "peak_name": peak_name,
-                "parameter_name": canonical_name,
+                "parameter_name": parameter_name,
                 "category": param.category.value,
                 "value": _fmt_required(param.value, config),
                 "std_error": _fmt_required(param.std_error, config),
@@ -140,31 +139,6 @@ def _build_parameter_rows(results: FitResults, config: WriterConfig) -> list[dic
             rows.append(row)
 
     return rows
-
-
-def _canonical_parameter_name(param: ParameterEstimate, peak_name: str) -> str:
-    """Return canonical dot-notation parameter identifier."""
-    if param.param_id is not None:
-        if param.param_id.axis:
-            return param.param_id.name
-        entity = (
-            f"cluster_{param.param_id.cluster_id}"
-            if param.param_id.cluster_id is not None
-            else param.param_id.peak_name
-        )
-        suffix = (
-            f"{param.param_id.label}{param.param_id.index}"
-            if param.param_id.index is not None
-            else param.param_id.label
-        )
-        return f"{entity}.F0.{suffix}"
-
-    name = param.name
-    parts = name.split(".")
-    if len(parts) == _CANONICAL_NAME_PARTS:
-        return name
-
-    return f"{peak_name}.F0.{name.replace('.', '_')}"
 
 
 def _build_intensity_rows(results: FitResults, config: WriterConfig) -> list[dict[str, Any]]:
@@ -200,7 +174,7 @@ def _detect_dimension_labels(results: FitResults) -> list[str]:
                     dim_labels.add(param.param_id.axis)
                 continue
 
-            canonical_name = _canonical_parameter_name(
+            canonical_name = canonical_parameter_name(
                 param, get_peak_name(param, cluster.peak_names)
             )
             parts = canonical_name.split(".")
@@ -228,7 +202,7 @@ def _collect_shift_data(
 
         for param in cluster.lineshape_params:
             peak_name = get_peak_name(param, cluster.peak_names)
-            canonical_name = _canonical_parameter_name(param, peak_name)
+            canonical_name = canonical_parameter_name(param, peak_name)
             parts = canonical_name.split(".")
             if len(parts) != _CANONICAL_NAME_PARTS or parts[2] != "cs":
                 continue

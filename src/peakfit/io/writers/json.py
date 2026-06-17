@@ -9,7 +9,7 @@ import numpy as np
 
 from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION, FitSummarySchema
 from peakfit.io.writers.config import WriterConfig
-from peakfit.io.writers.utils import JsonValue, NumpyEncoder
+from peakfit.io.writers.utils import JsonValue, NumpyEncoder, canonical_parameter_name
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -108,23 +108,8 @@ def _serialize_parameter(
     precision = config.precision
     threshold = config.scientific_notation_threshold
 
-    if param.param_id is not None and not param.param_id.axis:
-        entity = (
-            f"cluster_{param.param_id.cluster_id}"
-            if param.param_id.cluster_id is not None
-            else param.param_id.peak_name
-        )
-        suffix = (
-            f"{param.param_id.label}{param.param_id.index}"
-            if param.param_id.index is not None
-            else param.param_id.label
-        )
-        canonical_name = f"{entity}.F0.{suffix}"
-    else:
-        canonical_name = param.param_id.name if param.param_id is not None else param.name
-
     result: dict[str, JsonValue] = {
-        "name": canonical_name,
+        "name": canonical_parameter_name(param),
         "category": param.category.value,
         "value": _format_value(param.value, precision, threshold),
         "std_error": _format_value(param.std_error, precision, threshold),

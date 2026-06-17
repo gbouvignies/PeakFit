@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 
 type JsonValue = dict[str, "JsonValue"] | list["JsonValue"] | str | int | float | bool | None
 
+_CANONICAL_NAME_PARTS = 3
+
 
 def format_float(
     value: float | None,
@@ -80,6 +82,33 @@ def get_peak_name(param: ParameterEstimate, peak_names: list[str]) -> str:
     return peak_names[0] if peak_names else ""
 
 
+def canonical_parameter_name(param: ParameterEstimate, peak_name: str | None = None) -> str:
+    """Return the canonical dot-notation identifier for an output parameter."""
+    if param.param_id is not None:
+        if param.param_id.axis:
+            return param.param_id.name
+        entity = (
+            f"cluster_{param.param_id.cluster_id}"
+            if param.param_id.cluster_id is not None
+            else param.param_id.peak_name
+        )
+        suffix = (
+            f"{param.param_id.label}{param.param_id.index}"
+            if param.param_id.index is not None
+            else param.param_id.label
+        )
+        return f"{entity}.F0.{suffix}"
+
+    if peak_name is None:
+        return param.name
+
+    parts = param.name.split(".")
+    if len(parts) == _CANONICAL_NAME_PARTS:
+        return param.name
+
+    return f"{peak_name}.F0.{param.name.replace('.', '_')}"
+
+
 class NumpyEncoder(json.JSONEncoder):
     """JSON encoder that handles numpy types and Path objects."""
 
@@ -101,6 +130,7 @@ class NumpyEncoder(json.JSONEncoder):
 __all__ = [
     "JsonValue",
     "NumpyEncoder",
+    "canonical_parameter_name",
     "format_float",
     "get_peak_name",
 ]
