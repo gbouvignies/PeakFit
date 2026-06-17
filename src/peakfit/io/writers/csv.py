@@ -1,4 +1,4 @@
-"""CSV format output writer."""
+"""CSV output writers."""
 
 from __future__ import annotations
 
@@ -13,285 +13,306 @@ from peakfit.io.writers.utils import format_float, get_peak_name
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.fit.results import (
-        FitResults,
-        ParameterEstimate,
-    )
+    from peakfit.fit.results import FitResults, ParameterEstimate
 
 
 _CANONICAL_NAME_PARTS = 3
 
 
-class CSVWriter:
-    """Writer for CSV outputs."""
+def has_shift_parameters(results: FitResults) -> bool:
+    """Return whether shift parameters are present in results."""
+    return bool(_detect_dimension_labels(results))
 
-    def __init__(self, config: WriterConfig | None = None) -> None:
-        self.config = config or WriterConfig()
 
-    def has_shift_parameters(self, results: FitResults) -> bool:
-        """Return whether shift parameters are present in results."""
-        return bool(self._detect_dimension_labels(results))
+def write_parameters(
+    results: FitResults,
+    path: Path,
+    config: WriterConfig | None = None,
+) -> None:
+    """Write model parameters with canonical identifiers."""
+    cfg = config or WriterConfig()
+    rows = _build_parameter_rows(results, cfg)
 
-    def write_parameters(self, results: FitResults, path: Path) -> None:
-        """Write model parameters with canonical identifiers.
+    required_columns = [
+        "cluster_id",
+        "peak_name",
+        "parameter_name",
+        "category",
+        "value",
+        "std_error",
+        "is_fixed",
+        "is_global",
+    ]
+    optional_columns = [
+        "ci_68_lower",
+        "ci_68_upper",
+        "ci_95_lower",
+        "ci_95_upper",
+        "unit",
+        "min_bound",
+        "max_bound",
+    ]
 
-        The clean-break schema uses one parameter per row with:
-        - canonical `parameter_name` like `2N-H.F2.lw`
-        - optional uncertainty/bounds columns included only when present.
-        """
-        rows = self._build_parameter_rows(results)
+    present_optional = [
+        col for col in optional_columns if any(_is_present(row.get(col, "")) for row in rows)
+    ]
+    header = required_columns + present_optional
+    _write_rows(path, header, rows)
 
-        required_columns = [
-            "cluster_id",
-            "peak_name",
-            "parameter_name",
-            "category",
-            "value",
-            "std_error",
-            "is_fixed",
-            "is_global",
-        ]
-        optional_columns = [
-            "ci_68_lower",
-            "ci_68_upper",
-            "ci_95_lower",
-            "ci_95_upper",
-            "unit",
-            "min_bound",
-            "max_bound",
-        ]
 
-        present_optional = [
-            col
-            for col in optional_columns
-            if any(self._is_present(row.get(col, "")) for row in rows)
-        ]
-        header = required_columns + present_optional
+def write_intensities(
+    results: FitResults,
+    path: Path,
+    config: WriterConfig | None = None,
+) -> None:
+    """Write per-plane fitted amplitudes for each peak."""
+    cfg = config or WriterConfig()
+    rows = _build_intensity_rows(results, cfg)
 
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(header)
-            for row in rows:
-                writer.writerow([row.get(col, "") for col in header])
+    required_columns = [
+        "cluster_id",
+        "peak_name",
+        "plane_index",
+        "intensity",
+        "intensity_err",
+    ]
+    optional_columns = [
+        "z_value",
+        "ci_68_lower",
+        "ci_68_upper",
+    ]
+    present_optional = [
+        col for col in optional_columns if any(_is_present(row.get(col, "")) for row in rows)
+    ]
+    header = required_columns + present_optional
+    _write_rows(path, header, rows)
 
-    def _build_parameter_rows(self, results: FitResults) -> list[dict[str, Any]]:
-        """Build normalized rows for parameter export."""
-        rows: list[dict[str, Any]] = []
 
-        for cluster in results.clusters:
-            for param in cluster.lineshape_params:
-                peak_name = get_peak_name(param, cluster.peak_names)
-                canonical_name = self._canonical_parameter_name(param, peak_name)
+def write_shifts(
+    results: FitResults,
+    path: Path,
+    config: WriterConfig | None = None,
+) -> None:
+    """Write chemical shifts in wide format for quick navigation."""
+    cfg = config or WriterConfig()
+    dim_labels = _detect_dimension_labels(results)
+    rows = _collect_shift_data(results, dim_labels, cfg)
 
-                row: dict[str, Any] = {
+    if not dim_labels or not rows:
+        return
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        header = ["peak_name"]
+        for dim in dim_labels:
+            header.extend([f"cs_{dim}_ppm", f"cs_{dim}_err"])
+        writer.writerow(header)
+        writer.writerows(rows)
+
+
+def _build_parameter_rows(results: FitResults, config: WriterConfig) -> list[dict[str, Any]]:
+    """Build normalized rows for parameter export."""
+    rows: list[dict[str, Any]] = []
+
+    for cluster in results.clusters:
+        for param in cluster.lineshape_params:
+            peak_name = get_peak_name(param, cluster.peak_names)
+            canonical_name = _canonical_parameter_name(param, peak_name)
+
+            row: dict[str, Any] = {
+                "cluster_id": cluster.cluster_id,
+                "peak_name": peak_name,
+                "parameter_name": canonical_name,
+                "category": param.category.value,
+                "value": _fmt_required(param.value, config),
+                "std_error": _fmt_required(param.std_error, config),
+                "ci_68_lower": _fmt_optional(param.ci_68_lower, config),
+                "ci_68_upper": _fmt_optional(param.ci_68_upper, config),
+                "ci_95_lower": _fmt_optional(param.ci_95_lower, config),
+                "ci_95_upper": _fmt_optional(param.ci_95_upper, config),
+                "unit": param.unit,
+                "min_bound": _fmt_optional(param.min_bound, config, allow_infinite=False),
+                "max_bound": _fmt_optional(param.max_bound, config, allow_infinite=False),
+                "is_fixed": param.is_fixed,
+                "is_global": param.is_global,
+            }
+            rows.append(row)
+
+    return rows
+
+
+def _canonical_parameter_name(param: ParameterEstimate, peak_name: str) -> str:
+    """Return canonical dot-notation parameter identifier."""
+    if param.param_id is not None:
+        if param.param_id.axis:
+            return param.param_id.name
+        entity = (
+            f"cluster_{param.param_id.cluster_id}"
+            if param.param_id.cluster_id is not None
+            else param.param_id.peak_name
+        )
+        suffix = (
+            f"{param.param_id.label}{param.param_id.index}"
+            if param.param_id.index is not None
+            else param.param_id.label
+        )
+        return f"{entity}.F0.{suffix}"
+
+    name = param.name
+    parts = name.split(".")
+    if len(parts) == _CANONICAL_NAME_PARTS:
+        return name
+
+    return f"{peak_name}.F0.{name.replace('.', '_')}"
+
+
+def _build_intensity_rows(results: FitResults, config: WriterConfig) -> list[dict[str, Any]]:
+    """Build normalized rows for intensity export."""
+    rows: list[dict[str, Any]] = []
+
+    for cluster in results.clusters:
+        for amp in cluster.amplitudes:
+            rows.append(
+                {
                     "cluster_id": cluster.cluster_id,
-                    "peak_name": peak_name,
-                    "parameter_name": canonical_name,
-                    "category": param.category.value,
-                    "value": self._fmt_required(param.value),
-                    "std_error": self._fmt_required(param.std_error),
-                    "ci_68_lower": self._fmt_optional(param.ci_68_lower),
-                    "ci_68_upper": self._fmt_optional(param.ci_68_upper),
-                    "ci_95_lower": self._fmt_optional(param.ci_95_lower),
-                    "ci_95_upper": self._fmt_optional(param.ci_95_upper),
-                    "unit": param.unit,
-                    "min_bound": self._fmt_optional(param.min_bound, allow_infinite=False),
-                    "max_bound": self._fmt_optional(param.max_bound, allow_infinite=False),
-                    "is_fixed": param.is_fixed,
-                    "is_global": param.is_global,
+                    "peak_name": amp.peak_name,
+                    "plane_index": amp.plane_index,
+                    "z_value": _fmt_optional(amp.z_value, config),
+                    "intensity": _fmt_required(amp.value, config),
+                    "intensity_err": _fmt_required(amp.std_error, config),
+                    "ci_68_lower": _fmt_optional(amp.ci_68_lower, config),
+                    "ci_68_upper": _fmt_optional(amp.ci_68_upper, config),
                 }
-                rows.append(row)
-
-        return rows
-
-    def _canonical_parameter_name(self, param: ParameterEstimate, peak_name: str) -> str:
-        """Return canonical dot-notation parameter identifier."""
-        if param.param_id is not None:
-            if param.param_id.axis:
-                return param.param_id.name
-            entity = (
-                f"cluster_{param.param_id.cluster_id}"
-                if param.param_id.cluster_id is not None
-                else param.param_id.peak_name
             )
-            suffix = (
-                f"{param.param_id.label}{param.param_id.index}"
-                if param.param_id.index is not None
-                else param.param_id.label
+
+    return rows
+
+
+def _detect_dimension_labels(results: FitResults) -> list[str]:
+    """Detect available dimension labels from canonical shift parameters."""
+    dim_labels: set[str] = set()
+
+    for cluster in results.clusters:
+        for param in cluster.lineshape_params:
+            if param.param_id is not None:
+                if param.param_id.label == "cs" and param.param_id.axis:
+                    dim_labels.add(param.param_id.axis)
+                continue
+
+            canonical_name = _canonical_parameter_name(
+                param, get_peak_name(param, cluster.peak_names)
             )
-            return f"{entity}.F0.{suffix}"
+            parts = canonical_name.split(".")
+            if len(parts) == _CANONICAL_NAME_PARTS and parts[2] == "cs" and parts[1]:
+                dim_labels.add(parts[1])
 
-        name = param.name
-        parts = name.split(".")
-        if len(parts) == _CANONICAL_NAME_PARTS:
-            return name
+    return sorted(dim_labels, key=lambda x: int(x[1:]) if x.startswith("F") else 999)
 
-        return f"{peak_name}.F0.{name.replace('.', '_')}"
 
-    def write_intensities(self, results: FitResults, path: Path) -> None:
-        """Write per-plane fitted amplitudes for each peak."""
-        rows = self._build_intensity_rows(results)
+def _collect_shift_data(
+    results: FitResults,
+    dim_labels: list[str],
+    config: WriterConfig,
+) -> list[list[str]]:
+    """Collect and pivot chemical shift data by peak."""
+    if not dim_labels:
+        return []
 
-        required_columns = [
-            "cluster_id",
-            "peak_name",
-            "plane_index",
-            "intensity",
-            "intensity_err",
-        ]
-        optional_columns = [
-            "z_value",
-            "ci_68_lower",
-            "ci_68_upper",
-        ]
-        present_optional = [
-            col
-            for col in optional_columns
-            if any(self._is_present(row.get(col, "")) for row in rows)
-        ]
-        header = required_columns + present_optional
+    rows: list[list[str]] = []
+    prec = config.precision
+    thresh = config.scientific_notation_threshold
 
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(header)
-            for row in rows:
-                writer.writerow([row.get(col, "") for col in header])
+    for cluster in results.clusters:
+        peak_shifts: dict[str, dict[str, float | None]] = {}
 
-    def _build_intensity_rows(self, results: FitResults) -> list[dict[str, Any]]:
-        """Build normalized rows for intensity export."""
-        rows: list[dict[str, Any]] = []
+        for param in cluster.lineshape_params:
+            peak_name = get_peak_name(param, cluster.peak_names)
+            canonical_name = _canonical_parameter_name(param, peak_name)
+            parts = canonical_name.split(".")
+            if len(parts) != _CANONICAL_NAME_PARTS or parts[2] != "cs":
+                continue
 
-        for cluster in results.clusters:
-            for amp in cluster.amplitudes:
-                rows.append(
-                    {
-                        "cluster_id": cluster.cluster_id,
-                        "peak_name": amp.peak_name,
-                        "plane_index": amp.plane_index,
-                        "z_value": self._fmt_optional(amp.z_value),
-                        "intensity": self._fmt_required(amp.value),
-                        "intensity_err": self._fmt_required(amp.std_error),
-                        "ci_68_lower": self._fmt_optional(amp.ci_68_lower),
-                        "ci_68_upper": self._fmt_optional(amp.ci_68_upper),
-                    }
-                )
+            dim_label = parts[1]
+            if dim_label not in dim_labels:
+                continue
 
-        return rows
+            peak_shifts.setdefault(peak_name, {})
+            peak_shifts[peak_name][f"cs_{dim_label}"] = param.value
+            peak_shifts[peak_name][f"cs_{dim_label}_err"] = param.std_error
 
-    def write_shifts(self, results: FitResults, path: Path) -> None:
-        """Write chemical shifts in wide format for quick navigation."""
-        dim_labels = self._detect_dimension_labels(results)
-        rows = self._collect_shift_data(results, dim_labels)
-
-        if not dim_labels or not rows:
-            return
-
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            header = ["peak_name"]
+        for peak_name, shifts in peak_shifts.items():
+            row = [peak_name]
             for dim in dim_labels:
-                header.extend([f"cs_{dim}_ppm", f"cs_{dim}_err"])
-            writer.writerow(header)
-            writer.writerows(rows)
+                cs_val = shifts.get(f"cs_{dim}")
+                cs_err = shifts.get(f"cs_{dim}_err")
+                row.append(format_float(cs_val, prec, thresh) if cs_val is not None else "")
+                row.append(format_float(cs_err, prec, thresh) if cs_err is not None else "")
+            rows.append(row)
 
-    def _detect_dimension_labels(self, results: FitResults) -> list[str]:
-        """Detect available dimension labels from canonical shift parameters."""
-        dim_labels: set[str] = set()
+    return rows
 
-        for cluster in results.clusters:
-            for param in cluster.lineshape_params:
-                if param.param_id is not None:
-                    if param.param_id.label == "cs" and param.param_id.axis:
-                        dim_labels.add(param.param_id.axis)
-                    continue
 
-                canonical_name = self._canonical_parameter_name(
-                    param, get_peak_name(param, cluster.peak_names)
-                )
-                parts = canonical_name.split(".")
-                if len(parts) == _CANONICAL_NAME_PARTS and parts[2] == "cs" and parts[1]:
-                    dim_labels.add(parts[1])
+def _fmt_required(value: float | None, config: WriterConfig) -> str:
+    """Format required numeric value; never emits empty strings."""
+    safe_value = value
+    if safe_value is None:
+        safe_value = 0.0
+    try:
+        numeric_value = float(safe_value)
+    except (TypeError, ValueError):
+        numeric_value = 0.0
+    if not np.isfinite(numeric_value):
+        numeric_value = 0.0
+    return format_float(
+        numeric_value,
+        config.precision,
+        config.scientific_notation_threshold,
+    )
 
-        return sorted(dim_labels, key=lambda x: int(x[1:]) if x.startswith("F") else 999)
 
-    def _collect_shift_data(self, results: FitResults, dim_labels: list[str]) -> list[list[str]]:
-        """Collect and pivot chemical shift data by peak."""
-        if not dim_labels:
-            return []
+def _fmt_optional(
+    value: float | None,
+    config: WriterConfig,
+    allow_infinite: bool = True,
+) -> str:
+    """Format optional numeric value; emits empty strings when absent."""
+    if value is None:
+        return ""
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if np.isnan(numeric_value):
+        return ""
+    if np.isinf(numeric_value):
+        return "" if not allow_infinite else str(numeric_value)
 
-        rows: list[list[str]] = []
-        prec = self.config.precision
-        thresh = self.config.scientific_notation_threshold
+    return format_float(
+        numeric_value,
+        config.precision,
+        config.scientific_notation_threshold,
+    )
 
-        for cluster in results.clusters:
-            peak_shifts: dict[str, dict[str, float | None]] = {}
 
-            for param in cluster.lineshape_params:
-                peak_name = get_peak_name(param, cluster.peak_names)
-                canonical_name = self._canonical_parameter_name(param, peak_name)
-                parts = canonical_name.split(".")
-                if len(parts) != _CANONICAL_NAME_PARTS or parts[2] != "cs":
-                    continue
+def _is_present(value: Any) -> bool:
+    """Return true if a cell should count as present for column retention."""
+    return value not in ("", None)
 
-                dim_label = parts[1]
-                if dim_label not in dim_labels:
-                    continue
 
-                peak_shifts.setdefault(peak_name, {})
-                peak_shifts[peak_name][f"cs_{dim_label}"] = param.value
-                peak_shifts[peak_name][f"cs_{dim_label}_err"] = param.std_error
+def _write_rows(path: Path, header: list[str], rows: list[dict[str, Any]]) -> None:
+    """Write dictionaries as CSV rows using a fixed header."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for row in rows:
+            writer.writerow([row.get(col, "") for col in header])
 
-            for peak_name, shifts in peak_shifts.items():
-                row = [peak_name]
-                for dim in dim_labels:
-                    cs_val = shifts.get(f"cs_{dim}")
-                    cs_err = shifts.get(f"cs_{dim}_err")
-                    row.append(format_float(cs_val, prec, thresh) if cs_val is not None else "")
-                    row.append(format_float(cs_err, prec, thresh) if cs_err is not None else "")
-                rows.append(row)
 
-        return rows
-
-    def _fmt_required(self, value: float | None) -> str:
-        """Format required numeric value; never emits empty strings."""
-        safe_value = value
-        if safe_value is None:
-            safe_value = 0.0
-        try:
-            numeric_value = float(safe_value)
-        except (TypeError, ValueError):
-            numeric_value = 0.0
-        if not np.isfinite(numeric_value):
-            numeric_value = 0.0
-        return format_float(
-            numeric_value,
-            self.config.precision,
-            self.config.scientific_notation_threshold,
-        )
-
-    def _fmt_optional(self, value: float | None, allow_infinite: bool = True) -> str:
-        """Format optional numeric value; emits empty strings when absent."""
-        if value is None:
-            return ""
-        try:
-            numeric_value = float(value)
-        except (TypeError, ValueError):
-            return ""
-        if np.isnan(numeric_value):
-            return ""
-        if np.isinf(numeric_value):
-            return "" if not allow_infinite else str(numeric_value)
-
-        return format_float(
-            numeric_value,
-            self.config.precision,
-            self.config.scientific_notation_threshold,
-        )
-
-    @staticmethod
-    def _is_present(value: Any) -> bool:
-        """Return true if a cell should count as present for column retention."""
-        return value not in ("", None)
+__all__ = [
+    "has_shift_parameters",
+    "write_intensities",
+    "write_parameters",
+    "write_shifts",
+]
