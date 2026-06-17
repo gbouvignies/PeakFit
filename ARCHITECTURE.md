@@ -27,7 +27,8 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 1. `cli` parses user intent and builds configuration.
 2. `fit` validates inputs, loads spectra/peaks, prepares clusters, and runs direct fit pipeline functions.
 3. `engine` performs numerical work: clustering, lineshapes, optimizers, residuals, and statistics helpers.
-4. `fit.results` assembles output models, while `io` reads inputs and writes structured artifacts.
+4. `fit.results` assembles fit output data; `fit.result_models` owns the runtime output
+   dataclasses; `io` reads inputs and writes structured artifacts.
 5. `mcmc` and `plot` run post-fit workflows from canonical fit outputs.
 6. `ui` renders terminal output where the CLI needs it.
 
