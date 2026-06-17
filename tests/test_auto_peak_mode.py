@@ -109,11 +109,7 @@ def test_validation_skips_peaklist_when_missing(monkeypatch: pytest.MonkeyPatch)
     result = validate_inputs(Path("spectrum.ft2"), None)
 
     assert result.errors == []
-    assert result.info["Peaks"] == "Auto-detect"
-    assert len(result.checks) == 1
-    assert result.checks[0].name == "Peak list readable"
-    assert result.checks[0].passed is True
-    assert "automatic peak picking" in result.checks[0].message
+    assert result.is_valid
 
 
 def test_write_autopicked_peaklist(tmp_path: Path) -> None:

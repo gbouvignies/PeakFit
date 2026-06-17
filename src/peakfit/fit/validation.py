@@ -18,90 +18,19 @@ if TYPE_CHECKING:
 
 _MIN_PARTS_FOR_NAME_AND_POSITION = 2
 
-
-@dataclass
-class PeakData:
-    """Peak metadata with N-dimensional position support."""
-
-    name: str
-    positions: list[float]
-    cluster_id: int | None = None
-
-    @property
-    def n_dims(self) -> int:
-        """Number of dimensions represented by the peak."""
-        return len(self.positions)
-
-
-@dataclass
-class SpectrumData:
-    """Data extracted from spectrum validation."""
-
-    shape: tuple[int, ...]
-    ndim: int
-    spectrum_type: str
-
-
-@dataclass
-class ValidationCheck:
-    """Result of a single validation check."""
-
-    name: str
-    passed: bool
-    message: str
+type PeakRow = tuple[str, list[float]]
 
 
 @dataclass
 class ValidationResult:
-    """Complete validation result."""
+    """Blocking input validation errors for a fit run."""
 
-    spectrum: SpectrumData | None = None
-    peaks: list[PeakData] = field(default_factory=list)
-    checks: list[ValidationCheck] = field(default_factory=list)
-    info: dict[str, str] = field(default_factory=dict)
-    warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
         """Check if validation passed (no errors)."""
         return len(self.errors) == 0
-
-    @property
-    def n_dims(self) -> int:
-        """Number of spectral dimensions based on peaks."""
-        if not self.peaks:
-            return 0
-        return self.peaks[0].n_dims
-
-    def get_dimension_range(self, dim_index: int) -> tuple[float, float] | None:
-        """Get position range for a specific dimension.
-
-        Args:
-            dim_index: 0-based dimension index (0=F1, 1=F2, etc.)
-
-        Returns:
-        -------
-            (min, max) tuple or None if no peaks
-        """
-        if not self.peaks or dim_index >= self.n_dims:
-            return None
-        positions = [p.positions[dim_index] for p in self.peaks]
-        return (min(positions), max(positions))
-
-    @property
-    def x_range(self) -> tuple[float, float] | None:
-        """Get direct dimension (X/Fn) position range from peaks."""
-        if not self.peaks:
-            return None
-        return self.get_dimension_range(self.n_dims - 1)
-
-    @property
-    def y_range(self) -> tuple[float, float] | None:
-        """Get first indirect dimension (Y/F1) position range from peaks."""
-        if not self.peaks:
-            return None
-        return self.get_dimension_range(0)
 
 
 def validate_inputs(spectrum_path: Path, peaklist_path: Path | None) -> ValidationResult:
@@ -119,18 +48,8 @@ def validate_inputs(spectrum_path: Path, peaklist_path: Path | None) -> Validati
 
     _validate_spectrum(spectrum_path, result)
 
-    # Validate peak list when provided
     if peaklist_path is not None:
         _validate_peaklist(peaklist_path, result)
-    else:
-        result.info["Peaks"] = "Auto-detect"
-        result.checks.append(
-            ValidationCheck(
-                name="Peak list readable",
-                passed=True,
-                message="Skipped (automatic peak picking enabled)",
-            )
-        )
 
     return result
 
@@ -138,73 +57,21 @@ def validate_inputs(spectrum_path: Path, peaklist_path: Path | None) -> Validati
 def _validate_spectrum(spectrum_path: Path, result: ValidationResult) -> None:
     """Validate spectrum file and update result."""
     try:
-        spectra = read_spectra(spectrum_path, None, None)
-
-        n_series = spectra.data.shape[0]
-        spectrum_type = f"Pseudo-ND ({n_series} spectra)"
-
-        result.spectrum = SpectrumData(
-            shape=spectra.data.shape,
-            ndim=spectra.data.ndim,
-            spectrum_type=spectrum_type,
-        )
-
-        result.info["Spectrum shape"] = str(spectra.data.shape)
-        result.info["Dimensions"] = str(spectra.data.ndim)
-        result.info["Type"] = spectrum_type
-
-        result.checks.append(
-            ValidationCheck(
-                name="Spectrum file readable",
-                passed=True,
-                message="Pass",
-            )
-        )
-
+        read_spectra(spectrum_path, None, None)
     except (OSError, FileNotFoundError, ValueError, ImportError, TypeError) as e:
         result.errors.append(f"Failed to read spectrum: {e}")
-        result.checks.append(
-            ValidationCheck(
-                name="Spectrum file readable",
-                passed=False,
-                message=f"Failed: {e}",
-            )
-        )
 
 
 def _validate_peaklist(peaklist_path: Path, result: ValidationResult) -> None:
     """Validate peak list file and update result."""
     try:
-        # 1. Load peaks based on file format
-        peaks = _load_peaks(peaklist_path)
-
-        result.peaks = peaks
-        result.info["Peaks"] = str(len(peaks))
-
-        result.checks.append(
-            ValidationCheck(
-                name="Peak list readable",
-                passed=True,
-                message="Pass",
-            )
-        )
-
-        # 2. Validate consistency (duplicates, dimensions, etc.)
-        _validate_peak_consistency(peaks, result)
-
+        _load_peak_rows(peaklist_path)
     except (OSError, FileNotFoundError, ValueError, ImportError, TypeError) as e:
         result.errors.append(f"Failed to read peak list: {e}")
-        result.checks.append(
-            ValidationCheck(
-                name="Peak list readable",
-                passed=False,
-                message=f"Failed: {e}",
-            )
-        )
 
 
-def _load_peaks(peaklist_path: Path) -> list[PeakData]:
-    """Load peaks from file based on extension."""
+def _load_peak_rows(peaklist_path: Path) -> list[PeakRow]:
+    """Load enough peak-list data to validate the file."""
     suffix = peaklist_path.suffix.lower()
 
     if suffix == ".list":
@@ -218,41 +85,7 @@ def _load_peaks(peaklist_path: Path) -> list[PeakData]:
     raise ValueError(f"Unknown peak list format: {suffix}")
 
 
-def _validate_peak_consistency(peaks: list[PeakData], result: ValidationResult) -> None:
-    """Check peak list for logical consistency."""
-    # Check for duplicate names
-    names = [p.name for p in peaks]
-    if len(names) != len(set(names)):
-        result.warnings.append("Duplicate peak names found")
-        result.checks.append(
-            ValidationCheck(
-                name="No duplicate peaks",
-                passed=False,
-                message="Duplicates found",
-            )
-        )
-    else:
-        result.checks.append(
-            ValidationCheck(
-                name="No duplicate peaks",
-                passed=True,
-                message="Pass",
-            )
-        )
-
-    # Add position ranges to info
-    if peaks:
-        n_dims = peaks[0].n_dims if peaks else 0
-        for dim_idx in range(n_dims):
-            dim_label = f"F{dim_idx + 1}"
-            dim_range = result.get_dimension_range(dim_idx)
-            if dim_range:
-                result.info[f"{dim_label} range (ppm)"] = (
-                    f"{dim_range[0]:.2f} to {dim_range[1]:.2f}"
-                )
-
-
-def _read_sparky_list(path: Path) -> list[PeakData]:
+def _read_sparky_list(path: Path) -> list[PeakRow]:
     """Read Sparky format peak list with N-dimensional support."""
     peaks = []
     with path.open() as f:
@@ -271,23 +104,23 @@ def _read_sparky_list(path: Path) -> list[PeakData]:
                     except ValueError:
                         break  # Stop at first non-numeric
                 if positions:
-                    peaks.append(PeakData(name=name, positions=positions))
+                    peaks.append((name, positions))
     return peaks
 
 
-def _read_csv_list(path: Path) -> list[PeakData]:
+def _read_csv_list(path: Path) -> list[PeakRow]:
     """Read CSV format peak list with N-dimensional support."""
     df = pd.read_csv(path)
     return _parse_peaks_from_dataframe(df)
 
 
-def _read_excel_list(path: Path) -> list[PeakData]:
+def _read_excel_list(path: Path) -> list[PeakRow]:
     """Read Excel format peak list with N-dimensional support."""
     df = pd.read_excel(path)
     return _parse_peaks_from_dataframe(df)
 
 
-def _parse_peaks_from_dataframe(df: Any) -> list[PeakData]:
+def _parse_peaks_from_dataframe(df: Any) -> list[PeakRow]:
     """Parse peaks from a pandas DataFrame."""
     peaks = []
     pos_cols = _detect_position_columns(df)
@@ -298,7 +131,7 @@ def _parse_peaks_from_dataframe(df: Any) -> list[PeakData]:
     for _, row in df.iterrows():
         name_value = row.get("Assign F1", row.get("#", row.get("name", "")))
         positions = [_to_float(row.get(col)) for col in pos_cols]
-        peaks.append(PeakData(name=str(name_value), positions=positions))
+        peaks.append((str(name_value), positions))
     return peaks
 
 
@@ -334,7 +167,7 @@ def _detect_position_columns(df: Any) -> list[str]:
     return pos_cols
 
 
-def _read_json_list(path: Path) -> list[PeakData]:
+def _read_json_list(path: Path) -> list[PeakRow]:
     """Read JSON format peak list with N-dimensional support."""
     with path.open() as f:
         data = json.load(f)
@@ -353,7 +186,7 @@ def _read_json_list(path: Path) -> list[PeakData]:
                     pos = p.get(f"Pos F{i}") or p.get(f"w{i}")
                     if pos is not None:
                         positions.append(_to_float(pos))
-            peaks.append(PeakData(name=name, positions=positions))
+            peaks.append((name, positions))
         return peaks
     return []
 
@@ -370,9 +203,6 @@ def _to_float(value: Any) -> float:
 
 
 __all__ = [
-    "PeakData",
-    "SpectrumData",
-    "ValidationCheck",
     "ValidationResult",
     "validate_inputs",
 ]
