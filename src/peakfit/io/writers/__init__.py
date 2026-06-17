@@ -1,10 +1,12 @@
-"""Writer modules for PeakFit results output.
+"""Writer modules for PeakFit result output.
 
-This package provides output writing functionality:
-- CSV output (long format, suitable for pandas/R/Excel)
-- JSON output (machine-readable, structured)
-- Markdown output (compact human-readable reports)
-- Simulation output (simulated spectra)
+This package contains small functions for canonical fit artifacts and
+run-level files:
+- JSON summaries
+- CSV tables
+- optional Markdown reports
+- run README/state companions
+- optional simulated spectra
 
 Main entry points (import from concrete modules):
     from peakfit.io.writers.orchestrator import write_fit_outputs

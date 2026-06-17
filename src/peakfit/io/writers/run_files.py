@@ -1,4 +1,4 @@
-"""Simulation and README writing utilities."""
+"""Run-level output file utilities."""
 
 from __future__ import annotations
 
@@ -26,17 +26,7 @@ def write_simulated_spectra(
     params: Parameters,
     reporter: Reporter | None = None,
 ) -> Path | None:
-    """Write simulated spectra to file.
-
-    Simulates the spectra based on the fitted parameters and writes it to an NMRPipe file.
-
-    Args:
-        output_dir: Directory where the simulated file should be saved.
-        spectra: The original spectra object (used for metadata/header).
-        clusters: List of clusters used in the fit.
-        params: The fitted parameters.
-        reporter: Optional reporter for progress updates.
-    """
+    """Write optional simulated spectra to an NMRPipe file."""
     try:
         ng = import_module("nmrglue")
     except ModuleNotFoundError:
@@ -61,12 +51,7 @@ def write_simulated_spectra(
 
 
 def write_readme(output_dir: Path, summary: Any) -> Path:
-    """Generate a README.md file for the output directory.
-
-    Args:
-        output_dir: Path to the output directory.
-        summary: RunSummary object containing run metrics.
-    """
+    """Generate the output-directory README."""
     readme_path = output_dir / "README.md"
 
     lines = [

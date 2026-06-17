@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from peakfit.io.writers.simulation import write_readme
+from peakfit.io.writers.run_files import write_readme
 
 
 def test_run_readme_reports_summary_first_and_existing_files(tmp_path) -> None:

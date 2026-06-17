@@ -34,7 +34,7 @@ from peakfit.io.readers.spectrum import read_spectra
 from peakfit.io.state import default_state_path, save_state
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import write_fit_outputs
-from peakfit.io.writers.simulation import write_readme, write_simulated_spectra
+from peakfit.io.writers.run_files import write_readme, write_simulated_spectra
 from peakfit.shared.exceptions import DataIOError
 from peakfit.shared.paths import format_path
 

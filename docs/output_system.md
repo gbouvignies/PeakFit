@@ -76,8 +76,8 @@ This file is the canonical machine-readable summary for downstream analysis.
 
 - `build_output_plan()` resolves concrete files from requested formats and
   available data.
-- Direct writer functions serialize JSON, CSV, optional Markdown, and optional
-  simulated spectra.
+- Direct writer functions serialize JSON, CSV, optional Markdown, run-level
+  README/state companions, and optional simulated spectra.
 - There is no writer manager class and no output manifest; the fixed layout is
   the contract.
 - Per-plane amplitudes are exported only in `tables/intensities.csv`.
