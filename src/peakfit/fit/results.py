@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
+import platform
 import re
+import subprocess
+import sys
+from datetime import UTC, datetime
+from importlib import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +41,11 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.state import FittingState
 
 _AMPLITUDE_PARAM_PATTERN = re.compile(r"\.I\d+$")
+
+try:
+    __version__ = metadata.version("peakfit")
+except metadata.PackageNotFoundError:
+    __version__ = "unknown"
 
 
 def build_fit_results(
@@ -74,11 +85,46 @@ def build_fit_results(
 
 
 def _capture_metadata(config: dict[str, Any], input_files: dict[str, Path]) -> RunMetadata:
-    metadata = RunMetadata.capture(config)
+    run_metadata = RunMetadata(
+        timestamp=datetime.now(UTC).isoformat(),
+        software_version=__version__,
+        git_commit=_current_git_commit(),
+        python_version=sys.version,
+        platform=platform.platform(),
+        configuration=config,
+    )
     for name, path in input_files.items():
         if isinstance(path, Path) and path.exists():
-            metadata.add_input_file(name, path)
-    return metadata
+            run_metadata.input_files[name] = {
+                "path": str(path.name),
+                "checksum_sha256": _compute_file_checksum(path),
+            }
+    return run_metadata
+
+
+def _current_git_commit() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
+        return None
+
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()[:12]
+
+
+def _compute_file_checksum(path: Path, algorithm: str = "sha256") -> str:
+    h = hashlib.new(algorithm)
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def _build_cluster_output(

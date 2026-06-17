@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import hashlib
 import platform
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -17,8 +15,6 @@ import numpy as np
 from peakfit.engine.results import compute_chi_squared, compute_degrees_of_freedom
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from peakfit.engine.domain.param_id import ParameterId
     from peakfit.shared.typing import FloatArray
 
@@ -360,40 +356,6 @@ class RunMetadata:
     command_line: str = ""
     run_duration_seconds: float | None = None
 
-    @classmethod
-    def capture(cls, config: dict[str, Any] | None = None) -> RunMetadata:
-        """Capture current environment metadata."""
-        git_commit = None
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                git_commit = result.stdout.strip()[:12]
-        except (subprocess.SubprocessError, FileNotFoundError, OSError):
-            pass
-
-        return cls(
-            timestamp=datetime.now(UTC).isoformat(),
-            software_version=__version__,
-            git_commit=git_commit,
-            python_version=sys.version,
-            platform=platform.platform(),
-            configuration=config or {},
-        )
-
-    def add_input_file(self, name: str, path: Path) -> None:
-        """Add an input file with its checksum."""
-        if path.exists():
-            self.input_files[name] = {
-                "path": str(path.name),
-                "checksum_sha256": _compute_file_checksum(path),
-            }
-
 
 @dataclass
 class FitResults:
@@ -423,15 +385,6 @@ class FitResults:
         if not self.mcmc_diagnostics:
             return True
         return all(d.converged for d in self.mcmc_diagnostics)
-
-
-def _compute_file_checksum(path: Path, algorithm: str = "sha256") -> str:
-    """Compute checksum of a file."""
-    h = hashlib.new(algorithm)
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 __all__ = [
