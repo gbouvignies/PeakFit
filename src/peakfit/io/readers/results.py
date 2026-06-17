@@ -8,7 +8,6 @@ objects from the JSON summary files produced by the writer module.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 import h5py
@@ -19,92 +18,18 @@ from peakfit.engine.domain.params_scalar import Parameter, Parameters
 from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.state import FittingState
-from peakfit.engine.types import ClusterParameters, LineshapeResult, ParamSpec, Shape
+from peakfit.io.readers.reconstructed import ReconstructedShape
 from peakfit.io.schemas import ClusterResultSchema, FitSummarySchema
 from peakfit.shared.paths import format_path
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.shared.typing import FloatArray
+    from peakfit.engine.types import Shape
 
 __all__ = ["ResultsLoader"]
 _PARAM_NAME_PARTS = 3
 type MCMCChainRecord = tuple[Any, list[str], int, int, int]
-
-
-@dataclass
-class ReconstructedShape:
-    """Minimal shape for reconstruction from JSON results.
-
-    This is a lightweight implementation of the Shape protocol that provides
-    just enough functionality to reconstruct fitting state from saved results.
-    It does not support actual lineshape evaluation.
-    """
-
-    center: float
-    axis: str
-    name: str = ""
-    shape_name: str = "reconstructed"
-    param_names: list[str] = field(default_factory=list)
-    cluster_id: int = 0
-
-    @property
-    def dim_ctx(self) -> Any:
-        """Dimension context (not available for reconstructed shapes)."""
-        return None
-
-    @property
-    def center_i(self) -> int:
-        """Integer index of the center position."""
-        return int(self.center)
-
-    def print(self, params: Parameters) -> str:
-        """Return string representation."""
-        return f"# ReconstructedShape: {self.name}"
-
-    def evaluate(self, x_pt: Any, params: Parameters) -> Any:
-        """Evaluate lineshape (returns zeros for reconstructed shapes)."""
-        return np.zeros_like(x_pt)
-
-    def evaluate_derivatives(
-        self, x_pt: FloatArray, params: Parameters
-    ) -> tuple[FloatArray, dict[str, FloatArray]]:
-        """Evaluate lineshape with derivatives (not supported)."""
-        return np.zeros_like(x_pt), {}
-
-    def create_params(self) -> Parameters:
-        """Create empty parameters."""
-        return Parameters()
-
-    def get_parameter_spec(self) -> list[ParamSpec]:
-        """Get parameter specifications (empty for reconstructed)."""
-        return []
-
-    def fix_params(self, params: Parameters) -> None:
-        """Fix parameters (no-op for reconstructed)."""
-        pass
-
-    def release_params(self, params: Parameters) -> None:
-        """Release parameters (no-op for reconstructed)."""
-        pass
-
-    def evaluate_cluster(
-        self,
-        x_grid: Any,
-        cluster_params: ClusterParameters,
-        compute_derivs: bool = False,
-    ) -> LineshapeResult:
-        """Evaluate for cluster (returns zeros)."""
-        n = len(x_grid)
-        k = cluster_params.n_peaks if cluster_params.n_peaks > 0 else 1
-        return LineshapeResult(values=np.zeros((n, k)))
-
-    def get_cluster_parameters(
-        self, peaks: Any, params: Parameters, param_map: dict[str, int] | None = None
-    ) -> ClusterParameters:
-        """Get cluster parameters (returns empty)."""
-        return ClusterParameters()
 
 
 class ResultsLoader:
