@@ -67,7 +67,6 @@ def run_pipeline(
     *,
     optimizer: str = "varpro",
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,
-    progress_callback: Callable[[str, Any], None] | None = None,
 ) -> PipelineResult:
     """Execute fitting steps and return the final pipeline result."""
     final_result = None
@@ -80,7 +79,6 @@ def run_pipeline(
         spectra,
         optimizer=optimizer,
         executor=executor,
-        progress_callback=progress_callback,
     ):
         if isinstance(item, PipelineResult):
             final_result = item
@@ -101,7 +99,6 @@ def run_pipeline_iter(
     *,
     optimizer: str = "varpro",
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,
-    progress_callback: Callable[[str, Any], None] | None = None,
 ) -> Iterator[Any]:
     """Yield fit progress items and finally a PipelineResult."""
     fit_config = _normalize_config(config)
@@ -114,18 +111,11 @@ def run_pipeline_iter(
     current_fit_results: list[FitResult] = []
     optimizer_config = _build_optimizer_config(fit_config, optimizer)
 
-    for step_idx, step in enumerate(steps):
-        step_msg = f"Step {step_idx + 1}/{len(steps)}: {step.name}"
-
-        if progress_callback:
-            progress_callback("step_start", step_msg)
-
+    for step in steps:
         for iteration in range(step.iterations):
             if step.iterations > 1:
                 iter_msg = f"Iteration {iteration + 1}/{step.iterations}"
                 yield ("status", f"[bold blue]{iter_msg}[/]")
-                if progress_callback:
-                    progress_callback("iteration_start", iter_msg)
 
             tasks = _prepare_cluster_tasks(
                 config=fit_config,
@@ -138,7 +128,7 @@ def run_pipeline_iter(
             )
             step_results_map: dict[int, FitResult] = {}
             results_iter = mapper(fit_single_cluster_task, tasks)
-            yield from _process_execution_results(results_iter, step_results_map, progress_callback)
+            yield from _process_execution_results(results_iter, step_results_map)
 
             current_fit_results = [step_results_map[i] for i in range(len(clusters))]
             for res in current_fit_results:
@@ -148,9 +138,6 @@ def run_pipeline_iter(
                 yield ("status", "[dim]Correcting data with neighbors...[/]")
 
             update_cluster_corrections(final_params, clusters)
-
-        if progress_callback:
-            progress_callback("step_complete", step_idx)
 
     fit_params = FitParameters.from_parameters(final_params, list(peaks))
     state = FittingState(
@@ -197,19 +184,12 @@ def _prepare_cluster_tasks(
 def _process_execution_results(
     results_iter: Iterable[Any],
     results_map: dict[int, FitResult],
-    progress_callback: Callable[[str, Any], None] | None,
 ) -> Iterator[FitResult]:
     """Yield fit results from an executor iterator."""
     for task_res in results_iter:
         task_idx, result = task_res
         results_map[task_idx] = result
         yield result
-
-        if progress_callback:
-            progress_callback(
-                "cluster_end",
-                {"idx": task_idx, "success": result.success, "result": result},
-            )
 
 
 def _build_optimizer_config(config: PeakFitConfig, optimizer: str) -> OptimizerConfig:
