@@ -1,4 +1,4 @@
-# Optimizers
+# Optimizers And Runtime Tuning
 
 PeakFit exposes the optimizer choice via the CLI `--optimizer` flag. The current
 pipeline supports these optimizers:
@@ -24,6 +24,21 @@ peakfit fit spectrum.ft2 peaks.list --optimizer basin_hopping
 
 - Start with `varpro` for speed and stability.
 - Switch to `basin_hopping` when fits diverge or local minima are common.
+
+## Runtime Controls
+
+Refinement iterations improve cross-talk correction but add time per cluster:
+
+- `--refine 1` is the fastest useful pass for many datasets.
+- `--refine 2` or `--refine 3` can improve dense clusters at higher runtime cost.
+
+Cluster fitting is parallelizable:
+
+```bash
+peakfit fit spectrum.ft2 peaks.list --workers -1
+```
+
+Use `--workers -1` to use all available CPUs.
 
 ## Notes
 

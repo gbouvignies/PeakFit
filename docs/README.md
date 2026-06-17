@@ -5,8 +5,7 @@ This directory contains user and developer documentation aligned with the curren
 ## User Guides
 
 - **[Output System](output_system.md)** - Output directory structure and file formats
-- **[Optimization Guide](optimization_guide.md)** - Performance tuning and runtime tips
-- **[Optimizers](optimizers.md)** - Available optimizers and how to choose them
+- **[Optimizers](optimizers.md)** - Available optimizers, runtime controls, and how to choose them
 - **[Constraints & Fit Steps](constraints_and_fit_steps.md)** - Parameter constraints and multi-step fitting steps
 - **[MCMC Diagnostics](MCMC_DIAGNOSTICS.md)** - Uncertainty analysis and convergence metrics
 - **[Examples](../examples/)** - End-to-end usage examples
