@@ -54,10 +54,10 @@ from peakfit.fit.auto_pick_candidates import (
 from peakfit.fit.auto_pick_candidates import (
     stack_roi_points as _stack_roi_points,
 )
-from peakfit.fit.auto_pick_decision import accept_trial as _accept_trial
-from peakfit.fit.auto_pick_decision import addition_threshold as _addition_threshold
 from peakfit.fit.auto_pick_decision import (
-    calculate_dof_scale_from_header as _calculate_dof_scale_from_header,
+    accept_trial,
+    addition_threshold,
+    calculate_dof_scale_from_header,
 )
 from peakfit.fit.auto_pick_parameters import (
     any_cs_close_to_constraint as _any_cs_close_to_constraint,
@@ -86,10 +86,12 @@ from peakfit.fit.auto_pick_parameters import (
 from peakfit.fit.auto_pick_parameters import (
     sync_shared_params as _sync_shared_params,
 )
-from peakfit.fit.auto_pick_state import AutoPickSnapshot as _AutoPickSnapshot
-from peakfit.fit.auto_pick_state import RoiFitResult as _RoiFitResult
-from peakfit.fit.auto_pick_state import TrialFitOutcome as _TrialFitOutcome
-from peakfit.fit.auto_pick_state import TrialState as _TrialState
+from peakfit.fit.auto_pick_state import (
+    AutoPickSnapshot,
+    RoiFitResult,
+    TrialFitOutcome,
+    TrialState,
+)
 from peakfit.fit.auto_pick_types import (
     AutoPickCycleAction,
     AutoPickCycleCallback,
@@ -156,7 +158,7 @@ def auto_pick_peaks(
     iterations = 0
     stopped_by_user = False
     processed_mask = np.zeros(working_data.shape[1:], dtype=bool)
-    history: list[_AutoPickSnapshot] = []
+    history: list[AutoPickSnapshot] = []
     iteration = 1
 
     while iteration <= auto_cfg.max_clusters:
@@ -169,7 +171,7 @@ def auto_pick_peaks(
 
         if cycle_callback is not None:
             history.append(
-                _AutoPickSnapshot(
+                AutoPickSnapshot(
                     working_data=working_data.copy(),
                     calculated_data=calculated_data.copy(),
                     processed_mask=processed_mask.copy(),
@@ -186,7 +188,7 @@ def auto_pick_peaks(
         roi_x_limits, roi_y_limits = _roi_plot_limits(roi_indices, spectra)
 
         def _emit_peak_added_update(
-            state: _TrialState | None,
+            state: TrialState | None,
             trials: list[AutoPickTrialReport],
             add_threshold: float,
             next_candidate_ppm: tuple[float, float] | None,
@@ -382,7 +384,7 @@ def _fit_roi_iteratively(
     config: PeakFitConfig,
     peak_added_callback: Callable[
         [
-            _TrialState | None,
+            TrialState | None,
             list[AutoPickTrialReport],
             float,
             tuple[float, float] | None,
@@ -392,16 +394,16 @@ def _fit_roi_iteratively(
         AutoPickCycleAction,
     ]
     | None = None,
-) -> _RoiFitResult:
+) -> RoiFitResult:
     """Iteratively fit and grow a peak list in a single ROI."""
     auto_cfg = config.auto_peak
-    add_threshold = _addition_threshold(config, noise)
+    add_threshold = addition_threshold(config, noise)
     interactive_mode = peak_added_callback is not None
     candidate_threshold = None if interactive_mode else add_threshold
     min_separation_pts = 0 if interactive_mode else auto_cfg.min_peak_separation_pts
     roi_data = _extract_roi_data(working_data, roi_indices)
     roi_points = _stack_roi_points(roi_indices)
-    dof_scale = _calculate_dof_scale_from_header(spectra)
+    dof_scale = calculate_dof_scale_from_header(spectra)
     local_maxima_candidates = _initial_local_maxima_candidates(
         working_data=working_data,
         roi_indices=roi_indices,
@@ -409,8 +411,8 @@ def _fit_roi_iteratively(
         threshold=candidate_threshold,
     )
 
-    accepted_state: _TrialState | None = None
-    accepted_states: list[_TrialState] = []
+    accepted_state: TrialState | None = None
+    accepted_states: list[TrialState] = []
     accepted_batch_sizes: list[int] = []
     used_points: list[tuple[int, ...]] = []
     trial_reports: list[AutoPickTrialReport] = []
@@ -418,7 +420,7 @@ def _fit_roi_iteratively(
     advance_to_next_cluster = False
     previous_cluster_requested = False
 
-    def _consume_local_candidate(current_state: _TrialState | None) -> tuple[int, float] | None:
+    def _consume_local_candidate(current_state: TrialState | None) -> tuple[int, float] | None:
         if not local_maxima_candidates:
             return None
 
@@ -447,7 +449,7 @@ def _fit_roi_iteratively(
             return idx, score
         return None
 
-    def _suggest_candidate(current_state: _TrialState | None) -> tuple[int, float] | None:
+    def _suggest_candidate(current_state: TrialState | None) -> tuple[int, float] | None:
         local_candidate = _consume_local_candidate(current_state)
         if local_candidate is not None:
             return local_candidate
@@ -465,7 +467,7 @@ def _fit_roi_iteratively(
             eligible_mask=eligible_mask,
         )
 
-    def _undo_last_accepted() -> _TrialState | None:
+    def _undo_last_accepted() -> TrialState | None:
         nonlocal accepted_state
         if not accepted_states:
             return accepted_state
@@ -487,7 +489,7 @@ def _fit_roi_iteratively(
         return accepted_state
 
     def _wait_for_user_candidate(
-        current_state: _TrialState | None,
+        current_state: TrialState | None,
         *,
         initial_candidate: tuple[int, float] | None = None,
         initial_feedback: str | None = None,
@@ -597,7 +599,7 @@ def _fit_roi_iteratively(
     initial_state = accepted_state if interactive_mode else None
     candidate = _suggest_candidate(initial_state)
     if candidate is None and not interactive_mode:
-        return _RoiFitResult(
+        return RoiFitResult(
             accepted_state=accepted_state,
             trials=trial_reports,
             add_threshold=add_threshold,
@@ -609,7 +611,7 @@ def _fit_roi_iteratively(
         initial_feedback=None,
     )
     if command == "stop":
-        return _RoiFitResult(
+        return RoiFitResult(
             accepted_state=accepted_state,
             trials=trial_reports,
             add_threshold=add_threshold,
@@ -617,13 +619,13 @@ def _fit_roi_iteratively(
         )
     if command == "next_cluster":
         advance_to_next_cluster = True
-        return _RoiFitResult(
+        return RoiFitResult(
             accepted_state=accepted_state,
             trials=trial_reports,
             add_threshold=add_threshold,
         )
     if command == "previous_cluster":
-        return _RoiFitResult(
+        return RoiFitResult(
             accepted_state=accepted_state,
             trials=trial_reports,
             add_threshold=add_threshold,
@@ -631,7 +633,7 @@ def _fit_roi_iteratively(
         )
     candidate_batch = selected
     if candidate_batch is None:
-        return _RoiFitResult(
+        return RoiFitResult(
             accepted_state=accepted_state,
             trials=trial_reports,
             add_threshold=add_threshold,
@@ -757,7 +759,7 @@ def _fit_roi_iteratively(
             candidate_batch = selected
             continue
 
-        decision = _accept_trial(
+        decision = accept_trial(
             previous=accepted_state,
             new=trial_outcome.state,
             noise=noise,
@@ -844,7 +846,7 @@ def _fit_roi_iteratively(
         if final_state is not None:
             accepted_state = final_state
 
-    return _RoiFitResult(
+    return RoiFitResult(
         accepted_state=accepted_state,
         trials=trial_reports,
         add_threshold=add_threshold,
@@ -854,14 +856,14 @@ def _fit_roi_iteratively(
 
 
 def _refit_state_with_released_linewidths(
-    accepted_state: _TrialState,
+    accepted_state: TrialState,
     roi_indices: list[IntArray],
     roi_data: FloatArray,
     noise: float,
     config: PeakFitConfig,
     dof_scale: float,
     linewidth_fraction: float = 0.2,
-) -> tuple[_TrialState | None, str]:
+) -> tuple[TrialState | None, str]:
     """Refit ROI with per-peak linewidths released within +/- fraction bounds."""
     cluster = Cluster(
         cluster_id=1,
@@ -980,7 +982,7 @@ def _fit_trial_state(
     previous_params: Parameters | None = None,
     new_peak_names: str | list[str] | None = None,
     dof_scale: float = 1.0,
-) -> _TrialFitOutcome | None:
+) -> TrialFitOutcome | None:
     """Fit a trial peak set using the staged SI fit steps."""
     cluster = Cluster(cluster_id=cluster_id, peaks=peaks, grid_indices=roi_indices, data=roi_data)
     params = Parameters.from_peaks(peaks, fixed=True)
@@ -1069,7 +1071,7 @@ def _fit_trial_state(
     if state is None:
         return None
 
-    return _TrialFitOutcome(
+    return TrialFitOutcome(
         state=state,
         fit_step_rounds=fit_step_rounds,
         cs_at_constraint=cs_at_constraint,
@@ -1104,7 +1106,7 @@ def _build_trial_state(
     params: Parameters,
     cluster: Cluster,
     dof_scale: float,
-) -> _TrialState | None:
+) -> TrialState | None:
     """Build trial state arrays from fitted parameters."""
     try:
         shapes, amplitudes = calculate_shape_heights(params, cluster)
@@ -1115,7 +1117,7 @@ def _build_trial_state(
     residual = cluster.corrected_data - model
     footprint = np.ones(model.shape[0], dtype=bool)
     _update_peak_positions(cluster.peaks, params)
-    return _TrialState(
+    return TrialState(
         peaks=cluster.peaks,
         data=cluster.corrected_data,
         model=np.asarray(model, dtype=np.float64),
@@ -1134,14 +1136,14 @@ def _update_peak_positions(peaks: list[Peak], params: Parameters) -> None:
 
 
 def _fit_final_untied_state(
-    accepted_state: _TrialState,
+    accepted_state: TrialState,
     roi_indices: list[IntArray],
     roi_data: FloatArray,
     spectra: Spectra,
     noise: float,
     config: PeakFitConfig,
     dof_scale: float,
-) -> _TrialState | None:
+) -> TrialState | None:
     """Final ROI refinement with untied lw/j (outside F-test growth loop)."""
     cluster = Cluster(
         cluster_id=1,

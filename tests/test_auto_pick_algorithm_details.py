@@ -31,13 +31,9 @@ from peakfit.fit.auto_pick_candidates import (
     select_seed_candidate as _select_seed_candidate,
 )
 from peakfit.fit.auto_pick_decision import (
-    accept_trial as _accept_trial,
-)
-from peakfit.fit.auto_pick_decision import (
-    addition_threshold as _addition_threshold,
-)
-from peakfit.fit.auto_pick_decision import (
-    calculate_dof_scale_from_header as _calculate_dof_scale_from_header,
+    accept_trial,
+    addition_threshold,
+    calculate_dof_scale_from_header,
 )
 from peakfit.fit.auto_pick_parameters import (
     any_cs_close_to_constraint as _any_cs_close_to_constraint,
@@ -51,7 +47,7 @@ from peakfit.fit.auto_pick_parameters import (
 from peakfit.fit.auto_pick_parameters import (
     initialize_new_peak_from_median as _initialize_new_peak_from_median,
 )
-from peakfit.fit.auto_pick_state import TrialState as _TrialState
+from peakfit.fit.auto_pick_state import TrialState
 
 
 def test_select_next_candidate_respects_eligible_mask() -> None:
@@ -262,7 +258,7 @@ def test_calculate_dof_scale_from_header_uses_td_size() -> None:
     ]
     spectra = cast("Any", SimpleNamespace(spectral_params=spectral_params))
 
-    scale = _calculate_dof_scale_from_header(spectra)
+    scale = calculate_dof_scale_from_header(spectra)
     assert scale == 0.0625
 
 
@@ -271,7 +267,7 @@ def test_accept_trial_scales_dof_with_zero_filling() -> None:
     params = Parameters()
     footprint = np.ones(10, dtype=bool)
 
-    previous = _TrialState(
+    previous = TrialState(
         peaks=[],
         data=np.zeros((10, 2), dtype=np.float64),
         model=np.zeros((10, 2), dtype=np.float64),
@@ -281,7 +277,7 @@ def test_accept_trial_scales_dof_with_zero_filling() -> None:
         dof_scale=0.5,
         params=params,
     )
-    new = _TrialState(
+    new = TrialState(
         peaks=[],
         data=np.zeros((10, 2), dtype=np.float64),
         model=np.zeros((10, 2), dtype=np.float64),
@@ -292,7 +288,7 @@ def test_accept_trial_scales_dof_with_zero_filling() -> None:
         params=params,
     )
 
-    decision = _accept_trial(previous, new, noise=1.0, config=config)
+    decision = accept_trial(previous, new, noise=1.0, config=config)
     assert decision.df1 == 1
     assert decision.df2 == 7
 
@@ -301,7 +297,7 @@ def test_addition_threshold_uses_auto_peak_sigma_multiplier() -> None:
     config = PeakFitConfig()
     config.auto_peak.add_threshold_sigma = 3.5
 
-    threshold = _addition_threshold(config, noise=2.0)
+    threshold = addition_threshold(config, noise=2.0)
     assert threshold == 10.0
 
 
