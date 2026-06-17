@@ -9,7 +9,6 @@ The implementation follows a residual-driven ROI strategy:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -82,6 +81,10 @@ from peakfit.fit.auto_pick_parameters import (
 from peakfit.fit.auto_pick_parameters import (
     sync_shared_params as _sync_shared_params,
 )
+from peakfit.fit.auto_pick_state import AutoPickSnapshot as _AutoPickSnapshot
+from peakfit.fit.auto_pick_state import RoiFitResult as _RoiFitResult
+from peakfit.fit.auto_pick_state import TrialFitOutcome as _TrialFitOutcome
+from peakfit.fit.auto_pick_state import TrialState as _TrialState
 from peakfit.fit.auto_pick_types import (
     AutoPickCycleAction,
     AutoPickCycleCallback,
@@ -102,55 +105,6 @@ if TYPE_CHECKING:
 
 _FLOAT_EPS = 1e-12
 _HISTORY_REWIND_STEPS = 2
-
-
-@dataclass(frozen=True)
-class _TrialState:
-    """Intermediate fit state used for ROI peak-growth decisions."""
-
-    peaks: list[Peak]
-    data: FloatArray  # (n_points, n_series)
-    model: FloatArray  # (n_points, n_series)
-    residual: FloatArray  # (n_points, n_series)
-    footprint: np.ndarray  # (n_points,)
-    n_params: int
-    dof_scale: float
-    params: Parameters
-
-
-@dataclass(frozen=True)
-class _RoiFitResult:
-    """Final accepted state and trial trace for a ROI."""
-
-    accepted_state: _TrialState | None
-    trials: list[AutoPickTrialReport]
-    add_threshold: float
-    stopped_by_user: bool = False
-    previous_cluster_requested: bool = False
-
-
-@dataclass(frozen=True)
-class _TrialFitOutcome:
-    """Detailed fit outcome for one trial peak candidate."""
-
-    state: _TrialState
-    fit_step_rounds: int
-    cs_at_constraint: bool
-    zero_amplitude_peak: bool
-
-
-@dataclass(frozen=True)
-class _AutoPickSnapshot:
-    """Checkpoint of global auto-pick state before processing one ROI."""
-
-    working_data: np.ndarray
-    calculated_data: np.ndarray
-    processed_mask: np.ndarray
-    accepted_peaks: list[Peak]
-    accepted_rois: int
-    rejected_rois: int
-    iterations: int
-    next_peak_number: int
 
 
 def auto_pick_peaks(
