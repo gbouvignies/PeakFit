@@ -397,7 +397,6 @@ def generate_mcmc_diagnostics(
             # Compute Metrics once for all plots
             metrics = compute_all_trace_metrics(chains_post_burnin)
 
-            # Summary Page
             fig_report = generate_mcmc_report_page(
                 n_chains=chains.shape[0],
                 n_samples=chains_post_burnin.shape[1],
@@ -406,10 +405,8 @@ def generate_mcmc_diagnostics(
                 metrics=metrics,
                 cluster_id=str(cluster_id),
             )
-            pdf.savefig(fig_report, bbox_inches="tight")
-            plt.close(fig_report)
+            _save_pdf_figure(pdf, fig_report)
 
-            # Page 1: Trace plots
             fig_trace = plot_trace(
                 chains,
                 parameter_names,
@@ -417,12 +414,13 @@ def generate_mcmc_diagnostics(
                 metrics=metrics,
                 thin=stored_thin,
             )
-            fig_trace.suptitle(f"Cluster {cluster_id}: Trace Plots", fontsize=14, fontweight="bold")
-            pdf.savefig(fig_trace, bbox_inches="tight")
-            plt.close(fig_trace)
+            _save_pdf_figure(
+                pdf,
+                fig_trace,
+                title=f"Cluster {cluster_id}: Trace Plots",
+            )
             total_plots += 1
 
-            # Page 2: Marginal Distributions
             figs_marginal = plot_marginal_distributions(
                 samples_flat,
                 parameter_names,
@@ -431,17 +429,12 @@ def generate_mcmc_diagnostics(
                 thin=stored_thin,
                 diagnostics=None,
             )
-            for i, fig in enumerate(figs_marginal):
-                fig.suptitle(
-                    f"Cluster {cluster_id}: Marginal Distributions (Page {i + 1})",
-                    fontsize=14,
-                    fontweight="bold",
-                )
-                pdf.savefig(fig, bbox_inches="tight")
-                plt.close(fig)
-                total_plots += 1
+            total_plots += _save_pdf_figure_pages(
+                pdf,
+                figs_marginal,
+                title_template=f"Cluster {cluster_id}: Marginal Distributions (Page {{page}})",
+            )
 
-            # Page 3: Correlation Plots
             figs_corr = plot_correlation_pairs(
                 samples_flat,
                 parameter_names,
@@ -449,36 +442,50 @@ def generate_mcmc_diagnostics(
                 n_samples=chains_post_burnin.shape[1],
                 thin=stored_thin,
             )
-            for i, fig in enumerate(figs_corr):
-                fig.suptitle(
-                    f"Cluster {cluster_id}: Strong Correlations (Page {i + 1})",
-                    fontsize=14,
-                    fontweight="bold",
-                )
-                pdf.savefig(fig, bbox_inches="tight")
-                plt.close(fig)
-                total_plots += 1
+            total_plots += _save_pdf_figure_pages(
+                pdf,
+                figs_corr,
+                title_template=f"Cluster {cluster_id}: Strong Correlations (Page {{page}})",
+            )
 
-            # Page 4: Autocorrelation Plots
             fig_autocorr = plot_autocorrelation(
                 chains_post_burnin,
                 parameter_names,
                 thin=stored_thin,
             )
-            # Force overwrite title to match cluster specificity
             n_samples_stored = chains_post_burnin.shape[1]
             total_steps = n_samples_stored * stored_thin
-            fig_autocorr.suptitle(
-                f"Cluster {cluster_id}: Autocorrelation ({chains.shape[0]} chains × "
-                f"{total_steps} iters)",
-                fontsize=14,
-                fontweight="bold",
+            _save_pdf_figure(
+                pdf,
+                fig_autocorr,
+                title=(
+                    f"Cluster {cluster_id}: Autocorrelation ({chains.shape[0]} chains × "
+                    f"{total_steps} iters)"
+                ),
             )
-            pdf.savefig(fig_autocorr, bbox_inches="tight")
-            plt.close(fig_autocorr)
             total_plots += 1
 
     return PlotOutput(output_path, "mcmc_diagnostics", total_plots)
+
+
+def _save_pdf_figure(pdf: PdfPages, fig: Figure, title: str | None = None) -> None:
+    """Save and close one PDF figure."""
+    if title:
+        fig.suptitle(title, fontsize=14, fontweight="bold")
+    pdf.savefig(fig, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _save_pdf_figure_pages(
+    pdf: PdfPages,
+    figures: list[Figure],
+    *,
+    title_template: str,
+) -> int:
+    """Save titled multi-page figure lists."""
+    for index, fig in enumerate(figures, start=1):
+        _save_pdf_figure(pdf, fig, title_template.format(page=index))
+    return len(figures)
 
 
 def _is_amplitude_parameter_name(name: str) -> bool:
