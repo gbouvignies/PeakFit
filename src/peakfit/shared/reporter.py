@@ -4,10 +4,9 @@ Core and infrastructure layers can accept a Reporter without depending on the
 Rich terminal UI. The concrete console implementation lives in `peakfit.ui`.
 """
 
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 
 
-@runtime_checkable
 class Reporter(Protocol):
     """Protocol for progress and status reporting."""
 
