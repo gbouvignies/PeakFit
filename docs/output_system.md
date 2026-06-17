@@ -71,6 +71,8 @@ The primary JSON entry point is:
 - `summary/fit.json`
 
 This file is the canonical machine-readable summary for downstream analysis.
+Post-fit commands and `ResultsLoader` expect the run output directory
+(`<output_dir>`), not the `summary/` subdirectory.
 
 ## Implementation Notes
 

@@ -124,16 +124,13 @@ class ResultsLoader:
         """Initialize the loader.
 
         Args:
-            directory: Path to results directory (or its summary subdirectory)
+            directory: Path to results directory
 
         Raises:
             FileNotFoundError: If summary/fit.json is not found
         """
         self.directory = directory
-        if directory.name == "summary":
-            self.summary_path = directory / "fit.json"
-        else:
-            self.summary_path = directory / "summary" / "fit.json"
+        self.summary_path = directory / "summary" / "fit.json"
 
         if not self.summary_path.exists():
             raise FileNotFoundError(f"Results file not found: {format_path(self.summary_path)}")

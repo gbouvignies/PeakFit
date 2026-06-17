@@ -225,15 +225,9 @@ def _parse_float(value: Any, *, default: float) -> float:
 
 
 def _resolve_intensities_csv(results_dir: Path) -> Path | None:
-    """Resolve path to intensities.csv from either results root or summary/."""
-    candidates = (
-        results_dir / "tables" / "intensities.csv",
-        results_dir.parent / "tables" / "intensities.csv",
-    )
-    for path in candidates:
-        if path.exists():
-            return path
-    return None
+    """Resolve path to the canonical intensities.csv output."""
+    path = results_dir / "tables" / "intensities.csv"
+    return path if path.exists() else None
 
 
 def _prepare_cest_data(
