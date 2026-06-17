@@ -7,54 +7,17 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-from pydantic import BaseModel
 
 from peakfit.engine.domain.data import PeakData
 from peakfit.io.readers.spectrum import read_spectra
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from peakfit.engine.domain.spectrum import Spectra
-
-    ReadTabular = Callable[[Path], Any]
-
+    from pathlib import Path
 
 _MIN_PARTS_FOR_NAME_AND_POSITION = 2
-
-
-# =============================================================================
-# Input Models
-# =============================================================================
-
-
-class PeakInput(BaseModel):
-    """Simple CLI model for a single peak entry with 2D coordinates."""
-
-    name: str
-    x: float
-    y: float
-
-
-class SpectraInput(BaseModel):
-    """CLI model for inputting a spectrum file with optional z-values."""
-
-    path: Path
-    z_values_path: Path | None = None
-    exclude_list: list[int] | None = None
-
-    def load(self) -> Spectra:
-        """Load and return a `Spectra` object from the provided paths."""
-        return read_spectra(self.path, self.z_values_path, self.exclude_list)
-
-
-# =============================================================================
-# Result Containers
-# =============================================================================
 
 
 @dataclass
@@ -162,8 +125,7 @@ def validate_inputs(spectrum_path: Path, peaklist_path: Path | None) -> Validati
 def _validate_spectrum(spectrum_path: Path, result: ValidationResult) -> None:
     """Validate spectrum file and update result."""
     try:
-        spectra_input = SpectraInput(path=spectrum_path)
-        spectra = spectra_input.load()
+        spectra = read_spectra(spectrum_path, None, None)
 
         n_series = spectra.data.shape[0]
         spectrum_type = f"Pseudo-ND ({n_series} spectra)"
@@ -217,15 +179,6 @@ def _validate_peaklist(peaklist_path: Path, result: ValidationResult) -> None:
         # 2. Validate consistency (duplicates, dimensions, etc.)
         _validate_peak_consistency(peaks, result)
 
-        # File permissions check
-        result.checks.append(
-            ValidationCheck(
-                name="File permissions",
-                passed=True,
-                message="Pass",
-            )
-        )
-
     except (OSError, FileNotFoundError, ValueError, ImportError, TypeError) as e:
         result.errors.append(f"Failed to read peak list: {e}")
         result.checks.append(
@@ -243,14 +196,13 @@ def _load_peaks(peaklist_path: Path) -> list[PeakData]:
 
     if suffix == ".list":
         return _read_sparky_list(peaklist_path)
-    elif suffix == ".csv":
+    if suffix == ".csv":
         return _read_csv_list(peaklist_path)
-    elif suffix == ".json":
+    if suffix == ".json":
         return _read_json_list(peaklist_path)
-    elif suffix in {".xlsx", ".xls"}:
+    if suffix in {".xlsx", ".xls"}:
         return _read_excel_list(peaklist_path)
-    else:
-        raise ValueError(f"Unknown peak list format: {suffix}")
+    raise ValueError(f"Unknown peak list format: {suffix}")
 
 
 def _validate_peak_consistency(peaks: list[PeakData], result: ValidationResult) -> None:
@@ -406,8 +358,6 @@ def _to_float(value: Any) -> float:
 
 __all__ = [
     "PeakData",
-    "PeakInput",
-    "SpectraInput",
     "SpectrumData",
     "ValidationCheck",
     "ValidationResult",
