@@ -7,7 +7,6 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from peakfit.engine.domain.constraints import ParameterConfig
-from peakfit.engine.domain.data import PeakData
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.shared.constants import (
     BASIN_HOPPING_NITER,
@@ -290,15 +289,6 @@ class PeakFitConfig(BaseModel):
         return sorted(set(v))
 
 
-class ValidationResult(BaseModel):
-    """Result of input validation operations (spectrum/peaklist)."""
-
-    valid: bool
-    errors: list[str] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-    info: dict[str, object] = Field(default_factory=dict)
-
-
 # =============================================================================
 # Optimizer Configurations
 # =============================================================================
@@ -339,8 +329,6 @@ __all__ = [
     "OutputConfig",
     "OutputFormat",
     "ParameterConfig",
-    "PeakData",
     "PeakFitConfig",
-    "ValidationResult",
     "VarProConfig",
 ]
