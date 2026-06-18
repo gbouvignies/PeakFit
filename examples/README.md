@@ -12,15 +12,21 @@ PeakFit now follows a simple command flow:
 
 There is no separate `doctor` step.
 
+## Recommended Path
+
+Start with `02-advanced-fitting/`; it is the canonical ready-to-run workflow:
+fit a pseudo-3D dataset, inspect canonical CSV/JSON outputs, and generate CEST
+and intensity plots. Use the other examples only when you need that specific task.
+
 ## Examples
 
 | Directory | Workflow | Status |
 | --- | --- | --- |
 | `01-basic-fitting/` | Minimal fit template for your own data | Template |
 | `02-advanced-fitting/` | Ready-to-run pseudo-3D CEST fit + plotting | Ready |
-| `03-global-optimization/` | Compare `varpro` vs `basin_hopping` | Ready |
-| `04-uncertainty-analysis/` | Post-fit MCMC analysis from saved results | Ready |
-| `05-constraints-and-protocols/` | Constraint-driven and multi-step fits | Ready |
+| `03-global-optimization/` | Optional optimizer comparison for difficult fits | Ready |
+| `04-uncertainty-analysis/` | Optional post-fit MCMC analysis from saved results | Ready |
+| `05-constraints-and-fit-steps/` | Optional constraint-driven and multi-step fits | Ready |
 
 ## Common Output Layout
 

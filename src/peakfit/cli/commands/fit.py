@@ -53,7 +53,10 @@ def fit_command(
     peaklist: Annotated[
         Path | None,
         typer.Argument(
-            help="Peak list file (.list, .csv). Omit to enable automatic peak picking.",
+            help=(
+                "Peak list file (.list, .csv). Omitting it uses experimental "
+                "automatic peak picking."
+            ),
             exists=True,
             dir_okay=False,
             resolve_path=True,
@@ -142,7 +145,7 @@ def fit_command(
         typer.Option(
             "--auto-pick-step/--no-auto-pick-step",
             help=(
-                "When no peak list is provided, open an interactive GUI to manually "
+                "Experimental: when no peak list is provided, open an interactive GUI to manually "
                 "add/remove peaks per ROI and jump to the next cluster."
             ),
         ),
@@ -158,9 +161,7 @@ def fit_command(
     the fit will not proceed.
 
     Examples:
-        peakfit fit spectrum.ft2
         peakfit fit spectrum.ft2 peaks.list
-        peakfit fit spectrum.ft2 --auto-pick-step
         peakfit fit spectrum.ft2 peaks.list -z z_values.txt -o results/
         peakfit fit spectrum.ft2 peaks.list --config settings.toml
     """

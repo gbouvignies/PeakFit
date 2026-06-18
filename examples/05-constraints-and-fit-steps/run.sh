@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "== PeakFit Example 5: Constraints and Protocols =="
+echo "== PeakFit Example 5: Constraints and Fit Steps =="
 
 if ! command -v peakfit >/dev/null 2>&1; then
   echo "Error: 'peakfit' command not found."
@@ -44,7 +44,7 @@ PY
 
 run_scenario "Scenario 1 (position windows)" "configs/position_windows.toml" "Fits/scenario1"
 run_scenario "Scenario 2 (per-peak overrides)" "configs/per_peak.toml" "Fits/scenario2"
-run_scenario "Scenario 3 (multi-step protocol)" "configs/multi_step.toml" "Fits/scenario3"
+run_scenario "Scenario 3 (multi-step fit)" "configs/multi_step.toml" "Fits/scenario3"
 
 echo
 echo "All scenarios complete."

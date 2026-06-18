@@ -86,4 +86,4 @@ def init_command(
 
     # Enhanced success message with details
     success(f"Created configuration file: [path]{display_path(path)}[/path]")
-    info(f"Next: [code]peakfit fit spectrum.ft2 [peaks.list] --config {display_path(path)}[/code]")
+    info(f"Next: [code]peakfit fit spectrum.ft2 peaks.list --config {display_path(path)}[/code]")

@@ -144,7 +144,7 @@ peakfit fit SPECTRUM [PEAKLIST] [OPTIONS]
 
 Arguments:
   SPECTRUM                Path to NMRPipe spectrum file (.ft2, .ft3)
-  PEAKLIST                Peak list file (.list, .csv); omit for automatic peak picking
+  PEAKLIST                Peak list file (.list, .csv); omitting it uses experimental automatic peak picking
 
 Options:
   -z, --z-values PATH     Path to Z-dimension values file
@@ -387,6 +387,7 @@ src/peakfit/
 ├── cli/                # Modern CLI with Typer + Rich
 │   ├── app.py          # Main Typer application
 │   └── commands/       # Command implementations
+├── auto_pick/          # Experimental automatic peak-picking workflow
 ├── engine/             # Pure computation (domain, algorithms, lineshapes)
 ├── fit/                # Fit workflow (validation, orchestration, outputs)
 ├── mcmc/               # MCMC workflows and diagnostics

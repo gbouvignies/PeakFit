@@ -37,7 +37,7 @@ def main(
     """PeakFit - Modern lineshape fitting for pseudo-3D NMR spectra.
 
     Workflow:
-        1. peakfit fit spectrum.ft2 [peaks.list]   # Fit (auto-pick if omitted)
+        1. peakfit fit spectrum.ft2 peaks.list     # Fit peak list
         2. peakfit mcmc results/                   # Uncertainty estimation
         3. peakfit plot intensity results/         # Visualize fitted amplitudes
 

@@ -1,4 +1,4 @@
-# Example 5: Constraints and Multi-Step Protocols
+# Example 5: Constraints and Fit Steps
 
 This example demonstrates configuration-driven fitting with parameter constraints.
 
@@ -6,7 +6,7 @@ This example demonstrates configuration-driven fitting with parameter constraint
 
 1. `position_windows.toml` - global/per-axis position windows
 2. `per_peak.toml` - targeted per-peak overrides
-3. `multi_step.toml` - staged fitting protocol
+3. `multi_step.toml` - staged fitting steps
 
 Each config writes to a stable output directory (`include_timestamp = false`):
 

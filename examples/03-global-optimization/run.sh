@@ -20,6 +20,8 @@ for f in data/pseudo3d.ft2 data/pseudo3d.list data/b1_offsets.txt; do
   fi
 done
 
+rm -rf Fits-local Fits-basin
+
 run_fit() {
   optimizer="$1"
   out_root="$2"
