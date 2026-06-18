@@ -1,13 +1,8 @@
 import numpy as np
 import pytest
 
-from peakfit.plot.outputs import (
-    _prepare_cest_data,
-    _prepare_cpmg_data,
-    generate_cest_plots,
-    generate_cpmg_plots,
-    generate_intensity_plots,
-)
+from peakfit.plot.outputs import generate_cest_plots, generate_cpmg_plots, generate_intensity_plots
+from peakfit.plot.profile_data import prepare_cest_data, prepare_cpmg_data
 
 
 def _write_intensities_csv(path, rows) -> None:
@@ -62,7 +57,7 @@ def test_cest_plots_normalize_against_reference_points(tmp_path) -> None:
 
 
 def test_cest_transform_uses_auto_reference_offsets() -> None:
-    data = _prepare_cest_data(
+    data = prepare_cest_data(
         [
             (-12000.0, 100.0, 2.0),
             (-100.0, 50.0, 2.0),
@@ -101,7 +96,7 @@ def test_cpmg_plots_convert_intensities_to_r2eff(tmp_path) -> None:
 
 
 def test_cpmg_transform_is_deterministic() -> None:
-    data = _prepare_cpmg_data(
+    data = prepare_cpmg_data(
         [
             (0.0, 100.0, 2.0),
             (1.0, 80.0, 2.0),
@@ -122,7 +117,7 @@ def test_cpmg_transform_is_deterministic() -> None:
 
 
 def test_cpmg_transform_accepts_sign_consistent_negative_intensities() -> None:
-    data = _prepare_cpmg_data(
+    data = prepare_cpmg_data(
         [
             (0.0, -100.0, 2.0),
             (1.0, -80.0, 2.0),
