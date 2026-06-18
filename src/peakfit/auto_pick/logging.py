@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from peakfit.fit.auto_pick_types import AutoPickCycleReport
+    from peakfit.auto_pick.types import AutoPickCycleReport
     from peakfit.shared.reporter import Reporter
 
 

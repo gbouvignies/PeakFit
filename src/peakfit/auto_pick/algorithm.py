@@ -14,85 +14,78 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.algorithms.common import calculate_shape_heights
-from peakfit.engine.algorithms.varpro import ScipyOptimizerError, fit_cluster
-from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.constraints import apply_constraints
-from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.lineshapes.create import create_shapes
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     candidate_ppm_for_plot as _candidate_ppm_for_plot,
 )
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     extract_roi_data as _extract_roi_data,
 )
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     extract_roi_indices as _extract_roi_indices,
 )
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     far_from_existing as _far_from_existing,
 )
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     find_global_seed as _find_global_seed,
 )
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     initial_local_maxima_candidates as _initial_local_maxima_candidates,
 )
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     point_to_ppm as _point_to_ppm,
 )
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     roi_plot_limits as _roi_plot_limits,
 )
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     select_manual_candidate as _select_manual_candidate,
 )
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     select_next_candidate as _select_next_candidate,
 )
-from peakfit.fit.auto_pick_candidates import (
+from peakfit.auto_pick.candidates import (
     stack_roi_points as _stack_roi_points,
 )
-from peakfit.fit.auto_pick_decision import (
+from peakfit.auto_pick.decision import (
     accept_trial,
     addition_threshold,
     calculate_dof_scale_from_header,
 )
-from peakfit.fit.auto_pick_parameters import (
+from peakfit.auto_pick.parameters import (
     any_cs_close_to_constraint as _any_cs_close_to_constraint,
 )
-from peakfit.fit.auto_pick_parameters import (
+from peakfit.auto_pick.parameters import (
     apply_cs_bounds_from_lw as _apply_cs_bounds_from_lw,
 )
-from peakfit.fit.auto_pick_parameters import (
+from peakfit.auto_pick.parameters import (
     apply_position_windows as _apply_position_windows,
 )
-from peakfit.fit.auto_pick_parameters import (
+from peakfit.auto_pick.parameters import (
     build_shared_param_aliases as _build_shared_param_aliases,
 )
-from peakfit.fit.auto_pick_parameters import (
+from peakfit.auto_pick.parameters import (
     has_zero_amplitude_peak as _has_zero_amplitude_peak,
 )
-from peakfit.fit.auto_pick_parameters import (
+from peakfit.auto_pick.parameters import (
     initialize_existing_params_from_previous as _initialize_existing_params_from_previous,
 )
-from peakfit.fit.auto_pick_parameters import (
+from peakfit.auto_pick.parameters import (
     initialize_new_peak_from_median as _initialize_new_peak_from_median,
 )
-from peakfit.fit.auto_pick_parameters import (
+from peakfit.auto_pick.parameters import (
     set_stage_vary_flags as _set_stage_vary_flags,
 )
-from peakfit.fit.auto_pick_parameters import (
+from peakfit.auto_pick.parameters import (
     sync_shared_params as _sync_shared_params,
 )
-from peakfit.fit.auto_pick_state import (
+from peakfit.auto_pick.state import (
     AutoPickSnapshot,
     RoiFitResult,
     TrialFitOutcome,
     TrialState,
 )
-from peakfit.fit.auto_pick_types import (
+from peakfit.auto_pick.types import (
     AutoPickCycleAction,
     AutoPickCycleCallback,
     AutoPickCycleReport,
@@ -100,6 +93,13 @@ from peakfit.fit.auto_pick_types import (
     AutoPickResult,
     AutoPickTrialReport,
 )
+from peakfit.engine.algorithms.common import calculate_shape_heights
+from peakfit.engine.algorithms.varpro import ScipyOptimizerError, fit_cluster
+from peakfit.engine.domain.cluster import Cluster
+from peakfit.engine.domain.constraints import apply_constraints
+from peakfit.engine.domain.params_scalar import Parameters
+from peakfit.engine.domain.peaks import Peak
+from peakfit.engine.lineshapes.create import create_shapes
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 
-from peakfit.fit.auto_pick_types import AutoPickCycleAction
+from peakfit.auto_pick.types import AutoPickCycleAction
 from peakfit.plot.qt_core import (
     QApplication,
     QComboBox,
@@ -28,9 +28,9 @@ from peakfit.plot.widgets.matplotlib_backend import MatplotlibBackend
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from peakfit.auto_pick.types import AutoPickCycleReport
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra
-    from peakfit.fit.auto_pick_types import AutoPickCycleReport
 
 
 _MIN_SPECTRAL_DIMS = 2

@@ -20,13 +20,13 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from peakfit.auto_pick import auto_pick_peaks
+from peakfit.auto_pick.logging import log_auto_pick_cycle
+from peakfit.auto_pick.types import AutoPickCycleAction
 from peakfit.engine.algorithms.clustering import create_clusters
 from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
-from peakfit.fit.auto_pick import auto_pick_peaks
-from peakfit.fit.auto_pick_logging import log_auto_pick_cycle
-from peakfit.fit.auto_pick_types import AutoPickCycleAction
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 from peakfit.fit.results import build_fit_results
 from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart, RunSummary
@@ -43,9 +43,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
 
+    from peakfit.auto_pick.types import AutoPickCycleReport
     from peakfit.engine.domain.config import PeakFitConfig
     from peakfit.engine.domain.spectrum import Spectra
-    from peakfit.fit.auto_pick_types import AutoPickCycleReport
     from peakfit.shared.reporter import Reporter
 
     type AutoPickCallbackBuilder = Callable[

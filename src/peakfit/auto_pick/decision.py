@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy.stats import f as f_dist
 
-from peakfit.fit.auto_pick_types import FTestDecision
+from peakfit.auto_pick.types import FTestDecision
 
 if TYPE_CHECKING:
+    from peakfit.auto_pick.state import TrialState
     from peakfit.engine.domain.config import PeakFitConfig
     from peakfit.engine.domain.spectrum import Spectra
-    from peakfit.fit.auto_pick_state import TrialState
     from peakfit.shared.typing import FloatArray
 
 _FLOAT_EPS = 1e-12

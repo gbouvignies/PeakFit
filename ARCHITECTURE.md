@@ -16,6 +16,7 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 - `src/peakfit/cli/` - Typer command-line entrypoints and terminal presentation.
 - `src/peakfit/ui/` - Rich terminal helpers used by the current CLI.
 - `src/peakfit/fit/` - validation, data loading, fitting workflow, result assembly, and output coordination.
+- `src/peakfit/auto_pick/` - experimental automatic peak-picking workflow used only when no peak list is provided.
 - `src/peakfit/mcmc/` - uncertainty sampling, diagnostics, and MCMC-facing workflows.
 - `src/peakfit/plot/` - plotting and the spectrum viewer.
 - `src/peakfit/io/` - parsing, serialization, and file-format handling.
@@ -26,6 +27,7 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 
 1. `cli` parses user intent and builds configuration.
 2. `fit` validates inputs, loads spectra/peaks, prepares clusters, and runs direct fit pipeline functions.
+   When no peak list is provided, `fit` delegates to the experimental `auto_pick` package instead of owning that logic.
 3. `engine` performs numerical work: clustering, lineshapes, optimizers, residuals, and statistics helpers.
 4. `fit.results` assembles fit output data; `fit.result_models` owns the runtime output
    dataclasses; `io` reads inputs and writes structured artifacts.

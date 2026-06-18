@@ -3,51 +3,51 @@ from typing import Any, cast
 
 import numpy as np
 
+from peakfit.auto_pick.algorithm import (
+    _PeakNameCounter,
+    _update_peak_positions,
+)
+from peakfit.auto_pick.candidates import (
+    extract_roi_indices as _extract_roi_indices,
+)
+from peakfit.auto_pick.candidates import (
+    find_global_seed as _find_global_seed,
+)
+from peakfit.auto_pick.candidates import (
+    initial_local_maxima_candidates as _initial_local_maxima_candidates,
+)
+from peakfit.auto_pick.candidates import (
+    select_manual_candidate as _select_manual_candidate,
+)
+from peakfit.auto_pick.candidates import (
+    select_next_candidate as _select_next_candidate,
+)
+from peakfit.auto_pick.candidates import (
+    select_seed_candidate as _select_seed_candidate,
+)
+from peakfit.auto_pick.decision import (
+    accept_trial,
+    addition_threshold,
+    calculate_dof_scale_from_header,
+)
+from peakfit.auto_pick.parameters import (
+    any_cs_close_to_constraint as _any_cs_close_to_constraint,
+)
+from peakfit.auto_pick.parameters import (
+    build_shared_param_aliases as _build_shared_param_aliases,
+)
+from peakfit.auto_pick.parameters import (
+    initialize_existing_params_from_previous as _initialize_existing_params_from_previous,
+)
+from peakfit.auto_pick.parameters import (
+    initialize_new_peak_from_median as _initialize_new_peak_from_median,
+)
+from peakfit.auto_pick.state import TrialState
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.param_id import ParameterId
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.types import ParamSpec
-from peakfit.fit.auto_pick import (
-    _PeakNameCounter,
-    _update_peak_positions,
-)
-from peakfit.fit.auto_pick_candidates import (
-    extract_roi_indices as _extract_roi_indices,
-)
-from peakfit.fit.auto_pick_candidates import (
-    find_global_seed as _find_global_seed,
-)
-from peakfit.fit.auto_pick_candidates import (
-    initial_local_maxima_candidates as _initial_local_maxima_candidates,
-)
-from peakfit.fit.auto_pick_candidates import (
-    select_manual_candidate as _select_manual_candidate,
-)
-from peakfit.fit.auto_pick_candidates import (
-    select_next_candidate as _select_next_candidate,
-)
-from peakfit.fit.auto_pick_candidates import (
-    select_seed_candidate as _select_seed_candidate,
-)
-from peakfit.fit.auto_pick_decision import (
-    accept_trial,
-    addition_threshold,
-    calculate_dof_scale_from_header,
-)
-from peakfit.fit.auto_pick_parameters import (
-    any_cs_close_to_constraint as _any_cs_close_to_constraint,
-)
-from peakfit.fit.auto_pick_parameters import (
-    build_shared_param_aliases as _build_shared_param_aliases,
-)
-from peakfit.fit.auto_pick_parameters import (
-    initialize_existing_params_from_previous as _initialize_existing_params_from_previous,
-)
-from peakfit.fit.auto_pick_parameters import (
-    initialize_new_peak_from_median as _initialize_new_peak_from_median,
-)
-from peakfit.fit.auto_pick_state import TrialState
 
 
 def test_select_next_candidate_respects_eligible_mask() -> None:

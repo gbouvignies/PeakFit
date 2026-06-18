@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import numpy as np
 
+    from peakfit.auto_pick.types import AutoPickTrialReport
     from peakfit.engine.domain.params_scalar import Parameters
     from peakfit.engine.domain.peaks import Peak
-    from peakfit.fit.auto_pick_types import AutoPickTrialReport
     from peakfit.shared.typing import FloatArray
 
 
