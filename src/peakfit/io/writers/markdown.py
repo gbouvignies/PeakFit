@@ -74,7 +74,7 @@ def _summary_section(results: FitResults) -> str:
         stats = results.global_statistics
         lines.extend(
             [
-                f"- Reduced chi2: {stats.reduced_chi_squared:.4g} "
+                f"- Global reduced chi2: {stats.reduced_chi_squared:.4g} "
                 f"({_fit_status(stats.reduced_chi_squared, stats.fit_converged)})",
                 f"- Data points: {stats.n_data}",
                 f"- Fit parameters: {stats.n_params}",
@@ -95,7 +95,7 @@ def _summary_section(results: FitResults) -> str:
 
 def _warning_section(warnings: list[str]) -> str:
     if not warnings:
-        return "## Checks\n\nNo warnings."
+        return "## Checks\n\nNo fit-quality warnings."
 
     shown = warnings[:_MAX_WARNING_ROWS]
     lines = [f"## Checks ({len(warnings)})", ""]
@@ -141,11 +141,11 @@ def _cluster_rows(results: FitResults) -> list[str]:
 def _parameter_section(results: FitResults, config: WriterConfig) -> str:
     rows = list(_parameter_rows(results, config))
     if not rows:
-        return "## Parameters To Check\n\nNo parameter warnings."
+        return "## Key Parameters\n\nNo key parameters to display."
 
     shown = rows[:_MAX_PARAMETER_ROWS]
     lines = [
-        "## Parameters To Check",
+        "## Key Parameters",
         "",
         "| Cluster | Peak | Parameter | Value | Error | Status |",
         "| --- | --- | --- | ---: | ---: | --- |",

@@ -82,6 +82,20 @@ def write_readme(output_dir: Path, summary: Any) -> Path:
         if (output_dir / rel_path).exists():
             lines.append(f"- `{rel_path}`: {description}")
 
+    lines.extend(
+        [
+            "",
+            "## Next Steps",
+            "",
+            "- Inspect `summary/fit.json` and `tables/parameters.csv` for fitted values.",
+            "- Plot fitted amplitudes with `peakfit plot intensity <this-run-directory>`.",
+            "- Plot CEST or CPMG profiles from `tables/intensities.csv` when the z-axis "
+            "matches that experiment.",
+            "- Run MCMC with `peakfit mcmc <this-run-directory> --peaks <peak-name>` "
+            "when uncertainty estimates are needed.",
+        ]
+    )
+
     readme_path.write_text("\n".join(lines) + "\n")
     return readme_path
 

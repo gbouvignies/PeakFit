@@ -201,6 +201,7 @@ class MCMCDiagnosticsSchema(BaseModel):
     overall_status: str = Field(description="Worst status among all parameters")
     converged: bool
     parameters: list[ParameterDiagnosticSchema]
+    warnings: list[str] = Field(default_factory=list)
     burn_in_details: dict[str, Any] = Field(default_factory=dict)
 
 

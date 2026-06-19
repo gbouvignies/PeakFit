@@ -35,8 +35,11 @@ def test_markdown_report_is_bounded_for_large_runs(tmp_path) -> None:
 
     text = report_path.read_text(encoding="utf-8")
     assert text.startswith("# PeakFit Report")
+    assert "Global reduced chi2" in text
+    assert "## Key Parameters" in text
     assert "_Showing 40 of 50 clusters. See JSON/CSV outputs for full detail._" in text
     assert "_Showing 40 of 100 parameters. See JSON/CSV outputs for full detail._" in text
+    assert "Parameters To Check" not in text
     assert "| 49 |" not in text
     assert "PeakFit Analysis Report" not in text
     assert "Executive Summary" not in text

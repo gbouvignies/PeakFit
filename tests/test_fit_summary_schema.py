@@ -39,3 +39,31 @@ def test_fit_summary_accepts_null_parameter_std_error() -> None:
 def test_fit_summary_normalizes_nonfinite_std_error() -> None:
     summary = FitSummarySchema.model_validate(_build_summary_payload("nan"))
     assert summary.clusters[0].lineshape_parameters[0].std_error is None
+
+
+def test_fit_summary_declares_mcmc_warnings() -> None:
+    payload = _build_summary_payload(0.01)
+    payload["mcmc_diagnostics"] = [
+        {
+            "n_chains": 4,
+            "n_samples": 100,
+            "burn_in": 20,
+            "total_samples": 400,
+            "overall_status": "marginal",
+            "converged": False,
+            "warnings": ["ESS_bulk is low."],
+            "parameters": [
+                {
+                    "name": "A1.F2.cs",
+                    "rhat": 1.02,
+                    "ess_bulk": 250.0,
+                    "ess_tail": 200.0,
+                    "status": "marginal",
+                }
+            ],
+        }
+    ]
+
+    summary = FitSummarySchema.model_validate(payload)
+
+    assert summary.mcmc_diagnostics[0].warnings == ["ESS_bulk is low."]

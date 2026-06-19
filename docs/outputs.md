@@ -35,11 +35,13 @@ canonical tabular format.
 
 ### Notes
 
-- `README.md` is generated for each run and summarizes the result status and files.
+- `README.md` is generated for each run and summarizes the result status, files,
+  and common next commands for that run directory.
 - `metadata/fitting_state.pkl` is the serialized state used by post-fit workflows.
 - Run metadata, fit statistics, and MCMC diagnostics are embedded in `summary/fit.json`.
 - `summary/report.md` is created only when `txt` is in `output.formats`; it is a
-  bounded review report, not a complete parameter export.
+  bounded review report with fit-quality checks and key parameters, not a
+  complete parameter export.
 - `tables/intensities.csv` may contain signed amplitudes. CEST plots preserve
   signed normalized intensities; CPMG plots use only points with positive
   `I/I0` ratios because `R2eff` is log-transformed.

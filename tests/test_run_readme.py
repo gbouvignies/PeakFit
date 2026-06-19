@@ -27,4 +27,7 @@ def test_run_readme_reports_summary_first_and_existing_files(tmp_path) -> None:
     assert "`summary/fit.json`" in text
     assert "`tables/parameters.csv`" in text
     assert "`summary/report.md`" not in text
+    assert "## Next Steps" in text
+    assert "peakfit plot intensity <this-run-directory>" in text
+    assert "peakfit mcmc <this-run-directory> --peaks <peak-name>" in text
     assert text.endswith("\n")
