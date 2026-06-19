@@ -6,6 +6,10 @@ What changed?
 
 Why is this simpler, more correct, or more useful?
 
+## Simplification
+
+What became smaller, clearer, deleted, or easier to maintain?
+
 ## Behavior Changes
 
 List user-facing or compatibility changes. Write "None" if there are none.
@@ -26,3 +30,4 @@ Check what was run:
 
 - [ ] Updated relevant docs, examples, or `AGENTS.md`
 - [ ] Removed stale docs when applicable
+- [ ] Recorded lasting architectural decisions in `docs/decisions.md` when needed

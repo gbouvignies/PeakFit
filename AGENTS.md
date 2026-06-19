@@ -101,6 +101,31 @@ For architecture, refactoring, UI/UX, output, or simplification work:
 
 Do not ask for permission to simplify current architecture. The project goal is simplification. Ask only when scientific behavior, user expectations, or compatibility trade-offs are genuinely ambiguous.
 
+## Agentic development loop
+
+Long-running AI-assisted development should converge through living contracts, not
+through accumulating plans. Prefer this loop:
+
+1. Make one coherent simplification or behavior change.
+2. Update the smallest relevant documentation in `docs/`, examples, or this file.
+3. Add or adjust executable protection when possible: tests, schemas, import-linter,
+   CLI help checks, or golden-output checks.
+4. Run the smallest meaningful verification set.
+5. Commit the reviewable slice.
+
+Avoid creating new planning documents unless they will stay useful after the
+current change. If a plan is implemented, merge the lasting decision into
+`docs/architecture.md`, `docs/development.md`, `docs/decisions.md`, or the relevant
+user guide, then delete the stale plan.
+
+Every few refactor slices, do a short architecture audit:
+
+- Are package boundaries in `docs/architecture.md` still true?
+- Did an experimental workflow leak into the routine user path?
+- Did a helper become a manager, service layer, or framework?
+- Are examples still teaching the recommended workflow?
+- Are output files still canonical and documented?
+
 ## UI/UX simplification
 
 The CLI and terminal UI should make the main workflows obvious.

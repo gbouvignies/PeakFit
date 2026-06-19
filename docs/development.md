@@ -36,6 +36,19 @@ Use `prek`, not `pre-commit`, for hooks.
 The import-linter contracts in `pyproject.toml` enforce the current package
 layers.
 
+## Agentic Development
+
+For AI-assisted changes, keep progress reviewable and convergent:
+
+- Change one coherent thing at a time.
+- Prefer deleting or merging stale docs over adding new planning files.
+- Turn important architecture rules into executable checks when possible.
+- Commit after each verified slice.
+- Record lasting non-obvious decisions in `docs/decisions.md`.
+
+Before starting another broad refactor, check whether `docs/architecture.md`,
+the examples, and output docs still match the code.
+
 ## CLI And Terminal Output
 
 PeakFit runs can be long. Terminal output should leave a useful scrollback:
