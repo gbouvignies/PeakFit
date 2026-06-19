@@ -43,4 +43,4 @@ Use `--workers -1` to use all available CPUs.
 ## Notes
 
 - MCMC is **not** a fitting optimizer in the CLI workflow. Uncertainty analysis is
-  performed via `peakfit mcmc` (see [MCMC_DIAGNOSTICS.md](MCMC_DIAGNOSTICS.md)).
+  performed via `peakfit mcmc` (see [mcmc.md](mcmc.md)).

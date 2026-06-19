@@ -95,7 +95,7 @@ The canonical machine-readable summary is `summary/fit.json`. The canonical
 tables are CSV files under `tables/`. Markdown reports are optional and are
 written only when `txt` is requested.
 
-See [`docs/output_system.md`](docs/output_system.md) for the exact output
+See [`docs/outputs.md`](docs/outputs.md) for the exact output
 contract.
 
 ## Plot
@@ -127,11 +127,11 @@ peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 
 ## Documentation
 
-- [`docs/output_system.md`](docs/output_system.md) - output files and formats.
-- [`docs/constraints_and_fit_steps.md`](docs/constraints_and_fit_steps.md) -
+- [`docs/outputs.md`](docs/outputs.md) - output files and formats.
+- [`docs/constraints-and-fit-steps.md`](docs/constraints-and-fit-steps.md) -
   parameter constraints and `[[fitting.steps]]`.
 - [`docs/optimizers.md`](docs/optimizers.md) - optimizer choice and runtime controls.
-- [`docs/MCMC_DIAGNOSTICS.md`](docs/MCMC_DIAGNOSTICS.md) - MCMC workflow and diagnostics.
+- [`docs/mcmc.md`](docs/mcmc.md) - MCMC workflow and diagnostics.
 - [`docs/development.md`](docs/development.md) - contributor workflow and coding conventions.
 - [`docs/architecture.md`](docs/architecture.md) - current package map and boundaries.
 - [`AGENTS.md`](AGENTS.md) - instructions for AI-assisted maintenance.

@@ -9,7 +9,7 @@ Notable user-facing and architecture changes are recorded here.
 - Simplified the public Python package surface; import concrete modules instead of package
   facades.
 - Simplified fit output generation around the canonical files documented in
-  `docs/output_system.md`.
+  `docs/outputs.md`.
 - Renamed fit orchestration concepts from service-oriented names to fit-run terminology.
 - Made the CLI summaries more concise and consistent across commands.
 - Simplified MCMC progress output to show observed progress and acceptance only.

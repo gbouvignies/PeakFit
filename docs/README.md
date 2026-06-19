@@ -5,11 +5,11 @@ Start with the root [`README.md`](../README.md) and the ready-to-run
 
 ## User Guides
 
-- [`output_system.md`](output_system.md) - canonical fit output files.
-- [`constraints_and_fit_steps.md`](constraints_and_fit_steps.md) - parameter
+- [`outputs.md`](outputs.md) - canonical fit output files.
+- [`constraints-and-fit-steps.md`](constraints-and-fit-steps.md) - parameter
   constraints and `[[fitting.steps]]`.
 - [`optimizers.md`](optimizers.md) - optimizer choice and runtime controls.
-- [`MCMC_DIAGNOSTICS.md`](MCMC_DIAGNOSTICS.md) - MCMC uncertainty workflow.
+- [`mcmc.md`](mcmc.md) - MCMC uncertainty workflow.
 
 ## Developer Guides
 
