@@ -133,7 +133,7 @@ peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 - [`docs/optimizers.md`](docs/optimizers.md) - optimizer choice and runtime controls.
 - [`docs/MCMC_DIAGNOSTICS.md`](docs/MCMC_DIAGNOSTICS.md) - MCMC workflow and diagnostics.
 - [`docs/development.md`](docs/development.md) - contributor workflow and coding conventions.
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) - current package map and boundaries.
+- [`docs/architecture.md`](docs/architecture.md) - current package map and boundaries.
 - [`AGENTS.md`](AGENTS.md) - instructions for AI-assisted maintenance.
 
 ## Development

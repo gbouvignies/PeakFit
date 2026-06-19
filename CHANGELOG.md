@@ -39,6 +39,8 @@ Notable user-facing and architecture changes are recorded here.
   documentation.
 - Consolidated user, developer, MCMC, and GitHub template documentation around
   the current CLI, canonical outputs, `prek`, and simplified architecture.
+- Moved architecture and decisions documentation into `docs/` so project
+  documentation has one canonical folder.
 
 ### Removed
 

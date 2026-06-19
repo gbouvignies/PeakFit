@@ -8,6 +8,6 @@ Short records of non‑obvious design choices and trade‑offs.
 
 ## 2026-06-19: Keep documentation consolidated
 - Prefer one concise current guide over several historical notes.
-- Keep AI instructions in `AGENTS.md`, package boundaries in `ARCHITECTURE.md`,
+- Keep AI instructions in `AGENTS.md`, package boundaries in `docs/architecture.md`,
   and contributor workflow in `docs/development.md`.
 - Delete or merge stale documents when refactors make them misleading.

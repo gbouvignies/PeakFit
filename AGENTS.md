@@ -12,9 +12,9 @@ Do not preserve the current design just because it exists. Preserve scientific c
 
 This file is the main instruction file for AI-assisted work.
 
-Other files such as `ARCHITECTURE.md` and files in `docs/` are useful
-context, but they are not immutable constraints. They may be simplified, merged,
-rewritten, or deleted if their content becomes redundant or misleading.
+Files in `docs/` are useful context, but they are not immutable constraints.
+They may be simplified, merged, rewritten, or deleted if their content becomes
+redundant or misleading.
 
 When changing architecture or behavior, update the relevant documentation so the repository remains coherent.
 

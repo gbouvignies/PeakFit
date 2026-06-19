@@ -14,5 +14,6 @@ Start with the root [`README.md`](../README.md) and the ready-to-run
 ## Developer Guides
 
 - [`development.md`](development.md) - contributor workflow and conventions.
-- [`../ARCHITECTURE.md`](../ARCHITECTURE.md) - current package map and boundaries.
+- [`architecture.md`](architecture.md) - current package map and boundaries.
+- [`decisions.md`](decisions.md) - short records of non-obvious design decisions.
 - [`../AGENTS.md`](../AGENTS.md) - AI-assisted maintenance instructions.
