@@ -175,8 +175,8 @@ class ResultsLoader:
                 params.add(
                     param.name,
                     value=param.value,
-                    min=param.min,
-                    max=param.max,
+                    min_value=param.min,
+                    max_value=param.max,
                     vary=param.vary,
                     stderr=param.stderr,
                 )

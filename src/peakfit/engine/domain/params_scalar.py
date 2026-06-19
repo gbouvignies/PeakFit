@@ -180,14 +180,23 @@ class Parameters(BaseModel):
         self,
         name: str | ParameterId,
         value: float = 0.0,
-        min: float = -np.inf,
-        max: float = np.inf,
+        min_value: float = -np.inf,
+        max_value: float = np.inf,
         vary: bool = True,
         unit: str = "",
         stderr: float = 0.0,
         computed: bool = False,
+        **legacy_bounds: float,
     ) -> None:
         """Add a parameter."""
+        if "min" in legacy_bounds:
+            min_value = legacy_bounds.pop("min")
+        if "max" in legacy_bounds:
+            max_value = legacy_bounds.pop("max")
+        if legacy_bounds:
+            unknown = ", ".join(sorted(legacy_bounds))
+            raise TypeError(f"Unknown parameter option(s): {unknown}")
+
         # Handle ParameterId input
         if isinstance(name, ParameterId):
             param_id = name
@@ -199,8 +208,8 @@ class Parameters(BaseModel):
         self.params[name_str] = Parameter(
             name=name_str,
             value=value,
-            min=min,
-            max=max,
+            min=min_value,
+            max=max_value,
             vary=vary,
             unit=unit,
             stderr=stderr,

@@ -168,8 +168,8 @@ def test_any_cs_close_to_constraint_uses_nucleus_specific_margins() -> None:
     h_cs = ParameterId(peak_name="p1", axis="F3", label="cs")
     n_cs = ParameterId(peak_name="p1", axis="F2", label="cs")
 
-    params.add(h_cs, value=8.0005, min=8.0, max=8.3)
-    params.add(n_cs, value=120.015, min=120.0, max=121.0)
+    params.add(h_cs, value=8.0005, min_value=8.0, max_value=8.3)
+    params.add(n_cs, value=120.015, min_value=120.0, max_value=121.0)
 
     spectral_params = [
         SimpleNamespace(label="F2", nucleus="15N"),
@@ -188,12 +188,17 @@ def test_initialize_new_peak_from_median_uses_previous_fits() -> None:
     previous_params.add(ParameterId(peak_name="p2", axis="F2", label="cs"), value=8.34)
 
     params = Parameters()
-    params.add(ParameterId(peak_name="p3", axis="F2", label="lw"), value=19.0, min=5.0, max=20.0)
+    params.add(
+        ParameterId(peak_name="p3", axis="F2", label="lw"),
+        value=19.0,
+        min_value=5.0,
+        max_value=20.0,
+    )
     params.add(
         ParameterId(peak_name="p3", axis="F2", label="cs"),
         value=7.85,
-        min=7.0,
-        max=9.0,
+        min_value=7.0,
+        max_value=9.0,
     )
 
     _initialize_new_peak_from_median(params, previous_params, "p3")
@@ -211,20 +216,20 @@ def test_initialize_existing_params_from_previous_preserves_new_peak() -> None:
     params.add(
         ParameterId(peak_name="p1", axis="F2", label="cs"),
         value=7.90,
-        min=7.0,
-        max=9.0,
+        min_value=7.0,
+        max_value=9.0,
     )
     params.add(
         ParameterId(peak_name="p1", axis="F2", label="lw"),
         value=10.0,
-        min=5.0,
-        max=25.0,
+        min_value=5.0,
+        max_value=25.0,
     )
     params.add(
         ParameterId(peak_name="p2", axis="F2", label="lw"),
         value=11.0,
-        min=5.0,
-        max=25.0,
+        min_value=5.0,
+        max_value=25.0,
     )
 
     _initialize_existing_params_from_previous(params, previous_params, new_peak_name="p2")

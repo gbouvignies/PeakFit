@@ -89,8 +89,8 @@ class ShapeBase:
             params.add(
                 pid,
                 value=spec.default,
-                min=spec.min_val,
-                max=spec.max_val,
+                min_value=spec.min_val,
+                max_value=spec.max_val,
                 unit=spec.unit,
             )
 
