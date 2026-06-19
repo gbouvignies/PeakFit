@@ -5,7 +5,6 @@ It currently relies on PySide6 but can be switched to PyQt6 or PyQt5 if needed.
 """
 
 import os
-import sys
 
 # Force the Qt binding for Matplotlib and other tools if not set
 if "QT_API" not in os.environ:
@@ -39,14 +38,9 @@ try:
     # Aliases to match PyQt5 usage (if any specifically needed, though mostly aligned)
     # PySide6 uses connection.exec() instead of exec_() but we handle that in code.
 
-except ImportError:
-    # Fallback or error handling
-    # For now, we assume PySide6 is installed as per pyproject.toml
-    print(
-        "Critical: PySide6 not installed. Please install it via 'pip install PySide6'.",
-        file=sys.stderr,
-    )
-    raise
+except ImportError as exc:
+    msg = "PySide6 is required for PeakFit plotting. Install project dependencies with `uv sync`."
+    raise ImportError(msg) from exc
 
 __all__ = [
     "QAction",

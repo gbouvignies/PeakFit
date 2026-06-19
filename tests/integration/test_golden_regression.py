@@ -72,9 +72,6 @@ def run_golden_fit(tmp_path_factory):
         "--verbose",
     ]
 
-    print(f"\n[Regression] Running fit on {SPECTRUM_FILE.name}...")
-    print(f"\n[Regression] Running fit on {SPECTRUM_FILE.name}...")
-    # Don't capture output so we can see it in pytest -s
     result = subprocess.run(cmd, check=False, text=True)
 
     if result.returncode != 0:

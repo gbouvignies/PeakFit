@@ -46,7 +46,7 @@ CONTOUR_COLORS = {
 
 def _report_error(message: str) -> None:
     """Report viewer errors without relying on the CLI UI layer."""
-    print(message, file=sys.stderr)
+    sys.stderr.write(f"{message}\n")
 
 
 @dataclass

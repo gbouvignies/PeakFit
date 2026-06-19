@@ -137,8 +137,8 @@ docstring-code-format = true
 # Defaults (E, F) + imports (I) + upgrades (UP) + bugbear (B) +
 # pytest (PT) + import hygiene (TID, ICN) + raise/return/string/logging
 # conventions (RSE, RET, ISC, G) + simplification/performance nits
-# (PIE, PERF) + NumPy (NPY) + type-checking imports (TC) + stale-noqa
-# cleanup (RUF100).
+# (PIE, PERF) + NumPy (NPY) + type-checking imports (TC) + direct-print
+# cleanup (T20) + stale-noqa cleanup (RUF100).
 select = [
   "E",
   "W",
@@ -165,6 +165,7 @@ select = [
   "PERF",
   "PIE",
   "TC",
+  "T20",
   "TID"
 ]
 ignore = [
