@@ -205,12 +205,11 @@ class ResultsLoader:
         if not chains_dir.exists():
             return []
 
-        results: list[MCMCChainRecord] = []
-        for h5_path in sorted(chains_dir.glob("cluster_*_chains.h5")):
-            if record := _load_mcmc_chain_file(h5_path):
-                results.append(record)
-
-        return results
+        return [
+            record
+            for h5_path in sorted(chains_dir.glob("cluster_*_chains.h5"))
+            if (record := _load_mcmc_chain_file(h5_path))
+        ]
 
 
 def _load_mcmc_chain_file(path: Path) -> MCMCChainRecord | None:

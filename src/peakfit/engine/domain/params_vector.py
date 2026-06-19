@@ -92,8 +92,7 @@ class FitParameters(BaseModel):
             arrays.append(self.amplitudes)
 
         # Sort keys for deterministic order
-        for key in sorted(self.extras.keys()):
-            arrays.append(self.extras[key])
+        arrays.extend(self.extras[key] for key in sorted(self.extras))
 
         return np.concatenate(arrays)
 

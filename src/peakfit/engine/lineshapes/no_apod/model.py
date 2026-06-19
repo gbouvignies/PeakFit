@@ -110,8 +110,7 @@ def function(
 
     dw_hz, sign = grid.compute_offsets(x_arr, cs_arr)
     z_values = kernel(dw_hz, lw_arr, state)
-    values = sign * apply_phase(z_values, phase_arr)
-    return values
+    return sign * apply_phase(z_values, phase_arr)
 
 
 class NoApod(PhasedSingletBase):
@@ -187,8 +186,7 @@ def function_doublet(
     z_values = doublet_kernel(
         x_arr, cs_arr, j_arr, grid, kernel=kernel, kernel_args=(lw_arr, state)
     )
-    values = apply_phase(z_values, phase_arr)
-    return values
+    return apply_phase(z_values, phase_arr)
 
 
 class NoApodDoublet(PhasedDoubletBase):

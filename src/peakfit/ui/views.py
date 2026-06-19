@@ -81,8 +81,7 @@ def _format_duration(seconds: float) -> str:
         return f"{seconds / _SECONDS_PER_MINUTE:6.2f}m"
     if seconds < _SECONDS_PER_DAY:
         return f"{seconds / _SECONDS_PER_HOUR:6.2f}h"
-    else:
-        return f"{seconds / _SECONDS_PER_DAY:6.2f}d"
+    return f"{seconds / _SECONDS_PER_DAY:6.2f}d"
 
 
 def _format_chi2_delta(old: float | None, new: float, precision: int = 2) -> Text:

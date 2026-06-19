@@ -322,7 +322,6 @@ class SpectraViewer(QMainWindow):
         super().resizeEvent(a0)
         # Assuming backend widget handles resize or we might need a notify method in backend
         # MatplotlibBackend (QWidget) handles its own layout, but we can call a refresh if needed
-        pass
 
 
 def _validate_files(args: argparse.Namespace) -> None:

@@ -79,8 +79,7 @@ def function(
     cs_arr = np.atleast_1d(np.asarray(cs, dtype=np.float64))
     lw_arr = np.atleast_1d(np.asarray(lw, dtype=np.float64))
     dw_hz, sign = grid.compute_offsets(x_arr, cs_arr)
-    values = sign * kernel(dw_hz, lw_arr[None, :])
-    return values
+    return sign * kernel(dw_hz, lw_arr[None, :])
 
 
 # =============================================================================

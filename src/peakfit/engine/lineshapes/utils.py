@@ -315,28 +315,27 @@ def apply_phase_with_derivs(
         derivs["phase"] = d_phase_deg
         return values, derivs
 
-    else:
-        # Case B: Single dF/dz array (chain rule needed)
-        # d/d_param = Re( dF/dz * dz/d_param * e^iφ )
+    # Case B: Single dF/dz array (chain rule needed)
+    # d/d_param = Re( dF/dz * dz/d_param * e^iφ )
 
-        z_derivs_arr = np.asarray(z_derivs, dtype=np.complex128)
+    z_derivs_arr = np.asarray(z_derivs, dtype=np.complex128)
 
-        # Rotate the dF/dz
-        df_dz_rot = z_derivs_arr * phasor
+    # Rotate the dF/dz
+    df_dz_rot = z_derivs_arr * phasor
 
-        # d_dw: z = ... + i*aq*dw  => dz/d_dw = i*aq
-        # d/d_dw = Re( df_dz_rot * i * aq ) = -Im(df_dz_rot) * aq
-        d_dw = np.asarray((-np.imag(df_dz_rot) * aq), dtype=np.float64)
+    # d_dw: z = ... + i*aq*dw  => dz/d_dw = i*aq
+    # d/d_dw = Re( df_dz_rot * i * aq ) = -Im(df_dz_rot) * aq
+    d_dw = np.asarray((-np.imag(df_dz_rot) * aq), dtype=np.float64)
 
-        # d_r2: z = aq*r2 + ... => dz/d_r2 = aq
-        # d/d_r2 = Re( df_dz_rot * aq ) = Re(df_dz_rot) * aq
-        d_r2 = np.asarray((np.real(df_dz_rot) * aq), dtype=np.float64)
+    # d_r2: z = aq*r2 + ... => dz/d_r2 = aq
+    # d/d_r2 = Re( df_dz_rot * aq ) = Re(df_dz_rot) * aq
+    d_r2 = np.asarray((np.real(df_dz_rot) * aq), dtype=np.float64)
 
-        return values, {
-            "phase": d_phase_deg,
-            "dw": d_dw,
-            "rate": d_r2,  # "rate" key maps to R2 here
-        }
+    return values, {
+        "phase": d_phase_deg,
+        "dw": d_dw,
+        "rate": d_r2,  # "rate" key maps to R2 here
+    }
 
 
 # =============================================================================

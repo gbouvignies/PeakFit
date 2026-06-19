@@ -143,24 +143,20 @@ def _build_parameter_rows(results: FitResults, config: WriterConfig) -> list[dic
 
 def _build_intensity_rows(results: FitResults, config: WriterConfig) -> list[dict[str, Any]]:
     """Build normalized rows for intensity export."""
-    rows: list[dict[str, Any]] = []
-
-    for cluster in results.clusters:
-        for amp in cluster.amplitudes:
-            rows.append(
-                {
-                    "cluster_id": cluster.cluster_id,
-                    "peak_name": amp.peak_name,
-                    "plane_index": amp.plane_index,
-                    "z_value": _fmt_optional(amp.z_value, config),
-                    "intensity": _fmt_required(amp.value, config),
-                    "intensity_err": _fmt_required(amp.std_error, config),
-                    "ci_68_lower": _fmt_optional(amp.ci_68_lower, config),
-                    "ci_68_upper": _fmt_optional(amp.ci_68_upper, config),
-                }
-            )
-
-    return rows
+    return [
+        {
+            "cluster_id": cluster.cluster_id,
+            "peak_name": amp.peak_name,
+            "plane_index": amp.plane_index,
+            "z_value": _fmt_optional(amp.z_value, config),
+            "intensity": _fmt_required(amp.value, config),
+            "intensity_err": _fmt_required(amp.std_error, config),
+            "ci_68_lower": _fmt_optional(amp.ci_68_lower, config),
+            "ci_68_upper": _fmt_optional(amp.ci_68_upper, config),
+        }
+        for cluster in results.clusters
+        for amp in cluster.amplitudes
+    ]
 
 
 def _detect_dimension_labels(results: FitResults) -> list[str]:
