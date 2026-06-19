@@ -186,17 +186,8 @@ class Parameters(BaseModel):
         unit: str = "",
         stderr: float = 0.0,
         computed: bool = False,
-        **legacy_bounds: float,
     ) -> None:
         """Add a parameter."""
-        if "min" in legacy_bounds:
-            min_value = legacy_bounds.pop("min")
-        if "max" in legacy_bounds:
-            max_value = legacy_bounds.pop("max")
-        if legacy_bounds:
-            unknown = ", ".join(sorted(legacy_bounds))
-            raise TypeError(f"Unknown parameter option(s): {unknown}")
-
         # Handle ParameterId input
         if isinstance(name, ParameterId):
             param_id = name
