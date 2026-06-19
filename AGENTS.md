@@ -12,7 +12,9 @@ Do not preserve the current design just because it exists. Preserve scientific c
 
 This file is the main instruction file for AI-assisted work.
 
-Other files such as `ARCHITECTURE.md`, files in `docs/`, and files in `specs/` are useful historical/context documents, but they are not immutable constraints. They may be simplified, merged, rewritten, or deleted if their content becomes redundant or misleading.
+Other files such as `ARCHITECTURE.md` and files in `docs/` are useful
+context, but they are not immutable constraints. They may be simplified, merged,
+rewritten, or deleted if their content becomes redundant or misleading.
 
 When changing architecture or behavior, update the relevant documentation so the repository remains coherent.
 
@@ -38,13 +40,14 @@ The current code is roughly organized as:
 - `src/peakfit/cli/` — Typer command-line interface.
 - `src/peakfit/ui/` — Rich terminal UI helpers.
 - `src/peakfit/fit/` — fitting workflow orchestration.
+- `src/peakfit/auto_pick/` — experimental automatic peak-picking workflow.
 - `src/peakfit/mcmc/` — MCMC uncertainty workflows.
 - `src/peakfit/plot/` — plotting and spectrum viewer.
 - `src/peakfit/io/` — parsing, serialization, and file-format handling.
 - `src/peakfit/engine/` — domain models, algorithms, lineshapes, and numerical computation.
 - `src/peakfit/shared/` — small shared helpers.
 - `tests/` — test suite.
-- `docs/` and `specs/` — documentation, design notes, and historical plans.
+- `docs/` and `examples/` — user/developer documentation and runnable workflows.
 
 This structure is a starting point, not a constraint. Prefer a simpler structure if the evidence supports it.
 

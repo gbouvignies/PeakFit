@@ -14,7 +14,8 @@ The default output formats are:
 - `csv` → tabular data
 
 Markdown reports are optional. Add `txt` to `[output] formats` or pass
-`--format txt` to write `summary/report.md`.
+`--format txt` to write `summary/report.md`. There is no TSV output; CSV is the
+canonical tabular format.
 
 ## Output Directory Layout
 
@@ -39,6 +40,9 @@ Markdown reports are optional. Add `txt` to `[output] formats` or pass
 - Run metadata, fit statistics, and MCMC diagnostics are embedded in `summary/fit.json`.
 - `summary/report.md` is created only when `txt` is in `output.formats`; it is a
   bounded review report, not a complete parameter export.
+- `tables/intensities.csv` may contain signed amplitudes. CEST plots preserve
+  signed normalized intensities; CPMG plots use only points with positive
+  `I/I0` ratios because `R2eff` is log-transformed.
 
 ## Optional Artifacts
 
@@ -80,6 +84,5 @@ Post-fit commands and `ResultsLoader` expect the run output directory
   available data.
 - Direct writer functions serialize JSON, CSV, optional Markdown, run-level
   README/state companions, and optional simulated spectra.
-- There is no writer manager class and no output manifest; the fixed layout is
-  the contract.
+- The fixed layout is the output contract.
 - Per-plane amplitudes are exported only in `tables/intensities.csv`.

@@ -34,6 +34,15 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 5. `mcmc` and `plot` run post-fit workflows from canonical fit outputs.
 6. `ui` renders terminal output where the CLI needs it.
 
+## Boundaries
+
+- `engine` should stay free of Typer, Rich, Qt, and filesystem side effects.
+- `fit`, `mcmc`, and `plot` may orchestrate workflows, but should call direct
+  functions rather than adding manager/service layers.
+- `io.schemas` is the JSON validation/read contract; runtime output dataclasses
+  live in `fit`.
+- `auto_pick` is intentionally separate from `fit` because it is experimental.
+
 ## Invariants To Preserve Or Change Explicitly
 
 - Numerical and scientific behavior should remain correct and tested.

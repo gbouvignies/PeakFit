@@ -5,7 +5,6 @@ exclude_planes = []
 
 [fitting]
 lineshape = "auto"
-strategy_name = "varpro"
 refine_iterations = 1
 fix_positions = false
 fit_j_coupling = false

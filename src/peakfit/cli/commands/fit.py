@@ -54,8 +54,8 @@ def fit_command(
         Path | None,
         typer.Argument(
             help=(
-                "Peak list file (.list, .csv). Omitting it uses experimental "
-                "automatic peak picking."
+                "Peak list file (.list, .csv, .json, .xlsx, .xls). Omitting it uses "
+                "experimental automatic peak picking."
             ),
             exists=True,
             dir_okay=False,

@@ -10,8 +10,6 @@ PeakFit now follows a simple command flow:
 2. `peakfit mcmc ...` (post-fit uncertainty analysis)
 3. `peakfit plot ...` (PDF plots and interactive spectrum review)
 
-There is no separate `doctor` step.
-
 ## Recommended Path
 
 Start with `02-advanced-fitting/`; it is the canonical ready-to-run workflow:

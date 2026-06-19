@@ -37,6 +37,8 @@ Notable user-facing and architecture changes are recorded here.
   terminology.
 - Merged duplicate output architecture notes into the main output-system
   documentation.
+- Consolidated user, developer, MCMC, and GitHub template documentation around
+  the current CLI, canonical outputs, `prek`, and simplified architecture.
 
 ### Removed
 
@@ -51,6 +53,8 @@ Notable user-facing and architecture changes are recorded here.
   lineshape protocol.
 - Removed unused fit-step result wrappers, optimizer wrapper classes, and
   the legacy serialized-state `peaks` fallback.
+- Removed stale standalone MCMC workflow and duplicate terminal/typing
+  development notes after merging current guidance into `docs/development.md`.
 
 ### Compatibility
 
