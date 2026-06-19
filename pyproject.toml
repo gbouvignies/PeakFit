@@ -133,7 +133,8 @@ docstring-code-format = true
 
 [tool.ruff.lint]
 # Selected high-value rules.
-# Defaults (E, F) + Imports (I) + Upgrades (UP) + Bugbear (B) + Numpy (NPY) + TypeCheck (TC)
+# Defaults (E, F) + imports (I) + upgrades (UP) + bugbear (B) +
+# NumPy (NPY) + type-checking imports (TC) + stale-noqa cleanup (RUF100).
 select = [
   "E",
   "W",
@@ -147,6 +148,7 @@ select = [
   "PTH",
   "PL",
   "RUF",
+  "RUF100",
   "D",
   "NPY",
   "TC"
@@ -166,18 +168,14 @@ convention = "google"
 
 [tool.ruff.lint.flake8-tidy-imports]
 # Disallow relative imports from parent directories (e.g. from ..utils import x)
-# This forces you to use 'from peakfit.core.utils import x', making architecture clear.
+# This forces package-qualified imports and makes architecture boundaries clear.
 ban-relative-imports = "parents"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = [
-  "S101",  # Allow 'assert' (Mandatory for pytest)
   "D",  # Documentation not needed in tests
   "PLR2004",  # Allow magic values in tests (assert x == 5)
-  "ARG",  # Unused arguments are common in pytest fixtures
 ]
-"src/peakfit/cli/**/*" = ["T201"]  # Allow print() in the CLI
-"tools/**/*" = ["T201", "D"]  # Scripts can print and don't need docs
 "src/peakfit/engine/domain/cluster.py" = ["TC001"]
 "src/peakfit/auto_pick/algorithm.py" = ["PLR0912", "PLR0915"]
 
