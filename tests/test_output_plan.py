@@ -101,6 +101,23 @@ def test_json_outputs_use_current_schema_version(tmp_path) -> None:
     assert payload["schema_version"] == OUTPUT_SCHEMA_VERSION
 
 
+def test_parameters_csv_keeps_only_table_relevant_columns(tmp_path) -> None:
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
+
+    header = written["parameters"].read_text(encoding="utf-8").splitlines()[0].split(",")
+
+    assert header[:6] == [
+        "cluster_id",
+        "peak_name",
+        "parameter_name",
+        "value",
+        "std_error",
+        "is_fixed",
+    ]
+    assert "category" not in header
+    assert "is_global" not in header
+
+
 def test_fit_outputs_do_not_duplicate_run_metadata(tmp_path) -> None:
     written = write_fit_outputs(_results(), tmp_path, WriterConfig())
 

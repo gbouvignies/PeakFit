@@ -36,11 +36,9 @@ def write_parameters(
         "cluster_id",
         "peak_name",
         "parameter_name",
-        "category",
         "value",
         "std_error",
         "is_fixed",
-        "is_global",
     ]
     optional_columns = [
         "ci_68_lower",
@@ -123,7 +121,6 @@ def _build_parameter_rows(results: FitResults, config: WriterConfig) -> list[dic
                 "cluster_id": cluster.cluster_id,
                 "peak_name": peak_name,
                 "parameter_name": parameter_name,
-                "category": param.category.value,
                 "value": _fmt_required(param.value, config),
                 "std_error": _fmt_required(param.std_error, config),
                 "ci_68_lower": _fmt_optional(param.ci_68_lower, config),
@@ -134,7 +131,6 @@ def _build_parameter_rows(results: FitResults, config: WriterConfig) -> list[dic
                 "min_bound": _fmt_optional(param.min_bound, config, allow_infinite=False),
                 "max_bound": _fmt_optional(param.max_bound, config, allow_infinite=False),
                 "is_fixed": param.is_fixed,
-                "is_global": param.is_global,
             }
             rows.append(row)
 

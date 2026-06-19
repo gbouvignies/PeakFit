@@ -42,6 +42,10 @@ canonical tabular format.
 - `summary/report.md` is created only when `txt` is in `output.formats`; it is a
   bounded review report with fit-quality checks and key parameters, not a
   complete parameter export.
+- `tables/parameters.csv` is intentionally lean: parameter identity, fitted
+  value, uncertainty, fixed status, and optional units/bounds. Rich metadata
+  such as parameter category and global/shared status belongs in
+  `summary/fit.json`.
 - `tables/intensities.csv` may contain signed amplitudes. CEST plots preserve
   signed normalized intensities; CPMG plots use only points with positive
   `I/I0` ratios because `R2eff` is log-transformed.
