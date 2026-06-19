@@ -161,7 +161,7 @@ uv run pytest
 QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg uv run pytest
 uv run ruff check .
 uv run ruff format --check .
-uv run ty check
+uv run ty check --error-on-warning
 uv run lint-imports
 uv run prek run --all-files
 uv build

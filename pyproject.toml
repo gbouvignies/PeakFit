@@ -127,6 +127,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+target-version = "py314"
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -134,7 +135,9 @@ docstring-code-format = true
 [tool.ruff.lint]
 # Selected high-value rules.
 # Defaults (E, F) + imports (I) + upgrades (UP) + bugbear (B) +
-# NumPy (NPY) + type-checking imports (TC) + stale-noqa cleanup (RUF100).
+# pytest (PT) + import hygiene (TID, ICN) + raise/string/logging conventions
+# (RSE, ISC, G) + NumPy (NPY) + type-checking imports (TC) +
+# stale-noqa cleanup (RUF100).
 select = [
   "E",
   "W",
@@ -144,14 +147,21 @@ select = [
   "UP",
   "B",
   "C4",
+  "EXE",
+  "G",
+  "ICN",
+  "ISC",
   "SIM",
   "PTH",
   "PL",
+  "PT",
+  "RSE",
   "RUF",
   "RUF100",
   "D",
   "NPY",
-  "TC"
+  "TC",
+  "TID"
 ]
 ignore = [
   "D100",

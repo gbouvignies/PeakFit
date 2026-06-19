@@ -142,7 +142,7 @@ peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 uv sync --all-extras
 uv run ruff check src tests
 uv run ruff format --check src tests
-uv run ty check
+uv run ty check --error-on-warning
 uv run lint-imports
 QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg uv run pytest -q
 uv run prek run --all-files
