@@ -204,6 +204,7 @@ def fit_basin_hopping(
             minimizer_kwargs=minimizer_kwargs,
             disp=False,
             seed=seed,
+            stepsize=step_size,
         )
 
         # Finalize
@@ -212,9 +213,7 @@ def fit_basin_hopping(
         params.set_vary_values(result.x)
 
         # Restore amplitudes
-        _restore_amplitude_params(
-            params, cluster, varpro_optimizer, amplitude_params_state, result.x
-        )
+        _restore_amplitude_params(params, cluster, varpro_optimizer, result.x)
 
         final_residuals = residuals(params, cluster, noise)
         covar = _compute_covariance_and_errors(objective, result.x, bounds, params)
@@ -252,7 +251,6 @@ def _restore_amplitude_params(
     params: Parameters,
     cluster: Cluster,
     varpro_optimizer: VarProOptimizer,
-    amplitude_params_state: dict[str, bool],
     optimized_x: FloatArray,
 ) -> None:
     """Restore amplitude parameters from VarPro optimization."""

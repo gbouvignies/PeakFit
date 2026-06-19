@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.peaks import Peak
-    from peakfit.engine.domain.spectrum import Spectra
     from peakfit.engine.results import FitResult
 
 
@@ -63,7 +62,6 @@ def run_pipeline(
     data_noise: float,
     base_params: Parameters,
     peaks: Sequence[Peak],
-    spectra: Spectra,
     *,
     optimizer: str = "varpro",
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,
@@ -76,7 +74,6 @@ def run_pipeline(
         data_noise,
         base_params,
         peaks,
-        spectra,
         optimizer=optimizer,
         executor=executor,
     ):
@@ -95,7 +92,6 @@ def run_pipeline_iter(
     data_noise: float,
     base_params: Parameters,
     peaks: Sequence[Peak],
-    spectra: Spectra,
     *,
     optimizer: str = "varpro",
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,

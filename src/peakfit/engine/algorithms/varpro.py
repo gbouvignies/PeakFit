@@ -148,7 +148,7 @@ class VarProOptimizer:
         amplitudes = solve_amplitudes(q, r, self._data_matrix)
 
         # 3. Compute residuals
-        residuals = project_residuals(self._data_matrix, q, amplitudes)
+        residuals = project_residuals(self._data_matrix, q)
 
         # 4. Compute pseudo-inverse helper for Jacobian
         phi_pinv = compute_phi_pinv(q, r)

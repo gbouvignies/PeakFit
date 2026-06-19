@@ -253,7 +253,6 @@ def auto_pick_peaks(
             roi_indices=roi_indices,
             noise=noise,
             next_peak_number=next_peak_number,
-            seed_point=seed_point,
             config=config,
             peak_added_callback=_emit_peak_added_update if cycle_callback is not None else None,
         )
@@ -380,7 +379,6 @@ def _fit_roi_iteratively(
     roi_indices: list[IntArray],
     noise: float,
     next_peak_number: _PeakNameCounter,
-    seed_point: tuple[int, ...],
     config: PeakFitConfig,
     peak_added_callback: Callable[
         [

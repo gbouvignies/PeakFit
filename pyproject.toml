@@ -135,12 +135,13 @@ docstring-code-format = true
 [tool.ruff.lint]
 # Selected high-value rules.
 # Defaults (E, F) + imports (I) + upgrades (UP) + bugbear (B) +
-# pytest (PT) + import hygiene (TID, ICN) + raise/return/string/logging
-# conventions (RSE, RET, ISC, G) + simplification/performance nits
-# (PIE, PERF) + timezone-aware datetimes (DTZ) + NumPy (NPY) +
-# type-checking imports (TC) + direct-print cleanup (T20) + stale-noqa
-# cleanup (RUF100).
+# pytest (PT) + import hygiene (TID, ICN) + unused-argument/raise/return/
+# string/logging conventions (ARG, RSE, RET, ISC, G) + simplification/
+# performance nits (PIE, PERF) + timezone-aware datetimes (DTZ) +
+# NumPy (NPY) + type-checking imports (TC) + direct-print cleanup (T20) +
+# stale-noqa cleanup (RUF100).
 select = [
+  "ARG",
   "E",
   "W",
   "F",

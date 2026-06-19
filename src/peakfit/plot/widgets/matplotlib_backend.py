@@ -76,10 +76,10 @@ except (ModuleNotFoundError, ImportError):
         class _DummyFigureCanvas(QWidget):
             """Dummy FigureCanvas for headless environments."""
 
-            def __init__(self, figure: object) -> None:
+            def __init__(self, _figure: object) -> None:
                 super().__init__()
 
-            def mpl_connect(self, event: str, callback: Callable[..., object]) -> object:
+            def mpl_connect(self, _event: str, _callback: Callable[..., object]) -> object:
                 """Register a matplotlib event callback (no-op fallback)."""
                 return object()
 

@@ -73,6 +73,7 @@ class SimpleSingletBase(ShapeBase):
 
     def _get_extra_params(self, cluster_params: ClusterParameters) -> tuple[Any, ...]:
         """Override to extract additional kernel parameters (e.g., eta for PVoigt)."""
+        del cluster_params
         return ()
 
     def _process_extra_derivs(
@@ -82,6 +83,7 @@ class SimpleSingletBase(ShapeBase):
         sign: FloatArray,
     ) -> dict[str, FloatArray]:
         """Override to add derivatives for extra parameters."""
+        del raw_derivs, sign
         return derivs
 
     def evaluate_cluster(
@@ -133,6 +135,7 @@ class SimpleDoubletBase(ShapeBase):
 
     def _get_extra_params(self, cluster_params: ClusterParameters) -> tuple[Any, ...]:
         """Override to extract additional kernel parameters."""
+        del cluster_params
         return ()
 
     def _process_extra_derivs(
@@ -141,6 +144,7 @@ class SimpleDoubletBase(ShapeBase):
         raw_derivs: dict[str, FloatArray],
     ) -> dict[str, FloatArray]:
         """Override to add derivatives for extra parameters."""
+        del raw_derivs
         return derivs
 
     def evaluate_cluster(

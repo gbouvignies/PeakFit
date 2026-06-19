@@ -35,16 +35,16 @@ class ReconstructedShape:
         """Integer index of the center position."""
         return int(self.center)
 
-    def print(self, params: Parameters) -> str:
+    def print(self, _params: Parameters) -> str:
         """Return string representation."""
         return f"# ReconstructedShape: {self.name}"
 
-    def evaluate(self, x_pt: Any, params: Parameters) -> Any:
+    def evaluate(self, x_pt: Any, _params: Parameters) -> Any:
         """Evaluate lineshape, returning zeros for reconstructed shapes."""
         return np.zeros_like(x_pt)
 
     def evaluate_derivatives(
-        self, x_pt: FloatArray, params: Parameters
+        self, x_pt: FloatArray, _params: Parameters
     ) -> tuple[FloatArray, dict[str, FloatArray]]:
         """Evaluate lineshape with derivatives."""
         return np.zeros_like(x_pt), {}
@@ -67,7 +67,7 @@ class ReconstructedShape:
         self,
         x_grid: Any,
         cluster_params: ClusterParameters,
-        compute_derivs: bool = False,
+        _compute_derivs: bool = False,
     ) -> LineshapeResult:
         """Evaluate for cluster, returning zeros."""
         n_points = len(x_grid)
@@ -75,7 +75,7 @@ class ReconstructedShape:
         return LineshapeResult(values=np.zeros((n_points, n_peaks)))
 
     def get_cluster_parameters(
-        self, peaks: Any, params: Parameters, param_map: dict[str, int] | None = None
+        self, _peaks: Any, _params: Parameters, _param_map: dict[str, int] | None = None
     ) -> ClusterParameters:
         """Get cluster parameters."""
         return ClusterParameters()

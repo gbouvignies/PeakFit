@@ -41,6 +41,7 @@ _DEFAULT_PHASE = np.array([0.0], dtype=np.float64)
 
 def make_state(aq: float, apodq1: float, apodq2: float) -> dict[str, complex | float]:
     """Create kernel state for NoApod (just acquisition time)."""
+    del apodq1, apodq2
     return {"aq": aq}
 
 

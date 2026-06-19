@@ -125,7 +125,7 @@ def _log_likelihood_blobs(x: FloatArray) -> tuple[float, FloatArray]:
         amplitudes = solve_amplitudes(q, r, data)
 
         # 4. Residuals (n_points, n_series)
-        residuals = project_residuals(data, q, amplitudes)
+        residuals = project_residuals(data, q)
 
         # 5. Log-Likelihood
         # ln L = -0.5 * sum((res/noise)^2)

@@ -291,7 +291,6 @@ def _iter_pipeline(
                 data.noise,
                 params,
                 data.peaks,
-                data.spectra,
                 optimizer=optimizer,
                 executor=pool.imap_unordered,
             )
@@ -302,7 +301,6 @@ def _iter_pipeline(
             data.noise,
             params,
             data.peaks,
-            data.spectra,
             optimizer=optimizer,
             executor=None,
         )

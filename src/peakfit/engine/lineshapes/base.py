@@ -60,6 +60,7 @@ class ShapeBase:
 
     def print(self, params: Parameters) -> str:
         """Return textual representation."""
+        del params
         return f"# Shape: {self.name} ({self.shape_name})"
 
     def _param_context_extras(self) -> dict[str, Any]:

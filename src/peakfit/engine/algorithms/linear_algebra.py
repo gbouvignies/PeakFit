@@ -65,7 +65,7 @@ def compute_phi_pinv(q: np.ndarray, r: np.ndarray) -> np.ndarray:
         return cast("np.ndarray", np.linalg.pinv(r) @ q.T)
 
 
-def project_residuals(data: np.ndarray, q: np.ndarray, amplitudes: np.ndarray) -> np.ndarray:
+def project_residuals(data: np.ndarray, q: np.ndarray) -> np.ndarray:
     """Compute residuals by projecting data efficiently.
 
     residuals = data - model
