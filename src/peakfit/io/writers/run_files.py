@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
@@ -59,7 +59,7 @@ def write_readme(output_dir: Path, summary: Any) -> Path:
         "",
         "## Summary",
         "",
-        f"- **Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- **Date**: {datetime.now(UTC).astimezone().strftime('%Y-%m-%d %H:%M:%S')}",
         f"- **Peaks**: {summary.n_peaks}",
         f"- **Converged clusters**: {summary.n_converged}/{summary.n_clusters} "
         f"({summary.success_rate:.1%})",

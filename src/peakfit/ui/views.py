@@ -308,7 +308,7 @@ class FitProgressTracker:
         message: str | None,
         warnings: list[str] | None,
     ) -> None:
-        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        timestamp = datetime.datetime.now(datetime.UTC).astimezone().strftime("%H:%M:%S")
         all_warnings = list(warnings or [])
 
         if (

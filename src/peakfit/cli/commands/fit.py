@@ -165,7 +165,7 @@ def fit_command(
         peakfit fit spectrum.ft2 peaks.list -z z_values.txt -o results/
         peakfit fit spectrum.ft2 peaks.list --config settings.toml
     """
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(datetime.UTC)
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
     reporter = ConsoleReporter()
 
@@ -231,7 +231,7 @@ def fit_command(
         else:
             result = _run_interactive_fit(data, fit_config, output_dir, optimizer, workers)
 
-        duration = (datetime.datetime.now() - start_time).total_seconds()
+        duration = (datetime.datetime.now(datetime.UTC) - start_time).total_seconds()
 
         if not fit_config.output.headless:
             reviews = find_review_clusters(result)

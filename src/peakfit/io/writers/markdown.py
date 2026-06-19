@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from peakfit.io.writers.config import WriterConfig
@@ -64,7 +64,7 @@ def _summary_section(results: FitResults) -> str:
     lines = [
         "# PeakFit Report",
         "",
-        f"- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- Generated: {datetime.now(UTC).astimezone().strftime('%Y-%m-%d %H:%M:%S')}",
         f"- Method: {results.method}",
         f"- Clusters: {results.n_clusters}",
         f"- Peaks: {results.n_peaks}",

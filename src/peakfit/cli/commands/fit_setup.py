@@ -127,7 +127,7 @@ def resolve_output_dir(fit_config: PeakFitConfig) -> Path:
     base = fit_config.output.directory or Path("./")
     output_dir = Path(base)
     if fit_config.output.include_timestamp:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.datetime.now(datetime.UTC).astimezone().strftime("%Y%m%d_%H%M%S")
         if str(output_dir) == ".":
             output_dir = Path(f"output_{timestamp}")
         else:
