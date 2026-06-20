@@ -47,7 +47,8 @@ canonical tabular format.
   such as parameter category and global/shared status belongs in
   `summary/fit.json`.
 - CSV columns are ordered for reading: `peak_name` first, the main independent
-  variable or parameter column next, and `cluster_id` last.
+  variable or parameter column next, and provenance columns such as
+  `plane_index` and `cluster_id` last.
 - `tables/intensities.csv` may contain signed amplitudes. CEST plots preserve
   signed normalized intensities; CPMG plots use only points with positive
   `I/I0` ratios because `R2eff` is log-transformed.

@@ -67,7 +67,6 @@ def write_intensities(
 
     base_columns = [
         "peak_name",
-        "plane_index",
         "intensity",
         "intensity_err",
     ]
@@ -85,6 +84,7 @@ def write_intensities(
         present_optional.remove("z_value")
     header.extend(col for col in base_columns if col != "peak_name")
     header.extend(present_optional)
+    header.append("plane_index")
     header.append("cluster_id")
     _write_rows(path, header, rows)
 

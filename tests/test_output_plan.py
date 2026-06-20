@@ -126,9 +126,9 @@ def test_intensities_csv_orders_series_columns_for_reading(tmp_path) -> None:
     assert header == [
         "peak_name",
         "z_value",
-        "plane_index",
         "intensity",
         "intensity_err",
+        "plane_index",
         "cluster_id",
     ]
 
