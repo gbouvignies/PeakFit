@@ -32,8 +32,7 @@ def write_parameters(
     cfg = config or WriterConfig()
     rows = _build_parameter_rows(results, cfg)
 
-    required_columns = [
-        "cluster_id",
+    base_columns = [
         "peak_name",
         "parameter_name",
         "value",
@@ -53,7 +52,7 @@ def write_parameters(
     present_optional = [
         col for col in optional_columns if any(_is_present(row.get(col, "")) for row in rows)
     ]
-    header = required_columns + present_optional
+    header = base_columns + present_optional + ["cluster_id"]
     _write_rows(path, header, rows)
 
 
@@ -66,8 +65,7 @@ def write_intensities(
     cfg = config or WriterConfig()
     rows = _build_intensity_rows(results, cfg)
 
-    required_columns = [
-        "cluster_id",
+    base_columns = [
         "peak_name",
         "plane_index",
         "intensity",
@@ -81,7 +79,13 @@ def write_intensities(
     present_optional = [
         col for col in optional_columns if any(_is_present(row.get(col, "")) for row in rows)
     ]
-    header = required_columns + present_optional
+    header = ["peak_name"]
+    if "z_value" in present_optional:
+        header.append("z_value")
+        present_optional.remove("z_value")
+    header.extend(col for col in base_columns if col != "peak_name")
+    header.extend(present_optional)
+    header.append("cluster_id")
     _write_rows(path, header, rows)
 
 
@@ -104,6 +108,7 @@ def write_shifts(
         header = ["peak_name"]
         for dim in dim_labels:
             header.extend([f"cs_{dim}_ppm", f"cs_{dim}_err"])
+        header.append("cluster_id")
         writer.writerow(header)
         writer.writerows(rows)
 
@@ -214,6 +219,7 @@ def _collect_shift_data(
                 cs_err = shifts.get(f"cs_{dim}_err")
                 row.append(format_float(cs_val, prec, thresh) if cs_val is not None else "")
                 row.append(format_float(cs_err, prec, thresh) if cs_err is not None else "")
+            row.append(str(cluster.cluster_id))
             rows.append(row)
 
     return rows

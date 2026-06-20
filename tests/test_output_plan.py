@@ -106,16 +106,39 @@ def test_parameters_csv_keeps_only_table_relevant_columns(tmp_path) -> None:
 
     header = written["parameters"].read_text(encoding="utf-8").splitlines()[0].split(",")
 
-    assert header[:6] == [
-        "cluster_id",
+    assert header[:5] == [
         "peak_name",
         "parameter_name",
         "value",
         "std_error",
         "is_fixed",
     ]
+    assert header[-1] == "cluster_id"
     assert "category" not in header
     assert "is_global" not in header
+
+
+def test_intensities_csv_orders_series_columns_for_reading(tmp_path) -> None:
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
+
+    header = written["intensities"].read_text(encoding="utf-8").splitlines()[0].split(",")
+
+    assert header == [
+        "peak_name",
+        "z_value",
+        "plane_index",
+        "intensity",
+        "intensity_err",
+        "cluster_id",
+    ]
+
+
+def test_shifts_csv_orders_shift_columns_for_reading(tmp_path) -> None:
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
+
+    header = written["shifts"].read_text(encoding="utf-8").splitlines()[0].split(",")
+
+    assert header == ["peak_name", "cs_F2_ppm", "cs_F2_err", "cluster_id"]
 
 
 def test_fit_outputs_do_not_duplicate_run_metadata(tmp_path) -> None:
