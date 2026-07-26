@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from peakfit.engine.algorithms.common import update_cluster_corrections
+from peakfit.engine.algorithms.evaluation import (
+    FitEvaluation,
+    classify_optimizer_result,
+)
 from peakfit.engine.domain.config import (
     BasinHoppingConfig,
     FitConfig,
@@ -34,6 +38,7 @@ class PipelineResult:
 
     state: FittingState
     results: list[FitResult]
+    evaluations: list[FitEvaluation] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,7 +143,9 @@ def run_pipeline_iter(
     mapper = executor or map
     final_params = base_params
     current_fit_results: list[FitResult] = []
+    current_evaluations: list[FitEvaluation] = []
     optimizer_config = _build_optimizer_config(fit_config, optimizer)
+    clusters_by_id = {cluster.cluster_id: cluster for cluster in clusters}
 
     for step in steps:
         for iteration in range(step.iterations):
@@ -164,13 +171,32 @@ def run_pipeline_iter(
             )
 
             current_fit_results = [step_results_map[cluster_id] for cluster_id in cluster_ids]
-            for res in current_fit_results:
-                final_params.update(res.params)
+            current_evaluations = [
+                classify_optimizer_result(
+                    cluster=clusters_by_id[result.cluster_id],
+                    result=result,
+                    noise=data_noise,
+                )
+                for result in current_fit_results
+            ]
+            evaluations_by_id = {
+                evaluation.cluster_id: evaluation for evaluation in current_evaluations
+            }
+            usable_cluster_ids = {
+                evaluation.cluster_id for evaluation in current_evaluations if evaluation.usable
+            }
+            for result in current_fit_results:
+                if evaluations_by_id[result.cluster_id].usable:
+                    final_params.update(result.params)
 
             if step.iterations > 1 and iteration < step.iterations - 1:
                 yield ("status", "[dim]Correcting data with neighbors...[/]")
 
-            update_cluster_corrections(final_params, clusters)
+            update_cluster_corrections(
+                final_params,
+                clusters,
+                contributing_cluster_ids=usable_cluster_ids,
+            )
 
     fit_params = FitParameters.from_parameters(final_params, list(peaks))
     state = FittingState(
@@ -179,7 +205,11 @@ def run_pipeline_iter(
         scalar_params=final_params,
         noise=data_noise,
     )
-    yield PipelineResult(state=state, results=current_fit_results)
+    yield PipelineResult(
+        state=state,
+        results=current_fit_results,
+        evaluations=current_evaluations,
+    )
 
 
 def _validate_cluster_ids(clusters: Sequence[Cluster]) -> tuple[int, ...]:

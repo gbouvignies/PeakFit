@@ -45,7 +45,7 @@ automatic picker. The observed help still describes the overall CLI as
 | Lineshape | The `Shape` protocol, `ShapeBase`, and twelve configured singlet/doublet implementations across Gaussian, Lorentzian, pseudo-Voigt, SP1, SP2, and no-apodization families. |
 | Parameters | Mutable scalar `Parameters`/`Parameter` objects plus vectorized `FitParameters` and `ParameterMap`. Canonical identifiers have `peak.axis.label` or `cluster_N.axis.label` form; amplitudes use the pseudo axis and an index. |
 | Fit state | `FittingState`, which stores clusters, both parameter representations, noise, and a version. |
-| Optimizer result | `FitResult` for one cluster, including a first-class run-local `cluster_id`, fitted scalar parameters, residuals, convergence metadata, and amplitude parameter count. |
+| Optimizer result | `FitResult` for one cluster, including a first-class run-local `cluster_id`, fitted scalar parameters, residuals, convergence metadata, and amplitude parameter count. `FitEvaluation` independently classifies that result as converged, usable non-converged, or unusable and carries a typed analytical evaluation only when usable. |
 | Run state and output model | `LoadedData`, `FitRun`, and `RunSummary` describe orchestration; `FitResults` and related dataclasses describe writer input; Pydantic schemas describe JSON output. |
 
 **Verified.** Peak positions, cluster corrections, scalar parameters, parameter
@@ -82,13 +82,17 @@ one another but have no continuing synchronization invariant.
    through optimizer tasks and results, validates the exact returned identity
    set, and sorts completed results by identifier for presentation. Each fit
    step rebuilds cluster-local parameters, applies global and step constraints,
-   calls either VARPRO or basin hopping, merges returned parameters, and updates
-   cross-talk corrections between passes.
+   calls either VARPRO or basin hopping, classifies each returned result through
+   the shared analytical evaluator, merges parameters only from numerically
+   usable results, and updates cross-talk corrections between passes.
 7. **Numerical evaluation.** A cluster multiplies its axis lineshapes into a
    peak-by-point design matrix. VARPRO optimizes nonlinear lineshape parameters
-   and solves per-plane amplitudes by QR-based linear least squares. Residuals
-   compare the model with the real-valued corrected cluster data normalized by
-   noise.
+   and solves per-plane amplitudes by QR-based linear least squares. The shared
+   `evaluate_analytical_model` operation re-solves amplitudes from corrected
+   data, validates finite values and compatible shapes, and returns model
+   values, residuals, chi-squared statistics, and amplitude-uncertainty scaling
+   inputs as one typed value. Optimizer convergence remains independent from
+   this numerical usability decision.
 8. **Final state and results.** The pipeline creates `FittingState` and returns
    final `FitResult` objects. `build_fit_results` separately re-evaluates every
    cluster to construct parameter estimates, amplitudes, uncertainties,
@@ -111,7 +115,7 @@ one another but have no continuing synchronization invariant.
 | Domain state | `engine.domain` | **Verified.** Domain objects and parameter constraints live here. Several central objects are deliberately mutable. |
 | Lineshape evaluation | `engine.lineshapes`, `engine.types`, `Cluster.evaluate` | **Verified.** The `Shape` protocol is a substantial seam shared by multiple genuinely different model families. |
 | Optimization and fitting | `engine.algorithms`, `engine.fitting`, `fit.pipeline` | **Verified.** The engine owns numerical methods; the pipeline owns steps, cluster task preparation, parallel mapping, parameter merging, and correction updates. |
-| Result construction | `engine.results`, `fit.result_models`, `fit.results` | **Verified risk.** Optimizer results and persisted statistics are constructed separately; output construction recomputes amplitudes and statistics without consuming final optimizer result metadata. |
+| Result construction | `engine.algorithms.evaluation`, `engine.results`, `fit.result_models`, `fit.results` | **Verified risk.** The pipeline now shares one numerical evaluation and usability classification, but output construction still independently recomputes amplitudes and statistics without consuming that evaluation or final optimizer provenance. Its migration belongs to the final-outcome and consumer work. |
 | Persistence | `io.schemas`, `io.writers`, `io.state` plus `fit.fitting` | **Verified.** Structured writers live in `io`, but run-level selection and state persistence are coordinated by `fit.fitting`. |
 | Plotting | `plot` | **Verified.** Profile transformation and Matplotlib output are separate from the Qt spectrum viewer. |
 | Automatic picking | `auto_pick`, with `fit` and optional `ui` adapters | **Verified.** The algorithm is isolated from Qt; reporting callbacks and the optional stepper are supplied by higher layers. |

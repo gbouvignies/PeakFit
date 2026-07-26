@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from peakfit.engine.algorithms.common import calculate_shape_heights, residuals
+from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import BasinHoppingConfig, FitConfig, VarProConfig
 from peakfit.engine.domain.fit_steps import FitStep
@@ -578,52 +579,56 @@ def test_current_terminal_pass_is_followed_by_a_correction_update() -> None:
     )
 
 
-def test_current_pipeline_merges_an_unusable_result_before_correction(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fit = _synthetic_fit()
-    unusable_parameter: list[tuple[str, float]] = []
-    correction_inputs: list[float] = []
+def test_numerical_usability_controls_parameter_merging_and_corrections() -> None:
+    def run_with_unusable_parameter(
+        relative_value: float,
+    ) -> tuple[
+        PipelineResult,
+        str,
+        float,
+        float,
+    ]:
+        fit = _synthetic_fit()
+        unusable_parameter: list[tuple[str, float, float]] = []
 
-    def executor(_function: Any, tasks: list[Any]) -> list[FitResult]:
-        completed: list[FitResult] = []
-        residual_values = (0.25, 0.5, np.nan)
-        for task_index, (task, residual_value) in enumerate(
-            zip(tasks, residual_values, strict=True)
-        ):
-            result = _terminal_result(
-                task.cluster,
-                success=task_index == 0,
-                residual_value=residual_value,
-                nfev=task_index + 1,
-                message=f"result {task_index}",
-            )
-            if task_index == 2:
-                parameter_name = result.params.get_vary_names()[0]
-                parameter = result.params[parameter_name]
-                parameter_value = parameter.min + 0.25 * (parameter.max - parameter.min)
-                result.params[parameter_name].value = parameter_value
-                unusable_parameter.append((parameter_name, parameter_value))
-            completed.append(result)
-        return completed
+        def executor(_function: Any, tasks: list[Any]) -> list[FitResult]:
+            completed: list[FitResult] = []
+            residual_values = (0.25, 0.5, np.nan)
+            for task_index, (task, residual_value) in enumerate(
+                zip(tasks, residual_values, strict=True)
+            ):
+                result = _terminal_result(
+                    task.cluster,
+                    success=task_index == 0,
+                    residual_value=residual_value,
+                    nfev=task_index + 1,
+                    message=f"result {task_index}",
+                )
+                if task_index == 2:
+                    parameter_name = result.params.get_vary_names()[0]
+                    parameter = result.params[parameter_name]
+                    original_value = fit.params[parameter_name].value
+                    rejected_value = parameter.min + relative_value * (
+                        parameter.max - parameter.min
+                    )
+                    result.params[parameter_name].value = rejected_value
+                    unusable_parameter.append((parameter_name, original_value, rejected_value))
+                completed.append(result)
+            return completed
 
-    def observe_correction_inputs(params: Parameters, _clusters: list[Cluster]) -> None:
-        parameter_name, _parameter_value = unusable_parameter[0]
-        correction_inputs.append(params[parameter_name].value)
+        result = run_pipeline(
+            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            clusters=fit.clusters,
+            data_noise=1.0,
+            base_params=fit.params,
+            peaks=fit.peaks,
+            executor=executor,
+        )
+        parameter_name, original_value, rejected_value = unusable_parameter[0]
+        return result, parameter_name, original_value, rejected_value
 
-    monkeypatch.setattr(
-        "peakfit.fit.pipeline.update_cluster_corrections",
-        observe_correction_inputs,
-    )
-    result = run_pipeline(
-        config=FitConfig(lineshape="gaussian", refine_iterations=0),
-        clusters=fit.clusters,
-        data_noise=1.0,
-        base_params=fit.params,
-        peaks=fit.peaks,
-        executor=executor,
-    )
-    parameter_name, parameter_value = unusable_parameter[0]
+    result, parameter_name, original_value, rejected_value = run_with_unusable_parameter(0.25)
+    alternate, _, _, _ = run_with_unusable_parameter(0.75)
 
     assert [terminal.success for terminal in result.results] == [True, False, False]
     assert [np.isfinite(terminal.residual).all() for terminal in result.results] == [
@@ -631,9 +636,23 @@ def test_current_pipeline_merges_an_unusable_result_before_correction(
         np.True_,
         np.False_,
     ]
-    assert all(not hasattr(terminal, "usability") for terminal in result.results)
-    assert result.state.scalar_params[parameter_name].value == pytest.approx(parameter_value)
-    assert correction_inputs == pytest.approx([parameter_value])
+    assert [evaluation.classification for evaluation in result.evaluations] == [
+        FitOutcomeClassification.CONVERGED,
+        FitOutcomeClassification.USABLE_NON_CONVERGED,
+        FitOutcomeClassification.UNUSABLE,
+    ]
+    assert result.evaluations[-1].unusable_reason == "non-finite optimizer residuals"
+    assert result.state.scalar_params[parameter_name].value == pytest.approx(original_value)
+    assert result.state.scalar_params[parameter_name].value != pytest.approx(rejected_value)
+    for cluster, alternate_cluster in zip(
+        result.state.clusters,
+        alternate.state.clusters,
+        strict=True,
+    ):
+        np.testing.assert_allclose(
+            cluster.corrections,
+            alternate_cluster.corrections,
+        )
 
 
 @pytest.mark.xfail(
@@ -788,12 +807,7 @@ def test_current_actual_optimizer_provenance_is_replaced_during_reconstruction(
         assert terminal.metadata["local_minimizations"] >= 0
         assert isinstance(terminal.metadata["global_minimum_found"], bool)
         assert np.isfinite(terminal.metadata["initial_cost"])
-        success_promoted_by_message = (
-            "completed successfully" in terminal.message or "requested number" in terminal.message
-        )
-        assert terminal.success is (
-            terminal.metadata["global_minimum_found"] or success_promoted_by_message
-        )
+        assert terminal.success is terminal.metadata["global_minimum_found"]
 
 
 def test_current_persistence_resolves_amplitudes_independently_of_optimizer_parameters() -> None:

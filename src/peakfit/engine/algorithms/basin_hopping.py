@@ -6,7 +6,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy import optimize
 
-from peakfit.engine.algorithms.common import residuals
+from peakfit.engine.algorithms.evaluation import (
+    AnalyticalModelEvaluation,
+    evaluate_analytical_model,
+)
 from peakfit.engine.algorithms.varpro import VarProOptimizer
 from peakfit.engine.domain.param_id import ParameterId
 from peakfit.engine.domain.params_vector import FitParameters
@@ -215,22 +218,20 @@ def fit_basin_hopping(
         # Restore amplitudes
         _restore_amplitude_params(params, cluster, varpro_optimizer, result.x)
 
-        final_residuals = residuals(params, cluster, noise)
+        analytical = evaluate_analytical_model(cluster, params, noise)
+        final_residuals = (
+            analytical.normalized_residuals
+            if isinstance(analytical, AnalyticalModelEvaluation)
+            else varpro_optimizer.compute_residuals(result.x)
+        )
         covar = _compute_covariance_and_errors(objective, result.x, bounds, params)
-
-        # Simplified success check
-        success = result.lowest_optimization_result.success
-        if not success:
-            msg = str(result.message)
-            if "completed successfully" in msg or "requested number" in msg:
-                success = True
 
         return BasinHoppingResult(
             params=params,
             residual=final_residuals,
             cost=result.fun,
             nfev=result.nfev,
-            success=success,
+            success=bool(result.lowest_optimization_result.success),
             message=str(result.message),
             global_iterations=n_iterations,
             local_minimizations=result.nit,

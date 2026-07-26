@@ -10,7 +10,7 @@ from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.param_id import PSEUDO_AXIS, ParameterId
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Sequence, Set
 
     from peakfit.engine.domain.params_scalar import Parameters
     from peakfit.shared.typing import FloatArray
@@ -53,13 +53,26 @@ def residuals(params: Parameters, cluster: Cluster, noise: float) -> FloatArray:
 def update_cluster_corrections(
     params: Parameters,
     clusters: Sequence[Cluster],
+    *,
+    contributing_cluster_ids: Set[int] | None = None,
 ) -> None:
-    """Update cross-talk corrections for clusters."""
+    """Update every cluster from the model of eligible contributor clusters."""
     cluster_list = list(clusters)
     if not cluster_list:
         return
 
-    cluster_all = Cluster.from_clusters(cluster_list)
+    contributing_clusters = (
+        cluster_list
+        if contributing_cluster_ids is None
+        else [cluster for cluster in cluster_list if cluster.cluster_id in contributing_cluster_ids]
+    )
+    if not contributing_clusters:
+        for cluster in cluster_list:
+            cluster.corrections = np.zeros_like(cluster.data)
+        return
+
+    cluster_all = Cluster.from_clusters(contributing_clusters)
+    cluster_all.corrections = np.zeros_like(cluster_all.data)
     # Underscore prefix indicates unused variable
     _shapes_all, amplitudes_all = calculate_shape_heights(params, cluster_all)
     # amplitudes_all shape: (n_total_peaks, n_series)
