@@ -244,8 +244,10 @@ def fit_command(
             clusters_to_review = _format_review_clusters(reviews)
             display_post_fit_summary(
                 total_time=duration,
-                total_clusters=len(result.results),
+                total_clusters=result.summary.n_clusters,
                 successful_fits=result.summary.n_converged,
+                usable_non_converged=result.summary.n_usable_non_converged,
+                unusable=result.summary.n_unusable,
                 chi_sq_stats={
                     "Mean": result.summary.mean_redchi,
                     "Std Dev": result.summary.std_redchi,
@@ -447,10 +449,17 @@ def _format_review_clusters(reviews: list[ClusterReview]) -> list[dict[str, Any]
     """Format ClusterReview objects for display."""
     formatted = []
     for review in reviews:
-        if review.reason == "diverged":
-            status, status_color, details = "Diverged", "metric.bad", "Optimizer failed"
+        if review.reason == "unusable":
+            status, status_color = "Unusable", "metric.bad"
+            details = review.unusable_reason or "Numerical evaluation is unusable"
+            if review.termination_message:
+                details = f"{details}; optimizer: {review.termination_message}"
+        elif review.reason == "not_converged":
+            status, status_color = "Not converged", "metric.warn"
+            details = review.termination_message or "Optimizer did not converge"
         elif review.reason == "high_chi":
             status, status_color = "High χ²", "metric.warn"
+            assert review.redchi is not None
             details = f"Red. χ² = {review.redchi:.2f}"
         else:
             status, status_color = "At Bounds", "metric.warn"
@@ -471,7 +480,11 @@ def _format_review_clusters(reviews: list[ClusterReview]) -> list[dict[str, Any]
                 "status": status,
                 "status_color": status_color,
                 "chi_sq": review.redchi,
-                "chi_sq_color": "metric.bad" if review.redchi > _HIGH_REDCHI else "metric.warn",
+                "chi_sq_color": (
+                    "metric.bad"
+                    if review.redchi is not None and review.redchi > _HIGH_REDCHI
+                    else "metric.warn"
+                ),
                 "details": details,
             }
         )

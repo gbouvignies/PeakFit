@@ -187,9 +187,9 @@ one another but have no continuing synchronization invariant.
    differently. There are no equivalence tests across supported formats.
 3. **Partially resolved — result truth is split.** `FinalFitOutcome` now keeps
    terminal classification, provenance, and shared analytical values separate
-   from mutable continuation state. CLI review and output writers still use
-   their older paths, so they can describe convergence differently until their
-   planned migrations.
+   from mutable continuation state. CLI review and `RunSummary` project that
+   outcome, while durable output writers still use their older paths and can
+   describe convergence differently until their planned migrations.
 4. **Verified — state persistence has two unequal paths.** Pickle preserves
    numerical state; JSON reconstruction is intentionally minimal and excludes
    amplitudes and real cluster grids. Tests only protect the canonical JSON path,

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
 
 from peakfit.engine.algorithms.common import calculate_shape_heights, residuals
-from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+from peakfit.engine.algorithms.evaluation import FitOutcomeClassification, classify_optimizer_result
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import BasinHoppingConfig, FitConfig, VarProConfig
 from peakfit.engine.domain.fit_steps import FitStep
@@ -20,10 +21,11 @@ from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.optimizers import fit_with_optimizer
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
-from peakfit.fit.fitting import _build_summary, find_review_clusters
-from peakfit.fit.pipeline import PipelineResult, run_pipeline
+from peakfit.fit.final_outcome import finalize_fit
+from peakfit.fit.fitting import find_review_clusters
+from peakfit.fit.pipeline import CorrectionSnapshot, PipelineResult, run_pipeline
 from peakfit.fit.results import build_fit_results
-from peakfit.fit.run_models import FitRun, LoadedData
+from peakfit.fit.run_models import FitRun
 from peakfit.io.writers.json import write_summary
 from peakfit.io.writers.markdown import write_report
 
@@ -136,8 +138,11 @@ def _terminal_result(
     residual_value: float,
     nfev: int,
     message: str,
+    nonfinite_parameter: bool = False,
 ) -> FitResult:
     params = Parameters.from_peaks(cluster.peaks, fixed=False)
+    if nonfinite_parameter:
+        params[params.get_vary_names()[0]].__dict__["value"] = np.nan
     residual = np.full(cluster.n_observations, residual_value, dtype=np.float64)
     return FitResult(
         cluster_id=cluster.cluster_id,
@@ -150,6 +155,9 @@ def _terminal_result(
         message=message,
         optimality=0.125,
         n_amplitude_params=cluster.n_amplitude_params,
+        correction_revision=0,
+        optimizer_kind="varpro",
+        noise=1.0,
         metadata={
             "peak_names": [peak.name for peak in cluster.peaks],
         },
@@ -180,6 +188,7 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
             residual_value=np.nan,
             nfev=19,
             message="non-finite terminal result",
+            nonfinite_parameter=True,
         ),
     ]
     state = FittingState(
@@ -188,23 +197,27 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
         scalar_params=fit.params,
         noise=1.0,
     )
-    pipeline_result = PipelineResult(state=state, results=terminal_results)
-    loaded = LoadedData(
-        spectra=fit.spectra,
-        peaks=fit.peaks,
-        noise=1.0,
-        noise_source="synthetic",
-        shape_names=["gaussian"],
-        contour_level=1.0,
-        clusters=fit.clusters,
-    )
-    summary = _build_summary(loaded, pipeline_result)
-    fit_run = FitRun(
+    evaluations = [
+        classify_optimizer_result(cluster=cluster, result=terminal, noise=1.0)
+        for cluster, terminal in zip(fit.clusters, terminal_results, strict=True)
+    ]
+    pipeline_result = PipelineResult(
         state=state,
         results=terminal_results,
+        evaluations=evaluations,
+        correction_snapshot=CorrectionSnapshot(
+            revision=0,
+            corrections=MappingProxyType(
+                {cluster.cluster_id: cluster.corrections.copy() for cluster in fit.clusters}
+            ),
+        ),
+        n_optimizer_passes=1,
+    )
+    outcome = finalize_fit(pipeline_result)
+    fit_run = FitRun(
+        outcome=outcome,
+        continuation_state=state,
         output_dir=tmp_path,
-        success=False,
-        summary=summary,
         spectra=fit.spectra,
     )
     reconstructed = build_fit_results(
@@ -220,33 +233,34 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
     )
 
 
-def test_current_cli_review_uses_terminal_optimizer_results(
+def test_cli_review_projects_final_outcomes_with_actual_terminal_provenance(
     competing_truth: CompetingTruth,
 ) -> None:
     reviews = find_review_clusters(competing_truth.fit_run)
 
     assert [(review.cluster_id, review.reason) for review in reviews] == [
-        ("37", "diverged"),
-        ("91", "diverged"),
+        ("37", "not_converged"),
+        ("91", "unusable"),
     ]
+    assert reviews[0].redchi is not None
     assert np.isfinite(reviews[0].redchi)
-    assert np.isnan(reviews[1].redchi)
+    assert reviews[0].termination_message == "finite but not converged"
+    assert reviews[1].redchi is None
+    assert reviews[1].unusable_reason is not None
 
 
-def test_current_run_summary_uses_success_and_excludes_every_failed_result(
+def test_run_summary_uses_final_classifications_and_usable_distributions(
     competing_truth: CompetingTruth,
 ) -> None:
     summary = competing_truth.fit_run.summary
-    converged_result = competing_truth.terminal_results[0]
-
     assert summary.n_clusters == 3
     assert summary.n_converged == 1
+    assert summary.n_usable_non_converged == 1
+    assert summary.n_unusable == 1
+    assert summary.redchi_population_size == 2
     assert summary.success_rate == pytest.approx(1.0 / 3.0)
-    assert summary.mean_redchi == pytest.approx(converged_result.redchi)
-    assert summary.median_redchi == pytest.approx(converged_result.redchi)
-    assert not hasattr(summary, "n_usable_non_converged")
-    assert not hasattr(summary, "n_unusable")
-    assert not hasattr(summary, "redchi_population_size")
+    assert summary.mean_redchi is not None
+    assert summary.median_redchi is not None
 
 
 def test_current_reconstruction_synthesizes_convergence_and_provenance(
@@ -348,10 +362,6 @@ def test_future_contract_persistence_uses_terminal_classification_and_provenance
         assert provenance["termination_message"] == result.message
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Ticket 06 will report all outcome classes and distribution populations.",
-)
 def test_future_contract_run_summary_reports_all_classifications(
     competing_truth: CompetingTruth,
 ) -> None:

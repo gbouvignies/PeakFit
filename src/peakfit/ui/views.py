@@ -372,11 +372,13 @@ def live_fit_display(total_steps: int) -> FitProgressTracker:
 # =============================================================================
 
 
-def display_post_fit_summary(
+def display_post_fit_summary(  # noqa: PLR0915
     total_time: float,
     total_clusters: int,
     successful_fits: int,
-    chi_sq_stats: dict[str, float],
+    usable_non_converged: int,
+    unusable: int,
+    chi_sq_stats: dict[str, float | None],
     clusters_to_review: list[dict[str, Any]],
     output_dir: str,
 ) -> None:
@@ -406,15 +408,25 @@ def display_post_fit_summary(
         time_str = f"{minutes}m {seconds}s"
 
     success_rate = (successful_fits / total_clusters * 100) if total_clusters > 0 else 0
-    mean_chi2 = chi_sq_stats.get("Mean", 0.0)
+    mean_chi2 = chi_sq_stats.get("Mean")
 
     summary_table.add_row(icon("bullet"), "Total Time:", time_str)
     summary_table.add_row(
         icon("bullet"),
-        "Success:",
+        "Converged:",
         f"{success_rate:.1f}% ({successful_fits}/{total_clusters})",
     )
-    summary_table.add_row(icon("bullet"), "Mean Red. χ²:", f"{mean_chi2:.2f}")
+    summary_table.add_row(
+        icon("bullet"),
+        "Usable, not converged:",
+        str(usable_non_converged),
+    )
+    summary_table.add_row(icon("bullet"), "Unusable:", str(unusable))
+    summary_table.add_row(
+        icon("bullet"),
+        "Mean Red. χ²:",
+        f"{mean_chi2:.2f}" if mean_chi2 is not None else "N/A (no usable outcomes)",
+    )
 
     # --- Build Action Required Section ---
     action_section = None
@@ -439,10 +451,10 @@ def display_post_fit_summary(
             issue_text = Text(item["status"], style=item.get("status_color", "yellow"))
 
             # Metric column
-            if "Bounds" in item["status"] or "Diverged" in item["status"]:
+            if item.get("chi_sq") is None or "Bounds" in item["status"]:
                 metric = item.get("details", "-")
             else:
-                metric = f"Red. χ²={item.get('chi_sq', 0):.2f}"
+                metric = f"Red. χ²={item['chi_sq']:.2f}"
 
             action_table.add_row(id_peaks, issue_text, metric)
 

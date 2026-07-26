@@ -53,6 +53,11 @@ def write_simulated_spectra(
 def write_readme(output_dir: Path, summary: Any) -> Path:
     """Generate the output-directory README."""
     readme_path = output_dir / "README.md"
+    median_redchi = (
+        f"{summary.median_redchi:.4g}"
+        if summary.median_redchi is not None
+        else "N/A (no usable outcomes)"
+    )
 
     lines = [
         "# PeakFit Run",
@@ -63,7 +68,7 @@ def write_readme(output_dir: Path, summary: Any) -> Path:
         f"- **Peaks**: {summary.n_peaks}",
         f"- **Converged clusters**: {summary.n_converged}/{summary.n_clusters} "
         f"({summary.success_rate:.1%})",
-        f"- **Median reduced chi2**: {summary.median_redchi:.4g}",
+        f"- **Median reduced chi2**: {median_redchi}",
         "",
         "## Files",
         "",

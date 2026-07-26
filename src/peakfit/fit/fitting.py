@@ -18,12 +18,11 @@ import logging
 import multiprocessing
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
-
 from peakfit.auto_pick import auto_pick_peaks
 from peakfit.auto_pick.logging import log_auto_pick_cycle
 from peakfit.auto_pick.types import AutoPickCycleAction
 from peakfit.engine.algorithms.clustering import create_clusters
+from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
@@ -162,36 +161,41 @@ HIGH_REDCHI = 5.0
 
 
 def find_review_clusters(result: FitRun) -> list[ClusterReview]:
-    """Identify clusters needing review.
-
-    Args:
-        result: FitRun from a fitting run
-
-    Returns:
-        List of ClusterReview objects for clusters that need attention
-    """
-    reviews = []
-    for fit_res in result.results:
-        at_bounds = [p.name for p in fit_res.params.values() if p.is_at_boundary()]
-        needs_review = not fit_res.success or fit_res.redchi > HIGH_REDCHI or at_bounds
+    """Project review rows from ordered final cluster outcomes."""
+    reviews: list[ClusterReview] = []
+    for outcome in sorted(result.outcome.clusters, key=lambda cluster: cluster.cluster_id):
+        evaluation = outcome.analytical_evaluation
+        redchi = evaluation.statistics.reduced_chi_squared if evaluation is not None else None
+        at_bounds = [
+            parameter.name
+            for parameter in outcome.final_nonlinear_parameters
+            if _is_at_boundary(parameter.value, parameter.min, parameter.max)
+        ]
+        non_converged = outcome.classification is not FitOutcomeClassification.CONVERGED
+        needs_review = non_converged or (redchi is not None and redchi > HIGH_REDCHI) or at_bounds
 
         if not needs_review:
             continue
 
-        if not fit_res.success:
-            reason = "diverged"
-        elif fit_res.redchi > HIGH_REDCHI:
+        if outcome.classification is FitOutcomeClassification.UNUSABLE:
+            reason = "unusable"
+        elif outcome.classification is FitOutcomeClassification.USABLE_NON_CONVERGED:
+            reason = "not_converged"
+        elif redchi is not None and redchi > HIGH_REDCHI:
             reason = "high_chi"
         else:
             reason = "at_bounds"
 
         reviews.append(
             ClusterReview(
-                cluster_id=str(fit_res.cluster_id),
-                peak_names=fit_res.metadata.get("peak_names", []),
+                cluster_id=str(outcome.cluster_id),
+                peak_names=outcome.peak_names,
+                classification=outcome.classification,
                 reason=reason,
-                redchi=fit_res.redchi,
+                redchi=redchi,
                 at_bounds=at_bounds,
+                unusable_reason=outcome.unusable_reason,
+                termination_message=outcome.optimizer_provenance.termination_message,
             )
         )
 
@@ -251,14 +255,14 @@ def run_fit(
         if pipeline_result is None:
             raise RuntimeError("Pipeline produced no result")
 
-        summary = _build_summary(data, pipeline_result)
+        outcome = pipeline_result.final_outcome
+        if outcome is None:
+            raise RuntimeError("Pipeline completed without a final fit outcome.")
 
         return FitRun(
-            state=pipeline_result.state,
-            results=pipeline_result.results,
+            outcome=outcome,
+            continuation_state=pipeline_result.state,
             output_dir=output_dir,
-            success=summary.success_rate == 1.0 if data.clusters else True,
-            summary=summary,
             spectra=data.spectra,
         )
     finally:
@@ -320,18 +324,10 @@ def _consume_pipeline(
     return result
 
 
-def _build_summary(data: LoadedData, result: PipelineResult) -> RunSummary:
-    """Build summary from pipeline result."""
-    success_count = sum(1 for r in result.results if r.success)
-    redchis = [r.redchi for r in result.results if r.success]
-    return RunSummary(
-        n_clusters=len(data.clusters),
-        n_peaks=len(data.peaks),
-        success_rate=success_count / len(data.clusters) if data.clusters else 0,
-        n_converged=success_count,
-        mean_redchi=float(np.mean(redchis)) if redchis else 0.0,
-        std_redchi=float(np.std(redchis)) if redchis else 0.0,
-        median_redchi=float(np.median(redchis)) if redchis else 0.0,
+def _is_at_boundary(value: float, minimum: float, maximum: float, tol: float = 1e-6) -> bool:
+    """Match scalar parameter bound checks using immutable final values."""
+    return abs(value - minimum) < tol * (1 + abs(value)) or abs(value - maximum) < tol * (
+        1 + abs(value)
     )
 
 
