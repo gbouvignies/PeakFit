@@ -26,8 +26,9 @@ canonical tabular format.
 │   ├── fit.json
 │   └── report.md                 # optional: only if txt format is enabled
 ├── tables/
-│   ├── parameters.csv            # model parameters only
-│   ├── intensities.csv           # per-plane amplitudes
+│   ├── clusters.csv              # status, statistics, and terminal provenance
+│   ├── parameters.csv            # usable final nonlinear parameters
+│   ├── intensities.csv           # usable final per-plane amplitudes
 │   └── shifts.csv                # only when shift parameters are present
 ├── metadata/
 │   └── fitting_state.pkl
@@ -37,8 +38,11 @@ canonical tabular format.
 
 - `README.md` is generated for each run and summarizes the result status, files,
   and common next commands for that run directory.
-- `metadata/fitting_state.pkl` is the serialized state used by post-fit workflows.
-- Run metadata, fit statistics, and MCMC diagnostics are embedded in `summary/fit.json`.
+- `metadata/fitting_state.pkl` is mutable continuation state for post-fit
+  workflows. It is not used to reconstruct completed scientific values.
+- `summary/fit.json` is schema `4.0.0`: each cluster is keyed by stable
+  `cluster_id` and carries final classification, terminal correction revision,
+  optimizer provenance, and either frozen analytical values or an unusable reason.
 - `summary/report.md` is created only when `txt` is in `output.formats`; it is a
   bounded review report with fit-quality checks and key parameters, not a
   complete parameter export.
@@ -47,8 +51,9 @@ canonical tabular format.
   such as parameter category and global/shared status belongs in
   `summary/fit.json`.
 - CSV columns are ordered for reading: `peak_name` first, the main independent
-  variable or parameter column next, and provenance columns such as
-  `plane_index` and `cluster_id` last.
+  variable or parameter column next, and final classification/provenance columns
+  (including `cluster_id`) last. `clusters.csv` retains one row even for an
+  unusable outcome; numerical tables omit unusable rows.
 - `tables/intensities.csv` may contain signed amplitudes. CEST plots preserve
   signed normalized intensities; CPMG plots use only points with positive
   `I/I0` ratios because `R2eff` is log-transformed.
@@ -57,7 +62,9 @@ canonical tabular format.
 
 These files are written only when explicitly enabled:
 
-- `simulated.ftN` (at output dir root) when `output.save_simulated = true` and `nmrglue` is installed.
+- `simulated.ftN` (at output dir root) when `output.save_simulated = true` and
+  `nmrglue` is installed. It is projected from final nonlinear parameters and
+  stored analytical amplitudes without solving amplitudes again.
 
 ## Configuration
 
@@ -84,6 +91,8 @@ The primary JSON entry point is:
 - `summary/fit.json`
 
 This file is the canonical machine-readable summary for downstream analysis.
+Old schema `3.0.0` result documents are intentionally rejected; rerun the fit to
+produce the unambiguous `4.0.0` outcome format.
 Post-fit commands and `ResultsLoader` expect the run output directory
 (`<output_dir>`), not the `summary/` subdirectory.
 

@@ -26,8 +26,8 @@ from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
+from peakfit.fit.output_metadata import capture_output_metadata
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
-from peakfit.fit.results import capture_output_metadata
 from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart, RunSummary
 from peakfit.fit.simulation import simulate_final_outcome
 from peakfit.io.readers.peaks import read_list
@@ -256,15 +256,9 @@ def run_fit(
         if pipeline_result is None:
             raise RuntimeError("Pipeline produced no result")
 
-        outcome = pipeline_result.final_outcome
-        if outcome is None:
-            raise RuntimeError("Pipeline completed without a final fit outcome.")
-        if pipeline_result.simulation_snapshot is None:
-            raise RuntimeError("Pipeline completed without a final model snapshot.")
-
         return FitRun(
-            outcome=outcome,
-            continuation_state=pipeline_result.state,
+            outcome=pipeline_result.final_outcome,
+            continuation_state=pipeline_result.continuation_state,
             output_dir=output_dir,
             spectra=data.spectra,
             simulation_snapshot=pipeline_result.simulation_snapshot,
@@ -385,7 +379,7 @@ def write_fit_run_outputs(
             write_simulated_spectra(output_dir, spectra, simulated_data, reporter)
 
     state_file = default_state_path(output_dir)
-    save_state(state_file, fit_run.state)
+    save_state(state_file, fit_run.continuation_state)
     write_readme(output_dir, fit_run.summary)
 
     if reporter:

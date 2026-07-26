@@ -21,7 +21,7 @@ from peakfit.engine.fitting.simulation import simulate_data
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
 from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
-from peakfit.fit.pipeline import CorrectionSnapshot, PipelineResult
+from peakfit.fit.pipeline import CorrectionSnapshot, PipelineCompletion
 from peakfit.fit.simulation import FinalModelSnapshot, simulate_final_outcome
 from peakfit.io.writers.run_files import write_simulated_spectra
 
@@ -158,7 +158,7 @@ def _fixture(
         results.reverse()
         evaluations.reverse()
     outcome = finalize_fit(
-        PipelineResult(
+        PipelineCompletion(
             state=state,
             results=results,
             evaluations=evaluations,
@@ -353,9 +353,8 @@ def test_simulation_rejects_grid_dimension_mismatch() -> None:
         )
 
 
-def test_simulated_writer_consumes_outcome_and_snapshot_without_legacy_reconstruction(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+def test_simulated_writer_consumes_outcome_and_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fixture = _fixture({11: (True, True)})
     written: list[tuple[str, FloatArray]] = []
@@ -368,12 +367,6 @@ def test_simulated_writer_consumes_outcome_and_snapshot_without_legacy_reconstru
     class FakeNmrglue:
         pipe = FakePipe()
 
-    def fail_legacy_reconstruction(*_args: object, **_kwargs: object) -> None:
-        raise AssertionError(
-            "Completed simulation must not reconstruct FitResults from FittingState."
-        )
-
-    monkeypatch.setattr("peakfit.fit.results.build_fit_results", fail_legacy_reconstruction)
     monkeypatch.setattr("peakfit.io.writers.run_files.import_module", lambda _name: FakeNmrglue())
     simulated = simulate_final_outcome(fixture.outcome, fixture.snapshot, fixture.spectra.data)
     assert simulated is not None

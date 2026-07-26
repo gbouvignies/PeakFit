@@ -21,7 +21,7 @@ if TYPE_CHECKING:
         FinalParameter,
         OptimizerProvenance,
     )
-    from peakfit.fit.result_models import RunMetadata
+    from peakfit.fit.output_metadata import RunMetadata
 
 
 def write_final_outcome_summary(

@@ -56,6 +56,9 @@ on Ubuntu and macOS. The package publish workflow builds distributions with
   and orchestration tests;
 - output schema, output-plan, CSV layout, Markdown report, run README,
   configuration, scalar parameter, and ResultsLoader path tests;
+- authoritative-final-outcome tests covering stable cluster identity, mixed
+  classifications, terminal provenance, immutable analytical values, and
+  agreement among CLI review, JSON, CSV, Markdown, README, and simulation;
 - deterministic intensity, CEST, and CPMG transformation tests.
 - unequal point/series cluster tests covering strict construction, cluster
   creation and merging, amplitude counts, fit statistics, uncertainty scaling,
@@ -126,6 +129,15 @@ The following public or scientific contracts lack direct executable protection:
 10. Qt spectrum viewer and interactive automatic-pick stepper behavior;
 11. scientifically reviewed expected parameter values, amplitudes, and residual
     quality for a controlled synthetic or experimental reference dataset.
+
+## Completed-result authority checks
+
+The completed-fit contract is protected at the `FinalFitOutcome` seam. Tests
+verify that writers and simulation use frozen outcome values, that source-state
+mutation cannot change completed output, that nonconsecutive `cluster_id`
+values survive every projection, and that unusable outcomes never receive
+fabricated numerical values. `FittingState` remains covered separately as a
+continuation-state persistence contract; it is not a completed-output input.
 
 **Recommendation.** Add new reference values only after their provenance is
 recorded. Label them explicitly as mathematical identities, synthetic

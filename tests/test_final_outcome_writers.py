@@ -20,7 +20,7 @@ from peakfit.fit.final_outcome import (
     OptimizerProvenance,
 )
 from peakfit.fit.fitting import find_review_clusters
-from peakfit.fit.result_models import RunMetadata
+from peakfit.fit.output_metadata import RunMetadata
 from peakfit.fit.run_models import FitRun, RunSummary
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import write_fit_outputs
@@ -202,6 +202,21 @@ def test_writers_project_mixed_outcomes_in_final_identity_order(tmp_path) -> Non
     assert summary.n_unusable == 1
     assert "**Usable, not converged**: 1" in readme
     assert "**Unusable clusters**: 1" in readme
+
+
+def test_markdown_report_remains_bounded_for_large_final_outcomes(tmp_path) -> None:
+    outcome = _outcome(
+        [
+            (cluster_id, FitOutcomeClassification.CONVERGED, "converged")
+            for cluster_id in range(1, 51)
+        ]
+    )
+
+    report = _write(outcome, tmp_path)["report"].read_text(encoding="utf-8")
+
+    assert "_Showing 40 of 50 clusters. See JSON/CSV outputs for full detail._" in report
+    assert "_Showing 40 of 50 parameters. See JSON/CSV outputs for full detail._" in report
+    assert "| 41 |" not in report
 
 
 def test_tabular_projection_keeps_optimizer_success_distinct_from_classification(tmp_path) -> None:

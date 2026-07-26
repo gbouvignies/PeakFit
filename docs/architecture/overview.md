@@ -47,7 +47,7 @@ automatic picker. The observed help still describes the overall CLI as
 | Fit state | `FittingState`, which stores mutable clusters, both parameter representations, noise, and a version for continuation and diagnostics. It is not completed scientific truth. |
 | Optimizer result | `FitResult` for one cluster, including a first-class run-local `cluster_id`, fitted scalar parameters, residuals, convergence metadata, and amplitude parameter count. `FitEvaluation` independently classifies that result as converged, usable non-converged, or unusable and carries a typed analytical evaluation only when usable. |
 | Completed fit outcome | `FinalFitOutcome` is the immutable authoritative completed result. It has ordered per-cluster outcomes plus `cluster_id` lookup, final nonlinear values, a copied ticket-03 analytical evaluation for usable clusters, and terminal optimizer provenance. |
-| Run state and output model | `PipelineResult` carries mutable continuation state alongside `FinalFitOutcome`, but is not itself scientific authority. `LoadedData`, `FitRun`, and `RunSummary` describe orchestration; `FitResults` and related dataclasses still describe writer input; Pydantic schemas describe JSON output. |
+| Run state and output model | `PipelineResult` carries `FinalFitOutcome`, explicitly named mutable `continuation_state`, and the final simulation geometry; it retains no raw optimizer attempts or analytical evaluations. It is not itself scientific authority. `FitRun` exposes state only as `continuation_state`; `RunSummary` and every completed writer project the immutable outcome. Pydantic schemas describe JSON output. |
 
 **Verified.** Peak positions, cluster corrections, scalar parameters, parameter
 caches, and portions of UI state are mutable. `Parameter` keeps a parent
@@ -104,7 +104,8 @@ one another but have no continuing synchronization invariant.
    `tables/clusters.csv` (classification, final statistics, and terminal
    provenance), `tables/parameters.csv`, `tables/intensities.csv`, optional
    shifts and Markdown output, a run README, and optionally a simulated spectrum.
-   `metadata/fitting_state.pkl` is always written for stateful post-fit use.
+   `metadata/fitting_state.pkl` is always written for stateful post-fit use;
+   it is not a completed-result source.
 10. **Downstream use.** Profile plots read `tables/intensities.csv`. MCMC and
     spectrum reconstruction prefer the pickle; if it is absent they fall back
     to a minimal state reconstructed from JSON. MCMC chains are stored in HDF5
@@ -183,16 +184,17 @@ one another but have no continuing synchronization invariant.
    and grid point counts and owns the point, series, observation, and amplitude
    counts consumed by optimizer and persisted statistics. Unequal-dimension
    tests cover cluster creation, merging, fitting statistics, uncertainty
-   scaling, and reconstruction. State version `2.0` and output schema `3.0.0`
-   explicitly invalidate development artifacts with the incorrect semantics.
+   scaling, and reconstruction. State version `2.0` invalidates development
+   artifacts with the incorrect semantics; the completed output schema is
+   `4.0.0` and rejects the former `3.0.0` representation.
 2. **Verified — validation/parser duplication.** Preflight peak-list readers can
    accept rows or names that the real readers later reject or interpret
    differently. There are no equivalence tests across supported formats.
-3. **Partially resolved — result truth is split.** `FinalFitOutcome` keeps
-   terminal classification, provenance, and shared analytical values separate
-   from mutable continuation state. CLI review, `RunSummary`, JSON, CSV,
-   Markdown, and README project that outcome. Simulation remains the planned
-   consumer migration and still uses mutable continuation state.
+3. **Resolved — completed-result authority.** `FinalFitOutcome` owns terminal
+   classification, provenance, shared analytical values, and stable
+   `cluster_id` identity. CLI review, `RunSummary`, JSON 4.0.0, CSV, Markdown,
+   README, and simulation project it directly. `FittingState` remains only for
+   continuation, MCMC, and reconstruction workflows.
 4. **Verified — state persistence has two unequal paths.** Pickle preserves
    numerical state; JSON reconstruction is intentionally minimal and excludes
    amplitudes and real cluster grids. Tests only protect the canonical JSON path,

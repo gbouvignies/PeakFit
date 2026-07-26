@@ -100,15 +100,6 @@ class FitRun:
     simulation_snapshot: FinalModelSnapshot | None = None
 
     @property
-    def state(self) -> FittingState:
-        """Expose continuation state for deferred state-persistence migration.
-
-        Ticket 10 removes this compatibility alias after the remaining consumers
-        have moved to ``continuation_state`` explicitly.
-        """
-        return self.continuation_state
-
-    @property
     def success(self) -> bool:
         """Return overall convergence derived from the immutable outcome."""
         return self.outcome.overall_converged

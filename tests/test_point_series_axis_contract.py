@@ -10,7 +10,10 @@ from pydantic import ValidationError
 
 from peakfit.engine.algorithms.clustering import create_clusters
 from peakfit.engine.algorithms.common import calculate_shape_heights, residuals
-from peakfit.engine.algorithms.linear_algebra import calculate_amplitudes_with_uncertainty
+from peakfit.engine.algorithms.evaluation import (
+    AnalyticalModelEvaluation,
+    evaluate_analytical_model,
+)
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.params_vector import FitParameters
@@ -20,7 +23,6 @@ from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.simulation import simulate_data
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
-from peakfit.fit.results import build_fit_results
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.params_scalar import Parameters
@@ -288,17 +290,11 @@ def test_fit_result_uses_all_observations_and_one_amplitude_per_series() -> None
     assert fit_result.redchi == pytest.approx(EXPECTED_CHI_SQUARED / expected_dof)
 
 
-def test_persisted_statistics_and_uncertainty_scaling_use_the_series_axis() -> None:
-    cluster, spectra, params = _axis_reproduction()
-    state = FittingState(
-        clusters=[cluster],
-        params=FitParameters.from_parameters(params, cluster.peaks),
-        scalar_params=params,
-        noise=1.0,
-    )
-
-    fit_results = build_fit_results(state, spectra, config={}, input_files={})
-    statistics = fit_results.statistics[0]
+def test_authoritative_analytical_statistics_use_the_series_axis() -> None:
+    cluster, _spectra, params = _axis_reproduction()
+    analytical = evaluate_analytical_model(cluster, params, noise=1.0)
+    assert isinstance(analytical, AnalyticalModelEvaluation)
+    statistics = analytical.statistics
 
     n_observations = N_POINTS * N_SERIES
     n_fitted_params = len(params.get_vary_names()) + len(cluster.peaks) * N_SERIES
@@ -306,9 +302,9 @@ def test_persisted_statistics_and_uncertainty_scaling_use_the_series_axis() -> N
     expected_redchi = EXPECTED_CHI_SQUARED / expected_dof
 
     assert (
-        statistics.n_data,
-        statistics.n_params,
-        statistics.dof,
+        statistics.n_observations,
+        statistics.n_fitted_parameters,
+        statistics.degrees_of_freedom,
         statistics.reduced_chi_squared,
     ) == pytest.approx(
         (
@@ -318,31 +314,20 @@ def test_persisted_statistics_and_uncertainty_scaling_use_the_series_axis() -> N
             expected_redchi,
         )
     )
-    assert len(fit_results.clusters[0].amplitudes) == N_SERIES
+    assert analytical.amplitudes.shape == (len(cluster.peaks), N_SERIES)
 
 
-def test_persisted_uncertainties_use_the_series_axis_reduced_chi_squared() -> None:
-    cluster, spectra, params = _axis_reproduction()
-    state = FittingState(
-        clusters=[cluster],
-        params=FitParameters.from_parameters(params, cluster.peaks),
-        scalar_params=params,
-        noise=1.0,
-    )
-
-    fit_results = build_fit_results(state, spectra, config={}, input_files={})
-    shapes = cluster.evaluate(params)
-    _amplitudes, base_errors, _covariance = calculate_amplitudes_with_uncertainty(
-        shapes,
-        cluster.corrected_data,
-        noise=1.0,
-    )
+def test_authoritative_uncertainties_use_the_series_axis_reduced_chi_squared() -> None:
+    cluster, _spectra, params = _axis_reproduction()
+    analytical = evaluate_analytical_model(cluster, params, noise=1.0)
+    assert isinstance(analytical, AnalyticalModelEvaluation)
     n_observations = N_POINTS * N_SERIES
     n_fitted_params = len(params.get_vary_names()) + len(cluster.peaks) * N_SERIES
     expected_redchi = EXPECTED_CHI_SQUARED / (n_observations - n_fitted_params)
 
-    assert [estimate.std_error for estimate in fit_results.clusters[0].amplitudes] == pytest.approx(
-        [float(base_errors[0]) * np.sqrt(expected_redchi)] * N_SERIES
+    np.testing.assert_allclose(
+        analytical.scaled_amplitude_standard_errors,
+        analytical.amplitude_standard_errors * np.sqrt(expected_redchi),
     )
 
 

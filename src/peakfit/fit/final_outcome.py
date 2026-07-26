@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.params_scalar import Parameter, Parameters
     from peakfit.engine.results import FitResult
-    from peakfit.fit.pipeline import PipelineResult
+    from peakfit.fit.pipeline import PipelineCompletion
     from peakfit.shared.typing import FloatArray
 
 
@@ -125,7 +125,7 @@ class FinalFitOutcome:
         return self.by_cluster_id[cluster_id]
 
 
-def finalize_fit(pipeline_completion: PipelineResult) -> FinalFitOutcome:
+def finalize_fit(pipeline_completion: PipelineCompletion) -> FinalFitOutcome:
     """Validate pipeline completion and freeze its single completed-fit outcome.
 
     ``pipeline_completion`` remains mutable orchestration state. This function is

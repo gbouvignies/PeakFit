@@ -455,10 +455,9 @@ flowchart TD
     N --> O[Immutable FinalFitOutcome]
     O --> P[CLI review]
     O --> Q[RunSummary and overall convergence]
-    O --> R[build_fit_results projection]
-    R --> S[JSON statistics and provenance]
-    R --> T[CSV parameters and intensities]
-    R --> U[Markdown report and README]
+    O --> S[JSON statistics and provenance]
+    O --> T[CSV parameters and intensities]
+    O --> U[Markdown report and README]
     O --> V[Optional simulated-spectrum consumer with verified final model snapshot]
     O -. future explicit adapter .-> W[MCMC or reconstruction]
     G --> X[Mutable FittingState for current continuation persistence]
@@ -500,8 +499,8 @@ flowchart TD
     silently change fitted values.
 12. As a CLI developer, I want summary and review views derived from the final
     outcome, so that presentation code does not interpret raw optimizer state.
-13. As an output developer, I want `build_fit_results` to be a pure projection,
-    so that persistence cannot invent scientific or optimizer facts.
+13. As an output developer, I want every writer to project `FinalFitOutcome`
+    directly, so that persistence cannot invent scientific or optimizer facts.
 14. As an output developer, I want statistics explicitly associated with
     `cluster_id`, so that JSON and Markdown do not depend on parallel list
     positions.
@@ -644,10 +643,11 @@ deterministic-test adapters.
     mutable continuation state while current state persistence requires it.
 25. Redundant stored copies of optimizer results, overall convergence, and
     summary are removed after all consumers migrate.
-26. `build_fit_results` becomes a pure projection that adds run/output metadata
-    and plane values; it performs no fitting, amplitude solve, residual
-    calculation, statistic calculation, identity inference, convergence
-    inference, or usability inference.
+26. The legacy `build_fit_results` reconstruction is removed. Writers receive
+    `FinalFitOutcome` directly plus only operational metadata and plane values;
+    they perform no fitting, amplitude solve, residual calculation, statistic
+    calculation, identity inference, convergence inference, or usability
+    inference.
 27. JSON persists trustworthy optimizer provenance, outcome classification, and
     explicit cluster association.
 28. JSON schema receives a clean major development-version bump from `3.0.0` to

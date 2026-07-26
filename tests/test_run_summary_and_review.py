@@ -6,6 +6,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pytest
 
 from peakfit.cli.commands.fit import _format_review_clusters
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
@@ -254,3 +255,14 @@ def test_cli_review_keeps_terminal_message_distinct_from_convergence() -> None:
             "details": "Optimization terminated successfully",
         }
     ]
+
+
+def test_completed_run_exposes_continuation_state_only_by_its_explicit_name() -> None:
+    run = FitRun(
+        outcome=_outcome([(11, FitOutcomeClassification.CONVERGED, 1.0, "converged")]),
+        continuation_state=None,  # type: ignore[arg-type]
+        output_dir=None,  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(AttributeError, match="state"):
+        object.__getattribute__(run, "state")

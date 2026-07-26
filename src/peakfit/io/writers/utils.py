@@ -1,22 +1,8 @@
-"""Utility functions for output writers."""
+"""Small formatting helpers shared by completed-result writers."""
 
 from __future__ import annotations
 
-import json
 import math
-import re
-from datetime import datetime
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-import numpy as np
-
-if TYPE_CHECKING:
-    from peakfit.fit.results import ParameterEstimate
-
-type JsonValue = dict[str, "JsonValue"] | list["JsonValue"] | str | int | float | bool | None
-
-_CANONICAL_NAME_PARTS = 3
 
 
 def format_float(
@@ -24,113 +10,16 @@ def format_float(
     precision: int = 6,
     scientific_threshold: int = 4,
 ) -> str:
-    """Format a float with appropriate notation.
-
-    Uses scientific notation for very large or small values,
-    fixed-point otherwise.
-
-    Args:
-        value: Value to format (can be None)
-        precision: Number of decimal places
-        scientific_threshold: Use scientific notation if |log10(value)| > threshold
-
-    Returns:
-    -------
-        Formatted string or empty string if None
-    """
+    """Format an optional scalar for a durable human-readable artifact."""
     if value is None:
         return ""
-
     if value == 0:
         return f"{0:.{precision}f}"
-
     if math.isinf(value) or math.isnan(value):
         return str(value)
-
-    log_val = math.log10(abs(value))
-    if abs(log_val) > scientific_threshold:
+    if abs(math.log10(abs(value))) > scientific_threshold:
         return f"{value:.{precision}e}"
     return f"{value:.{precision}f}"
 
 
-def get_peak_name(param: ParameterEstimate, peak_names: list[str]) -> str:
-    """Extract the original peak name from a parameter.
-
-    Args:
-        param: ParameterEstimate object
-        peak_names: List of peak names in the cluster
-
-    Returns:
-    -------
-        Original peak name like '2N-H'
-    """
-    if param.param_id is not None:
-        if param.param_id.peak_name:
-            return param.param_id.peak_name
-        if param.param_id.cluster_id is not None:
-            return f"cluster_{param.param_id.cluster_id}"
-
-    param_name = param.name
-    cluster_match = re.match(r"cluster_(\d+)\.", param_name)
-    if cluster_match:
-        return f"cluster_{cluster_match.group(1)}"
-
-    for peak_name in peak_names:
-        if param_name.startswith(f"{peak_name}."):
-            return peak_name
-
-    return peak_names[0] if peak_names else ""
-
-
-def canonical_parameter_name(param: ParameterEstimate, peak_name: str | None = None) -> str:
-    """Return the canonical dot-notation identifier for an output parameter."""
-    if param.param_id is not None:
-        if param.param_id.axis:
-            return param.param_id.name
-        entity = (
-            f"cluster_{param.param_id.cluster_id}"
-            if param.param_id.cluster_id is not None
-            else param.param_id.peak_name
-        )
-        suffix = (
-            f"{param.param_id.label}{param.param_id.index}"
-            if param.param_id.index is not None
-            else param.param_id.label
-        )
-        return f"{entity}.F0.{suffix}"
-
-    if peak_name is None:
-        return param.name
-
-    parts = param.name.split(".")
-    if len(parts) == _CANONICAL_NAME_PARTS:
-        return param.name
-
-    return f"{peak_name}.F0.{param.name.replace('.', '_')}"
-
-
-class NumpyEncoder(json.JSONEncoder):
-    """JSON encoder that handles numpy types and Path objects."""
-
-    def default(self, o: Any) -> JsonValue:
-        """Convert numpy types and Path objects to Python types."""
-        if isinstance(o, np.integer):
-            return int(o)
-        if isinstance(o, np.floating):
-            return float(o)
-        if isinstance(o, np.ndarray):
-            return o.tolist()
-        if isinstance(o, datetime):
-            return o.isoformat()
-        if isinstance(o, Path):
-            return str(o)
-        return super().default(o)
-
-
-__all__ = [
-    "JsonValue",
-    "NumpyEncoder",
-    "canonical_parameter_name",
-    "format_float",
-    "get_peak_name",
-]
+__all__ = ["format_float"]

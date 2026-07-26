@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import copy
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
@@ -60,8 +60,8 @@ class CorrectionSnapshot:
 
 
 @dataclass(frozen=True)
-class PipelineResult:
-    """Orchestration output with mutable continuation state and final outcome."""
+class PipelineCompletion:
+    """Internal terminal attempts and state consumed once by finalization."""
 
     state: FittingState
     results: list[FitResult]
@@ -69,8 +69,15 @@ class PipelineResult:
     correction_snapshot: CorrectionSnapshot | None = None
     n_optimizer_passes: int = 0
     n_correction_updates: int = 0
-    final_outcome: FinalFitOutcome | None = None
-    simulation_snapshot: FinalModelSnapshot | None = None
+
+
+@dataclass(frozen=True)
+class PipelineResult:
+    """Completed pipeline result with one scientific authority and continuation state."""
+
+    final_outcome: FinalFitOutcome
+    continuation_state: FittingState
+    simulation_snapshot: FinalModelSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,7 +292,7 @@ def run_pipeline_iter(
         scalar_params=final_params,
         noise=data_noise,
     )
-    completion = PipelineResult(
+    completion = PipelineCompletion(
         state=state,
         results=current_fit_results,
         evaluations=current_evaluations,
@@ -299,9 +306,9 @@ def run_pipeline_iter(
         completion.state,
         terminal_snapshot,
     )
-    yield replace(
-        completion,
+    yield PipelineResult(
         final_outcome=final_outcome,
+        continuation_state=completion.state,
         simulation_snapshot=simulation_snapshot,
     )
 
@@ -458,6 +465,7 @@ def _build_optimizer_config(config: PeakFitConfig, optimizer: str) -> OptimizerC
 
 __all__ = [
     "CorrectionSnapshot",
+    "PipelineCompletion",
     "PipelineResult",
     "fit_single_cluster_task",
     "run_pipeline",

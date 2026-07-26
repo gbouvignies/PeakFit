@@ -9,15 +9,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pytest
 
-from peakfit.engine.algorithms.common import calculate_shape_heights, residuals
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification, classify_optimizer_result
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import (
-    BasinHoppingConfig,
     FitConfig,
     OutputConfig,
     PeakFitConfig,
-    VarProConfig,
 )
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
@@ -25,14 +22,17 @@ from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
-from peakfit.engine.fitting.optimizers import fit_with_optimizer
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
 from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
 from peakfit.fit.fitting import find_review_clusters, write_fit_run_outputs
-from peakfit.fit.pipeline import CorrectionSnapshot, PipelineResult, run_pipeline
-from peakfit.fit.result_models import RunMetadata
-from peakfit.fit.results import build_fit_results
+from peakfit.fit.output_metadata import RunMetadata
+from peakfit.fit.pipeline import (
+    CorrectionSnapshot,
+    PipelineCompletion,
+    PipelineResult,
+    run_pipeline,
+)
 from peakfit.fit.run_models import FitRun
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.schemas import FitSummarySchema
@@ -42,8 +42,6 @@ from peakfit.io.writers.orchestrator import write_fit_outputs
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from peakfit.fit.result_models import FitResults
 
 
 @dataclass(frozen=True)
@@ -58,7 +56,6 @@ class SyntheticFit:
 class CompetingTruth:
     terminal_results: list[FitResult]
     fit_run: FitRun
-    reconstructed: FitResults
 
 
 def _spectral_parameters(*, size: int, direct: bool) -> SpectralParameters:
@@ -211,7 +208,7 @@ def _final_outcome_for_json(
         for cluster, result in zip(fit.clusters, results, strict=True)
     ]
     outcome = finalize_fit(
-        PipelineResult(
+        PipelineCompletion(
             state=state,
             results=results,
             evaluations=evaluations,
@@ -278,7 +275,7 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
         classify_optimizer_result(cluster=cluster, result=terminal, noise=1.0)
         for cluster, terminal in zip(fit.clusters, terminal_results, strict=True)
     ]
-    pipeline_result = PipelineResult(
+    pipeline_result = PipelineCompletion(
         state=state,
         results=terminal_results,
         evaluations=evaluations,
@@ -297,16 +294,9 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
         output_dir=tmp_path,
         spectra=fit.spectra,
     )
-    reconstructed = build_fit_results(
-        state=state,
-        spectra=fit.spectra,
-        config={},
-        input_files={},
-    )
     return CompetingTruth(
         terminal_results=terminal_results,
         fit_run=fit_run,
-        reconstructed=reconstructed,
     )
 
 
@@ -340,29 +330,6 @@ def test_run_summary_uses_final_classifications_and_usable_distributions(
     assert summary.median_redchi is not None
 
 
-def test_current_reconstruction_synthesizes_convergence_and_provenance(
-    competing_truth: CompetingTruth,
-) -> None:
-    terminal = competing_truth.terminal_results
-    persisted = competing_truth.reconstructed.statistics
-
-    assert [result.success for result in terminal] == [True, False, False]
-    assert [np.isfinite(result.residual).all() for result in terminal] == [
-        np.True_,
-        np.True_,
-        np.False_,
-    ]
-    assert [result.nfev for result in terminal] == [7, 13, 19]
-    assert [statistics.fit_converged for statistics in persisted] == [True, True, True]
-    assert [statistics.n_function_evals for statistics in persisted] == [0, 0, 0]
-    assert [statistics.fit_message for statistics in persisted] == [
-        "Statistics computed from fitted model",
-        "Statistics computed from fitted model",
-        "Statistics computed from fitted model",
-    ]
-    assert persisted[0].reduced_chi_squared != pytest.approx(terminal[0].redchi)
-
-
 def test_future_contract_cli_json_and_markdown_share_terminal_failures(
     competing_truth: CompetingTruth,
     tmp_path: Path,
@@ -373,7 +340,7 @@ def test_future_contract_cli_json_and_markdown_share_terminal_failures(
     }
     json_path = write_final_outcome_summary(
         competing_truth.fit_run.outcome,
-        metadata=competing_truth.reconstructed.metadata,
+        metadata=RunMetadata(),
         z_values=competing_truth.fit_run.spectra.z_values,
         path=tmp_path / "fit.json",
     )
@@ -405,20 +372,18 @@ def test_future_contract_cli_json_and_markdown_share_terminal_failures(
     assert table[91]["chi_squared"] == ""
 
 
-def test_completed_writer_path_does_not_invoke_legacy_result_reconstruction(
+def test_completed_writer_path_ignores_mutated_continuation_state(
     competing_truth: CompetingTruth,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fail_legacy_reconstruction(*_args: object, **_kwargs: object) -> None:
-        raise AssertionError("Completed writers must not reconstruct FitResults from FittingState.")
-
-    monkeypatch.setattr("peakfit.fit.results.build_fit_results", fail_legacy_reconstruction)
     monkeypatch.setattr("peakfit.fit.fitting.save_state", lambda *_args, **_kwargs: None)
     config = PeakFitConfig(
         output=OutputConfig(formats=["json", "csv", "txt"], save_simulated=False),
     )
 
     assert competing_truth.fit_run.spectra is not None
+    competing_truth.fit_run.continuation_state.clusters[0].data.fill(np.nan)
+    competing_truth.fit_run.continuation_state.noise = np.nan
     write_fit_run_outputs(
         competing_truth.fit_run,
         competing_truth.fit_run.spectra,
@@ -426,7 +391,22 @@ def test_completed_writer_path_does_not_invoke_legacy_result_reconstruction(
         input_paths={},
     )
 
-    assert (competing_truth.fit_run.output_dir / "tables" / "clusters.csv").exists()
+    output_dir = competing_truth.fit_run.output_dir
+    payload = json.loads((output_dir / "summary" / "fit.json").read_text(encoding="utf-8"))
+    report = (output_dir / "summary" / "report.md").read_text(encoding="utf-8")
+    readme = (output_dir / "README.md").read_text(encoding="utf-8")
+    with (output_dir / "tables" / "clusters.csv").open(newline="", encoding="utf-8") as handle:
+        rows = {int(row["cluster_id"]): row for row in csv.DictReader(handle)}
+
+    expected = competing_truth.fit_run.outcome.cluster(11)
+    evaluation = expected.analytical_evaluation
+    assert evaluation is not None
+    json_cluster = next(cluster for cluster in payload["clusters"] if cluster["cluster_id"] == 11)
+    assert json_cluster["analytical_evaluation"]["amplitudes"] == evaluation.amplitudes.tolist()
+    assert json_cluster["optimizer_provenance"]["function_evaluations"] == 7
+    assert rows[11]["chi_squared"] == f"{evaluation.statistics.chi_squared:.6f}"
+    assert "Usable, not converged: 1" in report
+    assert "**Unusable clusters**: 1" in readme
 
 
 def test_future_contract_persistence_uses_terminal_classification_and_provenance(
@@ -437,7 +417,7 @@ def test_future_contract_persistence_uses_terminal_classification_and_provenance
     terminal = competing_truth.terminal_results
     json_path = write_final_outcome_summary(
         competing_truth.fit_run.outcome,
-        metadata=competing_truth.reconstructed.metadata,
+        metadata=RunMetadata(),
         z_values=competing_truth.fit_run.spectra.z_values,
         path=tmp_path / "fit.json",
     )
@@ -631,12 +611,12 @@ def test_unordered_execution_associates_nonconsecutive_cluster_ids_by_identity()
         for cluster in ordered_fit.clusters
     )
     ordered_associations = [
-        (fit_result.cluster_id, fit_result.metadata["peak_names"])
-        for fit_result in ordered_result.results
+        (cluster.cluster_id, list(cluster.peak_names))
+        for cluster in ordered_result.final_outcome.clusters
     ]
     reversed_associations = [
-        (fit_result.cluster_id, fit_result.metadata["peak_names"])
-        for fit_result in reversed_result.results
+        (cluster.cluster_id, list(cluster.peak_names))
+        for cluster in reversed_result.final_outcome.clusters
     ]
 
     assert ordered_completion == input_ids
@@ -744,9 +724,10 @@ def test_cluster_identity_preserves_returned_nonconverged_result() -> None:
         executor=executor,
     )
 
-    assert [(item.cluster_id, item.success, item.message) for item in result.results] == [
-        (37, False, "finite but not converged")
-    ]
+    outcome = result.final_outcome.cluster(37)
+    assert outcome.classification is FitOutcomeClassification.USABLE_NON_CONVERGED
+    assert outcome.optimizer_provenance.converged is False
+    assert outcome.optimizer_provenance.termination_message == "finite but not converged"
 
 
 def test_cluster_identity_optimizer_exception_aborts_run() -> None:
@@ -775,19 +756,18 @@ def test_terminal_pass_uses_the_frozen_final_correction() -> None:
 
     terminal_snapshot = snapshots[-1]
     final_corrections = {
-        cluster.cluster_id: cluster.corrections for cluster in result.state.clusters
+        cluster.cluster_id: cluster.corrections for cluster in result.continuation_state.clusters
     }
 
     assert len(snapshots) == 1
-    assert result.n_optimizer_passes == 1
-    assert result.n_correction_updates == 0
+    assert result.final_outcome.n_optimizer_passes == 1
+    assert result.final_outcome.n_correction_updates == 0
     assert all(
         np.array_equal(final_corrections[cluster_id], terminal_snapshot[cluster_id])
         for cluster_id in terminal_snapshot
     )
-    assert result.correction_snapshot is not None
-    assert result.correction_snapshot.revision == 0
-    assert [terminal.correction_revision for terminal in result.results] == [0, 0]
+    assert result.final_outcome.terminal_correction_revision == 0
+    assert [cluster.correction_revision for cluster in result.final_outcome.clusters] == [0, 0]
 
 
 def test_numerical_usability_controls_parameter_merging_and_corrections() -> None:
@@ -841,23 +821,21 @@ def test_numerical_usability_controls_parameter_merging_and_corrections() -> Non
     result, parameter_name, original_value, rejected_value = run_with_unusable_parameter(0.25)
     alternate, _, _, _ = run_with_unusable_parameter(0.75)
 
-    assert [terminal.success for terminal in result.results] == [True, False, False]
-    assert [np.isfinite(terminal.residual).all() for terminal in result.results] == [
-        np.True_,
-        np.True_,
-        np.False_,
-    ]
-    assert [evaluation.classification for evaluation in result.evaluations] == [
+    assert [cluster.classification for cluster in result.final_outcome.clusters] == [
         FitOutcomeClassification.CONVERGED,
         FitOutcomeClassification.USABLE_NON_CONVERGED,
         FitOutcomeClassification.UNUSABLE,
     ]
-    assert result.evaluations[-1].unusable_reason == "non-finite optimizer residuals"
-    assert result.state.scalar_params[parameter_name].value == pytest.approx(original_value)
-    assert result.state.scalar_params[parameter_name].value != pytest.approx(rejected_value)
+    assert result.final_outcome.cluster(91).unusable_reason == "non-finite optimizer residuals"
+    assert result.continuation_state.scalar_params[parameter_name].value == pytest.approx(
+        original_value
+    )
+    assert result.continuation_state.scalar_params[parameter_name].value != pytest.approx(
+        rejected_value
+    )
     for cluster, alternate_cluster in zip(
-        result.state.clusters,
-        alternate.state.clusters,
+        result.continuation_state.clusters,
+        alternate.continuation_state.clusters,
         strict=True,
     ):
         np.testing.assert_allclose(
@@ -886,8 +864,8 @@ def test_refine_iterations_is_the_exact_pass_count(
     )
 
     assert len(snapshots) == expected_passes
-    assert _result.n_optimizer_passes == expected_passes
-    assert _result.n_correction_updates == expected_updates
+    assert _result.final_outcome.n_optimizer_passes == expected_passes
+    assert _result.final_outcome.n_correction_updates == expected_updates
 
 
 def test_current_explicit_steps_use_their_configured_pass_counts() -> None:
@@ -904,8 +882,8 @@ def test_current_explicit_steps_use_their_configured_pass_counts() -> None:
     _result, _completion_order, snapshots = _run_with_executor(fit, config)
 
     assert len(snapshots) == 3
-    assert _result.n_optimizer_passes == 3
-    assert _result.n_correction_updates == 2
+    assert _result.final_outcome.n_optimizer_passes == 3
+    assert _result.final_outcome.n_correction_updates == 2
 
 
 def test_refine_iterations_must_be_positive() -> None:
@@ -933,7 +911,8 @@ def test_correction_snapshots_are_isolated_from_later_mutation() -> None:
     )
 
     final_corrections = {
-        cluster.cluster_id: cluster.corrections.copy() for cluster in result.state.clusters
+        cluster.cluster_id: cluster.corrections.copy()
+        for cluster in result.continuation_state.clusters
     }
     fit.clusters[0].corrections.fill(123.0)
 
@@ -951,9 +930,8 @@ def test_correction_snapshots_are_isolated_from_later_mutation() -> None:
     )
     for cluster_id, correction in final_corrections.items():
         np.testing.assert_array_equal(correction, task_snapshots[1][cluster_id])
-    assert result.correction_snapshot is not None
-    assert result.correction_snapshot.revision == 1
-    assert [terminal.correction_revision for terminal in result.results] == [1, 1]
+    assert result.final_outcome.terminal_correction_revision == 1
+    assert [cluster.correction_revision for cluster in result.final_outcome.clusters] == [1, 1]
 
 
 def test_pipeline_rejects_a_stale_result_correction_revision() -> None:
@@ -1006,103 +984,3 @@ def test_usable_nonconverged_results_contribute_to_the_next_correction() -> None
 
     assert not np.allclose(correction_with_usable_result, 0.0)
     np.testing.assert_array_equal(correction_with_only_unusable_results, 0.0)
-
-
-@pytest.mark.parametrize(
-    ("optimizer", "optimizer_config"),
-    [
-        ("varpro", VarProConfig(max_nfev=25)),
-        ("basin_hopping", BasinHoppingConfig(n_iterations=1, seed=23)),
-    ],
-)
-def test_current_actual_optimizer_provenance_is_replaced_during_reconstruction(
-    optimizer: str,
-    optimizer_config: VarProConfig | BasinHoppingConfig,
-) -> None:
-    fit = _synthetic_fit(cluster_ids=(11,))
-    cluster = fit.clusters[0]
-    params = Parameters.from_peaks(fit.peaks, fixed=False)
-
-    terminal = fit_with_optimizer(
-        optimizer,
-        params,
-        cluster,
-        noise=1.0,
-        config=optimizer_config,
-    )
-    state = FittingState(
-        clusters=[cluster],
-        params=FitParameters.from_parameters(terminal.params, fit.peaks),
-        scalar_params=terminal.params,
-        noise=1.0,
-    )
-    reconstructed = build_fit_results(state, fit.spectra, config={}, input_files={})
-    persisted = reconstructed.statistics[0]
-    _shapes, analytical_amplitudes = calculate_shape_heights(terminal.params, cluster)
-    injected_amplitudes = np.array(
-        [
-            parameter.value
-            for parameter in terminal.params.params.values()
-            if parameter.param_id is not None and parameter.param_id.label == "I"
-        ],
-        dtype=np.float64,
-    )
-    persisted_amplitudes = np.array(
-        [amplitude.value for amplitude in reconstructed.clusters[0].amplitudes],
-        dtype=np.float64,
-    )
-
-    assert terminal.nfev > 0
-    assert terminal.message
-    assert np.isfinite(terminal.residual).all()
-    np.testing.assert_allclose(
-        terminal.residual,
-        residuals(terminal.params, cluster, 1.0),
-        rtol=1e-8,
-        atol=1e-12,
-    )
-    np.testing.assert_allclose(persisted_amplitudes, analytical_amplitudes.ravel())
-    assert persisted.fit_converged is True
-    assert persisted.n_function_evals == 0
-    assert persisted.fit_message == "Statistics computed from fitted model"
-    if optimizer == "varpro":
-        np.testing.assert_allclose(injected_amplitudes, analytical_amplitudes.ravel())
-        assert terminal.njev >= 0
-        assert terminal.optimality >= 0.0
-        assert len(terminal.params.get_computed_names()) == cluster.n_amplitude_params
-    else:
-        assert injected_amplitudes.size == 0
-        assert terminal.params.get_computed_names() == []
-        assert terminal.metadata["global_iterations"] == 1
-        assert terminal.metadata["seed"] == 23
-        assert terminal.metadata["local_minimizations"] >= 0
-        assert isinstance(terminal.metadata["global_minimum_found"], bool)
-        assert np.isfinite(terminal.metadata["initial_cost"])
-        assert terminal.success is terminal.metadata["global_minimum_found"]
-
-
-def test_current_persistence_resolves_amplitudes_independently_of_optimizer_parameters() -> None:
-    fit = _synthetic_fit(cluster_ids=(11,))
-    cluster = fit.clusters[0]
-    terminal = fit_with_optimizer(
-        "varpro",
-        Parameters.from_peaks(fit.peaks, fixed=False),
-        cluster,
-        noise=1.0,
-        config=VarProConfig(max_nfev=25),
-    )
-    state = FittingState(
-        clusters=[cluster],
-        params=FitParameters.from_parameters(terminal.params, fit.peaks),
-        scalar_params=terminal.params,
-        noise=1.0,
-    )
-
-    before = build_fit_results(state, fit.spectra, config={}, input_files={})
-    for parameter_name in terminal.params.get_computed_names():
-        terminal.params[parameter_name].value += 10_000.0
-    after = build_fit_results(state, fit.spectra, config={}, input_files={})
-
-    assert [amplitude.value for amplitude in before.clusters[0].amplitudes] == pytest.approx(
-        [amplitude.value for amplitude in after.clusters[0].amplitudes]
-    )

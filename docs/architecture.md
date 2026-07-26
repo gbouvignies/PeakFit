@@ -29,8 +29,9 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 2. `fit` validates inputs, loads spectra/peaks, prepares clusters, and runs direct fit pipeline functions.
    When no peak list is provided, `fit` delegates to the experimental `auto_pick` package instead of owning that logic.
 3. `engine` performs numerical work: clustering, lineshapes, optimizers, residuals, and statistics helpers.
-4. `fit.results` assembles fit output data; `fit.result_models` owns the runtime output
-   dataclasses; `io` reads inputs and writes structured artifacts.
+4. `fit.final_outcome` freezes completed scientific truth, while
+   `fit.output_metadata` captures non-scientific run metadata; `io` reads inputs
+   and projects the outcome into structured artifacts.
 5. `mcmc` and `plot` run post-fit workflows from canonical fit outputs.
 6. `ui` renders terminal output where the CLI needs it.
 
@@ -39,8 +40,8 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 - `engine` should stay free of Typer, Rich, Qt, and filesystem side effects.
 - `fit`, `mcmc`, and `plot` may orchestrate workflows, but should call direct
   functions rather than adding manager/service layers.
-- `io.schemas` is the JSON validation/read contract; runtime output dataclasses
-  live in `fit`.
+- `io.schemas` is the JSON validation/read contract. `FinalFitOutcome` is the
+  sole completed scientific result; `FittingState` is continuation-only.
 - `auto_pick` is intentionally separate from `fit` because it is experimental.
 
 ## Invariants To Preserve Or Change Explicitly
