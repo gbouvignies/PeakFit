@@ -1,564 +1,239 @@
-"""JSON schema definitions for PeakFit output files.
+"""Validation models for the authoritative completed-fit JSON document."""
 
-This module provides Pydantic models that define the structure of
-JSON output files. These serve as both documentation and validation
-for the output format.
-"""
+from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
-from typing import Any
+from typing import Annotated, Any, Literal
 
-import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
-from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.types import Shape
-from peakfit.shared.typing import FloatArray, IntArray
+OUTPUT_SCHEMA_VERSION: Literal["4.0.0"] = "4.0.0"
+
+FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
+NonNegativeInt = Annotated[StrictInt, Field(ge=0)]
 
 
-def _normalize_optional_std_error(value: Any) -> float | None:
-    """Normalize nullable/non-finite uncertainty values."""
-    if value is None:
-        return None
-    if isinstance(value, str):
-        cleaned = value.strip()
-        if cleaned.lower() in {"", "nan", "none", "null", "na", "n/a"}:
-            return None
-        value = cleaned
+class _Schema(BaseModel):
+    """Reject fields that are not part of the versioned completed-fit contract."""
 
-    try:
-        numeric = float(value)
-    except (TypeError, ValueError) as exc:
-        msg = "std_error must be numeric or null"
-        raise ValueError(msg) from exc
-
-    if not np.isfinite(numeric):
-        return None
-    return numeric
+    model_config = ConfigDict(extra="forbid")
 
 
-class OutputFormat(StrEnum):
-    """Supported output formats."""
+class RunMetadataSchema(_Schema):
+    """Operational metadata attached to one completed fit run."""
 
-    JSON = "json"
-    CSV = "csv"
-    TOML = "toml"
-    MARKDOWN = "markdown"
-
-
-# =============================================================================
-# Run Metadata Schema
-# =============================================================================
-
-
-class InputFileInfo(BaseModel):
-    """Information about an input file."""
-
-    path: str = Field(description="Relative path to the file")
-    checksum_sha256: str = Field(description="SHA-256 checksum for verification")
+    timestamp: datetime
+    software_version: str
+    git_commit: str | None = None
+    python_version: str
+    platform: str
+    input_files: dict[str, dict[str, str]] = Field(default_factory=dict)
+    configuration: dict[str, Any] = Field(default_factory=dict)
+    command_line: str = ""
+    run_duration_seconds: FiniteFloat | None = None
 
 
-class FittingConfiguration(BaseModel):
-    """Configuration used for fitting."""
+class FinalParameterSchema(_Schema):
+    """One immutable nonlinear parameter copied from a final outcome."""
 
-    lineshape: str = Field(
-        default="auto",
-        description="Lineshape model (auto, gaussian, lorentzian, pvoigt, etc.)",
-    )
-    refine_iterations: int = Field(default=1, ge=0)
-    fix_positions: bool = Field(default=False)
-    fit_j_coupling: bool = Field(default=False)
-    fit_phase: list[str] = Field(default_factory=list)
-    max_iterations: int = Field(default=1000, gt=0)
-    tolerance: float = Field(default=1e-8, gt=0)
+    name: str = Field(min_length=1)
+    value: FiniteFloat
+    min_bound: FiniteFloat | None
+    max_bound: FiniteFloat | None
+    vary: bool
+    unit: str
+    standard_error: FiniteFloat | None
 
 
-class MCMCConfiguration(BaseModel):
-    """Configuration for MCMC analysis."""
+class AnalyticalStatisticsSchema(_Schema):
+    """Statistics from the one frozen analytical evaluation."""
 
-    n_walkers: int = Field(default=32, ge=2)
-    n_steps: int = Field(default=5000, gt=0)
-    burn_in: int | None = Field(default=None, ge=0)
-    auto_burnin: bool = Field(default=True)
-
-
-class RunMetadataSchema(BaseModel):
-    """Schema for run_metadata.json.
-
-    This file captures everything needed for reproducibility.
-    """
-
-    timestamp: datetime = Field(description="When analysis was run (ISO 8601)")
-    software_version: str = Field(description="PeakFit version")
-    git_commit: str | None = Field(default=None, description="Git commit hash")
-    python_version: str = Field(description="Python interpreter version")
-    platform: str = Field(description="OS platform")
-    input_files: dict[str, InputFileInfo] = Field(
-        default_factory=dict,
-        description="Input files with checksums",
-    )
-    fitting_config: FittingConfiguration | None = Field(default=None)
-    mcmc_config: MCMCConfiguration | None = Field(default=None)
-    command_line: str = Field(default="", description="Command line arguments")
-    run_duration_seconds: float | None = Field(default=None)
-
-    model_config = ConfigDict(extra="allow")
+    chi_squared: FiniteFloat
+    n_observations: NonNegativeInt
+    n_nonlinear_parameters: NonNegativeInt
+    n_amplitude_parameters: NonNegativeInt
+    n_fitted_parameters: NonNegativeInt
+    degrees_of_freedom: Annotated[int, Field(ge=1)]
+    reduced_chi_squared: FiniteFloat
+    amplitude_uncertainty_scale: FiniteFloat
+    aic: FiniteFloat
+    bic: FiniteFloat
+    log_likelihood: FiniteFloat
 
 
-# =============================================================================
-# Parameter Schema
-# =============================================================================
+class AnalyticalEvaluationSchema(_Schema):
+    """The frozen numerical values available only for usable outcomes."""
+
+    shapes: list[list[FiniteFloat]]
+    amplitudes: list[list[FiniteFloat]]
+    amplitude_standard_errors: list[FiniteFloat]
+    amplitude_covariance: list[list[FiniteFloat]]
+    scaled_amplitude_standard_errors: list[FiniteFloat]
+    model_values: list[list[FiniteFloat]]
+    raw_residuals: list[list[FiniteFloat]]
+    normalized_residuals: list[FiniteFloat]
+    statistics: AnalyticalStatisticsSchema
+
+    @model_validator(mode="after")
+    def validate_shapes(self) -> AnalyticalEvaluationSchema:
+        """Reject incompatible analytical arrays instead of guessing their association."""
+        n_peaks = len(self.shapes)
+        if n_peaks == 0 or not self.shapes[0]:
+            raise ValueError("analytical shapes must be a non-empty peak-by-point matrix")
+        n_points = len(self.shapes[0])
+        if any(len(row) != n_points for row in self.shapes):
+            raise ValueError("analytical shapes must have a rectangular peak-by-point shape")
+
+        if len(self.amplitudes) != n_peaks or not self.amplitudes[0]:
+            raise ValueError("analytical amplitudes must match the peak count")
+        n_series = len(self.amplitudes[0])
+        if any(len(row) != n_series for row in self.amplitudes):
+            raise ValueError("analytical amplitudes must have a rectangular peak-by-series shape")
+        if len(self.amplitude_standard_errors) != n_peaks:
+            raise ValueError("amplitude standard errors must match the peak count")
+        if len(self.scaled_amplitude_standard_errors) != n_peaks:
+            raise ValueError("scaled amplitude standard errors must match the peak count")
+        if len(self.amplitude_covariance) != n_peaks or any(
+            len(row) != n_peaks for row in self.amplitude_covariance
+        ):
+            raise ValueError("amplitude covariance must be a peak-by-peak matrix")
+
+        for name, values in (
+            ("model values", self.model_values),
+            ("raw residuals", self.raw_residuals),
+        ):
+            if len(values) != n_points or any(len(row) != n_series for row in values):
+                raise ValueError(f"{name} must have the point-by-series analytical shape")
+        if len(self.normalized_residuals) != n_points * n_series:
+            raise ValueError("normalized residuals must contain one value per observation")
+        if self.statistics.n_observations != n_points * n_series:
+            raise ValueError("n_observations must match the analytical point-by-series shape")
+        return self
 
 
-class ParameterSchema(BaseModel):
-    """Schema for a single parameter."""
+class OptimizerProvenanceSchema(_Schema):
+    """Trustworthy diagnostics copied from the actual terminal optimizer call."""
 
-    name: str = Field(description="Parameter identifier")
-    value: float = Field(description="Best-fit value")
-    std_error: float | None = Field(
-        default=None,
-        description="Standard error (symmetric uncertainty), if available",
-    )
-    unit: str = Field(default="", description="Physical unit")
-    category: str = Field(
-        default="lineshape",
-        description="Parameter category (lineshape, amplitude, exchange, etc.)",
-    )
-    ci_68: tuple[float, float] | None = Field(
-        default=None,
-        description="68% confidence interval [lower, upper]",
-    )
-    ci_95: tuple[float, float] | None = Field(
-        default=None,
-        description="95% confidence interval [lower, upper]",
-    )
-    min_bound: float | None = Field(default=None, description="Lower fitting bound")
-    max_bound: float | None = Field(default=None, description="Upper fitting bound")
-    is_fixed: bool = Field(default=False, description="Whether parameter was fixed")
-    is_global: bool = Field(default=False, description="Whether shared across clusters")
-
-    @field_validator("std_error", mode="before")
-    @classmethod
-    def normalize_std_error(cls, value: Any) -> float | None:
-        """Normalize nullable/non-finite uncertainty values."""
-        return _normalize_optional_std_error(value)
+    optimizer_kind: str | None = None
+    success: StrictBool
+    termination_message: str | None = None
+    function_evaluations: NonNegativeInt | None = None
+    jacobian_evaluations: NonNegativeInt | None = None
+    iterations: NonNegativeInt | None = None
+    optimality: FiniteFloat | None = None
+    final_cost: FiniteFloat | None = None
+    correction_revision: NonNegativeInt
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class AmplitudeSchema(BaseModel):
-    """Schema for an amplitude (intensity) value."""
+class FinalClusterOutcomeSchema(_Schema):
+    """One final cluster, always identified by its stable ``cluster_id``."""
 
-    peak_name: str
-    plane_index: int = Field(ge=0)
-    z_value: float | None = Field(default=None, description="Z-dimension value")
-    value: float
-    std_error: float | None = None
-    ci_68: tuple[float, float] | None = Field(default=None)
-
-    @field_validator("std_error", mode="before")
-    @classmethod
-    def normalize_std_error(cls, value: Any) -> float | None:
-        """Normalize nullable/non-finite uncertainty values."""
-        return _normalize_optional_std_error(value)
-
-
-class CorrelationMatrixSchema(BaseModel):
-    """Schema for parameter correlations."""
-
-    parameter_names: list[str]
-    matrix: list[list[float]] = Field(description="Correlation matrix as nested lists")
-
-
-class ClusterResultSchema(BaseModel):
-    """Schema for results of a single cluster."""
-
-    cluster_id: int
+    cluster_id: NonNegativeInt
     peak_names: list[str]
-    lineshape_parameters: list[ParameterSchema] = Field(alias="parameters")
-    amplitudes: list[AmplitudeSchema] = Field(default_factory=list)
-    correlation: CorrelationMatrixSchema | None = Field(default=None)
+    classification: Literal["converged", "usable_non_converged", "unusable"]
+    unusable_reason: str | None
+    correction_revision: NonNegativeInt
+    optimizer_provenance: OptimizerProvenanceSchema
+    final_nonlinear_parameters: list[FinalParameterSchema]
+    analytical_evaluation: AnalyticalEvaluationSchema | None
 
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class ZAxisSchema(BaseModel):
-    """Schema for z-axis metadata."""
-
-    values: list[float]
-
-
-# =============================================================================
-# Statistics Schema
-# =============================================================================
-
-
-class ResidualStatsSchema(BaseModel):
-    """Schema for residual statistics."""
-
-    n_points: int
-    n_params: int
-    dof: int = Field(description="Degrees of freedom")
-    noise_level: float
-    sum_squared: float = Field(description="Sum of squared normalized residuals")
-    rms: float = Field(description="RMS of raw residuals")
-    mean: float
-    std: float
-
-
-class FitStatisticsSchema(BaseModel):
-    """Schema for fit statistics."""
-
-    chi_squared: float
-    reduced_chi_squared: float
-    n_data: int
-    n_params: int
-    dof: int | None = Field(default=None, alias="degrees_of_freedom")
-    aic: float | None = Field(default=None, description="Akaike Information Criterion")
-    bic: float | None = Field(default=None, description="Bayesian Information Criterion")
-    log_likelihood: float | None = Field(default=None)
-    fit_converged: bool = Field(default=True)
-    n_function_evals: int = Field(default=0)
-    fit_message: str = Field(default="")
-    residuals: ResidualStatsSchema | None = Field(default=None)
-
-    model_config = ConfigDict(populate_by_name=True, extra="allow")
+    @model_validator(mode="after")
+    def validate_outcome_combination(self) -> FinalClusterOutcomeSchema:
+        """Keep convergence, usability, provenance, and numerics internally consistent."""
+        if self.optimizer_provenance.correction_revision != self.correction_revision:
+            raise ValueError("optimizer provenance correction_revision must match the cluster")
+        if self.classification == "unusable":
+            if not self.unusable_reason:
+                raise ValueError("unusable outcomes require an unusable_reason")
+            if self.analytical_evaluation is not None:
+                raise ValueError("unusable outcomes must not contain an analytical evaluation")
+            if self.final_nonlinear_parameters:
+                raise ValueError("unusable outcomes must not contain final nonlinear parameters")
+        else:
+            if self.unusable_reason is not None:
+                raise ValueError("usable outcomes must not contain an unusable_reason")
+            if self.analytical_evaluation is None:
+                raise ValueError("usable outcomes require an analytical evaluation")
+            if self.classification == "converged" and not self.optimizer_provenance.success:
+                raise ValueError("a converged outcome requires optimizer provenance success")
+            if self.classification == "usable_non_converged" and self.optimizer_provenance.success:
+                raise ValueError("a usable non-converged outcome requires optimizer failure")
+        return self
 
 
-class ModelComparisonSchema(BaseModel):
-    """Schema for model comparison."""
+class FinalFitStatisticsSchema(_Schema):
+    """Usable-only global statistics copied from the final outcome."""
 
-    model_a: str
-    model_b: str
-    delta_aic: float | None = Field(
-        default=None,
-        description="AIC(B) - AIC(A), negative favors B",
-    )
-    delta_bic: float | None = Field(default=None)
-    likelihood_ratio: float | None = Field(default=None)
-    p_value: float | None = Field(default=None)
-    preferred_model: str
-    evidence_strength: str = Field(description="strong, moderate, weak, inconclusive")
+    chi_squared: FiniteFloat
+    reduced_chi_squared: FiniteFloat
+    n_observations: NonNegativeInt
+    n_fitted_parameters: NonNegativeInt
+    degrees_of_freedom: Annotated[int, Field(ge=1)]
+    aic: FiniteFloat | None
+    bic: FiniteFloat | None
+    log_likelihood: FiniteFloat | None
+    function_evaluations: NonNegativeInt | None
 
 
-# =============================================================================
-# MCMC Diagnostics Schema
-# =============================================================================
+class ZAxisSchema(_Schema):
+    """The ordered series coordinate values used by the run."""
+
+    values: list[FiniteFloat]
 
 
-class ParameterDiagnosticSchema(BaseModel):
-    """Schema for per-parameter MCMC diagnostics."""
+class FitSummarySchema(_Schema):
+    """Version 4.0.0 completed-fit JSON document."""
 
-    name: str
-    rhat: float | None = Field(
-        default=None,
-        description="R-hat (should be ≤ 1.01)",
-    )
-    ess_bulk: float | None = Field(
-        default=None,
-        description="Bulk effective sample size",
-    )
-    ess_tail: float | None = Field(
-        default=None,
-        description="Tail effective sample size",
-    )
-    status: str = Field(
-        default="unknown",
-        description="Convergence status (excellent, good, acceptable, marginal, poor)",
-    )
-    warnings: list[str] = Field(default_factory=list)
-
-
-class MCMCDiagnosticsSchema(BaseModel):
-    """Schema for mcmc_diagnostics.json."""
-
-    n_chains: int
-    n_samples: int = Field(description="Samples per chain after burn-in")
-    burn_in: int
-    burn_in_method: str = Field(
-        default="manual",
-        description="How burn-in was determined (manual, auto, geweke, ess)",
-    )
-    total_samples: int
-    overall_status: str = Field(description="Worst status among all parameters")
-    converged: bool
-    parameters: list[ParameterDiagnosticSchema]
-    burn_in_details: dict[str, Any] = Field(default_factory=dict)
-
-
-# =============================================================================
-# Fit Summary Schema (top-level)
-# =============================================================================
-
-
-class FitSummarySchema(BaseModel):
-    """Schema for fit_summary.json - the main output file.
-
-    This aggregates all results from a fitting run.
-    """
-
-    # Versioning
-    schema_version: str | None = Field(default=None)
-
-    # Metadata
+    schema_version: Literal["4.0.0"]
     metadata: RunMetadataSchema
+    terminal_correction_revision: NonNegativeInt
+    noise: FiniteFloat
+    final_nonlinear_parameters: list[FinalParameterSchema]
+    clusters: list[FinalClusterOutcomeSchema]
+    statistics: FinalFitStatisticsSchema
+    z_axis: ZAxisSchema | None = None
 
-    # Method
-    method: str = Field(description="Fitting method used")
-
-    # Counts
-    n_clusters: int
-    n_peaks: int
-
-    # Results per cluster
-    clusters: list[ClusterResultSchema]
-
-    # Statistics (one per cluster)
-    statistics: list[FitStatisticsSchema] = Field(default_factory=list)
-    global_statistics: FitStatisticsSchema | None = Field(default=None)
-
-    # MCMC diagnostics (one per cluster, if MCMC used)
-    mcmc_diagnostics: list[MCMCDiagnosticsSchema] = Field(default_factory=list)
-
-    # Model comparisons
-    model_comparisons: list[ModelComparisonSchema] = Field(default_factory=list)
-
-    # Z-axis information
-    z_values: list[float] | None = Field(default=None)
-    z_axis: ZAxisSchema | None = Field(default=None)
-
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
-
-
-# =============================================================================
-# CSV Format Definitions
-# =============================================================================
-
-
-class CSVColumnDefinition(BaseModel):
-    """Definition of a CSV column for documentation."""
-
-    name: str
-    description: str
-    unit: str = ""
-    data_type: str = "float"  # float, int, str, bool
-
-
-# Long-format parameter CSV columns
-PARAMETER_CSV_COLUMNS: list[CSVColumnDefinition] = [
-    CSVColumnDefinition(
-        name="cluster_id",
-        description="Cluster identifier",
-        data_type="int",
-    ),
-    CSVColumnDefinition(
-        name="peak_name",
-        description="Peak identifier from input peak list (or cluster_N for shared params)",
-        data_type="str",
-    ),
-    CSVColumnDefinition(
-        name="parameter",
-        description="Parameter name",
-        data_type="str",
-    ),
-    CSVColumnDefinition(
-        name="category",
-        description="Parameter category (lineshape, amplitude, etc.)",
-        data_type="str",
-    ),
-    CSVColumnDefinition(
-        name="value",
-        description="Best-fit value",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="std_error",
-        description="Standard error (symmetric uncertainty)",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="ci_68_lower",
-        description="Lower bound of 68% CI",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="ci_68_upper",
-        description="Upper bound of 68% CI",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="ci_95_lower",
-        description="Lower bound of 95% CI",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="ci_95_upper",
-        description="Upper bound of 95% CI",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="unit",
-        description="Physical unit",
-        data_type="str",
-    ),
-    CSVColumnDefinition(
-        name="min_bound",
-        description="Lower fitting bound",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="max_bound",
-        description="Upper fitting bound",
-        data_type="float",
-    ),
-    CSVColumnDefinition(
-        name="is_fixed",
-        description="Whether parameter was fixed",
-        data_type="bool",
-    ),
-    CSVColumnDefinition(
-        name="is_global",
-        description="Whether shared across clusters",
-        data_type="bool",
-    ),
-]
-
-# Amplitude CSV columns (separate file for intensities)
-AMPLITUDE_CSV_COLUMNS: list[CSVColumnDefinition] = [
-    CSVColumnDefinition(name="cluster_id", description="Cluster identifier", data_type="int"),
-    CSVColumnDefinition(name="peak_name", description="Peak identifier", data_type="str"),
-    CSVColumnDefinition(name="plane_index", description="Z-dimension index", data_type="int"),
-    CSVColumnDefinition(name="z_value", description="Z-dimension value"),
-    CSVColumnDefinition(name="value", description="Fitted amplitude"),
-    CSVColumnDefinition(name="std_error", description="Amplitude uncertainty"),
-    CSVColumnDefinition(name="ci_68_lower", description="Lower 68% CI"),
-    CSVColumnDefinition(name="ci_68_upper", description="Upper 68% CI"),
-]
-
-
-def get_csv_header(columns: list[CSVColumnDefinition]) -> str:
-    """Generate CSV header line from column definitions."""
-    return ",".join(col.name for col in columns)
-
-
-def get_csv_header_comment(columns: list[CSVColumnDefinition]) -> str:
-    """Generate commented header documentation for CSV."""
-    lines = ["# Column definitions:"]
-    for col in columns:
-        unit_str = f" ({col.unit})" if col.unit else ""
-        lines.append(f"#   {col.name}: {col.description}{unit_str} [{col.data_type}]")
-    return "\n".join(lines)
-
-
-# =============================================================================
-# Domain Object Schemas (Moved from core/domain)
-# =============================================================================
-
-
-class PeakSchema(BaseModel):
-    """Represents a single NMR peak (Schema for I/O)."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
-
-    name: str = Field(description="Unique identifier for the peak")
-    positions: FloatArray = Field(description="Peak positions in ppm [dim]")
-    shapes: list[Shape] = Field(description="List of Shape objects (one per dimension)")
-    positions_start: FloatArray | None = Field(
-        default=None, init=False, description="Initial positions copy"
-    )
-
-    @field_validator("positions", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def ensure_float_array(cls, v: Any) -> Any:
-        """Convert list/tuple to ndarray before Pydantic validation."""
-        if isinstance(v, (list, tuple)):
-            return np.array(v, dtype=np.float64)
-        return v
-
-    @model_validator(mode="after")
-    def validate_and_init(self) -> PeakSchema:
-        """Validate shapes/positions consistency and initialize positions_start."""
-        if not isinstance(self.positions, np.ndarray):
-            self.positions = np.asarray(self.positions, dtype=np.float64)
-
-        if len(self.positions) != len(self.shapes):
-            msg = (
-                f"Peak '{self.name}': dimensionality mismatch - "
-                f"{len(self.positions)} positions but {len(self.shapes)} shapes"
+    def reject_unsupported_version(cls, value: Any) -> Any:
+        """Name both versions when a development artifact predates this contract."""
+        if isinstance(value, dict) and value.get("schema_version") != OUTPUT_SCHEMA_VERSION:
+            raise ValueError(
+                "Unsupported fit JSON schema version "
+                f"{value.get('schema_version')!r}; supported version is {OUTPUT_SCHEMA_VERSION!r}."
             )
-            raise ValueError(msg)
-
-        if self.positions_start is None:
-            self.positions_start = self.positions.copy()
-
-        return self
-
-    def to_domain(self) -> Peak:
-        """Convert this schema to a domain Peak entity."""
-        return Peak(
-            name=self.name,
-            positions=self.positions,
-            shapes=self.shapes,
-        )
-
-
-class ClusterSchema(BaseModel):
-    """Grouped peaks sharing a contiguous spectral segment (Schema for I/O)."""
-
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-        extra="forbid",
-    )
-
-    cluster_id: int
-    peaks: list[PeakSchema] = Field(description="List of PeakSchema objects")
-    grid_indices: list[IntArray] = Field(
-        description="List of IntArray grid indices",
-    )
-    data: FloatArray = Field(description="Spectral data (FloatArray)")
-    corrections: FloatArray | None = Field(
-        default=None, init=False, description="Correction array (FloatArray)"
-    )
-
-    @field_validator("data", mode="before")
-    @classmethod
-    def ensure_float_array(cls, v: Any) -> Any:
-        """Convert list/tuple to ndarray before Pydantic validation."""
-        if isinstance(v, (list, tuple)):
-            return np.array(v, dtype=np.float64)
-        return v
-
-    @field_validator("grid_indices", mode="before")
-    @classmethod
-    def ensure_int_arrays(cls, v: Any) -> Any:
-        """Convert list of lists to list of ndarrays."""
-        if isinstance(v, (list, tuple)):
-            new_pos = []
-            for p in v:
-                new_pos.append(np.asarray(p, dtype=int))
-            return new_pos
-        return v
+        return value
 
     @model_validator(mode="after")
-    def validate_and_init(self) -> ClusterSchema:
-        """Validate consistency and initialize corrections."""
-        if not self.peaks:
-            msg = "Cluster must contain at least one peak"
-            raise ValueError(msg)
-
-        if not isinstance(self.data, np.ndarray):
-            self.data = np.asarray(self.data)
-
-        if self.corrections is None:
-            self.corrections = np.zeros_like(self.data)
-
+    def validate_cluster_identity_and_revision(self) -> FitSummarySchema:
+        """Require explicit, unique, presentation-ordered cluster identity."""
+        ids = [cluster.cluster_id for cluster in self.clusters]
+        if len(set(ids)) != len(ids):
+            raise ValueError("cluster_id values must be unique")
+        if ids != sorted(ids):
+            raise ValueError("clusters must be serialized in ascending cluster_id order")
+        for cluster in self.clusters:
+            if cluster.correction_revision != self.terminal_correction_revision:
+                raise ValueError("cluster correction_revision must match the terminal revision")
         return self
 
-    def to_domain(self) -> Cluster:
-        """Convert this schema to a domain Cluster entity."""
-        return Cluster(
-            cluster_id=self.cluster_id,
-            peaks=[peak.to_domain() for peak in self.peaks],
-            grid_indices=self.grid_indices,
-            data=self.data,
-        )
+
+# ``ResultsLoader`` imports this public name.  In schema 4 it is the full final
+# cluster outcome rather than the legacy estimates-only representation.
+ClusterResultSchema = FinalClusterOutcomeSchema
+
+
+__all__ = [
+    "OUTPUT_SCHEMA_VERSION",
+    "AnalyticalEvaluationSchema",
+    "AnalyticalStatisticsSchema",
+    "ClusterResultSchema",
+    "FinalClusterOutcomeSchema",
+    "FinalFitStatisticsSchema",
+    "FinalParameterSchema",
+    "FitSummarySchema",
+    "OptimizerProvenanceSchema",
+    "RunMetadataSchema",
+    "ZAxisSchema",
+]

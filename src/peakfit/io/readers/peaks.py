@@ -1,40 +1,22 @@
-"""Peak list readers and adapters around domain models."""
+"""Peak list readers that build Peak domain objects."""
 
-from collections.abc import Callable, Iterable
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
-from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra
-from peakfit.engine.lineshapes import LineshapeFactory
-from peakfit.io.schemas import PeakSchema
-from peakfit.io.utils import format_path
+from peakfit.engine.lineshapes.create import create_shapes
+from peakfit.shared.paths import format_path
 
-Reader = Callable[[Path, Spectra, list[str], FitConfig], list[Peak]]
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+    from pathlib import Path
 
-READERS: dict[str, Reader] = {}
+    from peakfit.engine.domain.config import FitConfig
+    from peakfit.engine.domain.spectrum import Spectra
 
 _CCPN_ASSIGNMENT_PARTS = 4
-
-
-def register_reader(file_types: str | Iterable[str]) -> Callable[[Reader], Reader]:
-    """Register a reader function for specific file types.
-
-    This decorator allows registering a reader function for one or more
-    file extensions (e.g., 'csv', 'json', 'xlsx').
-    """
-    if isinstance(file_types, str):
-        file_types = [file_types]
-
-    def decorator(fn: Reader) -> Reader:
-        for ft in file_types:
-            READERS[ft] = fn
-        return fn
-
-    return decorator
 
 
 def _get_position_column_names(n_spectral_dims: int) -> list[str]:
@@ -61,24 +43,16 @@ def _create_peak_list(
 
     The DataFrame must have a 'name' column followed by position columns.
     Position columns should be ordered from F1 (first indirect) to Fn (direct).
-    Uses PeakSchema for validation before creating domain objects.
+    Peak domain construction validates dimensionality.
     """
-    factory = LineshapeFactory(spectra, config)
     peak_list: list[Peak] = []
 
     for name, *positions in peaks.itertuples(index=False, name=None):
         pos_values = tuple(float(p) for p in positions)
         pos_array = np.array(pos_values, dtype=np.float64)
 
-        # 1. Create shapes (Core logic)
-        shapes = factory.create_shapes(str(name), pos_values, shape_names)
-
-        # 2. Validate via Schema (IO logic)
-        # Note: positions comes as a tuple of floats from itertuples
-        schema = PeakSchema(name=str(name), positions=pos_array, shapes=shapes)
-
-        # 3. Convert to Domain Entity (Fast Dataclass)
-        peak_list.append(schema.to_domain())
+        shapes = create_shapes(spectra, config, str(name), pos_values, shape_names)
+        peak_list.append(Peak(name=str(name), positions=pos_array, shapes=shapes))
 
     return peak_list
 
@@ -90,7 +64,6 @@ def _create_peak_list_from_rows(
     config: FitConfig,
 ) -> list[Peak]:
     """Create peaks from whitespace-split rows (name + positions)."""
-    factory = LineshapeFactory(spectra, config)
     peak_list: list[Peak] = []
 
     for row in rows:
@@ -98,14 +71,12 @@ def _create_peak_list_from_rows(
         pos_values = tuple(float(p) for p in positions)
         pos_array = np.array(pos_values, dtype=np.float64)
 
-        shapes = factory.create_shapes(str(name), pos_values, shape_names)
-        schema = PeakSchema(name=str(name), positions=pos_array, shapes=shapes)
-        peak_list.append(schema.to_domain())
+        shapes = create_shapes(spectra, config, str(name), pos_values, shape_names)
+        peak_list.append(Peak(name=str(name), positions=pos_array, shapes=shapes))
 
     return peak_list
 
 
-@register_reader("list")
 def read_sparky_list(
     path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
 ) -> list[Peak]:
@@ -173,10 +144,6 @@ def _read_ccpn_list(
 
     n_dims = spectra.n_spectral_dims
 
-    # Strict column detection or generation
-    # Expected columns: F1_ppm, F2_ppm, etc. OR w1, w2, etc. (Sparky style fallback)
-    # We map them to F{i}_ppm for consistency
-
     data_dict = {}
 
     # 1. Handle Names
@@ -191,8 +158,7 @@ def _read_ccpn_list(
 
     data_dict["name"] = names
 
-    # 2. Handle Positions
-    # Try standard F{i}_ppm first
+    # 2. Handle positions from canonical, Sparky, or CCPN column names.
     found_any = False
     for i in range(n_dims):
         col_std = f"F{i + 1}_ppm"
@@ -211,14 +177,9 @@ def _read_ccpn_list(
             data_dict[target_key] = peaks_csv[col_ccpn]
             found_any = True
         else:
-            # If we have purely numeric columns in order, we might use them?
-            # But we want to be strict.
-            pass
+            continue
 
     if not found_any:
-        # Fallback: Assume first N numeric columns are positions if exact names fail?
-        # The user requested removing heuristics. So we should Error if strict columns not found.
-        # But we must support CCPN 'Pos F1' etc as that is standard for CCPN exports.
         msg = (
             "Could not find position columns in "
             f"{format_path(path)}. Expected 'F1_ppm'/'w1'/'Pos F1', etc."
@@ -236,7 +197,6 @@ def _read_ccpn_list(
     return _create_peak_list(peaks, spectra, shape_names, config)
 
 
-@register_reader("csv")
 def read_csv_list(
     path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
 ) -> list[Peak]:
@@ -244,7 +204,6 @@ def read_csv_list(
     return _read_ccpn_list(path, spectra, pd.read_csv, shape_names, config)
 
 
-@register_reader("json")
 def read_json_list(
     path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
 ) -> list[Peak]:
@@ -252,7 +211,6 @@ def read_json_list(
     return _read_ccpn_list(path, spectra, pd.read_json, shape_names, config)
 
 
-@register_reader(["xlsx", "xls"])
 def read_excel_list(
     path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
 ) -> list[Peak]:
@@ -264,12 +222,18 @@ def read_list(
     path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
 ) -> list[Peak]:
     """Read a list of peaks from a file based on its extension."""
-    extension = path.suffix.lstrip(".")
-    reader = READERS.get(extension)
-    if reader is None:
-        msg = f"No reader registered for extension: {extension}"
-        raise ValueError(msg)
-    return reader(path, spectra, shape_names, config)
+    extension = path.suffix.lower().lstrip(".")
+    if extension == "list":
+        return read_sparky_list(path, spectra, shape_names, config)
+    if extension == "csv":
+        return read_csv_list(path, spectra, shape_names, config)
+    if extension == "json":
+        return read_json_list(path, spectra, shape_names, config)
+    if extension in {"xlsx", "xls"}:
+        return read_excel_list(path, spectra, shape_names, config)
+
+    msg = f"Unsupported peak list extension: {extension}"
+    raise ValueError(msg)
 
 
 __all__ = [

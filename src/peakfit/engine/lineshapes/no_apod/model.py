@@ -1,4 +1,4 @@
-"""NoApod lineshape plugin.
+"""NoApod lineshape model.
 
 NoApod (no apodization) uses simple exponential decay with phase correction.
 Parameters: cs (chemical shift), lw (linewidth), phase, and optionally j (coupling).
@@ -6,14 +6,12 @@ Parameters: cs (chemical shift), lw (linewidth), phase, and optionally j (coupli
 
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 import numpy.typing as npt
 
 from peakfit.engine.lineshapes.doublet import doublet_kernel
-from peakfit.engine.lineshapes.registry import register_lineshape, register_shape
 from peakfit.engine.lineshapes.templates import PhasedDoubletBase, PhasedSingletBase
 from peakfit.engine.lineshapes.utils import (
     apply_phase,
@@ -25,7 +23,7 @@ from peakfit.engine.types import ParamSpec
 from .kernel import kernel, kernel_with_derivs
 
 if TYPE_CHECKING:
-    from peakfit.engine.lineshapes.protocol import LineshapeContext
+    from peakfit.engine.lineshapes.utils import LineshapeContext
     from peakfit.shared.typing import FloatArray
 
 
@@ -43,6 +41,7 @@ _DEFAULT_PHASE = np.array([0.0], dtype=np.float64)
 
 def make_state(aq: float, apodq1: float, apodq2: float) -> dict[str, complex | float]:
     """Create kernel state for NoApod (just acquisition time)."""
+    del apodq1, apodq2
     return {"aq": aq}
 
 
@@ -112,11 +111,9 @@ def function(
 
     dw_hz, sign = grid.compute_offsets(x_arr, cs_arr)
     z_values = kernel(dw_hz, lw_arr, state)
-    values = sign * apply_phase(z_values, phase_arr)
-    return values
+    return sign * apply_phase(z_values, phase_arr)
 
 
-@register_shape(NAME)
 class NoApod(PhasedSingletBase):
     """NoApod singlet lineshape (no apodization, exponential decay)."""
 
@@ -128,9 +125,6 @@ class NoApod(PhasedSingletBase):
 
     def _param_context_extras(self) -> dict[str, Any]:
         return {"aq": self._aq}
-
-
-register_lineshape(sys.modules[__name__])
 
 
 # =============================================================================
@@ -193,11 +187,9 @@ def function_doublet(
     z_values = doublet_kernel(
         x_arr, cs_arr, j_arr, grid, kernel=kernel, kernel_args=(lw_arr, state)
     )
-    values = apply_phase(z_values, phase_arr)
-    return values
+    return apply_phase(z_values, phase_arr)
 
 
-@register_shape(NAME_DOUBLET)
 class NoApodDoublet(PhasedDoubletBase):
     """NoApod doublet lineshape (no apodization, exponential decay)."""
 

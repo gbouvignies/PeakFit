@@ -1,4 +1,4 @@
-"""SP1 lineshape plugin.
+"""SP1 lineshape model.
 
 SP1 uses sine-bell apodization (first power) with phase correction.
 Parameters: cs (chemical shift), lw (linewidth), phase, and optionally j (coupling).
@@ -6,14 +6,12 @@ Parameters: cs (chemical shift), lw (linewidth), phase, and optionally j (coupli
 
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import numpy.typing as npt
 
 from peakfit.engine.lineshapes.doublet import doublet_kernel
-from peakfit.engine.lineshapes.registry import register_lineshape, register_shape
 from peakfit.engine.lineshapes.templates import PhasedDoubletBase, PhasedSingletBase
 from peakfit.engine.lineshapes.utils import (
     apply_phase,
@@ -26,7 +24,7 @@ from peakfit.engine.types import ParamSpec
 from .kernel import kernel, kernel_with_derivs, make_state
 
 if TYPE_CHECKING:
-    from peakfit.engine.lineshapes.protocol import LineshapeContext
+    from peakfit.engine.lineshapes.utils import LineshapeContext
     from peakfit.shared.typing import FloatArray
 
 
@@ -98,11 +96,9 @@ def function(
 
     dw_hz, sign = grid.compute_offsets(x_arr, cs_arr)
     z_values = kernel(dw_hz, lw_arr, state)
-    values = sign * apply_phase(z_values, phase_arr)
-    return values
+    return sign * apply_phase(z_values, phase_arr)
 
 
-@register_shape(NAME)
 class SP1(PhasedSingletBase):
     """SP1 singlet lineshape with sine-bell apodization."""
 
@@ -111,9 +107,6 @@ class SP1(PhasedSingletBase):
     kernel: ClassVar = staticmethod(kernel)
     kernel_with_derivs: ClassVar = staticmethod(kernel_with_derivs)
     make_state: ClassVar = staticmethod(make_state)
-
-
-register_lineshape(sys.modules[__name__])
 
 
 # =============================================================================
@@ -175,11 +168,9 @@ def function_doublet(
     z_values = doublet_kernel(
         x_arr, cs_arr, j_arr, grid, kernel=kernel, kernel_args=(lw_arr, state)
     )
-    values = apply_phase(z_values, phase_arr)
-    return values
+    return apply_phase(z_values, phase_arr)
 
 
-@register_shape(NAME_DOUBLET)
 class SP1Doublet(PhasedDoubletBase):
     """SP1 doublet lineshape with sine-bell apodization."""
 

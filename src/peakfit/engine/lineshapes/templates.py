@@ -1,4 +1,4 @@
-"""Base classes for lineshape plugins.
+"""Base classes for lineshape models.
 
 This module provides template base classes for lineshape implementations.
 There are two families:
@@ -18,7 +18,7 @@ In all cases, `lw` represents the FWHM (Full Width at Half Maximum) in Hz.
 For apodized lineshapes, this is the FWHM as if there were no apodization.
 
 Subclasses only need to define:
-- `shape_name`: The lineshape name for registry
+- `shape_name`: The lineshape name used by the constructor map
 - `param_specs`: Static method returning parameter specs
 - `kernel` / `kernel_with_derivs`: The mathematical kernel function
 """
@@ -73,6 +73,7 @@ class SimpleSingletBase(ShapeBase):
 
     def _get_extra_params(self, cluster_params: ClusterParameters) -> tuple[Any, ...]:
         """Override to extract additional kernel parameters (e.g., eta for PVoigt)."""
+        del cluster_params
         return ()
 
     def _process_extra_derivs(
@@ -82,6 +83,7 @@ class SimpleSingletBase(ShapeBase):
         sign: FloatArray,
     ) -> dict[str, FloatArray]:
         """Override to add derivatives for extra parameters."""
+        del raw_derivs, sign
         return derivs
 
     def evaluate_cluster(
@@ -133,6 +135,7 @@ class SimpleDoubletBase(ShapeBase):
 
     def _get_extra_params(self, cluster_params: ClusterParameters) -> tuple[Any, ...]:
         """Override to extract additional kernel parameters."""
+        del cluster_params
         return ()
 
     def _process_extra_derivs(
@@ -141,6 +144,7 @@ class SimpleDoubletBase(ShapeBase):
         raw_derivs: dict[str, FloatArray],
     ) -> dict[str, FloatArray]:
         """Override to add derivatives for extra parameters."""
+        del raw_derivs
         return derivs
 
     def evaluate_cluster(

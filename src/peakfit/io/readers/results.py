@@ -1,14 +1,8 @@
-"""Reader for PeakFit results from structured output files.
-
-This module provides a JSON-based loader for PeakFit results, eliminating
-the need for pickle-based serialization. It reconstructs FittingState
-objects from the JSON summary files produced by the writer module.
-"""
+"""Read versioned completed-fit JSON and its limited continuation fallback."""
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 import h5py
@@ -19,99 +13,26 @@ from peakfit.engine.domain.params_scalar import Parameter, Parameters
 from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.state import FittingState
-from peakfit.engine.types import ClusterParameters, LineshapeResult, ParamSpec, Shape
+from peakfit.io.readers.reconstructed import ReconstructedShape
 from peakfit.io.schemas import ClusterResultSchema, FitSummarySchema
-from peakfit.io.utils import format_path
+from peakfit.shared.paths import format_path
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.shared.typing import FloatArray
+    from peakfit.engine.types import Shape
 
 __all__ = ["ResultsLoader"]
 _PARAM_NAME_PARTS = 3
-
-
-@dataclass
-class ReconstructedShape:
-    """Minimal shape for reconstruction from JSON results.
-
-    This is a lightweight implementation of the Shape protocol that provides
-    just enough functionality to reconstruct fitting state from saved results.
-    It does not support actual lineshape evaluation.
-    """
-
-    center: float
-    axis: str
-    name: str = ""
-    shape_name: str = "reconstructed"
-    param_names: list[str] = field(default_factory=list)
-    cluster_id: int = 0
-
-    @property
-    def dim_ctx(self) -> Any:
-        """Dimension context (not available for reconstructed shapes)."""
-        return None
-
-    @property
-    def center_i(self) -> int:
-        """Integer index of the center position."""
-        return int(self.center)
-
-    def print(self, params: Parameters) -> str:
-        """Return string representation."""
-        return f"# ReconstructedShape: {self.name}"
-
-    def evaluate(self, x_pt: Any, params: Parameters) -> Any:
-        """Evaluate lineshape (returns zeros for reconstructed shapes)."""
-        return np.zeros_like(x_pt)
-
-    def evaluate_derivatives(
-        self, x_pt: FloatArray, params: Parameters
-    ) -> tuple[FloatArray, dict[str, FloatArray]]:
-        """Evaluate lineshape with derivatives (not supported)."""
-        return np.zeros_like(x_pt), {}
-
-    def create_params(self) -> Parameters:
-        """Create empty parameters."""
-        return Parameters()
-
-    def get_parameter_spec(self) -> list[ParamSpec]:
-        """Get parameter specifications (empty for reconstructed)."""
-        return []
-
-    def fix_params(self, params: Parameters) -> None:
-        """Fix parameters (no-op for reconstructed)."""
-        pass
-
-    def release_params(self, params: Parameters) -> None:
-        """Release parameters (no-op for reconstructed)."""
-        pass
-
-    def evaluate_cluster(
-        self,
-        x_grid: Any,
-        cluster_params: ClusterParameters,
-        compute_derivs: bool = False,
-    ) -> LineshapeResult:
-        """Evaluate for cluster (returns zeros)."""
-        n = len(x_grid)
-        k = cluster_params.n_peaks if cluster_params.n_peaks > 0 else 1
-        return LineshapeResult(values=np.zeros((n, k)))
-
-    def get_cluster_parameters(
-        self, peaks: Any, params: Parameters, param_map: dict[str, int] | None = None
-    ) -> ClusterParameters:
-        """Get cluster parameters (returns empty)."""
-        return ClusterParameters()
+type MCMCChainRecord = tuple[Any, list[str], int, int, int]
 
 
 class ResultsLoader:
     """Loader for PeakFit results from structured output files.
 
-    This is the canonical way to load fitting results. It reads from the
-    JSON summary files and can reconstruct a FittingState for further
-    analysis or visualization.
+    The summary is the canonical completed-result record.  The optional state
+    reconstructed here is deliberately minimal; pickle state remains the
+    continuation path for numerical workflows.
 
     Example:
         >>> loader = ResultsLoader(Path("Fits/20260129_120000"))
@@ -124,16 +45,13 @@ class ResultsLoader:
         """Initialize the loader.
 
         Args:
-            directory: Path to results directory (or its summary subdirectory)
+            directory: Path to results directory
 
         Raises:
-            FileNotFoundError: If fit_summary.json is not found
+            FileNotFoundError: If summary/fit.json is not found
         """
         self.directory = directory
-        if directory.name == "summary":
-            self.summary_path = directory / "fit_summary.json"
-        else:
-            self.summary_path = directory / "summary" / "fit_summary.json"
+        self.summary_path = directory / "summary" / "fit.json"
 
         if not self.summary_path.exists():
             raise FileNotFoundError(f"Results file not found: {format_path(self.summary_path)}")
@@ -170,7 +88,6 @@ class ResultsLoader:
             params=fit_params,
             scalar_params=params,
             noise=noise,
-            version="1.1",
         )
 
     def _reconstruct_clusters_and_peaks(
@@ -183,9 +100,9 @@ class ResultsLoader:
         for c_data in cluster_schemas:
             cluster_peaks = []
             for name in c_data.peak_names:
-                # Find canonical position params first (peak.F*.cs), fallback to legacy x0/y0.
+                # Find canonical position params (peak.F*.cs).
                 axis_values: dict[str, float] = {}
-                for param in c_data.lineshape_parameters:
+                for param in c_data.final_nonlinear_parameters:
                     if not param.name.startswith(f"{name}."):
                         continue
                     if not param.name.endswith(".cs"):
@@ -206,16 +123,6 @@ class ResultsLoader:
                     x_val = axis_values[ordered_axes[0]]
                     y_val = axis_values[ordered_axes[1]] if len(ordered_axes) > 1 else 0.0
 
-                if x_val == 0.0 and y_val == 0.0:
-                    x_param = next(
-                        (p for p in c_data.lineshape_parameters if p.name == f"{name}_x0"), None
-                    )
-                    y_param = next(
-                        (p for p in c_data.lineshape_parameters if p.name == f"{name}_y0"), None
-                    )
-                    x_val = x_param.value if x_param else 0.0
-                    y_val = y_param.value if y_param else 0.0
-
                 shapes_list: list[Shape] = [
                     cast("Shape", ReconstructedShape(x_val, "F2")),
                     cast("Shape", ReconstructedShape(y_val, "F1")),
@@ -229,7 +136,7 @@ class ResultsLoader:
                 cluster_peaks.append(peak)
                 all_peaks.append(peak)
 
-            # Minimal 1-point cluster placeholder
+            # Minimal 1-point cluster reconstruction for post-fit workflows.
             dummy_grid_indices = [np.array([0])]
             dummy_data = np.array([[0.0]])
 
@@ -247,7 +154,7 @@ class ResultsLoader:
         """Reconstruct Parameters from cluster schema data."""
         params = Parameters()
         for c_data in cluster_schemas:
-            for p_data in c_data.lineshape_parameters:
+            for p_data in c_data.final_nonlinear_parameters:
                 if p_data.name in params:
                     continue
 
@@ -256,14 +163,14 @@ class ResultsLoader:
                     value=p_data.value,
                     min=p_data.min_bound if p_data.min_bound is not None else -float("inf"),
                     max=p_data.max_bound if p_data.max_bound is not None else float("inf"),
-                    vary=not p_data.is_fixed,
-                    stderr=p_data.std_error if p_data.std_error is not None else 0.0,
+                    vary=p_data.vary,
+                    stderr=(p_data.standard_error if p_data.standard_error is not None else 0.0),
                 )
                 params.add(
                     param.name,
                     value=param.value,
-                    min=param.min,
-                    max=param.max,
+                    min_value=param.min,
+                    max_value=param.max,
                     vary=param.vary,
                     stderr=param.stderr,
                 )
@@ -271,13 +178,9 @@ class ResultsLoader:
 
     def _get_noise_level(self, summary: FitSummarySchema) -> float:
         """Extract noise level from summary."""
-        if summary.global_statistics and summary.global_statistics.residuals:
-            return summary.global_statistics.residuals.noise_level
-        if summary.statistics and summary.statistics[0].residuals:
-            return summary.statistics[0].residuals.noise_level
-        return 1.0
+        return summary.noise
 
-    def load_mcmc_chains(self) -> list[tuple[Any, list[str], int, int, int]]:
+    def load_mcmc_chains(self) -> list[MCMCChainRecord]:
         """Load MCMC chains from HDF5 files for all clusters.
 
         Returns:
@@ -292,35 +195,40 @@ class ResultsLoader:
         if not chains_dir.exists():
             return []
 
-        results = []
-        for h5_path in sorted(chains_dir.glob("cluster_*_chains.h5")):
-            try:
-                # Extract ID from filename "cluster_{id}_chains.h5"
-                cluster_id = int(h5_path.name.split("_")[1])
+        return [
+            record
+            for h5_path in sorted(chains_dir.glob("cluster_*_chains.h5"))
+            if (record := _load_mcmc_chain_file(h5_path))
+        ]
 
-                with h5py.File(str(h5_path), "r") as f:
-                    grp = f[f"cluster_{cluster_id}"]
 
-                    if "chains" in grp:
-                        chain = grp["chains"][()]
-                        nonlinear_names = [n.decode() for n in grp["nonlinear_names"][:]]
+def _load_mcmc_chain_file(path: Path) -> MCMCChainRecord | None:
+    """Load one MCMC chain file, returning None when it is incomplete."""
+    try:
+        cluster_id = int(path.name.split("_")[1])
+        with h5py.File(str(path), "r") as handle:
+            group = handle[f"cluster_{cluster_id}"]
+            if "chains" not in group:
+                return None
 
-                        # Try to read burn-in index and thinning
-                        burn_in = 0
-                        thin = 1
-                        if "burn_in" in grp:
-                            b_grp = grp["burn_in"]
-                            if "thin" in b_grp.attrs:
-                                thin = int(b_grp.attrs["thin"])
+            chain = group["chains"][()]
+            nonlinear_names = [name.decode() for name in group["nonlinear_names"][:]]
+            burn_in, thin = _load_burn_in_metadata(group)
+            return chain, nonlinear_names, cluster_id, burn_in, thin
+    except (KeyError, OSError, ValueError):
+        return None
 
-                            if "burn_in_idx" in b_grp.attrs:
-                                burn_in = int(b_grp.attrs["burn_in_idx"])
-                            elif "burn_in" in b_grp.attrs:
-                                val = int(b_grp.attrs["burn_in"])
-                                burn_in = int(np.ceil(val / thin))
 
-                        results.append((chain, nonlinear_names, cluster_id, burn_in, thin))
-            except Exception:
-                continue
+def _load_burn_in_metadata(group: Any) -> tuple[int, int]:
+    """Read burn-in and thinning metadata from an MCMC HDF5 group."""
+    if "burn_in" not in group:
+        return 0, 1
 
-        return results
+    burn_in_group = group["burn_in"]
+    thin = int(burn_in_group.attrs.get("thin", 1))
+    if "burn_in_idx" in burn_in_group.attrs:
+        return int(burn_in_group.attrs["burn_in_idx"]), thin
+    if "burn_in" in burn_in_group.attrs:
+        burn_in = int(np.ceil(int(burn_in_group.attrs["burn_in"]) / thin))
+        return burn_in, thin
+    return 0, thin

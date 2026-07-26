@@ -1,4 +1,4 @@
-"""Pseudo-Voigt lineshape plugin.
+"""Pseudo-Voigt lineshape model.
 
 This module provides Pseudo-Voigt singlet and doublet lineshapes.
 The Pseudo-Voigt is a weighted sum of Gaussian and Lorentzian profiles.
@@ -6,14 +6,12 @@ The Pseudo-Voigt is a weighted sum of Gaussian and Lorentzian profiles.
 
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 import numpy.typing as npt
 
 from peakfit.engine.lineshapes.doublet import doublet_kernel
-from peakfit.engine.lineshapes.registry import register_lineshape, register_shape
 from peakfit.engine.lineshapes.templates import SimpleDoubletBase, SimpleSingletBase
 from peakfit.engine.lineshapes.utils import estimate_cs_bounds_ppm, require_grid
 from peakfit.engine.types import ClusterParameters, ParamSpec
@@ -21,12 +19,12 @@ from peakfit.engine.types import ClusterParameters, ParamSpec
 from .kernel import kernel, kernel_with_derivs
 
 if TYPE_CHECKING:
-    from peakfit.engine.lineshapes.protocol import LineshapeContext
+    from peakfit.engine.lineshapes.utils import LineshapeContext
     from peakfit.shared.typing import FloatArray
 
 
 # =============================================================================
-# Module-level protocol attributes
+# Lineshape metadata
 # =============================================================================
 
 NAME = "pvoigt"
@@ -91,8 +89,7 @@ def function(
     lw_arr = np.atleast_1d(np.asarray(lw, dtype=np.float64))
     eta_arr = np.atleast_1d(np.asarray(eta, dtype=np.float64))
     dw_hz, sign = grid.compute_offsets(x_arr, cs_arr)
-    values = sign * kernel(dw_hz, lw_arr[None, :], eta_arr)
-    return values
+    return sign * kernel(dw_hz, lw_arr[None, :], eta_arr)
 
 
 # =============================================================================
@@ -100,7 +97,6 @@ def function(
 # =============================================================================
 
 
-@register_shape(NAME)
 class PseudoVoigt(SimpleSingletBase):
     """Pseudo-Voigt singlet: eta*Lorentzian + (1-eta)*Gaussian."""
 
@@ -124,9 +120,6 @@ class PseudoVoigt(SimpleSingletBase):
         if "eta" in raw_derivs:
             derivs["eta"] = sign * raw_derivs["eta"]
         return derivs
-
-
-register_lineshape(sys.modules[__name__])
 
 
 # =============================================================================
@@ -213,7 +206,6 @@ def function_doublet(
     )
 
 
-@register_shape(NAME_DOUBLET)
 class PseudoVoigtDoublet(SimpleDoubletBase):
     """Pseudo-Voigt doublet lineshape with J-coupling."""
 

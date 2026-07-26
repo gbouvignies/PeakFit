@@ -9,11 +9,10 @@ license-files = ["LICENSE"]
 authors = [
   { name = "Guillaume Bouvignies", email = "guillaume.bouvignies@ens.psl.eu" }
 ]
-keywords = ["NMR", "fitting", "spectroscopy"]  # Shortened list for brevity
+keywords = ["NMR", "fitting", "spectroscopy"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.14",
   "Typing :: Typed",
@@ -44,18 +43,17 @@ peakfit = "peakfit.cli.app:app"
 [dependency-groups]
 dev = [
   "import-linter>=2.0",
-  "pre-commit>=4.0.0",
-  "pytest>=8.3.0",
+  "prek>=0.4.4",
+  "pytest>=9.0",
   "pytest-cov>=6.0.0",
   "pytest-timeout>=2.2.0",
   "pytest-xdist>=3.6.0",
   "ruff>=0.8.0",
   "ty>=0.0.11",
-  "types-pyyaml>=6.0.0",
 ]
 
 [build-system]
-requires = ["uv_build>=0.5.0"]
+requires = ["uv_build>=0.5.0,<0.12"]
 build-backend = "uv_build"
 
 # --- Tool Configurations ---
@@ -88,6 +86,7 @@ layers = [
   "cli",
   "ui",
   "fit",
+  "auto_pick",
   "mcmc",
   "plot",
   "io",
@@ -102,6 +101,7 @@ name = "Independence: Modules"
 type = "acyclic_siblings"
 ancestors = [
   "peakfit.engine",
+  "peakfit.auto_pick",
   "peakfit.fit",
   "peakfit.io",
   "peakfit.mcmc",
@@ -127,14 +127,22 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+target-version = "py314"
 
 [tool.ruff.format]
 docstring-code-format = true
 
 [tool.ruff.lint]
 # Selected high-value rules.
-# Defaults (E, F) + Imports (I) + Upgrades (UP) + Bugbear (B) + Numpy (NPY) + TypeCheck (TC)
+# Defaults (E, F) + imports (I) + upgrades (UP) + bugbear (B) +
+# pytest (PT) + import hygiene (TID, ICN) + builtin-shadowing/unused-
+# argument/raise/return/string/logging conventions (A, ARG, RSE, RET,
+# ISC, G) + simplification/performance nits (PIE, PERF) + timezone-aware
+# datetimes (DTZ) + NumPy (NPY) + type-checking imports (TC) +
+# direct-print cleanup (T20) + stale-noqa cleanup (RUF100).
 select = [
+  "A",
+  "ARG",
   "E",
   "W",
   "F",
@@ -143,13 +151,26 @@ select = [
   "UP",
   "B",
   "C4",
+  "EXE",
+  "G",
+  "ICN",
+  "ISC",
   "SIM",
   "PTH",
   "PL",
+  "PT",
+  "RET",
+  "RSE",
   "RUF",
+  "RUF100",
   "D",
+  "DTZ",
   "NPY",
-  "TC"
+  "PERF",
+  "PIE",
+  "TC",
+  "T20",
+  "TID"
 ]
 ignore = [
   "D100",
@@ -166,20 +187,16 @@ convention = "google"
 
 [tool.ruff.lint.flake8-tidy-imports]
 # Disallow relative imports from parent directories (e.g. from ..utils import x)
-# This forces you to use 'from peakfit.core.utils import x', making architecture clear.
+# This forces package-qualified imports and makes architecture boundaries clear.
 ban-relative-imports = "parents"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = [
-  "S101",  # Allow 'assert' (Mandatory for pytest)
   "D",  # Documentation not needed in tests
   "PLR2004",  # Allow magic values in tests (assert x == 5)
-  "ARG",  # Unused arguments are common in pytest fixtures
 ]
-"src/peakfit/cli/**/*" = ["T201"]  # Allow print() in the CLI
-"tools/**/*" = ["T201", "D"]  # Scripts can print and don't need docs
 "src/peakfit/engine/domain/cluster.py" = ["TC001"]
-"src/peakfit/fit/auto_pick.py" = ["PLR0912", "PLR0915"]
+"src/peakfit/auto_pick/algorithm.py" = ["PLR0912", "PLR0915"]
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-base-classes = ["pydantic.BaseModel"]

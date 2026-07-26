@@ -297,7 +297,7 @@ class ConstraintResolver:
         with path.open() as f:
             data = json.load(f)
 
-        # Handle fit_summary.json format
+        # Handle summary/fit.json format
         if "clusters" in data:
             for cluster in data["clusters"]:
                 for param in cluster.get("parameters", cluster.get("lineshape_parameters", [])):

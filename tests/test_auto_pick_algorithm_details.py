@@ -3,31 +3,51 @@ from typing import Any, cast
 
 import numpy as np
 
+from peakfit.auto_pick.algorithm import (
+    _PeakNameCounter,
+    _update_peak_positions,
+)
+from peakfit.auto_pick.candidates import (
+    extract_roi_indices as _extract_roi_indices,
+)
+from peakfit.auto_pick.candidates import (
+    find_global_seed as _find_global_seed,
+)
+from peakfit.auto_pick.candidates import (
+    initial_local_maxima_candidates as _initial_local_maxima_candidates,
+)
+from peakfit.auto_pick.candidates import (
+    select_manual_candidate as _select_manual_candidate,
+)
+from peakfit.auto_pick.candidates import (
+    select_next_candidate as _select_next_candidate,
+)
+from peakfit.auto_pick.candidates import (
+    select_seed_candidate as _select_seed_candidate,
+)
+from peakfit.auto_pick.decision import (
+    accept_trial,
+    addition_threshold,
+    calculate_dof_scale_from_header,
+)
+from peakfit.auto_pick.parameters import (
+    any_cs_close_to_constraint as _any_cs_close_to_constraint,
+)
+from peakfit.auto_pick.parameters import (
+    build_shared_param_aliases as _build_shared_param_aliases,
+)
+from peakfit.auto_pick.parameters import (
+    initialize_existing_params_from_previous as _initialize_existing_params_from_previous,
+)
+from peakfit.auto_pick.parameters import (
+    initialize_new_peak_from_median as _initialize_new_peak_from_median,
+)
+from peakfit.auto_pick.state import TrialState
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.param_id import ParameterId
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.types import ParamSpec
-from peakfit.fit.auto_pick import (
-    AutoPickCycleAction,
-    _accept_trial,
-    _addition_threshold,
-    _any_cs_close_to_constraint,
-    _build_shared_param_aliases,
-    _calculate_dof_scale_from_header,
-    _extract_roi_indices,
-    _find_global_seed,
-    _initial_local_maxima_candidates,
-    _initialize_existing_params_from_previous,
-    _initialize_new_peak_from_median,
-    _normalize_cycle_action,
-    _rollback_next_peak_number,
-    _select_manual_candidate,
-    _select_next_candidate,
-    _select_seed_candidate,
-    _TrialState,
-    _update_peak_positions,
-)
 
 
 def test_select_next_candidate_respects_eligible_mask() -> None:
@@ -68,10 +88,15 @@ def test_select_seed_candidate_uses_seed_point_as_first_trial() -> None:
     assert score == 3.0
 
 
-def test_rollback_next_peak_number_decrements_counter() -> None:
-    counter = [4]
-    _rollback_next_peak_number(counter)
-    assert counter == [3]
+def test_peak_name_counter_allocates_and_rolls_back() -> None:
+    counter = _PeakNameCounter(value=4)
+
+    assert counter.peek() == "ap4"
+    assert counter.consume() == "ap4"
+    assert counter.value == 5
+
+    counter.rollback()
+    assert counter.value == 4
 
 
 def test_extract_roi_indices_does_not_wrap_edges() -> None:
@@ -143,8 +168,8 @@ def test_any_cs_close_to_constraint_uses_nucleus_specific_margins() -> None:
     h_cs = ParameterId(peak_name="p1", axis="F3", label="cs")
     n_cs = ParameterId(peak_name="p1", axis="F2", label="cs")
 
-    params.add(h_cs, value=8.0005, min=8.0, max=8.3)
-    params.add(n_cs, value=120.015, min=120.0, max=121.0)
+    params.add(h_cs, value=8.0005, min_value=8.0, max_value=8.3)
+    params.add(n_cs, value=120.015, min_value=120.0, max_value=121.0)
 
     spectral_params = [
         SimpleNamespace(label="F2", nucleus="15N"),
@@ -163,12 +188,17 @@ def test_initialize_new_peak_from_median_uses_previous_fits() -> None:
     previous_params.add(ParameterId(peak_name="p2", axis="F2", label="cs"), value=8.34)
 
     params = Parameters()
-    params.add(ParameterId(peak_name="p3", axis="F2", label="lw"), value=19.0, min=5.0, max=20.0)
+    params.add(
+        ParameterId(peak_name="p3", axis="F2", label="lw"),
+        value=19.0,
+        min_value=5.0,
+        max_value=20.0,
+    )
     params.add(
         ParameterId(peak_name="p3", axis="F2", label="cs"),
         value=7.85,
-        min=7.0,
-        max=9.0,
+        min_value=7.0,
+        max_value=9.0,
     )
 
     _initialize_new_peak_from_median(params, previous_params, "p3")
@@ -186,20 +216,20 @@ def test_initialize_existing_params_from_previous_preserves_new_peak() -> None:
     params.add(
         ParameterId(peak_name="p1", axis="F2", label="cs"),
         value=7.90,
-        min=7.0,
-        max=9.0,
+        min_value=7.0,
+        max_value=9.0,
     )
     params.add(
         ParameterId(peak_name="p1", axis="F2", label="lw"),
         value=10.0,
-        min=5.0,
-        max=25.0,
+        min_value=5.0,
+        max_value=25.0,
     )
     params.add(
         ParameterId(peak_name="p2", axis="F2", label="lw"),
         value=11.0,
-        min=5.0,
-        max=25.0,
+        min_value=5.0,
+        max_value=25.0,
     )
 
     _initialize_existing_params_from_previous(params, previous_params, new_peak_name="p2")
@@ -233,7 +263,7 @@ def test_calculate_dof_scale_from_header_uses_td_size() -> None:
     ]
     spectra = cast("Any", SimpleNamespace(spectral_params=spectral_params))
 
-    scale = _calculate_dof_scale_from_header(spectra)
+    scale = calculate_dof_scale_from_header(spectra)
     assert scale == 0.0625
 
 
@@ -242,7 +272,7 @@ def test_accept_trial_scales_dof_with_zero_filling() -> None:
     params = Parameters()
     footprint = np.ones(10, dtype=bool)
 
-    previous = _TrialState(
+    previous = TrialState(
         peaks=[],
         data=np.zeros((10, 2), dtype=np.float64),
         model=np.zeros((10, 2), dtype=np.float64),
@@ -252,7 +282,7 @@ def test_accept_trial_scales_dof_with_zero_filling() -> None:
         dof_scale=0.5,
         params=params,
     )
-    new = _TrialState(
+    new = TrialState(
         peaks=[],
         data=np.zeros((10, 2), dtype=np.float64),
         model=np.zeros((10, 2), dtype=np.float64),
@@ -263,7 +293,7 @@ def test_accept_trial_scales_dof_with_zero_filling() -> None:
         params=params,
     )
 
-    decision = _accept_trial(previous, new, noise=1.0, config=config)
+    decision = accept_trial(previous, new, noise=1.0, config=config)
     assert decision.df1 == 1
     assert decision.df2 == 7
 
@@ -272,7 +302,7 @@ def test_addition_threshold_uses_auto_peak_sigma_multiplier() -> None:
     config = PeakFitConfig()
     config.auto_peak.add_threshold_sigma = 3.5
 
-    threshold = _addition_threshold(config, noise=2.0)
+    threshold = addition_threshold(config, noise=2.0)
     assert threshold == 10.0
 
 
@@ -284,13 +314,6 @@ def test_auto_peak_default_has_no_per_roi_peak_cap() -> None:
 def test_auto_peak_accepts_optional_per_roi_peak_cap() -> None:
     config = PeakFitConfig.model_validate({"auto_peak": {"max_peaks_per_roi": 8}})
     assert config.auto_peak.max_peaks_per_roi == 8
-
-
-def test_normalize_cycle_action_supports_legacy_bool() -> None:
-    assert _normalize_cycle_action(True).command == "continue"
-    assert _normalize_cycle_action(False).command == "stop"
-    action = AutoPickCycleAction(command="next_cluster")
-    assert _normalize_cycle_action(action) == action
 
 
 def test_select_manual_candidate_uses_clicked_position() -> None:

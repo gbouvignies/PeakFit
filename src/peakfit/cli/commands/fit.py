@@ -4,46 +4,40 @@ from __future__ import annotations
 
 import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, cast, get_args
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 
-from peakfit.engine.domain.config import (
-    ClusterConfig,
-    FitConfig,
-    LineshapeName,
-    OutputConfig,
-    OutputFormat,
-    OutputVerbosity,
-    PeakFitConfig,
+from peakfit.cli.commands.fit_setup import (
+    build_fit_config,
+    resolve_output_dir,
+    write_autopicked_peaklist,
 )
+from peakfit.engine.domain.config import LineshapeName  # noqa: TC001 - Typer evaluates annotations.
 from peakfit.engine.results import FitResult
 from peakfit.fit.fitting import (
     ClusterReview,
+    FitRun,
     ProgressStart,
-    ServiceResult,
     find_review_clusters,
     load_data,
     run_fit,
-    write_service_results,
+    write_fit_run_outputs,
 )
-from peakfit.fit.validation import ValidationService
-from peakfit.io.config import load_config
-from peakfit.io.paths import resolve_output_path
-from peakfit.shared.constants import BASIN_HOPPING_NITER, DIFF_EVOLUTION_MAXITER
-from peakfit.ui import Verbosity, console, display_path, set_verbosity, show_command_manifest
+from peakfit.fit.validation import validate_inputs
+from peakfit.ui.branding import show_command_summary
+from peakfit.ui.console import Verbosity, console, display_path, set_verbosity
 from peakfit.ui.messages import bullet, error, show_error_with_details
 from peakfit.ui.prefit import show_prefit_check
 from peakfit.ui.reporter import ConsoleReporter
 from peakfit.ui.views import display_post_fit_summary, live_fit_display
 
 if TYPE_CHECKING:
+    from peakfit.engine.domain.config import PeakFitConfig
     from peakfit.engine.domain.peaks import Peak
     from peakfit.fit.fitting import LoadedData
     from peakfit.shared.reporter import Reporter
     from peakfit.ui.auto_pick_stepper import AutoPickStepController
-
-VALID_OUTPUT_FORMATS = get_args(OutputFormat)
 
 
 def fit_command(
@@ -59,7 +53,10 @@ def fit_command(
     peaklist: Annotated[
         Path | None,
         typer.Argument(
-            help="Peak list file (.list, .csv). Omit to enable automatic peak picking.",
+            help=(
+                "Peak list file (.list, .csv, .json, .xlsx, .xls). Omitting it uses "
+                "experimental automatic peak picking."
+            ),
             exists=True,
             dir_okay=False,
             resolve_path=True,
@@ -97,7 +94,13 @@ def fit_command(
     ] = "auto",
     refine: Annotated[
         int,
-        typer.Option("--refine", "-r", help="Refinement iterations", min=0, max=20),
+        typer.Option(
+            "--refine",
+            "-r",
+            help="Optimizer passes; corrections update between passes",
+            min=1,
+            max=20,
+        ),
     ] = 2,
     contour_level: Annotated[
         float | None,
@@ -129,16 +132,12 @@ def fit_command(
     ] = None,
     optimizer: Annotated[
         str,
-        typer.Option("--optimizer", help="Optimizer: varpro, basin-hopping"),
+        typer.Option("--optimizer", help="Optimizer: varpro, basin_hopping"),
     ] = "varpro",
     formats: Annotated[
         list[str] | None,
         typer.Option("--format", "-f", help="Output formats: json, csv, txt"),
     ] = None,
-    output_verbosity: Annotated[
-        OutputVerbosity,
-        typer.Option("--output-verbosity", help="Output detail level"),
-    ] = "standard",
     workers: Annotated[
         int,
         typer.Option("--workers", "-w", help="Parallel workers (-1 = all CPUs)", min=-1),
@@ -152,7 +151,7 @@ def fit_command(
         typer.Option(
             "--auto-pick-step/--no-auto-pick-step",
             help=(
-                "When no peak list is provided, open an interactive GUI to manually "
+                "Experimental: when no peak list is provided, open an interactive GUI to manually "
                 "add/remove peaks per ROI and jump to the next cluster."
             ),
         ),
@@ -168,31 +167,26 @@ def fit_command(
     the fit will not proceed.
 
     Examples:
-        peakfit fit spectrum.ft2
         peakfit fit spectrum.ft2 peaks.list
-        peakfit fit spectrum.ft2 --auto-pick-step
         peakfit fit spectrum.ft2 peaks.list -z z_values.txt -o results/
         peakfit fit spectrum.ft2 peaks.list --config settings.toml
     """
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(datetime.UTC)
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
     reporter = ConsoleReporter()
 
-    # === 1. MANDATORY VALIDATION ===
-    validation = ValidationService.validate(spectrum, peaklist)
+    validation = validate_inputs(spectrum, peaklist)
     if validation.errors:
         error("Validation failed. Fix the errors below before fitting.")
         for e in validation.errors:
             bullet(str(e), style="error")
         raise typer.Exit(1)
 
-    # === 2. BUILD CONFIG ===
-    fit_config = _build_config(
+    fit_config = build_fit_config(
         config=config,
         output=output,
         formats=formats,
         headless=headless,
-        output_verbosity=output_verbosity,
         noise=noise,
         contour_level=contour_level,
         lineshape=lineshape,
@@ -205,41 +199,17 @@ def fit_command(
         optimizer=optimizer,
     )
 
-    # Interactive fits show the boxed prefit manifest, so avoid a redundant compact header.
     if fit_config.output.headless:
-        show_command_manifest(
-            "Fitting",
-            sections=[
-                (
-                    "Inputs",
-                    {
-                        "Spectrum": display_path(spectrum),
-                        "Peak list": display_path(peaklist) if peaklist is not None else "Auto",
-                        "Z values": display_path(z_values) if z_values is not None else "None",
-                    },
-                ),
-                (
-                    "Fitting",
-                    {
-                        "Optimizer": optimizer,
-                        "Lineshape": str(fit_config.fitting.lineshape),
-                        "Refine iterations": str(fit_config.fitting.refine_iterations),
-                        "Auto-pick step mode": "Yes" if auto_pick_step else "No",
-                        "Workers": "All CPUs" if workers == -1 else str(workers),
-                    },
-                ),
-                (
-                    "Output",
-                    {
-                        "Base directory": display_path(fit_config.output.directory or Path("./")),
-                        "Formats": ", ".join(fit_config.output.formats),
-                        "Verbosity": fit_config.output.verbosity,
-                    },
-                ),
-            ],
+        _show_headless_command_summary(
+            spectrum=spectrum,
+            peaklist=peaklist,
+            z_values=z_values,
+            fit_config=fit_config,
+            optimizer=optimizer,
+            auto_pick_step=auto_pick_step,
+            workers=workers,
         )
 
-    # === 3. LOAD DATA ===
     data = _load_fit_data(
         spectrum=spectrum,
         peaklist=peaklist,
@@ -249,16 +219,13 @@ def fit_command(
         reporter=reporter,
     )
 
-    # === 4. RESOLVE OUTPUT ===
-    output_dir = _resolve_output(fit_config)
+    output_dir = resolve_output_dir(fit_config)
 
     if not fit_config.output.headless:
         show_prefit_check(data, output_dir, optimizer, fit_config, spectrum, peaklist, workers)
 
-    # === 5. FIT ===
     try:
         if fit_config.output.headless:
-            # Headless mode: use reporter for progress
             result = run_fit(
                 data,
                 fit_config,
@@ -268,19 +235,19 @@ def fit_command(
                 reporter=reporter,
             )
         else:
-            # Interactive mode: use live display with callback
             result = _run_interactive_fit(data, fit_config, output_dir, optimizer, workers)
 
-        duration = (datetime.datetime.now() - start_time).total_seconds()
+        duration = (datetime.datetime.now(datetime.UTC) - start_time).total_seconds()
 
-        # === 6. POST-FIT SUMMARY ===
         if not fit_config.output.headless:
             reviews = find_review_clusters(result)
             clusters_to_review = _format_review_clusters(reviews)
             display_post_fit_summary(
                 total_time=duration,
-                total_clusters=len(result.results),
+                total_clusters=result.summary.n_clusters,
                 successful_fits=result.summary.n_converged,
+                usable_non_converged=result.summary.n_usable_non_converged,
+                unusable=result.summary.n_unusable,
                 chi_sq_stats={
                     "Mean": result.summary.mean_redchi,
                     "Std Dev": result.summary.std_redchi,
@@ -290,28 +257,65 @@ def fit_command(
                 output_dir=display_path(result.output_dir),
             )
 
-        # === 7. WRITE OUTPUTS ===
         with console.status("[info]Writing results...[/info]", spinner="dots"):
-            input_paths = {"spectrum": spectrum}
-            if peaklist is not None:
-                input_paths["peaklist"] = peaklist
-            else:
-                auto_peaklist = _write_autopicked_peaklist(result.output_dir, data.peaks)
-                input_paths["peaklist"] = auto_peaklist
-            if z_values:
-                input_paths["z_values"] = z_values
-
             if result.spectra is None:
                 raise ValueError("No spectra in result")
 
-            write_service_results(result, result.spectra, fit_config, input_paths, reporter)
+            input_paths = _collect_input_paths(
+                spectrum=spectrum,
+                peaklist=peaklist,
+                z_values=z_values,
+                output_dir=result.output_dir,
+                peaks=data.peaks,
+            )
+            write_fit_run_outputs(result, result.spectra, fit_config, input_paths, reporter)
 
     except Exception as e:
         show_error_with_details("Fitting", e)
         raise typer.Exit(1) from e
 
 
-# === HELPERS ===
+def _show_headless_command_summary(
+    *,
+    spectrum: Path,
+    peaklist: Path | None,
+    z_values: Path | None,
+    fit_config: PeakFitConfig,
+    optimizer: str,
+    auto_pick_step: bool,
+    workers: int,
+) -> None:
+    """Show the compact header used when the live pre-fit panel is disabled."""
+    show_command_summary(
+        "Fitting",
+        sections=[
+            (
+                "Inputs",
+                {
+                    "Spectrum": display_path(spectrum),
+                    "Peak list": display_path(peaklist) if peaklist is not None else "Auto",
+                    "Z values": display_path(z_values) if z_values is not None else "None",
+                },
+            ),
+            (
+                "Fitting",
+                {
+                    "Optimizer": optimizer,
+                    "Lineshape": str(fit_config.fitting.lineshape),
+                    "Optimizer passes": str(fit_config.fitting.refine_iterations),
+                    "Auto-pick step mode": "Yes" if auto_pick_step else "No",
+                    "Workers": "All CPUs" if workers == -1 else str(workers),
+                },
+            ),
+            (
+                "Output",
+                {
+                    "Base directory": display_path(fit_config.output.directory or Path("./")),
+                    "Formats": ", ".join(fit_config.output.formats),
+                },
+            ),
+        ],
+    )
 
 
 def _load_fit_data(
@@ -362,101 +366,22 @@ def _load_fit_data(
             stepper.close()
 
 
-def _build_config(
-    config: Path | None,
-    output: Path | None,
-    formats: list[str] | None,
-    headless: bool | None,
-    output_verbosity: OutputVerbosity,
-    noise: float | None,
-    contour_level: float | None,
-    lineshape: LineshapeName,
-    refine: int,
-    fixed: bool,
-    jx: bool,
-    phx: bool,
-    phy: bool,
-    exclude: list[int] | None,
-    optimizer: str,
-) -> PeakFitConfig:
-    """Build config from CLI args or file."""
-    if config is not None:
-        cfg = load_config(config)
-        if output:
-            cfg.output.directory = output
-        if formats:
-            cfg.output.formats = cast("list[OutputFormat]", formats)
-        if headless is not None:
-            cfg.output.headless = headless
-        cfg.output.verbosity = output_verbosity
-        if noise is not None:
-            cfg.noise_level = noise
-        if contour_level is not None:
-            cfg.clustering.contour_level = contour_level
-        return cfg
-
-    # Build from scratch
-    fit_phase = []
-    if phx:
-        fit_phase.append("F3")
-    if phy:
-        fit_phase.append("F2")
-
-    output_config = OutputConfig(
-        formats=cast("list[OutputFormat]", formats or ["json", "csv", "txt"]),
-        verbosity=output_verbosity,
-        headless=headless if headless is not None else False,
+def _collect_input_paths(
+    *,
+    spectrum: Path,
+    peaklist: Path | None,
+    z_values: Path | None,
+    output_dir: Path,
+    peaks: list[Peak],
+) -> dict[str, Path]:
+    """Collect reproducibility input paths for output metadata."""
+    input_paths = {"spectrum": spectrum}
+    input_paths["peaklist"] = (
+        peaklist if peaklist is not None else write_autopicked_peaklist(output_dir, peaks)
     )
-    if output:
-        output_config.directory = output
-
-    cfg = PeakFitConfig(
-        fitting=FitConfig(
-            lineshape=lineshape,
-            refine_iterations=refine,
-            fix_positions=fixed,
-            fit_j_coupling=jx,
-            fit_phase=fit_phase,
-        ),
-        clustering=ClusterConfig(contour_level=contour_level),
-        output=output_config,
-        noise_level=noise,
-        exclude_planes=exclude or [],
-    )
-
-    if optimizer == "differential_evolution":
-        cfg.fitting.max_iterations = DIFF_EVOLUTION_MAXITER
-    elif optimizer == "basin_hopping":
-        cfg.fitting.max_iterations = BASIN_HOPPING_NITER
-
-    return cfg
-
-
-def _resolve_output(fit_config: PeakFitConfig) -> Path:
-    """Resolve output directory with timestamp."""
-    base = fit_config.output.directory or Path("./")
-    output_dir = resolve_output_path(base, include_timestamp=fit_config.output.include_timestamp)
-    fit_config.output.directory = output_dir
-    fit_config.output.include_timestamp = False
-    return output_dir
-
-
-def _write_autopicked_peaklist(output_dir: Path, peaks: list[Peak]) -> Path:
-    """Write auto-detected peaks to Sparky-like list format for reproducibility."""
-    peaklist_dir = output_dir / "metadata"
-    peaklist_dir.mkdir(parents=True, exist_ok=True)
-    peaklist_path = peaklist_dir / "autopicked.list"
-
-    columns = [f"w{i + 1}" for i in range(len(peaks[0].positions))] if peaks else []
-    header = "Assignment" if not columns else f"Assignment {' '.join(columns)}"
-
-    lines = [header]
-    for peak in peaks:
-        positions = " ".join(f"{float(pos):.6f}" for pos in peak.positions)
-        lines.append(f"{peak.name} {positions}")
-
-    peaklist_path.write_text("\n".join(lines) + "\n")
-    return peaklist_path
+    if z_values is not None:
+        input_paths["z_values"] = z_values
+    return input_paths
 
 
 def _run_interactive_fit(
@@ -465,7 +390,7 @@ def _run_interactive_fit(
     output_dir: Path,
     optimizer: str,
     workers: int,
-) -> ServiceResult:
+) -> FitRun:
     """Run fitting with interactive live display."""
     # Use a mutable container for the live display context
     live_ctx: dict[str, Any] = {"update": None}
@@ -473,7 +398,7 @@ def _run_interactive_fit(
     def progress_callback(item: Any) -> None:
         """Handle progress events from pipeline."""
         if isinstance(item, ProgressStart):
-            # Start the live display with total from service
+            # Start the live display with the pipeline total
             live_ctx["display"] = live_fit_display(total_steps=item.total_steps)
             live_ctx["update"] = live_ctx["display"].__enter__()
         elif isinstance(item, tuple) and item[0] == "status":
@@ -481,7 +406,7 @@ def _run_interactive_fit(
                 live_ctx["update"](status_message=item[1], advance=0)
         elif isinstance(item, FitResult):
             if live_ctx["update"]:
-                cluster_id = str(item.metadata.get("cluster_id", "??"))
+                cluster_id = str(item.cluster_id)
                 warnings = []
                 bounds_hit = [p for p in item.params.values() if p.is_at_boundary()]
                 if bounds_hit:
@@ -524,10 +449,17 @@ def _format_review_clusters(reviews: list[ClusterReview]) -> list[dict[str, Any]
     """Format ClusterReview objects for display."""
     formatted = []
     for review in reviews:
-        if review.reason == "diverged":
-            status, status_color, details = "Diverged", "metric.bad", "Optimizer failed"
+        if review.reason == "unusable":
+            status, status_color = "Unusable", "metric.bad"
+            details = review.unusable_reason or "Numerical evaluation is unusable"
+            if review.termination_message:
+                details = f"{details}; optimizer: {review.termination_message}"
+        elif review.reason == "not_converged":
+            status, status_color = "Not converged", "metric.warn"
+            details = review.termination_message or "Optimizer did not converge"
         elif review.reason == "high_chi":
             status, status_color = "High χ²", "metric.warn"
+            assert review.redchi is not None
             details = f"Red. χ² = {review.redchi:.2f}"
         else:
             status, status_color = "At Bounds", "metric.warn"
@@ -548,7 +480,11 @@ def _format_review_clusters(reviews: list[ClusterReview]) -> list[dict[str, Any]
                 "status": status,
                 "status_color": status_color,
                 "chi_sq": review.redchi,
-                "chi_sq_color": "metric.bad" if review.redchi > _HIGH_REDCHI else "metric.warn",
+                "chi_sq_color": (
+                    "metric.bad"
+                    if review.redchi is not None and review.redchi > _HIGH_REDCHI
+                    else "metric.warn"
+                ),
                 "details": details,
             }
         )

@@ -6,15 +6,15 @@ from typing import Annotated
 import typer
 
 from peakfit.io.config import generate_default_config
-from peakfit.ui import (
+from peakfit.ui.branding import show_command_summary
+from peakfit.ui.console import (
     Verbosity,
-    bullet,
     display_path,
+    set_verbosity,
+)
+from peakfit.ui.messages import (
     error,
     info,
-    print_next_steps,
-    set_verbosity,
-    show_command_manifest,
     success,
 )
 
@@ -41,7 +41,7 @@ def init_command(
         typer.Option(
             "--verbose",
             "-v",
-            help="Show banner and verbose output",
+            help="Show verbose output",
         ),
     ] = False,
 ) -> None:
@@ -63,7 +63,7 @@ def init_command(
     """
     # Set verbosity and show header
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
-    show_command_manifest(
+    show_command_summary(
         "Configuration Initialization",
         sections=[
             (
@@ -86,21 +86,4 @@ def init_command(
 
     # Enhanced success message with details
     success(f"Created configuration file: [path]{display_path(path)}[/path]")
-
-    info("Configuration includes:")
-    bullet("[value]Fitting parameters[/value] (optimizer, lineshape, tolerances)")
-    bullet("[value]Clustering settings[/value] (algorithm, thresholds)")
-    bullet("[value]Output preferences[/value] (formats, directories)")
-    bullet("[value]Advanced options[/value] (backends)")
-
-    # Suggest next steps
-    print_next_steps(
-        [
-            f"Review and customize: [path]{display_path(path)}[/path]",
-            (
-                "Run fitting: [code]peakfit fit spectrum.ft2 [peaks.list] --config "
-                f"{display_path(path)}[/code]"
-            ),
-            "Documentation: [url]https://github.com/gbouvignies/PeakFit[/url]",
-        ]
-    )
+    info(f"Next: [code]peakfit fit spectrum.ft2 peaks.list --config {display_path(path)}[/code]")

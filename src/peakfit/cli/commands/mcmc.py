@@ -3,35 +3,34 @@
 from __future__ import annotations
 
 from pathlib import Path  # noqa: TC003 - used by Typer for CLI path conversion
-from typing import Annotated, Any
+from typing import Annotated
 
-import h5py
-import numpy as np
 import typer
 from rich.console import Group
 from rich.live import Live
 
-from peakfit.mcmc.analysis import (
-    MCMCAnalysisService,
-    format_mcmc_cluster_result,
+from peakfit.cli.commands.mcmc_output import (
+    display_cluster_result,
+    extract_acceptance,
 )
-from peakfit.ui import (
+from peakfit.cli.commands.mcmc_output import (
+    save_chains as save_mcmc_chains,
+)
+from peakfit.mcmc.analysis import run_mcmc_analysis
+from peakfit.ui.branding import show_command_summary
+from peakfit.ui.console import (
     Verbosity,
     console,
-    create_live_metrics_table,
-    create_mcmc_progress,
-    create_table,
     display_path,
     set_verbosity,
-    show_command_manifest,
 )
 from peakfit.ui.messages import info, show_error_with_details
+from peakfit.ui.progress import create_mcmc_progress
+from peakfit.ui.tables import create_live_metrics_table
 
 # Thresholds
 _ACCEPTANCE_GOOD = (0.2, 0.5)
 _ACCEPTANCE_BAD = (0.1, 0.9)
-_RHAT_WARN = 1.1
-_MAX_AMPS_SHOWN = 5
 _MAX_PEAKS_IN_HEADER = 4
 
 
@@ -52,7 +51,7 @@ def _format_workers(workers: int) -> str:
     return str(workers)
 
 
-def mcmc_command(  # noqa: PLR0915
+def mcmc_command(
     results: Annotated[
         Path,
         typer.Argument(
@@ -115,7 +114,7 @@ def mcmc_command(  # noqa: PLR0915
         info("Manual burn-in specified; disabling auto-burnin")
         auto_burnin = False
 
-    show_command_manifest(
+    show_command_summary(
         "MCMC Uncertainty Analysis",
         sections=[
             (
@@ -152,7 +151,7 @@ def mcmc_command(  # noqa: PLR0915
         stats="",
     )
 
-    metrics_table = create_live_metrics_table({"Acceptance": "0%", "R-hat": "..."})
+    metrics_table = create_live_metrics_table({"Step": f"0/{steps}", "Acceptance": "..."})
     dashboard = Group(metrics_table, progress)
 
     console.print(f"[header]Sampling ({walkers} walkers × {steps} steps)[/header]")
@@ -171,7 +170,7 @@ def mcmc_command(  # noqa: PLR0915
             if step == 0:
                 latest_acceptance = None
             if acceptance is None:
-                acceptance = _extract_acceptance(desc)
+                acceptance = extract_acceptance(desc)
             if acceptance is not None:
                 latest_acceptance = acceptance
 
@@ -188,20 +187,12 @@ def mcmc_command(  # noqa: PLR0915
                 acc_fmt = "..."
                 acc_style = "neutral"
 
-            if step > 0 and total > 0:
-                r_hat = 1.05 - (0.04 * (step / total))  # Converges to ~1.01
-                r_style = "metric.good" if r_hat < _RHAT_WARN else "metric.warn"
-                rhat_fmt = f"{r_hat:.3f}"
-            else:
-                r_style = "neutral"
-                rhat_fmt = "..."
-
             live.update(
                 Group(
                     create_live_metrics_table(
                         {
+                            "Step": (f"{step}/{total}", "neutral"),
                             "Acceptance": (acc_fmt, acc_style),
-                            "R-hat": (rhat_fmt, r_style),
                         }
                     ),
                     progress,
@@ -209,7 +200,7 @@ def mcmc_command(  # noqa: PLR0915
             )
 
         try:
-            result = MCMCAnalysisService.run(
+            result = run_mcmc_analysis(
                 results_dir=results,
                 target_peaks=peaks,
                 n_walkers=walkers,
@@ -218,7 +209,6 @@ def mcmc_command(  # noqa: PLR0915
                 auto_burnin=auto_burnin,
                 workers=workers,
                 progress_callback=on_progress,
-                headless=True,
             )
         except Exception as e:
             run_error = e
@@ -235,132 +225,12 @@ def mcmc_command(  # noqa: PLR0915
 
     # Display results
     for cluster_res in result.cluster_results:
-        _display_cluster_result(cluster_res, verbose)
+        display_cluster_result(cluster_res, verbose)
 
     if save_chains:
-        n_saved = _save_chains(results, result)
+        n_saved = save_mcmc_chains(results, result)
         if n_saved > 0:
             info(
                 "Saved MCMC chains for "
                 f"{n_saved} cluster(s) in [path]{display_path(results / 'chains')}[/path]"
             )
-
-
-def _display_cluster_result(cluster_res: Any, verbose: bool) -> None:
-    """Display MCMC results for one cluster."""
-    summary = format_mcmc_cluster_result(cluster_res)
-
-    console.print(f"\n[subheader]Cluster: {summary.cluster_label}[/subheader]")
-
-    table = create_table(show_header=True)
-    table.add_column("Parameter", style="key")
-    table.add_column("Value", style="value")
-    table.add_column("Std Error", style="metric")
-    table.add_column("95% CI", style="value")
-    table.add_column("Status")
-
-    status_colors = {
-        "excellent": "metric.good",
-        "good": "metric.good",
-        "acceptable": "metric.warn",
-        "marginal": "metric.warn",
-        "poor": "metric.bad",
-    }
-
-    for p in summary.parameter_summaries:
-        color = status_colors.get(p.convergence_status, "neutral")
-        table.add_row(
-            p.name,
-            f"{p.value:.4e}",
-            f"{p.std_error:.4e}",
-            f"[{p.ci_95_lower:.4e}, {p.ci_95_upper:.4e}]",
-            f"[{color}]{p.convergence_status}[/{color}]",
-        )
-
-    console.print(table)
-
-    # Amplitudes (limited unless verbose)
-    if summary.amplitude_summaries:
-        amp_table = create_table(title="[panel.title]Amplitudes[/panel.title]")
-        amp_table.add_column("Peak", style="key")
-        amp_table.add_column("Plane", style="value")
-        amp_table.add_column("Intensity", style="value")
-        amp_table.add_column("Error", style="metric")
-
-        shown = 0
-        for amp in summary.amplitude_summaries:
-            if shown < _MAX_AMPS_SHOWN or verbose:
-                amp_table.add_row(
-                    amp.peak_name,
-                    str(amp.plane_index),
-                    f"{amp.value:.4e}",
-                    f"{amp.std_error:.4e}",
-                )
-            shown += 1
-
-        if shown > _MAX_AMPS_SHOWN and not verbose:
-            amp_table.add_row("...", "...", "...", "...")
-
-        console.print(amp_table)
-
-
-def _save_chains(results_dir: Path, mcmc_result: Any) -> int:
-    """Persist full MCMC chains for post-hoc plotting and analysis."""
-    chains_dir = results_dir / "chains"
-    chains_dir.mkdir(parents=True, exist_ok=True)
-
-    n_saved = 0
-    for cluster_res in mcmc_result.cluster_results:
-        chains = getattr(cluster_res.result, "mcmc_chains", None)
-        if chains is None:
-            continue
-
-        chain_array = np.asarray(chains, dtype=np.float64)
-        if chain_array.size == 0:
-            continue
-
-        cluster_id = int(cluster_res.cluster.cluster_id)
-        n_params = chain_array.shape[2]
-        parameter_names = list(cluster_res.result.parameter_names)
-        if len(parameter_names) < n_params:
-            parameter_names.extend(f"param_{i}" for i in range(len(parameter_names), n_params))
-        elif len(parameter_names) > n_params:
-            parameter_names = parameter_names[:n_params]
-        burn_in_info = cluster_res.result.burn_in_info or {}
-        thin = max(int(burn_in_info.get("thin", 1)), 1)
-        burn_in = int(burn_in_info.get("burn_in", 0))
-        burn_in_idx = int(np.ceil(burn_in / thin))
-
-        chain_path = chains_dir / f"cluster_{cluster_id}_chains.h5"
-        with h5py.File(chain_path, "w") as handle:
-            grp = handle.create_group(f"cluster_{cluster_id}")
-            grp.create_dataset("chains", data=chain_array, compression="gzip")
-            grp.create_dataset("nonlinear_names", data=np.asarray(parameter_names, dtype="S"))
-            burn_grp = grp.create_group("burn_in")
-            burn_grp.attrs["thin"] = thin
-            burn_grp.attrs["burn_in"] = burn_in
-            burn_grp.attrs["burn_in_idx"] = burn_in_idx
-        n_saved += 1
-
-    return n_saved
-
-
-def _extract_acceptance(desc: str) -> float | None:
-    """Parse acceptance value from status text like '... (acc=0.42)'."""
-    marker = "acc="
-    idx = desc.find(marker)
-    if idx == -1:
-        return None
-
-    start = idx + len(marker)
-    end = start
-    while end < len(desc) and (desc[end].isdigit() or desc[end] == "."):
-        end += 1
-
-    if end == start:
-        return None
-
-    try:
-        return float(desc[start:end])
-    except ValueError:
-        return None

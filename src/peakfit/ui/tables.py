@@ -1,37 +1,14 @@
-"""UI tables for displaying structured data.
-
-This module provides functions for creating and displaying Rich tables
-with consistent styling across the application.
-"""
+"""UI table constructors used by terminal views."""
 
 from typing import Any
 
 from rich import box
 from rich.table import Table
 
-from .console import console, icon
-
 __all__ = [
     "create_live_metrics_table",
-    "create_metadata_grid",
     "create_table",
-    "print_summary",
-    "print_validation_table",
 ]
-
-
-def create_metadata_grid(metadata: dict[str, Any]) -> Table:
-    """Create a grid for displaying metadata.
-
-    Args:
-        metadata: Dictionary of key-value pairs to display.
-    """
-    table = Table(box=None, show_header=False, expand=True)
-    table.add_column(style="key", justify="right")
-    table.add_column(style="value")
-    for key, value in metadata.items():
-        table.add_row(f"{key}:", str(value))
-    return table
 
 
 def create_live_metrics_table(metrics: dict[str, Any]) -> Table:
@@ -91,44 +68,3 @@ def create_table(
         border_style="box.border",
         expand=False,
     )
-
-
-def print_summary(items: dict[str, Any], title: str = "Summary") -> None:
-    """Print a standard two-column summary table.
-
-    Args:
-        items: Dictionary of key-value pairs to display
-        title: Table title
-    """
-    table = create_table(title, show_header=False)
-    table.add_column("Item", style="metric")
-    table.add_column("Value", style="value")
-
-    for key, value in items.items():
-        table.add_row(key, str(value))
-
-    console.print(table)
-
-
-def print_validation_table(
-    checks: dict[str, tuple[bool, str]],
-    title: str = "Input Validation",
-) -> None:
-    """Print a validation results table.
-
-    Args:
-        checks: Dictionary mapping check name to (passed, message) tuple
-        title: Table title
-    """
-    table = create_table(title)
-    table.add_column("Check", style="metric")
-    table.add_column("Status", style="value", justify="center")
-
-    for check_name, (passed, message) in checks.items():
-        if passed:
-            status = f"[success]{icon('check')}[/success] {message}"
-        else:
-            status = f"[warning]{icon('warn')}[/warning] {message}"
-        table.add_row(check_name, status)
-
-    console.print(table)

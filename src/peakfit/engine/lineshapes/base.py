@@ -7,7 +7,7 @@ import numpy as np
 from peakfit.engine.domain.param_id import ParameterId
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.lineshapes.grid import SpectralGrid
-from peakfit.engine.lineshapes.protocol import LineshapeContext
+from peakfit.engine.lineshapes.utils import LineshapeContext
 from peakfit.engine.types import ClusterParameters, ParamSpec
 
 if TYPE_CHECKING:
@@ -60,6 +60,7 @@ class ShapeBase:
 
     def print(self, params: Parameters) -> str:
         """Return textual representation."""
+        del params
         return f"# Shape: {self.name} ({self.shape_name})"
 
     def _param_context_extras(self) -> dict[str, Any]:
@@ -88,8 +89,8 @@ class ShapeBase:
             params.add(
                 pid,
                 value=spec.default,
-                min=spec.min_val,
-                max=spec.max_val,
+                min_value=spec.min_val,
+                max_value=spec.max_val,
                 unit=spec.unit,
             )
 

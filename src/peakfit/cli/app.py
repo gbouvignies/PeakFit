@@ -8,7 +8,10 @@ from typing import Annotated
 import typer
 
 from peakfit.cli.callbacks import version_callback
-from peakfit.cli.commands import fit_command, init_command, mcmc_command, plot_app
+from peakfit.cli.commands.fit import fit_command
+from peakfit.cli.commands.init import init_command
+from peakfit.cli.commands.mcmc import mcmc_command
+from peakfit.cli.commands.plot import plot_app
 
 app = typer.Typer(
     name="peakfit",
@@ -34,9 +37,9 @@ def main(
     """PeakFit - Modern lineshape fitting for pseudo-3D NMR spectra.
 
     Workflow:
-        1. peakfit fit spectrum.ft2 [peaks.list]   # Fit (auto-pick if omitted)
+        1. peakfit fit spectrum.ft2 peaks.list     # Fit peak list
         2. peakfit mcmc results/                   # Uncertainty estimation
-        3. peakfit plot cest results/              # Visualize
+        3. peakfit plot intensity results/         # Visualize fitted amplitudes
 
     For help on any command:
         peakfit <command> --help

@@ -24,7 +24,6 @@ from peakfit.engine.lineshapes.no_apod.kernel import (
     kernel_with_derivs as no_apod_kernel_with_derivs,
 )
 from peakfit.engine.lineshapes.no_apod.model import make_state as no_apod_make_state
-from peakfit.engine.lineshapes.protocol import LineshapeContext
 from peakfit.engine.lineshapes.pvoigt import model as pvoigt_model
 from peakfit.engine.lineshapes.pvoigt.kernel import kernel as pvoigt_kernel
 from peakfit.engine.lineshapes.pvoigt.kernel import (
@@ -43,6 +42,7 @@ from peakfit.engine.lineshapes.sp2.kernel import (
 )
 from peakfit.engine.lineshapes.sp2.kernel import make_state as sp2_make_state
 from peakfit.engine.lineshapes.utils import (
+    LineshapeContext,
     apply_phase,
     apply_phase_with_derivs,
     doublet_offsets,

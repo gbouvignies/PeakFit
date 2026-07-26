@@ -7,18 +7,11 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from peakfit.engine.domain.constraints import ParameterConfig
-from peakfit.engine.domain.data import PeakData
-from peakfit.engine.domain.protocol import FitStep
+from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.shared.constants import (
     BASIN_HOPPING_NITER,
     BASIN_HOPPING_STEPSIZE,
     BASIN_HOPPING_TEMPERATURE,
-    DIFF_EVOLUTION_INIT,
-    DIFF_EVOLUTION_MAXITER,
-    DIFF_EVOLUTION_MUTATION,
-    DIFF_EVOLUTION_RECOMBINATION,
-    MCMC_N_STEPS,
-    MCMC_N_WALKERS,
 )
 
 LineshapeName = Literal[
@@ -37,16 +30,13 @@ LineshapeName = Literal[
     "no_apod_doublet",
 ]
 OutputFormat = Literal["csv", "json", "txt"]
-OutputVerbosity = Literal["minimal", "standard", "full"]
-LogFormat = Literal["text", "json"]
-StrategyName = Literal["varpro", "lm", "basin_hopping"]
 
 
 class FitConfig(BaseModel):
     """Configuration for the fitting process.
 
-    Supports both simple configuration (legacy) and advanced multi-step
-    protocols with parameter constraints.
+    Supports the common one-step configuration and optional multi-step fit steps
+    with parameter constraints.
 
     Simple usage:
         [fitting]
@@ -54,7 +44,7 @@ class FitConfig(BaseModel):
         refine_iterations = 2
         fix_positions = false
 
-    Advanced multi-step protocol:
+    Advanced multi-step fit:
         [[fitting.steps]]
         name = "fix_positions"
         fix = ["*.*.cs"]
@@ -84,13 +74,9 @@ class FitConfig(BaseModel):
         default="auto",
         description="Lineshape model to use. 'auto' detects from NMRPipe apodization.",
     )
-    strategy_name: StrategyName = Field(
-        default="varpro",
-        description="Optimization strategy to use.",
-    )
-    refine_iterations: Annotated[int, Field(ge=0, le=20)] = Field(
+    refine_iterations: Annotated[int, Field(le=20)] = Field(
         default=1,
-        description="Number of refinement iterations for cross-talk correction.",
+        description="Number of optimizer passes; corrections update between passes.",
     )
     fix_positions: bool = Field(default=False, description="Fix peak positions during fitting.")
     fit_j_coupling: bool = Field(
@@ -111,32 +97,21 @@ class FitConfig(BaseModel):
     )
     optimizer_seed: Annotated[int, Field(ge=0)] | None = Field(
         default=None,
-        description=(
-            "Random seed for stochastic optimizers (e.g., basin-hopping, differential evolution)."
-        ),
+        description="Random seed for stochastic optimizers such as basin-hopping.",
     )
 
-    # Multi-step fitting protocol
+    # Multi-step fitting steps
     steps: list[FitStep] = Field(
         default_factory=list,
-        description="Multi-step fitting protocol. If empty, uses refine_iterations.",
+        description="Multi-step fitting steps. If empty, uses refine_iterations.",
     )
 
-    def get_phase_dimensions(self, n_spectral_dims: int = 2) -> list[str]:
-        """Get list of dimension labels to fit phase for.
-
-        Args:
-            n_spectral_dims: Number of spectral dimensions (for Fn labeling)
-
-        Returns:
-        -------
-            List of dimension labels like ['F1', 'F2']
-        """
-        return self.fit_phase
-
-    def has_protocol(self) -> bool:
-        """Check if a multi-step protocol is defined."""
-        return len(self.steps) > 0
+    @field_validator("refine_iterations")
+    @classmethod
+    def _require_positive_refine_iterations(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("refine_iterations must be at least 1")
+        return value
 
 
 class ClusterConfig(BaseModel):
@@ -227,27 +202,18 @@ class AutoPeakConfig(BaseModel):
 class OutputConfig(BaseModel):
     """Configuration for output file generation.
 
-    Supports both new structured output system and legacy formats.
+    Keep this model limited to fit-output controls that are actually
+    implemented by the writer path.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     directory: Path = Field(default=Path("Fits"), description="Output directory for results.")
     formats: list[OutputFormat] = Field(
-        default=["json", "csv", "txt"],
-        description="Output formats for results. Default includes all formats.",
-    )
-    verbosity: OutputVerbosity = Field(
-        default="standard",
-        description="Output verbosity: minimal (essential), standard (default), full (all).",
+        default=["json", "csv"],
+        description="Output formats for results. Add 'txt' to write a Markdown report.",
     )
     save_simulated: bool = Field(default=False, description="Save simulated spectrum to file.")
-    save_html_report: bool = Field(default=False, description="Save HTML report of fitting.")
-    save_chains: bool = Field(
-        default=False,
-        description="Save MCMC chains to disk (requires significant storage).",
-    )
-    save_figures: bool = Field(default=True, description="Generate and save diagnostic figures.")
     include_timestamp: bool = Field(
         default=True,
         description="Include timestamp in output directory name.",
@@ -255,14 +221,6 @@ class OutputConfig(BaseModel):
     headless: bool = Field(
         default=False,
         description="Disable interactive/live display (use reporter-only output).",
-    )
-    include_legacy: bool = Field(
-        default=False,
-        description="Write legacy .out outputs alongside structured outputs (opt-in).",
-    )
-    log_format: LogFormat = Field(
-        default="text",
-        description="Format for log file: text (human-readable) or json (structured).",
     )
 
 
@@ -274,7 +232,7 @@ class PeakFitConfig(BaseModel):
         lineshape = "auto"
         refine_iterations = 2
 
-        # Optional: multi-step protocol
+        # Optional: multi-step fit
         [[fitting.steps]]
         name = "fix_positions"
         fix = ["*.*.cs"]
@@ -338,17 +296,8 @@ class PeakFitConfig(BaseModel):
         return sorted(set(v))
 
 
-class ValidationResult(BaseModel):
-    """Result of input validation operations (spectrum/peaklist)."""
-
-    valid: bool
-    errors: list[str] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-    info: dict[str, object] = Field(default_factory=dict)
-
-
 # =============================================================================
-# Strategy Configurations
+# Optimizer Configurations
 # =============================================================================
 
 
@@ -365,7 +314,7 @@ class VarProConfig:
 
 @dataclass(frozen=True)
 class BasinHoppingConfig:
-    """Configuration for Basin Hopping global optimizer."""
+    """Configuration for the basin-hopping optimizer."""
 
     n_iterations: int = BASIN_HOPPING_NITER
     temperature: float = BASIN_HOPPING_TEMPERATURE
@@ -373,49 +322,20 @@ class BasinHoppingConfig:
     seed: int | None = None
 
 
-@dataclass(frozen=True)
-class DiffEvoConfig:
-    """Configuration for Differential Evolution global optimizer."""
-
-    max_iterations: int = DIFF_EVOLUTION_MAXITER
-    mutation: tuple[float, float] = DIFF_EVOLUTION_MUTATION
-    recombination: float = DIFF_EVOLUTION_RECOMBINATION
-    init: str = DIFF_EVOLUTION_INIT
-    polish: bool = True
-    seed: int | None = None
-
-
-@dataclass(frozen=True)
-class MCMCConfig:
-    """Configuration for MCMC uncertainty estimation."""
-
-    n_walkers: int = MCMC_N_WALKERS
-    n_steps: int = MCMC_N_STEPS
-    burn_in: int | None = None
-    workers: int = 1
-
-
-StrategyConfig = VarProConfig | BasinHoppingConfig | DiffEvoConfig | MCMCConfig
+OptimizerConfig = VarProConfig | BasinHoppingConfig
 
 
 __all__ = [
     "AutoPeakConfig",
     "BasinHoppingConfig",
     "ClusterConfig",
-    "DiffEvoConfig",
     "FitConfig",
     "FitStep",
     "LineshapeName",
-    "LogFormat",
-    "MCMCConfig",
+    "OptimizerConfig",
     "OutputConfig",
     "OutputFormat",
-    "OutputVerbosity",
     "ParameterConfig",
-    "PeakData",
     "PeakFitConfig",
-    "StrategyConfig",
-    "StrategyName",
-    "ValidationResult",
     "VarProConfig",
 ]

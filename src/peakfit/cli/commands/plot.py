@@ -10,20 +10,27 @@ import numpy as np
 import pandas as pd
 import typer
 
-from peakfit.io.readers import ResultsLoader
-from peakfit.plot.manager import PlotOutput, PlotService
+from peakfit.io.readers.results import ResultsLoader
+from peakfit.plot.outputs import (
+    PlotOutput,
+    generate_cest_plots,
+    generate_cpmg_plots,
+    generate_intensity_plots,
+    generate_mcmc_diagnostics,
+)
 from peakfit.plot.reconstruction import SpectraReconstructor
-from peakfit.ui import Verbosity, display_path, set_verbosity, show_command_manifest
+from peakfit.ui.branding import show_command_summary
+from peakfit.ui.console import Verbosity, display_path, set_verbosity
 from peakfit.ui.messages import show_error_with_details, success, warning
 from peakfit.ui.reporter import ConsoleReporter
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from typing import Any
 
 
 _MIN_PEAK_POSITIONS_FOR_2D = 2
 _MAX_REF_POINTS_SHOWN = 6
-
 # Create plot sub-application
 plot_app = typer.Typer(
     help="Plotting commands for PeakFit results",
@@ -36,14 +43,28 @@ def _configure_plot_ui(
     title: str,
     sections: list[tuple[str, dict[str, str]]],
 ) -> None:
-    """Configure terminal verbosity and print a consistent manifest box."""
+    """Configure terminal verbosity and print a compact command summary."""
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
-    show_command_manifest(title, sections)
+    show_command_summary(title, sections)
 
 
 def _print_plot_success(out: PlotOutput, label: str) -> None:
     """Print a consistent success message for generated plot artifacts."""
     success(f"Saved {out.n_plots} {label} plot(s) to [path]{display_path(out.path)}[/path]")
+
+
+def _run_plot_generation(
+    label: str,
+    error_context: str,
+    generate: Callable[[], PlotOutput],
+) -> None:
+    """Run a plot generator with consistent success and error handling."""
+    try:
+        out = generate()
+        _print_plot_success(out, label)
+    except Exception as e:
+        show_error_with_details(error_context, e)
+        raise typer.Exit(1) from e
 
 
 def _format_bool(flag: bool) -> str:
@@ -54,11 +75,11 @@ def _format_bool(flag: bool) -> str:
 def _format_reference_indices(ref: list[int] | None) -> str:
     """Format CEST reference point indices for compact display."""
     if not ref:
-        return "Auto (-1)"
+        return "Auto"
     if len(ref) <= _MAX_REF_POINTS_SHOWN:
         return ", ".join(str(i) for i in ref)
     shown = ", ".join(str(i) for i in ref[:_MAX_REF_POINTS_SHOWN])
-    return f"{shown}, … ({len(ref)} total)"
+    return f"{shown}, ... ({len(ref)} total)"
 
 
 @plot_app.command("cest")
@@ -69,7 +90,7 @@ def plot_cest(
     ],
     ref: Annotated[
         list[int] | None,
-        typer.Option("--ref", "-r", help="Reference point indices"),
+        typer.Option("--ref", "-r", help="Reference point indices; omit for auto"),
     ] = None,
     output: Annotated[
         Path | None,
@@ -84,12 +105,7 @@ def plot_cest(
         typer.Option("--verbose", "-v", help="Verbose output"),
     ] = False,
 ) -> None:
-    """Plot CEST profiles (normalized intensity vs B1 offset).
-
-    Examples:
-        peakfit plot cest Fits/20240101_120000/
-        peakfit plot cest results/ --output cest.pdf --show
-    """
+    """Plot CEST profiles as normalized intensity vs B1 offset."""
     output_path = output or (results / "cest_profiles.pdf")
     _configure_plot_ui(
         verbose,
@@ -111,19 +127,17 @@ def plot_cest(
             ),
         ],
     )
-    service = PlotService(reporter=ConsoleReporter())
-
-    try:
-        out = service.generate_cest_plots(
+    _run_plot_generation(
+        "CEST",
+        "generating CEST plots",
+        lambda: generate_cest_plots(
             results,
             output_path=output_path,
             reference_indices=ref,
             show=show,
-        )
-        _print_plot_success(out, "CEST")
-    except Exception as e:
-        show_error_with_details("generating CEST plots", e)
-        raise typer.Exit(1) from e
+            reporter=ConsoleReporter(),
+        ),
+    )
 
 
 @plot_app.command("spectrum")
@@ -229,14 +243,16 @@ def plot_intensity(
             ),
         ],
     )
-    service = PlotService(reporter=ConsoleReporter())
-
-    try:
-        out = service.generate_intensity_plots(results, output_path=output_path, show=show)
-        _print_plot_success(out, "intensity")
-    except Exception as e:
-        show_error_with_details("generating plots", e)
-        raise typer.Exit(1) from e
+    _run_plot_generation(
+        "intensity",
+        "generating plots",
+        lambda: generate_intensity_plots(
+            results,
+            output_path=output_path,
+            show=show,
+            reporter=ConsoleReporter(),
+        ),
+    )
 
 
 @plot_app.command("cpmg")
@@ -262,12 +278,7 @@ def plot_cpmg(
         typer.Option("--verbose", "-v", help="Verbose output"),
     ] = False,
 ) -> None:
-    """Plot CPMG relaxation dispersion (R2eff vs νCPMG).
-
-    Examples:
-        peakfit plot cpmg Fits/20240101_120000/ --time-t2 0.04
-        peakfit plot cpmg results/ -t 0.04 --output cpmg.pdf
-    """
+    """Plot CPMG relaxation dispersion as R2eff vs nuCPMG."""
     output_path = output or (results / "cpmg_profiles.pdf")
     _configure_plot_ui(
         verbose,
@@ -289,19 +300,17 @@ def plot_cpmg(
             ),
         ],
     )
-    service = PlotService(reporter=ConsoleReporter())
-
-    try:
-        out = service.generate_cpmg_plots(
+    _run_plot_generation(
+        "CPMG",
+        "generating CPMG plots",
+        lambda: generate_cpmg_plots(
             results,
             time_t2=time_t2,
             output_path=output_path,
             show=show,
-        )
-        _print_plot_success(out, "CPMG")
-    except Exception as e:
-        show_error_with_details("generating CPMG plots", e)
-        raise typer.Exit(1) from e
+            reporter=ConsoleReporter(),
+        ),
+    )
 
 
 @plot_app.command("mcmc")
@@ -345,8 +354,6 @@ def plot_mcmc(
         ],
     )
 
-    service = PlotService(reporter=ConsoleReporter())
-
     try:
         loader = ResultsLoader(results)
         chains = loader.load_mcmc_chains()
@@ -358,7 +365,7 @@ def plot_mcmc(
             )
             raise typer.Exit(1)
 
-        out = service.generate_mcmc_diagnostics(chains, output_path=output_path, burn_in=burn_in)
+        out = generate_mcmc_diagnostics(chains, output_path=output_path, burn_in=burn_in)
         _print_plot_success(out, "MCMC diagnostic")
     except typer.Exit:
         raise
@@ -386,7 +393,7 @@ def _init_reconstructor(results: Path | None) -> Any | None:
     if not results:
         return None
 
-    summary_path = results / "summary" / "fit_summary.json"
+    summary_path = results / "summary" / "fit.json"
     if not summary_path.exists():
         warning(f"No fit summary found in [path]{display_path(results / 'summary')}[/path]")
         return None

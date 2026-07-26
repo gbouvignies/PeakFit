@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pandas as pd
@@ -68,15 +69,16 @@ def run_golden_fit(tmp_path_factory):
         str(output_dir),
         "--refine",
         "1",
-        "--output-verbosity",
-        "standard",
         "--headless",
         "--verbose",
+        "--format",
+        "json",
+        "--format",
+        "csv",
+        "--format",
+        "txt",
     ]
 
-    print(f"\n[Regression] Running fit on {SPECTRUM_FILE.name}...")
-    print(f"\n[Regression] Running fit on {SPECTRUM_FILE.name}...")
-    # Don't capture output so we can see it in pytest -s
     result = subprocess.run(cmd, check=False, text=True)
 
     if result.returncode != 0:
@@ -84,7 +86,7 @@ def run_golden_fit(tmp_path_factory):
 
     # Smart detection of output root
     # 1. Check if we generated directly into output_dir (no timestamp/subdir mode)
-    if (output_dir / "summary").exists() or (output_dir / "fit_results.json").exists():
+    if (output_dir / "summary").exists():
         return output_dir
 
     # 2. Check for timestamped subdirectory (standard PeakFit mode)
@@ -98,7 +100,7 @@ def run_golden_fit(tmp_path_factory):
 
 def test_json_output_integrity(run_golden_fit):
     """
-    Tests fit_summary.json structure and reasonable fit quality.
+    Tests fit.json structure and reasonable fit quality.
 
     We cannot test exact values due to stochastic optimization, but we can:
     1. Verify the output file exists and has correct structure
@@ -106,7 +108,7 @@ def test_json_output_integrity(run_golden_fit):
     3. Verify expected keys are present
     """
     output_dir = run_golden_fit
-    new_json_path = output_dir / "summary" / "fit_summary.json"
+    new_json_path = output_dir / "summary" / "fit.json"
 
     # Unconditional debug of directory structure
     sys.stderr.write(f"\n[DEBUG] Checking output in: {output_dir}\n")
@@ -119,30 +121,27 @@ def test_json_output_integrity(run_golden_fit):
     sys.stderr.flush()
 
     if not new_json_path.exists():
-        pytest.fail(f"fit_summary.json missing at {new_json_path}")
+        pytest.fail(f"fit.json missing at {new_json_path}")
 
     with new_json_path.open() as f:
         new_data = json.load(f)
     baseline = _load_baseline()
 
     # Check structural integrity - same keys present
-    assert "global_statistics" in new_data, (
-        f"Missing 'global_statistics'. Keys found: {list(new_data.keys())}"
-    )
+    assert "statistics" in new_data, f"Missing 'statistics'. Keys found: {list(new_data.keys())}"
 
-    new_stats = new_data["global_statistics"]
+    new_stats = new_data["statistics"]
 
     # Check essential keys are present (clean-break output contract)
     expected_keys = {
         "chi_squared",
         "reduced_chi_squared",
         "degrees_of_freedom",
-        "n_data",
-        "n_params",
-        "fit_converged",
+        "n_observations",
+        "n_fitted_parameters",
     }
     for key in expected_keys:
-        assert key in new_stats, f"Missing key '{key}' in global_statistics"
+        assert key in new_stats, f"Missing key '{key}' in statistics"
 
     # Check chi-squared is reasonable (same order of magnitude)
     new_chi2 = new_stats["chi_squared"]
@@ -170,7 +169,7 @@ def test_csv_parameters_integrity(run_golden_fit):
     4. Values and uncertainties are well-formed
     """
     output_dir = run_golden_fit
-    new_csv_path = output_dir / "parameters" / "parameters.csv"
+    new_csv_path = output_dir / "tables" / "parameters.csv"
     assert new_csv_path.exists(), f"parameters.csv missing at {new_csv_path}"
 
     # Read CSV file, skipping comment lines
@@ -200,9 +199,60 @@ def test_csv_parameters_integrity(run_golden_fit):
         "parameters.csv should not contain amplitude series parameters"
     )
 
-    # Check values are not NaN
+    # Values are always numerical. Final outcome parameter uncertainties may be
+    # unavailable, which the CSV represents explicitly rather than fabricating
+    # a numerical error estimate.
     assert not df_new["value"].isna().any(), "Some values are NaN"
-    assert not df_new["std_error"].isna().any(), "Some std_errors are NaN"
+    std_errors = pd.to_numeric(df_new["std_error"], errors="coerce")
+    unavailable_errors = df_new["std_error"].eq("unavailable")
+    assert (std_errors.notna() | unavailable_errors).all(), "Some std_errors are invalid"
+    assert (std_errors.dropna() >= 0).all(), "Some std_errors are negative"
 
-    # Check std_errors are non-negative
-    assert (df_new["std_error"] >= 0).all(), "Some std_errors are negative"
+
+def test_real_fit_projections_agree_by_cluster_id(run_golden_fit):
+    """The representative CLI fit has one consistent outcome across durable views."""
+    output_dir = run_golden_fit
+    with (output_dir / "summary" / "fit.json").open() as handle:
+        payload = json.load(handle)
+    clusters = pd.read_csv(output_dir / "tables" / "clusters.csv")
+    parameters = pd.read_csv(output_dir / "tables" / "parameters.csv")
+    intensities = pd.read_csv(output_dir / "tables" / "intensities.csv")
+    report = (output_dir / "summary" / "report.md").read_text(encoding="utf-8")
+    readme = (output_dir / "README.md").read_text(encoding="utf-8")
+
+    json_by_id = {cluster["cluster_id"]: cluster for cluster in payload["clusters"]}
+    csv_by_id = clusters.set_index("cluster_id")
+    assert set(json_by_id) == set(csv_by_id.index)
+    assert payload["schema_version"] == "4.0.0"
+
+    classifications = Counter(cluster["classification"] for cluster in payload["clusters"])
+    for cluster_id, json_cluster in json_by_id.items():
+        csv_cluster = csv_by_id.loc[cluster_id]
+        assert csv_cluster["classification"] == json_cluster["classification"]
+        assert csv_cluster["correction_revision"] == json_cluster["correction_revision"]
+        assert (
+            csv_cluster["function_evaluations"]
+            == json_cluster["optimizer_provenance"]["function_evaluations"]
+        )
+        for parameter in json_cluster["final_nonlinear_parameters"]:
+            row = parameters.loc[
+                (parameters["cluster_id"] == cluster_id)
+                & (parameters["parameter_name"] == parameter["name"])
+            ]
+            assert len(row) == 1
+            assert row.iloc[0]["value"] == pytest.approx(parameter["value"])
+
+        evaluation = json_cluster["analytical_evaluation"]
+        if evaluation is None:
+            assert parameters.loc[parameters["cluster_id"] == cluster_id].empty
+            assert intensities.loc[intensities["cluster_id"] == cluster_id].empty
+            continue
+        amplitudes = evaluation["amplitudes"]
+        cluster_intensities = intensities.loc[intensities["cluster_id"] == cluster_id]
+        assert len(cluster_intensities) == len(json_cluster["peak_names"]) * len(amplitudes[0])
+        for row in cluster_intensities.itertuples():
+            peak_index = json_cluster["peak_names"].index(row.peak_name)
+            assert row.intensity == pytest.approx(amplitudes[peak_index][row.plane_index])
+
+    assert f"- Converged: {classifications['converged']}" in report
+    assert f"- **Unusable clusters**: {classifications['unusable']}" in readme

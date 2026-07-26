@@ -1,10 +1,13 @@
 # Example 3: Optimizer Comparison (varpro vs basin_hopping)
 
-This example compares the default local optimizer (`varpro`) against the global optimizer (`basin_hopping`) on the same pseudo-3D dataset.
+This optional example compares the default local optimizer (`varpro`) against
+the global optimizer (`basin_hopping`) on the same pseudo-3D dataset.
 
 ## Why This Example
 
-Use this when some clusters converge poorly with the default optimizer and you want to test if global search improves fit quality.
+Use this only when some clusters converge poorly with the default optimizer and
+you want to test whether global search improves fit quality. For routine fits,
+use Example 2.
 
 ## Quick Start
 
@@ -47,8 +50,7 @@ Each command writes to a timestamped run under the selected output root.
 
 Inspect:
 
-- `summary/fit_summary.json`
-- `statistics/fit_statistics.json`
-- `parameters/parameters.csv`
+- `summary/fit.json`
+- `tables/parameters.csv`
 
-The script prints a simple comparison using values from `summary/fit_summary.json`.
+The script prints a simple comparison using values from `summary/fit.json`.

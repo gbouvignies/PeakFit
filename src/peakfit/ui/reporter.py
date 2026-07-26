@@ -1,27 +1,11 @@
-"""Console-based reporter implementation using Rich.
+"""Console progress reporter backed by the Rich UI helpers."""
 
-This module provides a Reporter implementation that uses the PeakFitUI
-styling system for rich console output. It adapts the Reporter protocol
-to the existing UI infrastructure.
-"""
-
-from peakfit.shared.reporter import Reporter
-from peakfit.ui import Verbosity, get_verbosity
+from peakfit.ui.console import Verbosity, get_verbosity
 from peakfit.ui.messages import action, error, info, success, warning
 
 
 class ConsoleReporter:
-    """Reporter implementation using Rich console output.
-
-    Adapts the Reporter protocol to use PeakFitUI styling for consistent,
-    styled terminal output.
-
-    Example:
-        >>> from peakfit.ui.reporter import ConsoleReporter
-        >>> reporter = ConsoleReporter()
-        >>> reporter.action("Loading spectrum...")
-        >>> reporter.success("Loaded 1024 data points")
-    """
+    """Progress reporter that routes messages through the current console verbosity."""
 
     def action(self, message: str) -> None:
         """Display an action message with visual separation.
@@ -67,8 +51,3 @@ class ConsoleReporter:
         """
         if get_verbosity() >= Verbosity.NORMAL:
             success(message)
-
-
-# Verify protocol compliance at import time
-if not isinstance(ConsoleReporter(), Reporter):
-    raise TypeError("ConsoleReporter must satisfy Reporter protocol")

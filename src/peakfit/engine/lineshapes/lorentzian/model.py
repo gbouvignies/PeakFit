@@ -1,18 +1,16 @@
-"""Lorentzian lineshape plugin.
+"""Lorentzian lineshape model.
 
 This module provides Lorentzian singlet and doublet lineshapes.
 """
 
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import numpy.typing as npt
 
 from peakfit.engine.lineshapes.doublet import doublet_kernel
-from peakfit.engine.lineshapes.registry import register_lineshape, register_shape
 from peakfit.engine.lineshapes.templates import SimpleDoubletBase, SimpleSingletBase
 from peakfit.engine.lineshapes.utils import estimate_cs_bounds_ppm, require_grid
 from peakfit.engine.types import ParamSpec
@@ -20,12 +18,12 @@ from peakfit.engine.types import ParamSpec
 from .kernel import kernel, kernel_with_derivs
 
 if TYPE_CHECKING:
-    from peakfit.engine.lineshapes.protocol import LineshapeContext
+    from peakfit.engine.lineshapes.utils import LineshapeContext
     from peakfit.shared.typing import FloatArray
 
 
 # =============================================================================
-# Module-level protocol attributes
+# Lineshape metadata
 # =============================================================================
 
 NAME = "lorentzian"
@@ -81,8 +79,7 @@ def function(
     cs_arr = np.atleast_1d(np.asarray(cs, dtype=np.float64))
     lw_arr = np.atleast_1d(np.asarray(lw, dtype=np.float64))
     dw_hz, sign = grid.compute_offsets(x_arr, cs_arr)
-    values = sign * kernel(dw_hz, lw_arr[None, :])
-    return values
+    return sign * kernel(dw_hz, lw_arr[None, :])
 
 
 # =============================================================================
@@ -90,7 +87,6 @@ def function(
 # =============================================================================
 
 
-@register_shape(NAME)
 class Lorentzian(SimpleSingletBase):
     """Lorentzian singlet lineshape: L(Δω) = 1 / (1 + (2Δω/R)²)."""
 
@@ -98,9 +94,6 @@ class Lorentzian(SimpleSingletBase):
     param_specs = staticmethod(param_specs)
     kernel: ClassVar = staticmethod(kernel)
     kernel_with_derivs: ClassVar = staticmethod(kernel_with_derivs)
-
-
-register_lineshape(sys.modules[__name__])
 
 
 # =============================================================================
@@ -178,7 +171,6 @@ def function_doublet(
     )
 
 
-@register_shape(NAME_DOUBLET)
 class LorentzianDoublet(SimpleDoubletBase):
     """Lorentzian doublet lineshape with J-coupling."""
 

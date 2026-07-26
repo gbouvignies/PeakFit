@@ -76,10 +76,10 @@ except (ModuleNotFoundError, ImportError):
         class _DummyFigureCanvas(QWidget):
             """Dummy FigureCanvas for headless environments."""
 
-            def __init__(self, figure: object) -> None:
+            def __init__(self, _figure: object) -> None:
                 super().__init__()
 
-            def mpl_connect(self, event: str, callback: Callable[..., object]) -> object:
+            def mpl_connect(self, _event: str, _callback: Callable[..., object]) -> object:
                 """Register a matplotlib event callback (no-op fallback)."""
                 return object()
 
@@ -181,7 +181,7 @@ def _calculate_1d_slice(
 
 
 class MatplotlibBackend(QWidget):
-    """Matplotlib implementation of SpectraViewerBackend with view-slicing optimization."""
+    """Matplotlib widget for the spectrum viewer with view-slicing optimization."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         QWidget.__init__(self, parent)

@@ -20,6 +20,8 @@ for f in data/pseudo3d.ft2 data/pseudo3d.list data/b1_offsets.txt; do
   fi
 done
 
+rm -rf Fits-local Fits-basin
+
 run_fit() {
   optimizer="$1"
   out_root="$2"
@@ -29,8 +31,7 @@ run_fit() {
     data/pseudo3d.list \
     --z-values data/b1_offsets.txt \
     --optimizer "$optimizer" \
-    --output "$out_root" \
-    --output-verbosity standard >&2
+    --output "$out_root" >&2
 
   find "$out_root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1
 }
@@ -59,7 +60,7 @@ local_dir, basin_dir = sys.argv[1], sys.argv[2]
 
 
 def read_chi2(run_dir: str) -> float:
-    with open(f"{run_dir}/summary/fit_summary.json", encoding="utf-8") as f:
+    with open(f"{run_dir}/summary/fit.json", encoding="utf-8") as f:
         data = json.load(f)
     return float(data["global_statistics"]["chi_squared"])
 

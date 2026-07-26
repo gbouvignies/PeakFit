@@ -21,8 +21,7 @@ peakfit fit \
   data/pseudo3d.ft2 \
   data/pseudo3d.list \
   --z-values data/b1_offsets.txt \
-  --output Fits \
-  --output-verbosity standard
+  --output Fits
 
 latest_run="$(find Fits -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
 mkdir -p "$latest_run/figures"

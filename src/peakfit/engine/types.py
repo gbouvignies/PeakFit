@@ -4,36 +4,14 @@ Lower-level module to avoid circular dependencies across domain components.
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, NamedTuple, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 import numpy as np
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.param_map import ParameterMap
     from peakfit.engine.domain.params_scalar import Parameters
-    from peakfit.shared.typing import ComplexArray, FloatArray, IntArray
-
-# =============================================================================
-# Type Aliases
-# =============================================================================
-
-type JsonValue = dict[str, "JsonValue"] | list["JsonValue"] | str | int | float | bool | None
-
-# =============================================================================
-# Kernel Result Structure
-# =============================================================================
-
-
-class KernelResult(NamedTuple):
-    """Result container for kernel computations with derivatives.
-
-    Attributes:
-        values: Lineshape values of shape (N, K) or complex equivalents
-        derivatives: Dictionary mapping strings to derivative arrays
-    """
-
-    values: FloatArray | ComplexArray
-    derivatives: dict[str, FloatArray | ComplexArray]
+    from peakfit.shared.typing import FloatArray, IntArray
 
 
 # =============================================================================
@@ -222,8 +200,6 @@ class Shape(Protocol):
 
 __all__ = [
     "ClusterParameters",
-    "JsonValue",
-    "KernelResult",
     "LineshapeResult",
     "ParamSpec",
     "Shape",

@@ -6,7 +6,7 @@ from pathlib import Path
 import tomli_w
 
 from peakfit.engine.domain.config import PeakFitConfig
-from peakfit.io.utils import format_path
+from peakfit.shared.paths import format_path
 
 
 def load_config(path: Path) -> PeakFitConfig:
@@ -115,8 +115,8 @@ amplitude_zero_tolerance = 1e-12
 [output]
 directory = "Fits"
 formats = ["json", "csv"]
-save_simulated = true
-save_html_report = true
+save_simulated = false
+include_timestamp = true
 headless = false
 
 # Optional settings

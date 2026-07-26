@@ -23,7 +23,6 @@ if TYPE_CHECKING:
         ValuesView,
     )
 
-    from peakfit.engine.domain.parameters import Parameters as PublicParameters
     from peakfit.engine.domain.peaks import Peak
 
 
@@ -181,8 +180,8 @@ class Parameters(BaseModel):
         self,
         name: str | ParameterId,
         value: float = 0.0,
-        min: float = -np.inf,
-        max: float = np.inf,
+        min_value: float = -np.inf,
+        max_value: float = np.inf,
         vary: bool = True,
         unit: str = "",
         stderr: float = 0.0,
@@ -200,8 +199,8 @@ class Parameters(BaseModel):
         self.params[name_str] = Parameter(
             name=name_str,
             value=value,
-            min=min,
-            max=max,
+            min=min_value,
+            max=max_value,
             vary=vary,
             unit=unit,
             stderr=stderr,
@@ -239,7 +238,7 @@ class Parameters(BaseModel):
         """Get parameter name-value pairs."""
         return self.params.items()
 
-    def update(self, other: Parameters | PublicParameters) -> None:
+    def update(self, other: Parameters) -> None:
         """Update parameters from another Parameters object."""
         for name, param in other.items():
             self.params[name] = param

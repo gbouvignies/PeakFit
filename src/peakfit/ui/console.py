@@ -5,11 +5,11 @@ the application for consistent styling.
 """
 
 import os
-from pathlib import Path
 
 from rich.console import Console
-from rich.text import Text
 from rich.theme import Theme
+
+from peakfit.shared.paths import format_path as display_path
 
 try:
     # Import version from package root when available
@@ -68,44 +68,15 @@ console = Console(theme=PEAKFIT_THEME, record=True)
 VERSION = version
 REPO_URL = "https://github.com/gbouvignies/PeakFit"
 
-# ASCII Logo
-LOGO_ASCII = r"""
-   ___           _     _____ _ _
-  / _ \___  __ _| | __|  ___(_) |_
- / /_)/ _ \/ _` | |/ /| |_  | | __|
-/ ___/  __/ (_| |   < |  _| | | |_
-\/    \___|\__,_|_|\_\|_|   |_|\__|
-"""
-
 __all__ = [
-    "LOGO_ASCII",
     "PEAKFIT_THEME",
     "REPO_URL",
     "VERSION",
     "Verbosity",
     "console",
     "display_path",
-    "export_html",
     "get_verbosity",
-    "subsection_header",
 ]
-
-
-def export_html(filepath: Path) -> None:
-    """Export the console output to an HTML file."""
-    filepath.write_text(console.export_html())
-
-
-def display_path(path: Path | str) -> str:
-    """Format paths for user-facing output using a CWD-relative representation."""
-    p = Path(path)
-    if not p.is_absolute():
-        return str(p)
-
-    try:
-        return os.path.relpath(p.resolve(), Path.cwd().resolve())
-    except Exception:
-        return str(p)
 
 
 class Verbosity:
@@ -113,7 +84,7 @@ class Verbosity:
 
     QUIET = 0  # Errors only
     NORMAL = 1  # Standard output (headers, progress, results)
-    VERBOSE = 2  # Detailed output (banners, debug info)
+    VERBOSE = 2  # Detailed output
 
 
 # Global verbosity state
@@ -149,7 +120,7 @@ def _supports_emoji() -> bool:
 def icon(name: str) -> str:
     """Return a UI icon string based on terminal capabilities.
 
-    Names: check, warn, error, info, bullet, play, stop, dot
+    Names: check, warn, error, info, bullet
     """
     use_emoji = _supports_emoji()
     mapping = {
@@ -158,90 +129,5 @@ def icon(name: str) -> str:
         "error": "✗" if use_emoji else "x",
         "info": "▸" if use_emoji else ">",
         "bullet": "‣" if use_emoji else "-",
-        "play": "▶" if use_emoji else ">",
-        "stop": "■" if use_emoji else "#",
-        "dot": "•" if use_emoji else ".",
-        "separator": "━" if use_emoji else "-",
     }
     return mapping.get(name, mapping["bullet"])
-
-
-def hr(width: int | None = None, style: str = "dim", char: str | None = None) -> str:
-    """Return a horizontal rule string sized to the console width.
-
-    Args:
-        width: explicit width; defaults to min(console.width, 100)
-        style: Rich style to wrap
-        char: override character; defaults to icon('separator')
-    """
-    total_width = console.width or 80
-    # Cap default width at 100 for readability on wide screens
-    default_width = min(total_width, 100)
-
-    w = width or max(20, default_width)
-    ch = char or icon("separator")
-    return f"[{style}]{ch * w}[/{style}]"
-
-
-def log(
-    message: str | Text,
-    level: str = "info",
-    verbosity: int = Verbosity.NORMAL,
-    highlight: bool = False,
-) -> None:
-    """Log a message to the console if verbosity allows.
-
-    Args:
-        message: The string or Text object to print.
-        level: Style name (e.g. 'info', 'warning', 'error', 'debug').
-        verbosity: Minimum verbosity required to show this message.
-        highlight: Whether to apply Rich syntax highlighting.
-    """
-    if _verbosity < verbosity:
-        return
-
-    # Map 'debug' level to VERBOSE verbosity implicitly if not specified
-    if level == "debug" and verbosity == Verbosity.NORMAL and _verbosity < Verbosity.VERBOSE:
-        return
-
-    style = level if level in PEAKFIT_THEME.styles else "neutral"
-
-    # If it's a Text object, apply style if not present, otherwise print as is
-    if isinstance(message, Text):
-        console.print(message, style=style, highlight=highlight)
-    else:
-        console.print(message, style=style, highlight=highlight)
-
-
-def log_success(message: str) -> None:
-    """Log a success message with icon."""
-    log(f"[{icon('check')}] {message}", level="success")
-
-
-def log_warning(message: str) -> None:
-    """Log a warning message with icon."""
-    log(f"[{icon('warn')}] {message}", level="warning")
-
-
-def log_error(message: str) -> None:
-    """Log an error message with icon."""
-    log(f"[{icon('error')}] {message}", level="error", verbosity=Verbosity.QUIET)
-
-
-def log_step(step: int, total: int, message: str) -> None:
-    """Log a progress step."""
-    log(f"[subheader]Step {step}/{total}:[/subheader] {message}")
-
-
-def log_section(title: str) -> None:
-    """Log a main section header."""
-    console.print()
-    console.print(f"[header]{title}[/header]")
-    console.print(hr(style="panel.border"))
-    console.print()
-
-
-def subsection_header(title: str) -> None:
-    """Log a subsection header."""
-    console.print()
-    console.print(f"[subheader]{icon('info')} {title}[/subheader]")

@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from peakfit.shared.typing import FloatArray
 
 from peakfit.engine.algorithms.noise import estimate_noise
-from peakfit.io.utils import format_path
 from peakfit.plot.qt_core import (
     QAction,
     QApplication,
@@ -32,6 +31,7 @@ from peakfit.plot.qt_core import (
     QWidget,
     Signal,
 )
+from peakfit.shared.paths import format_path
 
 # Configuration
 CONTOUR_NUM = 25
@@ -46,7 +46,7 @@ CONTOUR_COLORS = {
 
 def _report_error(message: str) -> None:
     """Report viewer errors without relying on the CLI UI layer."""
-    print(message, file=sys.stderr)
+    sys.stderr.write(f"{message}\n")
 
 
 @dataclass
@@ -165,14 +165,13 @@ class SpectraViewer(QMainWindow):
         data2: NMRData | None,
         plist: pd.DataFrame | None,
         reconstructor: SpectraReconstructor | None = None,
-        backend_class: Any = MatplotlibBackend,  # Injectable strategy
     ) -> None:
         super().__init__()
         self.data1 = data1
         self.data2 = data2
         self.reconstructor = reconstructor
 
-        # If we have static simulated data, calculate full difference now (legacy/fallback)
+        # If a simulated spectrum is supplied, calculate the difference once.
         if self.data2 is not None:
             self.data_diff: FloatArray | None = self.data1.data - self.data2.data
         else:
@@ -188,8 +187,7 @@ class SpectraViewer(QMainWindow):
         self.noise_level = float(estimate_noise(self.data1.data))
         self.contour_level = 5
 
-        # Initialize Backend Strategy
-        self.backend = backend_class()
+        self.backend = MatplotlibBackend()
 
         self._init_ui()
 
@@ -285,7 +283,7 @@ class SpectraViewer(QMainWindow):
             sim_plane = self.reconstructor.reconstruct_plane(self.current_plane, grid_shape)
             diff_plane = exp_plane - sim_plane
 
-        # Delegate to Backend Strategy
+        # Delegate drawing to the plotting backend.
         self.backend.plot(
             exp_plane,  # Slice experimental data here to pass only 2D array
             sim_plane,
@@ -324,7 +322,6 @@ class SpectraViewer(QMainWindow):
         super().resizeEvent(a0)
         # Assuming backend widget handles resize or we might need a notify method in backend
         # MatplotlibBackend (QWidget) handles its own layout, but we can call a refresh if needed
-        pass
 
 
 def _validate_files(args: argparse.Namespace) -> None:

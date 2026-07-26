@@ -89,7 +89,7 @@ class VarProOptimizer:
         # PeakFit's objective is defined on the real part of the corrected data
         # (consistent with core.algorithms.common.residuals).
         data = np.asarray(self.cluster.corrected_data.real, dtype=np.float64)
-        self._data_matrix = data[:, np.newaxis] if data.ndim == 1 else data
+        self._data_matrix = data
 
         # Grid dimensions and d_matrix pre-allocation
         grid_indices = self.cluster.grid_indices
@@ -148,7 +148,7 @@ class VarProOptimizer:
         amplitudes = solve_amplitudes(q, r, self._data_matrix)
 
         # 3. Compute residuals
-        residuals = project_residuals(self._data_matrix, q, amplitudes)
+        residuals = project_residuals(self._data_matrix, q)
 
         # 4. Compute pseudo-inverse helper for Jacobian
         phi_pinv = compute_phi_pinv(q, r)
@@ -395,6 +395,7 @@ def fit_cluster(
     _update_amplitude_params(cluster, params, final_amplitudes, amp_stderrs)
 
     return FitResult(
+        cluster_id=cluster.cluster_id,
         params=params,
         residual=result.fun,
         cost=result.cost,

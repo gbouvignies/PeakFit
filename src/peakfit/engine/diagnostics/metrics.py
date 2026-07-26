@@ -153,15 +153,11 @@ def compute_trace_metrics(
     )
 
 
-def compute_all_trace_metrics(
-    chains: FloatArray,
-    parameter_names: list[str] | None = None,
-) -> list[TraceMetrics]:
+def compute_all_trace_metrics(chains: FloatArray) -> list[TraceMetrics]:
     """Compute trace metrics for all parameters.
 
     Args:
         chains: Array of shape (n_chains, n_samples, n_params)
-        parameter_names: Optional list of parameter names (for future use)
 
     Returns:
     -------
