@@ -68,6 +68,10 @@ def write_readme(output_dir: Path, summary: Any) -> Path:
         f"- **Peaks**: {summary.n_peaks}",
         f"- **Converged clusters**: {summary.n_converged}/{summary.n_clusters} "
         f"({summary.success_rate:.1%})",
+        f"- **Usable, not converged**: {summary.n_usable_non_converged}",
+        f"- **Unusable clusters**: {summary.n_unusable}",
+        f"- **Usable clusters**: {summary.n_usable}/{summary.n_clusters}",
+        f"- **Reduced chi2 population**: {summary.redchi_population_size}",
         f"- **Median reduced chi2**: {median_redchi}",
         "",
         "## Files",
@@ -79,6 +83,7 @@ def write_readme(output_dir: Path, summary: Any) -> Path:
         ("summary/report.md", "Concise human-readable report."),
         ("tables/parameters.csv", "Model parameters."),
         ("tables/intensities.csv", "Per-plane fitted intensities and errors."),
+        ("tables/clusters.csv", "Final cluster classifications and optimizer provenance."),
         ("tables/shifts.csv", "Chemical shifts by peak."),
         ("metadata/fitting_state.pkl", "Saved state for MCMC and plotting workflows."),
     ]

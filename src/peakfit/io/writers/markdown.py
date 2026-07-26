@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -11,6 +12,7 @@ from peakfit.io.writers.utils import format_float
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from peakfit.fit.final_outcome import FinalClusterOutcome, FinalFitOutcome
     from peakfit.fit.results import (
         ClusterEstimates,
         FitResults,
@@ -18,6 +20,7 @@ if TYPE_CHECKING:
         MCMCDiagnostics,
         ParameterEstimate,
     )
+    from peakfit.fit.run_models import RunSummary
 
 
 _GOOD_REDCHI_MIN = 0.5
@@ -58,6 +61,117 @@ def write_report(
 
     path.write_text("\n\n".join(section for section in sections if section) + "\n")
     return path
+
+
+def write_final_outcome_report(
+    outcome: FinalFitOutcome,
+    path: Path,
+    summary: RunSummary,
+    config: WriterConfig | None = None,
+) -> Path:
+    """Write a completed-fit report directly from immutable final outcomes."""
+    cfg = config or WriterConfig()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    summary_lines = [
+        "# PeakFit Report",
+        "",
+        f"- Generated: {datetime.now(UTC).astimezone().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- Clusters: {summary.n_clusters}",
+        f"- Peaks: {summary.n_peaks}",
+        f"- Converged: {summary.n_converged}",
+        f"- Usable, not converged: {summary.n_usable_non_converged}",
+        f"- Unusable: {summary.n_unusable}",
+        f"- Usable clusters: {summary.n_usable}",
+        f"- Reduced chi2 population: {summary.redchi_population_size}",
+    ]
+    if summary.n_usable:
+        summary_lines.extend(
+            [
+                f"- Global reduced chi2: {outcome.statistics.reduced_chi_squared:.4g}",
+                f"- Data points: {outcome.statistics.n_observations}",
+                f"- Fit parameters: {outcome.statistics.n_fitted_parameters}",
+            ]
+        )
+    else:
+        summary_lines.append("- Global reduced chi2: N/A (no usable outcomes)")
+
+    cluster_rows = []
+    for cluster in outcome.clusters:
+        evaluation = cluster.analytical_evaluation
+        redchi = (
+            f"{evaluation.statistics.reduced_chi_squared:.4g}" if evaluation is not None else "N/A"
+        )
+        cluster_rows.append(
+            "| "
+            f"{cluster.cluster_id} | {', '.join(cluster.peak_names)} | {redchi} | "
+            f"{_final_status(cluster)} | {cluster.correction_revision} | "
+            f"{cluster.optimizer_provenance.optimizer_kind or 'N/A'} | "
+            f"{cluster.optimizer_provenance.termination_message or 'N/A'} |"
+        )
+    shown_clusters = cluster_rows[:_MAX_CLUSTER_ROWS]
+    clusters = [
+        "## Clusters",
+        "",
+        (
+            "| Cluster | Peaks | Reduced chi2 | Classification | Correction revision | "
+            "Optimizer | Terminal message |"
+        ),
+        "| --- | --- | ---: | --- | ---: | --- | --- |",
+        *shown_clusters,
+        *_omitted_note(len(cluster_rows), len(shown_clusters), "clusters"),
+    ]
+
+    parameter_rows = []
+    for cluster in outcome.clusters:
+        if not cluster.usable:
+            continue
+        for parameter in cluster.final_nonlinear_parameters:
+            if not parameter.vary:
+                continue
+            peak = _final_parameter_peak(parameter.name, cluster.peak_names)
+            value = _format_final_value(parameter.value, cfg)
+            error = _format_final_value(parameter.standard_error, cfg)
+            parameter_rows.append(
+                f"| {cluster.cluster_id} | {peak} | {parameter.name} | {value} | {error} |"
+            )
+    parameters = ["## Key Parameters", ""]
+    if parameter_rows:
+        parameters.extend(
+            [
+                "| Cluster | Peak | Parameter | Value | Error |",
+                "| --- | --- | --- | ---: | ---: |",
+                *parameter_rows[:_MAX_PARAMETER_ROWS],
+                *_omitted_note(
+                    len(parameter_rows), min(len(parameter_rows), _MAX_PARAMETER_ROWS), "parameters"
+                ),
+            ]
+        )
+    else:
+        parameters.append("No usable final parameters to display.")
+
+    report = "\n\n".join(("\n".join(summary_lines), "\n".join(clusters), "\n".join(parameters)))
+    path.write_text(report + "\n")
+    return path
+
+
+def _final_status(cluster: FinalClusterOutcome) -> str:
+    classification = cluster.classification.value
+    if classification == "converged":
+        return "converged"
+    if classification == "usable_non_converged":
+        return "usable, not converged"
+    return f"unusable: {cluster.unusable_reason}"
+
+
+def _final_parameter_peak(name: str, peak_names: tuple[str, ...]) -> str:
+    candidate = name.split(".", maxsplit=1)[0]
+    return candidate if candidate in peak_names else (peak_names[0] if peak_names else candidate)
+
+
+def _format_final_value(value: float, config: WriterConfig) -> str:
+    if not math.isfinite(value):
+        return "N/A"
+    return format_float(value, config.precision, config.scientific_notation_threshold)
 
 
 def _summary_section(results: FitResults) -> str:
@@ -367,5 +481,6 @@ def _omitted_note(total: int, shown: int, label: str) -> list[str]:
 
 
 __all__ = [
+    "write_final_outcome_report",
     "write_report",
 ]

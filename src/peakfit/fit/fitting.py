@@ -27,7 +27,7 @@ from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
-from peakfit.fit.results import build_fit_results, capture_output_metadata
+from peakfit.fit.results import capture_output_metadata
 from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart, RunSummary
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
@@ -357,28 +357,16 @@ def write_fit_run_outputs(
 
     writer_config = WriterConfig(formats=tuple(config.output.formats))
     metadata = capture_output_metadata(config.model_dump(), input_paths)
-    requires_legacy_projection = writer_config.enables("csv") or writer_config.enables("txt")
-    results = (
-        build_fit_results(
-            state=fit_run.state,
-            spectra=spectra,
-            config=config.model_dump(),
-            input_files=input_paths,
-        )
-        if requires_legacy_projection
-        else None
-    )
-
     if reporter:
         reporter.action("Writing outputs...")
 
     write_fit_outputs(
-        results,
+        fit_run.outcome,
         output_dir,
         writer_config,
-        final_outcome=fit_run.outcome,
         metadata=metadata,
         z_values=spectra.z_values,
+        summary=fit_run.summary,
     )
 
     if config.output.save_simulated:

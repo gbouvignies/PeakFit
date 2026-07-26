@@ -33,9 +33,8 @@ def write_final_outcome_summary(
 ) -> Path:
     """Write a completed-fit JSON document without consulting mutable state.
 
-    This is intentionally a narrow adapter.  Other writer formats still use
-    their legacy projection until their dedicated migration ticket; JSON is the
-    first durable consumer of ``FinalFitOutcome``.
+    This is intentionally a narrow adapter. JSON independently projects the
+    same authoritative outcome as the human and tabular writers.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     output = _summary_document(outcome, metadata=metadata, z_values=z_values)

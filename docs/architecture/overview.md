@@ -97,12 +97,13 @@ one another but have no continuing synchronization invariant.
 8. **Final state and results.** The pipeline freezes its terminal correction
    snapshot, validates terminal optimizer results and ticket-03 evaluations by
    `cluster_id`, and assembles one immutable `FinalFitOutcome`. It returns that
-   outcome alongside mutable `FittingState` continuation state. JSON projects
-   that outcome directly. `build_fit_results` still separately re-evaluates
-   every cluster for the deliberately deferred CSV and Markdown writer inputs.
+   outcome alongside mutable `FittingState` continuation state. JSON, Markdown,
+   CSV, and the run README project that outcome directly; they do not re-evaluate
+   clusters or reconstruct completed truth from continuation state.
 9. **Persistence.** Writers produce schema-versioned `summary/fit.json`,
-   `tables/parameters.csv`, `tables/intensities.csv`, optional shifts and
-   Markdown output, a run README, and optionally a simulated spectrum.
+   `tables/clusters.csv` (classification, final statistics, and terminal
+   provenance), `tables/parameters.csv`, `tables/intensities.csv`, optional
+   shifts and Markdown output, a run README, and optionally a simulated spectrum.
    `metadata/fitting_state.pkl` is always written for stateful post-fit use.
 10. **Downstream use.** Profile plots read `tables/intensities.csv`. MCMC and
     spectrum reconstruction prefer the pickle; if it is absent they fall back
@@ -118,7 +119,7 @@ one another but have no continuing synchronization invariant.
 | Domain state | `engine.domain` | **Verified.** Domain objects and parameter constraints live here. Several central objects are deliberately mutable. |
 | Lineshape evaluation | `engine.lineshapes`, `engine.types`, `Cluster.evaluate` | **Verified.** The `Shape` protocol is a substantial seam shared by multiple genuinely different model families. |
 | Optimization and fitting | `engine.algorithms`, `engine.fitting`, `fit.pipeline` | **Verified.** The engine owns numerical methods; the pipeline owns steps, cluster task preparation, parallel mapping, parameter merging, and correction updates. |
-| Result construction | `engine.algorithms.evaluation`, `engine.results`, `fit.result_models`, `fit.results` | **Verified risk.** The pipeline now shares one numerical evaluation and usability classification, but output construction still independently recomputes amplitudes and statistics without consuming that evaluation or final optimizer provenance. Its migration belongs to the final-outcome and consumer work. |
+| Result construction | `engine.algorithms.evaluation`, `fit.final_outcome`, `io.writers` | **Verified.** The finalizer owns the shared numerical evaluation and usability classification. JSON, CSV, Markdown, and README are deterministic projections of the immutable outcome and do not inspect mutable continuation state. |
 | Persistence | `io.schemas`, `io.writers`, `io.state` plus `fit.fitting` | **Verified.** Structured writers live in `io`, but run-level selection and state persistence are coordinated by `fit.fitting`. |
 | Plotting | `plot` | **Verified.** Profile transformation and Matplotlib output are separate from the Qt spectrum viewer. |
 | Automatic picking | `auto_pick`, with `fit` and optional `ui` adapters | **Verified.** The algorithm is isolated from Qt; reporting callbacks and the optional stepper are supplied by higher layers. |
@@ -165,12 +166,12 @@ one another but have no continuing synchronization invariant.
   subtracting the current modeled contribution of peaks assigned elsewhere.
 - **Verified.** Basin hopping and MCMC are stochastic unless seeds are controlled;
   MCMC currently creates an unseeded NumPy generator.
-- **Verified.** The JSON contract is schema version `4.0.0`. It projects the
-  immutable final outcome directly: every cluster carries its stable
-  `cluster_id`, classification, correction revision, terminal provenance, and
-  either its frozen analytical evaluation or an explicit unusable reason. Model
-  parameters and amplitudes remain split between `parameters.csv` and
-  `intensities.csv` for the deferred tabular-writer migration.
+- **Verified.** The JSON contract is schema version `4.0.0`. JSON, Markdown,
+  CSV, and README independently project the immutable final outcome: every
+  cluster carries or is keyed by its stable `cluster_id`, classification,
+  correction revision, terminal provenance, and either frozen analytical values
+  or an explicit unusable reason. `clusters.csv` retains one status row for
+  every outcome; numerical parameter and intensity tables omit unusable rows.
 - **Verified.** Config-file precedence, canonical parameter identifiers, result
   directory layout, pickle availability, input-file relocation heuristics, and
   default output formats are downstream compatibility surfaces.
@@ -189,9 +190,9 @@ one another but have no continuing synchronization invariant.
    differently. There are no equivalence tests across supported formats.
 3. **Partially resolved — result truth is split.** `FinalFitOutcome` keeps
    terminal classification, provenance, and shared analytical values separate
-   from mutable continuation state. CLI review, `RunSummary`, and JSON project
-   that outcome. CSV, Markdown, README, and simulation remain planned consumer
-   migrations and can still use their older projections.
+   from mutable continuation state. CLI review, `RunSummary`, JSON, CSV,
+   Markdown, and README project that outcome. Simulation remains the planned
+   consumer migration and still uses mutable continuation state.
 4. **Verified — state persistence has two unequal paths.** Pickle preserves
    numerical state; JSON reconstruction is intentionally minimal and excludes
    amplitudes and real cluster grids. Tests only protect the canonical JSON path,

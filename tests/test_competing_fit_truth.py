@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -11,7 +12,13 @@ import pytest
 from peakfit.engine.algorithms.common import calculate_shape_heights, residuals
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification, classify_optimizer_result
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import BasinHoppingConfig, FitConfig, VarProConfig
+from peakfit.engine.domain.config import (
+    BasinHoppingConfig,
+    FitConfig,
+    OutputConfig,
+    PeakFitConfig,
+    VarProConfig,
+)
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.params_vector import FitParameters
@@ -22,15 +29,16 @@ from peakfit.engine.fitting.optimizers import fit_with_optimizer
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
 from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
-from peakfit.fit.fitting import find_review_clusters
+from peakfit.fit.fitting import find_review_clusters, write_fit_run_outputs
 from peakfit.fit.pipeline import CorrectionSnapshot, PipelineResult, run_pipeline
 from peakfit.fit.result_models import RunMetadata
 from peakfit.fit.results import build_fit_results
 from peakfit.fit.run_models import FitRun
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.schemas import FitSummarySchema
+from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.json import write_final_outcome_summary
-from peakfit.io.writers.markdown import write_report
+from peakfit.io.writers.orchestrator import write_fit_outputs
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -355,10 +363,6 @@ def test_current_reconstruction_synthesizes_convergence_and_provenance(
     assert persisted[0].reduced_chi_squared != pytest.approx(terminal[0].redchi)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Tickets 06 through 08 will make every final consumer use one outcome.",
-)
 def test_future_contract_cli_json_and_markdown_share_terminal_failures(
     competing_truth: CompetingTruth,
     tmp_path: Path,
@@ -373,9 +377,17 @@ def test_future_contract_cli_json_and_markdown_share_terminal_failures(
         z_values=competing_truth.fit_run.spectra.z_values,
         path=tmp_path / "fit.json",
     )
-    report_path = write_report(competing_truth.reconstructed, tmp_path / "report.md")
+    written = write_fit_outputs(
+        competing_truth.fit_run.outcome,
+        tmp_path,
+        WriterConfig(formats=("csv", "txt")),
+        summary=competing_truth.fit_run.summary,
+    )
+    report_path = written["report"]
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     report = report_path.read_text(encoding="utf-8")
+    with written["clusters"].open(newline="", encoding="utf-8") as handle:
+        table = {int(row["cluster_id"]): row for row in csv.DictReader(handle)}
     clusters_by_id = {int(cluster["cluster_id"]): cluster for cluster in payload["clusters"]}
     persisted_failure_ids = {
         cluster_id
@@ -386,6 +398,35 @@ def test_future_contract_cli_json_and_markdown_share_terminal_failures(
     assert persisted_failure_ids == review_ids == {37, 91}
     assert "finite but not converged" in report
     assert "non-finite terminal result" in report
+    assert table[37]["classification"] == "usable_non_converged"
+    assert table[37]["function_evaluations"] == "13"
+    assert table[37]["termination_message"] == "finite but not converged"
+    assert table[91]["classification"] == "unusable"
+    assert table[91]["chi_squared"] == ""
+
+
+def test_completed_writer_path_does_not_invoke_legacy_result_reconstruction(
+    competing_truth: CompetingTruth,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_legacy_reconstruction(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("Completed writers must not reconstruct FitResults from FittingState.")
+
+    monkeypatch.setattr("peakfit.fit.results.build_fit_results", fail_legacy_reconstruction)
+    monkeypatch.setattr("peakfit.fit.fitting.save_state", lambda *_args, **_kwargs: None)
+    config = PeakFitConfig(
+        output=OutputConfig(formats=["json", "csv", "txt"], save_simulated=False),
+    )
+
+    assert competing_truth.fit_run.spectra is not None
+    write_fit_run_outputs(
+        competing_truth.fit_run,
+        competing_truth.fit_run.spectra,
+        config,
+        input_paths={},
+    )
+
+    assert (competing_truth.fit_run.output_dir / "tables" / "clusters.csv").exists()
 
 
 def test_future_contract_persistence_uses_terminal_classification_and_provenance(

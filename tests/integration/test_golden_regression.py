@@ -192,9 +192,11 @@ def test_csv_parameters_integrity(run_golden_fit):
         "parameters.csv should not contain amplitude series parameters"
     )
 
-    # Check values are not NaN
+    # Values are always numerical. Final outcome parameter uncertainties may be
+    # unavailable, which the CSV represents explicitly rather than fabricating
+    # a numerical error estimate.
     assert not df_new["value"].isna().any(), "Some values are NaN"
-    assert not df_new["std_error"].isna().any(), "Some std_errors are NaN"
-
-    # Check std_errors are non-negative
-    assert (df_new["std_error"] >= 0).all(), "Some std_errors are negative"
+    std_errors = pd.to_numeric(df_new["std_error"], errors="coerce")
+    unavailable_errors = df_new["std_error"].eq("unavailable")
+    assert (std_errors.notna() | unavailable_errors).all(), "Some std_errors are invalid"
+    assert (std_errors.dropna() >= 0).all(), "Some std_errors are negative"
