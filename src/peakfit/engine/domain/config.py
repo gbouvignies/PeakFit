@@ -74,9 +74,9 @@ class FitConfig(BaseModel):
         default="auto",
         description="Lineshape model to use. 'auto' detects from NMRPipe apodization.",
     )
-    refine_iterations: Annotated[int, Field(ge=0, le=20)] = Field(
+    refine_iterations: Annotated[int, Field(le=20)] = Field(
         default=1,
-        description="Number of refinement iterations for cross-talk correction.",
+        description="Number of optimizer passes; corrections update between passes.",
     )
     fix_positions: bool = Field(default=False, description="Fix peak positions during fitting.")
     fit_j_coupling: bool = Field(
@@ -105,6 +105,13 @@ class FitConfig(BaseModel):
         default_factory=list,
         description="Multi-step fitting steps. If empty, uses refine_iterations.",
     )
+
+    @field_validator("refine_iterations")
+    @classmethod
+    def _require_positive_refine_iterations(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("refine_iterations must be at least 1")
+        return value
 
 
 class ClusterConfig(BaseModel):

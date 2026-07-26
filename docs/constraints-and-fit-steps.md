@@ -168,7 +168,7 @@ Each step supports:
 | `description` | string       | Optional description                   |
 | `fix`         | list[string] | Patterns for parameters to fix         |
 | `vary`        | list[string] | Patterns for parameters to vary        |
-| `iterations`  | int          | Number of refinement iterations        |
+| `iterations`  | int          | Number of optimizer passes              |
 
 **Note:** `vary` patterns are applied after `fix` patterns, so you can do:
 
@@ -177,6 +177,9 @@ fix = ["*"]           # Fix everything
 vary = ["*.*.lw"]     # Except linewidths
 ```
 
+Configured steps are flattened into one pass schedule. Cross-talk corrections
+update only between consecutive passes, including across step boundaries.
+
 ## Full Example Configuration
 
 ```toml
@@ -184,7 +187,7 @@ vary = ["*.*.lw"]     # Except linewidths
 
 [fitting]
 lineshape = "auto"
-refine_iterations = 1  # Ignored when steps are defined
+refine_iterations = 1  # One optimizer pass; ignored when steps are defined
 
 # Multi-step fit
 [[fitting.steps]]

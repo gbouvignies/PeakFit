@@ -94,7 +94,13 @@ def fit_command(
     ] = "auto",
     refine: Annotated[
         int,
-        typer.Option("--refine", "-r", help="Refinement iterations", min=0, max=20),
+        typer.Option(
+            "--refine",
+            "-r",
+            help="Optimizer passes; corrections update between passes",
+            min=1,
+            max=20,
+        ),
     ] = 2,
     contour_level: Annotated[
         float | None,
@@ -294,7 +300,7 @@ def _show_headless_command_summary(
                 {
                     "Optimizer": optimizer,
                     "Lineshape": str(fit_config.fitting.lineshape),
-                    "Refine iterations": str(fit_config.fitting.refine_iterations),
+                    "Optimizer passes": str(fit_config.fitting.refine_iterations),
                     "Auto-pick step mode": "Yes" if auto_pick_step else "No",
                     "Workers": "All CPUs" if workers == -1 else str(workers),
                 },

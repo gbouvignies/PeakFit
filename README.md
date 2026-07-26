@@ -53,7 +53,9 @@ Useful fit options:
 - `--config peakfit.toml` for reproducible settings.
 - `--lineshape auto|gaussian|lorentzian|pvoigt|sp1|sp2|no_apod`.
 - `--optimizer varpro|basin_hopping`.
-- `--refine N` for cross-talk refinement iterations.
+- `--refine N` for exactly `N` optimizer passes; corrections update only between
+  passes. Existing commands that relied on the former `N + 1` pass behavior
+  should increment `N` by one.
 - `--workers -1` to use all CPUs.
 - `--format json --format csv --format txt` to request output formats.
 

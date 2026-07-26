@@ -271,7 +271,7 @@ def _calc_total_steps(data: LoadedData, config: PeakFitConfig) -> int:
     if config.fitting.steps:
         n_passes = sum(step.iterations for step in config.fitting.steps)
     else:
-        n_passes = config.fitting.refine_iterations + 1
+        n_passes = config.fitting.refine_iterations
     return n_clusters * n_passes
 
 

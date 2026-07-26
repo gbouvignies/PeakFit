@@ -47,7 +47,7 @@ class FitStep(BaseModel):
         name: Human-readable name for this step (for logging)
         fix: Glob patterns for parameters to fix (vary=False)
         vary: Glob patterns for parameters to vary (vary=True)
-        iterations: Number of refinement iterations for this step
+        iterations: Number of optimizer passes for this step
         description: Optional description for documentation
 
     Note:
@@ -60,7 +60,7 @@ class FitStep(BaseModel):
     name: str = Field(default="", description="Step name for logging")
     fix: list[str] = Field(default_factory=list, description="Patterns to fix")
     vary: list[str] = Field(default_factory=list, description="Patterns to vary")
-    iterations: int = Field(default=1, ge=1, description="Refinement iterations")
+    iterations: int = Field(default=1, ge=1, description="Optimizer passes")
     description: str = Field(default="", description="Step description")
 
 
@@ -110,7 +110,7 @@ def build_fit_steps(
 
     Args:
         steps: Explicit steps from config (if any)
-        refine_iterations: Refine iteration count used by the default step
+        refine_iterations: Optimizer pass count used by the default step
 
     Returns:
     -------
@@ -123,7 +123,7 @@ def build_fit_steps(
         FitStep(
             name="default",
             vary=["*"],
-            iterations=refine_iterations + 1,
+            iterations=refine_iterations,
         )
     ]
 

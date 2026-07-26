@@ -27,7 +27,13 @@ peakfit fit spectrum.ft2 peaks.list --optimizer basin_hopping
 
 ## Runtime Controls
 
-Refinement iterations improve cross-talk correction but add time per cluster:
+`--refine N` runs exactly `N` optimizer passes. Cross-talk corrections update
+only between passes, so it performs `N - 1` updates and never changes the
+terminal correction state after the final pass. This is a behavior change from
+the former `N + 1` pass schedule; increment an existing value by one to retain
+its prior pass count.
+
+More passes can improve cross-talk correction but add time per cluster:
 
 - `--refine 1` is the fastest useful pass for many datasets.
 - `--refine 2` or `--refine 3` can improve dense clusters at higher runtime cost.

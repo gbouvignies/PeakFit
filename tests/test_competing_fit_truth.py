@@ -396,12 +396,12 @@ def test_unordered_execution_associates_nonconsecutive_cluster_ids_by_identity()
     ordered_fit = _synthetic_fit(cluster_ids=(91, 11, 37))
     ordered_result, ordered_completion, _ordered_snapshots = _run_with_executor(
         ordered_fit,
-        FitConfig(lineshape="gaussian", refine_iterations=0, max_iterations=25),
+        FitConfig(lineshape="gaussian", refine_iterations=1, max_iterations=25),
     )
     reversed_fit = _synthetic_fit(cluster_ids=(91, 11, 37))
     reversed_result, reversed_completion, _reversed_snapshots = _run_with_executor(
         reversed_fit,
-        FitConfig(lineshape="gaussian", refine_iterations=0, max_iterations=25),
+        FitConfig(lineshape="gaussian", refine_iterations=1, max_iterations=25),
         reverse=True,
     )
 
@@ -432,7 +432,7 @@ def test_cluster_identity_rejects_duplicate_input_identifiers() -> None:
 
     with pytest.raises(ValueError, match=r"Duplicate cluster_id.*37"):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            config=FitConfig(lineshape="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -449,7 +449,7 @@ def test_cluster_identity_rejects_missing_optimizer_results() -> None:
 
     with pytest.raises(ValueError, match=r"Missing optimizer result cluster_id values: \[37\]"):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            config=FitConfig(lineshape="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -470,7 +470,7 @@ def test_cluster_identity_rejects_duplicate_optimizer_results() -> None:
         match=r"Duplicate optimizer result cluster_id values: \[11\]",
     ):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            config=FitConfig(lineshape="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -492,7 +492,7 @@ def test_cluster_identity_rejects_unexpected_optimizer_results() -> None:
         match=r"Unexpected optimizer result cluster_id values: \[73\]",
     ):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            config=FitConfig(lineshape="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -516,7 +516,7 @@ def test_cluster_identity_preserves_returned_nonconverged_result() -> None:
         ]
 
     result = run_pipeline(
-        config=FitConfig(lineshape="gaussian", refine_iterations=0),
+        config=FitConfig(lineshape="gaussian", refine_iterations=1),
         clusters=fit.clusters,
         data_noise=1.0,
         base_params=fit.params,
@@ -537,7 +537,7 @@ def test_cluster_identity_optimizer_exception_aborts_run() -> None:
 
     with pytest.raises(RuntimeError, match=r"optimizer failed for cluster_id 37"):
         run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            config=FitConfig(lineshape="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -546,11 +546,11 @@ def test_cluster_identity_optimizer_exception_aborts_run() -> None:
         )
 
 
-def test_current_terminal_pass_is_followed_by_a_correction_update() -> None:
+def test_terminal_pass_uses_the_frozen_final_correction() -> None:
     fit = _synthetic_fit(cluster_ids=(11, 37))
     result, _completion_order, snapshots = _run_with_executor(
         fit,
-        FitConfig(lineshape="gaussian", refine_iterations=0, max_iterations=25),
+        FitConfig(lineshape="gaussian", refine_iterations=1, max_iterations=25),
     )
 
     terminal_snapshot = snapshots[-1]
@@ -558,25 +558,16 @@ def test_current_terminal_pass_is_followed_by_a_correction_update() -> None:
         cluster.cluster_id: cluster.corrections for cluster in result.state.clusters
     }
 
-    assert all(np.allclose(correction, 0.0) for correction in terminal_snapshot.values())
-    assert any(
-        not np.allclose(final_corrections[cluster_id], terminal_snapshot[cluster_id])
+    assert len(snapshots) == 1
+    assert result.n_optimizer_passes == 1
+    assert result.n_correction_updates == 0
+    assert all(
+        np.array_equal(final_corrections[cluster_id], terminal_snapshot[cluster_id])
         for cluster_id in terminal_snapshot
     )
-    reconstructed = build_fit_results(
-        result.state,
-        fit.spectra,
-        config={},
-        input_files={},
-    )
-    assert any(
-        statistics.reduced_chi_squared != pytest.approx(terminal.redchi)
-        for statistics, terminal in zip(
-            reconstructed.statistics,
-            result.results,
-            strict=True,
-        )
-    )
+    assert result.correction_snapshot is not None
+    assert result.correction_snapshot.revision == 0
+    assert [terminal.correction_revision for terminal in result.results] == [0, 0]
 
 
 def test_numerical_usability_controls_parameter_merging_and_corrections() -> None:
@@ -617,7 +608,7 @@ def test_numerical_usability_controls_parameter_merging_and_corrections() -> Non
             return completed
 
         result = run_pipeline(
-            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            config=FitConfig(lineshape="gaussian", refine_iterations=1),
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
@@ -655,35 +646,14 @@ def test_numerical_usability_controls_parameter_merging_and_corrections() -> Non
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Ticket 04 will prohibit correction updates after the terminal pass.",
-)
-def test_future_contract_terminal_pass_uses_the_frozen_final_correction() -> None:
-    fit = _synthetic_fit(cluster_ids=(11, 37))
-    result, _completion_order, snapshots = _run_with_executor(
-        fit,
-        FitConfig(lineshape="gaussian", refine_iterations=1, max_iterations=25),
-    )
-
-    terminal_snapshot = snapshots[-1]
-    final_corrections = {
-        cluster.cluster_id: cluster.corrections for cluster in result.state.clusters
-    }
-
-    assert all(
-        np.array_equal(final_corrections[cluster_id], terminal_snapshot[cluster_id])
-        for cluster_id in terminal_snapshot
-    )
-
-
 @pytest.mark.parametrize(
-    ("refine_iterations", "expected_current_passes"),
-    [(0, 1), (1, 2), (2, 3)],
+    ("refine_iterations", "expected_passes", "expected_updates"),
+    [(1, 1, 0), (2, 2, 1), (4, 4, 3)],
 )
-def test_current_default_schedule_adds_one_optimizer_pass(
+def test_refine_iterations_is_the_exact_pass_count(
     refine_iterations: int,
-    expected_current_passes: int,
+    expected_passes: int,
+    expected_updates: int,
 ) -> None:
     fit = _synthetic_fit(cluster_ids=(11,))
     _result, _completion_order, snapshots = _run_with_executor(
@@ -695,7 +665,9 @@ def test_current_default_schedule_adds_one_optimizer_pass(
         ),
     )
 
-    assert len(snapshots) == expected_current_passes
+    assert len(snapshots) == expected_passes
+    assert _result.n_optimizer_passes == expected_passes
+    assert _result.n_correction_updates == expected_updates
 
 
 def test_current_explicit_steps_use_their_configured_pass_counts() -> None:
@@ -712,29 +684,108 @@ def test_current_explicit_steps_use_their_configured_pass_counts() -> None:
     _result, _completion_order, snapshots = _run_with_executor(fit, config)
 
     assert len(snapshots) == 3
+    assert _result.n_optimizer_passes == 3
+    assert _result.n_correction_updates == 2
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Ticket 04 will define refine_iterations as the exact optimizer-pass count.",
-)
-def test_future_contract_refine_iterations_must_be_positive() -> None:
+def test_refine_iterations_must_be_positive() -> None:
     with pytest.raises(ValueError, match=r"refine_iterations.*at least 1"):
         FitConfig(lineshape="gaussian", refine_iterations=0)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Ticket 04 will define refine_iterations as the exact optimizer-pass count.",
-)
-def test_future_contract_refine_iterations_is_the_exact_pass_count() -> None:
-    fit = _synthetic_fit(cluster_ids=(11,))
-    _result, _completion_order, snapshots = _run_with_executor(
-        fit,
-        FitConfig(lineshape="gaussian", refine_iterations=1, max_iterations=25),
+def test_correction_snapshots_are_isolated_from_later_mutation() -> None:
+    fit = _synthetic_fit(cluster_ids=(11, 37))
+    task_snapshots: list[dict[int, np.ndarray]] = []
+    task_records: list[list[Any]] = []
+
+    def executor(function: Any, tasks: list[Any]) -> list[Any]:
+        task_snapshots.append({task.cluster_id: task.cluster.corrections.copy() for task in tasks})
+        task_records.append(tasks)
+        return [function(task) for task in tasks]
+
+    result = run_pipeline(
+        config=FitConfig(lineshape="gaussian", refine_iterations=2, max_iterations=25),
+        clusters=fit.clusters,
+        data_noise=1.0,
+        base_params=fit.params,
+        peaks=fit.peaks,
+        executor=executor,
     )
 
-    assert len(snapshots) == 1
+    final_corrections = {
+        cluster.cluster_id: cluster.corrections.copy() for cluster in result.state.clusters
+    }
+    fit.clusters[0].corrections.fill(123.0)
+
+    assert len(task_snapshots) == 2
+    assert [task.correction_revision for task in task_records[0]] == [0, 0]
+    assert [task.correction_revision for task in task_records[1]] == [1, 1]
+    for task in task_records[0]:
+        cluster_id = task.cluster_id
+        task_cluster = task.cluster
+        np.testing.assert_array_equal(task_cluster.corrections, task_snapshots[0][cluster_id])
+        assert not task_cluster.corrections.flags.writeable
+    assert any(
+        not np.array_equal(task_snapshots[1][cluster_id], task_snapshots[0][cluster_id])
+        for cluster_id in final_corrections
+    )
+    for cluster_id, correction in final_corrections.items():
+        np.testing.assert_array_equal(correction, task_snapshots[1][cluster_id])
+    assert result.correction_snapshot is not None
+    assert result.correction_snapshot.revision == 1
+    assert [terminal.correction_revision for terminal in result.results] == [1, 1]
+
+
+def test_pipeline_rejects_a_stale_result_correction_revision() -> None:
+    fit = _synthetic_fit(cluster_ids=(11,))
+
+    def executor(function: Any, tasks: list[Any]) -> list[Any]:
+        result = function(tasks[0])
+        result.correction_revision = 73
+        return [result]
+
+    with pytest.raises(ValueError, match=r"correction_revision.*expected 0, got 73"):
+        run_pipeline(
+            config=FitConfig(lineshape="gaussian", refine_iterations=1, max_iterations=25),
+            clusters=fit.clusters,
+            data_noise=1.0,
+            base_params=fit.params,
+            peaks=fit.peaks,
+            executor=executor,
+        )
+
+
+def test_usable_nonconverged_results_contribute_to_the_next_correction() -> None:
+    def next_correction_for_nonconverged_result(usable: bool) -> np.ndarray:
+        fit = _synthetic_fit(cluster_ids=(11, 37))
+        next_pass_corrections: list[np.ndarray] = []
+
+        def executor(function: Any, tasks: list[Any]) -> list[Any]:
+            if tasks[0].correction_revision == 1:
+                next_pass_corrections.append(tasks[1].cluster.corrections.copy())
+            results = [function(task) for task in tasks]
+            if tasks[0].correction_revision == 0:
+                for task, result in zip(tasks, results, strict=True):
+                    result.success = False
+                    if task.cluster_id == 37 or not usable:
+                        result.residual[:] = np.nan
+            return results
+
+        run_pipeline(
+            config=FitConfig(lineshape="gaussian", refine_iterations=2, max_iterations=25),
+            clusters=fit.clusters,
+            data_noise=1.0,
+            base_params=fit.params,
+            peaks=fit.peaks,
+            executor=executor,
+        )
+        return next_pass_corrections[0]
+
+    correction_with_usable_result = next_correction_for_nonconverged_result(usable=True)
+    correction_with_only_unusable_results = next_correction_for_nonconverged_result(usable=False)
+
+    assert not np.allclose(correction_with_usable_result, 0.0)
+    np.testing.assert_array_equal(correction_with_only_unusable_results, 0.0)
 
 
 @pytest.mark.parametrize(

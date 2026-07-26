@@ -40,6 +40,7 @@ class FitResult:
     params: Parameters
     residual: FloatArray
     cost: float
+    correction_revision: int | None = None
     nfev: int = 0
     njev: int = 0
     success: bool = False

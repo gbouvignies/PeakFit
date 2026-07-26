@@ -76,8 +76,9 @@ A named stage that specifies which fitting parameters are fixed or varied and
 how many iterations run.
 
 **Refinement iteration**:
-An additional fitting pass after updating the estimated contribution from peaks
-outside each peak cluster.
+One optimizer pass in the cross-talk refinement schedule. With
+`refine_iterations = N`, PeakFit performs exactly `N` passes and updates
+cross-talk corrections only between passes.
 
 **Cross-talk correction**:
 The estimated contribution from peaks outside a peak cluster that is subtracted

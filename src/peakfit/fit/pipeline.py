@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from copy import copy
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 from peakfit.engine.algorithms.common import update_cluster_corrections
@@ -25,11 +27,34 @@ from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.optimizers import fit_with_optimizer
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Sequence
+    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.results import FitResult
+    from peakfit.shared.typing import FloatArray
+
+
+@dataclass(frozen=True, slots=True)
+class CorrectionSnapshot:
+    """Read-only correction arrays used by a single optimizer pass."""
+
+    revision: int
+    corrections: Mapping[int, FloatArray]
+
+    @classmethod
+    def from_clusters(
+        cls,
+        clusters: Sequence[Cluster],
+        revision: int,
+    ) -> CorrectionSnapshot:
+        """Copy corrections so later scheduling cannot alter this pass."""
+        copied_corrections: dict[int, FloatArray] = {}
+        for cluster in clusters:
+            correction = cluster.corrections.copy()
+            correction.flags.writeable = False
+            copied_corrections[cluster.cluster_id] = correction
+        return cls(revision=revision, corrections=MappingProxyType(copied_corrections))
 
 
 @dataclass(frozen=True)
@@ -39,6 +64,9 @@ class PipelineResult:
     state: FittingState
     results: list[FitResult]
     evaluations: list[FitEvaluation] = field(default_factory=list)
+    correction_snapshot: CorrectionSnapshot | None = None
+    n_optimizer_passes: int = 0
+    n_correction_updates: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +74,7 @@ class ClusterFitTask:
     """Optimizer task associated with one run-local cluster identity."""
 
     cluster_id: int
+    correction_revision: int
     cluster: Cluster
     params: Parameters
     noise: float
@@ -59,6 +88,9 @@ class ClusterFitTask:
                 "Cluster task cluster_id does not match its cluster: "
                 f"expected {self.cluster_id}, got {self.cluster.cluster_id}"
             )
+            raise ValueError(msg)
+        if self.correction_revision < 0:
+            msg = f"Correction revision must be non-negative, got {self.correction_revision}"
             raise ValueError(msg)
 
 
@@ -88,6 +120,14 @@ def fit_single_cluster_task(
         msg = (
             "Optimizer result cluster_id does not match submitted task: "
             f"expected {task.cluster_id}, got {result.cluster_id}"
+        )
+        raise ValueError(msg)
+    if result.correction_revision is None:
+        result.correction_revision = task.correction_revision
+    elif result.correction_revision != task.correction_revision:
+        msg = (
+            "Optimizer result correction_revision does not match submitted task: "
+            f"expected {task.correction_revision}, got {result.correction_revision}"
         )
         raise ValueError(msg)
     return result
@@ -140,63 +180,81 @@ def run_pipeline_iter(
         steps=fit_config.fitting.steps,
         refine_iterations=fit_config.fitting.refine_iterations,
     )
+    passes = [(step, iteration) for step in steps for iteration in range(step.iterations)]
+    if not passes:
+        raise ValueError("Fitting requires at least one optimizer pass.")
     mapper = executor or map
     final_params = base_params
     current_fit_results: list[FitResult] = []
     current_evaluations: list[FitEvaluation] = []
     optimizer_config = _build_optimizer_config(fit_config, optimizer)
-    clusters_by_id = {cluster.cluster_id: cluster for cluster in clusters}
+    correction_revision = 0
+    correction_updates = 0
+    terminal_snapshot: CorrectionSnapshot | None = None
 
-    for step in steps:
-        for iteration in range(step.iterations):
-            if step.iterations > 1:
-                iter_msg = f"Iteration {iteration + 1}/{step.iterations}"
-                yield ("status", f"[bold blue]{iter_msg}[/]")
+    for pass_index, (step, iteration) in enumerate(passes):
+        if step.iterations > 1:
+            iter_msg = f"Iteration {iteration + 1}/{step.iterations}"
+            yield ("status", f"[bold blue]{iter_msg}[/]")
 
-            tasks = _prepare_cluster_tasks(
-                config=fit_config,
-                clusters=clusters,
-                current_params=final_params,
-                step=step,
-                data_noise=data_noise,
-                optimizer=optimizer,
-                optimizer_config=optimizer_config,
+        correction_snapshot = CorrectionSnapshot.from_clusters(clusters, correction_revision)
+        terminal_snapshot = correction_snapshot
+        tasks = _prepare_cluster_tasks(
+            config=fit_config,
+            clusters=clusters,
+            correction_snapshot=correction_snapshot,
+            current_params=final_params,
+            step=step,
+            data_noise=data_noise,
+            optimizer=optimizer,
+            optimizer_config=optimizer_config,
+        )
+        task_clusters_by_id = {task.cluster_id: task.cluster for task in tasks}
+        step_results_map: dict[int, FitResult] = {}
+        results_iter = mapper(fit_single_cluster_task, tasks)
+        yield from _process_execution_results(
+            results_iter,
+            step_results_map,
+            expected_cluster_ids=cluster_ids,
+            correction_revision=correction_snapshot.revision,
+        )
+
+        current_fit_results = [step_results_map[cluster_id] for cluster_id in cluster_ids]
+        current_evaluations = [
+            classify_optimizer_result(
+                cluster=task_clusters_by_id[result.cluster_id],
+                result=result,
+                noise=data_noise,
             )
-            step_results_map: dict[int, FitResult] = {}
-            results_iter = mapper(fit_single_cluster_task, tasks)
-            yield from _process_execution_results(
-                results_iter,
-                step_results_map,
-                expected_cluster_ids=cluster_ids,
-            )
+            for result in current_fit_results
+        ]
+        evaluations_by_id = {
+            evaluation.cluster_id: evaluation for evaluation in current_evaluations
+        }
+        usable_cluster_ids = {
+            evaluation.cluster_id for evaluation in current_evaluations if evaluation.usable
+        }
+        for result in current_fit_results:
+            if evaluations_by_id[result.cluster_id].usable:
+                final_params.update(result.params)
 
-            current_fit_results = [step_results_map[cluster_id] for cluster_id in cluster_ids]
-            current_evaluations = [
-                classify_optimizer_result(
-                    cluster=clusters_by_id[result.cluster_id],
-                    result=result,
-                    noise=data_noise,
-                )
-                for result in current_fit_results
-            ]
-            evaluations_by_id = {
-                evaluation.cluster_id: evaluation for evaluation in current_evaluations
-            }
-            usable_cluster_ids = {
-                evaluation.cluster_id for evaluation in current_evaluations if evaluation.usable
-            }
-            for result in current_fit_results:
-                if evaluations_by_id[result.cluster_id].usable:
-                    final_params.update(result.params)
-
-            if step.iterations > 1 and iteration < step.iterations - 1:
-                yield ("status", "[dim]Correcting data with neighbors...[/]")
-
+        if pass_index < len(passes) - 1:
+            yield ("status", "[dim]Correcting data with neighbors...[/]")
             update_cluster_corrections(
                 final_params,
                 clusters,
                 contributing_cluster_ids=usable_cluster_ids,
             )
+            correction_updates += 1
+            correction_revision += 1
+
+    if terminal_snapshot is None:
+        raise RuntimeError("Fitting did not create a terminal correction snapshot.")
+    _validate_terminal_result_revisions(
+        current_fit_results,
+        current_evaluations,
+        terminal_snapshot.revision,
+    )
 
     fit_params = FitParameters.from_parameters(final_params, list(peaks))
     state = FittingState(
@@ -209,6 +267,9 @@ def run_pipeline_iter(
         state=state,
         results=current_fit_results,
         evaluations=current_evaluations,
+        correction_snapshot=terminal_snapshot,
+        n_optimizer_passes=len(passes),
+        n_correction_updates=correction_updates,
     )
 
 
@@ -237,6 +298,7 @@ def _prepare_cluster_tasks(
     *,
     config: PeakFitConfig,
     clusters: Sequence[Cluster],
+    correction_snapshot: CorrectionSnapshot,
     current_params: Parameters,
     step: FitStep,
     data_noise: float,
@@ -246,6 +308,8 @@ def _prepare_cluster_tasks(
     """Prepare task arguments for cluster fitting."""
     tasks = []
     for cluster in clusters:
+        task_cluster = copy(cluster)
+        task_cluster.corrections = correction_snapshot.corrections[cluster.cluster_id]
         cluster_params = Parameters.from_peaks(cluster.peaks, fixed=False)
         if config.parameters:
             cluster_params = apply_constraints(cluster_params, config.parameters)
@@ -258,7 +322,8 @@ def _prepare_cluster_tasks(
         tasks.append(
             ClusterFitTask(
                 cluster_id=cluster.cluster_id,
-                cluster=cluster,
+                correction_revision=correction_snapshot.revision,
+                cluster=task_cluster,
                 params=cluster_params,
                 noise=data_noise,
                 optimizer=optimizer,
@@ -273,10 +338,19 @@ def _process_execution_results(
     results_map: dict[int, FitResult],
     *,
     expected_cluster_ids: Sequence[int],
+    correction_revision: int,
 ) -> Iterator[FitResult]:
     """Yield fit results from an executor iterator."""
     duplicates: set[int] = set()
     for result in results_iter:
+        if result.correction_revision is None:
+            result.correction_revision = correction_revision
+        elif result.correction_revision != correction_revision:
+            msg = (
+                "Optimizer result correction_revision does not match pass snapshot: "
+                f"expected {correction_revision}, got {result.correction_revision}"
+            )
+            raise ValueError(msg)
         if result.cluster_id in results_map:
             duplicates.add(result.cluster_id)
             continue
@@ -299,6 +373,27 @@ def _process_execution_results(
         raise ValueError(msg)
 
 
+def _validate_terminal_result_revisions(
+    results: Sequence[FitResult],
+    evaluations: Sequence[FitEvaluation],
+    terminal_revision: int,
+) -> None:
+    """Require every usable terminal result to name the frozen correction revision."""
+    evaluations_by_id = {evaluation.cluster_id: evaluation for evaluation in evaluations}
+    stale_usable_ids = sorted(
+        result.cluster_id
+        for result in results
+        if evaluations_by_id[result.cluster_id].usable
+        and result.correction_revision != terminal_revision
+    )
+    if stale_usable_ids:
+        msg = (
+            "Usable terminal optimizer results must reference correction revision "
+            f"{terminal_revision}; stale cluster_id values: {stale_usable_ids}"
+        )
+        raise ValueError(msg)
+
+
 def _build_optimizer_config(config: PeakFitConfig, optimizer: str) -> OptimizerConfig:
     if optimizer == "varpro":
         return VarProConfig(
@@ -312,6 +407,7 @@ def _build_optimizer_config(config: PeakFitConfig, optimizer: str) -> OptimizerC
 
 
 __all__ = [
+    "CorrectionSnapshot",
     "PipelineResult",
     "fit_single_cluster_task",
     "run_pipeline",

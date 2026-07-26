@@ -7,27 +7,36 @@ frozen terminal correction revision.
 **Blocked by:** 02 — Establish stable cluster-result identity; 03 — Share
 analytical evaluation and usability.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Define `refine_iterations = N` as exactly `N` optimizer passes and require
+- [x] Define `refine_iterations = N` as exactly `N` optimizer passes and require
       `N >= 1`.
-- [ ] Perform exactly `N - 1` correction updates and no update after the
+- [x] Perform exactly `N - 1` correction updates and no update after the
       terminal pass.
-- [ ] Preserve explicit step iteration counts as optimizer-pass counts and apply
+- [x] Preserve explicit step iteration counts as optimizer-pass counts and apply
       corrections only between passes in the flattened schedule.
-- [ ] Give each pass an immutable correction snapshot or isolated copy and a
+- [x] Give each pass an immutable correction snapshot or isolated copy and a
       monotonically increasing `correction_revision`.
-- [ ] Stamp every task and returned result with the revision it used.
-- [ ] Merge parameters and update corrections from converged and usable
+- [x] Stamp every task and returned result with the revision it used.
+- [x] Merge parameters and update corrections from converged and usable
       non-converged results only.
-- [ ] Prevent unusable results from changing parameters or corrections.
-- [ ] Require terminal results to reference the frozen final revision.
-- [ ] Do not introduce a correction digest.
-- [ ] Cover rejected zero passes, one pass with zero updates, and multiple
+- [x] Prevent unusable results from changing parameters or corrections.
+- [x] Require terminal results to reference the frozen final revision.
+- [x] Do not introduce a correction digest.
+- [x] Cover rejected zero passes, one pass with zero updates, and multiple
       passes with exactly `N - 1` updates.
-- [ ] Prove mutation of a source correction array cannot change a snapshot
+- [x] Prove mutation of a source correction array cannot change a snapshot
       already supplied to an optimizer.
-- [ ] Preserve fitted mathematics apart from the approved pass-count and
+- [x] Preserve fitted mathematics apart from the approved pass-count and
       correction-order semantics.
-- [ ] Verify with
+- [x] Verify with
       `uv run pytest -q -p no:cacheprovider -k "cross_talk or correction_revision or refine_iterations"`.
+
+## Completion note — 2026-07-26
+
+The pipeline now freezes a read-only correction snapshot for every optimizer
+pass, stamps tasks and results with its revision, and updates corrections only
+when another flattened pass remains. `refine_iterations` is now an exact pass
+count; callers using the former `N + 1` behavior should increment their value
+by one. Focused scheduling tests, ticket 01–03 characterization tests, and the
+full validation suite passed before review.
