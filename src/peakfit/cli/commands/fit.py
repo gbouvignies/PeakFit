@@ -398,7 +398,7 @@ def _run_interactive_fit(
                 live_ctx["update"](status_message=item[1], advance=0)
         elif isinstance(item, FitResult):
             if live_ctx["update"]:
-                cluster_id = str(item.metadata.get("cluster_id", "??"))
+                cluster_id = str(item.cluster_id)
                 warnings = []
                 bounds_hit = [p for p in item.params.values() if p.is_at_boundary()]
                 if bounds_hit:

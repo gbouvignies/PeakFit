@@ -36,6 +36,7 @@ def compute_reduced_chi_squared(
 class FitResult:
     """Result of optimization for one cluster."""
 
+    cluster_id: int
     params: Parameters
     residual: FloatArray
     cost: float

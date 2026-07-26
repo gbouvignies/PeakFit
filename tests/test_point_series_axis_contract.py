@@ -271,6 +271,7 @@ def test_fit_result_uses_all_observations_and_one_amplitude_per_series() -> None
     cluster, _spectra, params = _axis_reproduction()
     normalized_residuals = residuals(params, cluster, noise=1.0)
     fit_result = FitResult(
+        cluster_id=cluster.cluster_id,
         params=params,
         residual=normalized_residuals,
         cost=EXPECTED_CHI_SQUARED / 2.0,

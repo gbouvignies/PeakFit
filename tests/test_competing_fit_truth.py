@@ -139,6 +139,7 @@ def _terminal_result(
     params = Parameters.from_peaks(cluster.peaks, fixed=False)
     residual = np.full(cluster.n_observations, residual_value, dtype=np.float64)
     return FitResult(
+        cluster_id=cluster.cluster_id,
         params=params,
         residual=residual,
         cost=float(np.sum(residual**2) / 2.0),
@@ -149,7 +150,6 @@ def _terminal_result(
         optimality=0.125,
         n_amplitude_params=cluster.n_amplitude_params,
         metadata={
-            "cluster_id": cluster.cluster_id,
             "peak_names": [peak.name for peak in cluster.peaks],
         },
     )
@@ -340,7 +340,7 @@ def test_future_contract_persistence_uses_terminal_classification_and_provenance
     assert clusters_by_id[11]["statistics"] is not None
     assert clusters_by_id[37]["statistics"] is not None
     assert clusters_by_id[91].get("statistics") is None
-    terminal_by_id = {int(result.metadata["cluster_id"]): result for result in terminal}
+    terminal_by_id = {result.cluster_id: result for result in terminal}
     for cluster_id, result in terminal_by_id.items():
         provenance = clusters_by_id[cluster_id]["optimizer_provenance"]
         assert provenance["n_function_evals"] == result.nfev
@@ -373,13 +373,11 @@ def _run_with_executor(
 
     def executor(function: Any, tasks: list[Any]) -> list[Any]:
         correction_snapshots.append(
-            {task[1].cluster_id: task[1].corrections.copy() for task in tasks}
+            {task.cluster_id: task.cluster.corrections.copy() for task in tasks}
         )
         ordered_tasks = list(reversed(tasks)) if reverse else tasks
         completed = [function(task) for task in ordered_tasks]
-        completion_order.extend(
-            int(result.metadata["cluster_id"]) for _task_index, result in completed
-        )
+        completion_order.extend(result.cluster_id for result in completed)
         return completed
 
     result = run_pipeline(
@@ -393,13 +391,13 @@ def _run_with_executor(
     return result, completion_order, correction_snapshots
 
 
-def test_current_ordered_and_reverse_completion_are_restored_by_task_position() -> None:
-    ordered_fit = _synthetic_fit()
+def test_unordered_execution_associates_nonconsecutive_cluster_ids_by_identity() -> None:
+    ordered_fit = _synthetic_fit(cluster_ids=(91, 11, 37))
     ordered_result, ordered_completion, _ordered_snapshots = _run_with_executor(
         ordered_fit,
         FitConfig(lineshape="gaussian", refine_iterations=0, max_iterations=25),
     )
-    reversed_fit = _synthetic_fit()
+    reversed_fit = _synthetic_fit(cluster_ids=(91, 11, 37))
     reversed_result, reversed_completion, _reversed_snapshots = _run_with_executor(
         reversed_fit,
         FitConfig(lineshape="gaussian", refine_iterations=0, max_iterations=25),
@@ -407,14 +405,144 @@ def test_current_ordered_and_reverse_completion_are_restored_by_task_position() 
     )
 
     input_ids = [cluster.cluster_id for cluster in ordered_fit.clusters]
-    ordered_ids = [int(fit_result.metadata["cluster_id"]) for fit_result in ordered_result.results]
-    reversed_ids = [
-        int(fit_result.metadata["cluster_id"]) for fit_result in reversed_result.results
+    expected_associations = sorted(
+        (cluster.cluster_id, [peak.name for peak in cluster.peaks])
+        for cluster in ordered_fit.clusters
+    )
+    ordered_associations = [
+        (fit_result.cluster_id, fit_result.metadata["peak_names"])
+        for fit_result in ordered_result.results
+    ]
+    reversed_associations = [
+        (fit_result.cluster_id, fit_result.metadata["peak_names"])
+        for fit_result in reversed_result.results
     ]
 
     assert ordered_completion == input_ids
     assert reversed_completion == list(reversed(input_ids))
-    assert ordered_ids == reversed_ids == input_ids
+    assert ordered_associations == reversed_associations == expected_associations
+
+
+def test_cluster_identity_rejects_duplicate_input_identifiers() -> None:
+    fit = _synthetic_fit(cluster_ids=(11, 37, 37))
+
+    def executor(_function: Any, _tasks: list[Any]) -> list[Any]:
+        pytest.fail("duplicate cluster identities must fail before task submission")
+
+    with pytest.raises(ValueError, match=r"Duplicate cluster_id.*37"):
+        run_pipeline(
+            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            clusters=fit.clusters,
+            data_noise=1.0,
+            base_params=fit.params,
+            peaks=fit.peaks,
+            executor=executor,
+        )
+
+
+def test_cluster_identity_rejects_missing_optimizer_results() -> None:
+    fit = _synthetic_fit()
+
+    def executor(function: Any, tasks: list[Any]) -> list[Any]:
+        return [function(task) for task in tasks if task.cluster_id != 37]
+
+    with pytest.raises(ValueError, match=r"Missing optimizer result cluster_id values: \[37\]"):
+        run_pipeline(
+            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            clusters=fit.clusters,
+            data_noise=1.0,
+            base_params=fit.params,
+            peaks=fit.peaks,
+            executor=executor,
+        )
+
+
+def test_cluster_identity_rejects_duplicate_optimizer_results() -> None:
+    fit = _synthetic_fit()
+
+    def executor(function: Any, tasks: list[Any]) -> list[Any]:
+        first_result = function(tasks[0])
+        return [first_result, first_result, *(function(task) for task in tasks[1:])]
+
+    with pytest.raises(
+        ValueError,
+        match=r"Duplicate optimizer result cluster_id values: \[11\]",
+    ):
+        run_pipeline(
+            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            clusters=fit.clusters,
+            data_noise=1.0,
+            base_params=fit.params,
+            peaks=fit.peaks,
+            executor=executor,
+        )
+
+
+def test_cluster_identity_rejects_unexpected_optimizer_results() -> None:
+    fit = _synthetic_fit()
+
+    def executor(function: Any, tasks: list[Any]) -> list[Any]:
+        completed = [function(task) for task in tasks]
+        completed[1].cluster_id = 73
+        return completed
+
+    with pytest.raises(
+        ValueError,
+        match=r"Unexpected optimizer result cluster_id values: \[73\]",
+    ):
+        run_pipeline(
+            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            clusters=fit.clusters,
+            data_noise=1.0,
+            base_params=fit.params,
+            peaks=fit.peaks,
+            executor=executor,
+        )
+
+
+def test_cluster_identity_preserves_returned_nonconverged_result() -> None:
+    fit = _synthetic_fit(cluster_ids=(37,))
+
+    def executor(_function: Any, tasks: list[Any]) -> list[FitResult]:
+        return [
+            _terminal_result(
+                tasks[0].cluster,
+                success=False,
+                residual_value=0.5,
+                nfev=13,
+                message="finite but not converged",
+            )
+        ]
+
+    result = run_pipeline(
+        config=FitConfig(lineshape="gaussian", refine_iterations=0),
+        clusters=fit.clusters,
+        data_noise=1.0,
+        base_params=fit.params,
+        peaks=fit.peaks,
+        executor=executor,
+    )
+
+    assert [(item.cluster_id, item.success, item.message) for item in result.results] == [
+        (37, False, "finite but not converged")
+    ]
+
+
+def test_cluster_identity_optimizer_exception_aborts_run() -> None:
+    fit = _synthetic_fit(cluster_ids=(37,))
+
+    def executor(_function: Any, _tasks: list[Any]) -> list[Any]:
+        raise RuntimeError("optimizer failed for cluster_id 37")
+
+    with pytest.raises(RuntimeError, match=r"optimizer failed for cluster_id 37"):
+        run_pipeline(
+            config=FitConfig(lineshape="gaussian", refine_iterations=0),
+            clusters=fit.clusters,
+            data_noise=1.0,
+            base_params=fit.params,
+            peaks=fit.peaks,
+            executor=executor,
+        )
 
 
 def test_current_terminal_pass_is_followed_by_a_correction_update() -> None:
@@ -457,13 +585,14 @@ def test_current_pipeline_merges_an_unusable_result_before_correction(
     unusable_parameter: list[tuple[str, float]] = []
     correction_inputs: list[float] = []
 
-    def executor(_function: Any, tasks: list[Any]) -> list[tuple[int, FitResult]]:
-        completed: list[tuple[int, FitResult]] = []
+    def executor(_function: Any, tasks: list[Any]) -> list[FitResult]:
+        completed: list[FitResult] = []
         residual_values = (0.25, 0.5, np.nan)
-        for task, residual_value in zip(tasks, residual_values, strict=True):
-            task_index, cluster = task[:2]
+        for task_index, (task, residual_value) in enumerate(
+            zip(tasks, residual_values, strict=True)
+        ):
             result = _terminal_result(
-                cluster,
+                task.cluster,
                 success=task_index == 0,
                 residual_value=residual_value,
                 nfev=task_index + 1,
@@ -475,7 +604,7 @@ def test_current_pipeline_merges_an_unusable_result_before_correction(
                 parameter_value = parameter.min + 0.25 * (parameter.max - parameter.min)
                 result.params[parameter_name].value = parameter_value
                 unusable_parameter.append((parameter_name, parameter_value))
-            completed.append((task_index, result))
+            completed.append(result)
         return completed
 
     def observe_correction_inputs(params: Parameters, _clusters: list[Cluster]) -> None:

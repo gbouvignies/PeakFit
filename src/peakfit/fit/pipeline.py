@@ -36,6 +36,27 @@ class PipelineResult:
     results: list[FitResult]
 
 
+@dataclass(frozen=True, slots=True)
+class ClusterFitTask:
+    """Optimizer task associated with one run-local cluster identity."""
+
+    cluster_id: int
+    cluster: Cluster
+    params: Parameters
+    noise: float
+    optimizer: str
+    config: OptimizerConfig
+
+    def __post_init__(self) -> None:
+        """Reject disagreement between the task key and cluster payload."""
+        if self.cluster_id != self.cluster.cluster_id:
+            msg = (
+                "Cluster task cluster_id does not match its cluster: "
+                f"expected {self.cluster_id}, got {self.cluster.cluster_id}"
+            )
+            raise ValueError(msg)
+
+
 def fit_cluster_worker(
     cluster: Cluster,
     params: Parameters,
@@ -48,12 +69,23 @@ def fit_cluster_worker(
 
 
 def fit_single_cluster_task(
-    args: tuple[int, Cluster, Parameters, float, str, OptimizerConfig],
-) -> tuple[int, FitResult]:
+    task: ClusterFitTask,
+) -> FitResult:
     """Execute fitting for a single cluster task."""
-    task_idx, cluster, params, noise, optimizer, config = args
-    result = fit_cluster_worker(cluster, params, noise, config, optimizer)
-    return task_idx, result
+    result = fit_cluster_worker(
+        task.cluster,
+        task.params,
+        task.noise,
+        task.config,
+        task.optimizer,
+    )
+    if result.cluster_id != task.cluster_id:
+        msg = (
+            "Optimizer result cluster_id does not match submitted task: "
+            f"expected {task.cluster_id}, got {result.cluster_id}"
+        )
+        raise ValueError(msg)
+    return result
 
 
 def run_pipeline(
@@ -97,6 +129,7 @@ def run_pipeline_iter(
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,
 ) -> Iterator[Any]:
     """Yield fit progress items and finally a PipelineResult."""
+    cluster_ids = _validate_cluster_ids(clusters)
     fit_config = _normalize_config(config)
     steps = build_fit_steps(
         steps=fit_config.fitting.steps,
@@ -124,9 +157,13 @@ def run_pipeline_iter(
             )
             step_results_map: dict[int, FitResult] = {}
             results_iter = mapper(fit_single_cluster_task, tasks)
-            yield from _process_execution_results(results_iter, step_results_map)
+            yield from _process_execution_results(
+                results_iter,
+                step_results_map,
+                expected_cluster_ids=cluster_ids,
+            )
 
-            current_fit_results = [step_results_map[i] for i in range(len(clusters))]
+            current_fit_results = [step_results_map[cluster_id] for cluster_id in cluster_ids]
             for res in current_fit_results:
                 final_params.update(res.params)
 
@@ -137,12 +174,27 @@ def run_pipeline_iter(
 
     fit_params = FitParameters.from_parameters(final_params, list(peaks))
     state = FittingState(
-        clusters=list(clusters),
+        clusters=sorted(clusters, key=lambda cluster: cluster.cluster_id),
         params=fit_params,
         scalar_params=final_params,
         noise=data_noise,
     )
     yield PipelineResult(state=state, results=current_fit_results)
+
+
+def _validate_cluster_ids(clusters: Sequence[Cluster]) -> tuple[int, ...]:
+    """Require one unique run-local identifier for every input cluster."""
+    cluster_ids: set[int] = set()
+    duplicates: set[int] = set()
+    for cluster in clusters:
+        if cluster.cluster_id in cluster_ids:
+            duplicates.add(cluster.cluster_id)
+        cluster_ids.add(cluster.cluster_id)
+
+    if duplicates:
+        msg = f"Duplicate cluster_id values in pipeline input: {sorted(duplicates)}"
+        raise ValueError(msg)
+    return tuple(sorted(cluster_ids))
 
 
 def _normalize_config(config: FitConfig | PeakFitConfig) -> PeakFitConfig:
@@ -160,10 +212,10 @@ def _prepare_cluster_tasks(
     data_noise: float,
     optimizer: str,
     optimizer_config: OptimizerConfig,
-) -> list[tuple[int, Cluster, Parameters, float, str, OptimizerConfig]]:
+) -> list[ClusterFitTask]:
     """Prepare task arguments for cluster fitting."""
     tasks = []
-    for idx, cluster in enumerate(clusters):
+    for cluster in clusters:
         cluster_params = Parameters.from_peaks(cluster.peaks, fixed=False)
         if config.parameters:
             cluster_params = apply_constraints(cluster_params, config.parameters)
@@ -173,19 +225,48 @@ def _prepare_cluster_tasks(
             if pid in current_params:
                 cluster_params[pid].value = current_params[pid].value
 
-        tasks.append((idx, cluster, cluster_params, data_noise, optimizer, optimizer_config))
+        tasks.append(
+            ClusterFitTask(
+                cluster_id=cluster.cluster_id,
+                cluster=cluster,
+                params=cluster_params,
+                noise=data_noise,
+                optimizer=optimizer,
+                config=optimizer_config,
+            )
+        )
     return tasks
 
 
 def _process_execution_results(
-    results_iter: Iterable[Any],
+    results_iter: Iterable[FitResult],
     results_map: dict[int, FitResult],
+    *,
+    expected_cluster_ids: Sequence[int],
 ) -> Iterator[FitResult]:
     """Yield fit results from an executor iterator."""
-    for task_res in results_iter:
-        task_idx, result = task_res
-        results_map[task_idx] = result
+    duplicates: set[int] = set()
+    for result in results_iter:
+        if result.cluster_id in results_map:
+            duplicates.add(result.cluster_id)
+            continue
+        results_map[result.cluster_id] = result
         yield result
+
+    if duplicates:
+        msg = f"Duplicate optimizer result cluster_id values: {sorted(duplicates)}"
+        raise ValueError(msg)
+
+    expected_ids = set(expected_cluster_ids)
+    unexpected = sorted(results_map.keys() - expected_ids)
+    if unexpected:
+        msg = f"Unexpected optimizer result cluster_id values: {unexpected}"
+        raise ValueError(msg)
+
+    missing = sorted(expected_ids - results_map.keys())
+    if missing:
+        msg = f"Missing optimizer result cluster_id values: {missing}"
+        raise ValueError(msg)
 
 
 def _build_optimizer_config(config: PeakFitConfig, optimizer: str) -> OptimizerConfig:

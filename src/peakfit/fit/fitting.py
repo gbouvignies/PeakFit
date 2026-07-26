@@ -187,7 +187,7 @@ def find_review_clusters(result: FitRun) -> list[ClusterReview]:
 
         reviews.append(
             ClusterReview(
-                cluster_id=str(fit_res.metadata.get("cluster_id", "??")),
+                cluster_id=str(fit_res.cluster_id),
                 peak_names=fit_res.metadata.get("peak_names", []),
                 reason=reason,
                 redchi=fit_res.redchi,

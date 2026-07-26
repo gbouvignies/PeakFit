@@ -395,6 +395,7 @@ def fit_cluster(
     _update_amplitude_params(cluster, params, final_amplitudes, amp_stderrs)
 
     return FitResult(
+        cluster_id=cluster.cluster_id,
         params=params,
         residual=result.fun,
         cost=result.cost,

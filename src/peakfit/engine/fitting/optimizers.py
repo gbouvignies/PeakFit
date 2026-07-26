@@ -59,6 +59,7 @@ def _fit_varpro(
     residual = np.array([result.residual]) if np.shape(result.residual) == () else result.residual
 
     return FitResult(
+        cluster_id=cluster.cluster_id,
         params=result.params,
         residual=residual,
         cost=result.cost,
@@ -69,7 +70,6 @@ def _fit_varpro(
         optimality=result.optimality,
         n_amplitude_params=result.n_amplitude_params,
         metadata={
-            "cluster_id": cluster.cluster_id,
             "peak_names": [p.name for p in cluster.peaks],
             "fit_time": perf_counter() - start_time,
         },
@@ -98,6 +98,7 @@ def _fit_basin_hopping(
     wall_time = perf_counter() - start_time
 
     return FitResult(
+        cluster_id=cluster.cluster_id,
         params=result.params,
         residual=result.residual,
         cost=float(result.cost),
@@ -106,7 +107,6 @@ def _fit_basin_hopping(
         message=result.message,
         n_amplitude_params=result.n_amplitude_params,
         metadata={
-            "cluster_id": cluster.cluster_id,
             "peak_names": [p.name for p in cluster.peaks],
             "global_iterations": result.global_iterations,
             "local_minimizations": result.local_minimizations,

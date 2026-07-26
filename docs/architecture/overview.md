@@ -1,6 +1,6 @@
 # Current Architecture Overview
 
-This page describes PeakFit as audited on 2026-07-25. It is a map of the current
+This page describes PeakFit as audited on 2026-07-26. It is a map of the current
 implementation, not a target design. Findings use these labels:
 
 - **Verified** — supported directly by source, tests, configuration, or observed
@@ -45,7 +45,7 @@ automatic picker. The observed help still describes the overall CLI as
 | Lineshape | The `Shape` protocol, `ShapeBase`, and twelve configured singlet/doublet implementations across Gaussian, Lorentzian, pseudo-Voigt, SP1, SP2, and no-apodization families. |
 | Parameters | Mutable scalar `Parameters`/`Parameter` objects plus vectorized `FitParameters` and `ParameterMap`. Canonical identifiers have `peak.axis.label` or `cluster_N.axis.label` form; amplitudes use the pseudo axis and an index. |
 | Fit state | `FittingState`, which stores clusters, both parameter representations, noise, and a version. |
-| Optimizer result | `FitResult` for one cluster, including fitted scalar parameters, residuals, convergence metadata, and amplitude parameter count. |
+| Optimizer result | `FitResult` for one cluster, including a first-class run-local `cluster_id`, fitted scalar parameters, residuals, convergence metadata, and amplitude parameter count. |
 | Run state and output model | `LoadedData`, `FitRun`, and `RunSummary` describe orchestration; `FitResults` and related dataclasses describe writer input; Pydantic schemas describe JSON output. |
 
 **Verified.** Peak positions, cluster corrections, scalar parameters, parameter
@@ -77,7 +77,10 @@ one another but have no continuing synchronization invariant.
    connected components, assigns peaks, and extracts each component as a
    point-by-plane matrix.
 6. **Parameter setup and fitting.** `run_fit` creates scalar parameters and
-   executes `run_pipeline_iter`, using a process pool when requested. Each fit
+   executes `run_pipeline_iter`, using a process pool when requested. The
+   pipeline rejects duplicate input cluster identifiers, carries `cluster_id`
+   through optimizer tasks and results, validates the exact returned identity
+   set, and sorts completed results by identifier for presentation. Each fit
    step rebuilds cluster-local parameters, applies global and step constraints,
    calls either VARPRO or basin hopping, merges returned parameters, and updates
    cross-talk corrections between passes.
