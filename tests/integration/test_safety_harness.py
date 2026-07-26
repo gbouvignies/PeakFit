@@ -426,18 +426,17 @@ class TestNumericalStability:
                 assert row["value"] > 0, f"Linewidth {row['parameter_name']} should be positive"
 
     def test_standard_errors_non_negative(self, fit_output_dir):
-        """Check that standard errors are non-negative."""
+        """Check that available standard errors are numeric and non-negative."""
         csv_path = fit_output_dir / "tables" / "parameters.csv"
         df = pd.read_csv(csv_path, comment="#")
 
         # Filter to varying parameters
         varying = df[~df["is_fixed"]]
+        standard_errors = pd.to_numeric(varying["std_error"], errors="coerce")
+        unavailable = varying["std_error"].eq("unavailable")
 
-        for _, row in varying.iterrows():
-            if pd.notna(row["std_error"]):
-                assert row["std_error"] >= 0, (
-                    f"Standard error for {row['parameter_name']} should be non-negative"
-                )
+        assert (standard_errors.notna() | unavailable).all(), "Some std_errors are invalid"
+        assert (standard_errors.dropna() >= 0).all(), "Some std_errors are negative"
 
 
 # =============================================================================
@@ -587,7 +586,15 @@ class TestCLIEntrypoints:
         df = pd.read_csv(params_csv, comment="#")
         phase_rows = df[df["parameter_name"].str.endswith(".F3.phase")]
         assert not phase_rows.empty, "F3 phase parameter is missing from parameters.csv with --phx"
-        assert phase_rows["peak_name"].str.startswith("cluster_").all()
+        phase_cluster_ids = phase_rows["parameter_name"].str.extract(r"^cluster_(\d+)\.F3\.phase$")[
+            0
+        ]
+        assert phase_cluster_ids.notna().all(), (
+            "F3 phase rows must use canonical cluster parameters"
+        )
+        assert phase_rows["cluster_id"].astype(str).eq(phase_cluster_ids).all()
+        assert phase_rows["peak_name"].str.strip().ne("").all()
+        assert not phase_rows["peak_name"].str.startswith("cluster_").any()
 
     def test_fit_missing_spectrum_error_is_actionable(self, tmp_path):
         """Invalid input errors should name the missing user-provided path."""

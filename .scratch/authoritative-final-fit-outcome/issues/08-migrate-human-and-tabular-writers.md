@@ -48,3 +48,12 @@ to JSON.
   ordering, terminal-provenance, successful-sounding-message, empty-unusable-
   numerical-field, cross-consumer, and no-legacy-reconstruction coverage.
 - Simulation remains deliberately deferred to ticket 09.
+
+### 2026-07-26 — CSV safety-harness contract clarification
+
+- `parameters.csv` represents an absent final nonlinear standard error as the
+  explicit string `unavailable`; consumers must accept that value and must not
+  fabricate a numerical uncertainty.
+- Shared phase parameters retain their stable identity through matching
+  `cluster_<id>.F3.phase` and `cluster_id`. The normalized `peak_name` column
+  remains a concrete peak label, not a synthetic `cluster_<id>` pseudo-peak.
