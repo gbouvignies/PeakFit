@@ -78,22 +78,21 @@ def project_residuals(data: np.ndarray, q: np.ndarray) -> np.ndarray:
 def calculate_amplitudes(shapes: FloatArray, data: FloatArray) -> FloatArray:
     """Calculate peak amplitudes via QR decomposition (more stable than Normal Equations)."""
     if not np.all(np.isfinite(shapes)) or not np.all(np.isfinite(data)):
-        n_peaks = shapes.shape[0]
-        extra_dims = data.shape[1:] if data.ndim > 1 else ()
-        return np.full((n_peaks, *extra_dims), np.nan)
+        return _nan_amplitude_solution(shapes, data)[0]
 
-    q, r = qr_decomposition(shapes)
-    if np.linalg.matrix_rank(r) < r.shape[0]:
-        warnings.warn(
-            "Rank-deficient design matrix detected while solving amplitudes; "
-            "falling back to least-squares solution.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        qty = q.T @ data
-        result, *_ = np.linalg.lstsq(r, qty, rcond=None)
-        return cast("FloatArray", result)
-    return solve_amplitudes(q, r, data)
+    with np.errstate(over="ignore", invalid="ignore"):
+        q, r = qr_decomposition(shapes)
+        if np.linalg.matrix_rank(r) < r.shape[0]:
+            warnings.warn(
+                "Rank-deficient design matrix detected while solving amplitudes; "
+                "falling back to least-squares solution.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            qty = q.T @ data
+            result, *_ = np.linalg.lstsq(r, qty, rcond=None)
+            return cast("FloatArray", result)
+        return solve_amplitudes(q, r, data)
 
 
 def calculate_amplitude_covariance(shapes: FloatArray, noise: float) -> FloatArray:
@@ -104,23 +103,24 @@ def calculate_amplitude_covariance(shapes: FloatArray, noise: float) -> FloatArr
     Using QR: Shapes.T = Q R.  Shapes @ Shapes.T = R.T Q.T Q R = R.T R.
     Cov = (R.T R)^-1 * sigma^2 = R^-1 (R.T)^-1 * sigma^2
     """
-    _, r = qr_decomposition(shapes)
+    with np.errstate(over="ignore", invalid="ignore"):
+        _, r = qr_decomposition(shapes)
 
-    try:
-        r_inv = np.linalg.inv(r)
-        cov = r_inv @ r_inv.T
-    except np.linalg.LinAlgError:
-        warnings.warn(
-            "Rank-deficient design matrix detected while computing amplitude covariance; "
-            "falling back to pseudo-inverse.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        # Fallback to pseudo-inverse of STS
-        sts = shapes @ shapes.T
-        cov = np.linalg.pinv(sts)
+        try:
+            r_inv = np.linalg.inv(r)
+            cov = r_inv @ r_inv.T
+        except np.linalg.LinAlgError:
+            warnings.warn(
+                "Rank-deficient design matrix detected while computing amplitude covariance; "
+                "falling back to pseudo-inverse.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            # Fallback to pseudo-inverse of STS
+            sts = shapes @ shapes.T
+            cov = np.linalg.pinv(sts)
 
-    return np.asarray(cov * (noise**2), dtype=np.float64)
+        return np.asarray(cov * np.square(noise), dtype=np.float64)
 
 
 def calculate_amplitudes_with_uncertainty(
@@ -128,45 +128,58 @@ def calculate_amplitudes_with_uncertainty(
 ) -> tuple[FloatArray, FloatArray, FloatArray]:
     """Calculate amplitudes and their uncertainties."""
     if not np.all(np.isfinite(shapes)) or not np.all(np.isfinite(data)):
-        n_peaks = shapes.shape[0]
-        extra_dims = data.shape[1:] if data.ndim > 1 else ()
-        return (
-            np.full((n_peaks, *extra_dims), np.nan),
-            np.full((n_peaks,), np.nan),
-            np.full((n_peaks, n_peaks), np.nan),
-        )
+        return _nan_amplitude_solution(shapes, data)
 
-    q, r = qr_decomposition(shapes)
-    if np.linalg.matrix_rank(r) < r.shape[0]:
-        warnings.warn(
-            "Rank-deficient design matrix detected while solving amplitudes; "
-            "falling back to least-squares solution.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        qty = q.T @ data
-        amplitudes, *_ = np.linalg.lstsq(r, qty, rcond=None)
-    else:
-        amplitudes = solve_amplitudes(q, r, data)
+    with np.errstate(over="ignore", invalid="ignore"):
+        q, r = qr_decomposition(shapes)
+        if np.linalg.matrix_rank(r) < r.shape[0]:
+            warnings.warn(
+                "Rank-deficient design matrix detected while solving amplitudes; "
+                "falling back to least-squares solution.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            qty = q.T @ data
+            amplitudes, *_ = np.linalg.lstsq(r, qty, rcond=None)
+        else:
+            amplitudes = solve_amplitudes(q, r, data)
 
-    # Covariance
-    try:
-        r_inv = np.linalg.inv(r)
-        covariance = (r_inv @ r_inv.T) * (noise**2)
-    except np.linalg.LinAlgError:
-        warnings.warn(
-            "Rank-deficient design matrix detected while computing amplitude covariance; "
-            "falling back to pseudo-inverse.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        sts = shapes @ shapes.T
-        covariance = np.linalg.pinv(sts) * (noise**2)
+    amplitudes = np.asarray(amplitudes, dtype=np.float64)
+    if not np.all(np.isfinite(amplitudes)):
+        return _nan_amplitude_solution(shapes, data)
 
-    errors = np.sqrt(np.maximum(np.diag(covariance), 0.0))
+    with np.errstate(over="ignore", invalid="ignore"):
+        try:
+            r_inv = np.linalg.inv(r)
+            covariance = (r_inv @ r_inv.T) * np.square(noise)
+        except np.linalg.LinAlgError:
+            warnings.warn(
+                "Rank-deficient design matrix detected while computing amplitude covariance; "
+                "falling back to pseudo-inverse.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            sts = shapes @ shapes.T
+            covariance = np.linalg.pinv(sts) * np.square(noise)
+
+        errors = np.sqrt(np.maximum(np.diag(covariance), 0.0))
 
     return (
-        np.asarray(amplitudes, dtype=np.float64),
+        amplitudes,
         np.asarray(errors, dtype=np.float64),
         np.asarray(covariance, dtype=np.float64),
+    )
+
+
+def _nan_amplitude_solution(
+    shapes: np.ndarray,
+    data: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return correctly shaped non-finite amplitude results."""
+    n_peaks = shapes.shape[0]
+    extra_dims = data.shape[1:] if data.ndim > 1 else ()
+    return (
+        np.full((n_peaks, *extra_dims), np.nan),
+        np.full((n_peaks,), np.nan),
+        np.full((n_peaks, n_peaks), np.nan),
     )

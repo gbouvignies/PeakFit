@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -12,6 +13,10 @@ from peakfit.engine.algorithms.evaluation import (
     FitOutcomeClassification,
     classify_optimizer_result,
     evaluate_analytical_model,
+)
+from peakfit.engine.algorithms.linear_algebra import (
+    calculate_amplitude_covariance,
+    calculate_amplitudes_with_uncertainty,
 )
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import BasinHoppingConfig, FitConfig, VarProConfig
@@ -221,6 +226,86 @@ def test_analytical_model_evaluation_rejects_nonfinite_amplitudes(
 
     assert isinstance(evaluation, AnalyticalEvaluationFailure)
     assert evaluation.reason == "non-finite analytical amplitudes"
+
+
+def test_amplitude_solver_skips_covariance_after_nonfinite_amplitudes() -> None:
+    shapes = np.array([[1e-200]], dtype=np.float64)
+    data = np.array([[1e308]], dtype=np.float64)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        amplitudes, errors, covariance = calculate_amplitudes_with_uncertainty(
+            shapes,
+            data,
+            noise=1.0,
+        )
+
+    assert not np.isfinite(amplitudes).all()
+    assert np.isnan(errors).all()
+    assert np.isnan(covariance).all()
+
+
+def test_evaluator_keeps_nonfinite_covariance_as_uncertainty_failure(
+    gaussian_fit: GaussianFit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    n_peaks = len(gaussian_fit.cluster.peaks)
+    monkeypatch.setattr(
+        "peakfit.engine.algorithms.evaluation.calculate_amplitudes_with_uncertainty",
+        lambda *_args: (
+            np.ones((n_peaks, gaussian_fit.cluster.n_series)),
+            np.full((n_peaks,), np.inf),
+            np.full((n_peaks, n_peaks), np.inf),
+        ),
+    )
+
+    evaluation = evaluate_analytical_model(gaussian_fit.cluster, gaussian_fit.params, noise=1.0)
+
+    assert isinstance(evaluation, AnalyticalEvaluationFailure)
+    assert evaluation.reason == "non-finite amplitude uncertainty inputs"
+
+
+def test_amplitude_solver_preserves_nonfinite_covariance_for_finite_amplitudes() -> None:
+    shapes = np.array([[1e-200]], dtype=np.float64)
+    data = np.array([[1e-200]], dtype=np.float64)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        amplitudes, errors, covariance = calculate_amplitudes_with_uncertainty(
+            shapes,
+            data,
+            noise=1.0,
+        )
+
+    assert np.isfinite(amplitudes).all()
+    assert not np.isfinite(errors).all()
+    assert not np.isfinite(covariance).all()
+
+
+def test_amplitude_calculations_preserve_ordinary_finite_results() -> None:
+    shapes = np.array([[2.0, 0.0], [0.0, 3.0]], dtype=np.float64)
+    data = np.array([[4.0, 6.0], [9.0, 12.0]], dtype=np.float64)
+
+    amplitudes, errors, covariance = calculate_amplitudes_with_uncertainty(
+        shapes,
+        data,
+        noise=2.0,
+    )
+
+    np.testing.assert_allclose(amplitudes, [[2.0, 3.0], [3.0, 4.0]])
+    np.testing.assert_allclose(errors, [1.0, 2.0 / 3.0])
+    np.testing.assert_allclose(covariance, [[1.0, 0.0], [0.0, 4.0 / 9.0]])
+    np.testing.assert_allclose(calculate_amplitude_covariance(shapes, noise=2.0), covariance)
+
+
+def test_amplitude_covariance_suppresses_floating_point_overflow_warning() -> None:
+    shapes = np.array([[1e-200]], dtype=np.float64)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        covariance = calculate_amplitude_covariance(shapes, noise=1.0)
+
+    assert not np.isfinite(covariance).all()
 
 
 @pytest.mark.parametrize(
