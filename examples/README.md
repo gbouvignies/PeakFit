@@ -13,7 +13,7 @@ PeakFit now follows a simple command flow:
 ## Recommended Path
 
 Start with `02-advanced-fitting/`; it is the canonical ready-to-run workflow:
-fit a pseudo-3D dataset, inspect canonical CSV/JSON outputs, and generate CEST
+fit a pseudo-ND dataset, inspect canonical CSV/JSON outputs, and generate CEST
 and intensity plots. Use the other examples only when you need that specific task.
 
 ## Examples
@@ -21,7 +21,7 @@ and intensity plots. Use the other examples only when you need that specific tas
 | Directory | Workflow | Status |
 | --- | --- | --- |
 | `01-basic-fitting/` | Minimal fit template for your own data | Template |
-| `02-advanced-fitting/` | Ready-to-run pseudo-3D CEST fit + plotting | Ready |
+| `02-advanced-fitting/` | Ready-to-run pseudo-ND CEST fit + plotting | Ready |
 | `03-global-optimization/` | Optional optimizer comparison for difficult fits | Ready |
 | `04-uncertainty-analysis/` | Optional post-fit MCMC analysis from saved results | Ready |
 | `05-constraints-and-fit-steps/` | Optional constraint-driven and multi-step fits | Ready |

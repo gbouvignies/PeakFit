@@ -33,8 +33,8 @@ class LineshapeContext:
 def get_axis_label(dim_index: int) -> str:
     """Get the axis label for a dimension using Bruker Topspin convention.
 
-    For pseudo-3D experiments:
-    - F1 = pseudo-dimension (intensities, CEST offsets, etc.)
+    For pseudo-ND experiments:
+    - F1 = pseudo-dimensional axis (intensities, CEST offsets, etc.)
     - F2 = first spectral dimension (indirect, e.g., 15N)
     - F3 = second spectral dimension (direct/acquisition, e.g., 1H)
 

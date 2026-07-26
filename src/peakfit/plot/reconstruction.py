@@ -72,7 +72,7 @@ class SpectraReconstructor:
         """Reconstruct a single 2D plane of the spectrum.
 
         Args:
-            plane_index: Index of the plane (Z-dimension)
+            plane_index: Index of the plane along the pseudo-dimensional axis
             grid_shape_2d: Shape of the 2D plane (Y, X)
 
         Returns:

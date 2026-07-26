@@ -15,7 +15,7 @@ from peakfit.cli.commands.plot import plot_app
 
 app = typer.Typer(
     name="peakfit",
-    help="PeakFit - Lineshape fitting for pseudo-3D NMR spectra",
+    help="PeakFit - Lineshape fitting for pseudo-ND NMR spectra",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -34,7 +34,7 @@ def main(
         ),
     ] = None,
 ) -> None:
-    """PeakFit - Modern lineshape fitting for pseudo-3D NMR spectra.
+    """PeakFit - Modern lineshape fitting for pseudo-ND NMR spectra.
 
     Workflow:
         1. peakfit fit spectrum.ft2 peaks.list     # Fit peak list

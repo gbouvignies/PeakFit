@@ -1,19 +1,19 @@
-# Example 2: Advanced Pseudo-3D CEST Workflow
+# Example 2: Advanced Pseudo-ND CEST Workflow
 
 This is the primary ready-to-run example for PeakFit.
 
 It demonstrates:
 
-- pseudo-3D fitting with `z_values`
+- pseudo-ND fitting with plane values supplied through `--z-values`
 - structured output files
 - publication-ready PDF plots
 - interactive `plot spectrum` review (Qt + Matplotlib)
 
 ## Dataset
 
-- `data/pseudo3d.ft2` (pseudo-3D spectrum)
+- `data/pseudo3d.ft2` (pseudo-ND spectrum)
 - `data/pseudo3d.list` (peak list)
-- `data/b1_offsets.txt` (CEST offsets)
+- `data/b1_offsets.txt` (plane values: CEST offsets)
 
 ## Quick Start
 

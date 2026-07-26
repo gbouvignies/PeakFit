@@ -8,7 +8,7 @@ Place your files under `data/`:
 
 - `data/spectrum.ft2` (or `.ft3`)
 - `data/peaks.list` (Sparky peak list)
-- optional `data/z_values.txt` for pseudo-3D data
+- optional `data/z_values.txt` plane values file for pseudo-ND data
 
 ## Run
 
@@ -20,7 +20,7 @@ The script automatically:
 
 - validates required files
 - runs `peakfit fit`
-- detects pseudo-3D mode when `data/z_values.txt` is present
+- uses plane values when `data/z_values.txt` is present
 - prints the latest run directory
 
 ## Manual Commands
@@ -31,7 +31,7 @@ The script automatically:
 peakfit fit data/spectrum.ft2 data/peaks.list --output results
 ```
 
-Pseudo-3D fit:
+Pseudo-ND fit:
 
 ```bash
 peakfit fit data/spectrum.ft2 data/peaks.list \

@@ -1,4 +1,4 @@
-"""PeakFit - lineshape fitting for pseudo-3D NMR spectra."""
+"""PeakFit - lineshape fitting for pseudo-ND NMR spectra."""
 
 import contextlib
 from importlib import metadata

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "== PeakFit Example 2: Advanced Pseudo-3D CEST Workflow =="
+echo "== PeakFit Example 2: Advanced Pseudo-ND CEST Workflow =="
 
 if ! command -v peakfit >/dev/null 2>&1; then
   echo "Error: 'peakfit' command not found."

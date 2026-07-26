@@ -104,7 +104,7 @@ def read_spectra(
     path_z_values: Path | None = None,
     exclude_list: Sequence[int] | None = None,
 ) -> Spectra:
-    """Read an NMRPipe spectrum and optional plane/z-values file."""
+    """Read an NMRPipe spectrum and optional plane values file."""
     dic, data = read(path_spectra)
     data = data.astype(np.float32)
 

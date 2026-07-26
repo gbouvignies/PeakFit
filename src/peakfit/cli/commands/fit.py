@@ -67,7 +67,7 @@ def fit_command(
         typer.Option(
             "--z-values",
             "-z",
-            help="Z-dimension values file",
+            help="Plane values file for a pseudo-ND spectrum",
             exists=True,
             dir_okay=False,
             resolve_path=True,
@@ -161,7 +161,7 @@ def fit_command(
         typer.Option("--verbose", "-v", help="Verbose output"),
     ] = False,
 ) -> None:
-    """Fit lineshapes to peaks in a pseudo-3D NMR spectrum.
+    """Fit lineshapes to peaks in a pseudo-ND NMR spectrum.
 
     Runs validation automatically before fitting. If validation fails,
     the fit will not proceed.
@@ -294,7 +294,7 @@ def _show_headless_command_summary(
                 {
                     "Spectrum": display_path(spectrum),
                     "Peak list": display_path(peaklist) if peaklist is not None else "Auto",
-                    "Z values": display_path(z_values) if z_values is not None else "None",
+                    "Plane values": display_path(z_values) if z_values is not None else "None",
                 },
             ),
             (

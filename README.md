@@ -14,7 +14,7 @@ peakfit plot spectrum --spectrum spectrum.ft2 --results Fits/<run_dir>
 ```
 
 Start with [`examples/02-advanced-fitting`](examples/02-advanced-fitting/) for a
-ready-to-run pseudo-3D CEST workflow.
+ready-to-run pseudo-ND CEST workflow.
 
 ## Install
 
@@ -73,8 +73,9 @@ Peak lists can be:
 - Tables (`.csv`, `.json`, `.xlsx`, `.xls`) with position columns such as
   `F1_ppm`, `w1`, or `Pos F1`.
 
-For pseudo-3D data, pass plane values with `--z-values`. CEST examples use B1
-offset values; CPMG plotting additionally needs `--time-t2`.
+For pseudo-ND data, use the retained `--z-values` option to supply one plane
+value per plane. CEST examples use B1 offset values; CPMG plotting additionally
+needs `--time-t2`.
 
 ## Outputs
 

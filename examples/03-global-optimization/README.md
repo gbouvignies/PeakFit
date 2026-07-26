@@ -1,7 +1,7 @@
 # Example 3: Optimizer Comparison (varpro vs basin_hopping)
 
 This optional example compares the default local optimizer (`varpro`) against
-the global optimizer (`basin_hopping`) on the same pseudo-3D dataset.
+the global optimizer (`basin_hopping`) on the same pseudo-ND dataset.
 
 ## Why This Example
 

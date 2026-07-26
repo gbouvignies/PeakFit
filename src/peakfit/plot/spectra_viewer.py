@@ -192,7 +192,7 @@ class SpectraViewer(QMainWindow):
         self._init_ui()
 
     def _init_ui(self) -> None:
-        self.setWindowTitle("NMR Pseudo-3D Spectra Viewer")
+        self.setWindowTitle("NMR Pseudo-ND Spectra Viewer")
         self.setGeometry(100, 100, 1000, 800)
 
         self._create_menu_bar()

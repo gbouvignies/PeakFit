@@ -24,7 +24,7 @@ Paste the relevant terminal output or error message.
 - PeakFit version or commit:
 - Python version:
 - Operating system:
-- Input type: 2D, pseudo-3D, CEST, CPMG, or other:
+- Input type: 2D, pseudo-ND, CEST, CPMG, or other:
 - Relevant output files: `summary/fit.json`, `tables/*.csv`, logs, or plots:
 
 ## Notes
