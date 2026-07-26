@@ -1,6 +1,12 @@
 # Point/series axis contract
 
-Status: ready-for-agent
+Status: completed
+Lifecycle: historical implementation record
+
+Implementation completed on 2026-07-26 and is protected by current tests. This
+record preserves the original rationale and acceptance criteria; current
+architecture and operational behavior are authoritative in code and current
+documentation.
 
 ## Problem Statement
 

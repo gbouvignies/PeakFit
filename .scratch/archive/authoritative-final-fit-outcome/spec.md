@@ -1,10 +1,13 @@
 # Authoritative Final Fit Outcome
 
-**Status:** ready-for-agent
+**Status:** completed
 
-**Design approval:** The maintainer approved the separate immutable
-`FinalFitOutcome` design and the decisions recorded below. Implementation has
-not started.
+**Lifecycle:** historical implementation record
+
+**Completion:** The approved `FinalFitOutcome` design was implemented and
+validated on 2026-07-26. This document preserves the rationale, migration plan,
+and ticket chronology; current architecture and operational behavior are
+authoritative in code and current documentation.
 
 ## Evidence Classification
 

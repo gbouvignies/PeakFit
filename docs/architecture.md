@@ -29,7 +29,8 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 2. `fit` validates inputs, loads spectra/peaks, prepares clusters, and runs direct fit pipeline functions.
    When no peak list is provided, `fit` delegates to the experimental `auto_pick` package instead of owning that logic.
 3. `engine` performs numerical work: clustering, lineshapes, optimizers, residuals, and statistics helpers.
-4. `fit.final_outcome` freezes completed scientific truth, while
+4. `fit.final_outcome` freezes completed scientific truth by run-local
+   `cluster_id` against the terminal correction revision, while
    `fit.output_metadata` captures non-scientific run metadata; `io` reads inputs
    and projects the outcome into structured artifacts.
 5. `mcmc` and `plot` run post-fit workflows from canonical fit outputs.
@@ -41,7 +42,8 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 - `fit`, `mcmc`, and `plot` may orchestrate workflows, but should call direct
   functions rather than adding manager/service layers.
 - `io.schemas` is the JSON validation/read contract. `FinalFitOutcome` is the
-  sole completed scientific result; `FittingState` is continuation-only.
+  sole completed scientific result; `FittingState` is continuation-only and
+  must not be used to reconstruct completed output.
 - `auto_pick` is intentionally separate from `fit` because it is experimental.
 
 ## Invariants To Preserve Or Change Explicitly
@@ -51,6 +53,8 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 - Input parsing errors should be clear and actionable.
 - Long-running jobs should show understandable progress and failures.
 - Pure numerical code should not accidentally depend on terminal UI, Typer, Qt, or filesystem side effects.
+- Peak-cluster data has the strict shape `(n_points, n_series)`; point, series,
+  observation, and amplitude counts derive from that one representation.
 - Public behavior changes should be documented with migration notes when needed.
 
 ## Simplification Notes

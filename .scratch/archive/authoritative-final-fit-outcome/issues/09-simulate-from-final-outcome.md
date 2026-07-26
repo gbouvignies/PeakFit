@@ -6,7 +6,7 @@ new amplitudes.
 
 **Blocked by:** 06 — Migrate CLI and RunSummary.
 
-**Status:** ready-for-human
+**Status:** resolved
 
 - [ ] Retain or construct the minimum final model snapshot needed to evaluate a
       simulated spectrum on its full output grid.
