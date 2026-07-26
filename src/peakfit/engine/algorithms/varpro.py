@@ -89,7 +89,7 @@ class VarProOptimizer:
         # PeakFit's objective is defined on the real part of the corrected data
         # (consistent with core.algorithms.common.residuals).
         data = np.asarray(self.cluster.corrected_data.real, dtype=np.float64)
-        self._data_matrix = data[:, np.newaxis] if data.ndim == 1 else data
+        self._data_matrix = data
 
         # Grid dimensions and d_matrix pre-allocation
         grid_indices = self.cluster.grid_indices

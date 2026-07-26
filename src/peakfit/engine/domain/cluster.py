@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.param_map import ParameterMap
     from peakfit.engine.domain.params_scalar import Parameters
 
+_CLUSTER_DATA_NDIM = 2
+
 
 @dataclass(slots=True)
 class Cluster:
@@ -26,8 +28,38 @@ class Cluster:
     corrections: FloatArray = field(init=False)
 
     def __post_init__(self) -> None:
-        """Initialize calculated fields."""
+        """Validate point-by-series data and initialize calculated fields."""
         self.data = np.asarray(self.data, dtype=np.float64)
+        self.grid_indices = [np.asarray(indices, dtype=np.intp) for indices in self.grid_indices]
+
+        if self.data.ndim != _CLUSTER_DATA_NDIM:
+            msg = (
+                "Cluster data must be a two-dimensional "
+                f"(n_points, n_series) array, got shape {self.data.shape}"
+            )
+            raise ValueError(msg)
+        if not self.grid_indices:
+            msg = "Cluster grid_indices cannot be empty"
+            raise ValueError(msg)
+
+        grid_point_counts = {indices.size for indices in self.grid_indices}
+        if len(grid_point_counts) != 1:
+            msg = "Cluster grid dimensions must contain the same number of points"
+            raise ValueError(msg)
+
+        grid_point_count = next(iter(grid_point_counts))
+        if grid_point_count == 0:
+            msg = "Cluster data must contain at least one point"
+            raise ValueError(msg)
+        if self.data.shape[0] != grid_point_count:
+            msg = (
+                f"Cluster data point count ({self.data.shape[0]}) does not match "
+                f"spectral grid point count ({grid_point_count})"
+            )
+            raise ValueError(msg)
+        if self.data.shape[1] == 0:
+            msg = "Cluster data must contain at least one series"
+            raise ValueError(msg)
 
         self.corrections = np.zeros_like(self.data, dtype=np.float64)
 
@@ -48,9 +80,19 @@ class Cluster:
         return self.data - self.corrections
 
     @property
+    def n_points(self) -> int:
+        """Return the number of sampled spectral grid points."""
+        return self.data.shape[0]
+
+    @property
     def n_series(self) -> int:
         """Return the number of spectra in the pseudo dimension."""
-        return self.corrected_data.shape[0] if self.corrected_data.ndim > 1 else 1
+        return self.data.shape[1]
+
+    @property
+    def n_observations(self) -> int:
+        """Return the number of scalar observations in the cluster."""
+        return self.data.size
 
     @property
     def n_amplitude_params(self) -> int:
@@ -144,6 +186,9 @@ class Cluster:
         """Concatenate two clusters, preserving peaks and data arrays."""
         if not isinstance(other, Cluster):
             return NotImplemented
+        if self.n_series != other.n_series:
+            msg = "Merged clusters must contain the same number of series"
+            raise ValueError(msg)
 
         # Concatenate positions
         new_positions = [

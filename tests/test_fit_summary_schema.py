@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION, FitSummarySchema
 
 
@@ -31,6 +34,7 @@ def _build_summary_payload(std_error: object) -> dict[str, object]:
 
 
 def test_fit_summary_accepts_null_parameter_std_error() -> None:
+    assert OUTPUT_SCHEMA_VERSION == "3.0.0"
     summary = FitSummarySchema.model_validate(_build_summary_payload(None))
     assert summary.schema_version == OUTPUT_SCHEMA_VERSION
     assert summary.clusters[0].lineshape_parameters[0].std_error is None
@@ -39,6 +43,18 @@ def test_fit_summary_accepts_null_parameter_std_error() -> None:
 def test_fit_summary_normalizes_nonfinite_std_error() -> None:
     summary = FitSummarySchema.model_validate(_build_summary_payload("nan"))
     assert summary.clusters[0].lineshape_parameters[0].std_error is None
+
+
+def test_fit_summary_rejects_the_development_axis_contract_schema() -> None:
+    payload = _build_summary_payload(0.01)
+    payload["schema_version"] = "2.0.0"
+
+    with pytest.raises(ValidationError, match="schema_version") as error:
+        FitSummarySchema.model_validate(payload)
+
+    message = str(error.value)
+    assert "2.0.0" in message
+    assert "3.0.0" in message
 
 
 def test_fit_summary_declares_mcmc_warnings() -> None:

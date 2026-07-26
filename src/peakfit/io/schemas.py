@@ -6,12 +6,12 @@ the output format used by current writers.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-OUTPUT_SCHEMA_VERSION = "2.0.0"
+OUTPUT_SCHEMA_VERSION: Literal["3.0.0"] = "3.0.0"
 
 
 def _normalize_optional_std_error(value: Any) -> float | None:
@@ -217,7 +217,7 @@ class FitSummarySchema(BaseModel):
     """
 
     # Versioning
-    schema_version: str = Field(description="Output schema version")
+    schema_version: Literal["3.0.0"] = Field(description="Output schema version")
 
     # Metadata
     metadata: RunMetadataSchema

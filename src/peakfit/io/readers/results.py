@@ -93,7 +93,6 @@ class ResultsLoader:
             params=fit_params,
             scalar_params=params,
             noise=noise,
-            version="1.1",
         )
 
     def _reconstruct_clusters_and_peaks(

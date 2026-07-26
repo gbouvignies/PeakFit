@@ -37,7 +37,7 @@ def simulate_data(params: Parameters, clusters: Sequence[Cluster], data: FloatAr
     amplitudes = np.concatenate(amplitudes_list)
     cluster_all = Cluster.from_clusters(list(clusters))
 
-    n_series = data.shape[0] if data.ndim > 1 else 1
+    n_series = data.shape[0]
     grid_shape = data.shape[1:]
 
     # Full-grid coordinate vectors: one coordinate per point (flattened)
@@ -46,15 +46,14 @@ def simulate_data(params: Parameters, clusters: Sequence[Cluster], data: FloatAr
 
     shapes_full = cluster_all.evaluate(params, positions)  # (n_peaks, n_points)
 
-    # Ensure amplitudes is 2D (n_peaks, n_series)
-    amp = np.asarray(amplitudes)
-    if amp.ndim == 1:
-        amp = amp[:, np.newaxis]
-    if amp.shape[1] != n_series:
-        amp = np.broadcast_to(amp, (amp.shape[0], n_series))
+    if amplitudes.shape[1] != n_series:
+        raise ValueError(
+            f"Cluster series count ({amplitudes.shape[1]}) does not match "
+            f"spectrum series count ({n_series})"
+        )
 
     # Model: (n_points, n_peaks) @ (n_peaks, n_series) -> (n_points, n_series)
-    model = shapes_full.T @ amp
+    model = shapes_full.T @ amplitudes
 
     # Return shape matches input (series, *grid)
     if n_series == 1:

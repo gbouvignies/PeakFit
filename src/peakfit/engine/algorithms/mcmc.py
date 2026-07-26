@@ -94,11 +94,9 @@ def _log_likelihood_blobs(x: FloatArray) -> tuple[float, FloatArray]:
     # Determine shapes
     n_peaks = len(_mcmc_state.cluster.peaks)
 
-    # Standardize data shape: (n_points, n_series)
+    # Cluster data are always (n_points, n_series).
     data = _mcmc_state.cluster.corrected_data
-    if data.ndim == 1:
-        data = data[:, np.newaxis]
-    n_series = data.shape[1]
+    n_series = _mcmc_state.cluster.n_series
 
     # Bounds check
     for i, (lb, ub) in enumerate(_mcmc_state.bounds):
@@ -365,11 +363,8 @@ def estimate_uncertainties_mcmc(
     # 4. Construct Parameter Names
     lineshape_names = vary_names
 
-    # Determine number of spectra properly (consistent with _log_likelihood_blobs)
-    data = cluster.corrected_data
-    if data.ndim == 1:
-        data = data[:, np.newaxis]
-    n_series = data.shape[1]
+    # Consistent with the point-by-series cluster data contract.
+    n_series = cluster.n_series
 
     amp_names = []
     # Standardized amplitude naming aligned with scalar parameter conventions:

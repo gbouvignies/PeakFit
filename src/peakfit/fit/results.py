@@ -233,10 +233,8 @@ def _build_cluster_statistics(
 ) -> FitStatistics:
     """Build statistics for a cluster."""
     n_lineshape_params = _count_varying_lineshape_params(cluster, params)
-    n_peaks = len(cluster.peaks)
-    n_series = cluster.corrected_data.shape[0] if cluster.corrected_data.ndim > 1 else 1
-    n_params = n_lineshape_params + (n_peaks * n_series)
-    n_data = cluster.corrected_data.size
+    n_params = n_lineshape_params + cluster.n_amplitude_params
+    n_data = cluster.n_observations
 
     normalized_residuals: np.ndarray | None = None
     try:
