@@ -19,7 +19,7 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.13
+        run: uv python install 3.14
 
       - name: Install dependencies
         # 'uv sync' automatically installs the project + 'dev' dependency group
@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.14"]
 
     steps:
       - uses: actions/checkout@v4
