@@ -8,22 +8,18 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from peakfit.engine.fitting.simulation import simulate_data
-
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.engine.domain.cluster import Cluster
-    from peakfit.engine.domain.params_scalar import Parameters
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.shared.reporter import Reporter
+    from peakfit.shared.typing import FloatArray
 
 
 def write_simulated_spectra(
     output_dir: Path,
     spectra: Spectra,
-    clusters: list[Cluster],
-    params: Parameters,
+    data_simulated: FloatArray,
     reporter: Reporter | None = None,
 ) -> Path | None:
     """Write optional simulated spectra to an NMRPipe file."""
@@ -34,8 +30,6 @@ def write_simulated_spectra(
 
     if reporter:
         reporter.action("Writing simulated spectra...")
-
-    data_simulated = simulate_data(params, clusters, spectra.data)
 
     if spectra.pseudo_dim_added:
         data_simulated = np.squeeze(data_simulated, axis=0)

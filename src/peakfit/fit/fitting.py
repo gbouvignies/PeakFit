@@ -29,6 +29,7 @@ from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 from peakfit.fit.results import capture_output_metadata
 from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart, RunSummary
+from peakfit.fit.simulation import simulate_final_outcome
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
 from peakfit.io.state import default_state_path, save_state
@@ -258,12 +259,15 @@ def run_fit(
         outcome = pipeline_result.final_outcome
         if outcome is None:
             raise RuntimeError("Pipeline completed without a final fit outcome.")
+        if pipeline_result.simulation_snapshot is None:
+            raise RuntimeError("Pipeline completed without a final model snapshot.")
 
         return FitRun(
             outcome=outcome,
             continuation_state=pipeline_result.state,
             output_dir=output_dir,
             spectra=data.spectra,
+            simulation_snapshot=pipeline_result.simulation_snapshot,
         )
     finally:
         logger.setLevel(prev_level)
@@ -370,13 +374,15 @@ def write_fit_run_outputs(
     )
 
     if config.output.save_simulated:
-        write_simulated_spectra(
-            output_dir,
-            spectra,
-            fit_run.state.clusters,
-            fit_run.state.scalar_params,
-            reporter,
+        if fit_run.simulation_snapshot is None:
+            raise RuntimeError("Simulated output requires the final model snapshot.")
+        simulated_data = simulate_final_outcome(
+            fit_run.outcome,
+            fit_run.simulation_snapshot,
+            spectra.data,
         )
+        if simulated_data is not None:
+            write_simulated_spectra(output_dir, spectra, simulated_data, reporter)
 
     state_file = default_state_path(output_dir)
     save_state(state_file, fit_run.state)

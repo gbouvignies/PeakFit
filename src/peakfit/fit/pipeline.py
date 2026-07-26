@@ -26,6 +26,7 @@ from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.optimizers import fit_with_optimizer
 from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
+from peakfit.fit.simulation import FinalModelSnapshot
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -69,6 +70,7 @@ class PipelineResult:
     n_optimizer_passes: int = 0
     n_correction_updates: int = 0
     final_outcome: FinalFitOutcome | None = None
+    simulation_snapshot: FinalModelSnapshot | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -291,7 +293,17 @@ def run_pipeline_iter(
         n_optimizer_passes=len(passes),
         n_correction_updates=correction_updates,
     )
-    yield replace(completion, final_outcome=finalize_fit(completion))
+    final_outcome = finalize_fit(completion)
+    simulation_snapshot = FinalModelSnapshot.capture(
+        final_outcome,
+        completion.state,
+        terminal_snapshot,
+    )
+    yield replace(
+        completion,
+        final_outcome=final_outcome,
+        simulation_snapshot=simulation_snapshot,
+    )
 
 
 def _validate_cluster_ids(clusters: Sequence[Cluster]) -> tuple[int, ...]:

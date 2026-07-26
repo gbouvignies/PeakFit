@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.engine.domain.state import FittingState
     from peakfit.fit.final_outcome import FinalFitOutcome
+    from peakfit.fit.simulation import FinalModelSnapshot
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,7 @@ class FitRun:
     continuation_state: FittingState
     output_dir: Path
     spectra: Spectra | None = None
+    simulation_snapshot: FinalModelSnapshot | None = None
 
     @property
     def state(self) -> FittingState:

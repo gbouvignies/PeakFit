@@ -6,7 +6,7 @@ new amplitudes.
 
 **Blocked by:** 06 — Migrate CLI and RunSummary.
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 - [ ] Retain or construct the minimum final model snapshot needed to evaluate a
       simulated spectrum on its full output grid.
@@ -23,3 +23,20 @@ new amplitudes.
       state.
 - [ ] Verify with
       `uv run pytest -q -p no:cacheprovider -k "simulated_spectrum or simulation"`.
+
+## Comments
+
+- Implemented the completed-run simulation projection from `FinalFitOutcome`
+  plus a verified, copied final model snapshot. Usable outcomes supply retained
+  analytical amplitudes; unusable outcomes supply no simulated model, and an
+  all-unusable run writes no simulated spectrum.
+- Added deterministic coverage for outcome classifications, nonconsecutive
+  identities, reverse snapshot order, multidimensional grids, series and
+  grid-index validation, no amplitude solve, no legacy result reconstruction,
+  source immutability, and finite-input equivalence with the former projection.
+- Validation passes for the focused simulation suite, ticket 01–08 consumer
+  coverage, Ruff, formatting, ty, import contracts, and `git diff --check`.
+  The repository-wide safety harness still has two unrelated ticket-08 CSV
+  failures: nonnumeric `"unavailable"` standard errors and phase rows assigned
+  to a peak rather than `cluster_<id>`. They are outside ticket 09 scope and
+  were left unchanged.
