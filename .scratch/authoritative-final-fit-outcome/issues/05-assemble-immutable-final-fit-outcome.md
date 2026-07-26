@@ -5,7 +5,7 @@ and constructs one deeply immutable completed fit outcome.
 
 **Blocked by:** 04 — Finalize cross-talk before the terminal fit.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Provide the single
       `finalize_fit(pipeline_completion) -> FinalFitOutcome` construction seam.
@@ -43,3 +43,31 @@ and constructs one deeply immutable completed fit outcome.
       outside finalization.
 - [ ] Verify with
       `uv run pytest -q -p no:cacheprovider -k "final_fit_outcome or final_cluster_outcome"`.
+
+## Comments
+
+### 2026-07-26 — Immutable final outcome complete
+
+- Added `finalize_fit(PipelineResult) -> FinalFitOutcome` as the one-way
+  finalization seam. It validates exact terminal `cluster_id` identity,
+  terminal correction revision and snapshot membership, finite matching noise,
+  ticket-03 evaluation consistency, and usable terminal nonlinear values
+  against the merged final state.
+- `FinalFitOutcome` freezes ordered per-cluster outcomes, read-only identity
+  lookup, merged nonlinear value records, final correction revision, run pass
+  counts, global usable-only statistics, and copied terminal optimizer
+  provenance. Arrays are copied and made read-only; nested provenance values
+  are recursively frozen. Unusable outcomes retain only identity,
+  classification, reason, revision, and provenance.
+- `PipelineResult` now carries the authoritative outcome separately from its
+  mutable `FittingState` continuation state. CLI, `RunSummary`, persistence,
+  writers, and simulation deliberately remain on their existing paths for
+  later tickets.
+- Added deterministic finalization tests for all classifications, nonconsecutive
+  identities and lookup, deep immutability, source-state mutation, exact
+  ticket-03 evaluation reuse, actual provenance, invalid identity/revision,
+  noise, parameter, and empty-completion failures.
+- Validation passed: focused ticket-05 tests (`16 passed`); combined ticket
+  01–04 characterization selection (`41 passed, 3 xfailed`); full headless
+  suite; Ruff lint and format checks; `ty check --error-on-warning`;
+  `lint-imports`; and `git diff --check`.

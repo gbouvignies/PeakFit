@@ -44,9 +44,10 @@ automatic picker. The observed help still describes the overall CLI as
 | Peak cluster | Mutable `Cluster` with peaks, spectral grid indices, a strict `(n_points, n_series)` data matrix, and mutable cross-talk corrections. Construction rejects other dimensionalities and point-count mismatches. Code generally shortens the term to “cluster”; some user documentation says “overlap cluster”. |
 | Lineshape | The `Shape` protocol, `ShapeBase`, and twelve configured singlet/doublet implementations across Gaussian, Lorentzian, pseudo-Voigt, SP1, SP2, and no-apodization families. |
 | Parameters | Mutable scalar `Parameters`/`Parameter` objects plus vectorized `FitParameters` and `ParameterMap`. Canonical identifiers have `peak.axis.label` or `cluster_N.axis.label` form; amplitudes use the pseudo axis and an index. |
-| Fit state | `FittingState`, which stores clusters, both parameter representations, noise, and a version. |
+| Fit state | `FittingState`, which stores mutable clusters, both parameter representations, noise, and a version for continuation and diagnostics. It is not completed scientific truth. |
 | Optimizer result | `FitResult` for one cluster, including a first-class run-local `cluster_id`, fitted scalar parameters, residuals, convergence metadata, and amplitude parameter count. `FitEvaluation` independently classifies that result as converged, usable non-converged, or unusable and carries a typed analytical evaluation only when usable. |
-| Run state and output model | `LoadedData`, `FitRun`, and `RunSummary` describe orchestration; `FitResults` and related dataclasses describe writer input; Pydantic schemas describe JSON output. |
+| Completed fit outcome | `FinalFitOutcome` is the immutable authoritative completed result. It has ordered per-cluster outcomes plus `cluster_id` lookup, final nonlinear values, a copied ticket-03 analytical evaluation for usable clusters, and terminal optimizer provenance. |
+| Run state and output model | `PipelineResult` carries mutable continuation state alongside `FinalFitOutcome`, but is not itself scientific authority. `LoadedData`, `FitRun`, and `RunSummary` describe orchestration; `FitResults` and related dataclasses still describe writer input; Pydantic schemas describe JSON output. |
 
 **Verified.** Peak positions, cluster corrections, scalar parameters, parameter
 caches, and portions of UI state are mutable. `Parameter` keeps a parent
@@ -93,10 +94,12 @@ one another but have no continuing synchronization invariant.
    values, residuals, chi-squared statistics, and amplitude-uncertainty scaling
    inputs as one typed value. Optimizer convergence remains independent from
    this numerical usability decision.
-8. **Final state and results.** The pipeline creates `FittingState` and returns
-   final `FitResult` objects. `build_fit_results` separately re-evaluates every
-   cluster to construct parameter estimates, amplitudes, uncertainties,
-   residual statistics, and run metadata.
+8. **Final state and results.** The pipeline freezes its terminal correction
+   snapshot, validates terminal optimizer results and ticket-03 evaluations by
+   `cluster_id`, and assembles one immutable `FinalFitOutcome`. It returns that
+   outcome alongside mutable `FittingState` continuation state. `build_fit_results`
+   still separately re-evaluates every cluster for legacy writer input; migrating
+   that projection is deliberately deferred.
 9. **Persistence.** Writers produce schema-versioned `summary/fit.json`,
    `tables/parameters.csv`, `tables/intensities.csv`, optional shifts and
    Markdown output, a run README, and optionally a simulated spectrum.
@@ -182,10 +185,11 @@ one another but have no continuing synchronization invariant.
 2. **Verified — validation/parser duplication.** Preflight peak-list readers can
    accept rows or names that the real readers later reject or interpret
    differently. There are no equivalence tests across supported formats.
-3. **Verified — result truth is split.** Persisted statistics mark every
-   re-evaluated cluster converged with zero function evaluations instead of
-   preserving the optimizer's `success`, `nfev`, and message. The CLI review path
-   and output files can therefore describe convergence differently.
+3. **Partially resolved — result truth is split.** `FinalFitOutcome` now keeps
+   terminal classification, provenance, and shared analytical values separate
+   from mutable continuation state. CLI review and output writers still use
+   their older paths, so they can describe convergence differently until their
+   planned migrations.
 4. **Verified — state persistence has two unequal paths.** Pickle preserves
    numerical state; JSON reconstruction is intentionally minimal and excludes
    amplitudes and real cluster grids. Tests only protect the canonical JSON path,

@@ -41,6 +41,8 @@ class FitResult:
     residual: FloatArray
     cost: float
     correction_revision: int | None = None
+    optimizer_kind: str | None = None
+    noise: float | None = None
     nfev: int = 0
     njev: int = 0
     success: bool = False

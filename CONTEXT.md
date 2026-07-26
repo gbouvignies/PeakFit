@@ -87,6 +87,21 @@ from that cluster's data before fitting.
 **Fit run**:
 One completed fitting workflow and its associated results.
 
+**Final fit outcome**:
+The immutable authoritative scientific result assembled once every terminal
+cluster optimizer result has been classified under the frozen final correction
+revision. It is distinct from mutable fitting continuation state.
+
+**Final cluster outcome**:
+The immutable terminal outcome for one `cluster_id`: converged, usable
+non-converged, or unusable. Unusable outcomes retain only identity,
+classification, reason, correction revision, and optimizer provenance.
+
+**Numerical usability**:
+Whether the shared analytical evaluation can supply finite amplitudes, model,
+residuals, statistics, and uncertainty inputs. It is independent of optimizer
+convergence.
+
 **Automatic peak picking**:
 Experimental peak discovery from residual signal when no peak list is supplied.
 

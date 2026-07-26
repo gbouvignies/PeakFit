@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
@@ -25,6 +25,7 @@ from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.optimizers import fit_with_optimizer
+from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -59,7 +60,7 @@ class CorrectionSnapshot:
 
 @dataclass(frozen=True)
 class PipelineResult:
-    """Aggregate output of a pipeline run."""
+    """Orchestration output with mutable continuation state and final outcome."""
 
     state: FittingState
     results: list[FitResult]
@@ -67,6 +68,7 @@ class PipelineResult:
     correction_snapshot: CorrectionSnapshot | None = None
     n_optimizer_passes: int = 0
     n_correction_updates: int = 0
+    final_outcome: FinalFitOutcome | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +130,22 @@ def fit_single_cluster_task(
         msg = (
             "Optimizer result correction_revision does not match submitted task: "
             f"expected {task.correction_revision}, got {result.correction_revision}"
+        )
+        raise ValueError(msg)
+    if result.optimizer_kind is None:
+        result.optimizer_kind = task.optimizer
+    elif result.optimizer_kind != task.optimizer:
+        msg = (
+            "Optimizer result optimizer_kind does not match submitted task: "
+            f"expected {task.optimizer}, got {result.optimizer_kind}"
+        )
+        raise ValueError(msg)
+    if result.noise is None:
+        result.noise = task.noise
+    elif result.noise != task.noise:
+        msg = (
+            "Optimizer result noise does not match submitted task: "
+            f"expected {task.noise}, got {result.noise}"
         )
         raise ValueError(msg)
     return result
@@ -217,6 +235,8 @@ def run_pipeline_iter(
             step_results_map,
             expected_cluster_ids=cluster_ids,
             correction_revision=correction_snapshot.revision,
+            optimizer_kind=optimizer,
+            noise=data_noise,
         )
 
         current_fit_results = [step_results_map[cluster_id] for cluster_id in cluster_ids]
@@ -263,7 +283,7 @@ def run_pipeline_iter(
         scalar_params=final_params,
         noise=data_noise,
     )
-    yield PipelineResult(
+    completion = PipelineResult(
         state=state,
         results=current_fit_results,
         evaluations=current_evaluations,
@@ -271,6 +291,7 @@ def run_pipeline_iter(
         n_optimizer_passes=len(passes),
         n_correction_updates=correction_updates,
     )
+    yield replace(completion, final_outcome=finalize_fit(completion))
 
 
 def _validate_cluster_ids(clusters: Sequence[Cluster]) -> tuple[int, ...]:
@@ -339,6 +360,8 @@ def _process_execution_results(
     *,
     expected_cluster_ids: Sequence[int],
     correction_revision: int,
+    optimizer_kind: str,
+    noise: float,
 ) -> Iterator[FitResult]:
     """Yield fit results from an executor iterator."""
     duplicates: set[int] = set()
@@ -349,6 +372,21 @@ def _process_execution_results(
             msg = (
                 "Optimizer result correction_revision does not match pass snapshot: "
                 f"expected {correction_revision}, got {result.correction_revision}"
+            )
+            raise ValueError(msg)
+        if result.optimizer_kind is None:
+            result.optimizer_kind = optimizer_kind
+        elif result.optimizer_kind != optimizer_kind:
+            msg = (
+                "Optimizer result optimizer_kind does not match pass: "
+                f"expected {optimizer_kind}, got {result.optimizer_kind}"
+            )
+            raise ValueError(msg)
+        if result.noise is None:
+            result.noise = noise
+        elif result.noise != noise:
+            msg = (
+                f"Optimizer result noise does not match pass: expected {noise}, got {result.noise}"
             )
             raise ValueError(msg)
         if result.cluster_id in results_map:
