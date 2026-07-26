@@ -1,16 +1,12 @@
-import json
+import pytest
 
 from peakfit.fit.results import (
     AmplitudeEstimate,
     ClusterEstimates,
-    ConvergenceStatus,
     FitResults,
     FitStatistics,
-    MCMCDiagnostics,
-    ParameterDiagnostic,
     ParameterEstimate,
 )
-from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import build_output_plan, write_fit_outputs
 
@@ -67,7 +63,7 @@ def test_txt_format_adds_markdown_report(tmp_path) -> None:
 
 
 def test_txt_format_writes_markdown_report(tmp_path) -> None:
-    written = write_fit_outputs(_results(), tmp_path, WriterConfig(formats=("json", "csv", "txt")))
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig(formats=("csv", "txt")))
 
     report_path = written["report"]
     text = report_path.read_text(encoding="utf-8")
@@ -78,31 +74,28 @@ def test_txt_format_writes_markdown_report(tmp_path) -> None:
 
 
 def test_write_fit_outputs_returns_fit_artifacts_only(tmp_path) -> None:
-    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig(formats=("csv",)))
 
     assert "manifest" not in written
-    assert "summary_fit" in written
+    assert "summary_fit" not in written
     assert "parameters" in written
     assert "intensities" in written
 
 
 def test_fit_outputs_do_not_write_manifest(tmp_path) -> None:
-    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig(formats=("csv",)))
 
     assert "manifest" not in written
     assert not (tmp_path / "manifest.json").exists()
 
 
-def test_json_outputs_use_current_schema_version(tmp_path) -> None:
-    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
-
-    with written["summary_fit"].open() as fh:
-        payload = json.load(fh)
-    assert payload["schema_version"] == OUTPUT_SCHEMA_VERSION
+def test_json_output_requires_the_authoritative_final_outcome(tmp_path) -> None:
+    with pytest.raises(ValueError, match="FinalFitOutcome"):
+        write_fit_outputs(_results(), tmp_path, WriterConfig(formats=("json",)))
 
 
 def test_parameters_csv_keeps_only_table_relevant_columns(tmp_path) -> None:
-    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig(formats=("csv",)))
 
     header = written["parameters"].read_text(encoding="utf-8").splitlines()[0].split(",")
 
@@ -119,7 +112,7 @@ def test_parameters_csv_keeps_only_table_relevant_columns(tmp_path) -> None:
 
 
 def test_intensities_csv_orders_series_columns_for_reading(tmp_path) -> None:
-    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig(formats=("csv",)))
 
     header = written["intensities"].read_text(encoding="utf-8").splitlines()[0].split(",")
 
@@ -134,7 +127,7 @@ def test_intensities_csv_orders_series_columns_for_reading(tmp_path) -> None:
 
 
 def test_shifts_csv_orders_shift_columns_for_reading(tmp_path) -> None:
-    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig(formats=("csv",)))
 
     header = written["shifts"].read_text(encoding="utf-8").splitlines()[0].split(",")
 
@@ -142,46 +135,16 @@ def test_shifts_csv_orders_shift_columns_for_reading(tmp_path) -> None:
 
 
 def test_fit_outputs_do_not_duplicate_run_metadata(tmp_path) -> None:
-    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig(formats=("csv",)))
 
     assert "metadata_run" not in written
     assert not (tmp_path / "metadata" / "run.json").exists()
 
 
 def test_fit_outputs_do_not_duplicate_summary_diagnostics(tmp_path) -> None:
-    written = write_fit_outputs(_results(), tmp_path, WriterConfig())
+    written = write_fit_outputs(_results(), tmp_path, WriterConfig(formats=("csv",)))
 
     assert "statistics" not in written
     assert "diagnostics_mcmc" not in written
     assert not (tmp_path / "diagnostics" / "statistics.json").exists()
-    assert not (tmp_path / "diagnostics" / "mcmc.json").exists()
-
-
-def test_summary_mcmc_uses_schema_parameter_field(tmp_path) -> None:
-    results = _results()
-    results.mcmc_diagnostics = [
-        MCMCDiagnostics(
-            n_chains=4,
-            n_samples=100,
-            burn_in=20,
-            parameter_diagnostics=[
-                ParameterDiagnostic(
-                    name="A1.F2.cs",
-                    rhat=1.02,
-                    ess_bulk=500.0,
-                    ess_tail=450.0,
-                    status=ConvergenceStatus.ACCEPTABLE,
-                )
-            ],
-        )
-    ]
-
-    written = write_fit_outputs(results, tmp_path, WriterConfig())
-
-    with written["summary_fit"].open() as fh:
-        summary = json.load(fh)
-
-    mcmc_summary = summary["mcmc_diagnostics"][0]
-    assert "parameters" in mcmc_summary
-    assert "parameter_diagnostics" not in mcmc_summary
     assert not (tmp_path / "diagnostics" / "mcmc.json").exists()

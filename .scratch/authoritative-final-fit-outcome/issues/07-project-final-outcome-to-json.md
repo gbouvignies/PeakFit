@@ -6,7 +6,7 @@ come directly from the final fit outcome.
 
 **Blocked by:** 05 — Assemble the immutable final fit outcome.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Make result construction accept the final outcome as its only source of
       fitted estimates, statistics, and provenance.
@@ -34,3 +34,20 @@ come directly from the final fit outcome.
       projection and schema tests.
 - [ ] Verify with
       `uv run pytest -q -p no:cacheprovider -k "fit_summary_schema or json_statistics or optimizer_provenance"`.
+
+## Comments
+
+### 2026-07-26 — JSON 4.0.0 final-outcome projection complete
+
+- Added a narrow JSON projection from `FinalFitOutcome`; it copies frozen
+  analytical values and actual terminal provenance without inspecting mutable
+  continuation state or re-evaluating a model.
+- Schema 4.0.0 nests classification, correction revision, provenance, final
+  nonlinear parameters, and nullable analytical evaluation under each stable
+  `cluster_id`. Unusable outcomes contain an explicit reason and no scientific
+  numerical section. Legacy 3.0.0 input is explicitly rejected.
+- JSON-only output now captures only metadata and plane values; the existing
+  reconstructed `FitResults` path remains for deferred CSV and Markdown work.
+- Added deterministic mixed/all-converged/all-unusable, ordering, identity,
+  provenance, exact-value, and reader-validation coverage. The remaining
+  strict xfail is the ticket-08 Markdown cross-consumer migration.

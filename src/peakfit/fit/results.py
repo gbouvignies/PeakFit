@@ -55,7 +55,7 @@ def build_fit_results(
     input_files: dict[str, Path],
 ) -> FitResults:
     """Build structured fit results for output writers."""
-    metadata = _capture_metadata(config, input_files)
+    metadata = capture_output_metadata(config, input_files)
     noise = state.noise or 1.0
     z_values = spectra.z_values
 
@@ -84,7 +84,8 @@ def build_fit_results(
     )
 
 
-def _capture_metadata(config: dict[str, Any], input_files: dict[str, Path]) -> RunMetadata:
+def capture_output_metadata(config: dict[str, Any], input_files: dict[str, Path]) -> RunMetadata:
+    """Capture operational metadata without evaluating any fitted model."""
     run_metadata = RunMetadata(
         timestamp=datetime.now(UTC).isoformat(),
         software_version=__version__,
@@ -348,4 +349,5 @@ __all__ = [
     "ResidualStatistics",
     "RunMetadata",
     "build_fit_results",
+    "capture_output_metadata",
 ]

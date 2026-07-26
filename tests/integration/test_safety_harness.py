@@ -189,7 +189,7 @@ class TestPublicWorkflows:
         summary = FitSummarySchema.model_validate(payload)
 
         assert summary.clusters
-        assert payload["global_statistics"]["chi_squared"] > 0
+        assert payload["statistics"]["chi_squared"] > 0
 
     def test_parameters_csv_excludes_amplitudes(self, fit_output_dir):
         """Model parameters and per-plane amplitudes should not be mixed."""
@@ -307,24 +307,24 @@ class TestJsonSchema:
         with json_path.open() as f:
             data = json.load(f)
 
-        required_keys = ["metadata", "clusters", "global_statistics"]
+        required_keys = ["metadata", "clusters", "statistics"]
         for key in required_keys:
             assert key in data, f"Required top-level key missing: {key}"
 
-    def test_global_statistics_structure(self, fit_output_dir):
-        """Verify global_statistics has expected fields."""
+    def test_final_statistics_structure(self, fit_output_dir):
+        """Verify usable-only final statistics have expected fields."""
         json_path = fit_output_dir / "summary" / "fit.json"
         with json_path.open() as f:
             data = json.load(f)
 
-        stats = data.get("global_statistics", {})
+        stats = data.get("statistics", {})
         # Core fields that must be present for downstream processing
         expected_fields = [
             "chi_squared",
             "reduced_chi_squared",
         ]
         for field in expected_fields:
-            assert field in stats, f"global_statistics missing field: {field}"
+            assert field in stats, f"statistics missing field: {field}"
 
     def test_cluster_structure(self, fit_output_dir):
         """Verify cluster entries have expected structure."""
@@ -337,7 +337,14 @@ class TestJsonSchema:
 
         # Check first cluster structure
         cluster = clusters[0]
-        required_fields = ["cluster_id", "peak_names", "parameters"]
+        required_fields = [
+            "cluster_id",
+            "peak_names",
+            "classification",
+            "optimizer_provenance",
+            "final_nonlinear_parameters",
+            "analytical_evaluation",
+        ]
         for field in required_fields:
             assert field in cluster, f"Cluster missing field: {field}"
 
@@ -348,7 +355,7 @@ class TestJsonSchema:
             data = json.load(f)
 
         clusters = data.get("clusters", [])
-        params = clusters[0].get("parameters", [])
+        params = clusters[0].get("final_nonlinear_parameters", [])
         assert len(params) > 0, "Cluster should have parameters"
 
         # Check first parameter structure
@@ -372,7 +379,7 @@ class TestNumericalStability:
         with json_path.open() as f:
             data = json.load(f)
 
-        chi2 = data["global_statistics"]["chi_squared"]
+        chi2 = data["statistics"]["chi_squared"]
         assert chi2 > 0, "Chi-squared should be positive"
         assert chi2 < 1e15, "Chi-squared seems unreasonably large"
 
@@ -382,7 +389,7 @@ class TestNumericalStability:
         with json_path.open() as f:
             data = json.load(f)
 
-        redchi = data["global_statistics"]["reduced_chi_squared"]
+        redchi = data["statistics"]["reduced_chi_squared"]
         # Good fits typically have reduced chi2 between 0.1 and 10
         assert redchi > 0, "Reduced chi-squared should be positive"
         assert redchi < 100, "Reduced chi-squared seems too large (bad fit)"
@@ -449,7 +456,7 @@ class TestGoldenComparison:
             new_data = json.load(f)
         baseline = _load_baseline()
 
-        new_chi2 = new_data["global_statistics"]["chi_squared"]
+        new_chi2 = new_data["statistics"]["chi_squared"]
         golden_chi2 = baseline["chi_squared"]
 
         rel_diff = abs(new_chi2 - golden_chi2) / max(golden_chi2, 1e-10)
@@ -466,7 +473,7 @@ class TestGoldenComparison:
             new_data = json.load(f)
         baseline = _load_baseline()
 
-        new_n = new_data["n_clusters"]
+        new_n = len(new_data["clusters"])
         golden_n = baseline["n_clusters"]
 
         assert new_n == golden_n, f"Cluster count changed: {new_n} vs golden {golden_n}"
@@ -479,7 +486,7 @@ class TestGoldenComparison:
             new_data = json.load(f)
         baseline = _load_baseline()
 
-        new_n = new_data["n_peaks"]
+        new_n = sum(len(cluster["peak_names"]) for cluster in new_data["clusters"])
         golden_n = baseline["n_peaks"]
 
         assert new_n == golden_n, f"Peak count changed: {new_n} vs golden {golden_n}"

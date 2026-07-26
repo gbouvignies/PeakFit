@@ -121,23 +121,20 @@ def test_json_output_integrity(run_golden_fit):
     baseline = _load_baseline()
 
     # Check structural integrity - same keys present
-    assert "global_statistics" in new_data, (
-        f"Missing 'global_statistics'. Keys found: {list(new_data.keys())}"
-    )
+    assert "statistics" in new_data, f"Missing 'statistics'. Keys found: {list(new_data.keys())}"
 
-    new_stats = new_data["global_statistics"]
+    new_stats = new_data["statistics"]
 
     # Check essential keys are present (clean-break output contract)
     expected_keys = {
         "chi_squared",
         "reduced_chi_squared",
         "degrees_of_freedom",
-        "n_data",
-        "n_params",
-        "fit_converged",
+        "n_observations",
+        "n_fitted_parameters",
     }
     for key in expected_keys:
-        assert key in new_stats, f"Missing key '{key}' in global_statistics"
+        assert key in new_stats, f"Missing key '{key}' in statistics"
 
     # Check chi-squared is reasonable (same order of magnitude)
     new_chi2 = new_stats["chi_squared"]

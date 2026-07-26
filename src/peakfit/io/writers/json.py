@@ -1,223 +1,212 @@
-"""JSON summary writer."""
+"""JSON 4.0.0 projection of immutable completed-fit outcomes."""
 
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, cast
+import math
+from collections.abc import Mapping
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION, FitSummarySchema
-from peakfit.io.writers.config import WriterConfig
-from peakfit.io.writers.utils import JsonValue, NumpyEncoder, canonical_parameter_name
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
-    from peakfit.fit.results import (
-        ClusterEstimates,
-        FitResults,
-        FitStatistics,
-        MCMCDiagnostics,
-        ParameterDiagnostic,
-        ParameterEstimate,
-        RunMetadata,
+    from peakfit.fit.final_outcome import (
+        FinalAnalyticalEvaluation,
+        FinalClusterOutcome,
+        FinalFitOutcome,
+        FinalFitStatistics,
+        FinalParameter,
+        OptimizerProvenance,
     )
+    from peakfit.fit.result_models import RunMetadata
 
 
-def write_summary(
-    results: FitResults,
+def write_final_outcome_summary(
+    outcome: FinalFitOutcome,
+    *,
+    metadata: RunMetadata,
+    z_values: np.ndarray | None,
     path: Path,
-    config: WriterConfig | None = None,
 ) -> Path:
-    """Write the canonical machine-readable fit summary."""
-    cfg = config or WriterConfig()
+    """Write a completed-fit JSON document without consulting mutable state.
+
+    This is intentionally a narrow adapter.  Other writer formats still use
+    their legacy projection until their dedicated migration ticket; JSON is the
+    first durable consumer of ``FinalFitOutcome``.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-
-    output: dict[str, JsonValue] = {
-        "schema_version": OUTPUT_SCHEMA_VERSION,
-        "metadata": _serialize_metadata(results.metadata),
-        "method": results.method,
-        "n_clusters": results.n_clusters,
-        "n_peaks": results.n_peaks,
-        "clusters": [_serialize_cluster(cluster, cfg) for cluster in results.clusters],
-    }
-
-    if results.statistics:
-        output["statistics"] = [_serialize_statistics(stats, cfg) for stats in results.statistics]
-
-    if results.global_statistics:
-        output["global_statistics"] = _serialize_statistics(results.global_statistics, cfg)
-
-    if results.mcmc_diagnostics:
-        output["mcmc_diagnostics"] = [
-            _serialize_mcmc_diagnostics(diagnostic, cfg) for diagnostic in results.mcmc_diagnostics
-        ]
-
-    if results.z_values is not None:
-        output["z_axis"] = {"values": results.z_values.tolist()}
-
+    output = _summary_document(outcome, metadata=metadata, z_values=z_values)
     FitSummarySchema.model_validate(output)
-    _write_json(output, path)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(output, handle, indent=2, ensure_ascii=False, allow_nan=False)
+        handle.write("\n")
     return path
 
 
-def _serialize_metadata(metadata: RunMetadata) -> dict[str, JsonValue]:
-    result: dict[str, JsonValue] = {
+def _summary_document(
+    outcome: FinalFitOutcome,
+    *,
+    metadata: RunMetadata,
+    z_values: np.ndarray | None,
+) -> dict[str, Any]:
+    document: dict[str, Any] = {
+        "schema_version": OUTPUT_SCHEMA_VERSION,
+        "metadata": _serialize_metadata(metadata),
+        "terminal_correction_revision": outcome.terminal_correction_revision,
+        "noise": _finite_value(outcome.noise),
+        "final_nonlinear_parameters": [
+            _serialize_parameter(parameter) for parameter in outcome.final_nonlinear_parameters
+        ],
+        "clusters": [_serialize_cluster(cluster) for cluster in outcome.clusters],
+        "statistics": _serialize_final_statistics(outcome.statistics),
+    }
+    if z_values is not None:
+        document["z_axis"] = {"values": _json_value(np.asarray(z_values))}
+    return document
+
+
+def _serialize_metadata(metadata: RunMetadata) -> dict[str, Any]:
+    return {
         "timestamp": metadata.timestamp,
         "software_version": metadata.software_version,
+        "git_commit": metadata.git_commit,
         "python_version": metadata.python_version,
         "platform": metadata.platform,
+        "input_files": _json_value(metadata.input_files),
+        "configuration": _json_value(metadata.configuration),
+        "command_line": metadata.command_line,
+        "run_duration_seconds": _optional_finite_value(metadata.run_duration_seconds),
     }
-    if metadata.git_commit:
-        result["git_commit"] = metadata.git_commit
-    if metadata.command_line:
-        result["command_line"] = metadata.command_line
-    if metadata.input_files:
-        result["input_files"] = cast("JsonValue", metadata.input_files)
-    if metadata.configuration:
-        result["configuration"] = metadata.configuration
-    if metadata.run_duration_seconds is not None:
-        result["run_duration_seconds"] = metadata.run_duration_seconds
-    return result
 
 
-def _serialize_cluster(
-    cluster: ClusterEstimates,
-    config: WriterConfig,
-) -> dict[str, JsonValue]:
-    result: dict[str, JsonValue] = {
+def _serialize_cluster(cluster: FinalClusterOutcome) -> dict[str, Any]:
+    return {
         "cluster_id": cluster.cluster_id,
-        "peak_names": cast("JsonValue", cluster.peak_names),
-        "parameters": [
-            _serialize_parameter(parameter, config) for parameter in cluster.lineshape_params
+        "peak_names": list(cluster.peak_names),
+        "classification": cluster.classification.value,
+        "unusable_reason": cluster.unusable_reason,
+        "correction_revision": cluster.correction_revision,
+        "optimizer_provenance": _serialize_provenance(cluster.optimizer_provenance),
+        "final_nonlinear_parameters": [
+            _serialize_parameter(parameter) for parameter in cluster.final_nonlinear_parameters
         ],
+        "analytical_evaluation": (
+            _serialize_evaluation(cluster.analytical_evaluation)
+            if cluster.analytical_evaluation is not None
+            else None
+        ),
     }
-    if cluster.correlation_matrix is not None:
-        result["correlation"] = {
-            "parameter_names": cast("JsonValue", cluster.correlation_param_names),
-            "matrix": cluster.correlation_matrix.tolist(),
-        }
-    return result
 
 
-def _serialize_parameter(
-    param: ParameterEstimate,
-    config: WriterConfig,
-) -> dict[str, JsonValue]:
-    precision = config.precision
-    threshold = config.scientific_notation_threshold
-
-    result: dict[str, JsonValue] = {
-        "name": canonical_parameter_name(param),
-        "category": param.category.value,
-        "value": _format_value(param.value, precision, threshold),
-        "std_error": _format_value(param.std_error, precision, threshold),
-        "unit": param.unit,
-        "is_fixed": param.is_fixed,
-        "is_global": param.is_global,
-    }
-    if param.param_id is not None:
-        result["label"] = param.param_id.label
-        result["axis"] = param.param_id.axis or "F0"
-
-    if param.ci_68_lower is not None:
-        result["ci_68"] = {
-            "lower": _format_value(param.ci_68_lower, precision, threshold),
-            "upper": _format_value(param.ci_68_upper, precision, threshold),
-        }
-    if param.ci_95_lower is not None:
-        result["ci_95"] = {
-            "lower": _format_value(param.ci_95_lower, precision, threshold),
-            "upper": _format_value(param.ci_95_upper, precision, threshold),
-        }
-
-    if not np.isinf(param.min_bound):
-        result["min_bound"] = _format_value(param.min_bound, precision, threshold)
-    if not np.isinf(param.max_bound):
-        result["max_bound"] = _format_value(param.max_bound, precision, threshold)
-
-    return result
-
-
-def _serialize_statistics(
-    stats: FitStatistics,
-    config: WriterConfig,
-) -> dict[str, JsonValue]:
-    precision = config.precision
-    threshold = config.scientific_notation_threshold
-
-    result: dict[str, JsonValue] = {
-        "chi_squared": _format_value(stats.chi_squared, precision, threshold),
-        "reduced_chi_squared": _format_value(stats.reduced_chi_squared, precision, threshold),
-        "degrees_of_freedom": stats.dof,
-        "n_data": stats.n_data,
-        "n_params": stats.n_params,
-        "fit_converged": stats.fit_converged,
-    }
-    if stats.aic is not None:
-        result["aic"] = _format_value(stats.aic, precision, threshold)
-    if stats.bic is not None:
-        result["bic"] = _format_value(stats.bic, precision, threshold)
-    if stats.log_likelihood is not None:
-        result["log_likelihood"] = _format_value(stats.log_likelihood, precision, threshold)
-    return result
-
-
-def _serialize_mcmc_diagnostics(
-    diag: MCMCDiagnostics,
-    config: WriterConfig,
-) -> dict[str, JsonValue]:
+def _serialize_parameter(parameter: FinalParameter) -> dict[str, Any]:
     return {
-        "overall_status": diag.overall_status.value,
-        "converged": diag.converged,
-        "n_chains": diag.n_chains,
-        "n_samples": diag.n_samples,
-        "burn_in": diag.burn_in,
-        "burn_in_method": diag.burn_in_method,
-        "total_samples": diag.total_samples,
-        "warnings": cast("JsonValue", diag.all_warnings),
-        "parameters": [
-            _serialize_parameter_diagnostic(param, config) for param in diag.parameter_diagnostics
-        ],
+        "name": parameter.name,
+        "value": _finite_value(parameter.value),
+        "min_bound": _optional_finite_value(parameter.min),
+        "max_bound": _optional_finite_value(parameter.max),
+        "vary": parameter.vary,
+        "unit": parameter.unit,
+        "standard_error": _optional_finite_value(parameter.standard_error),
     }
 
 
-def _serialize_parameter_diagnostic(
-    diagnostic: ParameterDiagnostic,
-    config: WriterConfig,
-) -> dict[str, JsonValue]:
-    precision = config.precision
+def _serialize_evaluation(evaluation: FinalAnalyticalEvaluation) -> dict[str, Any]:
     return {
-        "name": diagnostic.name,
-        "rhat": round(diagnostic.rhat, precision) if diagnostic.rhat is not None else None,
-        "ess_bulk": diagnostic.ess_bulk,
-        "ess_tail": diagnostic.ess_tail,
-        "status": diagnostic.status.value,
-        "warnings": cast("JsonValue", diagnostic.warnings),
+        "shapes": _json_value(evaluation.shapes),
+        "amplitudes": _json_value(evaluation.amplitudes),
+        "amplitude_standard_errors": _json_value(evaluation.amplitude_standard_errors),
+        "amplitude_covariance": _json_value(evaluation.amplitude_covariance),
+        "scaled_amplitude_standard_errors": _json_value(
+            evaluation.scaled_amplitude_standard_errors
+        ),
+        "model_values": _json_value(evaluation.model_values),
+        "raw_residuals": _json_value(evaluation.raw_residuals),
+        "normalized_residuals": _json_value(evaluation.normalized_residuals),
+        "statistics": {
+            "chi_squared": _finite_value(evaluation.statistics.chi_squared),
+            "n_observations": evaluation.statistics.n_observations,
+            "n_nonlinear_parameters": evaluation.statistics.n_nonlinear_parameters,
+            "n_amplitude_parameters": evaluation.statistics.n_amplitude_parameters,
+            "n_fitted_parameters": evaluation.statistics.n_fitted_parameters,
+            "degrees_of_freedom": evaluation.statistics.degrees_of_freedom,
+            "reduced_chi_squared": _finite_value(evaluation.statistics.reduced_chi_squared),
+            "amplitude_uncertainty_scale": _finite_value(
+                evaluation.statistics.amplitude_uncertainty_scale
+            ),
+            "aic": _finite_value(evaluation.statistics.aic),
+            "bic": _finite_value(evaluation.statistics.bic),
+            "log_likelihood": _finite_value(evaluation.statistics.log_likelihood),
+        },
     }
 
 
-def _format_value(value: float | None, precision: int, threshold: float) -> float | None:
+def _serialize_provenance(provenance: OptimizerProvenance) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "success": provenance.converged,
+        "correction_revision": provenance.correction_revision,
+        "metadata": _json_value(provenance.metadata),
+    }
+    optional_values = {
+        "optimizer_kind": provenance.optimizer_kind,
+        "termination_message": provenance.termination_message,
+        "function_evaluations": provenance.function_evaluations,
+        "jacobian_evaluations": provenance.jacobian_evaluations,
+        "iterations": provenance.iterations,
+        "optimality": _optional_finite_value(provenance.optimality),
+        "final_cost": _optional_finite_value(provenance.final_cost),
+    }
+    result.update({key: value for key, value in optional_values.items() if value is not None})
+    return result
+
+
+def _serialize_final_statistics(statistics: FinalFitStatistics) -> dict[str, Any]:
+    return {
+        "chi_squared": _finite_value(statistics.chi_squared),
+        "reduced_chi_squared": _finite_value(statistics.reduced_chi_squared),
+        "n_observations": statistics.n_observations,
+        "n_fitted_parameters": statistics.n_fitted_parameters,
+        "degrees_of_freedom": statistics.degrees_of_freedom,
+        "aic": _optional_finite_value(statistics.aic),
+        "bic": _optional_finite_value(statistics.bic),
+        "log_likelihood": _optional_finite_value(statistics.log_likelihood),
+        "function_evaluations": statistics.function_evaluations,
+    }
+
+
+def _finite_value(value: float) -> float:
+    converted = float(value)
+    if not math.isfinite(converted):
+        raise ValueError("Completed-fit JSON cannot represent a non-finite scientific value.")
+    return converted
+
+
+def _optional_finite_value(value: float | None) -> float | None:
     if value is None:
         return None
-
-    numeric_value = float(value)
-    if not np.isfinite(numeric_value):
-        return None
-
-    scientific_cutoff = 10**threshold
-    if numeric_value != 0 and (
-        abs(numeric_value) < 1 / scientific_cutoff or abs(numeric_value) >= scientific_cutoff
-    ):
-        return float(f"{numeric_value:.{precision}e}")
-    return round(numeric_value, precision)
+    converted = float(value)
+    return converted if math.isfinite(converted) else None
 
 
-def _write_json(data: dict[str, JsonValue], path: Path) -> None:
-    with path.open("w") as f:
-        json.dump(data, f, indent=2, cls=NumpyEncoder, ensure_ascii=False)
-        f.write("\n")
+def _json_value(value: Any) -> Any:
+    """Copy immutable and NumPy values into JSON primitives without mutation."""
+    if isinstance(value, np.generic):
+        return _json_value(value.item())
+    if isinstance(value, np.ndarray):
+        return _json_value(value.tolist())
+    if isinstance(value, Mapping):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, (set, frozenset)):
+        value = sorted(value, key=repr)
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    if isinstance(value, float):
+        return _finite_value(value)
+    if isinstance(value, (str, Path, int, bool)) or value is None:
+        return str(value) if isinstance(value, Path) else value
+    raise TypeError(f"Cannot serialize {type(value).__name__} as JSON provenance metadata.")
 
 
-__all__ = ["write_summary"]
+__all__ = ["write_final_outcome_summary"]

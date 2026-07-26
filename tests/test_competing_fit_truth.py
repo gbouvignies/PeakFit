@@ -21,12 +21,15 @@ from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.optimizers import fit_with_optimizer
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
-from peakfit.fit.final_outcome import finalize_fit
+from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
 from peakfit.fit.fitting import find_review_clusters
 from peakfit.fit.pipeline import CorrectionSnapshot, PipelineResult, run_pipeline
+from peakfit.fit.result_models import RunMetadata
 from peakfit.fit.results import build_fit_results
 from peakfit.fit.run_models import FitRun
-from peakfit.io.writers.json import write_summary
+from peakfit.io.readers.results import ResultsLoader
+from peakfit.io.schemas import FitSummarySchema
+from peakfit.io.writers.json import write_final_outcome_summary
 from peakfit.io.writers.markdown import write_report
 
 if TYPE_CHECKING:
@@ -164,6 +167,72 @@ def _terminal_result(
     )
 
 
+def _final_outcome_for_json(
+    states: dict[int, tuple[bool, bool]],
+    *,
+    optimizer_kind: str = "varpro",
+) -> tuple[FinalFitOutcome, Spectra, list[FitResult]]:
+    """Build final outcomes with deterministic classifications for JSON contracts."""
+    fit = _synthetic_fit(tuple(states))
+    results = []
+    for index, (cluster, (success, usable)) in enumerate(
+        zip(fit.clusters, states.values(), strict=True),
+        start=1,
+    ):
+        result = _terminal_result(
+            cluster,
+            success=success,
+            residual_value=0.1 * index if usable else np.nan,
+            nfev=7 * index,
+            message=f"terminal-{cluster.cluster_id}",
+            nonfinite_parameter=not usable,
+        )
+        result.metadata["nested"] = {
+            "values": np.array([cluster.cluster_id, index], dtype=np.int64),
+        }
+        result.optimizer_kind = optimizer_kind
+        results.append(result)
+    state = FittingState(
+        clusters=fit.clusters,
+        params=FitParameters.from_parameters(fit.params, fit.peaks),
+        scalar_params=fit.params,
+        noise=1.0,
+    )
+    evaluations = [
+        classify_optimizer_result(cluster=cluster, result=result, noise=1.0)
+        for cluster, result in zip(fit.clusters, results, strict=True)
+    ]
+    outcome = finalize_fit(
+        PipelineResult(
+            state=state,
+            results=results,
+            evaluations=evaluations,
+            correction_snapshot=CorrectionSnapshot(
+                revision=0,
+                corrections=MappingProxyType(
+                    {cluster.cluster_id: cluster.corrections.copy() for cluster in fit.clusters}
+                ),
+            ),
+            n_optimizer_passes=1,
+        )
+    )
+    return outcome, fit.spectra, results
+
+
+def _write_final_outcome_json(
+    outcome: FinalFitOutcome,
+    spectra: Spectra,
+    path: Path,
+) -> dict[str, object]:
+    json_path = write_final_outcome_summary(
+        outcome,
+        metadata=RunMetadata(),
+        z_values=spectra.z_values,
+        path=path,
+    )
+    return json.loads(json_path.read_text(encoding="utf-8"))
+
+
 @pytest.fixture
 def competing_truth(tmp_path: Path) -> CompetingTruth:
     fit = _synthetic_fit()
@@ -286,28 +355,6 @@ def test_current_reconstruction_synthesizes_convergence_and_provenance(
     assert persisted[0].reduced_chi_squared != pytest.approx(terminal[0].redchi)
 
 
-def test_current_json_and_markdown_hide_terminal_failure_provenance(
-    competing_truth: CompetingTruth,
-    tmp_path: Path,
-) -> None:
-    json_path = write_summary(competing_truth.reconstructed, tmp_path / "fit.json")
-    report_path = write_report(competing_truth.reconstructed, tmp_path / "report.md")
-
-    payload = json.loads(json_path.read_text(encoding="utf-8"))
-    report = report_path.read_text(encoding="utf-8")
-
-    assert [statistics["fit_converged"] for statistics in payload["statistics"]] == [
-        True,
-        True,
-        True,
-    ]
-    assert all("n_function_evals" not in statistics for statistics in payload["statistics"])
-    assert all("fit_message" not in statistics for statistics in payload["statistics"])
-    assert "did not converge" not in report
-    assert "finite but not converged" not in report
-    assert "non-finite terminal result" not in report
-
-
 @pytest.mark.xfail(
     strict=True,
     reason="Tickets 06 through 08 will make every final consumer use one outcome.",
@@ -316,10 +363,16 @@ def test_future_contract_cli_json_and_markdown_share_terminal_failures(
     competing_truth: CompetingTruth,
     tmp_path: Path,
 ) -> None:
+    assert competing_truth.fit_run.spectra is not None
     review_ids = {
         int(review.cluster_id) for review in find_review_clusters(competing_truth.fit_run)
     }
-    json_path = write_summary(competing_truth.reconstructed, tmp_path / "fit.json")
+    json_path = write_final_outcome_summary(
+        competing_truth.fit_run.outcome,
+        metadata=competing_truth.reconstructed.metadata,
+        z_values=competing_truth.fit_run.spectra.z_values,
+        path=tmp_path / "fit.json",
+    )
     report_path = write_report(competing_truth.reconstructed, tmp_path / "report.md")
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     report = report_path.read_text(encoding="utf-8")
@@ -335,31 +388,147 @@ def test_future_contract_cli_json_and_markdown_share_terminal_failures(
     assert "non-finite terminal result" in report
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Tickets 05 and 07 will project terminal classification and provenance.",
-)
 def test_future_contract_persistence_uses_terminal_classification_and_provenance(
     competing_truth: CompetingTruth,
     tmp_path: Path,
 ) -> None:
+    assert competing_truth.fit_run.spectra is not None
     terminal = competing_truth.terminal_results
-    json_path = write_summary(competing_truth.reconstructed, tmp_path / "fit.json")
+    json_path = write_final_outcome_summary(
+        competing_truth.fit_run.outcome,
+        metadata=competing_truth.reconstructed.metadata,
+        z_values=competing_truth.fit_run.spectra.z_values,
+        path=tmp_path / "fit.json",
+    )
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     clusters_by_id = {int(cluster["cluster_id"]): cluster for cluster in payload["clusters"]}
 
-    assert "statistics" not in payload
+    assert payload["schema_version"] == "4.0.0"
+    assert "statistics" in payload
+    assert "global_statistics" not in payload
     assert clusters_by_id[11]["classification"] == "converged"
     assert clusters_by_id[37]["classification"] == "usable_non_converged"
     assert clusters_by_id[91]["classification"] == "unusable"
-    assert clusters_by_id[11]["statistics"] is not None
-    assert clusters_by_id[37]["statistics"] is not None
-    assert clusters_by_id[91].get("statistics") is None
+    assert clusters_by_id[11]["analytical_evaluation"] is not None
+    assert clusters_by_id[37]["analytical_evaluation"] is not None
+    assert clusters_by_id[91]["analytical_evaluation"] is None
     terminal_by_id = {result.cluster_id: result for result in terminal}
     for cluster_id, result in terminal_by_id.items():
         provenance = clusters_by_id[cluster_id]["optimizer_provenance"]
-        assert provenance["n_function_evals"] == result.nfev
+        assert provenance["function_evaluations"] == result.nfev
         assert provenance["termination_message"] == result.message
+
+
+def test_json_projects_all_converged_outcomes_in_final_identity_order(tmp_path: Path) -> None:
+    outcome, spectra, _ = _final_outcome_for_json(
+        {91: (True, True), 11: (True, True), 37: (True, True)}
+    )
+
+    payload = _write_final_outcome_json(outcome, spectra, tmp_path / "fit.json")
+
+    assert payload["schema_version"] == "4.0.0"
+    assert [cluster["cluster_id"] for cluster in payload["clusters"]] == [11, 37, 91]  # type: ignore[index]
+    assert all(cluster["classification"] == "converged" for cluster in payload["clusters"])  # type: ignore[index]
+    assert all(cluster["analytical_evaluation"] is not None for cluster in payload["clusters"])  # type: ignore[index]
+
+
+def test_json_projects_all_unusable_outcomes_without_numerical_placeholders(tmp_path: Path) -> None:
+    outcome, spectra, results = _final_outcome_for_json({11: (False, False), 37: (True, False)})
+
+    payload = _write_final_outcome_json(outcome, spectra, tmp_path / "fit.json")
+
+    for cluster, result in zip(payload["clusters"], results, strict=True):  # type: ignore[arg-type]
+        assert cluster["classification"] == "unusable"
+        assert cluster["unusable_reason"]
+        assert cluster["final_nonlinear_parameters"] == []
+        assert cluster["analytical_evaluation"] is None
+        assert cluster["optimizer_provenance"]["success"] is result.success
+    assert payload["statistics"]["n_observations"] == 0  # type: ignore[index]
+
+
+def test_json_copies_frozen_analytical_values_and_jsonifies_actual_provenance(
+    tmp_path: Path,
+) -> None:
+    outcome, spectra, _ = _final_outcome_for_json({11: (True, True)})
+
+    payload = _write_final_outcome_json(outcome, spectra, tmp_path / "fit.json")
+    cluster = payload["clusters"][0]  # type: ignore[index]
+    evaluation = outcome.cluster(11).analytical_evaluation
+
+    assert evaluation is not None
+    assert cluster["analytical_evaluation"]["amplitudes"] == evaluation.amplitudes.tolist()
+    assert cluster["analytical_evaluation"]["model_values"] == evaluation.model_values.tolist()
+    assert cluster["analytical_evaluation"]["raw_residuals"] == evaluation.raw_residuals.tolist()
+    assert (
+        cluster["analytical_evaluation"]["normalized_residuals"]
+        == evaluation.normalized_residuals.tolist()
+    )
+    assert cluster["optimizer_provenance"]["metadata"]["nested"]["values"] == [11, 1]
+
+
+def test_json_leaves_unavailable_optimizer_diagnostics_absent(tmp_path: Path) -> None:
+    outcome, spectra, _ = _final_outcome_for_json(
+        {11: (True, True)}, optimizer_kind="basin_hopping"
+    )
+
+    payload = _write_final_outcome_json(outcome, spectra, tmp_path / "fit.json")
+    provenance = payload["clusters"][0]["optimizer_provenance"]  # type: ignore[index]
+
+    assert provenance["optimizer_kind"] == "basin_hopping"
+    assert "jacobian_evaluations" not in provenance
+    assert "optimality" not in provenance
+    assert "iterations" not in provenance
+
+
+def test_json_reader_round_trips_classifications_and_distinguishes_absent_evaluation(
+    tmp_path: Path,
+) -> None:
+    outcome, spectra, _ = _final_outcome_for_json(
+        {91: (False, False), 11: (True, True), 37: (False, True)}
+    )
+    summary_path = tmp_path / "summary" / "fit.json"
+    _write_final_outcome_json(outcome, spectra, summary_path)
+
+    summary = ResultsLoader(tmp_path).load_summary()
+
+    assert [cluster.cluster_id for cluster in summary.clusters] == [11, 37, 91]
+    assert [cluster.classification for cluster in summary.clusters] == [
+        "converged",
+        "usable_non_converged",
+        "unusable",
+    ]
+    assert summary.clusters[-1].analytical_evaluation is None
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        (lambda payload: payload["clusters"][1].update(cluster_id=11), "unique"),
+        (lambda payload: payload["clusters"][0].pop("cluster_id"), "cluster_id"),
+        (lambda payload: payload["clusters"][0].update(cluster_id="11"), "integer"),
+        (lambda payload: payload["clusters"].reverse(), "ascending cluster_id order"),
+        (
+            lambda payload: payload["clusters"][2].update(
+                analytical_evaluation=payload["clusters"][0]["analytical_evaluation"]
+            ),
+            "unusable outcomes must not contain an analytical evaluation",
+        ),
+        (lambda payload: payload.update(schema_version="3.0.0"), "3.0.0.*4.0.0"),
+    ],
+)
+def test_json_schema_rejects_malformed_identity_order_and_outcome_combinations(
+    tmp_path: Path,
+    mutation: Any,
+    match: str,
+) -> None:
+    outcome, spectra, _ = _final_outcome_for_json(
+        {11: (True, True), 37: (False, True), 91: (False, False)}
+    )
+    payload = _write_final_outcome_json(outcome, spectra, tmp_path / "fit.json")
+    mutation(payload)
+
+    with pytest.raises(ValueError, match=match):
+        FitSummarySchema.model_validate(payload)
 
 
 def test_future_contract_run_summary_reports_all_classifications(

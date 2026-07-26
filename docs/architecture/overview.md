@@ -97,9 +97,9 @@ one another but have no continuing synchronization invariant.
 8. **Final state and results.** The pipeline freezes its terminal correction
    snapshot, validates terminal optimizer results and ticket-03 evaluations by
    `cluster_id`, and assembles one immutable `FinalFitOutcome`. It returns that
-   outcome alongside mutable `FittingState` continuation state. `build_fit_results`
-   still separately re-evaluates every cluster for legacy writer input; migrating
-   that projection is deliberately deferred.
+   outcome alongside mutable `FittingState` continuation state. JSON projects
+   that outcome directly. `build_fit_results` still separately re-evaluates
+   every cluster for the deliberately deferred CSV and Markdown writer inputs.
 9. **Persistence.** Writers produce schema-versioned `summary/fit.json`,
    `tables/parameters.csv`, `tables/intensities.csv`, optional shifts and
    Markdown output, a run README, and optionally a simulated spectrum.
@@ -165,10 +165,12 @@ one another but have no continuing synchronization invariant.
   subtracting the current modeled contribution of peaks assigned elsewhere.
 - **Verified.** Basin hopping and MCMC are stochastic unless seeds are controlled;
   MCMC currently creates an unseeded NumPy generator.
-- **Verified.** The JSON contract is schema version `3.0.0`. Model parameters and
-  amplitudes are intentionally split between `parameters.csv` and
-  `intensities.csv`; JSON cluster entries contain lineshape parameters but not
-  per-plane amplitudes.
+- **Verified.** The JSON contract is schema version `4.0.0`. It projects the
+  immutable final outcome directly: every cluster carries its stable
+  `cluster_id`, classification, correction revision, terminal provenance, and
+  either its frozen analytical evaluation or an explicit unusable reason. Model
+  parameters and amplitudes remain split between `parameters.csv` and
+  `intensities.csv` for the deferred tabular-writer migration.
 - **Verified.** Config-file precedence, canonical parameter identifiers, result
   directory layout, pickle availability, input-file relocation heuristics, and
   default output formats are downstream compatibility surfaces.
@@ -185,11 +187,11 @@ one another but have no continuing synchronization invariant.
 2. **Verified — validation/parser duplication.** Preflight peak-list readers can
    accept rows or names that the real readers later reject or interpret
    differently. There are no equivalence tests across supported formats.
-3. **Partially resolved — result truth is split.** `FinalFitOutcome` now keeps
+3. **Partially resolved — result truth is split.** `FinalFitOutcome` keeps
    terminal classification, provenance, and shared analytical values separate
-   from mutable continuation state. CLI review and `RunSummary` project that
-   outcome, while durable output writers still use their older paths and can
-   describe convergence differently until their planned migrations.
+   from mutable continuation state. CLI review, `RunSummary`, and JSON project
+   that outcome. CSV, Markdown, README, and simulation remain planned consumer
+   migrations and can still use their older projections.
 4. **Verified — state persistence has two unequal paths.** Pickle preserves
    numerical state; JSON reconstruction is intentionally minimal and excludes
    amplitudes and real cluster grids. Tests only protect the canonical JSON path,

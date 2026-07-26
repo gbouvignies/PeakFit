@@ -1,9 +1,4 @@
-"""Reader for PeakFit results from structured output files.
-
-This module provides a JSON-based loader for PeakFit results, eliminating
-the need for pickle-based serialization. It reconstructs FittingState
-objects from the JSON summary files produced by the writer module.
-"""
+"""Read versioned completed-fit JSON and its limited continuation fallback."""
 
 from __future__ import annotations
 
@@ -35,9 +30,9 @@ type MCMCChainRecord = tuple[Any, list[str], int, int, int]
 class ResultsLoader:
     """Loader for PeakFit results from structured output files.
 
-    This is the canonical way to load fitting results. It reads from the
-    JSON summary files and can reconstruct a FittingState for further
-    analysis or visualization.
+    The summary is the canonical completed-result record.  The optional state
+    reconstructed here is deliberately minimal; pickle state remains the
+    continuation path for numerical workflows.
 
     Example:
         >>> loader = ResultsLoader(Path("Fits/20260129_120000"))
@@ -107,7 +102,7 @@ class ResultsLoader:
             for name in c_data.peak_names:
                 # Find canonical position params (peak.F*.cs).
                 axis_values: dict[str, float] = {}
-                for param in c_data.lineshape_parameters:
+                for param in c_data.final_nonlinear_parameters:
                     if not param.name.startswith(f"{name}."):
                         continue
                     if not param.name.endswith(".cs"):
@@ -159,7 +154,7 @@ class ResultsLoader:
         """Reconstruct Parameters from cluster schema data."""
         params = Parameters()
         for c_data in cluster_schemas:
-            for p_data in c_data.lineshape_parameters:
+            for p_data in c_data.final_nonlinear_parameters:
                 if p_data.name in params:
                     continue
 
@@ -168,8 +163,8 @@ class ResultsLoader:
                     value=p_data.value,
                     min=p_data.min_bound if p_data.min_bound is not None else -float("inf"),
                     max=p_data.max_bound if p_data.max_bound is not None else float("inf"),
-                    vary=not p_data.is_fixed,
-                    stderr=p_data.std_error if p_data.std_error is not None else 0.0,
+                    vary=p_data.vary,
+                    stderr=(p_data.standard_error if p_data.standard_error is not None else 0.0),
                 )
                 params.add(
                     param.name,
@@ -183,11 +178,7 @@ class ResultsLoader:
 
     def _get_noise_level(self, summary: FitSummarySchema) -> float:
         """Extract noise level from summary."""
-        if summary.global_statistics and summary.global_statistics.residuals:
-            return summary.global_statistics.residuals.noise_level
-        if summary.statistics and summary.statistics[0].residuals:
-            return summary.statistics[0].residuals.noise_level
-        return 1.0
+        return summary.noise
 
     def load_mcmc_chains(self) -> list[MCMCChainRecord]:
         """Load MCMC chains from HDF5 files for all clusters.
