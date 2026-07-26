@@ -1,0 +1,34 @@
+.git/
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ty/
+dist/
+build/
+*.egg-info/
+
+graphify-out/
+.scratch/
+
+# Binary and scientific data
+*.ft1
+*.ft2
+*.ft3
+*.ucsf
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.pkl
+*.pickle
+
+# Generated outputs and examples containing large results
+results/
+output/
+outputs/
+
+# Agent tool implementations are installed dependencies, not PeakFit domain content
+.agents/skills/
+.codex/skills/
