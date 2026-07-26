@@ -105,27 +105,16 @@ class ClusterFitTask:
             raise ValueError(msg)
 
 
-def fit_cluster_worker(
-    cluster: Cluster,
-    params: Parameters,
-    noise: float,
-    config: OptimizerConfig,
-    optimizer: str = "varpro",
-) -> FitResult:
-    """Fit one cluster using the selected optimizer."""
-    return fit_with_optimizer(optimizer, params, cluster, noise, config)
-
-
 def fit_single_cluster_task(
     task: ClusterFitTask,
 ) -> FitResult:
     """Execute fitting for a single cluster task."""
-    result = fit_cluster_worker(
-        task.cluster,
+    result = fit_with_optimizer(
+        task.optimizer,
         task.params,
+        task.cluster,
         task.noise,
         task.config,
-        task.optimizer,
     )
     if result.cluster_id != task.cluster_id:
         msg = (

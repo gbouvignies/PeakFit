@@ -35,6 +35,9 @@ share/python-wheels/
 MANIFEST
 
 ### Tooling & Environment ###
+# Generated codebase knowledge graph
+graphify-out/
+
 # Virtual Environment
 .venv/
 venv/
