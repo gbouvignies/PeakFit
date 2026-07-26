@@ -20,6 +20,18 @@ uv build
 
 Use `prek`, not `pre-commit`, for hooks.
 
+## Testing And Scientific Fixtures
+
+Run the complete suite headlessly with `QT_QPA_PLATFORM=offscreen` and
+`MPLBACKEND=Agg`, as shown above. This is the supported environment for
+automated tests that may import GUI or plotting dependencies.
+
+Tests protect both numerical/scientific behavior and refactoring compatibility
+baselines. Treat golden files, regression data, tolerances, and reference values
+as evidence with an explicit provenance and intended claim. Do not silently
+regenerate them, weaken their assertions, or change them without explaining and
+reviewing the scientific or contract reason.
+
 ## Architecture Rules
 
 - Keep numerical code independent from Typer, Rich, Qt, and filesystem side
