@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from peakfit.engine.algorithms.varpro import fit_cluster
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.lineshapes.gaussian.kernel import kernel as gaussian_kernel
 from peakfit.engine.lineshapes.lorentzian.kernel import kernel as lorentzian_kernel
@@ -663,12 +662,6 @@ class TestCoreAlgorithms:
         assert values.shape == (3, 1)
         assert np.isclose(values[1, 0], 1.0, rtol=1e-12, atol=1e-12)
         assert np.allclose(values[[0, 2], 0], 0.5, rtol=1e-12, atol=1e-12)
-
-    def test_varpro_fit_converges(self):
-        """Variable projection fitting should converge on simple data."""
-        # This is a placeholder - actual test would need proper cluster setup
-        # For now, just verify the function is importable
-        assert callable(fit_cluster), "fit_cluster should be callable"
 
     def test_parameters_creation(self):
         """Parameters class should be instantiable."""
