@@ -81,8 +81,15 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._update_edit_actions()
 
     def _update_edit_actions(self) -> None:
-        self.undo_action.setEnabled(self.edits.can_undo)
-        self.redo_action.setEnabled(self.edits.can_redo)
+        pending = self.inspector.pending
+        self.undo_action.setEnabled(self.edits.can_undo and not pending)
+        self.redo_action.setEnabled(self.edits.can_redo and not pending)
+        self.inspector.delete.setEnabled(self.selected_id is not None and not pending)
+        hint = "Apply inspector edits or press Escape before Undo/Redo/Delete"
+        if pending:
+            self.inspector.details.setText(hint)
+        elif self.inspector.details.text() == hint:
+            self.inspector.details.clear()
 
     def _plot(self, title: str) -> pg.PlotWidget:
         plot = pg.PlotWidget(title=title, background=self._colors["background"])
@@ -565,7 +572,7 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def delete_peak(self) -> None:
         """Delete the selected assignment as one reversible edit."""
-        if self.selected_id is not None:
+        if self.selected_id is not None and not self.inspector.pending:
             self.peak_scatter.cancel_drag()
             self._drag_peak = None
             self.edits.delete(self.selected_id)
@@ -574,14 +581,18 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.edits_changed.emit()
 
     def undo(self) -> None:
-        """Undo a peak edit without changing navigation or sample arrays."""
+        """Undo a committed peak edit only after inspector text is resolved."""
+        if self.inspector.pending:
+            return
         self.cancel_interaction()
         self.edits.undo()
         self._refresh_peaks()
         self.edits_changed.emit()
 
     def redo(self) -> None:
-        """Redo an edit without adding navigation to history."""
+        """Redo a committed peak edit only after inspector text is resolved."""
+        if self.inspector.pending:
+            return
         self.cancel_interaction()
         self.edits.redo()
         self._refresh_peaks()

@@ -59,6 +59,9 @@ or Enter; Escape restores the committed fields. Valid pending fields also apply
 before selecting another peak, placing a new peak, dragging, or exporting. Invalid
 fields remain visible with an actionable message. Delete removes the selected peak;
 Edit → Undo/Redo restores working records without affecting spectrum navigation.
+Peak-history Undo/Redo and peak deletion are unavailable while inspector text is
+pending. Apply the text or press Escape to restore the committed fields first;
+an inline hint explains this. Native text-field undo remains available.
 Choose **Add peak…** (or A with spectrum focus), then click once to place a peak;
 Escape cancels. Select a peak before dragging it: an open-hand cursor advertises
 movement. The ring and label preview the new position while the original cross

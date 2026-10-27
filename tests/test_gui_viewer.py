@@ -99,7 +99,7 @@ def test_2d_loading_signed_contours_and_indirect_peak_aliasing(tmp_path: Path) -
         load_spectrum(path, bad_values)
 
 
-def test_peak_selection_precision_overlap_and_edit_history() -> None:
+def test_peak_selection_precision_overlap_and_edit_history() -> None:  # noqa: PLR0915
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     spectra = load_spectrum(DATA / "pseudo3d.ft2")
     viewer = SpectrumViewer(spectra)
@@ -145,7 +145,29 @@ def test_peak_selection_precision_overlap_and_edit_history() -> None:
         QtTest.QTest.keySequence(field, QtGui.QKeySequence(QtGui.QKeySequence.StandardKey.Undo))
         assert field.text() == "renamed"
         QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Backspace)
-        assert len(viewer.peaks) == 2
+        pending_name = field.text()
+        committed = viewer.peaks
+        assert viewer.inspector.pending
+        assert viewer.edits.can_undo
+        assert viewer.edits.can_redo
+        # Direct callbacks (including the spectrum's Delete shortcut) also preserve drafts.
+        viewer.undo()
+        viewer.redo()
+        viewer.delete_peak()
+        assert viewer.peaks == committed
+        assert field.text() == pending_name
+        assert not viewer.undo_action.isEnabled()
+        assert not viewer.redo_action.isEnabled()
+        assert not viewer.inspector.delete.isEnabled()
+        assert viewer.edits.can_undo
+        assert viewer.edits.can_redo
+        assert "Apply" in viewer.inspector.details.text()
+        assert "Escape" in viewer.inspector.details.text()
+        QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
+        assert not viewer.inspector.pending
+        assert viewer.undo_action.isEnabled()
+        assert viewer.redo_action.isEnabled()
+        assert viewer.inspector.delete.isEnabled()
         viewer.redo()
         assert viewer.peaks == (peak,)
     finally:
