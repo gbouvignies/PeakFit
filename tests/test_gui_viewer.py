@@ -141,3 +141,67 @@ def test_peak_selection_precision_overlap_and_edit_history() -> None:
         viewer.close()
         viewer.deleteLater()
         app.processEvents()
+
+
+def test_peak_placement_and_drag_preserve_fractional_unfolded_coordinates(monkeypatch) -> None:
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    spectra = load_spectrum(DATA / "pseudo3d.ft2")
+    viewer = SpectrumViewer(spectra)
+    imported = load_peaks(DATA / "pseudo3d.list", spectra)
+    original = imported[0]
+    # Put an explicitly unfolded alias at a visible fractional position.
+    displayed_y = display_position(viewer.y_axis, original.positions[0])
+    unfolded_y = displayed_y + viewer.y_axis.size * viewer.y_axis.delta
+    peak = WorkingPeak.new(original.name, (unfolded_y, original.positions[1]))
+    viewer.set_peaks([peak, *imported[1:]])
+    viewer.resize(1200, 800)
+    viewer.show()
+    viewer.spectrum_plot.getViewBox().setRange(
+        xRange=(peak.positions[1] - 0.3, peak.positions[1] + 0.3),
+        yRange=(displayed_y - 1.0, displayed_y + 1.0),
+        padding=0,
+    )
+    app.processEvents()
+    contours = [item.path() for item in viewer.contours]
+    labels = tuple(viewer.peak_labels)
+    monkeypatch.setattr(
+        viewer, "_update_contours", lambda: pytest.fail("edit recalculated contours")
+    )
+    try:
+        viewer.select_peak(peak.id, inspect=True)
+        viewer._preview_peak_move(0.0123456789, 0.123456789, False)
+        assert viewer.peaks[0] == peak  # preview has no scientific effects
+        assert tuple(viewer.peak_labels) == labels
+        viewer.cancel_interaction()
+        assert viewer.peaks[0] == peak
+        viewer._preview_peak_move(0.0123456789, 0.123456789, True)
+        assert viewer.peaks[0].positions == (
+            unfolded_y + 0.123456789,
+            peak.positions[1] + 0.0123456789,
+        )
+        viewer.undo()
+        assert viewer.peaks[0] == peak  # one undo restores the complete drag
+        viewer.start_adding_peak()
+        QtTest.QTest.keyClick(viewer.spectrum_plot, QtCore.Qt.Key.Key_Escape)
+        assert not viewer.adding_peak
+        assert len(viewer.peaks) == 166
+        viewer.start_adding_peak()
+        position = QtCore.QPointF(peak.positions[1] + 0.07, displayed_y + 0.27)
+        scene = viewer.spectrum_plot.getViewBox().mapViewToScene(position)
+        local = viewer.spectrum_plot.mapFromScene(scene)
+        actual = viewer.spectrum_plot.getViewBox().mapSceneToView(
+            viewer.spectrum_plot.mapToScene(local)
+        )
+        QtTest.QTest.mouseClick(
+            viewer.spectrum_plot.viewport(),
+            QtCore.Qt.MouseButton.LeftButton,
+            pos=local,
+        )
+        assert not viewer.adding_peak
+        assert len(viewer.peaks) == 167
+        assert viewer.peaks[-1].positions == pytest.approx((actual.y(), actual.x()))
+        assert contours == [item.path() for item in viewer.contours]
+    finally:
+        viewer.close()
+        viewer.deleteLater()
+        app.processEvents()

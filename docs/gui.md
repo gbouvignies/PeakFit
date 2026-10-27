@@ -57,6 +57,13 @@ Click a marker to select its assignment. Coincident markers open a chooser. The
 compact inspector edits the name and unfolded ppm coordinates together with Apply
 or Enter; Escape restores the committed fields. Delete removes the selected peak;
 Edit → Undo/Redo restores working records without affecting spectrum navigation.
+Choose **Add peak…** (or A with spectrum focus), then click once to place a peak;
+Escape cancels. Select a peak before dragging it: an open-hand cursor advertises
+movement. The ring and label preview the new position while the original cross
+remains as a reference. Release commits one undoable move; Escape restores it.
+Dragging an unselected marker pans. Peak coordinates retain fractional precision
+and dragging preserves the original unfolded chemical-shift representation.
+
 Imported shapes are discarded, and working peaks are not fitted results.
 
 ## Scope and performance

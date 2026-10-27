@@ -46,14 +46,15 @@ class PeakInspector(QtWidgets.QGroupBox):
         self.apply.clicked.connect(self._apply)
         self.delete.clicked.connect(self.deleted)
         self._peak: WorkingPeak | None = None
-        self.setEnabled(False)
+        self.show_peak(None)
 
     def show_peak(
         self, peak: WorkingPeak | None, displayed: tuple[float, float] | None = None
     ) -> None:
         """Populate precise fields; the caller retains selection and identity."""
         self._peak = peak
-        self.setEnabled(peak is not None)
+        for control in (self.name, self.x_field, self.y_field, self.apply, self.delete):
+            control.setEnabled(peak is not None)
         self.setTitle("Selected peak" if peak else "Peak — click a marker to select")
         for field, value in zip(
             (self.name, self.x_field, self.y_field),
@@ -95,12 +96,56 @@ class PeakInspector(QtWidgets.QGroupBox):
 class PeakMarkers(pg.ScatterPlotItem):
     """Claim marker clicks before crosshairs while leaving background drags alone."""
 
+    moved = QtCore.Signal(float, float, bool)
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.selected_id: str | None = None
+        self.placing = False
+        self._cancelled = False
+
+    def mouseClickEvent(self, ev) -> None:  # noqa: N802
+        """Placement owns the next click, including clicks over existing markers."""
+        if self.placing:
+            ev.ignore()
+        else:
+            super().mouseClickEvent(ev)
+
+    def mouseDragEvent(self, ev) -> None:  # noqa: N802
+        """Preview deltas from the press point; the viewer commits only on release."""
+        if ev.button() != QtCore.Qt.MouseButton.LeftButton:
+            ev.ignore()
+            return
+        if ev.isStart():
+            self._cancelled = False
+        ev.accept()
+        if not self._cancelled:
+            delta = ev.pos() - ev.buttonDownPos()
+            self.setCursor(QtCore.Qt.CursorShape.ClosedHandCursor)
+            self.moved.emit(delta.x(), delta.y(), ev.isFinish())
+        if ev.isFinish():
+            self.setCursor(QtCore.Qt.CursorShape.OpenHandCursor)
+
+    def cancel_drag(self) -> None:
+        """Ignore the remainder of a gesture after Escape or window deactivation."""
+        self._cancelled = True
+
     def hoverEvent(self, ev) -> None:  # noqa: N802
         """Advertise selectable markers without claiming pan gestures."""
+        if self.placing:
+            self.setCursor(QtCore.Qt.CursorShape.CrossCursor)
+            return
         super().hoverEvent(ev)
         hits = [] if ev.isExit() else self.pointsAt(ev.pos())
         if len(hits):
             ev.acceptClicks(QtCore.Qt.MouseButton.LeftButton)
-            self.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+            selected = any(p.data() == self.selected_id for p in hits)
+            if selected:
+                ev.acceptDrags(QtCore.Qt.MouseButton.LeftButton)
+            self.setCursor(
+                QtCore.Qt.CursorShape.OpenHandCursor
+                if selected
+                else QtCore.Qt.CursorShape.PointingHandCursor
+            )
         else:
             self.unsetCursor()

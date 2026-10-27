@@ -37,6 +37,8 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.noise = estimate_noise(spectra.data[0])
         self.edits = PeakEdits()
         self.selected_id: str | None = None
+        self.adding_peak = False
+        self._drag_peak: WorkingPeak | None = None
         self.contours: list[QtWidgets.QGraphicsPathItem] = []
         self.peak_labels: list[pg.TextItem] = []
         self.labels_visible = False
@@ -61,7 +63,9 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.redo_action.setShortcuts(QtGui.QKeySequence.StandardKey.Redo)
         self.undo_action.triggered.connect(self.undo)
         self.redo_action.triggered.connect(self.redo)
-        self.edit_actions = [self.undo_action, self.redo_action]
+        self.add_action = QtGui.QAction("Add peak…", self)
+        self.add_action.triggered.connect(self.start_adding_peak)
+        self.edit_actions = [self.undo_action, self.redo_action, self.add_action]
         for action in self.edit_actions:
             self.addAction(action)
         delete = QtGui.QAction("Delete peak", self.spectrum_plot)
@@ -69,6 +73,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         delete.setShortcutContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
         delete.triggered.connect(self.delete_peak)
         self.spectrum_plot.addAction(delete)
+        for key, callback in (("A", self.start_adding_peak), ("Escape", self.cancel_interaction)):
+            shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.spectrum_plot)
+            shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(callback)
         self.edits_changed.connect(self._update_edit_actions)
         self._update_edit_actions()
 
@@ -172,6 +180,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         )
         self.peak_scatter.setZValue(20)
         self.peak_scatter.sigClicked.connect(self._peak_clicked)
+        self.peak_scatter.moved.connect(self._preview_peak_move)
         self.spectrum_plot.addItem(self.peak_scatter)
         self.selection_marker = pg.ScatterPlotItem(symbol="o", size=18, brush=None)
         self.selection_marker.setZValue(21)
@@ -193,6 +202,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.inspector = PeakInspector(self._axis_title(self.x_axis), self._axis_title(self.y_axis))
         self.inspector.applied.connect(self._apply_peak_fields)
         self.inspector.deleted.connect(self.delete_peak)
+        add = QtWidgets.QPushButton("Add peak…")
+        add.setToolTip("Place one peak at the next click (A in the spectrum); Escape cancels")
+        add.clicked.connect(self.start_adding_peak)
+        cast("QtWidgets.QGridLayout", self.inspector.layout()).addWidget(add, 2, 2)
         right_layout.addWidget(self.inspector)
         self.trace_x = self._plot(self._axis_title(self.x_axis))
         self.trace_y = self._plot(self._axis_title(self.y_axis))
@@ -384,12 +397,21 @@ class SpectrumViewer(QtWidgets.QWidget):
                 item.setPath(paths[index])
 
     def _clicked(self, event) -> None:
-        if event.isAccepted() or event.button() != QtCore.Qt.MouseButton.LeftButton:
+        if event.button() != QtCore.Qt.MouseButton.LeftButton:
+            return
+        if event.isAccepted() and not self.adding_peak:
             return
         view = self.spectrum_plot.getViewBox()
         if view.sceneBoundingRect().contains(event.scenePos()):
-            self.select_peak(None)
             point = view.mapSceneToView(event.scenePos())
+            if self.adding_peak:
+                peak = self.edits.add((point.y(), point.x()))
+                self.cancel_interaction()
+                self.selected_id = peak.id
+                self._refresh_peaks()
+                self.edits_changed.emit()
+            else:
+                self.select_peak(None)
             self._select_position(point.x(), point.y())
 
     def _crosshair_dragged(self) -> None:
@@ -496,6 +518,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         """Select by identity; inspection alone snaps to measured sample indices."""
         peak = next((p for p in self.peaks if p.id == peak_id), None)
         self.selected_id = peak.id if peak else None
+        self.peak_scatter.selected_id = self.selected_id
         position = (
             (
                 display_position(self.x_axis, peak.positions[1]),
@@ -544,3 +567,57 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.edits.redo()
         self._refresh_peaks()
         self.edits_changed.emit()
+
+    def start_adding_peak(self) -> None:
+        """Arm a single placement without a persistent editing mode."""
+        self.cancel_interaction()
+        self.adding_peak = True
+        self.peak_scatter.placing = True
+        for line in (self.cross_x, self.cross_y):
+            line.setMovable(False)
+        self.spectrum_plot.setCursor(QtCore.Qt.CursorShape.CrossCursor)
+        self.spectrum_plot.setFocus()
+        self.inspector.details.setText("Click to add one peak · Escape cancels · drag to pan")
+
+    def cancel_interaction(self) -> None:
+        """Discard a drag preview or uncommitted placement."""
+        self.adding_peak = False
+        self.peak_scatter.placing = False
+        self.peak_scatter.cancel_drag()
+        self._drag_peak = None
+        for line in (self.cross_x, self.cross_y):
+            line.setMovable(True)
+        self.spectrum_plot.unsetCursor()
+        self.peak_scatter.unsetCursor()
+        self.select_peak(self.selected_id)
+        for peak, label in zip(self.peaks, self.peak_labels, strict=True):
+            if peak.id == self.selected_id:
+                label.setPos(
+                    display_position(self.x_axis, peak.positions[1]),
+                    display_position(self.y_axis, peak.positions[0]),
+                )
+
+    def _preview_peak_move(self, dx: float, dy: float, finished: bool) -> None:
+        peak = self._drag_peak
+        if peak is None:
+            peak = next((p for p in self.peaks if p.id == self.selected_id), None)
+            self._drag_peak = peak
+        if peak is None:
+            return
+        # Apply display deltas to the original UNFOLDED coordinates. Do not replace
+        # them with the folded marker coordinates or the snapped crosshair position.
+        positions = (peak.positions[0] + dy, peak.positions[1] + dx)
+        x = display_position(self.x_axis, positions[1])
+        y = display_position(self.y_axis, positions[0])
+        self.selection_marker.setData([x], [y])
+        for original, label in zip(self.peaks, self.peak_labels, strict=True):
+            if original.id == peak.id:
+                label.setPos(x, y)
+        self.inspector.details.setText(
+            f"Moving: {positions[1]:.8f}, {positions[0]:.8f} ppm · Escape cancels"
+        )
+        if finished:
+            self.edits.update(peak.id, peak.name, positions)
+            self._drag_peak = None
+            self._refresh_peaks()
+            self.edits_changed.emit()
