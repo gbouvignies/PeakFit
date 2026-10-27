@@ -57,6 +57,11 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
+      - name: Install Qt runtime dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1
+
       - name: Install dependencies
         # --all-extras installs 'mcmc', 'profiling' etc.
         run: uv sync --all-extras
