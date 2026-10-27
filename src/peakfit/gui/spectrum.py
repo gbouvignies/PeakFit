@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, cast
 
 import contourpy
 import numpy as np
-from PySide6.QtGui import QPainterPath
 
 from peakfit.engine.domain.config import FitConfig
 from peakfit.gui.peaks import WorkingPeak
@@ -13,6 +12,8 @@ from peakfit.io.readers.spectrum import read_spectra
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from PySide6.QtGui import QPainterPath
 
     from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 
@@ -64,17 +65,20 @@ def display_position(axis: SpectralParameters, ppm: float) -> float:
     return float(axis.pts2ppm(point))
 
 
-def contour_paths(
-    plane: np.ndarray, axes: list[SpectralParameters], levels: np.ndarray
-) -> list[QPainterPath]:
-    """Extract full-plane contours once and retain their geometry as Qt paths.
+# Native profiling: 72k vertices paint in ~18 ms, 1.1M in ~216 ms on macOS.
+# This is a rendering-work budget, never a scientific intensity/region cutoff.
+CONTOUR_VERTEX_BUDGET = 100_000
+type ContourGeometry = list[tuple[np.ndarray, np.ndarray]]
 
-    Coordinates come from the same sample conversions used by the fitting engine.
-    Navigation only transforms these paths; it never re-extracts contours.
-    """
-    # Import PySide6 before PyQtGraph so both use the same Qt binding.
-    import pyqtgraph as pg  # noqa: PLC0415
 
+def contour_geometry(
+    plane: np.ndarray,
+    axes: list[SpectralParameters],
+    levels: np.ndarray,
+    *,
+    max_vertices: int | None = None,
+) -> ContourGeometry:
+    """Extract numerical paths off the GUI thread; create no Qt objects."""
     y_axis, x_axis = axes
     generator = contourpy.contour_generator(
         x=x_axis.pts2ppm(np.arange(x_axis.size, dtype=float)),
@@ -82,14 +86,36 @@ def contour_paths(
         z=plane,
         line_type="Separate",
     )
-    paths = []
+    geometry: ContourGeometry = []
+    n_vertices = 0
     for level in levels:
         segments = cast("list[np.ndarray]", generator.lines(float(level)))
-        if not segments:
-            paths.append(QPainterPath())
-            continue
-        points = np.concatenate(segments)
+        n_vertices += sum(len(segment) for segment in segments)
+        if max_vertices is not None and n_vertices > max_vertices:
+            raise ValueError(
+                f"Contours exceed the {max_vertices:,}-vertex interactive rendering budget. "
+                "Raise Threshold or reduce Levels. Contours are hidden, not truncated; "
+                "raw traces and navigation remain available."
+            )
+        points = np.concatenate(segments) if segments else np.empty((0, 2))
         connect = np.ones(len(points), dtype=np.int32)
-        connect[np.cumsum([len(segment) for segment in segments]) - 1] = 0
-        paths.append(pg.arrayToQPath(points[:, 0], points[:, 1], connect=connect))
-    return paths
+        if segments:
+            connect[np.cumsum([len(segment) for segment in segments]) - 1] = 0
+        geometry.append((points, connect))
+    return geometry
+
+
+def paths_from_geometry(geometry: ContourGeometry) -> list[QPainterPath]:
+    """Construct Qt graphics only on the caller's GUI thread."""
+    import pyqtgraph as pg  # noqa: PLC0415
+
+    return [
+        pg.arrayToQPath(points[:, 0], points[:, 1], connect=connect) for points, connect in geometry
+    ]
+
+
+def contour_paths(
+    plane: np.ndarray, axes: list[SpectralParameters], levels: np.ndarray
+) -> list[QPainterPath]:
+    """Synchronous geometry convenience for callers already on the GUI thread."""
+    return paths_from_geometry(contour_geometry(plane, axes, levels))

@@ -160,9 +160,14 @@ new preparation is ready. Spacing, number of levels, and displayed plane affect
 rendering only and never redefine the cluster. The all-plane noise estimate is
 reused for the unchanged dataset. Returning to Inspect cancels any pending update.
 
-Preparation is synchronous on entry and after coalesced threshold changes, not on
-ordinary navigation; it does not itself rebuild experimental contours. Large datasets
-can briefly pause during segmentation. There are no background workers in this step.
+Preparation and numerical contour extraction run outside the GUI event loop in
+one serial background lane. Each kind of request retains only its latest pending
+version, and obsolete results are discarded. Working records and spectral metadata
+are captured before submission. Only the selected cluster's data is materialized;
+all-plane segmentation, boundary merging, and sampled-point order are unchanged.
+Returning to Inspect, changing selection before a scope is ready, replacing the
+spectrum, or closing the window invalidates the corresponding work without waiting.
+Qt paths, widgets, and graphics are constructed only on the GUI thread.
 
 ![Local fitting scope with the bundled pseudo-3D spectrum](images/fit-scope-preview.png)
 
@@ -174,8 +179,23 @@ Manual editing changes one shared peak list across all experimental planes.
 Optimization, completed model/residual display, and session persistence are not yet
 implemented. Existing Matplotlib viewers and static plots remain available unchanged.
 
-The viewer keeps the `Spectra` object in memory. Contour extraction happens on the
-GUI thread when a plane or contour setting changes; zooming, panning, and crosshair
-updates reuse graphical objects. There is no plane cache or background renderer.
-Very large or densely contoured spectra can therefore pause during extraction;
-reduce the number of levels or increase the threshold if needed.
+The viewer keeps the `Spectra` object in memory. Panning and zooming reuse retained
+Qt graphics; raw traces and plane navigation remain available while work is pending.
+
+The preview enforces explicit **workload budgets**, not contour-intensity limits:
+selected-group data plus correction arrays may use at most 128 MiB, and parameter
+tables at most 1,000 rows. Required size is checked before large group arrays or Qt
+items are constructed. A declined preview reports the group size and suggests a
+higher threshold, without truncating the scientific region. Dense contour display
+is declined above 100,000 vertices, with a separate message suggesting a higher
+threshold or fewer levels. All contours are hidden rather than partially drawn;
+raw traces and navigation remain available. These conservative interactive budgets
+are justified by the [native profiling results](development.md#gui-responsiveness).
+Large fits remain available through the CLI.
+
+![Explicit low-threshold workload messages while navigation stays available](images/fit-scope-low-threshold.png)
+
+Running work is not forcefully interrupted; it finishes in the background and its
+obsolete result is ignored. Shutdown does not wait in the Qt event loop. The first
+all-plane noise estimate still has substantial temporary memory use. There is no
+fitting execution, process scheduler, or result visualization in this milestone.

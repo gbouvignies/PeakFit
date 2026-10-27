@@ -53,7 +53,7 @@ class FitPreview(QtWidgets.QWidget):
         )
         self.parameters.verticalHeader().hide()
         self.parameters.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeMode.ResizeToContents
+            QtWidgets.QHeaderView.ResizeMode.Interactive
         )
         layout.addWidget(self.parameters, 1)
         note = QtWidgets.QLabel(
@@ -98,6 +98,7 @@ class FitPreview(QtWidgets.QWidget):
                 f"{labels[identity.engine_name]}  ({peak.positions[0]:.6f}, "
                 f"{peak.positions[1]:.6f} ppm)"
             )
+        self.parameters.setRowCount(0)
         self.parameters.setRowCount(len(prepared.parameters))
         for row, parameter in enumerate(prepared.parameters.values()):
             identifier = parameter.param_id
@@ -122,3 +123,13 @@ class FitPreview(QtWidgets.QWidget):
                 item = QtWidgets.QTableWidgetItem(value)
                 item.setToolTip(f"{parameter.name}\n{value}")
                 self.parameters.setItem(row, column, item)
+        self.parameters.resizeColumnsToContents()
+
+    def show_status(self, message: str) -> None:
+        """Keep navigation and dismissal usable while work is pending or declined."""
+        self.summary.setText(message)
+        self.models.clear()
+        self.region.clear()
+        self.members.clear()
+        self.parameters.setRowCount(0)
+        self.parameters.setEnabled(False)

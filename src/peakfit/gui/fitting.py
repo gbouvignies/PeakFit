@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.algorithms.clustering import create_clusters
+from peakfit.engine.algorithms.clustering import segment_data
 from peakfit.engine.algorithms.noise import prepare_noise_level
+from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.fit_steps import build_fit_steps
 from peakfit.engine.domain.peaks import Peak
@@ -16,13 +17,17 @@ from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.fit.pipeline import prepare_cluster_parameters
 
 if TYPE_CHECKING:
-    from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.params_scalar import Parameters
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.gui.peaks import WorkingPeak
 
 
 _SPECTRAL_DIMENSIONS = 2
+# The preview is not a dataset-wide fit. Bound its two dense float64 point/plane
+# arrays before allocation (a low-threshold bundled group alone needs 279 MiB).
+LOCAL_ARRAY_BUDGET = 128 * 1024**2
+# Native table replacement measured ~20 ms for 664 rows after the Qt fix.
+LOCAL_PARAMETER_BUDGET = 1000
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,15 +132,40 @@ def prepare_local_fit(
         )
         for peak, identity in zip(peaks, identities, strict=True)
     ]
-    clusters = create_clusters(scientific_spectra, scientific_peaks, contour_level)
-    selected_name = next(item.engine_name for item in identities if item.working_id == selected_id)
-    cluster = next(
-        (group for group in clusters if any(peak.name == selected_name for peak in group.peaks)),
-        None,
+    segments = segment_data(scientific_spectra.data, contour_level, scientific_peaks)
+    selected_index = next(i for i, item in enumerate(identities) if item.working_id == selected_id)
+    segment_id = int(segments[tuple(scientific_peaks[selected_index].positions_i)])
+    members = [
+        peak for peak in scientific_peaks if int(segments[tuple(peak.positions_i)]) == segment_id
+    ]
+    n_points = int(np.count_nonzero(segments == segment_id))
+    array_bytes = n_points * spectra.data.shape[0] * np.dtype(float).itemsize * 2
+    if array_bytes > LOCAL_ARRAY_BUDGET:
+        raise ValueError(
+            f"This group has {len(members)} peaks and {n_points:,} samples across "
+            f"{spectra.data.shape[0]} planes. Its data/correction arrays require "
+            f"{array_bytes / 1024**2:.0f} MiB "
+            f"(preview budget {LOCAL_ARRAY_BUDGET / 1024**2:.0f} MiB), "
+            "before model allocations. Raise the contour threshold to separate groups. "
+            "No fitting region has been truncated."
+        )
+    for peak in members:
+        peak.set_cluster_id(segment_id)
+    grid_indices = list(np.where(segments == segment_id))
+    # Materialize only the selected group; preserve the engine's exact point order.
+    cluster = Cluster(
+        cluster_id=segment_id,
+        peaks=members,
+        grid_indices=grid_indices,
+        data=np.asarray(scientific_spectra.data[(slice(None), *grid_indices)].T, dtype=float),
     )
-    if cluster is None:
-        raise ValueError("No sampled fitting region contains the selected peak.")
     parameters = prepare_cluster_parameters(cluster, settings, steps[0])
+    if len(parameters) > LOCAL_PARAMETER_BUDGET:
+        raise ValueError(
+            f"This group has {len(parameters):,} effective parameters, exceeding the "
+            f"{LOCAL_PARAMETER_BUDGET:,}-row interactive table budget. Raise the contour "
+            "threshold to separate groups. No fitting region has been truncated."
+        )
     if any(
         not np.isfinite(parameter.value) or not parameter.min <= parameter.value <= parameter.max
         for parameter in parameters.values()

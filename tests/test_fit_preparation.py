@@ -73,6 +73,11 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
                 for p in prepared.parameters.values()
             )
 
+    with monkeypatch.context() as budget_patch:
+        budget_patch.setattr("peakfit.gui.fitting.LOCAL_PARAMETER_BUDGET", 1)
+        with pytest.raises(ValueError, match="interactive table budget"):
+            prepare_local_fit(spectra, (peak,), peak.id, config, contour_level=contour_level)
+
     # Engine-safe renaming must never silently omit assignment-based settings,
     # including rules that would accidentally match generated names or files.
     unsupported = []

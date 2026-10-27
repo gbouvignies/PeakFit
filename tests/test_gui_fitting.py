@@ -2,22 +2,30 @@
 
 from dataclasses import replace
 from pathlib import Path
+from threading import Event, get_ident
 
 import numpy as np
 import pytest
-from PySide6 import QtCore, QtTest, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from peakfit.engine.algorithms.clustering import create_clusters
 from peakfit.engine.algorithms.noise import estimate_noise, prepare_noise_level
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.gui.fitting import prepare_local_fit
-from peakfit.gui.spectrum import contour_paths, load_peaks, load_spectrum
+from peakfit.gui.spectrum import contour_geometry, load_peaks, load_spectrum
 from peakfit.gui.viewer import SpectrumViewer
 from peakfit.io.readers.peaks import read_list
 
 DATA = Path(__file__).resolve().parents[1] / "examples" / "02-advanced-fitting" / "data"
 pytestmark = pytest.mark.gui
+
+
+def _process_events(milliseconds: int = 10) -> None:
+    # Unlike QtTest.qWait, exec releases the GIL so Python workers can progress.
+    loop = QtCore.QEventLoop()
+    QtCore.QTimer.singleShot(milliseconds, loop.quit)
+    loop.exec()
 
 
 def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -> None:  # noqa: PLR0915
@@ -94,16 +102,28 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
     viewer.resize(1400, 900)
     viewer.show()
     app.processEvents()
+    elapsed = QtCore.QElapsedTimer()
+    elapsed.start()
+    while not viewer.contours and elapsed.elapsed() < 4000:
+        _process_events(10)
+
+    def wait_for_preview():
+        elapsed.restart()
+        while viewer.fit_preparation is None and elapsed.elapsed() < 4000:
+            _process_events(10)
+        assert viewer.fit_preparation is not None, viewer.fit_preview.summary.text()
+        return viewer.fit_preparation
 
     # A preview must not invoke contour extraction or optimization.
     def unexpected(*_args, **_kwargs):
         pytest.fail("Scope preview must not rebuild contours or execute fitting")
 
-    monkeypatch.setattr("peakfit.gui.viewer.contour_paths", unexpected)
+    monkeypatch.setattr("peakfit.gui.viewer.contour_geometry", unexpected)
     monkeypatch.setattr("peakfit.fit.pipeline.fit_with_optimizer", unexpected)
     paths = [item.path() for item in viewer.contours]
     try:
         viewer.workspace_tabs.setCurrentIndex(1)
+        wait_for_preview()
         app.processEvents()
         assert viewer.fit_preparation is not None
         assert viewer.workspaces.currentIndex() == viewer.workspace_tabs.currentIndex() == 1
@@ -148,6 +168,7 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         assert not viewer.fit_mask.isVisible()
         viewer.select_peak(selected.id)
         viewer.preview_fit_group()
+        wait_for_preview()
         assert viewer.fit_preparation is not None
         # Changing plane labels invalidates the view, but cannot mutate its snapshot.
         snapshot = viewer.fit_preparation.snapshot
@@ -156,7 +177,7 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         assert snapshot.plane_values != tuple(spectra.z_values)
         assert not viewer.fit_mask.isVisible()
         viewer.preview_fit_group()
-        baseline = viewer.fit_preparation
+        baseline = wait_for_preview()
         assert baseline is not None
         calls = []
 
@@ -165,13 +186,13 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
             return prepare_local_fit(*args, **kwargs)
 
         monkeypatch.setattr("peakfit.gui.viewer.prepare_local_fit", record_preparation)
-        monkeypatch.setattr("peakfit.gui.viewer.contour_paths", contour_paths)
+        monkeypatch.setattr("peakfit.gui.viewer.contour_geometry", contour_geometry)
         monkeypatch.setattr("peakfit.engine.algorithms.noise.estimate_noise", unexpected)
         # Display-only controls keep the same scientific preparation.
         viewer.factor.setValue(1.7)
         viewer.levels.setValue(11)
         viewer.set_plane(2)
-        QtTest.QTest.qWait(200)
+        _process_events(200)
         assert viewer.fit_preparation is baseline
         assert not calls
         # A burst of slider changes produces one preparation at the final absolute
@@ -181,8 +202,8 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         assert viewer.fit_preparation is None
         assert not viewer.fit_mask.isVisible()
         assert not viewer.fit_preview.parameters.isEnabled()
-        QtTest.QTest.qWait(300)
-        updated = viewer.fit_preparation
+        _process_events(300)
+        updated = wait_for_preview()
         assert updated is not None
         assert calls == [viewer.lowest_contour_level]
         assert (
@@ -213,6 +234,86 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         assert viewer.peaks == peaks
         np.testing.assert_array_equal(spectra.data, original_data)
     finally:
+        viewer.close()
+        viewer.deleteLater()
+        app.processEvents()
+
+
+def test_low_threshold_preparation_keeps_qt_responsive_and_rejects_obsolete_work(  # noqa: PLR0915
+    monkeypatch,
+) -> None:
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    spectra = load_spectrum(DATA / "pseudo3d.ft2")
+    viewer = SpectrumViewer(spectra)
+    viewer.set_peaks(load_peaks(DATA / "pseudo3d.list", spectra))
+    viewer.select_peak(viewer.peaks[0].id)
+    viewer.show()
+    entered, release = Event(), Event()
+    blocked = [True]
+    threads = []
+    heartbeats = []
+    heartbeat = QtCore.QTimer(viewer)
+    heartbeat.setInterval(10)
+    heartbeat.timeout.connect(lambda: heartbeats.append(1))
+    heartbeat.start()
+
+    def delayed_preparation(*args, **kwargs):
+        threads.append(get_ident())
+        if blocked[0]:
+            entered.set()
+            release.wait(2)
+        return prepare_local_fit(*args, **kwargs)
+
+    def wait_until(condition):
+        elapsed = QtCore.QElapsedTimer()
+        elapsed.start()
+        while not condition() and elapsed.elapsed() < 4000:
+            _process_events()
+        assert condition()
+
+    monkeypatch.setattr("peakfit.gui.viewer.prepare_local_fit", delayed_preparation)
+    try:
+        viewer.preview_fit_group()
+        wait_until(entered.is_set)
+        _process_events(60)
+        assert len(heartbeats) >= 3
+        assert len(threads) == 1
+        assert threads[0] != get_ident()
+        # One running computation; selection/slider changes replace pending work.
+        newer = viewer.peaks[-1]
+        viewer.select_peak(newer.id)
+        assert viewer.workspaces.currentIndex() == 0
+        viewer.preview_fit_group()
+        viewer.threshold.setValue(1000)
+        _process_events(200)
+        assert len(threads) == 1
+        blocked[0] = False
+        release.set()
+        wait_until(lambda: viewer.fit_preparation is not None)
+        current = viewer.fit_preparation
+        assert current is not None
+        assert {member.working_id for member in current.identities} == {newer.id}
+        assert current.contour_level == viewer.lowest_contour_level
+        assert len(set(threads)) == 1
+        # The real all-plane low-threshold region is refused before its 279 MiB
+        # dense arrays are allocated. Dense contour graphics also fail explicitly.
+        viewer.threshold.setValue(0.1)
+        wait_until(lambda: "Raise the contour threshold" in viewer.fit_preview.summary.text())
+        wait_until(lambda: "rendering budget" in viewer.contour_status.text())
+        assert viewer.fit_preparation is None
+        assert not any(item.isVisible() for item in viewer.contours)
+        # Closing never waits for a running operation or installs its late result.
+        blocked[0] = True
+        entered.clear()
+        release.clear()
+        viewer.threshold.setValue(1000)
+        viewer.preview_fit_group()
+        wait_until(entered.is_set)
+        viewer.close()
+        release.set()
+        _process_events(100)
+    finally:
+        release.set()
         viewer.close()
         viewer.deleteLater()
         app.processEvents()
