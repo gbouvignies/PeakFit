@@ -33,8 +33,8 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self._action(menu, "&Quit", "Ctrl+Q", self.close)
         view = self.menuBar().addMenu("&View")
         self._action(view, "Reset view", "Ctrl+0", self._reset_view)
-        self._action(view, "Previous plane", "PgUp", lambda: self._step_plane(-1))
-        self._action(view, "Next plane", "PgDown", lambda: self._step_plane(1))
+        self._action(view, "Previous plane", "Ctrl+PgUp", lambda: self._step_plane(-1))
+        self._action(view, "Next plane", "Ctrl+PgDown", lambda: self._step_plane(1))
         self.labels_action = view.addAction("Peak labels")
         self.labels_action.setCheckable(True)
         self.labels_action.toggled.connect(self._show_peak_labels)
@@ -62,7 +62,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self.values_action.setEnabled(True)
         self.setWindowTitle(f"{path.name} — PeakFit")
         self.statusBar().showMessage(
-            f"{path} · {spectra.data.shape[0]} planes · {len(imported_peaks)} peaks · "
+            f"{spectra.data.shape[0]} planes · {len(imported_peaks)} peaks · "
             "Blue: positive; dashed red: negative · Click to inspect, drag to pan, scroll to zoom"
         )
 

@@ -15,28 +15,41 @@ starts automatic peak picking. Other dimensionalities are rejected with an error
 
 ![Spectrum viewer with the bundled experimental dataset](images/spectrum-viewer.png)
 
+Native macOS capture; [dark appearance](images/spectrum-viewer-dark.png) is also available.
+
 ## Navigation
 
 - Drag the spectrum to pan; scroll to zoom about the pointer. **Reset view** or
   **Ctrl+0** restores the full spectral range.
 - Click to place the crosshair, or drag either crosshair line. It snaps to sampled
   points so the two orthogonal traces and raw plane profile inspect the same data.
-- Use the plane slider/spin box or **Page Up / Page Down**. Plane numbers start at
+- Use the plane slider/spin box or **Ctrl+Page Up / Ctrl+Page Down**. Plane numbers start at
   1; the adjacent value is the experimental coordinate supplied by `--z-values`,
   or the original zero-based plane index when no values file is supplied.
-- Adjust the contour threshold in multiples of the first plane's estimated noise,
-  geometric level spacing, and number of levels. Blue solid contours are positive;
-  red dashed contours are negative. Changes are briefly coalesced during navigation.
+- Use the sliders for visual adjustment of threshold, geometric spacing, and level
+  count; adjacent spin boxes allow precise entries. The threshold slider is
+  logarithmic (0.1–1000 × the first plane's estimated noise), with fine relative
+  adjustments at low thresholds. Slider arrow keys make small changes; Page Up /
+  Page Down make larger changes when a slider has focus. Blue solid contours are
+  positive; red dashed contours are negative. Changes are briefly coalesced.
 - Imported peaks appear as crosses. Hover to see a name and displayed coordinates;
   enable **View → Peak labels** for assignments. Indirect positions fold into the
   sampled window using PeakFit's coordinate conversions. Direct positions do not wrap.
 
-The upper right trace shares the spectrum's horizontal range. The second trace
-shows the indirect axis. Both inspect the selected plane. The bottom panel shows
+Both right-hand traces follow the visible spectral ranges during zooming and
+panning: the upper trace follows the horizontal (direct) axis, and the second
+follows the vertical (indirect) axis. Both retain descending ppm orientation and
+automatically scale intensity to the visible region. Navigate in the main spectrum;
+the traces are inspection panels, with no independent pan/zoom. Both inspect the
+crosshair position on the selected plane. The bottom panel shows
 raw sampled intensity at the crosshair across all planes, not fitted amplitudes.
 The larger point identifies the current plane. Points are deliberately not joined:
 experimental coordinates may repeat or arrive out of order. Values have no assumed
 physical units; their interpretation depends on the experiment.
+
+Plot backgrounds and labels follow Qt's system palette, with contrasting contour,
+trace, and crosshair colors for light and dark appearances. The horizontal splitter
+lets you allocate space between the spectrum and inspection panels.
 
 ## Scope and performance
 

@@ -23,6 +23,15 @@ def test_experimental_spectrum_inspection_preserves_coordinates_and_raw_data() -
     viewer.show()
     app.processEvents()
     try:
+        # Both traces follow zooming and panning in the spectrum, including F2 → trace X.
+        for x_range, y_range in [((7.5, 9.0), (115.0, 120.0)), ((8.0, 9.5), (120.0, 125.0))]:
+            viewer.spectrum_plot.getViewBox().setRange(xRange=x_range, yRange=y_range, padding=0)
+            app.processEvents()
+            np.testing.assert_allclose(viewer.trace_x.getViewBox().viewRange()[0], x_range)
+            np.testing.assert_allclose(viewer.trace_y.getViewBox().viewRange()[0], y_range)
+            assert viewer.trace_y.getViewBox().state["xInverted"]
+        viewer.reset_view()
+        app.processEvents()
         # Click in the real plotted coordinate system, then inspect a different plane.
         point = viewer.spectrum_plot.getViewBox().mapViewToScene(
             QtCore.QPointF(float(viewer.ppm_x[250]), float(viewer.ppm_y[100]))

@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 # isort: split
 # PySide6 must be imported before PyQtGraph selects a binding.
@@ -35,7 +35,9 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.contours: list[QtWidgets.QGraphicsPathItem] = []
         self.peak_labels: list[pg.TextItem] = []
         self.labels_visible = False
+        self._colors = self._palette_colors()
         self._build_ui()
+        self._apply_palette()
         self._contour_timer = QtCore.QTimer(self)
         self._contour_timer.setSingleShot(True)
         self._contour_timer.setInterval(30)
@@ -47,13 +49,60 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._update_slices()
 
     def _plot(self, title: str) -> pg.PlotWidget:
-        plot = pg.PlotWidget(title=title, background="w")
-        for name in ("left", "bottom"):
-            plot.getAxis(name).setPen("#52606d")
-            plot.getAxis(name).setTextPen("#243746")
+        plot = pg.PlotWidget(title=title, background=self._colors["background"])
         plot.showGrid(x=True, y=True, alpha=0.12)
         plot.setMenuEnabled(False)
         return plot
+
+    def _palette_colors(self) -> dict[str, str]:
+        palette = self.palette()
+        background = palette.color(QtGui.QPalette.ColorRole.Base)
+        foreground = palette.color(QtGui.QPalette.ColorRole.Text)
+        dark = background.lightness() < foreground.lightness()
+        return {
+            "background": background.name(),
+            "foreground": foreground.name(),
+            "positive": "#64b5f6" if dark else "#1265a8",
+            "negative": "#ff8a80" if dark else "#b34244",
+            "crosshair": "#ffcc80" if dark else "#9a5500",
+        }
+
+    def _apply_palette(self) -> None:
+        """Use Qt's appearance without recalculating any scientific geometry."""
+        self._colors = self._palette_colors()
+        foreground = self._colors["foreground"]
+        for plot in (self.spectrum_plot, self.trace_x, self.trace_y, self.profile):
+            plot.setBackground(self._colors["background"])
+            plot.setTitle(plot.getPlotItem().titleLabel.text, color=foreground)
+            for name in ("left", "bottom"):
+                axis = plot.getAxis(name)
+                axis.setPen(foreground)
+                axis.setTextPen(foreground)
+                axis.setLabel(axis.labelText, units=axis.labelUnits, color=foreground)
+        for line in (self.cross_x, self.cross_y):
+            line.setPen(pg.mkPen(self._colors["crosshair"]))
+            line.setHoverPen(pg.mkPen(self._colors["crosshair"], width=2))
+        for line in self.zero_lines:
+            line.setPen(pg.mkPen(foreground, style=QtCore.Qt.PenStyle.DotLine))
+        for curve in (self.curve_x, self.curve_y):
+            curve.setPen(pg.mkPen(self._colors["positive"], width=1.5))
+        self.peak_scatter.setPen(pg.mkPen(foreground, width=1.5))
+        for label in self.peak_labels:
+            label.setColor(foreground)
+        self.curve_profile.setSymbolBrush(self._colors["crosshair"])
+        self.profile_marker.setBrush(self._colors["crosshair"])
+        self.profile_marker.setPen(foreground)
+        for item in self.contours:
+            pen = item.pen()
+            negative = pen.style() == QtCore.Qt.PenStyle.DashLine
+            pen.setColor(QtGui.QColor(self._colors["negative" if negative else "positive"]))
+            item.setPen(pen)
+
+    def changeEvent(self, event: QtCore.QEvent) -> None:  # noqa: N802
+        """Follow application palette changes, including system appearance switches."""
+        super().changeEvent(event)
+        if event.type() == QtCore.QEvent.Type.PaletteChange and hasattr(self, "curve_profile"):
+            self._apply_palette()
 
     @staticmethod
     def _axis_title(axis: SpectralParameters) -> str:
@@ -63,6 +112,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         splitter = QtWidgets.QSplitter()
+        splitter.setChildrenCollapsible(False)
         layout.addWidget(splitter, 1)
         left = QtWidgets.QWidget()
         left_layout = QtWidgets.QVBoxLayout(left)
@@ -97,18 +147,32 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._build_contour_controls(left_layout)
         splitter.addWidget(left)
 
+        right = self._build_inspection_panels()
+        splitter.addWidget(right)
+        splitter.setSizes([850, 450])
+        self.position_label = QtWidgets.QLabel()
+        layout.addWidget(self.position_label)
+
+    def _build_inspection_panels(self) -> QtWidgets.QWidget:
         right = QtWidgets.QWidget()
         right_layout = QtWidgets.QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
         self.trace_x = self._plot(self._axis_title(self.x_axis))
         self.trace_y = self._plot(self._axis_title(self.y_axis))
         self.profile = self._plot("Raw intensity across planes")
+        self.zero_lines: list[pg.InfiniteLine] = []
         for plot, axis in ((self.trace_x, self.x_axis), (self.trace_y, self.y_axis)):
             plot.setLabel("bottom", self._axis_title(axis), units="ppm")
             plot.setLabel("left", "Intensity")
-            plot.getViewBox().invertX(True)
-            plot.addLine(y=0, pen=pg.mkPen("#999999", style=QtCore.Qt.PenStyle.DotLine))
-        self.trace_x.setXLink(self.spectrum_plot)
+            trace_view = plot.getViewBox()
+            trace_view.invertX(True)
+            trace_view.setMouseEnabled(x=False, y=False)
+            trace_view.setAutoVisible(y=True)
+            self.zero_lines.append(plot.addLine(y=0))
+            plot.setToolTip(
+                "Follows the spectrum's visible range; intensity scales to visible data."
+            )
+        self.spectrum_plot.getViewBox().sigRangeChanged.connect(self._sync_trace_ranges)
         self.curve_x = self.trace_x.plot(pen=pg.mkPen("#1265a8", width=1.5))
         self.curve_y = self.trace_y.plot(pen=pg.mkPen("#1265a8", width=1.5))
         self.profile.setLabel("bottom", "Plane value")
@@ -121,16 +185,19 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.profile.addItem(self.profile_marker)
         for plot in (self.trace_x, self.trace_y, self.profile):
             right_layout.addWidget(plot, 1)
-        splitter.addWidget(right)
-        splitter.setSizes([850, 450])
-        self.position_label = QtWidgets.QLabel()
-        layout.addWidget(self.position_label)
+        return right
 
     def _build_plane_controls(self, layout: QtWidgets.QVBoxLayout) -> None:
         row = QtWidgets.QHBoxLayout()
         row.addWidget(QtWidgets.QLabel("Plane"))
         self.plane_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.plane_spin = QtWidgets.QSpinBox()
+        self.plane_spin.setKeyboardTracking(False)
+        self.plane_spin.setAccessibleName("Plane number")
+        self.plane_slider.setAccessibleName("Plane")
+        self.plane_slider.setToolTip(
+            "Select a plane; Ctrl+Page Up / Ctrl+Page Down also step between planes."
+        )
         n_planes = self.spectra.data.shape[0]
         self.plane_slider.setRange(1, n_planes)
         self.plane_spin.setRange(1, n_planes)
@@ -145,7 +212,8 @@ class SpectrumViewer(QtWidgets.QWidget):
         layout.addLayout(row)
 
     def _build_contour_controls(self, layout: QtWidgets.QVBoxLayout) -> None:
-        row = QtWidgets.QHBoxLayout()
+        grid = QtWidgets.QGridLayout()
+        grid.setVerticalSpacing(2)
         self.threshold = QtWidgets.QDoubleSpinBox()
         self.threshold.setRange(0.1, 1000)
         self.threshold.setValue(5)
@@ -158,27 +226,81 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.levels = QtWidgets.QSpinBox()
         self.levels.setRange(1, 30)
         self.levels.setValue(10)
-        for title, control in (
-            ("Threshold", self.threshold),
-            ("Spacing", self.factor),
-            ("Levels", self.levels),
+        self.threshold_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.threshold_slider.setRange(0, 400)
+        self.threshold_slider.setPageStep(25)
+        self.factor_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.factor_slider.setRange(105, 300)
+        self.factor_slider.setSingleStep(5)
+        self.factor_slider.setPageStep(10)
+        self.levels_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.levels_slider.setRange(1, 30)
+        self.levels_slider.setPageStep(5)
+        for row, (title, control, slider, tooltip) in enumerate(
+            (
+                (
+                    "&Threshold",
+                    self.threshold,
+                    self.threshold_slider,
+                    "First contour in multiples of noise. Slider uses logarithmic spacing.",
+                ),
+                (
+                    "&Spacing",
+                    self.factor,
+                    self.factor_slider,
+                    "Multiplier between successive contour levels.",
+                ),
+                ("&Levels", self.levels, self.levels_slider, "Number of contours for each sign."),
+            )
         ):
-            row.addWidget(QtWidgets.QLabel(title))
+            label = QtWidgets.QLabel(title)
+            label.setBuddy(slider)
+            slider.setAccessibleName(label.text().replace("&", "") + " slider")
+            control.setAccessibleName(label.text().replace("&", ""))
             control.setKeyboardTracking(False)
-            row.addWidget(control)
+            slider.setToolTip(tooltip)
+            control.setToolTip(tooltip)
+            slider.valueChanged.connect(self._contour_slider_changed)
+            control.valueChanged.connect(self._sync_contour_sliders)
+            grid.addWidget(label, row, 0)
+            grid.addWidget(slider, row, 1)
+            grid.addWidget(control, row, 2)
+        grid.setColumnStretch(1, 1)
+        self._sync_contour_sliders()
         reset = QtWidgets.QPushButton("Reset view")
         reset.clicked.connect(self.reset_view)
-        row.addWidget(reset)
-        layout.addLayout(row)
+        grid.addWidget(reset, 0, 3)
+        layout.addLayout(grid)
+
+    def _sync_contour_sliders(self) -> None:
+        for slider, value in (
+            (self.threshold_slider, round(100 * np.log10(self.threshold.value() / 0.1))),
+            (self.factor_slider, round(100 * self.factor.value())),
+            (self.levels_slider, self.levels.value()),
+        ):
+            with QtCore.QSignalBlocker(slider):
+                slider.setValue(value)
+
+    def _contour_slider_changed(self) -> None:
+        slider = self.sender()
+        if slider is self.threshold_slider:
+            self.threshold.setValue(0.1 * 10 ** (self.threshold_slider.value() / 100))
+        elif slider is self.factor_slider:
+            self.factor.setValue(self.factor_slider.value() / 100)
+        else:
+            self.levels.setValue(self.levels_slider.value())
+
+    def _sync_trace_ranges(self) -> None:
+        """The spectrum owns navigation; trace X ranges follow its two spectral axes."""
+        x_range, y_range = self.spectrum_plot.getViewBox().viewRange()
+        for plot, limits in ((self.trace_x, x_range), (self.trace_y, y_range)):
+            plot.getViewBox().setXRange(*limits, padding=0)
 
     def reset_view(self) -> None:
         """Show the entire sampled spectrum without recalculating contours."""
         self.spectrum_plot.getViewBox().setRange(
             xRange=(float(self.ppm_x[-1]), float(self.ppm_x[0])),
             yRange=(float(self.ppm_y[-1]), float(self.ppm_y[0])),
-        )
-        self.trace_y.getViewBox().setXRange(
-            float(self.ppm_y[-1]), float(self.ppm_y[0]), padding=0.02
         )
 
     def set_plane(self, number: int) -> None:
@@ -215,7 +337,7 @@ class SpectrumViewer(QtWidgets.QWidget):
                 negative = index >= n_levels
                 item.setPen(
                     pg.mkPen(
-                        "#b34244" if negative else "#1265a8",
+                        self._colors["negative" if negative else "positive"],
                         width=1,
                         style=QtCore.Qt.PenStyle.DashLine
                         if negative
@@ -287,7 +409,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             data=[peak.name for peak in peaks],
         )
         for peak, (x, y) in zip(peaks, positions, strict=True):
-            label = pg.TextItem(peak.name, color="#303030", anchor=(0, 1))
+            label = pg.TextItem(peak.name, color=self._colors["foreground"], anchor=(0, 1))
             label.setPos(x, y)
             label.setVisible(self.labels_visible)
             self.spectrum_plot.getPlotItem().addItem(label, ignoreBounds=True)
