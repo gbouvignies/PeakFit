@@ -16,7 +16,9 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 - `src/peakfit/cli/` - Typer command-line entrypoints and terminal presentation.
 - `src/peakfit/gui/` - PySide6/PyQtGraph desktop window, reusable spectrum viewer,
   and contour geometry helpers. Uses the existing `Spectra` model and input readers;
-  currently read-only, with no fitting state or auto-picking dependencies.
+  working peak records and undo history are Qt-independent. Imported placeholder
+  shapes are discarded; GUI coordinates are not fitting inputs or completed results.
+  There are no auto-picking dependencies.
 - `src/peakfit/ui/` - Rich terminal helpers used by the current CLI.
 - `src/peakfit/fit/` - validation, data loading, fitting workflow, result assembly, and output coordination.
 - `src/peakfit/auto_pick/` - experimental automatic peak-picking workflow used only when no peak list is provided.

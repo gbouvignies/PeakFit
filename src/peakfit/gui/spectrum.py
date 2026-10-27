@@ -7,13 +7,13 @@ import numpy as np
 from PySide6.QtGui import QPainterPath
 
 from peakfit.engine.domain.config import FitConfig
+from peakfit.gui.peaks import WorkingPeak
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 
 _SPECTRAL_DIMENSIONS = 2
@@ -45,12 +45,15 @@ def validate_plane_values(values: np.ndarray, n_planes: int) -> None:
         )
 
 
-def load_peaks(path: Path, spectra: Spectra) -> list[Peak]:
+def load_peaks(path: Path, spectra: Spectra) -> list[WorkingPeak]:
     """Use existing peak readers; shapes are never fitted or edited by the viewer."""
     peaks = read_list(path, spectra, ["gaussian"] * spectra.n_spectral_dims, FitConfig())
     if any(not np.all(np.isfinite(peak.positions)) for peak in peaks):
         raise ValueError("Peak positions must be finite ppm coordinates.")
-    return peaks
+    return [
+        WorkingPeak.new(peak.name, (float(peak.positions[0]), float(peak.positions[1])))
+        for peak in peaks
+    ]
 
 
 def display_position(axis: SpectralParameters, ppm: float) -> float:

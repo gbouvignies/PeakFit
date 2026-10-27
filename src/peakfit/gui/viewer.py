@@ -15,8 +15,8 @@ from peakfit.gui.spectrum import contour_paths, display_position, validate_plane
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
+    from peakfit.gui.peaks import WorkingPeak
 
 
 class SpectrumViewer(QtWidgets.QWidget):
@@ -31,7 +31,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.ppm_x = self.x_axis.pts2ppm(np.arange(self.x_axis.size, dtype=float))
         self.ppm_y = self.y_axis.pts2ppm(np.arange(self.y_axis.size, dtype=float))
         self.noise = estimate_noise(spectra.data[0])
-        self.peaks: Sequence[Peak] = ()
+        self.peaks: Sequence[WorkingPeak] = ()
         self.contours: list[QtWidgets.QGraphicsPathItem] = []
         self.peak_labels: list[pg.TextItem] = []
         self.labels_visible = False
@@ -390,7 +390,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.profile.enableAutoRange()
         self._update_slices()
 
-    def set_peaks(self, peaks: Sequence[Peak]) -> None:
+    def set_peaks(self, peaks: Sequence[WorkingPeak]) -> None:
         """Display imported peaks, folding only indirect coordinates."""
         self.peaks = peaks
         for label in self.peak_labels:
