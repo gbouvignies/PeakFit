@@ -32,6 +32,8 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
         )
         config.parameters.defaults.patterns["*.F2.cs"] = ParameterConstraint(vary=False)
         prepared = prepare_local_fit(spectra, (peak,), peak.id, config, contour_level=contour_level)
+        assert prepared.cluster is not None
+        assert prepared.parameters is not None
         assert not prepared.parameters[f"{prepared.identities[0].engine_name}.F2.cs"].vary
         widths = [
             p
@@ -73,11 +75,6 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
                 for p in prepared.parameters.values()
             )
 
-    with monkeypatch.context() as budget_patch:
-        budget_patch.setattr("peakfit.gui.fitting.LOCAL_PARAMETER_BUDGET", 1)
-        with pytest.raises(ValueError, match="interactive table budget"):
-            prepare_local_fit(spectra, (peak,), peak.id, config, contour_level=contour_level)
-
     # Engine-safe renaming must never silently omit assignment-based settings,
     # including rules that would accidentally match generated names or files.
     unsupported = []
@@ -103,6 +100,7 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
     # the preceding fit rather than resetting to 35 Hz. No optimizer is executed.
     config.fitting.lineshape = "gaussian"
     prepared = prepare_local_fit(spectra, (peak,), peak.id, config, contour_level=contour_level)
+    assert prepared.cluster is not None
     config.fitting.steps = [FitStep(name="start"), FitStep(name="release", vary=["*.*.lw"])]
     captured = []
 

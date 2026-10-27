@@ -65,9 +65,6 @@ def display_position(axis: SpectralParameters, ppm: float) -> float:
     return float(axis.pts2ppm(point))
 
 
-# Native profiling: 72k vertices paint in ~18 ms, 1.1M in ~216 ms on macOS.
-# This is a rendering-work budget, never a scientific intensity/region cutoff.
-CONTOUR_VERTEX_BUDGET = 100_000
 type ContourGeometry = list[tuple[np.ndarray, np.ndarray]]
 
 
@@ -75,8 +72,6 @@ def contour_geometry(
     plane: np.ndarray,
     axes: list[SpectralParameters],
     levels: np.ndarray,
-    *,
-    max_vertices: int | None = None,
 ) -> ContourGeometry:
     """Extract numerical paths off the GUI thread; create no Qt objects."""
     y_axis, x_axis = axes
@@ -87,16 +82,8 @@ def contour_geometry(
         line_type="Separate",
     )
     geometry: ContourGeometry = []
-    n_vertices = 0
     for level in levels:
         segments = cast("list[np.ndarray]", generator.lines(float(level)))
-        n_vertices += sum(len(segment) for segment in segments)
-        if max_vertices is not None and n_vertices > max_vertices:
-            raise ValueError(
-                f"Contours exceed the {max_vertices:,}-vertex interactive rendering budget. "
-                "Raise Threshold or reduce Levels. Contours are hidden, not truncated; "
-                "raw traces and navigation remain available."
-            )
         points = np.concatenate(segments) if segments else np.empty((0, 2))
         connect = np.ones(len(points), dtype=np.int32)
         if segments:

@@ -21,9 +21,10 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   Local scope preparation constructs fresh engine-safe peaks from snapshots, reuses
   engine clustering and pipeline parameter preparation, and displays the exact mask
   in a contextual Inspect/Fit workspace. One serial background lane handles numerical
-  preparation and contour extraction; Qt applies only current, bounded results.
-  Selected-group data is extracted after exact all-plane segmentation and resource
-  checks. It does not execute optimization. There
+  preparation and contour extraction; Qt applies only current results.
+  Exact lightweight scope geometry remains available even when numerical data
+  exceeds preparation limits; only eligible selected-group arrays are materialized.
+  Full contours remain visible during background replacement, without a vertex cutoff. It does not execute optimization. There
   are no auto-picking dependencies.
 - `src/peakfit/ui/` - Rich terminal helpers used by the current CLI.
 - `src/peakfit/fit/` - validation, data loading, fitting workflow, result assembly, and output coordination.

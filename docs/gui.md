@@ -155,8 +155,8 @@ or a persisted session.
 
 Changing **Threshold** while the Fit workspace is open updates membership, mask,
 member rings, and effective parameters. Rapid slider changes are coalesced after a
-short pause (150 ms); the previous scope is hidden and marked as updating until the
-new preparation is ready. Spacing, number of levels, and displayed plane affect
+short pause (150 ms); the previous scope stays visible at reduced opacity, marked
+as updating until the new exact scope is ready. Spacing, number of levels, and displayed plane affect
 rendering only and never redefine the cluster. The all-plane noise estimate is
 reused for the unchanged dataset. Returning to Inspect cancels any pending update.
 
@@ -182,18 +182,27 @@ implemented. Existing Matplotlib viewers and static plots remain available uncha
 The viewer keeps the `Spectra` object in memory. Panning and zooming reuse retained
 Qt graphics; raw traces and plane navigation remain available while work is pending.
 
-The preview enforces explicit **workload budgets**, not contour-intensity limits:
-selected-group data plus correction arrays may use at most 128 MiB, and parameter
-tables at most 1,000 rows. Required size is checked before large group arrays or Qt
-items are constructed. A declined preview reports the group size and suggests a
-higher threshold, without truncating the scientific region. Dense contour display
-is declined above 100,000 vertices, with a separate message suggesting a higher
-threshold or fewer levels. All contours are hidden rather than partially drawn;
-raw traces and navigation remain available. These conservative interactive budgets
-are justified by the [native profiling results](development.md#gui-responsiveness).
-Large fits remain available through the CLI.
+Low-threshold contours remain fully available. Existing contours stay visible while
+their replacement is computed, and the complete new set is installed together.
+There is no contour-vertex cutoff. Progress uses a reserved one-line status area;
+status changes do not move the spectrum or its controls.
 
-![Explicit low-threshold workload messages while navigation stays available](images/fit-scope-low-threshold.png)
+Numerical preparation is separate from scope visualization. If a selected group's
+data/correction arrays would exceed 128 MiB, its exact segmentation mask, all member
+markers, model metadata, and sample counts still appear. No dense point-by-plane
+arrays are allocated, and the parameter table remains unavailable. A compact status
+explains that numerical preparation is unavailable; **Details…**
+provides the full explanation, required memory, and advice to use the CLI or a
+higher threshold for numerical preparation. No region is truncated. Internally,
+`PreparedLocalFit.scope` always contains geometry and membership; `cluster` and
+`parameters` are explicitly absent when only the lightweight scope is available.
+
+Fixed-height metadata and status areas keep the Fit workspace stable during
+progress, warnings, and completed scope updates. Details open only on request.
+The [native comparison](development.md#gui-responsiveness) covers the original
+viewer and this workspace down to 0.1× noise.
+
+![Complete low-threshold contours and lightweight fitting scope](images/fit-scope-low-threshold.jpg)
 
 Running work is not forcefully interrupted; it finishes in the background and its
 obsolete result is ignored. Shutdown does not wait in the Qt event loop. The first

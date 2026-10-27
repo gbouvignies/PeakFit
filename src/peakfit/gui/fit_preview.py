@@ -32,15 +32,32 @@ class FitPreview(QtWidgets.QWidget):
             "The complete iterative cross-cluster correction procedure is not included. "
             "Check nearby peaks and the experimental model before fitting."
         )
-        for label in (self.summary, self.models, self.region, assumptions):
+        for label, lines in (
+            (self.summary, 2),
+            (self.models, 2),
+            (self.region, 4),
+            (assumptions, None),
+        ):
             label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             label.setWordWrap(True)
             label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+            if lines is not None:
+                label.setFixedHeight(label.fontMetrics().lineSpacing() * lines + 4)
+                label.setSizePolicy(
+                    QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+                )
             layout.addWidget(label)
+        self.status = QtWidgets.QLabel()
+        self.status.setFixedHeight(self.status.fontMetrics().lineSpacing() + 4)
+        self.status.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+        )
+        layout.addWidget(self.status)
+        self._details = ""
         members_title = QtWidgets.QLabel("Included peaks · rings on spectrum")
         layout.addWidget(members_title)
         self.members = QtWidgets.QListWidget()
-        self.members.setMaximumHeight(110)
+        self.members.setFixedHeight(110)
         layout.addWidget(self.members)
         layout.addWidget(QtWidgets.QLabel("Effective starting parameters · read-only"))
         self.parameters = QtWidgets.QTableWidget(0, 6)
@@ -65,11 +82,18 @@ class FitPreview(QtWidgets.QWidget):
         layout.addWidget(note)
         dismiss = QtWidgets.QPushButton("Back to Inspect")
         dismiss.clicked.connect(self.dismissed)
-        layout.addWidget(dismiss)
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.addWidget(dismiss, 1)
+        self.details = QtWidgets.QPushButton("Details…")
+        self.details.setFixedWidth(85)
+        self.details.setEnabled(False)
+        self.details.clicked.connect(self._show_details)
+        buttons.addWidget(self.details)
+        layout.addLayout(buttons)
 
     def show_preparation(self, prepared: PreparedLocalFit) -> None:
         """Project resolved parameters, preserving duplicate assignment identity."""
-        group = prepared.cluster
+        group = prepared.scope
         self.summary.setText(
             f"{len(group.peaks)} peaks · {group.n_series} experimental planes · "
             f"{group.n_points} sampled spectral points per plane"
@@ -99,6 +123,23 @@ class FitPreview(QtWidgets.QWidget):
                 f"{peak.positions[1]:.6f} ppm)"
             )
         self.parameters.setRowCount(0)
+        self.parameters.setEnabled(prepared.parameters is not None)
+        self._details = (
+            (prepared.limitation or "Numerical inputs prepared; no fit has been run.")
+            + "\n\n"
+            + self.models.text()
+            + "\n\n"
+            + self.region.text()
+        )
+        self.status.setText(
+            "Scope shown · numerical preparation unavailable"
+            if prepared.limitation
+            else "Scope ready · numerical inputs prepared"
+        )
+        self.status.setToolTip(self._details)
+        self.details.setEnabled(True)
+        if prepared.parameters is None:
+            return
         self.parameters.setRowCount(len(prepared.parameters))
         for row, parameter in enumerate(prepared.parameters.values()):
             identifier = parameter.param_id
@@ -125,11 +166,23 @@ class FitPreview(QtWidgets.QWidget):
                 self.parameters.setItem(row, column, item)
         self.parameters.resizeColumnsToContents()
 
-    def show_status(self, message: str) -> None:
-        """Keep navigation and dismissal usable while work is pending or declined."""
-        self.summary.setText(message)
-        self.models.clear()
-        self.region.clear()
-        self.members.clear()
-        self.parameters.setRowCount(0)
+    def show_status(self, message: str, *, clear: bool = False) -> None:
+        """Use reserved status space; retain the previous scope while updating."""
+        self._details = message
+        self.status.setText("Scope unavailable · Details…" if clear else message)
+        self.status.setToolTip(message)
+        self.details.setEnabled(True)
         self.parameters.setEnabled(False)
+        if clear:
+            self.summary.setText("Scope unavailable")
+            self.models.clear()
+            self.region.clear()
+            self.members.clear()
+            self.parameters.setRowCount(0)
+
+    def _show_details(self) -> None:
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setWindowTitle("Fitting scope details")
+        dialog.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        dialog.setText(self._details)
+        dialog.exec()

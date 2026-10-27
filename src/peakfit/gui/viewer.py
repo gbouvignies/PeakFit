@@ -19,7 +19,6 @@ from peakfit.gui.fit_preview import FitPreview
 from peakfit.gui.fitting import PreparedLocalFit, prepare_local_fit
 from peakfit.gui.peaks import PeakEdits
 from peakfit.gui.spectrum import (
-    CONTOUR_VERTEX_BUDGET,
     contour_geometry,
     display_position,
     paths_from_geometry,
@@ -201,6 +200,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         )
         self.interaction_hint = QtWidgets.QLabel()
         self.interaction_hint.setMargin(6)
+        self.interaction_hint.setFixedHeight(self.interaction_hint.fontMetrics().lineSpacing() + 12)
+        self.interaction_hint.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+        )
         self.interaction_hint.setAutoFillBackground(True)
         left_layout.addWidget(self.interaction_hint)
         left_layout.addWidget(self.spectrum_plot, 1)
@@ -233,6 +236,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         splitter.addWidget(right)
         splitter.setSizes([850, 450])
         self.position_label = QtWidgets.QLabel()
+        self.position_label.setFixedHeight(self.position_label.fontMetrics().lineSpacing() + 4)
+        self.position_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+        )
         layout.addWidget(self.position_label)
 
     def _build_fit_overlay(self) -> None:
@@ -282,9 +289,13 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._fit_revision += 1
         revision = self._fit_revision
         self.fit_preparation = None
-        self.fit_mask.hide()
-        self.fit_members.clear()
-        self.fit_preview.show_status("Preparing fitting scope…")
+        self.fit_mask.setOpacity(0.35)
+        self.fit_members.setOpacity(0.35)
+        self.fit_preview.show_status(
+            "Updating scope · previous scope shown until ready"
+            if self.fit_mask.isVisible()
+            else "Preparing fitting scope…"
+        )
         with QtCore.QSignalBlocker(self.workspace_tabs):
             self.workspace_tabs.setCurrentIndex(1)
         self.workspaces.setCurrentIndex(1)
@@ -310,10 +321,11 @@ class SpectrumViewer(QtWidgets.QWidget):
         """Install only the current scientific result, using Qt on the GUI thread."""
         self._fit_noise = prepared.noise
         self.fit_preparation = prepared
-        self.fit_preview.parameters.setEnabled(True)
         self.fit_preview.show_preparation(prepared)
+        self.fit_mask.setOpacity(1)
+        self.fit_members.setOpacity(1)
         rgba = np.zeros((*self.spectra.data.shape[1:], 4), dtype=np.uint8)
-        rgba[tuple(prepared.cluster.grid_indices)] = (230, 160, 20, 85)
+        rgba[prepared.scope.grid_indices] = (230, 160, 20, 85)
         self.fit_mask.setImage(rgba, autoLevels=False)
         self.fit_mask.setTransform(
             QtGui.QTransform(
@@ -355,9 +367,13 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._fit_revision += 1
         self._computation.cancel("fit")
         self.fit_preparation = None
-        self.fit_mask.hide()
-        self.fit_members.clear()
-        self.fit_preview.show_status("Updating fitting scope for the contour threshold…")
+        self.fit_mask.setOpacity(0.35)
+        self.fit_members.setOpacity(0.35)
+        self.fit_preview.show_status(
+            "Updating scope · previous scope shown until ready"
+            if self.fit_mask.isVisible()
+            else "Preparing fitting scope…"
+        )
         self._fit_timer.start()
 
     def dismiss_fit_preview(self) -> None:
@@ -503,7 +519,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         grid.addWidget(reset, 0, 3)
         layout.addLayout(grid)
         self.contour_status = QtWidgets.QLabel()
-        self.contour_status.setWordWrap(True)
+        self.contour_status.setFixedHeight(self.contour_status.fontMetrics().lineSpacing() + 4)
+        self.contour_status.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+        )
         layout.addWidget(self.contour_status)
 
     def _sync_contour_sliders(self) -> None:
@@ -552,9 +571,10 @@ class SpectrumViewer(QtWidgets.QWidget):
     def _schedule_contours(self) -> None:
         self._contour_revision += 1
         self._computation.cancel("contours")
-        for item in self.contours:
-            item.hide()
         self.contour_status.setText("Updating contours…")
+        self.contour_status.setToolTip(
+            "Previous contours remain visible until the new set is ready."
+        )
         # Coalesce redraw requests; the worker keeps only the latest pending work.
         if not self._contour_timer.isActive():
             self._contour_timer.start()
@@ -575,7 +595,6 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.spectra.data[self.plane],
             axes,
             levels,
-            max_vertices=CONTOUR_VERTEX_BUDGET,
         )
         self._computation.submit("contours", self._contour_revision, operation)
 
@@ -602,6 +621,7 @@ class SpectrumViewer(QtWidgets.QWidget):
                 )
                 item.setPath(paths[index])
         self.contour_status.clear()
+        self.contour_status.setToolTip("")
 
     @QtCore.Slot(str, int, object)
     def _computation_finished(self, kind: str, revision: int, outcome: object) -> None:
@@ -609,12 +629,15 @@ class SpectrumViewer(QtWidgets.QWidget):
             return
         if kind == "fit" and revision == self._fit_revision:
             if isinstance(outcome, Exception):
-                self.fit_preview.show_status(str(outcome))
+                self.fit_mask.hide()
+                self.fit_members.clear()
+                self.fit_preview.show_status(str(outcome), clear=True)
             else:
                 self._apply_fit_preparation(cast("PreparedLocalFit", outcome))
         elif kind == "contours" and revision == self._contour_revision:
             if isinstance(outcome, Exception):
-                self.contour_status.setText(str(outcome))
+                self.contour_status.setText("Contour update failed · hover for details")
+                self.contour_status.setToolTip(str(outcome))
             else:
                 self._apply_contour_geometry(cast("ContourGeometry", outcome))
 

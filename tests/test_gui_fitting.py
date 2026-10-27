@@ -68,6 +68,7 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         for peak in peaks
     )
     prepared = prepare_local_fit(spectra, peaks, selected.id, contour_level=contour_level)
+    assert prepared.cluster is not None
     assert {item.working_id for item in prepared.identities} == expected_ids
     assert len({item.engine_name for item in prepared.identities}) == len(expected_ids)
     assert sum(item.assignment == "Duplicate" for item in prepared.identities) == 2
@@ -112,6 +113,7 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         while viewer.fit_preparation is None and elapsed.elapsed() < 4000:
             _process_events(10)
         assert viewer.fit_preparation is not None, viewer.fit_preview.summary.text()
+        assert viewer.fit_preparation.parameters is not None
         return viewer.fit_preparation
 
     # A preview must not invoke contour extraction or optimization.
@@ -126,6 +128,7 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         wait_for_preview()
         app.processEvents()
         assert viewer.fit_preparation is not None
+        assert viewer.fit_preparation.parameters is not None
         assert viewer.workspaces.currentIndex() == viewer.workspace_tabs.currentIndex() == 1
         assert viewer.fit_preview.parameters.rowCount() == len(viewer.fit_preparation.parameters)
         assert len(viewer.fit_members.points()) == len(expected_ids)
@@ -200,7 +203,7 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         for value in (390, 395, 400):
             viewer.threshold_slider.setValue(value)
         assert viewer.fit_preparation is None
-        assert not viewer.fit_mask.isVisible()
+        assert viewer.fit_mask.isVisible()
         assert not viewer.fit_preview.parameters.isEnabled()
         _process_events(300)
         updated = wait_for_preview()
@@ -295,13 +298,42 @@ def test_low_threshold_preparation_keeps_qt_responsive_and_rejects_obsolete_work
         assert {member.working_id for member in current.identities} == {newer.id}
         assert current.contour_level == viewer.lowest_contour_level
         assert len(set(threads)) == 1
-        # The real all-plane low-threshold region is refused before its 279 MiB
-        # dense arrays are allocated. Dense contour graphics also fail explicitly.
+        # Large numerical inputs do not prevent viewing exact lightweight scope
+        # geometry or the complete low-threshold contours. Status never reflows UI.
+        geometry = (
+            viewer.spectrum_plot.geometry(),
+            viewer.threshold_slider.geometry(),
+            viewer.fit_preview.parameters.geometry(),
+        )
         viewer.threshold.setValue(0.1)
-        wait_until(lambda: "Raise the contour threshold" in viewer.fit_preview.summary.text())
-        wait_until(lambda: "rendering budget" in viewer.contour_status.text())
-        assert viewer.fit_preparation is None
-        assert not any(item.isVisible() for item in viewer.contours)
+        assert any(item.isVisible() for item in viewer.contours)
+        _process_events()
+        assert (
+            viewer.spectrum_plot.geometry(),
+            viewer.threshold_slider.geometry(),
+            viewer.fit_preview.parameters.geometry(),
+        ) == geometry
+        wait_until(lambda: viewer.fit_preparation is not None)
+        wait_until(lambda: viewer.contour_status.text() == "")
+        large = viewer.fit_preparation
+        assert large is not None
+        assert large.cluster is None
+        assert large.parameters is None
+        assert large.limitation is not None
+        assert "279 MiB" in large.limitation
+        assert large.scope.n_points == np.prod(spectra.data.shape[1:])
+        assert len(large.identities) == len(viewer.peaks)
+        assert viewer.fit_mask.isVisible()
+        assert len(viewer.fit_members.points()) == len(viewer.peaks)
+        assert (
+            sum(item.path().elementCount() for item in viewer.contours if item.isVisible())
+            > 100_000
+        )
+        assert (
+            viewer.spectrum_plot.geometry(),
+            viewer.threshold_slider.geometry(),
+            viewer.fit_preview.parameters.geometry(),
+        ) == geometry
         # Closing never waits for a running operation or installs its late result.
         blocked[0] = True
         entered.clear()

@@ -1,7 +1,7 @@
 """Prepare an isolated all-plane fit from immutable editable peak records."""
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -20,14 +20,13 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.params_scalar import Parameters
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.gui.peaks import WorkingPeak
+    from peakfit.shared.typing import IntArray
 
 
 _SPECTRAL_DIMENSIONS = 2
 # The preview is not a dataset-wide fit. Bound its two dense float64 point/plane
 # arrays before allocation (a low-threshold bundled group alone needs 279 MiB).
 LOCAL_ARRAY_BUDGET = 128 * 1024**2
-# Native table replacement measured ~20 ms for 664 rows after the Qt fix.
-LOCAL_PARAMETER_BUDGET = 1000
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,16 +57,33 @@ class PeakIdentity:
 
 
 @dataclass(frozen=True, slots=True)
+class LocalFitScope:
+    """Exact selected segmentation and members without dense numerical data."""
+
+    cluster_id: int
+    peaks: tuple[Peak, ...]
+    grid_indices: tuple[IntArray, ...]
+    n_series: int
+
+    @property
+    def n_points(self) -> int:
+        """Number of sampled spectral points in the unmodified segmentation."""
+        return len(self.grid_indices[0])
+
+
+@dataclass(frozen=True, slots=True)
 class PreparedLocalFit:
-    """A prepared cluster, not a fit result or an edit of working coordinates."""
+    """Exact scope and optional numerical inputs, never a completed fit or peak edit."""
 
     snapshot: FitInputSnapshot
     identities: tuple[PeakIdentity, ...]
     shape_names: tuple[str, ...]
     noise: float
     contour_level: float
-    cluster: Cluster
-    parameters: Parameters
+    scope: LocalFitScope
+    cluster: Cluster | None
+    parameters: Parameters | None
+    limitation: str | None = None
 
 
 def prepare_local_fit(
@@ -139,48 +155,51 @@ def prepare_local_fit(
         peak for peak in scientific_peaks if int(segments[tuple(peak.positions_i)]) == segment_id
     ]
     n_points = int(np.count_nonzero(segments == segment_id))
-    array_bytes = n_points * spectra.data.shape[0] * np.dtype(float).itemsize * 2
-    if array_bytes > LOCAL_ARRAY_BUDGET:
-        raise ValueError(
-            f"This group has {len(members)} peaks and {n_points:,} samples across "
-            f"{spectra.data.shape[0]} planes. Its data/correction arrays require "
-            f"{array_bytes / 1024**2:.0f} MiB "
-            f"(preview budget {LOCAL_ARRAY_BUDGET / 1024**2:.0f} MiB), "
-            "before model allocations. Raise the contour threshold to separate groups. "
-            "No fitting region has been truncated."
-        )
     for peak in members:
         peak.set_cluster_id(segment_id)
-    grid_indices = list(np.where(segments == segment_id))
+    grid_indices = tuple(np.where(segments == segment_id))
+    for indices in grid_indices:
+        indices.flags.writeable = False
+    scope = LocalFitScope(segment_id, tuple(members), grid_indices, spectra.data.shape[0])
+    member_names = {peak.name for peak in members}
+    result = PreparedLocalFit(
+        snapshot,
+        tuple(item for item in identities if item.engine_name in member_names),
+        tuple(shape_names),
+        noise,
+        float(contour_level),
+        scope,
+        None,
+        None,
+    )
+    array_bytes = n_points * scope.n_series * np.dtype(float).itemsize * 2
+    if array_bytes > LOCAL_ARRAY_BUDGET:
+        return replace(
+            result,
+            limitation=(
+                f"This scope contains {len(members)} peaks and {n_points:,} samples across "
+                f"{scope.n_series} planes. Numerical data/correction arrays would require "
+                f"{array_bytes / 1024**2:.0f} MiB "
+                f"(interactive preparation budget {LOCAL_ARRAY_BUDGET / 1024**2:.0f} MiB), "
+                "before model allocations. The exact mask and all members remain visible. "
+                "Use a higher contour threshold or the CLI for numerical preparation. "
+                "No samples have been removed."
+            ),
+        )
     # Materialize only the selected group; preserve the engine's exact point order.
     cluster = Cluster(
         cluster_id=segment_id,
         peaks=members,
-        grid_indices=grid_indices,
+        grid_indices=list(grid_indices),
         data=np.asarray(scientific_spectra.data[(slice(None), *grid_indices)].T, dtype=float),
     )
     parameters = prepare_cluster_parameters(cluster, settings, steps[0])
-    if len(parameters) > LOCAL_PARAMETER_BUDGET:
-        raise ValueError(
-            f"This group has {len(parameters):,} effective parameters, exceeding the "
-            f"{LOCAL_PARAMETER_BUDGET:,}-row interactive table budget. Raise the contour "
-            "threshold to separate groups. No fitting region has been truncated."
-        )
     if any(
         not np.isfinite(parameter.value) or not parameter.min <= parameter.value <= parameter.max
         for parameter in parameters.values()
     ):
         raise ValueError("The model produced invalid starting values or bounds.")
-    members = {peak.name for peak in cluster.peaks}
-    return PreparedLocalFit(
-        snapshot,
-        tuple(item for item in identities if item.engine_name in members),
-        tuple(shape_names),
-        noise,
-        float(contour_level),
-        cluster,
-        parameters,
-    )
+    return replace(result, cluster=cluster, parameters=parameters)
 
 
 def _validate_constraint_targets(settings: PeakFitConfig) -> None:
