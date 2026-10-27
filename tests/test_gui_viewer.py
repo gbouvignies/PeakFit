@@ -49,12 +49,6 @@ def test_experimental_spectrum_inspection_preserves_coordinates_and_raw_data() -
         first = viewer.peaks[0]
         assert peak_x[0] == pytest.approx(first.positions[1])
         assert peak_y[0] == pytest.approx(display_position(viewer.y_axis, first.positions[0]))
-        viewer.phase_group.setChecked(True)
-        viewer.phase_controls[0].setValue(45)
-        assert not np.allclose(viewer.curve_x.getData()[1], spectra.data[7, iy, :])
-        np.testing.assert_array_equal(viewer.curve_profile.getData()[1], spectra.data[:, iy, ix])
-        viewer.phase_group.setChecked(False)
-        np.testing.assert_array_equal(viewer.curve_x.getData()[1], spectra.data[7, iy, :])
     finally:
         viewer.close()
         viewer.deleteLater()

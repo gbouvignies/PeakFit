@@ -36,14 +36,6 @@ The larger point identifies the current plane. Points are deliberately not joine
 experimental coordinates may repeat or arrive out of order. Values have no assumed
 physical units; their interpretation depends on the experiment.
 
-## Phase preview
-
-Enable **1D phase preview — display only** to adjust P0/P1 in degrees for either
-trace. The crosshair is the phase pivot. This Hilbert-based visualization changes
-only the displayed 1D traces, never the source samples, contours, or raw plane
-profile. It is not validated NMR phase correction and does not export processing
-flags. Disable the preview or choose **Reset phase** to see unmodified traces.
-
 ## Scope and performance
 
 This milestone provides read-only exploration. Peak editing, fitting, completed

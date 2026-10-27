@@ -43,7 +43,6 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 
 - The GUI is a presentation layer above the scientific code. Retained Qt contour
   paths serve interactive navigation; the original spectrum samples remain unchanged.
-  Its 1D Hilbert phase preview is display-only, not a processing operation.
 
 - `engine` should stay free of Typer, Rich, Qt, and filesystem side effects.
 - `fit`, `mcmc`, and `plot` may orchestrate workflows, but should call direct

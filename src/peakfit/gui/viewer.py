@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from PySide6 import QtCore, QtWidgets
-from scipy.signal import hilbert
 
 # isort: split
 # PySide6 must be imported before PyQtGraph selects a binding.
@@ -122,7 +121,6 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.profile.addItem(self.profile_marker)
         for plot in (self.trace_x, self.trace_y, self.profile):
             right_layout.addWidget(plot, 1)
-        self._build_phase_controls(right_layout)
         splitter.addWidget(right)
         splitter.setSizes([850, 450])
         self.position_label = QtWidgets.QLabel()
@@ -172,40 +170,6 @@ class SpectrumViewer(QtWidgets.QWidget):
         reset.clicked.connect(self.reset_view)
         row.addWidget(reset)
         layout.addLayout(row)
-
-    def _build_phase_controls(self, layout: QtWidgets.QVBoxLayout) -> None:
-        group = QtWidgets.QGroupBox("1D phase preview — display only")
-        group.setCheckable(True)
-        group.setChecked(False)
-        group.setToolTip(
-            "Hilbert-based trace preview about the crosshair. Does not change contours, "
-            "raw profiles, or spectrum data; not validated NMR phase correction."
-        )
-        grid = QtWidgets.QGridLayout(group)
-        self.phase_controls: list[QtWidgets.QDoubleSpinBox] = []
-        for row, axis in enumerate((self.x_axis, self.y_axis)):
-            grid.addWidget(QtWidgets.QLabel(self._axis_title(axis)), row, 0)
-            for col, title, extent in ((1, "P0", 180), (3, "P1", 360)):
-                control = QtWidgets.QDoubleSpinBox()
-                control.setRange(-extent, extent)
-                control.setSuffix("°")
-                control.setSingleStep(1)
-                control.valueChanged.connect(self._update_slices)
-                self.phase_controls.append(control)
-                grid.addWidget(QtWidgets.QLabel(title), row, col)
-                grid.addWidget(control, row, col + 1)
-        self.phase_group = group
-        group.toggled.connect(self._update_slices)
-        reset = QtWidgets.QPushButton("Reset phase")
-        reset.clicked.connect(self._reset_phase)
-        grid.addWidget(reset, 2, 0, 1, 5)
-        layout.addWidget(group)
-
-    def _reset_phase(self) -> None:
-        for control in self.phase_controls:
-            with QtCore.QSignalBlocker(control):
-                control.setValue(0)
-        self._update_slices()
 
     def reset_view(self) -> None:
         """Show the entire sampled spectrum without recalculating contours."""
@@ -276,17 +240,6 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.iy = int(np.clip(round(self.y_axis.ppm2pts(y)), 0, self.y_axis.size - 1))
         self._update_slices()
 
-    def _phase_trace(self, data: np.ndarray, axis_index: int, pivot: int) -> np.ndarray:
-        if not self.phase_group.isChecked():
-            return data
-        p0, p1 = (
-            control.value() for control in self.phase_controls[2 * axis_index : 2 * axis_index + 2]
-        )
-        if p0 == 0 and p1 == 0:
-            return data
-        ramp = (np.arange(data.size) - pivot) / max(data.size - 1, 1)
-        return np.real(hilbert(data) * np.exp(1j * np.deg2rad(p0 + p1 * ramp)))
-
     def _update_slices(self) -> None:
         plane = self.spectra.data[self.plane]
         for line, value in (
@@ -295,8 +248,8 @@ class SpectrumViewer(QtWidgets.QWidget):
         ):
             with QtCore.QSignalBlocker(line):
                 line.setValue(float(value))
-        self.curve_x.setData(self.ppm_x, self._phase_trace(plane[self.iy, :], 0, self.ix))
-        self.curve_y.setData(self.ppm_y, self._phase_trace(plane[:, self.ix], 1, self.iy))
+        self.curve_x.setData(self.ppm_x, plane[self.iy, :])
+        self.curve_y.setData(self.ppm_y, plane[:, self.ix])
         profile = self.spectra.data[:, self.iy, self.ix]
         values = self.spectra.z_values
         self.curve_profile.setData(values, profile)
