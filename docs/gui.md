@@ -99,10 +99,61 @@ are newly allocated on import; they are not scientific parameter identifiers.
 
 ![Highlighted one-shot placement and cancel control](images/peak-placement.png)
 
+## Local fitting scope preview
+
+Select an existing peak, then choose **Fit group…** beside **Inspect** in the
+right-hand workspace. The preview replaces the editor and inspection plots;
+**Back to Inspect** restores them. Valid pending peak fields apply before
+preparation, following the existing editor convention; invalid fields keep the
+editor visible. No optimization, fit results, or coordinate acceptance is available
+in this step.
+
+PeakFit constructs fresh scientific peaks from a snapshot of **all working peaks**,
+resolves the existing lineshape models from NMRPipe processing metadata, estimates
+noise from **all planes**, and uses the regular clustering algorithm. Safe internal
+names and an explicit ID/assignment mapping keep duplicate assignments distinct.
+The selected peak identifies its connected cluster, including every other working
+peak in that cluster. The region combines thresholded signal from any plane with
+small neighborhoods around working peaks; it is not a rectangular crop.
+
+Amber cells show the **actual sampled fitting mask**, aligned with the spectral
+samples, and rings highlight all included peaks. The preview lists group members,
+plane/sample counts, resolved axis models, noise and clustering threshold, and the
+nonlinear starting values, bounds, units, and fixed/variable flags from the same
+parameter preparation function used by the pipeline. Positions remain unfolded;
+direct-axis coordinates outside the sampled extent are rejected instead of wrapped.
+The scientific clustering threshold defaults to 5 times the all-plane noise and is
+independent of the display threshold, which still uses first-plane noise. No model
+or parameter editing controls are exposed yet.
+
+The proposed fit is **one isolated local pass across every experimental plane**.
+Positions and lineshape parameters are shared across planes; signed amplitudes are
+solved independently per peak and plane, with no amplitude starting controls or
+assumed response law. Models inferred from processing metadata need scientific
+review; a successful preparation does not validate their suitability for the data.
+Signals from other clusters are **not** subtracted, and the complete iterative
+cross-cluster correction procedure is not included. Check surrounding peaks before
+using a local fit; a missing peak or significant external signal needs attention.
+
+Panning, zooming, and plane navigation remain available. Preparing or dismissing a
+preview does not change committed peaks, undo history, source files, or spectrum
+samples. Peak edits, peak-list replacement, and plane-coordinate changes dismiss the
+preview. Snapshots retain working IDs/assignments, spectrum identity and shape,
+spectral metadata, plane coordinates, and fitting configuration. They are preparation
+inputs, not completed results or a persisted session.
+
+Preparation is synchronous and performed only on explicit entry, not on navigation;
+it does not rebuild experimental contours. Large datasets can briefly pause during
+noise estimation/segmentation. There are no background workers in this step.
+
+![Local fitting scope with the bundled pseudo-3D spectrum](images/fit-scope-preview.png)
+
+![Three overlapping peaks and their exact sampled fitting region](images/fit-scope-closeup.png)
+
 ## Scope and performance
 
 Manual editing changes one shared peak list across all experimental planes.
-Fitting, completed model/residual display, and session persistence are not yet
+Optimization, completed model/residual display, and session persistence are not yet
 implemented. Existing Matplotlib viewers and static plots remain available unchanged.
 
 The viewer keeps the `Spectra` object in memory. Contour extraction happens on the

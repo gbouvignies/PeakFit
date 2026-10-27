@@ -11,6 +11,8 @@ import pyqtgraph as pg
 
 from peakfit.engine.algorithms.noise import estimate_noise
 from peakfit.gui.editing import PeakInspector, PeakMarkers
+from peakfit.gui.fit_preview import FitPreview
+from peakfit.gui.fitting import PreparedLocalFit, prepare_local_fit
 from peakfit.gui.peaks import PeakEdits
 from peakfit.gui.spectrum import contour_paths, display_position, validate_plane_values
 
@@ -42,9 +44,11 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.contours: list[QtWidgets.QGraphicsPathItem] = []
         self.peak_labels: list[pg.TextItem] = []
         self.labels_visible = False
+        self.fit_preparation: PreparedLocalFit | None = None
         self._colors = self._palette_colors()
         self._build_ui()
         self._build_edit_actions()
+        self.edits_changed.connect(self.dismiss_fit_preview)
         self._apply_palette()
         self._contour_timer = QtCore.QTimer(self)
         self._contour_timer.setSingleShot(True)
@@ -198,15 +202,109 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.selection_marker = pg.ScatterPlotItem(symbol="o", size=18, brush=None)
         self.selection_marker.setZValue(21)
         self.spectrum_plot.addItem(self.selection_marker)
+        self._build_fit_overlay()
         self._build_plane_controls(left_layout)
         self._build_contour_controls(left_layout)
         splitter.addWidget(left)
 
-        right = self._build_inspection_panels()
+        right = self._build_workspaces()
         splitter.addWidget(right)
         splitter.setSizes([850, 450])
         self.position_label = QtWidgets.QLabel()
         layout.addWidget(self.position_label)
+
+    def _build_fit_overlay(self) -> None:
+        self.fit_mask = pg.ImageItem(axisOrder="row-major")
+        self.fit_mask.setZValue(-20)
+        self.fit_mask.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.spectrum_plot.getPlotItem().addItem(self.fit_mask, ignoreBounds=True)
+        self.fit_members = pg.ScatterPlotItem(
+            symbol="o", size=24, brush=None, pen=pg.mkPen("#b87b00", width=2)
+        )
+        self.fit_members.setZValue(19)
+        self.fit_members.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.spectrum_plot.getPlotItem().addItem(self.fit_members, ignoreBounds=True)
+
+    def _build_workspaces(self) -> QtWidgets.QWidget:
+        right = QtWidgets.QWidget()
+        right_layout = QtWidgets.QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        self.workspace_tabs = QtWidgets.QTabBar()
+        self.workspace_tabs.addTab("Inspect")
+        self.workspace_tabs.addTab("Fit group…")
+        self.workspace_tabs.setTabEnabled(1, False)
+        right_layout.addWidget(self.workspace_tabs)
+        self.workspaces = QtWidgets.QStackedWidget()
+        self.workspaces.addWidget(self._build_inspection_panels())
+        self.fit_preview = FitPreview()
+        self.fit_preview.dismissed.connect(self.dismiss_fit_preview)
+        self.workspaces.addWidget(self.fit_preview)
+        self.workspace_tabs.currentChanged.connect(self._workspace_changed)
+        right_layout.addWidget(self.workspaces, 1)
+        return right
+
+    def _workspace_changed(self, index: int) -> None:
+        if index == 1:
+            self.preview_fit_group()
+        else:
+            self.dismiss_fit_preview()
+
+    def preview_fit_group(self) -> None:
+        """Snapshot committed peaks and show a local scope without fitting."""
+        if self.selected_id is None or not self.apply_pending_fields():
+            self.dismiss_fit_preview()
+            return
+        selected_id = self.selected_id
+        self.cancel_interaction()
+        try:
+            prepared = prepare_local_fit(self.spectra, self.peaks, selected_id)
+        except (ValueError, RuntimeError) as exc:
+            self.dismiss_fit_preview()
+            self.inspector.details.setText(str(exc))
+            return
+        self.fit_preparation = prepared
+        self.fit_preview.show_preparation(prepared)
+        rgba = np.zeros((*self.spectra.data.shape[1:], 4), dtype=np.uint8)
+        rgba[tuple(prepared.cluster.grid_indices)] = (230, 160, 20, 85)
+        self.fit_mask.setImage(rgba, autoLevels=False)
+        self.fit_mask.setTransform(
+            QtGui.QTransform(
+                self.x_axis.delta,
+                0,
+                0,
+                self.y_axis.delta,
+                self.ppm_x[0] - self.x_axis.delta / 2,
+                self.ppm_y[0] - self.y_axis.delta / 2,
+            )
+        )
+        self.fit_mask.show()
+        members = {item.working_id for item in prepared.identities}
+        self.fit_members.setData(
+            x=[
+                display_position(self.x_axis, p.positions[1]) for p in self.peaks if p.id in members
+            ],
+            y=[
+                display_position(self.y_axis, p.positions[0]) for p in self.peaks if p.id in members
+            ],
+        )
+        with QtCore.QSignalBlocker(self.workspace_tabs):
+            self.workspace_tabs.setCurrentIndex(1)
+        self.workspaces.setCurrentIndex(1)
+        self.interaction_hint.setText(
+            "LOCAL FIT PREVIEW · Amber cells are fitted samples · Rings mark included peaks · "
+            "No fit has been run"
+        )
+
+    def dismiss_fit_preview(self) -> None:
+        """Drop a preparation when returning to inspection or changing inputs."""
+        self.fit_preparation = None
+        self.fit_mask.hide()
+        self.fit_members.clear()
+        with QtCore.QSignalBlocker(self.workspace_tabs):
+            self.workspace_tabs.setCurrentIndex(0)
+        self.workspaces.setCurrentIndex(0)
+        self.workspace_tabs.setTabEnabled(1, self.selected_id is not None)
+        self._update_interaction_hint()
 
     def _build_inspection_panels(self) -> QtWidgets.QWidget:
         right = QtWidgets.QWidget()
@@ -462,6 +560,7 @@ class SpectrumViewer(QtWidgets.QWidget):
     def set_plane_values(self, values: np.ndarray) -> None:
         """Replace experimental plane coordinates without changing spectral samples."""
         validate_plane_values(values, self.spectra.data.shape[0])
+        self.dismiss_fit_preview()
         self.spectra.z_values = np.array(values, dtype=float, copy=True)
         self.profile.enableAutoRange()
         self._update_slices()
@@ -536,6 +635,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             return
         peak = next((p for p in self.peaks if p.id == peak_id), None)
         self.selected_id = peak.id if peak else None
+        self.workspace_tabs.setTabEnabled(1, peak is not None or self.fit_preparation is not None)
         self.peak_scatter.selected_id = self.selected_id
         position = (
             (
@@ -614,10 +714,15 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.start_adding_peak()
 
     def _update_interaction_hint(self) -> None:
-        if self.adding_peak:
+        if self.fit_preparation is not None:
+            text = "LOCAL FIT PREVIEW · Amber cells are fitted samples · Rings mark included peaks"
+        elif self.adding_peak:
             text = "PLACING PEAK · Click in spectrum · Cancel placement or Esc to stop"
         elif self.selected_id is not None:
-            text = "Drag the selected peak to move · Edit name or ppm at right, then Apply"
+            text = (
+                "Drag selected peak to move · Edit fields at right · "
+                "Fit group… previews fitting scope"
+            )
         else:
             text = "Click a peak to select · Drag background to pan · Scroll to zoom"
         self.interaction_hint.setText(text)
@@ -658,6 +763,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         if not self.apply_pending_fields():
             self._update_interaction_hint()
             return
+        self.dismiss_fit_preview()
         self.cancel_interaction()
         self.adding_peak = True
         self.peak_scatter.placing = True
