@@ -122,7 +122,6 @@ def build_fit_steps(
     return [
         FitStep(
             name="default",
-            vary=["*"],
             iterations=refine_iterations,
         )
     ]

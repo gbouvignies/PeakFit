@@ -114,6 +114,19 @@ from_file = "previous_fit/summary/fit.json"
 This loads parameter values from a JSON fit summary and uses them as starting points while
 respecting any other constraints you define.
 
+## Effective parameter preparation
+
+Configured starting values (including values loaded from previous results) are
+resolved before the first optimizer pass. Subsequent passes continue from usable
+fitted values rather than resetting to configured starts. The default step preserves
+configured fixed/variable flags. Explicit step `fix`/`vary` patterns override those
+flags, with `vary` taking precedence over `fix` within a step.
+
+This corrects earlier behavior that could ignore configured starts and release
+configured fixed parameters in the default step. Workflows relying on that accidental
+release should explicitly request `vary = ["*"]` in a fit step. Runs using model
+defaults without constraints retain their existing behavior.
+
 ## Multi-Step Fit Steps
 
 `[[fitting.steps]]` defines a sequence of fitting steps with different parameter constraints.

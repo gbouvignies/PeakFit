@@ -200,7 +200,9 @@ def run_pipeline_iter(
     if not passes:
         raise ValueError("Fitting requires at least one optimizer pass.")
     mapper = executor or map
-    final_params = base_params
+    # Resolve starting values once. Later passes continue from fitted values;
+    # configured starts must neither be ignored nor reset each optimizer pass.
+    final_params = apply_constraints(base_params.copy(deep=True), fit_config.parameters)
     current_fit_results: list[FitResult] = []
     current_evaluations: list[FitEvaluation] = []
     optimizer_config = _build_optimizer_config(fit_config, optimizer)
@@ -323,6 +325,26 @@ def _normalize_config(config: FitConfig | PeakFitConfig) -> PeakFitConfig:
     return config
 
 
+def prepare_cluster_parameters(
+    cluster: Cluster,
+    config: PeakFitConfig,
+    step: FitStep,
+    current_params: Parameters | None = None,
+) -> Parameters:
+    """Resolve the exact nonlinear parameters submitted for one optimizer pass.
+
+    Without continuation values this prepares the initial model, including
+    configured starts and bounds. Explicit step rules take precedence over
+    configured parameter freedom. Amplitudes are solved by the optimizer.
+    """
+    params = apply_constraints(Parameters.from_peaks(cluster.peaks), config.parameters)
+    if current_params is not None:
+        for name in params:
+            if name in current_params:
+                params[name].value = current_params[name].value
+    return apply_step_constraints(params, step)
+
+
 def _prepare_cluster_tasks(
     *,
     config: PeakFitConfig,
@@ -339,14 +361,7 @@ def _prepare_cluster_tasks(
     for cluster in clusters:
         task_cluster = copy(cluster)
         task_cluster.corrections = correction_snapshot.corrections[cluster.cluster_id]
-        cluster_params = Parameters.from_peaks(cluster.peaks, fixed=False)
-        if config.parameters:
-            cluster_params = apply_constraints(cluster_params, config.parameters)
-        cluster_params = apply_step_constraints(cluster_params, step)
-
-        for pid in cluster_params:
-            if pid in current_params:
-                cluster_params[pid].value = current_params[pid].value
+        cluster_params = prepare_cluster_parameters(cluster, config, step, current_params)
 
         tasks.append(
             ClusterFitTask(
@@ -457,6 +472,7 @@ __all__ = [
     "PipelineCompletion",
     "PipelineResult",
     "fit_single_cluster_task",
+    "prepare_cluster_parameters",
     "run_pipeline",
     "run_pipeline_iter",
 ]
