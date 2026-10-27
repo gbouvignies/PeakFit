@@ -16,6 +16,7 @@ def test_root_help_uses_pseudo_nd_terminology() -> None:
 
     assert "pseudo-ND NMR spectra" in help_text
     assert "pseudo-3D" not in help_text
+    assert "gui" in help_text
 
 
 def test_fit_help_describes_plane_values_without_renaming_the_option() -> None:

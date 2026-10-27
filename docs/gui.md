@@ -1,0 +1,57 @@
+# Desktop spectrum viewer
+
+Launch the desktop application with a 2D or pseudo-3D NMRPipe spectrum:
+
+```bash
+uv run peakfit gui examples/02-advanced-fitting/data/pseudo3d.ft2 \
+  --peaks examples/02-advanced-fitting/data/pseudo3d.list \
+  --z-values examples/02-advanced-fitting/data/b1_offsets.txt
+```
+
+Both options are optional. `uv run peakfit gui` opens an empty application window.
+Use **File → Open spectrum** to open or replace the current spectrum, and the same
+menu to load a peak list or plane values afterward. A missing peak list never
+starts automatic peak picking. Other dimensionalities are rejected with an error.
+
+## Navigation
+
+- Drag the spectrum to pan; scroll to zoom about the pointer. **Reset view** or
+  **Ctrl+0** restores the full spectral range.
+- Click to place the crosshair, or drag either crosshair line. It snaps to sampled
+  points so the two orthogonal traces and raw plane profile inspect the same data.
+- Use the plane slider/spin box or **Page Up / Page Down**. Plane numbers start at
+  1; the adjacent value is the experimental coordinate supplied by `--z-values`,
+  or the original zero-based plane index when no values file is supplied.
+- Adjust the contour threshold in multiples of the first plane's estimated noise,
+  geometric level spacing, and number of levels. Blue solid contours are positive;
+  red dashed contours are negative. Changes are briefly coalesced during navigation.
+- Imported peaks appear as crosses. Hover to see a name and displayed coordinates;
+  enable **View → Peak labels** for assignments. Indirect positions fold into the
+  sampled window using PeakFit's coordinate conversions. Direct positions do not wrap.
+
+The upper right trace shares the spectrum's horizontal range. The second trace
+shows the indirect axis. Both inspect the selected plane. The bottom panel shows
+raw sampled intensity at the crosshair across all planes, not fitted amplitudes.
+The larger point identifies the current plane. Points are deliberately not joined:
+experimental coordinates may repeat or arrive out of order. Values have no assumed
+physical units; their interpretation depends on the experiment.
+
+## Phase preview
+
+Enable **1D phase preview — display only** to adjust P0/P1 in degrees for either
+trace. The crosshair is the phase pivot. This Hilbert-based visualization changes
+only the displayed 1D traces, never the source samples, contours, or raw plane
+profile. It is not validated NMR phase correction and does not export processing
+flags. Disable the preview or choose **Reset phase** to see unmodified traces.
+
+## Scope and performance
+
+This milestone provides read-only exploration. Peak editing, fitting, completed
+model/residual display, and session persistence are not yet implemented. Existing
+Matplotlib viewers and static plots remain available unchanged.
+
+The viewer keeps the `Spectra` object in memory. Contour extraction happens on the
+GUI thread when a plane or contour setting changes; zooming, panning, and crosshair
+updates reuse graphical objects. There is no plane cache or background renderer.
+Very large or densely contoured spectra can therefore pause during extraction;
+reduce the number of levels or increase the threshold if needed.
