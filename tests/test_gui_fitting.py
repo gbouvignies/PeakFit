@@ -118,6 +118,31 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         assert viewer.peaks == peaks
         assert not viewer.edits.dirty
         assert not viewer.edits.can_undo
+        # In-group selection preserves the exact preparation without segmentation;
+        # outside selection and deselection return to ordinary inspection.
+        group_preparation = viewer.fit_preparation
+        with monkeypatch.context() as selection_patch:
+            selection_patch.setattr("peakfit.gui.viewer.prepare_local_fit", unexpected)
+            viewer.select_peak(duplicate_id, inspect=True)
+            assert viewer.selected_id == duplicate_id
+            assert viewer.fit_preparation is group_preparation
+            assert viewer.workspaces.currentIndex() == 1
+            outsider = next(peak for peak in peaks if peak.id not in expected_ids)
+            viewer.select_peak(outsider.id, inspect=True)
+            assert viewer.selected_id == outsider.id
+            assert viewer.fit_preparation is None
+            assert viewer.workspaces.currentIndex() == viewer.workspace_tabs.currentIndex() == 0
+            assert not viewer.fit_mask.isVisible()
+            assert len(viewer.fit_members.points()) == 0
+        viewer.preview_fit_group()
+        viewer.select_peak(None)
+        assert viewer.selected_id is None
+        assert viewer.fit_preparation is None
+        assert viewer.workspaces.currentIndex() == 0
+        assert not viewer.fit_mask.isVisible()
+        viewer.select_peak(selected.id)
+        viewer.preview_fit_group()
+        assert viewer.fit_preparation is not None
         # Changing plane labels invalidates the view, but cannot mutate its snapshot.
         snapshot = viewer.fit_preparation.snapshot
         viewer.set_plane_values(spectra.z_values + 1)

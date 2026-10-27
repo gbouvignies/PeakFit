@@ -124,7 +124,13 @@ parameter preparation function used by the pipeline. Positions remain unfolded;
 direct-axis coordinates outside the sampled extent are rejected instead of wrapped.
 The scientific clustering threshold defaults to 5 times the all-plane noise and is
 independent of the display threshold, which still uses first-plane noise. No model
-or parameter editing controls are exposed yet.
+or parameter editing controls are exposed yet. Programmatic local preparation
+supports only global and axis/parameter-wide wildcard rules (`*`, `*.*.lw`,
+`*.F2.cs`, and the same pattern forms in fit-step fix/vary rules). It rejects
+`parameters.peaks`, name-targeted patterns, and `parameters.from_file` with an
+actionable error: assignment names cannot safely target the generated scientific
+IDs, especially with duplicate assignments. Use the CLI for those configurations;
+CLI constraint handling is unchanged.
 
 The proposed fit is **one isolated local pass across every experimental plane**.
 Positions and lineshape parameters are shared across planes; signed amplitudes are
@@ -137,8 +143,10 @@ using a local fit; a missing peak or significant external signal needs attention
 
 Panning, zooming, and plane navigation remain available. Preparing or dismissing a
 preview does not change committed peaks, undo history, source files, or spectrum
-samples. Peak edits, peak-list replacement, and plane-coordinate changes dismiss the
-preview. Snapshots retain working IDs/assignments, spectrum identity and shape,
+samples. Selecting another member keeps the same prepared group without recomputing it.
+Selecting an outside peak or clearing selection dismisses the preview and returns
+to Inspect. Peak edits, peak-list replacement, and plane-coordinate changes also
+dismiss it. Snapshots retain working IDs/assignments, spectrum identity and shape,
 spectral metadata, plane coordinates, and fitting configuration. They are preparation
 inputs, not completed results or a persisted session.
 

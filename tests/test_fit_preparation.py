@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from peakfit.engine.domain.config import PeakFitConfig
-from peakfit.engine.domain.constraints import ParameterConstraint
+from peakfit.engine.domain.constraints import ParameterConstraint, PeakConstraints
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.results import FitResult
@@ -18,7 +18,7 @@ from peakfit.io.readers.spectrum import read_spectra
 DATA = Path(__file__).resolve().parents[1] / "examples" / "02-advanced-fitting" / "data"
 
 
-def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> None:
+def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> None:  # noqa: PLR0915
     spectra = read_spectra(DATA / "pseudo3d.ft2")
     peak = WorkingPeak.new("same.assignment", (120.0, 8.5))
     # Test multiple existing model families, including model-specific parameters.
@@ -28,7 +28,9 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
         config.parameters.defaults.patterns["*.*.lw"] = ParameterConstraint(
             value=35, min=10, max=80, vary=False
         )
+        config.parameters.defaults.patterns["*.F2.cs"] = ParameterConstraint(vary=False)
         prepared = prepare_local_fit(spectra, (peak,), peak.id, config)
+        assert not prepared.parameters[f"{prepared.identities[0].engine_name}.F2.cs"].vary
         widths = [
             p
             for p in prepared.parameters.values()
@@ -68,6 +70,27 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
                 p.param_id is not None and p.param_id.label == "j"
                 for p in prepared.parameters.values()
             )
+
+    # Engine-safe renaming must never silently omit assignment-based settings,
+    # including rules that would accidentally match generated names or files.
+    unsupported = []
+    per_peak = PeakFitConfig()
+    per_peak.parameters.peaks[peak.name] = PeakConstraints(position_window=0.01)
+    unsupported.append(per_peak)
+    for pattern in ("same.assignment.*.lw", "*assignment.*.lw", "p_0.*.lw"):
+        targeted = PeakFitConfig()
+        targeted.parameters.defaults.patterns[pattern] = ParameterConstraint(vary=False)
+        unsupported.append(targeted)
+    for step in (FitStep(fix=[f"{peak.name}.*.cs"]), FitStep(vary=[f"{peak.name}.*.cs"])):
+        targeted_step = PeakFitConfig()
+        targeted_step.fitting.steps = [step]
+        unsupported.append(targeted_step)
+    from_file = PeakFitConfig()
+    from_file.parameters.from_file = DATA / "previous-fit.json"
+    unsupported.append(from_file)
+    for settings in unsupported:
+        with pytest.raises(ValueError, match=r"assignment.*not supported.*wildcard"):
+            prepare_local_fit(spectra, (peak,), peak.id, settings)
 
     # A configured start must be used once; explicit later release continues from
     # the preceding fit rather than resetting to 35 Hz. No optimizer is executed.

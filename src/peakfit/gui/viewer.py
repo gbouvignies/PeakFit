@@ -635,6 +635,10 @@ class SpectrumViewer(QtWidgets.QWidget):
             return
         peak = next((p for p in self.peaks if p.id == peak_id), None)
         self.selected_id = peak.id if peak else None
+        if self.fit_preparation is not None and not any(
+            member.working_id == self.selected_id for member in self.fit_preparation.identities
+        ):
+            self.dismiss_fit_preview()
         self.workspace_tabs.setTabEnabled(1, peak is not None or self.fit_preparation is not None)
         self.peak_scatter.selected_id = self.selected_id
         position = (
@@ -650,7 +654,11 @@ class SpectrumViewer(QtWidgets.QWidget):
             y=[position[1]] if peak else [],
             pen=pg.mkPen(self._colors["crosshair"], width=2),
         )
-        self.inspector.show_peak(peak, position)
+        # Selection populates fields, but does not edit scientific working state.
+        # Do not let those text changes invalidate an in-group preparation.
+        with QtCore.QSignalBlocker(self.inspector):
+            self.inspector.show_peak(peak, position)
+        self._update_edit_actions()
         self.show_peak_labels(self.labels_visible)
         self._update_interaction_hint()
         if peak and inspect:

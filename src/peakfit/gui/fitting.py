@@ -1,5 +1,6 @@
 """Prepare an isolated all-plane fit from immutable editable peak records."""
 
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -76,6 +77,7 @@ def prepare_local_fit(
     optimizer, auto-picking, correction updates, or file bridge is involved.
     """
     settings = config.model_copy(deep=True) if config is not None else PeakFitConfig()
+    _validate_constraint_targets(settings)
     _validate_inputs(spectra, peaks, selected_id, settings)
     steps = build_fit_steps(settings.fitting.steps, settings.fitting.refine_iterations)
     if len(steps) != 1 or steps[0].iterations != 1:
@@ -147,6 +149,32 @@ def prepare_local_fit(
         cluster,
         parameters,
     )
+
+
+def _validate_constraint_targets(settings: PeakFitConfig) -> None:
+    """Reject assignment-dependent rules before replacing names with safe IDs.
+
+    Only whole-model '*' or '*.<axis>.<parameter>' patterns are supported here.
+    Apply the same restriction to fit-step rules; previous-fit files also contain
+    name-based identities and cannot safely be reused without explicit mapping.
+    """
+    patterns = list(settings.parameters.defaults.patterns)
+    for step in settings.fitting.steps:
+        patterns.extend((*step.fix, *step.vary))
+    if (
+        settings.parameters.peaks
+        or settings.parameters.from_file is not None
+        or any(
+            pattern != "*" and re.fullmatch(r"\*\.[^.]+\.[^.]+", pattern) is None
+            for pattern in patterns
+        )
+    ):
+        raise ValueError(
+            "Name/assignment-targeted constraints and previous-fit parameter files are not "
+            "supported in local preview. Remove parameters.peaks/from_file and use global "
+            "or axis/parameter-wide wildcard rules (e.g. '*.*.lw', '*.F2.cs'); use the CLI "
+            "for assignment-specific constraints."
+        )
 
 
 def _validate_inputs(
