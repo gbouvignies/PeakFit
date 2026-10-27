@@ -62,9 +62,12 @@ Edit → Undo/Redo restores working records without affecting spectrum navigatio
 Peak-history Undo/Redo and peak deletion are unavailable while inspector text is
 pending. Apply the text or press Escape to restore the committed fields first;
 an inline hint explains this. Native text-field undo remains available.
-Choose **Add peak…** (or A with spectrum focus), then click once to place a peak;
-Escape cancels. Select a peak before dragging it: an open-hand cursor advertises
-movement. The ring and label preview the new position while the original cross
+Choose **Add peak…** (or A with spectrum focus), then click once to place a peak.
+The instruction strip above the spectrum highlights **PLACING PEAK**, and the
+same button becomes **Cancel placement**; click it or press Escape to cancel.
+Inspector fields pause during placement and become editable again when it finishes.
+The strip otherwise explains selection, navigation, or editing the selected peak.
+Select a peak before dragging it: an open-hand cursor advertises movement. The ring and label preview the new position while the original cross
 remains as a reference. Release commits one undoable move; Escape restores it.
 Dragging an unselected marker pans. Peak coordinates retain fractional precision
 and dragging preserves the original unfolded chemical-shift representation.
@@ -93,6 +96,8 @@ are newly allocated on import; they are not scientific parameter identifiers.
 ![Manual peak editing on the bundled experimental spectrum](images/peak-editing.png)
 
 [Drag preview with the original marker retained](images/peak-editing-drag.png).
+
+![Highlighted one-shot placement and cancel control](images/peak-placement.png)
 
 ## Scope and performance
 

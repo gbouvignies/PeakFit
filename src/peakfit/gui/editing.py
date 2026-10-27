@@ -20,7 +20,7 @@ class PeakInspector(QtWidgets.QGroupBox):
     fields_changed = QtCore.Signal()
 
     def __init__(self, x_title: str, y_title: str) -> None:
-        super().__init__("Peak — click a marker to select")
+        super().__init__("Peak editing — select a marker")
         layout = QtWidgets.QGridLayout(self)
         layout.setContentsMargins(8, 4, 8, 4)
         self.name = QtWidgets.QLineEdit()
@@ -30,6 +30,9 @@ class PeakInspector(QtWidgets.QGroupBox):
         self.details.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self.details.setWordWrap(True)
         self.apply = QtWidgets.QPushButton("Apply")
+        self.apply.setToolTip(
+            "Apply the name and both unfolded ppm coordinates (Enter); Escape restores them"
+        )
         self.delete = QtWidgets.QPushButton("Delete")
         for row, (title, field) in enumerate(
             (("Name", self.name), (x_title, self.x_field), (y_title, self.y_field))
@@ -57,7 +60,9 @@ class PeakInspector(QtWidgets.QGroupBox):
         self._peak = peak
         for control in (self.name, self.x_field, self.y_field, self.apply, self.delete):
             control.setEnabled(peak is not None)
-        self.setTitle("Selected peak" if peak else "Peak — click a marker to select")
+        self.setTitle(
+            "Selected peak — edit fields, then Apply" if peak else "Peak editing — select a marker"
+        )
         for field, value in zip(
             (self.name, self.x_field, self.y_field),
             (peak.name, repr(peak.positions[1]), repr(peak.positions[0])) if peak else ("", "", ""),

@@ -1,5 +1,6 @@
 """Small scientific handoff regressions for the read-only spectrum viewer."""
 
+import sys
 from pathlib import Path
 
 import nmrglue as ng
@@ -332,6 +333,137 @@ def test_export_and_loss_guards_include_typed_fields_and_keep_failed_saves_dirty
         assert not window._export_peaks()
         assert window.isWindowModified()
         assert load_peaks(path, viewer.spectra)[0].positions == restored[0].positions
+    finally:
+        viewer.edits.mark_saved()
+        viewer.inspector.show_peak(None)
+        window.close()
+        window.deleteLater()
+        app.processEvents()
+
+
+def test_add_peak_lifecycle_and_editing_sequence(tmp_path: Path, monkeypatch) -> None:  # noqa: PLR0915
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    window = PeakFitWindow()
+    window.open_spectrum(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list")
+    viewer = window.viewer
+    assert viewer is not None
+    window.show()
+    viewer.spectrum_plot.getViewBox().setRange(xRange=(7.8, 8.8), yRange=(122, 128), padding=0)
+    app.processEvents()
+    viewport = viewer.spectrum_plot.viewport()
+    add = next(
+        b for b in viewer.inspector.findChildren(QtWidgets.QPushButton) if b.text() == "Add peak…"
+    )
+    callback_errors = []
+    monkeypatch.setattr(sys, "excepthook", lambda *error: callback_errors.append(error))
+
+    def location(x, y):
+        return viewer.spectrum_plot.mapFromScene(
+            viewer.spectrum_plot.getViewBox().mapViewToScene(QtCore.QPointF(x, y))
+        )
+
+    try:
+        for index in range(2):
+            QtTest.QTest.mouseClick(add, QtCore.Qt.MouseButton.LeftButton)
+            assert viewer.adding_peak
+            assert not viewer.inspector.name.isEnabled()
+            QtTest.QTest.mouseClick(
+                viewport, QtCore.Qt.MouseButton.LeftButton, pos=location(8.4 + index * 0.1, 125.4)
+            )
+            assert len(viewer.peaks) == 167 + index
+            assert len(viewer.peak_labels) == len(viewer.peaks)
+            assert len(viewer.peak_scatter.points()) == len(viewer.peaks)
+            assert not callback_errors
+            assert not viewer.adding_peak
+            assert viewer.selected_id == viewer.peaks[-1].id
+            assert viewer.inspector.name.isEnabled()
+            assert not add.isChecked()
+        # Placement is visible and cancelable without adding a record or changing graphics.
+        QtTest.QTest.mouseClick(add, QtCore.Qt.MouseButton.LeftButton)
+        assert add.isChecked()
+        assert add.text() == "Cancel placement"
+        assert "PLACING PEAK" in viewer.interaction_hint.text()
+        QtTest.QTest.mouseClick(add, QtCore.Qt.MouseButton.LeftButton)
+        assert not viewer.adding_peak
+        QtTest.QTest.mouseClick(add, QtCore.Qt.MouseButton.LeftButton)
+        QtTest.QTest.keyClick(viewer.spectrum_plot, QtCore.Qt.Key.Key_Escape)
+        assert not viewer.adding_peak
+        assert len(viewer.peaks) == 168
+        assert len(viewer.peak_labels) == 168
+        added = viewer.peaks[-1]
+        # Select with a real click after first clicking empty background.
+        QtTest.QTest.mouseClick(
+            viewport, QtCore.Qt.MouseButton.LeftButton, pos=location(8.0, 127.6)
+        )
+        assert viewer.selected_id is None
+        start = location(added.positions[1], added.positions[0])
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=start)
+        assert viewer.selected_id == added.id
+        QtTest.QTest.mouseMove(viewport, start)
+        QtTest.QTest.qWait(30)
+        QtTest.QTest.mousePress(viewport, QtCore.Qt.MouseButton.LeftButton, pos=start)
+        end = start + QtCore.QPoint(30, 15)
+        QtWidgets.QApplication.sendEvent(
+            viewport,
+            QtGui.QMouseEvent(
+                QtCore.QEvent.Type.MouseMove,
+                QtCore.QPointF(end),
+                QtCore.QPointF(viewport.mapToGlobal(end)),
+                QtCore.Qt.MouseButton.NoButton,
+                QtCore.Qt.MouseButton.LeftButton,
+                QtCore.Qt.KeyboardModifier.NoModifier,
+            ),
+        )
+        assert viewer.peaks[-1] == added  # preview is not a committed edit
+        QtTest.QTest.mouseRelease(viewport, QtCore.Qt.MouseButton.LeftButton, pos=end)
+        moved = viewer.peaks[-1]
+        assert moved.positions != added.positions
+        QtTest.QTest.mouseClick(viewer.inspector.name, QtCore.Qt.MouseButton.LeftButton)
+        viewer.inspector.name.selectAll()
+        QtTest.QTest.keyClicks(viewer.inspector.name, "Native sequence")
+        QtTest.QTest.mouseClick(viewer.inspector.apply, QtCore.Qt.MouseButton.LeftButton)
+        assert viewer.peaks[-1].name == "Native sequence"
+        QtTest.QTest.keySequence(
+            viewer.spectrum_plot, QtGui.QKeySequence(QtGui.QKeySequence.StandardKey.Undo)
+        )
+        assert viewer.peaks[-1] == moved  # undo rename, keep the completed move
+        path = tmp_path / "manual.csv"
+        original_exec = QtWidgets.QFileDialog.exec
+
+        def export_dialog(dialog):
+            # Exercise the save dialog with Qt events; native OS dialog appearance is manual QA.
+            dialog.setOption(QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+            dialog.setDirectory(str(tmp_path))
+
+            def enter_filename():
+                field = dialog.findChild(QtWidgets.QLineEdit, "fileNameEdit")
+                assert field is not None
+                QtTest.QTest.mouseClick(field, QtCore.Qt.MouseButton.LeftButton)
+                field.selectAll()
+                QtTest.QTest.keyClicks(field, path.name)
+                assert field.text() == path.name
+                assert dialog.selectedFiles() == [str(path)]
+                QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Tab)
+                buttons = dialog.findChild(QtWidgets.QDialogButtonBox)
+                assert buttons is not None
+                save = buttons.button(QtWidgets.QDialogButtonBox.StandardButton.Save)
+                assert save is not None
+                QtTest.QTest.mouseClick(save, QtCore.Qt.MouseButton.LeftButton)
+
+            QtCore.QTimer.singleShot(0, enter_filename)
+            QtCore.QTimer.singleShot(3000, dialog.reject)
+            return original_exec(dialog)
+
+        monkeypatch.setattr(QtWidgets.QFileDialog, "exec", export_dialog)
+        QtTest.QTest.keySequence(window, QtGui.QKeySequence(QtGui.QKeySequence.StandardKey.Save))
+        assert not callback_errors
+        restored = load_peaks(path, viewer.spectra)
+        assert [(p.name, p.positions) for p in restored] == [
+            (p.name, p.positions) for p in viewer.peaks
+        ]
+        assert not window.isWindowModified()
+        assert len(viewer.peak_labels) == len(viewer.peak_scatter.points()) == 168
+        assert not callback_errors
     finally:
         viewer.edits.mark_saved()
         viewer.inspector.show_peak(None)

@@ -64,7 +64,8 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.undo_action.triggered.connect(self.undo)
         self.redo_action.triggered.connect(self.redo)
         self.add_action = QtGui.QAction("Add peak…", self)
-        self.add_action.triggered.connect(self.start_adding_peak)
+        self.add_action.setCheckable(True)
+        self.add_action.triggered.connect(self._toggle_peak_placement)
         self.edit_actions = [self.undo_action, self.redo_action, self.add_action]
         for action in self.edit_actions:
             self.addAction(action)
@@ -79,6 +80,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             shortcut.activated.connect(callback)
         self.edits_changed.connect(self._update_edit_actions)
         self._update_edit_actions()
+        self._update_interaction_hint()
 
     def _update_edit_actions(self) -> None:
         pending = self.inspector.pending
@@ -171,6 +173,10 @@ class SpectrumViewer(QtWidgets.QWidget):
             "Drag to pan; scroll to zoom. Click to position the crosshair; "
             "drag either crosshair line."
         )
+        self.interaction_hint = QtWidgets.QLabel()
+        self.interaction_hint.setMargin(6)
+        self.interaction_hint.setAutoFillBackground(True)
+        left_layout.addWidget(self.interaction_hint)
         left_layout.addWidget(self.spectrum_plot, 1)
         self.cross_x = pg.InfiniteLine(angle=90, movable=True, pen=pg.mkPen("#a65e00"))
         self.cross_y = pg.InfiniteLine(angle=0, movable=True, pen=pg.mkPen("#a65e00"))
@@ -210,10 +216,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.inspector.applied.connect(self._apply_peak_fields)
         self.inspector.fields_changed.connect(self.edits_changed)
         self.inspector.deleted.connect(self.delete_peak)
-        add = QtWidgets.QPushButton("Add peak…")
-        add.setToolTip("Place one peak at the next click (A in the spectrum); Escape cancels")
-        add.clicked.connect(self.start_adding_peak)
-        cast("QtWidgets.QGridLayout", self.inspector.layout()).addWidget(add, 2, 2)
+        self.add_peak_button = QtWidgets.QPushButton("Add peak…")
+        self.add_peak_button.setCheckable(True)
+        self.add_peak_button.clicked.connect(self._toggle_peak_placement)
+        cast("QtWidgets.QGridLayout", self.inspector.layout()).addWidget(self.add_peak_button, 2, 2)
         right_layout.addWidget(self.inspector)
         self.trace_x = self._plot(self._axis_title(self.x_axis))
         self.trace_y = self._plot(self._axis_title(self.y_axis))
@@ -413,8 +419,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         if view.sceneBoundingRect().contains(event.scenePos()):
             point = view.mapSceneToView(event.scenePos())
             if self.adding_peak:
-                peak = self.edits.add((point.y(), point.x()))
+                # End placement while working records and graphics still agree.
+                # Only then commit, rebuild graphics, and select the added peak.
                 self.cancel_interaction()
+                peak = self.edits.add((point.y(), point.x()))
                 self.selected_id = peak.id
                 self._refresh_peaks()
                 self.edits_changed.emit()
@@ -544,6 +552,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         )
         self.inspector.show_peak(peak, position)
         self.show_peak_labels(self.labels_visible)
+        self._update_interaction_hint()
         if peak and inspect:
             self._select_position(*position)
 
@@ -598,9 +607,56 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._refresh_peaks()
         self.edits_changed.emit()
 
+    def _toggle_peak_placement(self) -> None:
+        if self.adding_peak:
+            self.cancel_interaction()
+        else:
+            self.start_adding_peak()
+
+    def _update_interaction_hint(self) -> None:
+        if self.adding_peak:
+            text = "PLACING PEAK · Click in spectrum · Cancel placement or Esc to stop"
+        elif self.selected_id is not None:
+            text = "Drag the selected peak to move · Edit name or ppm at right, then Apply"
+        else:
+            text = "Click a peak to select · Drag background to pan · Scroll to zoom"
+        self.interaction_hint.setText(text)
+        self.interaction_hint.setBackgroundRole(
+            QtGui.QPalette.ColorRole.Highlight
+            if self.adding_peak
+            else QtGui.QPalette.ColorRole.Base
+        )
+        self.interaction_hint.setForegroundRole(
+            QtGui.QPalette.ColorRole.HighlightedText
+            if self.adding_peak
+            else QtGui.QPalette.ColorRole.Text
+        )
+        # Resolve placement before editing another assignment; Cancel stays available.
+        for field in (
+            self.inspector.name,
+            self.inspector.x_field,
+            self.inspector.y_field,
+            self.inspector.apply,
+            self.inspector.delete,
+        ):
+            field.setEnabled(self.selected_id is not None and not self.adding_peak)
+        self.inspector.delete.setEnabled(
+            self.selected_id is not None and not self.adding_peak and not self.inspector.pending
+        )
+        self.add_peak_button.setChecked(self.adding_peak)
+        self.add_peak_button.setText("Cancel placement" if self.adding_peak else "Add peak…")
+        self.add_peak_button.setToolTip(
+            "Cancel placement (Escape)"
+            if self.adding_peak
+            else "Click here, then click the spectrum to place one peak (A with spectrum focus)"
+        )
+        self.add_action.setChecked(self.adding_peak)
+        self.add_action.setText("Cancel peak placement" if self.adding_peak else "Add peak…")
+
     def start_adding_peak(self) -> None:
         """Arm a single placement without a persistent editing mode."""
         if not self.apply_pending_fields():
+            self._update_interaction_hint()
             return
         self.cancel_interaction()
         self.adding_peak = True
@@ -609,7 +665,10 @@ class SpectrumViewer(QtWidgets.QWidget):
             line.setMovable(False)
         self.spectrum_plot.setCursor(QtCore.Qt.CursorShape.CrossCursor)
         self.spectrum_plot.setFocus()
-        self.inspector.details.setText("Click to add one peak · Escape cancels · drag to pan")
+        self.inspector.details.setText(
+            "Click in the spectrum to place one peak; panning and zoom still work."
+        )
+        self._update_interaction_hint()
 
     def cancel_interaction(self) -> None:
         """Discard a drag preview or uncommitted placement."""
