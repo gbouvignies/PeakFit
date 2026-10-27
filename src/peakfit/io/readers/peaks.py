@@ -1,5 +1,6 @@
 """Peak list readers that build Peak domain objects."""
 
+from functools import partial
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -201,7 +202,15 @@ def read_csv_list(
     path: Path, spectra: Spectra, shape_names: list[str], config: FitConfig
 ) -> list[Peak]:
     """Read peaks from a CSV file and return a list of Peak objects."""
-    return _read_ccpn_list(path, spectra, pd.read_csv, shape_names, config)
+    return _read_ccpn_list(
+        path,
+        spectra,
+        partial(
+            pd.read_csv, dtype={"name": str}, keep_default_na=False, float_precision="round_trip"
+        ),
+        shape_names,
+        config,
+    )
 
 
 def read_json_list(
