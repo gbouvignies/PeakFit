@@ -11,10 +11,14 @@ peakfit mcmc Fits/<run_dir>
 peakfit plot intensity Fits/<run_dir>
 peakfit plot cest Fits/<run_dir>
 peakfit plot spectrum --spectrum spectrum.ft2 --results Fits/<run_dir>
+peakfit gui spectrum.ft2 --peaks peaks.list
 ```
 
 Start with [`examples/02-advanced-fitting`](examples/02-advanced-fitting/) for a
 ready-to-run pseudo-ND CEST workflow.
+
+For responsive, read-only spectrum exploration, use `peakfit gui` (with or without
+an initial spectrum). See the [desktop viewer guide](docs/gui.md).
 
 ## Install
 
