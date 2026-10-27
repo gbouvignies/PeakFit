@@ -4,8 +4,9 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PySide6 import QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.gui.peaks import export_peaks
 from peakfit.gui.spectrum import load_peaks, load_spectrum
 from peakfit.gui.viewer import SpectrumViewer
 
@@ -18,19 +19,30 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("PeakFit")
         self.resize(1360, 900)
         self.viewer: SpectrumViewer | None = None
+        self._export_path: Path | None = None
+        self._spectrum_name = "PeakFit"
+        open_key = QtGui.QKeySequence(QtGui.QKeySequence.StandardKey.Open).toString(
+            QtGui.QKeySequence.SequenceFormat.NativeText
+        )
         welcome = QtWidgets.QLabel(
-            "Open an NMRPipe spectrum to begin.\nFile → Open spectrum (Ctrl+O)"
+            f"Open an NMRPipe spectrum to begin.\nFile → Open spectrum ({open_key})"
         )
         welcome.setMargin(40)
         self.setCentralWidget(welcome)
         menu = self.menuBar().addMenu("&File")
-        self._action(menu, "&Open spectrum…", "Ctrl+O", self._open_spectrum)
+        self._action(
+            menu, "&Open spectrum…", QtGui.QKeySequence.StandardKey.Open, self._open_spectrum
+        )
         self.peaks_action = self._action(menu, "Load &peak list…", "", self._open_peaks)
         self.values_action = self._action(menu, "Load plane &values…", "", self._open_values)
+        self.export_action = self._action(
+            menu, "Export peaks…", QtGui.QKeySequence.StandardKey.Save, self._export_peaks
+        )
+        self.export_action.setEnabled(False)
         self.peaks_action.setEnabled(False)
         self.values_action.setEnabled(False)
         menu.addSeparator()
-        self._action(menu, "&Quit", "Ctrl+Q", self.close)
+        self._action(menu, "&Quit", QtGui.QKeySequence.StandardKey.Quit, self.close)
         self.edit_menu = self.menuBar().addMenu("&Edit")
         view = self.menuBar().addMenu("&View")
         self._action(view, "Reset view", "Ctrl+0", self._reset_view)
@@ -39,9 +51,11 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self.labels_action = view.addAction("Peak labels")
         self.labels_action.setCheckable(True)
         self.labels_action.toggled.connect(self._show_peak_labels)
-        self.statusBar().showMessage("Read-only spectrum exploration")
+        self.statusBar().showMessage("Open a spectrum to inspect and edit peak coordinates")
 
-    def _action(self, menu, title: str, shortcut: str, callback) -> QtGui.QAction:
+    def _action(
+        self, menu, title: str, shortcut: str | QtGui.QKeySequence.StandardKey, callback
+    ) -> QtGui.QAction:
         action = menu.addAction(title)
         if shortcut:
             action.setShortcut(shortcut)
@@ -54,16 +68,23 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         """Prepare a replacement before discarding the currently displayed spectrum."""
         spectra = load_spectrum(path, plane_values)
         imported_peaks = load_peaks(peaks, spectra) if peaks is not None else []
+        if not self._protect_edits():
+            return
         viewer = SpectrumViewer(spectra)
         viewer.set_peaks(imported_peaks)
         viewer.show_peak_labels(self.labels_action.isChecked())
         self.setCentralWidget(viewer)
         self.viewer = viewer
+        self._spectrum_name = path.name
+        self._export_path = None
+        viewer.edits_changed.connect(self._update_work_state)
         self.edit_menu.clear()
         self.edit_menu.addActions(viewer.edit_actions)
         self.peaks_action.setEnabled(True)
         self.values_action.setEnabled(True)
-        self.setWindowTitle(f"{path.name} — PeakFit")
+        self.export_action.setEnabled(True)
+        self.setWindowTitle(f"{path.name}[*] — PeakFit")
+        self._update_work_state()
         self.statusBar().showMessage(
             f"{spectra.data.shape[0]} planes · {len(imported_peaks)} peaks · "
             "Blue: positive; dashed red: negative · Click to inspect, drag to pan, scroll to zoom"
@@ -94,7 +115,10 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         if filename:
             try:
                 peaks = load_peaks(Path(filename), self.viewer.spectra)
+                if not self._protect_edits():
+                    return
                 self.viewer.set_peaks(peaks)
+                self._export_path = None
                 self.statusBar().showMessage(f"Displaying {len(peaks)} peaks from {filename}")
             except (OSError, ValueError, KeyError, ImportError) as exc:
                 self._show_error(exc)
@@ -111,7 +135,72 @@ class PeakFitWindow(QtWidgets.QMainWindow):
                 self._show_error(exc)
 
     def _show_error(self, error: Exception) -> None:
-        QtWidgets.QMessageBox.warning(self, "Could not load input", str(error))
+        QtWidgets.QMessageBox.warning(self, "PeakFit", str(error))
+
+    def _update_work_state(self) -> None:
+        if self.viewer is not None:
+            dirty = self.viewer.edits.dirty or self.viewer.inspector.pending
+            self.setWindowModified(dirty)
+            self.statusBar().showMessage(
+                f"{len(self.viewer.peaks)} working peaks · "
+                + ("Unsaved peak edits · " if dirty else "")
+                + "Click to inspect/select · selected peak: drag to move · A: add · Esc: cancel"
+            )
+
+    def _export_peaks(self) -> bool:
+        if self.viewer is None or not self.viewer.apply_pending_fields():
+            return False
+        dialog = QtWidgets.QFileDialog(self, "Export working peaks")
+        dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptMode.AcceptSave)
+        dialog.setNameFilter("PeakFit CSV (*.csv)")
+        dialog.setDefaultSuffix("csv")
+        dialog.selectFile(str(self._export_path or Path(self._spectrum_name).with_suffix(".csv")))
+        if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return False
+        path = Path(dialog.selectedFiles()[0])
+        try:
+            export_peaks(path, self.viewer.peaks)
+        except (OSError, UnicodeError) as exc:
+            self._show_error(exc)
+            return False
+        self._export_path = path
+        self.viewer.edits.mark_saved()
+        self._update_work_state()
+        self.statusBar().showMessage(f"Exported {len(self.viewer.peaks)} peaks to {path}")
+        return True
+
+    def _protect_edits(self) -> bool:
+        if self.viewer is None or not (self.viewer.edits.dirty or self.viewer.inspector.pending):
+            return True
+        answer = QtWidgets.QMessageBox.warning(
+            self,
+            "Unsaved peak edits",
+            "Export edited peaks before discarding this working list?",
+            QtWidgets.QMessageBox.StandardButton.Save
+            | QtWidgets.QMessageBox.StandardButton.Discard
+            | QtWidgets.QMessageBox.StandardButton.Cancel,
+            QtWidgets.QMessageBox.StandardButton.Cancel,
+        )
+        if answer == QtWidgets.QMessageBox.StandardButton.Save:
+            return self._export_peaks()
+        return answer == QtWidgets.QMessageBox.StandardButton.Discard
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # noqa: N802
+        """Protect coordinates and typed fields before closing the application."""
+        if self._protect_edits():
+            event.accept()
+        else:
+            event.ignore()
+
+    def changeEvent(self, event: QtCore.QEvent) -> None:  # noqa: N802
+        """Cancel active gestures when focus leaves the application."""
+        super().changeEvent(event)
+        if (
+            event.type() == QtCore.QEvent.Type.WindowDeactivate
+            and self.viewer is not None
+            and (self.viewer._drag_peak is not None or self.viewer.adding_peak)
+        ):
+            self.viewer.cancel_interaction()
 
     def _reset_view(self) -> None:
         if self.viewer is not None:

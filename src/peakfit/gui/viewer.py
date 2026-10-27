@@ -1,4 +1,4 @@
-"""Retained spectrum contours and synchronized read-only inspection tools."""
+"""Retained spectrum contours, synchronized inspection and manual peak editing."""
 
 from typing import TYPE_CHECKING, cast
 
@@ -201,6 +201,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         right_layout.setContentsMargins(0, 0, 0, 0)
         self.inspector = PeakInspector(self._axis_title(self.x_axis), self._axis_title(self.y_axis))
         self.inspector.applied.connect(self._apply_peak_fields)
+        self.inspector.fields_changed.connect(self.edits_changed)
         self.inspector.deleted.connect(self.delete_peak)
         add = QtWidgets.QPushButton("Add peak…")
         add.setToolTip("Place one peak at the next click (A in the spectrum); Escape cancels")
@@ -516,6 +517,8 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def select_peak(self, peak_id: str | None, *, inspect: bool = False) -> None:
         """Select by identity; inspection alone snaps to measured sample indices."""
+        if peak_id != self.selected_id and not self.apply_pending_fields():
+            return
         peak = next((p for p in self.peaks if p.id == peak_id), None)
         self.selected_id = peak.id if peak else None
         self.peak_scatter.selected_id = self.selected_id
@@ -537,20 +540,34 @@ class SpectrumViewer(QtWidgets.QWidget):
         if peak and inspect:
             self._select_position(*position)
 
-    def _apply_peak_fields(self, name: str, positions: tuple[float, float]) -> None:
+    def _apply_peak_fields(self, name: str, positions: tuple[float, float]) -> bool:
         if self.selected_id is None:
-            return
+            return True
         try:
             self.edits.update(self.selected_id, name, positions)
         except ValueError as exc:
             self.inspector.details.setText(str(exc))
-            return
+            return False
         self._refresh_peaks()
         self.edits_changed.emit()
+        return True
+
+    def apply_pending_fields(self) -> bool:
+        """Commit valid typed edits before selection changes or saving work."""
+        if not self.inspector.pending:
+            return True
+        try:
+            name, positions = self.inspector.values()
+        except ValueError as exc:
+            self.inspector.details.setText(str(exc))
+            return False
+        return self._apply_peak_fields(name, positions)
 
     def delete_peak(self) -> None:
         """Delete the selected assignment as one reversible edit."""
         if self.selected_id is not None:
+            self.peak_scatter.cancel_drag()
+            self._drag_peak = None
             self.edits.delete(self.selected_id)
             self.selected_id = None
             self._refresh_peaks()
@@ -558,18 +575,22 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def undo(self) -> None:
         """Undo a peak edit without changing navigation or sample arrays."""
+        self.cancel_interaction()
         self.edits.undo()
         self._refresh_peaks()
         self.edits_changed.emit()
 
     def redo(self) -> None:
         """Redo an edit without adding navigation to history."""
+        self.cancel_interaction()
         self.edits.redo()
         self._refresh_peaks()
         self.edits_changed.emit()
 
     def start_adding_peak(self) -> None:
         """Arm a single placement without a persistent editing mode."""
+        if not self.apply_pending_fields():
+            return
         self.cancel_interaction()
         self.adding_peak = True
         self.peak_scatter.placing = True
@@ -600,6 +621,9 @@ class SpectrumViewer(QtWidgets.QWidget):
     def _preview_peak_move(self, dx: float, dy: float, finished: bool) -> None:
         peak = self._drag_peak
         if peak is None:
+            if not self.apply_pending_fields():
+                self.peak_scatter.cancel_drag()
+                return
             peak = next((p for p in self.peaks if p.id == self.selected_id), None)
             self._drag_peak = peak
         if peak is None:

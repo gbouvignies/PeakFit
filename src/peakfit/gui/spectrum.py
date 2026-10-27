@@ -1,4 +1,4 @@
-"""Spectrum loading and display geometry for the read-only viewer."""
+"""Spectrum loading and display geometry for the desktop viewer."""
 
 from typing import TYPE_CHECKING, cast
 
@@ -46,7 +46,7 @@ def validate_plane_values(values: np.ndarray, n_planes: int) -> None:
 
 
 def load_peaks(path: Path, spectra: Spectra) -> list[WorkingPeak]:
-    """Use existing peak readers; shapes are never fitted or edited by the viewer."""
+    """Reuse peak readers, discarding visualization shapes at the working-state handoff."""
     peaks = read_list(path, spectra, ["gaussian"] * spectra.n_spectral_dims, FitConfig())
     if any(not np.all(np.isfinite(peak.positions)) for peak in peaks):
         raise ValueError("Peak positions must be finite ppm coordinates.")

@@ -41,11 +41,13 @@ def test_export_round_trips_unfolded_coordinates_assignments_and_empty_list(tmp_
     peaks = load_peaks(DATA / "pseudo3d.list", spectra)
     assert len(peaks) == 166
     special = WorkingPeak.new('A, "quoted" assignment', (350.1234567890123, 8.123456789012345))
+    special_names = tuple(WorkingPeak.new(name, special.positions) for name in ("NA", "001"))
+    exported = (*peaks, special, *special_names)
     path = tmp_path / "edited.csv"
-    export_peaks(path, (*peaks, special))
+    export_peaks(path, exported)
     imported = load_peaks(path, spectra)
-    for original, restored in zip((*peaks, special), imported, strict=True):
+    for original, restored in zip(exported, imported, strict=True):
         assert restored.name == original.name
-        assert restored.positions == pytest.approx(original.positions, abs=1e-13)
+        assert restored.positions == original.positions
     export_peaks(path, ())
     assert load_peaks(path, spectra) == []

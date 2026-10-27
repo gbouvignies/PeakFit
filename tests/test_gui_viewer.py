@@ -5,8 +5,9 @@ from pathlib import Path
 import nmrglue as ng
 import numpy as np
 import pytest
-from PySide6 import QtCore, QtTest, QtWidgets
+from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
+from peakfit.gui.app import PeakFitWindow
 from peakfit.gui.peaks import WorkingPeak
 from peakfit.gui.spectrum import contour_paths, display_position, load_peaks, load_spectrum
 from peakfit.gui.viewer import SpectrumViewer
@@ -135,6 +136,16 @@ def test_peak_selection_precision_overlap_and_edit_history() -> None:
         assert viewer.peaks == (peak,)
         viewer.undo()
         assert viewer.peaks[1].name == "renamed"
+        # Native text-field editing must not delete peaks or consume peak history.
+        viewer.select_peak(other.id)
+        field = viewer.inspector.name
+        field.setFocus()
+        field.selectAll()
+        QtTest.QTest.keyClicks(field, "typed")
+        QtTest.QTest.keySequence(field, QtGui.QKeySequence(QtGui.QKeySequence.StandardKey.Undo))
+        assert field.text() == "renamed"
+        QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Backspace)
+        assert len(viewer.peaks) == 2
         viewer.redo()
         assert viewer.peaks == (peak,)
     finally:
@@ -143,7 +154,7 @@ def test_peak_selection_precision_overlap_and_edit_history() -> None:
         app.processEvents()
 
 
-def test_peak_placement_and_drag_preserve_fractional_unfolded_coordinates(monkeypatch) -> None:
+def test_peak_placement_and_drag_preserve_fractional_unfolded_coordinates(monkeypatch) -> None:  # noqa: PLR0915
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     spectra = load_spectrum(DATA / "pseudo3d.ft2")
     viewer = SpectrumViewer(spectra)
@@ -181,6 +192,47 @@ def test_peak_placement_and_drag_preserve_fractional_unfolded_coordinates(monkey
         )
         viewer.undo()
         assert viewer.peaks[0] == peak  # one undo restores the complete drag
+        # Send a real held-button gesture through the scene, at the crosshair intersection.
+        viewer.select_peak(peak.id, inspect=True)
+        view = viewer.spectrum_plot.getViewBox()
+        start = viewer.spectrum_plot.mapFromScene(
+            view.mapViewToScene(QtCore.QPointF(peak.positions[1], displayed_y))
+        )
+        end = start + QtCore.QPoint(30, 20)
+        viewport = viewer.spectrum_plot.viewport()
+        QtTest.QTest.mouseMove(viewport, start)
+        QtTest.QTest.qWait(30)
+        QtTest.QTest.mousePress(viewport, QtCore.Qt.MouseButton.LeftButton, pos=start)
+        move = QtGui.QMouseEvent(
+            QtCore.QEvent.Type.MouseMove,
+            QtCore.QPointF(end),
+            QtCore.QPointF(viewport.mapToGlobal(end)),
+            QtCore.Qt.MouseButton.NoButton,
+            QtCore.Qt.MouseButton.LeftButton,
+            QtCore.Qt.KeyboardModifier.NoModifier,
+        )
+        QtWidgets.QApplication.sendEvent(viewport, move)
+        assert viewer.peaks[0] == peak
+        QtTest.QTest.mouseRelease(viewport, QtCore.Qt.MouseButton.LeftButton, pos=end)
+        delta = view.mapSceneToView(viewer.spectrum_plot.mapToScene(end)) - view.mapSceneToView(
+            viewer.spectrum_plot.mapToScene(start)
+        )
+        assert viewer.peaks[0].positions == pytest.approx(
+            (peak.positions[0] + delta.y(), peak.positions[1] + delta.x())
+        )
+        assert viewer.peaks[0] != peak
+        viewer.undo()
+        assert viewer.peaks[0] == peak
+        viewer.select_peak(None)
+        viewer._select_position(peak.positions[1] + 0.2, displayed_y + 0.5)
+        before_pan = viewer.spectrum_plot.getViewBox().viewRange()
+        QtTest.QTest.mouseMove(viewport, start)
+        QtTest.QTest.qWait(30)
+        QtTest.QTest.mousePress(viewport, QtCore.Qt.MouseButton.LeftButton, pos=start)
+        QtWidgets.QApplication.sendEvent(viewport, move)
+        QtTest.QTest.mouseRelease(viewport, QtCore.Qt.MouseButton.LeftButton, pos=end)
+        assert viewer.peaks[0] == peak
+        assert viewer.spectrum_plot.getViewBox().viewRange() != before_pan
         viewer.start_adding_peak()
         QtTest.QTest.keyClick(viewer.spectrum_plot, QtCore.Qt.Key.Key_Escape)
         assert not viewer.adding_peak
@@ -204,4 +256,63 @@ def test_peak_placement_and_drag_preserve_fractional_unfolded_coordinates(monkey
     finally:
         viewer.close()
         viewer.deleteLater()
+        app.processEvents()
+
+
+def test_export_and_loss_guards_include_typed_fields_and_keep_failed_saves_dirty(
+    tmp_path: Path, monkeypatch
+) -> None:
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    window = PeakFitWindow()
+    source = DATA / "pseudo3d.ft2"
+    peaks = DATA / "pseudo3d.list"
+    window.open_spectrum(source, peaks)
+    viewer = window.viewer
+    assert viewer is not None
+    viewer.select_peak(viewer.peaks[0].id)
+    viewer.inspector.name.setText("unsaved typed assignment")
+    assert window.isWindowModified()
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox, "warning", lambda *_args: QtWidgets.QMessageBox.StandardButton.Cancel
+    )
+    window.open_spectrum(source)
+    assert window.viewer is viewer
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getOpenFileName", lambda *_args: (str(peaks), ""))
+    window._open_peaks()
+    assert viewer.inspector.name.text() == "unsaved typed assignment"
+    close = QtGui.QCloseEvent()
+    window.closeEvent(close)
+    assert not close.isAccepted()
+    path = tmp_path / "working.csv"
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog, "exec", lambda _dialog: QtWidgets.QDialog.DialogCode.Accepted
+    )
+    monkeypatch.setattr(QtWidgets.QFileDialog, "selectedFiles", lambda _dialog: [str(path)])
+    try:
+        assert window._export_peaks()
+        assert not window.isWindowModified()
+        restored = load_peaks(path, viewer.spectra)
+        assert restored[0].name == "unsaved typed assignment"
+        assert restored[0].positions == viewer.peaks[0].positions
+        viewer.undo()
+        assert window.isWindowModified()
+        viewer.redo()
+        assert not window.isWindowModified()
+        viewer.inspector.x_field.setText("not a number")
+        assert not window._export_peaks()
+        assert window.isWindowModified()
+        viewer.inspector.x_field.setText("8.123456789012345")
+        monkeypatch.setattr(
+            QtWidgets.QFileDialog,
+            "selectedFiles",
+            lambda _dialog: [str(tmp_path / "missing" / "x.csv")],
+        )
+        assert not window._export_peaks()
+        assert window.isWindowModified()
+        assert load_peaks(path, viewer.spectra)[0].positions == restored[0].positions
+    finally:
+        viewer.edits.mark_saved()
+        viewer.inspector.show_peak(None)
+        window.close()
+        window.deleteLater()
         app.processEvents()

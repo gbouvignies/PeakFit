@@ -17,6 +17,7 @@ class PeakInspector(QtWidgets.QGroupBox):
 
     applied = QtCore.Signal(str, tuple)
     deleted = QtCore.Signal()
+    fields_changed = QtCore.Signal()
 
     def __init__(self, x_title: str, y_title: str) -> None:
         super().__init__("Peak — click a marker to select")
@@ -39,6 +40,7 @@ class PeakInspector(QtWidgets.QGroupBox):
             layout.addWidget(label, row, 0)
             layout.addWidget(field, row, 1)
             field.returnPressed.connect(self._apply)
+            field.textChanged.connect(self.fields_changed)
             field.installEventFilter(self)
         layout.addWidget(self.apply, 0, 2)
         layout.addWidget(self.delete, 1, 2)
@@ -73,13 +75,29 @@ class PeakInspector(QtWidgets.QGroupBox):
             else "Unfolded ppm · select first, then drag to move"
         )
 
+    @property
+    def pending(self) -> bool:
+        """Whether typed fields differ from the displayed committed record."""
+        return self._peak is not None and (
+            self.name.text(),
+            self.x_field.text(),
+            self.y_field.text(),
+        ) != (self._peak.name, repr(self._peak.positions[1]), repr(self._peak.positions[0]))
+
+    def values(self) -> tuple[str, tuple[float, float]]:
+        """Read typed fields, leaving scientific validation to the working record."""
+        try:
+            return self.name.text(), (float(self.y_field.text()), float(self.x_field.text()))
+        except ValueError as exc:
+            raise ValueError("Enter a finite number for each ppm coordinate.") from exc
+
     def _apply(self) -> None:
         try:
-            positions = (float(self.y_field.text()), float(self.x_field.text()))
-        except ValueError:
-            self.details.setText("Enter a finite number for each ppm coordinate.")
+            name, positions = self.values()
+        except ValueError as exc:
+            self.details.setText(str(exc))
             return
-        self.applied.emit(self.name.text(), positions)
+        self.applied.emit(name, positions)
 
     def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:  # noqa: N802
         """Escape restores committed fields; other editing keys remain native."""
@@ -94,7 +112,7 @@ class PeakInspector(QtWidgets.QGroupBox):
 
 
 class PeakMarkers(pg.ScatterPlotItem):
-    """Claim marker clicks before crosshairs while leaving background drags alone."""
+    """Select on click; route drags to peak movement or ordinary spectrum pan."""
 
     moved = QtCore.Signal(float, float, bool)
 
@@ -103,6 +121,7 @@ class PeakMarkers(pg.ScatterPlotItem):
         self.selected_id: str | None = None
         self.placing = False
         self._cancelled = False
+        self._owns_drag = False
 
     def mouseClickEvent(self, ev) -> None:  # noqa: N802
         """Placement owns the next click, including clicks over existing markers."""
@@ -118,6 +137,17 @@ class PeakMarkers(pg.ScatterPlotItem):
             return
         if ev.isStart():
             self._cancelled = False
+            self._owns_drag = not self.placing and any(
+                p.data() == self.selected_id for p in self.pointsAt(ev.buttonDownPos())
+            )
+        if not self._owns_drag:
+            # A marker click selects; an unselected marker drag is ordinary pan.
+            # Forward with ViewBox-local coordinates, including when a cached hover
+            # claim predates a selection change.
+            view = self.getViewBox()
+            ev.currentItem = view
+            view.mouseDragEvent(ev)
+            return
         ev.accept()
         if not self._cancelled:
             delta = ev.pos() - ev.buttonDownPos()
@@ -140,8 +170,7 @@ class PeakMarkers(pg.ScatterPlotItem):
         if len(hits):
             ev.acceptClicks(QtCore.Qt.MouseButton.LeftButton)
             selected = any(p.data() == self.selected_id for p in hits)
-            if selected:
-                ev.acceptDrags(QtCore.Qt.MouseButton.LeftButton)
+            ev.acceptDrags(QtCore.Qt.MouseButton.LeftButton)
             self.setCursor(
                 QtCore.Qt.CursorShape.OpenHandCursor
                 if selected

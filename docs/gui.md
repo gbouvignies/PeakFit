@@ -55,7 +55,9 @@ lets you allocate space between the spectrum and inspection panels.
 
 Click a marker to select its assignment. Coincident markers open a chooser. The
 compact inspector edits the name and unfolded ppm coordinates together with Apply
-or Enter; Escape restores the committed fields. Delete removes the selected peak;
+or Enter; Escape restores the committed fields. Valid pending fields also apply
+before selecting another peak, placing a new peak, dragging, or exporting. Invalid
+fields remain visible with an actionable message. Delete removes the selected peak;
 Edit → Undo/Redo restores working records without affecting spectrum navigation.
 Choose **Add peak…** (or A with spectrum focus), then click once to place a peak;
 Escape cancels. Select a peak before dragging it: an open-hand cursor advertises
@@ -66,11 +68,34 @@ and dragging preserves the original unfolded chemical-shift representation.
 
 Imported shapes are discarded, and working peaks are not fitted results.
 
+## Export and unsaved edits
+
+**File → Export peaks…** (Command+S on macOS, Ctrl+S elsewhere) writes a canonical
+PeakFit CSV (`name,F1_ppm,F2_ppm`) that can be loaded by the GUI or existing fitting
+commands. Coordinates retain unfolded values and round-trip float precision;
+quoted names, duplicate assignments, and names such as `001` and `NA` are preserved.
+Exports contain names and coordinates, not internal identities, undo history,
+plane values, or fitting configuration. Imported files are never changed implicitly.
+
+The window's modified indicator and status bar identify unsaved edits, including
+typed inspector fields. Opening another spectrum, replacing a peak list, and closing
+the window offer Export/Discard/Cancel (the native dialog labels Export as Save).
+Canceling export or encountering a write error keeps the working list. Undo/redo
+continues across exports; returning to the saved coordinates clears the indicator.
+Native text-field undo and deletion remain local to text; A and peak deletion
+shortcuts require spectrum focus. Selection, zoom, crosshairs, and plane navigation
+never enter peak history. Internal identities survive rename, move, and undo, but
+are newly allocated on import; they are not scientific parameter identifiers.
+
+![Manual peak editing on the bundled experimental spectrum](images/peak-editing.png)
+
+[Drag preview with the original marker retained](images/peak-editing-drag.png).
+
 ## Scope and performance
 
-This milestone provides read-only exploration. Peak editing, fitting, completed
-model/residual display, and session persistence are not yet implemented. Existing
-Matplotlib viewers and static plots remain available unchanged.
+Manual editing changes one shared peak list across all experimental planes.
+Fitting, completed model/residual display, and session persistence are not yet
+implemented. Existing Matplotlib viewers and static plots remain available unchanged.
 
 The viewer keeps the `Spectra` object in memory. Contour extraction happens on the
 GUI thread when a plane or contour setting changes; zooming, panning, and crosshair
