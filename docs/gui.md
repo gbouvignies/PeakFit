@@ -122,9 +122,11 @@ plane/sample counts, resolved axis models, noise and clustering threshold, and t
 nonlinear starting values, bounds, units, and fixed/variable flags from the same
 parameter preparation function used by the pipeline. Positions remain unfolded;
 direct-axis coordinates outside the sampled extent are rejected instead of wrapped.
-The scientific clustering threshold defaults to 5 times the all-plane noise and is
-independent of the display threshold, which still uses first-plane noise. No model
-or parameter editing controls are exposed yet. Programmatic local preparation
+The clustering threshold is the **absolute intensity of the lowest displayed
+contour**, shared with the viewer's Threshold control (whose scale uses first-plane
+noise). The optimizer's statistical noise is estimated independently from all planes;
+changing the contour threshold does not change that estimate. No model or parameter
+editing controls are exposed yet. Programmatic local preparation
 supports only global and axis/parameter-wide wildcard rules (`*`, `*.*.lw`,
 `*.F2.cs`, and the same pattern forms in fit-step fix/vary rules). It rejects
 `parameters.peaks`, name-targeted patterns, and `parameters.from_file` with an
@@ -147,12 +149,20 @@ samples. Selecting another member keeps the same prepared group without recomput
 Selecting an outside peak or clearing selection dismisses the preview and returns
 to Inspect. Peak edits, peak-list replacement, and plane-coordinate changes also
 dismiss it. Snapshots retain working IDs/assignments, spectrum identity and shape,
-spectral metadata, plane coordinates, and fitting configuration. They are preparation
-inputs, not completed results or a persisted session.
+spectral metadata, plane coordinates, the effective absolute clustering threshold,
+and fitting configuration. They are preparation inputs, not completed results
+or a persisted session.
 
-Preparation is synchronous and performed only on explicit entry, not on navigation;
-it does not rebuild experimental contours. Large datasets can briefly pause during
-noise estimation/segmentation. There are no background workers in this step.
+Changing **Threshold** while the Fit workspace is open updates membership, mask,
+member rings, and effective parameters. Rapid slider changes are coalesced after a
+short pause (150 ms); the previous scope is hidden and marked as updating until the
+new preparation is ready. Spacing, number of levels, and displayed plane affect
+rendering only and never redefine the cluster. The all-plane noise estimate is
+reused for the unchanged dataset. Returning to Inspect cancels any pending update.
+
+Preparation is synchronous on entry and after coalesced threshold changes, not on
+ordinary navigation; it does not itself rebuild experimental contours. Large datasets
+can briefly pause during segmentation. There are no background workers in this step.
 
 ![Local fitting scope with the bundled pseudo-3D spectrum](images/fit-scope-preview.png)
 

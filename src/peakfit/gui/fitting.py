@@ -40,6 +40,7 @@ class FitInputSnapshot:
     plane_values: tuple[float, ...]
     peaks: tuple[WorkingPeak, ...]
     configuration: str
+    contour_level: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,14 +70,19 @@ def prepare_local_fit(
     peaks: tuple[WorkingPeak, ...],
     selected_id: str,
     config: PeakFitConfig | None = None,
+    *,
+    contour_level: float,
 ) -> PreparedLocalFit:
     """Use the regular scientific path to prepare one selected all-plane cluster.
 
     All working peaks participate in segmentation. The returned region uses the
-    scientific clustering threshold, never the viewer's display contours. No
+    absolute lowest displayed contour intensity supplied by the viewer. No
     optimizer, auto-picking, correction updates, or file bridge is involved.
     """
     settings = config.model_copy(deep=True) if config is not None else PeakFitConfig()
+    if not np.isfinite(contour_level) or contour_level <= 0:
+        raise ValueError("The clustering threshold must be positive and finite.")
+    settings.clustering.contour_level = float(contour_level)
     _validate_constraint_targets(settings)
     _validate_inputs(spectra, peaks, selected_id, settings)
     steps = build_fit_steps(settings.fitting.steps, settings.fitting.refine_iterations)
@@ -89,6 +95,7 @@ def prepare_local_fit(
         plane_values=tuple(float(value) for value in spectra.z_values),
         peaks=tuple(peaks),
         configuration=settings.model_dump_json(),
+        contour_level=float(contour_level),
     )
     # Fresh metadata prevents edits to plane labels or axes changing this model.
     scientific_spectra = spectra.model_copy(
@@ -100,11 +107,6 @@ def prepare_local_fit(
     noise = float(prepare_noise_level(settings.noise_level, scientific_spectra))
     if not np.isfinite(noise) or noise <= 0:
         raise ValueError("Cannot estimate positive finite noise for this spectrum.")
-    contour = settings.clustering.contour_level
-    if contour is None:
-        contour = settings.clustering.contour_factor * noise
-    if not np.isfinite(contour) or contour <= 0:
-        raise ValueError("The scientific clustering threshold must be positive and finite.")
     shape_names = get_shape_names(settings.fitting, scientific_spectra)
     # Enumeration is safe even for unusual imported IDs; the explicit mapping,
     # never names or list order alone, relates scientific and working identities.
@@ -125,7 +127,7 @@ def prepare_local_fit(
         )
         for peak, identity in zip(peaks, identities, strict=True)
     ]
-    clusters = create_clusters(scientific_spectra, scientific_peaks, contour)
+    clusters = create_clusters(scientific_spectra, scientific_peaks, contour_level)
     selected_name = next(item.engine_name for item in identities if item.working_id == selected_id)
     cluster = next(
         (group for group in clusters if any(peak.name == selected_name for peak in group.peaks)),
@@ -145,7 +147,7 @@ def prepare_local_fit(
         tuple(item for item in identities if item.engine_name in members),
         tuple(shape_names),
         noise,
-        float(contour),
+        float(contour_level),
         cluster,
         parameters,
     )

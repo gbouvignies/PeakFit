@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
 from peakfit.engine.algorithms.noise import estimate_noise
+from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.gui.editing import PeakInspector, PeakMarkers
 from peakfit.gui.fit_preview import FitPreview
 from peakfit.gui.fitting import PreparedLocalFit, prepare_local_fit
@@ -45,6 +46,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.peak_labels: list[pg.TextItem] = []
         self.labels_visible = False
         self.fit_preparation: PreparedLocalFit | None = None
+        self._fit_noise: float | None = None
         self._colors = self._palette_colors()
         self._build_ui()
         self._build_edit_actions()
@@ -54,6 +56,11 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._contour_timer.setSingleShot(True)
         self._contour_timer.setInterval(30)
         self._contour_timer.timeout.connect(self._update_contours)
+        self._fit_timer = QtCore.QTimer(self)
+        self._fit_timer.setSingleShot(True)
+        self._fit_timer.setInterval(150)
+        self._fit_timer.timeout.connect(self.preview_fit_group)
+        self.threshold.valueChanged.connect(self._schedule_fit_preview)
         for control in (self.threshold, self.factor, self.levels):
             control.valueChanged.connect(self._schedule_contours)
         self._update_contours()
@@ -254,15 +261,24 @@ class SpectrumViewer(QtWidgets.QWidget):
         if self.selected_id is None or not self.apply_pending_fields():
             self.dismiss_fit_preview()
             return
+        self._fit_timer.stop()
         selected_id = self.selected_id
         self.cancel_interaction()
         try:
-            prepared = prepare_local_fit(self.spectra, self.peaks, selected_id)
+            prepared = prepare_local_fit(
+                self.spectra,
+                self.peaks,
+                selected_id,
+                PeakFitConfig(noise_level=self._fit_noise),
+                contour_level=self.lowest_contour_level,
+            )
         except (ValueError, RuntimeError) as exc:
             self.dismiss_fit_preview()
             self.inspector.details.setText(str(exc))
             return
+        self._fit_noise = prepared.noise
         self.fit_preparation = prepared
+        self.fit_preview.setEnabled(True)
         self.fit_preview.show_preparation(prepared)
         rgba = np.zeros((*self.spectra.data.shape[1:], 4), dtype=np.uint8)
         rgba[tuple(prepared.cluster.grid_indices)] = (230, 160, 20, 85)
@@ -295,9 +311,27 @@ class SpectrumViewer(QtWidgets.QWidget):
             "No fit has been run"
         )
 
+    def _schedule_fit_preview(self) -> None:
+        """Debounce threshold drags; an outdated region is not a reviewed input."""
+        if self.workspaces.currentIndex() != 1:
+            return
+        if (
+            self.fit_preparation is not None
+            and self.fit_preparation.contour_level == self.lowest_contour_level
+        ):
+            return
+        self.fit_preparation = None
+        self.fit_mask.hide()
+        self.fit_members.clear()
+        self.fit_preview.setEnabled(False)
+        self.fit_preview.summary.setText("Updating fitting scope for the contour threshold…")
+        self._fit_timer.start()
+
     def dismiss_fit_preview(self) -> None:
         """Drop a preparation when returning to inspection or changing inputs."""
+        self._fit_timer.stop()
         self.fit_preparation = None
+        self.fit_preview.setEnabled(True)
         self.fit_mask.hide()
         self.fit_members.clear()
         with QtCore.QSignalBlocker(self.workspace_tabs):
@@ -482,6 +516,11 @@ class SpectrumViewer(QtWidgets.QWidget):
         if not self._contour_timer.isActive():
             self._contour_timer.start()
 
+    @property
+    def lowest_contour_level(self) -> float:
+        """Absolute base intensity shared by displayed contours and local clustering."""
+        return max(self.noise * self.threshold.value(), np.finfo(float).tiny)
+
     def _update_contours(self) -> None:
         n_levels = self.levels.value()
         while len(self.contours) < 2 * n_levels:
@@ -489,7 +528,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             item.setZValue(-10)
             self.spectrum_plot.addItem(item)
             self.contours.append(item)
-        base = max(self.noise * self.threshold.value(), np.finfo(float).tiny)
+        base = self.lowest_contour_level
         positive = base * self.factor.value() ** np.arange(n_levels)
         levels = np.concatenate((positive, -positive))
         paths = contour_paths(self.spectra.data[self.plane], self.spectra.spectral_params, levels)
@@ -633,6 +672,8 @@ class SpectrumViewer(QtWidgets.QWidget):
         """Select by identity; inspection alone snaps to measured sample indices."""
         if peak_id != self.selected_id and not self.apply_pending_fields():
             return
+        if peak_id != self.selected_id and self._fit_timer.isActive():
+            self.dismiss_fit_preview()
         peak = next((p for p in self.peaks if p.id == peak_id), None)
         self.selected_id = peak.id if peak else None
         if self.fit_preparation is not None and not any(

@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConstraint, PeakConstraints
 from peakfit.engine.domain.fit_steps import FitStep
@@ -20,6 +21,7 @@ DATA = Path(__file__).resolve().parents[1] / "examples" / "02-advanced-fitting" 
 
 def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> None:  # noqa: PLR0915
     spectra = read_spectra(DATA / "pseudo3d.ft2")
+    contour_level = 5 * prepare_noise_level(None, spectra)
     peak = WorkingPeak.new("same.assignment", (120.0, 8.5))
     # Test multiple existing model families, including model-specific parameters.
     for model in ("auto", "pvoigt", "lorentzian_doublet"):
@@ -29,7 +31,7 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
             value=35, min=10, max=80, vary=False
         )
         config.parameters.defaults.patterns["*.F2.cs"] = ParameterConstraint(vary=False)
-        prepared = prepare_local_fit(spectra, (peak,), peak.id, config)
+        prepared = prepare_local_fit(spectra, (peak,), peak.id, config, contour_level=contour_level)
         assert not prepared.parameters[f"{prepared.identities[0].engine_name}.F2.cs"].vary
         widths = [
             p
@@ -90,12 +92,12 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
     unsupported.append(from_file)
     for settings in unsupported:
         with pytest.raises(ValueError, match=r"assignment.*not supported.*wildcard"):
-            prepare_local_fit(spectra, (peak,), peak.id, settings)
+            prepare_local_fit(spectra, (peak,), peak.id, settings, contour_level=contour_level)
 
     # A configured start must be used once; explicit later release continues from
     # the preceding fit rather than resetting to 35 Hz. No optimizer is executed.
     config.fitting.lineshape = "gaussian"
-    prepared = prepare_local_fit(spectra, (peak,), peak.id, config)
+    prepared = prepare_local_fit(spectra, (peak,), peak.id, config, contour_level=contour_level)
     config.fitting.steps = [FitStep(name="start"), FitStep(name="release", vary=["*.*.lw"])]
     captured = []
 
@@ -138,4 +140,4 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
         if p.param_id is not None and p.param_id.label == "lw"
     )
     with pytest.raises(ValueError, match="one isolated"):
-        prepare_local_fit(spectra, (peak,), peak.id, config)
+        prepare_local_fit(spectra, (peak,), peak.id, config, contour_level=contour_level)

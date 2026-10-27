@@ -5,14 +5,14 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtTest, QtWidgets
 
 from peakfit.engine.algorithms.clustering import create_clusters
-from peakfit.engine.algorithms.noise import prepare_noise_level
+from peakfit.engine.algorithms.noise import estimate_noise, prepare_noise_level
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.gui.fitting import prepare_local_fit
-from peakfit.gui.spectrum import load_peaks, load_spectrum
+from peakfit.gui.spectrum import contour_paths, load_peaks, load_spectrum
 from peakfit.gui.viewer import SpectrumViewer
 from peakfit.io.readers.peaks import read_list
 
@@ -34,8 +34,13 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
     )
 
     noise = prepare_noise_level(None, spectra)
-    groups = create_clusters(spectra, reference_peaks, 5 * noise)
-    reference = next(group for group in groups if len(group.peaks) > 1)
+    contour_level = 5 * estimate_noise(spectra.data[0])
+    groups = create_clusters(spectra, reference_peaks, contour_level)
+    high_groups = create_clusters(spectra, reference_peaks, 1000 * estimate_noise(spectra.data[0]))
+    high_sizes = {peak.name: len(group.peaks) for group in high_groups for peak in group.peaks}
+    reference = next(
+        group for group in groups if high_sizes[group.peaks[0].name] < len(group.peaks)
+    )
     selected = next(peak for peak in peaks if peak.name == reference.peaks[0].name)
     expected_ids = {peak.id for peak in peaks if peak.name in {p.name for p in reference.peaks}}
     # Rename two members to the same assignment, preserving separate identities;
@@ -54,7 +59,7 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         else peak
         for peak in peaks
     )
-    prepared = prepare_local_fit(spectra, peaks, selected.id)
+    prepared = prepare_local_fit(spectra, peaks, selected.id, contour_level=contour_level)
     assert {item.working_id for item in prepared.identities} == expected_ids
     assert len({item.engine_name for item in prepared.identities}) == len(expected_ids)
     assert sum(item.assignment == "Duplicate" for item in prepared.identities) == 2
@@ -63,7 +68,8 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
     np.testing.assert_array_equal(prepared.cluster.data, reference.data)
     assert prepared.cluster.n_series == spectra.data.shape[0]
     assert prepared.noise == noise
-    assert prepared.contour_level == 5 * noise
+    assert prepared.contour_level == contour_level
+    assert prepared.snapshot.contour_level == contour_level
     identity = next(item for item in prepared.identities if item.working_id == selected.id)
     scientific = next(peak for peak in prepared.cluster.peaks if peak.name == identity.engine_name)
     working = next(peak for peak in peaks if peak.id == selected.id)
@@ -80,7 +86,7 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
     np.testing.assert_array_equal(signs, -old_signs if y_axis.p180 else old_signs)
     outside = replace(peaks[0], positions=(peaks[0].positions[0], x_axis.pts2ppm(x_axis.size)))
     with pytest.raises(ValueError, match="direct-axis position"):
-        prepare_local_fit(spectra, (outside, *peaks[1:]), outside.id)
+        prepare_local_fit(spectra, (outside, *peaks[1:]), outside.id, contour_level=contour_level)
 
     viewer = SpectrumViewer(spectra)
     viewer.set_peaks(peaks)
@@ -150,6 +156,59 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
         assert snapshot.plane_values != tuple(spectra.z_values)
         assert not viewer.fit_mask.isVisible()
         viewer.preview_fit_group()
+        baseline = viewer.fit_preparation
+        assert baseline is not None
+        calls = []
+
+        def record_preparation(*args, **kwargs):
+            calls.append(kwargs["contour_level"])
+            return prepare_local_fit(*args, **kwargs)
+
+        monkeypatch.setattr("peakfit.gui.viewer.prepare_local_fit", record_preparation)
+        monkeypatch.setattr("peakfit.gui.viewer.contour_paths", contour_paths)
+        monkeypatch.setattr("peakfit.engine.algorithms.noise.estimate_noise", unexpected)
+        # Display-only controls keep the same scientific preparation.
+        viewer.factor.setValue(1.7)
+        viewer.levels.setValue(11)
+        viewer.set_plane(2)
+        QtTest.QTest.qWait(200)
+        assert viewer.fit_preparation is baseline
+        assert not calls
+        # A burst of slider changes produces one preparation at the final absolute
+        # base intensity. Statistical noise is reused rather than re-estimated.
+        for value in (390, 395, 400):
+            viewer.threshold_slider.setValue(value)
+        assert viewer.fit_preparation is None
+        assert not viewer.fit_mask.isVisible()
+        assert not viewer.fit_preview.parameters.isEnabled()
+        QtTest.QTest.qWait(300)
+        updated = viewer.fit_preparation
+        assert updated is not None
+        assert calls == [viewer.lowest_contour_level]
+        assert (
+            updated.contour_level == updated.snapshot.contour_level == viewer.lowest_contour_level
+        )
+        effective = PeakFitConfig.model_validate_json(updated.snapshot.configuration)
+        assert effective.clustering.contour_level == viewer.lowest_contour_level
+        assert updated.noise == baseline.noise == noise
+        reference_groups = create_clusters(spectra, reference_peaks, viewer.lowest_contour_level)
+        reference_group = next(
+            g for g in reference_groups if selected.name in {p.name for p in g.peaks}
+        )
+        by_name = {p.name: w.id for p, w in zip(reference_peaks, peaks, strict=True)}
+        updated_ids = {by_name[p.name] for p in reference_group.peaks}
+        assert {member.working_id for member in updated.identities} == updated_ids
+        assert updated_ids != expected_ids
+        for actual, expected in zip(
+            updated.cluster.grid_indices, reference_group.grid_indices, strict=True
+        ):
+            np.testing.assert_array_equal(actual, expected)
+        expected_mask[:] = False
+        expected_mask[tuple(reference_group.grid_indices)] = True
+        np.testing.assert_array_equal(viewer.fit_mask.image[..., 3] > 0, expected_mask)
+        assert len(viewer.fit_members.points()) == len(updated_ids)
+        assert viewer.fit_preview.parameters.rowCount() == len(updated.parameters)
+        assert viewer.fit_preview.parameters.isEnabled()
         viewer.dismiss_fit_preview()
         assert viewer.peaks == peaks
         np.testing.assert_array_equal(spectra.data, original_data)

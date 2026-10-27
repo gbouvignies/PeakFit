@@ -86,8 +86,8 @@ class FitPreview(QtWidgets.QWidget):
         self.region.setText(
             f"Amber cells: exact fitting samples across all planes.\n"
             f"Clustering threshold: {prepared.contour_level:.6g} "
-            f"({prepared.contour_level / prepared.noise:g} × noise "
-            f"{prepared.noise:.6g}). Independent of display contours."
+            "(lowest displayed contour intensity).\n"
+            f"Statistical noise: {prepared.noise:.6g}, estimated independently across all planes."
         )
         self.members.clear()
         labels = {}
