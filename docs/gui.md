@@ -13,6 +13,8 @@ Use **File → Open spectrum** to open or replace the current spectrum, and the 
 menu to load a peak list or plane values afterward. A missing peak list never
 starts automatic peak picking. Other dimensionalities are rejected with an error.
 
+![Spectrum viewer with the bundled experimental dataset](images/spectrum-viewer.png)
+
 ## Navigation
 
 - Drag the spectrum to pan; scroll to zoom about the pointer. **Reset view** or
