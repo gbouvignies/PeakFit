@@ -51,6 +51,14 @@ Plot backgrounds and labels follow Qt's system palette, with contrasting contour
 trace, and crosshair colors for light and dark appearances. The horizontal splitter
 lets you allocate space between the spectrum and inspection panels.
 
+## Working peak coordinates
+
+Click a marker to select its assignment. Coincident markers open a chooser. The
+compact inspector edits the name and unfolded ppm coordinates together with Apply
+or Enter; Escape restores the committed fields. Delete removes the selected peak;
+Edit → Undo/Redo restores working records without affecting spectrum navigation.
+Imported shapes are discarded, and working peaks are not fitted results.
+
 ## Scope and performance
 
 This milestone provides read-only exploration. Peak editing, fitting, completed

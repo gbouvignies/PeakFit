@@ -31,6 +31,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self.values_action.setEnabled(False)
         menu.addSeparator()
         self._action(menu, "&Quit", "Ctrl+Q", self.close)
+        self.edit_menu = self.menuBar().addMenu("&Edit")
         view = self.menuBar().addMenu("&View")
         self._action(view, "Reset view", "Ctrl+0", self._reset_view)
         self._action(view, "Previous plane", "Ctrl+PgUp", lambda: self._step_plane(-1))
@@ -58,6 +59,8 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         viewer.show_peak_labels(self.labels_action.isChecked())
         self.setCentralWidget(viewer)
         self.viewer = viewer
+        self.edit_menu.clear()
+        self.edit_menu.addActions(viewer.edit_actions)
         self.peaks_action.setEnabled(True)
         self.values_action.setEnabled(True)
         self.setWindowTitle(f"{path.name} — PeakFit")

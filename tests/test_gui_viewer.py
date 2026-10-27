@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from PySide6 import QtCore, QtTest, QtWidgets
 
+from peakfit.gui.peaks import WorkingPeak
 from peakfit.gui.spectrum import contour_paths, display_position, load_peaks, load_spectrum
 from peakfit.gui.viewer import SpectrumViewer
 
@@ -95,3 +96,48 @@ def test_2d_loading_signed_contours_and_indirect_peak_aliasing(tmp_path: Path) -
     bad_values.write_text("1\n2\n")
     with pytest.raises(ValueError, match="exactly 1"):
         load_spectrum(path, bad_values)
+
+
+def test_peak_selection_precision_overlap_and_edit_history() -> None:
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    spectra = load_spectrum(DATA / "pseudo3d.ft2")
+    viewer = SpectrumViewer(spectra)
+    peak = WorkingPeak.new("overlap", (120.123456789123, 8.123456789123))
+    other = WorkingPeak.new("overlap", peak.positions)
+    viewer.set_peaks([peak, other])
+    viewer.resize(1200, 800)
+    viewer.show()
+    app.processEvents()
+    point = viewer.spectrum_plot.getViewBox().mapViewToScene(
+        QtCore.QPointF(peak.positions[1], display_position(viewer.y_axis, peak.positions[0]))
+    )
+    try:
+        QtTest.QTest.mouseClick(
+            viewer.spectrum_plot.viewport(),
+            QtCore.Qt.MouseButton.LeftButton,
+            pos=viewer.spectrum_plot.mapFromScene(point),
+        )
+        app.processEvents()
+        menu = viewer.findChild(QtWidgets.QMenu)
+        assert menu is not None
+        assert len(menu.actions()) == 2
+        menu.triggered.emit(menu.actions()[1])
+        menu.close()
+        assert viewer.selected_id == other.id
+        assert viewer.inspector.x_field.text() == repr(other.positions[1])
+        assert viewer.peaks == (peak, other)
+        viewer.inspector.name.setText("renamed")
+        viewer.inspector.x_field.setText("8.12345678912345")
+        QtTest.QTest.keyClick(viewer.inspector.x_field, QtCore.Qt.Key.Key_Return)
+        assert viewer.peaks[1].id == other.id
+        assert viewer.peaks[1].positions[1] == 8.12345678912345
+        viewer.delete_peak()
+        assert viewer.peaks == (peak,)
+        viewer.undo()
+        assert viewer.peaks[1].name == "renamed"
+        viewer.redo()
+        assert viewer.peaks == (peak,)
+    finally:
+        viewer.close()
+        viewer.deleteLater()
+        app.processEvents()

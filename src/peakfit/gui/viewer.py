@@ -10,6 +10,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
 from peakfit.engine.algorithms.noise import estimate_noise
+from peakfit.gui.editing import PeakInspector, PeakMarkers
+from peakfit.gui.peaks import PeakEdits
 from peakfit.gui.spectrum import contour_paths, display_position, validate_plane_values
 
 if TYPE_CHECKING:
@@ -20,7 +22,9 @@ if TYPE_CHECKING:
 
 
 class SpectrumViewer(QtWidgets.QWidget):
-    """Inspect one Spectra object; visualization never changes scientific data."""
+    """Inspect unchanged spectrum samples and edit independent working peaks."""
+
+    edits_changed = QtCore.Signal()
 
     def __init__(self, spectra: Spectra, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
@@ -31,12 +35,14 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.ppm_x = self.x_axis.pts2ppm(np.arange(self.x_axis.size, dtype=float))
         self.ppm_y = self.y_axis.pts2ppm(np.arange(self.y_axis.size, dtype=float))
         self.noise = estimate_noise(spectra.data[0])
-        self.peaks: Sequence[WorkingPeak] = ()
+        self.edits = PeakEdits()
+        self.selected_id: str | None = None
         self.contours: list[QtWidgets.QGraphicsPathItem] = []
         self.peak_labels: list[pg.TextItem] = []
         self.labels_visible = False
         self._colors = self._palette_colors()
         self._build_ui()
+        self._build_edit_actions()
         self._apply_palette()
         self._contour_timer = QtCore.QTimer(self)
         self._contour_timer.setSingleShot(True)
@@ -47,6 +53,28 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._update_contours()
         self.reset_view()
         self._update_slices()
+
+    def _build_edit_actions(self) -> None:
+        self.undo_action = QtGui.QAction("Undo peak edit", self)
+        self.redo_action = QtGui.QAction("Redo peak edit", self)
+        self.undo_action.setShortcuts(QtGui.QKeySequence.StandardKey.Undo)
+        self.redo_action.setShortcuts(QtGui.QKeySequence.StandardKey.Redo)
+        self.undo_action.triggered.connect(self.undo)
+        self.redo_action.triggered.connect(self.redo)
+        self.edit_actions = [self.undo_action, self.redo_action]
+        for action in self.edit_actions:
+            self.addAction(action)
+        delete = QtGui.QAction("Delete peak", self.spectrum_plot)
+        delete.setShortcuts([QtGui.QKeySequence("Delete"), QtGui.QKeySequence("Backspace")])
+        delete.setShortcutContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        delete.triggered.connect(self.delete_peak)
+        self.spectrum_plot.addAction(delete)
+        self.edits_changed.connect(self._update_edit_actions)
+        self._update_edit_actions()
+
+    def _update_edit_actions(self) -> None:
+        self.undo_action.setEnabled(self.edits.can_undo)
+        self.redo_action.setEnabled(self.edits.can_redo)
 
     def _plot(self, title: str) -> pg.PlotWidget:
         plot = pg.PlotWidget(title=title, background=self._colors["background"])
@@ -135,14 +163,19 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.spectrum_plot.getPlotItem().addItem(line, ignoreBounds=True)
             line.sigPositionChanged.connect(self._crosshair_dragged)
         cast("pg.GraphicsScene", self.spectrum_plot.scene()).sigMouseClicked.connect(self._clicked)
-        self.peak_scatter = pg.ScatterPlotItem(
+        self.peak_scatter = PeakMarkers(
             symbol="+",
             size=10,
             pen=pg.mkPen("#202020", width=1.5),
             hoverable=True,
-            tip=lambda x, y, data: f"{data}\n{x:.4f}, {y:.4f} ppm",
+            tip=lambda x, y, data: self._peak_tip(data, x, y),
         )
+        self.peak_scatter.setZValue(20)
+        self.peak_scatter.sigClicked.connect(self._peak_clicked)
         self.spectrum_plot.addItem(self.peak_scatter)
+        self.selection_marker = pg.ScatterPlotItem(symbol="o", size=18, brush=None)
+        self.selection_marker.setZValue(21)
+        self.spectrum_plot.addItem(self.selection_marker)
         self._build_plane_controls(left_layout)
         self._build_contour_controls(left_layout)
         splitter.addWidget(left)
@@ -157,6 +190,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         right = QtWidgets.QWidget()
         right_layout = QtWidgets.QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
+        self.inspector = PeakInspector(self._axis_title(self.x_axis), self._axis_title(self.y_axis))
+        self.inspector.applied.connect(self._apply_peak_fields)
+        self.inspector.deleted.connect(self.delete_peak)
+        right_layout.addWidget(self.inspector)
         self.trace_x = self._plot(self._axis_title(self.x_axis))
         self.trace_y = self._plot(self._axis_title(self.y_axis))
         self.profile = self._plot("Raw intensity across planes")
@@ -347,10 +384,11 @@ class SpectrumViewer(QtWidgets.QWidget):
                 item.setPath(paths[index])
 
     def _clicked(self, event) -> None:
-        if event.button() != QtCore.Qt.MouseButton.LeftButton:
+        if event.isAccepted() or event.button() != QtCore.Qt.MouseButton.LeftButton:
             return
         view = self.spectrum_plot.getViewBox()
         if view.sceneBoundingRect().contains(event.scenePos()):
+            self.select_peak(None)
             point = view.mapSceneToView(event.scenePos())
             self._select_position(point.x(), point.y())
 
@@ -392,7 +430,18 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def set_peaks(self, peaks: Sequence[WorkingPeak]) -> None:
         """Display imported peaks, folding only indirect coordinates."""
-        self.peaks = peaks
+        self.edits = PeakEdits(tuple(peaks))
+        self.selected_id = None
+        self._refresh_peaks()
+        self.edits_changed.emit()
+
+    @property
+    def peaks(self) -> tuple[WorkingPeak, ...]:
+        """Expose committed working records without fitting shapes."""
+        return self.edits.peaks
+
+    def _refresh_peaks(self) -> None:
+        peaks = self.peaks
         for label in self.peak_labels:
             self.spectrum_plot.removeItem(label)
         self.peak_labels.clear()
@@ -406,7 +455,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.peak_scatter.setData(
             x=[position[0] for position in positions],
             y=[position[1] for position in positions],
-            data=[peak.name for peak in peaks],
+            data=[peak.id for peak in peaks],
         )
         for peak, (x, y) in zip(peaks, positions, strict=True):
             label = pg.TextItem(peak.name, color=self._colors["foreground"], anchor=(0, 1))
@@ -414,9 +463,84 @@ class SpectrumViewer(QtWidgets.QWidget):
             label.setVisible(self.labels_visible)
             self.spectrum_plot.getPlotItem().addItem(label, ignoreBounds=True)
             self.peak_labels.append(label)
+        self.select_peak(self.selected_id)
 
     def show_peak_labels(self, visible: bool) -> None:
         """Keep crowded survey views readable while allowing explicit assignments."""
         self.labels_visible = visible
-        for label in self.peak_labels:
-            label.setVisible(visible)
+        for peak, label in zip(self.peaks, self.peak_labels, strict=True):
+            label.setVisible(visible or peak.id == self.selected_id)
+
+    def _peak_tip(self, peak_id: str, x: float, y: float) -> str:
+        peak = next(p for p in self.peaks if p.id == peak_id)
+        return f"{peak.name}\n{x:.6f}, {y:.6f} ppm displayed\nClick to select"
+
+    def _peak_clicked(self, _item, points, event) -> None:
+        self.spectrum_plot.setFocus()
+        candidates = [p.data() for p in points]
+        if len(candidates) == 1:
+            self.select_peak(candidates[0], inspect=True)
+            return
+        menu = QtWidgets.QMenu(self)
+        for peak in self.peaks:
+            if peak.id in candidates:
+                action = menu.addAction(
+                    f"{peak.name}  ({peak.positions[1]:.8g}, {peak.positions[0]:.8g} ppm)"
+                )
+                action.setData(peak.id)
+        menu.triggered.connect(lambda action: self.select_peak(action.data(), inspect=True))
+        menu.aboutToHide.connect(menu.deleteLater)
+        menu.popup(event.screenPos().toPoint())
+
+    def select_peak(self, peak_id: str | None, *, inspect: bool = False) -> None:
+        """Select by identity; inspection alone snaps to measured sample indices."""
+        peak = next((p for p in self.peaks if p.id == peak_id), None)
+        self.selected_id = peak.id if peak else None
+        position = (
+            (
+                display_position(self.x_axis, peak.positions[1]),
+                display_position(self.y_axis, peak.positions[0]),
+            )
+            if peak
+            else (0.0, 0.0)
+        )
+        self.selection_marker.setData(
+            x=[position[0]] if peak else [],
+            y=[position[1]] if peak else [],
+            pen=pg.mkPen(self._colors["crosshair"], width=2),
+        )
+        self.inspector.show_peak(peak, position)
+        self.show_peak_labels(self.labels_visible)
+        if peak and inspect:
+            self._select_position(*position)
+
+    def _apply_peak_fields(self, name: str, positions: tuple[float, float]) -> None:
+        if self.selected_id is None:
+            return
+        try:
+            self.edits.update(self.selected_id, name, positions)
+        except ValueError as exc:
+            self.inspector.details.setText(str(exc))
+            return
+        self._refresh_peaks()
+        self.edits_changed.emit()
+
+    def delete_peak(self) -> None:
+        """Delete the selected assignment as one reversible edit."""
+        if self.selected_id is not None:
+            self.edits.delete(self.selected_id)
+            self.selected_id = None
+            self._refresh_peaks()
+            self.edits_changed.emit()
+
+    def undo(self) -> None:
+        """Undo a peak edit without changing navigation or sample arrays."""
+        self.edits.undo()
+        self._refresh_peaks()
+        self.edits_changed.emit()
+
+    def redo(self) -> None:
+        """Redo an edit without adding navigation to history."""
+        self.edits.redo()
+        self._refresh_peaks()
+        self.edits_changed.emit()
