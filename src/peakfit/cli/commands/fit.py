@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -25,7 +24,6 @@ from peakfit.fit.fitting import (
     run_fit,
     write_fit_run_outputs,
 )
-from peakfit.fit.linewidth_comparison import run_linewidth_comparison
 from peakfit.fit.validation import validate_inputs
 from peakfit.ui.branding import show_command_summary
 from peakfit.ui.console import Verbosity, console, display_path, set_verbosity
@@ -158,13 +156,6 @@ def fit_command(
             ),
         ),
     ] = False,
-    compare_linewidth_start: Annotated[
-        float | None,
-        typer.Option(
-            "--compare-linewidth-start",
-            help="Compare an independent initial linewidth in Hz; retain both fits",
-        ),
-    ] = None,
     verbose: Annotated[
         bool,
         typer.Option("--verbose", "-v", help="Verbose output"),
@@ -180,8 +171,6 @@ def fit_command(
         peakfit fit spectrum.ft2 peaks.list -z z_values.txt -o results/
         peakfit fit spectrum.ft2 peaks.list --config settings.toml
     """
-    _validate_comparison_start(compare_linewidth_start, peaklist)
-
     start_time = datetime.datetime.now(datetime.UTC)
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
     reporter = ConsoleReporter()
@@ -236,29 +225,6 @@ def fit_command(
         show_prefit_check(data, output_dir, optimizer, fit_config, spectrum, peaklist, workers)
 
     try:
-        if compare_linewidth_start is not None:
-            input_paths = _collect_input_paths(
-                spectrum=spectrum,
-                peaklist=peaklist,
-                z_values=z_values,
-                output_dir=output_dir,
-                peaks=data.peaks,
-            )
-            input_paths.update({"configuration": config} if config is not None else {})
-            completed = run_linewidth_comparison(
-                data,
-                fit_config,
-                output_dir,
-                compare_linewidth_start,
-                input_paths,
-                optimizer=optimizer,
-                workers=workers,
-                reporter=reporter,
-            )
-            console.print(f"Comparison written to {display_path(output_dir / 'comparison.md')}")
-            if not completed:
-                raise typer.Exit(1)
-            return
         if fit_config.output.headless:
             result = run_fit(
                 data,
@@ -304,8 +270,6 @@ def fit_command(
             )
             write_fit_run_outputs(result, result.spectra, fit_config, input_paths, reporter)
 
-    except typer.Exit:
-        raise
     except Exception as e:
         show_error_with_details("Fitting", e)
         raise typer.Exit(1) from e
@@ -529,13 +493,3 @@ def _format_review_clusters(reviews: list[ClusterReview]) -> list[dict[str, Any]
         )
 
     return formatted
-
-
-def _validate_comparison_start(linewidth: float | None, peaklist: Path | None) -> None:
-    """Reject invalid comparison requests before loading inputs."""
-    if linewidth is None:
-        return
-    if not math.isfinite(linewidth) or linewidth <= 0:
-        raise typer.BadParameter("Comparison linewidth must be finite and positive (Hz).")
-    if peaklist is None:
-        raise typer.BadParameter("Linewidth comparison requires an explicit peak list.")
