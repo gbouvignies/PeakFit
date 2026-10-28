@@ -14,6 +14,10 @@ They remain warned results, not scientifically certified positions. This work
 does not justify releasing these assignments as trustworthy or choosing the
 historical local minimum as ground truth.
 
+The subsequent [linewidth initialization and parameter scaling investigation](linewidth-scaling.md)
+compares experimentally estimated intrinsic widths, nonlinear parameter scales,
+normalization and synthetic recovery without changing production behavior.
+
 ## Reproduction and evidence
 
 Inputs are the unmodified `examples/02-advanced-fitting/data/pseudo3d.ft2`,
