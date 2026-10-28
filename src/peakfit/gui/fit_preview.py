@@ -10,9 +10,9 @@ if TYPE_CHECKING:
 
 
 class FitPreview(QtWidgets.QWidget):
-    """Explain the exact local scope and starting model without running a fit."""
+    """Compact local-fit header with numerical inspection available on demand."""
 
-    dismissed = QtCore.Signal()
+    details_requested = QtCore.Signal(bool)
     run_requested = QtCore.Signal()
     cancel_requested = QtCore.Signal()
     prepare_requested = QtCore.Signal()
@@ -22,63 +22,86 @@ class FitPreview(QtWidgets.QWidget):
         super().__init__()
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        title = self.title = QtWidgets.QLabel("Local fitting · scope preview")
-        font = title.font()
+        self.title = QtWidgets.QLabel("Local fitting")
+        font = self.title.font()
         font.setBold(True)
-        title.setFont(font)
-        layout.addWidget(title)
+        self.title.setFont(font)
         self.summary = QtWidgets.QLabel()
-        self.models = QtWidgets.QLabel()
-        self.region = QtWidgets.QLabel()
-        assumptions = self.assumptions = QtWidgets.QLabel(
-            "All planes share positions and lineshape parameters. Each peak's signed "
-            "amplitude is solved independently in each plane.\n\n"
-            "Isolated local fit: signals from other groups are not subtracted. "
-            "The complete iterative cross-cluster correction procedure is not included. "
-            "Check nearby peaks and the experimental model before fitting."
-        )
+        self.status = QtWidgets.QLabel()
+        self.quality = QtWidgets.QLabel()
         for label, lines in (
+            (self.title, 1),
             (self.summary, 2),
-            (self.models, 2),
-            (self.region, 4),
-            (assumptions, None),
+            (self.status, 1),
+            (self.quality, 1),
         ):
             label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             label.setWordWrap(True)
-            label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
-            if lines is not None:
-                label.setFixedHeight(label.fontMetrics().lineSpacing() * lines + 4)
-                label.setSizePolicy(
-                    QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
-                )
+            label.setFixedHeight(label.fontMetrics().lineSpacing() * lines + 4)
+            label.setSizePolicy(
+                QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+            )
             layout.addWidget(label)
-        self.status = QtWidgets.QLabel()
-        self.status.setFixedHeight(self.status.fontMetrics().lineSpacing() + 4)
-        self.status.setSizePolicy(
-            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
-        )
-        layout.addWidget(self.status)
         self._details = ""
-        members_title = QtWidgets.QLabel("Included peaks · rings on spectrum")
-        layout.addWidget(members_title)
+        self._result: FitProcessResult | None = None
+        self._plane = 0
+        actions = QtWidgets.QHBoxLayout()
+        self.run = QtWidgets.QPushButton("Run local fit")
+        self.run.setEnabled(False)
+        self.run.clicked.connect(self.run_requested)
+        self.cancel = QtWidgets.QPushButton("Cancel fit")
+        self.cancel.hide()
+        self.cancel.clicked.connect(self.cancel_requested)
+        self.prepare = QtWidgets.QPushButton("New preparation")
+        self.prepare.hide()
+        self.prepare.clicked.connect(self.prepare_requested)
+        self.retained = QtWidgets.QPushButton("Retained result")
+        self.retained.hide()
+        self.retained.clicked.connect(self.result_requested)
+        for button in (self.run, self.cancel, self.prepare, self.retained):
+            actions.addWidget(button)
+        self.details = QtWidgets.QPushButton("Details")
+        self.details.setCheckable(True)
+        self.details.setEnabled(False)
+        self.details.toggled.connect(self._show_details)
+        actions.addWidget(self.details)
+        layout.addLayout(actions)
+        layout.addStretch()
+
+        # The viewer owns placement: details replace plots only on explicit request.
+        self.detail_content = QtWidgets.QWidget()
+        detail_layout = QtWidgets.QVBoxLayout(self.detail_content)
+        detail_layout.setContentsMargins(0, 0, 0, 0)
+        self.models = QtWidgets.QLabel()
+        self.region = QtWidgets.QLabel()
+        self.assumptions = QtWidgets.QLabel(
+            "Positions and lineshapes are shared across planes; signed amplitudes are "
+            "solved independently per peak and plane. Other groups are not subtracted. "
+            "Review nearby signals and the processing-derived model assumptions."
+        )
+        for label in (self.models, self.region, self.assumptions):
+            label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+            label.setWordWrap(True)
+            label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+            detail_layout.addWidget(label)
+        detail_layout.addWidget(QtWidgets.QLabel("Included peaks · rings on spectrum"))
         self.members = QtWidgets.QListWidget()
-        self.members.setFixedHeight(110)
-        layout.addWidget(self.members)
+        self.members.setFixedHeight(80)
+        detail_layout.addWidget(self.members)
         self.table_title = QtWidgets.QLabel("Effective starting parameters · read-only")
-        layout.addWidget(self.table_title)
+        detail_layout.addWidget(self.table_title)
         self.result_mode = QtWidgets.QComboBox()
         self.result_mode.addItems(
             ["Fitted nonlinear parameters", "Signed amplitudes · displayed plane"]
         )
         self.result_mode.hide()
         self.result_mode.currentIndexChanged.connect(self._result_table)
-        layout.addWidget(self.result_mode)
-        self._result: FitProcessResult | None = None
-        self._plane = 0
+        detail_layout.addWidget(self.result_mode)
         self.parameters = QtWidgets.QTableWidget(0, 6)
         self.parameters.setHorizontalHeaderLabels(
             ["Peak / axis", "Parameter", "Start", "Min", "Max", "Fit"]
         )
+        self.parameters.setMinimumHeight(180)
         self.parameters.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.parameters.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
@@ -87,41 +110,14 @@ class FitPreview(QtWidgets.QWidget):
         self.parameters.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeMode.Interactive
         )
-        layout.addWidget(self.parameters, 1)
-        note = self.note = QtWidgets.QLabel(
-            "Positions use unfolded ppm. Linewidths are in Hz (unapodized FWHM for "
-            "processing-aware models). Amplitudes have no starting controls.\n"
-            "Preparation only — no fit has been run."
-        )
-        note.setWordWrap(True)
-        note.setFixedHeight(note.fontMetrics().lineSpacing() * 3 + 4)
-        layout.addWidget(note)
-        actions = QtWidgets.QHBoxLayout()
-        self.run = QtWidgets.QPushButton("Run local fit")
-        self.run.setEnabled(False)
-        self.run.clicked.connect(self.run_requested)
-        self.cancel = QtWidgets.QPushButton("Cancel fit")
-        self.cancel.hide()
-        self.cancel.clicked.connect(self.cancel_requested)
-        self.prepare = QtWidgets.QPushButton("Prepare selected group")
-        self.prepare.hide()
-        self.prepare.clicked.connect(self.prepare_requested)
-        self.retained = QtWidgets.QPushButton("Show retained result")
-        self.retained.hide()
-        self.retained.clicked.connect(self.result_requested)
-        for button in (self.run, self.cancel, self.prepare, self.retained):
-            actions.addWidget(button)
-        layout.addLayout(actions)
-        dismiss = QtWidgets.QPushButton("Back to Inspect")
-        dismiss.clicked.connect(self.dismissed)
-        buttons = QtWidgets.QHBoxLayout()
-        buttons.addWidget(dismiss, 1)
-        self.details = QtWidgets.QPushButton("Details…")
-        self.details.setFixedWidth(85)
-        self.details.setEnabled(False)
-        self.details.clicked.connect(self._show_details)
-        buttons.addWidget(self.details)
-        layout.addLayout(buttons)
+        detail_layout.addWidget(self.parameters, 1)
+        self.note = QtWidgets.QLabel()
+        self.note.setWordWrap(True)
+        detail_layout.addWidget(self.note)
+        self.diagnostics = QtWidgets.QPlainTextEdit()
+        self.diagnostics.setReadOnly(True)
+        self.diagnostics.setMinimumHeight(140)
+        detail_layout.addWidget(self.diagnostics)
 
     def show_preparation(self, prepared: PreparedLocalFit) -> None:
         """Project resolved parameters, preserving duplicate assignment identity."""
@@ -129,8 +125,14 @@ class FitPreview(QtWidgets.QWidget):
 
         self._result = None
         self.assumptions.show()
-        self.members.setFixedHeight(110)
-        self.title.setText("Local fitting · reviewed scope")
+        self.members.setFixedHeight(80)
+        assignments = [item.assignment for item in prepared.identities]
+        group_name = assignments[0] + (
+            f" + {len(assignments) - 1} more" if len(assignments) > 1 else ""
+        )
+        self.title.setText(f"Group: {group_name}")
+        self.title.setToolTip(" · ".join(assignments))
+        self.quality.setText("Local contribution · other groups are not subtracted")
         self.table_title.setText("Effective starting parameters · read-only")
         self.result_mode.hide()
         self.run.show()
@@ -147,14 +149,13 @@ class FitPreview(QtWidgets.QWidget):
             "Numerical fitting unavailable · Details explains why and how to proceed."
             if reason
             else (
-                "Positions are unfolded ppm; linewidths are Hz. Signed amplitudes are solved "
-                "independently for every plane. No fit has been run."
+                "Positions: unfolded ppm. Linewidths: Hz (unapodized FWHM for processing-aware "
+                "models). No fit has been run."
             )
         )
         group = prepared.scope
         self.summary.setText(
-            f"{len(group.peaks)} peaks · {group.n_series} experimental planes · "
-            f"{group.n_points} sampled spectral points per plane"
+            f"{len(group.peaks)} peaks · {group.n_series} planes · {group.n_points} samples / plane"
         )
         axes = group.peaks[0].shapes
         self.models.setText(
@@ -182,20 +183,15 @@ class FitPreview(QtWidgets.QWidget):
             )
         self.parameters.setRowCount(0)
         self.parameters.setEnabled(prepared.parameters is not None)
-        self._details = (
-            (reason or "Numerical inputs prepared; no fit has been run.")
-            + "\n\n"
-            + self.models.text()
-            + "\n\n"
-            + self.region.text()
-        )
+        self._details = reason or "One isolated local pass across all experimental planes."
         self.status.setText(
             "Scope shown · numerical preparation unavailable"
             if prepared.limitation
-            else "Scope ready · numerical inputs prepared"
+            else "Ready to fit"
         )
         self.status.setToolTip(self._details)
         self.details.setEnabled(True)
+        self.diagnostics.setPlainText(self._details)
         if prepared.parameters is None:
             return
         self.parameters.setRowCount(len(prepared.parameters))
@@ -227,6 +223,7 @@ class FitPreview(QtWidgets.QWidget):
     def show_status(self, message: str, *, clear: bool = False) -> None:
         """Use reserved status space; retain the previous scope while updating."""
         self._details = message
+        self.diagnostics.setPlainText(message)
         self.status.setText("Scope unavailable · Details…" if clear else message)
         self.status.setToolTip(message)
         self.details.setEnabled(True)
@@ -254,23 +251,18 @@ class FitPreview(QtWidgets.QWidget):
         """Inspect retained scientific quantities without modifying working peaks."""
         self.show_preparation(result.scientific.inputs)
         self._result = result
-        self.assumptions.hide()
+        self.assumptions.show()
         self.members.setFixedHeight(70)
         self._plane = plane
         outcome = result.scientific.outcome.clusters[0]
         provenance = outcome.optimizer_provenance
         label = {
             "converged": "Converged · numerically usable",
-            "usable_non_converged": "Not converged · usable provisional result",
+            "usable_non_converged": "Not converged · provisional result",
             "unusable": "Unusable result",
         }[outcome.classification.value]
-        self.title.setText("Local fitting · numerical result")
+
         self.status.setText("Outdated · working inputs changed" if outdated else label)
-        self.region.setText(
-            f"{label}\n{provenance.termination_message or outcome.unusable_reason or ''}\n"
-            f"Function evaluations: {provenance.function_evaluations} · "
-            f"Jacobian evaluations: {provenance.jacobian_evaluations}"
-        )
         evaluation = outcome.analytical_evaluation
         if evaluation is not None:
             stats = evaluation.statistics
@@ -281,7 +273,12 @@ class FitPreview(QtWidgets.QWidget):
             )
         else:
             quality = outcome.unusable_reason or "No usable numerical quantities."
-        self.models.setText(quality)
+        self.quality.setText(
+            f"Reduced χ² {stats.reduced_chi_squared:.4g} · all planes / fitted samples"
+            if evaluation is not None
+            else "No usable fit quantities"
+        )
+        self.quality.setToolTip(quality)
         self.table_title.setText("Read-only result · original identities retained")
         self.result_mode.show()
         self.run.hide()
@@ -289,13 +286,15 @@ class FitPreview(QtWidgets.QWidget):
         self.prepare.show()
         self.parameters.setEnabled(True)
         self.note.setText(
-            "Fitting has not changed working peaks. Result is retained in memory only; "
-            "it is NOT saved to disk. Statistical noise and fitted mask remain those reviewed."
+            "Positions: unfolded ppm. Linewidths: Hz (unapodized FWHM for processing-aware "
+            "models). Working peaks are unchanged."
         )
         memory = result.scientific.peak_memory_bytes
         memory_label = f"{memory / 1024**2:.1f} MiB" if memory is not None else "unavailable"
-        self._details += (
-            f"\n\n{quality}\n{provenance.termination_message}\n"
+        self._details = (
+            f"{quality}\n{provenance.termination_message}\n"
+            f"Function evaluations: {provenance.function_evaluations} · "
+            f"Jacobian evaluations: {provenance.jacobian_evaluations}\n"
             f"Optimality: {provenance.optimality}\n"
             f"Optimizer settings: {result.scientific.optimizer_config}\n"
             f"Numerical execution: {result.scientific.execution_seconds:.3f} s\n"
@@ -309,6 +308,7 @@ class FitPreview(QtWidgets.QWidget):
             + "\n".join(result.scientific.warnings)
         )
         self.status.setToolTip(self._details)
+        self.diagnostics.setPlainText(self._details)
         self._result_table()
 
     def set_result_plane(self, plane: int) -> None:
@@ -368,9 +368,7 @@ class FitPreview(QtWidgets.QWidget):
                 self.parameters.setItem(row, column, QtWidgets.QTableWidgetItem(value))
         self.parameters.resizeColumnsToContents()
 
-    def _show_details(self) -> None:
-        dialog = QtWidgets.QMessageBox(self)
-        dialog.setWindowTitle("Fitting scope details")
-        dialog.setTextFormat(QtCore.Qt.TextFormat.PlainText)
-        dialog.setText(self._details)
-        dialog.exec()
+    def _show_details(self, checked: bool) -> None:
+        self.diagnostics.setPlainText(self._details)
+        self.details.setText("Close details" if checked else "Details")
+        self.details_requested.emit(checked)

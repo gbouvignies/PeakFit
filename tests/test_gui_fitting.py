@@ -6,7 +6,7 @@ from threading import Event, get_ident
 
 import numpy as np
 import pytest
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtTest, QtWidgets
 
 from peakfit.engine.algorithms.clustering import create_clusters
 from peakfit.engine.algorithms.noise import estimate_noise, prepare_noise_level
@@ -123,12 +123,47 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
     monkeypatch.setattr("peakfit.gui.viewer.contour_geometry", unexpected)
     monkeypatch.setattr("peakfit.fit.pipeline.fit_with_optimizer", unexpected)
     paths = [item.path() for item in viewer.contours]
+    plots = (viewer.trace_x, viewer.trace_y, viewer.profile)
+
+    def plot_positions():
+        return tuple((plot.mapTo(viewer, QtCore.QPoint()), plot.size()) for plot in plots)
+
+    positions = plot_positions()
+    spectrum_geometry = viewer.spectrum_plot.geometry()
+    assert not viewer.threshold.isVisible()
+    assert "5.0×" in viewer.contour_button.text()
+    title_button = viewer.contour_button.geometry()
+    data_top = viewer.spectrum_plot.mapFromScene(
+        viewer.spectrum_plot.getViewBox().sceneBoundingRect().topLeft()
+    ).y()
+    assert title_button.bottom() <= data_top
+    # Contour controls are transient, precise and keyboard accessible; opening them
+    # never reflows either the spectrum or inspection plots.
+    QtTest.QTest.mouseClick(viewer.contour_button, QtCore.Qt.MouseButton.LeftButton)
+    app.processEvents()
+    assert viewer.contour_popup.isVisible()
+    assert viewer.threshold.hasFocus()
+    assert viewer.threshold.isVisible()
+    assert viewer.spectrum_plot.geometry() == spectrum_geometry
+    assert plot_positions() == positions
+    QtTest.QTest.keyClick(viewer.threshold, QtCore.Qt.Key.Key_Escape)
+    assert not viewer.contour_popup.isVisible()
     try:
         viewer.workspace_tabs.setCurrentIndex(1)
         wait_for_preview()
         app.processEvents()
         assert viewer.fit_preparation is not None
         assert viewer.fit_preparation.parameters is not None
+        assert all(plot.isVisible() for plot in plots)
+        assert plot_positions() == positions
+        viewer.fit_preview.details.click()
+        app.processEvents()
+        assert viewer.fit_preview.detail_content.isVisible()
+        assert viewer.spectrum_plot.geometry() == spectrum_geometry
+        viewer.fit_preview.details.click()
+        app.processEvents()
+        assert all(plot.isVisible() for plot in plots)
+        assert plot_positions() == positions
         assert viewer.workspaces.currentIndex() == viewer.workspace_tabs.currentIndex() == 1
         assert viewer.fit_preview.parameters.rowCount() == len(viewer.fit_preparation.parameters)
         assert len(viewer.fit_members.points()) == len(expected_ids)
@@ -305,7 +340,10 @@ def test_low_threshold_preparation_keeps_qt_responsive_and_rejects_obsolete_work
             viewer.threshold_slider.geometry(),
             viewer.fit_preview.parameters.geometry(),
         )
+        button_geometry = viewer.contour_button.geometry()
         viewer.threshold.setValue(0.1)
+        assert "0.1×" in viewer.contour_button.text()
+        assert viewer.contour_button.geometry() == button_geometry
         assert any(item.isVisible() for item in viewer.contours)
         _process_events()
         assert (
