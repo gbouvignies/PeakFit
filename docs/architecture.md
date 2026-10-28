@@ -44,7 +44,12 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   There is no fit queue. Cancellation terminates/reaps the child. Scientific edits
   pause until execution stops; navigation remains available. One unsaved result is
   retained separately and protected against replacement/loss. No automatic peak
-  picking, persistence, or fitted-coordinate application is involved.
+  picking or persistence is involved. `gui.fit_positions` validates final chemical
+  shifts against retained shape axes and the engine-to-working-ID mapping. Explicit
+  application uses one `PeakEdits.update_positions()` history entry, with all edits
+  validated before commit. Scientific inputs must still match. The original outcome
+  and export state remain owned by the retained result; applying positions makes
+  comparison graphics stale without discarding that result.
 - `src/peakfit/ui/` - Rich terminal helpers used by the current CLI.
 - `src/peakfit/fit/` - validation, data loading, fitting workflow, result assembly, and output coordination.
 - `src/peakfit/auto_pick/` - experimental automatic peak-picking workflow used only when no peak list is provided.

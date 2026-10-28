@@ -17,6 +17,7 @@ from peakfit.gui.background import ViewerComputation
 from peakfit.gui.comparison import FitComparison
 from peakfit.gui.editing import PeakInspector, PeakMarkers
 from peakfit.gui.export_dialog import choose_and_export
+from peakfit.gui.fit_positions import fitted_position_updates
 from peakfit.gui.fit_preview import FitPreview
 from peakfit.gui.fit_process import FitProcessResult, LocalFitProcess
 from peakfit.gui.fitting import PreparedLocalFit, prepare_local_fit
@@ -35,6 +36,9 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
     from peakfit.gui.peaks import WorkingPeak
     from peakfit.gui.spectrum import ContourGeometry
+
+
+_POSITION_PREVIEW_PEAKS = 4
 
 
 class SpectrumViewer(QtWidgets.QWidget):
@@ -299,6 +303,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.fit_preview.cancel_requested.connect(self._fit_process.cancel)
         self.fit_preview.prepare_requested.connect(self.preview_fit_group)
         self.fit_preview.result_requested.connect(self.show_fit_result)
+        self.fit_preview.apply_positions_requested.connect(self.apply_fitted_positions)
         self.workspaces.addWidget(self.fit_preview)
         self.workspace_tabs.currentChanged.connect(self._workspace_changed)
         # Reserve identical header space in every state so the plots never jump.
@@ -561,11 +566,98 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.comparison.show_result(self.fit_result, outdated=outdated)
         self.fit_preview.retained.hide()
         self.fit_preview.prepare.setEnabled(self.selected_id is not None)
+        try:
+            self._fitted_position_updates()
+        except ValueError as error:
+            self.fit_preview.apply_positions.setEnabled(False)
+            self.fit_preview.apply_positions.setToolTip(str(error))
+        else:
+            self.fit_preview.apply_positions.setEnabled(True)
+            self.fit_preview.apply_positions.setToolTip("Update the group in one undoable edit")
         if not activate:
             with QtCore.QSignalBlocker(self.workspace_tabs):
                 self.workspace_tabs.setCurrentIndex(previous)
             self.workspaces.setCurrentIndex(previous)
         self._update_interaction_hint()
+
+    def _fitted_position_updates(self) -> dict[str, tuple[float, float]]:
+        if self.fit_busy or self._exporting or self.inspector.pending:
+            raise ValueError("Finish the current fit, export or inspector edit first.")
+        if self.fit_result is None or self._result_revision != self._scientific_revision:
+            raise ValueError("This result is outdated. Prepare and run a new fit.")
+        result = self.fit_result.scientific
+        snapshot = result.inputs.snapshot
+        if (
+            snapshot.spectrum_id != id(self.spectra)
+            or snapshot.data_shape != tuple(self.spectra.data.shape)
+            or snapshot.spectral_parameters
+            != tuple(a.model_dump_json() for a in self.spectra.params)
+            or snapshot.plane_values != tuple(float(v) for v in self.spectra.z_values)
+            or snapshot.source_files != self.source_files
+        ):
+            raise ValueError("Scientific inputs changed since this fit. Run a new fit.")
+        return fitted_position_updates(result, self.peaks)
+
+    def apply_fitted_positions(self) -> None:
+        """Confirm and commit the complete fitted group, retaining its original result."""
+        try:
+            updates = self._fitted_position_updates()
+        except ValueError as error:
+            QtWidgets.QMessageBox.warning(self, "Cannot apply fitted positions", str(error))
+            return
+        if not updates:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Fitted positions unchanged",
+                "All fitted positions already match the working peaks. No edit was made.",
+            )
+            return
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setWindowTitle("Apply fitted positions")
+        dialog.setText(f"Update chemical shifts for {len(updates)} peaks in the fitted group?")
+        changes = []
+        for number, peak in enumerate(self.peaks, 1):
+            if peak.id in updates:
+                coordinates = ", ".join(
+                    f"{'Indirect' if dim == 0 else 'Direct'}: {before:.9g} → {after:.9g} ppm"
+                    for dim, (before, after) in enumerate(
+                        zip(peak.positions, updates[peak.id], strict=True)
+                    )
+                    if before != after
+                )
+                changes.append(f"{number}. {peak.name} · {coordinates}")
+        dialog.setInformativeText(
+            "Only chemical-shift coordinates change. Undo restores the whole group in one step. "
+            "The original fit remains available for export; comparison graphics will be hidden "
+            "because the working inputs change.\n\n"
+            + "\n".join(changes[:_POSITION_PREVIEW_PEAKS])
+            + (
+                f"\n… and {len(changes) - _POSITION_PREVIEW_PEAKS} more peaks (Details)."
+                if len(changes) > _POSITION_PREVIEW_PEAKS
+                else ""
+            )
+        )
+        dialog.setDetailedText("\n".join(changes))
+        dialog.setStandardButtons(
+            QtWidgets.QMessageBox.StandardButton.Apply | QtWidgets.QMessageBox.StandardButton.Cancel
+        )
+        dialog.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Cancel)
+        if dialog.exec() != QtWidgets.QMessageBox.StandardButton.Apply:
+            return
+        # Modal dialogs process events: validate the complete live state again.
+        try:
+            current = self._fitted_position_updates()
+            if current != updates:
+                raise ValueError(
+                    "Fitted positions changed during confirmation. Review the result again."
+                )
+            self.edits.update_positions(updates)
+        except ValueError as error:
+            QtWidgets.QMessageBox.warning(self, "Cannot apply fitted positions", str(error))
+            return
+        self._refresh_peaks()
+        self.edits_changed.emit()
+        self.show_fit_result()
 
     @property
     def result_exported(self) -> bool:
