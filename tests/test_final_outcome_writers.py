@@ -22,6 +22,8 @@ from peakfit.fit.final_outcome import (
 from peakfit.fit.fitting import find_review_clusters
 from peakfit.fit.output_metadata import RunMetadata
 from peakfit.fit.run_models import FitRun, RunSummary
+from peakfit.io.readers.results import ResultsLoader
+from peakfit.io.schemas import FitSummarySchema
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import write_fit_outputs
 from peakfit.io.writers.run_files import write_readme
@@ -293,3 +295,46 @@ def test_shifts_export_uncertainty_separately_from_position(tmp_path) -> None:
         row = next(csv.DictReader(handle))
     assert float(row["cs_F2_ppm"]) == 11.0
     assert float(row["cs_F2_err"]) == 0.5
+
+
+def test_unavailable_uncertainties_remain_explicit_in_json_and_csv(tmp_path) -> None:
+    outcome = _outcome([(11, FitOutcomeClassification.CONVERGED, "converged")])
+    cluster = outcome.clusters[0]
+    assert cluster.analytical_evaluation is not None
+    cluster = replace(
+        cluster,
+        final_nonlinear_parameters=(
+            replace(cluster.final_nonlinear_parameters[0], standard_error=np.nan),
+        ),
+        analytical_evaluation=replace(
+            cluster.analytical_evaluation,
+            amplitude_standard_errors=np.array([np.nan]),
+            scaled_amplitude_standard_errors=np.array([np.nan]),
+            amplitude_covariance=np.array([[np.nan]]),
+            uncertainty_warning="Unidentifiable group",
+        ),
+    )
+    outcome = replace(outcome, clusters=(cluster,), by_cluster_id={11: cluster})
+    written = _write(outcome, tmp_path)
+    payload = json.loads(written["summary_fit"].read_text())
+    analytical = payload["clusters"][0]["analytical_evaluation"]
+    assert analytical["amplitude_covariance"] == [[None]]
+    assert analytical["uncertainty_warning"] == "Unidentifiable group"
+    assert payload["clusters"][0]["final_nonlinear_parameters"][0]["standard_error"] is None
+    with written["shifts"].open(newline="") as handle:
+        row = next(csv.DictReader(handle))
+    assert row["cs_F2_err"] == "unavailable"
+    assert row["uncertainty_warning"] == "Unidentifiable group"
+
+
+def test_legacy_schema_remains_readable_and_missing_errors_stay_unknown(tmp_path) -> None:
+    written = _write(_outcome([(11, FitOutcomeClassification.CONVERGED, "converged")]), tmp_path)
+    payload = json.loads(written["summary_fit"].read_text())
+    payload["schema_version"] = "4.0.0"
+    payload["clusters"][0]["analytical_evaluation"].pop("uncertainty_warning")
+    payload["clusters"][0]["final_nonlinear_parameters"][0]["standard_error"] = None
+    parsed = FitSummarySchema.model_validate(payload)
+    # Exercise reconstruction directly: display-only peak geometry is unrelated
+    # to the uncertainty round trip and intentionally minimal in this fixture.
+    parameters = ResultsLoader(tmp_path)._reconstruct_parameters(parsed.clusters)
+    assert np.isnan(parameters["P11.F2.cs"].stderr)

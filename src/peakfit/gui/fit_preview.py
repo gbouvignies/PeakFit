@@ -1,5 +1,6 @@
 """Read-only fitting scope in the viewer's contextual right-hand workspace."""
 
+import math
 from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtWidgets
@@ -286,6 +287,9 @@ class FitPreview(QtWidgets.QWidget):
             if evaluation is not None
             else "No usable fit quantities"
         )
+        if evaluation is not None and evaluation.uncertainty_warning:
+            self.status.setText("Unreliable uncertainties · inspect fit before using positions")
+            quality += "\n" + evaluation.uncertainty_warning
         self.quality.setToolTip(quality)
         self.table_title.setText("Read-only result · original identities retained")
         self.result_mode.show()
@@ -349,7 +353,16 @@ class FitPreview(QtWidgets.QWidget):
         }
         rows = []
         if self.result_mode.currentIndex() == 0:
-            headers = ["Peak / axis", "Parameter", "Start", "Fitted", "Min", "Max", "Fit"]
+            headers = [
+                "Peak / axis",
+                "Parameter",
+                "Start",
+                "Fitted",
+                "Min",
+                "Max",
+                "Fit",
+                "Std. error",
+            ]
             assert inputs.parameters is not None
             for parameter in outcome.final_nonlinear_parameters:
                 start = inputs.parameters[parameter.name]
@@ -364,10 +377,11 @@ class FitPreview(QtWidgets.QWidget):
                         f"{parameter.min:.9g}",
                         f"{parameter.max:.9g}",
                         "Vary" if parameter.vary else "Fixed",
+                        _format_error(parameter.standard_error),
                     )
                 )
         else:
-            headers = ["Peak", "Plane", "Plane value", "Signed amplitude"]
+            headers = ["Peak", "Plane", "Plane value", "Signed amplitude", "Conditional error"]
             evaluation = outcome.analytical_evaluation
             if evaluation is not None:
                 for index, name in enumerate(outcome.peak_names):
@@ -377,6 +391,7 @@ class FitPreview(QtWidgets.QWidget):
                             str(self._plane + 1),
                             f"{inputs.snapshot.plane_values[self._plane]:.9g}",
                             f"{evaluation.amplitudes[index, self._plane]:.9g}",
+                            _format_error(evaluation.scaled_amplitude_standard_errors[index]),
                         )
                     )
         self.parameters.setRowCount(0)
@@ -392,3 +407,7 @@ class FitPreview(QtWidgets.QWidget):
         self.diagnostics.setPlainText(self._details)
         self.details.setText("Close details" if checked else "Details")
         self.details_requested.emit(checked)
+
+
+def _format_error(value: float) -> str:
+    return f"{value:.3g}" if math.isfinite(value) else "unavailable"

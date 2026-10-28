@@ -62,6 +62,7 @@ class AnalyticalModelEvaluation:
     raw_residuals: FloatArray
     normalized_residuals: FloatArray
     statistics: AnalyticalFitStatistics
+    uncertainty_warning: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,10 +146,15 @@ def _evaluate_analytical_model(
         chi_squared,
     )
     scaled_amplitude_errors = amplitude_errors * statistics.amplitude_uncertainty_scale
-    _require_finite_array(
-        scaled_amplitude_errors,
-        "non-finite scaled amplitude uncertainties",
-    )
+    uncertainty_warning = None
+    if not np.all(np.isfinite(amplitude_errors)) or any(
+        params[name].vary and not np.isfinite(params[name].stderr) for name in nonlinear_names
+    ):
+        uncertainty_warning = (
+            "Unreliable local uncertainties: overlapping or unidentifiable parameters, "
+            "active bounds, or uncertainty exceeding parameter bounds. "
+            "Inspect residuals and alternative fits before using fitted positions."
+        )
 
     return AnalyticalModelEvaluation(
         cluster_id=cluster.cluster_id,
@@ -161,6 +167,7 @@ def _evaluate_analytical_model(
         raw_residuals=raw_residuals,
         normalized_residuals=normalized_residuals,
         statistics=statistics,
+        uncertainty_warning=uncertainty_warning,
     )
 
 
@@ -227,11 +234,20 @@ def _solve_amplitudes(
     _require_finite_array(amplitudes, "non-finite analytical amplitudes")
     _require_shape(amplitude_errors, (n_peaks,), "amplitude standard-error")
     _require_shape(covariance, (n_peaks, n_peaks), "amplitude covariance")
-    _require_finite_array(
-        amplitude_errors,
-        "non-finite amplitude uncertainty inputs",
+    # Expected NaNs mean that amplitudes/model remain evaluable but their
+    # decomposition has no reliable joint covariance. Other nonfinite results
+    # (including overflow) remain numerical failures.
+    unavailable = (
+        np.isnan(amplitude_errors).all()
+        and np.isnan(covariance).all()
+        and (
+            shapes.shape[0] > shapes.shape[1]
+            or np.linalg.cond(shapes) >= 1 / np.sqrt(np.finfo(float).eps)
+        )
     )
-    _require_finite_array(covariance, "non-finite amplitude uncertainty inputs")
+    if not unavailable:
+        _require_finite_array(amplitude_errors, "non-finite amplitude uncertainty inputs")
+        _require_finite_array(covariance, "non-finite amplitude uncertainty inputs")
     return amplitudes, amplitude_errors, covariance
 
 

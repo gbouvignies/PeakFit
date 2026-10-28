@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
-OUTPUT_SCHEMA_VERSION: Literal["4.0.0"] = "4.0.0"
+OUTPUT_SCHEMA_VERSION: Literal["4.1.0"] = "4.1.0"
 
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 NonNegativeInt = Annotated[StrictInt, Field(ge=0)]
@@ -66,9 +66,10 @@ class AnalyticalEvaluationSchema(_Schema):
 
     shapes: list[list[FiniteFloat]]
     amplitudes: list[list[FiniteFloat]]
-    amplitude_standard_errors: list[FiniteFloat]
-    amplitude_covariance: list[list[FiniteFloat]]
-    scaled_amplitude_standard_errors: list[FiniteFloat]
+    uncertainty_warning: str | None = None
+    amplitude_standard_errors: list[FiniteFloat | None]
+    amplitude_covariance: list[list[FiniteFloat | None]]
+    scaled_amplitude_standard_errors: list[FiniteFloat | None]
     model_values: list[list[FiniteFloat]]
     raw_residuals: list[list[FiniteFloat]]
     normalized_residuals: list[FiniteFloat]
@@ -183,9 +184,9 @@ class ZAxisSchema(_Schema):
 
 
 class FitSummarySchema(_Schema):
-    """Version 4.0.0 completed-fit JSON document."""
+    """Version 4.1.0 completed-fit JSON document."""
 
-    schema_version: Literal["4.0.0"]
+    schema_version: Literal["4.0.0", "4.1.0"]
     metadata: RunMetadataSchema
     terminal_correction_revision: NonNegativeInt
     noise: FiniteFloat
@@ -198,7 +199,10 @@ class FitSummarySchema(_Schema):
     @classmethod
     def reject_unsupported_version(cls, value: Any) -> Any:
         """Name both versions when a development artifact predates this contract."""
-        if isinstance(value, dict) and value.get("schema_version") != OUTPUT_SCHEMA_VERSION:
+        if isinstance(value, dict) and value.get("schema_version") not in (
+            "4.0.0",
+            OUTPUT_SCHEMA_VERSION,
+        ):
             raise ValueError(
                 "Unsupported fit JSON schema version "
                 f"{value.get('schema_version')!r}; supported version is {OUTPUT_SCHEMA_VERSION!r}."

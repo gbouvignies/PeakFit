@@ -280,3 +280,19 @@ def test_custom_axis_labels_follow_coordinate_order():
             final[f"{identity.engine_name}.F3.cs"],
             final[f"{identity.engine_name}.F2.cs"],
         )
+
+
+def test_unreliable_uncertainties_block_application_but_keep_result(fitted):
+    _, working, result, _ = fitted
+    evaluation = result.outcome.clusters[0].analytical_evaluation
+    assert evaluation is not None
+    uncertain = _terminal(
+        result,
+        analytical_evaluation=replace(evaluation, uncertainty_warning="Unidentifiable peak group"),
+    )
+    with pytest.raises(ValueError, match="Unidentifiable"):
+        fitted_position_updates(uncertain, working)
+    assert uncertain.outcome.clusters[0].usable
+    np.testing.assert_array_equal(
+        uncertain.outcome.clusters[0].analytical_evaluation.model_values, evaluation.model_values
+    )

@@ -30,6 +30,7 @@ def fitted_position_updates(
         raise ValueError("The fitted group is missing from the retained result.") from error
     if not terminal.usable or terminal.analytical_evaluation is None:
         raise ValueError("This result has no numerically usable fitted positions.")
+    _require_reliable_uncertainties(terminal.analytical_evaluation.uncertainty_warning)
     identities = inputs.identities
     engine_names = [item.engine_name for item in identities]
     working_ids = [item.working_id for item in identities]
@@ -90,3 +91,8 @@ def fitted_position_updates(
     if {name for name in final if name.endswith(".cs")} != expected:
         raise ValueError("The fitted result has unexpected chemical-shift axes.")
     return updates
+
+
+def _require_reliable_uncertainties(warning: str | None) -> None:
+    if warning:
+        raise ValueError(warning)

@@ -1,4 +1,4 @@
-"""JSON 4.0.0 projection of immutable completed-fit outcomes."""
+"""JSON 4.1.0 projection of immutable completed-fit outcomes."""
 
 from __future__ import annotations
 
@@ -116,11 +116,17 @@ def _serialize_evaluation(evaluation: FinalAnalyticalEvaluation) -> dict[str, An
     return {
         "shapes": _json_value(evaluation.shapes),
         "amplitudes": _json_value(evaluation.amplitudes),
-        "amplitude_standard_errors": _json_value(evaluation.amplitude_standard_errors),
-        "amplitude_covariance": _json_value(evaluation.amplitude_covariance),
-        "scaled_amplitude_standard_errors": _json_value(
-            evaluation.scaled_amplitude_standard_errors
-        ),
+        "uncertainty_warning": evaluation.uncertainty_warning,
+        "amplitude_standard_errors": [
+            _optional_finite_value(value) for value in evaluation.amplitude_standard_errors
+        ],
+        "amplitude_covariance": [
+            [_optional_finite_value(value) for value in row]
+            for row in evaluation.amplitude_covariance
+        ],
+        "scaled_amplitude_standard_errors": [
+            _optional_finite_value(value) for value in evaluation.scaled_amplitude_standard_errors
+        ],
         "model_values": _json_value(evaluation.model_values),
         "raw_residuals": _json_value(evaluation.raw_residuals),
         "normalized_residuals": _json_value(evaluation.normalized_residuals),

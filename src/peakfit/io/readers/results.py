@@ -164,7 +164,7 @@ class ResultsLoader:
                     min=p_data.min_bound if p_data.min_bound is not None else -float("inf"),
                     max=p_data.max_bound if p_data.max_bound is not None else float("inf"),
                     vary=p_data.vary,
-                    stderr=(p_data.standard_error if p_data.standard_error is not None else 0.0),
+                    stderr=(p_data.standard_error if p_data.standard_error is not None else np.nan),
                 )
                 params.add(
                     param.name,
