@@ -130,18 +130,23 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
 
     positions = plot_positions()
     spectrum_geometry = viewer.spectrum_plot.geometry()
-    assert viewer.threshold.mapTo(viewer, QtCore.QPoint()).y() < (
-        viewer.spectrum_plot.mapTo(viewer, QtCore.QPoint()).y()
-    )
+    assert not viewer.threshold.isVisible()
+    assert "5.0×" in viewer.contour_button.text()
+    title_button = viewer.contour_button.geometry()
+    data_top = viewer.spectrum_plot.mapFromScene(
+        viewer.spectrum_plot.getViewBox().sceneBoundingRect().topLeft()
+    ).y()
+    assert title_button.bottom() <= data_top
     # Contour controls are transient, precise and keyboard accessible; opening them
     # never reflows either the spectrum or inspection plots.
     QtTest.QTest.mouseClick(viewer.contour_button, QtCore.Qt.MouseButton.LeftButton)
     app.processEvents()
     assert viewer.contour_popup.isVisible()
-    assert viewer.threshold_slider.hasFocus()
+    assert viewer.threshold.hasFocus()
+    assert viewer.threshold.isVisible()
     assert viewer.spectrum_plot.geometry() == spectrum_geometry
     assert plot_positions() == positions
-    QtTest.QTest.keyClick(viewer.threshold_slider, QtCore.Qt.Key.Key_Escape)
+    QtTest.QTest.keyClick(viewer.threshold, QtCore.Qt.Key.Key_Escape)
     assert not viewer.contour_popup.isVisible()
     try:
         viewer.workspace_tabs.setCurrentIndex(1)
@@ -335,7 +340,10 @@ def test_low_threshold_preparation_keeps_qt_responsive_and_rejects_obsolete_work
             viewer.threshold_slider.geometry(),
             viewer.fit_preview.parameters.geometry(),
         )
+        button_geometry = viewer.contour_button.geometry()
         viewer.threshold.setValue(0.1)
+        assert "0.1×" in viewer.contour_button.text()
+        assert viewer.contour_button.geometry() == button_geometry
         assert any(item.isVisible() for item in viewer.contours)
         _process_events()
         assert (

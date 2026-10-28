@@ -15,20 +15,20 @@ starts automatic peak picking. Other dimensionalities are rejected with an error
 
 ![Spectrum viewer with the bundled experimental dataset](images/spectrum-viewer.png)
 
-Native macOS capture; [Inspect in a small dark window](images/spectrum-viewer-dark.png)
+Native macOS capture; [A small dark window](images/spectrum-viewer-dark.png)
 is also available.
 
 ## Navigation
 
-- Drag the spectrum to pan; scroll to zoom about the pointer. **Reset** or
+- Drag the spectrum to pan; scroll to zoom about the pointer. **View → Reset view** or
   **Ctrl+0** restores the full spectral range.
 - Click to place the crosshair, or drag either crosshair line. It snaps to sampled
   points so the two orthogonal traces and raw plane profile inspect the same data.
 - Use the plane slider/spin box or **Ctrl+Page Up / Ctrl+Page Down**. Plane numbers start at
   1; the adjacent value is the experimental coordinate supplied by `--z-values`,
   or the original zero-based plane index when no values file is supplied.
-- **Threshold** accepts precise entries. **Contours…** contains sliders for threshold,
-  geometric spacing, and level count, plus precise spacing/count inputs. The threshold slider is
+- **Contours · 5.0× ▾** in the spectrum title shows the current threshold.
+  Click it for precise threshold, spacing and level-count inputs and their sliders. The threshold slider is
   logarithmic (0.1–1000 × the first plane's estimated noise), with fine relative
   adjustments at low thresholds. Slider arrow keys make small changes; Page Up /
   Page Down make larger changes when a slider has focus. Blue solid contours are
@@ -64,10 +64,10 @@ Peak-history Undo/Redo and peak deletion are unavailable while inspector text is
 pending. Apply the text or press Escape to restore the committed fields first;
 an inline hint explains this. Native text-field undo remains available.
 Choose **Add peak…** (or A with spectrum focus), then click once to place a peak.
-The instruction strip above the spectrum highlights **PLACING PEAK**, and the
-same button becomes **Cancel placement**; click it or press Escape to cancel.
+The same button becomes **Cancel placement**; click it or press Escape to cancel.
+The spectrum tooltip describes the active placement gesture.
 Inspector fields pause during placement and become editable again when it finishes.
-The strip otherwise explains selection, navigation, or editing the selected peak.
+Spectrum tooltips explain selection, navigation, and editing the selected peak.
 Select a peak before dragging it: an open-hand cursor advertises movement. The ring and label preview the new position while the original cross
 remains as a reference. Release commits one undoable move; Escape restores it.
 Dragging an unselected marker pans. Peak coordinates retain fractional precision
@@ -102,18 +102,24 @@ are newly allocated on import; they are not scientific parameter identifiers.
 
 ## Compact contour controls
 
-Plane navigation remains below the spectrum. The precise numerical **Threshold**,
-**Contours…**, and **Reset** share the spectrum header, freeing the space beneath
-the 2D plot. The header shows a short interaction hint; hover for the complete
-instruction. Contour-update status temporarily uses that same space.
-**Contours…** opens an anchored popup containing the logarithmic threshold
-slider, spacing slider/value, and level-count slider/value. Arrow keys adjust the
-focused slider; Tab moves between controls; Escape or clicking outside closes the
-popup. Changes update the display immediately through the existing debounced worker.
-Opening it does not change plot geometry. Threshold uses first-plane noise for its
-scale; it is not the independently estimated statistical fitting noise.
+The spectrum's existing title band contains one compact **Contours · 5.0× ▾**
+control. Its value is the current threshold in multiples of first-plane noise.
+Click once to edit the precise numerical threshold, logarithmic threshold slider,
+spacing and level count in an anchored popup. The numeric input receives focus;
+Enter commits a typed value, Tab moves between controls, and Escape or clicking
+outside closes the popup. The button has a fixed width, so changing values never
+moves it or the plots. It remains outside the spectral data area.
 
-![Compact contour popup in dark appearance](images/contour-controls.png)
+There is no separate toolbar, interaction banner, or permanent threshold editor.
+Reset is available through **View → Reset view** and **Ctrl+0**. Plane navigation
+remains below the spectrum. Interaction instructions are in spectrum tooltips;
+contour progress/errors temporarily use the existing coordinate footer. Threshold
+uses first-plane noise for its scale, not the independently estimated statistical
+fitting noise. The numerical contour worker and debouncing are unchanged.
+
+![Contour settings open from the spectrum title](images/contour-controls.png)
+
+[Contour settings in a small dark window](images/contour-controls-dark.png).
 
 During preparation, threshold changes still update the exact group and sampled mask.
 Once submitted, a fit retains its original scientific inputs: contour changes during
@@ -253,8 +259,8 @@ that finish during an earlier dialog are checked by the final result-discard gua
 While fitting, zoom, pan, crosshair inspection, plane navigation, and ordinary
 contour controls remain available. Switching Inspect/Fit and selecting another
 peak retain the active fit. Scientific edits, Undo/Redo, peak-list/plane-coordinate
-replacement, and opening another spectrum pause until the fit stops. The instruction
-strip explains this restriction. Contour changes affect rendering only once a fit
+replacement, and opening another spectrum pause until the fit stops. The Fit
+header and spectrum tooltip explain this restriction. Contour changes affect rendering only once a fit
 has been submitted; its original fitting threshold and mask remain fixed.
 
 The completed Fit workspace distinguishes **converged**, **usable but not converged**,
@@ -292,7 +298,8 @@ applying fitted coordinates is not available in this step.
 
 ![Completed numerical result with persistent experimental plots](images/local-fit-completed.png)
 
-[Result in a small dark window](images/local-fit-completed-dark.png) ·
+[Small light window](images/local-fit-completed-small.png) ·
+[Small dark window](images/local-fit-completed-dark.png) ·
 [On-demand numerical details](images/local-fit-details.png).
 
 ## Next visualization step

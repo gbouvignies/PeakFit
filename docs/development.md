@@ -280,10 +280,29 @@ stale delivery, unsaved-result guards, manual editing/history/export, and the
 complete dense low-threshold contours. Ruff, formatting, strict ty and import-linter
 pass. No new test functions or dependencies were added.
 
-The follow-up header placement moves Threshold, Contours and Reset above the 2D
-plot, using the existing hint row. Contour progress shares that row; full hints
-remain available on hover. Only plane navigation remains below the spectrum.
-At 1000 × 720 content size the 2D plot height increased from 487 to 559 pixels,
-while the three inspection plots kept their original positions and sizes. Native
-light/dark captures were refreshed; the existing preparation scenario also checks
-that the threshold is above the spectrum.
+The final review refinement replaces the crowded `0781710` toolbar with one
+fixed-width `Contours · 5.0× ▾` button in PyQtGraph's existing spectrum title band.
+It is a normal Qt child of the plot viewport, positioned from the title geometry
+on ViewBox resize; it does not cover spectral samples. This preserves native
+accessibility (a QGraphicsProxyWidget trial did not expose the button on macOS).
+Precise threshold entry now lives in the popup and receives focus immediately.
+Reset remains in View and on Ctrl+0. Redundant fitting-state banners are removed;
+instructions use tooltips, and contour progress shares the coordinate footer.
+The visible button width stays fixed across threshold updates.
+
+Native visual review checked the final control at normal and small sizes in both
+appearances. It sits beside the centered plot title rather than competing with
+the Fit header; the right-aligned popup stays within the spectrum column. The
+threshold readout and all popup inputs were legible in dark mode. Actual native
+input verified one-click numeric entry and group changes (5×: three peaks / 75
+samples; 6×: two peaks / 48 samples), then restored 5× before execution. Background
+fitting completed normally; plane 25, inline details, and View → Reset view remained
+accessible. Spectrum/inspection geometry stayed fixed during popup visibility and
+threshold updates. The existing scenario checks that the control stays outside
+the data ViewBox and does not move at the 0.1× threshold.
+
+The screenshots were refreshed, including normal settings-closed, settings-open,
+and small light/dark views. macOS window capture omitted the transient popup, so
+the settings-open images composite the actual Qt window and popup grabs at their
+actual on-screen positions.
+The final full offscreen suite passed all 233 tests; no test functions were added.

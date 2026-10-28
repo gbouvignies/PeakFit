@@ -425,7 +425,7 @@ def test_add_peak_lifecycle_and_editing_sequence(tmp_path: Path, monkeypatch) ->
         QtTest.QTest.mouseClick(add, QtCore.Qt.MouseButton.LeftButton)
         assert add.isChecked()
         assert add.text() == "Cancel placement"
-        assert "PLACING PEAK" in viewer.interaction_hint.text()
+        assert "PLACING PEAK" in viewer.spectrum_plot.toolTip()
         QtTest.QTest.mouseClick(add, QtCore.Qt.MouseButton.LeftButton)
         assert not viewer.adding_peak
         QtTest.QTest.mouseClick(add, QtCore.Qt.MouseButton.LeftButton)
