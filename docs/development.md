@@ -250,3 +250,32 @@ subprocess architecture changes were needed.
 The existing close test now protects those transactional decisions, including a
 fit completing during an earlier dialog. The existing spawned lifecycle test
 checks direct `set_peaks()` rejection before any history/selection/revision changes.
+
+### Step 2B-1: persistent inspection plots
+
+Native Cocoa inspection used the bundled 131-plane spectrum and the overlapping
+12N-H / 1002N-H / 1011N-H group (75 samples per plane at the default threshold).
+The compact header, three experimental plots, inline details, and contour popup
+were checked at 1360 × 845 and 1000 × 720 content sizes, including light/dark
+appearance. Window-manager limits reduced the requested 900-pixel large height.
+Qt widget captures are in the [GUI guide](gui.md); they show actual experimental
+samples, with no model/residual rendering.
+
+Recorded spectrum and plot positions/sizes were identical across Inspect,
+preparation, starting/running, and completed states at a fixed window size.
+Returning from numerical details restored all three plots. At the smaller size,
+showing the retained-result action also preserved geometry. Native input checked
+logarithmic threshold keys, precise numerical entry, group updates, plane 25,
+crosshair movement, Inspect/Fit switching, and canceling result-replacement and
+close confirmations. The popup itself was inspected through native Qt widget
+captures: macOS accessibility/capture intermittently omitted this transient window.
+No alternative contour algorithm was introduced or benchmarked in this layout
+change; the existing full-resolution contour path and background lane are unchanged.
+
+The existing GUI scenarios now protect plot visibility/geometry during preparation,
+execution and results, popup focus/Escape dismissal, detail restoration, retained
+thresholds, and numerical diagnostics. Native Cocoa: 10 passed; full offscreen
+suite: 233 passed. The native scenarios include real subprocess cancellation,
+stale delivery, unsaved-result guards, manual editing/history/export, and the
+complete dense low-threshold contours. Ruff, formatting, strict ty and import-linter
+pass. No new test functions or dependencies were added.

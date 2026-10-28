@@ -20,7 +20,10 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   shapes are discarded; editable GUI coordinates are separate from completed results.
   Local scope preparation constructs fresh engine-safe peaks from snapshots, reuses
   engine clustering and pipeline parameter preparation, and displays the exact mask
-  in a contextual Inspect/Fit workspace. One serial background lane handles numerical
+  in a contextual Inspect/Fit header above persistent experimental inspection plots.
+  Explicit numerical details temporarily replace those plots in the same column;
+  header state and popup contour controls do not reflow the main spectrum.
+  One serial background lane handles numerical
   preparation and contour extraction; Qt applies only current results.
   Exact lightweight scope geometry remains available even when numerical data
   exceeds preparation limits; only eligible selected-group arrays are materialized.

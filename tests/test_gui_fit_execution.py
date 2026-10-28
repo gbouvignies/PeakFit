@@ -223,6 +223,7 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         assert tuple((p.mapTo(viewer, QtCore.QPoint()), p.size()) for p in plots) == positions
         assert "all planes / fitted samples" in viewer.fit_preview.quality.text()
         assert "no fit has been run" not in viewer.fit_preview._details
+        assert "Function evaluations:" in viewer.fit_preview._details
         assert "Not saved" in viewer.result_notice.text()
         retained_threshold = retained.scientific.inputs.contour_level
         viewer.threshold.setValue(9)

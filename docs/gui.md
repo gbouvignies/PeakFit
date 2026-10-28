@@ -15,7 +15,8 @@ starts automatic peak picking. Other dimensionalities are rejected with an error
 
 ![Spectrum viewer with the bundled experimental dataset](images/spectrum-viewer.png)
 
-Native macOS capture; [dark appearance](images/spectrum-viewer-dark.png) is also available.
+Native macOS capture; [Inspect in a small dark window](images/spectrum-viewer-dark.png)
+is also available.
 
 ## Navigation
 
@@ -26,8 +27,8 @@ Native macOS capture; [dark appearance](images/spectrum-viewer-dark.png) is also
 - Use the plane slider/spin box or **Ctrl+Page Up / Ctrl+Page Down**. Plane numbers start at
   1; the adjacent value is the experimental coordinate supplied by `--z-values`,
   or the original zero-based plane index when no values file is supplied.
-- Use the sliders for visual adjustment of threshold, geometric spacing, and level
-  count; adjacent spin boxes allow precise entries. The threshold slider is
+- **Threshold** accepts precise entries. **Contours…** contains sliders for threshold,
+  geometric spacing, and level count, plus precise spacing/count inputs. The threshold slider is
   logarithmic (0.1–1000 × the first plane's estimated noise), with fine relative
   adjustments at low thresholds. Slider arrow keys make small changes; Page Up /
   Page Down make larger changes when a slider has focus. Blue solid contours are
@@ -108,6 +109,8 @@ focused slider; Tab moves between controls; Escape or clicking outside closes th
 popup. Changes update the display immediately through the existing debounced worker.
 Opening it does not change plot geometry. Threshold uses first-plane noise for its
 scale; it is not the independently estimated statistical fitting noise.
+
+![Compact contour popup in dark appearance](images/contour-controls.png)
 
 During preparation, threshold changes still update the exact group and sampled mask.
 Once submitted, a fit retains its original scientific inputs: contour changes during
@@ -190,8 +193,6 @@ Qt paths, widgets, and graphics are constructed only on the GUI thread.
 
 ![Local fitting scope with the bundled pseudo-3D spectrum](images/fit-scope-preview.png)
 
-![Three overlapping peaks and their exact sampled fitting region](images/fit-scope-closeup.png)
-
 ## Scope and performance
 
 Manual editing changes one shared peak list across all experimental planes.
@@ -221,8 +222,6 @@ Fixed-height header and status areas keep the plots stable during progress,
 warnings, and scope updates. Details open inline only on request.
 The [native comparison](development.md#gui-responsiveness) covers the original
 viewer and this workspace down to 0.1× noise.
-
-![Complete low-threshold contours and lightweight fitting scope](images/fit-scope-low-threshold.jpg)
 
 Running preparation/contour work is not forcefully interrupted; it finishes in the
 background and its obsolete result is ignored. Optimization uses a separate,
@@ -256,18 +255,17 @@ strip explains this restriction. Contour changes affect rendering only once a fi
 has been submitted; its original fitting threshold and mask remain fixed.
 
 The completed Fit workspace distinguishes **converged**, **usable but not converged**,
-and **unusable** outcomes. Its compact header shows numerical usability and reduced χ², labeled as an
-all-plane statistic over fitted samples. The termination message, evaluation
+and **unusable** outcomes. Its compact header shows numerical usability and reduced
+χ², labeled as an all-plane statistic over fitted samples. The termination message, evaluation
 counts, χ², observation/parameter counts, and degrees of freedom are in **Details**.
-Convergence describes optimizer termination and is not styled as scientific success. The read-only
-table in **Details** switches between starting/fitted nonlinear parameters (including bounds and
-fixed/variable flags) and independently recovered signed amplitudes for the displayed
+Convergence describes optimizer termination and is not styled as scientific success.
+The read-only table in **Details** switches between starting/fitted nonlinear
+parameters (including bounds and fixed/variable flags) and independently recovered signed amplitudes for the displayed
 experimental plane. Use the main plane controls to inspect other amplitudes;
 repeated/unordered plane values retain their original plane identities.
 **Details** retains model assumptions, statistical noise, the submitted threshold,
 warnings, optimizer settings, software/run identity, timings, and child peak memory.
-Convergence is an optimizer termination condition, not proof of scientific adequacy.
-Graphical model/residual comparisons remain deferred to Step 2B.
+Graphical model/residual comparisons remain deferred to Step 2B-2.
 
 Working peaks, their undo history, and spectrum samples never change on completion.
 The result separately owns the original input snapshot and stable GUI identities,
@@ -279,8 +277,8 @@ replacing it; a canceled or failed attempt keeps the previous result, accessible
 through **Retained result**. **New preparation** starts another review.
 
 **Results are in memory only and cannot yet be saved.** A single persistent footer
-notice identifies a retained unsaved fit, including while inspecting working peaks. Closing or replacing the
-spectrum requires confirmation before discarding a completed result. Exporting
+notice identifies a retained unsaved fit, including while inspecting working peaks.
+Closing or replacing the spectrum requires confirmation before discarding a completed result. Exporting
 working peaks does not export the fit. Later scientific edits mark the retained
 result outdated and remove its current-spectrum scope overlays; numerical inspection
 still uses its original inputs. Obsolete background deliveries never replace it.
@@ -289,7 +287,10 @@ applying fitted coordinates is not available in this step.
 
 ![Local fit running natively on macOS](images/local-fit-running.png)
 
-![Completed numerical result, with unchanged working peaks](images/local-fit-completed.png)
+![Completed numerical result with persistent experimental plots](images/local-fit-completed.png)
+
+[Result in a small dark window](images/local-fit-completed-dark.png) ·
+[On-demand numerical details](images/local-fit-details.png).
 
 ## Next visualization step
 

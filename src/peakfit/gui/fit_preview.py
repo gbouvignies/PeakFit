@@ -292,7 +292,9 @@ class FitPreview(QtWidgets.QWidget):
         memory = result.scientific.peak_memory_bytes
         memory_label = f"{memory / 1024**2:.1f} MiB" if memory is not None else "unavailable"
         self._details = (
-            f"\n\n{quality}\n{provenance.termination_message}\n"
+            f"{quality}\n{provenance.termination_message}\n"
+            f"Function evaluations: {provenance.function_evaluations} · "
+            f"Jacobian evaluations: {provenance.jacobian_evaluations}\n"
             f"Optimality: {provenance.optimality}\n"
             f"Optimizer settings: {result.scientific.optimizer_config}\n"
             f"Numerical execution: {result.scientific.execution_seconds:.3f} s\n"
