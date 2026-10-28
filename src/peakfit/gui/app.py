@@ -98,6 +98,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self._spectrum_name = path.name
         self._export_path = None
         viewer.edits_changed.connect(self._update_work_state)
+        viewer.pending_edits_changed.connect(self._update_work_state)
         viewer.fit_state_changed.connect(self._update_fit_state)
         self.edit_menu.clear()
         self.edit_menu.addActions(viewer.edit_actions)

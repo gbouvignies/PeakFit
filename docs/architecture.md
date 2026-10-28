@@ -26,7 +26,11 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   keeps preparation/result state independent of which details are visible;
   background deliveries never open panels. `gui.fit_preview` presents local
   scope/results below the plots; `gui.editing` requires explicit Apply or Revert
-  before pending fields can be hidden or selection changed. One coordinated
+  before pending fields can be hidden or selection changed. The
+  `pending_edits_changed` notification updates editor controls and unsaved-work
+  indicators only; `edits_changed` is reserved for actual committed peak changes
+  and invalidates scientific dependents. No-op Apply/history/drag operations do
+  not advance the scientific revision. One coordinated
   comparison selector identifies its current local-group scope. The reserved
   footer exposes fit state and cancellation while details are closed.
   One serial background lane handles numerical

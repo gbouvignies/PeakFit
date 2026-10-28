@@ -45,7 +45,8 @@ _POSITION_PREVIEW_PEAKS = 4
 class SpectrumViewer(QtWidgets.QWidget):
     """Inspect unchanged spectrum samples and edit independent working peaks."""
 
-    edits_changed = QtCore.Signal()
+    edits_changed = QtCore.Signal()  # Committed peak records changed.
+    pending_edits_changed = QtCore.Signal()  # Editor/UI state only; scientific inputs unchanged.
     fit_state_changed = QtCore.Signal()
 
     def __init__(self, spectra: Spectra, parent: QtWidgets.QWidget | None = None) -> None:  # noqa: PLR0915
@@ -131,6 +132,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
             shortcut.activated.connect(callback)
         self.edits_changed.connect(self._update_edit_actions)
+        self.pending_edits_changed.connect(self._update_edit_actions)
         self._update_edit_actions()
         self._update_interaction_hint()
 
@@ -349,13 +351,13 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def preview_fit_group(self) -> None:
         """Snapshot committed peaks and show a local scope without fitting."""
-        if self.fit_busy:
+        if self.fit_busy or not self.require_committed_fields():
+            return
+        if self.selected_id is None:
+            self.dismiss_fit_preview()
             return
         self.comparison.clear()
         self._showing_result = False
-        if self.selected_id is None or not self.require_committed_fields():
-            self.dismiss_fit_preview()
-            return
         self._fit_timer.stop()
         selected_id = self.selected_id
         self.cancel_interaction()
@@ -478,6 +480,8 @@ class SpectrumViewer(QtWidgets.QWidget):
         """Submit the reviewed preparation, keeping any previous result until success."""
         prepared = self.fit_preparation
         if self.fit_busy or self._exporting or prepared is None:
+            return
+        if not self.require_committed_fields():
             return
         reason = execution_unavailable(prepared)
         if reason:
@@ -749,7 +753,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         right_layout.setContentsMargins(0, 0, 0, 0)
         self.inspector = PeakInspector(self._axis_title(self.x_axis), self._axis_title(self.y_axis))
         self.inspector.applied.connect(self._apply_peak_fields)
-        self.inspector.fields_changed.connect(self.edits_changed)
+        self.inspector.fields_changed.connect(self.pending_edits_changed)
         self.inspector.deleted.connect(self.delete_peak)
         self.add_peak_button = QtWidgets.QPushButton("Add peak…")
         self.add_peak_button.setCheckable(True)
@@ -1231,6 +1235,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             return False
         if self.selected_id is None:
             return True
+        before = self.peaks
         try:
             self.edits.update(self.selected_id, name, positions)
         except ValueError as exc:
@@ -1239,7 +1244,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         with QtCore.QSignalBlocker(self.inspector):
             self.inspector.show_peak(next(p for p in self.peaks if p.id == self.selected_id))
         self._refresh_peaks()
-        self.edits_changed.emit()
+        if self.peaks != before:
+            self.edits_changed.emit()
+        else:
+            self.pending_edits_changed.emit()
         return True
 
     def require_committed_fields(self) -> bool:
@@ -1266,7 +1274,7 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def undo(self) -> None:
         """Undo a committed peak edit only after inspector text is resolved."""
-        if self.fit_busy or self.inspector.pending:
+        if self.fit_busy or self.inspector.pending or not self.edits.can_undo:
             return
         self.cancel_interaction()
         self.edits.undo()
@@ -1275,7 +1283,7 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def redo(self) -> None:
         """Redo a committed peak edit only after inspector text is resolved."""
-        if self.fit_busy or self.inspector.pending:
+        if self.fit_busy or self.inspector.pending or not self.edits.can_redo:
             return
         self.cancel_interaction()
         self.edits.redo()
@@ -1411,6 +1419,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.edits.update(peak.id, peak.name, positions)
             self._drag_peak = None
             self._refresh_peaks()
-            self.edits_changed.emit()
+            if positions != peak.positions:
+                self.edits_changed.emit()
         if self.fit_busy:
             raise ValueError("Cancel the running fit before replacing working peaks.")

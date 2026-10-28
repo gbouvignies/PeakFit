@@ -294,6 +294,12 @@ def test_export_and_loss_guards_include_typed_fields_and_keep_failed_saves_dirty
     viewer = window.viewer
     assert viewer is not None
     viewer.select_peak(viewer.peaks[0].id)
+    revision = viewer._scientific_revision
+    viewer.inspector.name.setText("revert this draft")
+    assert window.isWindowModified()
+    viewer.inspector.revert.click()
+    assert not window.isWindowModified()
+    assert viewer._scientific_revision == revision
     viewer.inspector.name.setText("unsaved typed assignment")
     assert window.isWindowModified()
     monkeypatch.setattr(

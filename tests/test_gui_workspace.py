@@ -2,9 +2,11 @@
 
 import numpy as np
 import pytest
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 from test_gui_fit_execution import _example, _wait
 
+from peakfit.gui.fit_process import FitProcessResult
+from peakfit.gui.local_fit import execute_local_fit
 from peakfit.gui.viewer import SpectrumViewer
 
 pytestmark = pytest.mark.gui
@@ -25,6 +27,132 @@ def viewer():
     widget.deleteLater()
     QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
     app.processEvents()
+
+
+@pytest.fixture
+def fitted_viewer(viewer):
+    widget, prepared = viewer
+    widget.fit_result = FitProcessResult(execute_local_fit(prepared), 0, 0, 0, 0)
+    widget._result_revision = widget._scientific_revision
+    widget.show_fit_result(activate=False)
+    widget.exported_result_id = widget.fit_result.scientific.run_id
+    _wait(lambda: widget.comparison._current is not None and widget.comparison._slice is not None)
+    widget.open_details(0)
+    return widget
+
+
+@pytest.mark.parametrize("revert", ["button", "escape"])
+def test_pending_coordinates_and_revert_preserve_completed_scientific_state(fitted_viewer, revert):
+    widget = fitted_viewer
+    revision = widget._scientific_revision
+    preparation, result = widget.fit_preparation, widget.fit_result
+    model = widget.comparison._current
+    paths = tuple(widget.comparison.paths)
+    peaks = widget.peaks
+    field = widget.inspector.x_field
+    field.setText(str(float(field.text()) + 0.001))
+    assert widget.inspector.pending
+    assert "pending" in widget.workspace.edit.text()
+    assert not widget.inspector.delete.isEnabled()
+    assert widget._scientific_revision == revision
+    assert widget.fit_preparation is preparation
+    assert widget.comparison.active
+    # A blocked preparation request must leave the current comparison intact too.
+    widget.preview_fit_group()
+    assert widget.comparison._current is model
+    if revert == "button":
+        widget.inspector.revert.click()
+    else:
+        QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
+    assert not widget.inspector.pending
+    assert widget.inspector.delete.isEnabled()
+    assert widget._scientific_revision == revision
+    assert widget.fit_preparation is preparation
+    assert widget.fit_result is result
+    assert widget.result_exported
+    assert widget.comparison._current is model
+    assert tuple(widget.comparison.paths) == paths
+    assert any(path.isVisible() for path in paths)
+    assert widget.peaks == peaks
+    assert not widget.edits.can_undo
+
+
+@pytest.mark.parametrize("equivalent_text", [False, True])
+def test_applying_unchanged_coordinates_keeps_comparison(fitted_viewer, equivalent_text):
+    widget = fitted_viewer
+    revision = widget._scientific_revision
+    model = widget.comparison._current
+    preparation = widget.fit_preparation
+    if equivalent_text:
+        widget.inspector.x_field.setText(widget.inspector.x_field.text() + " ")
+        assert widget.inspector.pending
+    widget.inspector.apply.click()
+    assert not widget.inspector.pending
+    assert widget._scientific_revision == revision
+    assert widget.fit_preparation is preparation
+    assert widget.comparison._current is model
+    assert widget.comparison.active
+    assert not widget.edits.dirty
+    assert not widget.edits.can_undo
+
+
+def test_apply_invalidates_only_after_a_valid_coordinate_change(fitted_viewer):
+    widget = fitted_viewer
+    revision = widget._scientific_revision
+    result = widget.fit_result
+    coordinate = widget.peaks[0].positions[1]
+    widget.inspector.x_field.setText("nan")
+    widget.inspector.apply.click()
+    assert widget.inspector.pending
+    assert widget._scientific_revision == revision
+    assert widget.comparison.active
+    widget.inspector.x_field.setText(str(coordinate + 0.001))
+    widget.inspector.apply.click()
+    assert not widget.inspector.pending
+    assert widget._scientific_revision == revision + 1
+    assert widget.peaks[0].positions[1] == coordinate + 0.001
+    assert widget.edits.can_undo
+    assert widget.edits.dirty
+    assert widget.fit_preparation is None
+    assert widget.fit_result is result
+    assert widget.result_exported
+    assert not widget.comparison.active
+    assert not any(path.isVisible() for path in widget.comparison.paths)
+
+
+def test_pending_fields_preserve_preparation_and_block_execution(viewer, monkeypatch):
+    widget, prepared = viewer
+    widget._apply_fit_preparation(prepared)
+    revision, scope_revision = widget._scientific_revision, widget._fit_revision
+    widget.open_details(0)
+    widget.inspector.y_field.setText(str(float(widget.inspector.y_field.text()) + 0.001))
+    assert widget.fit_preparation is prepared
+    assert widget._scientific_revision == revision
+
+    def unexpected(*_args):
+        pytest.fail("Pending fields must prevent fitting")
+
+    monkeypatch.setattr(widget._fit_process, "start", unexpected)
+    widget.run_local_fit()
+    widget.preview_fit_group()
+    widget.inspector.revert.click()
+    assert widget.fit_preparation is prepared
+    assert widget._scientific_revision == revision
+    assert widget._fit_revision == scope_revision
+    assert widget.fit_mask.isVisible()
+
+
+def test_noop_history_and_drag_keep_completed_comparison(fitted_viewer):
+    widget = fitted_viewer
+    revision = widget._scientific_revision
+    model = widget.comparison._current
+    widget.undo()
+    widget.redo()
+    widget._preview_peak_move(0, 0, True)
+    assert widget._scientific_revision == revision
+    assert widget.comparison._current is model
+    assert widget.comparison.active
+    assert not widget.edits.can_undo
 
 
 @pytest.mark.parametrize("size", [(1280, 800), (1440, 900)])

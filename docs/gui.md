@@ -89,6 +89,10 @@ Choose **Edit peak** to edit the name and unfolded ppm coordinates together.
 committed values. Pending fields block changing selection, closing/switching
 details, placing or dragging peaks, fitting, and exporting working peaks. The
 editor stays visible with instructions. No hidden text is silently committed.
+Typing marks unsaved editor work and updates editing controls without changing
+scientific inputs. Revert preserves the prepared scope, retained result and current
+comparison. Only a committed change invalidates dependent results; applying
+unchanged coordinates, including equivalent numeric text, does not.
 This intentionally replaces the earlier implicit commit on selection/export. Delete removes the selected peak;
 Edit → Undo/Redo restores working records without affecting spectrum navigation.
 Peak-history Undo/Redo and peak deletion are unavailable while inspector text is
