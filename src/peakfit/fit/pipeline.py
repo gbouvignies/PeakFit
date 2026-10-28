@@ -205,7 +205,7 @@ def run_pipeline_iter(
     final_params = apply_constraints(base_params.copy(deep=True), fit_config.parameters)
     current_fit_results: list[FitResult] = []
     current_evaluations: list[FitEvaluation] = []
-    optimizer_config = _build_optimizer_config(fit_config, optimizer)
+    optimizer_config = build_optimizer_config(fit_config, optimizer)
     correction_revision = 0
     correction_updates = 0
     terminal_snapshot: CorrectionSnapshot | None = None
@@ -291,13 +291,21 @@ def run_pipeline_iter(
         n_optimizer_passes=len(passes),
         n_correction_updates=correction_updates,
     )
+    yield complete_fit(completion)
+
+
+def complete_fit(completion: PipelineCompletion) -> PipelineResult:
+    """Freeze actual terminal attempts, without preparing or optimizing them again."""
+    terminal_snapshot = completion.correction_snapshot
+    if terminal_snapshot is None:
+        raise ValueError("Completion requires a terminal correction snapshot.")
     final_outcome = finalize_fit(completion)
     simulation_snapshot = FinalModelSnapshot.capture(
         final_outcome,
         completion.state,
         terminal_snapshot,
     )
-    yield PipelineResult(
+    return PipelineResult(
         final_outcome=final_outcome,
         continuation_state=completion.state,
         simulation_snapshot=simulation_snapshot,
@@ -455,7 +463,8 @@ def _validate_terminal_result_revisions(
         raise ValueError(msg)
 
 
-def _build_optimizer_config(config: PeakFitConfig, optimizer: str) -> OptimizerConfig:
+def build_optimizer_config(config: PeakFitConfig, optimizer: str) -> OptimizerConfig:
+    """Resolve the settings used by both pipeline and prepared-cluster execution."""
     if optimizer == "varpro":
         return VarProConfig(
             ftol=config.fitting.tolerance,
@@ -471,6 +480,8 @@ __all__ = [
     "CorrectionSnapshot",
     "PipelineCompletion",
     "PipelineResult",
+    "build_optimizer_config",
+    "complete_fit",
     "fit_single_cluster_task",
     "prepare_cluster_parameters",
     "run_pipeline",

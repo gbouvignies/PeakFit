@@ -149,3 +149,104 @@ full low-threshold vector geometry requires more memory and painting time. No lo
 total-process memory bound or constant frame rate is promised. Regression scenarios
 cover exact scientific geometry/data/identity, complete dense contours, stable
 layout through progress and numerical limits, latest-work handling, and safe close.
+
+### Prepared local execution (Step 2A)
+
+Native Cocoa validation on 2026-10-28 used the same bundled experimental data on
+macOS arm64/Python 3.14. The selected group contained three overlapping peaks,
+75 sampled points per plane, and all 131 planes. It converged in eight function
+and eight Jacobian evaluations, with reduced χ² = 1.36219. These are observations
+from this machine and harness, not performance guarantees.
+
+| Measurement | Observed |
+| --- | ---: |
+| VarPro plus terminal analytical evaluation | 24 ms |
+| Spawn startup (including imports/handshake) | 831 ms |
+| Input serialization plus owned copy | 0.95 ms |
+| Serialized input payload | 183,481 bytes |
+| End-to-end execution, transfer, and finalization | 862 ms |
+| Child peak resident memory | 210.9 MiB |
+| Parent high-water resident memory | 981.3 MiB |
+| Cancel after child startup through process reaping | 20 ms |
+
+The complete spectral data array is 69.85 MiB; only 78,600 bytes of selected sampled
+data plus corrections, model geometry, parameters, and provenance cross into the
+child. The parent high-water value includes loading, initial all-plane noise
+estimation/preparation, rendering, and screen capture; it is not the incremental
+cost of optimization. The existing noise-preparation peak remains substantial.
+The child import footprint dominates this small fit. No speculative startup cache,
+shared-memory transport, or persistent worker pool was added.
+
+During execution the native harness switched Inspect/Fit, selected plane 25, moved
+the crosshair, changed the displayed threshold from 5× to 6×, and requested updated
+contours. The submitted threshold remained 60349.7535 while displayed contours used
+72419.7042; working peak records stayed identical. Dataset replacement was rejected.
+A 10 ms Qt timer continued throughout (251 callbacks; largest gap 178 ms, including
+native screen capture/layout/navigation, so this is not an isolated optimizer stall
+measurement). Cancellation and close with an active spawned child left zero fit
+children. Canceling the native unsaved-result close dialog also kept the application
+and completed result intact. Running/completed screenshots are in
+`docs/images/local-fit-*.png`.
+
+The two integration checks in `tests/test_gui_fit_execution.py` cover one-pass engine
+agreement for overlapping multi-plane signals with duplicate assignments, unfolded
+indirect coordinates, fixed linewidths, position bounds, signed amplitudes, and
+unaltered inputs; they also exercise actual spawn/transport, provisional/unusable
+outcomes, cancellation, child failure, stale delivery, retained-result replacement
+guards, navigation/contour responsiveness, and shutdown. Existing GUI tests protect
+manual editing and preview behavior. A full offscreen run passed 233 tests. One
+earlier full run segfaulted inside native Qt/Python garbage collection; it did not
+reproduce on the subsequent full run (clean main: 231 passed). The new lifecycle
+test explicitly drains its preview worker and deletes its Qt objects on Qt's thread.
+
+Cancellation terminates the private child; it never attempts to interrupt SciPy
+inside a Qt task. A bridge thread owns spawn, serialization, receive, finalization,
+and bounded terminate/join/kill cleanup. Application shutdown signals cancellation;
+the bridge is non-daemon so interpreter exit cannot abandon a partly spawned child.
+Qt never joins it synchronously. Failed/canceled attempts retain the earlier result;
+completed numerical values are frozen using the same finalization seam as the CLI.
+The 128 MiB preparation budget is not an optimizer/process memory bound: dense
+Jacobian and finalization arrays add memory. No samples are dropped to fit a budget.
+
+### PR #54 focused lifecycle review
+
+The intermittent crash was investigated with a bounded comparison on macOS arm64,
+CPython 3.14.5, PySide6 6.10.1, and NumPy 2.4.1. All runs enabled
+`PYTHONFAULTHANDLER=1` and pytest's 120-second per-test timeout. Immutable source
+archives of PR head `71536a4` and main `86a0528` used the same installed interpreter
+and dependencies, with alternating native Cocoa full-suite runs:
+
+| Scenario | Runs | Result |
+| --- | ---: | --- |
+| PR head, native Cocoa full suite | 3 | 233 passed each; 58–59 seconds |
+| Main, native Cocoa full suite | 3 | 231 passed each; 56–58 seconds |
+| Corrected PR, native Cocoa GUI/lifecycle tests | 3 | 10 passed each; about 6 seconds |
+| Corrected PR, original offscreen full-suite invocation | 1 | 233 passed; 69 seconds |
+
+No crash recurred. The saved original macOS report records `EXC_BAD_ACCESS` at
+address `0x8` in `SignalManagerPrivate::qtMethodMetacall` during queued Qt dispatch.
+It does not identify the receiving application object or establish a root cause.
+This is not evidence that the crash was fixed or that it belongs to main, the fit
+bridge, or the preview worker; no speculative lifetime refactor was made.
+
+Teardown inspection confirmed that explicit close marks both lanes closed before
+destroying the viewer. A temporary diagnostic also exercised the existing
+`ViewerComputation` callback in two orders: completion after parent/worker QObject
+deletion, and completion queued before deletion but dispatched afterward. Each
+order passed five iterations, with invalidated C++ objects, completed callbacks,
+and zero delivered UI completions. Temporary runners/logs stayed outside the repo;
+no new testing infrastructure was introduced.
+
+Native mouse/keyboard validation used the real bundled 131-plane spectrum: run a
+fit, retain its result, make a working edit, start a replacement, switch Inspect/Fit,
+and navigate to plane 25. Only the disposable numerical child was temporarily
+SIGSTOP-paused to keep the modal sequence deterministic. Answering Yes to close
+then Cancel at either the peak-discard or result-discard dialog preserved the same
+running child, retained result, dirty peaks, and an unset cancellation flag.
+Explicit Cancel fit reaped the child; accepting every close/discard decision on a
+subsequent fit exited without remaining validation/fit processes. No numerical or
+subprocess architecture changes were needed.
+
+The existing close test now protects those transactional decisions, including a
+fit completing during an earlier dialog. The existing spawned lifecycle test
+checks direct `set_peaks()` rejection before any history/selection/revision changes.

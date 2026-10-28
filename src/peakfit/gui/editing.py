@@ -125,6 +125,7 @@ class PeakMarkers(pg.ScatterPlotItem):
         super().__init__(**kwargs)
         self.selected_id: str | None = None
         self.placing = False
+        self.editable = True
         self._cancelled = False
         self._owns_drag = False
 
@@ -142,8 +143,10 @@ class PeakMarkers(pg.ScatterPlotItem):
             return
         if ev.isStart():
             self._cancelled = False
-            self._owns_drag = not self.placing and any(
-                p.data() == self.selected_id for p in self.pointsAt(ev.buttonDownPos())
+            self._owns_drag = (
+                self.editable
+                and not self.placing
+                and any(p.data() == self.selected_id for p in self.pointsAt(ev.buttonDownPos()))
             )
         if not self._owns_drag:
             # A marker click selects; an unselected marker drag is ordinary pan.

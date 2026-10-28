@@ -17,15 +17,26 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 - `src/peakfit/gui/` - PySide6/PyQtGraph desktop window, reusable spectrum viewer,
   and contour geometry helpers. Uses the existing `Spectra` model and input readers;
   working peak records and undo history are Qt-independent. Imported placeholder
-  shapes are discarded; GUI coordinates are not fitting inputs or completed results.
+  shapes are discarded; editable GUI coordinates are separate from completed results.
   Local scope preparation constructs fresh engine-safe peaks from snapshots, reuses
   engine clustering and pipeline parameter preparation, and displays the exact mask
   in a contextual Inspect/Fit workspace. One serial background lane handles numerical
   preparation and contour extraction; Qt applies only current results.
   Exact lightweight scope geometry remains available even when numerical data
   exceeds preparation limits; only eligible selected-group arrays are materialized.
-  Full contours remain visible during background replacement, without a vertex cutoff. It does not execute optimization. There
-  are no auto-picking dependencies.
+  Full contours remain visible during background replacement, without a vertex cutoff.
+  `gui.local_fit.execute_local_fit()` is Qt-independent: it submits the reviewed
+  cluster/parameters through `fit_single_cluster_task()`, classifies its analytical
+  evaluation, and uses the pipeline's shared `complete_fit()` finalization boundary.
+  It never repeats clustering or effective-parameter preparation. Frozen outcomes
+  retain signed amplitudes, sampled model/residual values, diagnostics, original
+  inputs, stable GUI identities, and copied model geometry for future visualization.
+  One disposable spawned fit process runs independently of the preview/contour lane;
+  the bridge serializes selected-cluster inputs and freezes received values off Qt.
+  There is no fit queue. Cancellation terminates/reaps the child. Scientific edits
+  pause until execution stops; navigation remains available. One unsaved result is
+  retained separately and protected against replacement/loss. No automatic peak
+  picking, result contour comparison, or fitted-coordinate application is involved.
 - `src/peakfit/ui/` - Rich terminal helpers used by the current CLI.
 - `src/peakfit/fit/` - validation, data loading, fitting workflow, result assembly, and output coordination.
 - `src/peakfit/auto_pick/` - experimental automatic peak-picking workflow used only when no peak list is provided.
