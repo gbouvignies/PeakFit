@@ -125,14 +125,3 @@ analytical output. A covariance failure does not invalidate an otherwise finite
 model: frozen evaluations can carry unavailable uncertainties plus an explicit
 warning. Numerical usability, optimizer termination and peak identifiability
 remain distinct. See [the scientific overlap validation](validation/overlapping-peaks.md).
-
-The optional CLI linewidth comparison lives in `fit/linewidth_comparison.py`.
-It composes two `run_fit` calls on independently copied peaks/clusters with
-shared read-only experimental spectra. Eligible alternative starts are expressed
-as ordinary per-peak constraints, using the existing resolver and first-pass
-preparation; the optimizer and pipeline remain unchanged. Each run retains its
-own `FinalFitOutcome`, corrections, continuation state and normal output tree.
-Comparison projections use only immutable final outcomes and stable cluster and
-parameter identities. Comparison provenance and execution failures live beside
-the candidates, outside the canonical scientific JSON schema. This orchestration
-has no GUI dependency and may be reused by a future candidate-management UI.
