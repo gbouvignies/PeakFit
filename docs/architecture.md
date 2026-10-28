@@ -25,11 +25,13 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   panel. It receives existing widgets and owns no scientific state. The viewer
   keeps preparation/result state independent of which details are visible;
   background deliveries never open panels. `gui.fit_preview` presents local
-  scope/results below the plots; `gui.editing` requires explicit Apply or Revert
-  before pending fields can be hidden or selection changed. The
+  scope/results below the plots; `gui.editing` requests a whole-peak commit on Enter
+  or focus leaving the field group. Tab between fields retains the draft; Escape
+  restores committed values. The viewer also commits before selection, hiding
+  details, fitting and peak export, retaining invalid drafts with inline errors. The
   `pending_edits_changed` notification updates editor controls and unsaved-work
   indicators only; `edits_changed` is reserved for actual committed peak changes
-  and invalidates scientific dependents. No-op Apply/history/drag operations do
+  and invalidates scientific dependents. No-op commit/history/drag operations do
   not advance the scientific revision. One coordinated
   comparison selector identifies its current local-group scope. The reserved
   footer exposes fit state and cancellation while details are closed.
