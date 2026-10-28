@@ -590,7 +590,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         # A running fit can complete while a close/export dialog processes Qt events.
         if self.fit_result is not None and self.fit_result.scientific.run_id == result.run_id:
             self.exported_result_id = result.run_id
-            self.result_notice.setText(f"Fit results exported · {destination}")
+            self.result_notice.setText("Fit results exported")
             self.result_notice.setToolTip(str(destination))
         QtWidgets.QMessageBox.information(
             self,

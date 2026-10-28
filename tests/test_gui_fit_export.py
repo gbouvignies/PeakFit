@@ -3,6 +3,7 @@
 import csv
 import json
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -141,6 +142,107 @@ def test_partial_failure_has_no_published_directory(tmp_path, monkeypatch):
         export_local_fit(completed, tmp_path / "failed")
     assert list(tmp_path.iterdir()) == []
     assert completed.inputs is not None
+
+
+@pytest.mark.parametrize(
+    "publication", ["success", "rename_failure", "late_empty", "late_populated", "locked"]
+)
+def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
+    from peakfit.gui import fit_export  # noqa: PLC0415
+
+    _spectra, _working, prepared, _config = _example()
+    completed = execute_local_fit(prepared)
+    destination = tmp_path / "export"
+    lock = tmp_path / ".export.export-lock"
+    write = fit_export.write_fit_outputs
+    rename = Path.rename
+    published = []
+
+    def write_then_compete(*args, **kwargs):
+        files = write(*args, **kwargs)
+        if publication.startswith("late_"):
+            destination.mkdir()
+            if publication == "late_populated":
+                (destination / "existing-result").write_text("keep me")
+        return files
+
+    def windows_directory_move(staged, target):
+        # Windows refuses replacing even an empty directory. Enforce this on macOS/Linux too.
+        assert not target.exists()
+        assert staged.parent.parent == target.parent  # Staging stays on the same filesystem.
+        ResultsLoader(staged).load_summary()
+        assert (staged / "summary/local_fit.json").is_file()
+        assert (staged / "tables/intensities.csv").is_file()
+        assert lock.is_dir()
+        if publication == "rename_failure":
+            raise OSError("publication denied")
+        published.append(target)
+        return rename(staged, target)
+
+    monkeypatch.setattr(fit_export, "write_fit_outputs", write_then_compete)
+    monkeypatch.setattr(Path, "rename", windows_directory_move)
+    monkeypatch.setattr(Path, "replace", windows_directory_move)
+    if publication == "locked":
+        lock.mkdir()
+    if publication == "success":
+        assert export_local_fit(completed, destination) == destination
+        assert published == [destination]
+        ResultsLoader(destination).load_summary()
+    else:
+        with pytest.raises(OSError, match=r"publication denied|[Ee]xists"):
+            export_local_fit(completed, destination)
+        assert not published
+    expected = [lock] if publication == "locked" else []
+    if publication in {"success", "late_empty", "late_populated"}:
+        expected.append(destination)
+    assert sorted(tmp_path.iterdir()) == sorted(expected)
+    if publication == "late_populated":
+        assert (destination / "existing-result").read_text() == "keep me"
+
+
+def test_long_export_path_does_not_change_footer_layout(tmp_path, monkeypatch):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    spectra, working, prepared, _config = _example()
+    viewer = SpectrumViewer(spectra)
+    viewer.set_peaks(working)
+    viewer.fit_result = FitProcessResult(execute_local_fit(prepared), 0, 0, 0, 0)
+    viewer.resize(1000, 720)
+    viewer.show()
+    app.processEvents()
+    # Layout starts with the same compact wording: only the destination length changes.
+    viewer.result_notice.setText("Fit results exported")
+    app.processEvents()
+    before = (
+        viewer.size(),
+        viewer.minimumSizeHint(),
+        viewer.spectrum_plot.size(),
+        viewer.trace_x.size(),
+    )
+    destination = tmp_path.joinpath(*(["long-export-directory"] * 30))
+    messages = []
+    monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_: destination)
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox, "information", lambda *args: messages.append(args[-1])
+    )
+    try:
+        assert viewer.export_fit_results()
+        app.processEvents()
+        assert viewer.result_notice.text() == "Fit results exported"
+        assert viewer.result_notice.toolTip() == str(destination)
+        assert str(destination) in messages[0]
+        assert (
+            viewer.size(),
+            viewer.minimumSizeHint(),
+            viewer.spectrum_plot.size(),
+            viewer.trace_x.size(),
+        ) == before
+    finally:
+        _wait(lambda: not viewer._computation._busy)
+        viewer.stop_preparation()
+        viewer.close()
+        viewer.deleteLater()
+        QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
+        app.processEvents()
 
 
 def test_export_and_close_keep_result_and_peak_states_separate(tmp_path, monkeypatch):  # noqa: PLR0915

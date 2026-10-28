@@ -1,4 +1,4 @@
-"""Atomic scientific export of a retained isolated fit, without Qt or continuation state."""
+"""Staged scientific export of a retained isolated fit, without Qt or continuation state."""
 
 import json
 from dataclasses import asdict
@@ -20,12 +20,13 @@ if TYPE_CHECKING:
 def export_local_fit(result: LocalFitResult, destination: Path) -> Path:
     """Publish all required artifacts together, refusing any existing destination.
 
-    Reserve the final name with mkdir (including against concurrent exporters).
-    Staging lives on the same filesystem. A failed write removes only our staging;
-    a failed finalization removes our empty reservation, never somebody else's data.
+    A sibling lock coordinates PeakFit exporters without creating the destination.
+    Rename publishes the validated tree on the same filesystem, including Windows.
+    The lock cannot exclude unrelated writers: portable Python has no atomic
+    no-replace directory rename on POSIX. Never merge into an existing directory.
     """
     destination = destination.absolute()
-    if destination.exists():
+    if destination.exists() or destination.is_symlink():
         raise FileExistsError(f"Choose a new results directory: {destination} already exists.")
     inputs = result.inputs
     snapshot = inputs.snapshot
@@ -86,11 +87,13 @@ def export_local_fit(result: LocalFitResult, destination: Path) -> Path:
             path.is_file() and path.stat().st_size for path in [*files.values(), provenance]
         ):
             raise OSError("The export did not produce every required artifact.")
-        # mkdir is exclusive; os.replace alone could overwrite an existing empty directory.
-        destination.mkdir()
+        # Keep the destination absent for Windows; reserve a separate sibling name.
+        lock = destination.with_name(f".{destination.name}.export-lock")
+        lock.mkdir()
         try:
-            staged.replace(destination)
-        except BaseException:
-            destination.rmdir()
-            raise
+            if destination.exists() or destination.is_symlink():
+                raise FileExistsError(f"Results directory already exists: {destination}")
+            staged.rename(destination)
+        finally:
+            lock.rmdir()
     return destination

@@ -157,11 +157,23 @@ omitted. Canonical metadata uses the recorded completion time/version and origin
 configuration; the companion supplies the GUI-specific scope and identity contract.
 
 Export writes and validates all required files in a temporary sibling directory,
-then reserves the final directory name exclusively and finalizes it. Existing
-paths are refused, including on repeated export of the same result to the same
-parent. Choose a different parent for another copy. Errors clean up staging and
-do not mark the result exported; a process crash can leave a hidden staging or
-empty reserved directory, which may be removed after checking it. Export runs in
+then takes an exclusive sibling lock (`.<directory-name>.export-lock`), checks
+that the destination is still absent, and renames the complete tree into place.
+The destination is never pre-created, so Windows need not replace an existing
+directory. Existing paths are refused, including on repeated export of the same
+result to the same parent. Choose a different parent for another copy.
+
+The same-filesystem rename provides atomic visibility where the filesystem
+supports it; this is not a power-loss durability guarantee. The sibling lock
+coordinates PeakFit exporters only. Python has no portable atomic no-replace
+directory rename: on POSIX an unrelated program could create an empty directory
+between the final check and rename, and that empty directory could be replaced.
+A populated results directory cannot be replaced by this directory rename.
+Do not concurrently create the destination with another application.
+
+Errors clean up staging and the export's own lock and do not mark the result
+exported. A process crash can leave hidden staging or a stale sibling lock,
+which may be removed after checking that no export is active. Export runs in
 a dedicated short-lived thread while Qt continues processing events. Progress
 cannot be dismissed once writing begins.
 

@@ -399,3 +399,27 @@ file-dialog seam. No validation harness or new test infrastructure is shipped.
 Full offscreen suite: 238 passed. Ruff, formatting, ty, import-linter and package
 build passed. The build reported the existing uv-build upper-bound warning;
 both sdist and wheel were produced successfully.
+
+
+### PR #57 review follow-up: publication and compact status
+
+Finalization now uses a separate sibling lock and renames the validated staging
+tree to an absent destination, avoiding Windows directory replacement. Focused
+checks enforce Windows-style rejection of existing directory targets, verify
+complete artifacts at publication, refuse late empty/populated destinations and
+competing export locks, and check cleanup after write/rename failures. The
+portable coordination and unrelated-writer race limits are documented in
+[outputs](outputs.md#gui-local-fit-export); no native Windows runner was available.
+
+The permanent footer now says only **Fit results exported**. A long-path check
+asserts that the full path remains in the tooltip and confirmation without
+changing widget minimum sizes, window size or spectrum/trace dimensions. All 11
+export tests passed on native macOS Cocoa. A native 1000 × 720 widget capture with
+a 30-component destination was visually inspected: the footer was compact and
+the spectrum and inspection panels retained their space.
+
+Follow-up verification: full offscreen suite 244 passed; Ruff, formatting, ty,
+import-linter, all-file prek hooks and wheel/sdist build passed. The existing
+uv-build version-bound warning remains. GitHub CI supplies Linux validation;
+Windows compatibility is assessed by the documented rename contract and focused
+Windows-style destination-refusal tests, not a native Windows run.
