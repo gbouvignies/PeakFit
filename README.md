@@ -141,6 +141,7 @@ peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 - [`docs/mcmc.md`](docs/mcmc.md) - MCMC workflow and diagnostics.
 - [`docs/development.md`](docs/development.md) - contributor workflow and coding conventions.
 - [`docs/architecture.md`](docs/architecture.md) - current package map and boundaries.
+- [`docs/gui-design.md`](docs/gui-design.md) - agreed GUI design and scientific review milestones.
 - [`AGENTS.md`](AGENTS.md) - instructions for AI-assisted maintenance.
 
 ## Development

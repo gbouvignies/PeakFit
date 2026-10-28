@@ -1,0 +1,92 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "python": "3.14.5",
+  "numpy": "2.4.1",
+  "blas_threads": 1,
+  "spectrum_sha256": "2f91c489f1fe6448c1ead0a417a600a1e401616f76caf1f6cdb3219fbf6ac442",
+  "data_shape": [
+    131,
+    256,
+    546
+  ],
+  "peaks": 166,
+  "shape_names": [
+    "sp2",
+    "sp2"
+  ],
+  "clusters": 121,
+  "classifications": {
+    "converged": 121,
+    "usable_non_converged": 0,
+    "unusable": 0
+  },
+  "terminal_correction_revision": 1,
+  "preparation_seconds": 0.19961049999983516,
+  "fit_and_capture_seconds": 3.9310753340105293,
+  "projection": {
+    "native_plane": {
+      "median_seconds": 1.2851358340121806,
+      "trials_seconds": [
+        1.2851358340121806,
+        1.2890500000066822,
+        1.289084832998924,
+        1.2800234999886015,
+        1.2841418750031153
+      ]
+    },
+    "row_all_planes": {
+      "median_seconds": 0.01955641600943636,
+      "trials_seconds": [
+        0.019721208009286784,
+        0.019220916001359,
+        0.019544124996173196,
+        0.01955641600943636,
+        0.02144416699593421
+      ]
+    },
+    "column_all_planes": {
+      "median_seconds": 0.0137199589953525,
+      "trials_seconds": [
+        0.0137199589953525,
+        0.013821792003000155,
+        0.013691125001059845,
+        0.01359691598918289,
+        0.013821040993207134
+      ]
+    },
+    "crosshair_all_planes": {
+      "median_seconds": 0.008355833007954061,
+      "trials_seconds": [
+        0.008355833007954061,
+        0.008099124999716878,
+        0.008320333989104256,
+        0.010241541007417254,
+        0.043860541001777165
+      ]
+    }
+  },
+  "native_plane_profile": "         1191677 function calls in 1.450 seconds\n\n   Ordered by: cumulative time\n   List reduced from 86 to 15 due to restriction <15>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n        1    0.000    0.000    1.455    1.455 benchmark_review_projection.py:106(<lambda>)\n        1    0.048    0.048    1.455    1.455 simulation.py:106(project_final_outcome)\n     4235    0.017    0.000    1.393    0.000 cluster.py:119(evaluate_peaks)\n     8470    0.007    0.000    1.368    0.000 cluster.py:214(_evaluate_single_dimension)\n     8470    0.034    0.000    1.182    0.000 templates.py:229(evaluate_cluster)\n     8470    0.102    0.000    0.873    0.000 kernel.py:88(kernel)\n     8470    0.769    0.000    0.770    0.000 kernel.py:36(kernel_from_z)\n     8470    0.004    0.000    0.181    0.000 grid.py:34(compute_offsets)\n     8470    0.144    0.000    0.176    0.000 coordinates.py:46(compute_offsets)\n     8470    0.041    0.000    0.170    0.000 base.py:127(get_cluster_parameters)\n    34860    0.014    0.000    0.071    0.000 base.py:112(_param_name_for_spec)\n     8470    0.059    0.000    0.062    0.000 utils.py:235(apply_phase)\n    42350    0.021    0.000    0.031    0.000 numeric.py:323(full)\n    34860    0.006    0.000    0.030    0.000 param_id.py:40(name)\n    35525    0.005    0.000    0.028    0.000 main.py:240(__init__)\n\n\n",
+  "terminal_input_storage": {
+    "array_bytes": 13005696,
+    "json": {
+      "file_bytes": 27986960,
+      "write_seconds": 0.3286958329990739,
+      "read_seconds": 0.16265116599970497
+    },
+    "npz": {
+      "file_bytes": 13136496,
+      "write_seconds": 0.007954917004099116,
+      "read_seconds": 0.013764083007117733
+    },
+    "npz_compressed": {
+      "file_bytes": 9603894,
+      "write_seconds": 0.395673708000686,
+      "read_seconds": 0.033322000002954155
+    },
+    "hdf5_gzip": {
+      "file_bytes": 9983371,
+      "write_seconds": 0.15600200000335462,
+      "read_seconds": 0.05432641699735541
+    }
+  }
+}

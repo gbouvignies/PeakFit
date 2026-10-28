@@ -267,6 +267,7 @@ def run_fit(
             output_dir=output_dir,
             spectra=data.spectra,
             simulation_snapshot=pipeline_result.simulation_snapshot,
+            completed_fit=pipeline_result.completed_fit,
         )
     finally:
         logger.setLevel(prev_level)

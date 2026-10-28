@@ -1,5 +1,9 @@
 # Desktop spectrum viewer
 
+This guide describes implemented behavior. The agreed whole-dataset review
+direction and delivery milestones are in [GUI design](gui-design.md); those
+workflows are not yet exposed by the application.
+
 Launch the desktop application with a 2D or pseudo-3D NMRPipe spectrum:
 
 ```bash

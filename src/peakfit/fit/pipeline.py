@@ -25,8 +25,8 @@ from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.optimizers import fit_with_optimizer
+from peakfit.fit.completed import CompletedFit
 from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
-from peakfit.fit.simulation import FinalModelSnapshot
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.results import FitResult
+    from peakfit.fit.simulation import FinalModelSnapshot
     from peakfit.shared.typing import FloatArray
 
 
@@ -75,9 +76,18 @@ class PipelineCompletion:
 class PipelineResult:
     """Completed pipeline result with one scientific authority and continuation state."""
 
-    final_outcome: FinalFitOutcome
+    completed_fit: CompletedFit
     continuation_state: FittingState
-    simulation_snapshot: FinalModelSnapshot
+
+    @property
+    def final_outcome(self) -> FinalFitOutcome:
+        """Return the single authoritative completed outcome."""
+        return self.completed_fit.outcome
+
+    @property
+    def simulation_snapshot(self) -> FinalModelSnapshot:
+        """Keep the existing completed-model projection interface."""
+        return self.completed_fit.model_snapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,15 +310,14 @@ def complete_fit(completion: PipelineCompletion) -> PipelineResult:
     if terminal_snapshot is None:
         raise ValueError("Completion requires a terminal correction snapshot.")
     final_outcome = finalize_fit(completion)
-    simulation_snapshot = FinalModelSnapshot.capture(
+    completed_fit = CompletedFit.capture(
         final_outcome,
         completion.state,
         terminal_snapshot,
     )
     return PipelineResult(
-        final_outcome=final_outcome,
+        completed_fit=completed_fit,
         continuation_state=completion.state,
-        simulation_snapshot=simulation_snapshot,
     )
 
 
