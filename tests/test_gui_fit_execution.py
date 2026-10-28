@@ -271,6 +271,30 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         assert comparison.mode.currentText() == "Overlay"
         _wait(lambda: comparison._current is not None and comparison._slice is not None)
         assert any(path.isVisible() for path in comparison.paths)
+        # Every adjacent pair of evaluated coordinates must have a connecting
+        # segment, including transitions between sampled and predicted styles.
+        assert comparison._slice is not None
+        for model, support, solid, dotted in (
+            (
+                comparison._slice.x,
+                comparison._slice.support_x,
+                comparison.model_x,
+                comparison.predicted_x,
+            ),
+            (
+                comparison._slice.y,
+                comparison._slice.support_y,
+                comparison.model_y,
+                comparison.predicted_y,
+            ),
+        ):
+            sampled = np.isfinite(solid.yData)
+            predicted = np.isfinite(dotted.yData)
+            connected = (sampled[:-1] & sampled[1:]) | (predicted[:-1] & predicted[1:])
+            finite = np.isfinite(model[:, viewer.plane])
+            np.testing.assert_array_equal(connected, finite[:-1] & finite[1:])
+            np.testing.assert_array_equal(sampled, support & finite)
+            assert solid.zValue() > dotted.zValue()
         assert not viewer.fit_mask.isVisible()
         comparison.samples.setChecked(True)
         assert viewer.fit_mask.isVisible()

@@ -116,8 +116,10 @@ class FitComparison(QtCore.QObject):
         self.color = "#d8a6ff" if dark else "#7435a0"
         for curve in (self.model_x, self.model_y):
             curve.setPen(pg.mkPen(self.color, width=2))
+            curve.setZValue(2)
         for curve in (self.predicted_x, self.predicted_y):
             curve.setPen(pg.mkPen(self.color, width=2, style=QtCore.Qt.PenStyle.DotLine))
+            curve.setZValue(1)
         self.profile_model.setSymbolBrush(self.color)
         self.profile_model.setSymbolPen(self.color)
         if self.active:
@@ -489,9 +491,10 @@ class FitComparison(QtCore.QObject):
                         symbolPen=self.color,
                         connect="finite",
                     )
-                    prediction.setData(
-                        points, np.where(~support, values[:, v.plane], np.nan), connect="finite"
-                    )
+                    # The model is evaluated at every native coordinate. Draw it
+                    # continuously underneath the sampled portion so adjacent
+                    # styles share their endpoints. Actual NaNs still break paths.
+                    prediction.setData(points, values[:, v.plane], connect="finite")
         self._render_profile()
 
     def _render_profile(self) -> None:

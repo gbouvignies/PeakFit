@@ -320,7 +320,8 @@ predictions, not additional observations or an uncertainty estimate.
 
 F3/F2 traces follow the same crosshair and native ppm coordinates as experiment,
 with common intensity units and scales. Purple points/solid lines identify fitted
-cells; dotted lines identify predictions. The scientific model is explicitly
+cells; dotted lines identify predictions. The evaluated model continues underneath
+the solid fragments so the styles meet without a missing boundary segment. The scientific model is explicitly
 evaluated along the native rows/columns, including tails outside the 2D grid.
 Undefined residual samples stay absent; lines never bridge fitting-mask gaps.
 
