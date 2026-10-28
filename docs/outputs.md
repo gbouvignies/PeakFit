@@ -222,3 +222,65 @@ nonlinear errors use the supplied/estimated statistical noise without that
 inflation. For nonlinear uncertainty or multimodal fits, compare alternative
 starts and inspect sampling/profile likelihoods; the local errors alone cannot
 certify a scientific assignment. See [the overlap investigation](validation/overlapping-peaks.md).
+
+## Optional two-start linewidth diagnostic
+
+```bash
+peakfit fit spectrum.ft2 peaks.list -z offsets.txt --headless \
+  --compare-linewidth-start 13 -o comparison-results
+```
+
+The scalar is an **initial intrinsic linewidth in Hz**, not a fixed width or a
+constraint on the fitted separation. The ordinary fit is unchanged when this
+option is absent. Comparison requires an explicit peak list; automatic picking
+and a GUI for managing retained candidates are outside this milestone.
+
+The normal configuration is fitted independently from a second configuration
+with the requested start. Both execute all configured passes and neighboring
+cluster corrections. Peak coordinates, identities, masks, noise, acquisition
+metadata, bounds, optimizer settings and plane order are identical at input.
+Later passes warm-start from their own candidate's parameters and corrections.
+
+Only linewidths free on the first pass with no explicit configured start change.
+Pattern values, per-peak values, values loaded from `parameters.from_file`, fixed
+parameters and first-pass step rules are respected through existing parameter
+preparation. A finite positive start outside any eligible parameter's bounds is
+rejected, rather than clipped. An ineffective comparison is rejected with an
+explanation. Preserved starts and their reasons are recorded in `comparison.json`.
+
+The existing timestamp policy applies to the parent output directory:
+
+```text
+comparison-results/<timestamp>/
+  baseline/                 # complete ordinary fit outputs
+  alternative-13hz/         # complete alternative fit outputs
+  comparison.json           # effective first-pass parameters, input hashes, status, timing
+  comparison.csv            # cluster/peak/parameter identities, values, errors, position deltas
+  comparison.md             # classifications, χ², termination, warnings, pair separations
+  .comparison-started       # exclusive reservation; retained after completion
+```
+
+Each candidate retains normal scientific outputs and continuation state.
+JSON and CSV are always included in comparison mode, even with `--format txt`;
+requested Markdown and simulated outputs are also retained. Canonical scientific
+JSON schema 4.1.0 is unchanged. Pass a candidate directory to post-fit commands.
+The alternative's saved configuration contains the effective starts using normal
+per-peak constraints; `comparison.json` also records original baseline starts,
+all exact first-pass nonlinear values, bounds and freedom, plus input hashes.
+
+An existing nonempty comparison directory is rejected. A candidate is marked
+`started` before fitting and `complete` only after its normal outputs finish.
+Exceptions are retained as `failed`, the other candidate is still attempted,
+and the CLI exits nonzero. An interrupted directory remains explicitly incomplete;
+use a fresh directory to rerun. Unusable cluster outcomes remain visible with
+absent scientific quantities. Execution completion and optimizer convergence
+are distinct: neither implies a correct resonance assignment.
+
+There is **no automatically selected best fit**. Compare actual-model χ²,
+reduced χ², optimizer optimality and termination alongside uncertainty warnings,
+unavailable errors, positions and linewidths. Inspect signed profiles in each
+candidate's `tables/intensities.csv` or canonical JSON. Lower χ², smaller local
+errors and greater separation do not establish correct assignments. Complete
+multi-pass candidates may have different neighboring-cluster corrections, so
+these are not necessarily fits of exactly the same isolated corrected-data
+objective. See [experimental validation](validation/linewidth-comparison.md).

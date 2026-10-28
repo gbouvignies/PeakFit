@@ -61,6 +61,9 @@ Useful fit options:
   passes. Existing commands that relied on the former `N + 1` pass behavior
   should increment `N` by one.
 - `--workers -1` to use all CPUs.
+- `--compare-linewidth-start 13` to retain two independent complete fits with
+  different initial linewidths, without selecting a best assignment. See the
+  [comparison workflow](docs/outputs.md#optional-two-start-linewidth-diagnostic).
 - `--format json --format csv --format txt` to request output formats.
 
 Generate a starter config:
