@@ -154,7 +154,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self.statusBar().showMessage(
             "Local fit running · Cancel in Fit workspace to edit peaks or replace the dataset"
             if busy
-            else "Local fit stopped · Working peaks unchanged · Fitted results are not saved"
+            else "Local fit stopped · Working peaks unchanged"
         )
 
     def _update_work_state(self) -> None:

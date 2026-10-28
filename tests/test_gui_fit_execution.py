@@ -177,7 +177,11 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
     viewer.set_peaks(working)
     viewer.select_peak(working[0].id)
     viewer._apply_fit_preparation(prepared)
+    viewer.resize(1200, 800)
     viewer.show()
+    app.processEvents()
+    plots = (viewer.trace_x, viewer.trace_y, viewer.profile)
+    positions = tuple((plot.mapTo(viewer, QtCore.QPoint()), plot.size()) for plot in plots)
     heartbeat = []
     timer = QtCore.QTimer(viewer)
     timer.setInterval(10)
@@ -187,6 +191,8 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
     try:
         viewer.run_local_fit()
         assert viewer.fit_busy
+        assert all(plot.isVisible() for plot in plots)
+        assert tuple((p.mapTo(viewer, QtCore.QPoint()), p.size()) for p in plots) == positions
         assert not viewer.add_action.isEnabled()
         with pytest.raises(ValueError, match="running fit"):
             viewer.set_plane_values(np.array([1.0, 2.0, 3.0]))
@@ -211,6 +217,20 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         retained = viewer.fit_result
         assert retained.input_bytes < spectra.data.nbytes * 4
         assert retained.scientific.inputs.contour_level == 0.01
+        viewer.show_fit_result()
+        app.processEvents()
+        assert all(plot.isVisible() for plot in plots)
+        assert tuple((p.mapTo(viewer, QtCore.QPoint()), p.size()) for p in plots) == positions
+        assert "all planes / fitted samples" in viewer.fit_preview.quality.text()
+        assert "no fit has been run" not in viewer.fit_preview._details
+        assert "Not saved" in viewer.result_notice.text()
+        retained_threshold = retained.scientific.inputs.contour_level
+        viewer.threshold.setValue(9)
+        assert retained.scientific.inputs.contour_level == retained_threshold
+        viewer.fit_preview.details.click()
+        assert viewer.fit_preview.detail_content.isVisible()
+        viewer.dismiss_fit_preview()
+        assert all(plot.isVisible() for plot in plots)
         viewer.show_fit_result()
         viewer.fit_preview.result_mode.setCurrentIndex(1)
         assert viewer.fit_preview.parameters.rowCount() == 2

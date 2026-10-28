@@ -195,7 +195,7 @@ class SpectrumViewer(QtWidgets.QWidget):
     def _axis_title(axis: SpectralParameters) -> str:
         return f"{axis.nucleus or axis.label} ({axis.label})"
 
-    def _build_ui(self) -> None:
+    def _build_ui(self) -> None:  # noqa: PLR0915
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         splitter = QtWidgets.QSplitter()
@@ -257,7 +257,11 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.position_label.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
         )
-        layout.addWidget(self.position_label)
+        footer = QtWidgets.QHBoxLayout()
+        footer.addWidget(self.position_label, 1)
+        self.result_notice = QtWidgets.QLabel()
+        footer.addWidget(self.result_notice)
+        layout.addLayout(footer)
 
     def _build_fit_overlay(self) -> None:
         self.fit_mask = pg.ImageItem(axisOrder="row-major")
@@ -277,23 +281,39 @@ class SpectrumViewer(QtWidgets.QWidget):
         right_layout.setContentsMargins(0, 0, 0, 0)
         self.workspace_tabs = QtWidgets.QTabBar()
         self.workspace_tabs.addTab("Inspect")
-        self.workspace_tabs.addTab("Fit group…")
+        self.workspace_tabs.addTab("Fit")
         self.workspace_tabs.setTabEnabled(1, False)
         right_layout.addWidget(self.workspace_tabs)
         self.workspaces = QtWidgets.QStackedWidget()
-        self.workspaces.addWidget(self._build_inspection_panels())
+        plots = self._build_inspection_panels()
+        self.workspaces.addWidget(self.inspector)
         self.fit_preview = FitPreview()
-        self.fit_preview.dismissed.connect(self.dismiss_fit_preview)
         self.fit_preview.run_requested.connect(self.run_local_fit)
         self.fit_preview.cancel_requested.connect(self._fit_process.cancel)
         self.fit_preview.prepare_requested.connect(self.preview_fit_group)
         self.fit_preview.result_requested.connect(self.show_fit_result)
         self.workspaces.addWidget(self.fit_preview)
         self.workspace_tabs.currentChanged.connect(self._workspace_changed)
-        right_layout.addWidget(self.workspaces, 1)
+        # Reserve identical header space in every state so the plots never jump.
+        self.workspaces.setFixedHeight(
+            max(self.inspector.sizeHint().height(), self.fit_preview.sizeHint().height())
+        )
+        right_layout.addWidget(self.workspaces)
+        self.inspection_content = QtWidgets.QStackedWidget()
+        self.inspection_content.addWidget(plots)
+        details_scroll = QtWidgets.QScrollArea()
+        details_scroll.setWidgetResizable(True)
+        details_scroll.setWidget(self.fit_preview.detail_content)
+        self.inspection_content.addWidget(details_scroll)
+        self.fit_preview.details_requested.connect(
+            lambda checked: self.inspection_content.setCurrentIndex(int(checked))
+        )
+        right_layout.addWidget(self.inspection_content, 1)
+        right.setMinimumWidth(350)
         return right
 
     def _workspace_changed(self, index: int) -> None:
+        self.fit_preview.details.setChecked(False)
         if index == 1:
             if self.fit_busy:
                 self.workspaces.setCurrentIndex(1)
@@ -380,10 +400,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         with QtCore.QSignalBlocker(self.workspace_tabs):
             self.workspace_tabs.setCurrentIndex(1)
         self.workspaces.setCurrentIndex(1)
-        self.interaction_hint.setText(
-            "LOCAL FIT PREVIEW · Amber cells are fitted samples · Rings mark included peaks · "
-            "No fit has been run"
-        )
+        self.interaction_hint.setText("Amber cells: exact fitting samples · Rings: group members")
 
     def _schedule_fit_preview(self) -> None:
         """Debounce threshold drags; an outdated region is not a reviewed input."""
@@ -410,6 +427,7 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def dismiss_fit_preview(self) -> None:
         """Drop a preparation when returning to inspection or changing inputs."""
+        self.fit_preview.details.setChecked(False)
         if self.fit_busy or self._showing_result:
             with QtCore.QSignalBlocker(self.workspace_tabs):
                 self.workspace_tabs.setCurrentIndex(0)
@@ -493,6 +511,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.fit_preview.show_status("Fit outdated · inputs changed; result was rejected")
         elif isinstance(outcome, FitProcessResult):
             self.fit_result = outcome
+            self.result_notice.setText("Fit result in memory · Not saved")
             self._result_revision = self._submitted_revision
             self.show_fit_result(activate=False)
         else:
@@ -561,7 +580,6 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.add_peak_button.setCheckable(True)
         self.add_peak_button.clicked.connect(self._toggle_peak_placement)
         cast("QtWidgets.QGridLayout", self.inspector.layout()).addWidget(self.add_peak_button, 2, 2)
-        right_layout.addWidget(self.inspector)
         self.trace_x = self._plot(self._axis_title(self.x_axis))
         self.trace_y = self._plot(self._axis_title(self.y_axis))
         self.profile = self._plot("Raw intensity across planes")
@@ -616,9 +634,16 @@ class SpectrumViewer(QtWidgets.QWidget):
         row.addWidget(self.plane_label)
         layout.addLayout(row)
 
-    def _build_contour_controls(self, layout: QtWidgets.QVBoxLayout) -> None:
-        grid = QtWidgets.QGridLayout()
-        grid.setVerticalSpacing(2)
+    def _build_contour_controls(self, layout: QtWidgets.QVBoxLayout) -> None:  # noqa: PLR0915
+        self.contour_button = QtWidgets.QToolButton()
+        self.contour_button.setText("Contours…")
+        self.contour_popup = QtWidgets.QDialog(self, QtCore.Qt.WindowType.Popup)
+        self.contour_popup.setWindowTitle("Contour controls")
+        self.contour_button.clicked.connect(self._show_contour_controls)
+        panel = self.contour_popup
+        panel.setMinimumWidth(340)
+        grid = QtWidgets.QGridLayout(panel)
+        grid.setVerticalSpacing(6)
         self.threshold = QtWidgets.QDoubleSpinBox()
         self.threshold.setRange(0.1, 1000)
         self.threshold.setValue(5)
@@ -669,19 +694,41 @@ class SpectrumViewer(QtWidgets.QWidget):
             control.valueChanged.connect(self._sync_contour_sliders)
             grid.addWidget(label, row, 0)
             grid.addWidget(slider, row, 1)
-            grid.addWidget(control, row, 2)
+            if control is not self.threshold:
+                grid.addWidget(control, row, 2)
         grid.setColumnStretch(1, 1)
         self._sync_contour_sliders()
         reset = QtWidgets.QPushButton("Reset view")
         reset.clicked.connect(self.reset_view)
-        grid.addWidget(reset, 0, 3)
-        layout.addLayout(grid)
+        controls = QtWidgets.QHBoxLayout()
+        label = QtWidgets.QLabel("&Threshold")
+        label.setBuddy(self.threshold)
+        controls.addWidget(label)
+        controls.addWidget(self.threshold)
+        controls.addWidget(self.contour_button)
+        controls.addStretch()
+        controls.addWidget(reset)
+        layout.addLayout(controls)
         self.contour_status = QtWidgets.QLabel()
         self.contour_status.setFixedHeight(self.contour_status.fontMetrics().lineSpacing() + 4)
         self.contour_status.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
         )
         layout.addWidget(self.contour_status)
+
+    def _show_contour_controls(self) -> None:
+        """Anchor transient controls without changing the spectrum layout."""
+        popup = self.contour_popup
+        popup.adjustSize()
+        anchor = self.contour_button.mapToGlobal(self.contour_button.rect().bottomLeft())
+        screen = self.contour_button.screen().availableGeometry()
+        x = min(anchor.x(), screen.right() - popup.width() + 1)
+        y = anchor.y()
+        if y + popup.height() > screen.bottom():
+            y = self.contour_button.mapToGlobal(QtCore.QPoint(0, 0)).y() - popup.height()
+        popup.move(max(screen.left(), x), max(screen.top(), y))
+        popup.show()
+        self.threshold_slider.setFocus()
 
     def _sync_contour_sliders(self) -> None:
         for slider, value in (
@@ -1060,21 +1107,18 @@ class SpectrumViewer(QtWidgets.QWidget):
             )
         elif self._showing_result:
             text = (
-                "OUTDATED LOCAL FIT RESULT · Numerical values use original inputs · Not saved"
+                "Outdated local result · Numerical values use original inputs"
                 if self._result_revision != self._scientific_revision
-                else "LOCAL FIT RESULT · Working peaks unchanged · Result is not saved to disk"
+                else "Local result · Convergence does not establish scientific fit quality"
             )
         elif self.fit_preparation is not None:
-            text = "LOCAL FIT PREVIEW · Amber cells are fitted samples · Rings mark included peaks"
+            text = "Amber cells: exact fitting samples · Rings: group members"
         elif self.workspaces.currentIndex() == 1:
             text = "LOCAL FIT PREVIEW · Use Threshold to review scope · Back to Inspect to edit"
         elif self.adding_peak:
             text = "PLACING PEAK · Click in spectrum · Cancel placement or Esc to stop"
         elif self.selected_id is not None:
-            text = (
-                "Drag selected peak to move · Edit fields at right · "
-                "Fit group… previews fitting scope"
-            )
+            text = "Drag selected peak to move · Edit fields at right · Fit previews fitting scope"
         else:
             text = "Click a peak to select · Drag background to pan · Scroll to zoom"
         self.interaction_hint.setText(text)
