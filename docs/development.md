@@ -149,3 +149,61 @@ full low-threshold vector geometry requires more memory and painting time. No lo
 total-process memory bound or constant frame rate is promised. Regression scenarios
 cover exact scientific geometry/data/identity, complete dense contours, stable
 layout through progress and numerical limits, latest-work handling, and safe close.
+
+### Prepared local execution (Step 2A)
+
+Native Cocoa validation on 2026-10-28 used the same bundled experimental data on
+macOS arm64/Python 3.14. The selected group contained three overlapping peaks,
+75 sampled points per plane, and all 131 planes. It converged in eight function
+and eight Jacobian evaluations, with reduced χ² = 1.36219. These are observations
+from this machine and harness, not performance guarantees.
+
+| Measurement | Observed |
+| --- | ---: |
+| VarPro plus terminal analytical evaluation | 24 ms |
+| Spawn startup (including imports/handshake) | 831 ms |
+| Input serialization plus owned copy | 0.95 ms |
+| Serialized input payload | 183,481 bytes |
+| End-to-end execution, transfer, and finalization | 862 ms |
+| Child peak resident memory | 210.9 MiB |
+| Parent high-water resident memory | 981.3 MiB |
+| Cancel after child startup through process reaping | 20 ms |
+
+The complete spectral data array is 69.85 MiB; only 78,600 bytes of selected sampled
+data plus corrections, model geometry, parameters, and provenance cross into the
+child. The parent high-water value includes loading, initial all-plane noise
+estimation/preparation, rendering, and screen capture; it is not the incremental
+cost of optimization. The existing noise-preparation peak remains substantial.
+The child import footprint dominates this small fit. No speculative startup cache,
+shared-memory transport, or persistent worker pool was added.
+
+During execution the native harness switched Inspect/Fit, selected plane 25, moved
+the crosshair, changed the displayed threshold from 5× to 6×, and requested updated
+contours. The submitted threshold remained 60349.7535 while displayed contours used
+72419.7042; working peak records stayed identical. Dataset replacement was rejected.
+A 10 ms Qt timer continued throughout (251 callbacks; largest gap 178 ms, including
+native screen capture/layout/navigation, so this is not an isolated optimizer stall
+measurement). Cancellation and close with an active spawned child left zero fit
+children. Canceling the native unsaved-result close dialog also kept the application
+and completed result intact. Running/completed screenshots are in
+`docs/images/local-fit-*.png`.
+
+The two integration checks in `tests/test_gui_fit_execution.py` cover one-pass engine
+agreement for overlapping multi-plane signals with duplicate assignments, unfolded
+indirect coordinates, fixed linewidths, position bounds, signed amplitudes, and
+unaltered inputs; they also exercise actual spawn/transport, provisional/unusable
+outcomes, cancellation, child failure, stale delivery, retained-result replacement
+guards, navigation/contour responsiveness, and shutdown. Existing GUI tests protect
+manual editing and preview behavior. A full offscreen run passed 233 tests. One
+earlier full run segfaulted inside native Qt/Python garbage collection; it did not
+reproduce on the subsequent full run (clean main: 231 passed). The new lifecycle
+test explicitly drains its preview worker and deletes its Qt objects on Qt's thread.
+
+Cancellation terminates the private child; it never attempts to interrupt SciPy
+inside a Qt task. A bridge thread owns spawn, serialization, receive, finalization,
+and bounded terminate/join/kill cleanup. Application shutdown signals cancellation;
+the bridge is non-daemon so interpreter exit cannot abandon a partly spawned child.
+Qt never joins it synchronously. Failed/canceled attempts retain the earlier result;
+completed numerical values are frozen using the same finalization seam as the CLI.
+The 128 MiB preparation budget is not an optimizer/process memory bound: dense
+Jacobian and finalization arrays add memory. No samples are dropped to fit a budget.

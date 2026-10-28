@@ -30,7 +30,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         welcome.setMargin(40)
         self.setCentralWidget(welcome)
         menu = self.menuBar().addMenu("&File")
-        self._action(
+        self.open_action = self._action(
             menu, "&Open spectrum…", QtGui.QKeySequence.StandardKey.Open, self._open_spectrum
         )
         self.peaks_action = self._action(menu, "Load &peak list…", "", self._open_peaks)
@@ -66,9 +66,13 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self, path: Path, peaks: Path | None = None, plane_values: Path | None = None
     ) -> None:
         """Prepare a replacement before discarding the currently displayed spectrum."""
+        if self.viewer is not None and self.viewer.fit_busy:
+            raise ValueError("Cancel the running fit before replacing the spectrum.")
         spectra = load_spectrum(path, plane_values)
         imported_peaks = load_peaks(peaks, spectra) if peaks is not None else []
-        if not self._protect_edits():
+        if not self._protect_edits() or (
+            self.viewer is not None and not self.viewer.confirm_result_loss("discard")
+        ):
             return
         viewer = SpectrumViewer(spectra)
         viewer.set_peaks(imported_peaks)
@@ -80,6 +84,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self._spectrum_name = path.name
         self._export_path = None
         viewer.edits_changed.connect(self._update_work_state)
+        viewer.fit_state_changed.connect(self._update_fit_state)
         self.edit_menu.clear()
         self.edit_menu.addActions(viewer.edit_actions)
         self.peaks_action.setEnabled(True)
@@ -93,6 +98,8 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         )
 
     def _open_spectrum(self) -> None:
+        if self.viewer is not None and self.viewer.fit_busy:
+            return
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
             "Open NMRPipe spectrum",
@@ -106,7 +113,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
                 self._show_error(exc)
 
     def _open_peaks(self) -> None:
-        if self.viewer is None:
+        if self.viewer is None or self.viewer.fit_busy:
             return
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
@@ -126,7 +133,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
                 self._show_error(exc)
 
     def _open_values(self) -> None:
-        if self.viewer is None:
+        if self.viewer is None or self.viewer.fit_busy:
             return
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load plane values")
         if filename:
@@ -138,6 +145,17 @@ class PeakFitWindow(QtWidgets.QMainWindow):
 
     def _show_error(self, error: Exception) -> None:
         QtWidgets.QMessageBox.warning(self, "PeakFit", str(error))
+
+    def _update_fit_state(self) -> None:
+        busy = self.viewer is not None and self.viewer.fit_busy
+        self.open_action.setEnabled(not busy)
+        self.peaks_action.setEnabled(self.viewer is not None and not busy)
+        self.values_action.setEnabled(self.viewer is not None and not busy)
+        self.statusBar().showMessage(
+            "Local fit running · Cancel in Fit workspace to edit peaks or replace the dataset"
+            if busy
+            else "Local fit stopped · Working peaks unchanged · Fitted results are not saved"
+        )
 
     def _update_work_state(self) -> None:
         if self.viewer is not None:
@@ -189,6 +207,27 @@ class PeakFitWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # noqa: N802
         """Protect coordinates and typed fields before closing the application."""
+        if self.viewer is not None:
+            if (
+                self.viewer.fit_busy
+                and QtWidgets.QMessageBox.question(
+                    self,
+                    "Running local fit",
+                    "Cancel the running fit and close PeakFit?",
+                    QtWidgets.QMessageBox.StandardButton.Yes
+                    | QtWidgets.QMessageBox.StandardButton.Cancel,
+                    QtWidgets.QMessageBox.StandardButton.Cancel,
+                )
+                != QtWidgets.QMessageBox.StandardButton.Yes
+            ):
+                event.ignore()
+                return
+            if self.viewer.fit_busy:
+                # Suppress a completion arriving while an unsaved-edits dialog is open.
+                self.viewer._fit_process.cancel()
+            if not self.viewer.confirm_result_loss("discard"):
+                event.ignore()
+                return
         if self._protect_edits():
             if self.viewer is not None:
                 self.viewer.stop_preparation()

@@ -105,8 +105,7 @@ Select an existing peak, then choose **Fit group…** beside **Inspect** in the
 right-hand workspace. The preview replaces the editor and inspection plots;
 **Back to Inspect** restores them. Valid pending peak fields apply before
 preparation, following the existing editor convention; invalid fields keep the
-editor visible. No optimization, fit results, or coordinate acceptance is available
-in this step.
+editor visible. Preparation does not execute optimization or change peak coordinates.
 
 PeakFit constructs fresh scientific peaks from a snapshot of **all working peaks**,
 resolves the existing lineshape models from NMRPipe processing metadata, estimates
@@ -134,7 +133,7 @@ actionable error: assignment names cannot safely target the generated scientific
 IDs, especially with duplicate assignments. Use the CLI for those configurations;
 CLI constraint handling is unchanged.
 
-The proposed fit is **one isolated local pass across every experimental plane**.
+The local fit is **one isolated pass across every experimental plane**.
 Positions and lineshape parameters are shared across planes; signed amplitudes are
 solved independently per peak and plane, with no amplitude starting controls or
 assumed response law. Models inferred from processing metadata need scientific
@@ -146,7 +145,7 @@ using a local fit; a missing peak or significant external signal needs attention
 Panning, zooming, and plane navigation remain available. Preparing or dismissing a
 preview does not change committed peaks, undo history, source files, or spectrum
 samples. Selecting another member keeps the same prepared group without recomputing it.
-Selecting an outside peak or clearing selection dismisses the preview and returns
+During scope review, selecting an outside peak or clearing selection dismisses the preview and returns
 to Inspect. Peak edits, peak-list replacement, and plane-coordinate changes also
 dismiss it. Snapshots retain working IDs/assignments, spectrum identity and shape,
 spectral metadata, plane coordinates, the effective absolute clustering threshold,
@@ -176,8 +175,9 @@ Qt paths, widgets, and graphics are constructed only on the GUI thread.
 ## Scope and performance
 
 Manual editing changes one shared peak list across all experimental planes.
-Optimization, completed model/residual display, and session persistence are not yet
-implemented. Existing Matplotlib viewers and static plots remain available unchanged.
+Local optimization and numerical result inspection are available. Completed
+model/residual graphics and session persistence are not yet implemented. Existing
+Matplotlib viewers and static plots remain available unchanged.
 
 The viewer keeps the `Spectra` object in memory. Panning and zooming reuse retained
 Qt graphics; raw traces and plane navigation remain available while work is pending.
@@ -204,7 +204,63 @@ viewer and this workspace down to 0.1× noise.
 
 ![Complete low-threshold contours and lightweight fitting scope](images/fit-scope-low-threshold.jpg)
 
-Running work is not forcefully interrupted; it finishes in the background and its
-obsolete result is ignored. Shutdown does not wait in the Qt event loop. The first
-all-plane noise estimate still has substantial temporary memory use. There is no
-fitting execution, process scheduler, or result visualization in this milestone.
+Running preparation/contour work is not forcefully interrupted; it finishes in the
+background and its obsolete result is ignored. Optimization uses a separate,
+terminable process described below. Shutdown does not wait in the Qt event loop.
+The first all-plane noise estimate still has substantial temporary memory use.
+
+## Execute a reviewed local fit
+
+After reviewing the prepared group, choose **Run local fit**. It executes the
+exact sampled data, shape objects, starting values, bounds, and parameter freedom
+shown in the preview. It does not repeat clustering or parameter preparation.
+A scope-only preparation cannot run; the disabled button and **Details…** explain
+why. Configurations with no variable nonlinear parameters are also rejected.
+
+One dedicated spawned process executes the existing VarPro single-cluster engine,
+followed by the existing analytical evaluation and completed-outcome finalization.
+Only the selected cluster and input metadata are transmitted, not the full spectrum.
+The existing preview/contour worker remains independent. Status reports startup,
+running time, completion/failure, and cancellation; it does not invent percentages.
+**Cancel fit** terminates and reaps the numerical process, then restores editing.
+No partial result is retained. Exiting during execution asks before canceling it.
+
+While fitting, zoom, pan, crosshair inspection, plane navigation, and ordinary
+contour controls remain available. Switching Inspect/Fit and selecting another
+peak retain the active fit. Scientific edits, Undo/Redo, peak-list/plane-coordinate
+replacement, and opening another spectrum pause until the fit stops. The instruction
+strip explains this restriction. Contour changes affect rendering only once a fit
+has been submitted; its original fitting threshold and mask remain fixed.
+
+The completed Fit workspace distinguishes **converged**, **usable but not converged**,
+and **unusable** outcomes. It shows the termination message, evaluation counts,
+χ²/reduced χ², observation/parameter counts, and degrees of freedom. The read-only
+table switches between starting/fitted nonlinear parameters (including bounds and
+fixed/variable flags) and independently recovered signed amplitudes for the displayed
+experimental plane. Use the main plane controls to inspect other amplitudes;
+repeated/unordered plane values retain their original plane identities.
+**Details…** retains model assumptions, statistical noise, the submitted threshold,
+warnings, optimizer settings, software/run identity, timings, and child peak memory.
+Convergence is an optimizer termination condition, not proof of scientific adequacy.
+Graphical model/residual comparisons remain deferred to Step 2B.
+
+Working peaks, their undo history, and spectrum samples never change on completion.
+The result separately owns the original input snapshot and stable GUI identities,
+effective starting parameters, sampled data and exact grid indices, frozen nonlinear
+values, amplitudes, model/residual arrays, analytical statistics, diagnostics, and
+copied model geometry. Future visualization/export will not need to repeat fitting.
+Only one completed result is retained. A new fit requires confirmation before
+replacing it; a canceled or failed attempt keeps the previous result, accessible
+through **Show retained result**. **Prepare selected group** starts another review.
+
+**Results are in memory only and cannot yet be saved.** Closing or replacing the
+spectrum requires confirmation before discarding a completed result. Exporting
+working peaks does not export the fit. Later scientific edits mark the retained
+result outdated and remove its current-spectrum scope overlays; numerical inspection
+still uses its original inputs. Obsolete background deliveries never replace it.
+Keeping a result and applying fitted coordinates remain separate operations;
+applying fitted coordinates is not available in this step.
+
+![Local fit running natively on macOS](images/local-fit-running.png)
+
+![Completed numerical result, with unchanged working peaks](images/local-fit-completed.png)

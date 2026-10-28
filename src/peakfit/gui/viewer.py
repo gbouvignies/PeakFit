@@ -16,7 +16,9 @@ from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editing import PeakInspector, PeakMarkers
 from peakfit.gui.fit_preview import FitPreview
+from peakfit.gui.fit_process import FitProcessResult, LocalFitProcess
 from peakfit.gui.fitting import PreparedLocalFit, prepare_local_fit
+from peakfit.gui.local_fit import execution_unavailable
 from peakfit.gui.peaks import PeakEdits
 from peakfit.gui.spectrum import (
     contour_geometry,
@@ -37,8 +39,9 @@ class SpectrumViewer(QtWidgets.QWidget):
     """Inspect unchanged spectrum samples and edit independent working peaks."""
 
     edits_changed = QtCore.Signal()
+    fit_state_changed = QtCore.Signal()
 
-    def __init__(self, spectra: Spectra, parent: QtWidgets.QWidget | None = None) -> None:
+    def __init__(self, spectra: Spectra, parent: QtWidgets.QWidget | None = None) -> None:  # noqa: PLR0915
         super().__init__(parent)
         self.spectra = spectra
         self.plane = 0
@@ -59,12 +62,24 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._fit_revision = 0
         self._contour_revision = 0
         self._closing = False
+        self.fit_result: FitProcessResult | None = None
+        self._scientific_revision = 0
+        self._submitted_revision = 0
+        self._result_revision = 0
+        self._submitted: PreparedLocalFit | None = None
+        self._showing_result = False
+        self._fit_process = LocalFitProcess(self)
+        self._fit_process.changed.connect(self._fit_state_changed)
+        self._fit_process.finished.connect(self._fit_finished)
         self._computation = ViewerComputation(self)
         self._computation.completed.connect(self._computation_finished)
         self._colors = self._palette_colors()
         self._build_ui()
         self._build_edit_actions()
-        self.edits_changed.connect(self.dismiss_fit_preview)
+        self.edits_changed.connect(self._scientific_inputs_changed)
+        self._fit_status_timer = QtCore.QTimer(self)
+        self._fit_status_timer.setInterval(250)
+        self._fit_status_timer.timeout.connect(self._fit_state_changed)
         self._apply_palette()
         self._contour_timer = QtCore.QTimer(self)
         self._contour_timer.setSingleShot(True)
@@ -109,9 +124,11 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def _update_edit_actions(self) -> None:
         pending = self.inspector.pending
-        self.undo_action.setEnabled(self.edits.can_undo and not pending)
-        self.redo_action.setEnabled(self.edits.can_redo and not pending)
-        self.inspector.delete.setEnabled(self.selected_id is not None and not pending)
+        self.undo_action.setEnabled(self.edits.can_undo and not pending and not self.fit_busy)
+        self.redo_action.setEnabled(self.edits.can_redo and not pending and not self.fit_busy)
+        self.inspector.delete.setEnabled(
+            self.selected_id is not None and not pending and not self.fit_busy
+        )
         hint = "Apply inspector edits or press Escape before Undo/Redo/Delete"
         if pending:
             self.inspector.details.setText(hint)
@@ -267,6 +284,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.workspaces.addWidget(self._build_inspection_panels())
         self.fit_preview = FitPreview()
         self.fit_preview.dismissed.connect(self.dismiss_fit_preview)
+        self.fit_preview.run_requested.connect(self.run_local_fit)
+        self.fit_preview.cancel_requested.connect(self._fit_process.cancel)
+        self.fit_preview.prepare_requested.connect(self.preview_fit_group)
+        self.fit_preview.result_requested.connect(self.show_fit_result)
         self.workspaces.addWidget(self.fit_preview)
         self.workspace_tabs.currentChanged.connect(self._workspace_changed)
         right_layout.addWidget(self.workspaces, 1)
@@ -274,12 +295,20 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def _workspace_changed(self, index: int) -> None:
         if index == 1:
-            self.preview_fit_group()
+            if self.fit_busy:
+                self.workspaces.setCurrentIndex(1)
+            elif self.fit_result is not None:
+                self.show_fit_result()
+            else:
+                self.preview_fit_group()
         else:
             self.dismiss_fit_preview()
 
     def preview_fit_group(self) -> None:
         """Snapshot committed peaks and show a local scope without fitting."""
+        if self.fit_busy:
+            return
+        self._showing_result = False
         if self.selected_id is None or not self.apply_pending_fields():
             self.dismiss_fit_preview()
             return
@@ -322,6 +351,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._fit_noise = prepared.noise
         self.fit_preparation = prepared
         self.fit_preview.show_preparation(prepared)
+        self.fit_preview.retained.setVisible(self.fit_result is not None and not self.fit_busy)
         self.fit_mask.setOpacity(1)
         self.fit_members.setOpacity(1)
         rgba = np.zeros((*self.spectra.data.shape[1:], 4), dtype=np.uint8)
@@ -357,6 +387,8 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def _schedule_fit_preview(self) -> None:
         """Debounce threshold drags; an outdated region is not a reviewed input."""
+        if self.fit_busy or self._showing_result:
+            return
         if self.workspaces.currentIndex() != 1:
             return
         if (
@@ -378,6 +410,11 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def dismiss_fit_preview(self) -> None:
         """Drop a preparation when returning to inspection or changing inputs."""
+        if self.fit_busy or self._showing_result:
+            with QtCore.QSignalBlocker(self.workspace_tabs):
+                self.workspace_tabs.setCurrentIndex(0)
+            self.workspaces.setCurrentIndex(0)
+            return
         self._fit_timer.stop()
         self._fit_revision += 1
         self._computation.cancel("fit")
@@ -390,6 +427,127 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.workspaces.setCurrentIndex(0)
         self.workspace_tabs.setTabEnabled(1, self.selected_id is not None)
         self._update_interaction_hint()
+
+    @property
+    def fit_busy(self) -> bool:
+        """Whether scientific edits must wait for the one active fit process."""
+        return self._fit_process.busy
+
+    def _scientific_inputs_changed(self) -> None:
+        self._scientific_revision += 1
+        self._showing_result = False
+        self.dismiss_fit_preview()
+
+    def run_local_fit(self) -> None:
+        """Submit the reviewed preparation, keeping any previous result until success."""
+        prepared = self.fit_preparation
+        if self.fit_busy or prepared is None:
+            return
+        reason = execution_unavailable(prepared)
+        if reason:
+            self.fit_preview.show_status(reason)
+            return
+        if self.fit_result is not None and not self.confirm_result_loss("replace"):
+            return
+        self.cancel_interaction()
+        self._fit_timer.stop()
+        self._fit_revision += 1
+        self._computation.cancel("fit")
+        self._submitted = prepared
+        self._submitted_revision = self._scientific_revision
+        self._showing_result = False
+        self._fit_process.start(prepared)
+        self._fit_status_timer.start()
+
+    def _fit_state_changed(self) -> None:
+        from time import perf_counter  # noqa: PLC0415
+
+        if self._closing:
+            return
+        busy = self.fit_busy
+        if busy:
+            elapsed = perf_counter() - self._fit_process.started_at
+            state = {
+                "starting": "Starting fit process",
+                "running": "Fitting reviewed group",
+                "canceling": "Canceling fit · stopping process",
+            }[self._fit_process.state]
+            self.fit_preview.show_running(f"{state} · {elapsed:.1f} s")
+            self.fit_preview.cancel.setEnabled(self._fit_process.state != "canceling")
+        else:
+            self._fit_status_timer.stop()
+            self.fit_preview.cancel.hide()
+        self.peak_scatter.editable = not busy
+        self._update_interaction_hint()
+        self._update_edit_actions()
+        self.fit_state_changed.emit()
+
+    def _fit_finished(self, generation: int, outcome: object) -> None:
+        if self._closing or generation != self._fit_process.generation:
+            return
+        prepared = self._submitted
+        self._submitted = None
+        if prepared is None:
+            return
+        if self._submitted_revision != self._scientific_revision:
+            self.fit_preview.show_status("Fit outdated · inputs changed; result was rejected")
+        elif isinstance(outcome, FitProcessResult):
+            self.fit_result = outcome
+            self._result_revision = self._submitted_revision
+            self.show_fit_result(activate=False)
+        else:
+            self.fit_preview.show_preparation(prepared)
+            self.fit_preview.status.setText(
+                "Fit canceled · process stopped" if outcome is None else "Fit failed · Details…"
+            )
+            self.fit_preview._details = str(outcome or "Canceled; no partial result retained.")
+            self.fit_preview.status.setToolTip(self.fit_preview._details)
+        self.fit_preview.retained.setVisible(
+            self.fit_result is not None and not self._showing_result
+        )
+        self._update_interaction_hint()
+
+    def show_fit_result(self, *, activate: bool = True) -> None:
+        """Restore retained numerical inspection without changing viewport or peaks."""
+        if self.fit_result is None or self.fit_busy:
+            return
+        self._fit_timer.stop()
+        self._fit_revision += 1
+        self._computation.cancel("fit")
+        previous = self.workspaces.currentIndex()
+        outdated = self._result_revision != self._scientific_revision
+        self._apply_fit_preparation(self.fit_result.scientific.inputs)
+        self._showing_result = True
+        if outdated:
+            self.fit_preparation = None
+            self.fit_mask.hide()
+            self.fit_members.clear()
+        self.fit_preview.show_result(self.fit_result, self.plane, outdated=outdated)
+        self.fit_preview.retained.hide()
+        self.fit_preview.prepare.setEnabled(self.selected_id is not None)
+        if not activate:
+            with QtCore.QSignalBlocker(self.workspace_tabs):
+                self.workspace_tabs.setCurrentIndex(previous)
+            self.workspaces.setCurrentIndex(previous)
+        self._update_interaction_hint()
+
+    def confirm_result_loss(self, action: str) -> bool:
+        """Protect the only retained completed result, which cannot yet be saved."""
+        if self.fit_result is None:
+            return True
+        return (
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Unsaved fitted result",
+                f"The completed fit is retained only in memory and cannot yet be saved. "
+                f"Continue and {action} this result? "
+                "Working peak exports do not include fitted results.",
+                QtWidgets.QMessageBox.StandardButton.Discard
+                | QtWidgets.QMessageBox.StandardButton.Cancel,
+                QtWidgets.QMessageBox.StandardButton.Cancel,
+            )
+            == QtWidgets.QMessageBox.StandardButton.Discard
+        )
 
     def _build_inspection_panels(self) -> QtWidgets.QWidget:
         right = QtWidgets.QWidget()
@@ -562,6 +720,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         if plane == self.plane:
             return
         self.plane = plane
+        self.fit_preview.set_result_plane(plane)
         for control in (self.plane_slider, self.plane_spin):
             with QtCore.QSignalBlocker(control):
                 control.setValue(plane + 1)
@@ -644,6 +803,8 @@ class SpectrumViewer(QtWidgets.QWidget):
     def stop_preparation(self) -> None:
         """Invalidate work without waiting for background computation at shutdown."""
         self._closing = True
+        self._fit_process.close()
+        self._fit_status_timer.stop()
         self._fit_timer.stop()
         self._contour_timer.stop()
         self._computation.close()
@@ -704,8 +865,10 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def set_plane_values(self, values: np.ndarray) -> None:
         """Replace experimental plane coordinates without changing spectral samples."""
+        if self.fit_busy:
+            raise ValueError("Cancel the running fit before changing plane values.")
         validate_plane_values(values, self.spectra.data.shape[0])
-        self.dismiss_fit_preview()
+        self._scientific_inputs_changed()
         self.spectra.z_values = np.array(values, dtype=float, copy=True)
         self.profile.enableAutoRange()
         self._update_slices()
@@ -781,16 +944,29 @@ class SpectrumViewer(QtWidgets.QWidget):
         if (
             peak_id != self.selected_id
             and self.fit_preparation is None
+            and not self.fit_busy
+            and not self._showing_result
             and self.workspaces.currentIndex() == 1
         ):
             self.dismiss_fit_preview()
         peak = next((p for p in self.peaks if p.id == peak_id), None)
         self.selected_id = peak.id if peak else None
-        if self.fit_preparation is not None and not any(
-            member.working_id == self.selected_id for member in self.fit_preparation.identities
+        if (
+            not self.fit_busy
+            and not self._showing_result
+            and self.fit_preparation is not None
+            and not any(
+                member.working_id == self.selected_id for member in self.fit_preparation.identities
+            )
         ):
             self.dismiss_fit_preview()
-        self.workspace_tabs.setTabEnabled(1, peak is not None or self.fit_preparation is not None)
+        self.workspace_tabs.setTabEnabled(
+            1,
+            peak is not None
+            or self.fit_preparation is not None
+            or self.fit_busy
+            or self.fit_result is not None,
+        )
         self.peak_scatter.selected_id = self.selected_id
         position = (
             (
@@ -816,6 +992,9 @@ class SpectrumViewer(QtWidgets.QWidget):
             self._select_position(*position)
 
     def _apply_peak_fields(self, name: str, positions: tuple[float, float]) -> bool:
+        """Commit working values only when no scientific operation owns the inputs."""
+        if self.fit_busy:
+            return False
         if self.selected_id is None:
             return True
         try:
@@ -840,7 +1019,7 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def delete_peak(self) -> None:
         """Delete the selected assignment as one reversible edit."""
-        if self.selected_id is not None and not self.inspector.pending:
+        if not self.fit_busy and self.selected_id is not None and not self.inspector.pending:
             self.peak_scatter.cancel_drag()
             self._drag_peak = None
             self.edits.delete(self.selected_id)
@@ -850,7 +1029,7 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def undo(self) -> None:
         """Undo a committed peak edit only after inspector text is resolved."""
-        if self.inspector.pending:
+        if self.fit_busy or self.inspector.pending:
             return
         self.cancel_interaction()
         self.edits.undo()
@@ -859,7 +1038,7 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def redo(self) -> None:
         """Redo a committed peak edit only after inspector text is resolved."""
-        if self.inspector.pending:
+        if self.fit_busy or self.inspector.pending:
             return
         self.cancel_interaction()
         self.edits.redo()
@@ -873,7 +1052,17 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.start_adding_peak()
 
     def _update_interaction_hint(self) -> None:
-        if self.fit_preparation is not None:
+        if self.fit_busy:
+            text = (
+                "LOCAL FIT RUNNING · Navigation available · Scientific edits pause until fit stops"
+            )
+        elif self._showing_result:
+            text = (
+                "OUTDATED LOCAL FIT RESULT · Numerical values use original inputs · Not saved"
+                if self._result_revision != self._scientific_revision
+                else "LOCAL FIT RESULT · Working peaks unchanged · Result is not saved to disk"
+            )
+        elif self.fit_preparation is not None:
             text = "LOCAL FIT PREVIEW · Amber cells are fitted samples · Rings mark included peaks"
         elif self.workspaces.currentIndex() == 1:
             text = "LOCAL FIT PREVIEW · Use Threshold to review scope · Back to Inspect to edit"
@@ -905,9 +1094,14 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.inspector.apply,
             self.inspector.delete,
         ):
-            field.setEnabled(self.selected_id is not None and not self.adding_peak)
+            field.setEnabled(
+                self.selected_id is not None and not self.adding_peak and not self.fit_busy
+            )
         self.inspector.delete.setEnabled(
-            self.selected_id is not None and not self.adding_peak and not self.inspector.pending
+            self.selected_id is not None
+            and not self.adding_peak
+            and not self.inspector.pending
+            and not self.fit_busy
         )
         self.add_peak_button.setChecked(self.adding_peak)
         self.add_peak_button.setText("Cancel placement" if self.adding_peak else "Add peak…")
@@ -918,10 +1112,12 @@ class SpectrumViewer(QtWidgets.QWidget):
         )
         self.add_action.setChecked(self.adding_peak)
         self.add_action.setText("Cancel peak placement" if self.adding_peak else "Add peak…")
+        self.add_action.setEnabled(not self.fit_busy)
+        self.add_peak_button.setEnabled(not self.fit_busy)
 
     def start_adding_peak(self) -> None:
         """Arm a single placement without a persistent editing mode."""
-        if not self.apply_pending_fields():
+        if self.fit_busy or not self.apply_pending_fields():
             self._update_interaction_hint()
             return
         self.dismiss_fit_preview()
@@ -956,6 +1152,9 @@ class SpectrumViewer(QtWidgets.QWidget):
                 )
 
     def _preview_peak_move(self, dx: float, dy: float, finished: bool) -> None:
+        """Preview a reversible working move while scientific editing is available."""
+        if self.fit_busy:
+            return
         peak = self._drag_peak
         if peak is None:
             if not self.apply_pending_fields():
@@ -982,3 +1181,5 @@ class SpectrumViewer(QtWidgets.QWidget):
             self._drag_peak = None
             self._refresh_peaks()
             self.edits_changed.emit()
+        if self.fit_busy:
+            raise ValueError("Cancel the running fit before replacing working peaks.")

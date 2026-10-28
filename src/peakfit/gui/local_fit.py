@@ -1,6 +1,5 @@
 """Qt-independent execution of an already reviewed, isolated local fit."""
 
-import resource
 import sys
 import warnings
 from copy import deepcopy
@@ -46,7 +45,7 @@ class LocalFitResult:
     optimizer_config: VarProConfig
     warnings: tuple[str, ...]
     execution_seconds: float
-    peak_memory_bytes: int
+    peak_memory_bytes: int | None
     software_version: str
     run_id: str
     completed_at: str
@@ -61,7 +60,7 @@ class LocalFitAttempt:
     optimizer_config: VarProConfig
     warnings: tuple[str, ...]
     execution_seconds: float
-    peak_memory_bytes: int
+    peak_memory_bytes: int | None
 
 
 def execution_unavailable(prepared: PreparedLocalFit) -> str | None:
@@ -113,15 +112,23 @@ def compute_local_fit(prepared: PreparedLocalFit) -> LocalFitAttempt:
             result=result,
             noise=prepared.noise,
         )
-    memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return LocalFitAttempt(
         result,
         evaluation,
         optimizer_config,
         tuple(dict.fromkeys(str(item.message) for item in captured)),
         perf_counter() - started,
-        int(memory if sys.platform == "darwin" else memory * 1024),
+        _peak_memory_bytes(),
     )
+
+
+def _peak_memory_bytes() -> int | None:
+    if sys.platform == "win32":
+        return None
+    import resource  # noqa: PLC0415
+
+    memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return int(memory if sys.platform == "darwin" else memory * 1024)
 
 
 def finish_local_fit(prepared: PreparedLocalFit, attempt: LocalFitAttempt) -> LocalFitResult:
