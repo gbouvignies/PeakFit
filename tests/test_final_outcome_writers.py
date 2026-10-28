@@ -284,3 +284,12 @@ def test_writers_project_all_converged_statistics_and_populations(tmp_path) -> N
     assert "Unusable: 0" in report
     assert "Usable clusters: 2" in report
     assert "Reduced chi2 population: 2" in report
+
+
+def test_shifts_export_uncertainty_separately_from_position(tmp_path) -> None:
+    outcome = _outcome([(11, FitOutcomeClassification.CONVERGED, "converged")])
+    written = _write(outcome, tmp_path)
+    with written["shifts"].open(newline="", encoding="utf-8") as handle:
+        row = next(csv.DictReader(handle))
+    assert float(row["cs_F2_ppm"]) == 11.0
+    assert float(row["cs_F2_err"]) == 0.5

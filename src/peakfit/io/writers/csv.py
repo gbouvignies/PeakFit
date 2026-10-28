@@ -171,7 +171,7 @@ def write_final_outcome_shifts(
                     **{
                         column: shifts.get(column.removeprefix("cs_").removesuffix("_ppm"), "")
                         if column.endswith("_ppm")
-                        else shifts.get(column.removeprefix("cs_").removesuffix("_err"), "")
+                        else shifts.get(column.removeprefix("cs_"), "")
                         for dimension in dimensions
                         for column in (f"cs_{dimension}_ppm", f"cs_{dimension}_err")
                     },
