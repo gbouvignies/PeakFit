@@ -17,6 +17,7 @@ class FitPreview(QtWidgets.QWidget):
     cancel_requested = QtCore.Signal()
     prepare_requested = QtCore.Signal()
     result_requested = QtCore.Signal()
+    apply_positions_requested = QtCore.Signal()
 
     def __init__(self) -> None:  # noqa: PLR0915
         super().__init__()
@@ -52,13 +53,17 @@ class FitPreview(QtWidgets.QWidget):
         self.cancel = QtWidgets.QPushButton("Cancel fit")
         self.cancel.hide()
         self.cancel.clicked.connect(self.cancel_requested)
-        self.prepare = QtWidgets.QPushButton("New preparation")
+        self.prepare = QtWidgets.QPushButton("Prepare again")
         self.prepare.hide()
         self.prepare.clicked.connect(self.prepare_requested)
         self.retained = QtWidgets.QPushButton("Retained result")
         self.retained.hide()
         self.retained.clicked.connect(self.result_requested)
-        for button in (self.run, self.cancel, self.prepare, self.retained):
+        self.apply_positions = QtWidgets.QPushButton("Apply fitted positions")
+        self.apply_positions.setMinimumWidth(self.apply_positions.sizeHint().width())
+        self.apply_positions.hide()
+        self.apply_positions.clicked.connect(self.apply_positions_requested)
+        for button in (self.run, self.cancel, self.prepare, self.retained, self.apply_positions):
             actions.addWidget(button)
         self.details = QtWidgets.QPushButton("Details")
         self.details.setCheckable(True)
@@ -124,6 +129,7 @@ class FitPreview(QtWidgets.QWidget):
         from peakfit.gui.local_fit import execution_unavailable  # noqa: PLC0415
 
         self._result = None
+        self.apply_positions.hide()
         self.assumptions.show()
         self.members.setFixedHeight(80)
         assignments = [item.assignment for item in prepared.identities]
@@ -223,6 +229,7 @@ class FitPreview(QtWidgets.QWidget):
     def show_status(self, message: str, *, clear: bool = False) -> None:
         """Use reserved status space; retain the previous scope while updating."""
         self._details = message
+        self.apply_positions.hide()
         self.diagnostics.setPlainText(message)
         self.status.setText("Scope unavailable · Details…" if clear else message)
         self.status.setToolTip(message)
@@ -239,6 +246,7 @@ class FitPreview(QtWidgets.QWidget):
     def show_running(self, message: str) -> None:
         """Keep the submitted scope readable and provide real cancellation."""
         self.status.setText(message)
+        self.apply_positions.hide()
         self.run.hide()
         self.cancel.show()
         self.prepare.hide()
@@ -262,7 +270,7 @@ class FitPreview(QtWidgets.QWidget):
             "unusable": "Unusable result",
         }[outcome.classification.value]
 
-        self.status.setText("Outdated · working inputs changed" if outdated else label)
+        self.status.setText("Outdated · comparison hidden" if outdated else label)
         evaluation = outcome.analytical_evaluation
         if evaluation is not None:
             stats = evaluation.statistics
@@ -284,10 +292,17 @@ class FitPreview(QtWidgets.QWidget):
         self.run.hide()
         self.cancel.hide()
         self.prepare.show()
+        self.apply_positions.show()
         self.parameters.setEnabled(True)
         self.note.setText(
             "Positions: unfolded ppm. Linewidths: Hz (unapodized FWHM for processing-aware "
-            "models). Working peaks are unchanged."
+            "models). "
+            + (
+                "Working inputs changed; comparison graphics are hidden. "
+                "Original fit retained for inspection and export."
+                if outdated
+                else "Apply fitted positions explicitly to update working peaks."
+            )
         )
         memory = result.scientific.peak_memory_bytes
         memory_label = f"{memory / 1024**2:.1f} MiB" if memory is not None else "unavailable"
@@ -307,7 +322,12 @@ class FitPreview(QtWidgets.QWidget):
             f"Run: {result.scientific.run_id}\nCompleted: {result.scientific.completed_at}\n"
             + "\n".join(result.scientific.warnings)
         )
-        self.status.setToolTip(self._details)
+        self.status.setToolTip(
+            "Working inputs changed; comparison graphics are hidden. Original fit retained for "
+            "inspection and export.\n" + self._details
+            if outdated
+            else self._details
+        )
         self.diagnostics.setPlainText(self._details)
         self._result_table()
 

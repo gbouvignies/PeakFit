@@ -423,3 +423,40 @@ import-linter, all-file prek hooks and wheel/sdist build passed. The existing
 uv-build version-bound warning remains. GitHub CI supplies Linux validation;
 Windows compatibility is assessed by the documented rename contract and focused
 Windows-style destination-refusal tests, not a native Windows run.
+
+### Step 2D: applying fitted positions
+
+The Fit workspace's **Apply fitted positions** confirms changed peaks and their
+indirect/direct ppm values, then commits the group through the existing peak-edit
+history. `gui.fit_positions` validates retained `FinalFitOutcome` chemical shifts
+using the engine-to-working-ID mapping and retained spectral axis order. It rejects
+incomplete/ambiguous mappings, invalid coordinates, unusable outcomes and changed
+working inputs. Fixed coordinates come from the same final outcome. This path does
+not optimize, evaluate the model, or rewrite retained scientific quantities.
+
+`tests/test_gui_fit_positions.py` protects duplicate assignments, custom axis labels
+in reversed lexical order, unfolded indirect shifts, fixed positions/no-op updates,
+atomic multi-peak undo/redo, unaffected records, invalid-coordinate rejection,
+current-input/running-fit guards, confirmation cancellation/revalidation, unchanged
+selection/viewport, and independent result/peak saved states. Scientific JSON,
+provenance JSON and amplitude CSV exports are byte-identical before and after Apply.
+The conservative revision guard keeps the retained result outdated after Undo/Redo;
+a new fit is required for a current comparison.
+
+Native macOS Cocoa validation on 2026-10-28 used the bundled experimental
+`pseudo3d.ft2`, `pseudo3d.list` and `b1_offsets.txt`. The real spawned fit selected
+12N-H / 1002N-H / 1011N-H: three overlapping peaks, 75 samples per plane, all 131
+planes, reduced χ² 1.362192. A disposable Qt harness clicked the actual Apply action
+and native confirmation, checked one Undo/Redo for all three peaks, retained result
+identity, modified working state, hidden stale comparison, unchanged selection and
+spectrum viewport, then moved the crosshair and selected plane 31. Native widget
+captures were inspected at 1360 × 845 and 1000 × 720; the confirmation is reproduced
+in the [GUI guide](gui.md#apply-fitted-positions). A clipped button label found in
+this check was corrected before final verification. Twenty focused position/history
+tests also passed on Cocoa. These checks use Qt input on a real native backend;
+they do not claim a separate human usability study.
+
+Final verification: 262 tests passed with offscreen Qt/Agg; Ruff, formatting, ty,
+import-linter, all-file prek hooks, and wheel/sdist build passed. The existing
+uv-build version-bound warning remains. `graphify update .` refreshed the local
+AST graph. No public API or file-format compatibility break was introduced.

@@ -5,7 +5,11 @@ import math
 from dataclasses import dataclass, replace
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import TYPE_CHECKING
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 _SPECTRAL_DIMENSIONS = 2
 
@@ -90,6 +94,17 @@ class PeakEdits:
     def delete(self, peak_id: str) -> None:
         """Delete by identity, preserving assignments of coincident peaks."""
         self._commit(tuple(p for p in self.peaks if p.id != peak_id))
+
+    def update_positions(self, positions: Mapping[str, tuple[float, float]]) -> None:
+        """Validate an entire group before committing one position-only history entry."""
+        ids = [peak.id for peak in self.peaks]
+        if len(set(ids)) != len(ids) or not positions.keys() <= set(ids):
+            raise ValueError("Position updates require unique, existing working peak IDs.")
+        updated = tuple(
+            replace(peak, positions=positions[peak.id]) if peak.id in positions else peak
+            for peak in self.peaks
+        )
+        self._commit(updated)
 
     def undo(self) -> None:
         """Restore the previous committed collection."""

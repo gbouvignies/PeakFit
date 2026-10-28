@@ -282,7 +282,7 @@ values, amplitudes, model/residual arrays, analytical statistics, diagnostics, a
 copied model geometry. Graphical comparison never repeats fitting.
 Only one completed result is retained. A new fit requires confirmation before
 replacing it; a canceled or failed attempt keeps the previous result, accessible
-through **Retained result**. **New preparation** starts another review.
+through **Retained result**. **Prepare again** starts another review.
 
 Choose **File → Export fit results…** and select a parent directory. PeakFit writes
 `local-fit-<run_id>/` containing canonical JSON 4.0.0, CSV tables and a local-fit
@@ -304,8 +304,38 @@ current-spectrum scope overlays. Numerical inspection and export still use its
 original scientific inputs, which the export companion records explicitly.
 Obsolete background deliveries never replace it. Export is scientific output, not
 an editable GUI session; reopening exported results in the GUI is not available.
-Keeping a result and applying fitted coordinates remain separate operations;
-applying fitted coordinates is not available in this step.
+
+### Apply fitted positions
+
+After reviewing a numerically usable result, choose **Apply fitted positions** in
+its Fit workspace. The confirmation shows the number of changed peaks and a compact
+preview of indirect/direct ppm changes; **Show Details…** lists the whole group.
+Cancel leaves working peaks untouched. No coordinates change automatically on fit
+completion or scientific export.
+
+Apply copies only the retained final chemical shifts, including fixed coordinates,
+using engine identifiers mapped to stable working peak IDs. Duplicate assignments
+remain distinct. Coordinate order follows the spectral axes, preserving unfolded
+indirect shifts and existing aliasing. Missing, ambiguous, nonfinite, out-of-bounds,
+or invalid direct-axis coordinates reject the entire operation. No parameters are
+recalculated; linewidths and amplitudes are never applied to the working list.
+
+One Apply is one **Undo peak edit** step; **Redo peak edit** restores the entire
+group. Other peaks, assignments, ordering and selection stay unchanged. If every
+position already matches, PeakFit explains that no edit was made and adds no undo
+entry. Applying marks the working peak list modified; use **Export peaks…** to save
+it independently of scientific results.
+
+Apply requires unchanged scientific inputs and is unavailable during fitting or
+with pending inspector edits. After applying, the header says **Outdated · comparison
+hidden**: working inputs changed, so model/residual graphics and fitting-sample
+overlays are hidden. The original fit, provenance, fitted quantities, and successful
+export status remain intact. An unexported result can still be exported from
+**File → Export fit results…**. Undo/Redo restores working coordinates without
+reclassifying the retained fit as a new fit; prepare and run again for a current
+comparison.
+
+![Native confirmation for applying three fitted positions](images/apply-fitted-positions.png)
 
 ![Local fit running natively on macOS](images/local-fit-running.png)
 
