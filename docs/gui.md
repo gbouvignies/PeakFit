@@ -205,8 +205,7 @@ Qt paths, widgets, and graphics are constructed only on the GUI thread.
 ## Scope and performance
 
 Manual editing changes one shared peak list across all experimental planes.
-Local optimization and numerical result inspection are available. Completed
-model/residual graphics and session persistence are not yet implemented. Existing
+Local optimization and numerical result inspection are available. Completed local fits can be compared graphically; session persistence is not yet implemented. Existing
 Matplotlib viewers and static plots remain available unchanged.
 
 The viewer keeps the `Spectra` object in memory. Panning and zooming reuse retained
@@ -274,13 +273,13 @@ experimental plane. Use the main plane controls to inspect other amplitudes;
 repeated/unordered plane values retain their original plane identities.
 **Details** retains model assumptions, statistical noise, the submitted threshold,
 warnings, optimizer settings, software/run identity, timings, and child peak memory.
-Graphical model/residual comparisons remain deferred to Step 2B-2.
+Use the graphical comparison described below to assess fit quality.
 
 Working peaks, their undo history, and spectrum samples never change on completion.
 The result separately owns the original input snapshot and stable GUI identities,
 effective starting parameters, sampled data and exact grid indices, frozen nonlinear
 values, amplitudes, model/residual arrays, analytical statistics, diagnostics, and
-copied model geometry. Future visualization/export will not need to repeat fitting.
+copied model geometry. Graphical comparison never repeats fitting.
 Only one completed result is retained. A new fit requires confirmation before
 replacing it; a canceled or failed attempt keeps the previous result, accessible
 through **Retained result**. **New preparation** starts another review.
@@ -296,17 +295,58 @@ applying fitted coordinates is not available in this step.
 
 ![Local fit running natively on macOS](images/local-fit-running.png)
 
-![Completed numerical result with persistent experimental plots](images/local-fit-completed.png)
+## Comparing a completed local fit
 
-[Small light window](images/local-fit-completed-small.png) ·
-[Small dark window](images/local-fit-completed-dark.png) ·
-[On-demand numerical details](images/local-fit-details.png).
+A usable completed fit opens **Overlay** in the existing spectrum title band.
+**Experiment** restores the experimental view; **Residual** shows only the actual
+fitted-sample errors, with faint experimental contours for orientation. Changing
+mode preserves the spectrum viewport and the three inspection plots.
 
-## Next visualization step
+Purple contours show the **local group contribution**, at the same absolute
+positive/negative contour levels as the experiment. They do not simulate other
+groups. Solid (negative: dashed) fragments lie in sampled native cells; dotted
+(negative: dash-dot) fragments are predictions outside that support. The short
+legend and selector tooltip explain this distinction. Open **Contours** and check
+**Show exact fitting samples** for the original amber mask; it is off by default.
+Changing display thresholds never changes the retained fit's inputs.
 
-This layout leaves the main-spectrum area available for an Experiment / Overlay /
-Residual selector. No model projection or model/residual graphics are implemented
-here. Future local-model contours should evaluate retained scientific lineshapes and
-amplitudes on a bounded display grid: irregular fitted masks can be too sparse for
-useful contours. Predictions outside the fitted samples must be distinguished;
-initial residual assessment remains restricted to the actual fitted samples.
+Smooth model contours evaluate the retained scientific lineshapes and signed
+amplitudes on a bounded fractional grid. Bounds start at the sampled region plus
+six fitted linewidths and double until visible tails no longer cross the boundary,
+or the loaded spectral edge is reached. **Edge clipped** warns when visible model
+tails still reach that edge. There is no wrapping of graphical paths across aliases.
+Narrow lines receive additional near-center samples. These contours are display
+predictions, not additional observations or an uncertainty estimate.
+
+F3/F2 traces follow the same crosshair and native ppm coordinates as experiment,
+with common intensity units and scales. Purple points/solid lines identify fitted
+cells; dotted lines identify predictions. The scientific model is explicitly
+evaluated along the native rows/columns, including tails outside the 2D grid.
+Undefined residual samples stay absent; lines never bridge fitting-mask gaps.
+
+The plane-profile selector distinguishes **Crosshair intensity** (experimental
+circles and calculated total-group triangles) from each peak's **Amplitude**.
+Amplitudes have their own signed scale and replace the intensity points. Profiles
+keep the original plane order and use unconnected points, including repeated or
+unordered plane values. Clicking a point navigates to its original plane.
+
+**Residual** uses experimental minus local-model intensities at exact fitted
+samples, divided by the retained statistical noise. The raster has a fixed
+blue/neutral/red scale saturated at −3/+3 σ; neutral cells remain visible, and
+unsampled cells are transparent. There is no residual interpolation. The traces
+and coordinate profile show residual points in σ units; an unsampled crosshair
+explicitly reports **No fitted sample at crosshair**. Neighboring unmodeled signals
+may remain. Residual structure matters even when the optimizer converged.
+
+Scientific edits remove comparison graphics immediately. Retained outdated results
+remain numerically inspectable, but cannot restore current-spectrum model graphics.
+Plane changes hide mismatched graphics until the current experimental/model pair
+is ready. Existing editing, cancellation and unsaved-result guards still apply.
+
+![Experimental and fitted local-group contours and traces](images/local-fit-overlay.png)
+
+![Exact fitted-sample residuals](images/local-fit-residual.png)
+
+[Compact dark residual view](images/local-fit-residual-dark.png) ·
+[Compact dark overlay](images/local-fit-overlay-dark.png) ·
+[Separate signed peak amplitude](images/local-fit-amplitude.png).

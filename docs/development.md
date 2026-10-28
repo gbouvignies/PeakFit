@@ -306,3 +306,64 @@ and small light/dark views. macOS window capture omitted the transient popup, so
 the settings-open images composite the actual Qt window and popup grabs at their
 actual on-screen positions.
 The final full offscreen suite passed all 233 tests; no test functions were added.
+
+### Step 2B-2: completed-fit comparison
+
+Native Cocoa validation on macOS arm64 used the bundled 131-plane spectrum and
+12N-H / 1002N-H / 1011N-H fit: three overlapping peaks, 75 irregular samples per
+plane, reduced χ² 1.362. Light/dark inspection covered Overlay, Experiment,
+Residual, signed-amplitude profiles, crosshair movement inside/outside the mask,
+plane 25 and rapid stepping through planes 25–31, threshold 5 down to 0.1 times
+noise, the contour popup, and Inspect/Fit restoration. Spectrum/inspection-plot
+geometry stayed fixed between comparison modes and during pending updates at
+1360 × 845 and 1000 × 720. Images in the GUI guide are actual native Qt widget
+captures; transient popup captures were inspected separately because macOS
+screen capture/accessibility intermittently omits that window.
+
+A temporary read-only timing harness recorded background request/operation times,
+Qt path setup, viewport Paint-to-next-event-loop timing, retained cache payloads,
+and process peak RSS. These are observations from this machine, not performance
+assertions or a new benchmark suite:
+
+| Operation | Observed time/payload |
+| --- | --- |
+| Default local grid and model contours (156 × 160) | 24 ms worker, 10 ms initial Qt setup |
+| Native F3/F2 rows across all 131 planes | 3 ms worker, 1–4 ms Qt curve setup |
+| Dense 0.1× experimental contours, rapid plane stepping | 103 ms extraction, 37 ms Qt setup |
+| Latest dense contour request, queue plus extraction | 141 ms |
+| Low-threshold model plane and paths (315 × 609) | approximately 64–113 ms worker |
+| Cached model/curve Qt updates | approximately 0.3–3 ms |
+| Ordinary viewport paint plus event-queue delay | approximately 5–28 ms; occasional 49–60 ms |
+| Initial comparison caches (model + slices) | 0.23 + 1.60 MiB |
+| After threshold/plane/crosshair exploration | 6.77 + 3.21 MiB |
+| Process peak RSS after preparation and after exploration | approximately 974 MiB in both cases |
+
+Native window capture/PNG encoding itself took 60–267 ms and also raised observed
+Paint-to-next-loop timings; those capture events are excluded from the ordinary
+painting range above. Peak RSS includes the loaded spectrum, preparation and Qt;
+it is not an estimate of projection-only memory. Larger groups/plane counts will
+cost more and have not been exhaustively benchmarked. Each comparison cache is
+limited to eight entries and 16 MiB of numeric payload; active graphics/current
+arrays and Qt path memory are additional. Native-row arrays scale with trace
+length times plane count, never the whole spectral cube.
+
+The existing ContourPy/retained Qt-path approach remains: measured extraction and
+painting did not justify a new dependency or rendering rewrite. Experimental
+requests have priority over pending model work; fresh-plane projection waits until
+experimental contour replacement has been applied. Model grids cancel between
+4096-point chunks; all-plane trace work cancels between 256-coordinate chunks.
+Recent coordinates/planes are cached; changes to spacing/count reuse a suitable
+retained grid. Revision checks reject late results. A plane change hides old
+experiment/model pairs while the new pair is pending, without moving the viewport.
+
+The two existing local-execution scenarios now cover projection equivalence,
+signed amplitudes, repeated/unordered plane identities, aliases, irregular-mask
+NaNs, clipping-warning refresh, mask visibility, comparison modes, rapid plane
+changes/late delivery rejection, and outdated graphics. No new test functions,
+optimization path, result persistence, or dependencies were introduced.
+
+Verification: full offscreen suite 233 passed; final native Cocoa GUI scenarios
+10 passed; final targeted offscreen GUI scenarios 10 passed and scientific
+simulation scenarios 13 passed. Ruff, formatting, strict ty, import-linter and all
+pre-commit hooks pass. Wheel/sdist build succeeds with the existing uv-build
+version-range warning (installed 0.12.23 versus declared <0.12).
