@@ -222,7 +222,15 @@ class SpectrumViewer(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
         )
         self.interaction_hint.setAutoFillBackground(True)
-        left_layout.addWidget(self.interaction_hint)
+        header = QtWidgets.QHBoxLayout()
+        self.spectrum_status = QtWidgets.QStackedWidget()
+        self.spectrum_status.setFixedHeight(self.interaction_hint.height())
+        self.spectrum_status.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+        )
+        self.spectrum_status.addWidget(self.interaction_hint)
+        header.addWidget(self.spectrum_status, 1)
+        left_layout.addLayout(header)
         left_layout.addWidget(self.spectrum_plot, 1)
         self.cross_x = pg.InfiniteLine(angle=90, movable=True, pen=pg.mkPen("#a65e00"))
         self.cross_y = pg.InfiniteLine(angle=0, movable=True, pen=pg.mkPen("#a65e00"))
@@ -246,7 +254,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.spectrum_plot.addItem(self.selection_marker)
         self._build_fit_overlay()
         self._build_plane_controls(left_layout)
-        self._build_contour_controls(left_layout)
+        self._build_contour_controls(header)
         splitter.addWidget(left)
 
         right = self._build_workspaces()
@@ -400,7 +408,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         with QtCore.QSignalBlocker(self.workspace_tabs):
             self.workspace_tabs.setCurrentIndex(1)
         self.workspaces.setCurrentIndex(1)
-        self.interaction_hint.setText("Amber cells: exact fitting samples · Rings: group members")
+        self._update_interaction_hint()
 
     def _schedule_fit_preview(self) -> None:
         """Debounce threshold drags; an outdated region is not a reviewed input."""
@@ -634,7 +642,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         row.addWidget(self.plane_label)
         layout.addLayout(row)
 
-    def _build_contour_controls(self, layout: QtWidgets.QVBoxLayout) -> None:  # noqa: PLR0915
+    def _build_contour_controls(self, layout: QtWidgets.QHBoxLayout) -> None:  # noqa: PLR0915
         self.contour_button = QtWidgets.QToolButton()
         self.contour_button.setText("Contours…")
         self.contour_popup = QtWidgets.QDialog(self, QtCore.Qt.WindowType.Popup)
@@ -698,7 +706,8 @@ class SpectrumViewer(QtWidgets.QWidget):
                 grid.addWidget(control, row, 2)
         grid.setColumnStretch(1, 1)
         self._sync_contour_sliders()
-        reset = QtWidgets.QPushButton("Reset view")
+        reset = QtWidgets.QPushButton("Reset")
+        reset.setToolTip("Reset the spectrum to its full extent")
         reset.clicked.connect(self.reset_view)
         controls = QtWidgets.QHBoxLayout()
         label = QtWidgets.QLabel("&Threshold")
@@ -706,7 +715,6 @@ class SpectrumViewer(QtWidgets.QWidget):
         controls.addWidget(label)
         controls.addWidget(self.threshold)
         controls.addWidget(self.contour_button)
-        controls.addStretch()
         controls.addWidget(reset)
         layout.addLayout(controls)
         self.contour_status = QtWidgets.QLabel()
@@ -714,7 +722,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.contour_status.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
         )
-        layout.addWidget(self.contour_status)
+        self.spectrum_status.addWidget(self.contour_status)
 
     def _show_contour_controls(self) -> None:
         """Anchor transient controls without changing the spectrum layout."""
@@ -778,6 +786,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._contour_revision += 1
         self._computation.cancel("contours")
         self.contour_status.setText("Updating contours…")
+        self.spectrum_status.setCurrentIndex(1)
         self.contour_status.setToolTip(
             "Previous contours remain visible until the new set is ready."
         )
@@ -827,6 +836,7 @@ class SpectrumViewer(QtWidgets.QWidget):
                 )
                 item.setPath(paths[index])
         self.contour_status.clear()
+        self.spectrum_status.setCurrentIndex(0)
         self.contour_status.setToolTip("")
 
     @QtCore.Slot(str, int, object)
@@ -842,6 +852,7 @@ class SpectrumViewer(QtWidgets.QWidget):
                 self._apply_fit_preparation(cast("PreparedLocalFit", outcome))
         elif kind == "contours" and revision == self._contour_revision:
             if isinstance(outcome, Exception):
+                self.spectrum_status.setCurrentIndex(1)
                 self.contour_status.setText("Contour update failed · hover for details")
                 self.contour_status.setToolTip(str(outcome))
             else:
@@ -1121,7 +1132,8 @@ class SpectrumViewer(QtWidgets.QWidget):
             text = "Drag selected peak to move · Edit fields at right · Fit previews fitting scope"
         else:
             text = "Click a peak to select · Drag background to pan · Scroll to zoom"
-        self.interaction_hint.setText(text)
+        self.interaction_hint.setText(text.split(" · ", 1)[0])
+        self.interaction_hint.setToolTip(text)
         self.interaction_hint.setBackgroundRole(
             QtGui.QPalette.ColorRole.Highlight
             if self.adding_peak

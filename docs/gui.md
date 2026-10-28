@@ -20,7 +20,7 @@ is also available.
 
 ## Navigation
 
-- Drag the spectrum to pan; scroll to zoom about the pointer. **Reset view** or
+- Drag the spectrum to pan; scroll to zoom about the pointer. **Reset** or
   **Ctrl+0** restores the full spectral range.
 - Click to place the crosshair, or drag either crosshair line. It snaps to sampled
   points so the two orthogonal traces and raw plane profile inspect the same data.
@@ -102,8 +102,11 @@ are newly allocated on import; they are not scientific parameter identifiers.
 
 ## Compact contour controls
 
-Plane navigation and the precise numerical **Threshold** remain visible below the
-spectrum. **Contours…** opens an anchored popup containing the logarithmic threshold
+Plane navigation remains below the spectrum. The precise numerical **Threshold**,
+**Contours…**, and **Reset** share the spectrum header, freeing the space beneath
+the 2D plot. The header shows a short interaction hint; hover for the complete
+instruction. Contour-update status temporarily uses that same space.
+**Contours…** opens an anchored popup containing the logarithmic threshold
 slider, spacing slider/value, and level-count slider/value. Arrow keys adjust the
 focused slider; Tab moves between controls; Escape or clicking outside closes the
 popup. Changes update the display immediately through the existing debounced worker.

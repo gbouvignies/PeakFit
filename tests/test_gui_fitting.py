@@ -130,6 +130,9 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
 
     positions = plot_positions()
     spectrum_geometry = viewer.spectrum_plot.geometry()
+    assert viewer.threshold.mapTo(viewer, QtCore.QPoint()).y() < (
+        viewer.spectrum_plot.mapTo(viewer, QtCore.QPoint()).y()
+    )
     # Contour controls are transient, precise and keyboard accessible; opening them
     # never reflows either the spectrum or inspection plots.
     QtTest.QTest.mouseClick(viewer.contour_button, QtCore.Qt.MouseButton.LeftButton)

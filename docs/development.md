@@ -279,3 +279,11 @@ suite: 233 passed. The native scenarios include real subprocess cancellation,
 stale delivery, unsaved-result guards, manual editing/history/export, and the
 complete dense low-threshold contours. Ruff, formatting, strict ty and import-linter
 pass. No new test functions or dependencies were added.
+
+The follow-up header placement moves Threshold, Contours and Reset above the 2D
+plot, using the existing hint row. Contour progress shares that row; full hints
+remain available on hover. Only plane navigation remains below the spectrum.
+At 1000 × 720 content size the 2D plot height increased from 487 to 559 pixels,
+while the three inspection plots kept their original positions and sizes. Native
+light/dark captures were refreshed; the existing preparation scenario also checks
+that the threshold is above the spectrum.
