@@ -104,3 +104,12 @@ combined contributions from the verified final snapshot and retained amplitudes.
 The existing full-grid simulation delegates to this same path. Shape evaluation
 is chunked; callers bound their output region. No optimization, amplitude solve,
 or parameter-default preparation takes place during visualization.
+
+
+Local GUI fit export reuses `io.writers.orchestrator.write_fit_outputs` directly
+from the retained `LocalFitResult.outcome`; `gui.fit_export` stages and validates
+the canonical artifacts and adds the scope/identity companion documented in
+[outputs](outputs.md#gui-local-fit-export). `gui.export_dialog` owns only directory
+selection and a short-lived background export thread. The viewer records export
+status by completed run identity independently of working peak edits. No persisted
+GUI session or numerical continuation state is constructed.

@@ -1,5 +1,8 @@
 """Spectrum loading and display geometry for the desktop viewer."""
 
+import hashlib
+import json
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, cast
 
 import contourpy
@@ -19,6 +22,24 @@ if TYPE_CHECKING:
 
 _SPECTRAL_DIMENSIONS = 2
 _MIN_AXIS_POINTS = 2
+
+
+@contextmanager
+def verified_source_files(paths: dict[str, Path]):
+    """Record import paths/checksums only if files stay identical through reading."""
+
+    def records() -> dict[str, str]:
+        result = {}
+        for role, path in paths.items():
+            with path.open("rb") as handle:
+                digest = hashlib.file_digest(handle, "sha256").hexdigest()
+            result[role] = json.dumps({"path": str(path.resolve()), "checksum_sha256": digest})
+        return result
+
+    before = records()
+    yield tuple(before.items())
+    if before != records():
+        raise ValueError("An input file changed while loading. Load the inputs again.")
 
 
 def load_spectrum(path: Path, plane_values: Path | None = None) -> Spectra:

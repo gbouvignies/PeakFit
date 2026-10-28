@@ -16,6 +16,7 @@ from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.comparison import FitComparison
 from peakfit.gui.editing import PeakInspector, PeakMarkers
+from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.fit_preview import FitPreview
 from peakfit.gui.fit_process import FitProcessResult, LocalFitProcess
 from peakfit.gui.fitting import PreparedLocalFit, prepare_local_fit
@@ -63,6 +64,9 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._fit_revision = 0
         self._contour_revision = 0
         self._closing = False
+        self.source_files: tuple[tuple[str, str], ...] = ()
+        self.exported_result_id: str | None = None
+        self._exporting = False
         self.fit_result: FitProcessResult | None = None
         self._scientific_revision = 0
         self._submitted_revision = 0
@@ -361,12 +365,16 @@ class SpectrumViewer(QtWidgets.QWidget):
             }
         )
         peaks, source_id = self.peaks, id(self.spectra)
+        source_files = self.source_files
         config = PeakFitConfig(noise_level=self._fit_noise)
         threshold = self.lowest_contour_level
 
         def prepare() -> PreparedLocalFit:
             result = prepare_local_fit(spectra, peaks, selected_id, config, contour_level=threshold)
-            return replace(result, snapshot=replace(result.snapshot, spectrum_id=source_id))
+            return replace(
+                result,
+                snapshot=replace(result.snapshot, spectrum_id=source_id, source_files=source_files),
+            )
 
         self._computation.submit("fit", revision, prepare)
 
@@ -464,7 +472,7 @@ class SpectrumViewer(QtWidgets.QWidget):
     def run_local_fit(self) -> None:
         """Submit the reviewed preparation, keeping any previous result until success."""
         prepared = self.fit_preparation
-        if self.fit_busy or prepared is None:
+        if self.fit_busy or self._exporting or prepared is None:
             return
         reason = execution_unavailable(prepared)
         if reason:
@@ -516,7 +524,9 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.fit_preview.show_status("Fit outdated · inputs changed; result was rejected")
         elif isinstance(outcome, FitProcessResult):
             self.fit_result = outcome
+            self.exported_result_id = None
             self.result_notice.setText("Fit result in memory · Not saved")
+            self.result_notice.setToolTip("")
             self._result_revision = self._submitted_revision
             self.show_fit_result(activate=False)
         else:
@@ -530,6 +540,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.fit_result is not None and not self._showing_result
         )
         self._update_interaction_hint()
+        self.fit_state_changed.emit()
 
     def show_fit_result(self, *, activate: bool = True) -> None:
         """Restore retained numerical inspection without changing viewport or peaks."""
@@ -556,23 +567,81 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.workspaces.setCurrentIndex(previous)
         self._update_interaction_hint()
 
-    def confirm_result_loss(self, action: str) -> bool:
-        """Protect the only retained completed result, which cannot yet be saved."""
-        if self.fit_result is None:
-            return True
+    @property
+    def result_exported(self) -> bool:
+        """Whether the exact currently retained scientific result was exported."""
         return (
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Unsaved fitted result",
-                f"The completed fit is retained only in memory and cannot yet be saved. "
-                f"Continue and {action} this result? "
-                "Working peak exports do not include fitted results.",
-                QtWidgets.QMessageBox.StandardButton.Discard
-                | QtWidgets.QMessageBox.StandardButton.Cancel,
-                QtWidgets.QMessageBox.StandardButton.Cancel,
-            )
-            == QtWidgets.QMessageBox.StandardButton.Discard
+            self.fit_result is not None
+            and self.exported_result_id == self.fit_result.scientific.run_id
         )
+
+    def export_fit_results(self) -> bool:
+        """Export original completed inputs, leaving working edits and comparison intact."""
+        if self.fit_result is None or self._exporting:
+            return False
+        result = self.fit_result.scientific
+        self._exporting = True
+        try:
+            destination = choose_and_export(self, result)
+        finally:
+            self._exporting = False
+        if destination is None:
+            return False
+        # A running fit can complete while a close/export dialog processes Qt events.
+        if self.fit_result is not None and self.fit_result.scientific.run_id == result.run_id:
+            self.exported_result_id = result.run_id
+            self.result_notice.setText("Fit results exported")
+            self.result_notice.setToolTip(str(destination))
+        QtWidgets.QMessageBox.information(
+            self,
+            "Fit results exported",
+            f"Exported completed fit to:\n{destination}\n\n"
+            + (
+                "This outdated result belongs to its original scientific inputs."
+                if self._result_revision != self._scientific_revision
+                else "Scientific results exported; working peaks are unchanged."
+            ),
+        )
+        return True
+
+    def _result_loss_choice(self, action: str) -> QtWidgets.QMessageBox.StandardButton:
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setWindowTitle("Unexported fitted result")
+        outdated = self._result_revision != self._scientific_revision
+        dialog.setText(
+            f"Export the completed fit before you {action} it?"
+            + (
+                " This outdated result belongs to its original scientific inputs."
+                if outdated
+                else ""
+            )
+            + " Export saves scientific results. Working peaks and GUI sessions are separate."
+        )
+        dialog.setStandardButtons(
+            QtWidgets.QMessageBox.StandardButton.Save
+            | QtWidgets.QMessageBox.StandardButton.Discard
+            | QtWidgets.QMessageBox.StandardButton.Cancel
+        )
+        dialog.button(QtWidgets.QMessageBox.StandardButton.Save).setText("Export…")
+        dialog.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Cancel)
+        return QtWidgets.QMessageBox.StandardButton(dialog.exec())
+
+    def confirm_result_loss(self, action: str) -> bool:
+        """Resolve each unexported result without discarding it during confirmation."""
+        while self.fit_result is not None and not self.result_exported:
+            result = self.fit_result
+            choice = self._result_loss_choice(action)
+            if choice == QtWidgets.QMessageBox.StandardButton.Cancel:
+                return False
+            if choice == QtWidgets.QMessageBox.StandardButton.Save:
+                if not self.export_fit_results():
+                    return False
+            elif choice != QtWidgets.QMessageBox.StandardButton.Discard:
+                return False
+            if self.fit_result is result:
+                return True
+            # Completion during a dialog must protect the new result independently.
+        return True
 
     def _build_inspection_panels(self) -> QtWidgets.QWidget:
         right = QtWidgets.QWidget()

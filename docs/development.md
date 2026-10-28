@@ -367,3 +367,59 @@ Verification: full offscreen suite 233 passed; final native Cocoa GUI scenarios
 simulation scenarios 13 passed. Ruff, formatting, strict ty, import-linter and all
 pre-commit hooks pass. Wheel/sdist build succeeds with the existing uv-build
 version-range warning (installed 0.12.23 versus declared <0.12).
+
+
+### Completed local-fit export validation (2026-10-28)
+
+Step 2C used a small real two-peak/three-plane fit with signed amplitudes,
+duplicate assignments, and experimental values `[2, 0, 2]`. Scientific round-trip
+checks cover converged, usable non-converged and unusable classifications,
+canonical JSON schema/ResultsLoader, parameter constraints/errors, amplitude
+errors, original engine/GUI identities and point/plane ordering. Failure injection
+leaves no published partial directory. GUI checks cover canceled exports,
+write failures, independent result/peak saved states and unchanged working peaks.
+The existing real-process lifecycle tests protect transactional close decisions.
+
+Native macOS arm64 validation used Qt's Cocoa backend: 11 focused export/viewer
+tests passed. An additional native Qt dialog harness exercised close Cancel,
+directory-picker Cancel, successful threaded export with the graphical overlay
+retained, replacement of a previously exported result without a result prompt,
+and clean closing. The replacement test isolated file loading with the same
+in-memory fixture. A native widget capture confirmed the export destination in
+the existing footer while the comparison remained visible.
+
+The external desktop UI tool could not attach to uv's unbundled Python process.
+The OS directory picker also could not be driven by the Qt timer harness, so the
+additional dialog checks used Qt's directory dialog on Cocoa
+(`AA_DontUseNativeDialogs` in the disposable harness only). The application keeps
+the normal platform picker. Interactive OS-picker automation remains unverified;
+selection cancellation and export behavior are tested through the supported Qt
+file-dialog seam. No validation harness or new test infrastructure is shipped.
+
+Full offscreen suite: 238 passed. Ruff, formatting, ty, import-linter and package
+build passed. The build reported the existing uv-build upper-bound warning;
+both sdist and wheel were produced successfully.
+
+
+### PR #57 review follow-up: publication and compact status
+
+Finalization now uses a separate sibling lock and renames the validated staging
+tree to an absent destination, avoiding Windows directory replacement. Focused
+checks enforce Windows-style rejection of existing directory targets, verify
+complete artifacts at publication, refuse late empty/populated destinations and
+competing export locks, and check cleanup after write/rename failures. The
+portable coordination and unrelated-writer race limits are documented in
+[outputs](outputs.md#gui-local-fit-export); no native Windows runner was available.
+
+The permanent footer now says only **Fit results exported**. A long-path check
+asserts that the full path remains in the tooltip and confirmation without
+changing widget minimum sizes, window size or spectrum/trace dimensions. All 11
+export tests passed on native macOS Cocoa. A native 1000 × 720 widget capture with
+a 30-component destination was visually inspected: the footer was compact and
+the spectrum and inspection panels retained their space.
+
+Follow-up verification: full offscreen suite 244 passed; Ruff, formatting, ty,
+import-linter, all-file prek hooks and wheel/sdist build passed. The existing
+uv-build version-bound warning remains. GitHub CI supplies Linux validation;
+Windows compatibility is assessed by the documented rename contract and focused
+Windows-style destination-refusal tests, not a native Windows run.

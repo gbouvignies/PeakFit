@@ -104,3 +104,84 @@ Post-fit commands and `ResultsLoader` expect the run output directory
   README/state companions, and optional simulated spectra.
 - The fixed layout is the output contract.
 - Per-plane amplitudes are exported only in `tables/intensities.csv`.
+
+
+## GUI local-fit export
+
+**File → Export fit results…** creates a new child directory in the selected parent:
+
+```text
+local-fit-<run_id>/
+├── summary/
+│   ├── fit.json                 # canonical PeakFit JSON 4.0.0
+│   └── local_fit.json           # GUI local-fit companion 1.0.0
+└── tables/
+    ├── clusters.csv
+    ├── parameters.csv
+    ├── intensities.csv
+    └── shifts.csv              # when usable shift parameters exist
+```
+
+The existing `write_fit_outputs` serializers consume the exact retained
+`FinalFitOutcome`. There is no second fit, amplitude solve, assignment renaming,
+whole-dataset state, cross-cluster correction, simulated spectrum cube, or pickle
+continuation file. Scientific JSON keeps full float precision; CSV uses the same
+columns as the CLI with 17-digit formatting. Unusable outcomes keep their actual
+classification, reason and optimizer diagnostics, with absent numerical results
+and empty numerical tables. Canonical null bounds/errors retain their established
+meaning for unbounded/unavailable values.
+
+The companion `summary/local_fit.json` has `kind: peakfit_gui_local_fit` and
+`schema_version: 1.0.0`. It records the completed `run_id`, completion timestamp,
+software version, isolated-cluster scope, absence of cross-cluster corrections,
+original full array shape, spectral metadata, lineshape names, noise, absolute
+contour threshold, effective configuration and optimizer settings, warnings and
+execution diagnostics. `grid_indices` are paired arrays in the exact point order
+of canonical shapes, model values and residuals. `planes` lists the original
+zero-based index and experimental value for every plane, preserving duplicates
+and nonmonotonic order. Canonical amplitude columns and CSV `plane_index` use
+that same order.
+
+Canonical `peak_names` and parameter prefixes remain internal engine identifiers
+(e.g. `p_0`), not original assignments. Companion `peak_identities` explicitly maps
+`engine_name` to stable `working_id` and original `assignment`; assignments may
+repeat. `original_working_peaks` preserves the preparation's full segmentation
+peak list, including peaks outside the fitted group and original unfolded ppm
+coordinates. None of these fields is taken from subsequently edited GUI state.
+
+`source_files` contains absolute original import paths and SHA-256 checksums only
+when verified unchanged across file loading. These are imported sources, not a
+claim that later working edits equal the imported peak list. Programmatically
+supplied data may have no source records. Process-local spectrum identity is
+omitted. Canonical metadata uses the recorded completion time/version and original
+configuration; the companion supplies the GUI-specific scope and identity contract.
+
+Export writes and validates all required files in a temporary sibling directory,
+then takes an exclusive sibling lock (`.<directory-name>.export-lock`), checks
+that the destination is still absent, and renames the complete tree into place.
+The destination is never pre-created, so Windows need not replace an existing
+directory. Existing paths are refused, including on repeated export of the same
+result to the same parent. Choose a different parent for another copy.
+
+The same-filesystem rename provides atomic visibility where the filesystem
+supports it; this is not a power-loss durability guarantee. The sibling lock
+coordinates PeakFit exporters only. Python has no portable atomic no-replace
+directory rename: on POSIX an unrelated program could create an empty directory
+between the final check and rename, and that empty directory could be replaced.
+A populated results directory cannot be replaced by this directory rename.
+Do not concurrently create the destination with another application.
+
+Errors clean up staging and the export's own lock and do not mark the result
+exported. A process crash can leave hidden staging or a stale sibling lock,
+which may be removed after checking that no export is active. Export runs in
+a dedicated short-lived thread while Qt continues processing events. Progress
+cannot be dismissed once writing begins.
+
+`ResultsLoader(directory).load_summary()` validates and reads the canonical
+scientific result. Its existing minimal `load_fitting_state()` reconstruction is
+available for usable values but is not the original sampled fitting state or a
+continuation contract. The GUI cannot reopen this export, and it does not restore
+a session, undo history, display settings, or apply fitted coordinates to working
+peaks. CLI post-fit commands requiring `metadata/fitting_state.pkl` cannot use this
+export as continuation state. These limitations do not affect downstream reading
+of canonical parameters, amplitudes, statistics or the companion provenance.

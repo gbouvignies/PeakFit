@@ -45,6 +45,7 @@ class FitInputSnapshot:
     peaks: tuple[WorkingPeak, ...]
     configuration: str
     contour_level: float
+    source_files: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
