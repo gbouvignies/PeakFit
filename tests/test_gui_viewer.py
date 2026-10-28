@@ -282,7 +282,7 @@ def test_peak_placement_and_drag_preserve_fractional_unfolded_coordinates(monkey
         app.processEvents()
 
 
-def test_export_and_loss_guards_include_typed_fields_and_keep_failed_saves_dirty(
+def test_export_and_loss_guards_include_typed_fields_and_keep_failed_saves_dirty(  # noqa: PLR0915
     tmp_path: Path, monkeypatch
 ) -> None:
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
@@ -306,6 +306,49 @@ def test_export_and_loss_guards_include_typed_fields_and_keep_failed_saves_dirty
     close = QtGui.QCloseEvent()
     window.closeEvent(close)
     assert not close.isAccepted()
+    # A close is transactional: rejecting any later confirmation leaves the fit running.
+    with monkeypatch.context() as closing:
+        closing.setattr(viewer._fit_process, "state", "running")
+        canceled = []
+        stopped = []
+        closing.setattr(viewer._fit_process, "cancel", lambda: canceled.append(True))
+        closing.setattr(viewer, "stop_preparation", lambda: stopped.append(True))
+        closing.setattr(
+            QtWidgets.QMessageBox,
+            "question",
+            lambda *_args: QtWidgets.QMessageBox.StandardButton.Yes,
+        )
+        closing.setattr(viewer, "confirm_result_loss", lambda _action: True)
+        window.closeEvent(close)  # Running-fit Yes, then peak-edits Cancel.
+        assert not close.isAccepted()
+        assert not canceled
+        assert not stopped
+        closing.setattr(
+            QtWidgets.QMessageBox,
+            "warning",
+            lambda *_args: QtWidgets.QMessageBox.StandardButton.Discard,
+        )
+        closing.setattr(viewer, "confirm_result_loss", lambda _action: False)
+        window.closeEvent(close)  # Unsaved-result Cancel also preserves the running fit.
+        assert not close.isAccepted()
+        assert not canceled
+        assert not stopped
+        closing.setattr(viewer, "confirm_result_loss", lambda _action: True)
+        window.closeEvent(close)
+        assert close.isAccepted()
+        assert stopped == [True]
+        assert not canceled  # Shutdown owns cancellation, after every confirmation.
+        stopped.clear()
+
+        def finish_during_peak_confirmation():
+            viewer._fit_process.state = "completed"
+            return True
+
+        closing.setattr(window, "_protect_edits", finish_during_peak_confirmation)
+        closing.setattr(viewer, "confirm_result_loss", lambda _action: False)
+        window.closeEvent(close)  # A result arriving during a dialog is still protected.
+        assert not close.isAccepted()
+        assert not stopped
     path = tmp_path / "working.csv"
     monkeypatch.setattr(
         QtWidgets.QFileDialog, "exec", lambda _dialog: QtWidgets.QDialog.DialogCode.Accepted

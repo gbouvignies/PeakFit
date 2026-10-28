@@ -224,6 +224,9 @@ The existing preview/contour worker remains independent. Status reports startup,
 running time, completion/failure, and cancellation; it does not invent percentages.
 **Cancel fit** terminates and reaps the numerical process, then restores editing.
 No partial result is retained. Exiting during execution asks before canceling it.
+Canceling any close, peak-discard/export, or result-discard confirmation keeps the
+fit running. Shutdown begins only after every confirmation is accepted; results
+that finish during an earlier dialog are checked by the final result-discard guard.
 
 While fitting, zoom, pan, crosshair inspection, plane navigation, and ordinary
 contour controls remain available. Switching Inspect/Fit and selecting another

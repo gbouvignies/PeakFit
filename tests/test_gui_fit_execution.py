@@ -190,6 +190,13 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         assert not viewer.add_action.isEnabled()
         with pytest.raises(ValueError, match="running fit"):
             viewer.set_plane_values(np.array([1.0, 2.0, 3.0]))
+        edits = viewer.edits
+        revision = viewer._scientific_revision
+        with pytest.raises(ValueError, match="running fit"):
+            viewer.set_peaks(working[:1])
+        assert viewer.edits is edits
+        assert viewer.selected_id == working[0].id
+        assert viewer._scientific_revision == revision
         viewer.dismiss_fit_preview()
         viewer.select_peak(None)
         viewer.set_plane(2)

@@ -207,33 +207,32 @@ class PeakFitWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # noqa: N802
         """Protect coordinates and typed fields before closing the application."""
+        if (
+            self.viewer is not None
+            and self.viewer.fit_busy
+            and QtWidgets.QMessageBox.question(
+                self,
+                "Running local fit",
+                "Cancel the running fit and close PeakFit?",
+                QtWidgets.QMessageBox.StandardButton.Yes
+                | QtWidgets.QMessageBox.StandardButton.Cancel,
+                QtWidgets.QMessageBox.StandardButton.Cancel,
+            )
+            != QtWidgets.QMessageBox.StandardButton.Yes
+        ):
+            event.ignore()
+            return
+        if not self._protect_edits():
+            event.ignore()
+            return
+        # Ask about results last: a fit may complete during either preceding dialog.
         if self.viewer is not None:
-            if (
-                self.viewer.fit_busy
-                and QtWidgets.QMessageBox.question(
-                    self,
-                    "Running local fit",
-                    "Cancel the running fit and close PeakFit?",
-                    QtWidgets.QMessageBox.StandardButton.Yes
-                    | QtWidgets.QMessageBox.StandardButton.Cancel,
-                    QtWidgets.QMessageBox.StandardButton.Cancel,
-                )
-                != QtWidgets.QMessageBox.StandardButton.Yes
-            ):
-                event.ignore()
-                return
-            if self.viewer.fit_busy:
-                # Suppress a completion arriving while an unsaved-edits dialog is open.
-                self.viewer._fit_process.cancel()
             if not self.viewer.confirm_result_loss("discard"):
                 event.ignore()
                 return
-        if self._protect_edits():
-            if self.viewer is not None:
-                self.viewer.stop_preparation()
-            event.accept()
-        else:
-            event.ignore()
+            # No cancellation or shutdown until every close decision is accepted.
+            self.viewer.stop_preparation()
+        event.accept()
 
     def changeEvent(self, event: QtCore.QEvent) -> None:  # noqa: N802
         """Cancel active gestures when focus leaves the application."""

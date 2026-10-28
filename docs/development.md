@@ -207,3 +207,46 @@ Qt never joins it synchronously. Failed/canceled attempts retain the earlier res
 completed numerical values are frozen using the same finalization seam as the CLI.
 The 128 MiB preparation budget is not an optimizer/process memory bound: dense
 Jacobian and finalization arrays add memory. No samples are dropped to fit a budget.
+
+### PR #54 focused lifecycle review
+
+The intermittent crash was investigated with a bounded comparison on macOS arm64,
+CPython 3.14.5, PySide6 6.10.1, and NumPy 2.4.1. All runs enabled
+`PYTHONFAULTHANDLER=1` and pytest's 120-second per-test timeout. Immutable source
+archives of PR head `71536a4` and main `86a0528` used the same installed interpreter
+and dependencies, with alternating native Cocoa full-suite runs:
+
+| Scenario | Runs | Result |
+| --- | ---: | --- |
+| PR head, native Cocoa full suite | 3 | 233 passed each; 58–59 seconds |
+| Main, native Cocoa full suite | 3 | 231 passed each; 56–58 seconds |
+| Corrected PR, native Cocoa GUI/lifecycle tests | 3 | 10 passed each; about 6 seconds |
+| Corrected PR, original offscreen full-suite invocation | 1 | 233 passed; 69 seconds |
+
+No crash recurred. The saved original macOS report records `EXC_BAD_ACCESS` at
+address `0x8` in `SignalManagerPrivate::qtMethodMetacall` during queued Qt dispatch.
+It does not identify the receiving application object or establish a root cause.
+This is not evidence that the crash was fixed or that it belongs to main, the fit
+bridge, or the preview worker; no speculative lifetime refactor was made.
+
+Teardown inspection confirmed that explicit close marks both lanes closed before
+destroying the viewer. A temporary diagnostic also exercised the existing
+`ViewerComputation` callback in two orders: completion after parent/worker QObject
+deletion, and completion queued before deletion but dispatched afterward. Each
+order passed five iterations, with invalidated C++ objects, completed callbacks,
+and zero delivered UI completions. Temporary runners/logs stayed outside the repo;
+no new testing infrastructure was introduced.
+
+Native mouse/keyboard validation used the real bundled 131-plane spectrum: run a
+fit, retain its result, make a working edit, start a replacement, switch Inspect/Fit,
+and navigate to plane 25. Only the disposable numerical child was temporarily
+SIGSTOP-paused to keep the modal sequence deterministic. Answering Yes to close
+then Cancel at either the peak-discard or result-discard dialog preserved the same
+running child, retained result, dirty peaks, and an unset cancellation flag.
+Explicit Cancel fit reaped the child; accepting every close/discard decision on a
+subsequent fit exited without remaining validation/fit processes. No numerical or
+subprocess architecture changes were needed.
+
+The existing close test now protects those transactional decisions, including a
+fit completing during an earlier dialog. The existing spawned lifecycle test
+checks direct `set_peaks()` rejection before any history/selection/revision changes.

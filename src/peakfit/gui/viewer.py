@@ -875,6 +875,8 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def set_peaks(self, peaks: Sequence[WorkingPeak]) -> None:
         """Display imported peaks, folding only indirect coordinates."""
+        if self.fit_busy:
+            raise ValueError("Cancel the running fit before replacing working peaks.")
         self.edits = PeakEdits(tuple(peaks))
         self.selected_id = None
         self._refresh_peaks()
