@@ -29,7 +29,11 @@ class PeakInspector(QtWidgets.QGroupBox):
         self.details = QtWidgets.QLabel("Coordinates are unfolded ppm")
         self.details.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self.details.setWordWrap(True)
-        self.delete = QtWidgets.QPushButton("Delete")
+        self.delete = QtWidgets.QPushButton("Delete peak")
+        self.delete.setToolTip(
+            "Delete this peak and discard pending text; Undo restores committed values"
+        )
+        self.delete.installEventFilter(self)
         for row, (title, field) in enumerate(
             (("Name", self.name), (x_title, self.x_field), (y_title, self.y_field))
         ):
@@ -46,9 +50,13 @@ class PeakInspector(QtWidgets.QGroupBox):
         layout.addWidget(self.details, 3, 0, 1, 3)
         self.delete.clicked.connect(self.deleted)
         self._peak: WorkingPeak | None = None
+        self._focus_commit = QtCore.QTimer(self)
+        self._focus_commit.setSingleShot(True)
+        self._focus_commit.timeout.connect(self._commit_on_focus_leave)
         app = QtWidgets.QApplication.instance()
         assert isinstance(app, QtWidgets.QApplication)
         app.focusChanged.connect(self._focus_changed)
+        app.applicationStateChanged.connect(self._focus_changed)
         self.show_peak(None)
 
     def show_peak(
@@ -83,14 +91,27 @@ class PeakInspector(QtWidgets.QGroupBox):
         self.details.setText("Enter or leave fields to commit · Escape reverts")
         self.fields_changed.emit()
 
-    def _focus_changed(self, old: QtWidgets.QWidget, new: QtWidgets.QWidget) -> None:
-        fields = (self.name, self.x_field, self.y_field)
-        # Tab/clicks between fields and native text context menus keep one draft.
+    def _focus_changed(self, *_args) -> None:
+        # Let temporary null focus, popup activation and mouse presses settle first.
+        # The owned timer also cancels queued callbacks when the editor is destroyed.
+        if self.pending:
+            self._focus_commit.start(0)
+
+    def _commit_on_focus_leave(self) -> None:
+        focus = QtWidgets.QApplication.focusWidget()
+        # Delete owns its pending text: merely focusing it must never commit or
+        # validate a draft before the user can choose to delete the committed peak.
         if (
-            old in fields
-            and new is not None
-            and new not in fields
+            self.pending
+            and self.isVisible()
+            and QtWidgets.QApplication.applicationState()
+            == QtCore.Qt.ApplicationState.ApplicationActive
+            and QtWidgets.QApplication.activeWindow() == self.window()
             and QtWidgets.QApplication.activePopupWidget() is None
+            and QtWidgets.QApplication.activeModalWidget() is None
+            and focus is not None
+            and focus.window() == self.window()
+            and focus not in (self.name, self.x_field, self.y_field, self.delete)
         ):
             self.commit_requested.emit()
 

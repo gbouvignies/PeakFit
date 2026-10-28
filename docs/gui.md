@@ -85,16 +85,29 @@ lets you allocate space between the spectrum and inspection panels.
 
 Click a marker to select its assignment. Coincident markers open a chooser.
 Choose **Edit peak** to edit the name and unfolded ppm coordinates together.
-Press **Enter**, move focus outside the three fields, or select another peak to
+Press **Enter**, leave the editor, or select another peak to
 commit the whole peak as one undoable edit. Closing details, switching panels,
 placing or dragging a peak, preparing a fit, and exporting working peaks also
 commit valid pending fields. **Tab** and **Shift+Tab** between the three fields
-keep one draft, including partially typed coordinates; tabbing out of the field
-group commits it. **Escape** restores all three last-committed values.
+keep one draft, including partially typed coordinates. Tab navigation follows the
+system's keyboard preferences. If Tab reaches **Delete peak**, the draft remains
+uncommitted so it can be discarded by deletion; tabbing out of the editor commits
+it. **Escape** restores all three last-committed values, including when Delete peak
+has focus. Space activates the focused Delete peak button.
 There are no Apply/Revert buttons. Native text-field undo and context menus remain
 available while editing; after committing, use **Edit → Undo/Redo** for peak history.
-Peak-history actions and deletion pause while a draft is pending; finish editing
-or press Escape first. Delete removes the selected peak.
+Peak-history actions pause while a draft is pending; finish editing or press Escape
+first. **Delete peak** discards pending text, even invalid text, and deletes the
+selected peak directly without validation or confirmation. This is one undoable
+operation: Undo restores its last committed name and coordinates, never the discarded
+draft. Delete/Backspace with spectrum focus also deletes the selected peak; inside
+a field these keys retain their normal text-editing behavior.
+
+Text context menus, temporary loss of focus, dialogs, and switching applications
+preserve the draft. Returning to an editor field resumes editing; moving focus
+elsewhere in the workspace commits valid changes after focus settles. Escape in
+a text context menu closes that menu first. Clicking another marker or an overlapping
+marker chooser resolves the draft before changing selection.
 
 An empty name or non-finite/invalid coordinate keeps the entire draft visible,
 focuses the field needing correction, and explains the error inline. Selection,

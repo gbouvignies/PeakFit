@@ -152,15 +152,14 @@ def test_peak_selection_precision_overlap_and_edit_history() -> None:  # noqa: P
         assert viewer.inspector.pending
         assert viewer.edits.can_undo
         assert viewer.edits.can_redo
-        # Direct callbacks (including the spectrum's Delete shortcut) also preserve drafts.
+        # Peak history pauses while native text editing owns the draft.
         viewer.undo()
         viewer.redo()
-        viewer.delete_peak()
         assert viewer.peaks == committed
         assert field.text() == pending_name
         assert not viewer.undo_action.isEnabled()
         assert not viewer.redo_action.isEnabled()
-        assert not viewer.inspector.delete.isEnabled()
+        assert viewer.inspector.delete.isEnabled()
         assert viewer.edits.can_undo
         assert viewer.edits.can_redo
         assert "Enter" in viewer.inspector.details.text()

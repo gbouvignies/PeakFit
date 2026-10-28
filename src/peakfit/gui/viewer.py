@@ -141,7 +141,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.undo_action.setEnabled(self.edits.can_undo and not pending and not self.fit_busy)
         self.redo_action.setEnabled(self.edits.can_redo and not pending and not self.fit_busy)
         self.inspector.delete.setEnabled(
-            self.selected_id is not None and not pending and not self.fit_busy
+            self.selected_id is not None and not self.adding_peak and not self.fit_busy
         )
         self.workspace.edit.setEnabled(self.selected_id is not None)
         self.workspace.edit.setText("Edit peak · pending" if pending else "Edit peak")
@@ -1168,6 +1168,8 @@ class SpectrumViewer(QtWidgets.QWidget):
         return f"{peak.name}\n{x:.6f}, {y:.6f} ppm displayed\nClick to select"
 
     def _peak_clicked(self, _item, points, event) -> None:
+        if not self.commit_pending_fields():
+            return
         self.spectrum_plot.setFocus()
         candidates = [p.data() for p in points]
         if len(candidates) == 1:
@@ -1258,10 +1260,12 @@ class SpectrumViewer(QtWidgets.QWidget):
         return True
 
     def delete_peak(self) -> None:
-        """Delete the selected assignment as one reversible edit."""
-        if not self.fit_busy and self.selected_id is not None and not self.inspector.pending:
+        """Discard draft text and delete the last committed peak in one undo step."""
+        if not self.fit_busy and not self.adding_peak and self.selected_id is not None:
             self.peak_scatter.cancel_drag()
             self._drag_peak = None
+            with QtCore.QSignalBlocker(self.inspector):
+                self.inspector.show_peak(None)
             self.edits.delete(self.selected_id)
             self.selected_id = None
             self._refresh_peaks()
@@ -1329,12 +1333,6 @@ class SpectrumViewer(QtWidgets.QWidget):
             field.setEnabled(
                 self.selected_id is not None and not self.adding_peak and not self.fit_busy
             )
-        self.inspector.delete.setEnabled(
-            self.selected_id is not None
-            and not self.adding_peak
-            and not self.inspector.pending
-            and not self.fit_busy
-        )
         self.add_peak_button.setChecked(self.adding_peak)
         self.add_peak_button.setText("Cancel placement" if self.adding_peak else "Add peak…")
         self.add_peak_button.setToolTip(

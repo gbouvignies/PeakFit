@@ -39,8 +39,9 @@ reviewing the scientific or contract reason.
 - Prefer direct functions and explicit data flow over managers, service layers,
   registries, factories, or adapters.
 - Excellent visual design, readability, intuitiveness and consistency are explicit
-  product requirements. A dedicated UX/visual polish pass follows establishment of
-  the core whole-dataset workflows; functional changes should support that direction.
+  product requirements. A dedicated GUI UX and visual polish milestone remains
+  required after establishment of the core whole-dataset workflows; functional
+  changes should support that direction.
 - Keep `engine` focused on numerical/domain primitives.
 - Keep `fit` focused on loading, validation, orchestration, and fit-output
   assembly.
@@ -468,13 +469,24 @@ AST graph. No public API or file-format compatibility break was introduced.
 ### Whole-peak editor commits
 
 The peak editor has no Apply/Revert controls. `PeakInspector` requests a commit on
-Enter or when focus leaves its three fields; Tab/Shift+Tab inside them and native
-text context menus preserve the draft. `SpectrumViewer.commit_pending_fields()`
+Enter or when focus settles outside its fields and Delete peak control. One owned
+zero-delay Qt timer checks the active window, application state, popups and modal
+dialogs; null focus, text context menus and application deactivation preserve drafts.
+The timer resolves the current focus rather than relying on the previous widget,
+so returning through null focus cannot strand a draft in the workspace.
+Tab/Shift+Tab inside the editor preserve the draft. `SpectrumViewer.commit_pending_fields()`
 validates the whole draft and calls the existing `PeakEdits.update()` once. The
 same path guards selection, closing/switching details, placement/dragging, fit
 preparation/execution and working-peak export. Invalid fields remain visible with
 an actionable error and focus for correction. Escape restores the complete record.
 No generic transaction layer or additional scientific representation is involved.
+
+Delete peak is the deliberate exception: it discards draft text without parsing or
+validating it, then deletes the committed record with the existing history operation.
+Native Tab preferences are preserved, including macOS skipping buttons unless
+all-controls keyboard navigation is enabled. Focusing the button does not commit;
+Space activates it, and Escape restores the fields. One Undo restores
+the last committed record. No confirmation or intermediate draft commit is added.
 
 Draft notifications and no-op commits leave scientific revisions, preparation,
 comparison graphics and retained results intact. Actual commits invalidate current
@@ -484,16 +496,21 @@ after committing fields, so it cannot submit a scope invalidated by that commit.
 
 `tests/test_gui_workspace.py` protects real key/focus input, Tab through partial
 coordinates, Enter/selection/panel commits, atomic multi-field undo/redo, correction
-and Escape, native text context menus, no-op revision tracking, retained-result
-identity/export state and stale-preparation refusal. Existing viewer tests cover
+and Escape, native text context menus and their dismissal, null focus and inactive
+windows, atomic draft-discarding deletion by mouse/keyboard/callback, equivalent
+numeric text preserving redo, invalid mouse selection/drag/panel actions, modal
+export/close guards, no-op revision tracking, retained-result identity/export state
+and stale-preparation refusal. The application-state regression simulates inactive
+Qt state; the same suite runs with offscreen Qt and native macOS Cocoa for real
+widget focus, key, mouse and popup behavior. Existing viewer tests cover
 native text undo, plotting gestures, export errors and unsaved-work guards; local
 fit and fitted-position tests continue protecting scientific results and revisions.
 The intentional interaction change requires no file-format migration: use Enter or
 leave the editor to commit, and Escape to revert.
 
-Verification: the full offscreen Qt/Agg suite passed (345 tests before the final
-marker-click regression was added); all 51 editor/viewer tests passed on native
-macOS Cocoa. The additional marker-click case was checked on both backends.
+Verification: the full offscreen Qt/Agg suite passed (376 tests). All 112 native
+macOS Cocoa editor/viewer, fitted-position and result-export regressions passed,
+including native Tab preferences and explicitly enabled all-controls navigation.
 Ruff, formatting, type checking, import-linter, all-file prek hooks and wheel/sdist
 build passed (the existing uv-build version-bound warning remains). Native 1280 × 800
 captures of the editor and its validation error on the bundled experimental
