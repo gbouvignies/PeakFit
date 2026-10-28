@@ -1,4 +1,4 @@
-"""Completed local-fit comparison in the viewer's existing plots and title bands."""
+"""Coordinated completed local-fit comparison in the persistent scientific plots."""
 
 from collections import OrderedDict
 from threading import Event
@@ -55,9 +55,13 @@ class FitComparison(QtCore.QObject):
         self._build_controls(viewer)
 
     def _build_controls(self, viewer: SpectrumViewer) -> None:
-        self.mode = QtWidgets.QComboBox(viewer.spectrum_plot.viewport())
-        self.mode.addItems(["Experiment", "Overlay", "Residual"])
-        self.mode.setFixedWidth(self.mode.fontMetrics().horizontalAdvance("Experiment") + 30)
+        self.mode = QtWidgets.QComboBox()
+        self.mode.addItems(["Experimental", "Overlay", "Residual"])
+        # Cocoa combo boxes are taller than buttons. Completion reveals this
+        # control, so retain its geometry without displaying an inactive selector.
+        mode_policy = self.mode.sizePolicy()
+        mode_policy.setRetainSizeWhenHidden(True)
+        self.mode.setSizePolicy(mode_policy)
         self.mode.setAccessibleName("Spectrum comparison")
         self.mode.setToolTip(
             "Local group only: other signals are not subtracted. Model contours/lines are "
@@ -65,6 +69,11 @@ class FitComparison(QtCore.QObject):
             "only, scaled by retained statistical noise. Unmodeled neighboring signals may remain."
         )
         self.mode.hide()
+        self.scope = QtWidgets.QLabel("Local group comparison")
+        self.scope.setToolTip("The calculated spectrum includes this fitted group only.")
+        self.scope.hide()
+        viewer.workspace.commands.insertWidget(4, self.scope)
+        viewer.workspace.commands.insertWidget(5, self.mode)
         self.mode.currentIndexChanged.connect(self._mode_changed)
         self.samples = QtWidgets.QCheckBox("Show exact fitting samples")
         self.samples.setToolTip("Amber cells are the samples that constrained this completed fit.")
@@ -73,7 +82,9 @@ class FitComparison(QtCore.QObject):
         assert isinstance(popup_layout, QtWidgets.QGridLayout)
         popup_layout.addWidget(self.samples, 3, 0, 1, 3)
         self.samples.toggled.connect(self._support_visibility)
-        self.profile_mode = QtWidgets.QComboBox(viewer.profile.viewport())
+        self.profile_mode = QtWidgets.QComboBox()
+        viewer.profile_controls.addWidget(self.profile_mode)
+        viewer.profile_controls.addStretch()
         self.profile_mode.addItem("Crosshair intensity · ● exp / ▼ group")
         self.profile_mode.setAccessibleName("Plane profile quantity")
         self.profile_mode.setToolTip(
@@ -90,24 +101,8 @@ class FitComparison(QtCore.QObject):
         self.profile_model = viewer.profile.plot(pen=None, symbol="t", symbolSize=6)
         self.profile_model.sigPointsClicked.connect(self._profile_clicked)
         viewer.curve_profile.sigPointsClicked.connect(self._profile_clicked)
-        viewer.spectrum_plot.getViewBox().sigResized.connect(self.position_controls)
-        viewer.profile.getViewBox().sigResized.connect(self.position_controls)
         viewer._computation.completed.connect(self._completed)
-        self.position_controls()
         self.palette_changed()
-
-    def position_controls(self) -> None:
-        """Keep controls in existing title cells, without extra rows or data occlusion."""
-        for plot, control in (
-            (self.viewer.spectrum_plot, self.mode),
-            (self.viewer.profile, self.profile_mode),
-        ):
-            title = plot.getPlotItem().titleLabel
-            rect = plot.mapFromScene(title.sceneBoundingRect()).boundingRect()
-            control.setFixedHeight(min(26, max(20, rect.height() - 2)))
-            if control is self.profile_mode:
-                control.setFixedWidth(max(100, rect.width() - 8))
-            control.move(rect.left() + 4, rect.top() + (rect.height() - control.height()) // 2)
 
     def palette_changed(self) -> None:
         """Restyle retained graphics without scientific evaluation or contour extraction."""
@@ -125,7 +120,6 @@ class FitComparison(QtCore.QObject):
         if self.active:
             self._render_plane()
             self._render_slices()
-        self.position_controls()
 
     def show_result(self, result: FitProcessResult, *, outdated: bool) -> None:
         """Only current usable outcomes may be compared to the working spectrum."""
@@ -151,6 +145,7 @@ class FitComparison(QtCore.QObject):
         self.viewer.profile.setTitle(" ")
         self.profile_mode.show()
         self.mode.show()
+        self.scope.show()
         self.samples.show()
         self._support_visibility()
         self._mode_changed()
@@ -175,6 +170,7 @@ class FitComparison(QtCore.QObject):
         self._hide_paths()
         self.residual.hide()
         self.mode.hide()
+        self.scope.hide()
         self.samples.hide()
         self.samples.setChecked(False)
         self.profile_mode.hide()
@@ -355,8 +351,6 @@ class FitComparison(QtCore.QObject):
 
     def _title(self, text: str) -> None:
         self.viewer.spectrum_plot.setTitle(text)
-        self.position_controls()
-        self.viewer._position_contour_control()
 
     def _render_plane(self) -> None:
         if not self.active or self.result is None:

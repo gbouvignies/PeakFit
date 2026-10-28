@@ -1,4 +1,4 @@
-"""Read-only fitting scope in the viewer's contextual right-hand workspace."""
+"""Local fitting scope and read-only results in the lower analysis panel."""
 
 import math
 from typing import TYPE_CHECKING
@@ -11,9 +11,8 @@ if TYPE_CHECKING:
 
 
 class FitPreview(QtWidgets.QWidget):
-    """Compact local-fit header with numerical inspection available on demand."""
+    """Local-fit actions, scope summary and numerical inspection."""
 
-    details_requested = QtCore.Signal(bool)
     run_requested = QtCore.Signal()
     cancel_requested = QtCore.Signal()
     prepare_requested = QtCore.Signal()
@@ -24,6 +23,15 @@ class FitPreview(QtWidgets.QWidget):
         super().__init__()
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        body = QtWidgets.QHBoxLayout()
+        overview = QtWidgets.QWidget()
+        overview.setMaximumWidth(360)
+        overview.setMinimumWidth(260)
+        summary_layout = QtWidgets.QVBoxLayout(overview)
+        summary_layout.setContentsMargins(0, 0, 0, 0)
+        summary_layout.setSpacing(4)
+        body.addWidget(overview, 1)
         self.title = QtWidgets.QLabel("Local fitting")
         font = self.title.font()
         font.setBold(True)
@@ -31,19 +39,15 @@ class FitPreview(QtWidgets.QWidget):
         self.summary = QtWidgets.QLabel()
         self.status = QtWidgets.QLabel()
         self.quality = QtWidgets.QLabel()
-        for label, lines in (
-            (self.title, 1),
-            (self.summary, 2),
-            (self.status, 1),
-            (self.quality, 1),
+        for label in (
+            self.title,
+            self.summary,
+            self.status,
+            self.quality,
         ):
             label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             label.setWordWrap(True)
-            label.setFixedHeight(label.fontMetrics().lineSpacing() * lines + 4)
-            label.setSizePolicy(
-                QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
-            )
-            layout.addWidget(label)
+            summary_layout.addWidget(label)
         self._details = ""
         self._result: FitProcessResult | None = None
         self._plane = 0
@@ -66,16 +70,13 @@ class FitPreview(QtWidgets.QWidget):
         self.apply_positions.clicked.connect(self.apply_positions_requested)
         for button in (self.run, self.cancel, self.prepare, self.retained, self.apply_positions):
             actions.addWidget(button)
-        self.details = QtWidgets.QPushButton("Details")
-        self.details.setCheckable(True)
-        self.details.setEnabled(False)
-        self.details.toggled.connect(self._show_details)
-        actions.addWidget(self.details)
+        actions.addStretch()
         layout.addLayout(actions)
-        layout.addStretch()
+        layout.addLayout(body, 1)
 
-        # The viewer owns placement: details replace plots only on explicit request.
+        # The workspace scrolls numerical content below the persistent spectra.
         self.detail_content = QtWidgets.QWidget()
+        body.addWidget(self.detail_content, 3)
         detail_layout = QtWidgets.QVBoxLayout(self.detail_content)
         detail_layout.setContentsMargins(0, 0, 0, 0)
         self.models = QtWidgets.QLabel()
@@ -89,11 +90,11 @@ class FitPreview(QtWidgets.QWidget):
             label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             label.setWordWrap(True)
             label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
-            detail_layout.addWidget(label)
-        detail_layout.addWidget(QtWidgets.QLabel("Included peaks · rings on spectrum"))
+            summary_layout.addWidget(label)
+        summary_layout.addWidget(QtWidgets.QLabel("Included peaks · rings on spectrum"))
         self.members = QtWidgets.QListWidget()
         self.members.setFixedHeight(80)
-        detail_layout.addWidget(self.members)
+        summary_layout.addWidget(self.members)
         self.table_title = QtWidgets.QLabel("Effective starting parameters · read-only")
         detail_layout.addWidget(self.table_title)
         self.result_mode = QtWidgets.QComboBox()
@@ -119,10 +120,11 @@ class FitPreview(QtWidgets.QWidget):
         detail_layout.addWidget(self.parameters, 1)
         self.note = QtWidgets.QLabel()
         self.note.setWordWrap(True)
-        detail_layout.addWidget(self.note)
+        summary_layout.addWidget(self.note)
+        summary_layout.addStretch()
         self.diagnostics = QtWidgets.QPlainTextEdit()
         self.diagnostics.setReadOnly(True)
-        self.diagnostics.setMinimumHeight(140)
+        self.diagnostics.setMinimumHeight(100)
         detail_layout.addWidget(self.diagnostics)
 
     def show_preparation(self, prepared: PreparedLocalFit) -> None:
@@ -153,7 +155,7 @@ class FitPreview(QtWidgets.QWidget):
             ["Peak / axis", "Parameter", "Start", "Min", "Max", "Fit"]
         )
         self.note.setText(
-            "Numerical fitting unavailable · Details explains why and how to proceed."
+            "Numerical fitting unavailable · see the diagnostics below."
             if reason
             else (
                 "Positions: unfolded ppm. Linewidths: Hz (unapodized FWHM for processing-aware "
@@ -197,7 +199,6 @@ class FitPreview(QtWidgets.QWidget):
             else "Ready to fit"
         )
         self.status.setToolTip(self._details)
-        self.details.setEnabled(True)
         self.diagnostics.setPlainText(self._details)
         if prepared.parameters is None:
             return
@@ -232,12 +233,12 @@ class FitPreview(QtWidgets.QWidget):
         self._details = message
         self.apply_positions.hide()
         self.diagnostics.setPlainText(message)
-        self.status.setText("Scope unavailable · Details…" if clear else message)
+        self.status.setText("Scope unavailable · see diagnostics" if clear else message)
         self.status.setToolTip(message)
-        self.details.setEnabled(True)
         self.parameters.setEnabled(False)
         self.run.setEnabled(False)
         if clear:
+            self.prepare.show()
             self.summary.setText("Scope unavailable")
             self.models.clear()
             self.region.clear()
@@ -288,7 +289,9 @@ class FitPreview(QtWidgets.QWidget):
             else "No usable fit quantities"
         )
         if evaluation is not None and evaluation.uncertainty_warning:
-            self.status.setText("Unreliable uncertainties · inspect fit before using positions")
+            self.status.setText(
+                self.status.text() + " · unreliable uncertainties (see diagnostics)"
+            )
             quality += "\n" + evaluation.uncertainty_warning
         self.quality.setToolTip(quality)
         self.table_title.setText("Read-only result · original identities retained")
@@ -402,11 +405,6 @@ class FitPreview(QtWidgets.QWidget):
             for column, value in enumerate(values):
                 self.parameters.setItem(row, column, QtWidgets.QTableWidgetItem(value))
         self.parameters.resizeColumnsToContents()
-
-    def _show_details(self, checked: bool) -> None:
-        self.diagnostics.setPlainText(self._details)
-        self.details.setText("Close details" if checked else "Details")
-        self.details_requested.emit(checked)
 
 
 def _format_error(value: float) -> str:

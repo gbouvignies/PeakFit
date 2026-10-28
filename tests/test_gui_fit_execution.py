@@ -221,7 +221,7 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
     viewer.resize(1200, 800)
     viewer.show()
     app.processEvents()
-    plots = (viewer.trace_x, viewer.trace_y, viewer.profile)
+    plots = (viewer.trace_x, viewer.trace_y)
     positions = tuple((plot.mapTo(viewer, QtCore.QPoint()), plot.size()) for plot in plots)
     heartbeat = []
     timer = QtCore.QTimer(viewer)
@@ -253,7 +253,7 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         assert len(heartbeat) >= 2
         assert viewer.plane == 1
         assert viewer.peaks == working
-        assert viewer.workspaces.currentIndex() == 0
+        assert viewer.workspace.details.isHidden()
         assert isinstance(viewer.fit_result, FitProcessResult)
         retained = viewer.fit_result
         assert retained.input_bytes < spectra.data.nbytes * 4
@@ -261,6 +261,9 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         viewer.show_fit_result()
         app.processEvents()
         assert all(plot.isVisible() for plot in plots)
+        assert viewer.workspace.details.isVisible()
+        viewer.close_details()
+        app.processEvents()
         assert tuple((p.mapTo(viewer, QtCore.QPoint()), p.size()) for p in plots) == positions
         assert "all planes / fitted samples" in viewer.fit_preview.quality.text()
         assert "no fit has been run" not in viewer.fit_preview._details
@@ -331,7 +334,7 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         retained_threshold = retained.scientific.inputs.contour_level
         viewer.threshold.setValue(9)
         assert retained.scientific.inputs.contour_level == retained_threshold
-        viewer.fit_preview.details.click()
+        viewer.open_details(1)
         assert viewer.fit_preview.detail_content.isVisible()
         viewer.dismiss_fit_preview()
         assert all(plot.isVisible() for plot in plots)
@@ -366,6 +369,7 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         _wait(lambda: not viewer.fit_busy)
         assert viewer.fit_result is retained
         assert "outdated" in viewer.fit_preview.status.text()
+        assert "outdated" in viewer.fit_status.text()
         # A genuine child-side numerical exception has no success-shaped placeholders.
         broken = deepcopy(prepared)
         broken.cluster.data[:] = np.nan

@@ -20,9 +20,15 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   shapes are discarded; editable GUI coordinates are separate from completed results.
   Local scope preparation constructs fresh engine-safe peaks from snapshots, reuses
   engine clustering and pipeline parameter preparation, and displays the exact mask
-  in a contextual Inspect/Fit header above persistent experimental inspection plots.
-  Explicit numerical details temporarily replace those plots in the same column;
-  header state and popup contour controls do not reflow the main spectrum.
+  over persistent spectrum/slice plots. `gui.workspace.SpectrumWorkspace` owns
+  splitter geometry, side-slice visibility and the collapsed-by-default lower
+  panel. It receives existing widgets and owns no scientific state. The viewer
+  keeps preparation/result state independent of which details are visible;
+  background deliveries never open panels. `gui.fit_preview` presents local
+  scope/results below the plots; `gui.editing` requires explicit Apply or Revert
+  before pending fields can be hidden or selection changed. One coordinated
+  comparison selector identifies its current local-group scope. The reserved
+  footer exposes fit state and cancellation while details are closed.
   One serial background lane handles numerical
   preparation, contour extraction and display projection; Qt applies only current
   results. `gui.fit_display` evaluates bounded planes/native traces through the

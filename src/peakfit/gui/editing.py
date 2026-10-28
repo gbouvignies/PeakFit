@@ -30,6 +30,9 @@ class PeakInspector(QtWidgets.QGroupBox):
         self.details.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self.details.setWordWrap(True)
         self.apply = QtWidgets.QPushButton("Apply")
+        self.revert = QtWidgets.QPushButton("Revert")
+        self.revert.setToolTip("Restore committed coordinates and name (Escape)")
+        self.revert.clicked.connect(lambda: self.show_peak(self._peak))
         self.apply.setToolTip(
             "Apply the name and both unfolded ppm coordinates (Enter); Escape restores them"
         )
@@ -45,7 +48,10 @@ class PeakInspector(QtWidgets.QGroupBox):
             field.returnPressed.connect(self._apply)
             field.textChanged.connect(self.fields_changed)
             field.installEventFilter(self)
-        layout.addWidget(self.apply, 0, 2)
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.addWidget(self.apply)
+        buttons.addWidget(self.revert)
+        layout.addLayout(buttons, 0, 2)
         layout.addWidget(self.delete, 1, 2)
         layout.addWidget(self.details, 3, 0, 1, 3)
         self.apply.clicked.connect(self._apply)
@@ -58,7 +64,8 @@ class PeakInspector(QtWidgets.QGroupBox):
     ) -> None:
         """Populate precise fields; the caller retains selection and identity."""
         self._peak = peak
-        for control in (self.name, self.x_field, self.y_field, self.apply, self.delete):
+        controls = (self.name, self.x_field, self.y_field, self.apply, self.revert, self.delete)
+        for control in controls:
             control.setEnabled(peak is not None)
         self.setTitle(
             "Selected peak — edit fields, then Apply" if peak else "Peak editing — select a marker"
