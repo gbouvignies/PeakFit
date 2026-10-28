@@ -118,7 +118,9 @@ def project_final_outcome(
     there is no fitting, parameter preparation, or amplitude recovery here.
     Shape evaluation is chunked to bound temporary memory independently of grid
     extent. Callers choose the coordinates/output extent (a row, tile or grid).
-    ``None`` denotes no usable contribution, never a zero-filled failed result.
+    ``planes`` indexes fitted-series columns, not source-file indices after plane
+    exclusion. The caller must retain that mapping. ``None`` denotes no usable
+    contribution, never a zero-filled failed result.
     """
     _validate_snapshot(outcome, snapshot)
     coordinates = [np.asarray(values, dtype=float).ravel() for values in positions]
@@ -178,6 +180,34 @@ def project_final_outcome(
     if not np.all(np.isfinite(model)):
         raise ValueError("Non-finite completed model projection")
     return model
+
+
+def project_final_residual(
+    outcome: FinalFitOutcome,
+    snapshot: FinalModelSnapshot,
+    positions: Sequence[np.ndarray],
+    observed_values: FloatArray,
+    *,
+    planes: Sequence[int] | None = None,
+    normalize: bool = False,
+) -> FloatArray | None:
+    """Return observations minus the sum of usable completed cluster models.
+
+    Observations must be (points, requested fitted-series columns), in exactly
+    the supplied coordinate/plane order. Source-data provenance is the caller's
+    responsibility. This display residual is defined outside fitting masks too;
+    it is NOT the recorded optimizer residual against frozen neighbor corrections
+    and must not replace that residual or its statistics. No values are written
+    back into the outcome. All-unusable results return None.
+    """
+    model = project_final_outcome(outcome, snapshot, positions, planes=planes)
+    if model is None:
+        return None
+    observed = np.asarray(observed_values, dtype=float)
+    if observed.shape != model.shape or not np.all(np.isfinite(observed)):
+        raise ValueError("Observed values must be finite with the projected point-by-plane shape")
+    residual = observed - model
+    return residual / outcome.noise if normalize else residual
 
 
 def _validate_capture_inputs(
@@ -438,5 +468,6 @@ __all__ = [
     "FinalModelCluster",
     "FinalModelSnapshot",
     "project_final_outcome",
+    "project_final_residual",
     "simulate_final_outcome",
 ]

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.engine.domain.state import FittingState
+    from peakfit.fit.completed import CompletedFit
     from peakfit.fit.final_outcome import FinalFitOutcome
     from peakfit.fit.simulation import FinalModelSnapshot
 
@@ -91,13 +92,19 @@ class RunSummary:
 
 @dataclass(frozen=True)
 class FitRun:
-    """Result of a complete fitting run."""
+    """Result of a complete fitting run.
+
+    Runs returned by run_fit retain completed_fit; its outcome/model are the
+    same objects exposed by the existing fields. The optional default preserves
+    older programmatic construction, which supplies no retained sample inputs.
+    """
 
     outcome: FinalFitOutcome
     continuation_state: FittingState
     output_dir: Path
     spectra: Spectra | None = None
     simulation_snapshot: FinalModelSnapshot | None = None
+    completed_fit: CompletedFit | None = None
 
     @property
     def success(self) -> bool:

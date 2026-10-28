@@ -103,7 +103,16 @@ Post-fit commands and `ResultsLoader` expect the run output directory
 - Direct writer functions serialize JSON, CSV, optional Markdown, run-level
   README/state companions, and optional simulated spectra.
 - The fixed layout is the output contract.
-- Per-plane amplitudes are exported only in `tables/intensities.csv`.
+- Per-plane amplitudes are included in canonical JSON analytical evaluations and
+  in `tables/intensities.csv`.
+
+The in-memory completed-review contract also retains exact sampled coordinates,
+original observations and terminal neighbor-correction arrays. These inputs are
+not yet added to canonical output or a new persisted companion by this change.
+Current JSON alone cannot reconstruct full model geometry or the original
+numerical fitting problem; a correction revision alone does not supply correction
+values. See [GUI design](gui-design.md#persistence-direction-and-compatibility) for
+the evaluated metadata/array separation and the next writer/reader milestone.
 
 
 ## GUI local-fit export

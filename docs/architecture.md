@@ -116,11 +116,30 @@ easier to understand and test. Prefer direct data flow and domain names over gen
 services, managers, factories, adapters, or registries.
 
 Completed-model projection uses `fit.simulation.project_final_outcome`: paired
-fractional grid coordinates and optional original plane indices produce local or
+fractional grid coordinates and optional fitted-series column indices produce local or
 combined contributions from the verified final snapshot and retained amplitudes.
 The existing full-grid simulation delegates to this same path. Shape evaluation
 is chunked; callers bound their output region. No optimization, amplitude solve,
 or parameter-default preparation takes place during visualization.
+
+`fit.completed.CompletedFit` retains the outcome, the existing model snapshot,
+and owned read-only `FinalClusterSamples` at pipeline completion. Exact paired
+sample coordinates, original observations and terminal neighbor-correction values
+remain distinct from model geometry and analytical outputs. `PipelineResult`
+exposes this record and preserves its `final_outcome`/`simulation_snapshot`
+accessors; `run_fit()` also supplies it through `FitRun.completed_fit`. Existing
+FitRun construction and writers remain supported. Completed parameter/amplitude
+arrays are referenced, never duplicated into the input record. `FittingState`
+remains independently mutable. Capturing this numerical record is not a persisted
+session or an MCMC readiness check.
+
+`project_final_residual` calculates observations minus the sum of usable completed
+models, including outside fitting masks. This display residual can differ from
+the frozen, neighbor-corrected optimizer residuals; their existing statistics must
+not be reinterpreted as whole-grid display statistics. Projection planes index
+fitted-series columns; source-plane identities after exclusions require an explicit
+mapping in the future persisted-run interface. See [GUI design](gui-design.md)
+for that interface's scientific requirements and staged delivery.
 
 
 Local GUI fit export reuses `io.writers.orchestrator.write_fit_outputs` directly
