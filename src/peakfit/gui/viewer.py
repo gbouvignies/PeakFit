@@ -1,5 +1,7 @@
 """Retained spectrum contours, synchronized inspection and manual peak editing."""
 
+from dataclasses import replace
+from functools import partial
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
@@ -10,15 +12,25 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
 from peakfit.engine.algorithms.noise import estimate_noise
+from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editing import PeakInspector, PeakMarkers
+from peakfit.gui.fit_preview import FitPreview
+from peakfit.gui.fitting import PreparedLocalFit, prepare_local_fit
 from peakfit.gui.peaks import PeakEdits
-from peakfit.gui.spectrum import contour_paths, display_position, validate_plane_values
+from peakfit.gui.spectrum import (
+    contour_geometry,
+    display_position,
+    paths_from_geometry,
+    validate_plane_values,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
     from peakfit.gui.peaks import WorkingPeak
+    from peakfit.gui.spectrum import ContourGeometry
 
 
 class SpectrumViewer(QtWidgets.QWidget):
@@ -42,14 +54,27 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.contours: list[QtWidgets.QGraphicsPathItem] = []
         self.peak_labels: list[pg.TextItem] = []
         self.labels_visible = False
+        self.fit_preparation: PreparedLocalFit | None = None
+        self._fit_noise: float | None = None
+        self._fit_revision = 0
+        self._contour_revision = 0
+        self._closing = False
+        self._computation = ViewerComputation(self)
+        self._computation.completed.connect(self._computation_finished)
         self._colors = self._palette_colors()
         self._build_ui()
         self._build_edit_actions()
+        self.edits_changed.connect(self.dismiss_fit_preview)
         self._apply_palette()
         self._contour_timer = QtCore.QTimer(self)
         self._contour_timer.setSingleShot(True)
         self._contour_timer.setInterval(30)
         self._contour_timer.timeout.connect(self._update_contours)
+        self._fit_timer = QtCore.QTimer(self)
+        self._fit_timer.setSingleShot(True)
+        self._fit_timer.setInterval(150)
+        self._fit_timer.timeout.connect(self.preview_fit_group)
+        self.threshold.valueChanged.connect(self._schedule_fit_preview)
         for control in (self.threshold, self.factor, self.levels):
             control.valueChanged.connect(self._schedule_contours)
         self._update_contours()
@@ -175,6 +200,10 @@ class SpectrumViewer(QtWidgets.QWidget):
         )
         self.interaction_hint = QtWidgets.QLabel()
         self.interaction_hint.setMargin(6)
+        self.interaction_hint.setFixedHeight(self.interaction_hint.fontMetrics().lineSpacing() + 12)
+        self.interaction_hint.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+        )
         self.interaction_hint.setAutoFillBackground(True)
         left_layout.addWidget(self.interaction_hint)
         left_layout.addWidget(self.spectrum_plot, 1)
@@ -198,15 +227,169 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.selection_marker = pg.ScatterPlotItem(symbol="o", size=18, brush=None)
         self.selection_marker.setZValue(21)
         self.spectrum_plot.addItem(self.selection_marker)
+        self._build_fit_overlay()
         self._build_plane_controls(left_layout)
         self._build_contour_controls(left_layout)
         splitter.addWidget(left)
 
-        right = self._build_inspection_panels()
+        right = self._build_workspaces()
         splitter.addWidget(right)
         splitter.setSizes([850, 450])
         self.position_label = QtWidgets.QLabel()
+        self.position_label.setFixedHeight(self.position_label.fontMetrics().lineSpacing() + 4)
+        self.position_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+        )
         layout.addWidget(self.position_label)
+
+    def _build_fit_overlay(self) -> None:
+        self.fit_mask = pg.ImageItem(axisOrder="row-major")
+        self.fit_mask.setZValue(-20)
+        self.fit_mask.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.spectrum_plot.getPlotItem().addItem(self.fit_mask, ignoreBounds=True)
+        self.fit_members = pg.ScatterPlotItem(
+            symbol="o", size=24, brush=None, pen=pg.mkPen("#b87b00", width=2)
+        )
+        self.fit_members.setZValue(19)
+        self.fit_members.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.spectrum_plot.getPlotItem().addItem(self.fit_members, ignoreBounds=True)
+
+    def _build_workspaces(self) -> QtWidgets.QWidget:
+        right = QtWidgets.QWidget()
+        right_layout = QtWidgets.QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        self.workspace_tabs = QtWidgets.QTabBar()
+        self.workspace_tabs.addTab("Inspect")
+        self.workspace_tabs.addTab("Fit group…")
+        self.workspace_tabs.setTabEnabled(1, False)
+        right_layout.addWidget(self.workspace_tabs)
+        self.workspaces = QtWidgets.QStackedWidget()
+        self.workspaces.addWidget(self._build_inspection_panels())
+        self.fit_preview = FitPreview()
+        self.fit_preview.dismissed.connect(self.dismiss_fit_preview)
+        self.workspaces.addWidget(self.fit_preview)
+        self.workspace_tabs.currentChanged.connect(self._workspace_changed)
+        right_layout.addWidget(self.workspaces, 1)
+        return right
+
+    def _workspace_changed(self, index: int) -> None:
+        if index == 1:
+            self.preview_fit_group()
+        else:
+            self.dismiss_fit_preview()
+
+    def preview_fit_group(self) -> None:
+        """Snapshot committed peaks and show a local scope without fitting."""
+        if self.selected_id is None or not self.apply_pending_fields():
+            self.dismiss_fit_preview()
+            return
+        self._fit_timer.stop()
+        selected_id = self.selected_id
+        self.cancel_interaction()
+        self._fit_revision += 1
+        revision = self._fit_revision
+        self.fit_preparation = None
+        self.fit_mask.setOpacity(0.35)
+        self.fit_members.setOpacity(0.35)
+        self.fit_preview.show_status(
+            "Updating scope · previous scope shown until ready"
+            if self.fit_mask.isVisible()
+            else "Preparing fitting scope…"
+        )
+        with QtCore.QSignalBlocker(self.workspace_tabs):
+            self.workspace_tabs.setCurrentIndex(1)
+        self.workspaces.setCurrentIndex(1)
+        self._update_interaction_hint()
+        # Capture immutable working records and private metadata before leaving Qt.
+        spectra = self.spectra.model_copy(
+            update={
+                "params": [axis.model_copy(deep=True) for axis in self.spectra.params],
+                "z_values": self.spectra.z_values.copy(),
+            }
+        )
+        peaks, source_id = self.peaks, id(self.spectra)
+        config = PeakFitConfig(noise_level=self._fit_noise)
+        threshold = self.lowest_contour_level
+
+        def prepare() -> PreparedLocalFit:
+            result = prepare_local_fit(spectra, peaks, selected_id, config, contour_level=threshold)
+            return replace(result, snapshot=replace(result.snapshot, spectrum_id=source_id))
+
+        self._computation.submit("fit", revision, prepare)
+
+    def _apply_fit_preparation(self, prepared: PreparedLocalFit) -> None:
+        """Install only the current scientific result, using Qt on the GUI thread."""
+        self._fit_noise = prepared.noise
+        self.fit_preparation = prepared
+        self.fit_preview.show_preparation(prepared)
+        self.fit_mask.setOpacity(1)
+        self.fit_members.setOpacity(1)
+        rgba = np.zeros((*self.spectra.data.shape[1:], 4), dtype=np.uint8)
+        rgba[prepared.scope.grid_indices] = (230, 160, 20, 85)
+        self.fit_mask.setImage(rgba, autoLevels=False)
+        self.fit_mask.setTransform(
+            QtGui.QTransform(
+                self.x_axis.delta,
+                0,
+                0,
+                self.y_axis.delta,
+                self.ppm_x[0] - self.x_axis.delta / 2,
+                self.ppm_y[0] - self.y_axis.delta / 2,
+            )
+        )
+        self.fit_mask.show()
+        members = {item.working_id for item in prepared.identities}
+        self.fit_members.setData(
+            x=[
+                display_position(self.x_axis, p.positions[1]) for p in self.peaks if p.id in members
+            ],
+            y=[
+                display_position(self.y_axis, p.positions[0]) for p in self.peaks if p.id in members
+            ],
+        )
+        with QtCore.QSignalBlocker(self.workspace_tabs):
+            self.workspace_tabs.setCurrentIndex(1)
+        self.workspaces.setCurrentIndex(1)
+        self.interaction_hint.setText(
+            "LOCAL FIT PREVIEW · Amber cells are fitted samples · Rings mark included peaks · "
+            "No fit has been run"
+        )
+
+    def _schedule_fit_preview(self) -> None:
+        """Debounce threshold drags; an outdated region is not a reviewed input."""
+        if self.workspaces.currentIndex() != 1:
+            return
+        if (
+            self.fit_preparation is not None
+            and self.fit_preparation.contour_level == self.lowest_contour_level
+        ):
+            return
+        self._fit_revision += 1
+        self._computation.cancel("fit")
+        self.fit_preparation = None
+        self.fit_mask.setOpacity(0.35)
+        self.fit_members.setOpacity(0.35)
+        self.fit_preview.show_status(
+            "Updating scope · previous scope shown until ready"
+            if self.fit_mask.isVisible()
+            else "Preparing fitting scope…"
+        )
+        self._fit_timer.start()
+
+    def dismiss_fit_preview(self) -> None:
+        """Drop a preparation when returning to inspection or changing inputs."""
+        self._fit_timer.stop()
+        self._fit_revision += 1
+        self._computation.cancel("fit")
+        self.fit_preparation = None
+        self.fit_preview.setEnabled(True)
+        self.fit_mask.hide()
+        self.fit_members.clear()
+        with QtCore.QSignalBlocker(self.workspace_tabs):
+            self.workspace_tabs.setCurrentIndex(0)
+        self.workspaces.setCurrentIndex(0)
+        self.workspace_tabs.setTabEnabled(1, self.selected_id is not None)
+        self._update_interaction_hint()
 
     def _build_inspection_panels(self) -> QtWidgets.QWidget:
         right = QtWidgets.QWidget()
@@ -335,6 +518,12 @@ class SpectrumViewer(QtWidgets.QWidget):
         reset.clicked.connect(self.reset_view)
         grid.addWidget(reset, 0, 3)
         layout.addLayout(grid)
+        self.contour_status = QtWidgets.QLabel()
+        self.contour_status.setFixedHeight(self.contour_status.fontMetrics().lineSpacing() + 4)
+        self.contour_status.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+        )
+        layout.addWidget(self.contour_status)
 
     def _sync_contour_sliders(self) -> None:
         for slider, value in (
@@ -380,21 +569,43 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._update_slices()
 
     def _schedule_contours(self) -> None:
-        # Throttle rather than debounce: scrubbing still displays intermediate planes.
+        self._contour_revision += 1
+        self._computation.cancel("contours")
+        self.contour_status.setText("Updating contours…")
+        self.contour_status.setToolTip(
+            "Previous contours remain visible until the new set is ready."
+        )
+        # Coalesce redraw requests; the worker keeps only the latest pending work.
         if not self._contour_timer.isActive():
             self._contour_timer.start()
 
+    @property
+    def lowest_contour_level(self) -> float:
+        """Absolute base intensity shared by displayed contours and local clustering."""
+        return max(self.noise * self.threshold.value(), np.finfo(float).tiny)
+
     def _update_contours(self) -> None:
+        """Queue numerical contour extraction; no Qt paths are made in the worker."""
         n_levels = self.levels.value()
-        while len(self.contours) < 2 * n_levels:
+        positive = self.lowest_contour_level * self.factor.value() ** np.arange(n_levels)
+        levels = np.concatenate((positive, -positive))
+        axes = [axis.model_copy(deep=True) for axis in self.spectra.spectral_params]
+        operation = partial(
+            contour_geometry,
+            self.spectra.data[self.plane],
+            axes,
+            levels,
+        )
+        self._computation.submit("contours", self._contour_revision, operation)
+
+    def _apply_contour_geometry(self, geometry: ContourGeometry) -> None:
+        paths = paths_from_geometry(geometry)
+        while len(self.contours) < len(paths):
             item = QtWidgets.QGraphicsPathItem()
             item.setZValue(-10)
             self.spectrum_plot.addItem(item)
             self.contours.append(item)
-        base = max(self.noise * self.threshold.value(), np.finfo(float).tiny)
-        positive = base * self.factor.value() ** np.arange(n_levels)
-        levels = np.concatenate((positive, -positive))
-        paths = contour_paths(self.spectra.data[self.plane], self.spectra.spectral_params, levels)
+        n_levels = len(paths) // 2
         for index, item in enumerate(self.contours):
             item.setVisible(index < len(paths))
             if index < len(paths):
@@ -409,6 +620,38 @@ class SpectrumViewer(QtWidgets.QWidget):
                     )
                 )
                 item.setPath(paths[index])
+        self.contour_status.clear()
+        self.contour_status.setToolTip("")
+
+    @QtCore.Slot(str, int, object)
+    def _computation_finished(self, kind: str, revision: int, outcome: object) -> None:
+        if self._closing:
+            return
+        if kind == "fit" and revision == self._fit_revision:
+            if isinstance(outcome, Exception):
+                self.fit_mask.hide()
+                self.fit_members.clear()
+                self.fit_preview.show_status(str(outcome), clear=True)
+            else:
+                self._apply_fit_preparation(cast("PreparedLocalFit", outcome))
+        elif kind == "contours" and revision == self._contour_revision:
+            if isinstance(outcome, Exception):
+                self.contour_status.setText("Contour update failed · hover for details")
+                self.contour_status.setToolTip(str(outcome))
+            else:
+                self._apply_contour_geometry(cast("ContourGeometry", outcome))
+
+    def stop_preparation(self) -> None:
+        """Invalidate work without waiting for background computation at shutdown."""
+        self._closing = True
+        self._fit_timer.stop()
+        self._contour_timer.stop()
+        self._computation.close()
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # noqa: N802
+        """Close without waiting for obsolete numerical work."""
+        self.stop_preparation()
+        super().closeEvent(event)
 
     def _clicked(self, event) -> None:
         if event.button() != QtCore.Qt.MouseButton.LeftButton:
@@ -462,6 +705,7 @@ class SpectrumViewer(QtWidgets.QWidget):
     def set_plane_values(self, values: np.ndarray) -> None:
         """Replace experimental plane coordinates without changing spectral samples."""
         validate_plane_values(values, self.spectra.data.shape[0])
+        self.dismiss_fit_preview()
         self.spectra.z_values = np.array(values, dtype=float, copy=True)
         self.profile.enableAutoRange()
         self._update_slices()
@@ -534,8 +778,19 @@ class SpectrumViewer(QtWidgets.QWidget):
         """Select by identity; inspection alone snaps to measured sample indices."""
         if peak_id != self.selected_id and not self.apply_pending_fields():
             return
+        if (
+            peak_id != self.selected_id
+            and self.fit_preparation is None
+            and self.workspaces.currentIndex() == 1
+        ):
+            self.dismiss_fit_preview()
         peak = next((p for p in self.peaks if p.id == peak_id), None)
         self.selected_id = peak.id if peak else None
+        if self.fit_preparation is not None and not any(
+            member.working_id == self.selected_id for member in self.fit_preparation.identities
+        ):
+            self.dismiss_fit_preview()
+        self.workspace_tabs.setTabEnabled(1, peak is not None or self.fit_preparation is not None)
         self.peak_scatter.selected_id = self.selected_id
         position = (
             (
@@ -550,7 +805,11 @@ class SpectrumViewer(QtWidgets.QWidget):
             y=[position[1]] if peak else [],
             pen=pg.mkPen(self._colors["crosshair"], width=2),
         )
-        self.inspector.show_peak(peak, position)
+        # Selection populates fields, but does not edit scientific working state.
+        # Do not let those text changes invalidate an in-group preparation.
+        with QtCore.QSignalBlocker(self.inspector):
+            self.inspector.show_peak(peak, position)
+        self._update_edit_actions()
         self.show_peak_labels(self.labels_visible)
         self._update_interaction_hint()
         if peak and inspect:
@@ -614,10 +873,17 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.start_adding_peak()
 
     def _update_interaction_hint(self) -> None:
-        if self.adding_peak:
+        if self.fit_preparation is not None:
+            text = "LOCAL FIT PREVIEW · Amber cells are fitted samples · Rings mark included peaks"
+        elif self.workspaces.currentIndex() == 1:
+            text = "LOCAL FIT PREVIEW · Use Threshold to review scope · Back to Inspect to edit"
+        elif self.adding_peak:
             text = "PLACING PEAK · Click in spectrum · Cancel placement or Esc to stop"
         elif self.selected_id is not None:
-            text = "Drag the selected peak to move · Edit name or ppm at right, then Apply"
+            text = (
+                "Drag selected peak to move · Edit fields at right · "
+                "Fit group… previews fitting scope"
+            )
         else:
             text = "Click a peak to select · Drag background to pan · Scroll to zoom"
         self.interaction_hint.setText(text)
@@ -658,6 +924,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         if not self.apply_pending_fields():
             self._update_interaction_hint()
             return
+        self.dismiss_fit_preview()
         self.cancel_interaction()
         self.adding_peak = True
         self.peak_scatter.placing = True

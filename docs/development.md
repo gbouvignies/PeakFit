@@ -93,3 +93,59 @@ simplification.
 Documentation should be consolidated with code changes. Prefer one accurate page
 over several overlapping pages. Delete stale notes when they stop matching the
 current design.
+
+
+## GUI responsiveness
+
+PR #53 was tested natively on macOS with the bundled `pseudo3d.ft2` dataset
+(131 × 256 × 546 samples, 166 peaks, 69.85 MiB input), ten contour levels per sign,
+and thresholds in multiples of first-plane noise. These are representative local
+measurements, not portable performance guarantees.
+
+The prolonged freeze was reproduced while replacing a 664-row parameter table:
+repeated ten-second stack dumps remained inside `QTableWidget.setItem()` for more
+than 30 seconds. Clearing old rows, using interactive column sizing, and sizing
+once after population reduced repeated native replacement to 20–21 ms. This fix
+is retained. All-plane segmentation took about 7 ms, including under 1 ms for
+boundary merging. Only the selected group is materialized; at 5× its arrays use
+0.08 MiB versus the old all-cluster path's 12.1 MiB.
+
+The current UX was compared directly with the original merged viewer at commit
+`21e5cfc`, using the same dataset, threshold sequence, window size, and selected
+spectral range. Both retain all 20 contour paths at every threshold. The original
+inspection workspace has three plots; the revised Fit workspace has scope metadata.
+Times below include event processing and frame capture, so visible side panels
+account for part of the difference; they are not isolated renderer speedups.
+
+| Threshold | Vertices | Original local pan / zoom | Revised local pan / zoom | Original / revised overview capture |
+| --- | ---: | ---: | ---: | ---: |
+| 5× | 29,206 | 62 / 94 ms | 23 / 21 ms | 29 / 15 ms |
+| 1× | 229,856 | 59 / 58 ms | 28 / 35 ms | 29 / 22 ms |
+| 0.1× | 1,097,210 | 86 / 82 ms | 43 / 42 ms | 53 / 43 ms |
+
+The sweep 5 → 2 → 1 → 0.5 → 0.2 → 0.1 → 5× verified full contour visibility,
+zoom/pan, recovery to ordinary scope, and unchanged plot/control geometry before,
+during, and after threshold updates. At 0.1× the revised update settled in about
+0.51 s, versus 0.30 s originally; this includes the Fit workspace's 150 ms debounce
+and scope update. The previous contour set remains visible throughout. Dense
+overviews still cost more to draw; there is no blanket contour-vertex cutoff.
+
+One serial background lane handles preparation and numerical contour extraction,
+with latest-pending requests and revision checks. Qt paths and widgets stay on the
+GUI thread. The renderer uses full geometry, and completed sets replace the old
+sets together. Fixed-height, width-independent status/metadata fields prevent
+progress or warning text from reflowing the plot; full messages are available in
+Details. Efficient parameter-table replacement and non-waiting shutdown are retained.
+
+A large region does not suppress visualization. At 0.1×, the exact scope contains
+139,776 spectral points and all 166 peaks. Its two grid-index arrays use about
+2.13 MiB, versus 279 MiB for dense numerical data/correction arrays. Scope geometry,
+all markers, and metadata remain available without allocating the latter. Numerical
+arrays are limited to 128 MiB; that limit affects numerical preparation only. `PreparedLocalFit.cluster` and `.parameters` are absent
+for a scope-only result, which must not be treated as ready numerical input.
+
+The first all-plane noise estimate still has substantial temporary memory use, and
+full low-threshold vector geometry requires more memory and painting time. No low
+total-process memory bound or constant frame rate is promised. Regression scenarios
+cover exact scientific geometry/data/identity, complete dense contours, stable
+layout through progress and numerical limits, latest-work handling, and safe close.

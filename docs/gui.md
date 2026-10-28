@@ -99,14 +99,112 @@ are newly allocated on import; they are not scientific parameter identifiers.
 
 ![Highlighted one-shot placement and cancel control](images/peak-placement.png)
 
+## Local fitting scope preview
+
+Select an existing peak, then choose **Fit group…** beside **Inspect** in the
+right-hand workspace. The preview replaces the editor and inspection plots;
+**Back to Inspect** restores them. Valid pending peak fields apply before
+preparation, following the existing editor convention; invalid fields keep the
+editor visible. No optimization, fit results, or coordinate acceptance is available
+in this step.
+
+PeakFit constructs fresh scientific peaks from a snapshot of **all working peaks**,
+resolves the existing lineshape models from NMRPipe processing metadata, estimates
+noise from **all planes**, and uses the regular clustering algorithm. Safe internal
+names and an explicit ID/assignment mapping keep duplicate assignments distinct.
+The selected peak identifies its connected cluster, including every other working
+peak in that cluster. The region combines thresholded signal from any plane with
+small neighborhoods around working peaks; it is not a rectangular crop.
+
+Amber cells show the **actual sampled fitting mask**, aligned with the spectral
+samples, and rings highlight all included peaks. The preview lists group members,
+plane/sample counts, resolved axis models, noise and clustering threshold, and the
+nonlinear starting values, bounds, units, and fixed/variable flags from the same
+parameter preparation function used by the pipeline. Positions remain unfolded;
+direct-axis coordinates outside the sampled extent are rejected instead of wrapped.
+The clustering threshold is the **absolute intensity of the lowest displayed
+contour**, shared with the viewer's Threshold control (whose scale uses first-plane
+noise). The optimizer's statistical noise is estimated independently from all planes;
+changing the contour threshold does not change that estimate. No model or parameter
+editing controls are exposed yet. Programmatic local preparation
+supports only global and axis/parameter-wide wildcard rules (`*`, `*.*.lw`,
+`*.F2.cs`, and the same pattern forms in fit-step fix/vary rules). It rejects
+`parameters.peaks`, name-targeted patterns, and `parameters.from_file` with an
+actionable error: assignment names cannot safely target the generated scientific
+IDs, especially with duplicate assignments. Use the CLI for those configurations;
+CLI constraint handling is unchanged.
+
+The proposed fit is **one isolated local pass across every experimental plane**.
+Positions and lineshape parameters are shared across planes; signed amplitudes are
+solved independently per peak and plane, with no amplitude starting controls or
+assumed response law. Models inferred from processing metadata need scientific
+review; a successful preparation does not validate their suitability for the data.
+Signals from other clusters are **not** subtracted, and the complete iterative
+cross-cluster correction procedure is not included. Check surrounding peaks before
+using a local fit; a missing peak or significant external signal needs attention.
+
+Panning, zooming, and plane navigation remain available. Preparing or dismissing a
+preview does not change committed peaks, undo history, source files, or spectrum
+samples. Selecting another member keeps the same prepared group without recomputing it.
+Selecting an outside peak or clearing selection dismisses the preview and returns
+to Inspect. Peak edits, peak-list replacement, and plane-coordinate changes also
+dismiss it. Snapshots retain working IDs/assignments, spectrum identity and shape,
+spectral metadata, plane coordinates, the effective absolute clustering threshold,
+and fitting configuration. They are preparation inputs, not completed results
+or a persisted session.
+
+Changing **Threshold** while the Fit workspace is open updates membership, mask,
+member rings, and effective parameters. Rapid slider changes are coalesced after a
+short pause (150 ms); the previous scope stays visible at reduced opacity, marked
+as updating until the new exact scope is ready. Spacing, number of levels, and displayed plane affect
+rendering only and never redefine the cluster. The all-plane noise estimate is
+reused for the unchanged dataset. Returning to Inspect cancels any pending update.
+
+Preparation and numerical contour extraction run outside the GUI event loop in
+one serial background lane. Each kind of request retains only its latest pending
+version, and obsolete results are discarded. Working records and spectral metadata
+are captured before submission. Only the selected cluster's data is materialized;
+all-plane segmentation, boundary merging, and sampled-point order are unchanged.
+Returning to Inspect, changing selection before a scope is ready, replacing the
+spectrum, or closing the window invalidates the corresponding work without waiting.
+Qt paths, widgets, and graphics are constructed only on the GUI thread.
+
+![Local fitting scope with the bundled pseudo-3D spectrum](images/fit-scope-preview.png)
+
+![Three overlapping peaks and their exact sampled fitting region](images/fit-scope-closeup.png)
+
 ## Scope and performance
 
 Manual editing changes one shared peak list across all experimental planes.
-Fitting, completed model/residual display, and session persistence are not yet
+Optimization, completed model/residual display, and session persistence are not yet
 implemented. Existing Matplotlib viewers and static plots remain available unchanged.
 
-The viewer keeps the `Spectra` object in memory. Contour extraction happens on the
-GUI thread when a plane or contour setting changes; zooming, panning, and crosshair
-updates reuse graphical objects. There is no plane cache or background renderer.
-Very large or densely contoured spectra can therefore pause during extraction;
-reduce the number of levels or increase the threshold if needed.
+The viewer keeps the `Spectra` object in memory. Panning and zooming reuse retained
+Qt graphics; raw traces and plane navigation remain available while work is pending.
+
+Low-threshold contours remain fully available. Existing contours stay visible while
+their replacement is computed, and the complete new set is installed together.
+There is no contour-vertex cutoff. Progress uses a reserved one-line status area;
+status changes do not move the spectrum or its controls.
+
+Numerical preparation is separate from scope visualization. If a selected group's
+data/correction arrays would exceed 128 MiB, its exact segmentation mask, all member
+markers, model metadata, and sample counts still appear. No dense point-by-plane
+arrays are allocated, and the parameter table remains unavailable. A compact status
+explains that numerical preparation is unavailable; **Details…**
+provides the full explanation, required memory, and advice to use the CLI or a
+higher threshold for numerical preparation. No region is truncated. Internally,
+`PreparedLocalFit.scope` always contains geometry and membership; `cluster` and
+`parameters` are explicitly absent when only the lightweight scope is available.
+
+Fixed-height metadata and status areas keep the Fit workspace stable during
+progress, warnings, and completed scope updates. Details open only on request.
+The [native comparison](development.md#gui-responsiveness) covers the original
+viewer and this workspace down to 0.1× noise.
+
+![Complete low-threshold contours and lightweight fitting scope](images/fit-scope-low-threshold.jpg)
+
+Running work is not forcefully interrupted; it finishes in the background and its
+obsolete result is ignored. Shutdown does not wait in the Qt event loop. The first
+all-plane noise estimate still has substantial temporary memory use. There is no
+fitting execution, process scheduler, or result visualization in this milestone.

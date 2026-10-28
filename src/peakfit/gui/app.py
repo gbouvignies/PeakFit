@@ -73,6 +73,8 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         viewer = SpectrumViewer(spectra)
         viewer.set_peaks(imported_peaks)
         viewer.show_peak_labels(self.labels_action.isChecked())
+        if self.viewer is not None:
+            self.viewer.stop_preparation()
         self.setCentralWidget(viewer)
         self.viewer = viewer
         self._spectrum_name = path.name
@@ -188,6 +190,8 @@ class PeakFitWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # noqa: N802
         """Protect coordinates and typed fields before closing the application."""
         if self._protect_edits():
+            if self.viewer is not None:
+                self.viewer.stop_preparation()
             event.accept()
         else:
             event.ignore()
