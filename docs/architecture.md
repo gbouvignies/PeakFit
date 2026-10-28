@@ -92,3 +92,10 @@ The current vertical-slice shape is a starting point. It is acceptable to merge 
 rename modules, delete thin wrappers, or move responsibilities when that makes the code
 easier to understand and test. Prefer direct data flow and domain names over generic
 services, managers, factories, adapters, or registries.
+
+Completed-model projection uses `fit.simulation.project_final_outcome`: paired
+fractional grid coordinates and optional original plane indices produce local or
+combined contributions from the verified final snapshot and retained amplitudes.
+The existing full-grid simulation delegates to this same path. Shape evaluation
+is chunked; callers bound their output region. No optimization, amplitude solve,
+or parameter-default preparation takes place during visualization.

@@ -16,6 +16,7 @@ from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.fit.pipeline import run_pipeline
+from peakfit.fit.simulation import project_final_outcome
 from peakfit.gui.fit_process import FitProcessResult, LocalFitProcess
 from peakfit.gui.fitting import prepare_local_fit
 from peakfit.gui.local_fit import execute_local_fit
@@ -137,6 +138,18 @@ def test_prepared_execution_matches_one_pass_and_preserves_scientific_inputs(mon
     np.testing.assert_allclose(
         evaluation.raw_residuals, prepared.cluster.data - evaluation.model_values
     )
+    projected = project_final_outcome(
+        result.outcome, result.simulation_snapshot, prepared.scope.grid_indices
+    )
+    assert projected is not None
+    np.testing.assert_allclose(projected, evaluation.model_values, atol=1e-12)
+    reordered = project_final_outcome(
+        result.outcome, result.simulation_snapshot, prepared.scope.grid_indices, planes=[2, 0, 2]
+    )
+    assert reordered is not None
+    np.testing.assert_allclose(reordered, evaluation.model_values[:, [2, 0, 2]], atol=1e-12)
+    with pytest.raises(ValueError, match="paired"):
+        project_final_outcome(result.outcome, result.simulation_snapshot, [np.array([np.nan])])
     assert not evaluation.model_values.flags.writeable
     with pytest.raises(ValueError, match="numerical inputs"):
         execute_local_fit(replace(prepared, cluster=None, parameters=None))
