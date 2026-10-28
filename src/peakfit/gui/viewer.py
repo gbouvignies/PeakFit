@@ -148,11 +148,6 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.workspace.fit.setEnabled(
             self.selected_id is not None or self.fit_result is not None or self.fit_busy
         )
-        hint = "Apply inspector edits or press Escape before Undo/Redo/Delete"
-        if pending:
-            self.inspector.details.setText(hint)
-        elif self.inspector.details.text() == hint:
-            self.inspector.details.clear()
 
     def _plot(self, title: str) -> pg.PlotWidget:
         plot = pg.PlotWidget(title=title, background=self._colors["background"])
@@ -333,7 +328,7 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def open_details(self, index: int) -> None:
         """Explicit user action; background updates only refresh existing content."""
-        if not self.require_committed_fields():
+        if not self.commit_pending_fields():
             return
         if index == 1 and not self.fit_busy and not self._fit_context:
             if self.fit_result is not None:
@@ -344,14 +339,14 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.workspace.show_details(index, titles[index])
 
     def close_details(self) -> None:
-        """Pending fields must be explicitly applied or reverted before hiding."""
-        if self.require_committed_fields():
+        """Commit valid fields before hiding; keep invalid drafts visible."""
+        if self.commit_pending_fields():
             self.workspace.hide_details()
             self.spectrum_plot.setFocus()
 
     def preview_fit_group(self) -> None:
         """Snapshot committed peaks and show a local scope without fitting."""
-        if self.fit_busy or not self.require_committed_fields():
+        if self.fit_busy or not self.commit_pending_fields():
             return
         if self.selected_id is None:
             self.dismiss_fit_preview()
@@ -475,13 +470,20 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._scientific_revision += 1
         self._showing_result = False
         self.dismiss_fit_preview()
+        if self.fit_result is not None:
+            self.fit_preview.show_result(self.fit_result, self.plane, outdated=True)
+            self.fit_preview.apply_positions.setEnabled(False)
+            self.fit_preview.retained.show()
+            self.fit_status.setText("Local fit outdated · original result retained")
 
     def run_local_fit(self) -> None:
         """Submit the reviewed preparation, keeping any previous result until success."""
-        prepared = self.fit_preparation
-        if self.fit_busy or self._exporting or prepared is None:
+        if self.fit_busy or self._exporting:
             return
-        if not self.require_committed_fields():
+        if not self.commit_pending_fields():
+            return
+        prepared = self.fit_preparation
+        if prepared is None:
             return
         reason = execution_unavailable(prepared)
         if reason:
@@ -566,6 +568,8 @@ class SpectrumViewer(QtWidgets.QWidget):
         """Restore retained numerical inspection without changing viewport or peaks."""
         if self.fit_result is None or self.fit_busy:
             return
+        if activate and not self.commit_pending_fields():
+            return
         self._fit_timer.stop()
         self._fit_revision += 1
         self._computation.cancel("fit")
@@ -588,7 +592,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         else:
             self.fit_preview.apply_positions.setEnabled(True)
             self.fit_preview.apply_positions.setToolTip("Update the group in one undoable edit")
-        if activate and self.require_committed_fields():
+        if activate:
             self.workspace.show_details(1, "Local fit")
         self._update_interaction_hint()
 
@@ -752,7 +756,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         right_layout = QtWidgets.QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
         self.inspector = PeakInspector(self._axis_title(self.x_axis), self._axis_title(self.y_axis))
-        self.inspector.applied.connect(self._apply_peak_fields)
+        self.inspector.commit_requested.connect(self.commit_pending_fields)
         self.inspector.fields_changed.connect(self.pending_edits_changed)
         self.inspector.deleted.connect(self.delete_peak)
         self.add_peak_button = QtWidgets.QPushButton("Add peak…")
@@ -1182,9 +1186,9 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def select_peak(self, peak_id: str | None, *, inspect: bool = False) -> None:
         """Select by identity; inspection alone snaps to measured sample indices."""
-        if self.inspector.pending:
-            if peak_id != self.selected_id:
-                self.require_committed_fields()
+        if self.inspector.pending and (
+            peak_id == self.selected_id or not self.commit_pending_fields()
+        ):
             return
         if (
             peak_id != self.selected_id
@@ -1229,16 +1233,19 @@ class SpectrumViewer(QtWidgets.QWidget):
         if peak and inspect:
             self._select_position(*position)
 
-    def _apply_peak_fields(self, name: str, positions: tuple[float, float]) -> bool:
-        """Commit working values only when no scientific operation owns the inputs."""
-        if self.fit_busy:
-            return False
-        if self.selected_id is None:
+    def commit_pending_fields(self) -> bool:
+        """Commit one complete peak or retain its invalid draft with an explanation."""
+        if not self.inspector.pending:
             return True
+        if self.fit_busy or self._closing:
+            return False
+        assert self.selected_id is not None
         before = self.peaks
         try:
+            name, positions = self.inspector.values()
             self.edits.update(self.selected_id, name, positions)
         except ValueError as exc:
+            self.workspace.show_details(0, "Edit peak · correct pending edits")
             self.inspector.details.setText(str(exc))
             return False
         with QtCore.QSignalBlocker(self.inspector):
@@ -1249,18 +1256,6 @@ class SpectrumViewer(QtWidgets.QWidget):
         else:
             self.pending_edits_changed.emit()
         return True
-
-    def require_committed_fields(self) -> bool:
-        """Reveal pending edits for explicit resolution; never commit them implicitly."""
-        if not self.inspector.pending:
-            return True
-        self.workspace.show_details(0, "Edit peak · pending edits")
-        self.inspector.details.setText(
-            "Apply or Revert pending edits (Escape) before changing selection, "
-            "closing details, fitting or exporting."
-        )
-        self.inspector.name.setFocus()
-        return False
 
     def delete_peak(self) -> None:
         """Delete the selected assignment as one reversible edit."""
@@ -1329,8 +1324,6 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.inspector.name,
             self.inspector.x_field,
             self.inspector.y_field,
-            self.inspector.apply,
-            self.inspector.revert,
             self.inspector.delete,
         ):
             field.setEnabled(
@@ -1356,7 +1349,7 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def start_adding_peak(self) -> None:
         """Arm a single placement without a persistent editing mode."""
-        if self.fit_busy or not self.require_committed_fields():
+        if self.fit_busy or not self.commit_pending_fields():
             self._update_interaction_hint()
             return
         self.dismiss_fit_preview()
@@ -1396,7 +1389,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             return
         peak = self._drag_peak
         if peak is None:
-            if not self.require_committed_fields():
+            if not self.commit_pending_fields():
                 self.peak_scatter.cancel_drag()
                 return
             peak = next((p for p in self.peaks if p.id == self.selected_id), None)

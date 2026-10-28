@@ -210,7 +210,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         return self.viewer.export_fit_results()
 
     def _export_peaks(self) -> bool:
-        if self.viewer is None or not self.viewer.require_committed_fields():
+        if self.viewer is None or not self.viewer.commit_pending_fields():
             return False
         dialog = QtWidgets.QFileDialog(self, "Export working peaks")
         dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptMode.AcceptSave)

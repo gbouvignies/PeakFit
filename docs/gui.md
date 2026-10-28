@@ -85,19 +85,37 @@ lets you allocate space between the spectrum and inspection panels.
 
 Click a marker to select its assignment. Coincident markers open a chooser.
 Choose **Edit peak** to edit the name and unfolded ppm coordinates together.
-**Apply** or Enter explicitly commits the fields; **Revert** or Escape restores
-committed values. Pending fields block changing selection, closing/switching
-details, placing or dragging peaks, fitting, and exporting working peaks. The
-editor stays visible with instructions. No hidden text is silently committed.
-Typing marks unsaved editor work and updates editing controls without changing
-scientific inputs. Revert preserves the prepared scope, retained result and current
-comparison. Only a committed change invalidates dependent results; applying
-unchanged coordinates, including equivalent numeric text, does not.
-This intentionally replaces the earlier implicit commit on selection/export. Delete removes the selected peak;
-Edit → Undo/Redo restores working records without affecting spectrum navigation.
-Peak-history Undo/Redo and peak deletion are unavailable while inspector text is
-pending. Apply the text or press Escape to restore the committed fields first;
-an inline hint explains this. Native text-field undo remains available.
+Press **Enter**, move focus outside the three fields, or select another peak to
+commit the whole peak as one undoable edit. Closing details, switching panels,
+placing or dragging a peak, preparing a fit, and exporting working peaks also
+commit valid pending fields. **Tab** and **Shift+Tab** between the three fields
+keep one draft, including partially typed coordinates; tabbing out of the field
+group commits it. **Escape** restores all three last-committed values.
+There are no Apply/Revert buttons. Native text-field undo and context menus remain
+available while editing; after committing, use **Edit → Undo/Redo** for peak history.
+Peak-history actions and deletion pause while a draft is pending; finish editing
+or press Escape first. Delete removes the selected peak.
+
+An empty name or non-finite/invalid coordinate keeps the entire draft visible,
+focuses the field needing correction, and explains the error inline. Selection,
+closing/switching details, fitting and working-peak export cannot discard invalid
+fields. Correct them and finish editing, or press Escape. Names need not be unique;
+unfolded coordinates retain their full precision.
+
+Typing updates the unsaved-work indicator without changing scientific inputs.
+Escape preserves the prepared scope, retained result and current comparison.
+Only an actual committed change invalidates dependents: equivalent numeric text
+and unchanged fields create neither history nor a scientific revision. Committed
+assignment or coordinate changes hide stale comparison graphics and mark retained
+results **Outdated** while preserving their original values and export status.
+Undo/Redo does not make a retained fit current again; prepare a new fit for a current
+comparison. Exporting working peaks still requires choosing a file; committing a
+field never overwrites an imported file.
+
+![Peak editor without Apply/Revert controls](images/peak-editor.png)
+
+[Inline validation keeps the draft visible](images/peak-editor-validation.png).
+
 Choose **Add peak…** (or A with spectrum focus), then click once to place a peak.
 The same button becomes **Cancel placement**; click it or press Escape to cancel.
 The spectrum tooltip describes the active placement gesture.
@@ -157,8 +175,8 @@ affect display only.
 
 Select a peak, then choose **Local fit**. Its scope, member list and effective
 starting parameters appear in the lower panel; the F3 and F2 slices stay visible.
-Preparation does not run optimization or modify coordinates. Pending peak fields
-must be explicitly applied or reverted before preparation.
+Preparation does not run optimization. Valid pending peak fields commit before
+preparation; invalid drafts remain visible and block it.
 
 Closing or switching details changes presentation only: it does not cancel an
 active preparation, remove a completed comparison, or change the fitting scope.

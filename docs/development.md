@@ -38,6 +38,9 @@ reviewing the scientific or contract reason.
   effects unless that boundary is intentionally changed.
 - Prefer direct functions and explicit data flow over managers, service layers,
   registries, factories, or adapters.
+- Excellent visual design, readability, intuitiveness and consistency are explicit
+  product requirements. A dedicated UX/visual polish pass follows establishment of
+  the core whole-dataset workflows; functional changes should support that direction.
 - Keep `engine` focused on numerical/domain primitives.
 - Keep `fit` focused on loading, validation, orchestration, and fit-output
   assembly.
@@ -460,3 +463,41 @@ Final verification: 262 tests passed with offscreen Qt/Agg; Ruff, formatting, ty
 import-linter, all-file prek hooks, and wheel/sdist build passed. The existing
 uv-build version-bound warning remains. `graphify update .` refreshed the local
 AST graph. No public API or file-format compatibility break was introduced.
+
+
+### Whole-peak editor commits
+
+The peak editor has no Apply/Revert controls. `PeakInspector` requests a commit on
+Enter or when focus leaves its three fields; Tab/Shift+Tab inside them and native
+text context menus preserve the draft. `SpectrumViewer.commit_pending_fields()`
+validates the whole draft and calls the existing `PeakEdits.update()` once. The
+same path guards selection, closing/switching details, placement/dragging, fit
+preparation/execution and working-peak export. Invalid fields remain visible with
+an actionable error and focus for correction. Escape restores the complete record.
+No generic transaction layer or additional scientific representation is involved.
+
+Draft notifications and no-op commits leave scientific revisions, preparation,
+comparison graphics and retained results intact. Actual commits invalidate current
+preparation and comparison, label retained results outdated, and preserve their
+original quantities and independent export state. Run reads the current preparation
+after committing fields, so it cannot submit a scope invalidated by that commit.
+
+`tests/test_gui_workspace.py` protects real key/focus input, Tab through partial
+coordinates, Enter/selection/panel commits, atomic multi-field undo/redo, correction
+and Escape, native text context menus, no-op revision tracking, retained-result
+identity/export state and stale-preparation refusal. Existing viewer tests cover
+native text undo, plotting gestures, export errors and unsaved-work guards; local
+fit and fitted-position tests continue protecting scientific results and revisions.
+The intentional interaction change requires no file-format migration: use Enter or
+leave the editor to commit, and Escape to revert.
+
+Verification: the full offscreen Qt/Agg suite passed (345 tests before the final
+marker-click regression was added); all 51 editor/viewer tests passed on native
+macOS Cocoa. The additional marker-click case was checked on both backends.
+Ruff, formatting, type checking, import-linter, all-file prek hooks and wheel/sdist
+build passed (the existing uv-build version-bound warning remains). Native 1280 × 800
+captures of the editor and its validation error on the bundled experimental
+spectrum were inspected for readable labels, complete error text and preserved
+spectrum/slice context; these are included in the GUI guide. Native Qt required
+display access outside the execution sandbox (the sandboxed attempt failed during
+QScreen initialization).

@@ -163,7 +163,7 @@ def test_peak_selection_precision_overlap_and_edit_history() -> None:  # noqa: P
         assert not viewer.inspector.delete.isEnabled()
         assert viewer.edits.can_undo
         assert viewer.edits.can_redo
-        assert "Apply" in viewer.inspector.details.text()
+        assert "Enter" in viewer.inspector.details.text()
         assert "Escape" in viewer.inspector.details.text()
         QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
         assert not viewer.inspector.pending
@@ -297,7 +297,7 @@ def test_export_and_loss_guards_include_typed_fields_and_keep_failed_saves_dirty
     revision = viewer._scientific_revision
     viewer.inspector.name.setText("revert this draft")
     assert window.isWindowModified()
-    viewer.inspector.revert.click()
+    QtTest.QTest.keyClick(viewer.inspector.name, QtCore.Qt.Key.Key_Escape)
     assert not window.isWindowModified()
     assert viewer._scientific_revision == revision
     viewer.inspector.name.setText("unsaved typed assignment")
@@ -362,9 +362,6 @@ def test_export_and_loss_guards_include_typed_fields_and_keep_failed_saves_dirty
     )
     monkeypatch.setattr(QtWidgets.QFileDialog, "selectedFiles", lambda _dialog: [str(path)])
     try:
-        assert not window._export_peaks()  # Export never silently commits pending text.
-        assert viewer.inspector.pending
-        viewer.inspector.apply.click()
         assert window._export_peaks()
         assert not window.isWindowModified()
         restored = load_peaks(path, viewer.spectra)
@@ -475,7 +472,7 @@ def test_add_peak_lifecycle_and_editing_sequence(tmp_path: Path, monkeypatch) ->
         QtTest.QTest.mouseClick(viewer.inspector.name, QtCore.Qt.MouseButton.LeftButton)
         viewer.inspector.name.selectAll()
         QtTest.QTest.keyClicks(viewer.inspector.name, "Native sequence")
-        QtTest.QTest.mouseClick(viewer.inspector.apply, QtCore.Qt.MouseButton.LeftButton)
+        QtTest.QTest.keyClick(viewer.inspector.name, QtCore.Qt.Key.Key_Return)
         assert viewer.peaks[-1].name == "Native sequence"
         QtTest.QTest.keySequence(
             viewer.spectrum_plot, QtGui.QKeySequence(QtGui.QKeySequence.StandardKey.Undo)

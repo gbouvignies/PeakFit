@@ -1,4 +1,4 @@
-"""Workspace interactions preserve scientific state and require explicit edits."""
+"""Workspace editing commits complete peaks and preserves scientific state."""
 
 import numpy as np
 import pytest
@@ -7,6 +7,7 @@ from test_gui_fit_execution import _example, _wait
 
 from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.local_fit import execute_local_fit
+from peakfit.gui.spectrum import display_position
 from peakfit.gui.viewer import SpectrumViewer
 
 pytestmark = pytest.mark.gui
@@ -41,8 +42,7 @@ def fitted_viewer(viewer):
     return widget
 
 
-@pytest.mark.parametrize("revert", ["button", "escape"])
-def test_pending_coordinates_and_revert_preserve_completed_scientific_state(fitted_viewer, revert):
+def test_pending_coordinates_and_escape_preserve_completed_scientific_state(fitted_viewer):
     widget = fitted_viewer
     revision = widget._scientific_revision
     preparation, result = widget.fit_preparation, widget.fit_result
@@ -50,6 +50,7 @@ def test_pending_coordinates_and_revert_preserve_completed_scientific_state(fitt
     paths = tuple(widget.comparison.paths)
     peaks = widget.peaks
     field = widget.inspector.x_field
+    field.setFocus()
     field.setText(str(float(field.text()) + 0.001))
     assert widget.inspector.pending
     assert "pending" in widget.workspace.edit.text()
@@ -57,13 +58,7 @@ def test_pending_coordinates_and_revert_preserve_completed_scientific_state(fitt
     assert widget._scientific_revision == revision
     assert widget.fit_preparation is preparation
     assert widget.comparison.active
-    # A blocked preparation request must leave the current comparison intact too.
-    widget.preview_fit_group()
-    assert widget.comparison._current is model
-    if revert == "button":
-        widget.inspector.revert.click()
-    else:
-        QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
+    QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
     assert not widget.inspector.pending
     assert widget.inspector.delete.isEnabled()
     assert widget._scientific_revision == revision
@@ -78,7 +73,7 @@ def test_pending_coordinates_and_revert_preserve_completed_scientific_state(fitt
 
 
 @pytest.mark.parametrize("equivalent_text", [False, True])
-def test_applying_unchanged_coordinates_keeps_comparison(fitted_viewer, equivalent_text):
+def test_committing_unchanged_coordinates_keeps_comparison(fitted_viewer, equivalent_text):
     widget = fitted_viewer
     revision = widget._scientific_revision
     model = widget.comparison._current
@@ -86,7 +81,7 @@ def test_applying_unchanged_coordinates_keeps_comparison(fitted_viewer, equivale
     if equivalent_text:
         widget.inspector.x_field.setText(widget.inspector.x_field.text() + " ")
         assert widget.inspector.pending
-    widget.inspector.apply.click()
+    QtTest.QTest.keyClick(widget.inspector.x_field, QtCore.Qt.Key.Key_Return)
     assert not widget.inspector.pending
     assert widget._scientific_revision == revision
     assert widget.fit_preparation is preparation
@@ -96,18 +91,18 @@ def test_applying_unchanged_coordinates_keeps_comparison(fitted_viewer, equivale
     assert not widget.edits.can_undo
 
 
-def test_apply_invalidates_only_after_a_valid_coordinate_change(fitted_viewer):
+def test_enter_invalidates_only_after_a_valid_coordinate_change(fitted_viewer):
     widget = fitted_viewer
     revision = widget._scientific_revision
     result = widget.fit_result
     coordinate = widget.peaks[0].positions[1]
     widget.inspector.x_field.setText("nan")
-    widget.inspector.apply.click()
+    QtTest.QTest.keyClick(widget.inspector.x_field, QtCore.Qt.Key.Key_Return)
     assert widget.inspector.pending
     assert widget._scientific_revision == revision
     assert widget.comparison.active
     widget.inspector.x_field.setText(str(coordinate + 0.001))
-    widget.inspector.apply.click()
+    QtTest.QTest.keyClick(widget.inspector.x_field, QtCore.Qt.Key.Key_Return)
     assert not widget.inspector.pending
     assert widget._scientific_revision == revision + 1
     assert widget.peaks[0].positions[1] == coordinate + 0.001
@@ -125,7 +120,7 @@ def test_pending_fields_preserve_preparation_and_block_execution(viewer, monkeyp
     widget._apply_fit_preparation(prepared)
     revision, scope_revision = widget._scientific_revision, widget._fit_revision
     widget.open_details(0)
-    widget.inspector.y_field.setText(str(float(widget.inspector.y_field.text()) + 0.001))
+    widget.inspector.y_field.setText("nan")
     assert widget.fit_preparation is prepared
     assert widget._scientific_revision == revision
 
@@ -135,7 +130,7 @@ def test_pending_fields_preserve_preparation_and_block_execution(viewer, monkeyp
     monkeypatch.setattr(widget._fit_process, "start", unexpected)
     widget.run_local_fit()
     widget.preview_fit_group()
-    widget.inspector.revert.click()
+    QtTest.QTest.keyClick(widget.inspector.y_field, QtCore.Qt.Key.Key_Escape)
     assert widget.fit_preparation is prepared
     assert widget._scientific_revision == revision
     assert widget._fit_revision == scope_revision
@@ -209,32 +204,222 @@ def test_details_and_slices_preserve_context_and_dimensions(viewer, size, dark):
     assert widget.trace_x.backgroundBrush().color().name() == ("#202020" if dark else "#ffffff")
 
 
-def test_pending_fields_block_hiding_selection_and_implicit_commit(viewer):
-    widget, _prepared = viewer
+@pytest.mark.parametrize("finish", ["enter", "focus", "select", "marker", "close", "profile"])
+def test_complete_peak_is_one_undo_step_when_editing_finishes(  # noqa: PLR0915
+    fitted_viewer, finish
+):
+    widget = fitted_viewer
+    app = QtWidgets.QApplication.instance()
+    assert app is not None
     original = widget.peaks
-    widget.workspace.edit.click()
-    widget.inspector.name.setText("provisional name")
-    widget.workspace.close_button.click()
-    assert widget.workspace.details.isVisible()
-    widget.workspace.profile.click()
-    assert widget.workspace.pages.currentIndex() == 0
-    widget.select_peak(original[1].id)
-    assert widget.selected_id == original[0].id
-    widget.preview_fit_group()
-    assert widget.fit_preparation is None
+    result = widget.fit_result
+    revision = widget._scientific_revision
+    inspector = widget.inspector
+    inspector.name.setFocus()
+    inspector.name.selectAll()
+    QtTest.QTest.keyClicks(inspector.name, "renamed")
+    QtTest.QTest.keyClick(inspector.name, QtCore.Qt.Key.Key_Tab)
+    assert inspector.x_field.hasFocus()
+    inspector.x_field.selectAll()
+    QtTest.QTest.keyClicks(inspector.x_field, "0.123456789012345")
+    QtTest.QTest.keyClick(inspector.x_field, QtCore.Qt.Key.Key_Tab)
+    assert inspector.y_field.hasFocus()
+    inspector.y_field.selectAll()
+    QtTest.QTest.keyClicks(inspector.y_field, "1.05")
+    QtTest.QTest.keyClick(inspector.y_field, QtCore.Qt.Key.Key_Backtab)
+    app.processEvents()
+    assert inspector.x_field.hasFocus()
     assert widget.peaks == original
+    assert widget._scientific_revision == revision
+    assert not widget.edits.can_undo
+    assert widget.comparison.active
+    if finish == "enter":
+        QtTest.QTest.keyClick(inspector.x_field, QtCore.Qt.Key.Key_Return)
+    elif finish == "focus":
+        widget.spectrum_plot.setFocus()
+    elif finish == "select":
+        widget.select_peak(original[1].id)
+    elif finish == "marker":
+        other = original[1]
+        position = widget.spectrum_plot.getViewBox().mapViewToScene(
+            QtCore.QPointF(
+                display_position(widget.x_axis, other.positions[1]),
+                display_position(widget.y_axis, other.positions[0]),
+            )
+        )
+        QtTest.QTest.mouseClick(
+            widget.spectrum_plot.viewport(),
+            QtCore.Qt.MouseButton.LeftButton,
+            pos=widget.spectrum_plot.mapFromScene(position),
+        )
+    elif finish == "close":
+        QtTest.QTest.mouseClick(widget.workspace.close_button, QtCore.Qt.MouseButton.LeftButton)
+        assert widget.workspace.details.isHidden()
+    else:
+        QtTest.QTest.mouseClick(widget.workspace.profile, QtCore.Qt.MouseButton.LeftButton)
+        assert widget.workspace.pages.currentIndex() == 2
+    app.processEvents()
+    committed = widget.peaks
+    assert committed[0].name == "renamed"
+    assert committed[0].positions == (1.05, 0.123456789012345)
+    assert committed[0].id == original[0].id
+    assert committed[1:] == original[1:]
+    if finish in ("select", "marker"):
+        assert widget.selected_id == original[1].id
+    assert not inspector.pending
+    assert widget._scientific_revision == revision + 1
+    assert widget.fit_result is result
+    assert widget.result_exported
+    assert not widget.comparison.active
+    assert "outdated" in widget.fit_status.text()
+    assert "Outdated" in widget.fit_preview.status.text()
+    assert not widget.fit_preview.apply_positions.isEnabled()
+    widget.undo()
+    assert widget.peaks == original
+    assert not widget.edits.can_undo
+    widget.redo()
+    assert widget.peaks == committed
+    assert widget.fit_result is result
+    assert widget.result_exported
+    # Reverting history cannot make a result current again under revision tracking.
+    assert widget._result_revision != widget._scientific_revision
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid"),
+    [
+        ("name", " "),
+        ("x_field", ""),
+        ("x_field", "-"),
+        ("x_field", "nan"),
+        ("y_field", "inf"),
+        ("y_field", "1e999"),
+    ],
+)
+@pytest.mark.parametrize("finish", ["enter", "focus", "select", "close"])
+def test_invalid_draft_is_retained_explained_and_revertible(
+    fitted_viewer, field_name, invalid, finish
+):
+    widget = fitted_viewer
+    original = widget.peaks
+    revision = widget._scientific_revision
+    model = widget.comparison._current
+    field = getattr(widget.inspector, field_name)
+    field.setFocus()
+    field.setText(invalid)
+    if finish == "enter":
+        QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Return)
+    elif finish == "focus":
+        widget.spectrum_plot.setFocus()
+    elif finish == "select":
+        widget.select_peak(original[1].id)
+    else:
+        widget.close_details()
+    assert widget.workspace.details.isVisible()
+    assert widget.workspace.pages.currentIndex() == 0
+    assert field.text() == invalid
     assert widget.inspector.pending
-    assert "pending" in widget.workspace.edit.text()
-    widget.inspector.revert.click()
+    assert "Correct it or press Escape" in widget.inspector.details.text()
+    assert field.hasFocus()
+    assert widget.peaks == original
+    assert widget.selected_id == original[0].id
+    assert widget._scientific_revision == revision
+    assert widget.comparison._current is model
+    assert widget.comparison.active
+    assert widget.result_exported
+    # Control refreshes must not overwrite the validation error.
+    message = widget.inspector.details.text()
+    widget._update_edit_actions()
+    assert widget.inspector.details.text() == message
+    QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
     assert not widget.inspector.pending
-    widget.inspector.name.setText("explicitly applied")
-    widget.inspector.apply.click()
-    assert widget.peaks[0].name == "explicitly applied"
+    assert widget.peaks == original
+    assert widget._scientific_revision == revision
+
+
+def test_tab_leaves_the_field_group_and_commits_once(viewer):
+    widget, _ = viewer
+    widget.open_details(0)
+    original = widget.peaks
+    field = widget.inspector.y_field
+    field.setFocus()
+    field.setText("0.025")
+    QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Tab)
     assert not widget.inspector.pending
-    widget.close_details()
-    assert widget.workspace.details.isHidden()
-    widget.select_peak(original[1].id)
-    assert widget.selected_id == original[1].id
+    assert widget.peaks[0].positions[0] == 0.025
+    widget.undo()
+    assert widget.peaks == original
+    assert not widget.edits.can_undo
+
+
+def test_tab_preserves_partial_coordinates_until_the_whole_peak_is_valid(viewer):
+    widget, prepared = viewer
+    widget._apply_fit_preparation(prepared)
+    widget.open_details(0)
+    original = widget.peaks
+    revision = widget._scientific_revision
+    inspector = widget.inspector
+    inspector.name.setFocus()
+    inspector.name.setText("new assignment")
+    QtTest.QTest.keyClick(inspector.name, QtCore.Qt.Key.Key_Tab)
+    inspector.x_field.setText("-")
+    QtTest.QTest.keyClick(inspector.x_field, QtCore.Qt.Key.Key_Tab)
+    assert inspector.y_field.hasFocus()
+    assert inspector.x_field.text() == "-"
+    assert "finite" not in inspector.details.text()
+    inspector.y_field.setText("0.025")
+    QtTest.QTest.keyClick(inspector.y_field, QtCore.Qt.Key.Key_Return)
+    assert "finite" in inspector.details.text()
+    assert inspector.x_field.hasFocus()
+    assert inspector.name.text() == "new assignment"
+    assert inspector.y_field.text() == "0.025"
+    assert widget.peaks == original
+    assert widget._scientific_revision == revision
+    assert widget.fit_preparation is prepared
+    inspector.x_field.setText("-0.02")
+    QtTest.QTest.keyClick(inspector.x_field, QtCore.Qt.Key.Key_Return)
+    assert widget._scientific_revision == revision + 1
+    assert widget.peaks[0].name == "new assignment"
+    assert widget.peaks[0].positions == (0.025, -0.02)
+    widget.undo()
+    assert widget.peaks == original
+    assert not widget.edits.can_undo
+
+
+def test_run_cannot_submit_preparation_invalidated_by_committing_fields(viewer, monkeypatch):
+    widget, prepared = viewer
+    widget._apply_fit_preparation(prepared)
+    widget.open_details(0)
+    widget.inspector.x_field.setText("0.025")
+
+    def unexpected(*_args):
+        pytest.fail("Committing changed coordinates must invalidate the reviewed preparation")
+
+    monkeypatch.setattr(widget._fit_process, "start", unexpected)
+    widget.run_local_fit()
+    assert widget.peaks[0].positions[1] == 0.025
+    assert not widget.inspector.pending
+    assert widget.fit_preparation is None
+    assert not widget.fit_busy
+
+
+def test_native_text_context_menu_preserves_draft(viewer):
+    widget, _ = viewer
+    widget.open_details(0)
+    field = widget.inspector.name
+    field.setFocus()
+    field.setText("pending name")
+    revision = widget._scientific_revision
+    menu = field.createStandardContextMenu()
+    try:
+        menu.popup(field.mapToGlobal(QtCore.QPoint()))
+        QtWidgets.QApplication.processEvents()
+        assert widget.inspector.pending
+        assert widget._scientific_revision == revision
+        assert not widget.edits.can_undo
+    finally:
+        menu.close()
+        menu.deleteLater()
 
 
 def test_fit_completion_modes_and_cancellation_never_open_details(viewer, monkeypatch):
