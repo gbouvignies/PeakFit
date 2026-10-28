@@ -49,6 +49,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self._action(menu, "&Quit", QtGui.QKeySequence.StandardKey.Quit, self.close)
         self.edit_menu = self.menuBar().addMenu("&Edit")
         view = self.menuBar().addMenu("&View")
+        self.view_menu = view
         self._action(view, "Reset view", "Ctrl+0", self._reset_view)
         self._action(view, "Previous plane", "Ctrl+PgUp", lambda: self._step_plane(-1))
         self._action(view, "Next plane", "Ctrl+PgDown", lambda: self._step_plane(1))
@@ -90,11 +91,14 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         viewer.show_peak_labels(self.labels_action.isChecked())
         if self.viewer is not None:
             self.viewer.stop_preparation()
+            self.view_menu.removeAction(self.viewer.workspace.slices_action)
         self.setCentralWidget(viewer)
         self.viewer = viewer
+        self.view_menu.addAction(viewer.workspace.slices_action)
         self._spectrum_name = path.name
         self._export_path = None
         viewer.edits_changed.connect(self._update_work_state)
+        viewer.pending_edits_changed.connect(self._update_work_state)
         viewer.fit_state_changed.connect(self._update_fit_state)
         self.edit_menu.clear()
         self.edit_menu.addActions(viewer.edit_actions)
@@ -185,7 +189,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self.peaks_action.setEnabled(self.viewer is not None and not busy)
         self.values_action.setEnabled(self.viewer is not None and not busy)
         self.statusBar().showMessage(
-            "Local fit running · Cancel in Fit workspace to edit peaks or replace the dataset"
+            "Local fit running · Cancel beside the fit status to edit peaks or replace the dataset"
             if busy
             else "Local fit stopped · Working peaks unchanged"
         )
@@ -206,7 +210,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         return self.viewer.export_fit_results()
 
     def _export_peaks(self) -> bool:
-        if self.viewer is None or not self.viewer.apply_pending_fields():
+        if self.viewer is None or not self.viewer.require_committed_fields():
             return False
         dialog = QtWidgets.QFileDialog(self, "Export working peaks")
         dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptMode.AcceptSave)

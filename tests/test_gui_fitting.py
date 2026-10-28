@@ -123,7 +123,7 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
     monkeypatch.setattr("peakfit.gui.viewer.contour_geometry", unexpected)
     monkeypatch.setattr("peakfit.fit.pipeline.fit_with_optimizer", unexpected)
     paths = [item.path() for item in viewer.contours]
-    plots = (viewer.trace_x, viewer.trace_y, viewer.profile)
+    plots = (viewer.trace_x, viewer.trace_y)
 
     def plot_positions():
         return tuple((plot.mapTo(viewer, QtCore.QPoint()), plot.size()) for plot in plots)
@@ -149,22 +149,20 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
     QtTest.QTest.keyClick(viewer.threshold, QtCore.Qt.Key.Key_Escape)
     assert not viewer.contour_popup.isVisible()
     try:
-        viewer.workspace_tabs.setCurrentIndex(1)
+        viewer.workspace.fit.click()
         wait_for_preview()
         app.processEvents()
         assert viewer.fit_preparation is not None
         assert viewer.fit_preparation.parameters is not None
         assert all(plot.isVisible() for plot in plots)
-        assert plot_positions() == positions
-        viewer.fit_preview.details.click()
-        app.processEvents()
+        assert viewer.workspace.details.isVisible()
         assert viewer.fit_preview.detail_content.isVisible()
-        assert viewer.spectrum_plot.geometry() == spectrum_geometry
-        viewer.fit_preview.details.click()
+        viewer.close_details()
         app.processEvents()
         assert all(plot.isVisible() for plot in plots)
         assert plot_positions() == positions
-        assert viewer.workspaces.currentIndex() == viewer.workspace_tabs.currentIndex() == 1
+        viewer.open_details(1)
+        assert viewer._fit_context
         assert viewer.fit_preview.parameters.rowCount() == len(viewer.fit_preparation.parameters)
         assert len(viewer.fit_members.points()) == len(expected_ids)
         assert viewer.fit_mask.image is not None
@@ -190,19 +188,19 @@ def test_all_plane_region_identity_aliasing_and_read_only_preview(monkeypatch) -
             viewer.select_peak(duplicate_id, inspect=True)
             assert viewer.selected_id == duplicate_id
             assert viewer.fit_preparation is group_preparation
-            assert viewer.workspaces.currentIndex() == 1
+            assert viewer._fit_context
             outsider = next(peak for peak in peaks if peak.id not in expected_ids)
             viewer.select_peak(outsider.id, inspect=True)
             assert viewer.selected_id == outsider.id
             assert viewer.fit_preparation is None
-            assert viewer.workspaces.currentIndex() == viewer.workspace_tabs.currentIndex() == 0
+            assert not viewer._fit_context
             assert not viewer.fit_mask.isVisible()
             assert len(viewer.fit_members.points()) == 0
         viewer.preview_fit_group()
         viewer.select_peak(None)
         assert viewer.selected_id is None
         assert viewer.fit_preparation is None
-        assert viewer.workspaces.currentIndex() == 0
+        assert not viewer._fit_context
         assert not viewer.fit_mask.isVisible()
         viewer.select_peak(selected.id)
         viewer.preview_fit_group()
@@ -320,7 +318,7 @@ def test_low_threshold_preparation_keeps_qt_responsive_and_rejects_obsolete_work
         # One running computation; selection/slider changes replace pending work.
         newer = viewer.peaks[-1]
         viewer.select_peak(newer.id)
-        assert viewer.workspaces.currentIndex() == 0
+        assert not viewer._fit_context
         viewer.preview_fit_group()
         viewer.threshold.setValue(1000)
         _process_events(200)

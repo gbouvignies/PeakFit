@@ -126,6 +126,7 @@ def test_peak_selection_precision_overlap_and_edit_history() -> None:  # noqa: P
         menu.triggered.emit(menu.actions()[1])
         menu.close()
         assert viewer.selected_id == other.id
+        viewer.open_details(0)
         assert viewer.inspector.x_field.text() == repr(other.positions[1])
         assert viewer.peaks == (peak, other)
         viewer.inspector.name.setText("renamed")
@@ -293,6 +294,12 @@ def test_export_and_loss_guards_include_typed_fields_and_keep_failed_saves_dirty
     viewer = window.viewer
     assert viewer is not None
     viewer.select_peak(viewer.peaks[0].id)
+    revision = viewer._scientific_revision
+    viewer.inspector.name.setText("revert this draft")
+    assert window.isWindowModified()
+    viewer.inspector.revert.click()
+    assert not window.isWindowModified()
+    assert viewer._scientific_revision == revision
     viewer.inspector.name.setText("unsaved typed assignment")
     assert window.isWindowModified()
     monkeypatch.setattr(
@@ -355,6 +362,9 @@ def test_export_and_loss_guards_include_typed_fields_and_keep_failed_saves_dirty
     )
     monkeypatch.setattr(QtWidgets.QFileDialog, "selectedFiles", lambda _dialog: [str(path)])
     try:
+        assert not window._export_peaks()  # Export never silently commits pending text.
+        assert viewer.inspector.pending
+        viewer.inspector.apply.click()
         assert window._export_peaks()
         assert not window.isWindowModified()
         restored = load_peaks(path, viewer.spectra)
@@ -392,6 +402,7 @@ def test_add_peak_lifecycle_and_editing_sequence(tmp_path: Path, monkeypatch) ->
     assert viewer is not None
     window.show()
     viewer.spectrum_plot.getViewBox().setRange(xRange=(7.8, 8.8), yRange=(122, 128), padding=0)
+    viewer.open_details(0)
     app.processEvents()
     viewport = viewer.spectrum_plot.viewport()
     add = next(
