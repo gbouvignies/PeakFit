@@ -17,6 +17,7 @@ from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.fit.simulation import project_final_outcome
+from peakfit.gui.fit_display import local_model_plane, model_contours, model_slices
 from peakfit.gui.fit_process import FitProcessResult, LocalFitProcess
 from peakfit.gui.fitting import prepare_local_fit
 from peakfit.gui.local_fit import execute_local_fit
@@ -93,7 +94,7 @@ def _wait(condition, timeout=10):
 
 
 def test_prepared_execution_matches_one_pass_and_preserves_scientific_inputs(monkeypatch):  # noqa: PLR0915
-    _, working, prepared, config = _example()
+    spectra, working, prepared, config = _example()
     assert prepared.cluster is not None
     assert prepared.parameters is not None
     assert len(prepared.identities) == 2
@@ -150,6 +151,33 @@ def test_prepared_execution_matches_one_pass_and_preserves_scientific_inputs(mon
     np.testing.assert_allclose(reordered, evaluation.model_values[:, [2, 0, 2]], atol=1e-12)
     with pytest.raises(ValueError, match="paired"):
         project_final_outcome(result.outcome, result.simulation_snapshot, [np.array([np.nan])])
+    # An aliased, irregular overlapping group: display predictions and residuals
+    # share the authoritative fit samples, with undefined residuals kept as NaN.
+    axes = spectra.spectral_params
+    iy, ix = (int(i[0]) for i in prepared.scope.grid_indices)
+    slices = model_slices(result, axes, iy, ix)
+    sy, sx = prepared.scope.grid_indices
+    np.testing.assert_allclose(slices.x[sx[sy == iy]], evaluation.model_values[sy == iy])
+    np.testing.assert_allclose(slices.profile, slices.x[ix])
+    np.testing.assert_array_equal(np.isfinite(slices.residual_x[:, 0]), slices.support_x)
+    np.testing.assert_array_equal(np.isfinite(slices.residual_y[:, 0]), slices.support_y)
+    assert slices.residual_profile is not None
+    np.testing.assert_allclose(slices.residual_profile, evaluation.raw_residuals[0])
+    outside = model_slices(result, axes, 0, 0)
+    assert outside.residual_profile is None
+    assert np.isnan(outside.residual_x).all()
+    grid = local_model_plane(result, axes, 1, prepared.contour_level)
+    assert np.isfinite(grid.values).all()
+    assert grid.values.min() < 0  # Signed fitted amplitudes survive smooth projection.
+    higher = model_contours(
+        replace(grid, edge_visible=True),
+        axes,
+        prepared.scope.grid_indices,
+        np.array([2 * np.abs(grid.values).max()]),
+    )
+    assert not higher.grid.edge_visible  # Reusing a grid cannot retain a stale clipping warning.
+    assert grid.y.min() <= sy.min() <= sy.max() <= grid.y.max()
+    assert grid.x.min() <= sx.min() <= sx.max() <= grid.x.max()
     assert not evaluation.model_values.flags.writeable
     with pytest.raises(ValueError, match="numerical inputs"):
         execute_local_fit(replace(prepared, cluster=None, parameters=None))
@@ -238,6 +266,44 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         assert "no fit has been run" not in viewer.fit_preview._details
         assert "Function evaluations:" in viewer.fit_preview._details
         assert "Not saved" in viewer.result_notice.text()
+        comparison = viewer.comparison
+        assert comparison.active
+        assert comparison.mode.currentText() == "Overlay"
+        _wait(lambda: comparison._current is not None and comparison._slice is not None)
+        assert any(path.isVisible() for path in comparison.paths)
+        assert not viewer.fit_mask.isVisible()
+        comparison.samples.setChecked(True)
+        assert viewer.fit_mask.isVisible()
+        comparison.samples.setChecked(False)
+        viewport = viewer.spectrum_plot.getViewBox().viewRange()
+        comparison.mode.setCurrentIndex(2)
+        assert comparison.residual.isVisible()
+        assert not any(path.isVisible() for path in comparison.paths)
+        residual = comparison.residual.image
+        sy, _sx = retained.scientific.inputs.scope.grid_indices
+        assert residual is not None
+        assert np.count_nonzero(residual[..., 3]) == len(sy)
+        assert viewer.spectrum_plot.getViewBox().viewRange() == viewport
+        comparison.mode.setCurrentIndex(1)
+        previous_model = comparison._current
+        previous_revision = comparison._revision
+        viewer.set_plane(3)
+        comparison._completed("model", previous_revision, ((1,), previous_model))
+        assert comparison._current is None  # A previous plane can never install itself.
+        viewer.set_plane(1)
+        _wait(lambda: viewer._contour_applied_revision == viewer._contour_revision)
+        _wait(lambda: comparison._current is not None and comparison._slice is not None)
+        assert viewer._contour_plane == viewer.plane == 0
+        comparison.profile_mode.setCurrentIndex(1)
+        evaluation = retained.scientific.outcome.clusters[0].analytical_evaluation
+        assert evaluation is not None
+        np.testing.assert_allclose(
+            comparison.profile_model.yData,
+            evaluation.amplitudes[0],
+        )
+        assert not viewer.curve_profile.isVisible()
+        comparison.profile_mode.setCurrentIndex(0)
+        assert viewer.curve_profile.isVisible()
         retained_threshold = retained.scientific.inputs.contour_level
         viewer.threshold.setValue(9)
         assert retained.scientific.inputs.contour_level == retained_threshold
@@ -284,6 +350,13 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         _wait(lambda: not viewer.fit_busy)
         assert viewer._fit_process.state == "failed"
         assert viewer.fit_result is retained
+        viewer._scientific_inputs_changed()
+        assert not comparison.active
+        assert not comparison.mode.isVisible()
+        assert not comparison.residual.isVisible()
+        assert not any(path.isVisible() for path in comparison.paths)
+        viewer.show_fit_result()
+        assert not comparison.active  # Outdated numerical inspection never restores graphics.
         # Close while a real spawned child is computing, then check it is reaped.
         process = LocalFitProcess(viewer)
         process.start(prepared)
