@@ -54,6 +54,7 @@ class FinalAnalyticalEvaluation:
     raw_residuals: FloatArray
     normalized_residuals: FloatArray
     statistics: AnalyticalFitStatistics
+    uncertainty_warning: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -424,6 +425,7 @@ def _freeze_evaluation(evaluation: AnalyticalModelEvaluation) -> FinalAnalytical
         raw_residuals=_freeze_array(evaluation.raw_residuals),
         normalized_residuals=_freeze_array(evaluation.normalized_residuals),
         statistics=evaluation.statistics,
+        uncertainty_warning=evaluation.uncertainty_warning,
     )
 
 

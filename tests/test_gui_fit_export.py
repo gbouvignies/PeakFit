@@ -53,7 +53,7 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
     summary = loader.load_summary()
     raw = json.loads((path / "summary/fit.json").read_text())
     companion = json.loads((path / "summary/local_fit.json").read_text())
-    assert raw["schema_version"] == "4.0.0"
+    assert raw["schema_version"] == "4.1.0"
     assert summary.clusters[0].classification == classification
     assert summary.metadata.timestamp.isoformat() == completed.completed_at
     assert summary.metadata.software_version == completed.software_version

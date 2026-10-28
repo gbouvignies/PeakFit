@@ -40,7 +40,7 @@ canonical tabular format.
   and common next commands for that run directory.
 - `metadata/fitting_state.pkl` is mutable continuation state for post-fit
   workflows. It is not used to reconstruct completed scientific values.
-- `summary/fit.json` is schema `4.0.0`: each cluster is keyed by stable
+- `summary/fit.json` is schema `4.1.0`: each cluster is keyed by stable
   `cluster_id` and carries final classification, terminal correction revision,
   optimizer provenance, and either frozen analytical values or an unusable reason.
 - `summary/report.md` is created only when `txt` is in `output.formats`; it is a
@@ -92,7 +92,7 @@ The primary JSON entry point is:
 
 This file is the canonical machine-readable summary for downstream analysis.
 Old schema `3.0.0` result documents are intentionally rejected; rerun the fit to
-produce the unambiguous `4.0.0` outcome format.
+produce the unambiguous `4.1.0` outcome format.
 Post-fit commands and `ResultsLoader` expect the run output directory
 (`<output_dir>`), not the `summary/` subdirectory.
 
@@ -113,7 +113,7 @@ Post-fit commands and `ResultsLoader` expect the run output directory
 ```text
 local-fit-<run_id>/
 ├── summary/
-│   ├── fit.json                 # canonical PeakFit JSON 4.0.0
+│   ├── fit.json                 # canonical PeakFit JSON 4.1.0
 │   └── local_fit.json           # GUI local-fit companion 1.0.0
 └── tables/
     ├── clusters.csv
@@ -185,3 +185,40 @@ a session, undo history, display settings, or apply fitted coordinates to workin
 peaks. CLI post-fit commands requiring `metadata/fitting_state.pkl` cannot use this
 export as continuation state. These limitations do not affect downstream reading
 of canonical parameters, amplitudes, statistics or the companion provenance.
+
+## Unavailable and unreliable uncertainties
+
+Schema `4.1.0` permits `null` entries in amplitude error/covariance arrays and
+adds `analytical_evaluation.uncertainty_warning`. Nonlinear `standard_error`
+already permits `null`. The reader continues to accept `4.0.0`; older readers
+must be upgraded to read new `4.1.0` files. Missing errors stay unavailable when
+loading results, rather than becoming zero.
+
+CSV uses `unavailable` for missing nonlinear errors and empty amplitude-error
+cells. The `uncertainty_warning` column accompanies all numerical rows and the
+cluster table. `cs_F2_err` and `cs_F3_err` contain their respective standard
+errors in ppm, independently of the fitted chemical shifts.
+
+A finite model can have unidentifiable individual peaks. Such a model remains
+available for residual inspection and export even when its covariance is
+unavailable. Optimizer success/classification describes termination; it does
+not certify peak identifiability. Inspect `uncertainty_warning`, residuals and
+alternative fits before interpreting positions. The GUI displays this warning
+and disables applying positions from a warned group; manual editing, Undo/Redo,
+export and model visualization remain available.
+
+Nonlinear errors are local, noise-based errors from the reduced VarPro
+Jacobian, with parameter-column scaling before SVD. A rank-deficient or
+numerically ill-conditioned joint covariance is withheld. Individual symmetric
+errors are also withheld at active bounds or when one standard error crosses a
+parameter bound. These conservative checks are **not** confidence intervals or
+proof of identifiability. Fixed parameters may retain zero error because they
+were not estimated.
+
+Amplitude errors condition on the fitted nonlinear parameters. They do not
+include uncertainty in positions or linewidths. As before, the exported scaled
+amplitude errors inflate by `sqrt(reduced chi_squared)` when it exceeds one;
+nonlinear errors use the supplied/estimated statistical noise without that
+inflation. For nonlinear uncertainty or multimodal fits, compare alternative
+starts and inspect sampling/profile likelihoods; the local errors alone cannot
+certify a scientific assignment. See [the overlap investigation](validation/overlapping-peaks.md).

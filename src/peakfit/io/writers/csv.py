@@ -111,6 +111,7 @@ def write_final_outcome_clusters(
             "converged",
             "usable",
             "unusable_reason",
+            "uncertainty_warning",
             "correction_revision",
             "optimizer_kind",
             "optimizer_success",
@@ -171,7 +172,7 @@ def write_final_outcome_shifts(
                     **{
                         column: shifts.get(column.removeprefix("cs_").removesuffix("_ppm"), "")
                         if column.endswith("_ppm")
-                        else shifts.get(column.removeprefix("cs_").removesuffix("_err"), "")
+                        else shifts.get(column.removeprefix("cs_"), "")
                         for dimension in dimensions
                         for column in (f"cs_{dimension}_ppm", f"cs_{dimension}_err")
                     },
@@ -206,6 +207,7 @@ def _outcome_columns() -> list[str]:
         "converged",
         "usable",
         "unusable_reason",
+        "uncertainty_warning",
         "correction_revision",
         "optimizer_kind",
         "optimizer_success",
@@ -229,6 +231,7 @@ def _outcome_row(cluster: Any, config: WriterConfig) -> dict[str, Any]:
         "converged": cluster.classification.value == "converged",
         "usable": cluster.usable,
         "unusable_reason": cluster.unusable_reason or "",
+        "uncertainty_warning": evaluation.uncertainty_warning if evaluation else "",
         "correction_revision": cluster.correction_revision,
         "optimizer_kind": provenance.optimizer_kind or "",
         "optimizer_success": provenance.converged,

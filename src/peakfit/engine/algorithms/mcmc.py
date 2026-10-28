@@ -16,9 +16,7 @@ import numpy as np
 from threadpoolctl import threadpool_limits
 
 from peakfit.engine.algorithms.linear_algebra import (
-    project_residuals,
-    qr_decomposition,
-    solve_amplitudes,
+    factorize_shapes,
 )
 from peakfit.engine.diagnostics.convergence import diagnose_convergence
 from peakfit.shared.constants import MCMC_N_STEPS, MCMC_N_WALKERS
@@ -116,14 +114,8 @@ def _log_likelihood_blobs(x: FloatArray) -> tuple[float, FloatArray]:
         # 1. Calculate Shapes (n_peaks, n_points)
         shapes = _mcmc_state.cluster.evaluate(params_copy)
 
-        # 2. QR Decomposition (VarPro approach)
-        q, r = qr_decomposition(shapes)
-
-        # 3. Solve Amplitudes (n_peaks, n_series)
-        amplitudes = solve_amplitudes(q, r, data)
-
-        # 4. Residuals (n_points, n_series)
-        residuals = project_residuals(data, q)
+        amplitudes = factorize_shapes(shapes).solve(data)
+        residuals = data - shapes.T @ amplitudes
 
         # 5. Log-Likelihood
         # ln L = -0.5 * sum((res/noise)^2)

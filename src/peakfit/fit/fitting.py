@@ -173,7 +173,10 @@ def find_review_clusters(result: FitRun) -> list[ClusterReview]:
             if _is_at_boundary(parameter.value, parameter.min, parameter.max)
         ]
         non_converged = outcome.classification is not FitOutcomeClassification.CONVERGED
-        needs_review = non_converged or (redchi is not None and redchi > HIGH_REDCHI) or at_bounds
+        uncertain = evaluation is not None and evaluation.uncertainty_warning is not None
+        needs_review = (
+            non_converged or uncertain or (redchi is not None and redchi > HIGH_REDCHI) or at_bounds
+        )
 
         if not needs_review:
             continue
@@ -182,6 +185,8 @@ def find_review_clusters(result: FitRun) -> list[ClusterReview]:
             reason = "unusable"
         elif outcome.classification is FitOutcomeClassification.USABLE_NON_CONVERGED:
             reason = "not_converged"
+        elif uncertain:
+            reason = "uncertainty"
         elif redchi is not None and redchi > HIGH_REDCHI:
             reason = "high_chi"
         else:

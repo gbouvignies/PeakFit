@@ -118,3 +118,10 @@ the canonical artifacts and adds the scope/identity companion documented in
 selection and a short-lived background export thread. The viewer records export
 status by completed run identity independently of working peak edits. No persisted
 GUI session or numerical continuation state is constructed.
+
+The linear projection boundary in `engine.algorithms.linear_algebra` supplies
+one rank-aware model space and amplitude pseudoinverse to optimization and
+analytical output. A covariance failure does not invalidate an otherwise finite
+model: frozen evaluations can carry unavailable uncertainties plus an explicit
+warning. Numerical usability, optimizer termination and peak identifiability
+remain distinct. See [the scientific overlap validation](validation/overlapping-peaks.md).

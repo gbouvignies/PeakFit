@@ -285,7 +285,7 @@ replacing it; a canceled or failed attempt keeps the previous result, accessible
 through **Retained result**. **Prepare again** starts another review.
 
 Choose **File → Export fit results…** and select a parent directory. PeakFit writes
-`local-fit-<run_id>/` containing canonical JSON 4.0.0, CSV tables and a local-fit
+`local-fit-<run_id>/` containing canonical JSON 4.1.0, CSV tables and a local-fit
 provenance record ([format details](outputs.md#gui-local-fit-export)). The footer
 and confirmation show the destination. The completed fit and graphical comparison
 remain available. Working coordinates, pending inspector fields, undo history and
@@ -395,3 +395,10 @@ is ready. Existing editing, cancellation and unsaved-result guards still apply.
 [Compact dark residual view](images/local-fit-residual-dark.png) ·
 [Compact dark overlay](images/local-fit-overlay-dark.png) ·
 [Separate signed peak amplitude](images/local-fit-amplitude.png).
+
+Fits with unreliable local uncertainties remain available for model/residual
+comparison and export. The result header warns about the uncertainty, and
+**Apply fitted positions** is disabled with that explanation. This prevents
+optimizer success alone from endorsing an unidentifiable peak decomposition.
+Manual peak editing and its Undo/Redo history remain available. See
+[uncertainty conventions](outputs.md#unavailable-and-unreliable-uncertainties).

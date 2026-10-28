@@ -457,12 +457,12 @@ def test_analytical_model_evaluation_preserves_rank_deficient_fallback(
         data=gaussian_fit.cluster.data[:, :1],
     )
 
-    with pytest.warns(RuntimeWarning, match="Rank-deficient design matrix"):
-        evaluation = evaluate_analytical_model(cluster, gaussian_fit.params, noise=1.0)
+    evaluation = evaluate_analytical_model(cluster, gaussian_fit.params, noise=1.0)
 
     assert isinstance(evaluation, AnalyticalModelEvaluation)
     assert np.isfinite(evaluation.amplitudes).all()
-    assert np.isfinite(evaluation.amplitude_covariance).all()
+    assert np.isnan(evaluation.amplitude_covariance).all()
+    assert evaluation.uncertainty_warning is not None
     np.testing.assert_allclose(evaluation.model_values, cluster.corrected_data)
 
 

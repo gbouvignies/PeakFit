@@ -223,7 +223,7 @@ def test_real_fit_projections_agree_by_cluster_id(run_golden_fit):
     json_by_id = {cluster["cluster_id"]: cluster for cluster in payload["clusters"]}
     csv_by_id = clusters.set_index("cluster_id")
     assert set(json_by_id) == set(csv_by_id.index)
-    assert payload["schema_version"] == "4.0.0"
+    assert payload["schema_version"] == "4.1.0"
 
     classifications = Counter(cluster["classification"] for cluster in payload["clusters"])
     for cluster_id, json_cluster in json_by_id.items():

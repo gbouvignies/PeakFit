@@ -457,6 +457,9 @@ def _format_review_clusters(reviews: list[ClusterReview]) -> list[dict[str, Any]
         elif review.reason == "not_converged":
             status, status_color = "Not converged", "metric.warn"
             details = review.termination_message or "Optimizer did not converge"
+        elif review.reason == "uncertainty":
+            status, status_color = "Unreliable uncertainties", "metric.warn"
+            details = "Inspect overlapping parameters, bounds and alternative fits"
         elif review.reason == "high_chi":
             status, status_color = "High χ²", "metric.warn"
             assert review.redchi is not None

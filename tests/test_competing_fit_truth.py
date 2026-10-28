@@ -424,7 +424,7 @@ def test_future_contract_persistence_uses_terminal_classification_and_provenance
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     clusters_by_id = {int(cluster["cluster_id"]): cluster for cluster in payload["clusters"]}
 
-    assert payload["schema_version"] == "4.0.0"
+    assert payload["schema_version"] == "4.1.0"
     assert "statistics" in payload
     assert "global_statistics" not in payload
     assert clusters_by_id[11]["classification"] == "converged"
@@ -447,7 +447,7 @@ def test_json_projects_all_converged_outcomes_in_final_identity_order(tmp_path: 
 
     payload = _write_final_outcome_json(outcome, spectra, tmp_path / "fit.json")
 
-    assert payload["schema_version"] == "4.0.0"
+    assert payload["schema_version"] == "4.1.0"
     assert [cluster["cluster_id"] for cluster in payload["clusters"]] == [11, 37, 91]  # type: ignore[index]
     assert all(cluster["classification"] == "converged" for cluster in payload["clusters"])  # type: ignore[index]
     assert all(cluster["analytical_evaluation"] is not None for cluster in payload["clusters"])  # type: ignore[index]
@@ -534,7 +534,7 @@ def test_json_reader_round_trips_classifications_and_distinguishes_absent_evalua
             ),
             "unusable outcomes must not contain an analytical evaluation",
         ),
-        (lambda payload: payload.update(schema_version="3.0.0"), "3.0.0.*4.0.0"),
+        (lambda payload: payload.update(schema_version="3.0.0"), "3.0.0.*4.1.0"),
     ],
 )
 def test_json_schema_rejects_malformed_identity_order_and_outcome_combinations(

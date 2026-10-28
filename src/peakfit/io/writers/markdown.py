@@ -120,6 +120,8 @@ def _parameter_row(
 
 
 def _status(cluster: FinalClusterOutcome) -> str:
+    if cluster.analytical_evaluation and cluster.analytical_evaluation.uncertainty_warning:
+        return "unreliable uncertainties (inspect fit)"
     if cluster.classification.value == "converged":
         return "converged"
     if cluster.classification.value == "usable_non_converged":

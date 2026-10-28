@@ -9,10 +9,8 @@ import numpy as np
 import scipy.optimize
 
 from peakfit.engine.algorithms.linear_algebra import (
-    compute_phi_pinv,
-    project_residuals,
-    qr_decomposition,
-    solve_amplitudes,
+    calculate_amplitude_covariance,
+    factorize_shapes,
 )
 from peakfit.engine.domain.param_id import ParameterId
 from peakfit.engine.domain.param_map import ParameterMap
@@ -30,13 +28,14 @@ class ScipyOptimizerError(Exception):
 
 
 def _sync_alias_values(params: Parameters, shared_aliases: dict[str, str] | None) -> None:
-    """Copy source parameter values into aliased target parameters."""
+    """Copy source parameter values and errors into aliased target parameters."""
     if not shared_aliases:
         return
 
     for target_name, source_name in shared_aliases.items():
         if target_name in params and source_name in params:
             params[target_name].value = params[source_name].value
+            params[target_name].stderr = params[source_name].stderr
 
 
 @dataclass
@@ -58,7 +57,6 @@ class VarProOptimizer:
     _cache_hash: int | None = field(default=None, init=False, repr=False)
     _shapes: np.ndarray | None = field(default=None, init=False, repr=False)
     _q: np.ndarray | None = field(default=None, init=False, repr=False)
-    _r: np.ndarray | None = field(default=None, init=False, repr=False)
     _amplitudes: np.ndarray | None = field(default=None, init=False, repr=False)
     _residuals: np.ndarray | None = field(default=None, init=False, repr=False)
     _phi_pinv: np.ndarray | None = field(default=None, init=False, repr=False)
@@ -66,6 +64,7 @@ class VarProOptimizer:
     # Pre-computed constants
     _param_map: ParameterMap | None = field(default=None, init=False, repr=False)
     _param_peak_indices: np.ndarray | None = field(default=None, init=False, repr=False)
+    _shared_derivatives: dict[int, np.ndarray] = field(default_factory=dict, init=False, repr=False)
     _data_matrix: np.ndarray | None = field(default=None, init=False, repr=False)
     _d_matrix: np.ndarray | None = field(default=None, init=False, repr=False)
     _grid_dims: list[np.ndarray] | None = field(default=None, init=False, repr=False)
@@ -76,6 +75,7 @@ class VarProOptimizer:
         self._param_map = self.fit_params.map or ParameterMap.from_names(self.names)
         self._param_peak_indices = np.zeros(len(self.names), dtype=int)
 
+        parameter_peaks: dict[int, list[int]] = {}
         # Map each parameter index to its peak index
         for peak_idx, peak in enumerate(self.cluster.peaks):
             peak_params = peak.create_params()
@@ -83,6 +83,7 @@ class VarProOptimizer:
                 param_idx = self._param_map.index_of(name)
                 if param_idx is not None:
                     self._param_peak_indices[param_idx] = peak_idx
+                    parameter_peaks.setdefault(param_idx, []).append(peak_idx)
 
         # Pre-process data matrix
         # SciPy's least_squares expects real-valued residuals/Jacobians.
@@ -101,6 +102,12 @@ class VarProOptimizer:
         n_dims = len(self._grid_dims)
 
         self._d_matrix = np.zeros((len(self.names), n_points))
+
+        self._shared_derivatives = {
+            index: np.zeros((len(self.cluster.peaks), n_points))
+            for index, indices in parameter_peaks.items()
+            if len(indices) > 1
+        }
 
         # Validate peak shapes
         for p in self.cluster.peaks:
@@ -141,23 +148,34 @@ class VarProOptimizer:
             param_map=self._param_map,
         )
 
-        # 1. QR Decomposition
-        q, r = qr_decomposition(shapes)
+        if self._shared_derivatives:
+            # The ordinary derivative matrix sums shared derivatives across peaks.
+            # VarPro must weight each contribution by its own signed amplitude.
+            per_peak = np.zeros_like(self._d_matrix)
+            for peak_index, peak in enumerate(self.cluster.peaks):
+                per_peak.fill(0)
+                self.cluster.evaluate_peaks(
+                    [peak],
+                    self.params_template,
+                    self._grid_dims,
+                    d_matrix=per_peak,
+                    param_map=self._param_map,
+                )
+                for index, derivatives in self._shared_derivatives.items():
+                    derivatives[peak_index] = per_peak[index]
 
-        # 2. Solve for amplitudes
-        amplitudes = solve_amplitudes(q, r, self._data_matrix)
-
-        # 3. Compute residuals
-        residuals = project_residuals(self._data_matrix, q)
-
-        # 4. Compute pseudo-inverse helper for Jacobian
-        phi_pinv = compute_phi_pinv(q, r)
+        projection = factorize_shapes(shapes)
+        amplitudes = projection.solve(self._data_matrix)
+        # Always evaluate the actual model. A full QR basis can contain spurious
+        # directions at rank loss, even when triangular solves do not raise.
+        residuals = self._data_matrix - shapes.T @ amplitudes
+        q = projection.basis
+        phi_pinv = projection.pinv
 
         # Cache results
         self._cache_hash = cache_hash
         self._shapes = shapes
         self._q = q
-        self._r = r
         self._amplitudes = amplitudes
         self._residuals = residuals
         self._phi_pinv = phi_pinv
@@ -214,6 +232,11 @@ class VarProOptimizer:
 
         j_final = j_flat.reshape(-1, n_params)
 
+        for index, derivatives in self._shared_derivatives.items():
+            v = derivatives.T @ self._amplitudes
+            correction = self._phi_pinv.T @ (derivatives @ self._residuals)
+            j_final[:, index] = -(v - self._q @ (self._q.T @ v) + correction).ravel()
+
         return cast("FloatArray", j_final / self.noise)
 
 
@@ -221,35 +244,40 @@ def _calculate_errors(
     optimizer: VarProOptimizer, x: FloatArray, noise: float
 ) -> tuple[FloatArray, FloatArray]:
     """Calculate parameter standard errors."""
-    # 1. Nonlinear Parameter Errors
     jacobian = optimizer.compute_jacobian(x)
+    stderrs = np.sqrt(np.diag(identifiable_covariance(jacobian)))
+    lower, upper = optimizer.params_template.get_vary_bounds()
+    # Symmetric local errors are not meaningful at a constrained optimum.
+    active = (np.isfinite(lower) & np.isclose(x, lower, rtol=0, atol=1e-7)) | (
+        np.isfinite(upper) & np.isclose(x, upper, rtol=0, atol=1e-7)
+    )
+    stderrs[active | (stderrs > np.minimum(x - lower, upper - x))] = np.nan
+    assert optimizer._shapes is not None
+    amp_cov = calculate_amplitude_covariance(optimizer._shapes, noise)
+    return stderrs, np.sqrt(np.diag(amp_cov))
+
+
+def identifiable_covariance(jacobian: np.ndarray) -> np.ndarray:
+    """Noise-based local covariance; withhold the joint result near rank loss.
+
+    Column scaling removes parameter-unit effects before the rank/conditioning
+    check. No normal equations and no covariance pseudoinverse are used. The
+    sqrt(epsilon) cutoff avoids publishing a covariance that loses all useful
+    precision when the information matrix squares the condition number.
+    """
+    n_params = jacobian.shape[1]
+    unavailable = np.full((n_params, n_params), np.nan)
+    scales = np.linalg.norm(jacobian, axis=0)
+    if jacobian.shape[0] < n_params or not np.all(np.isfinite(scales) & (scales > 0)):
+        return unavailable
     try:
-        # Covariance equals inverse of (J.T @ J)
-        cov = np.linalg.inv(jacobian.T @ jacobian)
-        with np.errstate(invalid="ignore"):
-            stderrs = np.sqrt(np.diag(cov))
-    except (np.linalg.LinAlgError, ValueError):
-        stderrs = np.zeros_like(x)
-
-    # 2. Linear (Amplitude) Parameter Errors
-    final_amplitudes = optimizer.get_optimized_amplitudes()
-    n_amps = final_amplitudes.shape[0]
-
-    try:
-        if optimizer._r is not None:
-            # Var(a) = (R^T R)^-1 * sigma_noise^2
-            amp_cov = np.linalg.inv(optimizer._r.T @ optimizer._r) * (noise**2)
-
-            # Ensure safe sqrt
-            diag = np.diag(amp_cov)
-            diag[diag < 0] = 0.0
-            amp_stderrs = np.sqrt(diag)
-        else:
-            amp_stderrs = np.zeros(n_amps)
-    except (np.linalg.LinAlgError, ValueError):
-        amp_stderrs = np.zeros(n_amps)
-
-    return stderrs, amp_stderrs
+        _, singular, vt = np.linalg.svd(jacobian / scales, full_matrices=False)
+    except np.linalg.LinAlgError:
+        return unavailable
+    if singular[-1] <= np.sqrt(np.finfo(float).eps) * singular[0]:
+        return unavailable
+    inverse = (vt.T / singular) / scales[:, None]
+    return inverse @ inverse.T
 
 
 def _update_amplitude_params(
@@ -263,7 +291,7 @@ def _update_amplitude_params(
 
     for i, peak in enumerate(cluster.peaks):
         axis = peak.shapes[0].axis if peak.shapes else "pseudo"
-        peak_err = amp_stderrs[i] if i < len(amp_stderrs) else 0.0
+        peak_err = amp_stderrs[i] if i < len(amp_stderrs) else np.nan
 
         for series_idx in range(n_series):
             val = amplitudes[i, series_idx]
@@ -391,6 +419,7 @@ def fit_cluster(
 
     stderrs, amp_stderrs = _calculate_errors(optimizer, result.x, noise)
     params.set_errors(stderrs)
+    _sync_alias_values(params, shared_aliases)
 
     _update_amplitude_params(cluster, params, final_amplitudes, amp_stderrs)
 
