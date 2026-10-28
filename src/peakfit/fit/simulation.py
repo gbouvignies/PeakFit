@@ -93,38 +93,91 @@ def simulate_final_outcome(
     stored final geometry with frozen final nonlinear values and retained
     analytical amplitudes. ``None`` explicitly represents an all-unusable run.
     """
-    _validate_snapshot(outcome, snapshot)
     output_data = np.asarray(data)
     n_series, grid_shape, positions = _full_grid_positions(output_data, snapshot)
-    parameters = _parameters_from_outcome(outcome.final_nonlinear_parameters)
-    snapshots = {cluster.cluster_id: cluster for cluster in snapshot.clusters}
-    model = np.zeros((len(positions[0]), n_series), dtype=np.float64)
-    usable_count = 0
-
-    for cluster_outcome in outcome.clusters:
-        if not cluster_outcome.usable:
-            continue
-        cluster = snapshots[cluster_outcome.cluster_id]
-        evaluation = _validate_usable_projection(cluster_outcome, cluster, n_series)
-        shapes = np.asarray(
-            Cluster.evaluate_peaks(cluster.peaks, parameters, positions), dtype=np.float64
-        )
-        expected_shapes = (len(cluster.peaks), model.shape[0])
-        if shapes.shape != expected_shapes:
-            raise ValueError(
-                "Full-grid lineshape shape mismatch for "
-                f"cluster_id {cluster.cluster_id}: expected {expected_shapes}, got {shapes.shape}"
-            )
-        if not np.all(np.isfinite(shapes)):
-            raise ValueError(
-                f"Full-grid lineshape values are non-finite for cluster_id {cluster.cluster_id}"
-            )
-        model += shapes.T @ evaluation.amplitudes
-        usable_count += 1
-
-    if usable_count == 0:
+    if any(cluster.n_series != n_series for cluster in snapshot.clusters):
+        raise ValueError("Cluster series count does not match output series count")
+    model = project_final_outcome(outcome, snapshot, positions)
+    if model is None:
         return None
-    return model.T.reshape((n_series, *grid_shape)).astype(float)
+    return model.T.reshape((output_data.shape[0], *grid_shape)).astype(float)
+
+
+def project_final_outcome(
+    outcome: FinalFitOutcome,
+    snapshot: FinalModelSnapshot,
+    positions: Sequence[np.ndarray],
+    *,
+    cluster_id: int | None = None,
+    planes: Sequence[int] | None = None,
+) -> FloatArray | None:
+    """Evaluate completed contributions at paired fractional grid coordinates.
+
+    Returns (points, requested planes), preserving the supplied plane identities
+    and order. Uses final values, retained geometry and analytical amplitudes;
+    there is no fitting, parameter preparation, or amplitude recovery here.
+    Shape evaluation is chunked to bound temporary memory independently of grid
+    extent. Callers choose the coordinates/output extent (a row, tile or grid).
+    ``None`` denotes no usable contribution, never a zero-filled failed result.
+    """
+    _validate_snapshot(outcome, snapshot)
+    coordinates = [np.asarray(values, dtype=float).ravel() for values in positions]
+    if (
+        not coordinates
+        or not coordinates[0].size
+        or any(
+            values.shape != coordinates[0].shape or not np.all(np.isfinite(values))
+            for values in coordinates
+        )
+    ):
+        raise ValueError("Projection coordinates must be finite, nonempty paired arrays")
+    if {c.n_grid_dimensions for c in snapshot.clusters} != {len(coordinates)}:
+        raise ValueError("Projection coordinate dimension mismatch")
+    n_series = snapshot.clusters[0].n_series
+    selected = np.arange(n_series) if planes is None else np.asarray(planes)
+    if (
+        selected.ndim != 1
+        or not selected.size
+        or selected.dtype.kind not in "iu"
+        or (np.any(selected < 0) or np.any(selected >= n_series))
+    ):
+        raise ValueError("Projection planes must be valid original plane indices")
+    if cluster_id is not None and cluster_id not in outcome.by_cluster_id:
+        raise ValueError(f"Unknown projection cluster_id {cluster_id}")
+    parameters = _parameters_from_outcome(outcome.final_nonlinear_parameters)
+    model = np.zeros((coordinates[0].size, selected.size), dtype=float)
+    usable_count = 0
+    for cluster in snapshot.clusters:
+        if cluster_id is not None and cluster.cluster_id != cluster_id:
+            continue
+        terminal = outcome.cluster(cluster.cluster_id)
+        if not terminal.usable:
+            continue
+        evaluation = _validate_usable_projection(terminal, cluster, n_series)
+        amplitudes = evaluation.amplitudes[:, selected]
+        # At most about 4 MiB of shape/output working arrays per chunk.
+        chunk_size = max(1, min(4096, 524288 // max(len(cluster.peaks), selected.size)))
+        for start in range(0, model.shape[0], chunk_size):
+            end = start + chunk_size
+            shapes = np.asarray(
+                Cluster.evaluate_peaks(
+                    cluster.peaks, parameters, [values[start:end] for values in coordinates]
+                ),
+                dtype=float,
+            )
+            if shapes.shape != (len(cluster.peaks), len(model[start:end])) or not np.all(
+                np.isfinite(shapes)
+            ):
+                raise ValueError(
+                    f"Invalid projected lineshapes for cluster_id {cluster.cluster_id}"
+                )
+            model[start:end] += shapes.T @ amplitudes
+        usable_count += 1
+    if not usable_count:
+        return None
+    if not np.all(np.isfinite(model)):
+        raise ValueError("Non-finite completed model projection")
+    return model
 
 
 def _validate_capture_inputs(
@@ -381,4 +434,9 @@ def _require_exact_ids(expected: set[int], actual: set[int], *, label: str) -> N
         raise ValueError("; ".join(details))
 
 
-__all__ = ["FinalModelCluster", "FinalModelSnapshot", "simulate_final_outcome"]
+__all__ = [
+    "FinalModelCluster",
+    "FinalModelSnapshot",
+    "project_final_outcome",
+    "simulate_final_outcome",
+]

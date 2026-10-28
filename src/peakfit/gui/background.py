@@ -43,7 +43,9 @@ class ViewerComputation(QtCore.QObject):
     def _start_next(self) -> None:
         if self._busy or self._closed or not self._pending:
             return
-        kind, (revision, operation) = self._pending.popitem()
+        priority = {"contours": 0, "fit": 1, "slices": 2, "model": 3}
+        kind = min(self._pending, key=lambda key: priority.get(key, 4))
+        revision, operation = self._pending.pop(kind)
         self._busy = True
         future = self._executor.submit(operation)
         future.add_done_callback(lambda result: self._deliver(kind, revision, result))

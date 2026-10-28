@@ -14,6 +14,7 @@ import pyqtgraph as pg
 from peakfit.engine.algorithms.noise import estimate_noise
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.gui.background import ViewerComputation
+from peakfit.gui.comparison import FitComparison
 from peakfit.gui.editing import PeakInspector, PeakMarkers
 from peakfit.gui.fit_preview import FitPreview
 from peakfit.gui.fit_process import FitProcessResult, LocalFitProcess
@@ -75,6 +76,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._computation.completed.connect(self._computation_finished)
         self._colors = self._palette_colors()
         self._build_ui()
+        self.comparison = FitComparison(self)
         self._build_edit_actions()
         self.edits_changed.connect(self._scientific_inputs_changed)
         self._fit_status_timer = QtCore.QTimer(self)
@@ -184,6 +186,8 @@ class SpectrumViewer(QtWidgets.QWidget):
             negative = pen.style() == QtCore.Qt.PenStyle.DashLine
             pen.setColor(QtGui.QColor(self._colors["negative" if negative else "positive"]))
             item.setPen(pen)
+        if hasattr(self, "comparison"):
+            self.comparison.palette_changed()
 
     def changeEvent(self, event: QtCore.QEvent) -> None:  # noqa: N802
         """Follow application palette changes, including system appearance switches."""
@@ -327,6 +331,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         """Snapshot committed peaks and show a local scope without fitting."""
         if self.fit_busy:
             return
+        self.comparison.clear()
         self._showing_result = False
         if self.selected_id is None or not self.apply_pending_fields():
             self.dismiss_fit_preview()
@@ -451,6 +456,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         return self._fit_process.busy
 
     def _scientific_inputs_changed(self) -> None:
+        self.comparison.clear()
         self._scientific_revision += 1
         self._showing_result = False
         self.dismiss_fit_preview()
@@ -541,6 +547,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.fit_mask.hide()
             self.fit_members.clear()
         self.fit_preview.show_result(self.fit_result, self.plane, outdated=outdated)
+        self.comparison.show_result(self.fit_result, outdated=outdated)
         self.fit_preview.retained.hide()
         self.fit_preview.prepare.setEnabled(self.selected_id is not None)
         if not activate:
@@ -793,6 +800,7 @@ class SpectrumViewer(QtWidgets.QWidget):
     def _schedule_contours(self) -> None:
         self._contour_revision += 1
         self._computation.cancel("contours")
+        self.comparison.contours_changed()
         self.contour_status.setText("Updating contours…")
         self.footer_status.setCurrentIndex(1)
         self.contour_status.setToolTip(
@@ -843,6 +851,8 @@ class SpectrumViewer(QtWidgets.QWidget):
                     )
                 )
                 item.setPath(paths[index])
+        self._contour_plane = self.plane
+        self._contour_applied_revision = self._contour_revision
         self.contour_status.clear()
         self.footer_status.setCurrentIndex(0)
         self.contour_status.setToolTip("")
@@ -868,6 +878,7 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def stop_preparation(self) -> None:
         """Invalidate work without waiting for background computation at shutdown."""
+        self.comparison.clear()
         self._closing = True
         self._fit_process.close()
         self._fit_status_timer.stop()
@@ -928,6 +939,8 @@ class SpectrumViewer(QtWidgets.QWidget):
             f"{self._axis_title(self.y_axis)}: {self.ppm_y[self.iy]:.4f} ppm    "
             f"Raw intensity: {plane[self.iy, self.ix]:.5g}"
         )
+        if hasattr(self, "comparison"):
+            self.comparison.update_slices()
 
     def set_plane_values(self, values: np.ndarray) -> None:
         """Replace experimental plane coordinates without changing spectral samples."""
