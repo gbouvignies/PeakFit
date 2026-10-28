@@ -343,8 +343,8 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         assert item is not None
         assert item.text() == "3"
         monkeypatch.setattr(
-            QtWidgets.QMessageBox,
-            "warning",
+            viewer,
+            "_result_loss_choice",
             lambda *_args: QtWidgets.QMessageBox.StandardButton.Cancel,
         )
         viewer._apply_fit_preparation(prepared)

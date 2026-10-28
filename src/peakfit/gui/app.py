@@ -7,7 +7,7 @@ import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.gui.peaks import export_peaks
-from peakfit.gui.spectrum import load_peaks, load_spectrum
+from peakfit.gui.spectrum import load_peaks, load_spectrum, verified_source_files
 from peakfit.gui.viewer import SpectrumViewer
 
 
@@ -38,6 +38,10 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self.export_action = self._action(
             menu, "Export peaks…", QtGui.QKeySequence.StandardKey.Save, self._export_peaks
         )
+        self.fit_export_action = self._action(
+            menu, "Export fit results…", "", self._export_fit_results
+        )
+        self.fit_export_action.setEnabled(False)
         self.export_action.setEnabled(False)
         self.peaks_action.setEnabled(False)
         self.values_action.setEnabled(False)
@@ -68,13 +72,20 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         """Prepare a replacement before discarding the currently displayed spectrum."""
         if self.viewer is not None and self.viewer.fit_busy:
             raise ValueError("Cancel the running fit before replacing the spectrum.")
-        spectra = load_spectrum(path, plane_values)
-        imported_peaks = load_peaks(peaks, spectra) if peaks is not None else []
+        sources = {"spectrum": path}
+        if peaks is not None:
+            sources["peak_list"] = peaks
+        if plane_values is not None:
+            sources["plane_values"] = plane_values
+        with verified_source_files(sources) as source_files:
+            spectra = load_spectrum(path, plane_values)
+            imported_peaks = load_peaks(peaks, spectra) if peaks is not None else []
         if not self._protect_edits() or (
             self.viewer is not None and not self.viewer.confirm_result_loss("discard")
         ):
             return
         viewer = SpectrumViewer(spectra)
+        viewer.source_files = source_files
         viewer.set_peaks(imported_peaks)
         viewer.show_peak_labels(self.labels_action.isChecked())
         if self.viewer is not None:
@@ -92,6 +103,7 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self.export_action.setEnabled(True)
         self.setWindowTitle(f"{path.name}[*] — PeakFit")
         self._update_work_state()
+        self.fit_export_action.setEnabled(False)
         self.statusBar().showMessage(
             f"{spectra.data.shape[0]} planes · {len(imported_peaks)} peaks · "
             "Blue: positive; dashed red: negative · Click to inspect, drag to pan, scroll to zoom"
@@ -123,10 +135,19 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         )
         if filename:
             try:
-                peaks = load_peaks(Path(filename), self.viewer.spectra)
+                with verified_source_files({"peak_list": Path(filename)}) as source_files:
+                    peaks = load_peaks(Path(filename), self.viewer.spectra)
                 if not self._protect_edits():
                     return
                 self.viewer.set_peaks(peaks)
+                self.viewer.source_files = (
+                    tuple(
+                        (role, record)
+                        for role, record in self.viewer.source_files
+                        if role != "peak_list"
+                    )
+                    + source_files
+                )
                 self._export_path = None
                 self.statusBar().showMessage(f"Displaying {len(peaks)} peaks from {filename}")
             except (OSError, ValueError, KeyError, ImportError) as exc:
@@ -138,8 +159,17 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Load plane values")
         if filename:
             try:
-                values = np.atleast_1d(np.loadtxt(filename, dtype=float))
+                with verified_source_files({"plane_values": Path(filename)}) as source_files:
+                    values = np.atleast_1d(np.loadtxt(filename, dtype=float))
                 self.viewer.set_plane_values(values)
+                self.viewer.source_files = (
+                    tuple(
+                        (role, record)
+                        for role, record in self.viewer.source_files
+                        if role != "plane_values"
+                    )
+                    + source_files
+                )
             except (OSError, ValueError) as exc:
                 self._show_error(exc)
 
@@ -148,6 +178,9 @@ class PeakFitWindow(QtWidgets.QMainWindow):
 
     def _update_fit_state(self) -> None:
         busy = self.viewer is not None and self.viewer.fit_busy
+        self.fit_export_action.setEnabled(
+            self.viewer is not None and self.viewer.fit_result is not None and not busy
+        )
         self.open_action.setEnabled(not busy)
         self.peaks_action.setEnabled(self.viewer is not None and not busy)
         self.values_action.setEnabled(self.viewer is not None and not busy)
@@ -166,6 +199,11 @@ class PeakFitWindow(QtWidgets.QMainWindow):
                 + ("Unsaved peak edits · " if dirty else "")
                 + "Click to inspect/select · selected peak: drag to move · A: add · Esc: cancel"
             )
+
+    def _export_fit_results(self) -> bool:
+        if self.viewer is None:
+            return False
+        return self.viewer.export_fit_results()
 
     def _export_peaks(self) -> bool:
         if self.viewer is None or not self.viewer.apply_pending_fields():
@@ -207,6 +245,9 @@ class PeakFitWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # noqa: N802
         """Protect coordinates and typed fields before closing the application."""
+        if self.viewer is not None and self.viewer._exporting:
+            event.ignore()
+            return
         if (
             self.viewer is not None
             and self.viewer.fit_busy

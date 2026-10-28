@@ -284,12 +284,26 @@ Only one completed result is retained. A new fit requires confirmation before
 replacing it; a canceled or failed attempt keeps the previous result, accessible
 through **Retained result**. **New preparation** starts another review.
 
-**Results are in memory only and cannot yet be saved.** A single persistent footer
-notice identifies a retained unsaved fit, including while inspecting working peaks.
-Closing or replacing the spectrum requires confirmation before discarding a completed result. Exporting
-working peaks does not export the fit. Later scientific edits mark the retained
-result outdated and remove its current-spectrum scope overlays; numerical inspection
-still uses its original inputs. Obsolete background deliveries never replace it.
+Choose **File → Export fit results…** and select a parent directory. PeakFit writes
+`local-fit-<run_id>/` containing canonical JSON 4.0.0, CSV tables and a local-fit
+provenance record ([format details](outputs.md#gui-local-fit-export)). The footer
+and confirmation show the destination. The completed fit and graphical comparison
+remain available. Working coordinates, pending inspector fields, undo history and
+peak-list saved status are unchanged. Exporting working peaks remains a separate action.
+
+Closing, replacing the spectrum, or starting a replacement fit offers
+**Export… / Discard / Cancel** for an unexported completed result. Canceling the
+directory picker or a failed write keeps the result unexported. Already exported
+results do not prompt again. Every new completed result has its own export state;
+a failed/canceled replacement attempt retains the old result and its export status.
+No shutdown/cancellation begins until all close decisions are accepted, including
+when a fit finishes while an earlier dialog is open.
+
+Later scientific edits mark the retained result outdated and remove its
+current-spectrum scope overlays. Numerical inspection and export still use its
+original scientific inputs, which the export companion records explicitly.
+Obsolete background deliveries never replace it. Export is scientific output, not
+an editable GUI session; reopening exported results in the GUI is not available.
 Keeping a result and applying fitted coordinates remain separate operations;
 applying fitted coordinates is not available in this step.
 
