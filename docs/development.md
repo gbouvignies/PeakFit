@@ -518,3 +518,32 @@ spectrum were inspected for readable labels, complete error text and preserved
 spectrum/slice context; these are included in the GUI guide. Native Qt required
 display access outside the execution sandbox (the sandboxed attempt failed during
 QScreen initialization).
+
+
+## Whole-dataset desktop fitting and review
+
+The GUI runs `run_pipeline_iter` in its existing disposable-process bridge, with a
+reviewed two-pass default and threshold independent of display contours. Completed
+review uses `CompletedFit`, retains original input/provenance snapshots, and evaluates
+all usable model contributions without an amplitude solve or spatial cutoff. Shared
+process/export helpers now use the scope-neutral `FitProcess` and `export_fit_result`
+names. CLI defaults and canonical output schemas are unchanged.
+
+Verification: full offscreen Qt/Agg suite **386 passed**; focused GUI pipeline/export
+checks also passed after the final provenance adjustment. Ruff, formatting, type
+checking, import-linter, commit hooks and wheel/sdist build passed. The existing
+uv-build version-bound warning remains. `graphify update .` refreshed AST relationships.
+
+The native Cocoa acceptance script drove the bundled 131-plane / 166-peak dataset
+through settings review, actual two-pass execution/corrections, full-model overlay,
+residuals, plane input, crosshair/selection, cancellation, protected close, edits and
+Undo. All 121 clusters were numerically usable/converged; three uncertainty warnings
+remained explicit. Scientific values, repeated plane identities and stale delivery
+are protected by focused tests. See [native evidence and limitations](validation/gui-dataset-fit.md)
+for before/after screenshots, exact native sizes and measured latency.
+
+The unattended native GUI suite encountered focus-dependent failures; the first
+Tab-focus failure was reproduced verbatim on unmodified main. It is not reported as
+a passing native suite. The dedicated native acceptance run establishes Qt focus
+explicitly for synthetic keyboard input and passed; normal application focus code
+was not changed to accommodate the test environment.

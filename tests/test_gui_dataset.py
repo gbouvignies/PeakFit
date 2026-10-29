@@ -88,7 +88,7 @@ def dataset_viewer():
 
 
 def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
-    spectra, _peaks, config, prepared = _dataset()
+    spectra, peaks, config, prepared = _dataset()
     direct = deepcopy(prepared)
     expected = run_pipeline(
         config,
@@ -147,8 +147,16 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
     saved = export_fit_result(result, tmp_path / "dataset")
     companion = json.loads((saved / "summary/dataset_fit.json").read_text())
     assert companion["n_correction_updates"] == 1
+    assert companion["cross_cluster_corrections"] is True
     assert [p["value"] for p in companion["planes"]] == [2.0, 0.0, 2.0]
     assert [p["working_id"] for p in companion["peak_identities"]] == ["0", "1", "remote"]
+    config.fitting.refine_iterations = 1
+    single = prepare_dataset_fit(spectra, peaks, config)
+    single_result = finish_dataset_fit(single, compute_dataset_fit(deepcopy(single)))
+    saved = export_fit_result(single_result, tmp_path / "one-pass")
+    companion = json.loads((saved / "summary/dataset_fit.json").read_text())
+    assert companion["n_correction_updates"] == 0
+    assert companion["cross_cluster_corrections"] is False
 
 
 def test_settings_are_reviewed_and_independent_of_display(dataset_viewer):

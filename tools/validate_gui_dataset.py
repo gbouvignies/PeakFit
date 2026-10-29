@@ -99,9 +99,28 @@ def main():  # noqa: PLR0915
 
     def capture(name, target=window):
         nonlocal last_tick
-        # Capturing/writing Retina PNGs is test work, not a user interaction.
+        # Capturing/writing Retina images is test work, not a user interaction.
         heartbeat.stop()
-        target.grab().save(str(args.output / (name + ".png")))
+        # Axis widths follow newly formatted tick text on a deferred layout pass.
+        # Capture the settled native view, rather than forcing its first paint.
+        for _ in range(3):
+            loop = QtCore.QEventLoop()
+            QtCore.QTimer.singleShot(20, loop.quit)
+            loop.exec()
+        native = target.grab().toImage()
+        if name.endswith("-residual"):
+            # Qt's quality=100 WebP mode is lossless. Verify the decoded pixels
+            # explicitly; dense residual PNGs exceed the repository's file limit.
+            destination = args.output / (name + ".webp")
+            assert native.save(str(destination), b"WEBP", 100)
+            original = native.convertToFormat(QtGui.QImage.Format.Format_RGBA8888)
+            decoded = QtGui.QImage(str(destination)).convertToFormat(
+                QtGui.QImage.Format.Format_RGBA8888
+            )
+            assert original.size() == decoded.size()
+            assert bytes(original.constBits()) == bytes(decoded.constBits())
+        else:
+            assert native.save(str(args.output / (name + ".png")))
         last_tick = perf_counter()
         heartbeat.start()
 
@@ -377,7 +396,7 @@ def main():  # noqa: PLR0915
         heartbeat.stop()
         report["heartbeat_interval_ms"] = 20
         report["heartbeat_note"] = (
-            "Normal Qt event loop; synchronous test PNG capture/writes excluded."
+            "Normal Qt event loop; synchronous test image capture/writes excluded."
         )
         report["heartbeat"] = {
             category: {

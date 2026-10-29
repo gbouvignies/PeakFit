@@ -50,7 +50,7 @@ def export_fit_result(result: LocalFitResult | DatasetFitResult, destination: Pa
         "scope": "complete_dataset_all_original_planes"
         if isinstance(result, DatasetFitResult)
         else "isolated_cluster_all_original_planes",
-        "cross_cluster_corrections": isinstance(result, DatasetFitResult),
+        "cross_cluster_corrections": result.outcome.n_correction_updates > 0,
         "n_optimizer_passes": result.outcome.n_optimizer_passes,
         "n_correction_updates": result.outcome.n_correction_updates,
         "data_shape": snapshot.data_shape,
