@@ -1,0 +1,49 @@
+{
+  "backend": "cocoa",
+  "client": [
+    1280,
+    772
+  ],
+  "frame": [
+    1280,
+    800
+  ],
+  "dpr": 2.0,
+  "plot": [
+    739.5,
+    477.5
+  ],
+  "inspector_width": 320,
+  "scroll_max": 0,
+  "plane": 1,
+  "mode": "Overlay",
+  "residual_style": "contours",
+  "selected": "5N-H",
+  "trace_span_sigma": 93.82255029235873,
+  "draft_pending": false,
+  "working_unfolded": [
+    117.70506076312058,
+    8.032754879801688
+  ],
+  "initial_unfolded": [
+    117.819767,
+    8.043663
+  ],
+  "source_hashes": {
+    "pseudo3d.ft2": "2f91c489f1fe6448c1ead0a417a600a1e401616f76caf1f6cdb3219fbf6ac442",
+    "pseudo3d.list": "0fe9820aa083d7c4d45b8d2b3c62f77d9c43aaa9d3e3f784d7b185891cd6b56b",
+    "b1_offsets.txt": "8b28c3f479d90eb2cc6387c0a4edde7fc7ecd4171d1a3de14c50a90f728737e8"
+  },
+  "arrays_read_only": true,
+  "native_slices_exact": true,
+  "amplitude_axes": [
+    [
+      -93.82255029235873,
+      93.82255029235873
+    ],
+    [
+      -93.82255029235873,
+      93.82255029235873
+    ]
+  ]
+}

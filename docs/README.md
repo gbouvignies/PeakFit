@@ -11,6 +11,11 @@ Start with the root [`README.md`](../README.md) and the ready-to-run
 - [`optimizers.md`](optimizers.md) - optimizer choice and runtime controls.
 - [`mcmc.md`](mcmc.md) - MCMC uncertainty workflow.
 
+## GUI v2 design baseline
+
+- [Approved specification and three layouts](PeakFit_GUI_Design_Specification_v2.0.md).
+- [Native design validation and its limits](validation/gui-v2-refinement.md).
+
 ## Developer Guides
 
 - [`development.md`](development.md) - contributor workflow and conventions.
