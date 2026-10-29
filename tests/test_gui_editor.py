@@ -431,3 +431,134 @@ def test_real_qt_marker_drag_cancel_and_blank_pan(workspace, app):
     assert workspace.edits.revision == 0
     assert canvas.selected_id == peak.id
     assert view.viewRange() != before_pan
+
+
+@pytest.mark.parametrize("has_values", [False, True])
+def test_plane_metadata_stays_modified_and_protected_after_peak_export(
+    app, dataset, tmp_path, monkeypatch, has_values
+):
+    window = EditorWindow()
+    initial = dataset if has_values else read_dataset(dataset.path, DATA / "pseudo3d.list")
+    window.install_dataset(initial)
+    workspace = window.workspace
+    assert workspace is not None
+    selections = ["Cancel"]
+    monkeypatch.setattr(QtWidgets.QMessageBox, "exec", lambda _dialog: 0)
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox,
+        "clickedButton",
+        lambda dialog: next(b for b in dialog.buttons() if b.text() == selections[0]),
+    )
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog, "getSaveFileName", lambda *_: (str(tmp_path / "peaks.csv"), "")
+    )
+    monkeypatch.setattr(window, "confirm_dataset", lambda _: True)
+    try:
+        app.processEvents()
+        for number in (1, 2):
+            values = np.arange(131, dtype=float) + number / 8
+            values.flags.writeable = False
+            record = (("plane_values", f"source-{number}"),)
+            window._accept_values((values, record))
+            assert window.isWindowModified()
+            assert "Modified" in workspace.modified.text()
+            assert tuple(s for s in workspace.dataset.sources if s[0] == "plane_values") == record
+            np.testing.assert_array_equal(workspace.dataset.spectra.z_values, values)
+            assert window.export_dialog()
+            assert not workspace.edits.dirty
+            assert window.isWindowModified()  # CSV did not preserve the plane mapping.
+            closing = QtGui.QCloseEvent()
+            window.closeEvent(closing)
+            assert not closing.isAccepted()
+            window._loaded("load", window._revision, dataset)
+            assert window.workspace is workspace  # Dataset replacement uses the same guard.
+        peak = workspace.peaks[0]
+        workspace.edits.update(peak.id, "Edited", peak.positions)
+        workspace._refresh()
+        workspace.history(False)
+        assert window.isWindowModified()
+        workspace.history(True)
+        selections[0] = "Export peaks…"
+        assert not window.protect_edits()  # Export cannot authorize loss of plane metadata.
+        assert window.isWindowModified()
+        selections[0] = "Discard session changes"
+        closing = QtGui.QCloseEvent()
+        window.closeEvent(closing)
+        assert closing.isAccepted()
+    finally:
+        monkeypatch.setattr(window, "protect_edits", lambda: True)
+        window.close()
+
+
+@pytest.mark.parametrize("mode", ["Replace", "Append"])
+def test_peak_import_provenance_follows_current_ids_through_undo_redo(  # noqa: PLR0915
+    app, dataset, monkeypatch, mode
+):
+    window = EditorWindow()
+    window.install_dataset(dataset)
+    workspace = window.workspace
+    assert workspace is not None
+    original = workspace.peaks
+    original_sources = tuple(s for s in dataset.sources if s[0] == "peak_list")
+    non_peak_sources = tuple(s for s in dataset.sources if s[0] != "peak_list")
+    choice = [mode]
+    monkeypatch.setattr(QtWidgets.QMessageBox, "exec", lambda _dialog: 0)
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox,
+        "clickedButton",
+        lambda dialog: next(b for b in dialog.buttons() if b.text() == choice[0]),
+    )
+
+    def active_sources():
+        assert (
+            tuple(s for s in workspace.dataset.sources if s[0] != "peak_list") == non_peak_sources
+        )
+        assert workspace.canvas.dataset.sources == workspace.dataset.sources
+        return tuple(s for s in workspace.dataset.sources if s[0] == "peak_list")
+
+    try:
+        app.processEvents()
+        imported = WorkingPeak.new("Imported", original[0].positions)
+        first_source = (("peak_list", "import-A"),)
+        window._accept_peaks(((imported,), first_source))
+        expected = original_sources + first_source if mode == "Append" else first_source
+        after_first = workspace.peaks
+        assert active_sources() == expected
+        # Peak Undo must not roll back a subsequently imported plane mapping.
+        plane_source = (("plane_values", "replacement-values"),)
+        window._accept_values((dataset.spectra.z_values, plane_source))
+        non_peak_sources = tuple(s for s in workspace.dataset.sources if s[0] != "peak_list")
+        assert after_first == ((*original, imported) if mode == "Append" else (imported,))
+        # A manual edit retains the origin; undoing it must not undo the import's source.
+        workspace.edits.update(imported.id, "Renamed", imported.positions)
+        workspace._refresh()
+        workspace.history(False)
+        assert active_sources() == expected
+        workspace.history(False)
+        assert workspace.peaks == original
+        assert active_sources() == original_sources
+        workspace.history(True)
+        assert workspace.peaks == after_first
+        assert active_sources() == expected
+        # A later replacement supersedes previous peak sources rather than advertising an audit log.
+        choice[0] = "Replace"
+        second = WorkingPeak.new("Second", imported.positions)
+        second_source = (("peak_list", "import-B"),)
+        window._accept_peaks(((second,), second_source))
+        assert active_sources() == second_source
+        workspace.history(False)
+        assert workspace.peaks == after_first
+        assert active_sources() == expected
+        workspace.history(True)
+        assert workspace.peaks == (second,)
+        assert active_sources() == second_source
+        workspace.history(False)
+        choice[0] = "Append"
+        # Importing the same file again allocates a new ID but needs no duplicate fingerprint.
+        duplicate = WorkingPeak.new("Duplicate", imported.positions)
+        window._accept_peaks(((duplicate,), first_source))
+        assert active_sources() == expected
+        assert not workspace.edits.can_redo  # Abandoned import-B is not effective provenance.
+    finally:
+        monkeypatch.setattr(window, "protect_edits", lambda: True)
+        window.close()

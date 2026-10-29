@@ -114,7 +114,7 @@ fractional-scale acceptance claim.
 
 ## Checks and remaining limits
 
-The full headless regression suite passed: **406 tests**. Ruff, formatting, strict
+The full headless regression suite passed: **410 tests**. Ruff, formatting, strict
 type checks, import-linter, wheel/sdist builds and AST Graphify update were run.
 The existing CLI/numerical/whole-dataset GUI regression tests remain in that suite.
 `uv build` reports the existing uv-build/current-uv version-range warning but
@@ -134,3 +134,27 @@ currently has a text/triangle status warning rather than dedicated plot-edge
 arrows; the narrow right amplitude axis can omit extreme tick labels. These
 presentation/accessibility refinements are visible limitations, not changed data
 or silent normalization. No full application release acceptance is claimed here.
+
+
+## PR #68 scientific-state review corrections
+
+Plane-value imports/replacements now mark both the workspace and window Modified,
+independently of peak edits. CSV export clears only peak-export dirtiness; it leaves
+plane metadata session-only and cannot authorize closing/replacing the dataset.
+Cancel is the default loss-guard action, and only explicit Discard allows loss of
+that metadata. This adds no persistence or plane-value Undo.
+
+Effective peak-source fingerprints now derive from the stable IDs in the current
+working list. Replace supersedes prior peak origins; Append retains the origins of
+all current IDs. Undo/Redo and later coordinate edits recover the corresponding
+sources, with obsolete/undone origins kept private for Redo. Workspace and canvas
+share the effective dataset record; peak Undo leaves later plane imports intact.
+
+Four targeted regression cases cover first/replacement plane imports, close and
+dataset-replacement cancellation, export from the loss guard, explicit discard,
+and Replace/Append/Undo/Redo/source deduplication with an abandoned redo branch.
+They reproduced the reported failures before the fix. The complete suite then
+passed with 410 tests. Normal empty-editor launch was confirmed on Cocoa through
+the actual console entry function. The existing exposed native validation harness
+also passed after the corrections (500 previews per theme, zero contour jobs or
+marker rebuilds); the visual composition and rendering code are unchanged.

@@ -1,5 +1,6 @@
 """One explicit inspection/edit workflow composed from the rail and spectrum canvas."""
 
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -10,6 +11,7 @@ from peakfit.gui.peaks import PeakEdits
 
 if TYPE_CHECKING:
     from peakfit.gui.editor.loading import Dataset
+    from peakfit.gui.peaks import WorkingPeak
 
 
 class EditorWorkspace(QtWidgets.QWidget):
@@ -21,6 +23,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         super().__init__()
         self.dataset = dataset
         self.edits = PeakEdits(dataset.peaks)
+        peak_sources = tuple(source for source in dataset.sources if source[0] == "peak_list")
+        # Keep origins for undoable IDs, but expose only sources of current peaks.
+        self._peak_sources = {peak.id: peak_sources for peak in dataset.peaks}
+        self.plane_values_modified = False
         self.selected_id: str | None = None
         self.canvas = SpectrumCanvas(dataset)
         self.rail = PeakRail(
@@ -160,6 +166,25 @@ class EditorWorkspace(QtWidgets.QWidget):
         """Uncommitted editor or pointer draft."""
         return self.inspector.pending or self.canvas._drag_peak is not None
 
+    @property
+    def has_changes(self) -> bool:
+        """Whether closing would discard a draft, unexported peaks or session plane metadata."""
+        return self.edits.dirty or self.pending or self.plane_values_modified
+
+    def import_peaks(
+        self,
+        peaks: tuple[WorkingPeak, ...],
+        sources: tuple[tuple[str, str], ...],
+        *,
+        append: bool,
+    ) -> None:
+        """Bind fresh imported IDs to their origins in the same undoable handoff."""
+        if any(peak.id in self._peak_sources for peak in peaks):
+            raise ValueError("Imported peaks require new stable IDs.")
+        self.edits.replace_all(self.peaks + peaks if append else peaks)
+        self._peak_sources.update((peak.id, sources) for peak in peaks)
+        self._refresh()
+
     def _pin_changed(self, pinned: bool) -> None:
         with QtCore.QSignalBlocker(self.pin_button):
             self.pin_button.setChecked(pinned)
@@ -242,6 +267,16 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.rail.select(peak, self.canvas.display(peak) if peak else None)
 
     def _refresh(self) -> None:
+        peak_sources = tuple(
+            dict.fromkeys(
+                source for peak in self.peaks for source in self._peak_sources.get(peak.id, ())
+            )
+        )
+        sources = tuple(source for source in self.dataset.sources if source[0] != "peak_list")
+        sources += peak_sources
+        if sources != self.dataset.sources:
+            self.dataset = replace(self.dataset, sources=sources)
+        self.canvas.dataset = self.dataset
         if self.selected_id not in {p.id for p in self.peaks}:
             self.selected_id = None
         self.canvas.selected_id = self.selected_id
@@ -261,7 +296,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.undo_action.setEnabled(self.edits.can_undo and not self.pending)
         self.redo_action.setEnabled(self.edits.can_redo and not self.pending)
         self.delete_action.setEnabled(self.selected_id is not None)
-        self.modified.setText("Modified peaks" if self.edits.dirty or self.pending else "")
+        self.modified.setText(
+            "Modified inputs · plane values session-only"
+            if self.plane_values_modified
+            else "Modified peaks"
+            if self.edits.dirty or self.pending
+            else ""
+        )
 
     def history(self, redo: bool) -> None:
         """Undo exact records; monotonic scientific revision never recertifies a run."""

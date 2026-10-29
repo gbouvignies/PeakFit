@@ -342,7 +342,7 @@ class EditorWindow(QtWidgets.QMainWindow):
 
     def _work_changed(self) -> None:
         if self.workspace:
-            self.setWindowModified(self.workspace.edits.dirty or self.workspace.pending)
+            self.setWindowModified(self.workspace.has_changes)
 
     def import_dialog(self) -> None:
         """Import uses the same readers and requires an explicit axis mapping."""
@@ -383,10 +383,7 @@ class EditorWindow(QtWidgets.QMainWindow):
         chosen = dialog.clickedButton()
         if chosen not in (replace_button, append_button):
             return
-        workspace.edits.replace_all(workspace.peaks + peaks if chosen is append_button else peaks)
-        # Provenance can contain multiple peak-list roles, never just the last path.
-        workspace.dataset = replace(workspace.dataset, sources=workspace.dataset.sources + records)
-        workspace._refresh()
+        workspace.import_peaks(peaks, records, append=chosen is append_button)
         self.loading_status.setText(
             f"Imported {len(peaks)} peaks · Undo restores the previous list"
         )
@@ -432,6 +429,9 @@ class EditorWindow(QtWidgets.QMainWindow):
         workspace.canvas.spectra = spectra
         # A plane mapping replacement is a scientific edit, never navigation.
         workspace.edits.revision += 1
+        workspace.plane_values_modified = True
+        workspace._update_actions()
+        workspace.changed.emit()
         workspace.set_plane(workspace.canvas.plane + 1)
         self.loading_status.setText(
             "Plane values imported in original acquisition order · file units"
@@ -462,31 +462,44 @@ class EditorWindow(QtWidgets.QMainWindow):
         self._work_changed()
         self.loading_status.setText(
             f"Exported {len(workspace.peaks)} working peaks to {path}; "
-            "analysis persistence is not available yet"
+            + (
+                "plane values remain session-only and modified"
+                if workspace.plane_values_modified
+                else "analysis persistence is not available yet"
+            )
         )
         return True
 
     def protect_edits(self) -> bool:
-        """Guard loss of peak edits with an export option; never call this Save analysis."""
-        if not self.workspace or not (self.workspace.edits.dirty or self.workspace.pending):
+        """Require an explicit loss decision for every unpreserved scientific input."""
+        workspace = self.workspace
+        if workspace is None or not workspace.has_changes:
             return True
         dialog = QtWidgets.QMessageBox(self)
-        dialog.setWindowTitle("Unexported peak edits")
-        dialog.setText("Export working peaks before closing or replacing this dataset?")
+        dialog.setWindowTitle("Unpreserved session changes")
+        dialog.setText("Close or replace this dataset and discard session changes?")
         dialog.setInformativeText(
-            "CSV preserves names and exact unfolded coordinates. "
+            "Imported/replaced plane values are session-only. Peak CSV export does not "
+            "preserve plane metadata or save an analysis; exporting peaks keeps this session "
+            "modified. Keep the values file and select it again when reopening."
+            if workspace.plane_values_modified
+            else "Export working peaks to preserve names and exact unfolded coordinates. "
             "Analysis persistence is a later milestone."
         )
-        export_button = dialog.addButton(
-            "Export peaks…", QtWidgets.QMessageBox.ButtonRole.AcceptRole
-        )
+        export_button = None
+        if workspace.edits.dirty or workspace.pending:
+            export_button = dialog.addButton(
+                "Export peaks…", QtWidgets.QMessageBox.ButtonRole.AcceptRole
+            )
         discard_button = dialog.addButton(
-            "Discard peak edits", QtWidgets.QMessageBox.ButtonRole.DestructiveRole
+            "Discard session changes", QtWidgets.QMessageBox.ButtonRole.DestructiveRole
         )
         dialog.addButton(QtWidgets.QMessageBox.StandardButton.Cancel)
+        dialog.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Cancel)
         dialog.exec()
-        if dialog.clickedButton() is export_button:
-            return self.export_dialog()
+        if export_button is not None and dialog.clickedButton() is export_button:
+            exported = self.export_dialog()
+            return exported and not workspace.plane_values_modified
         return dialog.clickedButton() is discard_button
 
     def find_assignment(self) -> None:

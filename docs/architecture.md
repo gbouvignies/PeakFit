@@ -200,6 +200,21 @@ export do not. Peak import is one undoable collection change. Deleting an assign
 never merges or reidentifies coincident/duplicate names. The flat list updates rows
 in place, avoiding tree/model resets during ordinary coordinate editing.
 
+The editor retains peak-file origins by stable working ID; effective `Dataset.sources`
+is derived from the current IDs on every committed/history refresh. Replace/Append
+and Undo/Redo therefore restore peaks and effective provenance together, without a
+second source-history cursor. Origins of undone IDs are retained for Redo but are
+not advertised as active inputs. Non-peak source records, including the current
+plane mapping, survive peak Undo. Canvas and workspace use the same dataset record.
+
+Plane-value import/replacement advances the scientific revision and sets a
+session-only metadata flag. The window/header and close/replacement guard include
+that flag alongside peak dirtiness/drafts. Peak CSV export clears only peak
+export dirtiness; it neither clears the metadata flag nor authorizes its loss.
+Export from the loss guard keeps the window open when plane metadata remains;
+only explicit Discard permits loss. No project persistence or plane-value Undo
+is introduced by this contract.
+
 ### Contract for the next fitting slice
 
 `gui.fit_positions.dataset_completion` prepares one immutable `DatasetCompletion`

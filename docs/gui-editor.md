@@ -64,7 +64,19 @@ available. Undo labels identify the edit.
 
 **File → Export working peaks…** writes canonical PeakFit CSV atomically, using
 round-trip dot-decimal coordinates. Replacement/close offers export for unexported
-peak edits. Exporting peaks is not saving an analysis: projects, fits, MCMC,
+peak edits. Importing or replacing plane values marks the session Modified, even
+when no peaks changed. Peak CSV cannot preserve that plane mapping: exporting peaks
+leaves it Modified, and close/replacement requires explicit **Discard session
+changes** or Cancel. Keep the values file and select it again when reopening;
+plane-value imports are session-only and are not undone by peak Undo.
+
+Peak imports retain their source fingerprints by stable peak ID. Replace drops
+superseded peak sources from the effective inputs; Append retains sources of all
+current peaks. Undo/Redo restores the effective sources of the restored IDs,
+including across later coordinate edits. Previous sources remain available only
+for undoable IDs, rather than appearing as active scientific provenance.
+
+Exporting peaks is not saving an analysis: projects, fits, MCMC,
 refinement and result persistence arrive in subsequent vertical slices. Overlay
 and Residual remain visible with explanations of their unavailability.
 
