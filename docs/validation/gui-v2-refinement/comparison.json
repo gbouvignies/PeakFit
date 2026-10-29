@@ -1,0 +1,350 @@
+[
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 1,
+    "mode": "Residual",
+    "residual_style": "contours",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-1-overview-contours.webp",
+    "scope": "overview",
+    "residual_min": -21.897768819183554,
+    "residual_max": 33.198379044129034,
+    "fraction_abs_gt3": 0.020461309523809524,
+    "fraction_abs_gt5": 0.00493646978021978
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 1,
+    "mode": "Residual",
+    "residual_style": "raster",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-1-overview-raster.webp",
+    "scope": "overview",
+    "residual_min": -21.897768819183554,
+    "residual_max": 33.198379044129034,
+    "fraction_abs_gt3": 0.020461309523809524,
+    "fraction_abs_gt5": 0.00493646978021978
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 1,
+    "mode": "Residual",
+    "residual_style": "contours",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-1-overlap-contours.webp",
+    "scope": "overlap",
+    "residual_min": -21.897768819183554,
+    "residual_max": 33.198379044129034,
+    "fraction_abs_gt3": 0.020461309523809524,
+    "fraction_abs_gt5": 0.00493646978021978
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 1,
+    "mode": "Residual",
+    "residual_style": "raster",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-1-overlap-raster.webp",
+    "scope": "overlap",
+    "residual_min": -21.897768819183554,
+    "residual_max": 33.198379044129034,
+    "fraction_abs_gt3": 0.020461309523809524,
+    "fraction_abs_gt5": 0.00493646978021978
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 60,
+    "mode": "Residual",
+    "residual_style": "contours",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-60-overview-contours.webp",
+    "scope": "overview",
+    "residual_min": -11.706781199252482,
+    "residual_max": 17.744621662618258,
+    "fraction_abs_gt3": 0.011225103021978022,
+    "fraction_abs_gt5": 0.0016454899267399267
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 60,
+    "mode": "Residual",
+    "residual_style": "raster",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-60-overview-raster.webp",
+    "scope": "overview",
+    "residual_min": -11.706781199252482,
+    "residual_max": 17.744621662618258,
+    "fraction_abs_gt3": 0.011225103021978022,
+    "fraction_abs_gt5": 0.0016454899267399267
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 60,
+    "mode": "Residual",
+    "residual_style": "contours",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-60-overlap-contours.webp",
+    "scope": "overlap",
+    "residual_min": -11.706781199252482,
+    "residual_max": 17.744621662618258,
+    "fraction_abs_gt3": 0.011225103021978022,
+    "fraction_abs_gt5": 0.0016454899267399267
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 60,
+    "mode": "Residual",
+    "residual_style": "raster",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-60-overlap-raster.webp",
+    "scope": "overlap",
+    "residual_min": -11.706781199252482,
+    "residual_max": 17.744621662618258,
+    "fraction_abs_gt3": 0.011225103021978022,
+    "fraction_abs_gt5": 0.0016454899267399267
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 131,
+    "mode": "Residual",
+    "residual_style": "contours",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-131-overview-contours.webp",
+    "scope": "overview",
+    "residual_min": -11.01144627902081,
+    "residual_max": 17.888126780523322,
+    "fraction_abs_gt3": 0.011640052655677656,
+    "fraction_abs_gt5": 0.0017528044871794872
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 131,
+    "mode": "Residual",
+    "residual_style": "raster",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-131-overview-raster.webp",
+    "scope": "overview",
+    "residual_min": -11.01144627902081,
+    "residual_max": 17.888126780523322,
+    "fraction_abs_gt3": 0.011640052655677656,
+    "fraction_abs_gt5": 0.0017528044871794872
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 131,
+    "mode": "Residual",
+    "residual_style": "contours",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-131-overlap-contours.webp",
+    "scope": "overlap",
+    "residual_min": -11.01144627902081,
+    "residual_max": 17.888126780523322,
+    "fraction_abs_gt3": 0.011640052655677656,
+    "fraction_abs_gt5": 0.0017528044871794872
+  },
+  {
+    "backend": "cocoa",
+    "client": [
+      1280,
+      772
+    ],
+    "frame": [
+      1280,
+      800
+    ],
+    "dpr": 2.0,
+    "plot": [
+      739.5,
+      477.5
+    ],
+    "inspector_width": 320,
+    "scroll_max": 0,
+    "plane": 131,
+    "mode": "Residual",
+    "residual_style": "raster",
+    "selected": "5N-H",
+    "trace_span_sigma": 93.82255029235873,
+    "file": "plane-131-overlap-raster.webp",
+    "scope": "overlap",
+    "residual_min": -11.01144627902081,
+    "residual_max": 17.888126780523322,
+    "fraction_abs_gt3": 0.011640052655677656,
+    "fraction_abs_gt5": 0.0017528044871794872
+  }
+]
