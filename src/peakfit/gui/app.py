@@ -48,6 +48,11 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         menu.addSeparator()
         self._action(menu, "&Quit", QtGui.QKeySequence.StandardKey.Quit, self.close)
         self.edit_menu = self.menuBar().addMenu("&Edit")
+        analysis = self.menuBar().addMenu("&Analysis")
+        self.dataset_fit_action = self._action(
+            analysis, "Fit dataset…", "Ctrl+Return", self._fit_dataset
+        )
+        self.dataset_fit_action.setEnabled(False)
         view = self.menuBar().addMenu("&View")
         self.view_menu = view
         self._action(view, "Reset view", "Ctrl+0", self._reset_view)
@@ -109,9 +114,12 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self._update_work_state()
         self.fit_export_action.setEnabled(False)
         self.statusBar().showMessage(
-            f"{spectra.data.shape[0]} planes · {len(imported_peaks)} peaks · "
-            "Blue: positive; dashed red: negative · Click to inspect, drag to pan, scroll to zoom"
+            "Experimental: blue positive / dashed red negative · Calculated: purple"
         )
+
+    def _fit_dataset(self) -> None:
+        if self.viewer is not None:
+            self.viewer.review_dataset_fit()
 
     def _open_spectrum(self) -> None:
         if self.viewer is not None and self.viewer.fit_busy:
@@ -182,6 +190,9 @@ class PeakFitWindow(QtWidgets.QMainWindow):
 
     def _update_fit_state(self) -> None:
         busy = self.viewer is not None and self.viewer.fit_busy
+        self.dataset_fit_action.setEnabled(
+            self.viewer is not None and bool(self.viewer.peaks) and not busy
+        )
         self.fit_export_action.setEnabled(
             self.viewer is not None and self.viewer.fit_result is not None and not busy
         )
@@ -189,19 +200,20 @@ class PeakFitWindow(QtWidgets.QMainWindow):
         self.peaks_action.setEnabled(self.viewer is not None and not busy)
         self.values_action.setEnabled(self.viewer is not None and not busy)
         self.statusBar().showMessage(
-            "Local fit running · Cancel beside the fit status to edit peaks or replace the dataset"
+            "Fit running · Navigation available · Cancel fit to resume scientific editing"
             if busy
-            else "Local fit stopped · Working peaks unchanged"
+            else "Working peaks unchanged by fitting · Export fit results from File"
         )
 
     def _update_work_state(self) -> None:
         if self.viewer is not None:
             dirty = self.viewer.edits.dirty or self.viewer.inspector.pending
             self.setWindowModified(dirty)
+            self.dataset_fit_action.setEnabled(bool(self.viewer.peaks) and not self.viewer.fit_busy)
             self.statusBar().showMessage(
                 f"{len(self.viewer.peaks)} working peaks · "
                 + ("Unsaved peak edits · " if dirty else "")
-                + "Click to inspect/select · selected peak: drag to move · A: add · Esc: cancel"
+                + "Click to inspect · Drag background to pan · Scroll to zoom"
             )
 
     def _export_fit_results(self) -> bool:

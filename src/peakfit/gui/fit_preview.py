@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtWidgets
 
+from peakfit.gui.local_fit import LocalFitResult
+
 if TYPE_CHECKING:
     from peakfit.gui.fit_process import FitProcessResult
     from peakfit.gui.fitting import PreparedLocalFit
@@ -259,6 +261,7 @@ class FitPreview(QtWidgets.QWidget):
 
     def show_result(self, result: FitProcessResult, plane: int, *, outdated: bool) -> None:
         """Inspect retained scientific quantities without modifying working peaks."""
+        assert isinstance(result.scientific, LocalFitResult)
         self.show_preparation(result.scientific.inputs)
         self._result = result
         self.assumptions.show()

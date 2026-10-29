@@ -1,8 +1,8 @@
-# Desktop spectrum viewer
+# Desktop analysis
 
-This guide describes implemented behavior. The agreed whole-dataset review
-direction and delivery milestones are in [GUI design](gui-design.md); those
-workflows are not yet exposed by the application.
+The desktop application fits complete datasets and compares the retained scientific
+result directly with the experimental spectrum. Cluster navigation and reopening
+saved analyses are subsequent work; see [GUI design](gui-design.md).
 
 Launch the desktop application with a 2D or pseudo-3D NMRPipe spectrum:
 
@@ -17,9 +17,82 @@ Use **File → Open spectrum** to open or replace the current spectrum, and the 
 menu to load a peak list or plane values afterward. A missing peak list never
 starts automatic peak picking. Other dimensionalities are rejected with an error.
 
+## Fit and review the complete dataset
+
+Choose **Fit dataset…** in the toolbar, or **Analysis → Fit dataset…**
+(Ctrl+Return; Command+Return on macOS). No peak selection is required. The dialog
+prepares all committed working peaks and every original experimental plane outside
+the interface thread. It shows the resolved models, statistical noise, absolute
+clustering threshold, cluster count and number of fitting samples before enabling
+**Run dataset fit**. Invalid pending peak edits must be corrected first.
+
+The GUI defaults to **two optimizer passes**, with the existing cross-cluster
+correction update between passes. This deliberately differs from the CLI's unchanged
+one-pass default. The clustering threshold defaults to 5× the independently estimated
+all-plane statistical noise. Display contours have their own first-plane noise scale;
+changing their threshold never changes a whole-dataset fitting problem.
+
+Expand **Scientific settings and starting parameters** to review or change the
+global lineshape, optimizer iteration limit and tolerance, and inspect the actual
+first-pass starting values, bounds, units and fixed/variable flags. Processing-derived
+models require scientific judgment. Positions and lineshape parameters are shared
+across planes; signed amplitudes are independently solved per peak and plane. No
+response law is assumed. The reviewed problem is passed to the regular whole-dataset
+pipeline in one disposable process, including all configured neighbor corrections.
+
+During execution the summary shows the actual pass/cluster progress, correction
+updates and finalization. **Cancel fit** stops and reaps the process; no partial
+result is published. Navigation stays available, while scientific edits and dataset
+replacement pause. Preparation, completion and failure never open the lower panel.
+
+After completion **Overlay** displays the sum of every usable final cluster model
+over the experiment, with the same absolute contour levels and both signs. One
+**Experimental / Overlay / Residual** selector coordinates the spectrum and both
+slices. The **Total model** label remains explicit even when a peak is selected.
+Model values come from `CompletedFit` and its retained geometry and amplitudes;
+display never optimizes parameters or solves amplitudes again.
+
+**Residual** shows experimental minus total final usable model throughout the
+native plane, including outside fitting masks, divided by retained statistical noise.
+Its blue/neutral/red raster saturates at −3/+3 σ; traces use the same residual units.
+This is distinct from recorded optimizer residuals against terminal neighbor-corrected
+fitting samples. Their statistics are retained unchanged, not recalculated from the
+display. **Contours → Show exact fitting samples** exposes the recorded sample mask.
+
+The compact summary distinguishes optimizer convergence, numerical usability,
+model completeness and uncertainty warnings. Unusable contributions are omitted
+explicitly: an incomplete model is labeled; an all-unusable run offers no model
+comparison. Convergence does not establish scientific validity. **Result details**
+explicitly opens recorded statistics, model assumptions, uncertainty limitations and
+original run provenance without replacing the spectra.
+
+Model projection runs asynchronously over the entire native plane without spatial
+cutoffs. Plane input and measured slices update immediately. Mismatched calculated
+graphics disappear while **Calculating total model…** identifies pending work.
+Bounded caches reuse model planes independently of display thresholds; latest
+requests supersede obsolete calculations. Plane identities remain original indices,
+including reordered or repeated coordinate values. Both model slices evaluate the
+same total model at native coordinates across all original planes.
+
+Only one completed run is retained. A canceled or failed replacement keeps the
+previous result. Later scientific edits mark it **Outdated**, hide comparison and
+retain original numerical quantities and provenance. Undo does not recertify it.
+Closing or replacing an unexported result offers **Export… / Discard / Cancel**.
+**File → Export fit results…** writes canonical JSON/CSV plus a dataset provenance
+companion in `dataset-fit-<run_id>/`. This is scientific export, not a reopenable
+analysis or continuation archive. Applying whole-dataset fitted positions is not
+part of this first workflow; existing local-fit position application remains available.
+
+![Whole-dataset overlay in the compact workspace](images/dataset-1280-light-overlay.png)
+
+[Native before/after review and measured responsiveness](validation/gui-dataset-fit.md)
+includes both appearances, whole-spectrum residuals and the settings dialog.
+
 ## Workspace
 
 The 2D spectrum and two synchronized 1D slices form the main viewing area.
+The native toolbar prioritizes **Fit dataset…**, separates secondary inspection
+actions from comparison/display controls, and offers **1D slices** directly.
 **Edit peak**, **Local fit**, and **Across planes** are labeled entry points to a
 lower analysis panel. It starts collapsed. **Close details** restores the larger
 viewing area; opening and closing never resets the plane, crosshair, selection,
@@ -27,29 +100,16 @@ comparison mode, or ppm ranges. Drag the horizontal divider to resize details;
 the last expanded height is remembered while this workspace is open.
 
 **Across planes** opens the sampled crosshair profile alongside all three spectral
-views. With a current fit, its quantity selector distinguishes crosshair intensity
+views. With a current local fit, its quantity selector distinguishes crosshair intensity
 from signed fitted peak amplitudes. Neither quantity is inferred from the other.
 The right slices and their divider are resizable. **View → 1D slices** hides or
-restores the slice column. The spectrum always remains visible. There is no empty
-cluster navigator: full-dataset GUI results are not available yet.
+restores the slice column. It starts at 260 logical pixels and can be dragged down
+to 220 pixels. The spectrum always remains visible. Cluster navigation is subsequent
+work; no empty placeholder reserves space.
 
-![1440 × 900 workspace, light appearance](images/workspace-1440-light.png)
-
-Native Qt/Cocoa window-content captures use the bundled dataset and a real local
-fit. Sizes below are logical pixels; Retina PNGs contain twice as many pixels per
-axis. The 900-pixel capture was sized beyond the available desktop work area so
-the requested content dimensions could be reviewed without changing display settings.
-
-| Size | Details closed | Across-plane profile open |
-|---|---|---|
-| 1280 × 800, light | [View](images/workspace-1280-light.png) | [View](images/workspace-1280-light-profile.png) |
-| 1280 × 800, dark | [View](images/workspace-1280-dark.png) | [View](images/workspace-1280-dark-profile.png) |
-| 1440 × 900, light | [View](images/workspace-1440-light.png) | [View](images/workspace-1440-light-profile.png) |
-| 1440 × 900, dark | [View](images/workspace-1440-dark.png) | [View](images/workspace-1440-dark-profile.png) |
-
-[Local fit numerical inspection](images/workspace-local-fit.png) places the scope
-summary beside the read-only parameter table. Long tables and diagnostics scroll
-inside the lower panel; they never replace the spectrum or slices.
+The local numerical inspector places scope beside a read-only parameter table.
+Long tables and diagnostics scroll inside the lower panel; they never replace
+the spectrum or slices.
 
 ## Navigation
 
@@ -263,7 +323,8 @@ Qt paths, widgets, and graphics are constructed only on the GUI thread.
 ## Scope and performance
 
 Manual editing changes one shared peak list across all experimental planes.
-Local optimization and numerical result inspection are available. Completed local fits can be compared graphically; session persistence is not yet implemented. Existing
+Whole-dataset and local optimization and graphical review are available; session
+persistence is not yet implemented. Existing
 Matplotlib viewers and static plots remain available unchanged.
 
 The viewer keeps the `Spectra` object in memory. Panning and zooming reuse retained

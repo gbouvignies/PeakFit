@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.gui.fit_export import export_local_fit
+from peakfit.gui.dataset_fit import DatasetFitResult
+from peakfit.gui.fit_export import export_fit_result
 
 if TYPE_CHECKING:
     from peakfit.gui.local_fit import LocalFitResult
@@ -23,14 +24,17 @@ class _ExportProgress(QtWidgets.QProgressDialog):
         event.ignore()
 
 
-def choose_and_export(parent: QtWidgets.QWidget, result: LocalFitResult) -> Path | None:
+def choose_and_export(
+    parent: QtWidgets.QWidget, result: LocalFitResult | DatasetFitResult
+) -> Path | None:
     """Choose a parent directory and create a new result-specific child directory."""
     directory = QtWidgets.QFileDialog.getExistingDirectory(
         parent, "Export fit results — choose parent directory"
     )
     if not directory:
         return None
-    destination = Path(directory) / f"local-fit-{result.run_id}"
+    prefix = "dataset-fit" if isinstance(result, DatasetFitResult) else "local-fit"
+    destination = Path(directory) / f"{prefix}-{result.run_id}"
     progress = _ExportProgress("Exporting completed fit results…", "", 0, 0, parent)
     progress.setCancelButton(None)
     progress.setWindowTitle("PeakFit export")
@@ -38,7 +42,7 @@ def choose_and_export(parent: QtWidgets.QWidget, result: LocalFitResult) -> Path
     progress.setMinimumDuration(0)
     # A local worker and modal event loop suffice: no reusable job machinery.
     with ThreadPoolExecutor(max_workers=1, thread_name_prefix="peakfit-export") as executor:
-        future = executor.submit(export_local_fit, result, destination)
+        future = executor.submit(export_fit_result, result, destination)
         timer = QtCore.QTimer(progress)
         timer.setInterval(30)
         timer.timeout.connect(lambda: progress.accept() if future.done() else None)

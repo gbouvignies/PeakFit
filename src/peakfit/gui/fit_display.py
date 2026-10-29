@@ -10,24 +10,29 @@ from typing import TYPE_CHECKING
 
 import contourpy
 import numpy as np
-from threadpoolctl import threadpool_limits
+from threadpoolctl import ThreadpoolController
 
 from peakfit.fit.simulation import project_final_outcome
+from peakfit.gui.spectrum import contour_geometry
 
 if TYPE_CHECKING:
     from threading import Event
 
     from peakfit.engine.domain.spectrum import SpectralParameters
+    from peakfit.gui.dataset_fit import DatasetFitResult
     from peakfit.gui.local_fit import LocalFitResult
     from peakfit.gui.spectrum import ContourGeometry
 
 
 _REFINED_AREA = 65536
+# NumPy is loaded before this controller. Repeated discovery after Cocoa starts
+# scans thousands of unrelated framework paths; limit only the known BLAS pools.
+_BLAS = ThreadpoolController()
 
 
 @dataclass(frozen=True)
 class ModelPlane:
-    """One local display grid; never a plane-by-full-spectrum cube."""
+    """One display grid; never a plane-by-full-spectrum cube."""
 
     y: np.ndarray
     x: np.ndarray
@@ -42,7 +47,7 @@ class ModelPlane:
 
 @dataclass(frozen=True)
 class ModelContours:
-    """Per-level paths, split by sampled-cell support."""
+    """Per-level paths; local predictions additionally split by sampled-cell support."""
 
     grid: ModelPlane
     sampled: ContourGeometry
@@ -136,7 +141,7 @@ def local_model_plane(
             refinements.extend(center + width * np.linspace(-2, 2, 21))
         bounds.append([max(0, int(np.floor(low))), min(axis.size - 1, int(np.ceil(high)))])
         centers.append(np.asarray(refinements))
-    with threadpool_limits(limits=1):
+    with _BLAS.limit(limits=1):
         while True:
             if cancel is not None and cancel.is_set():
                 raise CancelledError
@@ -256,7 +261,7 @@ def model_slices(
             values[start:end] = _project(result, [c[start:end] for c in coordinates], cancel=cancel)
         return values
 
-    with threadpool_limits(limits=1):
+    with _BLAS.limit(limits=1):
         x = trace(axes[1].size, [np.full(axes[1].size, iy), np.arange(axes[1].size)])
         y = trace(axes[0].size, [np.arange(axes[0].size), np.full(axes[0].size, ix)])
     # Use authoritative quantities where the coordinate was actually fitted.
@@ -265,3 +270,65 @@ def model_slices(
     point = np.flatnonzero((sy == iy) & (sx == ix))
     residual_profile = evaluation.raw_residuals[point[0]] if point.size else None
     return ModelSlices(x, y, x[ix], support_x, support_y, residual_x, residual_y, residual_profile)
+
+
+def dataset_model_plane(
+    result: DatasetFitResult,
+    axes: list[SpectralParameters],
+    plane: int,
+    *,
+    cancel: Event,
+) -> ModelPlane:
+    """Evaluate every usable final contribution at every native point, without cutoffs."""
+    ny, nx = (axis.size for axis in axes)
+    iy, ix = np.indices((ny, nx))
+    with _BLAS.limit(limits=1):
+        values = project_final_outcome(
+            result.outcome,
+            result.simulation_snapshot,
+            [iy.ravel(), ix.ravel()],
+            planes=[plane],
+            canceled=cancel.is_set,
+        )
+    if values is None:
+        raise ValueError("This run has no usable model contributions.")
+    values = values[:, 0].reshape(ny, nx)
+    values.flags.writeable = False
+    return ModelPlane(np.arange(ny), np.arange(nx), values, False)
+
+
+def dataset_model_contours(grid: ModelPlane, axes, levels, *, cancel: Event) -> ModelContours:
+    """Contour the complete native plane; these are predictions everywhere."""
+    if cancel.is_set():
+        raise CancelledError
+    return ModelContours(grid, contour_geometry(grid.values, axes, levels), [])
+
+
+def dataset_model_slices(
+    result: DatasetFitResult,
+    axes: list[SpectralParameters],
+    observed: np.ndarray,
+    iy: int,
+    ix: int,
+    *,
+    cancel: Event,
+) -> ModelSlices:
+    """Full native traces for all source planes and D minus total-model display errors."""
+    ny, nx = (axis.size for axis in axes)
+    with _BLAS.limit(limits=1):
+        x = project_final_outcome(
+            result.outcome,
+            result.simulation_snapshot,
+            [np.full(nx, iy), np.arange(nx)],
+            canceled=cancel.is_set,
+        )
+        y = project_final_outcome(
+            result.outcome,
+            result.simulation_snapshot,
+            [np.arange(ny), np.full(ny, ix)],
+            canceled=cancel.is_set,
+        )
+    if x is None or y is None:
+        raise ValueError("This run has no usable model contributions.")
+    rx, ry = observed[:, iy, :].T - x, observed[:, :, ix].T - y
+    return ModelSlices(x, y, x[ix], np.ones(nx, bool), np.ones(ny, bool), rx, ry, rx[ix])

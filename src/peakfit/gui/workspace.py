@@ -22,31 +22,77 @@ class SpectrumWorkspace(QtWidgets.QWidget):
     ) -> None:
         super().__init__()
         self._details_height = 240
-        self._slices_width = 340
+        self._slices_width = 260
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
-        self.commands = QtWidgets.QHBoxLayout()
-        self.commands.setSpacing(8)
-        self.edit = QtWidgets.QPushButton("Edit peak")
-        self.fit = QtWidgets.QPushButton("Local fit")
-        self.profile = QtWidgets.QPushButton("Across planes")
+        self.commands = QtWidgets.QToolBar()
+        self.commands.setMovable(False)
+        self.commands.setFloatable(False)
+        self.commands.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.dataset_fit = QtWidgets.QPushButton("Fit dataset…")
+        self.dataset_fit.setDefault(True)
+        self.dataset_fit.setAutoDefault(False)
+        primary_font = self.dataset_fit.font()
+        primary_font.setBold(True)
+        self.dataset_fit.setFont(primary_font)
+        self.dataset_fit.setToolTip(
+            "Review settings and fit every cluster across all experimental planes"
+        )
+        self.commands.addWidget(self.dataset_fit)
+        self.commands.addSeparator()
+        self.edit = QtWidgets.QToolButton()
+        self.edit.setText("Edit peak")
+        self.fit = QtWidgets.QToolButton()
+        self.fit.setText("Local fit")
+        self.profile = QtWidgets.QToolButton()
+        self.profile.setText("Across planes")
         self.edit.setToolTip("Edit the selected peak in the lower analysis panel")
         self.fit.setToolTip("Inspect or prepare a local fit; Run local fit starts optimization")
         self.profile.setToolTip(
             "Open crosshair intensity and available fitted amplitudes across planes"
         )
         for button in (self.edit, self.fit, self.profile):
+            button.setAutoRaise(True)
             self.commands.addWidget(button)
-        self.commands.addStretch()
-        layout.addLayout(self.commands)
+        space = QtWidgets.QWidget()
+        space.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred
+        )
+        self.commands.addWidget(space)
+        comparison = QtWidgets.QWidget()
+        self.comparison_controls = QtWidgets.QHBoxLayout()
+        self.comparison_controls.setContentsMargins(0, 0, 8, 0)
+        self.comparison_controls.setSpacing(8)
+        comparison.setLayout(self.comparison_controls)
+        self.commands.addWidget(comparison)
+        layout.addWidget(self.commands)
+        summary_row = QtWidgets.QHBoxLayout()
+        self.summary = QtWidgets.QLabel()
+        self.summary.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        self.summary.setMinimumHeight(self.summary.fontMetrics().lineSpacing() + 4)
+        self.summary.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+        )
+        summary_row.addWidget(self.summary, 1)
+        self.result_details = QtWidgets.QToolButton()
+        self.result_details.setText("Result details")
+        self.result_details.setAutoRaise(True)
+        policy = self.result_details.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)
+        self.result_details.setSizePolicy(policy)
+        self.result_details.hide()
+        summary_row.addWidget(self.result_details)
+        layout.addLayout(summary_row)
 
         self.vertical = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.vertical.setChildrenCollapsible(False)
         self.horizontal = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
         self.horizontal.setChildrenCollapsible(False)
         spectrum.setMinimumSize(560, 360)
-        slices.setMinimumSize(280, 360)
+        slices.setMinimumSize(220, 360)
+        self.horizontal.setHandleWidth(7)
+        self.horizontal.setToolTip("Drag the divider to resize the spectrum and slices")
         self.horizontal.addWidget(spectrum)
         self.horizontal.addWidget(slices)
         self.horizontal.setStretchFactor(0, 1)
@@ -90,6 +136,10 @@ class SpectrumWorkspace(QtWidgets.QWidget):
         self.slices_action.setCheckable(True)
         self.slices_action.setChecked(True)
         self.slices_action.toggled.connect(self._set_slices_visible)
+        self.slices_button = QtWidgets.QToolButton()
+        self.slices_button.setAutoRaise(True)
+        self.slices_button.setDefaultAction(self.slices_action)
+        self.slices_widget_action = self.commands.addWidget(self.slices_button)
 
     def show_details(self, index: int, title: str) -> None:
         """Open one existing section, restoring the user's expanded height."""

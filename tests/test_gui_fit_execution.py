@@ -18,9 +18,9 @@ from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.fit.simulation import project_final_outcome
 from peakfit.gui.fit_display import local_model_plane, model_contours, model_slices
-from peakfit.gui.fit_process import FitProcessResult, LocalFitProcess
+from peakfit.gui.fit_process import FitProcess, FitProcessResult
 from peakfit.gui.fitting import prepare_local_fit
-from peakfit.gui.local_fit import execute_local_fit
+from peakfit.gui.local_fit import LocalFitResult, execute_local_fit
 from peakfit.gui.peaks import WorkingPeak
 from peakfit.gui.viewer import SpectrumViewer
 
@@ -268,7 +268,7 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         assert "all planes / fitted samples" in viewer.fit_preview.quality.text()
         assert "no fit has been run" not in viewer.fit_preview._details
         assert "Function evaluations:" in viewer.fit_preview._details
-        assert "Not saved" in viewer.result_notice.text()
+        assert "Not exported" in viewer.result_notice.text()
         comparison = viewer.comparison
         assert comparison.active
         assert comparison.mode.currentText() == "Overlay"
@@ -307,6 +307,7 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         assert comparison.residual.isVisible()
         assert not any(path.isVisible() for path in comparison.paths)
         residual = comparison.residual.image
+        assert isinstance(retained.scientific, LocalFitResult)
         sy, _sx = retained.scientific.inputs.scope.grid_indices
         assert residual is not None
         assert np.count_nonzero(residual[..., 3]) == len(sy)
@@ -386,7 +387,7 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         viewer.show_fit_result()
         assert not comparison.active  # Outdated numerical inspection never restores graphics.
         # Close while a real spawned child is computing, then check it is reaped.
-        process = LocalFitProcess(viewer)
+        process = FitProcess(viewer)
         process.start(prepared)
         _wait(lambda: process.state == "running")
         process.cancel()

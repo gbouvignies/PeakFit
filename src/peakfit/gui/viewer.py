@@ -12,15 +12,17 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
 from peakfit.engine.algorithms.noise import estimate_noise
-from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.comparison import FitComparison
+from peakfit.gui.dataset_dialog import DatasetFitDialog
+from peakfit.gui.dataset_fit import DatasetFitResult, dataset_summary
 from peakfit.gui.editing import PeakInspector, PeakMarkers
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.fit_positions import fitted_position_updates
 from peakfit.gui.fit_preview import FitPreview
-from peakfit.gui.fit_process import FitProcessResult, LocalFitProcess
-from peakfit.gui.fitting import PreparedLocalFit, prepare_local_fit
+from peakfit.gui.fit_process import FitProcess, FitProcessResult
+from peakfit.gui.fitting import PreparedDatasetFit, PreparedLocalFit, prepare_local_fit
 from peakfit.gui.local_fit import execution_unavailable
 from peakfit.gui.peaks import PeakEdits
 from peakfit.gui.spectrum import (
@@ -77,10 +79,11 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._scientific_revision = 0
         self._submitted_revision = 0
         self._result_revision = 0
-        self._submitted: PreparedLocalFit | None = None
+        self._submitted: PreparedLocalFit | PreparedDatasetFit | None = None
+        self._dataset_config = PeakFitConfig(fitting=FitConfig(refine_iterations=2))
         self._showing_result = False
         self._fit_context = False
-        self._fit_process = LocalFitProcess(self)
+        self._fit_process = FitProcess(self)
         self._fit_process.changed.connect(self._fit_state_changed)
         self._fit_process.finished.connect(self._fit_finished)
         self._computation = ViewerComputation(self)
@@ -144,14 +147,23 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.selected_id is not None and not self.adding_peak and not self.fit_busy
         )
         self.workspace.edit.setEnabled(self.selected_id is not None)
+        self.workspace.dataset_fit.setEnabled(bool(self.peaks) and not self.fit_busy)
         self.workspace.edit.setText("Edit peak · pending" if pending else "Edit peak")
         self.workspace.fit.setEnabled(
-            self.selected_id is not None or self.fit_result is not None or self.fit_busy
+            self.selected_id is not None
+            or (
+                self.fit_result is not None
+                and not isinstance(self.fit_result.scientific, DatasetFitResult)
+            )
+            or (self.fit_busy and isinstance(self._submitted, PreparedLocalFit))
         )
 
     def _plot(self, title: str) -> pg.PlotWidget:
         plot = pg.PlotWidget(title=title, background=self._colors["background"])
-        plot.showGrid(x=True, y=True, alpha=0.12)
+        plot.showGrid(x=False, y=False)
+        plot.hideButtons()
+        for name in ("left", "bottom"):
+            plot.getAxis(name).setStyle(maxTickLevel=0, tickLength=-4)
         plot.setMenuEnabled(False)
         return plot
 
@@ -187,7 +199,7 @@ class SpectrumViewer(QtWidgets.QWidget):
             line.setPen(pg.mkPen(foreground, style=QtCore.Qt.PenStyle.DotLine))
         for curve in (self.curve_x, self.curve_y):
             curve.setPen(pg.mkPen(self._colors["positive"], width=1.5))
-        self.peak_scatter.setPen(pg.mkPen(foreground, width=1.5))
+        self.peak_scatter.setPen(pg.mkPen(foreground, width=1))
         for label in self.peak_labels:
             label.setColor(foreground)
         self.curve_profile.setSymbolBrush(self._colors["crosshair"])
@@ -217,7 +229,7 @@ class SpectrumViewer(QtWidgets.QWidget):
         left = QtWidgets.QWidget()
         left_layout = QtWidgets.QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        self.spectrum_plot = self._plot("Spectrum")
+        self.spectrum_plot = self._plot("")
         self.spectrum_plot.setLabel("bottom", self._axis_title(self.x_axis), units="ppm")
         self.spectrum_plot.setLabel("left", self._axis_title(self.y_axis), units="ppm")
         view = self.spectrum_plot.getViewBox()
@@ -237,8 +249,8 @@ class SpectrumViewer(QtWidgets.QWidget):
         cast("pg.GraphicsScene", self.spectrum_plot.scene()).sigMouseClicked.connect(self._clicked)
         self.peak_scatter = PeakMarkers(
             symbol="+",
-            size=10,
-            pen=pg.mkPen("#202020", width=1.5),
+            size=6,
+            pen=pg.mkPen("#202020", width=1),
             hoverable=True,
             tip=lambda x, y, data: self._peak_tip(data, x, y),
         )
@@ -324,14 +336,24 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.workspace.fit.clicked.connect(lambda: self.open_details(1))
         self.workspace.profile.clicked.connect(lambda: self.open_details(2))
         self.workspace.close_requested.connect(self.close_details)
-        self.workspace.commands.addWidget(self.contour_button)
+        self.workspace.commands.insertWidget(
+            self.workspace.slices_widget_action, self.contour_button
+        )
+        self.workspace.dataset_fit.clicked.connect(self.review_dataset_fit)
+        self.workspace.result_details.clicked.connect(self.show_fit_result)
+        self.dataset_details = QtWidgets.QPlainTextEdit()
+        self.dataset_details.setReadOnly(True)
+        self.dataset_details.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        self.workspace.pages.addWidget(self.dataset_details)
 
     def open_details(self, index: int) -> None:
         """Explicit user action; background updates only refresh existing content."""
         if not self.commit_pending_fields():
             return
         if index == 1 and not self.fit_busy and not self._fit_context:
-            if self.fit_result is not None:
+            if self.fit_result is not None and not isinstance(
+                self.fit_result.scientific, DatasetFitResult
+            ):
                 self.show_fit_result(activate=False)
             else:
                 self.preview_fit_group()
@@ -471,10 +493,52 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._showing_result = False
         self.dismiss_fit_preview()
         if self.fit_result is not None:
+            if isinstance(self.fit_result.scientific, DatasetFitResult):
+                self._show_dataset_result(outdated=True)
+                return
             self.fit_preview.show_result(self.fit_result, self.plane, outdated=True)
             self.fit_preview.apply_positions.setEnabled(False)
             self.fit_preview.retained.show()
             self.fit_status.setText("Local fit outdated · original result retained")
+        else:
+            self.workspace.summary.setText(
+                f"{self.spectra.data.shape[0]} planes · {len(self.peaks)} peaks · Ready to fit"
+            )
+
+    def review_dataset_fit(self) -> None:
+        """Open a concrete scientific review; no optimizer runs before acceptance."""
+        if self.fit_busy or self._exporting or not self.commit_pending_fields():
+            return
+        dialog = DatasetFitDialog(self, self._dataset_config)
+        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted and dialog.prepared is not None:
+            self._dataset_config = dialog.configuration
+            self.run_dataset_fit(dialog.prepared)
+        dialog.deleteLater()
+
+    def run_dataset_fit(self, prepared: PreparedDatasetFit) -> None:
+        """Submit the reviewed complete problem while retaining any previous result."""
+        if self.fit_busy or self._exporting or not self.commit_pending_fields():
+            return
+        if (
+            prepared.snapshot.spectrum_id != id(self.spectra)
+            or prepared.snapshot.data_shape != tuple(self.spectra.data.shape)
+            or prepared.snapshot.spectral_parameters
+            != tuple(axis.model_dump_json() for axis in self.spectra.params)
+            or prepared.snapshot.peaks != self.peaks
+            or prepared.snapshot.plane_values != tuple(float(z) for z in self.spectra.z_values)
+            or prepared.snapshot.source_files != self.source_files
+        ):
+            raise ValueError("Scientific inputs changed; review dataset settings again.")
+        if self.fit_result is not None and not self.confirm_result_loss("replace"):
+            return
+        self.cancel_interaction()
+        self._fit_timer.stop()
+        self._fit_revision += 1
+        self._computation.cancel("fit")
+        self._submitted = prepared
+        self._submitted_revision = self._scientific_revision
+        self._fit_process.start(prepared)
+        self._fit_status_timer.start()
 
     def run_local_fit(self) -> None:
         """Submit the reviewed preparation, keeping any previous result until success."""
@@ -507,24 +571,34 @@ class SpectrumViewer(QtWidgets.QWidget):
         if self._closing:
             return
         busy = self.fit_busy
+        dataset = isinstance(self._submitted, PreparedDatasetFit)
         if busy:
             elapsed = perf_counter() - self._fit_process.started_at
             state = {
                 "starting": "Starting fit process",
-                "running": "Fitting reviewed group",
+                "running": self._fit_process.progress if dataset else "Fitting reviewed group",
                 "canceling": "Canceling fit · stopping process",
             }[self._fit_process.state]
-            self.fit_preview.show_running(f"{state} · {elapsed:.1f} s")
+            if not dataset:
+                self.fit_preview.show_running(f"{state} · {elapsed:.1f} s")
             self.fit_preview.cancel.setEnabled(self._fit_process.state != "canceling")
             self.fit_status.setText(f"{state} · {elapsed:.1f} s")
+            if dataset:
+                self.workspace.summary.setText(
+                    f"Fitting complete dataset · {state} · {elapsed:.1f} s"
+                )
         else:
             self._fit_status_timer.stop()
             self.fit_preview.cancel.hide()
             self.fit_status.setText(
                 {
-                    "completed": "Local fit completed · Local fit for details",
-                    "failed": "Local fit failed · Local fit for details",
-                    "canceled": "Local fit canceled",
+                    "completed": "Fit completed · Result details available",
+                    "failed": "Fit failed · previous result retained"
+                    if self.fit_result
+                    else "Fit failed",
+                    "canceled": "Fit canceled · previous result retained"
+                    if self.fit_result
+                    else "Fit canceled",
                 }.get(self._fit_process.state, "")
             )
         self.cancel_fit.setVisible(busy)
@@ -547,11 +621,33 @@ class SpectrumViewer(QtWidgets.QWidget):
         elif isinstance(outcome, FitProcessResult):
             self.fit_result = outcome
             self.exported_result_id = None
-            self.result_notice.setText("Fit result in memory · Not saved")
+            self.result_notice.setText("In memory · Not exported")
             self.result_notice.setToolTip("")
             self._result_revision = self._submitted_revision
             self.show_fit_result(activate=False)
         else:
+            if isinstance(prepared, PreparedDatasetFit):
+                message = (
+                    "Fit canceled · no partial result retained"
+                    if outcome is None
+                    else f"Fit failed: {outcome}"
+                )
+                if self.fit_result is not None:
+                    self.show_fit_result(activate=False)
+                if outcome is not None or self.fit_result is None:
+                    self.workspace.summary.setText(message)
+                    if self.fit_result is not None:
+                        self.dataset_details.setPlainText(
+                            message
+                            + "\nPrevious completed result retained:\n\n"
+                            + self.dataset_details.toPlainText()
+                        )
+                self.fit_status.setText(
+                    "Fit canceled" if outcome is None else "Fit failed · see summary tooltip"
+                )
+                self.workspace.summary.setToolTip(message)
+                self.fit_state_changed.emit()
+                return
             self.fit_preview.show_preparation(prepared)
             self.fit_preview.status.setText(
                 "Fit canceled · process stopped" if outcome is None else "Fit failed · Details…"
@@ -574,6 +670,11 @@ class SpectrumViewer(QtWidgets.QWidget):
         self._fit_revision += 1
         self._computation.cancel("fit")
         outdated = self._result_revision != self._scientific_revision
+        if isinstance(self.fit_result.scientific, DatasetFitResult):
+            self._show_dataset_result(outdated=outdated)
+            if activate:
+                self.workspace.show_details(3, "Dataset result · original scientific inputs")
+            return
         self._apply_fit_preparation(self.fit_result.scientific.inputs)
         self._showing_result = True
         if outdated:
@@ -581,6 +682,8 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.fit_mask.hide()
             self.fit_members.clear()
         self.fit_preview.show_result(self.fit_result, self.plane, outdated=outdated)
+        self.workspace.result_details.show()
+        self.workspace.summary.setText("Local group result · other clusters are not modeled")
         self.comparison.show_result(self.fit_result, outdated=outdated)
         self.fit_preview.retained.hide()
         self.fit_preview.prepare.setEnabled(self.selected_id is not None)
@@ -596,12 +699,92 @@ class SpectrumViewer(QtWidgets.QWidget):
             self.workspace.show_details(1, "Local fit")
         self._update_interaction_hint()
 
+    def _show_dataset_result(self, *, outdated: bool) -> None:
+        assert self.fit_result is not None
+        result = self.fit_result.scientific
+        assert isinstance(result, DatasetFitResult)
+        summary = dataset_summary(result)
+        self.workspace.summary.setText(
+            "Outdated · comparison hidden · original result retained" if outdated else summary
+        )
+        self.workspace.summary.setToolTip(
+            summary + "\nNumerical convergence does not establish scientific validity."
+        )
+        self.workspace.result_details.show()
+        self.fit_status.setText("Dataset result outdated" if outdated else "Dataset fit completed")
+        self._showing_result = True
+        self._fit_context = False
+        self.fit_preparation = None
+        self.fit_members.clear()
+        self.fit_mask.hide()
+        self.fit_preview.retained.setVisible(False)
+        stats = result.outcome.statistics
+        settings = PeakFitConfig.model_validate_json(result.inputs.snapshot.configuration)
+        labels = {item.engine_name: item.assignment for item in result.inputs.identities}
+        limitations = []
+        for cluster in result.outcome.clusters:
+            evaluation = cluster.analytical_evaluation
+            warning = (
+                cluster.unusable_reason if evaluation is None else evaluation.uncertainty_warning
+            )
+            if warning:
+                members = ", ".join(labels[name] for name in cluster.peak_names)
+                limitations.append(f"{members}: {warning}")
+        self.dataset_details.setPlainText(
+            f"{summary}\nNumerical convergence does not establish scientific validity. "
+            "Inspect residual structure and model assumptions.\n\n"
+            f"{len(result.inputs.identities)} peaks · "
+            f"{len(result.inputs.snapshot.plane_values)} original planes\n"
+            f"{result.outcome.n_optimizer_passes} optimizer passes · "
+            f"{result.outcome.n_correction_updates} neighbor correction updates\n"
+            f"Models: {' / '.join(result.inputs.shape_names)} · noise: {result.inputs.noise:.9g}\n"
+            f"Reviewed clustering threshold: {result.inputs.contour_level:.9g}\n"
+            f"Recorded optimizer χ²: {stats.chi_squared:.9g} · "
+            f"reduced χ²: {stats.reduced_chi_squared:.9g}\n"
+            "These statistics use terminal corrected fitting samples. The display residual is "
+            "experimental minus the total final usable model across the native plane.\n\n"
+            f"Run {result.run_id} · {result.completed_at} · PeakFit {result.software_version}\n"
+            f"Numerical execution: {result.execution_seconds:.3f} s\n"
+            f"Warnings: {'; '.join(result.warnings) or 'None reported'}\n\n"
+            "Effective optimizer settings: VarPro\n"
+            f"Maximum iterations: {settings.fitting.max_iterations} · "
+            f"tolerance: {settings.fitting.tolerance:g}\n\n"
+            "Numerical / uncertainty limitations:\n"
+            + ("\n".join(limitations) or "None reported")
+            + "\n\n"
+            "This result retains its original peak identities, coordinates, plane order, settings "
+            "and source fingerprints. Working peak edits never update this result."
+        )
+        if not outdated and self.comparison.result is not self.fit_result:
+            support = np.zeros(self.spectra.data.shape[1:], dtype=bool)
+            for samples in result.completed_fit.samples:
+                support[samples.grid_indices] = True
+            image = np.zeros((*support.shape, 4), dtype=np.uint8)
+            image[support] = [205, 145, 25, 55]
+            self.fit_mask.setImage(image, autoLevels=False)
+            self.fit_mask.setTransform(
+                QtGui.QTransform(
+                    self.x_axis.delta,
+                    0,
+                    0,
+                    self.y_axis.delta,
+                    float(self.x_axis.pts2ppm(0)) - self.x_axis.delta / 2,
+                    float(self.y_axis.pts2ppm(0)) - self.y_axis.delta / 2,
+                )
+            )
+        self.comparison.show_result(self.fit_result, outdated=outdated)
+        self._update_interaction_hint()
+
     def _fitted_position_updates(self) -> dict[str, tuple[float, float]]:
         if self.fit_busy or self._exporting or self.inspector.pending:
             raise ValueError("Finish the current fit, export or inspector edit first.")
         if self.fit_result is None or self._result_revision != self._scientific_revision:
             raise ValueError("This result is outdated. Prepare and run a new fit.")
         result = self.fit_result.scientific
+        if isinstance(result, DatasetFitResult):
+            raise ValueError(
+                "Applying whole-dataset fitted positions is not available in this workflow yet."
+            )
         snapshot = result.inputs.snapshot
         if (
             snapshot.spectrum_id != id(self.spectra)
@@ -763,8 +946,8 @@ class SpectrumViewer(QtWidgets.QWidget):
         self.add_peak_button.setCheckable(True)
         self.add_peak_button.clicked.connect(self._toggle_peak_placement)
         cast("QtWidgets.QGridLayout", self.inspector.layout()).addWidget(self.add_peak_button, 2, 2)
-        self.trace_x = self._plot(self._axis_title(self.x_axis))
-        self.trace_y = self._plot(self._axis_title(self.y_axis))
+        self.trace_x = self._plot("")
+        self.trace_y = self._plot("")
         self.profile = self._plot("Raw intensity across planes")
         self.zero_lines: list[pg.InfiniteLine] = []
         for plot, axis in ((self.trace_x, self.x_axis), (self.trace_y, self.y_axis)):
@@ -1297,14 +1480,12 @@ class SpectrumViewer(QtWidgets.QWidget):
 
     def _update_interaction_hint(self) -> None:
         if self.fit_busy:
-            text = (
-                "LOCAL FIT RUNNING · Navigation available · Scientific edits pause until fit stops"
-            )
+            text = "FIT RUNNING · Navigation available · Scientific edits pause until fit stops"
         elif self._showing_result:
             text = (
-                "Outdated local result · Numerical values use original inputs"
+                "Outdated result · Numerical values use original inputs"
                 if self._result_revision != self._scientific_revision
-                else "Local result · Convergence does not establish scientific fit quality"
+                else "Result · Convergence does not establish scientific fit quality"
             )
         elif self.fit_preparation is not None:
             text = "Amber cells: exact fitting samples · Rings: group members"
