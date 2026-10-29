@@ -1,0 +1,165 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "processor": "arm",
+  "qt_platform": "cocoa",
+  "dpr": 2.0,
+  "source_shape": [
+    131,
+    256,
+    546
+  ],
+  "peaks": 166,
+  "sources": {
+    "spectrum": "{\"path\": \"/Users/gbouvignies/.codex/worktrees/gui-v2-production/PeakFit/examples/02-advanced-fitting/data/pseudo3d.ft2\", \"checksum_sha256\": \"2f91c489f1fe6448c1ead0a417a600a1e401616f76caf1f6cdb3219fbf6ac442\"}",
+    "peak_list": "{\"path\": \"/Users/gbouvignies/.codex/worktrees/gui-v2-production/PeakFit/examples/02-advanced-fitting/data/pseudo3d.list\", \"checksum_sha256\": \"0fe9820aa083d7c4d45b8d2b3c62f77d9c43aaa9d3e3f784d7b185891cd6b56b\"}",
+    "plane_values": "{\"path\": \"/Users/gbouvignies/.codex/worktrees/gui-v2-production/PeakFit/examples/02-advanced-fitting/data/b1_offsets.txt\", \"checksum_sha256\": \"8b28c3f479d90eb2cc6387c0a4edde7fc7ecd4171d1a3de14c50a90f728737e8\"}"
+  },
+  "cold_read_ms": 79.06250000814907,
+  "install_and_contours_ms": 271.0656670096796,
+  "policy": "32 MiB / 8 planes numerical geometry; two active cached Qt sign paths",
+  "input_method": "deterministic scene deliveries through preview coalescer; 16 ms timer; exposed Qt paint completion",
+  "input_to_photon": false,
+  "captures": [
+    {
+      "file": "editor-1280-light.webp",
+      "window": [
+        1280,
+        800
+      ],
+      "plot_rect": [
+        740.5,
+        430.5
+      ],
+      "theme": "Light"
+    },
+    {
+      "file": "editor-1280-dark.webp",
+      "window": [
+        1280,
+        800
+      ],
+      "plot_rect": [
+        740.5,
+        430.5
+      ],
+      "theme": "Dark"
+    },
+    {
+      "file": "editor-1440-light.webp",
+      "window": [
+        1440,
+        846
+      ],
+      "plot_rect": [
+        900.5000000000001,
+        476.5
+      ],
+      "theme": "Light"
+    },
+    {
+      "file": "editor-1440-dark.webp",
+      "window": [
+        1440,
+        846
+      ],
+      "plot_rect": [
+        900.5000000000001,
+        476.5
+      ],
+      "theme": "Dark"
+    },
+    {
+      "file": "editor-1040-light.webp",
+      "window": [
+        1040,
+        720
+      ],
+      "plot_rect": [
+        501.50000000000006,
+        350.5
+      ],
+      "theme": "Light"
+    },
+    {
+      "file": "editor-1040-dark.webp",
+      "window": [
+        1040,
+        720
+      ],
+      "plot_rect": [
+        501.50000000000006,
+        350.5
+      ],
+      "theme": "Dark"
+    }
+  ],
+  "preview": {
+    "Light": {
+      "p50_ms": 11.367417027940974,
+      "p95_ms": 14.465250016655771,
+      "p99_ms": 15.334707520087248,
+      "max_ms": 17.14741700561717,
+      "events": 500,
+      "painted": 499,
+      "superseded": 1,
+      "delivered_hz": 62.43194073291476,
+      "preview_deliveries": 501,
+      "coalesced": 3,
+      "contour_jobs": 0,
+      "marker_rebuilds": 0
+    },
+    "Dark": {
+      "p50_ms": 11.29966699227225,
+      "p95_ms": 14.037955594540108,
+      "p99_ms": 14.862734180642292,
+      "max_ms": 15.882667008554563,
+      "events": 500,
+      "painted": 500,
+      "superseded": 0,
+      "delivered_hz": 62.42383576511427,
+      "preview_deliveries": 500,
+      "coalesced": 0,
+      "contour_jobs": 0,
+      "marker_rebuilds": 0
+    }
+  },
+  "rss_mib": [
+    600.75,
+    613.234375,
+    613.40625,
+    613.6875,
+    613.78125,
+    613.796875,
+    613.796875,
+    613.796875,
+    613.796875,
+    613.796875,
+    613.796875,
+    613.796875,
+    613.796875,
+    613.8125
+  ],
+  "uncached_plane_ms": [
+    13.74191598733887,
+    29.268000012962148,
+    30.379250005353242
+  ],
+  "cached_plane": {
+    "p50_ms": 12.972895987331867,
+    "p95_ms": 14.525683653482702,
+    "p99_ms": 15.436398749006914,
+    "max_ms": 15.698625007644296
+  },
+  "cache_bytes": 841960,
+  "cached_planes": 3,
+  "rapid_40_planes_ms": 28.299750003498048,
+  "rapid_final_plane": 40,
+  "heartbeat": {
+    "p50_ms": 12.746541993692517,
+    "p95_ms": 18.546587807941243,
+    "p99_ms": 20.765714567387473,
+    "max_ms": 35.97841699956916
+  },
+  "exact_samples": true,
+  "scientific_revision": 0
+}

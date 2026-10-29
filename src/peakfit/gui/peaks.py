@@ -40,10 +40,12 @@ class WorkingPeak:
 class PeakEdits:
     """A small linear history of immutable working peak collections."""
 
-    def __init__(self, peaks: tuple[WorkingPeak, ...] = ()) -> None:
+    def __init__(self, peaks: tuple[WorkingPeak, ...] = (), *, revision: int = 0) -> None:
         self._history = [peaks]
         self._index = 0
         self._saved = peaks
+        self.revision = revision
+        self._labels = ["peak edit"]
 
     @property
     def peaks(self) -> tuple[WorkingPeak, ...]:
@@ -69,11 +71,37 @@ class PeakEdits:
         """Record a successful export without discarding undo history."""
         self._saved = self.peaks
 
-    def _commit(self, peaks: tuple[WorkingPeak, ...]) -> None:
+    @property
+    def undo_label(self) -> str:
+        """Describe the scientific edit that Undo would restore."""
+        return self._labels[self._index] if self.can_undo else "peak edit"
+
+    @property
+    def redo_label(self) -> str:
+        """Describe the scientific edit that Redo would replay."""
+        return self._labels[self._index + 1] if self.can_redo else "peak edit"
+
+    def replace_all(self, peaks: tuple[WorkingPeak, ...], label: str = "import peaks") -> None:
+        """Replace or append a validated import as a single undoable scientific edit."""
+        if len({p.id for p in peaks}) != len(peaks):
+            raise ValueError("Working peak IDs must be unique.")
+        self._commit(peaks, label)
+
+    def delete_many(self, identities: set[str]) -> None:
+        """Delete a list selection atomically; names need not be unique."""
+        self._commit(
+            tuple(p for p in self.peaks if p.id not in identities),
+            f"delete {len(identities)} peaks" if len(identities) != 1 else "delete peak",
+        )
+
+    def _commit(self, peaks: tuple[WorkingPeak, ...], label: str = "peak edit") -> None:
         if peaks != self.peaks:
             del self._history[self._index + 1 :]
             self._history.append(peaks)
+            del self._labels[self._index + 1 :]
+            self._labels.append(label)
             self._index += 1
+            self.revision += 1
 
     def add(self, positions: tuple[float, float]) -> WorkingPeak:
         """Add a peak with a readable unused default name."""
@@ -82,18 +110,21 @@ class PeakEdits:
         while f"Peak {number}" in names:
             number += 1
         peak = WorkingPeak.new(f"Peak {number}", positions)
-        self._commit((*self.peaks, peak))
+        self._commit((*self.peaks, peak), f"add {peak.name}")
         return peak
 
     def update(self, peak_id: str, name: str, positions: tuple[float, float]) -> None:
         """Validate and replace a complete peak in one undoable edit."""
         peak = next(p for p in self.peaks if p.id == peak_id)
         updated = replace(peak, name=name, positions=positions)
-        self._commit(tuple(updated if p.id == peak_id else p for p in self.peaks))
+        label = "move" if peak.name == name else "edit"
+        self._commit(
+            tuple(updated if p.id == peak_id else p for p in self.peaks), f"{label} {name}"
+        )
 
     def delete(self, peak_id: str) -> None:
         """Delete by identity, preserving assignments of coincident peaks."""
-        self._commit(tuple(p for p in self.peaks if p.id != peak_id))
+        self.delete_many({peak_id})
 
     def update_positions(self, positions: Mapping[str, tuple[float, float]]) -> None:
         """Validate an entire group before committing one position-only history entry."""
@@ -110,11 +141,13 @@ class PeakEdits:
         """Restore the previous committed collection."""
         if self.can_undo:
             self._index -= 1
+            self.revision += 1
 
     def redo(self) -> None:
         """Restore the next committed collection."""
         if self.can_redo:
             self._index += 1
+            self.revision += 1
 
 
 def export_peaks(path: Path, peaks: tuple[WorkingPeak, ...]) -> None:

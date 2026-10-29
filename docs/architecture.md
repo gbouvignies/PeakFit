@@ -166,3 +166,68 @@ analytical output. A covariance failure does not invalidate an otherwise finite
 model: frozen evaluations can carry unavailable uncertainties plus an explicit
 warning. Numerical usability, optimizer termination and peak identifiability
 remain distinct. See [the scientific overlap validation](validation/overlapping-peaks.md).
+
+
+## GUI v2: open → inspect → edit
+
+`gui.editor.window` is the separately launched production shell (`peakfit-editor`).
+The existing `gui.app` / `gui.viewer` remains the fitting application until v2
+reaches core fitting parity. There is no runtime dependency on `experiments/`.
+
+The new workspace has four concrete responsibilities: `editor.loading` validates
+one complete reader handoff off Qt; `editor.canvas` owns retained signed geometry,
+native slices and gestures; `editor.rail` owns a flat assignment list and the precise
+whole-group editor; `editor.workspace` commits scientific edits and composes those
+views. `editor.window` owns file dialogs, atomic replacement, menus and appearance.
+These are direct widgets/functions, with no panel/job/state framework. Shared
+`gui.spectrum`, `gui.peaks`, `gui.editing` and `gui.background` retain reader,
+coordinate, editing, CSV and bounded computation behavior. Qt stays out of the
+engine. Data/plane arrays are read-only after validation; changing plane values
+creates replacement metadata rather than modifying an accepted source in place.
+
+Preview extracts one native row/column and updates only transient highlights,
+curves and sampled-value text. It never extracts contours or rebuilds all markers.
+One Qt-turn coalescer installs the latest pointer request. Plane changes remove
+old-plane geometry immediately and use the existing serial worker with revision
+checks. Numerical geometry is bounded to eight planes/32 MiB; only two sign paths
+are resident in the Qt scene. Theme changes restyle those paths. Dataset-wide trace
+limits are computed once during loading, independently of display navigation.
+
+`PeakEdits` holds immutable stable-ID/unfolded-coordinate records, named undo
+history and a monotonic manual revision. Committed changes, Undo and Redo advance
+the revision; no-ops, drafts, hover, selection, plane/viewport/display changes and
+export do not. Peak import is one undoable collection change. Deleting an assignment
+never merges or reidentifies coincident/duplicate names. The flat list updates rows
+in place, avoiding tree/model resets during ordinary coordinate editing.
+
+### Contract for the next fitting slice
+
+`gui.fit_positions.dataset_completion` prepares one immutable `DatasetCompletion`
+value from a `DatasetFitResult` plus exact current `FitInputSnapshot` and revision.
+It is deliberately not connected to a fit launcher in milestone 1. It validates
+source/settings/identity/axis consistency before returning anything publishable,
+preserves the original immutable outcome and submitted seeds, and constructs the
+complete post-fit working tuple using final chemical shifts by stable ID. Both
+axes change together; missing, unusable, non-finite or unmappable pairs retain their
+original values with per-ID warnings. Usable non-convergence/uncertainty warnings
+remain evidence and do not prohibit valid coordinate adoption.
+
+Milestone 2 will publish **this single completion value** and a fresh `PeakEdits`
+history in the same Qt delivery, resetting incompatible pre-fit Undo and carrying
+forward `revision=completion.manual_revision`. Currentness
+compares exact inputs to the recorded post-fit tuple and the recorded manual
+revision, rather than comparing optimized coordinates to original seeds. Returning
+values through Undo cannot recertify a run. Source/settings/plane replacements
+also change the snapshot/revision. Completion preparation never rewrites accepted
+bounds/masks/parameters; the next fit must call `prepare_dataset_fit` afresh from
+optimized working positions. Failed/canceled jobs never call completion publication.
+The UI delivery must preserve selection, viewport and panel choices and move a
+selected-peak pin once, retaining a free inspection pin. Those fit-execution/pin
+publication tests belong to milestone 2; the pure I → W scientific contract and
+revision behavior are executable now.
+
+Protection: `test_gui_editor.py` checks real-data geometry, exact samples,
+editing/cancel/Undo, actual Qt drag/pan routing, keyboard access and asynchronous
+replacement; `test_gui_completion_transition.py` checks the atomic scientific
+handoff independently of widgets. Reproduction and measured limits are in
+[GUI v2 editor validation](validation/gui-v2-editor.md).
