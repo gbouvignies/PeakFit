@@ -38,9 +38,9 @@ cluster stays in the navigator but supplies no fabricated model or parameter row
 An incomplete total model is identified as such; an all-unusable run has no model.
 
 Clarity, readability, intuitive interaction, and aesthetic quality are acceptance
-criteria for every slice. A dedicated native UX and visual-polish milestone after
-the core workflows remains mandatory, including light/dark appearance, keyboard
-and focus behavior, realistic assignments, and 1280×800 / 1440×900 layouts.
+criteria for every slice, including light/dark appearance, keyboard and focus
+behavior, realistic assignments, and 1280×800 / near-1440×900 native layouts.
+Design improvements ship with functionality and continue through later review work.
 
 ## Completed result and exact fitting problem
 
@@ -66,11 +66,11 @@ indices per cluster; retain a bounded number of runs rather than an unbounded
 history. Model objects are privately copied, not recursively immutable Python
 objects, and consumers must treat them as read-only.
 
-The first slice intentionally does not define a complete persisted run or sampling
-request. Source fingerprints, resolved descriptors, working-ID/assignment mapping,
-and source-plane mapping must be captured by the next workflow, not inferred from
-this numerical record. In particular, projection `planes` indexes fitted-series
-columns; after exclusions those are not the original source-file plane indices.
+This numerical record does not define a persisted run or sampling request.
+The GUI binds it to reviewed source fingerprints, resolved descriptors, stable
+working-ID/assignment mapping, original coordinates and ordered plane identities.
+The first GUI workflow includes every source plane. In general projection `planes`
+indexes fitted-series columns; after exclusions those are not source-file indices.
 
 ## Two residual meanings
 
@@ -124,7 +124,7 @@ requests before deciding whether shared parameter preparation earns its complexi
 ## Persistence direction and compatibility
 
 Keep canonical `summary/fit.json` 4.1.0 and CSV outputs unchanged. Add a versioned
-review manifest and separate lossless numeric payload in the next slice. Do not
+review manifest and separate lossless numeric payload in the persistence slice. Do not
 duplicate authoritative parameters or amplitudes in that companion. Bind it to
 the canonical summary and numerical file with checksums, explicit array names,
 shapes, dtypes, cluster/peak identities and ordered source-plane mapping.
@@ -177,24 +177,29 @@ export. Selection, display changes and navigation do not alter scientific inputs
 
 ## Delivery sequence
 
-1. **Completed-result/projection contract (this slice).** Retain exact terminal
-   inputs, protect both residual meanings, measure performance/storage, and leave
-   CLI behavior, file formats and local GUI interactions unchanged.
-2. **Early end-to-end saved-run review.** Implement the shared manifest/payload
-   writer and strict reader together with opening a CLI run, input relinking,
-   whole-model overlay, synchronized native slices and residual mode. Use the
-   existing workspace; avoid an extended infrastructure-only sequence.
-3. **Run a whole-dataset fit from the GUI.** Prepare committed working peaks,
-   review actual scientific settings, run the existing iterative pipeline outside
-   Qt, and deliver the same completed-run record. Preserve cancellation, outdated
-   result handling, export protection and explicit application of fitted positions.
-4. **Cluster navigation and review details.** Add the useful collapsible navigator
-   and coordinated parameter/amplitude/diagnostic inspection when real results
-   can populate them. No placeholder refinement or MCMC controls.
-5. **Dedicated UX and visual polish.** Review complete workflows natively for
-   legibility, hierarchy, density, accessibility, focus, responsiveness and visual
-   balance. This milestone is required even though every earlier slice must be
-   clear and pleasant to use.
+The completed-result/projection contracts are established. Product work proceeds
+in visible vertical slices; persistence is not a prerequisite for fitting and review.
+
+1. **Fit and review a complete dataset (implemented).** A primary Fit dataset
+   action opens actual effective settings, defaults to two passes and separates
+   clustering from display contours. The real pipeline runs in a cancellable
+   process and supplies whole-model overlay/residual review and synchronized
+   native slices. Summaries distinguish convergence, usability, completeness and
+   uncertainty. A native compact toolbar, lighter plot decoration and narrower
+   adjustable slices improve the same workflow. Details stay collapsed. Canonical
+   export and result-loss/outdated safeguards apply to complete results. No
+   cluster tree, complete-position application or saved-run reader is included.
+2. **Cluster navigation and deeper scientific review.** Add a useful collapsible
+   navigator, cluster diagnostics, peak amplitude profiles and further design
+   refinement. Populate it from genuine completed results, preserving total-model
+   comparison scope. Assess explicit whole-dataset position application here.
+3. **Reliable persistence and reopening.** Implement the manifest/payload writer
+   and strict reader together, input relinking and lossless scientific review.
+   The format direction above remains a proposal, not a supported archive.
+
+Every slice includes native light/dark visual and interaction review, keyboard
+focus, resizing and realistic data. Visual design is ongoing product work,
+not a finishing milestone. See [native acceptance evidence](validation/gui-dataset-fit.md).
 
 Refinement and MCMC remain separate later workflows with parent-run identity,
 explicit neighbor context, validated numerical inputs and scientifically accurate

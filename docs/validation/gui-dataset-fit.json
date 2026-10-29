@@ -1,0 +1,131 @@
+{
+  "platform": "darwin",
+  "qt_backend": "cocoa",
+  "sizes": [
+    {
+      "theme": "light",
+      "requested": [
+        1280,
+        800
+      ],
+      "actual": [
+        1280,
+        800
+      ]
+    },
+    {
+      "theme": "light",
+      "requested": [
+        1440,
+        900
+      ],
+      "actual": [
+        1440,
+        845
+      ]
+    },
+    {
+      "theme": "dark",
+      "requested": [
+        1280,
+        800
+      ],
+      "actual": [
+        1280,
+        800
+      ]
+    },
+    {
+      "theme": "dark",
+      "requested": [
+        1440,
+        900
+      ],
+      "actual": [
+        1440,
+        845
+      ]
+    }
+  ],
+  "fit_wall_seconds_including_review": 5.924391959008062,
+  "fit_execution_seconds": 4.021167500002775,
+  "input_bytes": 13464617,
+  "summary": "121/121 converged \u00b7 121/121 usable \u00b7 Complete model \u00b7 3 uncertainty warnings",
+  "optimizer_passes": 2,
+  "correction_updates": 1,
+  "uncached_navigation": [
+    {
+      "plane": 2,
+      "input_seconds": 0.0015858340047998354,
+      "model_ready_seconds": 1.35732808400644
+    },
+    {
+      "plane": 3,
+      "input_seconds": 0.0015242090012179688,
+      "model_ready_seconds": 1.3621898340061307
+    },
+    {
+      "plane": 25,
+      "input_seconds": 0.0015307910070987418,
+      "model_ready_seconds": 1.3529757910000626
+    },
+    {
+      "plane": 60,
+      "input_seconds": 0.0014593329979106784,
+      "model_ready_seconds": 1.3552187499881256
+    },
+    {
+      "plane": 131,
+      "input_seconds": 0.0015267919952748343,
+      "model_ready_seconds": 1.356793041995843
+    }
+  ],
+  "cached_navigation_seconds": 0.049233541009016335,
+  "cancel_seconds": 0.03139316599117592,
+  "interactions": [
+    "settings and starting values",
+    "run two-pass fit",
+    "plane text entry",
+    "rapid navigation",
+    "comparison keyboard control",
+    "crosshair mouse input",
+    "cancel replacement",
+    "cancel close",
+    "canonical export",
+    "edit and undo without recertification"
+  ],
+  "heartbeat_interval_ms": 20,
+  "heartbeat_note": "Normal Qt event loop; synchronous test image capture/writes excluded.",
+  "heartbeat": {
+    "cached_navigation": {
+      "max_ms": 26.128541998332366,
+      "p95_ms": 26.033135498437332,
+      "samples": 6
+    },
+    "cancellation": {
+      "max_ms": 331.0267499909969,
+      "p95_ms": 33.02820000244536,
+      "samples": 58
+    },
+    "fitting": {
+      "max_ms": 318.98850000288803,
+      "p95_ms": 22.159229400131153,
+      "samples": 258
+    },
+    "interaction": {
+      "max_ms": 61.64420800632797,
+      "p95_ms": 61.49022270401474,
+      "samples": 8
+    },
+    "projection": {
+      "max_ms": 29.37945901066996,
+      "p95_ms": 22.086854245571885,
+      "samples": 406
+    },
+    "verification": {
+      "max_ms": 22.67820898850914,
+      "p95_ms": 22.006016204250045,
+      "samples": 65
+    }
+  }
+}

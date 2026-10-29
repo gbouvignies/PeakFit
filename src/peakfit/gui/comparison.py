@@ -1,4 +1,4 @@
-"""Coordinated completed local-fit comparison in the persistent scientific plots."""
+"""Coordinated complete-dataset or isolated comparison in persistent scientific plots."""
 
 from collections import OrderedDict
 from threading import Event
@@ -10,9 +10,14 @@ from PySide6 import QtCore, QtGui, QtWidgets
 # isort: split
 import pyqtgraph as pg
 
+from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fit_display import (
     ModelContours,
+    ModelPlane,
     ModelSlices,
+    dataset_model_contours,
+    dataset_model_plane,
+    dataset_model_slices,
     local_model_plane,
     model_contours,
     model_slices,
@@ -43,6 +48,7 @@ class FitComparison(QtCore.QObject):
         self._cancel = Event()
         self._slice_cancel = Event()
         self._planes: OrderedDict[tuple, ModelContours] = OrderedDict()
+        self._models: OrderedDict[tuple, ModelPlane] = OrderedDict()
         self._slices: OrderedDict[tuple, ModelSlices] = OrderedDict()
         self._current: ModelContours | None = None
         self._slice: ModelSlices | None = None
@@ -69,11 +75,15 @@ class FitComparison(QtCore.QObject):
             "only, scaled by retained statistical noise. Unmodeled neighboring signals may remain."
         )
         self.mode.hide()
-        self.scope = QtWidgets.QLabel("Local group comparison")
+        self.scope = QtWidgets.QLabel("Local group")
+        self.scope.setFixedWidth(self.scope.fontMetrics().horizontalAdvance("Local group") + 4)
+        scope_policy = self.scope.sizePolicy()
+        scope_policy.setRetainSizeWhenHidden(True)
+        self.scope.setSizePolicy(scope_policy)
         self.scope.setToolTip("The calculated spectrum includes this fitted group only.")
         self.scope.hide()
-        viewer.workspace.commands.insertWidget(4, self.scope)
-        viewer.workspace.commands.insertWidget(5, self.mode)
+        viewer.workspace.comparison_controls.addWidget(self.scope)
+        viewer.workspace.comparison_controls.addWidget(self.mode)
         self.mode.currentIndexChanged.connect(self._mode_changed)
         self.samples = QtWidgets.QCheckBox("Show exact fitting samples")
         self.samples.setToolTip("Amber cells are the samples that constrained this completed fit.")
@@ -104,6 +114,11 @@ class FitComparison(QtCore.QObject):
         viewer._computation.completed.connect(self._completed)
         self.palette_changed()
 
+    @property
+    def dataset(self) -> bool:
+        """Whole-dataset and isolated comparisons have intentionally different scopes."""
+        return self.result is not None and isinstance(self.result.scientific, DatasetFitResult)
+
     def palette_changed(self) -> None:
         """Restyle retained graphics without scientific evaluation or contour extraction."""
         background = self.viewer._colors["background"]
@@ -123,8 +138,14 @@ class FitComparison(QtCore.QObject):
 
     def show_result(self, result: FitProcessResult, *, outdated: bool) -> None:
         """Only current usable outcomes may be compared to the working spectrum."""
-        terminal = result.scientific.outcome.cluster(result.scientific.inputs.scope.cluster_id)
-        if outdated or not terminal.usable:
+        scientific = result.scientific
+        dataset = isinstance(scientific, DatasetFitResult)
+        terminal = (
+            None
+            if isinstance(scientific, DatasetFitResult)
+            else scientific.outcome.cluster(scientific.inputs.scope.cluster_id)
+        )
+        if outdated or not any(cluster.usable for cluster in scientific.outcome.clusters):
             self.clear()
             return
         changed = self.result is not result
@@ -137,11 +158,28 @@ class FitComparison(QtCore.QObject):
                 self.profile_mode.clear()
                 self.profile_mode.addItem("Crosshair intensity · ● exp / ▼ group")
                 labels = {i.engine_name: i.assignment for i in result.scientific.inputs.identities}
-                for number, name in enumerate(terminal.peak_names, 1):
+                for number, name in enumerate(
+                    terminal.peak_names if terminal is not None else (), 1
+                ):
                     self.profile_mode.addItem(f"Amplitude · {number}. {labels[name]}")
             with QtCore.QSignalBlocker(self.mode):
                 self.mode.setCurrentIndex(1)
         self.active = True
+        self.scope.setText("Total model" if dataset else "Local group")
+        self.scope.setToolTip(
+            "All numerically usable clusters; selection never changes the comparison scope."
+            if dataset
+            else "The calculated spectrum includes this fitted group only."
+        )
+        self.mode.setToolTip(
+            "Overlay compares experimental and total calculated spectra in common intensity units. "
+            "Residual is experimental minus the total usable model, divided by statistical noise, "
+            "throughout the native plane. Recorded optimizer residuals use terminal neighbor "
+            "corrections and are different quantities."
+            if dataset
+            else "Local group only: other signals are not subtracted. "
+            "Dotted lines predict outside fitting samples; residuals use fitted samples only."
+        )
         self.viewer.profile.setTitle(" ")
         self.profile_mode.show()
         self.mode.show()
@@ -157,6 +195,7 @@ class FitComparison(QtCore.QObject):
         self._current = None
         self._slice = None
         self._planes.clear()
+        self._models.clear()
         self._slices.clear()
         with QtCore.QSignalBlocker(self.profile_mode):
             self.profile_mode.clear()
@@ -184,7 +223,7 @@ class FitComparison(QtCore.QObject):
             self.profile_model,
         ):
             curve.clear()
-        self.viewer.spectrum_plot.setTitle("Spectrum")
+        self.viewer.spectrum_plot.setTitle("")
         self.viewer.trace_x.setLabel("left", "Intensity")
         self.viewer.trace_y.setLabel("left", "Intensity")
         self.viewer.profile.setLabel("left", "Raw intensity")
@@ -233,7 +272,9 @@ class FitComparison(QtCore.QObject):
             self._current = None
             self._render_plane()
             return
-        if self.mode.currentIndex() != _OVERLAY:
+        if self.mode.currentIndex() == _EXPERIMENT or (
+            not self.dataset and self.mode.currentIndex() == _RESIDUAL
+        ):
             self._current = None
             self._render_plane()
             return
@@ -248,16 +289,27 @@ class FitComparison(QtCore.QObject):
         result = self.result.scientific
         plane, level, factor, count = key
         cancel = self._cancel
-        reusable = next(
-            (
-                cached.grid
-                for cached_key, cached in reversed(self._planes.items())
-                if cached_key[0] == plane and (cached_key[1] <= level or cached.grid.edge_visible)
-            ),
-            None,
+        reusable = (
+            self._models.get((plane,))
+            if self.dataset
+            else next(
+                (
+                    cached.grid
+                    for cached_key, cached in reversed(self._planes.items())
+                    if cached_key[0] == plane
+                    and (cached_key[1] <= level or cached.grid.edge_visible)
+                ),
+                None,
+            )
         )
 
         def calculate():
+            if isinstance(result, DatasetFitResult):
+                grid = reusable or dataset_model_plane(result, axes, plane, cancel=cancel)
+                levels = level * factor ** np.arange(count)
+                return key, dataset_model_contours(
+                    grid, axes, np.r_[levels, -levels], cancel=cancel
+                )
             grid = reusable or local_model_plane(result, axes, plane, level, cancel=cancel)
             levels = level * factor ** np.arange(count)
             return key, model_contours(
@@ -265,7 +317,7 @@ class FitComparison(QtCore.QObject):
             )
 
         v._computation.submit("model", self._revision, calculate)
-        self._title("Exp ± · group prediction…")
+        self._title("Calculating total model…" if self.dataset else "Exp ± · group prediction…")
 
     def update_slices(self) -> None:
         """Raw crosshairs update synchronously; coalesce only the calculated additions."""
@@ -302,7 +354,12 @@ class FitComparison(QtCore.QObject):
         v._computation.submit(
             "slices",
             self._slice_revision,
-            lambda: (key, model_slices(result, axes, *key, cancel=cancel)),
+            lambda: (
+                key,
+                dataset_model_slices(result, axes, v.spectra.data, *key, cancel=cancel)
+                if isinstance(result, DatasetFitResult)
+                else model_slices(result, axes, *key, cancel=cancel),
+            ),
         )
 
     def _completed(self, kind: str, revision: int, value: object) -> None:
@@ -329,6 +386,10 @@ class FitComparison(QtCore.QObject):
                 projected = cast("ModelContours", projected)
                 self._planes[key] = projected
                 self._current = projected
+                if self.dataset:
+                    self._models[(key[0],)] = projected.grid
+                    self._models.move_to_end((key[0],))
+                    self._trim(self._models)
                 self._trim(self._planes)
                 self._render_plane()
             else:
@@ -339,7 +400,7 @@ class FitComparison(QtCore.QObject):
                 self._render_slices()
 
     @staticmethod
-    def _trim[T: ModelContours | ModelSlices](cache: OrderedDict[tuple, T]) -> None:
+    def _trim[T: ModelContours | ModelSlices | ModelPlane](cache: OrderedDict[tuple, T]) -> None:
         while cache and (
             len(cache) > _CACHE_ENTRIES or sum(v.nbytes for v in cache.values()) > _CACHE_BYTES
         ):
@@ -362,7 +423,7 @@ class FitComparison(QtCore.QObject):
         for item in v.contours:
             item.setOpacity(0.2 if mode == _RESIDUAL else 1)
         if mode == _EXPERIMENT:
-            self._title("Spectrum")
+            self._title("")
             return
         if mode == _RESIDUAL:
             self._render_residual()
@@ -371,7 +432,7 @@ class FitComparison(QtCore.QObject):
             self._current is None
             or getattr(v, "_contour_applied_revision", -1) != v._contour_revision
         ):
-            self._title("Exp ± · group prediction…")
+            self._title("Calculating total model…" if self.dataset else "Exp ± · group prediction…")
             return
         geometry = self._current.sampled + self._current.predicted
         paths = paths_from_geometry(geometry)
@@ -389,10 +450,17 @@ class FitComparison(QtCore.QObject):
                 if predicted
                 else (QtCore.Qt.PenStyle.DashLine if negative else QtCore.Qt.PenStyle.SolidLine)
             )
-            self.paths[index].setPen(pg.mkPen(self.color, width=1.5, style=style))
+            self.paths[index].setPen(
+                pg.mkPen(self.color, width=0.8 if self.dataset else 1.5, style=style)
+            )
             self.paths[index].setPath(path)
             self.paths[index].show()
         suffix = " · edge clipped" if self._current.grid.edge_visible else ""
+        if self.dataset:
+            self._title(
+                f'<span style="color:{self.color}">Calculated total model ±</span> · Experimental ±'
+            )
+            return
         self._title(
             f'<span style="color:{self.color}">Group: sampled ━ · predicted ··</span>{suffix}'
         )
@@ -401,11 +469,21 @@ class FitComparison(QtCore.QObject):
         v = self.viewer
         assert self.result is not None
         scientific = self.result.scientific
-        evaluation = scientific.outcome.cluster(
-            scientific.inputs.scope.cluster_id
-        ).analytical_evaluation
-        assert evaluation is not None
-        sy, sx = scientific.inputs.scope.grid_indices
+        if isinstance(scientific, DatasetFitResult):
+            if self._current is None:
+                self._title("Calculating total-model residual…")
+                return
+            data = (v.spectra.data[v.plane] - self._current.grid.values) / scientific.outcome.noise
+            sy, sx = np.indices(data.shape)
+            sy, sx = sy.ravel(), sx.ravel()
+            residual_values = data.ravel()
+        else:
+            evaluation = scientific.outcome.cluster(
+                scientific.inputs.scope.cluster_id
+            ).analytical_evaluation
+            assert evaluation is not None
+            sy, sx = scientific.inputs.scope.grid_indices
+            residual_values = evaluation.raw_residuals[:, v.plane] / scientific.outcome.noise
         y0, x0 = int(sy.min()), int(sx.min())
         rgba = np.zeros((int(sy.max()) - y0 + 1, int(sx.max()) - x0 + 1, 4), dtype=np.uint8)
         neutral = (
@@ -415,9 +493,7 @@ class FitComparison(QtCore.QObject):
         )
         colors = pg.ColorMap([0, 0.5, 1], ["#2474c6", neutral, "#d74b24"])
         rgba[sy - y0, sx - x0] = colors.map(
-            np.clip(
-                evaluation.raw_residuals[:, v.plane] / scientific.outcome.noise / 6 + 0.5, 0, 1
-            ),
+            np.clip(residual_values / 6 + 0.5, 0, 1),
             mode="byte",
         )
         self.residual.setImage(rgba, autoLevels=False, autoDownsample=False)
@@ -433,7 +509,8 @@ class FitComparison(QtCore.QObject):
         )
         self.residual.show()
         self._title(
-            'Local residual /σ: <span style="color:#2474c6">−3</span> · 0 · '
+            ("Total-model residual /σ: " if self.dataset else "Local residual /σ: ")
+            + '<span style="color:#2474c6">−3</span> · 0 · '
             '<span style="color:#d74b24">+3</span>'
         )
 
@@ -469,8 +546,8 @@ class FitComparison(QtCore.QObject):
                     curve.setData(
                         points,
                         error[:, v.plane] / self.result.scientific.outcome.noise,
-                        pen=None,
-                        symbol="o",
+                        pen=pg.mkPen(self.color, width=1.3) if self.dataset else None,
+                        symbol=None if self.dataset else "o",
                         symbolSize=4,
                         symbolBrush=self.color,
                     )
@@ -479,7 +556,7 @@ class FitComparison(QtCore.QObject):
                         points,
                         np.where(support, values[:, v.plane], np.nan),
                         pen=pg.mkPen(self.color, width=2),
-                        symbol="o",
+                        symbol=None if self.dataset else "o",
                         symbolSize=3,
                         symbolBrush=self.color,
                         symbolPen=self.color,
@@ -488,7 +565,8 @@ class FitComparison(QtCore.QObject):
                     # The model is evaluated at every native coordinate. Draw it
                     # continuously underneath the sampled portion so adjacent
                     # styles share their endpoints. Actual NaNs still break paths.
-                    prediction.setData(points, values[:, v.plane], connect="finite")
+                    if not self.dataset:
+                        prediction.setData(points, values[:, v.plane], connect="finite")
         self._render_profile()
 
     def _render_profile(self) -> None:
@@ -496,6 +574,31 @@ class FitComparison(QtCore.QObject):
         amplitude = self.profile_mode.currentIndex() - 1
         assert self.result is not None
         scientific = self.result.scientific
+        if isinstance(scientific, DatasetFitResult):
+            # Per-peak whole-dataset amplitude profiles belong to the next review slice.
+            values = scientific.inputs.snapshot.plane_values
+            residual = self.mode.currentIndex() == _RESIDUAL
+            self.profile_mode.setItemText(
+                0,
+                "Crosshair residual /σ"
+                if residual
+                else "Crosshair intensity · experiment / total model",
+            )
+            v.curve_profile.setVisible(not residual)
+            v.profile.setLabel("left", "Residual /σ" if residual else "Coordinate intensity")
+            if self._slice is not None and self.mode.currentIndex() != _EXPERIMENT:
+                assert self._slice.residual_profile is not None
+                data = (
+                    self._slice.residual_profile / scientific.outcome.noise
+                    if residual
+                    else self._slice.profile
+                )
+                self.profile_model.setData(values, data, data=np.arange(len(values)))
+                if residual:
+                    v.profile_marker.setData([values[v.plane]], [data[v.plane]])
+            elif residual:
+                v.profile_marker.clear()
+            return
         evaluation = scientific.outcome.cluster(
             scientific.inputs.scope.cluster_id
         ).analytical_evaluation

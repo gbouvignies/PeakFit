@@ -33,12 +33,15 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   indicators only; `edits_changed` is reserved for actual committed peak changes
   and invalidates scientific dependents. No-op commit/history/drag operations do
   not advance the scientific revision. One coordinated
-  comparison selector identifies its current local-group scope. The reserved
+  comparison selector identifies either complete-dataset or isolated local scope. The reserved
   footer exposes fit state and cancellation while details are closed.
   One serial background lane handles numerical
   preparation, contour extraction and display projection; Qt applies only current
   results. `gui.fit_display` evaluates bounded planes/native traces through the
   scientific simulation API; `gui.comparison` owns Qt graphics and bounded caches.
+  Complete models evaluate every native coordinate and every usable final cluster;
+  their residual is experimental minus total model outside as well as inside masks.
+  Local display retains its distinct bounded prediction and fitted-sample residual.
   Experimental contours have queue priority; obsolete projections cancel between
   chunks. Graphics never connect model/experiment from different planes.
   Exact lightweight scope geometry remains available even when numerical data
@@ -52,7 +55,14 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   retain signed amplitudes, sampled model/residual values, diagnostics, original
   inputs, stable GUI identities, and copied model geometry for deterministic graphical comparison.
   One disposable spawned fit process runs independently of the preview/contour lane;
-  the bridge serializes selected-cluster inputs and freezes received values off Qt.
+  `gui.fit_process.FitProcess` serializes reviewed inputs and receives completed
+  values off Qt. `gui.dataset_dialog` prepares complete problems asynchronously
+  and presents effective settings and initial bounds. `gui.dataset_fit` runs
+  `run_pipeline_iter` with the reviewed configuration, including cross-cluster
+  updates, and binds its `CompletedFit` to the original input snapshot. It does not
+  implement another fitting scheduler. The GUI defaults to two passes; CLI defaults
+  are unchanged. A private trusted-child pickle transport preserves mapping proxies
+  and read-only NumPy buffers; it is not a saved-run format or an external reader.
   There is no fit queue. Cancellation terminates/reaps the child. Scientific edits
   pause until execution stops; navigation remains available. One unsaved result is
   retained separately and protected against replacement/loss. No automatic peak
@@ -142,8 +152,8 @@ mapping in the future persisted-run interface. See [GUI design](gui-design.md)
 for that interface's scientific requirements and staged delivery.
 
 
-Local GUI fit export reuses `io.writers.orchestrator.write_fit_outputs` directly
-from the retained `LocalFitResult.outcome`; `gui.fit_export` stages and validates
+GUI fit export reuses `io.writers.orchestrator.write_fit_outputs` directly
+from the retained local or complete dataset outcome; `gui.fit_export` stages and validates
 the canonical artifacts and adds the scope/identity companion documented in
 [outputs](outputs.md#gui-local-fit-export). `gui.export_dialog` owns only directory
 selection and a short-lived background export thread. The viewer records export

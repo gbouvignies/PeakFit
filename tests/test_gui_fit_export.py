@@ -12,7 +12,7 @@ from test_gui_fit_execution import _example, _wait
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui.app import PeakFitWindow
-from peakfit.gui.fit_export import export_local_fit
+from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.local_fit import execute_local_fit
 from peakfit.gui.spectrum import verified_source_files
@@ -48,7 +48,7 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
     completed = execute_local_fit(prepared)
     cluster = completed.outcome.clusters[0]
     assert cluster.classification == FitOutcomeClassification(classification)
-    path = export_local_fit(completed, tmp_path / "export")
+    path = export_fit_result(completed, tmp_path / "export")
     loader = ResultsLoader(path)
     summary = loader.load_summary()
     raw = json.loads((path / "summary/fit.json").read_text())
@@ -123,7 +123,7 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
         assert set(state.scalar_params) == {p.name for p in cluster.final_nonlinear_parameters}
     before = (path / "summary/fit.json").read_bytes()
     with pytest.raises(FileExistsError):
-        export_local_fit(completed, path)
+        export_fit_result(completed, path)
     assert (path / "summary/fit.json").read_bytes() == before
 
 
@@ -139,7 +139,7 @@ def test_partial_failure_has_no_published_directory(tmp_path, monkeypatch):
 
     monkeypatch.setattr(fit_export, "write_fit_outputs", fail)
     with pytest.raises(OSError, match="disk full"):
-        export_local_fit(completed, tmp_path / "failed")
+        export_fit_result(completed, tmp_path / "failed")
     assert list(tmp_path.iterdir()) == []
     assert completed.inputs is not None
 
@@ -185,12 +185,12 @@ def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
     if publication == "locked":
         lock.mkdir()
     if publication == "success":
-        assert export_local_fit(completed, destination) == destination
+        assert export_fit_result(completed, destination) == destination
         assert published == [destination]
         ResultsLoader(destination).load_summary()
     else:
         with pytest.raises(OSError, match=r"publication denied|[Ee]xists"):
-            export_local_fit(completed, destination)
+            export_fit_result(completed, destination)
         assert not published
     expected = [lock] if publication == "locked" else []
     if publication in {"success", "late_empty", "late_populated"}:

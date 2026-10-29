@@ -1,4 +1,4 @@
-"""Prepare an isolated all-plane fit from immutable editable peak records."""
+"""Prepare complete or isolated fitting problems from committed working peaks."""
 
 import re
 from dataclasses import dataclass, replace
@@ -6,18 +6,18 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.algorithms.clustering import segment_data
+from peakfit.engine.algorithms.clustering import create_clusters, segment_data
 from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.fit_steps import build_fit_steps
+from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.fit.pipeline import prepare_cluster_parameters
 
 if TYPE_CHECKING:
-    from peakfit.engine.domain.params_scalar import Parameters
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.gui.peaks import WorkingPeak
     from peakfit.shared.typing import IntArray
@@ -87,6 +87,105 @@ class PreparedLocalFit:
     limitation: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedDatasetFit:
+    """Reviewed complete fitting problem; no relation to display contour settings."""
+
+    snapshot: FitInputSnapshot
+    identities: tuple[PeakIdentity, ...]
+    shape_names: tuple[str, ...]
+    noise: float
+    contour_level: float
+    clusters: tuple[Cluster, ...]
+    parameters: Parameters
+
+
+def prepare_dataset_fit(
+    spectra: Spectra,
+    peaks: tuple[WorkingPeak, ...],
+    config: PeakFitConfig | None = None,
+) -> PreparedDatasetFit:
+    """Resolve the regular whole-dataset problem from committed working records."""
+    if not peaks:
+        raise ValueError("Load or add peaks before fitting the dataset.")
+    settings = (
+        config.model_copy(deep=True)
+        if config is not None
+        else PeakFitConfig(fitting=FitConfig(refine_iterations=2))
+    )
+    _validate_constraint_targets(settings)
+    _validate_inputs(spectra, peaks, peaks[0].id, settings)
+    noise = float(prepare_noise_level(settings.noise_level, spectra))
+    if not np.isfinite(noise) or noise <= 0:
+        raise ValueError("Cannot estimate positive finite noise for this spectrum.")
+    threshold = settings.clustering.contour_level
+    if threshold is None:
+        threshold = settings.clustering.contour_factor * noise
+    if not np.isfinite(threshold) or threshold <= 0:
+        raise ValueError("The clustering threshold must be positive and finite.")
+    shape_names = get_shape_names(settings.fitting, spectra)
+    identities, scientific_peaks = _working_model(spectra, peaks, settings, shape_names)
+    clusters = create_clusters(spectra, scientific_peaks, threshold)
+    steps = build_fit_steps(settings.fitting.steps, settings.fitting.refine_iterations)
+    if not steps or sum(step.iterations for step in steps) < 1:
+        raise ValueError("Fitting requires at least one optimizer pass.")
+    parameters = Parameters()
+    for cluster in clusters:
+        initial = prepare_cluster_parameters(cluster, settings, steps[0])
+        if not initial.get_vary_names():
+            raise ValueError(f"Cluster {cluster.cluster_id} has no variable nonlinear parameters.")
+        for parameter in initial.values():
+            if (
+                not np.isfinite(parameter.value)
+                or not parameter.min <= parameter.value <= parameter.max
+            ):
+                raise ValueError("The model produced invalid starting values or bounds.")
+        parameters.update(initial)
+    return PreparedDatasetFit(
+        FitInputSnapshot(
+            id(spectra),
+            tuple(spectra.data.shape),
+            tuple(axis.model_dump_json() for axis in spectra.params),
+            tuple(float(value) for value in spectra.z_values),
+            peaks,
+            settings.model_dump_json(),
+            float(threshold),
+        ),
+        identities,
+        tuple(shape_names),
+        noise,
+        float(threshold),
+        tuple(clusters),
+        parameters,
+    )
+
+
+def _working_model(spectra, peaks, settings, shape_names):
+    """Own model metadata and map arbitrary/duplicate assignments to safe scientific IDs."""
+    owned = spectra.model_copy(
+        update={
+            "params": [axis.model_copy(deep=True) for axis in spectra.params],
+            "z_values": spectra.z_values.copy(),
+        }
+    )
+    identities = tuple(PeakIdentity(f"p_{i}", peak.id, peak.name) for i, peak in enumerate(peaks))
+    scientific = [
+        Peak(
+            identity.engine_name,
+            np.asarray(peak.positions),
+            create_shapes(
+                owned,
+                settings.fitting,
+                identity.engine_name,
+                peak.positions,
+                shape_names,
+            ),
+        )
+        for peak, identity in zip(peaks, identities, strict=True)
+    ]
+    return identities, scientific
+
+
 def prepare_local_fit(
     spectra: Spectra,
     peaks: tuple[WorkingPeak, ...],
@@ -132,23 +231,7 @@ def prepare_local_fit(
     shape_names = get_shape_names(settings.fitting, scientific_spectra)
     # Enumeration is safe even for unusual imported IDs; the explicit mapping,
     # never names or list order alone, relates scientific and working identities.
-    identities = tuple(
-        PeakIdentity(f"p_{index}", peak.id, peak.name) for index, peak in enumerate(peaks)
-    )
-    scientific_peaks = [
-        Peak(
-            identity.engine_name,
-            np.asarray(peak.positions),
-            create_shapes(
-                scientific_spectra,
-                settings.fitting,
-                identity.engine_name,
-                peak.positions,
-                shape_names,
-            ),
-        )
-        for peak, identity in zip(peaks, identities, strict=True)
-    ]
+    identities, scientific_peaks = _working_model(scientific_spectra, peaks, settings, shape_names)
     segments = segment_data(scientific_spectra.data, contour_level, scientific_peaks)
     selected_index = next(i for i, item in enumerate(identities) if item.working_id == selected_id)
     segment_id = int(segments[tuple(scientific_peaks[selected_index].positions_i)])

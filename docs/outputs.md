@@ -115,6 +115,27 @@ values. See [GUI design](gui-design.md#persistence-direction-and-compatibility) 
 the evaluated metadata/array separation and the next writer/reader milestone.
 
 
+## GUI dataset-fit export
+
+**File → Export fit results…** on a whole-dataset result writes a new
+`dataset-fit-<run_id>/` directory. It uses the same authoritative final-outcome
+writers, canonical `summary/fit.json` 4.1.0 and CSV tables as the CLI and local
+GUI exports. The staged/validated publication and refusal to overwrite an existing
+destination are shared with local export below.
+
+`summary/dataset_fit.json` is a provenance companion (`kind:
+peakfit_gui_dataset_fit`, companion version 1.0.0). It records the reviewed
+configuration, threshold, estimated noise, resolved model names, optimizer/correction
+pass counts, source-file identities and checksums, original working peaks,
+engine-ID/assignment mapping, ordered original plane indices/values and exact sampled
+indices per cluster. Canonical rows use engine-safe IDs; this mapping preserves
+duplicate assignments. Export always uses the retained run's original inputs,
+including after working edits make it outdated. Export state is tracked by run ID.
+
+This companion is not an analysis archive: it does not persist all model geometry,
+sampled observations or terminal correction arrays needed for lossless reopening.
+Complete reopening/continuation remains subsequent work. No pickle file is written.
+
 ## GUI local-fit export
 
 **File → Export fit results…** creates a new child directory in the selected parent:

@@ -160,9 +160,9 @@ def test_apply_confirmation_retains_result_and_export_state(  # noqa: PLR0915
     viewer._result_revision = viewer._scientific_revision
     if exported:
         viewer.exported_result_id = scientific.run_id
-    from peakfit.gui.fit_export import export_local_fit  # noqa: PLC0415
+    from peakfit.gui.fit_export import export_fit_result  # noqa: PLC0415
 
-    original_export = export_local_fit(scientific, tmp_path / "before")
+    original_export = export_fit_result(scientific, tmp_path / "before")
     viewer.show_fit_result()
     viewer.show()
     app.processEvents()
@@ -197,7 +197,7 @@ def test_apply_confirmation_retains_result_and_export_state(  # noqa: PLR0915
         np.testing.assert_array_equal(
             amplitudes, scientific.outcome.clusters[0].analytical_evaluation.amplitudes
         )
-        after_export = export_local_fit(scientific, tmp_path / "after")
+        after_export = export_fit_result(scientific, tmp_path / "after")
         for relative in ("summary/fit.json", "summary/local_fit.json", "tables/intensities.csv"):
             assert (after_export / relative).read_bytes() == (
                 original_export / relative

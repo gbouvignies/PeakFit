@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import CancelledError
 from copy import deepcopy
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -15,7 +16,7 @@ from peakfit.engine.domain.params_scalar import Parameters
 _MIN_SPECTRUM_NDIM = 2
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.state import FittingState
@@ -103,13 +104,14 @@ def simulate_final_outcome(
     return model.T.reshape((output_data.shape[0], *grid_shape)).astype(float)
 
 
-def project_final_outcome(
+def project_final_outcome(  # noqa: PLR0912
     outcome: FinalFitOutcome,
     snapshot: FinalModelSnapshot,
     positions: Sequence[np.ndarray],
     *,
     cluster_id: int | None = None,
     planes: Sequence[int] | None = None,
+    canceled: Callable[[], bool] | None = None,
 ) -> FloatArray | None:
     """Evaluate completed contributions at paired fractional grid coordinates.
 
@@ -121,6 +123,8 @@ def project_final_outcome(
     ``planes`` indexes fitted-series columns, not source-file indices after plane
     exclusion. The caller must retain that mapping. ``None`` denotes no usable
     contribution, never a zero-filled failed result.
+    An optional cancellation predicate is checked between bounded numerical chunks;
+    cancellation raises ``CancelledError`` and never returns a partial model.
     """
     _validate_snapshot(outcome, snapshot)
     coordinates = [np.asarray(values, dtype=float).ravel() for values in positions]
@@ -150,6 +154,8 @@ def project_final_outcome(
     model = np.zeros((coordinates[0].size, selected.size), dtype=float)
     usable_count = 0
     for cluster in snapshot.clusters:
+        if canceled is not None and canceled():
+            raise CancelledError
         if cluster_id is not None and cluster.cluster_id != cluster_id:
             continue
         terminal = outcome.cluster(cluster.cluster_id)
@@ -160,6 +166,8 @@ def project_final_outcome(
         # At most about 4 MiB of shape/output working arrays per chunk.
         chunk_size = max(1, min(4096, 524288 // max(len(cluster.peaks), selected.size)))
         for start in range(0, model.shape[0], chunk_size):
+            if canceled is not None and canceled():
+                raise CancelledError
             end = start + chunk_size
             shapes = np.asarray(
                 Cluster.evaluate_peaks(

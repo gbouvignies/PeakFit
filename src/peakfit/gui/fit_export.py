@@ -1,4 +1,4 @@
-"""Staged scientific export of a retained isolated fit, without Qt or continuation state."""
+"""Staged scientific export of retained fits, without Qt or continuation state."""
 
 import json
 from dataclasses import asdict
@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from peakfit.fit.output_metadata import RunMetadata
+from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import write_fit_outputs
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from peakfit.gui.local_fit import LocalFitResult
 
 
-def export_local_fit(result: LocalFitResult, destination: Path) -> Path:
+def export_fit_result(result: LocalFitResult | DatasetFitResult, destination: Path) -> Path:
     """Publish all required artifacts together, refusing any existing destination.
 
     A sibling lock coordinates PeakFit exporters without creating the destination.
@@ -40,35 +41,53 @@ def export_local_fit(result: LocalFitResult, destination: Path) -> Path:
     )
     companion = {
         "schema_version": "1.0.0",
-        "kind": "peakfit_gui_local_fit",
+        "kind": "peakfit_gui_dataset_fit"
+        if isinstance(result, DatasetFitResult)
+        else "peakfit_gui_local_fit",
         "run_id": result.run_id,
         "completed_at": result.completed_at,
         "software_version": result.software_version,
-        "scope": "isolated_cluster_all_original_planes",
-        "cross_cluster_corrections": False,
+        "scope": "complete_dataset_all_original_planes"
+        if isinstance(result, DatasetFitResult)
+        else "isolated_cluster_all_original_planes",
+        "cross_cluster_corrections": result.outcome.n_correction_updates > 0,
         "n_optimizer_passes": result.outcome.n_optimizer_passes,
         "n_correction_updates": result.outcome.n_correction_updates,
-        "cluster_id": inputs.scope.cluster_id,
         "data_shape": snapshot.data_shape,
         "spectral_parameters": [json.loads(axis) for axis in snapshot.spectral_parameters],
         "planes": [
             {"index": index, "value": value} for index, value in enumerate(snapshot.plane_values)
         ],
-        "grid_indices": [indices.tolist() for indices in inputs.scope.grid_indices],
         "peak_identities": [asdict(identity) for identity in inputs.identities],
         "original_working_peaks": [asdict(peak) for peak in snapshot.peaks],
         "noise": inputs.noise,
         "contour_threshold": inputs.contour_level,
         "shape_names": inputs.shape_names,
         "configuration": configuration,
-        "optimizer_configuration": asdict(result.optimizer_config),
         "warnings": result.warnings,
         "execution_seconds": result.execution_seconds,
-        "peak_memory_bytes": result.peak_memory_bytes,
         "source_files": metadata.input_files,
         "source_note": "Original files verified at load; working peaks may be edited. "
         "In-memory spectrum identity is not persistent and is omitted.",
     }
+    if isinstance(result, DatasetFitResult):
+        companion["cluster_samples"] = [
+            {
+                "cluster_id": samples.cluster_id,
+                "grid_indices": [indices.tolist() for indices in samples.grid_indices],
+            }
+            for samples in result.completed_fit.samples
+        ]
+        companion["note"] = "Scientific export only; complete analysis reopening is not supported."
+    else:
+        companion.update(
+            {
+                "cluster_id": result.inputs.scope.cluster_id,
+                "grid_indices": [indices.tolist() for indices in result.inputs.scope.grid_indices],
+                "optimizer_configuration": asdict(result.optimizer_config),
+                "peak_memory_bytes": result.peak_memory_bytes,
+            }
+        )
     with TemporaryDirectory(prefix=".peakfit-export-", dir=destination.parent) as temporary:
         staged = Path(temporary) / "results"
         files = write_fit_outputs(
@@ -78,7 +97,11 @@ def export_local_fit(result: LocalFitResult, destination: Path) -> Path:
             metadata=metadata,
             z_values=np.asarray(snapshot.plane_values),
         )
-        provenance = staged / "summary" / "local_fit.json"
+        provenance = (
+            staged
+            / "summary"
+            / ("dataset_fit.json" if isinstance(result, DatasetFitResult) else "local_fit.json")
+        )
         provenance.write_text(
             json.dumps(companion, indent=2, allow_nan=False) + "\n", encoding="utf-8"
         )
