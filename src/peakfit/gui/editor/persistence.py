@@ -134,8 +134,6 @@ class AnalysisActions:
         header = dataset_header(w.dataset)
         if self._analysis:
             header["source"] = self._analysis.header["source"]
-            if self._analysis.header.get("embedded"):
-                header["embedded"] = True
         return Analysis(
             w.dataset,
             header,
@@ -176,7 +174,7 @@ class AnalysisActions:
         self._saving = True
         self._after_save = after
         self._analysis_cancel.clear()
-        self.loading_status.setText("Saving self-contained analysis")
+        self.loading_status.setText("Saving linked analysis")
         self.cancel_load.setText("Cancel saving")
         self.cancel_load.show()
         self._analysis_actions()
@@ -278,7 +276,7 @@ class AnalysisActions:
             self._saved_key = self._save_key
             size = sum(storage.values()) / 1024**2
             self.loading_status.setText(
-                f"Saved {path.name} · {size:.1f} MiB project data · Spectrum embedded"
+                f"Saved {path.name} · {size:.1f} MiB project data · Spectrum linked"
             )
             if self.workspace:
                 self.workspace.fitting.history = list(analysis.runs)

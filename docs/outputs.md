@@ -211,58 +211,74 @@ starts and inspect sampling/profile likelihoods; the local errors alone cannot
 certify a scientific assignment. See [the overlap investigation](validation/overlapping-peaks.md).
 
 
-## Self-contained analysis projects
+## External-source analysis projects
 
 ```text
 Analysis.peakfit/
   manifest.json
-  spectra/<identity>.npz             # one complete experimental cube, shared
-  runs/<run-id>/result.npz            # detailed scientific evidence
+  runs/<run-id>/result.npz            # results, exact corrections, sample mappings
   runs/<run-id>/review.json           # submitted/working transition metadata
 ```
 
-Projects embed the full experimental cube losslessly in its original dtype,
-including observations outside fitted masks. Calibration/processing/header data,
-ordered planes, assignments and working settings/view state are retained. Full
-calculated grids are disposable. The experimental cube is shared by history and
-is not rewritten on routine Save; immutable run files are reused too.
+A `.peakfit` project always references an independent experimental spectrum. Save
+and Save as never copy experimental spectra or simulated data into the project.
+Several analyses can reference the same spectral file. There is no portable-project
+mode, embedded cube or shared-asset registry. Full calculated spectra and residuals
+are generated on demand.
 
-The bundled one-run project is **85.25 MB**, of which **68.39 MB** is the compressed
-experimental cube and about **16.85 MB** is result evidence/working metadata.
-The audit's 16.85 MB estimate covered fitted samples only and could not provide
-full-spectrum inspection or adjusted fitting without the source. Source-free
-projects deliberately prioritize completeness over that estimate. Historical
-sample observations remain with each run so history review need not load the
-whole experimental cube.
+Projects preserve exact nonlinear values/bounds/freedom/uncertainties, amplitudes,
+conditional covariance and errors, optimizer diagnostics/statistics, scientific
+identities, starting/optimized/adopted coordinates, settings and provenance. They
+also retain exact terminal corrections, paired sample indices, ordered source-plane
+identities, observation dtype/SHA-256, calibration and a small component-basis
+reference for evaluator validation. Terminal corrections are independent terminal
+inputs and cannot be substituted with final neighboring models.
 
-Reopen validates embedded payload checksums/NPY headers, active scientific
-algebra, exact source-plane/sample mappings and evaluator references, without an
-optimizer, segmentation or amplitude solve. It permits experimental/overlay/
-residual views, adjustment and refitting without any original files. Unsupported
-models or canceled spectrum verification retain numerical review; corrupt evidence
-is rejected. Explicit external relinking still verifies its identity.
+Projects do not retain extracted observations, sampled model predictions or dense
+residual arrays. The bundled two-pass one-run project is approximately **7.12 MB**.
+Observed values are sampled from the verified source in the original order/dtype
+and checked against their exact digests. Reconstruction uses saved fitted values
+and amplitudes without optimization or an amplitude solve. Existing continuation
+checks validate evaluator references (`rtol=1e-10`, `atol=1e-12`) and regenerated
+terminal chi-squared (`rtol=1e-8`, `atol=1e-9`). Published results remain exact;
+regenerated prediction bits are not guaranteed across platforms/versions.
 
-Atomic manifest publication, PID locks, failure recovery, lazy historical loading,
-ten unprotected full runs and the 1 GiB historical budget remain. Active/protected
-runs are exempt from eviction, not reader limits. The full project stored-byte
-limit is 8 GiB including the embedded cube; project JSON is bounded at 512 MiB.
-Save As copies/checks the embedded cube and retained evidence, and never modifies
-original inputs. Accepted runs use the same self-contained `Recovery.peakfit`
-format; normal cleanup and interrupted-session recovery retain their ownership rules.
-Initial embedding can increase acceptance time and temporary IPC/process memory;
-see the measured validation instead of assuming total memory falls with file size.
+Reopen validates immutable numerical payloads and the external spectrum's SHA-256,
+calibration, shape/dtype and sample identities. Only recorded relative/absolute
+locations are tried. Moving source and analysis together preserves the relative
+link; separately moving the source requires explicit **Relink source**. Changed,
+corrupt or unreadable source files never replace the scientific result. Numerical
+parameters, uncertainties, amplitude profiles, diagnostics, coordinates and exact
+terminal corrections remain available without the source. Experimental sample
+inspection, spectral views and adjusted fitting are disabled until verification.
+Current/Outdated status is independent of source availability.
+
+Sample/model/residual reconstruction is temporary and requested by sample review,
+detailed export or continuation. Whole-spectrum GUI projections use the existing
+bounded on-demand evaluator. Unsupported evaluators retain numerical review;
+failed scientific checks disable spectral work rather than silently refitting.
+GUI and CLI still share the same scientific exporter: standard compact exports
+and explicit detailed evidence are unchanged. Missing-source numerical review can
+export compact results; detailed observations require relinking.
+
+Atomic manifest publication, PID locks, cancellation/failure recovery, lazy history,
+ten unprotected full result records and the 1 GiB historical budget remain. Active/
+protected results are exempt from eviction, not reader limits. The project reader
+limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
+run files. Recovery checkpoints use the same compact external-source format;
+source-free recovery supports numerical review and relinking, not spectral work.
+New projects use schema **5.0.0**. Earlier experimental project formats are rejected;
+no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
 - Scientific NPZ **1.0.0** and **2.0.0** remain readable, including the first PR
   schema-1 context without later coordinate/adoption fields. Missing old facts
   remain unknown; new exports require the complete context. New writes use 2.0.0.
-- Projects **1.0.0/1.1.0** (Milestone 3 JSON/sample evidence) and **2.0.0**
-  (earlier PR #71 NPZ evidence) remain readable, including source-free numerical
-  review. To save as a self-contained 3.0.0 project, first verify/relink the original
-  spectrum if the older project lacks it. Save embeds the cube and preserves
-  historical immutable payloads; subsequent fits write the new representation.
-  Saving cannot recreate unavailable full experimental data from fitted masks.
+- Earlier `.peakfit` project formats are unsupported. Scientific exports remain
+  independently readable. To continue an older analysis, retain its original
+  spectrum and scientific outputs; open the spectrum and refit into a new project.
+  No old project is silently rewritten or stripped of data.
 - Existing JSON 4.0/4.1 readers and explicit exports remain supported. Native
   summaries mark unavailable dense evidence explicitly; they do not invent it.
 - Legacy pickle state remains readable. `save_state` now explicitly stores terminal
@@ -277,6 +293,7 @@ to `engine.scientific`; storage lives in `io.scientific`, reconstruction in
 GUI, CLI and MCMC therefore share these modules without depending on higher-level
 fit orchestration. This is not a new plugin registry or framework.
 
-See [measured policy validation](validation/scientific-storage-policy.md), the
+See [external-project validation](validation/external-projects.md),
+[earlier scientific policy validation](validation/scientific-storage-policy.md), the
 [original per-array audit](validation/scientific-storage-audit.md), and regression
 fixtures generated by the actual older implementations in `tests/data/storage-compat/`.

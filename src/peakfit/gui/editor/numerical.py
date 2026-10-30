@@ -6,10 +6,12 @@ from dataclasses import replace
 import pyqtgraph as pg
 from PySide6 import QtCore, QtWidgets
 
+from peakfit.engine.scientific.completed import FinalClusterSamples
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.project import StoredRun, run_id
 from peakfit.gui.project_process import project_operation
+from peakfit.gui.project_results import reconstruct_result
 
 
 class NumericalReview(QtWidgets.QWidget):
@@ -33,10 +35,11 @@ class NumericalReview(QtWidgets.QWidget):
         layout.addWidget(title)
         explanation = QtWidgets.QLabel(
             "The original spectrum could not be verified. Relink it to enable spectral views "
-            "and new fits.\nRetained parameters, amplitudes, diagnostics and exact fitting "
-            "samples remain available."
+            "and new fits.\nRetained parameters, amplitudes, uncertainties, diagnostics and "
+            "terminal corrections remain available. Experimental samples require the source."
             if analysis.dataset is None
-            else "Latest ten completed runs retain full evidence. Older runs are Summary only. "
+            else "Latest ten completed runs retain fitted results and reconstruction evidence. "
+            "Older runs are Summary only. "
             "Keep full evidence protects a run from automatic history pruning."
         )
         explanation.setWordWrap(True)
@@ -129,7 +132,7 @@ class NumericalReview(QtWidgets.QWidget):
                 "Observation",
                 "Terminal correction",
                 "Cluster model",
-                "Recorded residual",
+                "Reconstructed residual",
             ],
             [],
         )
@@ -191,6 +194,26 @@ class NumericalReview(QtWidgets.QWidget):
                 self._history_generation,
                 lambda: project_operation(
                     "history", raw, progress=lambda _: None, canceled=lambda: False
+                ),
+            )
+            return
+        if (
+            completion is not None
+            and not isinstance(completion, dict)
+            and self.analysis.dataset is not None
+            and any(
+                not isinstance(s, FinalClusterSamples)
+                for s in completion.result.completed_fit.samples
+            )
+        ):
+            self.export.setEnabled(False)
+            self.keep.setEnabled(False)
+            self.details.setPlainText("Reconstructing requested samples from verified spectrum…")
+            self._worker.submit(
+                "reconstruct",
+                self._history_generation,
+                lambda: replace(
+                    completion, result=reconstruct_result(completion.result, self.analysis.dataset)
                 ),
             )
             return
@@ -262,7 +285,8 @@ class NumericalReview(QtWidgets.QWidget):
                     f"Run {r.run_id} · "
                     + (
                         ("Current" if self.analysis.current else "Outdated")
-                        if completion is self.analysis.completion
+                        if self.analysis.completion
+                        and completion.result.run_id == self.analysis.completion.result.run_id
                         else "Historical run"
                     )
                     + " · Source verification is independent of currentness.",
@@ -278,8 +302,8 @@ class NumericalReview(QtWidgets.QWidget):
                         )
                         for c in r.outcome.clusters
                     ],
-                    "Exact sampled observations, indices and terminal corrections "
-                    "are retained and exportable.",
+                    "Sample coordinates and exact terminal corrections are retained. "
+                    "Observed/model/residual values require the verified external spectrum.",
                 ]
             )
         )
@@ -298,7 +322,12 @@ class NumericalReview(QtWidgets.QWidget):
         if item is None:
             return
         c = self.selected_run().result.outcome.cluster(item[0])
-        self.profile.plot(c.analytical_evaluation.amplitudes[item[1]], symbol="o", pen=None)
+        self.profile.plot(
+            self.selected_run().result.inputs.snapshot.source_plane_indices,
+            c.analytical_evaluation.amplitudes[item[1]],
+            symbol="o",
+            pen=None,
+        )
 
     def export_run(self):
         """Reuse the canonical export workflow for retained numerical evidence."""
@@ -308,7 +337,9 @@ class NumericalReview(QtWidgets.QWidget):
                 self,
                 completion.result,
                 completion=completion,
-                current=self.analysis.current and completion is self.analysis.completion,
+                current=self.analysis.current
+                and completion.result.run_id == self.analysis.completion.result.run_id,
+                dataset=self.analysis.dataset,
             )
 
     def _keep(self, keep):
@@ -331,6 +362,13 @@ class NumericalReview(QtWidgets.QWidget):
         s = next(s for s in result.completed_fit.samples if s.cluster_id == cid)
         e = result.outcome.cluster(cid).sample_evaluation
         plane = self.plane.value() - 1
+        available = isinstance(s, FinalClusterSamples)
+        self.cluster.setEnabled(available)
+        self.plane.setEnabled(available)
+        if not available:
+            self.samples.setRowCount(0)
+            self.sample_note.setText("Relink the verified source to inspect fitting samples")
+            return
         count = min(2000, s.data.shape[0])
         self.sample_note.setText(
             f"{count} of {s.data.shape[0]} exact fitting samples · no interpolation"
@@ -353,6 +391,8 @@ class NumericalReview(QtWidgets.QWidget):
     def selected_run(self):
         """Return only the active or explicitly loaded historical record."""
         selected = self.run.currentData()
+        if self._loaded_completion is not None:
+            return self._loaded_completion
         if isinstance(selected, StoredRun):
             active = self.analysis.completion
             if active and selected.run_id == active.result.run_id:

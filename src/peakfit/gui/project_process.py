@@ -14,7 +14,6 @@ from peakfit.gui.dataset_fit import _completed_bytes
 from peakfit.gui.project import (
     open_analysis,
     save_analysis,
-    spectrum_path,
     stored_analysis,
     verify_sources,
 )
@@ -63,15 +62,10 @@ def project_operation(kind, payload, *, progress, canceled):
     """Bridge one operation off Qt, with cooperative cancellation and child reaping."""
     if kind in {"save", "preserve", "relink"}:
         analysis, path = payload
-        # Reuse a published cube without transferring it again. The first checkpoint
-        # carries the immutable source array, even if its original path has disappeared.
-        manifest = analysis.path / "manifest.json" if analysis.path else None
-        previous = json.loads(manifest.read_text()) if manifest and manifest.is_file() else {}
-        embedded = previous.get("spectrum", {}).get("path") == spectrum_path(analysis.header)
         payload = (
             replace(
                 analysis,
-                dataset=None if embedded else analysis.dataset,
+                dataset=None,
                 active=None if kind in {"save", "preserve"} else analysis.completion,
             ),
             path,
@@ -119,7 +113,10 @@ def save_project(analysis, destination, *, reusable, progress, canceled):
         path = save_analysis(analysis, destination, progress=progress, canceled=canceled)
     else:
         path = project_operation(
-            "save", (analysis, destination), progress=progress, canceled=canceled
+            "save",
+            (analysis, destination),
+            progress=progress,
+            canceled=canceled,
         )
     manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
     saved = stored_analysis(analysis, path)

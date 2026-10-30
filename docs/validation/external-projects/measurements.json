@@ -1,0 +1,854 @@
+{
+  "baseline_revision": "9b8e48b",
+  "runs": {
+    "previous_PR": [
+      {
+        "schema": "4.0.0",
+        "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+        "seconds": {
+          "load": 0.0745958749903366,
+          "fit": 3.9449634589836933,
+          "durable_publication": 1.006317042018054,
+          "first_save": 0.018834542017430067,
+          "routine_save": 0.008439708006335422,
+          "verified_reopen": 0.5281682920176536,
+          "save_as": 0.018588041013572365,
+          "sample_reconstruction": 3.7919962778687477e-06,
+          "missing_source_reopen": 0.1292110420181416,
+          "explicit_relink": 0.5245092079858296
+        },
+        "project_bytes": {
+          "standard": 16855699,
+          "second_analysis": 16855699
+        },
+        "stored_array_groups": {
+          "shapes.npy": {
+            "members": 121,
+            "compressed_bytes": 95120
+          },
+          "amplitudes.npy": {
+            "members": 121,
+            "compressed_bytes": 176981
+          },
+          "amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9647
+          },
+          "amplitude_covariance.npy": {
+            "members": 121,
+            "compressed_bytes": 10576
+          },
+          "scaled_amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9636
+          },
+          "model_values.npy": {
+            "members": 121,
+            "compressed_bytes": 6152275
+          },
+          "0.npy": {
+            "members": 121,
+            "compressed_bytes": 13884
+          },
+          "1.npy": {
+            "members": 121,
+            "compressed_bytes": 13427
+          },
+          "data.npy": {
+            "members": 121,
+            "compressed_bytes": 3549672
+          },
+          "neighbor_corrections.npy": {
+            "members": 121,
+            "compressed_bytes": 6143695
+          }
+        },
+        "stored_sample_matrices": {
+          "data.npy": 121,
+          "model_values.npy": 121
+        },
+        "exact_scientific_samples": true,
+        "model_roundtrip_bitwise_clusters": 121,
+        "cluster_count": 121,
+        "missing_source_numerical_review": true,
+        "phase_peak_memory": {
+          "startup": {
+            "summed_rss_bytes": 152535040,
+            "rss_by_pid": {
+              "7053": 152535040
+            }
+          },
+          "load": {
+            "summed_rss_bytes": 770572288,
+            "rss_by_pid": {
+              "7053": 770572288
+            }
+          },
+          "fit": {
+            "summed_rss_bytes": 913342464,
+            "rss_by_pid": {
+              "7053": 913342464
+            }
+          },
+          "durable_publication": {
+            "summed_rss_bytes": 1238466560,
+            "rss_by_pid": {
+              "7053": 957644800,
+              "7161": 21184512,
+              "7163": 259637248
+            }
+          },
+          "first_save": {
+            "summed_rss_bytes": 974045184,
+            "rss_by_pid": {
+              "7053": 952860672,
+              "7161": 21184512
+            }
+          },
+          "routine_save": {
+            "summed_rss_bytes": 974061568,
+            "rss_by_pid": {
+              "7053": 952877056,
+              "7161": 21184512
+            }
+          },
+          "verified_reopen": {
+            "summed_rss_bytes": 1129644032,
+            "rss_by_pid": {
+              "7053": 1108459520,
+              "7161": 21184512
+            }
+          },
+          "save_as": {
+            "summed_rss_bytes": 1129676800,
+            "rss_by_pid": {
+              "7053": 1108492288,
+              "7161": 21184512
+            }
+          },
+          "missing_source_reopen": {
+            "summed_rss_bytes": 1156104192,
+            "rss_by_pid": {
+              "7053": 1134919680,
+              "7161": 21184512
+            }
+          },
+          "explicit_relink": {
+            "summed_rss_bytes": 1304625152,
+            "rss_by_pid": {
+              "7053": 1283440640,
+              "7161": 21184512
+            }
+          }
+        },
+        "rss_method": "25ms sampled sum of worker and descendants RSS; shared pages may count twice",
+        "numpy": "2.4.1"
+      },
+      {
+        "schema": "4.0.0",
+        "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+        "seconds": {
+          "load": 0.07267145800869912,
+          "fit": 4.378128625015961,
+          "durable_publication": 1.0514362910180353,
+          "first_save": 0.017673541995463893,
+          "routine_save": 0.008591000019805506,
+          "verified_reopen": 0.5424247499904595,
+          "save_as": 0.01838716701604426,
+          "sample_reconstruction": 3.541994374245405e-06,
+          "missing_source_reopen": 0.13449662498896942,
+          "explicit_relink": 0.5271997080126312
+        },
+        "project_bytes": {
+          "standard": 16855763,
+          "second_analysis": 16855763
+        },
+        "stored_array_groups": {
+          "shapes.npy": {
+            "members": 121,
+            "compressed_bytes": 95120
+          },
+          "amplitudes.npy": {
+            "members": 121,
+            "compressed_bytes": 176981
+          },
+          "amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9647
+          },
+          "amplitude_covariance.npy": {
+            "members": 121,
+            "compressed_bytes": 10576
+          },
+          "scaled_amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9636
+          },
+          "model_values.npy": {
+            "members": 121,
+            "compressed_bytes": 6152275
+          },
+          "0.npy": {
+            "members": 121,
+            "compressed_bytes": 13884
+          },
+          "1.npy": {
+            "members": 121,
+            "compressed_bytes": 13427
+          },
+          "data.npy": {
+            "members": 121,
+            "compressed_bytes": 3549672
+          },
+          "neighbor_corrections.npy": {
+            "members": 121,
+            "compressed_bytes": 6143695
+          }
+        },
+        "stored_sample_matrices": {
+          "data.npy": 121,
+          "model_values.npy": 121
+        },
+        "exact_scientific_samples": true,
+        "model_roundtrip_bitwise_clusters": 121,
+        "cluster_count": 121,
+        "missing_source_numerical_review": true,
+        "phase_peak_memory": {
+          "startup": {
+            "summed_rss_bytes": 153436160,
+            "rss_by_pid": {
+              "7389": 153436160
+            }
+          },
+          "load": {
+            "summed_rss_bytes": 771063808,
+            "rss_by_pid": {
+              "7389": 771063808
+            }
+          },
+          "fit": {
+            "summed_rss_bytes": 946618368,
+            "rss_by_pid": {
+              "7389": 946618368
+            }
+          },
+          "durable_publication": {
+            "summed_rss_bytes": 1271660544,
+            "rss_by_pid": {
+              "7389": 990740480,
+              "7523": 21151744,
+              "7524": 259768320
+            }
+          },
+          "first_save": {
+            "summed_rss_bytes": 1007091712,
+            "rss_by_pid": {
+              "7389": 985939968,
+              "7523": 21151744
+            }
+          },
+          "routine_save": {
+            "summed_rss_bytes": 1007091712,
+            "rss_by_pid": {
+              "7389": 985939968,
+              "7523": 21151744
+            }
+          },
+          "verified_reopen": {
+            "summed_rss_bytes": 1162723328,
+            "rss_by_pid": {
+              "7389": 1141571584,
+              "7523": 21151744
+            }
+          },
+          "save_as": {
+            "summed_rss_bytes": 1162739712,
+            "rss_by_pid": {
+              "7389": 1141587968,
+              "7523": 21151744
+            }
+          },
+          "sample_reconstruction": {
+            "summed_rss_bytes": 1162739712,
+            "rss_by_pid": {
+              "7389": 1141587968,
+              "7523": 21151744
+            }
+          },
+          "missing_source_reopen": {
+            "summed_rss_bytes": 1193328640,
+            "rss_by_pid": {
+              "7389": 1172176896,
+              "7523": 21151744
+            }
+          },
+          "explicit_relink": {
+            "summed_rss_bytes": 1341669376,
+            "rss_by_pid": {
+              "7389": 1320517632,
+              "7523": 21151744
+            }
+          }
+        },
+        "rss_method": "25ms sampled sum of worker and descendants RSS; shared pages may count twice",
+        "numpy": "2.4.1"
+      },
+      {
+        "schema": "4.0.0",
+        "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+        "seconds": {
+          "load": 0.07310300000244752,
+          "fit": 4.011937125003897,
+          "durable_publication": 1.0317650420183782,
+          "first_save": 0.01979774999199435,
+          "routine_save": 0.008715584001038224,
+          "verified_reopen": 0.548911458987277,
+          "save_as": 0.01986845801002346,
+          "sample_reconstruction": 4.8749789129942656e-06,
+          "missing_source_reopen": 0.15817929100012407,
+          "explicit_relink": 0.5815642919915263
+        },
+        "project_bytes": {
+          "standard": 16855619,
+          "second_analysis": 16855619
+        },
+        "stored_array_groups": {
+          "shapes.npy": {
+            "members": 121,
+            "compressed_bytes": 95120
+          },
+          "amplitudes.npy": {
+            "members": 121,
+            "compressed_bytes": 176981
+          },
+          "amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9647
+          },
+          "amplitude_covariance.npy": {
+            "members": 121,
+            "compressed_bytes": 10576
+          },
+          "scaled_amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9636
+          },
+          "model_values.npy": {
+            "members": 121,
+            "compressed_bytes": 6152275
+          },
+          "0.npy": {
+            "members": 121,
+            "compressed_bytes": 13884
+          },
+          "1.npy": {
+            "members": 121,
+            "compressed_bytes": 13427
+          },
+          "data.npy": {
+            "members": 121,
+            "compressed_bytes": 3549672
+          },
+          "neighbor_corrections.npy": {
+            "members": 121,
+            "compressed_bytes": 6143695
+          }
+        },
+        "stored_sample_matrices": {
+          "data.npy": 121,
+          "model_values.npy": 121
+        },
+        "exact_scientific_samples": true,
+        "model_roundtrip_bitwise_clusters": 121,
+        "cluster_count": 121,
+        "missing_source_numerical_review": true,
+        "phase_peak_memory": {
+          "startup": {
+            "summed_rss_bytes": 153059328,
+            "rss_by_pid": {
+              "7754": 153059328
+            }
+          },
+          "load": {
+            "summed_rss_bytes": 761053184,
+            "rss_by_pid": {
+              "7754": 761053184
+            }
+          },
+          "fit": {
+            "summed_rss_bytes": 915423232,
+            "rss_by_pid": {
+              "7754": 915423232
+            }
+          },
+          "durable_publication": {
+            "summed_rss_bytes": 1239040000,
+            "rss_by_pid": {
+              "7754": 958119936,
+              "7863": 21184512,
+              "7864": 259735552
+            }
+          },
+          "first_save": {
+            "summed_rss_bytes": 974553088,
+            "rss_by_pid": {
+              "7754": 953368576,
+              "7863": 21184512
+            }
+          },
+          "verified_reopen": {
+            "summed_rss_bytes": 1131216896,
+            "rss_by_pid": {
+              "7754": 1110032384,
+              "7863": 21184512
+            }
+          },
+          "save_as": {
+            "summed_rss_bytes": 1131233280,
+            "rss_by_pid": {
+              "7754": 1110048768,
+              "7863": 21184512
+            }
+          },
+          "missing_source_reopen": {
+            "summed_rss_bytes": 1156792320,
+            "rss_by_pid": {
+              "7754": 1135607808,
+              "7863": 21184512
+            }
+          },
+          "explicit_relink": {
+            "summed_rss_bytes": 1305149440,
+            "rss_by_pid": {
+              "7754": 1283964928,
+              "7863": 21184512
+            }
+          }
+        },
+        "rss_method": "25ms sampled sum of worker and descendants RSS; shared pages may count twice",
+        "numpy": "2.4.1"
+      }
+    ],
+    "external_only": [
+      {
+        "schema": "5.0.0",
+        "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+        "seconds": {
+          "load": 0.0750582090113312,
+          "fit": 4.018420917011099,
+          "durable_publication": 0.8621604169893544,
+          "first_save": 0.013226167007815093,
+          "routine_save": 0.008169458014890552,
+          "verified_reopen": 0.15978137499769218,
+          "save_as": 0.012702749983873218,
+          "sample_reconstruction": 0.02478987502399832,
+          "native_adjusted_reopened_refit": 5.984547750005731,
+          "missing_source_reopen": 0.07168129199999385,
+          "explicit_relink": 0.16407658299431205
+        },
+        "project_bytes": {
+          "standard": 7115091,
+          "second_analysis": 7115091
+        },
+        "stored_sample_matrices": {},
+        "exact_scientific_samples": true,
+        "model_roundtrip_bitwise_clusters": 121,
+        "cluster_count": 121,
+        "timings_seconds": {
+          "load": 0.0750582090113312,
+          "fit": 4.018420917011099,
+          "durable_publication": 0.8621604169893544,
+          "first_save": 0.013226167007815093,
+          "routine_save": 0.008169458014890552,
+          "verified_reopen": 0.15978137499769218,
+          "save_as": 0.012702749983873218,
+          "sample_reconstruction": 0.02478987502399832,
+          "native_adjusted_reopened_refit": 5.984547750005731,
+          "missing_source_reopen": 0.07168129199999385,
+          "explicit_relink": 0.16407658299431205
+        },
+        "qt_platform": "cocoa",
+        "native_current_after_refit": true,
+        "native_model_visible": true,
+        "native_residual_visible": true,
+        "missing_source_numerical_review": true,
+        "phase_peak_memory": {
+          "startup": {
+            "summed_rss_bytes": 153010176,
+            "rss_by_pid": {
+              "6112": 153010176
+            }
+          },
+          "load": {
+            "summed_rss_bytes": 769916928,
+            "rss_by_pid": {
+              "6112": 769916928
+            }
+          },
+          "fit": {
+            "summed_rss_bytes": 992886784,
+            "rss_by_pid": {
+              "6112": 992886784
+            }
+          },
+          "durable_publication": {
+            "summed_rss_bytes": 1237745664,
+            "rss_by_pid": {
+              "6112": 957071360,
+              "6225": 21151744,
+              "6226": 259522560
+            }
+          },
+          "first_save": {
+            "summed_rss_bytes": 973488128,
+            "rss_by_pid": {
+              "6112": 952336384,
+              "6225": 21151744
+            }
+          },
+          "verified_reopen": {
+            "summed_rss_bytes": 1133363200,
+            "rss_by_pid": {
+              "6112": 1112211456,
+              "6225": 21151744
+            }
+          },
+          "save_as": {
+            "summed_rss_bytes": 1128562688,
+            "rss_by_pid": {
+              "6112": 1107410944,
+              "6225": 21151744
+            }
+          },
+          "sample_reconstruction": {
+            "summed_rss_bytes": 1329397760,
+            "rss_by_pid": {
+              "6112": 1308246016,
+              "6225": 21151744
+            }
+          },
+          "native_adjusted_reopened_refit": {
+            "summed_rss_bytes": 2642657280,
+            "rss_by_pid": {
+              "6112": 1777188864,
+              "6225": 21151744,
+              "6303": 844316672
+            }
+          },
+          "missing_source_reopen": {
+            "summed_rss_bytes": 1912143872,
+            "rss_by_pid": {
+              "6112": 1890992128,
+              "6225": 21151744
+            }
+          },
+          "explicit_relink": {
+            "summed_rss_bytes": 1916026880,
+            "rss_by_pid": {
+              "6112": 1894875136,
+              "6225": 21151744
+            }
+          }
+        },
+        "rss_method": "25ms sampled sum of worker and descendants RSS; shared pages may count twice",
+        "numpy": "2.4.1",
+        "stored_array_groups": {
+          "shapes.npy": {
+            "members": 121,
+            "compressed_bytes": 95120
+          },
+          "amplitudes.npy": {
+            "members": 121,
+            "compressed_bytes": 176981
+          },
+          "amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9647
+          },
+          "amplitude_covariance.npy": {
+            "members": 121,
+            "compressed_bytes": 10576
+          },
+          "scaled_amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9636
+          },
+          "0.npy": {
+            "members": 121,
+            "compressed_bytes": 13884
+          },
+          "1.npy": {
+            "members": 121,
+            "compressed_bytes": 13427
+          },
+          "neighbor_corrections.npy": {
+            "members": 121,
+            "compressed_bytes": 6143695
+          }
+        }
+      },
+      {
+        "schema": "5.0.0",
+        "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+        "seconds": {
+          "load": 0.07377679200726561,
+          "fit": 3.9744863330270164,
+          "durable_publication": 0.850283749983646,
+          "first_save": 0.013061125006061047,
+          "routine_save": 0.00872658399748616,
+          "verified_reopen": 0.15826166700571775,
+          "save_as": 0.01301541700377129,
+          "sample_reconstruction": 0.02400183299323544,
+          "missing_source_reopen": 0.06871966697508469,
+          "explicit_relink": 0.15294454200193286
+        },
+        "project_bytes": {
+          "standard": 7114974,
+          "second_analysis": 7114974
+        },
+        "stored_array_groups": {
+          "shapes.npy": {
+            "members": 121,
+            "compressed_bytes": 95120
+          },
+          "amplitudes.npy": {
+            "members": 121,
+            "compressed_bytes": 176981
+          },
+          "amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9647
+          },
+          "amplitude_covariance.npy": {
+            "members": 121,
+            "compressed_bytes": 10576
+          },
+          "scaled_amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9636
+          },
+          "0.npy": {
+            "members": 121,
+            "compressed_bytes": 13884
+          },
+          "1.npy": {
+            "members": 121,
+            "compressed_bytes": 13427
+          },
+          "neighbor_corrections.npy": {
+            "members": 121,
+            "compressed_bytes": 6143695
+          }
+        },
+        "stored_sample_matrices": {},
+        "exact_scientific_samples": true,
+        "model_roundtrip_bitwise_clusters": 121,
+        "cluster_count": 121,
+        "missing_source_numerical_review": true,
+        "phase_peak_memory": {
+          "startup": {
+            "summed_rss_bytes": 152567808,
+            "rss_by_pid": {
+              "7231": 152567808
+            }
+          },
+          "load": {
+            "summed_rss_bytes": 770506752,
+            "rss_by_pid": {
+              "7231": 770506752
+            }
+          },
+          "fit": {
+            "summed_rss_bytes": 965574656,
+            "rss_by_pid": {
+              "7231": 965574656
+            }
+          },
+          "durable_publication": {
+            "summed_rss_bytes": 1238368256,
+            "rss_by_pid": {
+              "7231": 957628416,
+              "7341": 21135360,
+              "7342": 259604480
+            }
+          },
+          "routine_save": {
+            "summed_rss_bytes": 974012416,
+            "rss_by_pid": {
+              "7231": 952877056,
+              "7341": 21135360
+            }
+          },
+          "verified_reopen": {
+            "summed_rss_bytes": 1129070592,
+            "rss_by_pid": {
+              "7231": 1107935232,
+              "7341": 21135360
+            }
+          },
+          "save_as": {
+            "summed_rss_bytes": 1129086976,
+            "rss_by_pid": {
+              "7231": 1107951616,
+              "7341": 21135360
+            }
+          },
+          "sample_reconstruction": {
+            "summed_rss_bytes": 1129152512,
+            "rss_by_pid": {
+              "7231": 1108017152,
+              "7341": 21135360
+            }
+          },
+          "missing_source_reopen": {
+            "summed_rss_bytes": 1129709568,
+            "rss_by_pid": {
+              "7231": 1108574208,
+              "7341": 21135360
+            }
+          },
+          "explicit_relink": {
+            "summed_rss_bytes": 1211318272,
+            "rss_by_pid": {
+              "7231": 1190182912,
+              "7341": 21135360
+            }
+          }
+        },
+        "rss_method": "25ms sampled sum of worker and descendants RSS; shared pages may count twice",
+        "numpy": "2.4.1"
+      },
+      {
+        "schema": "5.0.0",
+        "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+        "seconds": {
+          "load": 0.07410570798674598,
+          "fit": 4.237584750022506,
+          "durable_publication": 0.9166462080029305,
+          "first_save": 0.013335499999811873,
+          "routine_save": 0.008079000021098182,
+          "verified_reopen": 0.15897858300013468,
+          "save_as": 0.012624124996364117,
+          "sample_reconstruction": 0.02394024998648092,
+          "missing_source_reopen": 0.07007970800623298,
+          "explicit_relink": 0.15208366699516773
+        },
+        "project_bytes": {
+          "standard": 7114938,
+          "second_analysis": 7114938
+        },
+        "stored_array_groups": {
+          "shapes.npy": {
+            "members": 121,
+            "compressed_bytes": 95120
+          },
+          "amplitudes.npy": {
+            "members": 121,
+            "compressed_bytes": 176981
+          },
+          "amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9647
+          },
+          "amplitude_covariance.npy": {
+            "members": 121,
+            "compressed_bytes": 10576
+          },
+          "scaled_amplitude_standard_errors.npy": {
+            "members": 121,
+            "compressed_bytes": 9636
+          },
+          "0.npy": {
+            "members": 121,
+            "compressed_bytes": 13884
+          },
+          "1.npy": {
+            "members": 121,
+            "compressed_bytes": 13427
+          },
+          "neighbor_corrections.npy": {
+            "members": 121,
+            "compressed_bytes": 6143695
+          }
+        },
+        "stored_sample_matrices": {},
+        "exact_scientific_samples": true,
+        "model_roundtrip_bitwise_clusters": 121,
+        "cluster_count": 121,
+        "missing_source_numerical_review": true,
+        "phase_peak_memory": {
+          "startup": {
+            "summed_rss_bytes": 153141248,
+            "rss_by_pid": {
+              "7590": 153141248
+            }
+          },
+          "load": {
+            "summed_rss_bytes": 771620864,
+            "rss_by_pid": {
+              "7590": 771620864
+            }
+          },
+          "fit": {
+            "summed_rss_bytes": 937246720,
+            "rss_by_pid": {
+              "7590": 937246720
+            }
+          },
+          "durable_publication": {
+            "summed_rss_bytes": 1241513984,
+            "rss_by_pid": {
+              "7590": 960790528,
+              "7698": 21151744,
+              "7699": 259571712
+            }
+          },
+          "first_save": {
+            "summed_rss_bytes": 977190912,
+            "rss_by_pid": {
+              "7590": 956039168,
+              "7698": 21151744
+            }
+          },
+          "verified_reopen": {
+            "summed_rss_bytes": 1132314624,
+            "rss_by_pid": {
+              "7590": 1111162880,
+              "7698": 21151744
+            }
+          },
+          "save_as": {
+            "summed_rss_bytes": 1132347392,
+            "rss_by_pid": {
+              "7590": 1111195648,
+              "7698": 21151744
+            }
+          },
+          "sample_reconstruction": {
+            "summed_rss_bytes": 1132396544,
+            "rss_by_pid": {
+              "7590": 1111244800,
+              "7698": 21151744
+            }
+          },
+          "missing_source_reopen": {
+            "summed_rss_bytes": 1132953600,
+            "rss_by_pid": {
+              "7590": 1111801856,
+              "7698": 21151744
+            }
+          },
+          "explicit_relink": {
+            "summed_rss_bytes": 1217576960,
+            "rss_by_pid": {
+              "7590": 1196425216,
+              "7698": 21151744
+            }
+          }
+        },
+        "rss_method": "25ms sampled sum of worker and descendants RSS; shared pages may count twice",
+        "numpy": "2.4.1"
+      }
+    ]
+  }
+}

@@ -28,7 +28,7 @@ from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import Analysis, dataset_header, open_analysis, save_analysis
 from peakfit.gui.project_process import project_operation
-from peakfit.gui.project_results import journal_entry, verify_model
+from peakfit.gui.project_results import journal_entry, reconstruct_result, verify_model
 from peakfit.gui.session_evidence import SessionEvidence, interrupted_sessions
 from peakfit.gui.spectrum import Dataset, read_dataset
 from peakfit.io.scientific import read_scientific
@@ -90,8 +90,9 @@ def test_lossless_numerical_round_trip_no_optimization(analysis, tmp_path, monke
         project, "read_dataset", lambda _path, **_kw: (_ for _ in ()).throw(OSError("missing"))
     )
     loaded = open_analysis(path)
-    assert loaded.dataset is not None
-    np.testing.assert_array_equal(loaded.dataset.spectra.data, analysis.dataset.spectra.data)
+    assert loaded.dataset is None
+    assert loaded.current
+    assert not (path / "spectra").exists()
     assert loaded.peaks == analysis.peaks
     old, new = analysis.completion.result, loaded.completion.result
     assert new.inputs.snapshot.peaks == old.inputs.snapshot.peaks
@@ -100,17 +101,18 @@ def test_lossless_numerical_round_trip_no_optimization(analysis, tmp_path, monke
         (p.name, p.value, p.min, p.max, p.vary, p.unit) for p in new.inputs.parameters.values()
     ] == [(p.name, p.value, p.min, p.max, p.vary, p.unit) for p in old.inputs.parameters.values()]
     for a, b in zip(old.completed_fit.samples, new.completed_fit.samples, strict=True):
-        np.testing.assert_array_equal(a.data, b.data)
+        assert not hasattr(b, "data")
         np.testing.assert_array_equal(a.neighbor_corrections, b.neighbor_corrections)
-        assert not b.data.flags.writeable
     for a, b in zip(old.outcome.clusters, new.outcome.clusters, strict=True):
         assert a.final_nonlinear_parameters == b.final_nonlinear_parameters
         np.testing.assert_array_equal(
             a.analytical_evaluation.amplitudes, b.analytical_evaluation.amplitudes
         )
         np.testing.assert_array_equal(
-            a.analytical_evaluation.raw_residuals, b.analytical_evaluation.raw_residuals
+            a.analytical_evaluation.amplitude_covariance,
+            b.analytical_evaluation.amplitude_covariance,
         )
+        assert b.sample_evaluation is None
     verify_model(new)
     assert loaded.completion.working_peaks != new.inputs.snapshot.peaks
     assert all(
@@ -231,7 +233,7 @@ def test_real_source_relocation_missing_changed_and_explicit_relink(tmp_path):
     np.testing.assert_array_equal(loaded.dataset.spectra.z_values, dataset.spectra.z_values)
     moved = tmp_path / "moved.ft2"
     (path.parent / "spectrum.ft2").rename(moved)
-    assert open_analysis(path).dataset is not None
+    assert open_analysis(path).dataset is None
     assert open_analysis(path, relink=moved).dataset is not None
     content = moved.read_bytes()
     moved.write_bytes(content[:-1] + bytes([content[-1] ^ 1]))
@@ -382,7 +384,7 @@ def test_disposable_project_process_uses_only_trusted_ipc(analysis, tmp_path):
     saved = project_operation("save", (analysis, path), **options)
     assert saved == path
     loaded = project_operation("open", path, **options)
-    assert loaded.dataset is not None  # Uses the embedded array, not the synthetic source file.
+    assert loaded.dataset is None
     assert loaded.peaks == analysis.peaks
     assert loaded.current
     verify_model(loaded.completion.result)
@@ -742,55 +744,236 @@ def test_checkpoint_before_ui_adoption_does_not_delete_live_history_references(a
         owner.close()
 
 
-def test_embedded_source_delete_inspect_adjust_refit_and_save(analysis, tmp_path):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    path = save_analysis(analysis, tmp_path / "Portable.peakfit")
-    analysis.dataset.path.unlink()
-    loaded = open_analysis(path)
-    assert loaded.dataset is not None
-    np.testing.assert_array_equal(loaded.dataset.spectra.data, analysis.dataset.spectra.data)
-    verify_model(loaded.completion.result)
-    window = EditorWindow()
-    window.install_analysis(loaded)
-    workspace = window.workspace
-    assert workspace is not None
-    assert workspace.fitting.current
-    peak = workspace.peaks[0]
-    workspace.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.0001))
-    assert not workspace.fitting.current
-    prepared = prepare_dataset_fit(
-        workspace.dataset.spectra, workspace.peaks, workspace.fitting.configuration
+def test_two_linked_analyses_share_source_and_relink_is_persisted(tmp_path):
+    source = tmp_path / "spectrum.ft2"
+    shutil.copyfile(DATA / "pseudo3d.ft2", source)
+    dataset = read_dataset(source, DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
+    analysis = Analysis(
+        dataset, dataset_header(dataset), dataset.peaks, PeakFitConfig().model_dump_json(), 0
     )
+    first = save_analysis(analysis, tmp_path / "First.peakfit")
+    second = save_analysis(analysis, tmp_path / "Second.peakfit")
+    for path in (first, second):
+        assert not (path / "spectra").exists()
+        opened = open_analysis(path)
+        assert opened.dataset is not None, opened.reason
+        assert (
+            opened.header["source"]["checksum_sha256"]
+            == analysis.header["source"]["checksum_sha256"]
+        )
+    moved = tmp_path / "moved.ft2"
+    source.rename(moved)
+    assert open_analysis(first).dataset is None
+    linked = open_analysis(first, relink=moved)
+    assert linked.dataset is not None, linked.reason
+    save_analysis(linked, first)
+    assert open_analysis(first).dataset is not None
+    assert open_analysis(second).dataset is None  # No implicit filesystem search/relink.
+    moved.write_bytes(b"not a spectrum")
+    invalid = open_analysis(first)
+    assert invalid.dataset is None
+    assert invalid.reason
+
+
+def test_linked_verify_source_plane_identity(analysis, tmp_path, monkeypatch):
+    spectra = analysis.dataset.spectra.model_copy(deep=True)
+    spectra.exclude_planes([1])  # Repeated experimental values cannot identify these planes.
+    config = PeakFitConfig.model_validate_json(analysis.configuration)
+    prepared = prepare_dataset_fit(spectra, analysis.peaks, config)
     prepared = replace(
-        prepared, snapshot=replace(prepared.snapshot, source_files=loaded.dataset.sources)
+        prepared, snapshot=replace(prepared.snapshot, source_files=analysis.dataset.sources)
     )
-    fitted = finish_dataset_fit(prepared, compute_dataset_fit(prepared))
+    result = finish_dataset_fit(prepared, compute_dataset_fit(prepared))
     completion = dataset_completion(
-        fitted,
-        prepared.snapshot,
-        submitted_revision=workspace.edits.revision,
-        manual_revision=workspace.edits.revision,
+        result, prepared.snapshot, submitted_revision=0, manual_revision=0
     )
-    updated = replace(
-        window.capture_analysis(),
-        peaks=completion.working_peaks,
-        runs=(*loaded.runs, completion),
-        active=completion,
+    path = save_analysis(
+        replace(analysis, runs=(completion,), peaks=completion.working_peaks),
+        tmp_path / "Mapped.peakfit",
     )
-    save_analysis(updated, path)
-    reopened = open_analysis(path)
-    assert reopened.dataset is not None
-    assert reopened.completion.result.run_id == fitted.run_id
-    assert len(list((path / "spectra").glob("*.npz"))) == 1
-    verify_model(reopened.completion.result)
-    window._saved_key = window._analysis_key()
-    window.close()
+    monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)
+    loaded = open_analysis(path)
+    assert loaded.dataset is not None, loaded.reason
+    assert loaded.completion.result.inputs.snapshot.source_plane_indices == (0, 2)
+    for old, new in zip(
+        result.completed_fit.samples,
+        reconstruct_result(loaded.completion.result, loaded.dataset).completed_fit.samples,
+        strict=True,
+    ):
+        np.testing.assert_array_equal(old.data, new.data)
+        np.testing.assert_array_equal(old.neighbor_corrections, new.neighbor_corrections)
+
+
+def test_project_has_no_observations_predictions_or_residual_arrays(analysis, tmp_path):
+    from zipfile import ZipFile  # noqa: PLC0415
+
+    path = save_analysis(analysis, tmp_path / "External.peakfit")
+    assert {p.name for p in path.iterdir()} == {"manifest.json", "runs"}
+    with ZipFile(next(path.rglob("result.npz"))) as archive:
+        assert all(
+            not name.endswith(
+                (
+                    "/data.npy",
+                    "/model_values.npy",
+                    "/raw_residuals.npy",
+                    "/normalized_residuals.npy",
+                )
+            )
+            for name in archive.namelist()
+        )
+        assert json.loads(archive.read("metadata.json"))["evidence"] == "results"
+    loaded = open_analysis(path, canceled=lambda: True)
+    copied = save_analysis(loaded, tmp_path / "Copied.peakfit")
+    assert (
+        next(path.rglob("result.npz")).read_bytes() == next(copied.rglob("result.npz")).read_bytes()
+    )
+
+
+def test_reconstruction_exact_parent_inputs_no_solve_and_reference_failure(
+    analysis, tmp_path, monkeypatch
+):
+    path = save_analysis(analysis, tmp_path / "External.peakfit")
+    monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)
+    loaded = open_analysis(path)
+    assert loaded.dataset is not None, loaded.reason
+
+    def forbidden(*_args, **_kw):
+        pytest.fail("Reconstruction must not refit or resolve amplitudes")
+
+    monkeypatch.setattr(pipeline, "run_pipeline_iter", forbidden)
+    from peakfit.engine.algorithms import evaluation  # noqa: PLC0415
+    from peakfit.io.readers.continuation import continuation_state  # noqa: PLC0415
+
+    monkeypatch.setattr(evaluation, "evaluate_analytical_model", forbidden)
+    restored = reconstruct_result(loaded.completion.result, loaded.dataset)
+    for before, after in zip(
+        analysis.completion.result.completed_fit.samples,
+        restored.completed_fit.samples,
+        strict=True,
+    ):
+        assert before.data.tobytes() == after.data.tobytes()
+        assert before.neighbor_corrections.tobytes() == after.neighbor_corrections.tobytes()
+    for before, after in zip(
+        analysis.completion.result.outcome.clusters, restored.outcome.clusters, strict=True
+    ):
+        if before.sample_evaluation:
+            np.testing.assert_allclose(
+                before.sample_evaluation.model_values,
+                after.sample_evaluation.model_values,
+                rtol=1e-10,
+                atol=1e-9,
+            )
+            np.testing.assert_allclose(
+                before.sample_evaluation.raw_residuals,
+                after.sample_evaluation.raw_residuals,
+                rtol=1e-10,
+                atol=1e-9,
+            )
+    state = continuation_state(restored.completed_fit)
+    for cluster, sample in zip(state.clusters, restored.completed_fit.samples, strict=True):
+        np.testing.assert_array_equal(
+            cluster.corrected_data, sample.data - sample.neighbor_corrections
+        )
+    broken = loaded.dataset.spectra.model_copy(deep=True)
+    broken.data.flat[0] += 123
+    # Modify an actual fitted observation, not a pixel outside the masks.
+    sample = restored.completed_fit.samples[0]
+    broken.data[(0, *[i[0] for i in sample.grid_indices])] += 123
+    with pytest.raises(ValueError, match="recorded identity"):
+        reconstruct_result(loaded.completion.result, replace(loaded.dataset, spectra=broken))
+
+
+def test_missing_source_disables_samples_preserves_numerical_inspection(analysis, tmp_path):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    path = save_analysis(analysis, tmp_path / "External.peakfit")
+    missing = open_analysis(path, canceled=lambda: True)
+    review = NumericalReview(missing)
+    assert review.parameters.rowCount() > 0
+    assert review.peak.count() > 0
+    assert not review.plane.isEnabled()
+    assert not review.cluster.isEnabled()
+    assert review.samples.rowCount() == 0
+    assert review.export.isEnabled()
+    review.close()
     app.processEvents()
 
 
-def test_corrupt_embedded_spectrum_rejected_before_display(analysis, tmp_path):
-    path = save_analysis(analysis, tmp_path / "Corrupt.peakfit")
-    payload = next((path / "spectra").glob("*.npz"))
-    payload.write_bytes(b"corrupt")
-    with pytest.raises(ValueError, match="Corrupt embedded"):
-        open_analysis(path)
+def test_verified_numerical_review_materializes_only_requested_samples(
+    analysis, tmp_path, monkeypatch
+):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    path = save_analysis(analysis, tmp_path / "External.peakfit")
+    monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)
+    loaded = open_analysis(path)
+    assert all(c.sample_evaluation is None for c in loaded.completion.result.outcome.clusters)
+    review = NumericalReview(loaded)
+    wait_for(lambda: review._loaded_completion is not None)
+    assert review.parameters.rowCount() > 0
+    assert review.samples.rowCount() > 0
+    assert review.plane.isEnabled()
+    assert all(c.sample_evaluation is None for c in loaded.completion.result.outcome.clusters)
+    review.close()
+    app.processEvents()
+
+
+def test_reconstruction_checks_evaluator_tolerance_and_rejects_drift(
+    analysis, tmp_path, monkeypatch
+):
+    from peakfit.engine.domain.cluster import Cluster  # noqa: PLC0415
+
+    path = save_analysis(analysis, tmp_path / "External.peakfit")
+    loaded = open_analysis(path, canceled=lambda: True)
+    original = Cluster.evaluate_peaks
+    monkeypatch.setattr(
+        Cluster, "evaluate_peaks", lambda *a, **kw: original(*a, **kw) * (1 + 1e-12)
+    )
+    reconstruct_result(loaded.completion.result, analysis.dataset)
+    monkeypatch.setattr(Cluster, "evaluate_peaks", lambda *a, **kw: original(*a, **kw) * (1 + 1e-4))
+    with pytest.raises(AssertionError, match="reference"):
+        reconstruct_result(loaded.completion.result, analysis.dataset)
+
+
+@pytest.mark.parametrize("detailed", [False, True])
+def test_reopened_project_exports_preserve_completed_science(analysis, tmp_path, detailed):
+    from zipfile import ZipFile  # noqa: PLC0415
+
+    from peakfit.gui.fit_export import export_fit_result  # noqa: PLC0415
+
+    path = save_analysis(analysis, tmp_path / "External.peakfit")
+    loaded = open_analysis(path, canceled=lambda: True)
+    before = export_fit_result(
+        analysis.completion.result,
+        tmp_path / "Before",
+        completion=analysis.completion,
+        current=True,
+        detailed_evidence=detailed,
+    )
+    after = export_fit_result(
+        loaded.completion.result,
+        tmp_path / "After",
+        completion=loaded.completion,
+        current=True,
+        detailed_evidence=detailed,
+        dataset=analysis.dataset,
+    )
+    with ZipFile(before / "scientific.npz") as a, ZipFile(after / "scientific.npz") as b:
+        assert set(a.namelist()) == set(b.namelist())
+        for name in a.namelist():
+            if name.endswith(".npy") and name.startswith(("outcome/", "samples/")):
+                np.testing.assert_allclose(
+                    np.load(a.open(name)), np.load(b.open(name)), rtol=1e-10, atol=1e-9
+                )
+        assert json.loads(a.read("metadata.json")) == json.loads(b.read("metadata.json"))
+    for name in ("parameters", "intensities", "clusters", "shifts"):
+        assert (before / f"tables/{name}.csv").read_bytes() == (
+            after / f"tables/{name}.csv"
+        ).read_bytes()
+    if detailed:
+        with pytest.raises(ValueError, match="Detailed evidence requires"):
+            export_fit_result(
+                loaded.completion.result, tmp_path / "Unavailable", detailed_evidence=True
+            )
+    else:
+        export_fit_result(
+            loaded.completion.result, tmp_path / "NumericalOnly", detailed_evidence=False
+        )

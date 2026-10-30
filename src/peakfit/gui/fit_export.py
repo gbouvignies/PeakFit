@@ -1,6 +1,7 @@
 """Staged scientific export of retained fits, without Qt or continuation state."""
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
@@ -11,6 +12,7 @@ from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.scientific.completed import CompletedFit, FinalClusterSamples
 from peakfit.fit.export import write_completed_outputs
 from peakfit.gui.dataset_fit import DatasetFitResult
+from peakfit.gui.project_results import reconstruct_result
 from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.writers.config import WriterConfig
 
@@ -26,6 +28,7 @@ def export_fit_result(
     completion: DatasetCompletion | None = None,
     current: bool | None = None,
     detailed_evidence: bool | None = None,
+    dataset=None,
 ) -> Path:
     """Publish all required artifacts together, refusing any existing destination.
 
@@ -37,6 +40,16 @@ def export_fit_result(
     destination = destination.absolute()
     if destination.exists() or destination.is_symlink():
         raise FileExistsError(f"Choose a new results directory: {destination} already exists.")
+    if completion is not None and completion.result is not result:
+        raise ValueError("Export completion belongs to a different run.")
+    if (
+        isinstance(result, DatasetFitResult)
+        and dataset is not None
+        and any(not isinstance(s, FinalClusterSamples) for s in result.completed_fit.samples)
+    ):
+        result = reconstruct_result(result, dataset)
+        if completion is not None:
+            completion = replace(completion, result=result)
     inputs = result.inputs
     snapshot = inputs.snapshot
     configuration = json.loads(snapshot.configuration)

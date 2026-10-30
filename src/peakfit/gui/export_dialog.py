@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.scientific.completed import FinalClusterSamples
 from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fit_export import export_fit_result
 
@@ -28,7 +29,7 @@ class _ExportProgress(QtWidgets.QProgressDialog):
         event.ignore()
 
 
-def _choose_export_directory(parent, include_evidence=False):
+def _choose_export_directory(parent, include_evidence=False, *, evidence_available=True):
     """One optional evidence checkbox alongside the destination picker."""
     dialog = QtWidgets.QFileDialog(parent, "Export fit results — choose parent directory")
     dialog.setFileMode(QtWidgets.QFileDialog.FileMode.Directory)
@@ -36,7 +37,10 @@ def _choose_export_directory(parent, include_evidence=False):
     detailed = QtWidgets.QCheckBox(
         "Include detailed evidence for portable sample review and continuation"
     )
-    detailed.setChecked(include_evidence)
+    detailed.setChecked(include_evidence and evidence_available)
+    detailed.setEnabled(evidence_available)
+    if not evidence_available:
+        detailed.setToolTip("Relink the verified spectrum before exporting detailed evidence.")
     layout = dialog.layout()
     assert layout is not None
     layout.addWidget(detailed)
@@ -51,10 +55,18 @@ def choose_and_export(
     *,
     completion: DatasetCompletion | None = None,
     current: bool | None = None,
+    dataset=None,
 ) -> Path | None:
     """Choose a parent directory and create a new result-specific child directory."""
     setting = json.loads(result.inputs.snapshot.configuration).get("output", {})
-    directory, detailed = _choose_export_directory(parent, setting.get("detailed_evidence", False))
+    available = (
+        dataset is not None
+        or not isinstance(result, DatasetFitResult)
+        or all(isinstance(s, FinalClusterSamples) for s in result.completed_fit.samples)
+    )
+    directory, detailed = _choose_export_directory(
+        parent, setting.get("detailed_evidence", False), evidence_available=available
+    )
     if not directory:
         return None
     prefix = "dataset-fit" if isinstance(result, DatasetFitResult) else "local-fit"
@@ -77,6 +89,7 @@ def choose_and_export(
                 completion=completion,
                 current=current,
                 detailed_evidence=detailed,
+                dataset=dataset,
             )
 
         # Let the modal transition show progress and enter Qt before competing

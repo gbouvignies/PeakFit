@@ -1,13 +1,12 @@
 # PeakFit GUI Design Specification v2.0
 
-> **Storage-policy amendment for PR #71:** the current [output/project contract](outputs.md)
-> supersedes this baseline's linked-source/no-embedding requirements and JSON
-> persistence examples. Default projects now embed the full experimental cube
-> once and detailed sample evidence, supporting inspection, edits and fitting
-> without input files. Default scientific exports retain exact results/corrections
-> with CSV/report; one optional detailed-evidence selection adds portable samples.
-> Terminal corrections cannot be inferred from final fitted models. Initial/fitted/
-> adopted coordinates and Current/Outdated distinctions below remain required.
+> **Current storage policy:** [output/project contract](outputs.md) supersedes
+> this baseline's JSON persistence examples. Standard saves link a verified external
+> spectrum and retain compact fitted authority, exact corrections and reconstruction
+> references. Projects never embed experimental or simulated spectra. Scientific
+> exports remain compact, share GUI/CLI infrastructure and retain terminal
+> corrections. Initial/fitted/adopted coordinates and Current/Outdated distinctions
+> below remain required.
 
 
 **Status:** approved production design baseline; implementation proceeds in complete
@@ -727,8 +726,9 @@ historical Current/Outdated state. A source-unavailable run must not appear as a
 verified live comparison merely because its saved working state was Current.
 
 1. **Numerical evidence:** validated retained values, errors, diagnostics, initial/
-   fitted coordinates, settings, plane mappings, sampled observations/corrections,
-   profiles and retained MCMC evidence are readable/exportable without sources.
+   fitted coordinates, settings, plane mappings, exact terminal corrections,
+   amplitude profiles and retained MCMC evidence are readable/exportable without sources.
+   Experimental samples/model predictions/residuals are not retained in projects.
    Show exactly which evidence is retained. A Summary-only attempt is a smaller
    subset; no amplitude profiles, chains or sample residuals are invented when pruned.
 2. **Verified comparison:** verified linked sources plus supported axis/model/
@@ -737,8 +737,8 @@ verified live comparison merely because its saved working state was Current.
    saved analytical values within declared scientific tolerances before enabling
    Overlay/Residual. Source checksum equality alone does not establish this capability.
    Without verified sources, disable live Experimental/Overlay/Residual, full-spectrum
-   slices and figures requiring those sources. Retained sample plots remain explicitly
-   labeled sample evidence, never presented as a reconstructed full spectrum.
+   slices and figures requiring those sources. Sample review reconstructs observations
+   from the verified source and predictions/residuals from saved fitted values.
 3. **Validated numerical continuation:** a new fit requires verified spectral inputs
    and fresh preparation from working inputs. MCMC requires an executable exact parent
    problem: sampled observations/indices, terminal corrections, descriptors, bounds/
@@ -757,13 +757,10 @@ Corrupt project evidence must be reported as such, never repaired by silently
 refitting. Unsupported manifest versions are rejected explicitly. Legacy local
 results keep their local scope; missing capabilities never imply fabricated models.
 
-**Export portable analysis** is an optional future, explicit operation, separate
-from Save analysis, Save as and scientific Export. It would embed verified original
-source data with retained project evidence, show estimated size/copy progress and
-support cancellation/atomic publication. It is not required for milestone 3 or GUI
-v2 acceptance. Standard projects remain linked; users moving one must also make
-its external sources available or relink them. Portability must never be achieved
-by silently copying sources during Save.
+Projects never embed original or simulated spectra. Transferring an analysis
+requires transferring the independent spectrum and explicitly relinking it when
+necessary. Scientific detailed-evidence exports remain a separate operation;
+they do not change the project persistence policy.
 
 **Export…** separates Working peaks, Accepted fit results, Profiles/tables,
 Uncertainty diagnostics/chains and Figure. Canonical JSON/CSV retains existing
@@ -907,7 +904,7 @@ The approved architecture remains unchanged. This revision replaces the text-hea
 refinement panel, two-run interruption policy, draft-driven comparison hiding,
 raster default, per-preview autoscaling and manual fitted-position transfer.
 Standard Save now references external spectra instead of requiring embedded inputs;
-there is no implemented v2 project format to migrate. Moving a project may require
+old project formats are explicitly unsupported. Moving a project may require
 moving its sources separately and verified relinking. Canonical exports stay compatible.
 
 Remaining acceptance concerns are full production fit/save/MCMC integration,

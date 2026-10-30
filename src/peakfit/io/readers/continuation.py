@@ -57,8 +57,8 @@ def restore_geometry(
         if record["cluster_id"] != cid:
             raise ValueError("Model cluster identity mismatch.")
         indices = sample.grid_indices
-        data, corrections = sample.data, sample.neighbor_corrections
-        if len(indices) != len(data_shape) - 1 or data.shape[1] != len(plane_values):
+        corrections = sample.neighbor_corrections
+        if len(indices) != len(data_shape) - 1 or corrections.shape[1] != len(plane_values):
             raise ValueError("Retained samples disagree with the recorded source dimensions.")
         for index, length in zip(indices, data_shape[1:], strict=True):
             if np.any(index >= length):
@@ -95,15 +95,16 @@ def restore_geometry(
                 cid,
                 terminal.peak_names,
                 tuple(peaks),
-                data.shape[1],
-                data.shape[0],
+                corrections.shape[1],
+                corrections.shape[0],
                 len(indices),
                 tuple(i.shape for i in indices),
             )
         )
-        cluster = Cluster(cid, peaks, list(indices), data)
-        cluster.corrections = corrections
-        clusters.append(cluster)
+        if isinstance(sample, FinalClusterSamples):
+            cluster = Cluster(cid, peaks, list(indices), sample.data)
+            cluster.corrections = corrections
+            clusters.append(cluster)
     model = FinalModelSnapshot(
         tuple(geometry),
         outcome.noise,
@@ -113,7 +114,7 @@ def restore_geometry(
     return model, clusters
 
 
-def restore_completed(outcome, samples, context, *, source_data=None):
+def restore_completed(outcome, samples, context, *, source_data=None, source_planes=None):
     """Reconstruct exact inputs and validate the recorded evaluator before continuation."""
     shape = tuple(context["data_shape"])
     full = []
@@ -126,10 +127,10 @@ def restore_completed(outcome, samples, context, *, source_data=None):
                     "Compact results require a verified spectrum for continuation. "
                     "Use a detailed-evidence export for source-independent continuation."
                 )
-            values = np.asarray(
-                source_data[(slice(None), *sample.grid_indices)].T,
-                dtype=np.dtype(sample.observation_dtype),
-            )
+            observed = source_data[(slice(None), *sample.grid_indices)].T
+            if source_planes is not None:
+                observed = observed[:, source_planes]
+            values = np.asarray(observed, dtype=np.dtype(sample.observation_dtype))
             if hashlib.sha256(values.tobytes()).hexdigest() != sample.observation_sha256:
                 raise ValueError(
                     "Reconstructed observations disagree with their exact recorded identity."
@@ -283,6 +284,8 @@ def continuation_state(completed):
         )
     clusters = []
     for geometry, sample in zip(completed.model_snapshot.clusters, completed.samples, strict=True):
+        if not isinstance(sample, FinalClusterSamples):
+            raise ValueError("Continuation requires verified external observations.")
         if not completed.outcome.cluster(sample.cluster_id).usable:
             raise ValueError("Unusable parent cluster cannot be continued; adjust and refit it.")
         cluster = Cluster(
