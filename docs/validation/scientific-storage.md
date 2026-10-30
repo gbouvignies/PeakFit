@@ -1,5 +1,10 @@
 # Lossless scientific storage and interface parity
 
+A subsequent [retention-policy audit](scientific-storage-audit.md) measures the
+complete CLI/GUI output directories and each stored array. It recommends compact
+published results plus explicit detailed evidence; those retention changes are
+proposals and have not changed the implementation measured here.
+
 Validated on 30 October 2026, macOS arm64, Apple M5 Pro, 64 GiB RAM,
 Python 3.14.5 and Qt Cocoa. Baseline is merged Milestone 3, `06157dd`.
 The bundled real workload is 131 × 256 × 546, with 166 peaks, 121 clusters,
