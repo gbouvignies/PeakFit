@@ -254,7 +254,9 @@ see the measured validation instead of assuming total memory falls with file siz
 
 ## Reading and migrating existing files
 
-- Scientific NPZ **1.0.0** and **2.0.0** remain readable. New writes use 2.0.0.
+- Scientific NPZ **1.0.0** and **2.0.0** remain readable, including the first PR
+  schema-1 context without later coordinate/adoption fields. Missing old facts
+  remain unknown; new exports require the complete context. New writes use 2.0.0.
 - Projects **1.0.0/1.1.0** (Milestone 3 JSON/sample evidence) and **2.0.0**
   (earlier PR #71 NPZ evidence) remain readable, including source-free numerical
   review. To save as a self-contained 3.0.0 project, first verify/relink the original

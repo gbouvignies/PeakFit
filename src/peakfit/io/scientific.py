@@ -239,7 +239,9 @@ def read_scientific(path):  # noqa: PLR0915
         **raw,
     )
     _validate_science(outcome, samples)
-    _validate_context(outcome, samples, decoded["context"])
+    _validate_context(
+        outcome, samples, decoded["context"], legacy=document["schema_version"] == "1.0.0"
+    )
     return outcome, samples, decoded["context"]
 
 
@@ -374,7 +376,7 @@ def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
             raise ValueError("Recorded observation count disagrees with samples.")
 
 
-def _validate_context(outcome, samples, context):  # noqa: PLR0912
+def _validate_context(outcome, samples, context, *, legacy=False):  # noqa: PLR0912
     """Validate export coordinate/identity associations when full context is present."""
     if not context:
         return
@@ -403,14 +405,21 @@ def _validate_context(outcome, samples, context):  # noqa: PLR0912
     identities = [i["engine_name"] for i in identity_records]
     if len(set(identities)) != len(identities) or set(identities) != names:
         raise ValueError("Scientific peak identity mapping disagrees with the outcome.")
-    state = context["export_state"]
-    if (
-        set(state) != {"scope", "currentness", "adoption_warnings"}
-        or state["scope"] not in {"dataset", "cluster"}
-        or state["currentness"] not in {"current", "outdated", "unknown", "not_applicable"}
-    ):
-        raise ValueError("Invalid scientific export-time state.")
-    validate_coordinate_table(context["coordinate_table"], outcome, context)
+    # Initial PR #71 schema-1 exports predate coordinate/adoption context.
+    # Read their original evidence without inventing working-state facts. New
+    # context must supply the complete contract; partial legacy context is invalid.
+    coordinate_keys = {"export_state", "coordinate_table"}
+    if not (legacy and coordinate_keys.isdisjoint(context)):
+        if not coordinate_keys <= context.keys():
+            raise ValueError("Missing scientific coordinate/export-state context.")
+        state = context["export_state"]
+        if (
+            set(state) != {"scope", "currentness", "adoption_warnings"}
+            or state["scope"] not in {"dataset", "cluster"}
+            or state["currentness"] not in {"current", "outdated", "unknown", "not_applicable"}
+        ):
+            raise ValueError("Invalid scientific export-time state.")
+        validate_coordinate_table(context["coordinate_table"], outcome, context)
     for sample in samples:
         if (
             sample.neighbor_corrections.shape[1] != len(planes)

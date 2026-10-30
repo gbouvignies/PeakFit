@@ -49,6 +49,9 @@ def test_linked_project_migration_requires_verified_source_then_embeds_it(
     from peakfit.gui.spectrum import Dataset  # noqa: PLC0415
 
     spectrum, _, _, _ = _dataset()
+    # Exact source verification must not compare a regenerated libm-dependent
+    # synthetic spectrum with bytes recorded on another platform.
+    spectrum.data = np.load(DATA / "source.npy", allow_pickle=False)
     source = tmp_path / "verified.ft2"
     source.write_bytes(b"legacy")
     record = json.dumps(
@@ -104,3 +107,17 @@ def test_plain_json_project_v1_layout_remains_readable(tmp_path):
         (directory / "summary/fit.json.gz").unlink()
     (path / "manifest.json").write_text(json.dumps(manifest))
     assert open_analysis(path).completion.result.outcome.n_optimizer_passes == 2
+
+
+def test_first_pr_scientific_context_remains_readable_without_invented_adoption():
+    from peakfit.io.readers.continuation import load_completed  # noqa: PLC0415
+
+    path = DATA / "science-v1-initial-context.npz"
+    outcome, samples, context = read_scientific(path)
+    assert "coordinate_table" not in context
+    assert "export_state" not in context
+    assert context["peak_identities"]
+    assert outcome.n_optimizer_passes == 2
+    assert samples
+    restored = load_completed(path)
+    assert restored.outcome.n_optimizer_passes == 2
