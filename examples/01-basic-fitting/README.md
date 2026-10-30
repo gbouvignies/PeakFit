@@ -43,7 +43,7 @@ peakfit fit data/spectrum.ft2 data/peaks.list \
 
 After a run:
 
-- `summary/fit.json`
+- `scientific.npz` and `summary/report.md`
 - `tables/parameters.csv`
 - `tables/intensities.csv`
 

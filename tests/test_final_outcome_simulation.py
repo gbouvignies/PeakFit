@@ -20,15 +20,16 @@ from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.simulation import simulate_data
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
-from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
+from peakfit.engine.scientific.completed import CompletedFit
+from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
+from peakfit.engine.scientific.simulation import FinalModelSnapshot, simulate_final_outcome
+from peakfit.fit.export import write_completed_outputs
 from peakfit.fit.pipeline import CorrectionSnapshot, PipelineCompletion
-from peakfit.fit.simulation import FinalModelSnapshot, simulate_final_outcome
-from peakfit.io.writers.run_files import write_simulated_spectra
+from peakfit.io.output_metadata import RunMetadata
+from peakfit.io.writers.config import WriterConfig
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from peakfit.shared.typing import FloatArray
 
 
 @dataclass(frozen=True)
@@ -353,29 +354,29 @@ def test_simulation_rejects_grid_dimension_mismatch() -> None:
         )
 
 
-def test_simulated_writer_consumes_outcome_and_snapshot(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_simulated_writer_consumes_outcome_and_snapshot(tmp_path: Path) -> None:
     fixture = _fixture({11: (True, True)})
-    written: list[tuple[str, FloatArray]] = []
-
-    class FakePipe:
-        def write(self, path: str, _dic: object, data: FloatArray, *, overwrite: bool) -> None:
-            assert overwrite is True
-            written.append((path, data.copy()))
-
-    class FakeNmrglue:
-        pipe = FakePipe()
-
-    monkeypatch.setattr("peakfit.io.writers.run_files.import_module", lambda _name: FakeNmrglue())
-    simulated = simulate_final_outcome(fixture.outcome, fixture.snapshot, fixture.spectra.data)
-    assert simulated is not None
-
-    path = write_simulated_spectra(
-        tmp_path,
-        fixture.spectra,
-        simulated,
+    completed = CompletedFit.capture(
+        fixture.outcome,
+        fixture.state,
+        CorrectionSnapshot.from_clusters(
+            fixture.state.clusters, fixture.outcome.terminal_correction_revision
+        ),
     )
-
-    assert path is not None
-    assert written
+    expected = simulate_final_outcome(fixture.outcome, fixture.snapshot, fixture.spectra.data)
+    assert expected is not None
+    fixture.state.clusters[0].data.fill(np.nan)
+    files = write_completed_outputs(
+        completed,
+        tmp_path,
+        WriterConfig(formats=()),
+        metadata=RunMetadata(),
+        data_shape=fixture.spectra.data.shape,
+        spectral_parameters=[p.model_dump() for p in fixture.spectra.params],
+        plane_values=fixture.spectra.z_values,
+        source_plane_indices=fixture.spectra.source_plane_indices,
+        save_simulated=True,
+    )
+    actual = np.load(files["simulated"], allow_pickle=False)
+    assert actual.dtype == np.dtype("float64")
+    assert actual.tobytes() == expected.tobytes()

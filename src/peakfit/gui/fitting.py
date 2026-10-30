@@ -46,6 +46,7 @@ class FitInputSnapshot:
     configuration: str
     contour_level: float
     source_files: tuple[tuple[str, str], ...] = ()
+    source_plane_indices: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +158,7 @@ def prepare_dataset_fit(
             peaks,
             settings.model_dump_json(),
             float(threshold),
+            source_plane_indices=spectra.source_plane_indices,
         ),
         identities,
         tuple(shape_names),
@@ -224,6 +226,7 @@ def prepare_local_fit(
         peaks=tuple(peaks),
         configuration=settings.model_dump_json(),
         contour_level=float(contour_level),
+        source_plane_indices=spectra.source_plane_indices,
     )
     # Fresh metadata prevents edits to plane labels or axes changing this model.
     scientific_spectra = spectra.model_copy(

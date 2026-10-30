@@ -52,6 +52,6 @@ peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 
 ## Notes
 
-- `peakfit mcmc` reads `metadata/fitting_state.pkl` from the fit output.
+- `peakfit mcmc` reads native `scientific.npz`, with a verified source or detailed evidence.
 - Target selection is cluster-based: a requested peak triggers analysis of its full overlap cluster.
 - MCMC diagnostics are printed in the terminal, and chains are saved under `chains/`.

@@ -34,4 +34,4 @@ fi
 echo
 echo "Run complete."
 echo "Latest results: ${latest_run}"
-echo "Inspect: ${latest_run}/summary/fit.json"
+echo "Inspect: ${latest_run}/summary/report.md"

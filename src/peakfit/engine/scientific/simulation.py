@@ -20,8 +20,8 @@ if TYPE_CHECKING:
 
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.state import FittingState
-    from peakfit.fit.final_outcome import (
-        FinalAnalyticalEvaluation,
+    from peakfit.engine.scientific.final_outcome import (
+        FinalAnalyticalResult,
         FinalClusterOutcome,
         FinalFitOutcome,
         FinalParameter,
@@ -366,7 +366,7 @@ def _validate_usable_projection(
     outcome: FinalClusterOutcome,
     snapshot: FinalModelCluster,
     n_series: int,
-) -> FinalAnalyticalEvaluation:
+) -> FinalAnalyticalResult:
     evaluation = outcome.analytical_evaluation
     if evaluation is None:
         raise ValueError(
@@ -386,11 +386,12 @@ def _validate_usable_projection(
             f"got {evaluation.amplitudes.shape}"
         )
     expected_model = (snapshot.n_points, n_series)
-    if evaluation.model_values.shape != expected_model:
+    sampled = outcome.sample_evaluation
+    if sampled is not None and sampled.model_values.shape != expected_model:
         raise ValueError(
             "Analytical model shape mismatch for "
             f"cluster_id {outcome.cluster_id}: expected {expected_model}, "
-            f"got {evaluation.model_values.shape}"
+            f"got {sampled.model_values.shape}"
         )
     expected_shapes = (len(snapshot.peaks), snapshot.n_points)
     if evaluation.shapes.shape != expected_shapes:

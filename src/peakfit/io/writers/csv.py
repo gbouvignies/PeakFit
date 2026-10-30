@@ -13,7 +13,7 @@ from peakfit.io.writers.utils import format_float
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.fit.final_outcome import FinalFitOutcome
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
 _CANONICAL_NAME_PARTS = 3
 
 
@@ -57,8 +57,10 @@ def write_final_outcome_intensities(
     z_values: np.ndarray | None,
     path: Path,
     config: WriterConfig | None = None,
+    *,
+    source_plane_indices: np.ndarray | None = None,
 ) -> None:
-    """Write frozen analytical amplitudes for usable final outcomes only."""
+    """Write frozen amplitudes with both fitting-column and source-plane identity."""
     cfg = config or WriterConfig()
     rows: list[dict[str, Any]] = []
     for cluster in outcome.clusters:
@@ -67,6 +69,15 @@ def write_final_outcome_intensities(
         evaluation = cluster.analytical_evaluation
         if evaluation is None:
             raise ValueError("Usable final outcome is missing its analytical evaluation.")
+        n_planes = evaluation.amplitudes.shape[1]
+        indices = np.arange(n_planes) if source_plane_indices is None else source_plane_indices
+        if (
+            indices.shape != (n_planes,)
+            or indices.dtype.kind not in "iu"
+            or np.any(indices < 0)
+            or len(np.unique(indices)) != n_planes
+        ):
+            raise ValueError("Invalid intensity source-plane mapping.")
         for peak_index, peak_name in enumerate(cluster.peak_names):
             for plane_index in range(evaluation.amplitudes.shape[1]):
                 z_value = (
@@ -90,6 +101,7 @@ def write_final_outcome_intensities(
                             unavailable="unavailable",
                         ),
                         "plane_index": plane_index,
+                        "source_plane_index": int(indices[plane_index]),
                     }
                 )
     _write_rows(path, _intensity_header(), rows)
@@ -196,7 +208,14 @@ def _parameter_header(rows: list[dict[str, Any]]) -> list[str]:
 
 
 def _intensity_header() -> list[str]:
-    header = ["peak_name", "z_value", "intensity", "intensity_err", "plane_index"]
+    header = [
+        "peak_name",
+        "z_value",
+        "intensity",
+        "intensity_err",
+        "plane_index",
+        "source_plane_index",
+    ]
     return header + _outcome_columns()
 
 

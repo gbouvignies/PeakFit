@@ -1,0 +1,45 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "python": "3.14.5",
+  "shape": [
+    131,
+    256,
+    546
+  ],
+  "fit_seconds": 3.9523742079909425,
+  "peak_rss_before_publication_bytes": 1081638912,
+  "isolated_publication": {
+    "before_publication_peak_rss_bytes": 264208384,
+    "publication_peak_rss_bytes": 267141120,
+    "seconds": 0.5094973339873832
+  },
+  "durable_publication_seconds": 0.5130513340118341,
+  "fit_to_durable_acceptance_seconds": 4.465425542002777,
+  "first_save_seconds": 0.021721625002101064,
+  "routine_save_seconds": 0.006045124988304451,
+  "verified_reopen_seconds": 0.6105962919828016,
+  "historical_load_seconds": 0.1647198330028914,
+  "exact_round_trip_and_reconstruction": true,
+  "project_bytes": 29313977,
+  "peak_rss_bytes": 1139458048,
+  "candidates": [
+    {
+      "format": "npz_stored",
+      "bytes": 33477563,
+      "write_seconds": 0.043818082980578765,
+      "read_seconds": 0.07702979099121876
+    },
+    {
+      "format": "npz_deflate1",
+      "bytes": 28931855,
+      "write_seconds": 0.4841782499861438,
+      "read_seconds": 0.14790750000975095
+    },
+    {
+      "format": "hdf5_uncompressed_arrays",
+      "bytes": 33965251,
+      "write_seconds": 0.05824824998853728,
+      "read_seconds": 0.041098999994574115
+    }
+  ]
+}

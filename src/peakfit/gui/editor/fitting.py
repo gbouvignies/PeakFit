@@ -210,6 +210,7 @@ class DatasetFitting(QtCore.QObject):
             )
             protected = frozenset(self.protected)
 
+            dataset = self.workspace.dataset
             generation = self._generation
             parent_id = self._attempt_parent
 
@@ -222,7 +223,7 @@ class DatasetFitting(QtCore.QObject):
                     return completion, (completion,), (*journal, entry)
                 self.attempt = "Preserving accepted evidence"
                 analysis = Analysis(
-                    None,
+                    dataset,
                     header,
                     completion.working_peaks,
                     current.configuration,
@@ -467,7 +468,7 @@ class DatasetFitting(QtCore.QObject):
         if path:
             self.exported.add(self.result.run_id)
             if self.completion and self.workspace.peaks == self.completion.working_peaks:
-                # The canonical companion contains this exact stable-ID coordinate
+                # The shared coordinate table contains this exact stable-ID coordinate
                 # tuple. Its successful export also preserves the working peaks.
                 self.workspace.edits.mark_saved()
                 self.workspace.changed.emit()

@@ -12,7 +12,7 @@ import contourpy
 import numpy as np
 from threadpoolctl import ThreadpoolController
 
-from peakfit.fit.simulation import project_final_outcome
+from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.gui.spectrum import contour_geometry
 
 if TYPE_CHECKING:
@@ -240,7 +240,7 @@ def model_slices(
     or fitting residuals. No interpolation across repeated plane values is used.
     """
     sy, sx = result.inputs.scope.grid_indices
-    evaluation = result.outcome.cluster(result.inputs.scope.cluster_id).analytical_evaluation
+    evaluation = result.outcome.cluster(result.inputs.scope.cluster_id).sample_evaluation
     assert evaluation is not None
     support_x = np.full(axes[1].size, False)
     support_y = np.full(axes[0].size, False)

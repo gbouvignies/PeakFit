@@ -32,15 +32,18 @@ A fit run produces a results directory with this structure:
 
 ```text
 <run_dir>/
-├── summary/
-│   └── fit.json
-├── tables/
-│   ├── parameters.csv
-│   ├── intensities.csv
-│   └── shifts.csv
-├── metadata/
-│   └── fitting_state.pkl
+├── scientific.npz
+├── summary/report.md
+└── tables/
+    ├── parameters.csv
+    ├── intensities.csv
+    ├── clusters.csv
+    └── shifts.csv
 ```
+
+Use `--detailed-evidence` to include portable terminal observations/predictions.
+Older examples that explicitly request JSON remain supported, but JSON is not a
+default. See [formats and migration](../docs/outputs.md).
 
 By default, `peakfit fit --output Fits` writes to a timestamped subdirectory (for example `Fits/20260205_153012`).
 

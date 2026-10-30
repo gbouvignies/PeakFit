@@ -706,7 +706,8 @@ def test_fit_result_export_dialog_keeps_pending_text(fitted_viewer, monkeypatch,
     original, revision = widget.peaks, widget._scientific_revision
     model, result = widget.comparison._current, widget.fit_result
 
-    def export_dialog(*_args):
+    def export_dialog(*_args, current):
+        assert current == (widget._result_revision == widget._scientific_revision)
         dialog = QtWidgets.QDialog(widget)
         layout = QtWidgets.QVBoxLayout(dialog)
         destination = QtWidgets.QLineEdit(dialog)

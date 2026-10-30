@@ -1,4 +1,4 @@
-"""Read versioned completed-fit JSON and its limited continuation fallback."""
+"""Read authoritative scientific archives and older JSON result summaries."""
 
 from __future__ import annotations
 
@@ -13,8 +13,12 @@ from peakfit.engine.domain.params_scalar import Parameter, Parameters
 from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.state import FittingState
+from peakfit.io.output_metadata import RunMetadata
+from peakfit.io.readers.continuation import continuation_state, load_completed
 from peakfit.io.readers.reconstructed import ReconstructedShape
 from peakfit.io.schemas import ClusterResultSchema, FitSummarySchema
+from peakfit.io.scientific import read_scientific
+from peakfit.io.writers.json import _summary_document
 from peakfit.shared.paths import format_path
 
 if TYPE_CHECKING:
@@ -30,9 +34,9 @@ type MCMCChainRecord = tuple[Any, list[str], int, int, int]
 class ResultsLoader:
     """Loader for PeakFit results from structured output files.
 
-    The summary is the canonical completed-result record.  The optional state
-    reconstructed here is deliberately minimal; pickle state remains the
-    continuation path for numerical workflows.
+    Native archives own scientific truth and validated continuation inputs.
+    Older JSON summaries remain readable; their minimal visualization fallback
+    is not an exact parent likelihood and is never used to start native MCMC.
 
     Example:
         >>> loader = ResultsLoader(Path("Fits/20260129_120000"))
@@ -48,13 +52,15 @@ class ResultsLoader:
             directory: Path to results directory
 
         Raises:
-            FileNotFoundError: If summary/fit.json is not found
+            FileNotFoundError: If neither scientific.npz nor summary/fit.json is present
         """
         self.directory = directory
         self.summary_path = directory / "summary" / "fit.json"
 
-        if not self.summary_path.exists():
-            raise FileNotFoundError(f"Results file not found: {format_path(self.summary_path)}")
+        if not self.summary_path.exists() and not (directory / "scientific.npz").is_file():
+            raise FileNotFoundError(
+                f"No scientific.npz or legacy summary/fit.json in {format_path(directory)}"
+            )
 
     def load_summary(self) -> FitSummarySchema:
         """Load the raw summary schema.
@@ -62,19 +68,32 @@ class ResultsLoader:
         Returns:
             FitSummarySchema with parsed JSON data
         """
+        native = self.directory / "scientific.npz"
+        if native.is_file():
+            outcome, _, context = read_scientific(native)
+            return FitSummarySchema.model_validate(
+                _summary_document(
+                    outcome,
+                    metadata=RunMetadata(**context["metadata"]),
+                    z_values=context["plane_values"],
+                )
+            )
         with self.summary_path.open(encoding="utf-8") as f:
             data = json.load(f)
         return FitSummarySchema(**data)
 
     def load_fitting_state(self) -> FittingState:
-        """Reconstruct the FittingState from the summary JSON.
+        """Reconstruct native parent inputs, or visualization-only legacy metadata.
 
-        This method parses the JSON summary and reconstructs a FittingState
-        object that can be used for analysis or visualization.
+        Native continuation validates exact terminal observations/corrections and
+        model references. Legacy JSON alone cannot reconstruct a likelihood parent.
 
         Returns:
             FittingState object populated with results
         """
+        native = self.directory / "scientific.npz"
+        if native.is_file():
+            return continuation_state(load_completed(native))
         summary = self.load_summary()
 
         all_peaks, clusters = self._reconstruct_clusters_and_peaks(summary.clusters)

@@ -18,6 +18,7 @@ from peakfit.gui.local_fit import execute_local_fit
 from peakfit.gui.spectrum import verified_source_files
 from peakfit.gui.viewer import SpectrumViewer
 from peakfit.io.readers.results import ResultsLoader
+from peakfit.io.scientific import read_scientific
 
 pytestmark = pytest.mark.gui
 
@@ -25,6 +26,11 @@ pytestmark = pytest.mark.gui
 @pytest.mark.parametrize("classification", ["converged", "usable_non_converged", "unusable"])
 def test_export_authoritative_values_and_original_identities(tmp_path, monkeypatch, classification):  # noqa: PLR0915
     _spectra, working, prepared, config = _example()
+    config.output.formats = ["json", "csv"]
+    config.output.detailed_evidence = True
+    prepared = replace(
+        prepared, snapshot=replace(prepared.snapshot, configuration=config.model_dump_json())
+    )
     if classification == "usable_non_converged":
         config.fitting.max_iterations = 1
         prepared = replace(
@@ -52,7 +58,7 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
     loader = ResultsLoader(path)
     summary = loader.load_summary()
     raw = json.loads((path / "summary/fit.json").read_text())
-    companion = json.loads((path / "summary/local_fit.json").read_text())
+    _outcome, samples, companion = read_scientific(path / "scientific.npz")
     assert raw["schema_version"] == "4.1.0"
     assert summary.clusters[0].classification == classification
     assert summary.metadata.timestamp.isoformat() == completed.completed_at
@@ -60,22 +66,13 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
     assert summary.metadata.configuration == json.loads(prepared.snapshot.configuration)
     assert summary.metadata.input_files["spectrum"]["path"] == str(source)
     assert "checksum_sha256" in summary.metadata.input_files["spectrum"]
-    assert companion["run_id"] == completed.run_id
-    assert companion["cross_cluster_corrections"] is False
-    assert companion["planes"] == [
-        {"index": 0, "value": 2.0},
-        {"index": 1, "value": 0.0},
-        {"index": 2, "value": 2.0},
-    ]
-    assert "spectrum_id" not in companion
-    assert companion["noise"] == prepared.noise
-    assert companion["contour_threshold"] == prepared.contour_level
-    assert companion["shape_names"] == list(prepared.shape_names)
+    assert companion["plane_values"].tolist() == [2.0, 0.0, 2.0]
     assert companion["peak_identities"] == [
-        {"engine_name": f"p_{i}", "working_id": peak.id, "assignment": peak.name}
+        {"engine_name": f"p_{i}", "peak_id": peak.id, "assignment": peak.name}
         for i, peak in enumerate(working)
     ]
-    assert companion["grid_indices"] == [index.tolist() for index in prepared.scope.grid_indices]
+    for old, new in zip(prepared.scope.grid_indices, samples[0].grid_indices, strict=True):
+        np.testing.assert_array_equal(old, new)
     assert (
         summary.clusters[0].optimizer_provenance.termination_message
         == cluster.optimizer_provenance.termination_message
@@ -137,7 +134,7 @@ def test_partial_failure_has_no_published_directory(tmp_path, monkeypatch):
         (output / "partial").write_text("partial output")
         raise OSError("disk full")
 
-    monkeypatch.setattr(fit_export, "write_fit_outputs", fail)
+    monkeypatch.setattr(fit_export, "write_completed_outputs", fail)
     with pytest.raises(OSError, match="disk full"):
         export_fit_result(completed, tmp_path / "failed")
     assert list(tmp_path.iterdir()) == []
@@ -154,7 +151,7 @@ def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
     completed = execute_local_fit(prepared)
     destination = tmp_path / "export"
     lock = tmp_path / ".export.export-lock"
-    write = fit_export.write_fit_outputs
+    write = fit_export.write_completed_outputs
     rename = Path.rename
     published = []
 
@@ -171,7 +168,7 @@ def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
         assert not target.exists()
         assert staged.parent.parent == target.parent  # Staging stays on the same filesystem.
         ResultsLoader(staged).load_summary()
-        assert (staged / "summary/local_fit.json").is_file()
+        assert (staged / "scientific.npz").is_file()
         assert (staged / "tables/intensities.csv").is_file()
         assert lock.is_dir()
         if publication == "rename_failure":
@@ -179,7 +176,7 @@ def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
         published.append(target)
         return rename(staged, target)
 
-    monkeypatch.setattr(fit_export, "write_fit_outputs", write_then_compete)
+    monkeypatch.setattr(fit_export, "write_completed_outputs", write_then_compete)
     monkeypatch.setattr(Path, "rename", windows_directory_move)
     monkeypatch.setattr(Path, "replace", windows_directory_move)
     if publication == "locked":
@@ -220,7 +217,7 @@ def test_long_export_path_does_not_change_footer_layout(tmp_path, monkeypatch):
     )
     destination = tmp_path.joinpath(*(["long-export-directory"] * 30))
     messages = []
-    monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_: destination)
+    monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_, **_kwargs: destination)
     monkeypatch.setattr(
         QtWidgets.QMessageBox, "information", lambda *args: messages.append(args[-1])
     )
@@ -263,7 +260,7 @@ def test_export_and_close_keep_result_and_peak_states_separate(tmp_path, monkeyp
     before = viewer.peaks
     viewer.show_fit_result()
     try:
-        monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_: None)
+        monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_, **_kwargs: None)
         assert not viewer.export_fit_results()
         assert not viewer.result_exported
         monkeypatch.setattr(
@@ -275,7 +272,9 @@ def test_export_and_close_keep_result_and_peak_states_separate(tmp_path, monkeyp
         from peakfit.gui.export_dialog import choose_and_export  # noqa: PLC0415
 
         monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", choose_and_export)
-        monkeypatch.setattr(QtWidgets.QFileDialog, "getExistingDirectory", lambda *_: str(tmp_path))
+        monkeypatch.setattr(
+            "peakfit.gui.export_dialog._choose_export_directory", lambda *_: (str(tmp_path), False)
+        )
         monkeypatch.setattr(QtWidgets.QMessageBox, "information", lambda *_: None)
         monkeypatch.setattr(QtWidgets.QMessageBox, "warning", lambda *_: None)
         beats = []
@@ -284,6 +283,10 @@ def test_export_and_close_keep_result_and_peak_states_separate(tmp_path, monkeyp
         timer.timeout.connect(lambda: beats.append(1))
         timer.start()
         assert viewer.export_fit_results()
+        _, _, context = read_scientific(
+            tmp_path / f"local-fit-{scientific.run_id}" / "scientific.npz"
+        )
+        assert context["export_state"]["currentness"] == "outdated"
         timer.stop()
         assert beats
         assert viewer.result_exported
@@ -355,9 +358,37 @@ def test_export_shows_progress_before_starting_writer(tmp_path, monkeypatch):
     monkeypatch.setattr(export_dialog, "_ExportProgress", Progress)
     monkeypatch.setattr(export_dialog, "export_fit_result", write)
     monkeypatch.setattr(
-        QtWidgets.QFileDialog, "getExistingDirectory", lambda *_a, **_k: str(tmp_path)
+        export_dialog, "_choose_export_directory", lambda *_a, **_k: (str(tmp_path), False)
     )
     assert export_dialog.choose_and_export(parent, completed) == tmp_path
     assert observed == [True]
     parent.close()
     parent.deleteLater()
+
+
+def test_export_picker_has_one_evidence_option_and_honors_configuration(tmp_path):
+    from peakfit.gui.export_dialog import _choose_export_directory  # noqa: PLC0415
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    assert isinstance(app, QtWidgets.QApplication)
+    observed = []
+
+    def accept():
+        dialog = next(
+            w
+            for w in app.topLevelWidgets()
+            if isinstance(w, QtWidgets.QFileDialog) and w.isVisible()
+        )
+        checks = [
+            w for w in dialog.findChildren(QtWidgets.QCheckBox) if "detailed evidence" in w.text()
+        ]
+        assert len(checks) == 1
+        observed.append(checks[0].isChecked())
+        dialog.selectFile(str(tmp_path))
+        dialog.accept()
+
+    QtCore.QTimer.singleShot(0, accept)
+    directory, detailed = _choose_export_directory(None, True)
+    assert Path(directory) == tmp_path
+    assert detailed
+    assert observed == [True]

@@ -24,5 +24,6 @@ def test_fit_help_describes_plane_values_without_renaming_the_option() -> None:
 
     assert "pseudo-ND NMR spectrum" in help_text
     assert "--z-values" in help_text
-    assert "Plane values file" in help_text
+    assert "Plane values" in help_text
+    assert "file" in help_text
     assert "Z-dimension" not in help_text

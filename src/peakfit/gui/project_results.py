@@ -1,46 +1,19 @@
 """Strict numerical restoration and evaluable geometry for analysis projects."""
 
-from dataclasses import asdict, dataclass
-from types import MappingProxyType
-from typing import TYPE_CHECKING, cast
+from dataclasses import asdict, replace
 
 import numpy as np
 
-from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
-from peakfit.engine.lineshapes.create import SHAPES, create_shapes
-from peakfit.fit.completed import CompletedFit, FinalClusterSamples
-from peakfit.fit.final_outcome import (
-    FinalAnalyticalEvaluation,
-    FinalClusterOutcome,
-    FinalFitOutcome,
-    FinalFitStatistics,
-    FinalParameter,
-    OptimizerProvenance,
-)
-from peakfit.fit.simulation import FinalModelCluster, FinalModelSnapshot, project_final_outcome
+from peakfit.engine.scientific.completed import CompletedFit
+from peakfit.engine.scientific.simulation import project_final_outcome
+from peakfit.fit.export import model_records
 from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fitting import FitInputSnapshot, PeakIdentity, PreparedDatasetFit
 from peakfit.gui.peaks import WorkingPeak
-from peakfit.io.schemas import FitSummarySchema
-
-if TYPE_CHECKING:
-    from peakfit.engine.types import Shape
-
-
-@dataclass
-class UnavailableShape:
-    """Recorded descriptor for numerical review, deliberately not evaluable geometry."""
-
-    shape_name: str
-    center: float
-    axis: str
-    param_names: list[str]
-    cluster_id: int = 0
+from peakfit.io.readers.continuation import UnavailableShape, restore_geometry
 
 
 def read_peaks(records):
@@ -51,126 +24,8 @@ def read_peaks(records):
     return peaks
 
 
-def model_records(result):
-    """Store resolved per-peak, per-axis geometry without fitted quantities."""
-    return [
-        {
-            "cluster_id": cluster.cluster_id,
-            "peaks": [
-                {
-                    "name": peak.name,
-                    "positions": peak.positions.tolist(),
-                    "shapes": [
-                        {
-                            "name": s.shape_name,
-                            "center": s.center,
-                            "axis": s.axis,
-                            "param_names": s.param_names,
-                        }
-                        for s in peak.shapes
-                    ],
-                }
-                for peak in cluster.peaks
-            ],
-        }
-        for cluster in result.simulation_snapshot.clusters
-    ]
-
-
-def _parameter(p):
-    return FinalParameter(
-        p.name,
-        p.value,
-        p.min_bound if p.min_bound is not None else -np.inf,
-        p.max_bound if p.max_bound is not None else np.inf,
-        p.vary,
-        p.unit,
-        p.standard_error if p.standard_error is not None else np.nan,
-    )
-
-
-def _array(values):
-    array = np.asarray(values, dtype=float)
-    array.flags.writeable = False
-    return array
-
-
-def restore_outcome(document, run):
-    """Read the canonical 4.1 summary; never recover amplitudes from observations."""
-    summary = FitSummarySchema.model_validate(document)
-    if summary.noise <= 0:
-        raise ValueError("Recorded statistical noise must be positive.")
-    clustered = [p.model_dump() for c in summary.clusters for p in c.final_nonlinear_parameters]
-    global_parameters = [p.model_dump() for p in summary.final_nonlinear_parameters]
-    if sorted(clustered, key=lambda p: p["name"]) != global_parameters:
-        raise ValueError("Canonical global and cluster nonlinear parameters disagree.")
-    if len({p["name"] for p in clustered}) != len(clustered):
-        raise ValueError("Canonical nonlinear parameters have ambiguous identities.")
-    clusters = []
-    for c in summary.clusters:
-        e = c.analytical_evaluation
-        evaluation = None
-        if e is not None:
-            arrays = {
-                name: _array(getattr(e, name))
-                for name in (
-                    "shapes",
-                    "amplitudes",
-                    "amplitude_standard_errors",
-                    "amplitude_covariance",
-                    "scaled_amplitude_standard_errors",
-                    "model_values",
-                    "raw_residuals",
-                    "normalized_residuals",
-                )
-            }
-            evaluation = FinalAnalyticalEvaluation(
-                c.cluster_id,
-                **arrays,
-                statistics=AnalyticalFitStatistics(**e.statistics.model_dump()),
-                uncertainty_warning=e.uncertainty_warning,
-            )
-        p = c.optimizer_provenance
-        provenance = OptimizerProvenance(
-            p.optimizer_kind,
-            p.success,
-            p.termination_message,
-            p.function_evaluations,
-            p.jacobian_evaluations,
-            p.iterations,
-            p.optimality,
-            p.final_cost if p.final_cost is not None else np.nan,
-            p.correction_revision,
-            MappingProxyType(p.metadata),
-        )
-        clusters.append(
-            FinalClusterOutcome(
-                c.cluster_id,
-                tuple(c.peak_names),
-                FitOutcomeClassification(c.classification),
-                c.correction_revision,
-                provenance,
-                tuple(_parameter(p) for p in c.final_nonlinear_parameters),
-                evaluation,
-                c.unusable_reason,
-            )
-        )
-    return FinalFitOutcome(
-        tuple(clusters),
-        MappingProxyType({c.cluster_id: c for c in clusters}),
-        tuple(_parameter(p) for p in summary.final_nonlinear_parameters),
-        summary.terminal_correction_revision,
-        summary.noise,
-        run["n_optimizer_passes"],
-        run["n_correction_updates"],
-        all(c.classification is FitOutcomeClassification.CONVERGED for c in clusters),
-        FinalFitStatistics(**summary.statistics.model_dump()),
-    )
-
-
-def restore_result(run, document, arrays):  # noqa: PLR0912, PLR0915
+def restore_result(run, outcome, retained_samples):
     """Restore numerical review and construct geometry only from recorded descriptors."""
-    outcome = restore_outcome(document, run)
     raw = run["snapshot"]
     snapshot = FitInputSnapshot(
         0,
@@ -181,102 +36,18 @@ def restore_result(run, document, arrays):  # noqa: PLR0912, PLR0915
         raw["configuration"],
         raw["contour_level"],
         tuple(tuple(s) for s in raw["source_files"]),
+        tuple(raw.get("source_plane_indices", range(raw["data_shape"][0]))),
     )
     config = PeakFitConfig.model_validate_json(snapshot.configuration)
-    # Constructors consult calibration/processing only; there is no synthetic spectrum display.
-    metadata = Spectra(
-        dic={},
-        data=np.empty((1, 1)),
-        z_values=np.array(snapshot.plane_values),
-        params=[SpectralParameters.model_validate_json(p) for p in snapshot.spectral_parameters],
-    )
-    samples, geometry, clusters = [], [], []
-    for record, terminal in zip(run["models"], outcome.clusters, strict=True):
-        cid = terminal.cluster_id
-        if record["cluster_id"] != cid:
-            raise ValueError("Model cluster identity mismatch.")
-        prefix = f"c{cid}_"
-        indices = tuple(arrays[prefix + f"index{dim}"] for dim in range(2))
-        data, corrections = arrays[prefix + "data"], arrays[prefix + "corrections"]
-        if data.shape != corrections.shape or data.shape != (
-            len(indices[0]),
-            len(snapshot.plane_values),
-        ):
-            raise ValueError("Invalid retained sample dimensions.")
-        for dim, index in enumerate(indices):
-            if (
-                index.dtype.kind not in "iu"
-                or index.shape != (data.shape[0],)
-                or np.any(index < 0)
-                or np.any(index >= snapshot.data_shape[dim + 1])
-            ):
-                raise ValueError("Invalid retained sample coordinates.")
-        if not np.all(np.isfinite(data)) or not np.all(np.isfinite(corrections)):
-            raise ValueError("Nonfinite retained observations or corrections.")
-        e = terminal.analytical_evaluation
-        if e is not None:
-            if not np.isclose(
-                np.sum(e.normalized_residuals**2), e.statistics.chi_squared, rtol=1e-12, atol=1e-12
-            ):
-                raise ValueError("Retained chi-squared disagrees with normalized residuals.")
-            if not np.array_equal(data - corrections - e.model_values, e.raw_residuals):
-                raise ValueError("Retained terminal residuals disagree with observations.")
-            np.testing.assert_allclose(
-                e.shapes.T @ e.amplitudes, e.model_values, rtol=1e-12, atol=1e-12
-            )
-            np.testing.assert_allclose(
-                e.raw_residuals.ravel() / outcome.noise,
-                e.normalized_residuals,
-                rtol=1e-12,
-                atol=1e-12,
-            )
-        peaks = []
-        for p in record["peaks"]:
-            if all(s["name"] in SHAPES for s in p["shapes"]):
-                shapes = create_shapes(
-                    metadata,
-                    config.fitting,
-                    p["name"],
-                    [s["center"] for s in p["shapes"]],
-                    [s["name"] for s in p["shapes"]],
-                )
-            else:
-                shapes = [
-                    cast(
-                        "Shape",
-                        UnavailableShape(s["name"], s["center"], s["axis"], s["param_names"]),
-                    )
-                    for s in p["shapes"]
-                ]
-
-            for shape, descriptor in zip(shapes, p["shapes"], strict=True):
-                if shape.axis != descriptor["axis"]:
-                    raise ValueError("Recorded model axis mismatch.")
-                shape.cluster_id = cid
-                shape.param_names = descriptor["param_names"]
-            peaks.append(Peak(p["name"], np.array(p["positions"]), shapes))
-        if tuple(p.name for p in peaks) != terminal.peak_names:
-            raise ValueError("Recorded model peak identity mismatch.")
-        samples.append(FinalClusterSamples(cid, indices, data, corrections))
-        geometry.append(
-            FinalModelCluster(
-                cid,
-                terminal.peak_names,
-                tuple(peaks),
-                data.shape[1],
-                data.shape[0],
-                2,
-                tuple(i.shape for i in indices),
-            )
-        )
-        cluster = Cluster(cid, peaks, list(indices), data)
-        cluster.corrections = corrections
-        clusters.append(cluster)
-    model = FinalModelSnapshot(
-        tuple(geometry),
-        outcome.noise,
-        outcome.terminal_correction_revision,
-        tuple((p.name, p.value) for p in outcome.final_nonlinear_parameters),
+    snapshot = replace(snapshot, configuration=config.model_dump_json())
+    model, clusters = restore_geometry(
+        outcome,
+        retained_samples,
+        run["models"],
+        snapshot.spectral_parameters,
+        snapshot.plane_values,
+        snapshot.data_shape,
+        config.model_dump(),
     )
     identities = tuple(PeakIdentity(**p) for p in run["identities"])
     if (
@@ -308,7 +79,7 @@ def restore_result(run, document, arrays):  # noqa: PLR0912, PLR0915
     )
     return DatasetFitResult(
         prepared,
-        CompletedFit(outcome, model, tuple(samples)),
+        CompletedFit(outcome, model, retained_samples),
         tuple(run["warnings"]),
         run["execution_seconds"],
         run["software_version"],
@@ -330,7 +101,7 @@ def verify_model(result):
     for p in result.outcome.final_nonlinear_parameters:
         parameters.add(p.name, value=p.value, min_value=p.min, max_value=p.max, vary=p.vary)
     for s in result.completed_fit.samples:
-        e = result.outcome.cluster(s.cluster_id).analytical_evaluation
+        e = result.outcome.cluster(s.cluster_id).sample_evaluation
         if e is None:
             continue
         geometry = next(
@@ -359,7 +130,10 @@ def run_record(result):
         "identities": [asdict(i) for i in result.inputs.identities],
         "shape_names": result.inputs.shape_names,
         "initial_parameters": initial_parameter_records(result),
-        "models": model_records(result),
+        "models": [
+            dict(c, peaks=[dict(p, positions=p["positions"].tolist()) for p in c["peaks"]])
+            for c in model_records(result.simulation_snapshot)
+        ],
     }
 
 
@@ -381,6 +155,7 @@ def journal_entry(completion):
         "source_files": result.inputs.snapshot.source_files,
         "spectral_parameters": result.inputs.snapshot.spectral_parameters,
         "plane_values": result.inputs.snapshot.plane_values,
+        "source_plane_indices": result.inputs.snapshot.source_plane_indices,
         "identities": [asdict(i) for i in result.inputs.identities],
         "configuration": result.inputs.snapshot.configuration,
         "initial_peaks": [asdict(p) for p in result.inputs.snapshot.peaks],

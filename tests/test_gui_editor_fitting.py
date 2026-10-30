@@ -1,6 +1,5 @@
 """Protect the fit → optimized working state → native comparison → refit loop."""
 
-import json
 from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
@@ -23,6 +22,7 @@ from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.spectrum import Dataset
+from peakfit.io.scientific import read_scientific
 
 pytestmark = pytest.mark.gui
 
@@ -107,13 +107,13 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     path = export_fit_result(
         result, tmp_path / "result", completion=w.fitting.completion, current=w.fitting.current
     )
-    provenance = json.loads((path / "summary/dataset_fit.json").read_text())
-    assert provenance["original_working_peaks"][0]["positions"] == list(seeds[0].positions)
-    assert provenance["n_optimizer_passes"] == 2
-    assert provenance["current_at_export"] is False
-    assert provenance["post_fit_working_peaks"][0]["positions"] == list(
-        w.fitting.completion.working_peaks[0].positions
-    )
+    outcome, _samples, context = read_scientific(path / "scientific.npz")
+    assert outcome.n_optimizer_passes == 2
+    assert context["export_state"]["currentness"] == "outdated"
+    assert context["peak_identities"] == [
+        {"engine_name": i.engine_name, "peak_id": i.working_id, "assignment": i.assignment}
+        for i in result.inputs.identities
+    ]
 
 
 def test_repeat_actual_process_cancel_failure_and_fresh_masks(workspace):

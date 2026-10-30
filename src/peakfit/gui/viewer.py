@@ -873,7 +873,9 @@ class SpectrumViewer(QtWidgets.QWidget):
         result = self.fit_result.scientific
         self._exporting = True
         try:
-            destination = choose_and_export(self, result)
+            destination = choose_and_export(
+                self, result, current=self._result_revision == self._scientific_revision
+            )
         finally:
             self._exporting = False
         if destination is None:

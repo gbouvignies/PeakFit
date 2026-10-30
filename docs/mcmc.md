@@ -21,8 +21,16 @@ whole overlap cluster.
 
 MCMC reads:
 
-- `summary/fit.json`
-- `metadata/fitting_state.pkl`
+- `scientific.npz`: published nonlinear values/bounds/freedom, exact terminal
+  corrections/mappings and validated model descriptors.
+- The verified spectrum for compact results, or retained observations for
+  `--detailed-evidence` exports. The original peak/plane text files are unnecessary
+  for native continuation.
+
+Older JSON/pickle runs remain readable. New scientific evidence takes precedence;
+legacy multi-pass pickles that lost corrections require scientific evidence or a
+refit before continuation. This starts sampling the parent likelihood; it does
+not promise resumption of a chain/RNG state. See [storage policy](outputs.md).
 
 MCMC writes chain files under:
 

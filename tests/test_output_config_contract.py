@@ -13,14 +13,14 @@ from peakfit.io.writers.config import WriterConfig
 def test_output_config_defaults_to_core_formats() -> None:
     config = OutputConfig()
 
-    assert config.formats == ["json", "csv"]
+    assert config.formats == ["csv", "txt"]
     assert not config.save_simulated
 
 
 def test_writer_config_defaults_to_core_formats() -> None:
     config = WriterConfig()
 
-    assert config.formats == ("json", "csv")
+    assert config.formats == ("csv", "txt")
 
 
 def test_generated_default_config_is_valid() -> None:
@@ -28,7 +28,7 @@ def test_generated_default_config_is_valid() -> None:
 
     config = PeakFitConfig.model_validate(payload)
 
-    assert config.output.formats == ["json", "csv"]
+    assert config.output.formats == ["csv", "txt"]
     assert not config.output.save_simulated
 
 

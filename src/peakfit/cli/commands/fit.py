@@ -138,6 +138,13 @@ def fit_command(
         list[str] | None,
         typer.Option("--format", "-f", help="Output formats: json, csv, txt"),
     ] = None,
+    detailed_evidence: Annotated[
+        bool,
+        typer.Option(
+            "--detailed-evidence",
+            help="Include observations and predictions for portable review and continuation.",
+        ),
+    ] = False,
     workers: Annotated[
         int,
         typer.Option("--workers", "-w", help="Parallel workers (-1 = all CPUs)", min=-1),
@@ -198,6 +205,8 @@ def fit_command(
         exclude=exclude,
         optimizer=optimizer,
     )
+    if detailed_evidence:
+        fit_config.output.detailed_evidence = True
 
     if fit_config.output.headless:
         _show_headless_command_summary(

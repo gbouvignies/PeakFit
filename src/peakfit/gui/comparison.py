@@ -480,7 +480,7 @@ class FitComparison(QtCore.QObject):
         else:
             evaluation = scientific.outcome.cluster(
                 scientific.inputs.scope.cluster_id
-            ).analytical_evaluation
+            ).sample_evaluation
             assert evaluation is not None
             sy, sx = scientific.inputs.scope.grid_indices
             residual_values = evaluation.raw_residuals[:, v.plane] / scientific.outcome.noise
@@ -601,7 +601,7 @@ class FitComparison(QtCore.QObject):
             return
         evaluation = scientific.outcome.cluster(
             scientific.inputs.scope.cluster_id
-        ).analytical_evaluation
+        ).sample_evaluation
         assert evaluation is not None
         values = self.result.scientific.inputs.snapshot.plane_values
         if amplitude >= 0:

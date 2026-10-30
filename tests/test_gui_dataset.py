@@ -1,6 +1,5 @@
 """Complete fitting, faithful total-model review and disposable-process lifecycle."""
 
-import json
 import pickle
 from concurrent.futures import CancelledError
 from copy import deepcopy
@@ -17,8 +16,8 @@ from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.lineshapes.create import create_shapes
+from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.pipeline import run_pipeline
-from peakfit.fit.simulation import project_final_outcome
 from peakfit.gui.dataset_dialog import DatasetFitDialog
 from peakfit.gui.dataset_fit import (
     DatasetFitResult,
@@ -33,6 +32,7 @@ from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.peaks import WorkingPeak
 from peakfit.gui.viewer import SpectrumViewer
+from peakfit.io.scientific import read_scientific
 
 pytestmark = pytest.mark.gui
 
@@ -145,18 +145,18 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
     np.testing.assert_array_equal(slices.residual_x, spectra.data[:, 14, :].T - slices.x)
     assert result.inputs.snapshot.plane_values == (2.0, 0.0, 2.0)
     saved = export_fit_result(result, tmp_path / "dataset")
-    companion = json.loads((saved / "summary/dataset_fit.json").read_text())
-    assert companion["n_correction_updates"] == 1
-    assert companion["cross_cluster_corrections"] is True
-    assert [p["value"] for p in companion["planes"]] == [2.0, 0.0, 2.0]
-    assert [p["working_id"] for p in companion["peak_identities"]] == ["0", "1", "remote"]
+    outcome, _samples, companion = read_scientific(saved / "scientific.npz")
+    assert outcome.n_correction_updates == 1
+    assert (outcome.n_correction_updates > 0) is True
+    assert companion["plane_values"].tolist() == [2.0, 0.0, 2.0]
+    assert [p["peak_id"] for p in companion["peak_identities"]] == ["0", "1", "remote"]
     config.fitting.refine_iterations = 1
     single = prepare_dataset_fit(spectra, peaks, config)
     single_result = finish_dataset_fit(single, compute_dataset_fit(deepcopy(single)))
     saved = export_fit_result(single_result, tmp_path / "one-pass")
-    companion = json.loads((saved / "summary/dataset_fit.json").read_text())
-    assert companion["n_correction_updates"] == 0
-    assert companion["cross_cluster_corrections"] is False
+    outcome, _samples, companion = read_scientific(saved / "scientific.npz")
+    assert outcome.n_correction_updates == 0
+    assert (outcome.n_correction_updates > 0) is False
 
 
 def test_settings_are_reviewed_and_independent_of_display(dataset_viewer):

@@ -210,10 +210,17 @@ class OutputConfig(BaseModel):
 
     directory: Path = Field(default=Path("Fits"), description="Output directory for results.")
     formats: list[OutputFormat] = Field(
-        default=["json", "csv"],
-        description="Output formats for results. Add 'txt' to write a Markdown report.",
+        default=["csv", "txt"],
+        description="Presentation formats: CSV and a short report by default; JSON is explicit.",
     )
-    save_simulated: bool = Field(default=False, description="Save simulated spectrum to file.")
+    detailed_evidence: bool = Field(
+        default=False,
+        description="Include observations and predictions for portable review/continuation.",
+    )
+    save_simulated: bool = Field(
+        default=False,
+        description="Export simulated.npy in float64, with calibration in scientific.npz.",
+    )
     include_timestamp: bool = Field(
         default=True,
         description="Include timestamp in output directory name.",
@@ -248,7 +255,7 @@ class PeakFitConfig(BaseModel):
 
         [output]
         directory = "Fits"
-        formats = ["json", "csv"]
+        formats = ["csv", "txt"]
 
         # Parameter constraints
         [parameters]

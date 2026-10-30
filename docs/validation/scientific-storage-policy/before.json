@@ -1,0 +1,66 @@
+{
+  "project_version": "2.0.0",
+  "timings_seconds": {
+    "load": 0.07698312500724569,
+    "fit": 3.9737399159930646,
+    "durable_acceptance": 1.2589583749941085,
+    "first_save": 0.022670417005429044,
+    "routine_save": 0.006325583002762869,
+    "verified_reopen": 0.5910326250013895,
+    "historical_result": 0.16142470799968578,
+    "cli_default_export": 2.3424640000157524,
+    "gui_default_export": 2.2615642080199905,
+    "source_free_reopen": 0.22679570800391957
+  },
+  "rss_high_water_bytes": {
+    "load": 323076096,
+    "fit": 1079263232,
+    "durable_acceptance": 1079263232,
+    "first_save": 1079263232,
+    "routine_save": 1079263232,
+    "verified_reopen": 1109196800,
+    "historical_result": 1137147904,
+    "cli_default_export": 1247821824,
+    "gui_default_export": 1247821824,
+    "source_free_reopen": 1247821824
+  },
+  "fit_to_durable_acceptance_seconds": 5.232698290987173,
+  "project": {
+    "bytes": 29313960,
+    "files": {
+      "manifest.json": 220201,
+      "runs/e82cdaead0d64b21b45b8dd6778a205f/result.npz": 28931764,
+      "runs/e82cdaead0d64b21b45b8dd6778a205f/review.json": 161995
+    }
+  },
+  "cli_default": {
+    "bytes": 122081683,
+    "files": {
+      "scientific.npz": 29065863,
+      "README.md": 1129,
+      "tables/parameters.csv": 168719,
+      "tables/clusters.csv": 23936,
+      "tables/intensities.csv": 4920197,
+      "tables/shifts.csv": 39284,
+      "metadata/fitting_state.pkl": 10153927,
+      "summary/fit.json": 77708628
+    }
+  },
+  "gui_default": {
+    "bytes": 111965630,
+    "files": {
+      "scientific.npz": 29103698,
+      "tables/parameters.csv": 168719,
+      "tables/clusters.csv": 23936,
+      "tables/intensities.csv": 4920197,
+      "tables/shifts.csv": 39284,
+      "summary/fit.json": 77709796
+    }
+  },
+  "equal_scientific_members": 1452,
+  "csv_parity": true,
+  "source_free_spectra": false,
+  "exact_scientific_round_trip": true,
+  "nonzero_corrections": 806698,
+  "outcome_parameter_digest": "0a779ba505dab4557bdd9f0b20c4a8558be5cf85d8ae45c18d77a814b7395af5"
+}

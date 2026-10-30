@@ -87,20 +87,21 @@ By default, `peakfit fit --output Fits` writes a timestamped run directory:
 
 ```text
 Fits/<run_dir>/
-├── README.md
-├── summary/
-│   └── fit.json
-├── tables/
-│   ├── parameters.csv
-│   ├── intensities.csv
-│   └── shifts.csv
-├── metadata/
-│   └── fitting_state.pkl
+├── scientific.npz
+├── summary/report.md
+└── tables/
+    ├── parameters.csv
+    ├── intensities.csv
+    ├── clusters.csv
+    └── shifts.csv
 ```
 
-The canonical machine-readable summary is `summary/fit.json`. The canonical
-tables are CSV files under `tables/`. Markdown reports are optional and are
-written only when `txt` is requested.
+The scientific archive retains exact results, provenance, sample mappings and
+terminal corrections. CSV tables and a short report are written by default.
+`--detailed-evidence` adds observations/sample predictions for portable review
+and continuation. Full-grid simulation and large legacy JSON exports are opt-in.
+GUI `.peakfit` projects separately embed the complete experimental spectrum so
+inspection, edits and fitting work without the original files.
 
 See [`docs/outputs.md`](docs/outputs.md) for the exact output
 contract.
@@ -129,8 +130,9 @@ peakfit mcmc "$LATEST_RUN" --peaks 2N-H --walkers 32 --steps 1000
 peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 ```
 
-`peakfit mcmc` reads `metadata/fitting_state.pkl` and writes chain files under
-`chains/` when `--save-chains` is enabled.
+`peakfit mcmc` reads `scientific.npz` and verifies the source for compact results;
+detailed evidence can continue without it. Chains go under `chains/` when
+`--save-chains` is enabled. Existing JSON/pickle results remain readable.
 
 ## Documentation
 

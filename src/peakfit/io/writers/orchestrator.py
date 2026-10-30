@@ -18,10 +18,10 @@ from peakfit.io.writers.markdown import write_final_outcome_report
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.fit.final_outcome import FinalFitOutcome
-    from peakfit.fit.output_metadata import RunMetadata
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
     from peakfit.fit.run_models import RunSummary
-    from peakfit.shared.typing import FloatArray
+    from peakfit.io.output_metadata import RunMetadata
+    from peakfit.shared.typing import FloatArray, IntArray
 
 
 def build_output_plan(
@@ -61,6 +61,7 @@ def write_fit_outputs(
     metadata: RunMetadata | None = None,
     z_values: FloatArray | None = None,
     summary: RunSummary | None = None,
+    source_plane_indices: IntArray | None = None,
 ) -> dict[str, Path]:
     """Write fit result artifacts to output files.
 
@@ -74,6 +75,7 @@ def write_fit_outputs(
         metadata: Operational run metadata required for JSON 4.1.0
         z_values: Ordered series coordinate values for JSON and intensity tables
         summary: Ticket-06 run summary required for the Markdown report
+        source_plane_indices: Original zero-based source indices for intensity CSV columns
 
     Returns:
     -------
@@ -109,7 +111,9 @@ def write_fit_outputs(
         written_files["parameters"] = params_csv
 
     if intensities_csv := plan.get("intensities"):
-        write_final_outcome_intensities(final_outcome, z_values, intensities_csv, cfg)
+        write_final_outcome_intensities(
+            final_outcome, z_values, intensities_csv, cfg, source_plane_indices=source_plane_indices
+        )
         written_files["intensities"] = intensities_csv
 
     if clusters_csv := plan.get("clusters"):

@@ -87,9 +87,9 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 2. `fit` validates inputs, loads spectra/peaks, prepares clusters, and runs direct fit pipeline functions.
    When no peak list is provided, `fit` delegates to the experimental `auto_pick` package instead of owning that logic.
 3. `engine` performs numerical work: clustering, lineshapes, optimizers, residuals, and statistics helpers.
-4. `fit.final_outcome` freezes completed scientific truth by run-local
+4. `engine.scientific.final_outcome` freezes completed scientific truth by run-local
    `cluster_id` against the terminal correction revision, while
-   `fit.output_metadata` captures non-scientific run metadata; `io` reads inputs
+   `io.output_metadata` captures non-scientific run metadata; `io` reads inputs
    and projects the outcome into structured artifacts.
 5. `mcmc` and `plot` run post-fit workflows from canonical fit outputs.
 6. `ui` renders terminal output where the CLI needs it.
@@ -125,14 +125,14 @@ rename modules, delete thin wrappers, or move responsibilities when that makes t
 easier to understand and test. Prefer direct data flow and domain names over generic
 services, managers, factories, adapters, or registries.
 
-Completed-model projection uses `fit.simulation.project_final_outcome`: paired
+Completed-model projection uses `engine.scientific.simulation.project_final_outcome`: paired
 fractional grid coordinates and optional fitted-series column indices produce local or
 combined contributions from the verified final snapshot and retained amplitudes.
 The existing full-grid simulation delegates to this same path. Shape evaluation
 is chunked; callers bound their output region. No optimization, amplitude solve,
 or parameter-default preparation takes place during visualization.
 
-`fit.completed.CompletedFit` retains the outcome, the existing model snapshot,
+`engine.scientific.completed.CompletedFit` retains the outcome, the existing model snapshot,
 and owned read-only `FinalClusterSamples` at pipeline completion. Exact paired
 sample coordinates, original observations and terminal neighbor-correction values
 remain distinct from model geometry and analytical outputs. `PipelineResult`
@@ -152,13 +152,18 @@ mapping in the future persisted-run interface. See [GUI design](gui-design.md)
 for that interface's scientific requirements and staged delivery.
 
 
-GUI fit export reuses `io.writers.orchestrator.write_fit_outputs` directly
-from the retained local or complete dataset outcome; `gui.fit_export` stages and validates
-the canonical artifacts and adds the scope/identity companion documented in
-[outputs](outputs.md#gui-local-fit-export). `gui.export_dialog` owns only directory
-selection and a short-lived background export thread. The viewer records export
-status by completed run identity independently of working peak edits. No persisted
-GUI session or numerical continuation state is constructed.
+CLI and GUI scientific export both call `fit.export.write_completed_outputs`
+with the same retained `CompletedFit`, coordinate context, metadata and output
+options. It writes the lossless `scientific.npz` authority and calls shared
+CSV/report projections (JSON is explicit legacy interoperability). Optional simulation is a shared float64 NPY export.
+`gui.fit_export` only adapts retained inputs and stages publication; it has no
+scientific writer or separate scientific schema. `gui.export_dialog` owns directory
+selection and a short-lived background export thread. `engine.scientific.coordinates` supplies
+one chemical-shift resolution rule to automatic dataset completion and exports.
+A stable-ID table records exact initial/fitted coordinates, parameter links and
+actual recorded adoption; export-time currentness is a separate context field.
+CLI represents absent working-coordinate adoption explicitly. Intensity CSVs
+retain both fitting-column and original source-plane identity. See [outputs](outputs.md).
 
 The linear projection boundary in `engine.algorithms.linear_algebra` supplies
 one rank-aware model space and amplitude pseudoinverse to optimization and
@@ -256,10 +261,11 @@ Residual has a separately retained signed scale.
 One full accepted scientific result stays resident. Completion validation runs in
 a worker and is published atomically after accepted evidence is durable.
 History persistence and temporary ownership are described below. Failure/cancellation
-preserves the prior accepted result. A successful refit replaces it. Canonical
-exports include both exact submitted and adopted working coordinates plus
-currentness at export, and preserve the working peak state only when its exact
-stable-ID tuple matches the exported completion.
+preserves the prior accepted result. A successful refit replaces it. Projects
+retain submitted/adopted working coordinates, manual revision and Currentness;
+scientific exports retain the fitted model, exact original sample mapping and a
+validated initial/fitted/adopted coordinate table. Export-time Current/Outdated
+status accompanies that evidence without changing the immutable numerical outcome.
 
 Experimental contour geometry is cached independently of run/mode. An uncached
 comparison request schedules current-plane experimental geometry before the model
@@ -285,32 +291,33 @@ handoff independently of widgets. Reproduction and measured limits are in
 [GUI v2 editor validation](validation/gui-v2-editor.md).
 
 
-### Linked-source analysis persistence
+### Self-contained analysis persistence
 
-`gui.project` owns the JSON/NPZ directory transaction and external source verification;
-`gui.project_results` reconstructs the immutable outcome from canonical 4.1 JSON,
-retains exact sample inputs and recreates resolved per-peak geometry. It checks
-terminal residual algebra, normalized residuals, chi-squared, stable identities and
-the automatic position transition. Verified comparison additionally checks source
-SHA-256/calibration/dtype/sample ordering and evaluates reconstructed shapes and
-model at the exact saved coordinates (rtol 1e-10; shape atol 1e-12, model atol 1e-9).
-No segmentation, parameter preparation, optimization or amplitude solve is involved.
-Unsupported model descriptors retain numerical review and cannot be evaluated.
+`engine.scientific` owns immutable published results, sample identities and pure
+model projection. `io.scientific` owns bounded typed-array serialization;
+`io.readers.continuation` restores the recorded geometry/likelihood inputs for
+both interfaces and MCMC. `gui.project_results` only adds editor metadata and
+validates the automatic working-coordinate transition. `gui.project` owns atomic
+manifest publication and one checksummed experimental cube shared by history.
+
+Default exports retain published values, exact terminal corrections/mappings and
+a small evaluator reference; detailed evidence adds observations/historical model
+samples. Residuals are regenerated in the original operation order and checked
+against recorded statistics. Bit-identical replay in one environment does not
+replace evaluator tolerances. There is no solver/amplitude recovery on reopen.
+Projects retain detailed evidence plus the complete experimental cube, allowing
+source-free full-spectrum views and continued fitting. The cube costs more than
+sample-only evidence and is never duplicated per history entry.
 
 `editor.persistence` supplies file actions, immutable capture and Qt publication;
-`editor.numerical` supplies a source-independent evidence workspace and history.
-`gui.project_process` isolates expensive JSON parsing/validation in a disposable
-spawned process so it cannot hold Qt behind the GIL. The trusted internal pipe
-uses the existing immutable-record transfer codec; project files are never
-unpickled. Routine saves of unchanged evidence use the existing thread worker,
-without process startup, source hashing or evidence rewriting. Source arrays do
-not enter save requests. Relinking reads/verifies the selected external file.
-
-One manifest replacement publishes a durable generation. Runs live in immutable
-`runs/<id>/` directories. Save As copies/checks retained evidence, rebases source
-paths and never copies spectral files. A sibling PID lock excludes other writers
-and recovers locks left by dead save processes. Cleanup follows publication.
-Reader limits and platform/filesystem limitations are in the format documentation.
+`editor.numerical` supplies numerical review and lazy history.
+`gui.project_process` isolates archive operations in a disposable spawned process.
+Trusted internal IPC is not a disk format. First embedding may transfer a full
+cube; routine Save reuses it and unchanged run files without source reads or
+content hashing. New payloads are flushed before manifest replacement. Save As
+copies/checks both cube and evidence; a sibling PID lock protects writers. Cleanup
+follows publication. Existing linked projects have read-only legacy evidence
+readers and migrate by explicitly verifying/embedding their source.
 
 `editor.fitting` keeps one active `DatasetCompletion`. Historical full evidence is
 represented by `StoredRun` (project root + checksummed immutable entry), with no
@@ -349,8 +356,8 @@ asset registry is introduced.
 Ten full runs and protected evidence remain on disk; older entries retain exact
 coordinates, fitted tables/errors/bounds, submitted parameters/settings and concise
 diagnostics/statistics, explicitly without sample/profile capabilities. The 1 GiB
-historical budget excludes active/protected evidence. Existing export writers remain
-usable; compatibility is not a reason to constrain a better GUI v2 representation.
-The current project wraps validated scientific JSON in lossless gzip level 1. A
-separate focused change should assess a typed-array authority with derived exports,
-including peak decoding memory, before changing that scientific contract.
+historical budget excludes active/protected evidence. Project schema 2.0.0 rejects
+older projects deliberately; the new scientific codec replaces gzip JSON plus a
+separate sample archive. Explicit JSON remains a derived optional scientific
+export, shared by both interfaces. See [storage validation](validation/scientific-storage.md)
+for measured alternatives, serialization memory and platform limitations.

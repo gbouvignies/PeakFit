@@ -1,0 +1,591 @@
+{
+  "peak_concurrent_tree_rss_bytes": 2046656512,
+  "samples": 457,
+  "returncode": 0,
+  "phases": {
+    "unmarked": {
+      "peak_rss_bytes": 207863808,
+      "samples": 12,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 207863808,
+          "role": "gui"
+        }
+      ]
+    },
+    "load/": {
+      "peak_rss_bytes": 418316288,
+      "samples": 4,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 418316288,
+          "role": "gui"
+        }
+      ]
+    },
+    "fit/": {
+      "peak_rss_bytes": 785514496,
+      "samples": 2,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 785514496,
+          "role": "gui"
+        }
+      ]
+    },
+    "fit/Preparing complete dataset": {
+      "peak_rss_bytes": 992985088,
+      "samples": 2,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 992985088,
+          "role": "gui"
+        }
+      ]
+    },
+    "fit/Starting fit process": {
+      "peak_rss_bytes": 1320878080,
+      "samples": 51,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1037893632,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 85807,
+          "parent": 85774,
+          "rss_bytes": 261783552,
+          "role": "worker"
+        }
+      ]
+    },
+    "fit/optimizer": {
+      "peak_rss_bytes": 1953759232,
+      "samples": 25,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1037631488,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 85807,
+          "parent": 85774,
+          "rss_bytes": 894926848,
+          "role": "worker"
+        }
+      ]
+    },
+    "fit/Updating cross-cluster corrections": {
+      "peak_rss_bytes": 1899167744,
+      "samples": 6,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1037910016,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 85807,
+          "parent": 85774,
+          "rss_bytes": 840056832,
+          "role": "worker"
+        }
+      ]
+    },
+    "fit/Finalizing results": {
+      "peak_rss_bytes": 1950662656,
+      "samples": 1,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1037631488,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 85807,
+          "parent": 85774,
+          "rss_bytes": 891830272,
+          "role": "worker"
+        }
+      ]
+    },
+    "fit/Transferring completed result": {
+      "peak_rss_bytes": 2046656512,
+      "samples": 2,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1071611904,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 85807,
+          "parent": 85774,
+          "rss_bytes": 953843712,
+          "role": "worker"
+        }
+      ]
+    },
+    "fit/Preserving accepted evidence": {
+      "peak_rss_bytes": 1530740736,
+      "samples": 25,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1189855232,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 85899,
+          "parent": 85774,
+          "rss_bytes": 319684608,
+          "role": "worker"
+        }
+      ]
+    },
+    "fit_settled/": {
+      "peak_rss_bytes": 1217347584,
+      "samples": 10,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1196146688,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "first_save/": {
+      "peak_rss_bytes": 1432797184,
+      "samples": 15,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1197572096,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 85935,
+          "parent": 85774,
+          "rss_bytes": 214024192,
+          "role": "worker"
+        }
+      ]
+    },
+    "save_as/": {
+      "peak_rss_bytes": 1218772992,
+      "samples": 1,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1197572096,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 85935,
+          "parent": 85774,
+          "rss_bytes": 0,
+          "role": "worker"
+        }
+      ]
+    },
+    "reopen/": {
+      "peak_rss_bytes": 1926643712,
+      "samples": 27,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1330233344,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 85952,
+          "parent": 85774,
+          "rss_bytes": 575209472,
+          "role": "worker"
+        }
+      ]
+    },
+    "reopen_settled/": {
+      "peak_rss_bytes": 1362214912,
+      "samples": 10,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1341014016,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "display/": {
+      "peak_rss_bytes": 1394884608,
+      "samples": 111,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1373683712,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "refit/Preparing complete dataset": {
+      "peak_rss_bytes": 1395048448,
+      "samples": 3,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1373847552,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "refit/Starting fit process": {
+      "peak_rss_bytes": 1694220288,
+      "samples": 50,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1411203072,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 86109,
+          "parent": 85774,
+          "rss_bytes": 261816320,
+          "role": "worker"
+        }
+      ]
+    },
+    "refit/optimizer": {
+      "peak_rss_bytes": 1930919936,
+      "samples": 30,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1015414784,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 86109,
+          "parent": 85774,
+          "rss_bytes": 894304256,
+          "role": "worker"
+        }
+      ]
+    },
+    "refit/Updating cross-cluster corrections": {
+      "peak_rss_bytes": 1877966848,
+      "samples": 6,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1015463936,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 86109,
+          "parent": 85774,
+          "rss_bytes": 841302016,
+          "role": "worker"
+        }
+      ]
+    },
+    "refit/Finalizing results": {
+      "peak_rss_bytes": 1930838016,
+      "samples": 2,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1015414784,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 86109,
+          "parent": 85774,
+          "rss_bytes": 894222336,
+          "role": "worker"
+        }
+      ]
+    },
+    "refit/Transferring completed result": {
+      "peak_rss_bytes": 1142046720,
+      "samples": 1,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1120845824,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 86109,
+          "parent": 85774,
+          "rss_bytes": 0,
+          "role": "worker"
+        }
+      ]
+    },
+    "refit/Preserving accepted evidence": {
+      "peak_rss_bytes": 1510391808,
+      "samples": 25,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1168457728,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 86198,
+          "parent": 85774,
+          "rss_bytes": 320733184,
+          "role": "worker"
+        }
+      ]
+    },
+    "refit_settled/": {
+      "peak_rss_bytes": 1192951808,
+      "samples": 9,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1171750912,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "numerical_review/": {
+      "peak_rss_bytes": 1233764352,
+      "samples": 14,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1212563456,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "closed/": {
+      "peak_rss_bytes": 1233944576,
+      "samples": 13,
+      "breakdown": [
+        {
+          "pid": 85774,
+          "parent": 85773,
+          "rss_bytes": 1212743680,
+          "role": "gui"
+        },
+        {
+          "pid": 85806,
+          "parent": 85774,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    }
+  },
+  "processes": {
+    "85774": {
+      "role": "gui",
+      "command": ".venv/bin/python tools/validate_gui_persistence.py --phase-file /tmp/peakfit-phase-after-buffers.json --output /tmp/peakfit-phase-after-buffers-native",
+      "peak_rss_bytes": 1411219456,
+      "peak_phase": "refit/optimizer"
+    },
+    "85806": {
+      "role": "resource_tracker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(18)",
+      "peak_rss_bytes": 21200896,
+      "peak_phase": "closed/"
+    },
+    "85807": {
+      "role": "worker",
+      "command": "(python3.14)",
+      "peak_rss_bytes": 953843712,
+      "peak_phase": "fit/Transferring completed result"
+    },
+    "85899": {
+      "role": "worker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=19, pipe_handle=21) --multiprocessing-fork",
+      "peak_rss_bytes": 319684608,
+      "peak_phase": "fit/Preserving accepted evidence"
+    },
+    "85935": {
+      "role": "worker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=19, pipe_handle=21) --multiprocessing-fork",
+      "peak_rss_bytes": 214024192,
+      "peak_phase": "first_save/"
+    },
+    "85952": {
+      "role": "worker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=19, pipe_handle=21) --multiprocessing-fork",
+      "peak_rss_bytes": 580370432,
+      "peak_phase": "reopen/"
+    },
+    "86109": {
+      "role": "worker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=19, pipe_handle=25) --multiprocessing-fork",
+      "peak_rss_bytes": 894304256,
+      "peak_phase": "refit/optimizer"
+    },
+    "86198": {
+      "role": "worker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=19, pipe_handle=25) --multiprocessing-fork",
+      "peak_rss_bytes": 320733184,
+      "peak_phase": "refit/Preserving accepted evidence"
+    }
+  }
+}

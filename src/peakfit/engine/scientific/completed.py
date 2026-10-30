@@ -5,26 +5,36 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.fit.simulation import FinalModelSnapshot
+from peakfit.engine.scientific.simulation import FinalModelSnapshot
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.state import FittingState
-    from peakfit.fit.final_outcome import FinalFitOutcome
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
     from peakfit.fit.pipeline import CorrectionSnapshot
     from peakfit.shared.typing import FloatArray, IntArray
 
 
 @dataclass(frozen=True, slots=True)
-class FinalClusterSamples:
-    """Exact paired sample order and numerical inputs of one terminal problem.
-
-    ``data`` and ``neighbor_corrections`` are (points, fitted series). They are
-    inputs, not predictions. Corrected observations are their difference; recorded
-    model/residual values belong exclusively to the completed outcome.
-    """
+class FinalClusterMapping:
+    """Exact paired sample order; it is never a Cartesian grid product."""
 
     cluster_id: int
     grid_indices: tuple[IntArray, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FinalClusterInputs(FinalClusterMapping):
+    """Irreducible terminal corrections; observations may come from a verified source."""
+
+    neighbor_corrections: FloatArray
+    observation_sha256: str
+    observation_dtype: str
+
+
+@dataclass(frozen=True, slots=True)
+class FinalClusterSamples(FinalClusterMapping):
+    """Exact observations and irreducible terminal corrections at mapped samples."""
+
     data: FloatArray
     neighbor_corrections: FloatArray
 
@@ -58,7 +68,7 @@ class CompletedFit:
             cluster = by_id[terminal.cluster_id]
             data = _copy_readonly(cluster.data)
             correction = _copy_readonly(corrections.corrections[terminal.cluster_id])
-            evaluation = terminal.analytical_evaluation
+            evaluation = terminal.sample_evaluation
             if evaluation is not None and not np.array_equal(
                 data - correction - evaluation.model_values, evaluation.raw_residuals
             ):

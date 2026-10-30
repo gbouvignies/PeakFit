@@ -1,0 +1,267 @@
+{
+  "peak_concurrent_tree_rss_bytes": 1291976704,
+  "samples": 203,
+  "returncode": 0,
+  "phases": {
+    "unmarked": {
+      "peak_rss_bytes": 168525824,
+      "samples": 9,
+      "breakdown": [
+        {
+          "pid": 92682,
+          "parent": 92681,
+          "rss_bytes": 21053440,
+          "role": "gui"
+        },
+        {
+          "pid": 92684,
+          "parent": 92682,
+          "rss_bytes": 147472384,
+          "role": "worker"
+        }
+      ]
+    },
+    "load/running": {
+      "peak_rss_bytes": 779173888,
+      "samples": 4,
+      "breakdown": [
+        {
+          "pid": 92682,
+          "parent": 92681,
+          "rss_bytes": 21053440,
+          "role": "gui"
+        },
+        {
+          "pid": 92684,
+          "parent": 92682,
+          "rss_bytes": 758120448,
+          "role": "worker"
+        }
+      ]
+    },
+    "fit/running": {
+      "peak_rss_bytes": 958103552,
+      "samples": 65,
+      "breakdown": [
+        {
+          "pid": 92682,
+          "parent": 92681,
+          "rss_bytes": 21053440,
+          "role": "gui"
+        },
+        {
+          "pid": 92684,
+          "parent": 92682,
+          "rss_bytes": 937050112,
+          "role": "worker"
+        }
+      ]
+    },
+    "durable_acceptance/running": {
+      "peak_rss_bytes": 1282359296,
+      "samples": 19,
+      "breakdown": [
+        {
+          "pid": 92682,
+          "parent": 92681,
+          "rss_bytes": 21053440,
+          "role": "gui"
+        },
+        {
+          "pid": 92684,
+          "parent": 92682,
+          "rss_bytes": 979763200,
+          "role": "worker"
+        },
+        {
+          "pid": 92789,
+          "parent": 92684,
+          "rss_bytes": 21233664,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 92790,
+          "parent": 92684,
+          "rss_bytes": 260308992,
+          "role": "worker"
+        }
+      ]
+    },
+    "first_save/running": {
+      "peak_rss_bytes": 1281376256,
+      "samples": 1,
+      "breakdown": [
+        {
+          "pid": 92682,
+          "parent": 92681,
+          "rss_bytes": 21053440,
+          "role": "gui"
+        },
+        {
+          "pid": 92684,
+          "parent": 92682,
+          "rss_bytes": 979763200,
+          "role": "worker"
+        },
+        {
+          "pid": 92789,
+          "parent": 92684,
+          "rss_bytes": 21233664,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 92790,
+          "parent": 92684,
+          "rss_bytes": 259325952,
+          "role": "worker"
+        }
+      ]
+    },
+    "verified_reopen/running": {
+      "peak_rss_bytes": 1175715840,
+      "samples": 10,
+      "breakdown": [
+        {
+          "pid": 92682,
+          "parent": 92681,
+          "rss_bytes": 21053440,
+          "role": "gui"
+        },
+        {
+          "pid": 92684,
+          "parent": 92682,
+          "rss_bytes": 1133428736,
+          "role": "worker"
+        },
+        {
+          "pid": 92789,
+          "parent": 92684,
+          "rss_bytes": 21233664,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "historical_result/running": {
+      "peak_rss_bytes": 1209860096,
+      "samples": 8,
+      "breakdown": [
+        {
+          "pid": 92682,
+          "parent": 92681,
+          "rss_bytes": 21053440,
+          "role": "gui"
+        },
+        {
+          "pid": 92684,
+          "parent": 92682,
+          "rss_bytes": 1167572992,
+          "role": "worker"
+        },
+        {
+          "pid": 92789,
+          "parent": 92684,
+          "rss_bytes": 21233664,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "cli_default_export/running": {
+      "peak_rss_bytes": 1291976704,
+      "samples": 40,
+      "breakdown": [
+        {
+          "pid": 92682,
+          "parent": 92681,
+          "rss_bytes": 21053440,
+          "role": "gui"
+        },
+        {
+          "pid": 92684,
+          "parent": 92682,
+          "rss_bytes": 1249689600,
+          "role": "worker"
+        },
+        {
+          "pid": 92789,
+          "parent": 92684,
+          "rss_bytes": 21233664,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "gui_default_export/running": {
+      "peak_rss_bytes": 732364800,
+      "samples": 41,
+      "breakdown": [
+        {
+          "pid": 92682,
+          "parent": 92681,
+          "rss_bytes": 21037056,
+          "role": "gui"
+        },
+        {
+          "pid": 92684,
+          "parent": 92682,
+          "rss_bytes": 690094080,
+          "role": "worker"
+        },
+        {
+          "pid": 92789,
+          "parent": 92684,
+          "rss_bytes": 21233664,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "source_free_reopen/running": {
+      "peak_rss_bytes": 709083136,
+      "samples": 6,
+      "breakdown": [
+        {
+          "pid": 92682,
+          "parent": 92681,
+          "rss_bytes": 21037056,
+          "role": "gui"
+        },
+        {
+          "pid": 92684,
+          "parent": 92682,
+          "rss_bytes": 666812416,
+          "role": "worker"
+        },
+        {
+          "pid": 92789,
+          "parent": 92684,
+          "rss_bytes": 21233664,
+          "role": "resource_tracker"
+        }
+      ]
+    }
+  },
+  "processes": {
+    "92682": {
+      "role": "gui",
+      "command": "uv run --no-sync python tools/validate_storage_policy.py --output /tmp/peakfit-policy-before.json --phase-file /tmp/peakfit-policy-before-phase.json",
+      "peak_rss_bytes": 21053440,
+      "peak_phase": "gui_default_export/running"
+    },
+    "92684": {
+      "role": "worker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python tools/validate_storage_policy.py --output /tmp/peakfit-policy-before.json --phase-file /tmp/peakfit-policy-before-phase.json",
+      "peak_rss_bytes": 1249689600,
+      "peak_phase": "cli_default_export/running"
+    },
+    "92789": {
+      "role": "worker",
+      "command": "(python3.14)",
+      "peak_rss_bytes": 21233664,
+      "peak_phase": "source_free_reopen/running"
+    },
+    "92790": {
+      "role": "worker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_handle=8) --multiprocessing-fork",
+      "peak_rss_bytes": 260308992,
+      "peak_phase": "durable_acceptance/running"
+    }
+  }
+}

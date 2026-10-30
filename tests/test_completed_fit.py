@@ -15,9 +15,9 @@ from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
-from peakfit.fit.completed import CompletedFit
+from peakfit.engine.scientific.completed import CompletedFit
+from peakfit.engine.scientific.simulation import project_final_outcome, project_final_residual
 from peakfit.fit.pipeline import CorrectionSnapshot, PipelineCompletion, complete_fit
-from peakfit.fit.simulation import project_final_outcome, project_final_residual
 
 
 @pytest.fixture

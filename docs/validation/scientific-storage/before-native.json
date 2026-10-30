@@ -1,0 +1,61 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "qt_platform": "cocoa",
+  "python": "3.14.5",
+  "shape": [
+    131,
+    256,
+    546
+  ],
+  "source_bytes": 73244672,
+  "load_and_fingerprint_seconds": 0.08497670802171342,
+  "initial_fit_and_durable_acceptance_seconds": 8.646523958013859,
+  "first_save_seconds": 0.8928757919929922,
+  "routine_save_seconds": 0.011965167010203004,
+  "routine_unchanged_evidence_rewrites": 0,
+  "project_bytes": 37249228,
+  "routine_source_content_bytes_read": 0,
+  "routine_bytes_written": 219939,
+  "spectrum_payload_members": [],
+  "payloads": {
+    "manifest.json": 219939,
+    "runs/7179511d8c584e7eb64b03b71421dcaa/samples.npz": 9596634,
+    "runs/7179511d8c584e7eb64b03b71421dcaa/review.json": 183618,
+    "runs/7179511d8c584e7eb64b03b71421dcaa/summary/fit.json.gz": 27249037
+  },
+  "save_as_seconds": 0.03091033300734125,
+  "verified_reopen_seconds": 1.9467327919846866,
+  "manual_edit_outdates": true,
+  "reopened_refit_current": true,
+  "heartbeat_ms": {
+    "display": {
+      "p95": 11.035579207236879,
+      "max": 165.76283299946226
+    },
+    "first_save": {
+      "p95": 10.683783394051716,
+      "max": 22.371625003870577
+    },
+    "numerical_review": {
+      "p95": 11.040791595587507,
+      "max": 148.87316600652412
+    },
+    "refit": {
+      "p95": 10.885331248573493,
+      "max": 156.51791699929163
+    },
+    "reopen": {
+      "p95": 10.900583697366528,
+      "max": 67.90466699749231
+    },
+    "routine_save": {
+      "p95": 9.584874991560355,
+      "max": 9.584874991560355
+    },
+    "save_as": {
+      "p95": 10.530850288341753,
+      "max": 10.559416987234727
+    }
+  },
+  "session_storage_cleaned_after_numeric_close": true
+}

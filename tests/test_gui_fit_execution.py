@@ -15,8 +15,8 @@ from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.lineshapes.create import create_shapes
+from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.pipeline import run_pipeline
-from peakfit.fit.simulation import project_final_outcome
 from peakfit.gui.fit_display import local_model_plane, model_contours, model_slices
 from peakfit.gui.fit_process import FitProcess, FitProcessResult
 from peakfit.gui.fitting import prepare_local_fit
@@ -130,7 +130,7 @@ def test_prepared_execution_matches_one_pass_and_preserves_scientific_inputs(mon
         assert (final.min, final.max, final.vary) == (start.min, start.max, start.vary)
         if not final.vary:
             assert final.value == start.value
-    evaluation = actual.analytical_evaluation
+    evaluation = actual.sample_evaluation
     assert evaluation is not None
     assert expected.analytical_evaluation is not None
     np.testing.assert_allclose(evaluation.amplitudes, expected.analytical_evaluation.amplitudes)
@@ -323,7 +323,7 @@ def test_spawned_lifecycle_navigation_cancellation_failure_and_stale_results(mon
         _wait(lambda: comparison._current is not None and comparison._slice is not None)
         assert viewer._contour_plane == viewer.plane == 0
         comparison.profile_mode.setCurrentIndex(1)
-        evaluation = retained.scientific.outcome.clusters[0].analytical_evaluation
+        evaluation = retained.scientific.outcome.clusters[0].sample_evaluation
         assert evaluation is not None
         np.testing.assert_allclose(
             comparison.profile_model.yData,

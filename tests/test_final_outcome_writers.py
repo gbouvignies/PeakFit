@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
-from peakfit.fit.final_outcome import (
+from peakfit.engine.scientific.final_outcome import (
     FinalAnalyticalEvaluation,
     FinalClusterOutcome,
     FinalFitOutcome,
@@ -20,8 +20,8 @@ from peakfit.fit.final_outcome import (
     OptimizerProvenance,
 )
 from peakfit.fit.fitting import find_review_clusters
-from peakfit.fit.output_metadata import RunMetadata
 from peakfit.fit.run_models import FitRun, RunSummary
+from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.schemas import FitSummarySchema
 from peakfit.io.writers.config import WriterConfig

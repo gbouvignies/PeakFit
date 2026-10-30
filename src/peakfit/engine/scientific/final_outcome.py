@@ -40,9 +40,9 @@ class FinalParameter:
     standard_error: float
 
 
-@dataclass(frozen=True, slots=True)
-class FinalAnalyticalEvaluation:
-    """A frozen copy of ticket-03's one coherent analytical evaluation."""
+@dataclass(frozen=True, slots=True, kw_only=True)
+class FinalAnalyticalResult:
+    """Published linear values and diagnostics, independent of optional sample evidence."""
 
     cluster_id: int
     shapes: FloatArray
@@ -50,11 +50,17 @@ class FinalAnalyticalEvaluation:
     amplitude_standard_errors: FloatArray
     amplitude_covariance: FloatArray
     scaled_amplitude_standard_errors: FloatArray
+    statistics: AnalyticalFitStatistics
+    uncertainty_warning: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FinalAnalyticalEvaluation(FinalAnalyticalResult):
+    """Published result with historical sample predictions and reconstructed residuals."""
+
     model_values: FloatArray
     raw_residuals: FloatArray
     normalized_residuals: FloatArray
-    statistics: AnalyticalFitStatistics
-    uncertainty_warning: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,8 +89,14 @@ class FinalClusterOutcome:
     correction_revision: int
     optimizer_provenance: OptimizerProvenance
     final_nonlinear_parameters: tuple[FinalParameter, ...]
-    analytical_evaluation: FinalAnalyticalEvaluation | None
+    analytical_evaluation: FinalAnalyticalResult | None
     unusable_reason: str | None
+
+    @property
+    def sample_evaluation(self) -> FinalAnalyticalEvaluation | None:
+        """Sample evidence if retained; a compact result never invents residuals."""
+        e = self.analytical_evaluation
+        return e if isinstance(e, FinalAnalyticalEvaluation) else None
 
     @property
     def usable(self) -> bool:
@@ -448,11 +460,12 @@ def _optimizer_provenance(result: FitResult, correction_revision: int) -> Optimi
         optimality=result.optimality if has_varpro_diagnostics else None,
         final_cost=float(result.cost),
         correction_revision=correction_revision,
-        metadata=_freeze_mapping(result.metadata),
+        metadata=freeze_provenance(result.metadata),
     )
 
 
-def _freeze_mapping(values: Mapping[str, Any]) -> Mapping[str, Any]:
+def freeze_provenance(values: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Own immutable nested optimizer evidence when finalizing or restoring a fit."""
     return MappingProxyType({key: _freeze_value(value) for key, value in values.items()})
 
 
@@ -460,7 +473,7 @@ def _freeze_value(value: Any) -> Any:
     if isinstance(value, np.ndarray):
         return _freeze_array(value)
     if isinstance(value, dict):
-        return _freeze_mapping(value)
+        return freeze_provenance(value)
     if isinstance(value, list):
         return tuple(_freeze_value(item) for item in value)
     if isinstance(value, tuple):

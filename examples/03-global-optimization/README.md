@@ -50,7 +50,7 @@ Each command writes to a timestamped run under the selected output root.
 
 Inspect:
 
-- `summary/fit.json`
+- `scientific.npz` and `summary/report.md`
 - `tables/parameters.csv`
 
-The script prints a simple comparison using values from `summary/fit.json`.
+The script prints a simple comparison using values from `scientific.npz` and `summary/report.md`.

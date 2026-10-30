@@ -1,6 +1,7 @@
 """Position projection, atomic peak edits and retained-result GUI semantics."""
 
 from dataclasses import replace
+from zipfile import ZipFile
 
 import numpy as np
 import pytest
@@ -198,10 +199,16 @@ def test_apply_confirmation_retains_result_and_export_state(  # noqa: PLR0915
             amplitudes, scientific.outcome.clusters[0].analytical_evaluation.amplitudes
         )
         after_export = export_fit_result(scientific, tmp_path / "after")
-        for relative in ("summary/fit.json", "summary/local_fit.json", "tables/intensities.csv"):
-            assert (after_export / relative).read_bytes() == (
-                original_export / relative
-            ).read_bytes()
+        with (
+            ZipFile(after_export / "scientific.npz") as after,
+            ZipFile(original_export / "scientific.npz") as before,
+        ):
+            assert {n: after.read(n) for n in after.namelist()} == {
+                n: before.read(n) for n in before.namelist()
+            }
+        assert (after_export / "tables/intensities.csv").read_bytes() == (
+            original_export / "tables/intensities.csv"
+        ).read_bytes()
         viewer.undo()
         assert viewer.peaks == working
         assert not viewer.edits.can_undo

@@ -70,9 +70,9 @@ class AnalyticalEvaluationSchema(_Schema):
     amplitude_standard_errors: list[FiniteFloat | None]
     amplitude_covariance: list[list[FiniteFloat | None]]
     scaled_amplitude_standard_errors: list[FiniteFloat | None]
-    model_values: list[list[FiniteFloat]]
-    raw_residuals: list[list[FiniteFloat]]
-    normalized_residuals: list[FiniteFloat]
+    model_values: list[list[FiniteFloat]] | None
+    raw_residuals: list[list[FiniteFloat]] | None
+    normalized_residuals: list[FiniteFloat] | None
     statistics: AnalyticalStatisticsSchema
 
     @model_validator(mode="after")
@@ -103,9 +103,14 @@ class AnalyticalEvaluationSchema(_Schema):
             ("model values", self.model_values),
             ("raw residuals", self.raw_residuals),
         ):
-            if len(values) != n_points or any(len(row) != n_series for row in values):
+            if values is not None and (
+                len(values) != n_points or any(len(row) != n_series for row in values)
+            ):
                 raise ValueError(f"{name} must have the point-by-series analytical shape")
-        if len(self.normalized_residuals) != n_points * n_series:
+        if (
+            self.normalized_residuals is not None
+            and len(self.normalized_residuals) != n_points * n_series
+        ):
             raise ValueError("normalized residuals must contain one value per observation")
         if self.statistics.n_observations != n_points * n_series:
             raise ValueError("n_observations must match the analytical point-by-series shape")

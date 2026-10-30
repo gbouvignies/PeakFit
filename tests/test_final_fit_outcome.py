@@ -22,7 +22,7 @@ from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
-from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
+from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
 from peakfit.fit.pipeline import CorrectionSnapshot, PipelineCompletion
 
 
@@ -216,7 +216,7 @@ def test_finalization_copies_ticket_three_evaluation_and_freezes_nested_values()
     fixture.clusters[0].data.fill(123.0)
 
     outcome = finalize_fit(fixture.completion)
-    evaluation = outcome.cluster(11).analytical_evaluation
+    evaluation = outcome.cluster(11).sample_evaluation
     assert evaluation is not None
     assert evaluation is not source
     np.testing.assert_allclose(evaluation.amplitudes, source.amplitudes)

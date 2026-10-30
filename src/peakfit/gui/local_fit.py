@@ -30,8 +30,8 @@ if TYPE_CHECKING:
     from multiprocessing.connection import Connection
 
     from peakfit.engine.results import FitResult
-    from peakfit.fit.final_outcome import FinalFitOutcome
-    from peakfit.fit.simulation import FinalModelSnapshot
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
+    from peakfit.engine.scientific.simulation import FinalModelSnapshot
     from peakfit.gui.fitting import PreparedLocalFit
 
 

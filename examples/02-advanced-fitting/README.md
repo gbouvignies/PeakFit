@@ -66,7 +66,7 @@ This variant writes to `Fits-config/` without a timestamp.
 
 From `LATEST_RUN`:
 
-- `summary/fit.json`
+- `scientific.npz` and `summary/report.md`
 - `tables/parameters.csv`
 - `tables/intensities.csv`
-- `metadata/fitting_state.pkl` (used by `peakfit mcmc`)
+- `scientific.npz` (also used by `peakfit mcmc`; no default pickle)
