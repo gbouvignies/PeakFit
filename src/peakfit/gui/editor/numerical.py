@@ -329,7 +329,7 @@ class NumericalReview(QtWidgets.QWidget):
             return
         result = completion.result
         s = next(s for s in result.completed_fit.samples if s.cluster_id == cid)
-        e = result.outcome.cluster(cid).analytical_evaluation
+        e = result.outcome.cluster(cid).sample_evaluation
         plane = self.plane.value() - 1
         count = min(2000, s.data.shape[0])
         self.sample_note.setText(

@@ -5,17 +5,17 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.fit.coordinates import coordinate_table
+from peakfit.engine.scientific.coordinates import coordinate_table
+from peakfit.engine.scientific.simulation import simulate_final_outcome
 from peakfit.fit.run_models import RunSummary
-from peakfit.fit.simulation import simulate_final_outcome
-from peakfit.fit.storage import write_scientific
+from peakfit.io.scientific import write_scientific
 from peakfit.io.writers.orchestrator import write_fit_outputs
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.fit.completed import CompletedFit
-    from peakfit.fit.output_metadata import RunMetadata
+    from peakfit.engine.scientific.completed import CompletedFit
+    from peakfit.io.output_metadata import RunMetadata
     from peakfit.io.writers.config import WriterConfig
 
 
@@ -57,15 +57,17 @@ def write_completed_outputs(
     source_plane_indices,
     peak_identities=None,
     save_simulated=False,
+    detailed_evidence=False,
     initial_coordinates=None,
     adopted_coordinates=None,
     export_state=None,
 ):
     """Export one authority with exact samples, calibration, identities and provenance.
 
-    The binary scientific record is mandatory, independent of optional human/JSON
-    projections. Editor drafts/currentness and optimizer continuation are not part
-    of this scientific contract. Consumers dispatch on kind and schema_version;
+    The binary scientific record is mandatory. Export-time editor facts are
+    separate context; fitted evidence never changes with working-state edits.
+    Detailed observations or a verified source support native parent continuation,
+    without claiming chain/RNG resumption. Consumers dispatch on kind/schema_version;
     future analyses can define their own kind without changing fit semantics.
     """
     identities = (
@@ -103,7 +105,11 @@ def write_completed_outputs(
     }
     files = {
         "scientific_result": write_scientific(
-            output_dir / "scientific.npz", completed.outcome, completed.samples, context=context
+            output_dir / "scientific.npz",
+            completed.outcome,
+            completed.samples,
+            context=context,
+            evidence="detailed" if detailed_evidence else "results",
         )
     }
     files.update(

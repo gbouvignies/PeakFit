@@ -22,6 +22,7 @@ import pytest
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.lineshapes.gaussian.kernel import kernel as gaussian_kernel
 from peakfit.engine.lineshapes.lorentzian.kernel import kernel as lorentzian_kernel
+from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION, FitSummarySchema
 
 # --- Configuration ---
@@ -67,9 +68,12 @@ def _link_example_inputs_for_mcmc(results_dir: Path) -> None:
             target.symlink_to(source)
 
 
+def _summary_payload(directory):
+    return ResultsLoader(directory).load_summary().model_dump(mode="json")
+
+
 def _first_peak_name(results_dir: Path) -> str:
-    with (results_dir / "summary" / "fit.json").open() as f:
-        data = json.load(f)
+    data = _summary_payload(results_dir)
     return str(data["clusters"][0]["peak_names"][0])
 
 
@@ -136,7 +140,8 @@ class TestOutputStructure:
     def test_required_files_exist(self, fit_output_dir):
         """Check that required output files are created."""
         required_files = [
-            "summary/fit.json",
+            "scientific.npz",
+            "summary/report.md",
             "tables/parameters.csv",
             "tables/intensities.csv",
         ]
@@ -144,11 +149,9 @@ class TestOutputStructure:
             file_path = fit_output_dir / filepath
             assert file_path.exists(), f"Required file missing: {filepath}"
 
-    def test_json_is_valid(self, fit_output_dir):
+    def test_native_summary_is_valid(self, fit_output_dir):
         """Verify JSON files are parseable."""
-        json_path = fit_output_dir / "summary" / "fit.json"
-        with json_path.open() as f:
-            data = json.load(f)
+        data = _summary_payload(fit_output_dir)
         assert isinstance(data, dict), "JSON root should be a dictionary"
 
     def test_no_manifest_file_is_written(self, fit_output_dir):
@@ -167,7 +170,8 @@ class TestPublicWorkflows:
     def test_explicit_peaklist_fit_writes_core_outputs(self, fit_output_dir):
         """`peakfit fit spectrum peaklist` should produce the core public outputs."""
         core_outputs = [
-            fit_output_dir / "summary" / "fit.json",
+            fit_output_dir / "scientific.npz",
+            fit_output_dir / "summary" / "report.md",
             fit_output_dir / "tables" / "parameters.csv",
             fit_output_dir / "tables" / "intensities.csv",
         ]
@@ -178,12 +182,9 @@ class TestPublicWorkflows:
                 f"Core output is empty: {path.relative_to(fit_output_dir)}"
             )
 
-    def test_summary_json_is_readable(self, fit_output_dir):
+    def test_scientific_summary_is_readable(self, fit_output_dir):
         """The summary JSON should be parseable and schema-readable."""
-        summary_path = fit_output_dir / "summary" / "fit.json"
-
-        with summary_path.open() as f:
-            payload = json.load(f)
+        payload = _summary_payload(fit_output_dir)
 
         summary = FitSummarySchema.model_validate(payload)
 
@@ -290,21 +291,17 @@ class TestPublicWorkflows:
 # =============================================================================
 
 
-class TestJsonSchema:
-    """Verify JSON schema compatibility for downstream tools."""
+class TestScientificSummarySchema:
+    """Verify native result summaries retain downstream scientific semantics."""
 
     def test_schema_version_present(self, fit_output_dir):
         """Check schema version is included for compatibility tracking."""
-        json_path = fit_output_dir / "summary" / "fit.json"
-        with json_path.open() as f:
-            data = json.load(f)
+        data = _summary_payload(fit_output_dir)
         assert data["schema_version"] == OUTPUT_SCHEMA_VERSION
 
     def test_required_top_level_keys(self, fit_output_dir):
         """Check required top-level keys are present."""
-        json_path = fit_output_dir / "summary" / "fit.json"
-        with json_path.open() as f:
-            data = json.load(f)
+        data = _summary_payload(fit_output_dir)
 
         required_keys = ["metadata", "clusters", "statistics"]
         for key in required_keys:
@@ -312,9 +309,7 @@ class TestJsonSchema:
 
     def test_final_statistics_structure(self, fit_output_dir):
         """Verify usable-only final statistics have expected fields."""
-        json_path = fit_output_dir / "summary" / "fit.json"
-        with json_path.open() as f:
-            data = json.load(f)
+        data = _summary_payload(fit_output_dir)
 
         stats = data.get("statistics", {})
         # Core fields that must be present for downstream processing
@@ -327,9 +322,7 @@ class TestJsonSchema:
 
     def test_cluster_structure(self, fit_output_dir):
         """Verify cluster entries have expected structure."""
-        json_path = fit_output_dir / "summary" / "fit.json"
-        with json_path.open() as f:
-            data = json.load(f)
+        data = _summary_payload(fit_output_dir)
 
         clusters = data.get("clusters", [])
         assert len(clusters) > 0, "Should have at least one cluster"
@@ -349,9 +342,7 @@ class TestJsonSchema:
 
     def test_parameter_structure(self, fit_output_dir):
         """Verify parameter entries have expected structure."""
-        json_path = fit_output_dir / "summary" / "fit.json"
-        with json_path.open() as f:
-            data = json.load(f)
+        data = _summary_payload(fit_output_dir)
 
         clusters = data.get("clusters", [])
         params = clusters[0].get("final_nonlinear_parameters", [])
@@ -374,9 +365,7 @@ class TestNumericalStability:
 
     def test_chi_squared_reasonable(self, fit_output_dir):
         """Chi-squared should be positive and reasonable."""
-        json_path = fit_output_dir / "summary" / "fit.json"
-        with json_path.open() as f:
-            data = json.load(f)
+        data = _summary_payload(fit_output_dir)
 
         chi2 = data["statistics"]["chi_squared"]
         assert chi2 > 0, "Chi-squared should be positive"
@@ -384,9 +373,7 @@ class TestNumericalStability:
 
     def test_reduced_chi_squared_reasonable(self, fit_output_dir):
         """Reduced chi-squared should be in reasonable range."""
-        json_path = fit_output_dir / "summary" / "fit.json"
-        with json_path.open() as f:
-            data = json.load(f)
+        data = _summary_payload(fit_output_dir)
 
         redchi = data["statistics"]["reduced_chi_squared"]
         # Good fits typically have reduced chi2 between 0.1 and 10
@@ -448,10 +435,7 @@ class TestGoldenComparison:
 
     def test_chi_squared_stable(self, fit_output_dir):
         """Chi-squared should be within tolerance of golden value."""
-        new_path = fit_output_dir / "summary" / "fit.json"
-
-        with new_path.open() as f:
-            new_data = json.load(f)
+        new_data = _summary_payload(fit_output_dir)
         baseline = _load_baseline()
 
         new_chi2 = new_data["statistics"]["chi_squared"]
@@ -465,10 +449,7 @@ class TestGoldenComparison:
 
     def test_cluster_count_stable(self, fit_output_dir):
         """Number of clusters should match golden."""
-        new_path = fit_output_dir / "summary" / "fit.json"
-
-        with new_path.open() as f:
-            new_data = json.load(f)
+        new_data = _summary_payload(fit_output_dir)
         baseline = _load_baseline()
 
         new_n = len(new_data["clusters"])
@@ -478,10 +459,7 @@ class TestGoldenComparison:
 
     def test_peak_count_stable(self, fit_output_dir):
         """Number of peaks should match golden."""
-        new_path = fit_output_dir / "summary" / "fit.json"
-
-        with new_path.open() as f:
-            new_data = json.load(f)
+        new_data = _summary_payload(fit_output_dir)
         baseline = _load_baseline()
 
         new_n = sum(len(cluster["peak_names"]) for cluster in new_data["clusters"])

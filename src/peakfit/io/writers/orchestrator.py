@@ -18,9 +18,9 @@ from peakfit.io.writers.markdown import write_final_outcome_report
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.fit.final_outcome import FinalFitOutcome
-    from peakfit.fit.output_metadata import RunMetadata
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
     from peakfit.fit.run_models import RunSummary
+    from peakfit.io.output_metadata import RunMetadata
     from peakfit.shared.typing import FloatArray, IntArray
 
 

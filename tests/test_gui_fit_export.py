@@ -11,7 +11,6 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from test_gui_fit_execution import _example, _wait
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
-from peakfit.fit.storage import read_scientific
 from peakfit.gui.app import PeakFitWindow
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_process import FitProcessResult
@@ -19,6 +18,7 @@ from peakfit.gui.local_fit import execute_local_fit
 from peakfit.gui.spectrum import verified_source_files
 from peakfit.gui.viewer import SpectrumViewer
 from peakfit.io.readers.results import ResultsLoader
+from peakfit.io.scientific import read_scientific
 
 pytestmark = pytest.mark.gui
 
@@ -26,6 +26,11 @@ pytestmark = pytest.mark.gui
 @pytest.mark.parametrize("classification", ["converged", "usable_non_converged", "unusable"])
 def test_export_authoritative_values_and_original_identities(tmp_path, monkeypatch, classification):  # noqa: PLR0915
     _spectra, working, prepared, config = _example()
+    config.output.formats = ["json", "csv"]
+    config.output.detailed_evidence = True
+    prepared = replace(
+        prepared, snapshot=replace(prepared.snapshot, configuration=config.model_dump_json())
+    )
     if classification == "usable_non_converged":
         config.fitting.max_iterations = 1
         prepared = replace(
@@ -267,7 +272,9 @@ def test_export_and_close_keep_result_and_peak_states_separate(tmp_path, monkeyp
         from peakfit.gui.export_dialog import choose_and_export  # noqa: PLC0415
 
         monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", choose_and_export)
-        monkeypatch.setattr(QtWidgets.QFileDialog, "getExistingDirectory", lambda *_: str(tmp_path))
+        monkeypatch.setattr(
+            "peakfit.gui.export_dialog._choose_export_directory", lambda *_: (str(tmp_path), False)
+        )
         monkeypatch.setattr(QtWidgets.QMessageBox, "information", lambda *_: None)
         monkeypatch.setattr(QtWidgets.QMessageBox, "warning", lambda *_: None)
         beats = []
@@ -351,9 +358,37 @@ def test_export_shows_progress_before_starting_writer(tmp_path, monkeypatch):
     monkeypatch.setattr(export_dialog, "_ExportProgress", Progress)
     monkeypatch.setattr(export_dialog, "export_fit_result", write)
     monkeypatch.setattr(
-        QtWidgets.QFileDialog, "getExistingDirectory", lambda *_a, **_k: str(tmp_path)
+        export_dialog, "_choose_export_directory", lambda *_a, **_k: (str(tmp_path), False)
     )
     assert export_dialog.choose_and_export(parent, completed) == tmp_path
     assert observed == [True]
     parent.close()
     parent.deleteLater()
+
+
+def test_export_picker_has_one_evidence_option_and_honors_configuration(tmp_path):
+    from peakfit.gui.export_dialog import _choose_export_directory  # noqa: PLC0415
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    assert isinstance(app, QtWidgets.QApplication)
+    observed = []
+
+    def accept():
+        dialog = next(
+            w
+            for w in app.topLevelWidgets()
+            if isinstance(w, QtWidgets.QFileDialog) and w.isVisible()
+        )
+        checks = [
+            w for w in dialog.findChildren(QtWidgets.QCheckBox) if "detailed evidence" in w.text()
+        ]
+        assert len(checks) == 1
+        observed.append(checks[0].isChecked())
+        dialog.selectFile(str(tmp_path))
+        dialog.accept()
+
+    QtCore.QTimer.singleShot(0, accept)
+    directory, detailed = _choose_export_directory(None, True)
+    assert Path(directory) == tmp_path
+    assert detailed
+    assert observed == [True]

@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from peakfit.engine.domain.config import PeakFitConfig
-from peakfit.fit.completed import CompletedFit, FinalClusterSamples
+from peakfit.engine.scientific.completed import CompletedFit, FinalClusterSamples
 from peakfit.fit.export import write_completed_outputs
-from peakfit.fit.output_metadata import RunMetadata
 from peakfit.gui.dataset_fit import DatasetFitResult
+from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.writers.config import WriterConfig
 
 if TYPE_CHECKING:
@@ -25,6 +25,7 @@ def export_fit_result(
     *,
     completion: DatasetCompletion | None = None,
     current: bool | None = None,
+    detailed_evidence: bool | None = None,
 ) -> Path:
     """Publish all required artifacts together, refusing any existing destination.
 
@@ -88,6 +89,9 @@ def export_fit_result(
                 for identity in inputs.identities
             ],
             save_simulated=settings.save_simulated,
+            detailed_evidence=settings.detailed_evidence
+            if detailed_evidence is None
+            else detailed_evidence,
             initial_coordinates={p.id: p.positions for p in snapshot.peaks},
             adopted_coordinates={p.id: p.positions for p in completion.working_peaks}
             if completion

@@ -1,0 +1,387 @@
+{
+  "peak_concurrent_tree_rss_bytes": 2672967680,
+  "samples": 349,
+  "returncode": 0,
+  "phases": {
+    "unmarked": {
+      "peak_rss_bytes": 168591360,
+      "samples": 10,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21184512,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 147406848,
+          "role": "worker"
+        }
+      ]
+    },
+    "load/running": {
+      "peak_rss_bytes": 638156800,
+      "samples": 4,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21184512,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 616972288,
+          "role": "worker"
+        }
+      ]
+    },
+    "fit/running": {
+      "peak_rss_bytes": 930234368,
+      "samples": 69,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21184512,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 909049856,
+          "role": "worker"
+        }
+      ]
+    },
+    "durable_acceptance/running": {
+      "peak_rss_bytes": 1550270464,
+      "samples": 41,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21184512,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 1029865472,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 94592,
+          "parent": 94499,
+          "rss_bytes": 478019584,
+          "role": "worker"
+        }
+      ]
+    },
+    "first_save/running": {
+      "peak_rss_bytes": 1549287424,
+      "samples": 2,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21184512,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 1029865472,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 94592,
+          "parent": 94499,
+          "rss_bytes": 477036544,
+          "role": "worker"
+        }
+      ]
+    },
+    "verified_reopen/running": {
+      "peak_rss_bytes": 1082081280,
+      "samples": 11,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21184512,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 1039695872,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "historical_result/running": {
+      "peak_rss_bytes": 1114095616,
+      "samples": 8,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21184512,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 1071710208,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "cli_default_export/running": {
+      "peak_rss_bytes": 1131888640,
+      "samples": 7,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21184512,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 1089503232,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "gui_default_export/running": {
+      "peak_rss_bytes": 636043264,
+      "samples": 6,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21184512,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 593657856,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "compact_continuation/running": {
+      "peak_rss_bytes": 652361728,
+      "samples": 3,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21184512,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 609976320,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "detailed_export/running": {
+      "peak_rss_bytes": 845643776,
+      "samples": 9,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21168128,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 803274752,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "source_free_reopen/running": {
+      "peak_rss_bytes": 901349376,
+      "samples": 10,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21168128,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 858980352,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "detailed_continuation_without_sources/running": {
+      "peak_rss_bytes": 1276805120,
+      "samples": 40,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21168128,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 1234436096,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        }
+      ]
+    },
+    "native_adjusted_source_free_refit/running": {
+      "peak_rss_bytes": 2672967680,
+      "samples": 129,
+      "breakdown": [
+        {
+          "pid": 94497,
+          "parent": 94496,
+          "rss_bytes": 21168128,
+          "role": "gui"
+        },
+        {
+          "pid": 94499,
+          "parent": 94497,
+          "rss_bytes": 1730166784,
+          "role": "worker"
+        },
+        {
+          "pid": 94591,
+          "parent": 94499,
+          "rss_bytes": 21200896,
+          "role": "resource_tracker"
+        },
+        {
+          "pid": 94737,
+          "parent": 94499,
+          "rss_bytes": 900431872,
+          "role": "worker"
+        }
+      ]
+    }
+  },
+  "processes": {
+    "94497": {
+      "role": "gui",
+      "command": "uv run --no-sync python tools/validate_storage_policy.py --output /tmp/peakfit-policy-after-final.json --phase-file /tmp/peakfit-policy-after-final-phase.json --native",
+      "peak_rss_bytes": 21184512,
+      "peak_phase": "detailed_export/running"
+    },
+    "94499": {
+      "role": "worker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python tools/validate_storage_policy.py --output /tmp/peakfit-policy-after-final.json --phase-file /tmp/peakfit-policy-after-final-phase.json --native",
+      "peak_rss_bytes": 1857536000,
+      "peak_phase": "native_adjusted_source_free_refit/running"
+    },
+    "94591": {
+      "role": "worker",
+      "command": "(python3.14)",
+      "peak_rss_bytes": 21200896,
+      "peak_phase": "native_adjusted_source_free_refit/running"
+    },
+    "94592": {
+      "role": "worker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_handle=8) --multiprocessing-fork",
+      "peak_rss_bytes": 478019584,
+      "peak_phase": "durable_acceptance/running"
+    },
+    "94654": {
+      "role": "worker",
+      "command": "(git)",
+      "peak_rss_bytes": 4538368,
+      "peak_phase": "cli_default_export/running"
+    },
+    "94737": {
+      "role": "worker",
+      "command": "(python3.14)",
+      "peak_rss_bytes": 900431872,
+      "peak_phase": "native_adjusted_source_free_refit/running"
+    },
+    "94829": {
+      "role": "worker",
+      "command": "/Users/gbouvignies/Workspace/Code/PeakFit/.venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_handle=25) --multiprocessing-fork",
+      "peak_rss_bytes": 480313344,
+      "peak_phase": "native_adjusted_source_free_refit/running"
+    }
+  }
+}

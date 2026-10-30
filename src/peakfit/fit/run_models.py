@@ -16,9 +16,9 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.engine.domain.state import FittingState
-    from peakfit.fit.completed import CompletedFit
-    from peakfit.fit.final_outcome import FinalFitOutcome
-    from peakfit.fit.simulation import FinalModelSnapshot
+    from peakfit.engine.scientific.completed import CompletedFit
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
+    from peakfit.engine.scientific.simulation import FinalModelSnapshot
 
 
 @dataclass(frozen=True)

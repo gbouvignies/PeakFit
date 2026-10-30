@@ -13,7 +13,7 @@ from peakfit.io.writers.utils import format_float
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.fit.final_outcome import FinalFitOutcome
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
 _CANONICAL_NAME_PARTS = 3
 
 

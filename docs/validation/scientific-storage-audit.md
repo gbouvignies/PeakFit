@@ -1,5 +1,12 @@
 # Scientific storage audit — PR #71
 
+Completed at `1051ceb`. The later [implemented policy](scientific-storage-policy.md)
+retains terminal corrections in default exports and embeds the full experimental
+cube in projects; those requirements cost more than the result-only/sample-only
+estimates below. This audit and its array inventory remain baseline evidence.
+Reproduce its original output by running its tool at `1051ceb`.
+
+
 ## Recommendation
 
 Keep one shared GUI/CLI scientific contract, but separate **published fitted
@@ -324,7 +331,7 @@ The dependency formulas above are implemented in
 [`evaluation._evaluate_model`](../../src/peakfit/engine/algorithms/evaluation.py#L254),
 [`linear_algebra.calculate_amplitudes_with_uncertainty`](../../src/peakfit/engine/algorithms/linear_algebra.py#L74),
 and the immutable result fields in
-[`FinalAnalyticalEvaluation`](../../src/peakfit/fit/final_outcome.py#L42).
+[`FinalAnalyticalEvaluation`](../../src/peakfit/engine/scientific/final_outcome.py#L42).
 The accepted outcome explicitly freezes these arrays today; that does not make
 all of them independent information.
 
@@ -347,7 +354,7 @@ content/calibration, exact retained source samples and model reconstruction;
 [`project_results.verify_model`](../../src/peakfit/gui/project_results.py#L168)
 compares re-evaluated shapes at `rtol=1e-10, atol=1e-12` and model values at
 `rtol=1e-10, atol=1e-9`;
-[`project_final_outcome`](../../src/peakfit/fit/simulation.py#L107) reevaluates shapes
+[`project_final_outcome`](../../src/peakfit/engine/scientific/simulation.py#L107) reevaluates shapes
 and multiplies stored amplitudes without an amplitude solve;
 [`NumericalReview`](../../src/peakfit/gui/editor/numerical.py#L248) distinguishes
 parameter/profile views from observed/corrected/model/residual sample tables.
@@ -389,7 +396,7 @@ It does not consume the archived final sampled shape/model/residual arrays.
 ## Current readers are stricter than the minimal scientific contract
 
 The proposals above are not implemented. Today `write_scientific` and
-[`_validate_science`](../../src/peakfit/fit/storage.py#L210) require all retained
+[`_validate_science`](../../src/peakfit/io/scientific.py#L210) require all retained
 sample and analytical arrays and verify their algebra. The project
 [`_write_run`](../../src/peakfit/gui/project.py#L177) always writes that full record;
 reopening constructs a `CompletedFit` with full sample inputs. Simply deleting

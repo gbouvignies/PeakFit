@@ -18,7 +18,6 @@ from test_gui_editor import wait_for
 
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.fit import pipeline
-from peakfit.fit.storage import read_scientific
 from peakfit.gui import fitting, project, spectrum
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
@@ -32,6 +31,7 @@ from peakfit.gui.project_process import project_operation
 from peakfit.gui.project_results import journal_entry, verify_model
 from peakfit.gui.session_evidence import SessionEvidence, interrupted_sessions
 from peakfit.gui.spectrum import Dataset, read_dataset
+from peakfit.io.scientific import read_scientific
 
 DATA = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
 pytestmark = pytest.mark.gui
@@ -90,8 +90,8 @@ def test_lossless_numerical_round_trip_no_optimization(analysis, tmp_path, monke
         project, "read_dataset", lambda _path, **_kw: (_ for _ in ()).throw(OSError("missing"))
     )
     loaded = open_analysis(path)
-    assert loaded.dataset is None
-    assert "missing" in loaded.reason
+    assert loaded.dataset is not None
+    np.testing.assert_array_equal(loaded.dataset.spectra.data, analysis.dataset.spectra.data)
     assert loaded.peaks == analysis.peaks
     old, new = analysis.completion.result, loaded.completion.result
     assert new.inputs.snapshot.peaks == old.inputs.snapshot.peaks
@@ -190,13 +190,13 @@ def test_verified_reopen_rebinds_currentness_and_manual_edit_outdates(
     app.processEvents()
 
 
-def test_missing_source_numerical_workspace(analysis, tmp_path, monkeypatch):
+def test_canceled_verification_numerical_workspace(analysis, tmp_path, monkeypatch):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     monkeypatch.setattr(
         project, "read_dataset", lambda _, **_kw: (_ for _ in ()).throw(OSError("missing"))
     )
-    loaded = open_analysis(path)
+    loaded = open_analysis(path, canceled=lambda: True)
     window = EditorWindow()
     window.install_analysis(loaded)
     assert window.workspace is None
@@ -220,7 +220,9 @@ def test_real_source_relocation_missing_changed_and_explicit_relink(tmp_path):
         dataset, dataset_header(dataset), dataset.peaks, PeakFitConfig().model_dump_json(), 0
     )
     path = save_analysis(analysis, directory / "review.peakfit")
-    assert sum(p.stat().st_size for p in path.rglob("*") if p.is_file()) < 100_000
+    assert (
+        sum(p.stat().st_size for p in path.rglob("*") if p.is_file()) < dataset.spectra.data.nbytes
+    )
     directory.rename(tmp_path / "relocated")
     path = tmp_path / "relocated/review.peakfit"
     loaded = open_analysis(path)
@@ -229,7 +231,7 @@ def test_real_source_relocation_missing_changed_and_explicit_relink(tmp_path):
     np.testing.assert_array_equal(loaded.dataset.spectra.z_values, dataset.spectra.z_values)
     moved = tmp_path / "moved.ft2"
     (path.parent / "spectrum.ft2").rename(moved)
-    assert open_analysis(path).dataset is None
+    assert open_analysis(path).dataset is not None
     assert open_analysis(path, relink=moved).dataset is not None
     content = moved.read_bytes()
     moved.write_bytes(content[:-1] + bytes([content[-1] ^ 1]))
@@ -302,7 +304,7 @@ def test_changed_same_size_same_timestamp_does_not_verify(tmp_path):
     os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
     assert source.stat().st_size == before.st_size
     assert source.stat().st_mtime_ns == before.st_mtime_ns
-    assert open_analysis(path).dataset is None
+    assert open_analysis(path, relink=source).dataset is None
 
 
 def test_verification_cancel_and_unreadable_sources_keep_numerical(analysis, tmp_path, monkeypatch):
@@ -316,7 +318,7 @@ def test_verification_cancel_and_unreadable_sources_keep_numerical(analysis, tmp
         raise PermissionError("Permission denied")
 
     monkeypatch.setattr(project, "read_dataset", unreadable)
-    loaded = open_analysis(path)
+    loaded = open_analysis(path, relink=analysis.dataset.path)
     assert loaded.dataset is None
     assert "Permission denied" in loaded.reason
 
@@ -380,7 +382,7 @@ def test_disposable_project_process_uses_only_trusted_ipc(analysis, tmp_path):
     saved = project_operation("save", (analysis, path), **options)
     assert saved == path
     loaded = project_operation("open", path, **options)
-    assert loaded.dataset is None  # The synthetic source deliberately has no NMRPipe data.
+    assert loaded.dataset is not None  # Uses the embedded array, not the synthetic source file.
     assert loaded.peaks == analysis.peaks
     assert loaded.current
     verify_model(loaded.completion.result)
@@ -738,3 +740,57 @@ def test_checkpoint_before_ui_adoption_does_not_delete_live_history_references(a
         assert not (oldest.root / "runs" / oldest.run_id).exists()
     finally:
         owner.close()
+
+
+def test_embedded_source_delete_inspect_adjust_refit_and_save(analysis, tmp_path):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    path = save_analysis(analysis, tmp_path / "Portable.peakfit")
+    analysis.dataset.path.unlink()
+    loaded = open_analysis(path)
+    assert loaded.dataset is not None
+    np.testing.assert_array_equal(loaded.dataset.spectra.data, analysis.dataset.spectra.data)
+    verify_model(loaded.completion.result)
+    window = EditorWindow()
+    window.install_analysis(loaded)
+    workspace = window.workspace
+    assert workspace is not None
+    assert workspace.fitting.current
+    peak = workspace.peaks[0]
+    workspace.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.0001))
+    assert not workspace.fitting.current
+    prepared = prepare_dataset_fit(
+        workspace.dataset.spectra, workspace.peaks, workspace.fitting.configuration
+    )
+    prepared = replace(
+        prepared, snapshot=replace(prepared.snapshot, source_files=loaded.dataset.sources)
+    )
+    fitted = finish_dataset_fit(prepared, compute_dataset_fit(prepared))
+    completion = dataset_completion(
+        fitted,
+        prepared.snapshot,
+        submitted_revision=workspace.edits.revision,
+        manual_revision=workspace.edits.revision,
+    )
+    updated = replace(
+        window.capture_analysis(),
+        peaks=completion.working_peaks,
+        runs=(*loaded.runs, completion),
+        active=completion,
+    )
+    save_analysis(updated, path)
+    reopened = open_analysis(path)
+    assert reopened.dataset is not None
+    assert reopened.completion.result.run_id == fitted.run_id
+    assert len(list((path / "spectra").glob("*.npz"))) == 1
+    verify_model(reopened.completion.result)
+    window._saved_key = window._analysis_key()
+    window.close()
+    app.processEvents()
+
+
+def test_corrupt_embedded_spectrum_rejected_before_display(analysis, tmp_path):
+    path = save_analysis(analysis, tmp_path / "Corrupt.peakfit")
+    payload = next((path / "spectra").glob("*.npz"))
+    payload.write_bytes(b"corrupt")
+    with pytest.raises(ValueError, match="Corrupt embedded"):
+        open_analysis(path)

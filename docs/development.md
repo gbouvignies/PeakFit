@@ -46,8 +46,8 @@ reviewing the scientific or contract reason.
 - Keep `fit` focused on loading, validation, orchestration, and fit-output
   assembly.
 - Keep `auto_pick` isolated as an experimental workflow.
-- Keep output formats canonical: `summary/fit.json` and CSV tables under
-  `tables/`.
+- Keep one shared scientific authority: `scientific.npz`, CSV tables under
+  `tables/`, and a short report; JSON is explicit interoperability.
 
 The import-linter contracts in `pyproject.toml` enforce the current package
 layers.

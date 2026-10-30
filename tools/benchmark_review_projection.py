@@ -21,9 +21,9 @@ from threadpoolctl import threadpool_limits
 
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
+from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.fitting import load_data
 from peakfit.fit.pipeline import run_pipeline
-from peakfit.fit.simulation import project_final_outcome
 
 
 def measure(operation, repeats=5):

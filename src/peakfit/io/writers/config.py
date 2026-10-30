@@ -16,7 +16,7 @@ class WriterConfig:
             smaller than 10^(-threshold) or larger than 10^threshold
     """
 
-    formats: tuple[str, ...] = ("json", "csv")
+    formats: tuple[str, ...] = ("csv", "txt")
     precision: int = 6
     scientific_notation_threshold: int = 4
 

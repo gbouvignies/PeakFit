@@ -114,7 +114,8 @@ amplitude_zero_tolerance = 1e-12
 
 [output]
 directory = "Fits"
-formats = ["json", "csv"]
+formats = ["csv", "txt"]
+detailed_evidence = false
 save_simulated = false
 include_timestamp = true
 headless = false

@@ -25,8 +25,8 @@ from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.optimizers import fit_with_optimizer
-from peakfit.fit.completed import CompletedFit
-from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
+from peakfit.engine.scientific.completed import CompletedFit
+from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.results import FitResult
-    from peakfit.fit.simulation import FinalModelSnapshot
+    from peakfit.engine.scientific.simulation import FinalModelSnapshot
     from peakfit.shared.typing import FloatArray
 
 

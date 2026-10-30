@@ -138,7 +138,7 @@ Refit to establish a new Current result. An all-unusable run remains inspectable
 and exportable, with comparisons disabled and “No usable model”.
 
 **Export results…**, also under File, uses the shared scientific archive and
-optional JSON/CSV writers in a new `dataset-fit-<run_id>` directory. The stable-ID
+CSV/report writers with an optional detailed-evidence checkbox in a new `dataset-fit-<run_id>` directory. The stable-ID
 coordinate table and export-state metadata in `scientific.npz` preserve exact
 submitted seeds, stable identities, source fingerprints, original plane order,
 actual correction/pass counts, post-fit coordinates, adoption warnings and
@@ -148,8 +148,10 @@ exports that retained run's evidence. Raw spectra are never rewritten.
 There is one resident immutable completed result. Cancellation and failure preserve
 it. A successful refit replaces it; export results you need to keep before refitting.
 Routine repeated fits introduce no discard/export prompt. There are no private
-session pickle files or write-only recovery storage. Analysis save/reopening and
-historical browsing are outside this milestone.
+session pickle files or write-only recovery storage. Self-contained analysis saving/reopening and lazy history use the same
+scientific evidence. A project includes the complete experimental cube once;
+original inputs may be removed after a successful save. See [formats and
+migration](outputs.md).
 
 A successful canonical result export also preserves its exact post-fit working
 peak tuple. When those are still the working coordinates, closing does not ask

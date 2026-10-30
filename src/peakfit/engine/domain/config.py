@@ -210,8 +210,12 @@ class OutputConfig(BaseModel):
 
     directory: Path = Field(default=Path("Fits"), description="Output directory for results.")
     formats: list[OutputFormat] = Field(
-        default=["json", "csv"],
-        description="Output formats for results. Add 'txt' to write a Markdown report.",
+        default=["csv", "txt"],
+        description="Presentation formats: CSV and a short report by default; JSON is explicit.",
+    )
+    detailed_evidence: bool = Field(
+        default=False,
+        description="Include observations and predictions for portable review/continuation.",
     )
     save_simulated: bool = Field(
         default=False,
@@ -251,7 +255,7 @@ class PeakFitConfig(BaseModel):
 
         [output]
         directory = "Fits"
-        formats = ["json", "csv"]
+        formats = ["csv", "txt"]
 
         # Parameter constraints
         [parameters]

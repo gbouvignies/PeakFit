@@ -134,6 +134,8 @@ class AnalysisActions:
         header = dataset_header(w.dataset)
         if self._analysis:
             header["source"] = self._analysis.header["source"]
+            if self._analysis.header.get("embedded"):
+                header["embedded"] = True
         return Analysis(
             w.dataset,
             header,
@@ -174,7 +176,7 @@ class AnalysisActions:
         self._saving = True
         self._after_save = after
         self._analysis_cancel.clear()
-        self.loading_status.setText("Saving analysis · Spectrum remains external")
+        self.loading_status.setText("Saving self-contained analysis")
         self.cancel_load.setText("Cancel saving")
         self.cancel_load.show()
         self._analysis_actions()
@@ -276,7 +278,7 @@ class AnalysisActions:
             self._saved_key = self._save_key
             size = sum(storage.values()) / 1024**2
             self.loading_status.setText(
-                f"Saved {path.name} · {size:.1f} MiB fit evidence · Spectrum external"
+                f"Saved {path.name} · {size:.1f} MiB project data · Spectrum embedded"
             )
             if self.workspace:
                 self.workspace.fitting.history = list(analysis.runs)
@@ -397,7 +399,7 @@ class AnalysisActions:
         self.loading_status.setText(
             "Numerical review only · Relink source to restore spectral views"
             if analysis.dataset is None
-            else "Analysis opened · Source and model verified"
+            else "Analysis opened · Experimental spectrum and model verified"
         )
         self._analysis_actions()
 

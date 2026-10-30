@@ -210,6 +210,7 @@ class DatasetFitting(QtCore.QObject):
             )
             protected = frozenset(self.protected)
 
+            dataset = self.workspace.dataset
             generation = self._generation
             parent_id = self._attempt_parent
 
@@ -222,7 +223,7 @@ class DatasetFitting(QtCore.QObject):
                     return completion, (completion,), (*journal, entry)
                 self.attempt = "Preserving accepted evidence"
                 analysis = Analysis(
-                    None,
+                    dataset,
                     header,
                     completion.working_peaks,
                     current.configuration,

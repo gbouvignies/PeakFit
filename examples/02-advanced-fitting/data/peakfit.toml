@@ -15,7 +15,7 @@ contour_factor = 5.0
 
 [output]
 directory = "Fits-config"
-formats = ["json", "csv"]
+formats = ["csv", "txt"]
 include_timestamp = false
 headless = true
 save_simulated = false

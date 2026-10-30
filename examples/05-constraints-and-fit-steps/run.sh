@@ -31,13 +31,12 @@ run_scenario() {
     --config "$config"
 
   python - "$out_dir" <<'PY'
-import json
 import sys
+from pathlib import Path
+from peakfit.io.readers.results import ResultsLoader
 
 out_dir = sys.argv[1]
-with open(f"{out_dir}/summary/fit.json", encoding="utf-8") as f:
-    data = json.load(f)
-chi2 = float(data["global_statistics"]["chi_squared"])
+chi2 = float(ResultsLoader(Path(out_dir)).load_summary().statistics.chi_squared)
 print(f"  chi-squared: {chi2:.6g}")
 PY
 }

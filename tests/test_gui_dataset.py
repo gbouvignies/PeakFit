@@ -16,9 +16,8 @@ from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.lineshapes.create import create_shapes
+from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.pipeline import run_pipeline
-from peakfit.fit.simulation import project_final_outcome
-from peakfit.fit.storage import read_scientific
 from peakfit.gui.dataset_dialog import DatasetFitDialog
 from peakfit.gui.dataset_fit import (
     DatasetFitResult,
@@ -33,6 +32,7 @@ from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.peaks import WorkingPeak
 from peakfit.gui.viewer import SpectrumViewer
+from peakfit.io.scientific import read_scientific
 
 pytestmark = pytest.mark.gui
 

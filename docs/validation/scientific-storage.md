@@ -1,9 +1,14 @@
 # Lossless scientific storage and interface parity
 
+**Historical measurements of the initial PR #71 representation.** The subsequent
+[implemented retention policy and measurements](scientific-storage-policy.md)
+replace the retention/default/linked-project decisions below. The original
+[per-array audit](scientific-storage-audit.md) explains why those decisions changed.
+
+
 A subsequent [retention-policy audit](scientific-storage-audit.md) measures the
 complete CLI/GUI output directories and each stored array. It recommends compact
-published results plus explicit detailed evidence; those retention changes are
-proposals and have not changed the implementation measured here.
+published results plus explicit detailed evidence; that audit is a historical measurement of the implementation described here.
 
 Validated on 30 October 2026, macOS arm64, Apple M5 Pro, 64 GiB RAM,
 Python 3.14.5 and Qt Cocoa. Baseline is merged Milestone 3, `06157dd`.

@@ -11,12 +11,12 @@ from test_gui_dataset import _dataset
 from test_scientific_storage import completed_result
 
 from peakfit.fit import fitting, pipeline
-from peakfit.fit.output_metadata import RunMetadata
 from peakfit.fit.run_models import FitRun
-from peakfit.fit.storage import read_scientific
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_positions import dataset_completion
+from peakfit.io.output_metadata import RunMetadata
+from peakfit.io.scientific import read_scientific
 
 
 def test_export_retains_initial_fitted_and_adopted_coordinates(tmp_path):
@@ -199,7 +199,7 @@ def test_coordinate_table_rejects_false_adoption(tmp_path):
 
 
 def test_coordinate_table_rejects_falsified_parameter_mapping(tmp_path):
-    from peakfit.fit.storage import write_scientific  # noqa: PLC0415
+    from peakfit.io.scientific import write_scientific  # noqa: PLC0415
 
     _spectra, _config, _pipeline, result = completed_result([], False)
     path = export_fit_result(result, tmp_path / "original")
@@ -207,4 +207,6 @@ def test_coordinate_table_rejects_falsified_parameter_mapping(tmp_path):
     row = next(iter(context["coordinate_table"]["peaks"].values()))
     row["parameter_names"][0] = "unrelated.F9.cs"
     with pytest.raises(ValueError, match="Coordinate table resolution"):
-        write_scientific(tmp_path / "broken.npz", outcome, samples, context=context)
+        write_scientific(
+            tmp_path / "broken.npz", outcome, samples, context=context, evidence="results"
+        )

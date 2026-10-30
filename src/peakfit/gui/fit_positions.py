@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from peakfit.engine.domain.spectrum import SpectralParameters
 from peakfit.engine.lineshapes.utils import get_axis_label
-from peakfit.fit.coordinates import resolved_coordinates
+from peakfit.engine.scientific.coordinates import resolved_coordinates
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult

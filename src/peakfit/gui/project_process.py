@@ -11,7 +11,13 @@ from concurrent.futures import CancelledError
 from dataclasses import replace
 
 from peakfit.gui.dataset_fit import _completed_bytes
-from peakfit.gui.project import open_analysis, save_analysis, stored_analysis, verify_sources
+from peakfit.gui.project import (
+    open_analysis,
+    save_analysis,
+    spectrum_path,
+    stored_analysis,
+    verify_sources,
+)
 
 
 def _archive_child(connection):
@@ -57,12 +63,15 @@ def project_operation(kind, payload, *, progress, canceled):
     """Bridge one operation off Qt, with cooperative cancellation and child reaping."""
     if kind in {"save", "preserve", "relink"}:
         analysis, path = payload
-        # Source arrays never enter a save/relink request. The child rereads and
-        # verifies external sources only when the requested operation requires it.
+        # Reuse a published cube without transferring it again. The first checkpoint
+        # carries the immutable source array, even if its original path has disappeared.
+        manifest = analysis.path / "manifest.json" if analysis.path else None
+        previous = json.loads(manifest.read_text()) if manifest and manifest.is_file() else {}
+        embedded = previous.get("spectrum", {}).get("path") == spectrum_path(analysis.header)
         payload = (
             replace(
                 analysis,
-                dataset=None,
+                dataset=None if embedded else analysis.dataset,
                 active=None if kind in {"save", "preserve"} else analysis.completion,
             ),
             path,

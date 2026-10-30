@@ -27,14 +27,12 @@ from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.fit.export import write_completed_outputs
-from peakfit.fit.output_metadata import capture_output_metadata
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart, RunSummary
+from peakfit.io.output_metadata import capture_output_metadata
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
-from peakfit.io.state import default_state_path, save_state
 from peakfit.io.writers.config import WriterConfig
-from peakfit.io.writers.run_files import write_readme
 from peakfit.shared.exceptions import DataIOError
 from peakfit.shared.paths import format_path
 
@@ -376,11 +374,8 @@ def write_fit_run_outputs(
         source_plane_indices=spectra.source_plane_indices,
         peak_identities=fit_run.peak_identities,
         save_simulated=config.output.save_simulated,
+        detailed_evidence=config.output.detailed_evidence,
     )
-
-    state_file = default_state_path(output_dir)
-    save_state(state_file, fit_run.continuation_state)
-    write_readme(output_dir, fit_run.summary)
 
     if reporter:
         reporter.success(f"Results written to [path]{format_path(output_dir)}[/path]")

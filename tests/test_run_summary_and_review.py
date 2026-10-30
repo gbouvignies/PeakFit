@@ -10,7 +10,7 @@ import pytest
 
 from peakfit.cli.commands.fit import _format_review_clusters
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
-from peakfit.fit.final_outcome import (
+from peakfit.engine.scientific.final_outcome import (
     FinalAnalyticalEvaluation,
     FinalClusterOutcome,
     FinalFitOutcome,

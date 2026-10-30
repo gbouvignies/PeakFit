@@ -47,7 +47,7 @@ def capture_output_metadata(config: dict[str, Any], input_files: dict[str, Path]
     for name, path in input_files.items():
         if path.exists():
             run_metadata.input_files[name] = {
-                "path": path.name,
+                "path": str(path.resolve()),
                 "checksum_sha256": _compute_file_checksum(path),
             }
     return run_metadata

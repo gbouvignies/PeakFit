@@ -24,10 +24,9 @@ from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
-from peakfit.fit.completed import CompletedFit
-from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
+from peakfit.engine.scientific.completed import CompletedFit
+from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
 from peakfit.fit.fitting import find_review_clusters, write_fit_run_outputs
-from peakfit.fit.output_metadata import RunMetadata
 from peakfit.fit.pipeline import (
     CorrectionSnapshot,
     PipelineCompletion,
@@ -35,6 +34,7 @@ from peakfit.fit.pipeline import (
     run_pipeline,
 )
 from peakfit.fit.run_models import FitRun
+from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.schemas import FitSummarySchema
 from peakfit.io.writers.config import WriterConfig
@@ -377,9 +377,7 @@ def test_future_contract_cli_json_and_markdown_share_terminal_failures(
 
 def test_completed_writer_path_ignores_mutated_continuation_state(
     competing_truth: CompetingTruth,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("peakfit.fit.fitting.save_state", lambda *_args, **_kwargs: None)
     config = PeakFitConfig(
         output=OutputConfig(formats=["json", "csv", "txt"], save_simulated=False),
     )
@@ -397,7 +395,6 @@ def test_completed_writer_path_ignores_mutated_continuation_state(
     output_dir = competing_truth.fit_run.output_dir
     payload = json.loads((output_dir / "summary" / "fit.json").read_text(encoding="utf-8"))
     report = (output_dir / "summary" / "report.md").read_text(encoding="utf-8")
-    readme = (output_dir / "README.md").read_text(encoding="utf-8")
     with (output_dir / "tables" / "clusters.csv").open(newline="", encoding="utf-8") as handle:
         rows = {int(row["cluster_id"]): row for row in csv.DictReader(handle)}
 
@@ -411,7 +408,7 @@ def test_completed_writer_path_ignores_mutated_continuation_state(
         evaluation.statistics.chi_squared, rel=1e-14
     )
     assert "Usable, not converged: 1" in report
-    assert "**Unusable clusters**: 1" in readme
+    assert "- Unusable: 1" in report
 
 
 def test_future_contract_persistence_uses_terminal_classification_and_provenance(
@@ -479,7 +476,7 @@ def test_json_copies_frozen_analytical_values_and_jsonifies_actual_provenance(
 
     payload = _write_final_outcome_json(outcome, spectra, tmp_path / "fit.json")
     cluster = payload["clusters"][0]  # type: ignore[index]
-    evaluation = outcome.cluster(11).analytical_evaluation
+    evaluation = outcome.cluster(11).sample_evaluation
 
     assert evaluation is not None
     assert cluster["analytical_evaluation"]["amplitudes"] == evaluation.amplitudes.tolist()

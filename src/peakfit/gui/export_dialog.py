@@ -1,5 +1,6 @@
 """Small modal export interaction; disk work leaves the Qt event loop responsive."""
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -27,6 +28,23 @@ class _ExportProgress(QtWidgets.QProgressDialog):
         event.ignore()
 
 
+def _choose_export_directory(parent, include_evidence=False):
+    """One optional evidence checkbox alongside the destination picker."""
+    dialog = QtWidgets.QFileDialog(parent, "Export fit results — choose parent directory")
+    dialog.setFileMode(QtWidgets.QFileDialog.FileMode.Directory)
+    dialog.setOption(QtWidgets.QFileDialog.Option.DontUseNativeDialog, True)
+    detailed = QtWidgets.QCheckBox(
+        "Include detailed evidence for portable sample review and continuation"
+    )
+    detailed.setChecked(include_evidence)
+    layout = dialog.layout()
+    assert layout is not None
+    layout.addWidget(detailed)
+    if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+        return None, False
+    return dialog.selectedFiles()[0], detailed.isChecked()
+
+
 def choose_and_export(
     parent: QtWidgets.QWidget,
     result: LocalFitResult | DatasetFitResult,
@@ -35,9 +53,8 @@ def choose_and_export(
     current: bool | None = None,
 ) -> Path | None:
     """Choose a parent directory and create a new result-specific child directory."""
-    directory = QtWidgets.QFileDialog.getExistingDirectory(
-        parent, "Export fit results — choose parent directory"
-    )
+    setting = json.loads(result.inputs.snapshot.configuration).get("output", {})
+    directory, detailed = _choose_export_directory(parent, setting.get("detailed_evidence", False))
     if not directory:
         return None
     prefix = "dataset-fit" if isinstance(result, DatasetFitResult) else "local-fit"
@@ -54,7 +71,12 @@ def choose_and_export(
         def begin() -> None:
             nonlocal future
             future = executor.submit(
-                export_fit_result, result, destination, completion=completion, current=current
+                export_fit_result,
+                result,
+                destination,
+                completion=completion,
+                current=current,
+                detailed_evidence=detailed,
             )
 
         # Let the modal transition show progress and enter Qt before competing

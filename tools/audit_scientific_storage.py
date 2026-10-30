@@ -415,6 +415,13 @@ def main():  # noqa: PLR0915
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
+    from peakfit.io.scientific import VERSION  # noqa: PLC0415
+
+    if VERSION != "1.0.0":
+        raise SystemExit(
+            "This is the historical audit driver. Run it at 1051ceb to reproduce that audit; "
+            "use tools/validate_storage_policy.py for the implemented retention policy."
+        )
     data = ROOT / "examples/02-advanced-fitting/data"
     input_paths = {
         "spectrum": data / "pseudo3d.ft2",

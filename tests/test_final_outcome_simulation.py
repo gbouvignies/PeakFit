@@ -20,12 +20,12 @@ from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.simulation import simulate_data
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
-from peakfit.fit.completed import CompletedFit
+from peakfit.engine.scientific.completed import CompletedFit
+from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
+from peakfit.engine.scientific.simulation import FinalModelSnapshot, simulate_final_outcome
 from peakfit.fit.export import write_completed_outputs
-from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
-from peakfit.fit.output_metadata import RunMetadata
 from peakfit.fit.pipeline import CorrectionSnapshot, PipelineCompletion
-from peakfit.fit.simulation import FinalModelSnapshot, simulate_final_outcome
+from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.writers.config import WriterConfig
 
 if TYPE_CHECKING:

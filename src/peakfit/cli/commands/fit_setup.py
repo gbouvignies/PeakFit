@@ -66,7 +66,7 @@ def build_fit_config(
     if phy:
         fit_phase.append("F2")
 
-    default_formats: list[OutputFormat] = ["json", "csv"]
+    default_formats: list[OutputFormat] = ["csv", "txt"]
     output_config = OutputConfig(
         formats=normalized_formats if normalized_formats is not None else default_formats,
         headless=headless if headless is not None else False,

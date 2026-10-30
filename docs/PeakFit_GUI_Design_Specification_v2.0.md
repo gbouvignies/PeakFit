@@ -1,5 +1,15 @@
 # PeakFit GUI Design Specification v2.0
 
+> **Storage-policy amendment for PR #71:** the current [output/project contract](outputs.md)
+> supersedes this baseline's linked-source/no-embedding requirements and JSON
+> persistence examples. Default projects now embed the full experimental cube
+> once and detailed sample evidence, supporting inspection, edits and fitting
+> without input files. Default scientific exports retain exact results/corrections
+> with CSV/report; one optional detailed-evidence selection adds portable samples.
+> Terminal corrections cannot be inferred from final fitted models. Initial/fitted/
+> adopted coordinates and Current/Outdated distinctions below remain required.
+
+
 **Status:** approved production design baseline; implementation proceeds in complete
 vertical slices. **Date:** 29 October 2026.
 **Focused revision (30 October 2026):** lightweight analysis persistence with

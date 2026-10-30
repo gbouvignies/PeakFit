@@ -1,0 +1,91 @@
+{
+  "project_version": "3.0.0",
+  "timings_seconds": {
+    "load": 0.07978029199875891,
+    "fit": 4.301429999992251,
+    "durable_acceptance": 2.4177590000035707,
+    "first_save": 0.07238299999153242,
+    "routine_save": 0.0062177499930839986,
+    "verified_reopen": 0.6553073329851031,
+    "historical_result": 0.12162829199223779,
+    "cli_default_export": 0.4028793330071494,
+    "gui_default_export": 0.33512637502280995,
+    "compact_continuation": 0.14171433399314992,
+    "detailed_export": 0.5423216249910183,
+    "source_free_reopen": 0.5976107910100836,
+    "detailed_continuation_without_sources": 0.14545404200907797,
+    "native_adjusted_source_free_refit": 7.657971250009723
+  },
+  "rss_high_water_bytes": {
+    "load": 323928064,
+    "fit": 1080246272,
+    "durable_acceptance": 1080246272,
+    "first_save": 1080246272,
+    "routine_save": 1080246272,
+    "verified_reopen": 1080246272,
+    "historical_result": 1080246272,
+    "cli_default_export": 1089503232,
+    "gui_default_export": 1089503232,
+    "compact_continuation": 1089503232,
+    "detailed_export": 1089503232,
+    "source_free_reopen": 1089503232,
+    "detailed_continuation_without_sources": 1089503232,
+    "native_adjusted_source_free_refit": 1857290240
+  },
+  "fit_to_durable_acceptance_seconds": 6.719188999995822,
+  "project": {
+    "bytes": 85248324,
+    "files": {
+      "manifest.json": 223715,
+      "spectra/89e6393cfe2aefc0d2226449ee595ffd9df537d5b770dfd38dad86750050ffc9.npz": 68392313,
+      "runs/91d4f937a628457fa2065b47a3b15fbc/result.npz": 16470275,
+      "runs/91d4f937a628457fa2065b47a3b15fbc/review.json": 162021
+    }
+  },
+  "cli_default": {
+    "bytes": 12017632,
+    "files": {
+      "scientific.npz": 6858096,
+      "tables/parameters.csv": 168719,
+      "tables/clusters.csv": 23936,
+      "tables/intensities.csv": 4920197,
+      "tables/shifts.csv": 39284,
+      "summary/report.md": 7400
+    }
+  },
+  "gui_default": {
+    "bytes": 12017842,
+    "files": {
+      "scientific.npz": 6858306,
+      "tables/parameters.csv": 168719,
+      "tables/clusters.csv": 23936,
+      "tables/intensities.csv": 4920197,
+      "tables/shifts.csv": 39284,
+      "summary/report.md": 7400
+    }
+  },
+  "equal_scientific_members": 968,
+  "csv_parity": true,
+  "exact_compact_parent_inputs": true,
+  "detailed": {
+    "bytes": 21764294,
+    "files": {
+      "scientific.npz": 16604758,
+      "tables/parameters.csv": 168719,
+      "tables/clusters.csv": 23936,
+      "tables/intensities.csv": 4920197,
+      "tables/shifts.csv": 39284,
+      "summary/report.md": 7400
+    }
+  },
+  "source_free_spectra": true,
+  "exact_detailed_parent_inputs": true,
+  "native_model_visible_without_sources": true,
+  "native_residual_visible_without_sources": true,
+  "qt_platform": "cocoa",
+  "native_current_after_refit": true,
+  "source_free_adjust_refit": true,
+  "exact_scientific_round_trip": true,
+  "nonzero_corrections": 806698,
+  "outcome_parameter_digest": "0a779ba505dab4557bdd9f0b20c4a8558be5cf85d8ae45c18d77a814b7395af5"
+}

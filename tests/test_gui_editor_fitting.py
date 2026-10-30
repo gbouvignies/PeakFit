@@ -14,7 +14,6 @@ from test_gui_editor import wait_for
 
 import peakfit.gui.editor.canvas as canvas_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
-from peakfit.fit.storage import read_scientific
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
 from peakfit.gui.editor.window import EditorWindow
@@ -23,6 +22,7 @@ from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.spectrum import Dataset
+from peakfit.io.scientific import read_scientific
 
 pytestmark = pytest.mark.gui
 

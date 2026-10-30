@@ -17,7 +17,7 @@ from typing import Any
 import numpy as np
 from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
-from peakfit.fit.simulation import project_final_outcome
+from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.gui.app import PeakFitWindow
 from peakfit.gui.dataset_dialog import DatasetFitDialog
 from peakfit.gui.dataset_fit import DatasetFitResult

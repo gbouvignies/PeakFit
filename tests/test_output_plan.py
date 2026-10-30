@@ -3,7 +3,7 @@ from types import MappingProxyType
 import numpy as np
 
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
-from peakfit.fit.final_outcome import (
+from peakfit.engine.scientific.final_outcome import (
     FinalAnalyticalEvaluation,
     FinalClusterOutcome,
     FinalFitOutcome,
@@ -11,8 +11,8 @@ from peakfit.fit.final_outcome import (
     FinalParameter,
     OptimizerProvenance,
 )
-from peakfit.fit.output_metadata import RunMetadata
 from peakfit.fit.run_models import RunSummary
+from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import build_output_plan, write_fit_outputs
 
@@ -100,11 +100,11 @@ def _outcome() -> FinalFitOutcome:
     )
 
 
-def test_core_output_plan_excludes_markdown_report(tmp_path) -> None:
+def test_core_output_plan_includes_markdown_and_omits_json(tmp_path) -> None:
     plan = build_output_plan(_outcome(), tmp_path, WriterConfig())
 
     assert set(plan) == {
-        "summary_fit",
+        "report",
         "parameters",
         "intensities",
         "shifts",

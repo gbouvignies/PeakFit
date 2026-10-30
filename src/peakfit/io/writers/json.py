@@ -13,15 +13,15 @@ import numpy as np
 from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION, FitSummarySchema
 
 if TYPE_CHECKING:
-    from peakfit.fit.final_outcome import (
-        FinalAnalyticalEvaluation,
+    from peakfit.engine.scientific.final_outcome import (
+        FinalAnalyticalResult,
         FinalClusterOutcome,
         FinalFitOutcome,
         FinalFitStatistics,
         FinalParameter,
         OptimizerProvenance,
     )
-    from peakfit.fit.output_metadata import RunMetadata
+    from peakfit.io.output_metadata import RunMetadata
 
 
 def write_final_outcome_summary(
@@ -112,7 +112,7 @@ def _serialize_parameter(parameter: FinalParameter) -> dict[str, Any]:
     }
 
 
-def _serialize_evaluation(evaluation: FinalAnalyticalEvaluation) -> dict[str, Any]:
+def _serialize_evaluation(evaluation: FinalAnalyticalResult) -> dict[str, Any]:
     return {
         "shapes": _json_value(evaluation.shapes),
         "amplitudes": _json_value(evaluation.amplitudes),
@@ -127,9 +127,9 @@ def _serialize_evaluation(evaluation: FinalAnalyticalEvaluation) -> dict[str, An
         "scaled_amplitude_standard_errors": [
             _optional_finite_value(value) for value in evaluation.scaled_amplitude_standard_errors
         ],
-        "model_values": _json_value(evaluation.model_values),
-        "raw_residuals": _json_value(evaluation.raw_residuals),
-        "normalized_residuals": _json_value(evaluation.normalized_residuals),
+        "model_values": _json_value(getattr(evaluation, "model_values", None)),
+        "raw_residuals": _json_value(getattr(evaluation, "raw_residuals", None)),
+        "normalized_residuals": _json_value(getattr(evaluation, "normalized_residuals", None)),
         "statistics": {
             "chi_squared": _finite_value(evaluation.statistics.chi_squared),
             "n_observations": evaluation.statistics.n_observations,

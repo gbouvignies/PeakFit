@@ -53,16 +53,15 @@ fi
 
 if [[ "$mode" == "both" ]]; then
   python - "$local_run" "$basin_run" <<'PY'
-import json
 import sys
+from pathlib import Path
+from peakfit.io.readers.results import ResultsLoader
 
 local_dir, basin_dir = sys.argv[1], sys.argv[2]
 
 
 def read_chi2(run_dir: str) -> float:
-    with open(f"{run_dir}/summary/fit.json", encoding="utf-8") as f:
-        data = json.load(f)
-    return float(data["global_statistics"]["chi_squared"])
+    return float(ResultsLoader(Path(run_dir)).load_summary().statistics.chi_squared)
 
 local_chi2 = read_chi2(local_dir)
 basin_chi2 = read_chi2(basin_dir)

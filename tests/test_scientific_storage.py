@@ -8,18 +8,20 @@ import numpy as np
 import pytest
 from test_gui_dataset import _dataset
 
-from peakfit.fit import fitting, storage
-from peakfit.fit.output_metadata import RunMetadata
+from peakfit.fit import fitting
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.fit.run_models import FitRun
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
+from peakfit.io import scientific as storage
+from peakfit.io.output_metadata import RunMetadata
 
 
-def completed_result(formats, save_simulated):
+def completed_result(formats, save_simulated, detailed=False):
     spectra, _peaks, config, prepared = _dataset()
     config.output.formats = formats
     config.output.save_simulated = save_simulated
+    config.output.detailed_evidence = detailed
     prepared = replace(
         prepared, snapshot=replace(prepared.snapshot, configuration=config.model_dump_json())
     )
@@ -35,8 +37,9 @@ def completed_result(formats, save_simulated):
 
 
 @pytest.mark.parametrize("formats", [[], ["csv"], ["json", "csv", "txt"]])
-def test_cli_gui_export_scientific_parity(tmp_path, monkeypatch, formats):
-    spectra, config, pipeline, gui = completed_result(formats, True)
+@pytest.mark.parametrize("detailed", [False, True])
+def test_cli_gui_export_scientific_parity(tmp_path, monkeypatch, formats, detailed):
+    spectra, config, pipeline, gui = completed_result(formats, True, detailed)
     metadata = RunMetadata(
         run_id=gui.run_id,
         timestamp=gui.completed_at,
@@ -99,7 +102,10 @@ def test_cli_gui_export_scientific_parity(tmp_path, monkeypatch, formats):
     assert context["plane_values"].tolist() == [2.0, 0.0, 2.0]
     assert outcome.terminal_correction_revision == gui.outcome.terminal_correction_revision
     for old, new in zip(gui.completed_fit.samples, samples, strict=True):
-        assert old.data.tobytes() == new.data.tobytes()
+        if detailed:
+            assert old.data.tobytes() == new.data.tobytes()
+        else:
+            assert not hasattr(new, "data")
         assert old.neighbor_corrections.tobytes() == new.neighbor_corrections.tobytes()
         for a, b in zip(old.grid_indices, new.grid_indices, strict=True):
             assert a.dtype == b.dtype
@@ -138,7 +144,9 @@ def test_nonfinite_uncertainties_and_array_bits_are_lossless(tmp_path):
 )
 def test_malformed_scientific_evidence_rejected(tmp_path, corruption):
     _spectra, _config, _pipeline, gui = completed_result([], False)
-    path = storage.write_scientific(tmp_path / "source.npz", gui.outcome, gui.completed_fit.samples)
+    path = storage.write_scientific(
+        tmp_path / "source.npz", gui.outcome, gui.completed_fit.samples, evidence="full"
+    )
     with ZipFile(path) as archive:
         members = {name: archive.read(name) for name in archive.namelist()}
     document = json.loads(members["metadata.json"])
@@ -200,7 +208,7 @@ def test_repeated_plane_values_retain_source_columns_after_exclusion(tmp_path):
     _, samples, context = storage.read_scientific(path / "scientific.npz")
     assert context["plane_values"].tolist() == [2.0, 2.0]
     assert context["source_plane_indices"].tolist() == [0, 2]
-    assert all(s.data.shape[1] == 2 for s in samples)
+    assert all(s.neighbor_corrections.shape[1] == 2 for s in samples)
     import csv  # noqa: PLC0415
 
     with (path / "tables/intensities.csv").open() as stream:

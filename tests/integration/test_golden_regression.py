@@ -218,7 +218,6 @@ def test_real_fit_projections_agree_by_cluster_id(run_golden_fit):
     parameters = pd.read_csv(output_dir / "tables" / "parameters.csv")
     intensities = pd.read_csv(output_dir / "tables" / "intensities.csv")
     report = (output_dir / "summary" / "report.md").read_text(encoding="utf-8")
-    readme = (output_dir / "README.md").read_text(encoding="utf-8")
 
     json_by_id = {cluster["cluster_id"]: cluster for cluster in payload["clusters"]}
     csv_by_id = clusters.set_index("cluster_id")
@@ -255,4 +254,4 @@ def test_real_fit_projections_agree_by_cluster_id(run_golden_fit):
             assert row.intensity == pytest.approx(amplitudes[peak_index][row.plane_index])
 
     assert f"- Converged: {classifications['converged']}" in report
-    assert f"- **Unusable clusters**: {classifications['unusable']}" in readme
+    assert f"- Unusable: {classifications['unusable']}" in report

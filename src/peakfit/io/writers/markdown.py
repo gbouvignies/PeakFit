@@ -12,7 +12,7 @@ from peakfit.io.writers.utils import format_float
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.fit.final_outcome import FinalClusterOutcome, FinalFitOutcome
+    from peakfit.engine.scientific.final_outcome import FinalClusterOutcome, FinalFitOutcome
     from peakfit.fit.run_models import RunSummary
 
 _MAX_CLUSTER_ROWS = 40

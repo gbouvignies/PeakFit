@@ -83,7 +83,7 @@ def main():  # noqa: PLR0915
         result, prepared.snapshot, submitted_revision=0, manual_revision=0
     )
     analysis = Analysis(
-        None,
+        dataset,
         dataset_header(dataset),
         completion.working_peaks,
         config.model_dump_json(),
@@ -151,7 +151,7 @@ def main():  # noqa: PLR0915
         report["project_bytes"] = sum(p.stat().st_size for p in permanent.rglob("*") if p.is_file())
         report["peak_rss_bytes"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         if args.candidates:
-            from peakfit.fit.storage import read_scientific, write_scientific  # noqa: PLC0415
+            from peakfit.io.scientific import read_scientific, write_scientific  # noqa: PLC0415
 
             report["candidates"] = []
             for name, compression in (("npz_stored", ZIP_STORED), ("npz_deflate1", ZIP_DEFLATED)):

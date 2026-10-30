@@ -83,14 +83,20 @@ def run_mcmc_analysis(
     results_dir = Path(results_dir)
     loader = ResultsLoader(results_dir)
     state_path = default_state_path(results_dir)
-    state = load_state(state_path) if state_path.exists() else loader.load_fitting_state()
-    summary = loader.load_summary()
-
-    spec_path, list_path = _resolve_input_paths(results_dir, summary.metadata.input_files)
-    if not spec_path.exists():
-        raise FileNotFoundError(f"Spectrum file not found: {format_path(spec_path)}")
-    if not list_path.exists():
-        raise FileNotFoundError(f"Peak list file not found: {format_path(list_path)}")
+    native = results_dir / "scientific.npz"
+    if native.is_file():
+        state = loader.load_fitting_state()
+    else:
+        summary = loader.load_summary()
+        if not state_path.exists():
+            raise ValueError(
+                "Legacy summary lacks validated terminal samples. "
+                "Use scientific evidence or refit before MCMC continuation."
+            )
+        state = load_state(state_path, require_corrections=summary.terminal_correction_revision > 0)
+        spec_path, list_path = _resolve_input_paths(results_dir, summary.metadata.input_files)
+        if not spec_path.exists() or not list_path.exists():
+            raise FileNotFoundError("Legacy results require original spectrum and peak list.")
 
     noise = state.noise if state.noise is not None else _DEFAULT_NOISE
     target_clusters = _filter_clusters(state.clusters, target_peaks)

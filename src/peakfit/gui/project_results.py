@@ -1,36 +1,19 @@
 """Strict numerical restoration and evaluable geometry for analysis projects."""
 
-from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, cast
+from dataclasses import asdict, replace
 
 import numpy as np
 
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
-from peakfit.engine.lineshapes.create import SHAPES, create_shapes
-from peakfit.fit.completed import CompletedFit
+from peakfit.engine.scientific.completed import CompletedFit
+from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.export import model_records
-from peakfit.fit.simulation import FinalModelCluster, FinalModelSnapshot, project_final_outcome
 from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fitting import FitInputSnapshot, PeakIdentity, PreparedDatasetFit
 from peakfit.gui.peaks import WorkingPeak
-
-if TYPE_CHECKING:
-    from peakfit.engine.types import Shape
-
-
-@dataclass
-class UnavailableShape:
-    """Recorded descriptor for numerical review, deliberately not evaluable geometry."""
-
-    shape_name: str
-    center: float
-    axis: str
-    param_names: list[str]
-    cluster_id: int = 0
+from peakfit.io.readers.continuation import UnavailableShape, restore_geometry
 
 
 def read_peaks(records):
@@ -41,7 +24,7 @@ def read_peaks(records):
     return peaks
 
 
-def restore_result(run, outcome, retained_samples):  # noqa: PLR0912
+def restore_result(run, outcome, retained_samples):
     """Restore numerical review and construct geometry only from recorded descriptors."""
     raw = run["snapshot"]
     snapshot = FitInputSnapshot(
@@ -53,78 +36,18 @@ def restore_result(run, outcome, retained_samples):  # noqa: PLR0912
         raw["configuration"],
         raw["contour_level"],
         tuple(tuple(s) for s in raw["source_files"]),
-        tuple(raw["source_plane_indices"]),
+        tuple(raw.get("source_plane_indices", range(raw["data_shape"][0]))),
     )
     config = PeakFitConfig.model_validate_json(snapshot.configuration)
-    # Constructors consult calibration/processing only; there is no synthetic spectrum display.
-    metadata = Spectra(
-        dic={},
-        data=np.empty((1, 1)),
-        z_values=np.array(snapshot.plane_values),
-        params=[SpectralParameters.model_validate_json(p) for p in snapshot.spectral_parameters],
-    )
-    geometry, clusters = [], []
-    for record, terminal, sample in zip(
-        run["models"], outcome.clusters, retained_samples, strict=True
-    ):
-        cid = terminal.cluster_id
-        if record["cluster_id"] != cid:
-            raise ValueError("Model cluster identity mismatch.")
-        indices = sample.grid_indices
-        data, corrections = sample.data, sample.neighbor_corrections
-        if len(indices) != len(snapshot.data_shape) - 1 or data.shape[1] != len(
-            snapshot.plane_values
-        ):
-            raise ValueError("Retained samples disagree with the recorded source dimensions.")
-        for index, length in zip(indices, snapshot.data_shape[1:], strict=True):
-            if np.any(index >= length):
-                raise ValueError("Retained sample coordinates exceed the source dimensions.")
-        peaks = []
-        for p in record["peaks"]:
-            if all(s["name"] in SHAPES for s in p["shapes"]):
-                shapes = create_shapes(
-                    metadata,
-                    config.fitting,
-                    p["name"],
-                    [s["center"] for s in p["shapes"]],
-                    [s["name"] for s in p["shapes"]],
-                )
-            else:
-                shapes = [
-                    cast(
-                        "Shape",
-                        UnavailableShape(s["name"], s["center"], s["axis"], s["param_names"]),
-                    )
-                    for s in p["shapes"]
-                ]
-
-            for shape, descriptor in zip(shapes, p["shapes"], strict=True):
-                if shape.axis != descriptor["axis"]:
-                    raise ValueError("Recorded model axis mismatch.")
-                shape.cluster_id = cid
-                shape.param_names = descriptor["param_names"]
-            peaks.append(Peak(p["name"], np.array(p["positions"]), shapes))
-        if tuple(p.name for p in peaks) != terminal.peak_names:
-            raise ValueError("Recorded model peak identity mismatch.")
-        geometry.append(
-            FinalModelCluster(
-                cid,
-                terminal.peak_names,
-                tuple(peaks),
-                data.shape[1],
-                data.shape[0],
-                len(indices),
-                tuple(i.shape for i in indices),
-            )
-        )
-        cluster = Cluster(cid, peaks, list(indices), data)
-        cluster.corrections = corrections
-        clusters.append(cluster)
-    model = FinalModelSnapshot(
-        tuple(geometry),
-        outcome.noise,
-        outcome.terminal_correction_revision,
-        tuple((p.name, p.value) for p in outcome.final_nonlinear_parameters),
+    snapshot = replace(snapshot, configuration=config.model_dump_json())
+    model, clusters = restore_geometry(
+        outcome,
+        retained_samples,
+        run["models"],
+        snapshot.spectral_parameters,
+        snapshot.plane_values,
+        snapshot.data_shape,
+        config.model_dump(),
     )
     identities = tuple(PeakIdentity(**p) for p in run["identities"])
     if (
@@ -178,7 +101,7 @@ def verify_model(result):
     for p in result.outcome.final_nonlinear_parameters:
         parameters.add(p.name, value=p.value, min_value=p.min, max_value=p.max, vary=p.vary)
     for s in result.completed_fit.samples:
-        e = result.outcome.cluster(s.cluster_id).analytical_evaluation
+        e = result.outcome.cluster(s.cluster_id).sample_evaluation
         if e is None:
             continue
         geometry = next(
