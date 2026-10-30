@@ -1,0 +1,97 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "qt_platform": "cocoa",
+  "fits": [
+    {
+      "fit": 1,
+      "rss_mib": 1066.828125,
+      "seconds": 5.364129584020702,
+      "history_entries": 1,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 2,
+      "rss_mib": 1167.3125,
+      "seconds": 5.383427042019321,
+      "history_entries": 2,
+      "resident_full_runs": 2
+    },
+    {
+      "fit": 3,
+      "rss_mib": 1268.484375,
+      "seconds": 5.70708624998224,
+      "history_entries": 3,
+      "resident_full_runs": 3
+    },
+    {
+      "fit": 4,
+      "rss_mib": 1366.71875,
+      "seconds": 5.784766167023918,
+      "history_entries": 4,
+      "resident_full_runs": 4
+    },
+    {
+      "fit": 5,
+      "rss_mib": 1465.75,
+      "seconds": 5.518072333012242,
+      "history_entries": 5,
+      "resident_full_runs": 5
+    },
+    {
+      "fit": 6,
+      "rss_mib": 1566.203125,
+      "seconds": 5.445918499986874,
+      "history_entries": 6,
+      "resident_full_runs": 6
+    },
+    {
+      "fit": 7,
+      "rss_mib": 1666.4375,
+      "seconds": 5.598076624999521,
+      "history_entries": 7,
+      "resident_full_runs": 7
+    },
+    {
+      "fit": 8,
+      "rss_mib": 1585.765625,
+      "seconds": 5.489500583003974,
+      "history_entries": 8,
+      "resident_full_runs": 8
+    },
+    {
+      "fit": 9,
+      "rss_mib": 1820.4375,
+      "seconds": 5.6676511249970645,
+      "history_entries": 9,
+      "resident_full_runs": 9
+    },
+    {
+      "fit": 10,
+      "rss_mib": 1673.78125,
+      "seconds": 5.516476374992635,
+      "history_entries": 10,
+      "resident_full_runs": 10
+    },
+    {
+      "fit": 11,
+      "rss_mib": 1100.734375,
+      "seconds": 61.89158454100834,
+      "history_entries": 10,
+      "resident_full_runs": 10
+    },
+    {
+      "fit": 12,
+      "rss_mib": 1672.953125,
+      "seconds": 14.377514125022572,
+      "history_entries": 10,
+      "resident_full_runs": 10
+    }
+  ],
+  "baseline_rss_mib": 502.859375,
+  "recovery_path_after_stop_exists": true,
+  "hardware": {
+    "model": "Mac17,9",
+    "cpu": "Apple M5 Pro",
+    "ram_bytes": 68719476736
+  }
+}

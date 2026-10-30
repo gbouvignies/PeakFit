@@ -254,8 +254,8 @@ to 32 MiB/eight entries. Experimental/Overlay share a locked intensity scale;
 Residual has a separately retained signed scale.
 
 One full accepted scientific result stays resident. Completion validation runs in
-the existing worker and is published atomically; no private result serialization,
-temporary recovery directory or history storage is introduced. Failure/cancellation
+a worker and is published atomically after accepted evidence is durable.
+History persistence and temporary ownership are described below. Failure/cancellation
 preserves the prior accepted result. A successful refit replaces it. Canonical
 exports include both exact submitted and adopted working coordinates plus
 currentness at export, and preserve the working peak state only when its exact
@@ -312,10 +312,45 @@ paths and never copies spectral files. A sibling PID lock excludes other writers
 and recovers locks left by dead save processes. Cleanup follows publication.
 Reader limits and platform/filesystem limitations are in the format documentation.
 
-`editor.fitting` keeps ten full completed runs plus protected runs, and compact
-journals for completed/canceled/failed optimizer attempts. Before releasing resident
-history it writes a bounded recoverable temporary analysis. Older entries retain
-coordinates, parameters/settings and statistics, explicitly without sample/profile
-capabilities. Save applies the 1 GiB historical budget, excluding active/protected
-runs. Successful Save releases budget-evicted resident runs. Original CLI writers,
-legacy GUI, and numerical continuation formats are unchanged.
+`editor.fitting` keeps one active `DatasetCompletion`. Historical full evidence is
+represented by `StoredRun` (project root + checksummed immutable entry), with no
+implicit array-loading property. Reopen checks payload integrity but materializes
+only the active record. `editor.numerical` lists metadata immediately and loads one
+explicitly selected history record in a disposable process, releasing it on
+selection change or inspector closure. History-list construction never decodes all
+full runs. A summary-only eviction materializes the entire compact scientific
+contract from the canonical record before publication can remove any full payload.
+A reopened Full journal entry with `parameters=None` is therefore never merely
+relabeled Summary only. Cancellation/failure leaves the last manifest intact.
+
+`session_evidence.SessionEvidence` has one concrete role: durably spool accepted
+outcomes before they replace resident data. It owns a single `peakfit-session-*`
+temporary directory containing an ordinary `Recovery.peakfit`, not another format.
+Writes run in a disposable process; the owner returns disk references and small
+journals. Normal closure queues cleanup after in-flight publication, and successful
+Save first rebinds every reference to the published project, then cleans scratch
+storage. A transition to numerical-only review transfers ownership to the window,
+so stopping spectral widgets cannot delete retained numerical history.
+
+A checkpoint may precede final Qt adoption. Its writer preserves all input-run
+payload leases until adoption, so a late cancellation cannot invalidate disk
+references still held by the old workspace. Adoption retires obsolete leases on
+the worker; cleanup is FIFO and cannot be coalesced or canceled at shutdown.
+
+A hard interruption leaves the last atomic snapshot readable by the ordinary
+project reader. **Recover interrupted session…** offers only PeakFit-owned
+snapshots with dead POSIX owner PIDs, adopts the selected directory and requires
+Save as to a permanent location. Discard/normal closure removes the adopted scratch
+directory. Automatic discovery is conservative on non-POSIX systems; the documented
+path can still be opened explicitly. Recovery preserves accepted scientific state,
+not every later unsaved coordinate draft. No general persistence service or shared
+asset registry is introduced.
+
+Ten full runs and protected evidence remain on disk; older entries retain exact
+coordinates, fitted tables/errors/bounds, submitted parameters/settings and concise
+diagnostics/statistics, explicitly without sample/profile capabilities. The 1 GiB
+historical budget excludes active/protected evidence. Existing export writers remain
+usable; compatibility is not a reason to constrain a better GUI v2 representation.
+The current project wraps validated scientific JSON in lossless gzip level 1. A
+separate focused change should assess a typed-array authority with derived exports,
+including peak decoding memory, before changing that scientific contract.

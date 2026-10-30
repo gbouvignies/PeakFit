@@ -27,7 +27,7 @@ class ViewerComputation(QtCore.QObject):
         self._busy = False
         self._closed = False
         self._ready.connect(self._finished)
-        parent.destroyed.connect(self.close)
+        parent.destroyed.connect(lambda: self.close())
 
     def submit(self, kind: str, revision: int, operation: Callable[[], object]) -> None:
         """Replace a pending request; never start a second expensive computation."""
@@ -67,11 +67,23 @@ class ViewerComputation(QtCore.QObject):
             self.completed.emit(kind, revision, outcome)
             self._start_next()
 
+    def cleanup_after_work(self, operation):
+        """Queue owned-file cleanup in FIFO order; it must never be coalesced away."""
+        self._executor.submit(operation)
+
     @QtCore.Slot()
-    def close(self) -> None:
+    def close(self, finalize=None) -> None:
         """Do not wait for numerical work while closing a Qt window."""
+        if self._closed:
+            return
         self._closed = True
         getattr(self, "_pending", {}).clear()
         executor = getattr(self, "_executor", None)
         if executor is not None:
-            executor.shutdown(wait=False, cancel_futures=True)
+            if finalize is not None:
+                try:
+                    executor.submit(finalize)
+                except RuntimeError:  # Interpreter shutdown has already joined executor work.
+                    finalize()
+            # A finalizer queued behind an in-flight writer must not be canceled.
+            executor.shutdown(wait=False, cancel_futures=finalize is None)

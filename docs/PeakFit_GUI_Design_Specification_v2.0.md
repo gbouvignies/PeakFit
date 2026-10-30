@@ -610,6 +610,14 @@ continuation objects are never loaded from a user-selected file.
 
 ## 11. Save, reopen and export
 
+GUI v2 has no backward-compatibility requirement with prior PeakFit APIs, CLI,
+configuration or formats. Preserve scientific integrity, explicit provenance and
+reliable exports; change the representation when that produces a better design.
+The current #70 implementation uses lossless gzip around its validated scientific
+JSON as a focused storage improvement. That is an interim choice, not a requirement
+that JSON remain the internal authority; an array-native record merits a separate
+focused scientific review.
+
 **Save analysis** creates a lightweight analysis directory with a `.peakfit`
 suffix, referencing original spectral files externally. Saving must be fast and
 space-efficient even for very large NMR datasets: neither first Save nor Save as
@@ -631,8 +639,9 @@ complete evidence for a retained full run rather than silently reducing precisio
 or dropping observations on Save.
 
 Use a versioned JSON manifest with project-payload checksums and explicit shape,
-dtype, axis, cluster/peak and ordered source-plane mappings. Completed quantities
-remain authoritative in canonical `summary/fit.json` (currently 4.1.0); lossless
+dtype, axis, cluster/peak and ordered source-plane mappings. The current #70
+implementation records completed quantities in losslessly compressed
+`summary/fit.json.gz` (scientific JSON schema 4.1.0); lossless
 NPZ review arrays retain exact sampled indices, observations, analytical sample
 model/residual evidence and terminal corrections. Preserve evaluable model/processing
 descriptors, exact input snapshots and the verified post-fit working transition

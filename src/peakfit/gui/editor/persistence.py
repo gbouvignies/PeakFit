@@ -17,9 +17,11 @@ from peakfit.gui.peaks import PeakEdits
 from peakfit.gui.project import (
     Analysis,
     dataset_header,
+    run_id,
     source_link_unchanged,
 )
 from peakfit.gui.project_process import project_operation, save_project
+from peakfit.gui.session_evidence import SessionEvidence, interrupted_sessions
 
 if TYPE_CHECKING:
     from peakfit.gui.editor.window import EditorWindow
@@ -32,6 +34,8 @@ class AnalysisActions:
         """Expose familiar file commands without changing the compact workspace."""
         self.analysis_path = None
         self._analysis = None
+        self._recovered_session = SessionEvidence()
+        self._recovering_path = None
         self._saved_key = None
         self._saving = False
         self._after_save = None
@@ -54,6 +58,9 @@ class AnalysisActions:
         )
         self.relink_action = self._action(menu, "Relink source…", self.relink_source)
         self.history_action = self._action(menu, "Analysis history…", self.show_history)
+        self.recover_action = self._action(
+            menu, "Recover interrupted session…", self.recover_session
+        )
         self._analysis_actions()
 
     def _analysis_key(self: EditorWindow):
@@ -77,6 +84,7 @@ class AnalysisActions:
         available = self.workspace is not None or self._analysis is not None
         busy = self._busy or self._saving or bool(self.workspace and self.workspace.fit_busy)
         self.analysis_open.setEnabled(not busy)
+        self.recover_action.setEnabled(not busy)
         if self.workspace:
             self.workspace.inputs_loading = self._busy or self._saving
         for name in (
@@ -137,6 +145,7 @@ class AnalysisActions:
             path=self.analysis_path,
             journal=tuple(w.fitting.journal),
             protected=frozenset(w.fitting.protected),
+            active=w.fitting.completion,
         )
 
     def save_analysis_dialog(self: EditorWindow, *, save_as=False, after=None):
@@ -169,10 +178,8 @@ class AnalysisActions:
         self.cancel_load.setText("Cancel saving")
         self.cancel_load.show()
         self._analysis_actions()
-        known = {c.result.run_id for c in self._analysis.runs} if self._analysis else set()
-        reusable = analysis.path is not None and all(
-            c.result.run_id in known for c in analysis.runs
-        )
+        known = {run_id(c) for c in self._analysis.runs} if self._analysis else set()
+        reusable = analysis.path is not None and all(run_id(c) in known for c in analysis.runs)
         self._analysis_worker.submit(
             "save",
             0,
@@ -192,10 +199,11 @@ class AnalysisActions:
         if path:
             self.load_analysis(Path(path))
 
-    def load_analysis(self: EditorWindow, path):
+    def load_analysis(self: EditorWindow, path, *, recovery=False):
         """Validate in the background, retaining the old workspace until delivery."""
-        if not self.protect_edits(after=lambda: self.load_analysis(path)):
+        if not self.protect_edits(after=lambda: self.load_analysis(path, recovery=recovery)):
             return
+        self._recovering_path = path if recovery else None
         self._busy = True
         self._analysis_cancel.clear()
         self.loading_status.setText("Opening analysis · Validating retained evidence")
@@ -221,6 +229,7 @@ class AnalysisActions:
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Relink original spectrum")
         if not filename:
             return
+        self._relink_was_modified = self.isWindowModified()
         self._busy = True
         self._analysis_cancel.clear()
         self.cancel_load.show()
@@ -252,11 +261,14 @@ class AnalysisActions:
         elif kind == "save":
             path, analysis, storage = outcome
             self.analysis_path = path
-            self._analysis = replace(analysis, path=path)
+            self._analysis = replace(
+                analysis, path=path, active=None if self.workspace else analysis.completion
+            )
             if analysis.dataset is not None and not source_link_unchanged(analysis.header):
                 self.install_analysis(
                     replace(
-                        self._analysis,
+                        analysis,
+                        path=path,
                         dataset=None,
                         reason="Source unavailable or changed. Relink to verify it.",
                     )
@@ -268,6 +280,9 @@ class AnalysisActions:
             )
             if self.workspace:
                 self.workspace.fitting.history = list(analysis.runs)
+                self.workspace.fitting.journal = list(analysis.journal)
+                self.workspace.fitting.release_recovery()
+            self._analysis_worker.cleanup_after_work(self._recovered_session.close)
             if self.workspace and self._analysis_key() == self._saved_key:
                 self.workspace.edits.mark_saved()
                 self.workspace.plane_values_modified = False
@@ -277,18 +292,29 @@ class AnalysisActions:
                 QtCore.QTimer.singleShot(0, after)
         else:
             self.install_analysis(outcome)
+            if kind == "relink" and self._relink_was_modified:
+                self._saved_key = None
+                self.setWindowModified(True)
         if self.workspace:
             self.workspace.inputs_loading = False
             self.workspace.fitting.update()
         self._analysis_actions()
         self.open_action.setEnabled(True)
 
-    def install_analysis(self: EditorWindow, analysis):  # noqa: PLR0915
+    def install_analysis(self: EditorWindow, analysis):  # noqa: PLR0912, PLR0915
         """Publish verified spectra or an explicitly numerical-only workspace."""
+        # A capability change keeps the same evidence. Transfer its scratch owner
+        # before stopping the old workspace, rather than deleting still-linked history.
+        if self.workspace:
+            owner = self.workspace.fitting._session
+            if owner.path and any(getattr(r, "root", None) == owner.path for r in analysis.runs):
+                self._analysis_worker.cleanup_after_work(self._recovered_session.close)
+                self._recovered_session = owner
+                self.workspace.fitting._session = SessionEvidence()
         self._analysis = analysis
         self.analysis_path = analysis.path
         if analysis.dataset is not None:
-            self.install_dataset(analysis.dataset)
+            self.install_dataset(analysis.dataset, analysis=analysis)
             self._analysis = analysis
             self.analysis_path = analysis.path
             w = self.workspace
@@ -296,19 +322,20 @@ class AnalysisActions:
             w.edits = PeakEdits(analysis.peaks, revision=analysis.revision)
             w.fitting.configuration = PeakFitConfig.model_validate_json(analysis.configuration)
             w.fitting.reviewed = True
-            # Replace only process-local identity; source provenance remains immutable.
-            runs = []
-            for completion in analysis.runs:
+            # Only the active result is resident and needs a process-local identity.
+            completion = analysis.completion
+            if completion:
                 result = completion.result
                 inputs = replace(
                     result.inputs,
                     snapshot=replace(result.inputs.snapshot, spectrum_id=id(w.dataset.spectra)),
                 )
-                runs.append(replace(completion, result=replace(result, inputs=inputs)))
-            w.fitting.history = runs
+                completion = replace(completion, result=replace(result, inputs=inputs))
+            w.fitting.history = list(analysis.runs)
             w.fitting.journal = list(analysis.journal)
             w.fitting.protected = set(analysis.protected)
-            w.fitting.completion = runs[-1] if runs else None
+            w.fitting.completion = completion
+            self._analysis = replace(analysis, active=None)
             w._refresh()
             v = analysis.view or {}
             for name, value in v.get("display", {}).items():
@@ -341,6 +368,7 @@ class AnalysisActions:
             w.set_mode(v.get("mode", 0))
             w.fitting.update()
         else:
+            self.release_unlinked_recovery(analysis.runs)
             if self.workspace:
                 self.workspace.stop()
             self.workspace = None
@@ -358,9 +386,14 @@ class AnalysisActions:
                 self.fit_export_action,
             ):
                 action.setEnabled(False)
-        self._saved_key = self._analysis_key()
+        recovering = self._recovering_path == analysis.path
+        if recovering:
+            self._recovered_session.adopt(analysis.path)
+            self.analysis_path = None
+            self._recovering_path = None
+        self._saved_key = None if recovering else self._analysis_key()
         self.setWindowTitle(f"{analysis.path.name}[*] — PeakFit")
-        self.setWindowModified(False)
+        self.setWindowModified(recovering)
         self.loading_status.setText(
             "Numerical review only · Relink source to restore spectral views"
             if analysis.dataset is None
@@ -376,12 +409,40 @@ class AnalysisActions:
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle("Analysis history")
         dialog.resize(1000, 700)
+        dialog.setAttribute(QtCore.Qt.WidgetAttribute.WA_DeleteOnClose)
         layout = QtWidgets.QVBoxLayout(dialog)
         review = NumericalReview(analysis)
         review.relink.hide()
         review.keep_changed.connect(self._keep_evidence)
         layout.addWidget(review)
+        dialog.finished.connect(review.release)
         dialog.exec()
+
+    def release_unlinked_recovery(self: EditorWindow, runs=()):
+        """End scratch ownership when replacing the analysis, not just the window."""
+        owner = self._recovered_session
+        if owner.path and not any(getattr(r, "root", None) == owner.path for r in runs):
+            self._recovered_session = SessionEvidence()
+            self._analysis_worker.cleanup_after_work(owner.close)
+
+    def recover_session(self: EditorWindow):
+        """Read an interrupted session through the same strict project reader."""
+        candidates = interrupted_sessions()
+        if not candidates:
+            QtWidgets.QMessageBox.information(
+                self, "Session recovery", "No interrupted PeakFit session was found."
+            )
+            return
+        selected, accepted = QtWidgets.QInputDialog.getItem(
+            self,
+            "Recover interrupted session",
+            "Choose retained accepted evidence. Save as a new analysis after recovery.",
+            [str(p) for p in candidates],
+            0,
+            False,
+        )
+        if accepted:
+            self.load_analysis(Path(selected), recovery=True)
 
     def _keep_evidence(self: EditorWindow, run_id, keep):
         if self.workspace:

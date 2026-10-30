@@ -3,8 +3,6 @@
 from dataclasses import replace
 from datetime import UTC, datetime
 from html import escape
-from pathlib import Path
-from tempfile import mkdtemp
 from time import perf_counter
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -19,8 +17,9 @@ from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.fit_positions import dataset_completion
 from peakfit.gui.fit_process import FitProcess, FitProcessResult
 from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
-from peakfit.gui.project import MAX_RUNS, Analysis, dataset_header, save_analysis
+from peakfit.gui.project import Analysis, dataset_header, run_id
 from peakfit.gui.project_results import journal_entry
+from peakfit.gui.session_evidence import SessionEvidence
 
 if TYPE_CHECKING:
     from peakfit.gui.editor.workspace import EditorWorkspace
@@ -41,7 +40,7 @@ class DatasetFitting(QtCore.QObject):
         self.history = []
         self.journal = []
         self.protected = set()
-        self._recovery_path = None
+        self._session = SessionEvidence()
         self._attempt_id = None
         self._attempt_parent = None
         self._attempt_initial = ()
@@ -75,6 +74,14 @@ class DatasetFitting(QtCore.QObject):
         assert isinstance(inspector_layout, QtWidgets.QGridLayout)
         inspector_layout.addWidget(self.review, 6, 0, 1, 2)
         workspace.changed.connect(self.update)
+
+    @property
+    def _recovery_path(self):
+        return self._session.path
+
+    def release_recovery(self):
+        """Clean scratch files only after Save has rebound history to published evidence."""
+        self._worker.cleanup_after_work(self._session.close)
 
     @property
     def busy(self) -> bool:
@@ -203,29 +210,31 @@ class DatasetFitting(QtCore.QObject):
             )
             protected = frozenset(self.protected)
 
+            generation = self._generation
+            parent_id = self._attempt_parent
+
             def complete():
                 completion = dataset_completion(
                     result, current, submitted_revision=submitted, manual_revision=revision
                 )
-                if len(history) >= MAX_RUNS and header is not None:
-                    self.attempt = "Preserving history before releasing resident evidence"
-                    if self._recovery_path is None:
-                        self._recovery_path = (
-                            Path(mkdtemp(prefix="peakfit-recovery-")) / "Analysis.peakfit"
-                        )
-                    analysis = Analysis(
-                        None,
-                        header,
-                        completion.working_peaks,
-                        current.configuration,
-                        revision,
-                        (*history, completion),
-                        path=self._recovery_path if self._recovery_path.exists() else None,
-                        journal=(*journal, journal_entry(completion)),
-                        protected=protected,
-                    )
-                    save_analysis(analysis, self._recovery_path)
-                return completion
+                entry = dict(journal_entry(completion), parent_run_id=parent_id)
+                if header is None:
+                    return completion, (completion,), (*journal, entry)
+                self.attempt = "Preserving accepted evidence"
+                analysis = Analysis(
+                    None,
+                    header,
+                    completion.working_peaks,
+                    current.configuration,
+                    revision,
+                    (*history, completion),
+                    journal=(*journal, entry),
+                    protected=protected,
+                )
+                saved = self._session.preserve(
+                    analysis, canceled=lambda: generation != self._generation
+                )
+                return completion, saved.runs, saved.journal
 
             self._worker.submit("publication", self._generation, complete)
         else:
@@ -241,7 +250,7 @@ class DatasetFitting(QtCore.QObject):
             self.failure = str(outcome)
             self.update()
             return
-        completion = outcome
+        completion, history, journal = outcome
         w = self.workspace
         if (
             self._submitted_revision != w.edits.revision
@@ -253,14 +262,13 @@ class DatasetFitting(QtCore.QObject):
         following = w.canvas.pin_peak_id
         # No signal or event-loop yield occurs between installing W and its run.
         self.completion = completion
-        self.journal.append(dict(journal_entry(completion), parent_run_id=self._attempt_parent))
+        self.journal = list(journal)
         self._attempt_id = None
-        full = [*self.history, completion]
-        self.history = [
-            c
-            for index, c in enumerate(full)
-            if index >= len(full) - MAX_RUNS or c.result.run_id in self.protected
-        ]
+        self.history = list(history)
+        if self._session.path:
+            owner = self._session
+            keep_ids = {run_id(run) for run in history}
+            self._worker.cleanup_after_work(lambda: owner.prune(keep_ids))
         w.edits.accept_completion(completion.working_peaks)
         self.attempt = ""
         w._refresh()
@@ -424,6 +432,8 @@ class DatasetFitting(QtCore.QObject):
             lines.extend(result.warnings)
             assert self.completion is not None
             lines.extend(self.completion.warnings)
+            if self._session.path:
+                lines.append(f"Session recovery: {self._session.path}")
             lines.append(
                 "Save analysis preserves working state and the latest ten completed runs. "
                 "Spectral sources remain external."
@@ -489,4 +499,4 @@ class DatasetFitting(QtCore.QObject):
         self._review_timer.stop()
         self._generation += 1
         self.process.close()
-        self._worker.close()
+        self._worker.close(finalize=self._session.close)

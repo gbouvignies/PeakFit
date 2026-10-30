@@ -11,7 +11,7 @@ from concurrent.futures import CancelledError
 from dataclasses import replace
 
 from peakfit.gui.dataset_fit import _completed_bytes
-from peakfit.gui.project import open_analysis, save_analysis, verify_sources
+from peakfit.gui.project import open_analysis, save_analysis, stored_analysis, verify_sources
 
 
 def _archive_child(connection):
@@ -28,11 +28,19 @@ def _archive_child(connection):
         def progress(message):
             connection.send(("progress", message))
 
-        if kind == "save":
+        if kind in {"save", "preserve"}:
             analysis, destination = payload
-            result = save_analysis(analysis, destination, progress=progress, canceled=is_canceled)
+            result = save_analysis(
+                analysis,
+                destination,
+                progress=progress,
+                canceled=is_canceled,
+                preserve_input_runs=kind == "preserve",
+            )
         elif kind == "open":
             result = open_analysis(payload, progress=progress, canceled=is_canceled)
+        elif kind == "history":
+            result = payload.load()
         else:
             analysis, relink = payload
             result = verify_sources(
@@ -47,11 +55,18 @@ def _archive_child(connection):
 
 def project_operation(kind, payload, *, progress, canceled):
     """Bridge one operation off Qt, with cooperative cancellation and child reaping."""
-    if kind in {"save", "relink"}:
+    if kind in {"save", "preserve", "relink"}:
         analysis, path = payload
         # Source arrays never enter a save/relink request. The child rereads and
         # verifies external sources only when the requested operation requires it.
-        payload = replace(analysis, dataset=None), path
+        payload = (
+            replace(
+                analysis,
+                dataset=None,
+                active=None if kind in {"save", "preserve"} else analysis.completion,
+            ),
+            path,
+        )
     context = multiprocessing.get_context("spawn")
     receiver, sender = context.Pipe()
     process = context.Process(target=_archive_child, args=(sender,), daemon=True)
@@ -98,8 +113,5 @@ def save_project(analysis, destination, *, reusable, progress, canceled):
             "save", (analysis, destination), progress=progress, canceled=canceled
         )
     manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
-    full_ids = {r["run_id"] for r in manifest["runs"]}
-    saved = replace(
-        analysis, path=path, runs=tuple(c for c in analysis.runs if c.result.run_id in full_ids)
-    )
+    saved = stored_analysis(analysis, path)
     return path, saved, manifest["storage_bytes"]

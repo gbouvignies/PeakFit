@@ -1,5 +1,6 @@
 """Lossless evidence, linked source identity and transactional analysis saves."""
 
+import gzip
 import hashlib
 import json
 import os
@@ -7,23 +8,29 @@ import shutil
 from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
+from threading import Event
 from uuid import uuid4
 
 import numpy as np
 import pytest
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtWidgets
 from test_gui_dataset import _dataset
+from test_gui_editor import wait_for
 
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.fit import pipeline
 from peakfit.gui import fitting, project, spectrum
+from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.numerical import NumericalReview
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.fit_positions import dataset_completion
+from peakfit.gui.fit_process import FitProcessResult
+from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import Analysis, dataset_header, open_analysis, save_analysis
 from peakfit.gui.project_process import project_operation
-from peakfit.gui.project_results import journal_entry, verify_model
+from peakfit.gui.project_results import journal_entry, restore_outcome, verify_model
+from peakfit.gui.session_evidence import SessionEvidence, interrupted_sessions
 from peakfit.gui.spectrum import Dataset, read_dataset
 
 DATA = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
@@ -49,6 +56,17 @@ def analysis(evidence, tmp_path):
     )
     record = json.dumps(
         {"path": str(source), "checksum_sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
+    )
+    stat = source.stat()
+    record = json.dumps(
+        dict(
+            json.loads(record),
+            size=str(stat.st_size),
+            mtime_ns=str(stat.st_mtime_ns),
+            ctime_ns=str(stat.st_ctime_ns),
+            inode=str(stat.st_ino),
+            device=str(stat.st_dev),
+        )
     )
     sources = (("spectrum", record),)
     snapshot = replace(completion.result.inputs.snapshot, source_files=sources)
@@ -404,3 +422,322 @@ def test_interrupted_first_save_never_publishes_and_dead_pid_lock_recovers(
     save_analysis(analysis, path)
     assert open_analysis(path, canceled=lambda: True).completion is not None
     assert not lock.exists()
+
+
+def test_save_ten_reopen_fit_save_reopen_preserves_evicted_scientific_summary(
+    analysis, tmp_path, monkeypatch
+):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    runs = tuple(
+        replace(analysis.completion, result=replace(analysis.completion.result, run_id=uuid4().hex))
+        for _ in range(10)
+    )
+    expected = json.loads(json.dumps(journal_entry(runs[0])))
+    path = save_analysis(replace(analysis, runs=runs), tmp_path / "History.peakfit")
+    assert all(
+        e["parameters"] is None for e in json.loads((path / "manifest.json").read_text())["journal"]
+    )
+    monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)
+    loaded = open_analysis(path)
+    assert len(loaded.runs) == 10
+    assert all(isinstance(r, project.StoredRun) for r in loaded.runs)
+    window = EditorWindow()
+    window.install_analysis(loaded)
+    del loaded, runs
+    w = window.workspace
+    assert w is not None
+    w.fitting.fit()  # Fresh preparation and a real optimizer invocation after reopening.
+    wait_for(lambda: not w.fitting.busy, timeout=20)
+    assert w.fitting.current, w.fitting.failure
+    assert all(isinstance(r, project.StoredRun) for r in w.fitting.history)
+    recovery = w.fitting._recovery_path
+    assert recovery is not None
+    recoverable = open_analysis(recovery, canceled=lambda: True)
+    assert w.fitting.result is not None
+    assert recoverable.completion.result.run_id == w.fitting.result.run_id
+    del recoverable
+    assert window.save_analysis_dialog()
+    wait_for(lambda: not window._saving, timeout=20)
+    wait_for(lambda: not recovery.exists(), timeout=10)
+    window.close()
+    app.processEvents()
+    reopened = open_analysis(path)
+    evicted = next(e for e in reopened.journal if e["run_id"] == expected["run_id"])
+    assert evicted["evidence"] == "Summary only"
+    for field, value in expected.items():
+        assert evicted[field] == value, field
+    assert evicted["parameters"]
+    assert len(reopened.runs) == 10
+    review = NumericalReview(replace(reopened, dataset=None))
+    index = next(
+        i
+        for i in range(review.run.count())
+        if isinstance(review.run.itemData(i), dict)
+        and review.run.itemData(i)["run_id"] == expected["run_id"]
+    )
+    review.run.setCurrentIndex(index)
+    assert review.parameters.rowCount() == len(expected["parameters"])
+    assert review.initial.rowCount() == len(expected["initial_peaks"])
+    assert review.starting_parameters.rowCount() == len(expected["initial_parameters"])
+    assert not review.sample_export.isEnabled()
+    # A second metadata-only save/reopen must preserve the already demoted summary too.
+    save_analysis(reopened, path)
+    again = open_analysis(path, canceled=lambda: True)
+    assert next(e for e in again.journal if e["run_id"] == expected["run_id"]) == evicted
+    review.close()
+    review.deleteLater()
+
+
+def test_open_and_history_list_materialize_only_active_then_selected_run(
+    analysis, tmp_path, monkeypatch
+):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    runs = tuple(
+        replace(analysis.completion, result=replace(analysis.completion.result, run_id=uuid4().hex))
+        for _ in range(10)
+    )
+    path = save_analysis(replace(analysis, runs=runs), tmp_path / "Lazy.peakfit")
+    original = project._load_run
+    materialized = []
+
+    def counted(root, entry):
+        materialized.append(entry["run_id"])
+        return original(root, entry)
+
+    monkeypatch.setattr(project, "_load_run", counted)
+    loaded = open_analysis(path, canceled=lambda: True)
+    assert materialized == [runs[-1].result.run_id]
+    review = NumericalReview(loaded)
+    assert review._loaded_completion is None
+    assert materialized == [runs[-1].result.run_id]
+    review.run.setCurrentIndex(1)
+    wait_for(lambda: review._loaded_completion is not None, timeout=10)
+    assert review.selected_run().result.run_id == runs[-2].result.run_id
+    review.run.setCurrentIndex(0)
+    assert review._loaded_completion is None
+    assert review.selected_run() is loaded.completion
+    review.close()
+    review.deleteLater()
+    app.processEvents()
+
+
+@pytest.mark.skipif(
+    os.name != "posix", reason="Safe automatic recovery ownership uses POSIX PID checks"
+)
+def test_session_evidence_cleanup_and_explicit_recovery(analysis, tmp_path, monkeypatch):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    owner = SessionEvidence()
+    saved = owner.preserve(analysis)
+    recovery = owner.path
+    assert recovery is not None
+    root = recovery.parent
+    assert open_analysis(recovery, canceled=lambda: True).peaks == analysis.peaks
+    assert all(isinstance(r, project.StoredRun) for r in saved.runs)
+    # A crash bypasses normal cleanup. Only the owner PID marker changes in this simulation.
+    (root / "pid").write_text("123456789")
+    assert recovery in interrupted_sessions()
+    monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)
+    window = EditorWindow()
+    window._recovering_path = recovery
+    window.install_analysis(open_analysis(recovery))
+    assert window.analysis_path is None  # Recovery requires an explicit permanent Save as.
+    assert window.isWindowModified()
+    destination = tmp_path / "Recovered.peakfit"
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(destination), "")
+    )
+    assert window.save_analysis_dialog()
+    wait_for(lambda: not window._saving, timeout=15)
+    wait_for(lambda: not root.exists())
+    window.close()
+    app.processEvents()
+    assert open_analysis(destination, canceled=lambda: True).peaks == analysis.peaks
+    owner.root = None  # Ownership transferred to the recovered workspace and cleaned there.
+
+
+def test_gzip_scientific_json_is_lossless_and_rejects_expansion_limit(
+    analysis, tmp_path, monkeypatch
+):
+    path = save_analysis(analysis, tmp_path / "Compressed.peakfit")
+    summary = next(path.rglob("fit.json.gz"))
+    raw = gzip.decompress(summary.read_bytes())
+    assert not list(path.rglob("fit.json"))
+    document = json.loads(raw)
+    restored = restore_outcome(document, project.run_record(analysis.completion.result))
+    assert (
+        restored.final_nonlinear_parameters
+        == analysis.completion.result.outcome.final_nonlinear_parameters
+    )
+    assert len(summary.read_bytes()) < len(raw)
+    monkeypatch.setattr(project, "MAX_JSON_BYTES", len(summary.read_bytes()) + 1)
+    with pytest.raises(ValueError, match="Expanded project JSON"):
+        project._read_json(summary)
+
+
+def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup_on_close(
+    analysis, tmp_path, monkeypatch
+):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    window = EditorWindow()
+    window.install_dataset(analysis.dataset)
+    w = window.workspace
+    assert w is not None
+    f = w.fitting
+    f.configuration = PeakFitConfig.model_validate_json(analysis.configuration)
+    for index in range(12):
+        prepared = prepare_dataset_fit(w.spectra, w.peaks, f.configuration)
+        prepared = replace(
+            prepared, snapshot=replace(prepared.snapshot, source_files=w.dataset.sources)
+        )
+        result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+        f._submitted_revision = w.edits.revision
+        f.process.state = "completed"
+        f._finished(0, FitProcessResult(result, 0, 0, 0, 0))
+        del result, prepared
+        wait_for(lambda: not f.busy, timeout=15)
+        assert f.current, f.failure
+        assert len(f.history) == min(index + 1, 10)
+        assert all(isinstance(r, project.StoredRun) for r in f.history)
+        assert all(not hasattr(r, "result") for r in f.history)
+        wait_for(lambda: len(list((f._session.path / "runs").iterdir())) == len(f.history))
+    recovery = f._recovery_path
+    assert recovery is not None
+    root = recovery.parent
+    snapshot = tmp_path / "Preserved.peakfit"
+    shutil.copytree(recovery, snapshot)
+    assert f.result is not None
+    last_id = f.result.run_id
+    monkeypatch.setattr(QtWidgets.QMessageBox, "exec", lambda _dialog: 0)
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox,
+        "clickedButton",
+        lambda dialog: next(b for b in dialog.buttons() if b.text() == "Discard changes"),
+    )
+    window.close()
+    wait_for(lambda: not root.exists())
+    app.processEvents()
+    reopened = open_analysis(snapshot, canceled=lambda: True)
+    assert reopened.completion.result.run_id == last_id
+    assert len(reopened.runs) == 10
+    assert all(isinstance(r, project.StoredRun) for r in reopened.runs)
+    assert len([e for e in reopened.journal if e["evidence"] == "Summary only"]) == 2
+    assert all(e["parameters"] for e in reopened.journal if e["evidence"] == "Summary only")
+
+
+def test_numerical_capability_transition_transfers_temporary_evidence_owner(analysis):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    owner = SessionEvidence()
+    saved = owner.preserve(analysis)
+    recovery = owner.path
+    assert recovery is not None
+    root = recovery.parent
+    window = EditorWindow()
+    window.install_dataset(analysis.dataset)
+    w = window.workspace
+    assert w is not None
+    w.fitting._session = owner
+    window.install_analysis(replace(saved, dataset=None, reason="Source unavailable"))
+    assert w.fitting._session is not owner
+    assert window._recovered_session is owner
+    app.processEvents()
+    assert recovery.exists()  # Stopping spectral widgets must not delete numerical history.
+    loaded = open_analysis(recovery, canceled=lambda: True)
+    assert loaded.completion.result.run_id == analysis.completion.result.run_id
+    window.install_dataset(
+        analysis.dataset
+    )  # Replacing the numerical workspace also ends ownership.
+    wait_for(lambda: not root.exists())
+    window.close()
+
+
+def test_budget_eviction_materializes_summary_before_removing_payload(
+    analysis, tmp_path, monkeypatch
+):
+    runs = tuple(
+        replace(analysis.completion, result=replace(analysis.completion.result, run_id=uuid4().hex))
+        for _ in range(3)
+    )
+    expected = json.loads(json.dumps(journal_entry(runs[0])))
+    path = save_analysis(replace(analysis, runs=runs), tmp_path / "Budget.peakfit")
+    loaded = open_analysis(path, canceled=lambda: True)
+    monkeypatch.setattr(project, "MAX_EVIDENCE_BYTES", 1)
+    save_analysis(loaded, path)
+    again = open_analysis(path, canceled=lambda: True)
+    assert len(again.runs) == 1
+    evicted = next(e for e in again.journal if e["run_id"] == expected["run_id"])
+    assert evicted["parameters"] == expected["parameters"]
+    assert evicted["initial_parameters"] == expected["initial_parameters"]
+    assert evicted["diagnostics"] == expected["diagnostics"]
+    assert not (path / "runs" / runs[0].result.run_id).exists()
+
+
+def test_normal_close_waits_for_inflight_preservation_before_cleanup(analysis, tmp_path):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    owner = SessionEvidence()
+    owner.preserve(analysis)
+    root = owner.root
+    assert root is not None
+    started, release = Event(), Event()
+    parent = QtCore.QObject()
+    worker = ViewerComputation(parent)
+    second = SessionEvidence()
+    second.root = tmp_path / "second-owned-store"
+    second.root.mkdir()
+    second_root = second.root
+
+    def preserving():
+        started.set()
+        assert release.wait(10)
+        owner.preserve(analysis)
+
+    worker.submit("preserve", 0, preserving)
+    assert started.wait(5)
+    try:
+        worker.cleanup_after_work(second.close)
+        worker.close(finalize=owner.close)
+        assert second_root.exists()
+        assert root.exists()  # Cleanup must queue behind the writer, not race it.
+    finally:
+        release.set()
+    wait_for(lambda: not root.exists(), timeout=10)
+    assert not second_root.exists()
+    app.processEvents()
+
+
+def test_checkpoint_before_ui_adoption_does_not_delete_live_history_references(analysis):
+    owner = SessionEvidence()
+    runs = tuple(
+        replace(analysis.completion, result=replace(analysis.completion.result, run_id=uuid4().hex))
+        for _ in range(10)
+    )
+    live = owner.preserve(replace(analysis, runs=runs))
+    oldest = live.runs[0]
+    next_run = replace(
+        analysis.completion, result=replace(analysis.completion.result, run_id=uuid4().hex)
+    )
+    try:
+        checkpoint = owner.preserve(
+            replace(
+                live,
+                runs=(*live.runs, next_run),
+                active=next_run,
+                journal=(*live.journal, journal_entry(next_run)),
+            )
+        )
+        # Simulate cancellation after disk publication but before Qt accepts the new run.
+        assert len(checkpoint.runs) == 10
+        assert oldest.run_id not in {r.run_id for r in checkpoint.runs}
+        assert oldest.load().result.run_id == oldest.run_id
+        # Once Qt has adopted that checkpoint, the next generation can retire its old lease.
+        newest = replace(next_run, result=replace(next_run.result, run_id=uuid4().hex))
+        owner.preserve(
+            replace(
+                checkpoint,
+                runs=(*checkpoint.runs, newest),
+                active=newest,
+                journal=(*checkpoint.journal, journal_entry(newest)),
+            )
+        )
+        assert not (oldest.root / "runs" / oldest.run_id).exists()
+    finally:
+        owner.close()

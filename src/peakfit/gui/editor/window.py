@@ -373,8 +373,9 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             == QtWidgets.QMessageBox.StandardButton.Open
         )
 
-    def install_dataset(self, dataset: Dataset) -> None:
+    def install_dataset(self, dataset: Dataset, *, analysis=None) -> None:
         """Publish one complete handoff; no half-loaded arrays or assignments."""
+        self.release_unlinked_recovery(analysis.runs if analysis else ())
         self.analysis_path = None
         self._analysis = None
         self._saved_key = None
@@ -799,7 +800,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self._revision += 1
         self._worker.close()
         self._analysis_cancel.set()
-        self._analysis_worker.close()
+        self._analysis_worker.close(finalize=self._recovered_session.close)
         if self.workspace:
             self.workspace.stop()
         event.accept()

@@ -1,0 +1,100 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "qt_platform": "cocoa",
+  "fits": [
+    {
+      "fit": 1,
+      "rss_mib": 1112.015625,
+      "seconds": 8.656979624996893,
+      "history_entries": 1,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 2,
+      "rss_mib": 1257.859375,
+      "seconds": 8.750829541997518,
+      "history_entries": 2,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 3,
+      "rss_mib": 937.75,
+      "seconds": 8.749895665998338,
+      "history_entries": 3,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 4,
+      "rss_mib": 1174.109375,
+      "seconds": 8.801903417013818,
+      "history_entries": 4,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 5,
+      "rss_mib": 1264.703125,
+      "seconds": 8.722453124995809,
+      "history_entries": 5,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 6,
+      "rss_mib": 826.765625,
+      "seconds": 8.746470457990654,
+      "history_entries": 6,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 7,
+      "rss_mib": 1052.390625,
+      "seconds": 8.745930250006495,
+      "history_entries": 7,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 8,
+      "rss_mib": 771.765625,
+      "seconds": 8.755502667016117,
+      "history_entries": 8,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 9,
+      "rss_mib": 1137.4375,
+      "seconds": 8.727310582995415,
+      "history_entries": 9,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 10,
+      "rss_mib": 954.46875,
+      "seconds": 8.843361916020513,
+      "history_entries": 10,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 11,
+      "rss_mib": 1217.359375,
+      "seconds": 9.468414749979274,
+      "history_entries": 10,
+      "resident_full_runs": 1
+    },
+    {
+      "fit": 12,
+      "rss_mib": 1310.375,
+      "seconds": 10.05888570798561,
+      "history_entries": 10,
+      "resident_full_runs": 1
+    }
+  ],
+  "baseline_rss_mib": 502.796875,
+  "recovery_path_after_stop_exists": false,
+  "verified_reopen_seconds": 1.0287515410163905,
+  "reopened_full_history_entries": 10,
+  "reopened_resident_full_runs": 1,
+  "hardware": {
+    "model": "Mac17,9",
+    "cpu": "Apple M5 Pro",
+    "ram_bytes": 68719476736
+  }
+}

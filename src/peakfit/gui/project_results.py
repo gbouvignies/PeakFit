@@ -370,6 +370,13 @@ def journal_entry(completion):
         "run_id": result.run_id,
         "completed_at": result.completed_at,
         "status": "completed",
+        "software_version": result.software_version,
+        "noise": result.inputs.noise,
+        "contour_level": result.inputs.contour_level,
+        "shape_names": result.inputs.shape_names,
+        "n_optimizer_passes": result.outcome.n_optimizer_passes,
+        "n_correction_updates": result.outcome.n_correction_updates,
+        "terminal_correction_revision": result.outcome.terminal_correction_revision,
         "initial_parameters": initial_parameter_records(result),
         "source_files": result.inputs.snapshot.source_files,
         "spectral_parameters": result.inputs.snapshot.spectral_parameters,
@@ -383,6 +390,7 @@ def journal_entry(completion):
                 "name": p.name,
                 "value": p.value,
                 "unit": p.unit,
+                "vary": p.vary,
                 "standard_error": p.standard_error if np.isfinite(p.standard_error) else None,
                 "min": p.min if np.isfinite(p.min) else None,
                 "max": p.max if np.isfinite(p.max) else None,
@@ -396,6 +404,18 @@ def journal_entry(completion):
                 "classification": c.classification.value,
                 "message": c.optimizer_provenance.termination_message,
                 "reason": c.unusable_reason,
+                "converged": c.optimizer_provenance.converged,
+                "optimizer_kind": c.optimizer_provenance.optimizer_kind,
+                "function_evaluations": c.optimizer_provenance.function_evaluations,
+                "jacobian_evaluations": c.optimizer_provenance.jacobian_evaluations,
+                "iterations": c.optimizer_provenance.iterations,
+                "correction_revision": c.correction_revision,
+                "uncertainty_warning": (
+                    c.analytical_evaluation.uncertainty_warning if c.analytical_evaluation else None
+                ),
+                "statistics": (
+                    asdict(c.analytical_evaluation.statistics) if c.analytical_evaluation else None
+                ),
             }
             for c in result.outcome.clusters
         ],

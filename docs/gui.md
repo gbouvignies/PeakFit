@@ -36,8 +36,13 @@ Corrupt project evidence and unsupported project versions are explicit errors.
 retain full evidence; older runs have explicitly labeled Summary-only journal
 entries. **Keep full evidence** protects a full run from pruning. Historical evidence
 has a 1 GiB budget, excluding the active and protected runs; their costs appear in
-the manifest and Save status. Temporary recovery precedes resident history eviction
-and is not a saved analysis. Source-dependent MCMC, full refinement controls, source
+the manifest and Save status. Only the active complete result stays in memory;
+history loads when selected. Each accepted result has a durable temporary snapshot
+before resident replacement. Save and normal closure clean owned scratch storage.
+After an interruption, **File → Recover interrupted session…** offers retained POSIX
+session snapshots and requires Save as to a permanent project. Recovery is not a
+saved analysis or an autosave of later edits. On other systems an explicit Open
+analysis can read the recovery path shown in diagnostics. Source-dependent MCMC, full refinement controls, source
 embedding and reopening legacy local-fit exports remain outside this workflow.
 
 See [native workflow evidence, measurements and limitations](validation/gui-v2-persistence.md)

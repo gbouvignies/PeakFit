@@ -8,52 +8,59 @@
     546
   ],
   "source_bytes": 73244672,
-  "load_and_fingerprint_seconds": 0.0909209160017781,
-  "first_save_seconds": 2.955617416999303,
-  "routine_save_seconds": 0.010472249996382743,
+  "load_and_fingerprint_seconds": 0.09038791598868556,
+  "initial_fit_and_durable_acceptance_seconds": 8.461044958996354,
+  "first_save_seconds": 0.9176867089990992,
+  "routine_save_seconds": 0.0122348329750821,
   "routine_unchanged_evidence_rewrites": 0,
-  "project_bytes": 87646888,
+  "project_bytes": 37248935,
   "routine_source_content_bytes_read": 0,
-  "routine_bytes_written": 156883,
+  "routine_bytes_written": 219738,
   "spectrum_payload_members": [],
   "payloads": {
-    "manifest.json": 156883,
-    "runs/efa5992f3bff40d2883a9f9141f75133/samples.npz": 9596634,
-    "runs/efa5992f3bff40d2883a9f9141f75133/review.json": 183619,
-    "runs/efa5992f3bff40d2883a9f9141f75133/summary/fit.json": 77709752
+    "manifest.json": 219738,
+    "runs/601eb57bd1294e948696ed07954bf491/samples.npz": 9596634,
+    "runs/601eb57bd1294e948696ed07954bf491/review.json": 183618,
+    "runs/601eb57bd1294e948696ed07954bf491/summary/fit.json.gz": 27248945
   },
-  "save_as_seconds": 0.0531908750126604,
-  "verified_reopen_seconds": 1.9093686660053208,
+  "save_as_seconds": 0.03174441700684838,
+  "verified_reopen_seconds": 2.0854863749991637,
   "manual_edit_outdates": true,
   "reopened_refit_current": true,
   "heartbeat_ms": {
     "display": {
-      "p95": 11.037254190887325,
-      "max": 165.19862500717863
+      "p95": 11.037489246518817,
+      "max": 162.54675001255237
     },
     "first_save": {
-      "p95": 10.8273750229273,
-      "max": 148.47591699799523
+      "p95": 10.825978999491781,
+      "max": 19.597459002397954
     },
     "numerical_review": {
-      "p95": 11.037225008476526,
-      "max": 130.9267079923302
+      "p95": 11.035915988031775,
+      "max": 146.18679200066254
     },
     "refit": {
-      "p95": 10.849504393991083,
-      "max": 153.13112500007264
+      "p95": 10.689489754440729,
+      "max": 155.61529097612947
     },
     "reopen": {
-      "p95": 10.961137199774384,
-      "max": 81.2285830033943
+      "p95": 10.935679485555738,
+      "max": 65.28383400291204
     },
     "routine_save": {
-      "p95": 9.298624994698912,
-      "max": 9.298624994698912
+      "p95": 9.979687516170088,
+      "max": 10.00112501787953
     },
     "save_as": {
-      "p95": 10.682895757781807,
-      "max": 10.772000008728355
+      "p95": 10.456379703828134,
+      "max": 10.489459004020318
     }
+  },
+  "session_storage_cleaned_after_numeric_close": true,
+  "hardware": {
+    "model": "Mac17,9",
+    "cpu": "Apple M5 Pro",
+    "ram_bytes": 68719476736
   }
 }

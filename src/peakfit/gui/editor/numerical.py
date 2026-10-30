@@ -10,6 +10,8 @@ from PySide6 import QtCore, QtWidgets
 
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.export_dialog import choose_and_export
+from peakfit.gui.project import StoredRun, run_id
+from peakfit.gui.project_process import project_operation
 
 
 class NumericalReview(QtWidgets.QWidget):
@@ -20,6 +22,9 @@ class NumericalReview(QtWidgets.QWidget):
     def __init__(self, analysis):  # noqa: PLR0915
         super().__init__()
         self.analysis = analysis
+        self._loaded_completion = None
+        self._requested_id = None
+        self._history_generation = 0
         self._worker = ViewerComputation(self)
         self._worker.completed.connect(self._samples_exported)
         layout = QtWidgets.QVBoxLayout(self)
@@ -70,9 +75,12 @@ class NumericalReview(QtWidgets.QWidget):
         )
         tabs.addTab(peaks, "Working peaks")
         self.run = QtWidgets.QComboBox()
+        journal = {e["run_id"]: e for e in analysis.journal}
         for c in reversed(analysis.runs):
-            self.run.addItem(f"{c.result.completed_at} · {c.result.run_id[:8]}", c)
-        full_ids = {c.result.run_id for c in analysis.runs}
+            identity = run_id(c)
+            date = journal.get(identity, {}).get("completed_at", "")
+            self.run.addItem(f"{date} · {identity[:8]} · Full", c)
+        full_ids = {run_id(c) for c in analysis.runs}
         for entry in reversed(analysis.journal):
             if entry["run_id"] not in full_ids:
                 self.run.addItem(
@@ -168,7 +176,30 @@ class NumericalReview(QtWidgets.QWidget):
 
     def show_run(self):
         """Show selected retained evidence; never infer unavailable quantities."""
-        completion = self.run.currentData()
+        raw = self.run.currentData()
+        identity = run_id(raw) if raw is not None and not isinstance(raw, dict) else None
+        if identity != self._requested_id:
+            self._history_generation += 1
+            self._requested_id = identity
+            self._loaded_completion = None
+        completion = self.selected_run()
+        if isinstance(raw, StoredRun) and completion is None:
+            self.details.setPlainText("Loading and validating requested historical evidence…")
+            for table in (self.parameters, self.initial, self.starting_parameters, self.samples):
+                table.setRowCount(0)
+            self.profile.clear()
+            self.peak.clear()
+            self.export.setEnabled(False)
+            self.sample_export.setEnabled(False)
+            self.keep.setEnabled(False)
+            self._worker.submit(
+                "history",
+                self._history_generation,
+                lambda: project_operation(
+                    "history", raw, progress=lambda _: None, canceled=lambda: False
+                ),
+            )
+            return
         self.export.setEnabled(completion is not None)
         self.cluster.clear()
         self.samples.setRowCount(0)
@@ -272,12 +303,12 @@ class NumericalReview(QtWidgets.QWidget):
         item = self.peak.currentData()
         if item is None:
             return
-        c = self.run.currentData().result.outcome.cluster(item[0])
+        c = self.selected_run().result.outcome.cluster(item[0])
         self.profile.plot(c.analytical_evaluation.amplitudes[item[1]], symbol="o", pen=None)
 
     def export_run(self):
         """Reuse the canonical export workflow for retained numerical evidence."""
-        completion = self.run.currentData()
+        completion = self.selected_run()
         if isinstance(completion, dict):
             filename, _ = QtWidgets.QFileDialog.getSaveFileName(
                 self, "Export summary-only evidence", "run-summary.json", "JSON (*.json)"
@@ -293,7 +324,7 @@ class NumericalReview(QtWidgets.QWidget):
             )
 
     def _keep(self, keep):
-        completion = self.run.currentData()
+        completion = self.selected_run()
         if completion is not None and not isinstance(completion, dict):
             protected = set(self.analysis.protected)
             protected.add(completion.result.run_id) if keep else protected.discard(
@@ -304,7 +335,7 @@ class NumericalReview(QtWidgets.QWidget):
 
     def show_samples(self):
         """Inspect retained optimizer evidence; this is never a full-spectrum display."""
-        completion = self.run.currentData()
+        completion = self.selected_run()
         cid = self.cluster.currentData()
         if cid is None or completion is None or isinstance(completion, dict):
             return
@@ -333,7 +364,7 @@ class NumericalReview(QtWidgets.QWidget):
 
     def export_samples(self):
         """Export all retained observations/corrections and analytical sample arrays losslessly."""
-        completion = self.run.currentData()
+        completion = self.selected_run()
         if completion is None or isinstance(completion, dict):
             return
         filename, _ = QtWidgets.QFileDialog.getSaveFileName(
@@ -357,10 +388,39 @@ class NumericalReview(QtWidgets.QWidget):
         self.sample_note.setText("Exporting exact sample evidence…")
         self._worker.submit("export", 0, lambda: np.savez_compressed(filename, **arrays))
 
+    def selected_run(self):
+        """Return only the active or explicitly loaded historical record."""
+        selected = self.run.currentData()
+        if isinstance(selected, StoredRun):
+            active = self.analysis.completion
+            if active and selected.run_id == active.result.run_id:
+                return active
+            return self._loaded_completion
+        return selected
+
     def _samples_exported(self, _kind, _revision, outcome):
+        if _kind == "history":
+            if _revision != self._history_generation:
+                return
+            if isinstance(outcome, Exception):
+                self.details.setPlainText(f"Historical evidence unavailable: {outcome}")
+            else:
+                self._loaded_completion = outcome
+                self.show_run()
+            return
         self.sample_export.setEnabled(True)
         self.sample_note.setText(
             f"Export failed: {outcome}"
             if isinstance(outcome, Exception)
             else "Exact sample evidence exported"
         )
+
+    def release(self):
+        """Release the selected historical record and invalidate late worker deliveries."""
+        self._loaded_completion = None
+        self._worker.close()
+
+    def closeEvent(self, event):  # noqa: N802
+        """Closing a historical inspector must not retain a decoded run."""
+        self.release()
+        super().closeEvent(event)

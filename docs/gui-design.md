@@ -141,7 +141,13 @@ the last saved project and its payloads through failures; source availability is
 independent of save success. These are persistence implementation requirements,
 implemented by the linked-source reader/writer described in [outputs](outputs.md#linked-source-analysis-projects).
 
-Keep canonical `summary/fit.json` 4.1.0 and CSV outputs unchanged. The analysis workflow adds a versioned
+Backward compatibility is not a GUI v2 requirement. Scientific correctness,
+explicit provenance and reliable exports are product requirements; existing APIs,
+CLI/configuration, formats and obsolete GUI implementations may change when a
+better design warrants it. In #70 the existing result writer is retained as a
+bounded-scope choice, not as a permanent internal-authority constraint. Projects
+now losslessly compress that scientific JSON while existing explicit exports remain
+available. The analysis workflow adds a versioned
 review manifest and separate lossless numeric payload. Do not
 duplicate authoritative parameters or amplitudes in that companion. Bind it to
 the canonical summary and numerical file with checksums, explicit array names,
@@ -225,3 +231,23 @@ not a finishing milestone. See [native acceptance evidence](validation/gui-datas
 Refinement and MCMC remain separate later workflows with parent-run identity,
 explicit neighbor context, validated numerical inputs and scientifically accurate
 uncertainty interpretation. They must not mutate an earlier completed outcome.
+
+
+## Focused history correction and next representation decision
+
+PR #70 now keeps one active complete result resident, disk references for historical
+Full runs and an on-demand historical inspector. Before pruning Full evidence it
+materializes the exact Summary-only contract from that record; it never relabels a
+nullable parameter table as a valid summary. Session evidence has a workspace/window
+owner, an ordinary readable project snapshot and cleanup after Save/normal close.
+The native repeated-fit and compression measurements are in the persistence validation.
+
+A typed-array scientific authority (small validated metadata plus named lossless
+arrays) could remove JSON numeric-list parsing, its temporary allocations and much
+serialization time. It is the recommended separate focused PR, not a compatibility
+exercise: reuse the immutable scientific outcome and projector when useful, derive
+reliable JSON/CSV exports on request, and verify every recorded quantity/provenance
+association independently. Combining that authority/schema change with ownership
+and eviction fixes would unnecessarily enlarge the current scientific review.
+Gzip level 1 belongs in #70 because it is a small exact byte wrapper, preserves the
+validation path and materially reduces measured project size without a new framework.

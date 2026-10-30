@@ -2,8 +2,6 @@
 
 import json
 import platform
-from copy import deepcopy
-from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
@@ -11,13 +9,9 @@ from unittest.mock import patch
 
 import numpy as np
 from PySide6 import QtCore, QtWidgets
-from threadpoolctl import threadpool_limits
 from validate_gui_editor import settle, wait_until
 
-from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.window import EditorWindow
-from peakfit.gui.fit_positions import dataset_completion
-from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import verify_sources
 from peakfit.gui.spectrum import read_dataset
 
@@ -41,23 +35,19 @@ def main():  # noqa: PLR0915
         "source_bytes": dataset.path.stat().st_size,
         "load_and_fingerprint_seconds": perf_counter() - start,
     }
-    with threadpool_limits(limits=1):
-        prepared = prepare_dataset_fit(dataset.spectra, dataset.peaks)
-        prepared = replace(
-            prepared, snapshot=replace(prepared.snapshot, source_files=dataset.sources)
-        )
-        result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
-    completion = dataset_completion(
-        result, prepared.snapshot, submitted_revision=0, manual_revision=0
-    )
     window = EditorWindow()
     window.install_dataset(dataset)
     window.show()
     w = window.workspace
     assert w is not None
-    w.fitting._submitted_revision = 0
-    w.fitting._publish(completion)
-    assert w.fitting.result is not None
+    w.fitting.reviewed = True
+    started = perf_counter()
+    w.fitting.fit()
+    wait_until(lambda: not w.fitting.busy, timeout=120)
+    assert w.fitting.current, w.fitting.failure
+    completion = w.fitting.completion
+    assert completion is not None
+    report["initial_fit_and_durable_acceptance_seconds"] = perf_counter() - started
     w.set_plane(60)
     w.select_peak(w.peaks[0].id)
     beats, last = [], [perf_counter()]
@@ -147,6 +137,7 @@ def main():  # noqa: PLR0915
         report["reopened_refit_current"] = True
         phase[0] = "numerical_review"
         # Explicitly selected missing source demonstrates numerical mode with real evidence.
+        session_root = w.fitting._recovery_path
         analysis = verify_sources(window.capture_analysis(), relink=Path(temporary) / "missing.ft2")
         assert analysis.dataset is None
         window.install_analysis(analysis)
@@ -162,6 +153,9 @@ def main():  # noqa: PLR0915
         }
         timer.stop()
         window.close()
+        if session_root:
+            wait_until(lambda: not session_root.exists())
+        report["session_storage_cleaned_after_numeric_close"] = True
     (OUTPUT / "measurements.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
