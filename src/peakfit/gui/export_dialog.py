@@ -10,6 +10,7 @@ from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fit_export import export_fit_result
 
 if TYPE_CHECKING:
+    from peakfit.gui.fit_positions import DatasetCompletion
     from peakfit.gui.local_fit import LocalFitResult
 
 
@@ -25,7 +26,11 @@ class _ExportProgress(QtWidgets.QProgressDialog):
 
 
 def choose_and_export(
-    parent: QtWidgets.QWidget, result: LocalFitResult | DatasetFitResult
+    parent: QtWidgets.QWidget,
+    result: LocalFitResult | DatasetFitResult,
+    *,
+    completion: DatasetCompletion | None = None,
+    current: bool | None = None,
 ) -> Path | None:
     """Choose a parent directory and create a new result-specific child directory."""
     directory = QtWidgets.QFileDialog.getExistingDirectory(
@@ -42,7 +47,9 @@ def choose_and_export(
     progress.setMinimumDuration(0)
     # A local worker and modal event loop suffice: no reusable job machinery.
     with ThreadPoolExecutor(max_workers=1, thread_name_prefix="peakfit-export") as executor:
-        future = executor.submit(export_fit_result, result, destination)
+        future = executor.submit(
+            export_fit_result, result, destination, completion=completion, current=current
+        )
         timer = QtCore.QTimer(progress)
         timer.setInterval(30)
         timer.timeout.connect(lambda: progress.accept() if future.done() else None)

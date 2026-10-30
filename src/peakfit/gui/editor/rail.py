@@ -116,6 +116,7 @@ class PeakRail(QtWidgets.QWidget):
         grid.addWidget(self.draft, 5, 0, 1, 2)
         self.inspector.fields_changed.connect(self._draft_changed)
         scroll = QtWidgets.QScrollArea()
+        self.inspector_scroll = scroll
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         scroll.setWidget(self.inspector)

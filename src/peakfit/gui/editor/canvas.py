@@ -1,8 +1,9 @@
 """Retained signed contours, aligned native slices and independent inspection gestures."""
 
 from collections import OrderedDict
+from concurrent.futures import CancelledError
 from dataclasses import replace
-from functools import partial
+from threading import Event
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
@@ -13,9 +14,11 @@ import pyqtgraph as pg
 
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editing import PeakMarkers
+from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.spectrum import contour_geometry, display_position, paths_from_geometry
 
 if TYPE_CHECKING:
+    from peakfit.gui.dataset_fit import DatasetFitResult
     from peakfit.gui.editor.loading import Dataset
     from peakfit.gui.peaks import WorkingPeak
     from peakfit.gui.spectrum import ContourGeometry
@@ -23,6 +26,9 @@ if TYPE_CHECKING:
 _PICK_RADIUS = 8.0  # Logical pixels, shared by hover/click/drag at every DPR.
 _CACHE_BYTES = 32 * 1024**2
 _CACHE_PLANES = 8
+_RESIDUAL = 2
+_MODEL_POSITIVE = 2
+_MODEL_NEGATIVE = 3
 
 
 def signed_geometry(data, axes, levels) -> list[tuple[np.ndarray, np.ndarray]]:
@@ -72,6 +78,16 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.y_axis, self.x_axis = self.spectra.spectral_params
         self.ppm_x = self.x_axis.pts2ppm(np.arange(self.x_axis.size, dtype=float))
         self.ppm_y = self.y_axis.pts2ppm(np.arange(self.y_axis.size, dtype=float))
+        self.comparison_result: DatasetFitResult | None = None
+        self.comparison_mode = 0
+        self.residual_threshold = 3.0
+        self._model_cache = OrderedDict()
+        self._model_cancel = Event()
+        self._model = None
+        self._expanded_model = False
+        self._scale_note = ""
+        self._trace_limits = {0: dataset.trace_limit, 2: 8.0}
+        self.editing_enabled = True
         self.plane = 0
         self.iy, self.ix = (size // 2 for size in self.spectra.data.shape[1:])
         self.pinned = False
@@ -157,6 +173,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.right.setMouseEnabled(x=False, y=False)
         self.curve_x = self.top.plot(antialias=True)
         self.curve_y = self.right.plot(antialias=True)
+        self.model_x = self.top.plot(pen=pg.mkPen("#b47a32", width=1.5))
+        self.model_y = self.right.plot(pen=pg.mkPen("#b47a32", width=1.5))
         self.top.addItem(pg.InfiniteLine(angle=0, pos=0, pen="#8493a0"))
         self.right.addItem(pg.InfiniteLine(angle=90, pos=0, pen="#8493a0"))
         self.cross_x = pg.InfiniteLine(angle=90, movable=False)
@@ -332,10 +350,34 @@ class SpectrumCanvas(QtWidgets.QWidget):
             with QtCore.QSignalBlocker(line):
                 line.setValue(float(value))
         data = self.spectra.data[self.plane]
-        self.curve_x.setData(self.ppm_x, data[self.iy, :])
-        self.curve_y.setData(data[:, self.ix], self.ppm_y)
-        raw = float(data[self.iy, self.ix])
-        clip = max(float(np.max(np.abs(data[self.iy, :]))), float(np.max(np.abs(data[:, self.ix]))))
+        row, column = data[self.iy, :], data[:, self.ix]
+        self.model_x.clear()
+        self.model_y.clear()
+        if self.comparison_mode == _RESIDUAL:
+            if self._model is None:
+                self.curve_x.clear()
+                self.curve_y.clear()
+                self.status_changed.emit(
+                    "Residual pending · calculating total model for this plane"
+                )
+                return
+            assert self.comparison_result is not None
+            noise = self.comparison_result.outcome.noise
+            row = (row - self._model.values[self.iy, :]) / noise
+            column = (column - self._model.values[:, self.ix]) / noise
+        elif self.comparison_mode == 1 and self._model is not None:
+            self.model_x.setData(self.ppm_x, self._model.values[self.iy, :])
+            self.model_y.setData(self._model.values[:, self.ix], self.ppm_y)
+        self.curve_x.setData(self.ppm_x, row)
+        self.curve_y.setData(column, self.ppm_y)
+        raw = float(row[self.ix])
+        clip = max(float(np.max(np.abs(row))), float(np.max(np.abs(column))))
+        if self.comparison_mode == 1 and self._model is not None:
+            clip = max(
+                clip,
+                float(np.max(np.abs(self._model.values[self.iy, :]))),
+                float(np.max(np.abs(self._model.values[:, self.ix]))),
+            )
         self._emit_status(raw, clip > self.trace_limit)
 
     def _emit_status(self, raw: float, clipped: bool) -> None:
@@ -343,8 +385,9 @@ class SpectrumCanvas(QtWidgets.QWidget):
             f"{'Draft' if self._drag_peak else 'Pinned' if self.pinned else 'Preview'} · "
             f"{self.axis_title(self.x_axis)} {self.ppm_x[self.ix]:.8f}, "
             f"{self.axis_title(self.y_axis)} {self.ppm_y[self.iy]:.8f} ppm · "
-            f"{raw:.9g} a.u."
+            f"{raw:.9g} {'σ_stat residual' if self.comparison_mode == _RESIDUAL else 'a.u.'}"
             + (" · ▲ Trace clipped: use Display → Fit current traces" if clipped else "")
+            + self._scale_note
         )
         self.status_changed.emit(text)
         self.main.setAccessibleDescription(text)
@@ -416,7 +459,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
 
     def _move_peak(self, dx: float, dy: float, finished: bool) -> None:
         peak = self._by_id.get(self.selected_id or "")
-        if peak is None:
+        if peak is None or not self.editing_enabled:
             return
         if self._drag_peak is None:
             if not self.resolve_edit():
@@ -476,6 +519,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
 
     def set_plane(self, plane: int) -> None:
         """Use original acquisition index, retaining view and sampled row/column."""
+        self._model = None
         self.plane = int(np.clip(plane, 0, self.spectra.data.shape[0] - 1))
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
         self.request_contours()
@@ -488,58 +532,155 @@ class SpectrumCanvas(QtWidgets.QWidget):
     def fit_current_traces(self) -> None:
         """Explicit gain change, then keep a common signed scale locked again."""
         data = self.spectra.data[self.plane]
+        if self.comparison_mode == _RESIDUAL:
+            if self._model is None:
+                return
+            assert self.comparison_result is not None
+            data = (data - self._model.values) / self.comparison_result.outcome.noise
         value = max(
             float(np.max(np.abs(data[self.iy, :]))), float(np.max(np.abs(data[:, self.ix])))
         )
-        self._set_trace_limit(max(value * 1.05, np.finfo(float).tiny))
+        if self.comparison_mode == 1 and self._model is not None:
+            value = max(
+                value,
+                float(np.max(np.abs(self._model.values[self.iy, :]))),
+                float(np.max(np.abs(self._model.values[:, self.ix]))),
+            )
+        self._trace_limits[2 if self.comparison_mode == _RESIDUAL else 0] = max(
+            value * 1.05, np.finfo(float).tiny
+        )
+        self._set_trace_limit(self._trace_limits[2 if self.comparison_mode == _RESIDUAL else 0])
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
 
+    def set_comparison(self, result: DatasetFitResult | None, mode: int = 0) -> None:
+        """Bind a current immutable run and one mode across all three spectral views."""
+        if result is not self.comparison_result:
+            self._model_cache.clear()
+            self._expanded_model = False
+            self._scale_note = ""
+        self.comparison_result = result
+        self.comparison_mode = mode if result is not None else 0
+        self._set_trace_limit(self._trace_limits[2 if self.comparison_mode == _RESIDUAL else 0])
+        unit = "σ_stat" if self.comparison_mode == _RESIDUAL else "a.u."
+        self.top.setLabel("left", unit)
+        self.right.setLabel("bottom", unit)
+        self.request_contours()
+
     def request_contours(self) -> None:
-        """Drop old-plane graphics immediately and prepare only the newest request."""
+        """Coalesce complete-plane projection and geometry; hover only reads arrays."""
         self._revision += 1
+        self._model_cancel.set()
+        self._model_cancel = Event()
+        cancel = self._model_cancel
         for item in self.paths:
             self.main.removeItem(item)
         self.paths.clear()
-        key = (self.plane, self.contour_threshold, self.contour_factor, self.contour_count)
+        self._model = None
+        result, mode, plane = self.comparison_result, self.comparison_mode, self.plane
+        run = result.run_id if result is not None and mode else None
+        key = (
+            run,
+            mode,
+            plane,
+            self.contour_threshold,
+            self.contour_factor,
+            self.contour_count,
+            self.residual_threshold,
+        )
+        model_key = (run, plane)
         self.contour_pending = True
         self.pending_label.setPos(
             self.main.getViewBox().viewRange()[0][1], self.main.getViewBox().viewRange()[1][0]
         )
-        self.pending_label.setText("Preparing contours…")
+        self.pending_label.setText("Calculating total model…" if mode else "Preparing contours…")
         self.pending_label.show()
-        if key in self._cache:
+        self._worker.cancel("contours")
+        grid = self._model_cache.get(model_key) if mode else None
+        self._model = grid
+        self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
+        if key in self._cache and (not mode or grid is not None):
             geometry = self._cache.pop(key)
             self._cache[key] = geometry
             self._install_contours(geometry)
             return
-        plane = self.spectra.data[self.plane]
+        observed = self.spectra.data[plane]
         axes = [axis.model_copy(deep=True) for axis in self.spectra.spectral_params]
         levels = self.contour_threshold * self.contour_factor ** np.arange(self.contour_count)
         self.contour_jobs += 1
-        self._worker.submit(
-            "contours", self._revision, partial(signed_geometry, plane, axes, levels)
-        )
+        residual_levels = self.residual_threshold / 3 * np.asarray([3.0, 5.0, 8.0, 13.0, 21.0])
+
+        def calculate():
+            model = grid
+            if mode:
+                assert result is not None
+                model = model or dataset_model_plane(result, axes, plane, cancel=cancel)
+            if cancel.is_set():
+                raise CancelledError
+            if mode == _RESIDUAL:
+                assert model is not None
+                assert result is not None
+                residual = (observed - model.values) / result.outcome.noise
+                geometry = signed_geometry(residual, axes, residual_levels)
+            else:
+                geometry = signed_geometry(observed, axes, levels)
+                if mode == 1:
+                    assert model is not None
+                    geometry += signed_geometry(model.values, axes, levels)
+            return model, geometry
+
+        self._worker.submit("contours", self._revision, calculate)
 
     def _contours_ready(self, _kind, revision, outcome) -> None:
         if revision != self._revision:
             return
         if isinstance(outcome, Exception):
-            self.pending_label.setText(
-                f"Cannot draw contours: {outcome}. Try fewer levels in Display."
-            )
+            self.pending_label.setText(f"Comparison unavailable: {outcome}")
             self.contour_pending = False
             return
-        key = (self.plane, self.contour_threshold, self.contour_factor, self.contour_count)
-        size = sum(p.nbytes + c.nbytes for p, c in outcome)
+        model, geometry = outcome
+        run = (
+            self.comparison_result.run_id
+            if self.comparison_result and self.comparison_mode
+            else None
+        )
+        key = (
+            run,
+            self.comparison_mode,
+            self.plane,
+            self.contour_threshold,
+            self.contour_factor,
+            self.contour_count,
+            self.residual_threshold,
+        )
+        if model is not None:
+            model_key = (run, self.plane)
+            self._model_cache[model_key] = model
+            self._model_cache.move_to_end(model_key)
+            while (
+                len(self._model_cache) > _CACHE_PLANES
+                or sum(m.nbytes for m in self._model_cache.values()) > 128 * 1024**2
+            ):
+                self._model_cache.popitem(last=False)
+        self._model = model
+        if model is not None and not self._expanded_model:
+            maximum = float(np.max(np.abs(model.values))) * 1.05
+            if maximum > self._trace_limits[0]:
+                self._trace_limits[0] = maximum
+                self._expanded_model = True
+                self._scale_note = " · Trace scale expanded for accepted model"
+                if self.comparison_mode != _RESIDUAL:
+                    self._set_trace_limit(maximum)
+        size = sum(p.nbytes + c.nbytes for p, c in geometry)
         while self._cache and (
             self.cache_bytes + size > _CACHE_BYTES or len(self._cache) >= _CACHE_PLANES
         ):
             _, evicted = self._cache.popitem(last=False)
             self.cache_bytes -= sum(p.nbytes + c.nbytes for p, c in evicted)
         if size <= _CACHE_BYTES:
-            self._cache[key] = outcome
+            self._cache[key] = geometry
             self.cache_bytes += size
-        self._install_contours(outcome)
+        self._install_contours(geometry)
+        self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
 
     def _install_contours(self, geometry) -> None:
         for path in paths_from_geometry(geometry):
@@ -555,9 +696,20 @@ class SpectrumCanvas(QtWidgets.QWidget):
     def _style_contours(self) -> None:
         for index, item in enumerate(self.paths):
             pen = pg.mkPen(
-                self._colors["measured"],
+                (
+                    "#b47a32"
+                    if index >= _MODEL_POSITIVE
+                    or (self.comparison_mode == _RESIDUAL and index == 0)
+                    else self._colors["measured"]
+                ),
                 width=1.8 if self.heavy_strokes else 1,
-                style=QtCore.Qt.PenStyle.DashLine if index else QtCore.Qt.PenStyle.SolidLine,
+                style=(
+                    QtCore.Qt.PenStyle.DotLine
+                    if index == _MODEL_NEGATIVE
+                    else QtCore.Qt.PenStyle.DashLine
+                    if index in (1, 2)
+                    else QtCore.Qt.PenStyle.SolidLine
+                ),
             )
             pen.setCosmetic(True)
             item.setPen(pen)
@@ -656,6 +808,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
     def stop(self) -> None:
         """Discard stale deliveries without waiting on a worker in the UI thread."""
         self._revision += 1
+        self._model_cancel.set()
         self._preview_timer.stop()
         self._paint_timer.stop()
         self._worker.close()

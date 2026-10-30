@@ -1,0 +1,207 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "processor": "arm",
+  "qt_platform": "cocoa",
+  "dpr": 2.0,
+  "shape": [
+    131,
+    256,
+    546
+  ],
+  "peaks": 166,
+  "load_install_ms": 315.29854200198315,
+  "input_method": "QtTest controls and deterministic scene delivery; native Cocoa paint",
+  "input_to_photon": false,
+  "captures": [
+    {
+      "file": "1280-light-overlay.webp",
+      "plot_rect": [
+        740.5,
+        417.5
+      ]
+    },
+    {
+      "file": "1280-light-residual.webp",
+      "plot_rect": [
+        740.5,
+        417.5
+      ]
+    },
+    {
+      "file": "1280-dark-overlay.webp",
+      "plot_rect": [
+        740.5,
+        417.5
+      ]
+    },
+    {
+      "file": "1280-dark-residual.webp",
+      "plot_rect": [
+        740.5,
+        417.5
+      ]
+    },
+    {
+      "file": "1440-light-overlay.webp",
+      "plot_rect": [
+        900.5000000000001,
+        517.5
+      ]
+    },
+    {
+      "file": "1440-light-residual.webp",
+      "plot_rect": [
+        900.5000000000001,
+        517.5
+      ]
+    },
+    {
+      "file": "1440-dark-overlay.webp",
+      "plot_rect": [
+        900.5000000000001,
+        517.5
+      ]
+    },
+    {
+      "file": "1440-dark-residual.webp",
+      "plot_rect": [
+        900.5000000000001,
+        517.5
+      ]
+    },
+    {
+      "file": "1040-light-overlay.webp",
+      "plot_rect": [
+        501.50000000000006,
+        337.5
+      ]
+    },
+    {
+      "file": "1040-light-residual.webp",
+      "plot_rect": [
+        501.50000000000006,
+        337.5
+      ]
+    },
+    {
+      "file": "1040-dark-overlay.webp",
+      "plot_rect": [
+        501.50000000000006,
+        337.5
+      ]
+    },
+    {
+      "file": "1040-dark-residual.webp",
+      "plot_rect": [
+        501.50000000000006,
+        337.5
+      ]
+    }
+  ],
+  "rss_mib": [
+    526.203125,
+    1017.765625,
+    1017.765625,
+    1017.765625,
+    1017.765625,
+    1017.765625,
+    1017.765625,
+    1017.765625,
+    1017.765625,
+    1017.765625,
+    1017.765625,
+    1024.890625
+  ],
+  "prepared_clusters": 121,
+  "prepared_peaks": 166,
+  "first_fit_including_settings_s": 5.455381292005768,
+  "summary": "Run 7c3252b0 \u00b7 Current \u00b7 121/121 converged \u00b7 121/121 usable \u00b7 Complete model \u00b7 3 uncertainty warnings",
+  "positions_changed": 166,
+  "completion_warnings": [],
+  "projection_max_abs_error": 0.0,
+  "hover": {
+    "p50_ms": 7.255666496348567,
+    "p95_ms": 9.085923236852976,
+    "p99_ms": 9.746561762876809,
+    "max_ms": 10.142042010556906,
+    "events": 500,
+    "painted": 500,
+    "superseded": 0,
+    "delivered_hz": 62.431167367064454,
+    "contour_jobs": 0,
+    "marker_rebuilds": 0
+  },
+  "uncached_plane_ms": [
+    1303.5286670201458,
+    0.642083992715925,
+    1301.3377499883063
+  ],
+  "cached_plane": {
+    "p50_ms": 0.4207500023767352,
+    "p95_ms": 1.4945997128961603,
+    "p99_ms": 1.6322310685063717,
+    "max_ms": 1.7086669977288693
+  },
+  "rapid_40_plane_ms": 1438.3815829933155,
+  "cache_bytes": 6025776,
+  "export": "/tmp/peakfit-v2-validation-export-7c3252b09d814a4a828ff7e9f2dd7fc6",
+  "cancel_ack_ms": 0.7761249726172537,
+  "cancel_reap_ms": 41.909415973350406,
+  "refit_s": 5.490349333995255,
+  "heartbeat": {
+    "cancel": {
+      "p50_ms": 10.149687514058314,
+      "p95_ms": 14.038891093514387,
+      "p99_ms": 25.150540684699074,
+      "max_ms": 28.31950000836514
+    },
+    "capture": {
+      "p50_ms": 11.028084001736715,
+      "p95_ms": 193.986041797325,
+      "p99_ms": 208.12570515437977,
+      "max_ms": 214.5441249886062
+    },
+    "export": {
+      "p50_ms": 10.802333010360599,
+      "p95_ms": 17.046957998536527,
+      "p99_ms": 42.63782741385507,
+      "max_ms": 290.10941699380055
+    },
+    "fit": {
+      "p50_ms": 10.032709018560126,
+      "p95_ms": 10.843924799701199,
+      "p99_ms": 11.674690640065897,
+      "max_ms": 57.06754099810496
+    },
+    "hover": {
+      "p50_ms": 9.980083501432091,
+      "p95_ms": 15.371885005151853,
+      "p99_ms": 16.366230945277497,
+      "max_ms": 17.712875007418916
+    },
+    "navigation": {
+      "p50_ms": 10.013249993789941,
+      "p95_ms": 10.869541787542403,
+      "p99_ms": 11.21644364320673,
+      "max_ms": 139.7849579807371
+    },
+    "projection": {
+      "p50_ms": 10.026167001342401,
+      "p95_ms": 10.976408104761504,
+      "p99_ms": 11.163154490641318,
+      "max_ms": 22.45020799455233
+    },
+    "refit": {
+      "p50_ms": 10.019521010690369,
+      "p95_ms": 10.915571442455985,
+      "p99_ms": 12.433735742815799,
+      "max_ms": 45.58370800805278
+    },
+    "settings": {
+      "p50_ms": 10.03862448851578,
+      "p95_ms": 13.269547247909937,
+      "p99_ms": 49.02476598741495,
+      "max_ms": 65.9719159884844
+    }
+  }
+}

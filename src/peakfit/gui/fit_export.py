@@ -15,10 +15,17 @@ from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import write_fit_outputs
 
 if TYPE_CHECKING:
+    from peakfit.gui.fit_positions import DatasetCompletion
     from peakfit.gui.local_fit import LocalFitResult
 
 
-def export_fit_result(result: LocalFitResult | DatasetFitResult, destination: Path) -> Path:
+def export_fit_result(
+    result: LocalFitResult | DatasetFitResult,
+    destination: Path,
+    *,
+    completion: DatasetCompletion | None = None,
+    current: bool | None = None,
+) -> Path:
     """Publish all required artifacts together, refusing any existing destination.
 
     A sibling lock coordinates PeakFit exporters without creating the destination.
@@ -70,6 +77,13 @@ def export_fit_result(result: LocalFitResult | DatasetFitResult, destination: Pa
         "source_note": "Original files verified at load; working peaks may be edited. "
         "In-memory spectrum identity is not persistent and is omitted.",
     }
+    if completion is not None:
+        if completion.result is not result:
+            raise ValueError("Export completion belongs to a different run.")
+        companion["post_fit_working_peaks"] = [asdict(p) for p in completion.working_peaks]
+        companion["completion_warnings"] = completion.warnings
+        companion["current_at_export"] = current
+        companion["position_transition"] = "automatic usable fitted positions by stable peak ID"
     if isinstance(result, DatasetFitResult):
         companion["cluster_samples"] = [
             {

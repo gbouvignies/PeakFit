@@ -67,6 +67,18 @@ class PeakEdits:
         """Whether an undone edit exists."""
         return self._index + 1 < len(self._history)
 
+    def accept_completion(self, peaks: tuple[WorkingPeak, ...]) -> None:
+        """Atomically adopt verified run positions without a manual revision or Undo.
+
+        Keep the last exported peak state, so optimized coordinates still require
+        export. The caller publishes DatasetCompletion in the same event delivery.
+        """
+        if tuple(p.id for p in peaks) != tuple(p.id for p in self.peaks):
+            raise ValueError("Completion must preserve ordered stable peak identities.")
+        self._history = [peaks]
+        self._labels = ["peak edit"]
+        self._index = 0
+
     def mark_saved(self) -> None:
         """Record a successful export without discarding undo history."""
         self._saved = self.peaks
