@@ -1,0 +1,431 @@
+{
+  "method": "Targeted cProfile plus native 10 ms Qt heartbeat; profiled timings are separate from acceptance measurements. cProfile phase totals can include other threads on this Python build; they are not per-thread CPU percentages.",
+  "before": {
+    "rss_call_ms": [
+      12.858041998697445,
+      7.682750001549721,
+      8.19679201231338,
+      7.891666988143697,
+      7.748041010927409,
+      7.557250006357208,
+      7.2475000051781535,
+      7.36349998624064,
+      7.5815840100403875,
+      7.939500006614253
+    ],
+    "heartbeat": {
+      "navigation": {
+        "p50_ms": 24.22179200220853,
+        "p95_ms": 33.03071250848005,
+        "p99_ms": 125.25987654109471,
+        "max_ms": 203.05979199474677
+      },
+      "export": {
+        "p50_ms": 10.861459013540298,
+        "p95_ms": 19.291166012408212,
+        "p99_ms": 25.334008393110693,
+        "max_ms": 289.10970900324173
+      }
+    },
+    "main_top": [
+      {
+        "location": "('~', 0, \"<method 'drawPath' of 'PySide6.QtGui.QPainter' objects>\")",
+        "calls": 415,
+        "self_s": 0.4003795,
+        "cumulative_s": 0.4003795
+      },
+      {
+        "location": "('~', 0, \"<method 'exec' of 'PySide6.QtCore.QEventLoop' objects>\")",
+        "calls": 43,
+        "self_s": 0.30528819500000004,
+        "cumulative_s": 0.6985194600000001
+      },
+      {
+        "location": "('~', 0, '<built-in method contourpy._contourpy.lines>')",
+        "calls": 820,
+        "self_s": 0.165178028,
+        "cumulative_s": 0.165178028
+      },
+      {
+        "location": "('~', 0, '<function GraphicsView.paintEvent at 0x11e3ed430>')",
+        "calls": 249,
+        "self_s": 0.08404494200000001,
+        "cumulative_s": 0.47365440700000006
+      },
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/.venv/lib/python3.14/site-packages/pyqtgraph/functions.py', 2016, 'arrayToQPath')",
+        "calls": 452,
+        "self_s": 0.064972422,
+        "cumulative_s": 0.071003917
+      },
+      {
+        "location": "('~', 0, '<built-in method _posixsubprocess.fork_exec>')",
+        "calls": 10,
+        "self_s": 0.051207916000000006,
+        "cumulative_s": 0.051207916000000006
+      },
+      {
+        "location": "('~', 0, \"<method 'play' of 'PySide6.QtGui.QPicture' objects>\")",
+        "calls": 332,
+        "self_s": 0.012757331,
+        "cumulative_s": 0.012757331
+      },
+      {
+        "location": "('~', 0, \"<method 'poll' of 'select.poll' objects>\")",
+        "calls": 20,
+        "self_s": 0.01142417,
+        "cumulative_s": 0.01142417
+      },
+      {
+        "location": "('~', 0, '<built-in method posix.read>')",
+        "calls": 40,
+        "self_s": 0.011255167,
+        "cumulative_s": 0.011255167
+      },
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/src/peakfit/gui/spectrum.py', 92, 'contour_geometry')",
+        "calls": 41,
+        "self_s": 0.008062467,
+        "cumulative_s": 0.353204628
+      },
+      {
+        "location": "('~', 0, \"<method 'reduce' of 'numpy.ufunc' objects>\")",
+        "calls": 6605,
+        "self_s": 0.007177455,
+        "cumulative_s": 0.053661745000000004
+      },
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/.venv/lib/python3.14/site-packages/contourpy/__init__.py', 88, 'contour_generator')",
+        "calls": 41,
+        "self_s": 0.00717086,
+        "cumulative_s": 0.173859582
+      },
+      {
+        "location": "('~', 0, \"<method 'setValue' of 'PySide6.QtWidgets.QSpinBox' objects>\")",
+        "calls": 143,
+        "self_s": 0.0060105440000000005,
+        "cumulative_s": 0.0060105440000000005
+      },
+      {
+        "location": "('~', 0, \"<method 'emit' of 'PySide6.QtCore.SignalInstance' objects>\")",
+        "calls": 2545,
+        "self_s": 0.005790501,
+        "cumulative_s": 0.042876878
+      },
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/.venv/lib/python3.14/site-packages/pyqtgraph/graphicsItems/PlotDataItem.py', 1151, 'setData')",
+        "calls": 654,
+        "self_s": 0.004827292,
+        "cumulative_s": 0.043804689
+      }
+    ],
+    "export_top": [
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/src/peakfit/io/writers/json.py', 198, '_json_value')",
+        "calls": 2467149,
+        "self_s": 1.202879857,
+        "cumulative_s": 2.7050897320000002
+      },
+      {
+        "location": "('/Users/gbouvignies/.local/share/uv/python/cpython-3.14.5-macos-aarch64-none/lib/python3.14/json/encoder.py', 280, '_iterencode_list')",
+        "calls": 6758588,
+        "self_s": 1.1428521360000001,
+        "cumulative_s": 2.532143823
+      },
+      {
+        "location": "('~', 0, '<built-in method builtins.isinstance>')",
+        "calls": 22254930,
+        "self_s": 1.018925243,
+        "cumulative_s": 1.3536414010000002
+      },
+      {
+        "location": "('/Users/gbouvignies/.local/share/uv/python/cpython-3.14.5-macos-aarch64-none/lib/python3.14/json/encoder.py', 226, 'floatstr')",
+        "calls": 2459708,
+        "self_s": 0.6805016140000001,
+        "cumulative_s": 0.6805849890000001
+      },
+      {
+        "location": "('/Users/gbouvignies/.local/share/uv/python/cpython-3.14.5-macos-aarch64-none/lib/python3.14/json/encoder.py', 339, '_iterencode_dict')",
+        "calls": 7653339,
+        "self_s": 0.609957602,
+        "cumulative_s": 2.7359795570000003
+      },
+      {
+        "location": "('~', 0, \"<method 'exec' of 'PySide6.QtCore.QEventLoop' objects>\")",
+        "calls": 400,
+        "self_s": 0.551272314,
+        "cumulative_s": 3.0061847850000003
+      },
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/src/peakfit/io/writers/json.py', 184, '_finite_value')",
+        "calls": 2454888,
+        "self_s": 0.268341985,
+        "cumulative_s": 0.347564238
+      },
+      {
+        "location": "('~', 0, \"<method 'write' of '_io.TextIOWrapper' objects>\")",
+        "calls": 2557116,
+        "self_s": 0.247994178,
+        "cumulative_s": 0.887370003
+      },
+      {
+        "location": "('/Users/gbouvignies/.local/share/uv/python/cpython-3.14.5-macos-aarch64-none/lib/python3.14/json/encoder.py', 426, '_iterencode')",
+        "calls": 2557115,
+        "self_s": 0.205376681,
+        "cumulative_s": 3.0052209590000003
+      },
+      {
+        "location": "('<frozen abc>', 117, '__instancecheck__')",
+        "calls": 2466546,
+        "self_s": 0.184672264,
+        "cumulative_s": 0.333918824
+      },
+      {
+        "location": "('~', 0, '<built-in method _abc._abc_instancecheck>')",
+        "calls": 2466546,
+        "self_s": 0.148749557,
+        "cumulative_s": 0.149184016
+      },
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/src/peakfit/io/writers/utils.py', 8, 'format_float')",
+        "calls": 159318,
+        "self_s": 0.09702901600000001,
+        "cumulative_s": 0.127242673
+      },
+      {
+        "location": "('~', 0, '<built-in method math.isfinite>')",
+        "calls": 2459748,
+        "self_s": 0.076879687,
+        "cumulative_s": 0.076879687
+      },
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/src/peakfit/io/writers/csv.py', 281, '_fmt_optional')",
+        "calls": 91165,
+        "self_s": 0.054931864000000004,
+        "cumulative_s": 0.125423065
+      },
+      {
+        "location": "('~', 0, \"<method 'writerow' of '_csv.writer' objects>\")",
+        "calls": 22701,
+        "self_s": 0.049632295,
+        "cumulative_s": 0.077448705
+      }
+    ]
+  },
+  "isolated_stages_after_readback_removal": {
+    "rss_call_ms": [
+      21.491207997314632,
+      8.96637499681674,
+      8.062000008067116,
+      8.311415993375704,
+      8.3943750069011,
+      8.290583995403722,
+      8.14074999652803,
+      8.210500003769994,
+      8.134083007462323,
+      8.377874997677281
+    ],
+    "cached_loop_ms": 173.737541976152,
+    "heartbeat": {
+      "navigation_uncached": {
+        "p50_ms": 10.039207991212606,
+        "p95_ms": 19.38376269827131,
+        "p99_ms": 20.65055253275204,
+        "max_ms": 20.967249991372228
+      },
+      "navigation_cached": {
+        "p50_ms": 10.870209021959454,
+        "p95_ms": 183.26862089161293,
+        "p99_ms": 198.5929241689155,
+        "max_ms": 202.42399998824112
+      },
+      "navigation_rapid": {
+        "p50_ms": 16.992167016724125,
+        "p95_ms": 20.12130821822211,
+        "p99_ms": 20.610749991610646,
+        "max_ms": 20.755124976858497
+      },
+      "export": {
+        "p50_ms": 10.85741599672474,
+        "p95_ms": 18.98791638668626,
+        "p99_ms": 21.656729850219566,
+        "max_ms": 27.92916598264128
+      }
+    },
+    "main_top": [],
+    "export_top": [
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/src/peakfit/io/writers/json.py', 198, '_json_value')",
+        "calls": 2467149,
+        "self_s": 1.214118904,
+        "cumulative_s": 2.6705124060000003
+      },
+      {
+        "location": "('/Users/gbouvignies/.local/share/uv/python/cpython-3.14.5-macos-aarch64-none/lib/python3.14/json/encoder.py', 280, '_iterencode_list')",
+        "calls": 6758588,
+        "self_s": 1.140717599,
+        "cumulative_s": 2.5187772390000003
+      },
+      {
+        "location": "('~', 0, '<built-in method builtins.isinstance>')",
+        "calls": 22254984,
+        "self_s": 1.019001944,
+        "cumulative_s": 1.353318531
+      },
+      {
+        "location": "('/Users/gbouvignies/.local/share/uv/python/cpython-3.14.5-macos-aarch64-none/lib/python3.14/json/encoder.py', 226, 'floatstr')",
+        "calls": 2459708,
+        "self_s": 0.6751090740000001,
+        "cumulative_s": 0.675235449
+      },
+      {
+        "location": "('/Users/gbouvignies/.local/share/uv/python/cpython-3.14.5-macos-aarch64-none/lib/python3.14/json/encoder.py', 339, '_iterencode_dict')",
+        "calls": 7653339,
+        "self_s": 0.6032286600000001,
+        "cumulative_s": 2.716144712
+      },
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/src/peakfit/io/writers/json.py', 184, '_finite_value')",
+        "calls": 2454888,
+        "self_s": 0.26803208,
+        "cumulative_s": 0.344689112
+      },
+      {
+        "location": "('~', 0, \"<method 'exec' of 'PySide6.QtCore.QEventLoop' objects>\")",
+        "calls": 385,
+        "self_s": 0.257562092,
+        "cumulative_s": 5.321641689000001
+      },
+      {
+        "location": "('~', 0, \"<method 'write' of '_io.TextIOWrapper' objects>\")",
+        "calls": 2557116,
+        "self_s": 0.247171311,
+        "cumulative_s": 0.9124438290000001
+      },
+      {
+        "location": "('/Users/gbouvignies/.local/share/uv/python/cpython-3.14.5-macos-aarch64-none/lib/python3.14/json/encoder.py', 426, '_iterencode')",
+        "calls": 2557115,
+        "self_s": 0.202120913,
+        "cumulative_s": 2.9182658750000003
+      },
+      {
+        "location": "('<frozen abc>', 117, '__instancecheck__')",
+        "calls": 2466547,
+        "self_s": 0.18520313500000002,
+        "cumulative_s": 0.33381425000000003
+      },
+      {
+        "location": "('~', 0, '<built-in method _abc._abc_instancecheck>')",
+        "calls": 2466547,
+        "self_s": 0.14782029000000002,
+        "cumulative_s": 0.148225036
+      },
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/src/peakfit/io/writers/utils.py', 8, 'format_float')",
+        "calls": 159318,
+        "self_s": 0.09726119600000001,
+        "cumulative_s": 0.127856667
+      },
+      {
+        "location": "('~', 0, '<built-in method math.isfinite>')",
+        "calls": 2459748,
+        "self_s": 0.076299978,
+        "cumulative_s": 0.076299978
+      },
+      {
+        "location": "('/Users/gbouvignies/Workspace/Code/PeakFit/src/peakfit/io/writers/csv.py', 281, '_fmt_optional')",
+        "calls": 91165,
+        "self_s": 0.056408052,
+        "cumulative_s": 0.127248979
+      },
+      {
+        "location": "('~', 0, \"<method 'writerow' of '_csv.writer' objects>\")",
+        "calls": 22701,
+        "self_s": 0.053655921,
+        "cumulative_s": 0.089995609
+      }
+    ]
+  },
+  "selected_before_calls": {
+    "json.decoder.decode_cumulative_ms": 269.469708,
+    "ResultsLoader.load_summary_cumulative_ms": 322.927291
+  },
+  "finding": "The cached-loop probe drives 100 synchronous requests without Qt event processing. Its 173.7 ms wall time blocks delivery of the heartbeat; actual rapid input max was 20.8 ms. Redundant export summary JSON decoding coincided with the old 289 ms gap.",
+  "navigation_probe_mode": "Minimised experimental cached-plane loop (same synchronous cached-request/event-loop pattern); acceptance measurements use the full residual workflow.",
+  "gui_export_startup_probe": {
+    "heartbeat": {
+      "p50_ms": 10.346520473831333,
+      "p95_ms": 17.83030248770956,
+      "p99_ms": 35.42647145659416,
+      "max_ms": 253.3381250104867
+    },
+    "long_gaps": [
+      {
+        "start": 152989.70084325,
+        "end": 152989.954181375,
+        "ms": 253.3381250104867
+      },
+      {
+        "start": 152992.132786625,
+        "end": 152992.242401625,
+        "ms": 109.61499999393709
+      }
+    ],
+    "phases": [
+      {
+        "kind": "progress.setVisible(True)",
+        "start": 152989.72000875,
+        "end": 152989.7256795,
+        "ms": 5.670790997100994,
+        "thread": 8505430784
+      },
+      {
+        "kind": "summary_document",
+        "start": 152989.748929625,
+        "end": 152990.535537083,
+        "ms": 786.6074579942506,
+        "thread": 6195933184
+      },
+      {
+        "kind": "gc",
+        "start": 152990.550057583,
+        "end": 152990.562263625,
+        "ms": 12.206042010802776,
+        "generation": 1,
+        "thread": 6195933184
+      },
+      {
+        "kind": "schema_validation",
+        "start": 152990.535547625,
+        "end": 152990.587993333,
+        "ms": 52.445749985054135,
+        "thread": 6195933184
+      },
+      {
+        "kind": "json_dump",
+        "start": 152990.5996235,
+        "end": 152991.860705958,
+        "ms": 1261.0825000156183,
+        "thread": 6195933184
+      },
+      {
+        "kind": "progress.setVisible(False)",
+        "start": 152992.140273166,
+        "end": 152992.157132666,
+        "ms": 16.859583993209526,
+        "thread": 8505430784
+      }
+    ],
+    "largest_cluster_ms": 34.13079198799096,
+    "native_stack": "Qt timer \u2192 PySideQSlotObject \u2192 Shiboken::GilState \u2192 PyGILState_Ensure \u2192 take_gil \u2192 _pthread_cond_wait. Export worker executing Python serialization/float formatting. GC callback and spectrum-paint probes found no matching long pause."
+  },
+  "rejected_experiments": {
+    "window_modal": "Native sheet setVisible(True/False) each took about 272 ms; not adopted.",
+    "ordinary_event_loop": "Startup maximum about 194 ms; not adopted."
+  },
+  "implemented_fixes": [
+    "Remove duplicate full-summary decoding; canonical writer already schema-validates before writing.",
+    "Submit writer from a zero-duration Qt timer after entering the existing progress dialog event loop.",
+    "Yield separate Qt input turns in the cached-navigation harness; preserve original measurements as baseline."
+  ]
+}

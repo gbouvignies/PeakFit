@@ -6,12 +6,16 @@ from typing import TYPE_CHECKING
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.gui.editor.canvas import SpectrumCanvas
+from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.rail import PeakRail
 from peakfit.gui.peaks import PeakEdits
 
 if TYPE_CHECKING:
     from peakfit.gui.editor.loading import Dataset
     from peakfit.gui.peaks import WorkingPeak
+
+
+_RESIDUAL = 2
 
 
 class EditorWorkspace(QtWidgets.QWidget):
@@ -21,6 +25,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def __init__(self, dataset: Dataset) -> None:  # noqa: PLR0915
         super().__init__()
+        self.inputs_loading = False
         self.dataset = dataset
         self.edits = PeakEdits(dataset.peaks)
         peak_sources = tuple(source for source in dataset.sources if source[0] == "peak_list")
@@ -63,6 +68,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.add_button.clicked.connect(self.start_placing)
         for button in (self.peaks_button, self.add_button):
             header.addWidget(button)
+        self.fit_button = QtWidgets.QPushButton("Fit dataset")
+        self.fit_button.setObjectName("primary")
+        self.fit_button.clicked.connect(lambda: self.fitting.fit())
+        self.settings_button = QtWidgets.QPushButton("Settings…")
+        self.settings_button.clicked.connect(lambda: self.fitting.fit(settings=True))
+        header.addWidget(self.fit_button)
+        header.addWidget(self.settings_button)
         layout.addLayout(header)
         strip = QtWidgets.QHBoxLayout()
         strip.setSpacing(0)
@@ -75,6 +87,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             button.setEnabled(index == 0)
             if index:
                 button.setToolTip("Available after whole-dataset fitting in the next milestone")
+            button.clicked.connect(lambda _checked=False, mode=index: self.set_mode(mode))
             self.mode_buttons.append(button)
             strip.addWidget(button)
         strip.addSpacing(16)
@@ -97,7 +110,20 @@ class EditorWorkspace(QtWidgets.QWidget):
         layout.addLayout(strip)
         self.summary = QtWidgets.QLabel()
         self.summary.setObjectName("muted")
-        layout.addWidget(self.summary)
+        self.summary.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
+        )
+        result_line = QtWidgets.QHBoxLayout()
+        result_line.addWidget(self.summary, 1)
+        self.cancel_fit = QtWidgets.QPushButton("Cancel")
+        self.cancel_fit.clicked.connect(lambda: self.fitting.cancel())
+        self.review_fit = QtWidgets.QPushButton("Review")
+        self.review_fit.clicked.connect(lambda: self.fitting.toggle_review())
+        self.export_fit = QtWidgets.QPushButton("Export results…")
+        self.export_fit.clicked.connect(lambda: self.fitting.export())
+        for button in (self.cancel_fit, self.review_fit, self.export_fit):
+            result_line.addWidget(button)
+        layout.addLayout(result_line)
         layout.addWidget(self.splitter, 1)
         planes = QtWidgets.QHBoxLayout()
         self.previous = QtWidgets.QPushButton("‹")
@@ -152,9 +178,41 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.inspector.deleted.connect(self.delete_peaks)
         self.inspector.fields_changed.connect(self._fields_changed)
         self._build_actions()
+        self.fitting = DatasetFitting(self)
         self._refresh()
         self.rail.setVisible(bool(dataset.peaks))
         self.set_plane(1)
+
+    @property
+    def spectra(self):
+        """Expose the loaded scientific source to the shared settings dialog."""
+        return self.dataset.spectra
+
+    @property
+    def source_files(self):
+        """Verified effective sources of the current working dataset."""
+        return self.dataset.sources
+
+    @property
+    def fit_busy(self) -> bool:
+        """Include input preparation and completion publication in the editing lock."""
+        return hasattr(self, "fitting") and self.fitting.busy
+
+    def set_mode(self, mode: int) -> None:
+        """One visible choice controls the plane and both aligned slices."""
+        result = self.fitting.result if self.fitting.current else None
+        if result is None or not any(c.usable for c in result.outcome.clusters):
+            mode = 0
+        for index, button in enumerate(self.mode_buttons):
+            button.setChecked(index == mode)
+        self.canvas.set_comparison(result, mode)
+        self.legend.setText(
+            f"Residual ±{self.canvas.residual_threshold:g} σ_stat · + solid / − dashed"
+            if mode == _RESIDUAL
+            else "Measured + solid / − dashed · Model + dashed / − dotted · a.u."
+            if mode
+            else "Measured: + solid / − dashed · a.u."
+        )
 
     @property
     def peaks(self):
@@ -285,17 +343,15 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.rail.refresh(self.peaks, self.selected_id)
         self._sync_inspector()
         self._update_actions()
-        self.summary.setText(
-            f"Not fitted · {len(self.peaks)} peaks · {self.dataset.spectra.data.shape[0]} planes"
-        )
+        self.fitting.update()
         self.changed.emit()
 
     def _update_actions(self) -> None:
         self.undo_action.setText("Undo " + self.edits.undo_label)
         self.redo_action.setText("Redo " + self.edits.redo_label)
-        self.undo_action.setEnabled(self.edits.can_undo and not self.pending)
-        self.redo_action.setEnabled(self.edits.can_redo and not self.pending)
-        self.delete_action.setEnabled(self.selected_id is not None)
+        self.undo_action.setEnabled(self.edits.can_undo and not self.pending and not self.fit_busy)
+        self.redo_action.setEnabled(self.edits.can_redo and not self.pending and not self.fit_busy)
+        self.delete_action.setEnabled(self.selected_id is not None and not self.fit_busy)
         self.modified.setText(
             "Modified inputs · plane values session-only"
             if self.plane_values_modified
@@ -306,7 +362,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def history(self, redo: bool) -> None:
         """Undo exact records; monotonic scientific revision never recertifies a run."""
-        if self.pending:
+        if self.pending or self.fit_busy:
             return
         self.canvas.cancel_gesture()
         if redo:
@@ -317,6 +373,8 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def start_placing(self) -> None:
         """Arm one precise placement after resolving any complete text group."""
+        if self.fit_busy:
+            return
         if not self.commit_fields():
             self.add_button.setChecked(False)
             return
@@ -327,6 +385,8 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def place_peak(self, positions) -> None:
         """Store continuous unfolded ppm from a single click, without snapping."""
+        if self.fit_busy:
+            return
         if not self.commit_fields():
             return
         peak = self.edits.add(positions)
@@ -337,6 +397,8 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def move_peak(self, identity, positions) -> None:
         """One drag release is one complete precision-preserving input change."""
+        if self.fit_busy:
+            return
         if not self.commit_fields():
             self.canvas.cancel_gesture()
             return
@@ -347,6 +409,8 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def delete_peaks(self) -> None:
         """Deletion owns the selected draft; multi-delete is list-only."""
+        if self.fit_busy:
+            return
         identities = {self.selected_id} if self.selected_id else set()
         if self.rail.list.hasFocus():
             identities = {item.data(256) for item in self.rail.list.selectedItems()}
@@ -404,7 +468,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         threshold = QtWidgets.QDoubleSpinBox()
         threshold.setRange(0.01, 1e12)
         threshold.setDecimals(4)
-        threshold.setValue(self.canvas.contour_threshold)
+        residual = self.canvas.comparison_mode == _RESIDUAL
+        threshold.setValue(
+            self.canvas.residual_threshold if residual else self.canvas.contour_threshold
+        )
         threshold.setKeyboardTracking(False)
         factor = QtWidgets.QDoubleSpinBox()
         factor.setRange(1.1, 5)
@@ -412,6 +479,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         count = QtWidgets.QSpinBox()
         count.setRange(1, 20)
         count.setValue(self.canvas.contour_count)
+        factor.setEnabled(not residual)
+        count.setEnabled(not residual)
         labels = QtWidgets.QCheckBox("Show peak labels")
         labels.setChecked(self.canvas.labels_visible)
         heavy = QtWidgets.QCheckBox("Heavier contours")
@@ -419,7 +488,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         fit = QtWidgets.QPushButton("Fit current traces")
         fit.clicked.connect(self.canvas.fit_current_traces)
         for title, field in (
-            ("First contour / a.u.", threshold),
+            ("First residual contour / σ_stat" if residual else "First contour / a.u.", threshold),
             ("Level factor", factor),
             ("Levels per sign", count),
             ("", labels),
@@ -435,14 +504,18 @@ class EditorWorkspace(QtWidgets.QWidget):
         buttons.rejected.connect(dialog.reject)
         form.addRow(buttons)
         if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-            self.canvas.contour_threshold = threshold.value()
+            if residual:
+                self.canvas.residual_threshold = threshold.value()
+            else:
+                self.canvas.contour_threshold = threshold.value()
             self.canvas.contour_factor = factor.value()
             self.canvas.contour_count = count.value()
             self.canvas.labels_visible = labels.isChecked()
             self.canvas.heavy_strokes = heavy.isChecked()
             self.canvas._refresh_labels()
-            self.canvas.request_contours()
+            self.set_mode(self.canvas.comparison_mode)
 
     def stop(self) -> None:
         """Stop display computation without blocking window close."""
+        self.fitting.stop()
         self.canvas.stop()

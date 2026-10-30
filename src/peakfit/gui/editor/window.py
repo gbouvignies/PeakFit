@@ -102,11 +102,14 @@ class EditorWindow(QtWidgets.QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("PeakFit — Inspect & edit")
+        self.setWindowTitle("PeakFit")
         self.resize(1280, 800)
         self.setMinimumSize(1040, 720)
         self.workspace: EditorWorkspace | None = None
         self._revision = 0
+        self._close_timer = QtCore.QTimer(self)
+        self._close_timer.setSingleShot(True)
+        self._close_timer.timeout.connect(self.close)
         self._busy = False
         self._job_kind = "dataset"
         self._append = False
@@ -145,7 +148,9 @@ class EditorWindow(QtWidgets.QMainWindow):
         button.setObjectName("primary")
         button.clicked.connect(self.open_dialog)
         layout.addWidget(button)
-        note = QtWidgets.QLabel("Inspect & edit · Fitting remains available in peakfit gui")
+        note = QtWidgets.QLabel(
+            "Fit the complete dataset · Compare native model and residual · Export results"
+        )
         note.setObjectName("muted")
         layout.addWidget(note)
         self.setCentralWidget(welcome)
@@ -171,6 +176,10 @@ class EditorWindow(QtWidgets.QMainWindow):
         )
         file_menu.addSeparator()
         self._action(file_menu, "&Close", self.close, QtGui.QKeySequence.StandardKey.Close)
+        self.fit_export_action = self._action(
+            file_menu, "Export fit results…", self.export_fit_dialog
+        )
+        self.fit_export_action.setEnabled(False)
         self.edit_menu = self.menuBar().addMenu("&Edit")
         view = self.menuBar().addMenu("&View")
         self._action(
@@ -203,10 +212,31 @@ class EditorWindow(QtWidgets.QMainWindow):
             action.setCheckable(True)
             self.appearance_group.addAction(action)
             action.setChecked(name == "System")
+        self.analysis_menu = self.menuBar().addMenu("&Analysis")
+        self.fit_action = self._action(
+            self.analysis_menu, "Fit dataset", self.fit_dataset, "Ctrl+Return"
+        )
+        self.settings_action = self._action(self.analysis_menu, "Fit settings…", self.fit_settings)
+        self.fit_action.setEnabled(False)
+        self.settings_action.setEnabled(False)
         help_menu = self.menuBar().addMenu("&Help")
         self._action(help_menu, "Keyboard &shortcuts", self.shortcuts)
         for action in (self.import_action, self.values_action, self.export_action):
             action.setEnabled(False)
+
+    def fit_dataset(self) -> None:
+        """Run all working peaks and original planes in the current workspace."""
+        if self.workspace and not self._busy:
+            self.workspace.fitting.fit()
+
+    def fit_settings(self) -> None:
+        """Explicitly review settings; Cancel preserves accepted comparison."""
+        if self.workspace and not self._busy:
+            self.workspace.fitting.fit(settings=True)
+
+    def export_fit_dialog(self) -> bool:
+        """Export the retained scientific run using the canonical writers."""
+        return bool(self.workspace and self.workspace.fitting.export())
 
     def open_dialog(self) -> None:
         """Native file selection plus optional companions and explicit mapping."""
@@ -234,6 +264,11 @@ class EditorWindow(QtWidgets.QMainWindow):
         self._start_loading(partial(read_dataset, path, peaks, values, swap_peak_axes=swap))
 
     def _start_loading(self, operation) -> None:
+        if self.workspace and self.workspace.fit_busy:
+            self.loading_status.setText("Cancel the fit before replacing scientific inputs")
+            return
+        if self.workspace:
+            self.workspace.inputs_loading = True
         self._revision += 1
         self._busy = True
         self.loading_status.setText(
@@ -252,6 +287,8 @@ class EditorWindow(QtWidgets.QMainWindow):
         self.loading_status.setText("Loading canceled · Previous dataset retained")
 
     def _end_loading(self) -> None:
+        if self.workspace:
+            self.workspace.inputs_loading = False
         self._busy = False
         self.cancel_load.hide()
         self.open_action.setEnabled(True)
@@ -325,7 +362,8 @@ class EditorWindow(QtWidgets.QMainWindow):
         self.edit_menu.clear()
         self.edit_menu.addActions(workspace.actions_for_menu)
         workspace.changed.connect(self._work_changed)
-        self.setWindowTitle(f"{dataset.path.name}[*] — PeakFit · Inspect & edit")
+        workspace.fitting.state_changed.connect(self._work_changed)
+        self.setWindowTitle(f"{dataset.path.name}[*] — PeakFit")
         self.apply_appearance(self._appearance)
         self._end_loading()
         self._work_changed()
@@ -342,7 +380,19 @@ class EditorWindow(QtWidgets.QMainWindow):
 
     def _work_changed(self) -> None:
         if self.workspace:
-            self.setWindowModified(self.workspace.has_changes)
+            w = self.workspace
+            self.setWindowModified(
+                w.has_changes
+                or (
+                    w.fitting.result is not None
+                    and w.fitting.result.run_id not in w.fitting.exported
+                )
+            )
+            for action in (self.open_action, self.import_action, self.values_action):
+                action.setEnabled(not w.fit_busy and not self._busy)
+            self.fit_action.setEnabled(bool(w.peaks) and not w.fit_busy)
+            self.settings_action.setEnabled(bool(w.peaks) and not w.fit_busy)
+            self.fit_export_action.setEnabled(w.fitting.result is not None and not w.fit_busy)
 
     def import_dialog(self) -> None:
         """Import uses the same readers and requires an explicit axis mapping."""
@@ -473,6 +523,24 @@ class EditorWindow(QtWidgets.QMainWindow):
     def protect_edits(self) -> bool:
         """Require an explicit loss decision for every unpreserved scientific input."""
         workspace = self.workspace
+        if workspace is not None and workspace.fitting.result is not None:
+            fitting = workspace.fitting
+            assert fitting.result is not None
+            if fitting.result.run_id not in fitting.exported:
+                decision = QtWidgets.QMessageBox.question(
+                    self,
+                    "Unexported fit result",
+                    "Export the completed scientific result before closing "
+                    "or replacing this dataset?",
+                    QtWidgets.QMessageBox.StandardButton.Save
+                    | QtWidgets.QMessageBox.StandardButton.Discard
+                    | QtWidgets.QMessageBox.StandardButton.Cancel,
+                    QtWidgets.QMessageBox.StandardButton.Cancel,
+                )
+                if decision == QtWidgets.QMessageBox.StandardButton.Cancel:
+                    return False
+                if decision == QtWidgets.QMessageBox.StandardButton.Save and not fitting.export():
+                    return False
         if workspace is None or not workspace.has_changes:
             return True
         dialog = QtWidgets.QMessageBox(self)
@@ -646,6 +714,8 @@ class EditorWindow(QtWidgets.QMainWindow):
             QtGui.QPalette.ColorRole.PlaceholderText: muted,
             QtGui.QPalette.ColorRole.ToolTipBase: surface,
             QtGui.QPalette.ColorRole.ToolTipText: fg,
+            QtGui.QPalette.ColorRole.Link: accent,
+            QtGui.QPalette.ColorRole.LinkVisited: accent,
         }.items():
             palette.setColor(role, QtGui.QColor(value))
         for role in (
@@ -704,9 +774,30 @@ class EditorWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802
         """Protect the usable input editor, then cancel private display deliveries."""
+        if self.workspace and self.workspace.fit_busy:
+            if self.workspace.fitting.process.state != "canceling":
+                decision = QtWidgets.QMessageBox.question(
+                    self,
+                    "Fit running",
+                    "Stop the running fit and close PeakFit?",
+                    QtWidgets.QMessageBox.StandardButton.Yes
+                    | QtWidgets.QMessageBox.StandardButton.Cancel,
+                    QtWidgets.QMessageBox.StandardButton.Cancel,
+                )
+                if decision != QtWidgets.QMessageBox.StandardButton.Yes:
+                    event.ignore()
+                    return
+                self.workspace.fitting.cancel()
+            # Reaping and any preceding publication finish outside Qt. Only then
+            # resolve unexported prior results and peak inputs in the usual guard.
+            if self.workspace.fit_busy:
+                self._close_timer.start(50)
+                event.ignore()
+                return
         if not self.protect_edits():
             event.ignore()
             return
+        self._close_timer.stop()
         self._revision += 1
         self._worker.close()
         if self.workspace:
@@ -716,7 +807,9 @@ class EditorWindow(QtWidgets.QMainWindow):
 
 def main() -> None:
     """Launch the v2 editor separately; peakfit gui keeps the fitting application."""
-    parser = argparse.ArgumentParser(description="PeakFit v2: open, inspect and edit NMR spectra")
+    parser = argparse.ArgumentParser(
+        description="PeakFit v2: inspect, edit, fit, compare and export NMR spectra"
+    )
     parser.add_argument("spectrum", nargs="?", type=Path)
     parser.add_argument("--peaks", type=Path)
     parser.add_argument("--plane-values", type=Path)

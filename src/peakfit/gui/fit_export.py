@@ -10,15 +10,21 @@ import numpy as np
 
 from peakfit.fit.output_metadata import RunMetadata
 from peakfit.gui.dataset_fit import DatasetFitResult
-from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import write_fit_outputs
 
 if TYPE_CHECKING:
+    from peakfit.gui.fit_positions import DatasetCompletion
     from peakfit.gui.local_fit import LocalFitResult
 
 
-def export_fit_result(result: LocalFitResult | DatasetFitResult, destination: Path) -> Path:
+def export_fit_result(
+    result: LocalFitResult | DatasetFitResult,
+    destination: Path,
+    *,
+    completion: DatasetCompletion | None = None,
+    current: bool | None = None,
+) -> Path:
     """Publish all required artifacts together, refusing any existing destination.
 
     A sibling lock coordinates PeakFit exporters without creating the destination.
@@ -70,6 +76,13 @@ def export_fit_result(result: LocalFitResult | DatasetFitResult, destination: Pa
         "source_note": "Original files verified at load; working peaks may be edited. "
         "In-memory spectrum identity is not persistent and is omitted.",
     }
+    if completion is not None:
+        if completion.result is not result:
+            raise ValueError("Export completion belongs to a different run.")
+        companion["post_fit_working_peaks"] = [asdict(p) for p in completion.working_peaks]
+        companion["completion_warnings"] = completion.warnings
+        companion["current_at_export"] = current
+        companion["position_transition"] = "automatic usable fitted positions by stable peak ID"
     if isinstance(result, DatasetFitResult):
         companion["cluster_samples"] = [
             {
@@ -105,7 +118,10 @@ def export_fit_result(result: LocalFitResult | DatasetFitResult, destination: Pa
         provenance.write_text(
             json.dumps(companion, indent=2, allow_nan=False) + "\n", encoding="utf-8"
         )
-        ResultsLoader(staged).load_summary()
+        # The canonical JSON writer validates FitSummarySchema before writing.
+        # Parsing the full summary again here holds the GIL across its large C
+        # decoder call, starving Qt even though export runs in a worker thread.
+        # Keep publication/file checks here; reader round trips belong in tests.
         if not all(
             path.is_file() and path.stat().st_size for path in [*files.values(), provenance]
         ):

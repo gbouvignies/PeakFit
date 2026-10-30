@@ -126,6 +126,13 @@ def prepare_dataset_fit(
     shape_names = get_shape_names(settings.fitting, spectra)
     identities, scientific_peaks = _working_model(spectra, peaks, settings, shape_names)
     clusters = create_clusters(spectra, scientific_peaks, threshold)
+    included = [peak.name for cluster in clusters for peak in cluster.peaks]
+    if len(included) != len(identities) or set(included) != {i.engine_name for i in identities}:
+        missing = [i.assignment for i in identities if i.engine_name not in included]
+        raise ValueError(
+            "Every working peak must be included exactly once. Review positions "
+            "and clustering threshold. Missing: " + ", ".join(missing)
+        )
     steps = build_fit_steps(settings.fitting.steps, settings.fitting.refine_iterations)
     if not steps or sum(step.iterations for step in steps) < 1:
         raise ValueError("Fitting requires at least one optimizer pass.")

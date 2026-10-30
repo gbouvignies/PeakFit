@@ -163,9 +163,11 @@ Use `uv` for project commands. Use `prek`, not `pre-commit`, for hooks.
 
 GPL-3.0-or-later.
 
-## GUI v2 inspection workspace
+## GUI v2 scientific workspace
 
-`uv run peakfit-editor` opens the production spectrum/peak editor with aligned
-slices and exact Undo. The existing `uv run peakfit gui` keeps the complete fitting
-workflow. See [the editor guide](docs/gui-editor.md) for the bundled-data launch,
+`uv run peakfit-editor` opens the production spectrum/peak workspace with aligned
+slices and exact Undo. It fits the whole dataset, automatically adopts optimized
+positions, compares the total model/residual and exports canonical results.
+The existing `uv run peakfit gui` remains available. See
+[the editor guide](docs/gui-editor.md) for the bundled-data launch,
 keyboard commands and milestone boundaries.

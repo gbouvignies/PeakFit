@@ -168,17 +168,20 @@ warning. Numerical usability, optimizer termination and peak identifiability
 remain distinct. See [the scientific overlap validation](validation/overlapping-peaks.md).
 
 
-## GUI v2: open → inspect → edit
+## GUI v2: open → inspect → edit → fit → compare → export
 
 `gui.editor.window` is the separately launched production shell (`peakfit-editor`).
 The existing `gui.app` / `gui.viewer` remains the fitting application until v2
 reaches core fitting parity. There is no runtime dependency on `experiments/`.
 
-The new workspace has four concrete responsibilities: `editor.loading` validates
+The workspace has concrete responsibilities: `editor.loading` validates
 one complete reader handoff off Qt; `editor.canvas` owns retained signed geometry,
 native slices and gestures; `editor.rail` owns a flat assignment list and the precise
 whole-group editor; `editor.workspace` commits scientific edits and composes those
 views. `editor.window` owns file dialogs, atomic replacement, menus and appearance.
+`editor.fitting` directly coordinates the shared `DatasetFitDialog`,
+`prepare_dataset_fit`, disposable `FitProcess`, `DatasetCompletion`, and canonical
+exporter. It does not duplicate fitting algorithms or introduce a job framework.
 These are direct widgets/functions, with no panel/job/state framework. Shared
 `gui.spectrum`, `gui.peaks`, `gui.editing` and `gui.background` retain reader,
 coordinate, editing, CSV and bounded computation behavior. Qt stays out of the
@@ -215,11 +218,11 @@ Export from the loss guard keeps the window open when plane metadata remains;
 only explicit Discard permits loss. No project persistence or plane-value Undo
 is introduced by this contract.
 
-### Contract for the next fitting slice
+### Atomic fitting completion
 
 `gui.fit_positions.dataset_completion` prepares one immutable `DatasetCompletion`
 value from a `DatasetFitResult` plus exact current `FitInputSnapshot` and revision.
-It is deliberately not connected to a fit launcher in milestone 1. It validates
+The v2 fit launcher now uses this contract for every successful publication. It validates
 source/settings/identity/axis consistency before returning anything publishable,
 preserves the original immutable outcome and submitted seeds, and constructs the
 complete post-fit working tuple using final chemical shifts by stable ID. Both
@@ -227,9 +230,9 @@ axes change together; missing, unusable, non-finite or unmappable pairs retain t
 original values with per-ID warnings. Usable non-convergence/uncertainty warnings
 remain evidence and do not prohibit valid coordinate adoption.
 
-Milestone 2 will publish **this single completion value** and a fresh `PeakEdits`
-history in the same Qt delivery, resetting incompatible pre-fit Undo and carrying
-forward `revision=completion.manual_revision`. Currentness
+The workspace publishes **this single completion value** and resets the
+`PeakEdits` history in the same Qt delivery, retaining its prior exported-state
+baseline and `revision=completion.manual_revision`. Currentness
 compares exact inputs to the recorded post-fit tuple and the recorded manual
 revision, rather than comparing optimized coordinates to original seeds. Returning
 values through Undo cannot recertify a run. Source/settings/plane replacements
@@ -237,9 +240,43 @@ also change the snapshot/revision. Completion preparation never rewrites accepte
 bounds/masks/parameters; the next fit must call `prepare_dataset_fit` afresh from
 optimized working positions. Failed/canceled jobs never call completion publication.
 The UI delivery must preserve selection, viewport and panel choices and move a
-selected-peak pin once, retaining a free inspection pin. Those fit-execution/pin
-publication tests belong to milestone 2; the pure I → W scientific contract and
-revision behavior are executable now.
+selected-peak pin once, retaining a free inspection pin. `test_gui_editor_fitting.py` protects the real process loop, partial/all-unusable
+completion, invalid publication, selected/free pins, rapid stale plane requests,
+native total-model slices, draft/currentness behavior and repeated refits.
+
+The canvas uses the existing `dataset_model_plane` projector: every usable cluster
+contributes at every native point. Completed corrected optimizer residuals remain
+immutable. Overlay and signed residual geometry share that native plane; hover
+extracts only a native row/column and never launches projection. Run/plane identity
+and monotonically increasing request revisions reject stale deliveries. Model
+planes have a separate 128 MiB/eight-entry bound; contour geometry remains bounded
+to 32 MiB/eight entries. Experimental/Overlay share a locked intensity scale;
+Residual has a separately retained signed scale.
+
+One full accepted scientific result stays resident. Completion validation runs in
+the existing worker and is published atomically; no private result serialization,
+temporary recovery directory or history storage is introduced. Failure/cancellation
+preserves the prior accepted result. A successful refit replaces it. Canonical
+exports include both exact submitted and adopted working coordinates plus
+currentness at export, and preserve the working peak state only when its exact
+stable-ID tuple matches the exported completion.
+
+Experimental contour geometry is cached independently of run/mode. An uncached
+comparison request schedules current-plane experimental geometry before the model
+in the existing computation lane, or immediately reuses cached experimental paths.
+Those paths remain explicitly labeled experimental/pending until the matching
+model/residual is ready. Both stages use the same request revision, so old-plane
+and old-run deliveries cannot replace a newer view. Geometry extraction and model
+projection remain outside Qt; fallback paths share the existing bounded cache.
+
+The canonical JSON writer validates the document before writing it. The GUI
+exporter checks artifacts and atomically publishes the staged directory; it does
+not redundantly decode the full JSON again on a same-process worker, which held
+the GIL long enough to stall Qt. Reader round trips remain scientific regressions. The existing export dialog
+submits its writer from a queued Qt timer after entering the modal event loop,
+so worker serialization does not compete with the initial modal transition.
+The progress object is explicitly deleted after completion.
+See [fit validation](validation/gui-v2-fitting.md) for measured bounds/limitations.
 
 Protection: `test_gui_editor.py` checks real-data geometry, exact samples,
 editing/cancel/Undo, actual Qt drag/pan routing, keyboard access and asynchronous

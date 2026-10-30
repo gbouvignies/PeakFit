@@ -11,13 +11,16 @@ from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.config import PeakFitConfig
+    from peakfit.gui.editor.workspace import EditorWorkspace
     from peakfit.gui.viewer import SpectrumViewer
 
 
 class DatasetFitDialog(QtWidgets.QDialog):
     """Prepare off Qt and show exactly the problem the Run action will submit."""
 
-    def __init__(self, viewer: SpectrumViewer, configuration: PeakFitConfig) -> None:  # noqa: PLR0915
+    def __init__(  # noqa: PLR0915
+        self, viewer: SpectrumViewer | EditorWorkspace, configuration: PeakFitConfig
+    ) -> None:
         super().__init__(viewer)
         self.setWindowTitle("Fit complete dataset")
         self.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
