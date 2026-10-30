@@ -463,7 +463,11 @@ class DatasetFitting(QtCore.QObject):
         ):
             return False
         path = choose_and_export(
-            self.workspace, self.result, completion=self.completion, current=self.current
+            self.workspace,
+            self.result,
+            completion=self.completion,
+            current=self.current,
+            dataset=self.workspace.dataset,
         )
         if path:
             self.exported.add(self.result.run_id)

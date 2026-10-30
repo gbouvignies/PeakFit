@@ -273,7 +273,8 @@ def test_export_and_close_keep_result_and_peak_states_separate(tmp_path, monkeyp
 
         monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", choose_and_export)
         monkeypatch.setattr(
-            "peakfit.gui.export_dialog._choose_export_directory", lambda *_: (str(tmp_path), False)
+            "peakfit.gui.export_dialog._choose_export_directory",
+            lambda *_, **_kw: (str(tmp_path), False),
         )
         monkeypatch.setattr(QtWidgets.QMessageBox, "information", lambda *_: None)
         monkeypatch.setattr(QtWidgets.QMessageBox, "warning", lambda *_: None)

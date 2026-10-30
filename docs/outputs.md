@@ -211,74 +211,74 @@ starts and inspect sampling/profile likelihoods; the local errors alone cannot
 certify a scientific assignment. See [the overlap investigation](validation/overlapping-peaks.md).
 
 
-## Linked and portable analysis projects
+## External-source analysis projects
 
 ```text
 Analysis.peakfit/
   manifest.json
-  spectra/<identity>.npz             # portable export only: complete experimental cube
-  runs/<run-id>/result.npz            # detailed scientific evidence
+  runs/<run-id>/result.npz            # results, exact corrections, sample mappings
   runs/<run-id>/review.json           # submitted/working transition metadata
 ```
 
-Standard **Save analysis** and **Save analysis as** write linked analyses. They
-reference the original spectrum using its immutable content identity, calibration,
-shape/dtype and recorded locations (including a relative location). Several
-analyses can share one spectrum. Saving never modifies original input files.
-Reopening reads and hashes the source, validates its scientific metadata and
-checks exact source-plane/sample mappings and retained model references. Moving
-analysis and source together preserves the relative link. If the source moves
-separately, **Relink source** explicitly verifies the replacement; there is no
-filesystem search or substitution of changed data.
+A `.peakfit` project always references an independent experimental spectrum. Save
+and Save as never copy experimental spectra or simulated data into the project.
+Several analyses can reference the same spectral file. There is no portable-project
+mode, embedded cube or shared-asset registry. Full calculated spectra and residuals
+are generated on demand.
 
-**Export portable analysis** creates a separate analysis containing the complete
-experimental cube losslessly in its original dtype, including observations outside
-fitted masks. It uses the same serializer, reader, evidence and atomic publication
-as linked Save. It does not switch the current analysis path or mark unsaved edits
-saved. Full calculated grids are reconstructed. Portable reopen validates the
-embedded checksums, NPY headers and scientific sample mappings and supports full
-spectral inspection, adjustments and fitting without original files. Export needs
-verified complete experimental data or an existing embedded cube, and a new target
-directory. Standard Save of an opened portable analysis intentionally produces a
-linked project; the embedded payload is removed only after successful publication.
-Use Export portable analysis for another portable snapshot.
+Projects preserve exact nonlinear values/bounds/freedom/uncertainties, amplitudes,
+conditional covariance and errors, optimizer diagnostics/statistics, scientific
+identities, starting/optimized/adopted coordinates, settings and provenance. They
+also retain exact terminal corrections, paired sample indices, ordered source-plane
+identities, observation dtype/SHA-256, calibration and a small component-basis
+reference for evaluator validation. Terminal corrections are independent terminal
+inputs and cannot be substituted with final neighboring models.
 
-Both modes retain detailed sampled observations, exact terminal corrections,
-historical predictions, fitted values/uncertainties, identities, provenance,
-calibration, ordered planes and working settings/view state. This deliberately
-chooses about **16.86 MB** for a bundled one-run linked project over the audit's
-~7.11 MB source-dependent reconstruction alternative. It preserves source-free
-observed/model/residual numerical review and historical prediction bits without
-assuming future evaluator arithmetic is identical. It does not duplicate the full
-cube. Portable export adds **68.39 MB**, totaling about **85.25 MB**. These estimates
-refer to one run; bounded history adds per-run evidence.
+Projects do not retain extracted observations, sampled model predictions or dense
+residual arrays. The bundled two-pass one-run project is approximately **7.12 MB**.
+Observed values are sampled from the verified source in the original order/dtype
+and checked against their exact digests. Reconstruction uses saved fitted values
+and amplitudes without optimization or an amplitude solve. Existing continuation
+checks validate evaluator references (`rtol=1e-10`, `atol=1e-12`) and regenerated
+terminal chi-squared (`rtol=1e-8`, `atol=1e-9`). Published results remain exact;
+regenerated prediction bits are not guaranteed across platforms/versions.
 
-Missing, changed or unreadable linked sources retain numerical review and export;
-full spectral views, peak adjustment and refitting are disabled until a source
-verifies. Current/Outdated scientific status is independent of source availability.
-Unsupported model evaluators retain numerical review; corrupt immutable project
-evidence is rejected. No optimization or amplitude solve occurs on reopen.
+Reopen validates immutable numerical payloads and the external spectrum's SHA-256,
+calibration, shape/dtype and sample identities. Only recorded relative/absolute
+locations are tried. Moving source and analysis together preserves the relative
+link; separately moving the source requires explicit **Relink source**. Changed,
+corrupt or unreadable source files never replace the scientific result. Numerical
+parameters, uncertainties, amplitude profiles, diagnostics, coordinates and exact
+terminal corrections remain available without the source. Experimental sample
+inspection, spectral views and adjusted fitting are disabled until verification.
+Current/Outdated status is independent of source availability.
 
-Atomic manifest publication, PID locks, failure recovery, lazy historical loading,
-ten unprotected full runs and the 1 GiB historical budget remain. Active/protected
-runs are exempt from eviction, not reader limits. The full project stored-byte
-limit is 8 GiB; project JSON is bounded at 512 MiB. Routine Save reuses immutable
-run files. Accepted runs use linked `Recovery.peakfit` checkpoints with detailed
-numerical evidence; recovery without the source supports numerical review, while
-spectral work requires relinking. Existing cleanup/ownership rules remain.
-Project schema **4.0.0** distinguishes this new save policy; scientific export
-schema/defaults are unchanged. Older PeakFit readers do not read schema 4.
+Sample/model/residual reconstruction is temporary and requested by sample review,
+detailed export or continuation. Whole-spectrum GUI projections use the existing
+bounded on-demand evaluator. Unsupported evaluators retain numerical review;
+failed scientific checks disable spectral work rather than silently refitting.
+GUI and CLI still share the same scientific exporter: standard compact exports
+and explicit detailed evidence are unchanged. Missing-source numerical review can
+export compact results; detailed observations require relinking.
+
+Atomic manifest publication, PID locks, cancellation/failure recovery, lazy history,
+ten unprotected full result records and the 1 GiB historical budget remain. Active/
+protected results are exempt from eviction, not reader limits. The project reader
+limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
+run files. Recovery checkpoints use the same compact external-source format;
+source-free recovery supports numerical review and relinking, not spectral work.
+New projects use schema **5.0.0**. Earlier experimental project formats are rejected;
+no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
 - Scientific NPZ **1.0.0** and **2.0.0** remain readable, including the first PR
   schema-1 context without later coordinate/adoption fields. Missing old facts
   remain unknown; new exports require the complete context. New writes use 2.0.0.
-- Existing project readers for **1.0.0/1.1.0/2.0.0/3.0.0** remain available.
-  New Save writes linked **4.0.0**, reusing immutable evidence without requiring a
-  missing source. Portable export requires the complete experiment; fitted masks
-  cannot recreate unavailable observations outside them. No new compatibility
-  adapter or reconstruction layer was introduced.
+- Earlier `.peakfit` project formats are unsupported. Scientific exports remain
+  independently readable. To continue an older analysis, retain its original
+  spectrum and scientific outputs; open the spectrum and refit into a new project.
+  No old project is silently rewritten or stripped of data.
 - Existing JSON 4.0/4.1 readers and explicit exports remain supported. Native
   summaries mark unavailable dense evidence explicitly; they do not invent it.
 - Legacy pickle state remains readable. `save_state` now explicitly stores terminal
@@ -293,7 +293,7 @@ to `engine.scientific`; storage lives in `io.scientific`, reconstruction in
 GUI, CLI and MCMC therefore share these modules without depending on higher-level
 fit orchestration. This is not a new plugin registry or framework.
 
-See [linked/portable validation](validation/project-portability.md),
+See [external-project validation](validation/external-projects.md),
 [earlier scientific policy validation](validation/scientific-storage-policy.md), the
 [original per-array audit](validation/scientific-storage-audit.md), and regression
 fixtures generated by the actual older implementations in `tests/data/storage-compat/`.

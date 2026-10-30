@@ -1,8 +1,7 @@
-"""Measure linked/portable project workflows on real data, including descendant RSS."""
+"""Measure compact external-source projects and validated reconstruction on real data."""
 
 import argparse
 import gc
-import inspect
 import json
 import os
 import platform
@@ -15,13 +14,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
 from typing import Any
+from zipfile import ZipFile
 
 import numpy as np
-import psutil
 from threadpoolctl import threadpool_limits
 
 from peakfit.engine.domain.config import PeakFitConfig
-from peakfit.gui import project
+from peakfit.gui import project, project_results
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fit_positions import dataset_completion
 from peakfit.gui.fitting import prepare_dataset_fit
@@ -34,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def worker(args):  # noqa: PLR0915
-    """Run real project operations; also runs against merged schema-3 code as baseline."""
+    """Run real project operations; the same workload measures the previous PR revision."""
     report: dict[str, Any] = {
         "schema": project.VERSION,
         "platform": platform.platform(),
@@ -54,8 +53,7 @@ def worker(args):  # noqa: PLR0915
         "canceled": lambda: False,
         "reusable": True,
     }
-    supports_modes = "portable" in inspect.signature(save_project).parameters
-    with TemporaryDirectory(prefix="peakfit-portability-data-") as temporary, threadpool_limits(1):
+    with TemporaryDirectory(prefix="peakfit-external-data-") as temporary, threadpool_limits(1):
         root = Path(temporary)
         source = root / "spectrum.ft2"
         data = ROOT / "examples/02-advanced-fitting/data"
@@ -94,49 +92,84 @@ def worker(args):  # noqa: PLR0915
             other, _, _ = timed(
                 "save_as", lambda: save_project(saved, root / "Other.peakfit", **options)
             )
-            portable_options = dict(options, portable=True) if supports_modes else options
-            portable, _, _ = timed(
-                "portable_export",
-                lambda: save_project(saved, root / "Portable.peakfit", **portable_options),
-            )
             report["project_bytes"] = {
                 label: sum(p.stat().st_size for p in directory.rglob("*") if p.is_file())
                 for label, directory in (
                     ("standard", path),
                     ("second_analysis", other),
-                    ("portable", portable),
                 )
             }
-            report["standard_embeds_cube"] = (path / "spectra").exists()
+            with ZipFile(next(path.rglob("result.npz"))) as archive:
+                groups = {}
+                for member in archive.infolist():
+                    if member.filename.endswith(".npy"):
+                        name = member.filename.rsplit("/", 1)[-1]
+                        group = groups.setdefault(name, {"members": 0, "compressed_bytes": 0})
+                        group["members"] += 1
+                        group["compressed_bytes"] += member.compress_size
+                report["stored_array_groups"] = groups
+                report["stored_sample_matrices"] = {
+                    field: groups[field]["members"]
+                    for field in (
+                        "data.npy",
+                        "model_values.npy",
+                        "raw_residuals.npy",
+                        "normalized_residuals.npy",
+                    )
+                    if field in groups
+                }
+            if project.VERSION == "5.0.0":
+                assert not report["stored_sample_matrices"]
+                assert not (path / "spectra").exists()
+            reconstructed = timed(
+                "sample_reconstruction",
+                lambda: project_results.reconstruct_result(loaded.completion.result, loaded.dataset)
+                if hasattr(project_results, "reconstruct_result")
+                else loaded.completion.result,
+            )
             for old, new in zip(
                 result.completed_fit.samples,
-                loaded.completion.result.completed_fit.samples,
+                reconstructed.completed_fit.samples,
                 strict=True,
             ):
                 for field in ("data", "neighbor_corrections"):
                     assert getattr(old, field).tobytes() == getattr(new, field).tobytes()
             report["exact_scientific_samples"] = True
+            report["model_roundtrip_bitwise_clusters"] = sum(
+                a.sample_evaluation.model_values.tobytes()
+                == b.sample_evaluation.model_values.tobytes()
+                for a, b in zip(
+                    result.outcome.clusters, reconstructed.outcome.clusters, strict=True
+                )
+                if a.sample_evaluation
+            )
+            report["cluster_count"] = len(result.outcome.clusters)
+            if args.native:
+                from validate_storage_policy import native_refit  # noqa: PLC0415
+
+                # Reuse the native projection/adjustment/refit exercise with a verified source.
+                args.output = args.report
+                report["timings_seconds"] = report["seconds"]
+                native_refit(
+                    loaded,
+                    args,
+                    report,
+                    lambda name, action: timed(name.replace("source_free", "reopened"), action),
+                )
+                for name in ("model", "residual"):
+                    report[f"native_{name}_visible"] = report.pop(
+                        f"native_{name}_visible_without_sources"
+                    )
             moved = root / "moved.ft2"
             source.rename(moved)
             missing = timed("missing_source_reopen", lambda: project.open_analysis(path))
             assert missing.completion is not None
-            report["missing_source_has_spectrum"] = missing.dataset is not None
-            if supports_modes:
-                assert missing.dataset is None
+            assert missing.dataset is None
+            report["missing_source_numerical_review"] = True
             relinked = timed("explicit_relink", lambda: project.open_analysis(path, relink=moved))
             assert relinked.dataset is not None, relinked.reason
             moved.unlink()
-            unlinked = timed("portable_source_free_reopen", lambda: project.open_analysis(portable))
-            assert unlinked.dataset is not None, unlinked.reason
-            assert unlinked.dataset.spectra.data.tobytes() == dataset.spectra.data.tobytes()
-            report["portable_exact_cube"] = True
-            if args.native and supports_modes:
-                from validate_storage_policy import native_refit  # noqa: PLC0415
-
-                # Reuse the existing Cocoa overlay/residual/adjust/refit exercise.
-                args.output = args.report
-                report["timings_seconds"] = report["seconds"]
-                native_refit(unlinked, args, report, timed)
+            assert project.open_analysis(path).dataset is None
         finally:
             owner.close()
     args.report.write_text(json.dumps(report, indent=2) + "\n")
@@ -155,7 +188,7 @@ def main():
         worker(args)
         return
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with TemporaryDirectory(prefix="peakfit-portability-monitor-") as temporary:
+    with TemporaryDirectory(prefix="peakfit-external-monitor-") as temporary:
         root = Path(temporary)
         phase, report = root / "phase", root / "report.json"
         command = [
@@ -177,15 +210,20 @@ def main():
         peaks = {}
         while child.poll() is None:
             label = phase.read_text() if phase.exists() else "startup"
-            try:
-                process = psutil.Process(child.pid)
-                processes = [process, *process.children(recursive=True)]
-                sizes = {str(p.pid): p.memory_info().rss for p in processes if p.is_running()}
-                total = sum(sizes.values())
-                if total > peaks.get(label, {}).get("summed_rss_bytes", 0):
-                    peaks[label] = {"summed_rss_bytes": total, "rss_by_pid": sizes}
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
+            rows = subprocess.check_output(["ps", "-axo", "pid=,ppid=,rss="], text=True)
+            processes = [tuple(map(int, row.split())) for row in rows.splitlines()]
+            descendants = {child.pid}
+            while True:
+                expanded = descendants | {
+                    pid for pid, parent, _rss in processes if parent in descendants
+                }
+                if expanded == descendants:
+                    break
+                descendants = expanded
+            sizes = {str(pid): rss * 1024 for pid, _parent, rss in processes if pid in descendants}
+            total = sum(sizes.values())
+            if total > peaks.get(label, {}).get("summed_rss_bytes", 0):
+                peaks[label] = {"summed_rss_bytes": total, "rss_by_pid": sizes}
             time.sleep(0.025)
         if child.returncode:
             raise RuntimeError(f"Measurement worker failed: {child.returncode}")

@@ -291,41 +291,40 @@ handoff independently of widgets. Reproduction and measured limits are in
 [GUI v2 editor validation](validation/gui-v2-editor.md).
 
 
-### Linked and portable analysis persistence
+### External-source analysis persistence
 
 `engine.scientific` owns immutable published results, sample identities and pure
 model projection. `io.scientific` owns bounded typed-array serialization;
 `io.readers.continuation` restores the recorded geometry/likelihood inputs for
 both interfaces and MCMC. `gui.project_results` only adds editor metadata and
 validates the automatic working-coordinate transition. `gui.project` owns atomic
-manifest publication, verified source links and an optional checksummed experimental
-cube shared by history.
+manifest publication and verified external source links. Projects never own
+experimental or simulated spectra.
 
 Default exports retain published values, exact terminal corrections/mappings and
 a small evaluator reference; detailed evidence adds observations/historical model
 samples. Residuals are regenerated in the original operation order and checked
 against recorded statistics. Bit-identical replay in one environment does not
 replace evaluator tolerances. There is no solver/amplitude recovery on reopen.
-Standard Save/Save as retain detailed evidence and link the external spectrum.
-This preserves numerical sample review without the source; full spectral work
-requires scientific verification/relinking. Explicit Export portable analysis adds
-the full original-dtype cube for source-free spectral inspection and continued
-adjusted fitting. Both modes use the same serialization/verification functions.
-Retained observations and historical predictions deliberately avoid dependence on
-future evaluator arithmetic for numerical review. Scientific exports are unchanged.
+Standard Save/Save as retain compact fitted authority: parameters, amplitudes,
+uncertainties/covariance, diagnostics/provenance, exact terminal corrections,
+observation dtype/digests, paired coordinates and plane identities. The small
+component-basis reference validates evaluators, not a precomputed spectrum.
+There are no extracted observations, sampled predictions or dense residual arrays
+in projects. Missing sources permit numerical review. Exact observation recovery
+and on-demand model/residual calculation share `io.readers.continuation`, including
+its digest, evaluator-reference and terminal-statistics checks; no visualization
+path solves amplitudes or refits parameters. Scientific export policies are unchanged.
 
 `editor.persistence` supplies file actions, immutable capture and Qt publication;
-`editor.numerical` supplies numerical review and lazy history.
-`gui.project_process` isolates archive operations in a disposable spawned process.
-Trusted internal IPC is not a disk format. Linked Save and recovery publication
-never transfer the experimental cube. Portable export alone may transfer/embed it;
-existing embedded data is copied/checksummed. Routine Save reuses immutable runs
-without source reads or content hashing. New payloads are flushed before manifest
-replacement; a sibling PID lock protects writers. Cleanup follows publication.
-Standard Save of a portable analysis publishes linked state before removing its
-cube. Portable export creates a separate snapshot without rebinding the editor
-path or marking its working edits saved. Existing older readers are reused;
-no new migration adapter is needed.
+`editor.numerical` supplies numerical review and lazy history. Requested sample
+inspection materializes temporary arrays on its existing worker. History records
+stay compact until explicitly selected. `gui.project_process` isolates archive
+operations in a disposable spawned process; trusted IPC is not a disk format.
+The experimental cube never crosses the save pipe. Routine Save reuses immutable
+runs without source reads/hashing; a sibling PID lock protects writers. Payloads
+are flushed before manifest replacement and obsolete runs are pruned afterward.
+No embedded-spectrum serializer, portable mode or legacy project adapter remains.
 
 `editor.fitting` keeps one active `DatasetCompletion`. Historical full evidence is
 represented by `StoredRun` (project root + checksummed immutable entry), with no
@@ -367,8 +366,9 @@ Ten full runs and protected evidence remain on disk; older entries retain exact
 coordinates, fitted tables/errors/bounds, submitted parameters/settings and concise
 diagnostics/statistics, explicitly without sample/profile capabilities. The 1 GiB
 historical budget excludes active/protected evidence. New writes use project
-schema 4.0.0 with optional embedded spectrum; older PeakFit readers reject it.
+schema 5.0.0, always referencing external sources; earlier project formats are
+explicitly rejected.
 Scientific schema/defaults remain unchanged. Explicit JSON remains a derived
 optional scientific export, shared by both interfaces. See
-[portability validation](validation/project-portability.md) for measured sizes,
+[external-project validation](validation/external-projects.md) for measured sizes,
 timings, publication memory and limitations.

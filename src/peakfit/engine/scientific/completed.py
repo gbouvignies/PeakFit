@@ -44,14 +44,15 @@ class CompletedFit:
     """Minimal review record captured before continuation state can change.
 
     The outcome alone owns fitted values and diagnostics. The model snapshot
-    owns copied evaluable lineshape geometry. Samples retain the actual terminal
-    fitting inputs, including unusable clusters. This is an in-memory contract,
+    owns copied evaluable lineshape geometry. Samples carry either actual observations
+    or their exact reconstruction identities, plus irreducible terminal corrections,
+    including unusable clusters. This is an in-memory contract,
     not a persisted run, a dataset identity, or an MCMC continuation guarantee.
     """
 
     outcome: FinalFitOutcome
     model_snapshot: FinalModelSnapshot
-    samples: tuple[FinalClusterSamples, ...]
+    samples: tuple[FinalClusterSamples | FinalClusterInputs, ...]
 
     @classmethod
     def capture(

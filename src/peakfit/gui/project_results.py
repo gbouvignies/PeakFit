@@ -1,5 +1,6 @@
 """Strict numerical restoration and evaluable geometry for analysis projects."""
 
+import json
 from dataclasses import asdict, replace
 
 import numpy as np
@@ -13,7 +14,7 @@ from peakfit.fit.export import model_records
 from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fitting import FitInputSnapshot, PeakIdentity, PreparedDatasetFit
 from peakfit.gui.peaks import WorkingPeak
-from peakfit.io.readers.continuation import UnavailableShape, restore_geometry
+from peakfit.io.readers.continuation import UnavailableShape, restore_completed, restore_geometry
 
 
 def read_peaks(records):
@@ -53,7 +54,7 @@ def restore_result(run, outcome, retained_samples):
     if (
         {i.working_id for i in identities} != {p.id for p in snapshot.peaks}
         or len({i.engine_name for i in identities}) != len(identities)
-        or {i.engine_name for i in identities} != {p.name for c in clusters for p in c.peaks}
+        or {i.engine_name for i in identities} != {p.name for c in model.clusters for p in c.peaks}
     ):
         raise ValueError("Invalid run stable-ID mapping.")
     initial = Parameters()
@@ -101,7 +102,7 @@ def verify_model(result):
     for p in result.outcome.final_nonlinear_parameters:
         parameters.add(p.name, value=p.value, min_value=p.min, max_value=p.max, vary=p.vary)
     for s in result.completed_fit.samples:
-        e = result.outcome.cluster(s.cluster_id).sample_evaluation
+        e = result.outcome.cluster(s.cluster_id).analytical_evaluation
         if e is None:
             continue
         geometry = next(
@@ -109,11 +110,18 @@ def verify_model(result):
         )
         shapes = Cluster.evaluate_peaks(geometry.peaks, parameters, list(s.grid_indices))
         np.testing.assert_allclose(shapes, e.shapes, rtol=1e-10, atol=1e-12)
+        if not result.outcome.cluster(s.cluster_id).sample_evaluation:
+            continue
         projected = project_final_outcome(
             result.outcome, result.simulation_snapshot, s.grid_indices, cluster_id=s.cluster_id
         )
         assert projected is not None
-        np.testing.assert_allclose(projected, e.model_values, rtol=1e-10, atol=1e-9)
+        np.testing.assert_allclose(
+            projected,
+            result.outcome.cluster(s.cluster_id).sample_evaluation.model_values,
+            rtol=1e-10,
+            atol=1e-9,
+        )
 
 
 def run_record(result):
@@ -210,3 +218,29 @@ def initial_parameter_records(result):
         }
         for p in result.inputs.parameters.values()
     ]
+
+
+def reconstruct_result(result, dataset):
+    """Materialize exact observations and validated predictions only when requested.
+
+    No parameters are refitted and no amplitudes are solved. Observation identity
+    is bitwise; evaluator references and terminal chi-squared use the shared
+    continuation tolerances to allow platform-dependent floating-point arithmetic.
+    """
+    snapshot = result.inputs.snapshot
+    lookup = {p: i for i, p in enumerate(dataset.spectra.source_plane_indices)}
+    selected = [lookup[p] for p in snapshot.source_plane_indices]
+    completed = restore_completed(
+        result.outcome,
+        result.completed_fit.samples,
+        {
+            "data_shape": snapshot.data_shape,
+            "models": model_records(result.simulation_snapshot),
+            "spectral_parameters": [json.loads(p) for p in snapshot.spectral_parameters],
+            "plane_values": snapshot.plane_values,
+            "metadata": {"configuration": json.loads(snapshot.configuration)},
+        },
+        source_data=dataset.spectra.data,
+        source_planes=selected,
+    )
+    return replace(result, completed_fit=completed)

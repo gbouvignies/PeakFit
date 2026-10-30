@@ -14,7 +14,6 @@ from peakfit.gui.dataset_fit import _completed_bytes
 from peakfit.gui.project import (
     open_analysis,
     save_analysis,
-    spectrum_path,
     stored_analysis,
     verify_sources,
 )
@@ -34,7 +33,7 @@ def _archive_child(connection):
         def progress(message):
             connection.send(("progress", message))
 
-        if kind in {"save", "preserve", "portable"}:
+        if kind in {"save", "preserve"}:
             analysis, destination = payload
             result = save_analysis(
                 analysis,
@@ -42,7 +41,6 @@ def _archive_child(connection):
                 progress=progress,
                 canceled=is_canceled,
                 preserve_input_runs=kind == "preserve",
-                portable=kind == "portable",
             )
         elif kind == "open":
             result = open_analysis(payload, progress=progress, canceled=is_canceled)
@@ -62,18 +60,13 @@ def _archive_child(connection):
 
 def project_operation(kind, payload, *, progress, canceled):
     """Bridge one operation off Qt, with cooperative cancellation and child reaping."""
-    if kind in {"save", "preserve", "portable", "relink"}:
+    if kind in {"save", "preserve", "relink"}:
         analysis, path = payload
-        # Linked saves/checkpoints never transfer the cube. Portable export alone
-        # needs it, unless an already published embedded payload can be reused.
-        manifest = analysis.path / "manifest.json" if analysis.path else None
-        previous = json.loads(manifest.read_text()) if manifest and manifest.is_file() else {}
-        embedded = previous.get("spectrum", {}).get("path") == spectrum_path(analysis.header)
         payload = (
             replace(
                 analysis,
-                dataset=analysis.dataset if kind == "portable" and not embedded else None,
-                active=None if kind in {"save", "preserve", "portable"} else analysis.completion,
+                dataset=None,
+                active=None if kind in {"save", "preserve"} else analysis.completion,
             ),
             path,
         )
@@ -114,17 +107,13 @@ def project_operation(kind, payload, *, progress, canceled):
         sender.close()
 
 
-def save_project(analysis, destination, *, reusable, progress, canceled, portable=False):
+def save_project(analysis, destination, *, reusable, progress, canceled):
     """Reuse fast metadata-only saves; isolate new evidence validation from Qt."""
-    if portable and destination.exists():
-        raise FileExistsError("Portable export requires a new analysis directory.")
     if reusable:
-        path = save_analysis(
-            analysis, destination, progress=progress, canceled=canceled, portable=portable
-        )
+        path = save_analysis(analysis, destination, progress=progress, canceled=canceled)
     else:
         path = project_operation(
-            "portable" if portable else "save",
+            "save",
             (analysis, destination),
             progress=progress,
             canceled=canceled,
