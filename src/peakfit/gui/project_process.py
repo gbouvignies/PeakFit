@@ -1,7 +1,7 @@
-"""Disposable archive process so large JSON validation cannot monopolize Qt's GIL.
+"""Disposable archive process for scientific evidence and source verification.
 
 Only records created by our own child cross this trusted pipe. Project files
-remain strictly JSON/NPZ and are never unpickled.
+remain strictly metadata/typed arrays and are never unpickled.
 """
 
 import json
@@ -105,7 +105,7 @@ def project_operation(kind, payload, *, progress, canceled):
 
 
 def save_project(analysis, destination, *, reusable, progress, canceled):
-    """Reuse fast metadata-only saves; isolate new large JSON validation from Qt."""
+    """Reuse fast metadata-only saves; isolate new evidence validation from Qt."""
     if reusable:
         path = save_analysis(analysis, destination, progress=progress, canceled=canceled)
     else:

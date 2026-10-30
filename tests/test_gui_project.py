@@ -1,6 +1,5 @@
 """Lossless evidence, linked source identity and transactional analysis saves."""
 
-import gzip
 import hashlib
 import json
 import os
@@ -19,6 +18,7 @@ from test_gui_editor import wait_for
 
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.fit import pipeline
+from peakfit.fit.storage import read_scientific
 from peakfit.gui import fitting, project, spectrum
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
@@ -29,7 +29,7 @@ from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import Analysis, dataset_header, open_analysis, save_analysis
 from peakfit.gui.project_process import project_operation
-from peakfit.gui.project_results import journal_entry, restore_outcome, verify_model
+from peakfit.gui.project_results import journal_entry, verify_model
 from peakfit.gui.session_evidence import SessionEvidence, interrupted_sessions
 from peakfit.gui.spectrum import Dataset, read_dataset
 
@@ -158,7 +158,7 @@ def test_atomic_save_failure_and_cancel_preserve_last_generation(analysis, tmp_p
 
 def test_corrupt_and_unsupported_project_rejected(analysis, tmp_path):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
-    payload = next(path.rglob("samples.npz"))
+    payload = next(path.rglob("result.npz"))
     payload.write_bytes(b"corrupt")
     with pytest.raises(ValueError, match="Corrupt project evidence"):
         open_analysis(path)
@@ -479,7 +479,7 @@ def test_save_ten_reopen_fit_save_reopen_preserves_evicted_scientific_summary(
     assert review.parameters.rowCount() == len(expected["parameters"])
     assert review.initial.rowCount() == len(expected["initial_peaks"])
     assert review.starting_parameters.rowCount() == len(expected["initial_parameters"])
-    assert not review.sample_export.isEnabled()
+    assert not review.export.isEnabled()
     # A second metadata-only save/reopen must preserve the already demoted summary too.
     save_analysis(reopened, path)
     again = open_analysis(path, canceled=lambda: True)
@@ -555,23 +555,20 @@ def test_session_evidence_cleanup_and_explicit_recovery(analysis, tmp_path, monk
     owner.root = None  # Ownership transferred to the recovered workspace and cleaned there.
 
 
-def test_gzip_scientific_json_is_lossless_and_rejects_expansion_limit(
-    analysis, tmp_path, monkeypatch
-):
-    path = save_analysis(analysis, tmp_path / "Compressed.peakfit")
-    summary = next(path.rglob("fit.json.gz"))
-    raw = gzip.decompress(summary.read_bytes())
-    assert not list(path.rglob("fit.json"))
-    document = json.loads(raw)
-    restored = restore_outcome(document, project.run_record(analysis.completion.result))
+def test_typed_scientific_archive_has_no_json_arrays(analysis, tmp_path):
+    from zipfile import ZipFile  # noqa: PLC0415
+
+    path = save_analysis(analysis, tmp_path / "Typed.peakfit")
+    archive_path = next(path.rglob("result.npz"))
+    with ZipFile(archive_path) as archive:
+        document = json.loads(archive.read("metadata.json"))
+    assert document["outcome"]["clusters"][0]["analytical_evaluation"]["shapes"]["array"]
+    assert not list(path.rglob("fit.json*"))
+    outcome, _samples, _context = read_scientific(archive_path)
     assert (
-        restored.final_nonlinear_parameters
+        outcome.final_nonlinear_parameters
         == analysis.completion.result.outcome.final_nonlinear_parameters
     )
-    assert len(summary.read_bytes()) < len(raw)
-    monkeypatch.setattr(project, "MAX_JSON_BYTES", len(summary.read_bytes()) + 1)
-    with pytest.raises(ValueError, match="Expanded project JSON"):
-        project._read_json(summary)
 
 
 def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup_on_close(

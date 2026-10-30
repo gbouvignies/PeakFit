@@ -24,6 +24,7 @@ from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
+from peakfit.fit.completed import CompletedFit
 from peakfit.fit.final_outcome import FinalFitOutcome, finalize_fit
 from peakfit.fit.fitting import find_review_clusters, write_fit_run_outputs
 from peakfit.fit.output_metadata import RunMetadata
@@ -288,11 +289,13 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
         n_optimizer_passes=1,
     )
     outcome = finalize_fit(pipeline_result)
+    assert pipeline_result.correction_snapshot is not None
     fit_run = FitRun(
         outcome=outcome,
         continuation_state=state,
         output_dir=tmp_path,
         spectra=fit.spectra,
+        completed_fit=CompletedFit.capture(outcome, state, pipeline_result.correction_snapshot),
     )
     return CompetingTruth(
         terminal_results=terminal_results,
@@ -404,7 +407,9 @@ def test_completed_writer_path_ignores_mutated_continuation_state(
     json_cluster = next(cluster for cluster in payload["clusters"] if cluster["cluster_id"] == 11)
     assert json_cluster["analytical_evaluation"]["amplitudes"] == evaluation.amplitudes.tolist()
     assert json_cluster["optimizer_provenance"]["function_evaluations"] == 7
-    assert rows[11]["chi_squared"] == f"{evaluation.statistics.chi_squared:.6f}"
+    assert float(rows[11]["chi_squared"]) == pytest.approx(
+        evaluation.statistics.chi_squared, rel=1e-14
+    )
     assert "Usable, not converged: 1" in report
     assert "**Unusable clusters**: 1" in readme
 

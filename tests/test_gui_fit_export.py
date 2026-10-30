@@ -11,6 +11,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from test_gui_fit_execution import _example, _wait
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+from peakfit.fit.storage import read_scientific
 from peakfit.gui.app import PeakFitWindow
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_process import FitProcessResult
@@ -52,7 +53,7 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
     loader = ResultsLoader(path)
     summary = loader.load_summary()
     raw = json.loads((path / "summary/fit.json").read_text())
-    companion = json.loads((path / "summary/local_fit.json").read_text())
+    _outcome, samples, companion = read_scientific(path / "scientific.npz")
     assert raw["schema_version"] == "4.1.0"
     assert summary.clusters[0].classification == classification
     assert summary.metadata.timestamp.isoformat() == completed.completed_at
@@ -60,22 +61,13 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
     assert summary.metadata.configuration == json.loads(prepared.snapshot.configuration)
     assert summary.metadata.input_files["spectrum"]["path"] == str(source)
     assert "checksum_sha256" in summary.metadata.input_files["spectrum"]
-    assert companion["run_id"] == completed.run_id
-    assert companion["cross_cluster_corrections"] is False
-    assert companion["planes"] == [
-        {"index": 0, "value": 2.0},
-        {"index": 1, "value": 0.0},
-        {"index": 2, "value": 2.0},
-    ]
-    assert "spectrum_id" not in companion
-    assert companion["noise"] == prepared.noise
-    assert companion["contour_threshold"] == prepared.contour_level
-    assert companion["shape_names"] == list(prepared.shape_names)
+    assert companion["plane_values"].tolist() == [2.0, 0.0, 2.0]
     assert companion["peak_identities"] == [
-        {"engine_name": f"p_{i}", "working_id": peak.id, "assignment": peak.name}
+        {"engine_name": f"p_{i}", "peak_id": peak.id, "assignment": peak.name}
         for i, peak in enumerate(working)
     ]
-    assert companion["grid_indices"] == [index.tolist() for index in prepared.scope.grid_indices]
+    for old, new in zip(prepared.scope.grid_indices, samples[0].grid_indices, strict=True):
+        np.testing.assert_array_equal(old, new)
     assert (
         summary.clusters[0].optimizer_provenance.termination_message
         == cluster.optimizer_provenance.termination_message
@@ -137,7 +129,7 @@ def test_partial_failure_has_no_published_directory(tmp_path, monkeypatch):
         (output / "partial").write_text("partial output")
         raise OSError("disk full")
 
-    monkeypatch.setattr(fit_export, "write_fit_outputs", fail)
+    monkeypatch.setattr(fit_export, "write_completed_outputs", fail)
     with pytest.raises(OSError, match="disk full"):
         export_fit_result(completed, tmp_path / "failed")
     assert list(tmp_path.iterdir()) == []
@@ -154,7 +146,7 @@ def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
     completed = execute_local_fit(prepared)
     destination = tmp_path / "export"
     lock = tmp_path / ".export.export-lock"
-    write = fit_export.write_fit_outputs
+    write = fit_export.write_completed_outputs
     rename = Path.rename
     published = []
 
@@ -171,7 +163,7 @@ def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
         assert not target.exists()
         assert staged.parent.parent == target.parent  # Staging stays on the same filesystem.
         ResultsLoader(staged).load_summary()
-        assert (staged / "summary/local_fit.json").is_file()
+        assert (staged / "scientific.npz").is_file()
         assert (staged / "tables/intensities.csv").is_file()
         assert lock.is_dir()
         if publication == "rename_failure":
@@ -179,7 +171,7 @@ def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
         published.append(target)
         return rename(staged, target)
 
-    monkeypatch.setattr(fit_export, "write_fit_outputs", write_then_compete)
+    monkeypatch.setattr(fit_export, "write_completed_outputs", write_then_compete)
     monkeypatch.setattr(Path, "rename", windows_directory_move)
     monkeypatch.setattr(Path, "replace", windows_directory_move)
     if publication == "locked":

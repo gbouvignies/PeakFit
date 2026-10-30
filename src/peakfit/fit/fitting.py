@@ -26,16 +26,15 @@ from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
+from peakfit.fit.export import write_completed_outputs
 from peakfit.fit.output_metadata import capture_output_metadata
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart, RunSummary
-from peakfit.fit.simulation import simulate_final_outcome
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
 from peakfit.io.state import default_state_path, save_state
 from peakfit.io.writers.config import WriterConfig
-from peakfit.io.writers.orchestrator import write_fit_outputs
-from peakfit.io.writers.run_files import write_readme, write_simulated_spectra
+from peakfit.io.writers.run_files import write_readme
 from peakfit.shared.exceptions import DataIOError
 from peakfit.shared.paths import format_path
 
@@ -359,30 +358,25 @@ def write_fit_run_outputs(
     output_dir = fit_run.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    writer_config = WriterConfig(formats=tuple(config.output.formats))
+    writer_config = WriterConfig(formats=tuple(config.output.formats), precision=17)
     metadata = capture_output_metadata(config.model_dump(), input_paths)
     if reporter:
         reporter.action("Writing outputs...")
 
-    write_fit_outputs(
-        fit_run.outcome,
+    if fit_run.completed_fit is None:
+        raise ValueError("Scientific export requires the retained CompletedFit.")
+    write_completed_outputs(
+        fit_run.completed_fit,
         output_dir,
         writer_config,
         metadata=metadata,
-        z_values=spectra.z_values,
-        summary=fit_run.summary,
+        data_shape=spectra.data.shape,
+        spectral_parameters=[axis.model_dump() for axis in spectra.params],
+        plane_values=spectra.z_values,
+        source_plane_indices=spectra.source_plane_indices,
+        peak_identities=fit_run.peak_identities,
+        save_simulated=config.output.save_simulated,
     )
-
-    if config.output.save_simulated:
-        if fit_run.simulation_snapshot is None:
-            raise RuntimeError("Simulated output requires the final model snapshot.")
-        simulated_data = simulate_final_outcome(
-            fit_run.outcome,
-            fit_run.simulation_snapshot,
-            spectra.data,
-        )
-        if simulated_data is not None:
-            write_simulated_spectra(output_dir, spectra, simulated_data, reporter)
 
     state_file = default_state_path(output_dir)
     save_state(state_file, fit_run.continuation_state)

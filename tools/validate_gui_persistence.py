@@ -1,5 +1,6 @@
 """Real-data save/reopen timings and native Qt evidence for analysis persistence."""
 
+import argparse
 import json
 import platform
 from pathlib import Path
@@ -21,7 +22,10 @@ OUTPUT = ROOT / "docs/validation/gui-v2-persistence"
 
 def main():  # noqa: PLR0915
     """Measure actual publication and validation, including fsync and source hashes."""
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=OUTPUT)
+    output = parser.parse_args().output
+    output.mkdir(parents=True, exist_ok=True)
     app = QtWidgets.QApplication([])
     app.setStyle("Fusion")
     data = ROOT / "examples/02-advanced-fitting/data"
@@ -118,10 +122,10 @@ def main():  # noqa: PLR0915
         for appearance in ("Light", "Dark"):
             window.apply_appearance(appearance)
             settle(500)
-            window.grab().save(str(OUTPUT / f"reopened-{appearance.lower()}.webp"), "WEBP", 95)
+            window.grab().save(str(output / f"reopened-{appearance.lower()}.webp"), "WEBP", 95)
         w.set_mode(2)
         settle(1500)
-        window.grab().save(str(OUTPUT / "residual.webp"), "WEBP", 95)
+        window.grab().save(str(output / "residual.webp"), "WEBP", 95)
         peak = w.peaks[0]
         w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.00001))
         assert not w.fitting.current
@@ -143,7 +147,7 @@ def main():  # noqa: PLR0915
         window.install_analysis(analysis)
         window.apply_appearance("Light")
         settle(500)
-        window.grab().save(str(OUTPUT / "numerical-only.webp"), "WEBP", 95)
+        window.grab().save(str(output / "numerical-only.webp"), "WEBP", 95)
         report["heartbeat_ms"] = {
             stage: {
                 "p95": float(np.percentile([b for p, b in beats if p == stage], 95)),
@@ -156,7 +160,7 @@ def main():  # noqa: PLR0915
         if session_root:
             wait_until(lambda: not session_root.exists())
         report["session_storage_cleaned_after_numeric_close"] = True
-    (OUTPUT / "measurements.json").write_text(json.dumps(report, indent=2) + "\n")
+    (output / "measurements.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
 if __name__ == "__main__":

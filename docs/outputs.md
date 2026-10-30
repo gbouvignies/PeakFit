@@ -1,220 +1,120 @@
-# PeakFit Output System
+# Scientific outputs and analysis projects
 
-This document describes the output files produced by `peakfit fit` in the current codebase.
+GUI and CLI scientific exports use the same `CompletedFit` authority and
+`fit.export.write_completed_outputs` implementation. A `.peakfit` analysis is
+working-state persistence; it does not replace scientific exports.
 
-## Overview
+## Scientific export contract
 
-PeakFit writes a structured results directory (default: `Fits` or a timestamped subdirectory when enabled). The content depends on selected output formats and available result data.
-
-### Default Formats
-
-The default output formats are:
-
-- `json` → machine‑readable summaries
-- `csv` → tabular data
-
-Markdown reports are optional. Add `txt` to `[output] formats` or pass
-`--format txt` to write `summary/report.md`. There is no TSV output; CSV is the
-canonical tabular format.
-
-## Output Directory Layout
-
-```
-<output_dir>/
-├── README.md
-├── summary/
-│   ├── fit.json
-│   └── report.md                 # optional: only if txt format is enabled
-├── tables/
-│   ├── clusters.csv              # status, statistics, and terminal provenance
-│   ├── parameters.csv            # usable final nonlinear parameters
-│   ├── intensities.csv           # usable final per-plane amplitudes
-│   └── shifts.csv                # only when shift parameters are present
-├── metadata/
-│   └── fitting_state.pkl
-```
-
-### Notes
-
-- `README.md` is generated for each run and summarizes the result status, files,
-  and common next commands for that run directory.
-- `metadata/fitting_state.pkl` is mutable continuation state for post-fit
-  workflows. It is not used to reconstruct completed scientific values.
-- `summary/fit.json` is schema `4.1.0`: each cluster is keyed by stable
-  `cluster_id` and carries final classification, terminal correction revision,
-  optimizer provenance, and either frozen analytical values or an unusable reason.
-- `summary/report.md` is created only when `txt` is in `output.formats`; it is a
-  bounded review report with fit-quality checks and key parameters, not a
-  complete parameter export.
-- `tables/parameters.csv` is intentionally lean: parameter identity, fitted
-  value, uncertainty, fixed status, and optional units/bounds. Rich metadata
-  such as parameter category and global/shared status belongs in
-  `summary/fit.json`.
-- CSV columns are ordered for reading: `peak_name` first, the main independent
-  variable or parameter column next, and final classification/provenance columns
-  (including `cluster_id`) last. `clusters.csv` retains one row even for an
-  unusable outcome; numerical tables omit unusable rows.
-- `tables/intensities.csv` may contain signed amplitudes. CEST plots preserve
-  signed normalized intensities; CPMG plots use only points with positive
-  `I/I0` ratios because `R2eff` is log-transformed.
-
-## Optional Artifacts
-
-These files are written only when explicitly enabled:
-
-- `simulated.ftN` (at output dir root) when `output.save_simulated = true` and
-  `nmrglue` is installed. It is projected from final nonlinear parameters and
-  stored analytical amplitudes without solving amplitudes again.
-
-## Configuration
-
-### CLI
-
-```
-peakfit fit spectrum.ft2 peaks.list \
-  --format json --format csv
-```
-
-### TOML
-
-```toml
-[output]
-formats = ["json", "csv"]
-save_simulated = false
-include_timestamp = true
-```
-
-## Programmatic Access
-
-The primary JSON entry point is:
-
-- `summary/fit.json`
-
-This file is the canonical machine-readable summary for downstream analysis.
-Old schema `3.0.0` result documents are intentionally rejected; rerun the fit to
-produce the unambiguous `4.1.0` outcome format.
-Post-fit commands and `ResultsLoader` expect the run output directory
-(`<output_dir>`), not the `summary/` subdirectory.
-
-## Implementation Notes
-
-- `build_output_plan()` resolves concrete files from requested formats and
-  available data.
-- Direct writer functions serialize JSON, CSV, optional Markdown, run-level
-  README/state companions, and optional simulated spectra.
-- The fixed layout is the output contract.
-- Per-plane amplitudes are included in canonical JSON analytical evaluations and
-  in `tables/intensities.csv`.
-
-The in-memory completed-review contract also retains exact sampled coordinates,
-original observations and terminal neighbor-correction arrays. These inputs are
-not yet added to canonical output or a new persisted companion by this change.
-Current JSON alone cannot reconstruct full model geometry or the original
-numerical fitting problem; a correction revision alone does not supply correction
-values. See [GUI design](gui-design.md#persistence-direction-and-compatibility) for
-the evaluated metadata/array separation and the next writer/reader milestone.
-
-
-## GUI dataset-fit export
-
-**File → Export fit results…** on a whole-dataset result writes a new
-`dataset-fit-<run_id>/` directory. It uses the same authoritative final-outcome
-writers, canonical `summary/fit.json` 4.1.0 and CSV tables as the CLI and local
-GUI exports. The staged/validated publication and refusal to overwrite an existing
-destination are shared with local export below.
-
-`summary/dataset_fit.json` is a provenance companion (`kind:
-peakfit_gui_dataset_fit`, companion version 1.0.0). It records the reviewed
-configuration, threshold, estimated noise, resolved model names, optimizer/correction
-pass counts, source-file identities and checksums, original working peaks,
-engine-ID/assignment mapping, ordered original plane indices/values and exact sampled
-indices per cluster. Canonical rows use engine-safe IDs; this mapping preserves
-duplicate assignments. Export always uses the retained run's original inputs,
-including after working edits make it outdated. Export state is tracked by run ID.
-
-This companion is not an analysis archive: it does not persist all model geometry,
-sampled observations or terminal correction arrays needed for lossless reopening.
-These export companions are not analysis projects; use `.peakfit` for reopening. No pickle file is written.
-
-## GUI local-fit export
-
-**File → Export fit results…** creates a new child directory in the selected parent:
+Every export contains `scientific.npz`, independently of selected presentation
+formats. Schema **1.0.0**, kind **peakfit_scientific_result**, contains small
+`metadata.json` and named numeric NPY members in a ZIP with deflate level 1.
+NumPy arrays retain exact dtype, shape, sample order and floating-point bits,
+including unavailable uncertainty NaNs. There is no pickle or numeric-list
+projection. Standard NumPy/ZIP tools can inspect the file; no custom compression
+or HDF5 dependency is required by the format.
 
 ```text
-local-fit-<run_id>/
-├── summary/
-│   ├── fit.json                 # canonical PeakFit JSON 4.1.0
-│   └── local_fit.json           # GUI local-fit companion 1.0.0
-└── tables/
-    ├── clusters.csv
-    ├── parameters.csv
-    ├── intensities.csv
-    └── shifts.csv              # when usable shift parameters exist
+results/
+  scientific.npz                 # complete lossless scientific record, always
+  summary/fit.json                # optional json projection, schema 4.1.0
+  summary/report.md               # optional txt report
+  tables/parameters.csv           # optional csv tables
+  tables/intensities.csv
+  tables/clusters.csv
+  tables/shifts.csv               # when shifts are available
+  simulated.npy                  # optional full-grid float64 model
 ```
 
-The existing `write_fit_outputs` serializers consume the exact retained
-`FinalFitOutcome`. There is no second fit, amplitude solve, assignment renaming,
-whole-dataset state, cross-cluster correction, simulated spectrum cube, or pickle
-continuation file. Scientific JSON keeps full float precision; CSV uses the same
-columns as the CLI with 17-digit formatting. Unusable outcomes keep their actual
-classification, reason and optimizer diagnostics, with absent numerical results
-and empty numerical tables. Canonical null bounds/errors retain their established
-meaning for unbounded/unavailable values.
+The archive retains:
 
-The companion `summary/local_fit.json` has `kind: peakfit_gui_local_fit` and
-`schema_version: 1.0.0`. It records the completed `run_id`, completion timestamp,
-software version, isolated-cluster scope, absence of cross-cluster corrections,
-original full array shape, spectral metadata, lineshape names, noise, absolute
-contour threshold, effective configuration and optimizer settings, warnings and
-execution diagnostics. `grid_indices` are paired arrays in the exact point order
-of canonical shapes, model values and residuals. `planes` lists the original
-zero-based index and experimental value for every plane, preserving duplicates
-and nonmonotonic order. Canonical amplitude columns and CSV `plane_index` use
-that same order.
+- Final nonlinear values, bounds, freedom, units and uncertainties, owned once by
+  each cluster. The global parameter table and cluster lookup are reconstructed.
+- Analytical shapes, signed amplitudes, uncertainty/covariance arrays, exact model
+  values and both residual representations. These are deliberately retained rather
+  than recomputed: regeneration could change floating-point rounding.
+- Classification, actual terminal optimizer diagnostics, correction revision,
+  pass counts, statistical noise and cluster/global statistics.
+- Exact paired native sample indices, original observations and terminal neighbor
+  corrections, including unusable clusters.
+- Source provenance/effective configuration, calibration for every dimension,
+  ordered plane values and explicit original source-plane indices (including after
+  CLI exclusions; duplicate/nonmonotonic values remain distinct columns),
+  resolved per-peak geometry and scientific peak identity/assignment mappings.
 
-Canonical `peak_names` and parameter prefixes remain internal engine identifiers
-(e.g. `p_0`), not original assignments. Companion `peak_identities` explicitly maps
-`engine_name` to stable `working_id` and original `assignment`; assignments may
-repeat. `original_working_peaks` preserves the preparation's full segmentation
-peak list, including peaks outside the fitted group and original unfolded ppm
-coordinates. None of these fields is taken from subsequently edited GUI state.
+Both interfaces use the same identity entry fields: `engine_name`, stable
+`peak_id`, and original `assignment`. GUI peak IDs come from retained working
+identities; CLI IDs come from unique submitted peak names. Assignments may repeat.
 
-`source_files` contains absolute original import paths and SHA-256 checksums only
-when verified unchanged across file loading. These are imported sources, not a
-claim that later working edits equal the imported peak list. Programmatically
-supplied data may have no source records. Process-local spectrum identity is
-omitted. Canonical metadata uses the recorded completion time/version and original
-configuration; the companion supplies the GUI-specific scope and identity contract.
+Archive metadata uses explicit array references (`array`, `dtype`, `shape`).
+Arbitrary provenance dictionaries are wrapped as `mapping` to distinguish them
+from array and nonfinite-scalar descriptors. Finite scalar JSON numbers retain
+Python's round-trip precision; nonfinite scalars retain tagged hexadecimal IEEE-754 binary64 bits.
+Readers reject unsupported versions, duplicate/extra members, malformed dtype,
+shape or payload lengths, excessive expansion, inconsistent identities, correction
+revisions or terminal algebra. Arrays restore read-only. Limits are 16 MiB for
+scientific metadata and 8 GiB expanded per archive (including NPY headers).
 
-Export writes and validates all required files in a temporary sibling directory,
-then takes an exclusive sibling lock (`.<directory-name>.export-lock`), checks
-that the destination is still absent, and renames the complete tree into place.
-The destination is never pre-created, so Windows need not replace an existing
-directory. Existing paths are refused, including on repeated export of the same
-result to the same parent. Choose a different parent for another copy.
+```python
+from pathlib import Path
+from peakfit.fit.storage import read_scientific
 
-The same-filesystem rename provides atomic visibility where the filesystem
-supports it; this is not a power-loss durability guarantee. The sibling lock
-coordinates PeakFit exporters only. Python has no portable atomic no-replace
-directory rename: on POSIX an unrelated program could create an empty directory
-between the final check and rename, and that empty directory could be replaced.
-A populated results directory cannot be replaced by this directory rename.
-Do not concurrently create the destination with another application.
+outcome, samples, context = read_scientific(Path("results/scientific.npz"))
+amplitudes = outcome.clusters[0].analytical_evaluation.amplitudes
+plane_values = context["plane_values"]
+indices = samples[0].grid_indices  # paired, never a Cartesian product
+```
 
-Errors clean up staging and the export's own lock and do not mark the result
-exported. A process crash can leave hidden staging or a stale sibling lock,
-which may be removed after checking that no export is active. Export runs in
-a dedicated short-lived thread while Qt continues processing events. Progress
-cannot be dismissed once writing begins.
+The common export contract is a completed scientific fit plus coordinate context
+and operational metadata. Future intensity analyses or MCMC results can introduce
+an explicit result kind and associated named arrays; they must not overload fit
+fields or editor state. This change adds neither feature.
 
-`ResultsLoader(directory).load_summary()` validates and reads the canonical
-scientific result. Its existing minimal `load_fitting_state()` reconstruction is
-available for usable values but is not the original sampled fitting state or a
-continuation contract. The GUI cannot reopen this export, and it does not restore
-a session, undo history, display settings, or apply fitted coordinates to working
-peaks. CLI post-fit commands requiring `metadata/fitting_state.pkl` cannot use this
-export as continuation state. These limitations do not affect downstream reading
-of canonical parameters, amplitudes, statistics or the companion provenance.
+## Formats and interface parity
+
+The default presentation formats remain `json` and `csv`. Add `txt` to
+`[output].formats` or CLI `--format txt` for a bounded Markdown report.
+Both interfaces honor the recorded output formats and `save_simulated` setting,
+and both use 17-place CSV formatting. `scientific.npz` is lossless regardless of
+presentation precision. Explicit JSON still contains numerical lists and costs
+more to write; it is a derived interoperability export, never the project authority.
+`ResultsLoader(directory).load_summary()` and existing plot/analysis commands
+continue to consume `summary/fit.json` when JSON is selected.
+
+GUI **Export fit results…** stages a new `dataset-fit-<id>` or `local-fit-<id>`
+child directory, writes all selected scientific artifacts, then publishes by
+same-filesystem rename under a sibling export lock. Existing destinations are
+refused. A failure cleans staging and does not mark the result exported. The
+rename provides atomic visibility, not a power-loss durability guarantee; the
+lock coordinates PeakFit writers. CLI run directories additionally contain a
+README and trusted optimizer continuation state for existing post-fit commands.
+Those operational files are not alternative scientific outputs and are not
+required to read the scientific record.
+
+The GUI's former `local_fit.json` / `dataset_fit.json` companions are removed.
+Their scientific geometry, identity, coordinate and provenance information lives
+in the shared archive. Currentness, submitted/adopted editor peak sets and manual
+revision are project state and remain in `.peakfit`, not in scientific exports.
+The separate GUI sample-only NPZ and summary-only journal JSON exports are also
+removed. Use the shared retained-run export for complete samples and corrections.
+Evicted Summary-only entries remain reviewable inside the project but cannot
+produce a full scientific export; protect or export important runs before eviction.
+
+Local exports contain only their fitted group; an incomplete/all-unusable result
+retains its diagnostics and never fabricates a full model.
+
+Optional simulation is now **`simulated.npy` in both interfaces**, replacing the
+CLI-only float32 `simulated.ftN`. It evaluates retained geometry and amplitudes
+without an optimizer or amplitude solve. Calibration and plane mapping are in
+`scientific.npz`. Use `numpy.load(..., allow_pickle=False)`; consumers that need
+NMRPipe must explicitly convert with the recorded calibration. This closes the
+previous GUI/CLI simulation and report gaps without depending on a linked source
+being available during numerical-only review.
+
+Cross-interface regressions exercise the real CLI and GUI writer entry points
+with the same completed result and options. They compare every archive metadata
+and array member, CSV values, report semantics and simulated samples. Only the
+report generation timestamp is ignored.
 
 ## Unavailable and unreliable uncertainties
 
@@ -256,76 +156,51 @@ certify a scientific assignment. See [the overlap investigation](validation/over
 
 ## Linked-source analysis projects
 
-The production `peakfit-editor` saves a version 1.1.0 analysis directory:
+The production editor writes project schema **2.0.0**:
 
 ```text
 Analysis.peakfit/
   manifest.json
   runs/<immutable-run-id>/
-    summary/fit.json.gz  # lossless gzip of the validated scientific JSON document
-    review.json          # exact inputs/bounds/freedom, geometry, identities, transition
-    samples.npz          # paired native indices, observations, terminal corrections
+    result.npz           # same scientific codec: outcome and retained samples
+    review.json          # editor inputs, geometry, stable IDs and transition
 ```
 
-The manifest declares dataset axes/processing/dtype/shape, ordered source planes,
-working state/settings, view state, full/summary journal levels, protected run IDs,
-active/historical/protected byte counts and SHA-256/byte lengths of every payload.
-Each NPZ member has an explicit name, dtype and shape. Arrays load with
-`allow_pickle=False`; full source and calculated-plane arrays are forbidden.
-For this focused implementation, analytical shapes, model/residuals, parameters and amplitudes remain in
-`summary/fit.json.gz`, with no second fitted-value authority for Full runs. Its JSON float precision
-round-trips the float64 values; unavailable errors retain NaN semantics through
-canonical nullable fields. No lower-precision derived CSV is used for reopening.
+No scientific JSON/gzip document or separate sample NPZ is written. The compact
+review metadata owns original submitted values/bounds/freedom, initial coordinates,
+working identities, effective settings, warnings and automatic position transition;
+it does not own a second fitted-value representation. Full runs own fitted values
+through `result.npz`. Only summary-only historical entries keep a compact numerical
+projection after full evidence is evicted.
 
-Spectrum identity includes original absolute path, usable relative path, separately
-relinked location, SHA-256 algorithm/version, size, verification timestamp and cheap
-file metadata. Read/hash stability is checked. Peak-list/plane-value paths are
-provenance; reopening uses saved working peaks and ordered values, not those files.
-Relative location is tried first, then recorded absolute candidates. Every successful
-reopen/relink requires content equality, not size/mtime alone. Source resolution
-never scans disks for replacement spectra.
+Earlier `.peakfit` versions are deliberately rejected; there is no migration or
+compatibility reader. Export any needed science using the prior application before
+upgrading, or rerun the fit. Existing explicit JSON exports remain readable by the
+existing JSON tooling. Programmatic CLI writers now require a retained
+`CompletedFit`; outcome-only objects cannot fabricate sample evidence.
 
-Full-run evidence is immutable and reused on routine Save. New run directories are
-flushed before atomically replacing the fsynced manifest. Old referenced payloads
-survive failures before publication; unreferenced orphans are removed after success.
-Save As stages beside a new destination then renames it. On POSIX, a stale lock from a dead
-PID can be reclaimed. On Windows the error identifies the lock directory for
-manual removal after confirming that no save is running. Do not edit project files or run two independent writers that
-ignore the lock. Durability ultimately depends on the filesystem's atomic rename
-and fsync behavior; network shares/Windows crash behavior have not been validated.
+The manifest records linked spectrum identity/calibration/shape/dtype, ordered
+planes, working settings/view state, journal, protected runs, byte counts, and
+SHA-256/lengths for every immutable payload. Projects never embed the whole
+spectrum or calculated display cubes. Reopening validates payloads, materializes
+only the active run, verifies the linked source by SHA-256, checks exact original
+samples, and evaluates retained geometry without fitting. Missing or unsupported
+sources/models preserve numerical review; corrupt scientific evidence is rejected.
 
-Reader safety limits are 512 MiB per JSON document and 8 GiB total compressed payloads and 8 GiB expanded per NPZ payload. These limits are distinct from the 1 GiB historical
-retention budget: active/protected evidence is never evicted for that budget.
-Larger workloads need a chunked format and an independently reviewed limit change.
-The initial format supports the editor's one-file NMRPipe inputs, not multi-file
-spectral directory trees. Unsupported models keep numerical review; corrupt
-payloads are rejected. Legacy local/dataset export companions remain scientific
-exports with their original scope and cannot be opened as analyses.
+Routine Save reuses immutable run files and writes working metadata only. New
+payloads are flushed before atomic manifest publication; old referenced files
+survive a failure. Save As stages beside a new destination. Full history remains
+bounded by ten unprotected runs and a 1 GiB historical byte budget; active and
+protected runs are exempt from eviction, not reader limits. Before eviction the
+full record supplies its exact compact summary. Historical arrays load only when
+requested and are released after inspection.
 
+Accepted results are durably checkpointed in an owned `Recovery.peakfit` before
+GUI adoption. Normal Save/close cleans owned scratch storage after workers finish;
+interrupted POSIX sessions remain available through **Recover interrupted
+session…** and require a permanent Save. No new recovery format is introduced.
+Atomic saving, locks, source relocation/currentness and numerical-only workflows
+retain their existing semantics. Project JSON is bounded at 512 MiB, total stored
+evidence at 8 GiB, and scientific archives have their stricter limits above.
 
-Project-internal scientific JSON uses deterministic gzip level 1 (no filename or
-wall-clock gzip metadata). Decompression reproduces the validated document exactly;
-SHA-256/size checks cover compressed bytes, and the 512 MiB JSON limit also applies
-to expanded bytes before parsing. Existing plaintext project members remain readable.
-CLI/export JSON and CSV writers do not need to change for this storage improvement.
-Their formats are not constraints on the future internal authority: GUI v2 may
-replace APIs, configuration, storage and export formats when scientific reliability
-and product clarity justify it.
-
-Only the active Full run is materialized on reopen. `runs` entries provide checked
-locations for on-demand inspection. Before either count or byte-budget eviction,
-the full record supplies the promised exact compact summary, including fitted
-parameter values, uncertainties/bounds, original coordinates, initial freedom,
-settings and diagnostics. Already demoted summaries remain unchanged through
-subsequent save/reopen cycles. Full runs use their scientific record as authority;
-Summary-only entries retain the smaller contract and cannot fabricate sample arrays.
-
-Temporary session projects have an owner and an explicit lifetime. Accepted results
-are published there before resident replacement. Save copies retained immutable
-evidence and only then releases temporary storage; normal discard/close removes it
-after workers finish. Interrupted POSIX sessions can be selected through **File →
-Recover interrupted session…**, verified through the same reader and saved as a new
-permanent project. Recovery locations appear in run diagnostics. They are not saved
-analyses until the explicit permanent Save. On non-POSIX systems automatic claiming
-is disabled rather than taking ownership of a possibly live session; an ordinary
-Open analysis can still read the retained `Recovery.peakfit` explicitly.
+See [measured validation and limitations](validation/scientific-storage.md).

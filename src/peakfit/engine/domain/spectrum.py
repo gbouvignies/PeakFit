@@ -206,6 +206,7 @@ class Spectra(BaseModel):
     data: FloatArray = Field(description="Spectrum data (FloatArray)")
     z_values: FloatArray = Field(description="Z-values array (FloatArray)")
     pseudo_dim_added: bool = False
+    source_plane_indices: tuple[int, ...] = ()
 
     @field_validator("data", mode="before")
     @classmethod
@@ -229,6 +230,10 @@ class Spectra(BaseModel):
         if self.data.ndim < _MIN_SPECTRA_NDIM:
             msg = f"Spectra data must have at least 2 dimensions, got {self.data.ndim}"
             raise ValueError(msg)
+        if not self.source_plane_indices:
+            self.source_plane_indices = tuple(range(self.data.shape[0]))
+        if len(self.source_plane_indices) != self.data.shape[0]:
+            raise ValueError("Source plane mapping must match the fitted series count.")
         # Initialize z_values if empty
         if self.z_values.size == 0:
             self.z_values = np.arange(self.data.shape[0], dtype=np.float64)
@@ -292,6 +297,9 @@ class Spectra(BaseModel):
             return
         mask = ~np.isin(range(self.data.shape[0]), exclude_list)
         self.data, self.z_values = self.data[mask], self.z_values[mask]
+        self.source_plane_indices = tuple(
+            i for i, keep in zip(self.source_plane_indices, mask, strict=True) if keep
+        )
 
 
 def determine_shape_name(dim_params: SpectralParameters) -> str:

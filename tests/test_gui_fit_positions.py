@@ -198,7 +198,7 @@ def test_apply_confirmation_retains_result_and_export_state(  # noqa: PLR0915
             amplitudes, scientific.outcome.clusters[0].analytical_evaluation.amplitudes
         )
         after_export = export_fit_result(scientific, tmp_path / "after")
-        for relative in ("summary/fit.json", "summary/local_fit.json", "tables/intensities.csv"):
+        for relative in ("summary/fit.json", "tables/intensities.csv"):
             assert (after_export / relative).read_bytes() == (
                 original_export / relative
             ).read_bytes()

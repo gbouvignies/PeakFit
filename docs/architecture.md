@@ -152,13 +152,13 @@ mapping in the future persisted-run interface. See [GUI design](gui-design.md)
 for that interface's scientific requirements and staged delivery.
 
 
-GUI fit export reuses `io.writers.orchestrator.write_fit_outputs` directly
-from the retained local or complete dataset outcome; `gui.fit_export` stages and validates
-the canonical artifacts and adds the scope/identity companion documented in
-[outputs](outputs.md#gui-local-fit-export). `gui.export_dialog` owns only directory
-selection and a short-lived background export thread. The viewer records export
-status by completed run identity independently of working peak edits. No persisted
-GUI session or numerical continuation state is constructed.
+CLI and GUI scientific export both call `fit.export.write_completed_outputs`
+with the same retained `CompletedFit`, coordinate context, metadata and output
+options. It writes the lossless `scientific.npz` authority and calls the existing
+JSON/CSV/report projections. Optional simulation is a shared float64 NPY export.
+`gui.fit_export` only adapts retained inputs and stages publication; it has no
+scientific writer or separate scientific schema. `gui.export_dialog` owns directory
+selection and a short-lived background export thread. See [outputs](outputs.md).
 
 The linear projection boundary in `engine.algorithms.linear_algebra` supplies
 one rank-aware model space and amplitude pseudoinverse to optimization and
@@ -256,10 +256,9 @@ Residual has a separately retained signed scale.
 One full accepted scientific result stays resident. Completion validation runs in
 a worker and is published atomically after accepted evidence is durable.
 History persistence and temporary ownership are described below. Failure/cancellation
-preserves the prior accepted result. A successful refit replaces it. Canonical
-exports include both exact submitted and adopted working coordinates plus
-currentness at export, and preserve the working peak state only when its exact
-stable-ID tuple matches the exported completion.
+preserves the prior accepted result. A successful refit replaces it. Projects
+retain submitted/adopted working coordinates, manual revision and Currentness;
+scientific exports retain the fitted model and its exact original sample mapping.
 
 Experimental contour geometry is cached independently of run/mode. An uncached
 comparison request schedules current-plane experimental geometry before the model
@@ -287,11 +286,16 @@ handoff independently of widgets. Reproduction and measured limits are in
 
 ### Linked-source analysis persistence
 
-`gui.project` owns the JSON/NPZ directory transaction and external source verification;
-`gui.project_results` reconstructs the immutable outcome from canonical 4.1 JSON,
-retains exact sample inputs and recreates resolved per-peak geometry. It checks
-terminal residual algebra, normalized residuals, chi-squared, stable identities and
-the automatic position transition. Verified comparison additionally checks source
+`gui.project` owns the manifest/immutable-directory transaction and external source
+verification. `fit.storage` writes and restores outcome/sample evidence as small
+metadata plus named typed NPY arrays in a level-1 deflated ZIP. It validates exact
+identities, dimensions, correction revisions and terminal algebra without solving.
+The global parameter tuple and cluster lookup are derived rather than persisted
+again. Arrays, including redundant model/residual representations, are retained
+exactly to avoid roundoff changes during reconstruction.
+`gui.project_results` recreates recorded geometry, submitted editor inputs and the
+automatic position transition without projecting science through JSON schemas.
+Verified comparison additionally checks source
 SHA-256/calibration/dtype/sample ordering and evaluates reconstructed shapes and
 model at the exact saved coordinates (rtol 1e-10; shape atol 1e-12, model atol 1e-9).
 No segmentation, parameter preparation, optimization or amplitude solve is involved.
@@ -299,8 +303,8 @@ Unsupported model descriptors retain numerical review and cannot be evaluated.
 
 `editor.persistence` supplies file actions, immutable capture and Qt publication;
 `editor.numerical` supplies a source-independent evidence workspace and history.
-`gui.project_process` isolates expensive JSON parsing/validation in a disposable
-spawned process so it cannot hold Qt behind the GIL. The trusted internal pipe
+`gui.project_process` isolates source verification and scientific archive operations
+in a disposable spawned process, preserving cancellation and Qt responsiveness. The trusted internal pipe
 uses the existing immutable-record transfer codec; project files are never
 unpickled. Routine saves of unchanged evidence use the existing thread worker,
 without process startup, source hashing or evidence rewriting. Source arrays do
@@ -349,8 +353,8 @@ asset registry is introduced.
 Ten full runs and protected evidence remain on disk; older entries retain exact
 coordinates, fitted tables/errors/bounds, submitted parameters/settings and concise
 diagnostics/statistics, explicitly without sample/profile capabilities. The 1 GiB
-historical budget excludes active/protected evidence. Existing export writers remain
-usable; compatibility is not a reason to constrain a better GUI v2 representation.
-The current project wraps validated scientific JSON in lossless gzip level 1. A
-separate focused change should assess a typed-array authority with derived exports,
-including peak decoding memory, before changing that scientific contract.
+historical budget excludes active/protected evidence. Project schema 2.0.0 rejects
+older projects deliberately; the new scientific codec replaces gzip JSON plus a
+separate sample archive. Explicit JSON remains a derived optional scientific
+export, shared by both interfaces. See [storage validation](validation/scientific-storage.md)
+for measured alternatives, serialization memory and platform limitations.

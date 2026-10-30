@@ -213,7 +213,10 @@ class OutputConfig(BaseModel):
         default=["json", "csv"],
         description="Output formats for results. Add 'txt' to write a Markdown report.",
     )
-    save_simulated: bool = Field(default=False, description="Save simulated spectrum to file.")
+    save_simulated: bool = Field(
+        default=False,
+        description="Export simulated.npy in float64, with calibration in scientific.npz.",
+    )
     include_timestamp: bool = Field(
         default=True,
         description="Include timestamp in output directory name.",

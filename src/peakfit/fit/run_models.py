@@ -105,6 +105,7 @@ class FitRun:
     spectra: Spectra | None = None
     simulation_snapshot: FinalModelSnapshot | None = None
     completed_fit: CompletedFit | None = None
+    peak_identities: tuple[dict[str, str], ...] | None = None
 
     @property
     def success(self) -> bool:

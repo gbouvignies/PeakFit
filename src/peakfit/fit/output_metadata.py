@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from importlib import metadata
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -24,6 +25,7 @@ except metadata.PackageNotFoundError:
 class RunMetadata:
     """Reproducibility metadata that is separate from scientific fit truth."""
 
+    run_id: str = field(default_factory=lambda: uuid4().hex)
     timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     software_version: str = __version__
     git_commit: str | None = None
@@ -31,6 +33,7 @@ class RunMetadata:
     platform: str = field(default_factory=platform.platform)
     input_files: dict[str, dict[str, str]] = field(default_factory=dict)
     configuration: dict[str, Any] = field(default_factory=dict)
+    warnings: tuple[str, ...] = ()
     command_line: str = ""
     run_duration_seconds: float | None = None
 

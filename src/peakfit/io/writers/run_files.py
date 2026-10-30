@@ -3,45 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from importlib import import_module
 from typing import TYPE_CHECKING, Any
-
-import numpy as np
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from peakfit.engine.domain.spectrum import Spectra
-    from peakfit.shared.reporter import Reporter
-    from peakfit.shared.typing import FloatArray
-
-
-def write_simulated_spectra(
-    output_dir: Path,
-    spectra: Spectra,
-    data_simulated: FloatArray,
-    reporter: Reporter | None = None,
-) -> Path | None:
-    """Write optional simulated spectra to an NMRPipe file."""
-    try:
-        ng = import_module("nmrglue")
-    except ModuleNotFoundError:
-        return None
-
-    if reporter:
-        reporter.action("Writing simulated spectra...")
-
-    if spectra.pseudo_dim_added:
-        data_simulated = np.squeeze(data_simulated, axis=0)
-
-    output_path = output_dir / f"simulated.ft{data_simulated.ndim}"
-    ng.pipe.write(
-        str(output_path),
-        spectra.dic,
-        data_simulated.astype(np.float32),
-        overwrite=True,
-    )
-    return output_path
 
 
 def write_readme(output_dir: Path, summary: Any) -> Path:
@@ -73,6 +38,8 @@ def write_readme(output_dir: Path, summary: Any) -> Path:
     ]
 
     file_descriptions = [
+        ("scientific.npz", "Lossless scientific result, samples, coordinates and provenance."),
+        ("simulated.npy", "Optional full-grid float64 model; calibration is in scientific.npz."),
         ("summary/fit.json", "Main machine-readable fit summary."),
         ("summary/report.md", "Concise human-readable report."),
         ("tables/parameters.csv", "Model parameters."),
@@ -106,5 +73,4 @@ def write_readme(output_dir: Path, summary: Any) -> Path:
 
 __all__ = [
     "write_readme",
-    "write_simulated_spectra",
 ]

@@ -461,9 +461,7 @@ class DatasetFitting(QtCore.QObject):
             != QtWidgets.QMessageBox.StandardButton.Yes
         ):
             return False
-        path = choose_and_export(
-            self.workspace, self.result, completion=self.completion, current=self.current
-        )
+        path = choose_and_export(self.workspace, self.result, completion=self.completion)
         if path:
             self.exported.add(self.result.run_id)
             if self.completion and self.workspace.peaks == self.completion.working_peaks:

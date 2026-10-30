@@ -32,7 +32,6 @@ def choose_and_export(
     result: LocalFitResult | DatasetFitResult,
     *,
     completion: DatasetCompletion | None = None,
-    current: bool | None = None,
 ) -> Path | None:
     """Choose a parent directory and create a new result-specific child directory."""
     directory = QtWidgets.QFileDialog.getExistingDirectory(
@@ -53,9 +52,7 @@ def choose_and_export(
 
         def begin() -> None:
             nonlocal future
-            future = executor.submit(
-                export_fit_result, result, destination, completion=completion, current=current
-            )
+            future = executor.submit(export_fit_result, result, destination, completion=completion)
 
         # Let the modal transition show progress and enter Qt before competing
         # for the GIL with serialization. No numerical work runs in this callback.

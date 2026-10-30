@@ -2,9 +2,7 @@
 
 import json
 from dataclasses import replace
-from pathlib import Path
 
-import numpy as np
 import pyqtgraph as pg
 from PySide6 import QtCore, QtWidgets
 
@@ -26,7 +24,7 @@ class NumericalReview(QtWidgets.QWidget):
         self._requested_id = None
         self._history_generation = 0
         self._worker = ViewerComputation(self)
-        self._worker.completed.connect(self._samples_exported)
+        self._worker.completed.connect(self._history_loaded)
         layout = QtWidgets.QVBoxLayout(self)
         title = QtWidgets.QLabel(
             "Numerical review only" if analysis.dataset is None else "Analysis history"
@@ -136,9 +134,6 @@ class NumericalReview(QtWidgets.QWidget):
             [],
         )
         sample_layout.addWidget(self.samples)
-        self.sample_export = QtWidgets.QPushButton("Export exact sample evidence…")
-        self.sample_export.clicked.connect(self.export_samples)
-        sample_layout.addWidget(self.sample_export)
         self.cluster.currentIndexChanged.connect(self.show_samples)
         self.plane.valueChanged.connect(self.show_samples)
         tabs.addTab(samples, "Fitting samples")
@@ -190,7 +185,6 @@ class NumericalReview(QtWidgets.QWidget):
             self.profile.clear()
             self.peak.clear()
             self.export.setEnabled(False)
-            self.sample_export.setEnabled(False)
             self.keep.setEnabled(False)
             self._worker.submit(
                 "history",
@@ -200,10 +194,10 @@ class NumericalReview(QtWidgets.QWidget):
                 ),
             )
             return
-        self.export.setEnabled(completion is not None)
+        self.export.setEnabled(completion is not None and not isinstance(completion, dict))
+        self.export.setToolTip("Full scientific export requires retained full evidence.")
         self.cluster.clear()
         self.samples.setRowCount(0)
-        self.sample_export.setEnabled(completion is not None and not isinstance(completion, dict))
         self.keep.setEnabled(completion is not None and not isinstance(completion, dict))
         with QtCore.QSignalBlocker(self.keep):
             self.keep.setChecked(
@@ -309,18 +303,11 @@ class NumericalReview(QtWidgets.QWidget):
     def export_run(self):
         """Reuse the canonical export workflow for retained numerical evidence."""
         completion = self.selected_run()
-        if isinstance(completion, dict):
-            filename, _ = QtWidgets.QFileDialog.getSaveFileName(
-                self, "Export summary-only evidence", "run-summary.json", "JSON (*.json)"
-            )
-            if filename:
-                Path(filename).write_text(json.dumps(completion, indent=2), encoding="utf-8")
-        elif completion:
+        if completion is not None and not isinstance(completion, dict):
             choose_and_export(
                 self,
                 completion.result,
                 completion=completion,
-                current=self.analysis.current and completion is self.analysis.completion,
             )
 
     def _keep(self, keep):
@@ -362,32 +349,6 @@ class NumericalReview(QtWidgets.QWidget):
             ],
         )
 
-    def export_samples(self):
-        """Export all retained observations/corrections and analytical sample arrays losslessly."""
-        completion = self.selected_run()
-        if completion is None or isinstance(completion, dict):
-            return
-        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, "Export exact sample evidence", "sample-evidence.npz", "NPZ (*.npz)"
-        )
-        if not filename:
-            return
-        arrays = {}
-        for s in completion.result.completed_fit.samples:
-            prefix = f"c{s.cluster_id}_"
-            arrays[prefix + "data"] = s.data
-            arrays[prefix + "corrections"] = s.neighbor_corrections
-            arrays.update(
-                {prefix + f"index{dim}": values for dim, values in enumerate(s.grid_indices)}
-            )
-            e = completion.result.outcome.cluster(s.cluster_id).analytical_evaluation
-            if e:
-                arrays[prefix + "model"] = e.model_values
-                arrays[prefix + "residual"] = e.raw_residuals
-        self.sample_export.setEnabled(False)
-        self.sample_note.setText("Exporting exact sample evidence…")
-        self._worker.submit("export", 0, lambda: np.savez_compressed(filename, **arrays))
-
     def selected_run(self):
         """Return only the active or explicitly loaded historical record."""
         selected = self.run.currentData()
@@ -398,22 +359,14 @@ class NumericalReview(QtWidgets.QWidget):
             return self._loaded_completion
         return selected
 
-    def _samples_exported(self, _kind, _revision, outcome):
-        if _kind == "history":
-            if _revision != self._history_generation:
-                return
-            if isinstance(outcome, Exception):
-                self.details.setPlainText(f"Historical evidence unavailable: {outcome}")
-            else:
-                self._loaded_completion = outcome
-                self.show_run()
+    def _history_loaded(self, _kind, revision, outcome):
+        if revision != self._history_generation:
             return
-        self.sample_export.setEnabled(True)
-        self.sample_note.setText(
-            f"Export failed: {outcome}"
-            if isinstance(outcome, Exception)
-            else "Exact sample evidence exported"
-        )
+        if isinstance(outcome, Exception):
+            self.details.setPlainText(f"Historical evidence unavailable: {outcome}")
+        else:
+            self._loaded_completion = outcome
+            self.show_run()
 
     def release(self):
         """Release the selected historical record and invalidate late worker deliveries."""

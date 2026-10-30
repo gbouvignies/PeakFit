@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import gzip
 import hashlib
 import json
 import os
@@ -14,12 +13,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 from uuid import uuid4
-from zipfile import ZipFile
 
 import numpy as np
 
 from peakfit.engine.domain.config import PeakFitConfig
-from peakfit.fit.output_metadata import RunMetadata
+from peakfit.fit.storage import read_scientific, write_scientific
 from peakfit.gui.fit_positions import DatasetCompletion, dataset_completion
 from peakfit.gui.project_results import (
     journal_entry,
@@ -29,9 +27,8 @@ from peakfit.gui.project_results import (
     verify_model,
 )
 from peakfit.gui.spectrum import Dataset, read_dataset
-from peakfit.io.writers.json import write_final_outcome_summary
 
-VERSION = "1.1.0"
+VERSION = "2.0.0"
 MAX_RUNS = 10
 MAX_EVIDENCE_BYTES = 1024**3
 MAX_ARCHIVE_BYTES = 8 * 1024**3
@@ -68,6 +65,7 @@ class Analysis:
             and snapshot.configuration == self.configuration
             and snapshot.spectral_parameters == tuple(self.header["axes"])
             and snapshot.plane_values == tuple(self.header["planes"])
+            and snapshot.source_plane_indices == tuple(self.header["source_plane_indices"])
             and snapshot.source_files == tuple(tuple(s) for s in self.header["sources"])
         )
 
@@ -125,6 +123,7 @@ def dataset_header(dataset):
         "dtype": spectra.data.dtype.str,
         "axes": [axis.model_dump_json() for axis in spectra.params],
         "planes": spectra.z_values.tolist(),
+        "source_plane_indices": spectra.source_plane_indices,
         "has_plane_values": dataset.has_plane_values,
         "trace_limit": dataset.trace_limit,
         "noise": dataset.noise,
@@ -162,8 +161,7 @@ def _sync_directory(path):
 def _read_json(path):
     if path.stat().st_size > MAX_JSON_BYTES:
         raise ValueError("Project JSON exceeds the supported 512 MiB limit.")
-    opener = gzip.open if path.suffix == ".gz" else Path.open
-    with opener(path, "rb") as stream:
+    with path.open("rb") as stream:
         content = stream.read(MAX_JSON_BYTES + 1)
     if len(content) > MAX_JSON_BYTES:
         raise ValueError("Expanded project JSON exceeds the supported 512 MiB limit.")
@@ -179,52 +177,15 @@ def _safe_run_id(value):
 def _write_run(directory, completion):
     result = completion.result
     directory.mkdir()
-    summary = directory / "summary" / "fit.json"
-    write_final_outcome_summary(
-        result.outcome,
-        metadata=RunMetadata(
-            timestamp=result.completed_at,
-            software_version=result.software_version,
-            input_files={k: json.loads(v) for k, v in result.inputs.snapshot.source_files},
-            configuration=json.loads(result.inputs.snapshot.configuration),
-            run_duration_seconds=result.execution_seconds,
-        ),
-        z_values=np.array(result.inputs.snapshot.plane_values),
-        path=summary,
-    )
-    if summary.stat().st_size > MAX_JSON_BYTES:
-        raise ValueError("Scientific JSON exceeds the 512 MiB document limit.")
-    compressed_summary = summary.with_suffix(".json.gz")
-    with (
-        summary.open("rb") as source,
-        compressed_summary.open("wb") as target,
-        gzip.GzipFile(filename="", mode="wb", fileobj=target, compresslevel=1, mtime=0) as zipped,
-    ):
-        shutil.copyfileobj(source, zipped)
-    summary.unlink()
-    arrays = {}
-    for s in result.completed_fit.samples:
-        prefix = f"c{s.cluster_id}_"
-        arrays[prefix + "data"] = s.data
-        arrays[prefix + "corrections"] = s.neighbor_corrections
-        arrays.update({prefix + f"index{dim}": a for dim, a in enumerate(s.grid_indices)})
-    np.savez_compressed(directory / "samples.npz", **arrays)
+    write_scientific(directory / "result.npz", result.outcome, result.completed_fit.samples)
     record = run_record(result)
     record["post_fit_peaks"] = [asdict(p) for p in completion.working_peaks]
     record["manual_revision"] = completion.manual_revision
     record["completion_warnings"] = completion.warnings
-    record["arrays"] = {k: {"shape": a.shape, "dtype": a.dtype.str} for k, a in arrays.items()}
     _json(directory / "review.json", record)
-    files = ["summary/fit.json.gz", "samples.npz", "review.json"]
-    if sum(a.nbytes for a in arrays.values()) > MAX_ARCHIVE_BYTES:
-        raise ValueError("Sample evidence exceeds the supported 8 GiB expanded payload limit.")
+    files = ["result.npz", "review.json"]
     for name in files:
-        if name.endswith(".json") and (directory / name).stat().st_size > MAX_JSON_BYTES:
-            raise ValueError(
-                "Scientific JSON exceeds the 512 MiB document limit. Export the run separately."
-            )
         _sync(directory / name)
-    _sync_directory(directory / "summary")
     _sync_directory(directory)
     return {
         name: {"sha256": _digest(directory / name), "bytes": (directory / name).stat().st_size}
@@ -343,7 +304,6 @@ def _save_generation(analysis, root, destination, progress, canceled, preserve_i
                         if _digest(copy) != files[name]["sha256"]:
                             raise ValueError("Save as encountered corrupt immutable evidence.")
                         _sync(copy)
-                    _sync_directory(staged / "summary")
                     _sync_directory(staged)
                 else:
                     files = _write_run(staged, completion)
@@ -444,13 +404,9 @@ def _save_generation(analysis, root, destination, progress, canceled, preserve_i
 def _validate_run_files(root, entry):
     run_id = _safe_run_id(entry["run_id"])
     directory = root / "runs" / run_id
-    if any(p.is_symlink() for p in (root / "runs", directory, directory / "summary")):
+    if any(p.is_symlink() for p in (root / "runs", directory)):
         raise ValueError("Project evidence directories must not be symbolic links.")
-    expected = {"review.json", "samples.npz"}
-    if set(entry["files"]) not in (
-        expected | {"summary/fit.json"},
-        expected | {"summary/fit.json.gz"},
-    ):
+    if set(entry["files"]) != {"review.json", "result.npz"}:
         raise ValueError("Invalid project run payload list.")
     for name, info in entry["files"].items():
         path = directory / name
@@ -469,27 +425,8 @@ def _load_run(root, entry):
     record = _read_json(directory / "review.json")
     if record["run_id"] != run_id:
         raise ValueError("Run identifier disagrees with immutable evidence.")
-    with ZipFile(directory / "samples.npz") as archive:
-        if sum(i.file_size for i in archive.infolist()) > MAX_ARCHIVE_BYTES:
-            raise ValueError("Expanded sample evidence exceeds the 8 GiB reader limit.")
-    with np.load(directory / "samples.npz", allow_pickle=False) as payload:
-        if set(payload.files) != set(record["arrays"]):
-            raise ValueError("Sample array names disagree with manifest.")
-        arrays = {}
-        for name, descriptor in record["arrays"].items():
-            a = payload[name]
-            if (
-                list(a.shape) != descriptor["shape"]
-                or a.dtype.str != descriptor["dtype"]
-                or a.dtype.kind not in "fiu"
-            ):
-                raise ValueError("Sample array shape/dtype mismatch.")
-            a.flags.writeable = False
-            arrays[name] = a
-    summary_name = (
-        "summary/fit.json.gz" if "summary/fit.json.gz" in entry["files"] else "summary/fit.json"
-    )
-    result = restore_result(record, _read_json(directory / summary_name), arrays)
+    outcome, samples, _ = read_scientific(directory / "result.npz")
+    result = restore_result(record, outcome, samples)
     post = read_peaks(record["post_fit_peaks"])
     # Validate automatic adoption again rather than trusting a saved Current flag.
     completion = dataset_completion(
@@ -526,10 +463,7 @@ def open_analysis(
     }
     if set(manifest) != allowed:
         raise ValueError("Invalid analysis manifest fields.")
-    if (
-        manifest.get("schema_version") not in {"1.0.0", VERSION}
-        or manifest.get("kind") != "peakfit_analysis"
-    ):
+    if manifest.get("schema_version") != VERSION or manifest.get("kind") != "peakfit_analysis":
         raise ValueError(f"Unsupported analysis version: {manifest.get('schema_version')!r}")
     entries = manifest["runs"]
     if len({r["run_id"] for r in entries}) != len(entries):
