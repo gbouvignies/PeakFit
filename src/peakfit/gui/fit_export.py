@@ -10,7 +10,6 @@ import numpy as np
 
 from peakfit.fit.output_metadata import RunMetadata
 from peakfit.gui.dataset_fit import DatasetFitResult
-from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import write_fit_outputs
 
@@ -119,7 +118,10 @@ def export_fit_result(
         provenance.write_text(
             json.dumps(companion, indent=2, allow_nan=False) + "\n", encoding="utf-8"
         )
-        ResultsLoader(staged).load_summary()
+        # The canonical JSON writer validates FitSummarySchema before writing.
+        # Parsing the full summary again here holds the GIL across its large C
+        # decoder call, starving Qt even though export runs in a worker thread.
+        # Keep publication/file checks here; reader round trips belong in tests.
         if not all(
             path.is_file() and path.stat().st_size for path in [*files.values(), provenance]
         ):

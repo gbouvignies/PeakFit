@@ -117,7 +117,10 @@ explicitly and retains it through hover and plane navigation; clipping is labele
 A newly accepted model can expand the intensity scale once, with an explicit notice.
 
 Model planes compute asynchronously. Old-plane model/residual graphics disappear
-immediately and show a pending label. Native measured inspection remains available;
+immediately. While Overlay or Residual is pending, the 2D view shows the current
+plane’s experimental contours with an explicit pending label. Cached experimental
+geometry is reused; otherwise it is prepared off Qt before model projection.
+No old plane or run is used as a fallback. Native measured inspection remains available;
 residual slices wait for a matching model. Hover reads cached native rows/columns
 and starts no model or contour jobs. Display caches are bounded to 128 MiB/eight
 model planes and 32 MiB/eight contour geometries, with stale deliveries rejected.
@@ -141,13 +144,17 @@ actual correction/pass counts, post-fit coordinates, adoption warnings and
 currentness at export. Outdated export requires an explicit acknowledgment and
 exports that retained run's evidence. Raw spectra are never rewritten.
 
-There is one resident completed result. Up to ten full completed payloads are
-spooled to a temporary session directory, bounded to 1 GiB with the active run
-always retained. Routine refits do not ask to discard/export prior results. Review
-shows the recovery directory; historical run browsing and portable analysis
-save/reopening belong to Milestone 3. Temporary payloads are private trusted-process
-records, not supported analysis imports. Export results before closing; the close
-and replacement guards distinguish unexported results from edited peak inputs.
+There is one resident immutable completed result. Cancellation and failure preserve
+it. A successful refit replaces it; export results you need to keep before refitting.
+Routine repeated fits introduce no discard/export prompt. There are no private
+session pickle files or write-only recovery storage. Analysis save/reopening and
+historical browsing are outside this milestone.
+
+A successful canonical result export also preserves its exact post-fit working
+peak tuple. When those are still the working coordinates, closing does not ask
+for a duplicate peak export. Later manual edits and imported plane metadata keep
+their existing close protection. Exporting an outdated run never marks different
+working peaks as preserved. Failed or canceled exports leave the state unchanged.
 MCMC and full cluster refinement remain out of scope.
 
 **Display…** changes signed contour threshold, spacing/count, labels and stroke

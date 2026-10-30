@@ -13,9 +13,12 @@ from PySide6 import QtCore, QtWidgets
 from test_gui_dataset import _dataset
 from test_gui_editor import wait_for
 
+import peakfit.gui.editor.canvas as canvas_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
+from peakfit.gui.editor import fitting as fitting_module
 from peakfit.gui.editor.loading import Dataset
+from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.fit_export import export_fit_result
@@ -138,14 +141,12 @@ def test_repeat_actual_process_cancel_failure_and_fresh_masks(workspace):
     assert w.fitting.current, w.fitting.failure
     assert w.fitting.result.inputs.snapshot.peaks == seeds
     assert w.fitting.result.inputs is not previous.inputs
-    assert len(w.fitting.retained) == 2
     for _ in range(20):
         seeds = w.peaks
         w.fitting.fit()
         wait_for(lambda: not w.fit_busy, timeout=20)
         assert w.fitting.current, w.fitting.failure
         assert w.fitting.result.inputs.snapshot.peaks == seeds
-    assert len(w.fitting.retained) == 10
 
 
 def test_partial_usability_nonconvergence_and_free_pin(workspace, scientific):
@@ -250,3 +251,129 @@ def test_all_unusable_completion_and_invalid_replacement(workspace, scientific):
     assert w.fitting.result is unusable
     assert w.peaks == seeds
     assert "stable-ID mapping" in w.fitting.failure
+
+
+@pytest.mark.parametrize("mode", [1, 2])
+def test_pending_comparison_keeps_current_experiment(workspace, scientific, monkeypatch, mode):
+    w, c = workspace, workspace.canvas
+    # Prime experimental geometry for this plane before requesting an uncached model.
+    w.set_plane(3)
+    wait_for(lambda: not c.contour_pending)
+    entered, release = Event(), Event()
+    project = canvas_module.dataset_model_plane
+
+    def delayed(*args, **kwargs):
+        entered.set()
+        assert release.wait(3)
+        return project(*args, **kwargs)
+
+    monkeypatch.setattr(canvas_module, "dataset_model_plane", delayed)
+    try:
+        publish(w, scientific[-1])
+        wait_for(entered.is_set)
+        if mode == 2:
+            w.set_mode(2)
+        assert c.contour_pending
+        assert c._model is None
+        assert len(c.paths) == 2, "Current-plane experimental contours must remain visible"
+        assert "Experimental" in c.pending_label.toPlainText()
+        assert ("Residual" if mode == 2 else "Overlay") in c.pending_label.toPlainText()
+        if mode == 2:
+            assert c.curve_x.getData()[1] is None
+    finally:
+        release.set()
+    wait_for(lambda: not c.contour_pending)
+
+
+def test_result_export_preserves_adopted_peaks_for_close(
+    workspace, scientific, monkeypatch, tmp_path
+):
+    w = workspace
+    publish(w, scientific[-1])
+    assert w.edits.dirty
+    monkeypatch.setattr(fitting_module, "choose_and_export", lambda *_a, **_k: None)
+    assert not w.fitting.export()
+    assert w.edits.dirty
+    monkeypatch.setattr(fitting_module, "choose_and_export", lambda *_a, **_k: tmp_path)
+    assert w.fitting.export()
+    assert not w.edits.dirty
+    assert w.fitting.current
+    window = EditorWindow()
+    window.workspace = w
+
+    def unexpected_prompt(*_args, **_kwargs):
+        pytest.fail("Exported adopted positions must not cause another close prompt")
+
+    monkeypatch.setattr(QtWidgets.QMessageBox, "question", unexpected_prompt)
+    monkeypatch.setattr(QtWidgets.QMessageBox, "exec", unexpected_prompt)
+    assert window.protect_edits()
+    # Further manual changes are still unpreserved, including when an old run is exported.
+    peak = w.peaks[0]
+    w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.00001))
+    assert w.edits.dirty
+    assert not w.fitting.current
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox,
+        "question",
+        lambda *_a, **_k: QtWidgets.QMessageBox.StandardButton.Yes,
+    )
+    assert w.fitting.export()
+    assert w.edits.dirty
+    assert not w.fitting.current
+    w.plane_values_modified = True
+    assert w.has_changes
+    window.workspace = None
+    window.close()
+
+
+def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientific, monkeypatch):
+    w, c = workspace, workspace.canvas
+    result = scientific[-1]
+    publish(w, result)
+    wait_for(lambda: not c.contour_pending)
+    old_model = c._model
+    entered, release = Event(), Event()
+    project = canvas_module.dataset_model_plane
+
+    def delayed(result, axes, plane, *, cancel):
+        if plane == 1:
+            entered.set()
+            assert release.wait(3)
+        return project(result, axes, plane, cancel=cancel)
+
+    monkeypatch.setattr(canvas_module, "dataset_model_plane", delayed)
+    try:
+        # No cached experimental contours for this plane: prepare those first,
+        # then keep them visible while the model calculation is held pending.
+        w.set_mode(2)
+        w.set_plane(2)
+        wait_for(entered.is_set)
+        assert len(c.paths) == 2
+        assert c._displaying_experiment
+        assert c._model is None
+        assert c.curve_x.getData()[1] is None
+        obsolete = c._revision
+        w.set_plane(3)
+        # The fallback must never be carried across acquisition indices.
+        assert not c.paths
+        assert c._model is None
+    finally:
+        release.set()
+    wait_for(lambda: not c.contour_pending)
+    expected = project(result, c.spectra.spectral_params, 2, cancel=Event())
+    np.testing.assert_array_equal(c._model.values, expected.values)
+    current_model = c._model
+    c._contours_ready("model", obsolete, (old_model, []))
+    assert c._model is current_model
+    # Replacing a run on the same plane can reuse only experimental geometry.
+    obsolete = c._revision
+    c.set_comparison(replace(result, run_id="replacement"), 2)
+    assert c._model is None
+    assert c._displaying_experiment
+    assert len(c.paths) == 2
+    c._contours_ready("model", obsolete, (current_model, []))
+    assert c._model is None
+    wait_for(lambda: not c.contour_pending)
+    assert all(key[0] == "replacement" for key in c._model_cache)
+    residual = (c.spectra.data[2] - c._model.values) / result.outcome.noise
+    np.testing.assert_array_equal(c.curve_x.getData()[1], residual[c.iy])

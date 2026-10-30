@@ -1,13 +1,8 @@
 """Whole-dataset execution and atomic completion in the existing editor workspace."""
 
-import io
-import pickle
 from dataclasses import replace
 from html import escape
-from pathlib import Path
-from tempfile import mkdtemp
 from time import perf_counter
-from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtWidgets
@@ -15,7 +10,7 @@ from PySide6 import QtCore, QtWidgets
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_dialog import DatasetFitDialog
-from peakfit.gui.dataset_fit import DatasetFitResult, _reduce_mapping, dataset_summary
+from peakfit.gui.dataset_fit import DatasetFitResult, dataset_summary
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.fit_positions import dataset_completion
 from peakfit.gui.fit_process import FitProcess, FitProcessResult
@@ -26,28 +21,8 @@ if TYPE_CHECKING:
     from peakfit.gui.fitting import FitInputSnapshot
 
 
-_RETAINED_RUNS = 10
-
-
-def retain_result(result: DatasetFitResult, directory: Path) -> Path:
-    """Spool trusted session evidence before replacing the resident result.
-
-    This private pickle is never accepted as an imported analysis. It preserves
-    exact inputs and reconstruction payloads for recovery during this session.
-    """
-    stream = io.BytesIO()
-    writer = pickle.Pickler(stream, protocol=5)
-    writer.dispatch_table = {MappingProxyType: _reduce_mapping}
-    writer.dump(result)
-    path = directory / f"{result.run_id}.pickle"
-    temporary = path.with_suffix(".pending")
-    temporary.write_bytes(stream.getvalue())
-    temporary.replace(path)
-    return path
-
-
 class DatasetFitting(QtCore.QObject):
-    """One active result, one fit, fresh preparation and a bounded session spool."""
+    """One active immutable result, one fit and fresh whole-dataset preparation."""
 
     state_changed = QtCore.Signal()
 
@@ -68,8 +43,6 @@ class DatasetFitting(QtCore.QObject):
         self._review_timer = QtCore.QTimer(self)
         self._review_timer.setSingleShot(True)
         self._review_timer.timeout.connect(self._reveal_review)
-        self._session = Path(mkdtemp(prefix="peakfit-session-"))
-        self.retained: list[tuple[str, Path]] = []
         self._worker = ViewerComputation(self)
         self._worker.completed.connect(self._prepared)
         self.process = FitProcess(self)
@@ -155,8 +128,6 @@ class DatasetFitting(QtCore.QObject):
 
     def _prepared(self, kind, generation, outcome) -> None:
         if generation != self._generation:
-            if kind == "publication" and isinstance(outcome, tuple):
-                outcome[1].unlink(missing_ok=True)
             return
         if kind == "publication":
             self._publish(outcome)
@@ -199,19 +170,16 @@ class DatasetFitting(QtCore.QObject):
             outcome.scientific, DatasetFitResult
         ):
             self._preparing = True
-            self.attempt = "Validating completion and retaining evidence"
+            self.attempt = "Validating completion"
             result = outcome.scientific
             current = self.snapshot(result.inputs.snapshot)
             revision = self.workspace.edits.revision
             submitted = self._submitted_revision
-            directory = Path(self._session)
 
             def complete():
-                completion = dataset_completion(
+                return dataset_completion(
                     result, current, submitted_revision=submitted, manual_revision=revision
                 )
-                path = retain_result(result, directory)
-                return completion, path
 
             self._worker.submit("publication", self._generation, complete)
         else:
@@ -226,7 +194,7 @@ class DatasetFitting(QtCore.QObject):
             self.failure = str(outcome)
             self.update()
             return
-        completion, path = outcome
+        completion = outcome
         w = self.workspace
         if (
             self._submitted_revision != w.edits.revision
@@ -239,11 +207,6 @@ class DatasetFitting(QtCore.QObject):
         # No signal or event-loop yield occurs between installing W and its run.
         self.completion = completion
         w.edits.accept_completion(completion.working_peaks)
-        self.retained.append((completion.result.run_id, path))
-        try:
-            self._prune()
-        except OSError as error:
-            self.failure = f"Could not prune temporary evidence: {error}"
         self.attempt = ""
         w._refresh()
         if following:
@@ -254,15 +217,6 @@ class DatasetFitting(QtCore.QObject):
         usable = any(c.usable for c in completion.result.outcome.clusters)
         w.set_mode(1 if usable else 0)
         self.update()
-
-    def _prune(self) -> None:
-        # The active payload always survives, even if it exceeds the disk budget.
-        while len(self.retained) > 1 and (
-            len(self.retained) > _RETAINED_RUNS
-            or sum(path.stat().st_size for _, path in self.retained) > 1024**3
-        ):
-            _, path = self.retained.pop(0)
-            path.unlink()
 
     def update(self) -> None:
         """One compact status line; inspection and navigation stay available."""
@@ -415,10 +369,9 @@ class DatasetFitting(QtCore.QObject):
             lines.extend(result.warnings)
             assert self.completion is not None
             lines.extend(self.completion.warnings)
-            lines.append(f"Session evidence: {len(self.retained)} full runs in {self._session}")
             lines.append(
-                "Temporary recovery only; export results before closing. "
-                "Analysis reopening is a later milestone."
+                "One active result is retained in memory. Export results before closing "
+                "or replacing them; analysis reopening is a later milestone."
             )
         text = "\n".join(lines)
         if self._diagnostic_text != text:
@@ -448,11 +401,16 @@ class DatasetFitting(QtCore.QObject):
         )
         if path:
             self.exported.add(self.result.run_id)
+            if self.completion and self.workspace.peaks == self.completion.working_peaks:
+                # The canonical companion contains this exact stable-ID coordinate
+                # tuple. Its successful export also preserves the working peaks.
+                self.workspace.edits.mark_saved()
+                self.workspace.changed.emit()
             self.workspace.status.setText(f"Exported retained run to {path}")
         return path is not None
 
     def stop(self) -> None:
-        """Stop work; temporary evidence persists for the lifetime of this workspace."""
+        """Stop workers and invalidate queued deliveries without writing session files."""
         self.timer.stop()
         self._review_timer.stop()
         self._generation += 1

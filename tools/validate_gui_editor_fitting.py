@@ -9,6 +9,7 @@ from pathlib import Path
 from threading import Event
 from time import perf_counter
 from typing import Any
+from unittest.mock import patch
 
 import numpy as np
 from PySide6 import QtCore, QtTest, QtWidgets
@@ -18,7 +19,7 @@ from peakfit.gui.dataset_dialog import DatasetFitDialog
 from peakfit.gui.editor.loading import read_dataset
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.fit_display import dataset_model_plane
-from peakfit.gui.fit_export import export_fit_result
+from peakfit.io.readers.results import ResultsLoader
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "docs/validation/gui-v2-fitting"
@@ -116,6 +117,15 @@ def main():  # noqa: PLR0915
     )
     assert w.fitting.completion is not None
     report["completion_warnings"] = list(w.fitting.completion.warnings)
+    phase[0] = "capture_pending"
+    for mode, name in ((1, "Overlay"), (2, "Residual")):
+        w.set_mode(mode)
+        wait_until(lambda: bool(c.paths) and c._displaying_experiment, timeout=1)
+        assert c.contour_pending
+        assert name in c.pending_label.toPlainText()
+        window.grab().save(str(OUTPUT / f"pending-{name.lower()}.webp"), "WEBP", 95)
+    w.set_mode(1)
+    settle(20)
     phase[0] = "projection"
     wait_until(lambda: not c.contour_pending, timeout=60)
     with ThreadPoolExecutor(max_workers=1) as worker:
@@ -206,7 +216,7 @@ def main():  # noqa: PLR0915
     assert c.contour_jobs == jobs
     assert c.marker_rebuilds == markers
     settle(50)
-    phase[0] = "navigation"
+    phase[0] = "navigation_uncached"
     times = []
     for plane in (1, 60, 131):
         started = perf_counter()
@@ -214,15 +224,21 @@ def main():  # noqa: PLR0915
         wait_until(lambda: not c.contour_pending, timeout=60)
         times.append((perf_counter() - started) * 1000)
     report["uncached_plane_ms"] = times
+    phase[0] = "navigation_cached"
     cached = []
     for index in range(100):
         started = perf_counter()
         w.set_plane((1, 60, 131)[index % 3])
         wait_until(lambda: not c.contour_pending, timeout=60)
         cached.append((perf_counter() - started) * 1000)
+        # Deliver separate input turns rather than starving our own heartbeat
+        # with 100 cached requests in one synchronous Python loop.
+        settle(16)
         if index % 10 == 0:
             report["rss_mib"].append(rss_mib())
     report["cached_plane"] = percentiles(cached)
+    report["cached_input_interval_ms"] = 16
+    phase[0] = "navigation_rapid"
     started = perf_counter()
     for plane in range(1, 41):
         w.set_plane(plane)
@@ -235,16 +251,13 @@ def main():  # noqa: PLR0915
     report["rss_mib"].append(rss_mib())
     settle(50)
     phase[0] = "export"
-    with ThreadPoolExecutor(max_workers=1) as worker:
-        export = worker.submit(
-            export_fit_result,
-            result,
-            Path("/tmp") / f"peakfit-v2-validation-export-{result.run_id}",
-            completion=w.fitting.completion,
-            current=w.fitting.current,
-        )
-        wait_until(export.done, timeout=60)
-        report["export"] = str(export.result())
+    with patch.object(QtWidgets.QFileDialog, "getExistingDirectory", return_value="/tmp"):
+        started = perf_counter()
+        click(w.export_fit)
+        report["export_s"] = perf_counter() - started
+        report["export"] = str(Path("/tmp") / f"dataset-fit-{result.run_id}")
+        assert result.run_id in w.fitting.exported
+        assert not w.edits.dirty
     phase[0] = "cancel"
     prior = w.peaks
     click(w.fit_button)
@@ -269,15 +282,30 @@ def main():  # noqa: PLR0915
     assert w.fitting.current, w.fitting.failure
     assert w.fitting.result is not None
     assert w.fitting.result.inputs.snapshot.peaks == new_seeds
-    assert len(w.fitting.retained) == 2
+    phase[0] = "export_refit"
+    with patch.object(QtWidgets.QFileDialog, "getExistingDirectory", return_value="/tmp"):
+        click(w.export_fit)
+        assert w.fitting.result.run_id in w.fitting.exported
+        assert not w.edits.dirty
     heartbeat.stop()
+    # Reader round-trip verification belongs to the harness, outside the measured
+    # application export path. The canonical writer validates before publication.
+    summary = ResultsLoader(Path(report["export"])).load_summary()
+    for loaded, original in zip(summary.clusters, result.outcome.clusters, strict=True):
+        assert loaded.cluster_id == original.cluster_id
+        if original.analytical_evaluation is not None:
+            assert loaded.analytical_evaluation is not None
+            np.testing.assert_array_equal(
+                loaded.analytical_evaluation.amplitudes, original.analytical_evaluation.amplitudes
+            )
     report["heartbeat"] = {
         name: percentiles([v for p, v in beats if p == name])
         for name in sorted({p for p, v in beats})
     }
     (OUTPUT / "measurements.json").write_text(json.dumps(report, indent=2) + "\n")
-    w.stop()
-    window.hide()
+    assert window.protect_edits()
+    window.close()
+    assert not window.isVisible()
     print(  # noqa: T201
         json.dumps(
             {key: value for key, value in report.items() if key not in ("captures", "sources")},

@@ -1,9 +1,8 @@
 # GUI v2 Milestone 2: fit → compare → export
 
-Native validation on 30 October 2026, using the production `peakfit-editor`
-workspace and bundled `examples/02-advanced-fitting/data` inputs. This is a
-functional milestone, with the performance/platform limits below; it is not a
-claim of complete GUI v2 release acceptance. The existing `peakfit gui` is retained.
+Native validation on 30 October 2026, including the focused PR #69 review fixes.
+The existing workspace architecture and visual composition are retained. No
+Milestone 3 functionality is introduced; `peakfit gui` remains available.
 
 ## Reproduction and environment
 
@@ -17,121 +16,168 @@ uv run lint-imports
 uv build
 ```
 
-Reference hardware: Apple M5 Pro, 64 GiB RAM; macOS 27.2 arm64, native Cocoa,
-DPR 2. Qt 6.10.1, PyQtGraph 0.14.0, NumPy 2.4.1. Final measurements were collected
-without concurrent test/graph runs. [Raw measurements](gui-v2-fitting/measurements.json)
-include every stage's p50/p95/p99/maximum heartbeat gap and RSS observations.
+Apple M5 Pro, 64 GiB RAM; macOS 27.2 arm64, native Cocoa, DPR 2; Qt 6.10.1,
+PyQtGraph 0.14.0, NumPy 2.4.1. Measurements run without concurrent tests/profilers.
+[Updated raw measurements](gui-v2-fitting/measurements.json),
+[original measurements including the outliers](gui-v2-fitting/measurements-before-review.json),
+and [targeted profiling evidence](gui-v2-fitting/profiling.json) are retained.
 
-The harness dispatches QtTest input to visible Fit/Run/Cancel/mode controls and
-uses deterministic scene events through the production preview coalescer at about
-62.4 Hz. Paint completion is observed on the exposed Cocoa canvas. These are
-native Qt rendering measurements, **not OS pointer or input-to-photon latency**.
-Screenshots are native rendered client-area grabs, not design mockups. Canonical
-exports are generated and validated in `/tmp`, not committed as large fit fixtures.
+The harness uses visible native QtTest controls and deterministic scene deliveries,
+not OS pointer/input-to-photon measurements. Screenshots are native client-area
+grabs. Exports use the real modal GUI path; only directory selection is supplied
+by the harness. Reader verification runs after the measured application operations.
 
-## Scientific and lifecycle checks
+## Focused review changes
 
-The real input contains **131 × 256 × 546 native samples and 166 peaks**. The first
-Fit action opens the shared scientific review dialog. Its default two-pass run
-prepares all **121 clusters**, executes the regular pipeline and records one
-cross-cluster correction update. All 121 terminal clusters were usable/converged;
-three analytical uncertainty warnings remained explicit. All 166 position pairs
-changed automatically, with no adoption warnings. Exact initial seeds remain in
-the immutable run, separately from optimized working coordinates.
+### Current experimental context while projection is pending
 
-The harness asserts Currentness after adoption, preserved selection/plane/ppm
-viewport, and the selected-peak pin following once. Overlay is automatic. Native
-model values match a separate call to the authoritative completed projector with
-**maximum absolute difference 0**. Both residual slices are array-equal to native
-`(D − total usable model) / σ_stat`. Corrected optimizer residuals/statistics are
-retained independently; comparison never solves amplitudes or optimizes again.
+The 2D view now shows **current-plane experimental contours** while Overlay or
+Residual is pending. Cached experimental geometry is reused independently of
+run/mode; on an uncached plane, experimental geometry runs first in the existing
+worker lane, followed by model projection. Both stages share request revisions.
+Old-plane paths are removed immediately; no old run, old plane or provisional
+residual is used as a fallback. Residual slices stay empty until a matching model
+exists; the caption/status explicitly identifies pending Residual. Expensive
+geometry and model evaluation stay outside Qt, within the existing cache budgets.
 
-A canceled replacement preserves the exact prior result object and working tuple.
-A committed edit switches to Experimental/Outdated. Refit uses the changed optimized
-working tuple as fresh preparation inputs and returns Current without reopening
-Settings. Export uses the canonical writers and adds exact submitted/post-fit
-coordinates, stable identity mapping, adoption warnings and currentness at export.
+Regressions hold projection pending, assert cached and uncached experimental
+fallback, change acquisition indices rapidly, replace a run on the same plane,
+and deliver obsolete results deliberately. Only the latest request can publish.
 
-Focused tests additionally cover mixed/all-unusable outcomes, usable
-non-convergence, invalid identity publication, free versus selected-peak pins,
-drafts/commit/Undo currentness, immutable total projection, rapid stale plane
-requests, failure preservation and **20 additional actual process refit cycles**.
-The last ten full temporary payloads are retained without third-run interruptions.
-Existing completion-contract tests protect aliases, duplicate assignments,
-non-finite/missing pairs, uncertainty warnings and no-op transitions.
+![Native pending Residual with current experimental contours](gui-v2-fitting/pending-residual.webp)
 
-Repository validation: **415 tests passed**; the final focused editor/fitting check
-passed **22 tests**. Ruff, formatting, type checking, both import-linter contracts
-and wheel/sdist build passed. Graphify's code graph was updated using AST extraction.
+[Pending Overlay](gui-v2-fitting/pending-overlay.webp).
 
-## Measurements
+### Remove write-only private result files
 
-| Observation | Final isolated run |
+`retain_result`, private pickle writing, `mkdtemp`, historical-payload bookkeeping
+and pruning are removed. They supplied no supported recovery reader and had no
+workspace-close cleanup. The active immutable result remains in memory, including
+exact submitted seeds and `DatasetCompletion`. Cancellation/failure preserves it;
+a successful refit replaces it. Canonical exports remain the way to retain results.
+Existing fit-process in-memory IPC is unchanged. Export staging still has its
+existing `TemporaryDirectory` owner/lifetime and transactional cleanup tests.
+
+Successful result export marks working peaks preserved **only when their exact
+stable-ID tuple matches the exported post-fit tuple**. Closing then requires no
+duplicate peak export. Failed/canceled export and exporting an outdated run with
+different working peaks leave peak dirtiness unchanged. Plane metadata protection
+is unchanged. The native harness exports both the initial and refitted result and
+closes normally with no duplicate prompt.
+
+### Stall diagnosis and corrections
+
+The investigation used a minimized native heartbeat loop, cProfile, timed writer/
+Qt boundaries, GC callbacks and a short macOS native stack sample. Throwaway probe
+scripts/instrumentation were removed; the evidence is in `profiling.json`.
+
+1. **Original navigation outlier:** the old harness issued 100 cached requests in
+   one synchronous Python turn, with no event processing whenever cache delivery
+   was immediate. The minimized loop occupied **174 ms** and produced a **202 ms**
+   heartbeat gap; actual event-delivered rapid input peaked at **21 ms**. RSS calls
+   cost 7–22 ms and were not the main cause. The harness now delivers separate
+   cached input turns at 16 ms, and reports uncached/cached/rapid stages separately.
+   This corrects a self-starved measurement rather than deleting an application
+   outlier. The old raw 140 ms observation is retained.
+2. **Original export outlier:** `ResultsLoader.load_summary()` redundantly reread
+   the just-written large JSON. cProfile measured about **269 ms** in JSON decoding
+   and **323 ms** in the reader, coinciding with a **289 ms** heartbeat gap. This
+   reread is removed. The canonical writer already validates `FitSummarySchema`
+   before writing; artifact checks and atomic publication remain. Native and test
+   reader round trips continue to verify scientific output correctness.
+3. **Actual modal export startup:** the revised harness exercises the real dialog,
+   exposing additional startup contention. Native sampling found the Qt timer
+   waiting in `PyGILState_Ensure → take_gil → _pthread_cond_wait` while the export
+   worker serialized. GC pauses were about 11–13 ms and spectrum paint probes
+   found no matching long pause. Window-modal sheets (272 ms show/hide) and an
+   ordinary nested event loop did not help and were discarded. The existing
+   application-modal dialog now enters Qt before a zero-duration timer submits
+   its writer. A regression verifies progress is shown before work starts.
+   The final first-export maximum was **22 ms**. A remaining **114 ms** maximum
+   occurred when exporting immediately after refit while comparison projection
+   was pending; it remains explicit below, without claiming full latency acceptance.
+
+## Scientific and lifecycle verification
+
+Bundled input: **131 × 256 × 546 native samples, 166 peaks**. The standard two-pass
+pipeline prepares **121 clusters** and performs one cross-cluster correction
+update. All terminal clusters were usable/converged, with three analytical
+uncertainty warnings. All 166 coordinate pairs were automatically adopted and
+remained Current; exact seeds stayed immutable. Selection, plane, viewport and
+selected/free pin rules are preserved.
+
+Projection matched a separate authoritative projector call with **maximum absolute
+difference 0**. Both residual slices are array-equal to native
+`(D − total usable model) / σ_stat`. Corrected optimizer statistics remain separate.
+The full native workflow covers fit, adopted positions, pending fallback,
+Overlay/Residual, cancellation preservation, committed edit/Outdated, fresh refit,
+canonical export and close. Exported amplitudes also pass a full reader round trip.
+
+Focused tests protect mixed/all-unusable outcomes, non-convergence, invalid
+identity publication, draft/commit/Undo currentness, stale plane/run delivery,
+export state protection and **20 additional actual-process refit cycles**. Existing
+completion tests cover aliases, duplicate assignments, invalid pairs and uncertainty
+warnings. Repository suite: **420 tests passed**, with Ruff, formatting, types,
+import contracts and build passing.
+
+## Final isolated measurements
+
+| Observation | Result |
 | --- | ---: |
-| Load/install and first experimental contours | 315 ms |
-| First fit, including initial settings preparation/review | 5.46 s |
-| Fresh preparation + refit + completion retention/publication | 5.49 s |
-| Delivered hover → paint p95 / p99 / maximum | 9.09 / 9.75 / 10.14 ms |
+| Load/install and first experimental contours | 407 ms |
+| Fit including initial scientific-settings preparation/review | 5.58 s |
+| Fresh preparation + refit + atomic publication | 5.47 s |
+| Delivered hover → paint p95 / p99 / maximum | 9.65 / 10.27 / 10.66 ms |
 | Hover events / painted / superseded | 500 / 500 / 0 |
 | Hover contour jobs / marker rebuilds | 0 / 0 |
-| Uncached native model planes | 1.30 s |
-| Cached plane delivery p95 / p99 | 1.49 / 1.63 ms |
-| Forty rapid plane changes through matching final delivery | 1.44 s |
-| Cancel acknowledgment / actual process reaping | 0.78 / 41.91 ms |
-| Measured numerical display cache footprint | 6,025,776 bytes |
-| Fit heartbeat p95 / maximum | 10.84 / 57.07 ms |
-| Model projection heartbeat p95 / maximum | 10.98 / 22.45 ms |
-| Refit heartbeat p95 / maximum | 10.92 / 45.58 ms |
+| Uncached model plane, with experimental fallback | 1.37–1.38 s |
+| Cached plane installation p95 / p99 / maximum | 1.41 / 1.78 / 1.83 ms |
+| Forty rapid inputs through latest consistent delivery | 1.54 s |
+| Cancel acknowledgment / actual process reaping | 1.03 / 35.23 ms |
+| First canonical GUI export | 1.80 s |
+| Numerical display cache accounting | 6,033,896 bytes |
 
-Cached-plane timings end at consistent numerical/graphics installation, not the
-subsequent paint. Hover timings end after native paint. Forty rapid requests reject
-obsolete deliveries and finish on acquisition index 39, without mismatched slices.
-Display caches are bounded to eight native model planes/128 MiB plus eight contour
-geometries/32 MiB; scientific arrays are not evicted or truncated to meet latency.
-RSS was about 526 MiB after load, 1,018 MiB through all 100 cached plane round trips,
-and 1,025 MiB after visiting additional planes. This includes source/result arrays,
-Qt rendering/screenshot allocations and allocator retention; it is not the cache
-footprint or a peak-memory measurement. The script retains a reference to the first
-result to verify cancellation/refit identity, so its end-of-run RSS is not a proof
-of production one-result resident memory.
+| Application phase heartbeat | p95 / p99 / maximum (ms) |
+| --- | ---: |
+| Fit | 10.88 / 12.45 / 59.11 |
+| Projection | 10.71 / 11.44 / 21.86 |
+| Uncached navigation | 10.91 / 11.39 / 15.94 |
+| Cached input turns | 22.91 / 26.59 / 30.27 |
+| Rapid navigation | 11.13 / 13.54 / 18.02 |
+| Initial export | 12.08 / 18.67 / 22.43 |
+| Refit | 10.86 / 11.23 / 40.55 |
+| Immediate export after refit | 13.43 / 30.40 / **113.60** |
 
-## Native visual review
+Cached-plane timings end at consistent graphics installation; hover timings end
+after native paint. Geometry/model budgets remain eight entries/32 MiB and eight
+native planes/128 MiB. RSS was about 537 MiB after load, stable around 1,070 MiB
+through 100 round trips, and 1,071 MiB after more planes. This includes raw/result
+arrays, renderer/screenshot allocations and allocator retention, not just caches.
+The harness retains the first result to check identity across refit; this is not
+a production one-result peak-memory bound.
 
-At 1280×800 the 2D plot rectangle is approximately **740×416 logical pixels**.
-At 1440×900 it is approximately **900×516**. Both appearances and 1040×720 were
-captured. The rail stays closed/open according to user choice; fit completion
-opens no permanent panel. Review uses the existing inspector scroll surface,
-preserves useful peak rows and explicitly navigates clusters needing review.
+Screenshot capture/encoding is separately reported: maximum **214 ms** for the
+layout matrix and **295 ms** for pending captures. Phase handoffs drain capture
+events before projection timing, so this cost is not mislabeled as model latency.
+
+## Visual review and remaining limits
+
+Light/dark captures cover 1040×720, 1280×800 and 1440×900. The spectrum rectangle
+is approximately 740×416 logical pixels at 1280×800 and 900×516 at 1440×900. No new
+toolbar, permanent panel or fitting window is added.
 
 ![Native light overlay](gui-v2-fitting/1280-light-overlay.webp)
 
 ![Native dark residual](gui-v2-fitting/1280-dark-residual.webp)
 
-![Native warning review in the rail](gui-v2-fitting/review.webp)
+[Rail warning review](gui-v2-fitting/review.webp),
+[scientific settings](gui-v2-fitting/settings.webp),
+[minimum-size dark residual](gui-v2-fitting/1040-dark-residual.webp).
 
-[Scientific settings](gui-v2-fitting/settings.webp),
-[minimum-size dark residual](gui-v2-fitting/1040-dark-residual.webp),
-[large light overlay](gui-v2-fitting/1440-light-overlay.webp).
-
-## Known limitations and remaining acceptance
-
-- The strict no-stall performance gate is **not fully met**: export heartbeat maximum
-  was 290 ms, and rapid navigation maximum was 140 ms. Their p95 gaps were 17.05 ms
-  and 10.87 ms. Exact stall attribution and moving GIL-heavy export work into a
-  process remain follow-up work; those maxima must not be hidden by good medians.
-  Screenshot encoding itself produced 215 ms heartbeat gaps, recorded separately.
-- Uncached projection remains about 1.3 s, with immediate pending graphics and
-  responsive inspection. This is computational latency, not a frozen Qt operation.
-- This delivery exposes signed residual contours with a configurable first level;
-  the specification's optional residual raster and fitting-mask decoration are not
-  exposed here. Recorded samples remain available in scientific exports.
-- Full history browsing, summary-only journal retention, pinned evidence and portable
-  saved-analysis reopening belong to Milestone 3. Temporary full payloads are a
-  private recovery mechanism, not a supported file format. Closing guards protect
-  unexported active evidence; users should export any result they need to keep.
-- Native Linux/X11/Wayland, fractional scaling, large-font and screen-reader
-  acceptance have not been established on this macOS host. The existing GUI stays
-  available while these and broader functional parity are verified.
-- MCMC, parameter/bound editing in the working inspector and full cluster refinement
-  are deliberately outside this milestone. Convergence/Currentness are not claims
-  of scientific validity; the scientist must review lineshape assumptions/warnings.
+The strict no-gap-over-100-ms gate is still not fully met because of the immediate
+post-refit export tail above. It is retained as a limitation, not explained away
+by p95 or removed from the evidence. Native Linux, fractional scaling, large fonts
+and screen-reader acceptance remain unverified on this macOS host. Optional raster/
+mask decoration, saved-analysis persistence, historical browsing, MCMC and full
+cluster refinement remain outside this focused change. No new persistence or
+execution framework is introduced to chase the remaining tail.

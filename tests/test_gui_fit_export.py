@@ -326,3 +326,38 @@ def test_export_and_close_keep_result_and_peak_states_separate(tmp_path, monkeyp
         window.deleteLater()
         QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
         app.processEvents()
+
+
+def test_export_shows_progress_before_starting_writer(tmp_path, monkeypatch):
+    from threading import Event  # noqa: PLC0415
+
+    from peakfit.gui import export_dialog  # noqa: PLC0415
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    parent = QtWidgets.QWidget()
+    parent.show()
+    app.processEvents()
+    shown = Event()
+    observed = []
+
+    class Progress(export_dialog._ExportProgress):
+        def showEvent(self, event):  # noqa: N802
+            super().showEvent(event)
+            shown.set()
+
+    _spectra, _working, prepared, _config = _example()
+    completed = execute_local_fit(prepared)
+
+    def write(*_args, **_kwargs):
+        observed.append(shown.is_set())
+        return tmp_path
+
+    monkeypatch.setattr(export_dialog, "_ExportProgress", Progress)
+    monkeypatch.setattr(export_dialog, "export_fit_result", write)
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog, "getExistingDirectory", lambda *_a, **_k: str(tmp_path)
+    )
+    assert export_dialog.choose_and_export(parent, completed) == tmp_path
+    assert observed == [True]
+    parent.close()
+    parent.deleteLater()

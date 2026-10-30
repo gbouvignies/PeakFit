@@ -10,6 +10,8 @@ from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fit_export import export_fit_result
 
 if TYPE_CHECKING:
+    from concurrent.futures import Future
+
     from peakfit.gui.fit_positions import DatasetCompletion
     from peakfit.gui.local_fit import LocalFitResult
 
@@ -47,16 +49,31 @@ def choose_and_export(
     progress.setMinimumDuration(0)
     # A local worker and modal event loop suffice: no reusable job machinery.
     with ThreadPoolExecutor(max_workers=1, thread_name_prefix="peakfit-export") as executor:
-        future = executor.submit(
-            export_fit_result, result, destination, completion=completion, current=current
-        )
+        future: Future[Path] | None = None
+
+        def begin() -> None:
+            nonlocal future
+            future = executor.submit(
+                export_fit_result, result, destination, completion=completion, current=current
+            )
+
+        # Let the modal transition show progress and enter Qt before competing
+        # for the GIL with serialization. No numerical work runs in this callback.
+        start = QtCore.QTimer(progress)
+        start.setSingleShot(True)
+        start.timeout.connect(begin)
+        start.start(0)
         timer = QtCore.QTimer(progress)
         timer.setInterval(30)
-        timer.timeout.connect(lambda: progress.accept() if future.done() else None)
+        timer.timeout.connect(
+            lambda: progress.accept() if future is not None and future.done() else None
+        )
         timer.start()
         progress.exec()
         timer.stop()
+        progress.deleteLater()
         try:
+            assert future is not None
             return future.result()
         except Exception as error:
             QtWidgets.QMessageBox.warning(parent, "Fit export failed", str(error))

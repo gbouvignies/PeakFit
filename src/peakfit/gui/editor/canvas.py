@@ -115,6 +115,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.marker_rebuilds = 0
         self.preview_deliveries = 0
         self.preview_coalesced = 0
+        self._displaying_experiment = True
         self.contour_pending = False
         self._paint_timer = QtCore.QTimer(self)
         self._paint_timer.setSingleShot(True)
@@ -521,7 +522,6 @@ class SpectrumCanvas(QtWidgets.QWidget):
         """Use original acquisition index, retaining view and sampled row/column."""
         self._model = None
         self.plane = int(np.clip(plane, 0, self.spectra.data.shape[0] - 1))
-        self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
         self.request_contours()
 
     def _set_trace_limit(self, value: float) -> None:
@@ -566,7 +566,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.right.setLabel("bottom", unit)
         self.request_contours()
 
-    def request_contours(self) -> None:
+    def request_contours(self) -> None:  # noqa: PLR0915
         """Coalesce complete-plane projection and geometry; hover only reads arrays."""
         self._revision += 1
         self._model_cancel.set()
@@ -587,26 +587,50 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self.contour_count,
             self.residual_threshold,
         )
+        if not mode:
+            key = self._experiment_key()
         model_key = (run, plane)
         self.contour_pending = True
         self.pending_label.setPos(
             self.main.getViewBox().viewRange()[0][1], self.main.getViewBox().viewRange()[1][0]
         )
-        self.pending_label.setText("Calculating total model…" if mode else "Preparing contours…")
+        mode_name = "Residual" if mode == _RESIDUAL else "Overlay"
+        self.pending_label.setText(
+            f"Experimental spectrum · {mode_name} pending"
+            if mode
+            else "Preparing experimental contours…"
+        )
         self.pending_label.show()
         self._worker.cancel("contours")
+        self._worker.cancel("model")
         grid = self._model_cache.get(model_key) if mode else None
         self._model = grid
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
         if key in self._cache and (not mode or grid is not None):
             geometry = self._cache.pop(key)
             self._cache[key] = geometry
-            self._install_contours(geometry)
+            self._install_contours(geometry, experimental=not mode)
             return
         observed = self.spectra.data[plane]
         axes = [axis.model_copy(deep=True) for axis in self.spectra.spectral_params]
         levels = self.contour_threshold * self.contour_factor ** np.arange(self.contour_count)
         self.contour_jobs += 1
+        experiment_key = self._experiment_key()
+        experiment = [self._cache.get(experiment_key)]
+        if experiment[0] is not None:
+            self._cache.move_to_end(experiment_key)
+            self._install_contours(experiment[0], pending=bool(mode), experimental=True)
+        else:
+
+            def prepare_experiment():
+                if cancel.is_set():
+                    raise CancelledError
+                experiment[0] = signed_geometry(observed, axes, levels)
+                return experiment[0]
+
+            self._worker.submit("contours", self._revision, prepare_experiment)
+        if not mode:
+            return
         residual_levels = self.residual_threshold / 3 * np.asarray([3.0, 5.0, 8.0, 13.0, 21.0])
 
         def calculate():
@@ -622,20 +646,34 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 residual = (observed - model.values) / result.outcome.noise
                 geometry = signed_geometry(residual, axes, residual_levels)
             else:
-                geometry = signed_geometry(observed, axes, levels)
-                if mode == 1:
-                    assert model is not None
-                    geometry += signed_geometry(model.values, axes, levels)
+                assert model is not None
+                assert experiment[0] is not None
+                geometry = experiment[0] + signed_geometry(model.values, axes, levels)
             return model, geometry
 
-        self._worker.submit("contours", self._revision, calculate)
+        self._worker.submit("model", self._revision, calculate)
 
-    def _contours_ready(self, _kind, revision, outcome) -> None:
+    def _experiment_key(self) -> tuple:
+        return (
+            None,
+            0,
+            self.plane,
+            self.contour_threshold,
+            self.contour_factor,
+            self.contour_count,
+            0,
+        )
+
+    def _contours_ready(self, kind, revision, outcome) -> None:
         if revision != self._revision:
             return
         if isinstance(outcome, Exception):
             self.pending_label.setText(f"Comparison unavailable: {outcome}")
             self.contour_pending = False
+            return
+        if kind == "contours":
+            self._cache_geometry(self._experiment_key(), outcome)
+            self._install_contours(outcome, pending=bool(self.comparison_mode), experimental=True)
             return
         model, geometry = outcome
         run = (
@@ -670,6 +708,13 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 self._scale_note = " · Trace scale expanded for accepted model"
                 if self.comparison_mode != _RESIDUAL:
                     self._set_trace_limit(maximum)
+        self._cache_geometry(key, geometry)
+        self._install_contours(geometry)
+        self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
+
+    def _cache_geometry(self, key, geometry) -> None:
+        previous = self._cache.pop(key, ())
+        self.cache_bytes -= sum(p.nbytes + c.nbytes for p, c in previous)
         size = sum(p.nbytes + c.nbytes for p, c in geometry)
         while self._cache and (
             self.cache_bytes + size > _CACHE_BYTES or len(self._cache) >= _CACHE_PLANES
@@ -679,10 +724,12 @@ class SpectrumCanvas(QtWidgets.QWidget):
         if size <= _CACHE_BYTES:
             self._cache[key] = geometry
             self.cache_bytes += size
-        self._install_contours(geometry)
-        self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
 
-    def _install_contours(self, geometry) -> None:
+    def _install_contours(self, geometry, *, pending=False, experimental=False) -> None:
+        for item in self.paths:
+            self.main.removeItem(item)
+        self.paths.clear()
+        self._displaying_experiment = experimental
         for path in paths_from_geometry(geometry):
             item = QtWidgets.QGraphicsPathItem(path)
             item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
@@ -690,8 +737,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self.main.addItem(item)
             self.paths.append(item)
         self._style_contours()
-        self.pending_label.hide()
-        self.contour_pending = False
+        self.pending_label.setVisible(pending)
+        self.contour_pending = pending
 
     def _style_contours(self) -> None:
         for index, item in enumerate(self.paths):
@@ -699,7 +746,11 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 (
                     "#b47a32"
                     if index >= _MODEL_POSITIVE
-                    or (self.comparison_mode == _RESIDUAL and index == 0)
+                    or (
+                        self.comparison_mode == _RESIDUAL
+                        and not self._displaying_experiment
+                        and index == 0
+                    )
                     else self._colors["measured"]
                 ),
                 width=1.8 if self.heavy_strokes else 1,

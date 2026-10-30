@@ -253,12 +253,29 @@ planes have a separate 128 MiB/eight-entry bound; contour geometry remains bound
 to 32 MiB/eight entries. Experimental/Overlay share a locked intensity scale;
 Residual has a separately retained signed scale.
 
-One full accepted scientific result stays resident. Before publication a worker
-writes its trusted reconstruction payload to private temporary session storage;
-failure preserves the old result. The latest ten payloads are retained within a
-1 GiB historical budget (active run exempt). No portable analysis reader, history
-browser or persistent journal is introduced here. Canonical exports include both
-exact submitted and adopted working coordinates plus currentness at export.
+One full accepted scientific result stays resident. Completion validation runs in
+the existing worker and is published atomically; no private result serialization,
+temporary recovery directory or history storage is introduced. Failure/cancellation
+preserves the prior accepted result. A successful refit replaces it. Canonical
+exports include both exact submitted and adopted working coordinates plus
+currentness at export, and preserve the working peak state only when its exact
+stable-ID tuple matches the exported completion.
+
+Experimental contour geometry is cached independently of run/mode. An uncached
+comparison request schedules current-plane experimental geometry before the model
+in the existing computation lane, or immediately reuses cached experimental paths.
+Those paths remain explicitly labeled experimental/pending until the matching
+model/residual is ready. Both stages use the same request revision, so old-plane
+and old-run deliveries cannot replace a newer view. Geometry extraction and model
+projection remain outside Qt; fallback paths share the existing bounded cache.
+
+The canonical JSON writer validates the document before writing it. The GUI
+exporter checks artifacts and atomically publishes the staged directory; it does
+not redundantly decode the full JSON again on a same-process worker, which held
+the GIL long enough to stall Qt. Reader round trips remain scientific regressions. The existing export dialog
+submits its writer from a queued Qt timer after entering the modal event loop,
+so worker serialization does not compete with the initial modal transition.
+The progress object is explicitly deleted after completion.
 See [fit validation](validation/gui-v2-fitting.md) for measured bounds/limitations.
 
 Protection: `test_gui_editor.py` checks real-data geometry, exact samples,
