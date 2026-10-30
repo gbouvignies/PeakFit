@@ -1,5 +1,49 @@
 # Desktop analysis
 
+## Production v2 workspace: save, reopen and continue
+
+Launch `uv run peakfit-editor` (or `uv run peakfit-editor Analysis.peakfit`).
+Use **Open dataset…** to load a spectrum, optional peak list and plane values.
+Confirm the peak-axis mapping. Edit unfolded positions and choose **Fit dataset**;
+usable optimized positions are adopted automatically, while initial positions stay
+with the immutable run. Edit again to mark it Outdated, then refit normally.
+
+**File → Save analysis** (Ctrl+S / Command+S) creates a `.peakfit` **directory**.
+**Open analysis…** uses Ctrl+O / Command+O; **Save analysis as…** uses the standard
+platform Save As shortcut. Open dataset moves to Ctrl+Shift+O / Command+Shift+O.
+Save As requires a new destination. Keep the whole directory together. Routine
+saves show brief status-bar progress without a dialog; expensive archive and source
+verification work runs outside Qt, with cancellation available in the status bar.
+Closing changed work offers **Save analysis / Discard changes / Cancel**. CSV or
+canonical result export is separate and does not save the complete analysis.
+
+Projects reference the original NMRPipe spectrum; they never copy it. Working peak
+IDs/positions, effective settings, ordered plane values, accepted numerical evidence,
+original seeds and the automatic working transition survive reopening without the
+imported peak/plane-value files. The selected plane/peak, inspection pin, viewport,
+rail width and comparison/display settings also persist. Undo starts afresh.
+
+Reopen verifies spectrum SHA-256, calibration/processing, sample identity and model
+evaluation before enabling spectral comparisons or new fits. It never optimizes or
+solves amplitudes. Missing, changed, corrupt or unsupported sources/models open
+**Numerical review only**, with fitted parameter/error tables, original starting
+peaks, signed amplitude profiles, diagnostics/settings and exact sample inspection
+and export. **Relink source…** verifies your explicit candidate. An identical moved
+file restores spectral views; a different spectrum cannot inherit the old results.
+Corrupt project evidence and unsupported project versions are explicit errors.
+
+**File → Analysis history…** inspects retained runs. The latest ten completed runs
+retain full evidence; older runs have explicitly labeled Summary-only journal
+entries. **Keep full evidence** protects a full run from pruning. Historical evidence
+has a 1 GiB budget, excluding the active and protected runs; their costs appear in
+the manifest and Save status. Temporary recovery precedes resident history eviction
+and is not a saved analysis. Source-dependent MCMC, full refinement controls, source
+embedding and reopening legacy local-fit exports remain outside this workflow.
+
+See [native workflow evidence, measurements and limitations](validation/gui-v2-persistence.md)
+and [project format](outputs.md#linked-source-analysis-projects). The remaining
+sections describe the compatible legacy `peakfit gui` application.
+
 The desktop application fits complete datasets and compares the retained scientific
 result directly with the experimental spectrum. Cluster navigation and reopening
 saved analyses are subsequent work; see [GUI design](gui-design.md).

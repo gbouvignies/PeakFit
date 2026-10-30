@@ -168,13 +168,13 @@ warning. Numerical usability, optimizer termination and peak identifiability
 remain distinct. See [the scientific overlap validation](validation/overlapping-peaks.md).
 
 
-## GUI v2: open → inspect → edit → fit → compare → export
+## GUI v2: open → inspect → edit → fit → compare → save → reopen
 
 `gui.editor.window` is the separately launched production shell (`peakfit-editor`).
 The existing `gui.app` / `gui.viewer` remains the fitting application until v2
 reaches core fitting parity. There is no runtime dependency on `experiments/`.
 
-The workspace has concrete responsibilities: `editor.loading` validates
+The workspace has concrete responsibilities: `gui.spectrum.read_dataset` validates
 one complete reader handoff off Qt; `editor.canvas` owns retained signed geometry,
 native slices and gestures; `editor.rail` owns a flat assignment list and the precise
 whole-group editor; `editor.workspace` commits scientific edits and composes those
@@ -214,9 +214,9 @@ Plane-value import/replacement advances the scientific revision and sets a
 session-only metadata flag. The window/header and close/replacement guard include
 that flag alongside peak dirtiness/drafts. Peak CSV export clears only peak
 export dirtiness; it neither clears the metadata flag nor authorizes its loss.
-Export from the loss guard keeps the window open when plane metadata remains;
-only explicit Discard permits loss. No project persistence or plane-value Undo
-is introduced by this contract.
+Save analysis now preserves those plane values along with committed peaks and
+accepted results. The loss guard offers Save analysis, Discard changes and Cancel;
+CSV export alone does not preserve the analysis. Plane-value Undo is unchanged.
 
 ### Atomic fitting completion
 
@@ -283,3 +283,39 @@ editing/cancel/Undo, actual Qt drag/pan routing, keyboard access and asynchronou
 replacement; `test_gui_completion_transition.py` checks the atomic scientific
 handoff independently of widgets. Reproduction and measured limits are in
 [GUI v2 editor validation](validation/gui-v2-editor.md).
+
+
+### Linked-source analysis persistence
+
+`gui.project` owns the JSON/NPZ directory transaction and external source verification;
+`gui.project_results` reconstructs the immutable outcome from canonical 4.1 JSON,
+retains exact sample inputs and recreates resolved per-peak geometry. It checks
+terminal residual algebra, normalized residuals, chi-squared, stable identities and
+the automatic position transition. Verified comparison additionally checks source
+SHA-256/calibration/dtype/sample ordering and evaluates reconstructed shapes and
+model at the exact saved coordinates (rtol 1e-10; shape atol 1e-12, model atol 1e-9).
+No segmentation, parameter preparation, optimization or amplitude solve is involved.
+Unsupported model descriptors retain numerical review and cannot be evaluated.
+
+`editor.persistence` supplies file actions, immutable capture and Qt publication;
+`editor.numerical` supplies a source-independent evidence workspace and history.
+`gui.project_process` isolates expensive JSON parsing/validation in a disposable
+spawned process so it cannot hold Qt behind the GIL. The trusted internal pipe
+uses the existing immutable-record transfer codec; project files are never
+unpickled. Routine saves of unchanged evidence use the existing thread worker,
+without process startup, source hashing or evidence rewriting. Source arrays do
+not enter save requests. Relinking reads/verifies the selected external file.
+
+One manifest replacement publishes a durable generation. Runs live in immutable
+`runs/<id>/` directories. Save As copies/checks retained evidence, rebases source
+paths and never copies spectral files. A sibling PID lock excludes other writers
+and recovers locks left by dead save processes. Cleanup follows publication.
+Reader limits and platform/filesystem limitations are in the format documentation.
+
+`editor.fitting` keeps ten full completed runs plus protected runs, and compact
+journals for completed/canceled/failed optimizer attempts. Before releasing resident
+history it writes a bounded recoverable temporary analysis. Older entries retain
+coordinates, parameters/settings and statistics, explicitly without sample/profile
+capabilities. Save applies the 1 GiB historical budget, excluding active/protected
+runs. Successful Save releases budget-evicted resident runs. Original CLI writers,
+legacy GUI, and numerical continuation formats are unchanged.

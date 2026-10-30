@@ -10,10 +10,16 @@ import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.gui.background import ViewerComputation
-from peakfit.gui.editor.loading import Dataset, read_assignments, read_dataset
+from peakfit.gui.editor.persistence import AnalysisActions
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.peaks import export_peaks
-from peakfit.gui.spectrum import validate_plane_values, verified_source_files
+from peakfit.gui.spectrum import (
+    Dataset,
+    read_assignments,
+    read_dataset,
+    validate_plane_values,
+    verified_source_files,
+)
 
 _DARK_LIGHTNESS = 0.5
 
@@ -97,7 +103,7 @@ class OpenDatasetDialog(QtWidgets.QDialog):
         return Path(text).expanduser() if text else None
 
 
-class EditorWindow(QtWidgets.QMainWindow):
+class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
     """Keep the existing application working while v2 gains complete vertical slices."""
 
     def __init__(self) -> None:
@@ -119,7 +125,6 @@ class EditorWindow(QtWidgets.QMainWindow):
         self._worker = ViewerComputation(self)
         self._worker.completed.connect(self._loaded)
         self._build_welcome()
-        self._build_menus()
         self.loading_status = QtWidgets.QLabel()
         self.loading_status.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
@@ -129,6 +134,7 @@ class EditorWindow(QtWidgets.QMainWindow):
         self.statusBar().addWidget(self.loading_status, 1)
         self.statusBar().addPermanentWidget(self.cancel_load)
         self.cancel_load.hide()
+        self._build_menus()
         self.apply_appearance("System")
         QtGui.QGuiApplication.styleHints().colorSchemeChanged.connect(self._system_changed)
 
@@ -148,6 +154,9 @@ class EditorWindow(QtWidgets.QMainWindow):
         button.setObjectName("primary")
         button.clicked.connect(self.open_dialog)
         layout.addWidget(button)
+        analysis_button = QtWidgets.QPushButton("Open analysis…")
+        analysis_button.clicked.connect(self.open_analysis_dialog)
+        layout.addWidget(analysis_button)
         note = QtWidgets.QLabel(
             "Fit the complete dataset · Compare native model and residual · Export results"
         )
@@ -167,8 +176,10 @@ class EditorWindow(QtWidgets.QMainWindow):
     def _build_menus(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
         self.open_action = self._action(
-            file_menu, "&Open dataset…", self.open_dialog, QtGui.QKeySequence.StandardKey.Open
+            file_menu, "&Open dataset…", self.open_dialog, "Ctrl+Shift+O"
         )
+        self.build_analysis_actions(file_menu)
+        file_menu.addSeparator()
         self.import_action = self._action(file_menu, "Import &peaks…", self.import_dialog)
         self.values_action = self._action(file_menu, "Import plane &values…", self.values_dialog)
         self.export_action = self._action(
@@ -264,6 +275,8 @@ class EditorWindow(QtWidgets.QMainWindow):
         self._start_loading(partial(read_dataset, path, peaks, values, swap_peak_axes=swap))
 
     def _start_loading(self, operation) -> None:
+        if self._busy or self._saving:
+            return
         if self.workspace and self.workspace.fit_busy:
             self.loading_status.setText("Cancel the fit before replacing scientific inputs")
             return
@@ -281,6 +294,14 @@ class EditorWindow(QtWidgets.QMainWindow):
 
     def cancel_loading(self) -> None:
         """Cancel publication immediately; an in-progress file read may finish privately."""
+        if self._saving or (
+            self._busy
+            and self._analysis_cancel is not None
+            and self.cancel_load.text() != "Cancel loading"
+        ):
+            self._analysis_cancel.set()
+            self.loading_status.setText("Cancel requested · Retained evidence stays available")
+            return
         self._revision += 1
         self._worker.cancel("load")
         self._end_loading()
@@ -315,7 +336,9 @@ class EditorWindow(QtWidgets.QMainWindow):
             self._accept_values(outcome)
             return
         assert isinstance(outcome, Dataset)
-        if not self.confirm_dataset(outcome) or not self.protect_edits():
+        if not self.confirm_dataset(outcome) or not self.protect_edits(
+            after=lambda: self.install_dataset(outcome)
+        ):
             self.loading_status.setText("Dataset replacement canceled")
             return
         self.install_dataset(outcome)
@@ -352,6 +375,9 @@ class EditorWindow(QtWidgets.QMainWindow):
 
     def install_dataset(self, dataset: Dataset) -> None:
         """Publish one complete handoff; no half-loaded arrays or assignments."""
+        self.analysis_path = None
+        self._analysis = None
+        self._saved_key = None
         previous = self.workspace
         workspace = EditorWorkspace(dataset)
         if previous:
@@ -366,6 +392,7 @@ class EditorWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(f"{dataset.path.name}[*] — PeakFit")
         self.apply_appearance(self._appearance)
         self._end_loading()
+        self._saved_key = self._analysis_key()
         self._work_changed()
         self.loading_status.setText(
             "Click to pin · Select then drag to move · Space resumes preview"
@@ -381,18 +408,14 @@ class EditorWindow(QtWidgets.QMainWindow):
     def _work_changed(self) -> None:
         if self.workspace:
             w = self.workspace
-            self.setWindowModified(
-                w.has_changes
-                or (
-                    w.fitting.result is not None
-                    and w.fitting.result.run_id not in w.fitting.exported
-                )
-            )
+            self.setWindowModified(self._analysis_key() != self._saved_key or w.pending)
             for action in (self.open_action, self.import_action, self.values_action):
                 action.setEnabled(not w.fit_busy and not self._busy)
             self.fit_action.setEnabled(bool(w.peaks) and not w.fit_busy)
             self.settings_action.setEnabled(bool(w.peaks) and not w.fit_busy)
             self.fit_export_action.setEnabled(w.fitting.result is not None and not w.fit_busy)
+
+        self._analysis_actions()
 
     def import_dialog(self) -> None:
         """Import uses the same readers and requires an explicit axis mapping."""
@@ -515,60 +538,32 @@ class EditorWindow(QtWidgets.QMainWindow):
             + (
                 "plane values remain session-only and modified"
                 if workspace.plane_values_modified
-                else "analysis persistence is not available yet"
+                else "use Save analysis to preserve the complete workspace"
             )
         )
         return True
 
-    def protect_edits(self) -> bool:
-        """Require an explicit loss decision for every unpreserved scientific input."""
-        workspace = self.workspace
-        if workspace is not None and workspace.fitting.result is not None:
-            fitting = workspace.fitting
-            assert fitting.result is not None
-            if fitting.result.run_id not in fitting.exported:
-                decision = QtWidgets.QMessageBox.question(
-                    self,
-                    "Unexported fit result",
-                    "Export the completed scientific result before closing "
-                    "or replacing this dataset?",
-                    QtWidgets.QMessageBox.StandardButton.Save
-                    | QtWidgets.QMessageBox.StandardButton.Discard
-                    | QtWidgets.QMessageBox.StandardButton.Cancel,
-                    QtWidgets.QMessageBox.StandardButton.Cancel,
-                )
-                if decision == QtWidgets.QMessageBox.StandardButton.Cancel:
-                    return False
-                if decision == QtWidgets.QMessageBox.StandardButton.Save and not fitting.export():
-                    return False
-        if workspace is None or not workspace.has_changes:
+    def protect_edits(self, after=None) -> bool:
+        """Offer a complete analysis save before losing working state or evidence."""
+        if self._saving or self._busy:
+            return False
+        if self._analysis_key() == self._saved_key and not (
+            self.workspace and self.workspace.pending
+        ):
             return True
         dialog = QtWidgets.QMessageBox(self)
-        dialog.setWindowTitle("Unpreserved session changes")
-        dialog.setText("Close or replace this dataset and discard session changes?")
-        dialog.setInformativeText(
-            "Imported/replaced plane values are session-only. Peak CSV export does not "
-            "preserve plane metadata or save an analysis; exporting peaks keeps this session "
-            "modified. Keep the values file and select it again when reopening."
-            if workspace.plane_values_modified
-            else "Export working peaks to preserve names and exact unfolded coordinates. "
-            "Analysis persistence is a later milestone."
-        )
-        export_button = None
-        if workspace.edits.dirty or workspace.pending:
-            export_button = dialog.addButton(
-                "Export peaks…", QtWidgets.QMessageBox.ButtonRole.AcceptRole
-            )
-        discard_button = dialog.addButton(
-            "Discard session changes", QtWidgets.QMessageBox.ButtonRole.DestructiveRole
+        dialog.setWindowTitle("Unsaved analysis")
+        dialog.setText("Save working peaks, settings and retained results before continuing?")
+        save = dialog.addButton("Save analysis", QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+        discard = dialog.addButton(
+            "Discard changes", QtWidgets.QMessageBox.ButtonRole.DestructiveRole
         )
         dialog.addButton(QtWidgets.QMessageBox.StandardButton.Cancel)
-        dialog.setDefaultButton(QtWidgets.QMessageBox.StandardButton.Cancel)
         dialog.exec()
-        if export_button is not None and dialog.clickedButton() is export_button:
-            exported = self.export_dialog()
-            return exported and not workspace.plane_values_modified
-        return dialog.clickedButton() is discard_button
+        if dialog.clickedButton() is save:
+            self.save_analysis_dialog(after=after or getattr(self, "_protect_after", None))
+            return False
+        return dialog.clickedButton() is discard
 
     def find_assignment(self) -> None:
         """Search explicitly opens the rail; selection alone does not."""
@@ -794,12 +789,17 @@ class EditorWindow(QtWidgets.QMainWindow):
                 self._close_timer.start(50)
                 event.ignore()
                 return
+        self._protect_after = self.close
         if not self.protect_edits():
+            self._protect_after = None
             event.ignore()
             return
+        self._protect_after = None
         self._close_timer.stop()
         self._revision += 1
         self._worker.close()
+        self._analysis_cancel.set()
+        self._analysis_worker.close()
         if self.workspace:
             self.workspace.stop()
         event.accept()
@@ -824,7 +824,9 @@ def main() -> None:
     app.setStyle("Fusion")
     window = EditorWindow()
     window.show()
-    if args.spectrum:
+    if args.spectrum and args.spectrum.suffix == ".peakfit":
+        window.load_analysis(args.spectrum)
+    elif args.spectrum:
         window.load(
             args.spectrum,
             args.peaks,

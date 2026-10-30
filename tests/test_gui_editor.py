@@ -8,11 +8,10 @@ import numpy as np
 import pytest
 from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
-from peakfit.gui.editor.loading import read_assignments, read_dataset
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.peaks import PeakEdits, WorkingPeak, export_peaks
-from peakfit.gui.spectrum import display_position
+from peakfit.gui.spectrum import display_position, read_assignments, read_dataset
 
 DATA = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
 pytestmark = pytest.mark.gui
@@ -478,10 +477,10 @@ def test_plane_metadata_stays_modified_and_protected_after_peak_export(
         workspace.history(False)
         assert window.isWindowModified()
         workspace.history(True)
-        selections[0] = "Export peaks…"
+        selections[0] = "Cancel"
         assert not window.protect_edits()  # Export cannot authorize loss of plane metadata.
         assert window.isWindowModified()
-        selections[0] = "Discard session changes"
+        selections[0] = "Discard changes"
         closing = QtGui.QCloseEvent()
         window.closeEvent(closing)
         assert closing.isAccepted()

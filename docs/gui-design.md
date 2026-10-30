@@ -139,10 +139,10 @@ explicit history and MCMC retention policies in v2 Sections 4 and 10 without sil
 thinning or loss of full retained results. Atomic generation publication protects
 the last saved project and its payloads through failures; source availability is
 independent of save success. These are persistence implementation requirements,
-not claims that a project reader/writer already exists.
+implemented by the linked-source reader/writer described in [outputs](outputs.md#linked-source-analysis-projects).
 
-Keep canonical `summary/fit.json` 4.1.0 and CSV outputs unchanged. Add a versioned
-review manifest and separate lossless numeric payload in the persistence slice. Do not
+Keep canonical `summary/fit.json` 4.1.0 and CSV outputs unchanged. The analysis workflow adds a versioned
+review manifest and separate lossless numeric payload. Do not
 duplicate authoritative parameters or amplitudes in that companion. Bind it to
 the canonical summary and numerical file with checksums, explicit array names,
 shapes, dtypes, cluster/peak identities and ordered source-plane mapping.
@@ -166,9 +166,9 @@ candidate for the additional arrays: no new dependency, typed lossless arrays,
 cluster-level access and substantially less space than JSON. Load with
 `allow_pickle=False`. NPZ cannot efficiently slice a compressed member by plane;
 HDF5 offers chunked slicing and should be reconsidered if measured larger runs
-need it. Exact manifest validation, archive size limits, atomic publication and
-compatibility reading of existing local-fit companions belong to the writer/reader
-slice. No experimental archive from the benchmark is a supported output format.
+need it. The analysis reader/writer implements manifest validation, archive size limits
+and atomic publication. Existing local-fit companions remain export-only in the
+legacy GUI; they do not establish reconstructable analysis capabilities. No experimental archive from the benchmark is a supported output format.
 
 The same run compared all additional terminal input arrays (13,005,696 bytes in
 memory). Each format was written/read once and checked for exact values and dtypes;
@@ -211,9 +211,12 @@ in visible vertical slices; persistence is not a prerequisite for fitting and re
    navigator, cluster diagnostics, peak amplitude profiles and further design
    refinement. Populate it from genuine completed results, preserving total-model
    comparison scope. Assess explicit whole-dataset position application here.
-3. **Reliable persistence and reopening.** Implement the manifest/payload writer
-   and strict reader together, input relinking and lossless scientific review.
-   The format direction above remains a proposal, not a supported archive.
+3. **Reliable persistence and reopening (implemented in the v2 editor).** Versioned
+   manifest/payload publication, external source references, verified relinking,
+   source-independent numerical review and fresh fitting from reopened working
+   peaks. Canonical analytical arrays remain losslessly in 4.1 JSON; NPZ stores
+   observations, exact indices and terminal corrections without duplicating fitted
+   parameters/amplitudes. See [native evidence and limitations](validation/gui-v2-persistence.md).
 
 Every slice includes native light/dark visual and interaction review, keyboard
 focus, resizing and realistic data. Visual design is ongoing product work,

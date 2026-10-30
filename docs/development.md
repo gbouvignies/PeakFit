@@ -547,3 +547,22 @@ Tab-focus failure was reproduced verbatim on unmodified main. It is not reported
 a passing native suite. The dedicated native acceptance run establishes Qt focus
 explicitly for synthetic keyboard input and passed; normal application focus code
 was not changed to accommodate the test environment.
+
+
+## GUI v2 analysis persistence validation
+
+`uv run python tools/validate_gui_persistence.py` fits the bundled 131-plane NMRPipe
+dataset, saves, repeats Save, uses Save As, reopens verified numerical evidence,
+inspects model/residual, edits positions, and performs a fresh real fit. It captures
+native Qt light/dark and numerical-only views, JSON timings/payload sizes and
+per-operation heartbeat gaps. Run on a desktop with Cocoa/Qt permissions; offscreen
+captures are not native acceptance evidence. Results and limitations are recorded
+in [validation](validation/gui-v2-persistence.md).
+
+`tests/test_gui_project.py` protects source relocation/absence/mutation, same-size
+same-mtime changes, checksum corruption, version refusal, interruption/disk-full,
+immutable reuse, lossless numerical round trips, unsupported models, working
+transition validation, protected/full/summary retention and trusted child-process
+transport. Reopen tests prohibit preparation/optimization and compare reconstructed
+models with retained analytical arrays. Existing editor tests protect the changed
+analysis-loss guard and scientific Currentness; CLI outputs remain unchanged.

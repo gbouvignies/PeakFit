@@ -129,7 +129,7 @@ def _reduce_mapping(value):
     return _mapping, (dict(value),)
 
 
-def _completed_bytes(attempt: DatasetFitAttempt) -> bytes:
+def _completed_bytes(attempt: object) -> bytes:
     """Preserve immutable mappings and read-only NumPy buffers across a trusted pipe.
 
     This private protocol is not a file format or an archive reader. Protocol 5

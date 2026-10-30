@@ -1,9 +1,13 @@
 """Whole-dataset execution and atomic completion in the existing editor workspace."""
 
 from dataclasses import replace
+from datetime import UTC, datetime
 from html import escape
+from pathlib import Path
+from tempfile import mkdtemp
 from time import perf_counter
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from PySide6 import QtCore, QtWidgets
 
@@ -15,6 +19,8 @@ from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.fit_positions import dataset_completion
 from peakfit.gui.fit_process import FitProcess, FitProcessResult
 from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
+from peakfit.gui.project import MAX_RUNS, Analysis, dataset_header, save_analysis
+from peakfit.gui.project_results import journal_entry
 
 if TYPE_CHECKING:
     from peakfit.gui.editor.workspace import EditorWorkspace
@@ -32,6 +38,13 @@ class DatasetFitting(QtCore.QObject):
         self.configuration = PeakFitConfig(fitting=FitConfig(refine_iterations=2))
         self.reviewed = False
         self.completion = None
+        self.history = []
+        self.journal = []
+        self.protected = set()
+        self._recovery_path = None
+        self._attempt_id = None
+        self._attempt_parent = None
+        self._attempt_initial = ()
         self.exported = set()
         self.attempt = ""
         self.failure = ""
@@ -150,6 +163,9 @@ class DatasetFitting(QtCore.QObject):
         self._started = perf_counter()
         self.failure = ""
         self.attempt = "Fitting complete dataset"
+        self._attempt_id = uuid4().hex
+        self._attempt_parent = self.result.run_id if self.result else None
+        self._attempt_initial = prepared.snapshot.peaks
         self.process.start(prepared)
         self.update()
 
@@ -159,6 +175,8 @@ class DatasetFitting(QtCore.QObject):
         self._worker.cancel("fit")
         self._worker.cancel("publication")
         self._preparing = False
+        if self.process.busy:
+            self._record_attempt("canceled", "Canceled by the scientist")
         self.process.cancel()
         self.attempt = "Canceled · previous result retained"
         self.update()
@@ -176,15 +194,44 @@ class DatasetFitting(QtCore.QObject):
             revision = self.workspace.edits.revision
             submitted = self._submitted_revision
 
+            history = tuple(self.history)
+            journal = tuple(self.journal)
+            header = (
+                dataset_header(self.workspace.dataset)
+                if "spectrum" in dict(self.workspace.dataset.sources)
+                else None
+            )
+            protected = frozenset(self.protected)
+
             def complete():
-                return dataset_completion(
+                completion = dataset_completion(
                     result, current, submitted_revision=submitted, manual_revision=revision
                 )
+                if len(history) >= MAX_RUNS and header is not None:
+                    self.attempt = "Preserving history before releasing resident evidence"
+                    if self._recovery_path is None:
+                        self._recovery_path = (
+                            Path(mkdtemp(prefix="peakfit-recovery-")) / "Analysis.peakfit"
+                        )
+                    analysis = Analysis(
+                        None,
+                        header,
+                        completion.working_peaks,
+                        current.configuration,
+                        revision,
+                        (*history, completion),
+                        path=self._recovery_path if self._recovery_path.exists() else None,
+                        journal=(*journal, journal_entry(completion)),
+                        protected=protected,
+                    )
+                    save_analysis(analysis, self._recovery_path)
+                return completion
 
             self._worker.submit("publication", self._generation, complete)
         else:
             self.attempt = "Failed · previous result retained"
             self.failure = str(outcome)
+            self._record_attempt("failed", self.failure)
         self.update()
 
     def _publish(self, outcome) -> None:
@@ -206,6 +253,14 @@ class DatasetFitting(QtCore.QObject):
         following = w.canvas.pin_peak_id
         # No signal or event-loop yield occurs between installing W and its run.
         self.completion = completion
+        self.journal.append(dict(journal_entry(completion), parent_run_id=self._attempt_parent))
+        self._attempt_id = None
+        full = [*self.history, completion]
+        self.history = [
+            c
+            for index, c in enumerate(full)
+            if index >= len(full) - MAX_RUNS or c.result.run_id in self.protected
+        ]
         w.edits.accept_completion(completion.working_peaks)
         self.attempt = ""
         w._refresh()
@@ -370,8 +425,8 @@ class DatasetFitting(QtCore.QObject):
             assert self.completion is not None
             lines.extend(self.completion.warnings)
             lines.append(
-                "One active result is retained in memory. Export results before closing "
-                "or replacing them; analysis reopening is a later milestone."
+                "Save analysis preserves working state and the latest ten completed runs. "
+                "Spectral sources remain external."
             )
         text = "\n".join(lines)
         if self._diagnostic_text != text:
@@ -408,6 +463,25 @@ class DatasetFitting(QtCore.QObject):
                 self.workspace.changed.emit()
             self.workspace.status.setText(f"Exported retained run to {path}")
         return path is not None
+
+    def _record_attempt(self, status, diagnostic):
+        if self._attempt_id is not None:
+            self.journal.append(
+                {
+                    "run_id": self._attempt_id,
+                    "parent_run_id": self._attempt_parent,
+                    "completed_at": datetime.now(UTC).isoformat(),
+                    "status": status,
+                    "configuration": self.configuration.model_dump_json(),
+                    "initial_peaks": [
+                        {"id": p.id, "name": p.name, "positions": p.positions}
+                        for p in self._attempt_initial
+                    ],
+                    "diagnostics": diagnostic,
+                    "parameters": [],
+                }
+            )
+            self._attempt_id = None
 
     def stop(self) -> None:
         """Stop workers and invalidate queued deliveries without writing session files."""

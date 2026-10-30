@@ -252,3 +252,51 @@ nonlinear errors use the supplied/estimated statistical noise without that
 inflation. For nonlinear uncertainty or multimodal fits, compare alternative
 starts and inspect sampling/profile likelihoods; the local errors alone cannot
 certify a scientific assignment. See [the overlap investigation](validation/overlapping-peaks.md).
+
+
+## Linked-source analysis projects
+
+The production `peakfit-editor` saves a version 1.0.0 analysis directory:
+
+```text
+Analysis.peakfit/
+  manifest.json
+  runs/<immutable-run-id>/
+    summary/fit.json     # unchanged canonical 4.1.0 fitted values and diagnostics
+    review.json          # exact inputs/bounds/freedom, geometry, identities, transition
+    samples.npz          # paired native indices, observations, terminal corrections
+```
+
+The manifest declares dataset axes/processing/dtype/shape, ordered source planes,
+working state/settings, view state, full/summary journal levels, protected run IDs,
+active/historical/protected byte counts and SHA-256/byte lengths of every payload.
+Each NPZ member has an explicit name, dtype and shape. Arrays load with
+`allow_pickle=False`; full source and calculated-plane arrays are forbidden.
+Canonical analytical shapes, model/residuals, parameters and amplitudes remain in
+`summary/fit.json`, with no second fitted-value authority. Its JSON float precision
+round-trips the float64 values; unavailable errors retain NaN semantics through
+canonical nullable fields. No lower-precision derived CSV is used for reopening.
+
+Spectrum identity includes original absolute path, usable relative path, separately
+relinked location, SHA-256 algorithm/version, size, verification timestamp and cheap
+file metadata. Read/hash stability is checked. Peak-list/plane-value paths are
+provenance; reopening uses saved working peaks and ordered values, not those files.
+Relative location is tried first, then recorded absolute candidates. Every successful
+reopen/relink requires content equality, not size/mtime alone. No disk scanning occurs.
+
+Full-run evidence is immutable and reused on routine Save. New run directories are
+flushed before atomically replacing the fsynced manifest. Old referenced payloads
+survive failures before publication; unreferenced orphans are removed after success.
+Save As stages beside a new destination then renames it. On POSIX, a stale lock from a dead
+PID can be reclaimed. On Windows the error identifies the lock directory for
+manual removal after confirming that no save is running. Do not edit project files or run two independent writers that
+ignore the lock. Durability ultimately depends on the filesystem's atomic rename
+and fsync behavior; network shares/Windows crash behavior have not been validated.
+
+Reader safety limits are 512 MiB per JSON document and 8 GiB total compressed payloads and 8 GiB expanded per NPZ payload. These limits are distinct from the 1 GiB historical
+retention budget: active/protected evidence is never evicted for that budget.
+Larger workloads need a chunked format and an independently reviewed limit change.
+The initial format supports the editor's one-file NMRPipe inputs, not multi-file
+spectral directory trees. Unsupported models keep numerical review; corrupt
+payloads are rejected. Legacy local/dataset export companions remain scientific
+exports with their original scope and cannot be opened as analyses.
