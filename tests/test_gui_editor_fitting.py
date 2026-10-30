@@ -17,12 +17,12 @@ import peakfit.gui.editor.canvas as canvas_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
-from peakfit.gui.editor.loading import Dataset
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_process import FitProcessResult
+from peakfit.gui.spectrum import Dataset
 
 pytestmark = pytest.mark.gui
 
@@ -301,12 +301,14 @@ def test_result_export_preserves_adopted_peaks_for_close(
     window = EditorWindow()
     window.workspace = w
 
-    def unexpected_prompt(*_args, **_kwargs):
-        pytest.fail("Exported adopted positions must not cause another close prompt")
-
-    monkeypatch.setattr(QtWidgets.QMessageBox, "question", unexpected_prompt)
-    monkeypatch.setattr(QtWidgets.QMessageBox, "exec", unexpected_prompt)
-    assert window.protect_edits()
+    # Canonical export preserves evidence, while Save analysis preserves the session.
+    monkeypatch.setattr(QtWidgets.QMessageBox, "exec", lambda _dialog: 0)
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox,
+        "clickedButton",
+        lambda dialog: next(b for b in dialog.buttons() if b.text() == "Cancel"),
+    )
+    assert not window.protect_edits()
     # Further manual changes are still unpreserved, including when an old run is exported.
     peak = w.peaks[0]
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.00001))

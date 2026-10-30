@@ -2,8 +2,9 @@
 
 **Status:** approved production design baseline; implementation proceeds in complete
 vertical slices. **Date:** 29 October 2026.
-**Focused revision:** compact refinement, uninterrupted refitting, residual/trace
-readability and automatic fitted-position adoption, following owner review.
+**Focused revision (30 October 2026):** lightweight analysis persistence with
+verified external spectral sources, explicit evidence retention and capability-checked
+reopening. Compact refinement and automatic fitted-position adoption remain in force.
 
 **Technology decision:** PySide6 + Qt Widgets + PyQtGraph, accepted by the project
 owner after hands-on evaluation. Framework selection is closed. React supplies the
@@ -252,18 +253,25 @@ error tables, status (completed/canceled/failed), concise diagnostics/statistics
 and available evidence level. Completed
 full payloads are written to project storage or a recoverable temporary session
 store before older resident data are released. Saving moves/copies that journal
-and retained payloads into the self-contained project; temporary recovery is not
-presented as a saved analysis.
+and retained payloads into the analysis project; linked spectra remain external.
+Temporary recovery is not presented as a saved analysis.
 
 Retain full numerical/reconstruction payloads for the **latest ten completed runs**
 by default, subject to a **1 GiB historical-payload budget**; the active run is
 always retained, even if it alone exceeds that budget. Older unmarked runs become
 **Summary only**: keep their compact journal/coordinates/parameter tables/settings/statistics, remove
-historical sample/model/chain payloads, and show that loss of capabilities explicitly.
+historical sample/model payloads, and show that loss of capabilities explicitly.
+MCMC evidence follows the protected retention policy in Section 10.
 A deliberate **Keep full evidence** flag exempts a named run from automatic pruning
 and shows its disk cost. This is a history detail action, not a pre-fit prompt.
-Never delete separately exported evidence. Share copied source data and immutable
-unchanged payloads; do not store a full calculated spectrum per run.
+Never delete separately exported evidence. Reuse immutable unchanged project
+payloads across runs/generations; reference external spectra without copying them.
+Do not store full calculated spectra or persistent display caches. The 1 GiB budget
+counts historical numerical payloads, including chains, but excludes the active run
+and Keep full evidence runs from eviction. It is not a total project-size ceiling:
+show active, historical and protected bytes separately and warn when protected
+evidence exceeds the budget. Saving never silently downsamples or prunes evidence
+to meet a size target.
 
 No Save/Discard/Cancel interruption occurs on the third or any routine later fit.
 History shows the retention policy and each run's Full / Summary-only / Pinned
@@ -589,70 +597,163 @@ Sampling results bind to immutable parent run, cluster IDs, configuration, corre
 context and source fingerprints. Refit does not relabel old chains as current.
 Completed MCMC marks its parent **Keep full evidence** and exposes the storage cost,
 so routine fit-history pruning cannot silently remove expensive uncertainty evidence.
+Retain complete chains, sampling configuration, diagnostics and interval definitions
+losslessly by default; do not silently thin, truncate or replace chains with summaries
+on Save. Show their estimated and actual bytes separately from fit evidence. An
+explicit removal of chains must warn which plots, interval recalculations or continuation
+capabilities will be lost, preserve existing summaries/provenance, and mark the evidence
+level accordingly. Retained incomplete chains are labeled and included in storage
+accounting; they never imply a resumable sampler or final intervals.
 Saved analyses must reconstruct and validate an executable sampling problem before
 offering sampling; numerical review alone is insufficient. Arbitrary pickled
 continuation objects are never loaded from a user-selected file.
 
 ## 11. Save, reopen and export
 
-**Save analysis** creates a self-contained analysis directory with a `.peakfit`
-suffix. This is a project, distinct from canonical scientific exports. Initially
-one analysis contains one dataset and peak list; switching datasets replaces the
-analysis or opens another window. Do not add tabs for unrelated studies in v2.
+GUI v2 has no backward-compatibility requirement with prior PeakFit APIs, CLI,
+configuration or formats. Preserve scientific integrity, explicit provenance and
+reliable exports; change the representation when that produces a better design.
+The current #70 implementation uses lossless gzip around its validated scientific
+JSON as a focused storage improvement. That is an interim choice, not a requirement
+that JSON remain the internal authority; an array-native record merits a separate
+focused scientific review.
 
-The saved project includes original spectrum/plane inputs copied on first save,
-working peaks with stable IDs and unfolded positions, effective settings/bounds,
-the compact attempt journal and retained full/pinned runs, exact review payload, sampling chains and
-diagnostics, review notes, and modest view state (plane, pin, selection, ranges,
-panel sizes). Original paths are provenance, not a dependency for reopening.
-Show estimated size/copy progress before first save and allow cancellation. Avoid
-duplicating source arrays on each later save; unchanged immutable payloads are reused.
+**Save analysis** creates a lightweight analysis directory with a `.peakfit`
+suffix, referencing original spectral files externally. Saving must be fast and
+space-efficient even for very large NMR datasets: neither first Save nor Save as
+copies the original spectra. This is a project, distinct from canonical scientific
+exports. Initially one analysis contains one dataset and peak list; switching
+datasets replaces the analysis or opens another window. Multiple independent
+projects may reference the same dataset; saving one never writes into the sources
+or changes another project. No shared asset registry or managed source store is needed.
 
-Use a versioned JSON manifest with source/payload checksums and explicit shape,
-dtype, axis, cluster/peak and ordered source-plane mappings. Completed quantities
-remain authoritative in canonical `summary/fit.json` (currently 4.1.0); lossless
-NPZ review arrays retain exact sampled indices, observations and terminal
-corrections. Preserve evaluable model/processing descriptors and original input
-snapshot and the verified post-fit working transition without duplicating fitted
-parameters into another authority. Initial positions belong to the run input;
-optimized accepted positions belong to its outcome; current working positions
-are an editable state linked to that outcome by stable IDs. Chain
-payloads use the sampling writer's supported lossless format. Numerical arrays
-load without pickle. See [existing persistence evidence](gui-design.md#persistence-direction-and-compatibility).
-The exact manifest schema remains an implementation deliverable, not a format
-already supported by this design task.
+### Project contents and size
 
-Save writes a new validated generation and atomically switches the project
-manifest only when complete; interruption leaves the last saved generation usable.
-Save as uses staging and final publication. Never overwrite the sole good copy
-in place or mark Saved before success. Disk-full/permission failures preserve
-the modified workspace with an actionable error. Closing unsaved work offers
-Save analysis / Discard changes / Cancel. Undo history need not survive reopening;
-the committed working state and result evidence must.
+Save committed working peaks with stable IDs and unfolded positions, effective
+settings/bounds/freedom, compact attempt journal, complete scientific results for
+retained full/pinned runs, exact review payloads, provenance, review notes/state,
+retained sampling chains/diagnostics and modest view state (plane, pin, selection,
+ranges, panel sizes). Retention levels and budgets in Sections 4 and 10 apply both
+in memory and on disk; Summary-only entries are explicitly labeled. Preserve
+complete evidence for a retained full run rather than silently reducing precision
+or dropping observations on Save.
 
-Reopening has **three explicit capability levels**, determined independently:
+Use a versioned JSON manifest with project-payload checksums and explicit shape,
+dtype, axis, cluster/peak and ordered source-plane mappings. The current #70
+implementation records completed quantities in losslessly compressed
+`summary/fit.json.gz` (scientific JSON schema 4.1.0); lossless
+NPZ review arrays retain exact sampled indices, observations, analytical sample
+model/residual evidence and terminal corrections. Preserve evaluable model/processing
+descriptors, exact input snapshots and the verified post-fit working transition
+without duplicating fitted parameters into another authority. Initial positions
+belong to the run input; optimized positions belong to its outcome; working
+positions are editable state linked by stable IDs. Chain payloads use the sampling
+writer's supported lossless format. Numerical arrays load without pickle. See
+[existing persistence evidence](gui-design.md#persistence-direction-and-compatibility).
+The exact manifest schema remains an implementation deliverable.
+
+Original full spectral arrays and full calculated spectra are not project payloads.
+Reconstruct calculated views on demand from verified descriptors and results;
+discard display caches. Exact fitted-sample evidence is essential scientific state,
+even when substantial; it is not a reason to embed the full dataset. Store resolved
+plane values/units and their ordered source-index mapping, plus small scientific
+metadata required for review, so these do not depend on an external text file.
+Imported peak-file paths remain provenance; committed peaks are stored in the project.
+Show fit-evidence, history and MCMC storage costs and Save progress/cancellation.
+Reuse unchanged immutable payloads within the project; routine Save must not
+rewrite large unchanged review arrays or chains. Save as copies retained project
+evidence as needed, preserving external source identities and rebasing relative paths.
+
+### External source identity and verification
+
+For every spectral source, record its original absolute path, a usable path relative
+to the project directory where possible, source role/format, byte size, verification
+time and a strong content fingerprint (SHA-256 with algorithm/version recorded).
+For a multi-file dataset, fingerprint every required data/metadata file with an
+ordered member manifest; a directory name alone is not an identity. Record scientific
+metadata: dimensions/shape/dtype, axis order, nuclei/units/calibration, processing
+and series/plane mapping. The fingerprint must identify the source actually loaded
+and used by each run; never attach a later file's digest to an earlier result.
+Keep run identities immutable and relink locations separate from those identities.
+
+Compute fingerprints off Qt when establishing source identity, preferably while
+reading the data. Confirm the files did not change during reading/hashing; a changed
+source requires revalidation before publishing a verified identity. Cache digests
+with file identity, size and modification metadata. Routine Save reuses verified
+fingerprints and checks cheap metadata; it does not reread/hash large unchanged
+sources. Metadata checks are change detection, not proof of content equality.
+If changes are detected, preserve the saved run identity, mark the link unverified
+and require content verification before further source-dependent work. Saving
+retained evidence remains possible while sources are missing or unverified.
+
+Reopen resolves recorded relative and absolute paths as candidates and verifies
+content fingerprints and scientific metadata off Qt before enabling source-dependent
+capabilities. A matching path, timestamp, filename or shape alone is insufficient.
+Missing, moved, changed or unreadable sources offer **Relink source…**, explicit
+candidate selection, verification progress/cancellation and a clear outcome.
+A moved identical source can restore capabilities without refitting; a mismatched
+replacement cannot inherit the old fit or silently rewrite its provenance. It must
+be treated as changed scientific input for a new fit. Do not scan disks or substitute
+similarly named files automatically. Canceled/failed verification leaves numerical
+review available. Update link locations only after successful verification.
+
+### Atomic publication
+
+Save writes a new validated generation, flushes payloads and manifest durably,
+and atomically switches the project manifest only when complete; interruption
+leaves the last saved generation usable. Save as uses staging and final publication.
+Do not remove payloads referenced by the last good generation before publication;
+cleanup follows success. Never overwrite the sole good copy in place or mark Saved
+before success. Disk-full/permission failures preserve the modified workspace with
+an actionable error. External sources are read-only dependencies, outside the save
+transaction; a completed Save does not guarantee their future availability. Closing
+unsaved work offers Save analysis / Discard changes / Cancel. Undo history need not
+survive reopening; committed working state and retained evidence must.
+
+### Reopening capabilities
+
+Reopening has **three explicit capability levels**, validated independently of
+historical Current/Outdated state. A source-unavailable run must not appear as a
+verified live comparison merely because its saved working state was Current.
 
 1. **Numerical evidence:** validated retained values, errors, diagnostics, initial/
-   fitted coordinate snapshots, settings and plane mappings are readable without
-   an evaluable model. A Summary-only attempt is a smaller subset, labeled as such;
-   no amplitude profile, chains or sample residuals are invented when pruned.
-2. **Verified model reconstruction:** source fingerprint/axis/model/processing
-   descriptors plus accepted parameters/amplitudes reconstruct an evaluable model.
-   Evaluate (never refit/solve amplitudes) at retained samples and compare to saved
-   analytical values within declared scientific tolerances before enabling Overlay/
-   Residual. Source checksum equality alone does not establish this capability.
-3. **Validated numerical continuation:** MCMC additionally requires exact sampled
-   observations, terminal correction arrays, bounds/freedom, noise and likelihood/
-   priors. Reconstructing the display model does not establish this capability.
+   fitted coordinates, settings, plane mappings, sampled observations/corrections,
+   profiles and retained MCMC evidence are readable/exportable without sources.
+   Show exactly which evidence is retained. A Summary-only attempt is a smaller
+   subset; no amplitude profiles, chains or sample residuals are invented when pruned.
+2. **Verified comparison:** verified linked sources plus supported axis/model/
+   processing descriptors and accepted parameters/amplitudes reconstruct an evaluable
+   model. Evaluate (never refit/solve amplitudes) at retained samples and compare to
+   saved analytical values within declared scientific tolerances before enabling
+   Overlay/Residual. Source checksum equality alone does not establish this capability.
+   Without verified sources, disable live Experimental/Overlay/Residual, full-spectrum
+   slices and figures requiring those sources. Retained sample plots remain explicitly
+   labeled sample evidence, never presented as a reconstructed full spectrum.
+3. **Validated numerical continuation:** a new fit requires verified spectral inputs
+   and fresh preparation from working inputs. MCMC requires an executable exact parent
+   problem: sampled observations/indices, terminal corrections, descriptors, bounds/
+   freedom, noise, likelihood/priors and parent identities. Display reconstruction alone
+   does not establish this capability. With a source unavailable, allow sampling only
+   if the retained payload independently reconstructs and verifies that entire problem;
+   otherwise disable it with a specific reason. Retained chains alone never guarantee
+   sampler resumption. No continuation may invent missing evidence or substitute data.
 
-Reopen performs these validations off Qt without segmentation, default preparation,
-optimization or amplitude solving. It preserves both initial positions and the
-run-derived current working state/currentness. If numerical evidence is valid but
-reconstruction fails or a descriptor is unsupported, open labeled **Numerical review
-only**, explain the missing capability and leave comparisons unavailable. Missing/
-corrupt sources offer verified relinking; mismatched replacements cannot inherit
-the fit. Unsupported manifest versions are rejected explicitly. Legacy local
+Reopen performs validation off Qt without segmentation, default preparation,
+optimization or amplitude solving; new-fit preparation is a separate action.
+Preserve both initial positions and run-derived working state/currentness. If evidence
+is valid but source/model reconstruction fails or a descriptor is unsupported, open
+labeled **Numerical review only**, explain unavailable actions and offer relinking.
+Corrupt project evidence must be reported as such, never repaired by silently
+refitting. Unsupported manifest versions are rejected explicitly. Legacy local
 results keep their local scope; missing capabilities never imply fabricated models.
+
+**Export portable analysis** is an optional future, explicit operation, separate
+from Save analysis, Save as and scientific Export. It would embed verified original
+source data with retained project evidence, show estimated size/copy progress and
+support cancellation/atomic publication. It is not required for milestone 3 or GUI
+v2 acceptance. Standard projects remain linked; users moving one must also make
+its external sources available or relink them. Portability must never be achieved
+by silently copying sources during Save.
 
 **Export…** separates Working peaks, Accepted fit results, Profiles/tables,
 Uncertainty diagnostics/chains and Figure. Canonical JSON/CSV retains existing
@@ -726,10 +827,15 @@ fixtures with signed overlap, aliases, unusable clusters and repeated plane valu
 | UX-6 | Hover ≥500 samples across strong/weak peaks, several planes and both signs: amplitude limits remain unchanged, measured/calculated axes agree, mode-specific scales restore exactly and clipping is explicit. |
 | SCI-5 | Sampling uses the selected cluster's exact validated parent problem; cancellation, incomplete chains, unavailable intervals and diagnostic assumptions are visible. Analytical and MCMC uncertainty labels/exports retain their actual meanings. |
 | SAVE-1 | Save → close → reopen preserves working values, exact review arrays, run-derived currentness, exact initial versus optimized coordinates, original plane identity and retained chains without refitting. Verify model reconstruction by evaluation separately from numerical-only reopening. Corrupt/missing inputs, disk-full, interrupted save and version mismatch have explicit tested outcomes. |
+| SAVE-2 | First Save, routine Save and Save as contain no original full spectra, full calculated spectra or persistent display caches. Two independently saved projects reference the same verified dataset without copying or modifying it; Save as rebases usable relative paths and preserves fingerprints. Resolved plane metadata and working peaks reopen without their import files. |
+| SAVE-3 | Reopen verifies source content and scientific metadata before enabling comparisons. Test relative-path relocation, absolute fallback, missing/unreadable sources, canceled verification, identical moved sources and changed content with unchanged size/timestamp. Explicit relinking accepts identical content; mismatched sources never inherit results. Source changes during initial read/hash cannot publish a verified identity. |
+| SAVE-4 | With sources absent, retained numerical results, sample evidence, profiles, notes and chains remain inspectable/exportable at their recorded evidence level. Source-dependent views/new fits are disabled with reasons. MCMC requires independently verified complete parent evidence; test both sufficient and insufficient retained payloads without refitting or fabricated reconstruction. |
+| SAVE-5 | Round-trip and retention tests preserve all full/pinned evidence losslessly, reuse unchanged payloads, and account separately for active/history/MCMC bytes. The ten-run/1 GiB policy never evicts active or protected MCMC evidence, including an oversized active run. Explicit chain removal records lost capabilities. Disk-full, permission failure and interruption before/during publication leave the last saved generation and its referenced payloads usable. |
 | PERF-1 | On declared reference hardware, warmed preview and pan target p95 ≤16.7 ms, p99 ≤33 ms from delivered event to paint completion over ≥500 events. Report dropped/coalesced events and actual input rate; this is not input-to-photon latency. Preview issues zero contour extraction/model-plane jobs and no full marker rebuilds. |
 | PERF-2 | Cached plane/mode changes target p95 ≤100 ms to a consistent displayed state. Uncached input is acknowledged ≤50 ms and pending state appears ≤100 ms; model preparation may take about 1–2 s on the existing fixture and stays off Qt. Latest request wins under rapid 40-plane navigation. |
 | PERF-3 | While loading/projecting/fitting/sampling, target p95 event-loop heartbeat gap ≤33 ms and no unexplained >100 ms stall. Cancel acknowledges ≤100 ms, target worker termination/reaping ≤1 s. Record cold preparation/dialog/finalization costs too; do not omit outliers. |
 | PERF-4 | Caches and run retention have measured bounds. Repeated hover and 100 plane round trips do not grow memory monotonically; record RSS/cache footprint, platform, DPR, dataset and cache policy. Larger data may compute longer but cannot silently reduce science to meet timings. |
+| PERF-5 | On declared hardware, report first/routine Save and Save as duration, bytes read/written and project size with small and very large external datasets but fixed retained evidence. Instrument routine Save to require zero source-content hashing/copying and zero unchanged evidence/chain rewrites; storage and save I/O scale with project evidence, not source size. Measure initial fingerprinting and reopen/relink verification separately, off Qt with progress/cancellation. |
 
 Existing evidence is a useful baseline, not proof of these gates: Qt native hover
 p95 was about 9.8 ms over 21 events, whereas production uncached complete-plane
@@ -756,9 +862,11 @@ framework or prototype monolith transplant.
    applicable performance checks. This replaces the old workspace without removing
    a working whole-dataset workflow prematurely.
 3. **Save → reopen the same analysis.** Implement versioned manifest/payload writer
-   and strict reader together, including copied inputs, atomic save, Outdated,
-   journal/spooled history, capability-checked reopening and legacy numerical-only review. Gate SAVE-1. Establish
-   durable work before expanding long-running analyses.
+   and strict reader together, including external source references/fingerprints,
+   verified relinking, atomic save, Outdated,
+   journal/spooled history, capability-checked reopening and legacy numerical-only
+   review. Gates SAVE-1–5 and PERF-5; chain-specific checks extend in slice 5.
+   Establish durable work before expanding long-running analyses.
 4. **Find poor fits → refine → refit.** Add cluster navigation, reasons, notes,
    working starts/bounds, rail diagnostics and Profiles. Deliver the
    complete correction loop with whole-dataset refit and saved scientific settings.
@@ -788,6 +896,10 @@ companions, not changed meanings for existing canonical fitted-coordinate fields
 The approved architecture remains unchanged. This revision replaces the text-heavy
 refinement panel, two-run interruption policy, draft-driven comparison hiding,
 raster default, per-preview autoscaling and manual fitted-position transfer.
+Standard Save now references external spectra instead of requiring embedded inputs;
+there is no implemented v2 project format to migrate. Moving a project may require
+moving its sources separately and verified relinking. Canonical exports stay compatible.
+
 Remaining acceptance concerns are full production fit/save/MCMC integration,
 retention/reconstruction failure paths, and native Linux/large-font accessibility;
 they require implementation validation, not another framework or layout campaign.

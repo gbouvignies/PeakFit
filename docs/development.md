@@ -547,3 +547,44 @@ Tab-focus failure was reproduced verbatim on unmodified main. It is not reported
 a passing native suite. The dedicated native acceptance run establishes Qt focus
 explicitly for synthetic keyboard input and passed; normal application focus code
 was not changed to accommodate the test environment.
+
+
+## GUI v2 analysis persistence validation
+
+`uv run python tools/validate_gui_persistence.py` fits the bundled 131-plane NMRPipe
+dataset, saves, repeats Save, uses Save As, reopens verified numerical evidence,
+inspects model/residual, edits positions, and performs a fresh real fit. It captures
+native Qt light/dark and numerical-only views, JSON timings/payload sizes and
+per-operation heartbeat gaps. Run on a desktop with Cocoa/Qt permissions; offscreen
+captures are not native acceptance evidence. Results and limitations are recorded
+in [validation](validation/gui-v2-persistence.md).
+
+`tests/test_gui_project.py` protects source relocation/absence/mutation, same-size
+same-mtime changes, checksum corruption, version refusal, interruption/disk-full,
+immutable reuse, lossless numerical round trips, unsupported models, working
+transition validation, protected/full/summary retention and trusted child-process
+transport. Reopen tests prohibit preparation/optimization and compare reconstructed
+models with retained analytical arrays. Existing editor tests protect the changed
+analysis-loss guard and scientific Currentness; CLI outputs remain unchanged.
+
+
+### PR #70: history lifetime, resident memory and compression
+
+`uv run python tools/benchmark_gui_history.py --output /tmp/history.json --reopen`
+runs twelve native process-based fits, samples current main-process RSS after
+settling and GC, then checks normal-close cleanup and verified reopening. It also
+records how many complete results are resident. Use a fresh process for each source
+revision; the baseline was measured against the approved pre-review code at
+`88d2fa2` via an isolated source copy. `--fits 1 --compression` measures gzip levels
+independently so compression buffers do not contaminate repeated-fit RSS.
+The saved reports, native captures and declared limitations are in the persistence
+validation document. They show one active result and disk references for history;
+RSS is variable and child-process peak memory is not claimed to be measured.
+
+Tests cover the full ten-run save/reopen/eleventh-fit/demotion cycle and every
+promised compact scientific field, byte-budget pruning, on-demand selection,
+normal close while a preservation writer is in flight, non-coalesced cleanup,
+recovery adoption/Save as and ownership transfer to numerical-only review.
+Session cleanup is queued after writers and is never canceled by executor shutdown.
+The internal gzip wrapper is lossless and bounded; typed-array scientific authority
+is recommended for separate review rather than held back by compatibility concerns.

@@ -19,9 +19,8 @@ from peakfit.gui.spectrum import contour_geometry, display_position, paths_from_
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
-    from peakfit.gui.editor.loading import Dataset
     from peakfit.gui.peaks import WorkingPeak
-    from peakfit.gui.spectrum import ContourGeometry
+    from peakfit.gui.spectrum import ContourGeometry, Dataset
 
 _PICK_RADIUS = 8.0  # Logical pixels, shared by hover/click/drag at every DPR.
 _CACHE_BYTES = 32 * 1024**2

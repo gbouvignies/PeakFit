@@ -134,7 +134,7 @@ including after working edits make it outdated. Export state is tracked by run I
 
 This companion is not an analysis archive: it does not persist all model geometry,
 sampled observations or terminal correction arrays needed for lossless reopening.
-Complete reopening/continuation remains subsequent work. No pickle file is written.
+These export companions are not analysis projects; use `.peakfit` for reopening. No pickle file is written.
 
 ## GUI local-fit export
 
@@ -252,3 +252,80 @@ nonlinear errors use the supplied/estimated statistical noise without that
 inflation. For nonlinear uncertainty or multimodal fits, compare alternative
 starts and inspect sampling/profile likelihoods; the local errors alone cannot
 certify a scientific assignment. See [the overlap investigation](validation/overlapping-peaks.md).
+
+
+## Linked-source analysis projects
+
+The production `peakfit-editor` saves a version 1.1.0 analysis directory:
+
+```text
+Analysis.peakfit/
+  manifest.json
+  runs/<immutable-run-id>/
+    summary/fit.json.gz  # lossless gzip of the validated scientific JSON document
+    review.json          # exact inputs/bounds/freedom, geometry, identities, transition
+    samples.npz          # paired native indices, observations, terminal corrections
+```
+
+The manifest declares dataset axes/processing/dtype/shape, ordered source planes,
+working state/settings, view state, full/summary journal levels, protected run IDs,
+active/historical/protected byte counts and SHA-256/byte lengths of every payload.
+Each NPZ member has an explicit name, dtype and shape. Arrays load with
+`allow_pickle=False`; full source and calculated-plane arrays are forbidden.
+For this focused implementation, analytical shapes, model/residuals, parameters and amplitudes remain in
+`summary/fit.json.gz`, with no second fitted-value authority for Full runs. Its JSON float precision
+round-trips the float64 values; unavailable errors retain NaN semantics through
+canonical nullable fields. No lower-precision derived CSV is used for reopening.
+
+Spectrum identity includes original absolute path, usable relative path, separately
+relinked location, SHA-256 algorithm/version, size, verification timestamp and cheap
+file metadata. Read/hash stability is checked. Peak-list/plane-value paths are
+provenance; reopening uses saved working peaks and ordered values, not those files.
+Relative location is tried first, then recorded absolute candidates. Every successful
+reopen/relink requires content equality, not size/mtime alone. Source resolution
+never scans disks for replacement spectra.
+
+Full-run evidence is immutable and reused on routine Save. New run directories are
+flushed before atomically replacing the fsynced manifest. Old referenced payloads
+survive failures before publication; unreferenced orphans are removed after success.
+Save As stages beside a new destination then renames it. On POSIX, a stale lock from a dead
+PID can be reclaimed. On Windows the error identifies the lock directory for
+manual removal after confirming that no save is running. Do not edit project files or run two independent writers that
+ignore the lock. Durability ultimately depends on the filesystem's atomic rename
+and fsync behavior; network shares/Windows crash behavior have not been validated.
+
+Reader safety limits are 512 MiB per JSON document and 8 GiB total compressed payloads and 8 GiB expanded per NPZ payload. These limits are distinct from the 1 GiB historical
+retention budget: active/protected evidence is never evicted for that budget.
+Larger workloads need a chunked format and an independently reviewed limit change.
+The initial format supports the editor's one-file NMRPipe inputs, not multi-file
+spectral directory trees. Unsupported models keep numerical review; corrupt
+payloads are rejected. Legacy local/dataset export companions remain scientific
+exports with their original scope and cannot be opened as analyses.
+
+
+Project-internal scientific JSON uses deterministic gzip level 1 (no filename or
+wall-clock gzip metadata). Decompression reproduces the validated document exactly;
+SHA-256/size checks cover compressed bytes, and the 512 MiB JSON limit also applies
+to expanded bytes before parsing. Existing plaintext project members remain readable.
+CLI/export JSON and CSV writers do not need to change for this storage improvement.
+Their formats are not constraints on the future internal authority: GUI v2 may
+replace APIs, configuration, storage and export formats when scientific reliability
+and product clarity justify it.
+
+Only the active Full run is materialized on reopen. `runs` entries provide checked
+locations for on-demand inspection. Before either count or byte-budget eviction,
+the full record supplies the promised exact compact summary, including fitted
+parameter values, uncertainties/bounds, original coordinates, initial freedom,
+settings and diagnostics. Already demoted summaries remain unchanged through
+subsequent save/reopen cycles. Full runs use their scientific record as authority;
+Summary-only entries retain the smaller contract and cannot fabricate sample arrays.
+
+Temporary session projects have an owner and an explicit lifetime. Accepted results
+are published there before resident replacement. Save copies retained immutable
+evidence and only then releases temporary storage; normal discard/close removes it
+after workers finish. Interrupted POSIX sessions can be selected through **File →
+Recover interrupted session…**, verified through the same reader and saved as a new
+permanent project. Recovery locations appear in run diagnostics. They are not saved
+analyses until the explicit permanent Save. On non-POSIX systems automatic claiming
+is disabled rather than taking ownership of a possibly live session; an ordinary
+Open analysis can still read the retained `Recovery.peakfit` explicitly.

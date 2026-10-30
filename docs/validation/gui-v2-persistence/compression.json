@@ -1,0 +1,41 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "qt_platform": "cocoa",
+  "fits": [
+    {
+      "fit": 1,
+      "rss_mib": 1110.4375,
+      "seconds": 8.584857166017173,
+      "history_entries": 1,
+      "resident_full_runs": 1
+    }
+  ],
+  "baseline_rss_mib": 502.734375,
+  "scientific_json_bytes": 77709752,
+  "compression": [
+    {
+      "gzip_level": 1,
+      "bytes": 27249037,
+      "compression_seconds": 0.32142062499769963,
+      "decompression_seconds": 0.0637294159969315
+    },
+    {
+      "gzip_level": 3,
+      "bytes": 26040108,
+      "compression_seconds": 0.6414623750024475,
+      "decompression_seconds": 0.04956933399080299
+    },
+    {
+      "gzip_level": 6,
+      "bytes": 24946787,
+      "compression_seconds": 1.2086282500240486,
+      "decompression_seconds": 0.060145749972434714
+    }
+  ],
+  "recovery_path_after_stop_exists": false,
+  "hardware": {
+    "model": "Mac17,9",
+    "cpu": "Apple M5 Pro",
+    "ram_bytes": 68719476736
+  }
+}

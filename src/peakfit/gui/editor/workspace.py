@@ -11,8 +11,8 @@ from peakfit.gui.editor.rail import PeakRail
 from peakfit.gui.peaks import PeakEdits
 
 if TYPE_CHECKING:
-    from peakfit.gui.editor.loading import Dataset
     from peakfit.gui.peaks import WorkingPeak
+    from peakfit.gui.spectrum import Dataset
 
 
 _RESIDUAL = 2

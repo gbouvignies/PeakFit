@@ -123,8 +123,32 @@ requests before deciding whether shared parameter preparation earns its complexi
 
 ## Persistence direction and compatibility
 
-Keep canonical `summary/fit.json` 4.1.0 and CSV outputs unchanged. Add a versioned
-review manifest and separate lossless numeric payload in the persistence slice. Do not
+The authoritative target is [GUI v2 Section 11](PeakFit_GUI_Design_Specification_v2.0.md#11-save-reopen-and-export).
+Standard Save analysis and Save as retain working state and scientific evidence
+while referencing external spectra; neither embeds raw spectra or full calculated
+spectra. Record original/usable relative paths, scientific metadata and verified
+content fingerprints. Reuse digests on routine saves; verify sources on reopening
+or explicit relinking before enabling source-dependent comparisons. Missing sources
+preserve numerical review; continuation requires a separately reconstructed and
+verified complete scientific problem. Optional future Export portable analysis is
+a separate operation. No shared asset-management system is required.
+
+Retain exact fitted-sample evidence even when large; reuse unchanged immutable
+payloads and report their size separately from protected MCMC chains. Apply the
+explicit history and MCMC retention policies in v2 Sections 4 and 10 without silent
+thinning or loss of full retained results. Atomic generation publication protects
+the last saved project and its payloads through failures; source availability is
+independent of save success. These are persistence implementation requirements,
+implemented by the linked-source reader/writer described in [outputs](outputs.md#linked-source-analysis-projects).
+
+Backward compatibility is not a GUI v2 requirement. Scientific correctness,
+explicit provenance and reliable exports are product requirements; existing APIs,
+CLI/configuration, formats and obsolete GUI implementations may change when a
+better design warrants it. In #70 the existing result writer is retained as a
+bounded-scope choice, not as a permanent internal-authority constraint. Projects
+now losslessly compress that scientific JSON while existing explicit exports remain
+available. The analysis workflow adds a versioned
+review manifest and separate lossless numeric payload. Do not
 duplicate authoritative parameters or amplitudes in that companion. Bind it to
 the canonical summary and numerical file with checksums, explicit array names,
 shapes, dtypes, cluster/peak identities and ordered source-plane mapping.
@@ -148,9 +172,9 @@ candidate for the additional arrays: no new dependency, typed lossless arrays,
 cluster-level access and substantially less space than JSON. Load with
 `allow_pickle=False`. NPZ cannot efficiently slice a compressed member by plane;
 HDF5 offers chunked slicing and should be reconsidered if measured larger runs
-need it. Exact manifest validation, archive size limits, atomic publication and
-compatibility reading of existing local-fit companions belong to the writer/reader
-slice. No experimental archive from the benchmark is a supported output format.
+need it. The analysis reader/writer implements manifest validation, archive size limits
+and atomic publication. Existing local-fit companions remain export-only in the
+legacy GUI; they do not establish reconstructable analysis capabilities. No experimental archive from the benchmark is a supported output format.
 
 The same run compared all additional terminal input arrays (13,005,696 bytes in
 memory). Each format was written/read once and checked for exact values and dtypes;
@@ -193,9 +217,12 @@ in visible vertical slices; persistence is not a prerequisite for fitting and re
    navigator, cluster diagnostics, peak amplitude profiles and further design
    refinement. Populate it from genuine completed results, preserving total-model
    comparison scope. Assess explicit whole-dataset position application here.
-3. **Reliable persistence and reopening.** Implement the manifest/payload writer
-   and strict reader together, input relinking and lossless scientific review.
-   The format direction above remains a proposal, not a supported archive.
+3. **Reliable persistence and reopening (implemented in the v2 editor).** Versioned
+   manifest/payload publication, external source references, verified relinking,
+   source-independent numerical review and fresh fitting from reopened working
+   peaks. Canonical analytical arrays remain losslessly in 4.1 JSON; NPZ stores
+   observations, exact indices and terminal corrections without duplicating fitted
+   parameters/amplitudes. See [native evidence and limitations](validation/gui-v2-persistence.md).
 
 Every slice includes native light/dark visual and interaction review, keyboard
 focus, resizing and realistic data. Visual design is ongoing product work,
@@ -204,3 +231,23 @@ not a finishing milestone. See [native acceptance evidence](validation/gui-datas
 Refinement and MCMC remain separate later workflows with parent-run identity,
 explicit neighbor context, validated numerical inputs and scientifically accurate
 uncertainty interpretation. They must not mutate an earlier completed outcome.
+
+
+## Focused history correction and next representation decision
+
+PR #70 now keeps one active complete result resident, disk references for historical
+Full runs and an on-demand historical inspector. Before pruning Full evidence it
+materializes the exact Summary-only contract from that record; it never relabels a
+nullable parameter table as a valid summary. Session evidence has a workspace/window
+owner, an ordinary readable project snapshot and cleanup after Save/normal close.
+The native repeated-fit and compression measurements are in the persistence validation.
+
+A typed-array scientific authority (small validated metadata plus named lossless
+arrays) could remove JSON numeric-list parsing, its temporary allocations and much
+serialization time. It is the recommended separate focused PR, not a compatibility
+exercise: reuse the immutable scientific outcome and projector when useful, derive
+reliable JSON/CSV exports on request, and verify every recorded quantity/provenance
+association independently. Combining that authority/schema change with ownership
+and eviction fixes would unnecessarily enlarge the current scientific review.
+Gzip level 1 belongs in #70 because it is a small exact byte wrapper, preserves the
+validation path and materially reduces measured project size without a new framework.

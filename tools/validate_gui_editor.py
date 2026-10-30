@@ -17,8 +17,8 @@ from typing import Any
 import numpy as np
 from PySide6 import QtCore, QtWidgets
 
-from peakfit.gui.editor.loading import read_dataset
 from peakfit.gui.editor.window import EditorWindow
+from peakfit.gui.spectrum import read_dataset
 
 ROOT = Path(__file__).resolve().parents[1]
 _EVENTS = 500

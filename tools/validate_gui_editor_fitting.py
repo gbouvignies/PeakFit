@@ -16,9 +16,9 @@ from PySide6 import QtCore, QtTest, QtWidgets
 from validate_gui_editor import percentiles, rss_mib, settle, wait_until
 
 from peakfit.gui.dataset_dialog import DatasetFitDialog
-from peakfit.gui.editor.loading import read_dataset
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.fit_display import dataset_model_plane
+from peakfit.gui.spectrum import read_dataset
 from peakfit.io.readers.results import ResultsLoader
 
 ROOT = Path(__file__).resolve().parents[1]
