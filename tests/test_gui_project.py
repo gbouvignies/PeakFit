@@ -90,8 +90,9 @@ def test_lossless_numerical_round_trip_no_optimization(analysis, tmp_path, monke
         project, "read_dataset", lambda _path, **_kw: (_ for _ in ()).throw(OSError("missing"))
     )
     loaded = open_analysis(path)
-    assert loaded.dataset is not None
-    np.testing.assert_array_equal(loaded.dataset.spectra.data, analysis.dataset.spectra.data)
+    assert loaded.dataset is None
+    assert loaded.current
+    assert not (path / "spectra").exists()
     assert loaded.peaks == analysis.peaks
     old, new = analysis.completion.result, loaded.completion.result
     assert new.inputs.snapshot.peaks == old.inputs.snapshot.peaks
@@ -231,7 +232,7 @@ def test_real_source_relocation_missing_changed_and_explicit_relink(tmp_path):
     np.testing.assert_array_equal(loaded.dataset.spectra.z_values, dataset.spectra.z_values)
     moved = tmp_path / "moved.ft2"
     (path.parent / "spectrum.ft2").rename(moved)
-    assert open_analysis(path).dataset is not None
+    assert open_analysis(path).dataset is None
     assert open_analysis(path, relink=moved).dataset is not None
     content = moved.read_bytes()
     moved.write_bytes(content[:-1] + bytes([content[-1] ^ 1]))
@@ -376,13 +377,14 @@ def test_new_source_model_and_amplitude_solves_are_never_used_on_open(
     verify_model(loaded.completion.result)
 
 
-def test_disposable_project_process_uses_only_trusted_ipc(analysis, tmp_path):
+@pytest.mark.parametrize("kind", ["save", "portable"])
+def test_disposable_project_process_uses_only_trusted_ipc(analysis, tmp_path, kind):
     path = tmp_path / "process.peakfit"
     options = {"progress": lambda _: None, "canceled": lambda: False}
-    saved = project_operation("save", (analysis, path), **options)
+    saved = project_operation(kind, (analysis, path), **options)
     assert saved == path
     loaded = project_operation("open", path, **options)
-    assert loaded.dataset is not None  # Uses the embedded array, not the synthetic source file.
+    assert (loaded.dataset is not None) == (kind == "portable")
     assert loaded.peaks == analysis.peaks
     assert loaded.current
     verify_model(loaded.completion.result)
@@ -744,7 +746,7 @@ def test_checkpoint_before_ui_adoption_does_not_delete_live_history_references(a
 
 def test_embedded_source_delete_inspect_adjust_refit_and_save(analysis, tmp_path):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    path = save_analysis(analysis, tmp_path / "Portable.peakfit")
+    path = save_analysis(analysis, tmp_path / "Portable.peakfit", portable=True)
     analysis.dataset.path.unlink()
     loaded = open_analysis(path)
     assert loaded.dataset is not None
@@ -777,7 +779,7 @@ def test_embedded_source_delete_inspect_adjust_refit_and_save(analysis, tmp_path
         runs=(*loaded.runs, completion),
         active=completion,
     )
-    save_analysis(updated, path)
+    save_analysis(updated, path, portable=True)
     reopened = open_analysis(path)
     assert reopened.dataset is not None
     assert reopened.completion.result.run_id == fitted.run_id
@@ -789,8 +791,148 @@ def test_embedded_source_delete_inspect_adjust_refit_and_save(analysis, tmp_path
 
 
 def test_corrupt_embedded_spectrum_rejected_before_display(analysis, tmp_path):
-    path = save_analysis(analysis, tmp_path / "Corrupt.peakfit")
+    path = save_analysis(analysis, tmp_path / "Corrupt.peakfit", portable=True)
     payload = next((path / "spectra").glob("*.npz"))
     payload.write_bytes(b"corrupt")
     with pytest.raises(ValueError, match="Corrupt embedded"):
         open_analysis(path)
+
+
+def test_two_linked_analyses_share_source_and_relink_is_persisted(tmp_path):
+    source = tmp_path / "spectrum.ft2"
+    shutil.copyfile(DATA / "pseudo3d.ft2", source)
+    dataset = read_dataset(source, DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
+    analysis = Analysis(
+        dataset, dataset_header(dataset), dataset.peaks, PeakFitConfig().model_dump_json(), 0
+    )
+    first = save_analysis(analysis, tmp_path / "First.peakfit")
+    second = save_analysis(analysis, tmp_path / "Second.peakfit")
+    for path in (first, second):
+        assert not (path / "spectra").exists()
+        opened = open_analysis(path)
+        assert opened.dataset is not None, opened.reason
+        assert (
+            opened.header["source"]["checksum_sha256"]
+            == analysis.header["source"]["checksum_sha256"]
+        )
+    moved = tmp_path / "moved.ft2"
+    source.rename(moved)
+    assert open_analysis(first).dataset is None
+    linked = open_analysis(first, relink=moved)
+    assert linked.dataset is not None, linked.reason
+    save_analysis(linked, first)
+    assert open_analysis(first).dataset is not None
+    assert open_analysis(second).dataset is None  # No implicit filesystem search/relink.
+    moved.write_bytes(b"not a spectrum")
+    invalid = open_analysis(first)
+    assert invalid.dataset is None
+    assert invalid.reason
+
+
+def test_portable_to_linked_conversion_publishes_before_removing_cube(
+    analysis, tmp_path, monkeypatch
+):
+    path = save_analysis(analysis, tmp_path / "Portable.peakfit", portable=True)
+    loaded = open_analysis(path)
+    original = project._json
+
+    def fail(target, value):
+        if target.name.startswith(".manifest-"):
+            raise OSError("disk full")
+        original(target, value)
+
+    monkeypatch.setattr(project, "_json", fail)
+    with pytest.raises(OSError, match="disk full"):
+        save_analysis(loaded, path)
+    assert open_analysis(path).dataset is not None
+    assert (path / "spectra").exists()
+    monkeypatch.setattr(project, "_json", original)
+    save_analysis(loaded, path)
+    assert not (path / "spectra").exists()
+    assert "spectrum" not in json.loads((path / "manifest.json").read_text())
+    assert open_analysis(path).completion is not None
+
+
+def test_portable_export_does_not_rebind_or_mark_editor_saved(analysis, tmp_path, monkeypatch):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    linked_path = save_analysis(analysis, tmp_path / "Linked.peakfit")
+    monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)
+    window = EditorWindow()
+    window.install_analysis(open_analysis(linked_path))
+    workspace = window.workspace
+    assert workspace is not None
+    peak = workspace.peaks[0]
+    workspace.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.0001))
+    assert window.isWindowModified()
+    saved_key = window._saved_key
+    portable = tmp_path / "Export.peakfit"
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(portable), "")
+    )
+    assert window.analysis_portable.isEnabled()
+    assert window.save_analysis_dialog(portable=True)
+    wait_for(lambda: not window._saving, timeout=20)
+    assert portable.exists(), window.loading_status.text()
+    assert window.analysis_path == linked_path
+    assert window._saved_key == saved_key
+    assert window.isWindowModified()
+    assert not (linked_path / "spectra").exists()
+    analysis.dataset.path.unlink()
+    exported = open_analysis(portable)
+    assert exported.dataset is not None, exported.reason
+    assert exported.peaks == workspace.peaks
+    window._saved_key = window._analysis_key()
+    window.setWindowModified(False)
+    window.close()
+    app.processEvents()
+
+
+@pytest.mark.parametrize("portable", [False, True])
+def test_linked_and_portable_verify_source_plane_identity(
+    analysis, tmp_path, monkeypatch, portable
+):
+    spectra = analysis.dataset.spectra.model_copy(deep=True)
+    spectra.exclude_planes([1])  # Repeated experimental values cannot identify these planes.
+    config = PeakFitConfig.model_validate_json(analysis.configuration)
+    prepared = prepare_dataset_fit(spectra, analysis.peaks, config)
+    prepared = replace(
+        prepared, snapshot=replace(prepared.snapshot, source_files=analysis.dataset.sources)
+    )
+    result = finish_dataset_fit(prepared, compute_dataset_fit(prepared))
+    completion = dataset_completion(
+        result, prepared.snapshot, submitted_revision=0, manual_revision=0
+    )
+    path = save_analysis(
+        replace(analysis, runs=(completion,), peaks=completion.working_peaks),
+        tmp_path / "Mapped.peakfit",
+        portable=portable,
+    )
+    monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)
+    loaded = open_analysis(path)
+    assert loaded.dataset is not None, loaded.reason
+    assert loaded.completion.result.inputs.snapshot.source_plane_indices == (0, 2)
+    for old, new in zip(
+        result.completed_fit.samples, loaded.completion.result.completed_fit.samples, strict=True
+    ):
+        np.testing.assert_array_equal(old.data, new.data)
+        np.testing.assert_array_equal(old.neighbor_corrections, new.neighbor_corrections)
+
+
+def test_portable_export_requires_complete_data_and_never_overwrites_linked(analysis, tmp_path):
+    from peakfit.gui.project_process import save_project  # noqa: PLC0415
+
+    path = save_analysis(analysis, tmp_path / "Linked.peakfit")
+    options = {
+        "reusable": True,
+        "progress": lambda _: None,
+        "canceled": lambda: False,
+        "portable": True,
+    }
+    with pytest.raises(FileExistsError, match="new analysis directory"):
+        save_project(replace(analysis, path=path), path, **options)
+    missing = open_analysis(path, canceled=lambda: True)
+    target = tmp_path / "CannotExport.peakfit"
+    with pytest.raises(ValueError, match="Portable export requires"):
+        save_project(missing, target, **options)
+    assert not target.exists()
+    assert not (path / "spectra").exists()

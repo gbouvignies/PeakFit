@@ -291,33 +291,41 @@ handoff independently of widgets. Reproduction and measured limits are in
 [GUI v2 editor validation](validation/gui-v2-editor.md).
 
 
-### Self-contained analysis persistence
+### Linked and portable analysis persistence
 
 `engine.scientific` owns immutable published results, sample identities and pure
 model projection. `io.scientific` owns bounded typed-array serialization;
 `io.readers.continuation` restores the recorded geometry/likelihood inputs for
 both interfaces and MCMC. `gui.project_results` only adds editor metadata and
 validates the automatic working-coordinate transition. `gui.project` owns atomic
-manifest publication and one checksummed experimental cube shared by history.
+manifest publication, verified source links and an optional checksummed experimental
+cube shared by history.
 
 Default exports retain published values, exact terminal corrections/mappings and
 a small evaluator reference; detailed evidence adds observations/historical model
 samples. Residuals are regenerated in the original operation order and checked
 against recorded statistics. Bit-identical replay in one environment does not
 replace evaluator tolerances. There is no solver/amplitude recovery on reopen.
-Projects retain detailed evidence plus the complete experimental cube, allowing
-source-free full-spectrum views and continued fitting. The cube costs more than
-sample-only evidence and is never duplicated per history entry.
+Standard Save/Save as retain detailed evidence and link the external spectrum.
+This preserves numerical sample review without the source; full spectral work
+requires scientific verification/relinking. Explicit Export portable analysis adds
+the full original-dtype cube for source-free spectral inspection and continued
+adjusted fitting. Both modes use the same serialization/verification functions.
+Retained observations and historical predictions deliberately avoid dependence on
+future evaluator arithmetic for numerical review. Scientific exports are unchanged.
 
 `editor.persistence` supplies file actions, immutable capture and Qt publication;
 `editor.numerical` supplies numerical review and lazy history.
 `gui.project_process` isolates archive operations in a disposable spawned process.
-Trusted internal IPC is not a disk format. First embedding may transfer a full
-cube; routine Save reuses it and unchanged run files without source reads or
-content hashing. New payloads are flushed before manifest replacement. Save As
-copies/checks both cube and evidence; a sibling PID lock protects writers. Cleanup
-follows publication. Existing linked projects have read-only legacy evidence
-readers and migrate by explicitly verifying/embedding their source.
+Trusted internal IPC is not a disk format. Linked Save and recovery publication
+never transfer the experimental cube. Portable export alone may transfer/embed it;
+existing embedded data is copied/checksummed. Routine Save reuses immutable runs
+without source reads or content hashing. New payloads are flushed before manifest
+replacement; a sibling PID lock protects writers. Cleanup follows publication.
+Standard Save of a portable analysis publishes linked state before removing its
+cube. Portable export creates a separate snapshot without rebinding the editor
+path or marking its working edits saved. Existing older readers are reused;
+no new migration adapter is needed.
 
 `editor.fitting` keeps one active `DatasetCompletion`. Historical full evidence is
 represented by `StoredRun` (project root + checksummed immutable entry), with no
@@ -349,15 +357,18 @@ project reader. **Recover interrupted session…** offers only PeakFit-owned
 snapshots with dead POSIX owner PIDs, adopts the selected directory and requires
 Save as to a permanent location. Discard/normal closure removes the adopted scratch
 directory. Automatic discovery is conservative on non-POSIX systems; the documented
-path can still be opened explicitly. Recovery preserves accepted scientific state,
+path can still be opened explicitly. Recovery checkpoints are linked projects:
+source-free numerical review remains available, but spectral work needs relinking.
+Recovery preserves accepted scientific state,
 not every later unsaved coordinate draft. No general persistence service or shared
 asset registry is introduced.
 
 Ten full runs and protected evidence remain on disk; older entries retain exact
 coordinates, fitted tables/errors/bounds, submitted parameters/settings and concise
 diagnostics/statistics, explicitly without sample/profile capabilities. The 1 GiB
-historical budget excludes active/protected evidence. Project schema 2.0.0 rejects
-older projects deliberately; the new scientific codec replaces gzip JSON plus a
-separate sample archive. Explicit JSON remains a derived optional scientific
-export, shared by both interfaces. See [storage validation](validation/scientific-storage.md)
-for measured alternatives, serialization memory and platform limitations.
+historical budget excludes active/protected evidence. New writes use project
+schema 4.0.0 with optional embedded spectrum; older PeakFit readers reject it.
+Scientific schema/defaults remain unchanged. Explicit JSON remains a derived
+optional scientific export, shared by both interfaces. See
+[portability validation](validation/project-portability.md) for measured sizes,
+timings, publication memory and limitations.

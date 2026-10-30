@@ -1,5 +1,9 @@
 # Implemented scientific retention policy — PR #71
 
+> Historical PR #71 validation. The later [linked/portable policy](project-portability.md)
+> supersedes default cube embedding and source-free recovery claims below;
+> scientific export retention remains unchanged.
+
 Validated on macOS arm64 (Apple M5 Pro, 64 GiB RAM), Python 3.14.5,
 NumPy 2.4.1, one BLAS thread. Baseline is **1051ceb**, the completed storage audit;
 after is the implementation committed with this report. This supplements the

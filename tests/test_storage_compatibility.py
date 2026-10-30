@@ -32,14 +32,17 @@ def test_original_linked_project_remains_numerically_readable(tmp_path, name):
     assert analysis.dataset is None  # Original source deliberately unavailable.
     assert analysis.completion.result.outcome.n_optimizer_passes == 2
     assert analysis.completion.result.completed_fit.samples
-    with pytest.raises(ValueError, match="Relink this legacy project"):
-        save_analysis(analysis, tmp_path / "Migrated.peakfit")
+    saved = save_analysis(analysis, tmp_path / "Migrated.peakfit")
+    reopened = open_analysis(saved)
+    assert reopened.dataset is None
+    assert reopened.completion.result.run_id == analysis.completion.result.run_id
+    assert not (saved / "spectra").exists()
+    with pytest.raises(ValueError, match="Portable export requires"):
+        save_analysis(analysis, tmp_path / "Portable.peakfit", portable=True)
 
 
 @pytest.mark.parametrize("name", ["Legacy.peakfit", "Milestone3.peakfit"])
-def test_linked_project_migration_requires_verified_source_then_embeds_it(
-    tmp_path, monkeypatch, name
-):
+def test_portable_export_of_old_project_requires_verified_source(tmp_path, monkeypatch, name):
     import hashlib  # noqa: PLC0415
     import json  # noqa: PLC0415
 
@@ -61,7 +64,7 @@ def test_linked_project_migration_requires_verified_source_then_embeds_it(
     monkeypatch.setattr(project, "read_dataset", lambda *_args, **_kw: dataset)
     linked = open_analysis(DATA / name, relink=source)
     assert linked.dataset is not None, linked.reason
-    saved = save_analysis(linked, tmp_path / "Migrated.peakfit")
+    saved = save_analysis(linked, tmp_path / "Migrated.peakfit", portable=True)
     source.unlink()
     reopened = open_analysis(saved)
     assert reopened.dataset is not None, reopened.reason

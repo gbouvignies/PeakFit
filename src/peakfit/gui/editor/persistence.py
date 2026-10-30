@@ -56,6 +56,11 @@ class AnalysisActions:
             lambda: self.save_analysis_dialog(save_as=True),
             QtGui.QKeySequence.StandardKey.SaveAs,
         )
+        self.analysis_portable = self._action(
+            menu,
+            "Export portable analysis…",
+            lambda: self.save_analysis_dialog(portable=True),
+        )
         self.relink_action = self._action(menu, "Relink source…", self.relink_source)
         self.history_action = self._action(menu, "Analysis history…", self.show_history)
         self.recover_action = self._action(
@@ -99,6 +104,11 @@ class AnalysisActions:
                 action.setEnabled(False)
         for action in (self.analysis_save, self.analysis_save_as):
             action.setEnabled(available and not busy)
+        self.analysis_portable.setEnabled(
+            available
+            and not busy
+            and bool(self.workspace or (self._analysis and self._analysis.header.get("embedded")))
+        )
         self.history_action.setEnabled(available and not busy)
         self.relink_action.setEnabled(available and not busy and self.analysis_path is not None)
 
@@ -150,7 +160,7 @@ class AnalysisActions:
             active=w.fitting.completion,
         )
 
-    def save_analysis_dialog(self: EditorWindow, *, save_as=False, after=None):
+    def save_analysis_dialog(self: EditorWindow, *, save_as=False, after=None, portable=False):
         """Save off Qt; only successful publication marks this exact state saved."""
         if self._saving or self._busy or (self.workspace and self.workspace.fit_busy):
             return False
@@ -160,11 +170,15 @@ class AnalysisActions:
         if analysis is None:
             return False
         path = self.analysis_path
-        if save_as or path is None:
+        if portable or save_as or path is None:
             filename, _ = QtWidgets.QFileDialog.getSaveFileName(
                 self,
-                "Save analysis",
-                str(path or "Analysis.peakfit"),
+                "Export portable analysis" if portable else "Save analysis",
+                str(
+                    path.with_name(path.stem + "-portable.peakfit")
+                    if portable and path
+                    else path or "Analysis.peakfit"
+                ),
                 "PeakFit analysis (*.peakfit)",
             )
             if not filename:
@@ -176,19 +190,22 @@ class AnalysisActions:
         self._saving = True
         self._after_save = after
         self._analysis_cancel.clear()
-        self.loading_status.setText("Saving self-contained analysis")
+        self.loading_status.setText(
+            "Exporting portable analysis" if portable else "Saving linked analysis"
+        )
         self.cancel_load.setText("Cancel saving")
         self.cancel_load.show()
         self._analysis_actions()
         known = {run_id(c) for c in self._analysis.runs} if self._analysis else set()
         reusable = analysis.path is not None and all(run_id(c) in known for c in analysis.runs)
         self._analysis_worker.submit(
-            "save",
+            "portable" if portable else "save",
             0,
             lambda: save_project(
                 analysis,
                 path,
                 reusable=reusable,
+                portable=portable,
                 progress=self._analysis_progress.message.emit,
                 canceled=self._analysis_cancel.is_set,
             ),
@@ -260,6 +277,13 @@ class AnalysisActions:
             self._after_save = None
             self.loading_status.setText(f"Analysis operation failed: {outcome}")
             QtWidgets.QMessageBox.warning(self, "Cannot complete analysis operation", str(outcome))
+        elif kind == "portable":
+            path, _analysis, storage = outcome
+            self.loading_status.setText(
+                f"Exported {path.name} · {sum(storage.values()) / 1024**2:.1f} MiB"
+                " · Spectrum embedded"
+            )
+            self._after_save = None
         elif kind == "save":
             path, analysis, storage = outcome
             self.analysis_path = path
@@ -278,7 +302,7 @@ class AnalysisActions:
             self._saved_key = self._save_key
             size = sum(storage.values()) / 1024**2
             self.loading_status.setText(
-                f"Saved {path.name} · {size:.1f} MiB project data · Spectrum embedded"
+                f"Saved {path.name} · {size:.1f} MiB project data · Spectrum linked"
             )
             if self.workspace:
                 self.workspace.fitting.history = list(analysis.runs)

@@ -1,4 +1,4 @@
-"""Self-contained analyses with atomic publication, bounded history and legacy reading."""
+"""Linked and portable analyses sharing atomic publication and verified evidence."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ from peakfit.gui.spectrum import Dataset, read_dataset
 from peakfit.io.readers.legacy_project import read_legacy_project
 from peakfit.io.scientific import read_scientific, write_scientific
 
-VERSION = "3.0.0"
+VERSION = "4.0.0"
 MAX_RUNS = 10
 MAX_EVIDENCE_BYTES = 1024**3
 MAX_ARCHIVE_BYTES = 8 * 1024**3
@@ -206,6 +206,7 @@ def save_analysis(
     progress=lambda _: None,
     canceled=lambda: False,
     preserve_input_runs=False,
+    portable=False,
 ) -> Path:
     """Publish last, retaining the previous manifest and payloads on any failure.
 
@@ -245,14 +246,20 @@ def save_analysis(
             if analysis.path is None or analysis.path.absolute() != destination:
                 raise FileExistsError("Save as requires a new analysis directory.")
             _save_generation(
-                analysis, destination, destination, progress, canceled, preserve_input_runs
+                analysis,
+                destination,
+                destination,
+                progress,
+                canceled,
+                preserve_input_runs,
+                portable,
             )
         else:
             with TemporaryDirectory(prefix=".peakfit-save-", dir=destination.parent) as temp:
                 staged = Path(temp) / destination.name
                 staged.mkdir()
                 _save_generation(
-                    analysis, staged, destination, progress, canceled, preserve_input_runs
+                    analysis, staged, destination, progress, canceled, preserve_input_runs, portable
                 )
                 staged.rename(destination)
                 _sync_directory(destination.parent)
@@ -296,8 +303,8 @@ def _save_spectrum(analysis, root, old, origin, progress, canceled):
     else:
         if analysis.dataset is None:
             raise ValueError(
-                "Self-contained saving requires the verified experimental spectrum. "
-                "Relink this legacy project before migrating it."
+                "Portable export requires the verified experimental spectrum. "
+                "Relink the source before exporting a portable analysis."
             )
         progress("Embedding experimental spectrum")
         if canceled():
@@ -380,7 +387,9 @@ def _embedded_dataset(path, manifest, *, canceled=lambda: False):
     )
 
 
-def _save_generation(analysis, root, destination, progress, canceled, preserve_input_runs):  # noqa: PLR0912, PLR0915
+def _save_generation(  # noqa: PLR0912, PLR0915
+    analysis, root, destination, progress, canceled, preserve_input_runs, portable
+):
     evidence = root / "runs"
     evidence.mkdir(exist_ok=True)
     retained = tuple(
@@ -396,7 +405,7 @@ def _save_generation(analysis, root, destination, progress, canceled, preserve_i
         and (analysis.path / "manifest.json").exists()
     ):
         origin = _read_json(analysis.path / "manifest.json")
-    spectrum = _save_spectrum(analysis, root, old, origin, progress, canceled)
+    spectrum = _save_spectrum(analysis, root, old, origin, progress, canceled) if portable else {}
     records = []
     for completion in retained:
         if canceled():
@@ -451,12 +460,12 @@ def _save_generation(analysis, root, destination, progress, canceled, preserve_i
             evicted.add(record["run_id"])
     records = [r for r in records if r["run_id"] not in evicted]
     if (
-        sum(f["bytes"] for r in records for f in r["files"].values()) + spectrum["bytes"]
+        sum(f["bytes"] for r in records for f in r["files"].values()) + spectrum.get("bytes", 0)
         > MAX_ARCHIVE_BYTES
     ):
         raise ValueError("Retained evidence exceeds the supported 8 GiB project reader limit.")
     header = dict(analysis.header)
-    header["embedded"] = True
+    header["embedded"] = portable
     if analysis.dataset is not None:
         header["spectrum_header"] = analysis.dataset.spectra.dic
     source = dict(header["source"])
@@ -500,7 +509,7 @@ def _save_generation(analysis, root, destination, progress, canceled, preserve_i
         "journal": journal,
         "protected": sorted(analysis.protected),
         "storage_bytes": {
-            "spectrum": spectrum["bytes"],
+            "spectrum": spectrum.get("bytes", 0),
             "active": sum(f["bytes"] for f in records[-1]["files"].values()) if records else 0,
             "historical": historical_bytes,
             "protected": sum(
@@ -512,6 +521,8 @@ def _save_generation(analysis, root, destination, progress, canceled, preserve_i
         },
         "view": analysis.view or {},
     }
+    if not portable:
+        del manifest["spectrum"]
     if canceled():
         raise CancelledError
     progress("Publishing analysis")
@@ -532,6 +543,9 @@ def _save_generation(analysis, root, destination, progress, canceled, preserve_i
     for path in evidence.iterdir():
         if path.is_dir() and path.name not in keep:
             shutil.rmtree(path)
+
+    if not portable and (root / "spectra").exists():
+        shutil.rmtree(root / "spectra")
 
 
 def _validate_run_files(root, entry):
@@ -582,14 +596,14 @@ def _load_run(root, entry):
     return completion
 
 
-def open_analysis(  # noqa: PLR0912
+def open_analysis(
     path: Path, *, relink: Path | None = None, progress=lambda _: None, canceled=lambda: False
 ) -> Analysis:
-    """Validate embedded science; older linked projects can retain numerical-only review."""
+    """Verify retained evidence and either the linked source or embedded spectrum."""
     path = path.resolve()
     manifest = _read_json(path / "manifest.json")
     if (
-        manifest.get("schema_version") not in {"1.0.0", "1.1.0", "2.0.0", VERSION}
+        manifest.get("schema_version") not in {"1.0.0", "1.1.0", "2.0.0", "3.0.0", VERSION}
         or manifest.get("kind") != "peakfit_analysis"
     ):
         raise ValueError(f"Unsupported analysis version: {manifest.get('schema_version')!r}")
@@ -606,15 +620,10 @@ def open_analysis(  # noqa: PLR0912
         "protected",
         "storage_bytes",
     }
-    if manifest.get("schema_version") == VERSION:
+    if "spectrum" in manifest and manifest.get("schema_version") in {"3.0.0", VERSION}:
         allowed.add("spectrum")
     if set(manifest) != allowed:
         raise ValueError("Invalid analysis manifest fields.")
-    if (
-        manifest.get("schema_version") not in {"1.0.0", "1.1.0", "2.0.0", VERSION}
-        or manifest.get("kind") != "peakfit_analysis"
-    ):
-        raise ValueError(f"Unsupported analysis version: {manifest.get('schema_version')!r}")
     entries = manifest["runs"]
     if len({r["run_id"] for r in entries}) != len(entries):
         raise ValueError("Invalid retained run list.")
@@ -660,19 +669,23 @@ def open_analysis(  # noqa: PLR0912
         dataset = _embedded_dataset(path, manifest, canceled=canceled)
         if analysis.completion:
             try:
-                verify_model(analysis.completion.result)
-                for sample in analysis.completion.result.completed_fit.samples:
-                    planes = analysis.completion.result.inputs.snapshot.source_plane_indices
-                    lookup = {p: i for i, p in enumerate(dataset.spectra.source_plane_indices)}
-                    selected = [lookup[p] for p in planes]
-                    np.testing.assert_array_equal(
-                        dataset.spectra.data[(slice(None), *sample.grid_indices)].T[:, selected],
-                        sample.data,
-                    )
+                _verify_dataset(analysis.completion, dataset)
             except (ValueError, AssertionError, KeyError) as error:
                 return replace(analysis, reason=f"Model verification failed: {error}")
         return replace(analysis, dataset=dataset, reason="")
     return verify_sources(analysis, relink=relink, progress=progress, canceled=canceled)
+
+
+def _verify_dataset(completion, dataset):
+    """Use identical model and exact paired-sample checks for both source modes."""
+    verify_model(completion.result)
+    planes = completion.result.inputs.snapshot.source_plane_indices
+    lookup = {p: i for i, p in enumerate(dataset.spectra.source_plane_indices)}
+    selected = [lookup[p] for p in planes]
+    for sample in completion.result.completed_fit.samples:
+        observed = dataset.spectra.data[(slice(None), *sample.grid_indices)].T[:, selected]
+        if not np.array_equal(observed, sample.data):
+            raise ValueError("Verified source samples disagree with retained fit evidence")
 
 
 def verify_sources(analysis, *, relink=None, progress=lambda _: None, canceled=lambda: False):
@@ -721,15 +734,7 @@ def verify_sources(analysis, *, relink=None, progress=lambda _: None, canceled=l
             )
             progress("Checking reconstructed model against retained samples")
             for completion in (analysis.completion,) if analysis.completion else ():
-                verify_model(completion.result)
-                # Equality of full sources is necessary but sample ordering must agree too.
-                for s in completion.result.completed_fit.samples:
-                    if not np.array_equal(
-                        dataset.spectra.data[(slice(None), *s.grid_indices)].T, s.data
-                    ):
-                        raise ValueError(
-                            "Verified source samples disagree with retained fit evidence"
-                        )
+                _verify_dataset(completion, dataset)
             if canceled():
                 return replace(
                     analysis,
