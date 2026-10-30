@@ -123,6 +123,24 @@ requests before deciding whether shared parameter preparation earns its complexi
 
 ## Persistence direction and compatibility
 
+The authoritative target is [GUI v2 Section 11](PeakFit_GUI_Design_Specification_v2.0.md#11-save-reopen-and-export).
+Standard Save analysis and Save as retain working state and scientific evidence
+while referencing external spectra; neither embeds raw spectra or full calculated
+spectra. Record original/usable relative paths, scientific metadata and verified
+content fingerprints. Reuse digests on routine saves; verify sources on reopening
+or explicit relinking before enabling source-dependent comparisons. Missing sources
+preserve numerical review; continuation requires a separately reconstructed and
+verified complete scientific problem. Optional future Export portable analysis is
+a separate operation. No shared asset-management system is required.
+
+Retain exact fitted-sample evidence even when large; reuse unchanged immutable
+payloads and report their size separately from protected MCMC chains. Apply the
+explicit history and MCMC retention policies in v2 Sections 4 and 10 without silent
+thinning or loss of full retained results. Atomic generation publication protects
+the last saved project and its payloads through failures; source availability is
+independent of save success. These are persistence implementation requirements,
+not claims that a project reader/writer already exists.
+
 Keep canonical `summary/fit.json` 4.1.0 and CSV outputs unchanged. Add a versioned
 review manifest and separate lossless numeric payload in the persistence slice. Do not
 duplicate authoritative parameters or amplitudes in that companion. Bind it to
