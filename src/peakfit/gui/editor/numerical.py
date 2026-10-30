@@ -308,6 +308,7 @@ class NumericalReview(QtWidgets.QWidget):
                 self,
                 completion.result,
                 completion=completion,
+                current=self.analysis.current and completion is self.analysis.completion,
             )
 
     def _keep(self, keep):

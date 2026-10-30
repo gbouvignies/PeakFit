@@ -212,7 +212,7 @@ def test_long_export_path_does_not_change_footer_layout(tmp_path, monkeypatch):
     )
     destination = tmp_path.joinpath(*(["long-export-directory"] * 30))
     messages = []
-    monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_: destination)
+    monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_, **_kwargs: destination)
     monkeypatch.setattr(
         QtWidgets.QMessageBox, "information", lambda *args: messages.append(args[-1])
     )
@@ -255,7 +255,7 @@ def test_export_and_close_keep_result_and_peak_states_separate(tmp_path, monkeyp
     before = viewer.peaks
     viewer.show_fit_result()
     try:
-        monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_: None)
+        monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_, **_kwargs: None)
         assert not viewer.export_fit_results()
         assert not viewer.result_exported
         monkeypatch.setattr(
@@ -276,6 +276,10 @@ def test_export_and_close_keep_result_and_peak_states_separate(tmp_path, monkeyp
         timer.timeout.connect(lambda: beats.append(1))
         timer.start()
         assert viewer.export_fit_results()
+        _, _, context = read_scientific(
+            tmp_path / f"local-fit-{scientific.run_id}" / "scientific.npz"
+        )
+        assert context["export_state"]["currentness"] == "outdated"
         timer.stop()
         assert beats
         assert viewer.result_exported

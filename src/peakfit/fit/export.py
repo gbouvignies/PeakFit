@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from peakfit.fit.coordinates import coordinate_table
 from peakfit.fit.run_models import RunSummary
 from peakfit.fit.simulation import simulate_final_outcome
 from peakfit.fit.storage import write_scientific
@@ -56,6 +57,9 @@ def write_completed_outputs(
     source_plane_indices,
     peak_identities=None,
     save_simulated=False,
+    initial_coordinates=None,
+    adopted_coordinates=None,
+    export_state=None,
 ):
     """Export one authority with exact samples, calibration, identities and provenance.
 
@@ -64,19 +68,37 @@ def write_completed_outputs(
     of this scientific contract. Consumers dispatch on kind and schema_version;
     future analyses can define their own kind without changing fit semantics.
     """
+    identities = (
+        peak_identities
+        if peak_identities is not None
+        else [
+            {"engine_name": p.name, "peak_id": p.name, "assignment": p.name}
+            for c in completed.model_snapshot.clusters
+            for p in c.peaks
+        ]
+    )
     context = {
         "metadata": asdict(metadata),
         "data_shape": tuple(data_shape),
         "spectral_parameters": spectral_parameters,
         "plane_values": np.asarray(plane_values),
         "source_plane_indices": np.asarray(source_plane_indices, dtype=np.int64),
-        "peak_identities": peak_identities
-        if peak_identities is not None
-        else [
-            {"engine_name": p.name, "peak_id": p.name, "assignment": p.name}
-            for c in completed.model_snapshot.clusters
-            for p in c.peaks
-        ],
+        "peak_identities": identities,
+        "coordinate_table": coordinate_table(
+            completed,
+            identities,
+            spectral_parameters,
+            metadata.run_id,
+            initial=initial_coordinates,
+            adopted=adopted_coordinates,
+        ),
+        "export_state": export_state
+        if export_state is not None
+        else {
+            "scope": "dataset",
+            "currentness": "not_applicable",
+            "adoption_warnings": (),
+        },
         "models": model_records(completed.model_snapshot),
     }
     files = {
@@ -91,6 +113,7 @@ def write_completed_outputs(
             config,
             metadata=metadata,
             z_values=np.asarray(plane_values),
+            source_plane_indices=np.asarray(source_plane_indices),
             summary=RunSummary.from_outcome(completed.outcome),
         )
     )

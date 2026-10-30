@@ -461,11 +461,13 @@ class DatasetFitting(QtCore.QObject):
             != QtWidgets.QMessageBox.StandardButton.Yes
         ):
             return False
-        path = choose_and_export(self.workspace, self.result, completion=self.completion)
+        path = choose_and_export(
+            self.workspace, self.result, completion=self.completion, current=self.current
+        )
         if path:
             self.exported.add(self.result.run_id)
             if self.completion and self.workspace.peaks == self.completion.working_peaks:
-                # The canonical companion contains this exact stable-ID coordinate
+                # The shared coordinate table contains this exact stable-ID coordinate
                 # tuple. Its successful export also preserves the working peaks.
                 self.workspace.edits.mark_saved()
                 self.workspace.changed.emit()

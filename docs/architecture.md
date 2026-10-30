@@ -158,7 +158,12 @@ options. It writes the lossless `scientific.npz` authority and calls the existin
 JSON/CSV/report projections. Optional simulation is a shared float64 NPY export.
 `gui.fit_export` only adapts retained inputs and stages publication; it has no
 scientific writer or separate scientific schema. `gui.export_dialog` owns directory
-selection and a short-lived background export thread. See [outputs](outputs.md).
+selection and a short-lived background export thread. `fit.coordinates` supplies
+one chemical-shift resolution rule to automatic dataset completion and exports.
+A stable-ID table records exact initial/fitted coordinates, parameter links and
+actual recorded adoption; export-time currentness is a separate context field.
+CLI represents absent working-coordinate adoption explicitly. Intensity CSVs
+retain both fitting-column and original source-plane identity. See [outputs](outputs.md).
 
 The linear projection boundary in `engine.algorithms.linear_algebra` supplies
 one rank-aware model space and amplitude pseudoinverse to optimization and
@@ -258,7 +263,9 @@ a worker and is published atomically after accepted evidence is durable.
 History persistence and temporary ownership are described below. Failure/cancellation
 preserves the prior accepted result. A successful refit replaces it. Projects
 retain submitted/adopted working coordinates, manual revision and Currentness;
-scientific exports retain the fitted model and its exact original sample mapping.
+scientific exports retain the fitted model, exact original sample mapping and a
+validated initial/fitted/adopted coordinate table. Export-time Current/Outdated
+status accompanies that evidence without changing the immutable numerical outcome.
 
 Experimental contour geometry is cached independently of run/mode. An uncached
 comparison request schedules current-plane experimental geometry before the model

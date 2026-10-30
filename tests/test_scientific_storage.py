@@ -65,7 +65,26 @@ def test_cli_gui_export_scientific_parity(tmp_path, monkeypatch, formats):
     with ZipFile(cli_dir / "scientific.npz") as cli, ZipFile(gui_dir / "scientific.npz") as editor:
         assert cli.namelist() == editor.namelist()
         for name in cli.namelist():
-            assert cli.read(name) == editor.read(name), name
+            if name == "metadata.json":
+                cli_metadata, gui_metadata = (
+                    json.loads(cli.read(name)),
+                    json.loads(editor.read(name)),
+                )
+                cli_state = cli_metadata["context"]["mapping"].pop("export_state")["mapping"]
+                gui_state = gui_metadata["context"]["mapping"].pop("export_state")["mapping"]
+                assert cli_state == {
+                    "scope": "dataset",
+                    "currentness": "not_applicable",
+                    "adoption_warnings": [],
+                }
+                assert gui_state == {
+                    "scope": "dataset",
+                    "currentness": "unknown",
+                    "adoption_warnings": [],
+                }
+                assert cli_metadata == gui_metadata
+            else:
+                assert cli.read(name) == editor.read(name), name
     for path in gui_dir.rglob("*"):
         if not path.is_file() or path.name == "scientific.npz":
             continue
@@ -182,6 +201,13 @@ def test_repeated_plane_values_retain_source_columns_after_exclusion(tmp_path):
     assert context["plane_values"].tolist() == [2.0, 2.0]
     assert context["source_plane_indices"].tolist() == [0, 2]
     assert all(s.data.shape[1] == 2 for s in samples)
+    import csv  # noqa: PLC0415
+
+    with (path / "tables/intensities.csv").open() as stream:
+        rows = list(csv.DictReader(stream))
+    assert [int(r["plane_index"]) for r in rows[:2]] == [0, 1]
+    assert [int(r["source_plane_index"]) for r in rows[:2]] == [0, 2]
+    assert [float(r["z_value"]) for r in rows[:2]] == [2.0, 2.0]
     spectra.exclude_planes([0])
     assert spectra.source_plane_indices == (2,)
 

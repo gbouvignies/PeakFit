@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from peakfit.engine.domain.spectrum import SpectralParameters
 from peakfit.engine.lineshapes.utils import get_axis_label
+from peakfit.fit.coordinates import resolved_coordinates
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
@@ -121,7 +122,7 @@ class DatasetCompletion:
         return manual_revision == self.manual_revision and inputs == expected
 
 
-def dataset_completion(  # noqa: PLR0912
+def dataset_completion(
     result: DatasetFitResult,
     current: FitInputSnapshot,
     *,
@@ -169,36 +170,16 @@ def dataset_completion(  # noqa: PLR0912
     updates = {}
     warnings = []
     for cluster in result.outcome.clusters:
-        final = {p.name: p for p in cluster.final_nonlinear_parameters}
-        if len(final) != len(cluster.final_nonlinear_parameters):
-            raise ValueError("Completion contains ambiguous chemical-shift parameters.")
         for name in cluster.peak_names:
             identity = engine[name]
             peak = working[identity]
-            reason = "unusable cluster" if not cluster.usable else None
-            coordinates = []
-            shapes = members[name].shapes
-            if len(shapes) != len(axes) or [s.axis for s in shapes] != labels:
-                raise ValueError("Completion chemical-shift axes do not match the recorded model.")
-            if reason is None:
-                for shape, axis in zip(shapes, axes, strict=True):
-                    parameter = final.get(f"{name}.{shape.axis}.cs")
-                    if parameter is None or not math.isfinite(parameter.value):
-                        reason = "missing or non-finite chemical-shift pair"
-                        break
-                    value = parameter.value
-                    point = float(axis.ppm2pts(value))
-                    if (
-                        not math.isfinite(point)
-                        or not parameter.min <= value <= parameter.max
-                        or (axis.direct and not 0 <= point <= axis.size - 1)
-                    ):
-                        reason = "unmappable or out-of-bounds chemical-shift pair"
-                        break
-                    coordinates.append(value)
+            _names, coordinates, reason = resolved_coordinates(
+                cluster, name, [s.axis for s in members[name].shapes], axes
+            )
             if reason:
                 warnings.append(f"{peak.name} [{identity}]: retained starting position; {reason}.")
             else:
+                assert coordinates is not None
                 updates[identity] = (coordinates[0], coordinates[1])
     post_fit = tuple(
         replace(p, positions=updates[p.id]) if p.id in updates else p for p in submitted.peaks

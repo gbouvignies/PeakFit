@@ -1,0 +1,168 @@
+[
+  {
+    "run": "before",
+    "peak_phase": "refit/Transferring completed result",
+    "peak_rss_bytes": 2303721472,
+    "peak_by_role": {
+      "gui": 1324548096,
+      "resource_tracker": 21217280,
+      "worker": 957956096
+    },
+    "settled_gui_rss_bytes": {
+      "fit_settled": 1191591936,
+      "reopen_settled": 1338785792,
+      "refit_settled": 1425981440,
+      "closed": 1160806400
+    },
+    "collected_objects_after_close": null,
+    "retained_array_snapshots": null
+  },
+  {
+    "run": "after",
+    "peak_phase": "refit/Transferring completed result",
+    "peak_rss_bytes": 1955364864,
+    "peak_by_role": {
+      "gui": 975437824,
+      "resource_tracker": 21200896,
+      "worker": 958726144
+    },
+    "settled_gui_rss_bytes": {
+      "fit_settled": 1194377216,
+      "reopen_settled": 1341800448,
+      "refit_settled": 1119567872,
+      "closed": 1166721024
+    },
+    "collected_objects_after_close": null,
+    "retained_array_snapshots": null
+  },
+  {
+    "run": "after-repeat",
+    "peak_phase": "refit/Transferring completed result",
+    "peak_rss_bytes": 2246721536,
+    "peak_by_role": {
+      "gui": 1271529472,
+      "resource_tracker": 21217280,
+      "worker": 953974784
+    },
+    "settled_gui_rss_bytes": {
+      "fit_settled": 1195196416,
+      "reopen_settled": 1341587456,
+      "refit_settled": 1333248000,
+      "closed": 1377386496
+    },
+    "collected_objects_after_close": null,
+    "retained_array_snapshots": null
+  },
+  {
+    "run": "before-gc",
+    "peak_phase": "reopen/",
+    "peak_rss_bytes": 2008432640,
+    "peak_by_role": {
+      "gui": 1294368768,
+      "resource_tracker": 21168128,
+      "worker": 692895744
+    },
+    "settled_gui_rss_bytes": {
+      "fit_settled": 1197391872,
+      "reopen_settled": 1341652992,
+      "refit_settled": 1072988160,
+      "closed": 1104183296,
+      "closed_after_gc": 1104199680
+    },
+    "collected_objects_after_close": 17399,
+    "retained_array_snapshots": null
+  },
+  {
+    "run": "after-gc",
+    "peak_phase": "fit/Preserving accepted evidence",
+    "peak_rss_bytes": 2088927232,
+    "peak_by_role": {
+      "gui": 1114193920,
+      "resource_tracker": 21184512,
+      "worker": 953548800
+    },
+    "settled_gui_rss_bytes": {
+      "fit_settled": 1182842880,
+      "reopen_settled": 1326825472,
+      "refit_settled": 1286242304,
+      "closed": 1333657600,
+      "closed_after_gc": 1333673984
+    },
+    "collected_objects_after_close": 14738,
+    "retained_array_snapshots": null
+  },
+  {
+    "run": "before-buffers",
+    "peak_phase": "refit/Transferring completed result",
+    "peak_rss_bytes": 2367062016,
+    "peak_by_role": {
+      "gui": 1387298816,
+      "resource_tracker": 21217280,
+      "worker": 958545920
+    },
+    "settled_gui_rss_bytes": {
+      "fit_settled": 1195425792,
+      "reopen_settled": 1342832640,
+      "refit_settled": 1499873280,
+      "closed": 1540931584
+    },
+    "collected_objects_after_close": null,
+    "retained_array_snapshots": {
+      "fit_settled": {
+        "scientific_array_bytes": 45647608,
+        "resident_full_runs": 1,
+        "model_cache_bytes": 0,
+        "contour_cache_bytes": 357440
+      },
+      "reopen_settled": {
+        "scientific_array_bytes": 32636600,
+        "resident_full_runs": 1,
+        "model_cache_bytes": 0,
+        "contour_cache_bytes": 223120
+      },
+      "refit_settled": {
+        "scientific_array_bytes": 45647608,
+        "resident_full_runs": 1,
+        "model_cache_bytes": 0,
+        "contour_cache_bytes": 760620
+      }
+    }
+  },
+  {
+    "run": "after-buffers",
+    "peak_phase": "fit/Transferring completed result",
+    "peak_rss_bytes": 2046656512,
+    "peak_by_role": {
+      "gui": 1071611904,
+      "resource_tracker": 21200896,
+      "worker": 953843712
+    },
+    "settled_gui_rss_bytes": {
+      "fit_settled": 1196146688,
+      "reopen_settled": 1341014016,
+      "refit_settled": 1171750912,
+      "closed": 1212743680
+    },
+    "collected_objects_after_close": null,
+    "retained_array_snapshots": {
+      "fit_settled": {
+        "scientific_array_bytes": 45647608,
+        "resident_full_runs": 1,
+        "model_cache_bytes": 0,
+        "contour_cache_bytes": 357440
+      },
+      "reopen_settled": {
+        "scientific_array_bytes": 32636600,
+        "resident_full_runs": 1,
+        "model_cache_bytes": 0,
+        "contour_cache_bytes": 223120
+      },
+      "refit_settled": {
+        "scientific_array_bytes": 45647608,
+        "resident_full_runs": 1,
+        "model_cache_bytes": 0,
+        "contour_cache_bytes": 760620
+      }
+    }
+  }
+]

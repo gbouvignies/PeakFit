@@ -93,8 +93,9 @@ required to read the scientific record.
 
 The GUI's former `local_fit.json` / `dataset_fit.json` companions are removed.
 Their scientific geometry, identity, coordinate and provenance information lives
-in the shared archive. Currentness, submitted/adopted editor peak sets and manual
-revision are project state and remain in `.peakfit`, not in scientific exports.
+in the shared archive. Manual revision, live editable peak lists and undo history
+remain project state. Scientific initial/fitted/adopted distinctions and explicit
+export-time Current/Outdated status are retained as described below.
 The separate GUI sample-only NPZ and summary-only journal JSON exports are also
 removed. Use the shared retained-run export for complete samples and corrections.
 Evicted Summary-only entries remain reviewable inside the project but cannot
@@ -113,8 +114,59 @@ being available during numerical-only review.
 
 Cross-interface regressions exercise the real CLI and GUI writer entry points
 with the same completed result and options. They compare every archive metadata
-and array member, CSV values, report semantics and simulated samples. Only the
-report generation timestamp is ignored.
+and array member, CSV values, report semantics and simulated samples. Report
+generation time and the explicit export-time GUI/CLI state are checked separately;
+scientific coordinate/adoption differences are asserted rather than discarded.
+
+## Coordinate provenance and adoption
+
+`context.coordinate_table` in `scientific.npz` is version **1.0.0**, keyed by
+stable `peak_id` under `peaks`, and includes the immutable run ID and ppm unit.
+Each row records `engine_name`, assignment, cluster ID, ordered axis labels and
+exact engine `parameter_names`, plus:
+
+- `initial_unfolded_ppm`: exact submitted positions, never inferred from fitted values.
+- `fitted_unfolded_ppm`: usable, valid final chemical shifts, or `None` for an
+  unusable/unmappable tuple. No partially fitted tuple is substituted.
+- `resolution_reason`: why fitted coordinates are unavailable, when applicable.
+- `adopted_unfolded_ppm`, `adoption_status`, `adoption_reason`: the recorded
+  completion transition, independently of later manual edits.
+
+The GUI's automatic dataset completion records `adopted_fitted` for usable finite
+positions, including usable non-converged fits. Uncertainty warnings do not veto
+this automatic transition. An unusable or invalid tuple records `retained_initial`
+and its exact starting positions with a reason. The GUI completion and both
+exporters use the same coordinate-resolution function; no second scientific
+position rule or GUI-specific writer exists. Manual local-preview application
+has its existing stricter guards; without a recorded completion transition,
+exports report `not_recorded` and no adopted tuple rather than guessing.
+
+CLI uses the identical row schema and exact initial/fitted coordinates, with
+`adoption_status: not_recorded`, `adopted_unfolded_ppm: None` and an explicit reason:
+no working-coordinate transition was recorded. It does not invent editable GUI
+state. All coordinates remain named typed arrays; the table is a validated
+projection referencing the authoritative engine parameters, not another fitted
+parameter authority. Readers reject mismatched coordinates/parameter mappings
+and false adoption claims.
+
+`context.export_state` is separate from the immutable outcome and the run-owned
+coordinate evidence. It contains `scope` (`dataset`/`cluster`), `currentness`
+(`current`/`outdated`/`unknown`/`not_applicable`), and recorded `adoption_warnings`.
+GUI actions supply the actual export-time Current/Outdated state. A direct GUI
+API call without that state explicitly reports `unknown`; CLI reports
+`not_applicable`. An Outdated export retains original scientific inputs and its
+recorded completion transition, never later working edits, and never mutates the
+outcome. Only this explicit state differs when re-exporting Current versus Outdated.
+
+## Plane identity in standalone CSV
+
+`intensities.csv` now contains both `plane_index` (zero-based retained fitting
+column) and `source_plane_index` (zero-based original spectrum plane). These are
+identities; `z_value` is the experimental value and may repeat. For example,
+excluding source plane 1 from values `[2, 0, 2]` produces retained indices `[0, 1]`,
+source indices `[0, 2]` and values `[2, 2]`. Both interfaces pass the actual source
+mapping through the shared writer. Low-level projection calls omitting a mapping
+assume the unexcluded identity mapping. This is an additive CSV column change.
 
 ## Unavailable and unreliable uncertainties
 

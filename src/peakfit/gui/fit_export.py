@@ -24,6 +24,7 @@ def export_fit_result(
     destination: Path,
     *,
     completion: DatasetCompletion | None = None,
+    current: bool | None = None,
 ) -> Path:
     """Publish all required artifacts together, refusing any existing destination.
 
@@ -87,6 +88,17 @@ def export_fit_result(
                 for identity in inputs.identities
             ],
             save_simulated=settings.save_simulated,
+            initial_coordinates={p.id: p.positions for p in snapshot.peaks},
+            adopted_coordinates={p.id: p.positions for p in completion.working_peaks}
+            if completion
+            else None,
+            export_state={
+                "scope": "dataset" if isinstance(result, DatasetFitResult) else "cluster",
+                "currentness": "unknown"
+                if current is None
+                else ("current" if current else "outdated"),
+                "adoption_warnings": completion.warnings if completion else (),
+            },
         )
         if not all(path.is_file() and path.stat().st_size for path in files.values()):
             raise OSError("The export did not produce every required artifact.")

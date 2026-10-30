@@ -1,0 +1,89 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "qt_platform": "cocoa",
+  "python": "3.14.5",
+  "shape": [
+    131,
+    256,
+    546
+  ],
+  "source_bytes": 73244672,
+  "load_and_fingerprint_seconds": 0.088774709001882,
+  "initial_fit_and_durable_acceptance_seconds": 8.655520125001203,
+  "first_save_seconds": 0.9062813750060741,
+  "routine_save_seconds": 0.011381290998542681,
+  "routine_unchanged_evidence_rewrites": 0,
+  "project_bytes": 37249187,
+  "routine_source_content_bytes_read": 0,
+  "routine_bytes_written": 219939,
+  "spectrum_payload_members": [],
+  "payloads": {
+    "manifest.json": 219939,
+    "runs/efaa2b2bbf0b4956b728ecc1069af1ba/samples.npz": 9596634,
+    "runs/efaa2b2bbf0b4956b728ecc1069af1ba/review.json": 183619,
+    "runs/efaa2b2bbf0b4956b728ecc1069af1ba/summary/fit.json.gz": 27248995
+  },
+  "save_as_seconds": 0.03103033298975788,
+  "verified_reopen_seconds": 1.9639035840227734,
+  "manual_edit_outdates": true,
+  "reopened_refit_current": true,
+  "heartbeat_ms": {
+    "display": {
+      "p95": 11.038291995646432,
+      "max": 167.17358300229535
+    },
+    "first_save": {
+      "p95": 10.754065106448252,
+      "max": 24.19358299812302
+    },
+    "numerical_review": {
+      "p95": 11.036594012693968,
+      "max": 160.05987499374896
+    },
+    "refit": {
+      "p95": 10.883025004295632,
+      "max": 156.7594590014778
+    },
+    "refit_settled": {
+      "p95": 11.03150020353496,
+      "max": 11.039958015317097
+    },
+    "reopen": {
+      "p95": 10.80150000489084,
+      "max": 73.84291701600887
+    },
+    "reopen_settled": {
+      "p95": 11.044008443423081,
+      "max": 11.05070800986141
+    },
+    "routine_save": {
+      "p95": 9.994624997489154,
+      "max": 9.994624997489154
+    },
+    "save_as": {
+      "p95": 10.186733090085909,
+      "max": 10.20708298892714
+    }
+  },
+  "session_storage_cleaned_after_numeric_close": true,
+  "retained_array_snapshots": {
+    "fit_settled": {
+      "scientific_array_bytes": 45647608,
+      "resident_full_runs": 1,
+      "model_cache_bytes": 0,
+      "contour_cache_bytes": 357440
+    },
+    "reopen_settled": {
+      "scientific_array_bytes": 32636600,
+      "resident_full_runs": 1,
+      "model_cache_bytes": 0,
+      "contour_cache_bytes": 223120
+    },
+    "refit_settled": {
+      "scientific_array_bytes": 45647608,
+      "resident_full_runs": 1,
+      "model_cache_bytes": 0,
+      "contour_cache_bytes": 760620
+    }
+  }
+}

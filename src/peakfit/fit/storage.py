@@ -18,6 +18,7 @@ import numpy as np
 
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
 from peakfit.fit.completed import FinalClusterSamples
+from peakfit.fit.coordinates import validate_coordinate_table
 from peakfit.fit.final_outcome import (
     FinalAnalyticalEvaluation,
     FinalClusterOutcome,
@@ -300,7 +301,7 @@ def _validate_science(outcome, samples):  # noqa: PLR0912
             raise ValueError("Recorded observation count disagrees with samples.")
 
 
-def _validate_context(outcome, samples, context):
+def _validate_context(outcome, samples, context):  # noqa: PLR0912
     """Validate export coordinate/identity associations when full context is present."""
     if not context:
         return
@@ -329,6 +330,14 @@ def _validate_context(outcome, samples, context):
     identities = [i["engine_name"] for i in identity_records]
     if len(set(identities)) != len(identities) or set(identities) != names:
         raise ValueError("Scientific peak identity mapping disagrees with the outcome.")
+    state = context["export_state"]
+    if (
+        set(state) != {"scope", "currentness", "adoption_warnings"}
+        or state["scope"] not in {"dataset", "cluster"}
+        or state["currentness"] not in {"current", "outdated", "unknown", "not_applicable"}
+    ):
+        raise ValueError("Invalid scientific export-time state.")
+    validate_coordinate_table(context["coordinate_table"], outcome, context)
     for sample in samples:
         if sample.data.shape[1] != len(planes) or len(sample.grid_indices) != len(shape) - 1:
             raise ValueError("Scientific sample dimensions disagree with the source mapping.")

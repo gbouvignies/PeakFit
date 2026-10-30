@@ -104,9 +104,12 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     w.history(False)
     assert w.peaks == w.fitting.completion.working_peaks
     assert not w.fitting.current
-    path = export_fit_result(result, tmp_path / "result", completion=w.fitting.completion)
+    path = export_fit_result(
+        result, tmp_path / "result", completion=w.fitting.completion, current=w.fitting.current
+    )
     outcome, _samples, context = read_scientific(path / "scientific.npz")
     assert outcome.n_optimizer_passes == 2
+    assert context["export_state"]["currentness"] == "outdated"
     assert context["peak_identities"] == [
         {"engine_name": i.engine_name, "peak_id": i.working_id, "assignment": i.assignment}
         for i in result.inputs.identities

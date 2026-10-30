@@ -137,8 +137,9 @@ the run **Outdated** and switches to Experimental. Undo alone cannot recertify i
 Refit to establish a new Current result. An all-unusable run remains inspectable
 and exportable, with comparisons disabled and “No usable model”.
 
-**Export results…**, also under File, uses the canonical scientific JSON/CSV writers
-in a new `dataset-fit-<run_id>` directory. The provenance companion preserves exact
+**Export results…**, also under File, uses the shared scientific archive and
+optional JSON/CSV writers in a new `dataset-fit-<run_id>` directory. The stable-ID
+coordinate table and export-state metadata in `scientific.npz` preserve exact
 submitted seeds, stable identities, source fingerprints, original plane order,
 actual correction/pass counts, post-fit coordinates, adoption warnings and
 currentness at export. Outdated export requires an explicit acknowledgment and
