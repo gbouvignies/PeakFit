@@ -217,8 +217,9 @@ The **Display** tool changes signed contour threshold, spacing/count, labels and
 stroke weight. Contours are graded from light low levels to strong high levels;
 measured data is blue (negative plum, dashed), the model amber (negative dotted)
 and the residual vermilion/teal, as named in the in-plot legend. Peak markers
-keep a plot-coloured halo so they stay visible over contours, and the selected
-peak is labelled. Trace axes show a common power of ten (for example ×10⁶). Trace amplitude limits are common, signed and locked across hover and
+keep a plot-coloured halo so they stay visible over contours; the selected and
+hovered peaks are labelled with their assignment only, and resting on a marker
+shows its exact unfolded (and displayed alias) coordinates in a tooltip. Trace axes show a common power of ten (for example ×10⁶). Trace amplitude limits are common, signed and locked across hover and
 planes. **Fit current traces** explicitly changes gain once; a clipped trace is
 identified in the sampled-value status. The **Full spectrum** tool changes only frequency
 ranges. Appearance follows System or explicit Light/Dark under View.

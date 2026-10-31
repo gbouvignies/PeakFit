@@ -564,3 +564,15 @@ def test_peak_import_provenance_follows_current_ids_through_undo_redo(  # noqa: 
     finally:
         monkeypatch.setattr(window, "protect_edits", lambda: True)
         window.close()
+
+
+def test_hover_label_is_the_assignment_and_tooltip_keeps_coordinates(workspace):
+    canvas = workspace.canvas
+    peak = workspace.peaks[0]
+    canvas.hover(peak.id)
+    assert canvas.hover_label.textItem.toPlainText() == peak.name
+    x, y = canvas.display(peak)
+    tip = canvas._marker_tip(x=x, y=y, data=peak.id)
+    assert tip.startswith(peak.name)
+    assert "Unfolded" in tip
+    assert workspace.edits.revision == 0

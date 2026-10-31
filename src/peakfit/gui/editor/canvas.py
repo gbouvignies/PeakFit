@@ -232,7 +232,9 @@ class SpectrumCanvas(QtWidgets.QWidget):
             line.sigDragged.connect(self._crosshair_dragged)
         # A plot-coloured cross under each marker keeps it legible over contours.
         self.marker_halo = self._scatter("+", 8, 19)
-        self.markers = InspectionMarkers(symbol="+", size=7, brush=None, hoverable=True, tip=None)
+        self.markers = InspectionMarkers(
+            symbol="+", size=7, brush=None, hoverable=True, tip=self._marker_tip
+        )
         self.markers.setZValue(20)
         self.markers.sigClicked.connect(self._marker_clicked)
         self.markers.moved.connect(self._move_peak)
@@ -296,6 +298,16 @@ class SpectrumCanvas(QtWidgets.QWidget):
         label.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
         self.main.getPlotItem().addItem(label, ignoreBounds=True)
         return label
+
+    def _marker_tip(self, *, x: float, y: float, data: str) -> str:
+        """Delayed native tooltip with exact unfolded and displayed coordinates."""
+        peak = self._by_id.get(data)
+        if peak is None:
+            return ""
+        text = f"{peak.name}\nUnfolded {self._coordinates(peak.positions[1], peak.positions[0])}"
+        if (x, y) != tuple(reversed(peak.positions)):
+            text += f"\nDisplayed {self._coordinates(x, y)}"
+        return text
 
     def _coordinates(self, x: float, y: float) -> str:
         return (
@@ -372,11 +384,10 @@ class SpectrumCanvas(QtWidgets.QWidget):
             if peak:
                 x, y = self.display(peak)
                 self.halo.setData([x], [y])
+                # A short on-spectrum label; exact coordinates live in the marker
+                # tooltip, the list tooltip, the inspector and the status line.
                 folded = (x, y) != tuple(reversed(peak.positions))
-                self.hover_label.setText(
-                    f"{peak.name}  {self._coordinates(peak.positions[1], peak.positions[0])}"
-                    + (f"\nDisplayed {self._coordinates(x, y)}" if folded else "")
-                )
+                self.hover_label.setText(peak.name + (" · alias" if folded else ""))
                 self.hover_label.setPos(x, y)
                 self.selection_label.setVisible(peak_id != self.selected_id)
             else:
