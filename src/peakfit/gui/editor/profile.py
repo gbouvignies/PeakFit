@@ -8,14 +8,13 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.gui.editor.labels import ElidedLabel
+from peakfit.gui import formatting
+from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
 
 _MAX_ISOLATED = 2
-_SIDE_WIDTH = 300
-_MEMBER_COLORS = ("#7f77dd", "#1d9e75", "#d4537e", "#888780")
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,215 +115,110 @@ def framed_range(x: np.ndarray) -> tuple[float, float] | None:
     return None
 
 
-class ProfilePanel(QtWidgets.QWidget):
-    """Collapsible profile of the selected peak's cluster; header always visible."""
+class ProfilePlot(QtWidgets.QWidget):
+    """The selected peak's recorded amplitudes with its cluster members, in the inspector.
+
+    Points are recorded amplitudes, unconnected, with the scaled analytical σ that
+    exports write. The selected peak is drawn first-class; members are lighter on the
+    same scale. Clicking a point opens its plane.
+    """
 
     plane_requested = QtCore.Signal(int)
-    expanded_changed = QtCore.Signal(bool)
 
-    def __init__(self) -> None:  # noqa: PLR0915
+    def __init__(self) -> None:
         super().__init__()
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 4, 0, 0)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
-        header = QtWidgets.QHBoxLayout()
-        self.toggle = QtWidgets.QToolButton()
-        self.toggle.setText("Profile")
-        self.toggle.setCheckable(True)
-        self.toggle.setAutoRaise(True)
-        self.toggle.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.toggle.setAccessibleName("Show amplitude profile")
-        self.toggle.toggled.connect(self._toggled)
-        self.title = ElidedLabel("No fit results yet")
-        self.badge = QtWidgets.QLabel("▲ Uncertainty unreliable")
-        self.badge.setObjectName("warning")
-        self.show_all = QtWidgets.QPushButton("Show all points")
-        self.show_all.setCheckable(True)
-        self.show_all.toggled.connect(self._draw)
-        header.addWidget(self.toggle)
-        header.addWidget(self.title, 1)
-        header.addWidget(self.badge)
-        header.addWidget(self.show_all)
-        layout.addLayout(header)
-        # Key, off-scale points, error basis and warning sit beside the plot, so
-        # the plot keeps the panel's height and no text covers observations.
-        body = QtWidgets.QHBoxLayout()
-        self.basis = QtWidgets.QLabel()
-        self.basis.setObjectName("muted")
-        self.basis.setWordWrap(True)
-        self.basis.setTextFormat(QtCore.Qt.TextFormat.RichText)
-        self.basis.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-        self.basis.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.side = QtWidgets.QScrollArea()
-        self.side.setWidget(self.basis)
-        self.side.setWidgetResizable(True)
-        self.side.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
-        self.side.setFixedWidth(_SIDE_WIDTH)
-        self.side.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.plot = pg.PlotWidget()
         self.plot.hideButtons()
         self.plot.setMenuEnabled(False)
         self.plot.setMouseEnabled(x=False, y=False)
-        self.plot.setMinimumHeight(60)
+        self.plot.setFixedHeight(176)
         self.plot.setAccessibleName("Signed fitted amplitudes of the selected peak's cluster")
-        self.plot.getAxis("left").enableAutoSIPrefix(False)
-        self.plot.getAxis("left").setWidth(64)
-        body.addWidget(self.plot, 1)
-        body.addWidget(self.side)
-        layout.addLayout(body, 1)
+        font = QtGui.QFont(QtWidgets.QApplication.font())
+        font.setPixelSize(FONT_CAPTION)
+        for name in ("left", "bottom"):
+            axis = self.plot.getAxis(name)
+            axis.setStyle(tickFont=font, tickLength=-4, maxTickLevel=0)
+            axis.enableAutoSIPrefix(False)
+        self.plot.getAxis("left").setWidth(40)
+        layout.addWidget(self.plot)
+        self.legend = QtWidgets.QLabel()
+        self.legend.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.legend.setWordWrap(True)
+        layout.addWidget(self.legend)
+        notes = QtWidgets.QVBoxLayout()
+        notes.setSpacing(4)
+        self.note = QtWidgets.QLabel()
+        self.note.setObjectName("caption")
+        self.note.setWordWrap(True)
+        self.show_all = QtWidgets.QPushButton("Show all points")
+        self.show_all.setObjectName("chip")
+        self.show_all.setCheckable(True)
+        self.show_all.toggled.connect(self._draw)
+        self.show_all.hide()
+        notes.addWidget(self.note)
+        notes.addWidget(self.show_all, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        layout.addLayout(notes)
         self.zero = pg.InfiniteLine(angle=0, pos=0)
         self.plane_line = pg.InfiniteLine(angle=90)
         self._profile: PeakProfile | None = None
-        self._key = None
         self._plane = 0
         self._visible = np.array([], dtype=bool)
-        self._note_text = ""
-        self._basis_html = ""
-        self._key_html = ""
-        self._framed = False
-        self.apply_colors(dark=False)
-        self.set_expanded(False)
-        self.badge.hide()
-        self.show_all.hide()
+        self._hidden_text = ""
+        self.theme: Theme = LIGHT
 
-    def set_expanded(self, expanded: bool) -> None:
-        """Apply a restored or toggled state without reporting a user choice."""
-        with QtCore.QSignalBlocker(self.toggle):
-            self.toggle.setChecked(expanded)
-        self._apply_expanded(expanded)
-
-    def _toggled(self, expanded: bool) -> None:
-        self._apply_expanded(expanded)
-        self.expanded_changed.emit(expanded)
-
-    def _apply_expanded(self, expanded: bool) -> None:
-        self.toggle.setArrowType(
-            QtCore.Qt.ArrowType.DownArrow if expanded else QtCore.Qt.ArrowType.RightArrow
-        )
-        self.side.setVisible(expanded and self._profile is not None)
-        self.plot.setVisible(expanded)
-        self.show_all.setVisible(expanded and self._framed)
-        height = self.toggle.sizeHint().height() + 8
-        self.setMaximumHeight(16777215 if expanded else height)
-
-    def apply_colors(self, *, dark: bool) -> None:
+    def apply_theme(self, theme: Theme) -> None:
         """Follow the application appearance; no scientific values change."""
-        self._colors = {
-            "bg": "#171d24" if dark else "#fbfcfd",
-            "muted": "#aab7c4" if dark else "#586875",
-            "selected": "#73b5d5" if dark else "#23688a",
-            "highlight": "#e2ad65" if dark else "#875619",
-        }
-        self.plot.setBackground(self._colors["bg"])
+        self.theme = theme
+        self.plot.setBackground(theme.plot)
         for name in ("left", "bottom"):
             axis = self.plot.getAxis(name)
-            axis.setPen(self._colors["muted"])
-            axis.setTextPen(self._colors["muted"])
-        self.zero.setPen(pg.mkPen(self._colors["muted"], width=1))
+            axis.setPen(pg.mkPen(theme.divider))
+            axis.setTextPen(pg.mkPen(theme.secondary))
+        self.zero.setPen(pg.mkPen(theme.divider, width=1))
         self.plane_line.setPen(
-            pg.mkPen(self._colors["selected"], width=1, style=QtCore.Qt.PenStyle.DashLine)
+            pg.mkPen(color(theme.faint), width=1, style=QtCore.Qt.PenStyle.DashLine)
         )
-        if self._profile is not None:
-            self._draw()
-
-    def show_selection(
-        self,
-        result: DatasetFitResult | None,
-        working_id: str | None,
-        *,
-        current: bool,
-        busy: bool,
-        plane_values: tuple[float, ...] | None,
-        plane: int,
-    ) -> None:
-        """Follow the accepted selection and active run; redraw only on change."""
-        key = (result.run_id if result else None, working_id, current, busy, plane_values)
-        if key != self._key:
-            self._key = key
-            self._plane = plane
-            self._rebuild(result, working_id, current=current, busy=busy, values=plane_values)
-        elif plane != self._plane:
-            self._plane = plane
-            self._place_plane_marker()
-
-    def _rebuild(self, result, working_id, *, current, busy, values) -> None:
-        self._profile = None
-        self.plot.clear()
-        self.badge.hide()
-        self.show_all.hide()
-        self._framed = False
-        self.side.hide()
-        if result is None:
-            self.title.setText("No fit results yet")
-            return
-        run = f"Run {result.run_id[:8]} · {'Current' if current else 'Outdated'}" + (
-            " · new fit running" if busy else ""
-        )
-        if working_id is None:
-            self.title.setText(f"Select a peak to see its amplitude profile · {run}")
-            return
-        profile = peak_profile(result, working_id, values)
-        if isinstance(profile, str):
-            self.title.setText(f"{profile} · {run}")
-            return
-        self._profile = profile
-        selected, *members = profile.series
-        unavailable = [s.assignment for s in profile.series if not np.isfinite(s.error)]
-        self.title.setText(
-            selected.assignment
-            + (f" with {', '.join(s.assignment for s in members)}" if members else "")
-            + f" · {run} · ±1σ scaled analytical"
-            + (f" · σ unavailable: {', '.join(unavailable)}" if unavailable else "")
-        )
-        if profile.warning:
-            self.badge.setToolTip(profile.warning)
-            self.badge.show()
-        chi2 = profile.reduced_chi_squared
-        scaling = (
-            f"multiplied by √χ²ᵣ = {profile.uncertainty_scale:.3g} (cluster χ²ᵣ = {chi2:.3g})"
-            if profile.uncertainty_scale > 1
-            else f"not scaled (cluster χ²ᵣ = {chi2:.3g} ≤ 1)"
-        )
-        self._basis_html = escape(
-            "Errors are analytical amplitude standard errors computed with the fitted "
-            "lineshape parameters held fixed, so their uncertainty and correlations are "
-            f"not propagated; {scaling}. One σ per peak applies to every plane "
-            f"({selected.assignment}: {_sigma(selected.error)}). They can underestimate "
-            "the uncertainty of overlapping peaks."
-            + (" No error bar is drawn where σ is unavailable." if unavailable else "")
-        ) + (f"<br><b>▲ {escape(profile.warning)}</b>" if profile.warning else "")
-        self.side.setVisible(self.toggle.isChecked())
-        self.plot.setLabel(
-            "bottom", "Plane value (file units)" if profile.plane_values else "Plane number"
-        )
-        self.plot.setLabel("left", "Signed amplitude")
         self._draw()
+
+    def show_profile(self, profile: PeakProfile | None, plane: int) -> None:
+        """Draw a new selection or run; plane changes alone only move the marker."""
+        self._profile = profile
+        self._plane = plane
+        self.show_all.setChecked(False)
+        self._draw()
+
+    def set_plane(self, plane: int) -> None:
+        """Move the current-plane marker without redrawing observations."""
+        self._plane = plane
+        self._place_plane_marker()
+
+    def _colors(self) -> list[str]:
+        return list(self.theme.members)
 
     def _draw(self) -> None:
         profile = self._profile
+        self.plot.clear()
         if profile is None:
             return
-        self.plot.clear()
         x = profile.x
         frame = framed_range(x)
-        self._framed = frame is not None
-        self.show_all.setVisible(self._framed and self.toggle.isChecked())
+        self.show_all.setVisible(frame is not None)
         if self.show_all.isChecked():
             frame = None
         visible = (
             np.ones(x.size, dtype=bool) if frame is None else (x >= frame[0]) & (x <= frame[1])
         )
         self._visible = visible
-        style = QtCore.Qt.PenStyle.DashLine if profile.warning else QtCore.Qt.PenStyle.SolidLine
-        marker = "○" if profile.warning else "●"
-        self._key_html = " ".join(
-            f'<span style="color:{self._color(index)}">{marker}</span> {escape(s.assignment)}'
-            + (" (selected)" if index == 0 else "")
-            + ("" if np.isfinite(s.error) else " · σ unavailable")
-            for index, s in enumerate(profile.series)
-        )
+        warned = profile.warning is not None
+        colors = self._colors()
+        style = QtCore.Qt.PenStyle.DashLine if warned else QtCore.Qt.PenStyle.SolidLine
         for index, series in reversed(list(enumerate(profile.series))):
-            color = self._color(index)
+            value = colors[index % len(colors)]
+            selected = index == 0
+            alpha = 1.0 if selected else 0.5
             if np.isfinite(series.error):
                 self.plot.addItem(
                     pg.ErrorBarItem(
@@ -332,7 +226,7 @@ class ProfilePanel(QtWidgets.QWidget):
                         y=series.amplitudes,
                         height=np.full(x.size, 2 * series.error),
                         beam=0,
-                        pen=pg.mkPen(color, width=1, style=style),
+                        pen=pg.mkPen(color(value, alpha * 0.7), width=1, style=style),
                     )
                 )
             points = pg.ScatterPlotItem(
@@ -340,9 +234,9 @@ class ProfilePanel(QtWidgets.QWidget):
                 y=series.amplitudes,
                 data=np.arange(x.size),
                 symbol="o",
-                size=7 if index == 0 else 5,
-                pen=pg.mkPen(color, width=1.2),
-                brush=None if profile.warning else pg.mkBrush(color),
+                size=6 if selected else 4,
+                pen=pg.mkPen(color(value, alpha), width=1.2),
+                brush=None if warned else pg.mkBrush(color(value, alpha)),
             )
             points.sigClicked.connect(self._clicked)
             self.plot.addItem(points)
@@ -366,14 +260,32 @@ class ProfilePanel(QtWidgets.QWidget):
         self.plot.getViewBox().setRange(
             xRange=(low - pad, high + pad), yRange=(bottom - margin, top + margin), padding=0
         )
+        power = formatting.exponent(max(abs(bottom), abs(top)))
+        style_text = {"color": self.theme.faint, "font-size": f"{FONT_CAPTION}px"}
+        left = self.plot.getAxis("left")
+        left.setScale(10.0**-power)
+        left.setLabel(f"×10{formatting.superscript(str(power))}" if power else "", **style_text)
+        self.plot.setLabel(
+            "bottom", "Plane value" if profile.plane_values else "Plane number", **style_text
+        )
+        marker = "○" if warned else "●"
+        self.legend.setText(
+            "&nbsp;&nbsp;".join(
+                f'<span style="color:{colors[i % len(colors)]}">{marker}</span>&nbsp;'
+                + (f"<b>{escape(s.assignment)}</b>" if i == 0 else escape(s.assignment))
+                + ("" if np.isfinite(s.error) else " · σ unavailable")
+                for i, s in enumerate(profile.series)
+            )
+        )
         hidden = np.flatnonzero(~visible)
-        self._note_text = ""
+        self._hidden_text = ""
         if hidden.size:
-            left = x[hidden[0]] < low
-            self._note_text = ("◂ " if left else "") + (
+            self._hidden_text = (
                 f"{hidden.size} {'point' if hidden.size == 1 else 'points'} off scale: "
-                + ", ".join(f"{x[j]:g} (plane {profile.source_planes[j] + 1})" for j in hidden)
-                + ("" if left else " ▸")
+                + ", ".join(
+                    f"{formatting.intensity(float(x[j]))} (plane {profile.source_planes[j] + 1})"
+                    for j in hidden
+                )
             )
             self.show_all.setToolTip(
                 "Off-scale observations: "
@@ -389,33 +301,49 @@ class ProfilePanel(QtWidgets.QWidget):
     def _place_plane_marker(self) -> None:
         profile = self._profile
         if profile is None:
+            self.note.setText("")
             return
         columns = np.flatnonzero(profile.source_planes == self._plane)
         shown = columns.size > 0 and bool(self._visible[columns[0]])
         self.plane_line.setVisible(shown)
         if shown:
             self.plane_line.setValue(float(profile.x[columns[0]]))
-        off = bool(self._note_text) and columns.size > 0 and not shown
-        note = (
-            f'<br><span style="color:{self._colors["highlight" if off else "muted"]}">'
-            f"{escape(self._note_text)}{' · current plane' if off else ''}</span>"
-            if self._note_text
-            else ""
+        off = bool(self._hidden_text) and columns.size > 0 and not shown
+        scale = (
+            f"scaled by √χ²ᵣ = {profile.uncertainty_scale:.3g}"
+            if profile.uncertainty_scale > 1
+            else "not scaled (χ²ᵣ ≤ 1)"
         )
-        self.basis.setText(f"{self._key_html}{note}<br>{self._basis_html}")
-
-    def _color(self, index: int) -> str:
-        return (
-            self._colors["selected"]
-            if index == 0
-            else _MEMBER_COLORS[(index - 1) % len(_MEMBER_COLORS)]
+        self.note.setText(
+            "±1σ analytical, lineshapes held fixed, "
+            + scale
+            + (f" · {self._hidden_text}" if self._hidden_text else "")
+            + (" · current plane is off scale" if off else "")
+        )
+        self.note.setToolTip(
+            "Analytical amplitude standard errors computed with the fitted lineshape "
+            "parameters held fixed, so their uncertainty and correlations are not "
+            "propagated. One σ per peak applies to every plane. They can underestimate "
+            "the uncertainty of overlapping peaks."
         )
 
-    def _clicked(self, _item, points, _event) -> None:
+    def _clicked(self, _item, points, event) -> None:
         profile = self._profile
         if profile is None:
             return
         columns = sorted({int(point.data()) for point in points})
+        if event is not None and len(columns) > 1:
+            # Dense series put several points under the pointer: take the nearest one,
+            # then offer a choice only among planes that share its plane value.
+            width, height = self.plot.getViewBox().viewPixelSize()
+            click = event.pos()
+            nearest = min(
+                points,
+                key=lambda point: ((point.pos().x() - click.x()) / width) ** 2
+                + ((point.pos().y() - click.y()) / height) ** 2,
+            )
+            value = profile.x[int(nearest.data())]
+            columns = [j for j in columns if profile.x[j] == value]
         planes = sorted({int(profile.source_planes[j]) for j in columns})
         if len(planes) == 1:
             self.plane_requested.emit(planes[0] + 1)

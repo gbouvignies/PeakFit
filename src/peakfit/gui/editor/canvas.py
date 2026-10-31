@@ -203,7 +203,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         grid.addWidget(self.right, 1, 1)
         grid.setRowStretch(1, 1)
         grid.setColumnStretch(0, 1)
-        self.main.setMinimumSize(565, 330)
+        self.main.setMinimumSize(400, 300)
         for plot in (self.main, self.top):
             plot.getAxis("left").setWidth(58)
             plot.getViewBox().invertX(True)
@@ -240,6 +240,10 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.markers.moved.connect(self._move_peak)
         self.main.addItem(self.markers)
         self.ring = self._scatter("o", 18, 30)
+        # Other members of the selected peak's recorded cluster: lighter rings that
+        # mark the unit of review while the selected peak stays the unit of editing.
+        self.cluster_rings = self._scatter("o", 14, 29)
+        self.cluster_ids: tuple[str, ...] = ()
         self.halo = self._scatter("o", 15, 31)
         self.ghost = self._scatter("+", 10, 32)
         self.hover_label = self._label(35, (-0.08, 1.15))
@@ -337,6 +341,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.peaks = peaks
         self._by_id = {peak.id: peak for peak in peaks}
         self.marker_rebuilds += 1
+        self._place_cluster_rings()
         positions = [self.display(peak) for peak in peaks]
         xs, ys = [p[0] for p in positions], [p[1] for p in positions]
         self.marker_halo.setData(x=xs, y=ys)
@@ -365,6 +370,20 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 shifted.append((low + delta, high + delta))
             view.setRange(xRange=shifted[0], yRange=shifted[1], padding=0)
 
+    def set_cluster(self, peak_ids: tuple[str, ...]) -> None:
+        """Mark a recorded cluster's members; never changes view, mode or model scope."""
+        if peak_ids != self.cluster_ids:
+            self.cluster_ids = peak_ids
+            self._place_cluster_rings()
+
+    def _place_cluster_rings(self) -> None:
+        positions = [
+            self.display(self._by_id[i])
+            for i in self.cluster_ids
+            if i in self._by_id and i != self.selected_id
+        ]
+        self.cluster_rings.setData([p[0] for p in positions], [p[1] for p in positions])
+
     def _selection_ring(self) -> None:
         peak = self._by_id.get(self.selected_id or "")
         if peak is None:
@@ -375,6 +394,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self.ring.setData([x], [y])
             self.selection_label.setText(peak.name)
             self.selection_label.setPos(x, y)
+        self._place_cluster_rings()
 
     def hover(self, peak_id: str | None, *, from_list: bool = False) -> None:
         """Change transient feedback only, preserving editor drafts and selection."""
@@ -951,6 +971,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.marker_halo.setPen(pg.mkPen(color(t.plot, 0.9), width=2.6))
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
         self.ring.setPen(pg.mkPen(t.accent, width=2))
+        self.cluster_rings.setPen(pg.mkPen(color(t.accent, 0.6), width=1.2))
         self.halo.setPen(pg.mkPen(color(t.accent, 0.8), width=1.2))
         self.ghost.setPen(pg.mkPen(t.pin, width=2))
         fill = pg.mkBrush(color(t.plot, 0.86))

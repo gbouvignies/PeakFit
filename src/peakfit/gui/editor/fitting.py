@@ -2,7 +2,6 @@
 
 from dataclasses import replace
 from datetime import UTC, datetime
-from html import escape
 from time import perf_counter
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -51,10 +50,6 @@ class DatasetFitting(QtCore.QObject):
         self._generation = 0
         self._submitted_revision = 0
         self._started = 0.0
-        self._diagnostic_text = ""
-        self._review_timer = QtCore.QTimer(self)
-        self._review_timer.setSingleShot(True)
-        self._review_timer.timeout.connect(self._reveal_review)
         self._worker = ViewerComputation(self)
         self._worker.completed.connect(self._prepared)
         self.process = FitProcess(self)
@@ -64,15 +59,6 @@ class DatasetFitting(QtCore.QObject):
         self.timer.setInterval(200)
         self.timer.timeout.connect(self.update)
         self.timer.start()
-        self.review = QtWidgets.QTextBrowser()
-        self.review.setAccessibleName("Completed fit diagnostics")
-        self.review.setFixedHeight(180)
-        self.review.setOpenLinks(False)
-        self.review.anchorClicked.connect(self.next_warning)
-        self.review.hide()
-        inspector_layout = workspace.inspector.layout()
-        assert isinstance(inspector_layout, QtWidgets.QGridLayout)
-        inspector_layout.addWidget(self.review, 6, 0, 1, 2)
         workspace.changed.connect(self.update)
 
     @property
@@ -299,7 +285,6 @@ class DatasetFitting(QtCore.QObject):
         # While a fit runs its settings cannot change; the run line needs the room.
         w.settings_button.setVisible(not busy)
         w.cancel_fit.setVisible(busy)
-        w.review_fit.setEnabled(self.result is not None or bool(self.failure))
         usable = (
             self.current
             and self.result is not None
@@ -345,24 +330,8 @@ class DatasetFitting(QtCore.QObject):
         w.warnings.setVisible(bool(flagged))
         w.update_settings_summary()
         w.summary.setToolTip(text + ("\n" + self.failure if self.failure else ""))
-        if self.review.isVisible():
-            self.show_diagnostics()
-        w._update_profile()
+        w._update_inspector()
         self.state_changed.emit()
-
-    def toggle_review(self) -> None:
-        """Reveal diagnostics in the rail without changing the spectral viewport."""
-        self.review.setVisible(not self.review.isVisible())
-        if self.review.isVisible():
-            self.workspace.peaks_button.setChecked(True)
-            self.workspace.toggle_rail()
-            self.show_diagnostics()
-            self._review_timer.start(0)
-
-    def _reveal_review(self) -> None:
-        # Layout computes the newly visible review height on the next Qt turn.
-        bar = self.workspace.rail.inspector_scroll.verticalScrollBar()
-        bar.setValue(bar.maximum())
 
     def next_warning(self, _url) -> None:
         """Explicitly navigate questionable clusters without isolating their models."""
@@ -389,83 +358,6 @@ class DatasetFitting(QtCore.QObject):
         )
         cluster = warnings[(index + 1) % len(warnings)]
         self.workspace.select_peak(identities[cluster.peak_names[0]])
-        self.show_diagnostics()
-        self._review_timer.start(0)
-
-    def show_diagnostics(self) -> None:
-        """Keep convergence, usability and uncertainty separate and inspectable."""
-        lines = [self.failure] if self.failure else []
-        result = self.result
-        if result:
-            lines += [
-                f"Run {result.run_id[:8]} · {'Current' if self.current else 'Outdated'}",
-            ]
-            names = {i.engine_name: i.assignment for i in result.inputs.identities}
-            selected = next(
-                (
-                    i.engine_name
-                    for i in result.inputs.identities
-                    if i.working_id == self.workspace.selected_id
-                ),
-                None,
-            )
-            clusters = [c for c in result.outcome.clusters if selected in c.peak_names]
-            if not clusters:
-                clusters = [
-                    c
-                    for c in result.outcome.clusters
-                    if not c.usable
-                    or not c.optimizer_provenance.converged
-                    or (c.analytical_evaluation and c.analytical_evaluation.uncertainty_warning)
-                ][:1]
-            if not clusters:
-                lines.append("Select a peak to inspect its recorded cluster diagnostics.")
-            for cluster in clusters:
-                evaluation = cluster.analytical_evaluation
-                lines += [
-                    f"\nCluster {cluster.cluster_id}: "
-                    + ", ".join(names[n] for n in cluster.peak_names),
-                    f"{'Usable' if cluster.usable else 'Unusable'} · "
-                    f"{'Converged' if cluster.optimizer_provenance.converged else 'Not converged'}",
-                    cluster.optimizer_provenance.termination_message or "No termination message",
-                ]
-                if cluster.unusable_reason:
-                    lines.append(cluster.unusable_reason)
-                if evaluation:
-                    samples = next(
-                        s
-                        for s in result.completed_fit.samples
-                        if s.cluster_id == cluster.cluster_id
-                    )
-                    varying = sum(p.vary for p in cluster.final_nonlinear_parameters)
-                    lines.append(
-                        f"{len(samples.grid_indices[0])} samples/plane · "
-                        f"{varying} varying nonlinear parameters"
-                    )
-                    lines.append(f"Statistical noise: {result.outcome.noise:.9g} a.u.")
-                    lines.append(f"Reduced χ²: {evaluation.statistics.reduced_chi_squared:.6g}")
-                    if evaluation.uncertainty_warning:
-                        lines.append(evaluation.uncertainty_warning)
-            lines.append(
-                "Recorded optimizer statistics use corrected fitting samples; "
-                "the displayed residual uses native data minus the total model."
-            )
-            lines.extend(result.warnings)
-            assert self.completion is not None
-            lines.extend(self.completion.warnings)
-            if self._session.path:
-                lines.append(f"Session recovery: {self._session.path}")
-            lines.append(
-                "Save analysis preserves working state and the latest ten completed runs. "
-                "Spectral sources remain external."
-            )
-        text = "\n".join(lines)
-        if self._diagnostic_text != text:
-            self._diagnostic_text = text
-            self.review.setHtml(
-                '<a href="next">Next cluster needing review</a><br>'
-                + escape(text).replace("\n", "<br>")
-            )
 
     def export(self) -> bool:
         """Export retained evidence with its currentness explicitly labeled."""
@@ -521,7 +413,6 @@ class DatasetFitting(QtCore.QObject):
     def stop(self) -> None:
         """Stop workers and invalidate queued deliveries without writing session files."""
         self.timer.stop()
-        self._review_timer.stop()
         self._generation += 1
         self.process.close()
         self._worker.close(finalize=self._session.close)

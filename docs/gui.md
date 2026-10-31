@@ -54,10 +54,16 @@ including repeated or unordered plane values. Missing values are labeled honestl
 imported values use the file's units, since a plain values file provides no unit
 metadata.
 
-The **Peaks** rail combines searching, selection and exact editing. Hover never
-selects or overwrites a draft. Selection alone never opens a closed rail. Search
-matches assignments and stable IDs. A filtered-out selection remains in the
-inspector and can be revealed in the list. Coincident markers open a chooser with
+The workspace has three columns: the **navigator** on the left, the spectrum in
+the centre and the **inspector** on the right. Toolbar buttons at either end hide
+or show the side columns; their widths are adjustable. The navigator's **Peaks**
+tab lists working peaks with search; after a fit its **Clusters** tab lists the
+active run's clusters. The inspector shows the selected peak (position editor,
+amplitude profile, fitted values and cluster review) or, with nothing selected,
+the analysis: fit settings and the active run. Hover never selects or overwrites
+a draft. Selection alone never opens a hidden column. Search matches assignments
+and stable IDs. A filtered-out selection remains in the inspector and can be
+revealed in the list. Coincident markers open a chooser with
 coordinates and IDs, rather than silently choosing one assignment.
 
 Use **Add peak** or canvas A, then click an exact ppm location. Select a marker,
@@ -119,7 +125,7 @@ Successful completion automatically adopts each usable valid fitted coordinate
 pair by stable peak ID. Usable non-converged fits and uncertainty warnings retain
 their positions and warnings. Missing/unusable pairs keep their submitted positions
 with explicit reasons. There is no Apply operation. Selection, viewport, plane,
-rail visibility and free sample pins survive; a pin following a selected peak moves
+side-column visibility and free sample pins survive; a pin following a selected peak moves
 to its optimized sample once. Pre-fit Undo is reset to avoid silently restoring
 seeds under a Current label; the run retains exact submitted seeds independently.
 Optimized working coordinates remain exportable as ordinary peak CSV.
@@ -147,26 +153,40 @@ model planes and 32 MiB/eight contour geometries, with stale deliveries rejected
 The run line starts with the run and Current/Outdated, then completeness,
 convergence and usable/total clusters, so a narrow window shortens only the tail;
 its tooltip keeps the full text. Engine uncertainty warnings have their own amber
-label (▲ N) that never elides. The **Review** tool reveals concise selected-cluster
-diagnostics in the rail's existing inspector scroll area. **Next cluster needing
-review** explicitly navigates non-convergence, unusable results and uncertainty
-warnings. Recorded optimizer statistics refer to corrected fitting samples and
-are not recomputed from the displayed whole-spectrum residual.
+label (▲ N) that never elides.
 
-The **Profile** panel below the spectrum shows the selected peak's signed fitted
-amplitudes across planes, with the other members of its cluster on the same
-vertical scale. It follows the accepted selection only: an invalid draft that
-blocks selection leaves the profile unchanged. It starts collapsed; its header
-always names the peak, cluster members, source run and Current/Outdated state, and
-shows **▲ Uncertainty unreliable** when the engine warned about that cluster.
-Expanding or resizing it is remembered as an application preference, not in the
-analysis, and the spectrum keeps its minimum size.
+The first completed run opens the navigator's **Clusters** tab: one row per
+recorded cluster with an amber ▲ for an engine warning (unusable, not converged
+or unreliable uncertainty), its members, χ²ᵣ and the largest |amplitude
+correlation| between members ("–" for a single peak, "n/a" when the covariance is
+unavailable). Columns sort on click; the default is χ²ᵣ, highest first. Choosing a
+row selects one of its members, keeping the selected peak when it belongs to the
+cluster. Whenever the selected peak belongs to the active run, the other members
+of its recorded cluster carry a thin accent ring on the spectrum, while the
+selected peak keeps its stronger ring and label; this never changes the viewport,
+comparison mode or the total-model scope. **N** in the cluster list, or **Select next cluster with a warning** on
+the analysis page, moves to the next cluster with an engine warning. The
+inspector's **Cluster review** keeps numerical warnings (with the engine's own
+text) separate from measures: χ²ᵣ with its sample count, the largest recorded
+residual against the maximum expected from Gaussian noise for that many samples,
+and the selected peak's strongest amplitude correlation, conditional on the
+fitted lineshapes. Recorded optimizer statistics refer to corrected fitting
+samples and are not recomputed from the displayed whole-spectrum residual.
+**Provenance** discloses the optimizer, termination message, correction revision
+and run identity. **Fitted** lists the peak's recorded parameters with σ and
+units; parameters at a recorded bound are marked.
+
+The inspector's **Amplitude profile** shows the selected peak's signed fitted
+amplitudes across planes, with the other members of its cluster lighter on the
+same vertical scale. It follows the accepted selection only: an invalid draft that
+blocks selection leaves the profile unchanged. The inspector header names the
+peak, its cluster size, the source run and Current/Outdated state.
 
 Points are the recorded amplitudes, unconnected, against the supplied plane values
 in acquisition order; repeated values stay separate observations. Without plane
 values, or when the current values differ from those the run recorded, the axis is
-the one-based plane number. Clicking a point opens its plane; points sharing a
-value offer a choice. Error bars are the scaled analytical standard errors written
+the one-based plane number. Clicking a point opens the plane of the nearest
+point; points sharing that exact value offer a choice. Error bars are the scaled analytical standard errors written
 by **Export results…**: computed with the fitted lineshape parameters held fixed,
 multiplied by √χ²ᵣ when the cluster's χ²ᵣ exceeds 1, one σ per peak for every
 plane. They can underestimate the uncertainty of overlapping peaks; warned
@@ -254,7 +274,7 @@ Projects reference the original NMRPipe spectrum; they never copy it. Working pe
 IDs/positions, effective settings, ordered plane values, accepted numerical evidence,
 original seeds and the automatic working transition survive reopening without the
 imported peak/plane-value files. The selected plane/peak, inspection pin, viewport,
-rail width and comparison/display settings also persist. Undo starts afresh.
+side-column visibility and widths and comparison/display settings also persist. Undo starts afresh.
 
 Reopen verifies spectrum SHA-256, calibration/processing, sample identity and model
 evaluation before enabling spectral comparisons or new fits. It never optimizes or

@@ -162,12 +162,10 @@ def main():  # noqa: PLR0915
                     np.testing.assert_array_equal(c.curve_y.getData()[0], native[:, c.ix])
     window.resize(1280, 800)
     window.apply_appearance("Light")
-    click(w.review_fit)
+    # Review lives in the inspector: select the next cluster with an engine warning.
     w.fitting.next_warning(None)
     settle(100)
     window.grab().save(str(OUTPUT / "review.webp"), "WEBP", 95)
-    click(w.review_fit)
-    settle(50)
     phase[0] = "hover"
     c.set_pinned(False)
     pending, count, superseded = [None], [0], [0]

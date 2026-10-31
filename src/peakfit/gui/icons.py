@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 # 20×20 view box, drawn with a round 1.6 px stroke.
 _SHAPES = {
     "panel-left": '<rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M7.5 3.5v13"/>',
+    "panel-right": '<rect x="2.5" y="3.5" width="15" height="13" rx="2"/><path d="M12.5 3.5v13"/>',
     "add-peak": '<circle cx="10" cy="10" r="7"/><path d="M10 6.5v7M6.5 10h7"/>',
     "pin": (
         '<circle cx="10" cy="10" r="2.2"/>'
@@ -20,7 +21,6 @@ _SHAPES = {
         '<path d="M3 6h9M15.5 6H17M3 14h2.5M9 14h8"/>'
         '<circle cx="13.7" cy="6" r="1.8"/><circle cx="7.2" cy="14" r="1.8"/>'
     ),
-    "review": '<path d="M4 5h8M4 10h8M4 15h5"/><path d="M12.5 14.5l2 2 3.5-4"/>',
     "chevron-left": '<path d="M12 4.5L6.5 10l5.5 5.5"/>',
     "chevron-right": '<path d="M8 4.5l5.5 5.5L8 15.5"/>',
 }

@@ -586,11 +586,12 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         return dialog.clickedButton() is discard
 
     def find_assignment(self) -> None:
-        """Search explicitly opens the rail; selection alone does not."""
+        """Search explicitly opens the navigator's peak list; selection alone does not."""
         if self.workspace:
             self.workspace.peaks_button.setChecked(True)
-            self.workspace.toggle_rail()
-            self.workspace.rail.search.setFocus()
+            self.workspace.toggle_navigator()
+            self.workspace.navigator.show_page(0)
+            self.workspace.navigator.search.setFocus()
 
     def _step_plane(self, offset) -> None:
         if self.workspace:

@@ -1,4 +1,4 @@
-"""One explicit inspection/edit workflow composed from the rail and spectrum canvas."""
+"""Three columns: navigator, spectrum and inspector, around one editing workflow."""
 
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -8,11 +8,12 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
+from peakfit.gui.dataset_fit import dataset_summary
 from peakfit.gui.editor.canvas import SpectrumCanvas
 from peakfit.gui.editor.fitting import DatasetFitting
+from peakfit.gui.editor.inspector import Inspector, find_cluster
 from peakfit.gui.editor.labels import ElidedLabel
-from peakfit.gui.editor.profile import ProfilePanel
-from peakfit.gui.editor.rail import PeakRail
+from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
 
@@ -22,9 +23,8 @@ if TYPE_CHECKING:
 
 
 _RESIDUAL = 2
-_PROFILE_HEIGHT = 200
-_WHOLE_COLUMN = 1_000_000  # QSplitter scales sizes to the space available
 _WIDE_TOOLBAR = 1200
+_SIDES = (280, 320)  # default navigator and inspector widths at 1280 px
 
 
 class EditorWorkspace(QtWidgets.QWidget):
@@ -43,34 +43,24 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.plane_values_modified = False
         self.selected_id: str | None = None
         self.canvas = SpectrumCanvas(dataset)
-        self.rail = PeakRail(
+        decimals = (self.canvas.decimals_x, self.canvas.decimals_y)
+        self.navigator = Navigator(
             self.canvas.axis_title(self.canvas.x_axis),
             self.canvas.axis_title(self.canvas.y_axis),
-            (self.canvas.decimals_x, self.canvas.decimals_y),
+            decimals,
         )
-        self.inspector = self.rail.inspector
+        self.panel = Inspector(self.canvas.x_axis, self.canvas.y_axis, decimals)
+        self.inspector = self.panel.editor
         self.canvas.resolve_edit = self.commit_fields
         self.splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
         self.splitter.setChildrenCollapsible(False)
         self.splitter.setHandleWidth(1)
-        # The profile shares the spectrum's column; the canvas minimum size keeps
-        # the 2D plot and both traces usable whatever height is restored.
-        self.profile = ProfilePanel()
-        self.column = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
-        self.column.setChildrenCollapsible(False)
-        self.column.setHandleWidth(1)
-        self.column.addWidget(self.canvas)
-        self.column.addWidget(self.profile)
-        self.column.setStretchFactor(0, 1)
-        self.column.setStretchFactor(1, 0)
-        self.column.splitterMoved.connect(self._profile_resized)
-        self.profile.expanded_changed.connect(self._profile_toggled)
-        self.profile.plane_requested.connect(self.set_plane)
-        self.splitter.addWidget(self.rail)
-        self.splitter.addWidget(self.column)
-        self.splitter.setStretchFactor(0, 0)
-        self.splitter.setStretchFactor(1, 1)
-        self.splitter.setSizes([300, 1000])
+        self.splitter.addWidget(self.navigator)
+        self.splitter.addWidget(self.canvas)
+        self.splitter.addWidget(self.panel)
+        for index, stretch in enumerate((0, 1, 0)):
+            self.splitter.setStretchFactor(index, stretch)
+        self.splitter.setSizes([_SIDES[0], 1280 - sum(_SIDES), _SIDES[1]])
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -93,14 +83,18 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.error.hide()
         layout.addWidget(self.error)
         self.canvas.status_changed.connect(self.status.setText)
-        self.canvas.hovered.connect(self.rail.highlight)
-        self.rail.hovered.connect(lambda identity: self.canvas.hover(identity, from_list=True))
-        self.rail.selected.connect(self.select_peak)
+        self.canvas.hovered.connect(self.navigator.highlight)
+        self.navigator.hovered.connect(lambda identity: self.canvas.hover(identity, from_list=True))
+        self.navigator.selected.connect(self.select_peak)
+        self.navigator.next_warning.connect(lambda: self.fitting.next_warning(None))
+        self.panel.next_warning.connect(lambda: self.fitting.next_warning(None))
+        self.panel.settings_requested.connect(lambda: self.fitting.fit(settings=True))
+        self.panel.plane_requested.connect(self.set_plane)
         self.canvas.selected.connect(self.select_peak)
         self.canvas.placed.connect(self.place_peak)
         self.canvas.moved.connect(self.move_peak)
         self.canvas.draft_changed.connect(self._drag_draft)
-        self.rail.edit_requested.connect(self.focus_editor)
+        self.navigator.edit_requested.connect(self.focus_editor)
         self.canvas.edit_requested.connect(self.focus_editor)
         self.inspector.commit_requested.connect(self.commit_fields)
         self.inspector.deleted.connect(self.delete_peaks)
@@ -108,9 +102,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._build_actions()
         self.fitting = DatasetFitting(self)
         self._refresh()
-        self.rail.setVisible(bool(dataset.peaks))
+        self.navigator.setVisible(bool(dataset.peaks))
         self.set_plane(1)
-        self._restore_profile()
 
     def _tool(self, name: str, tip: str, *, checkable: bool = False) -> QtWidgets.QToolButton:
         button = QtWidgets.QToolButton()
@@ -131,9 +124,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         bar = QtWidgets.QHBoxLayout(toolbar)
         bar.setContentsMargins(themes.SPACE_M, 7, themes.SPACE_M, 7)
         bar.setSpacing(6)
-        self.peaks_button = self._tool("panel-left", "Peaks panel", checkable=True)
+        self.peaks_button = self._tool(
+            "panel-left", "Navigator: peaks and clusters", checkable=True
+        )
         self.peaks_button.setChecked(bool(dataset.peaks))
-        self.peaks_button.clicked.connect(self.toggle_rail)
+        self.peaks_button.clicked.connect(self.toggle_navigator)
         bar.addWidget(self.peaks_button)
         self.title = ElidedLabel(dataset.path.stem)
         self.title.setObjectName("title")
@@ -176,9 +171,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         full.clicked.connect(self.canvas.full_spectrum)
         display = self._tool("sliders", "Display: contours, labels, trace scale")
         display.clicked.connect(self.display_dialog)
-        self.review_fit = self._tool("review", "Review the selected cluster's diagnostics")
-        self.review_fit.clicked.connect(lambda: self.fitting.toggle_review())
-        for button in (self.add_button, self.pin_button, full, display, self.review_fit):
+        for button in (self.add_button, self.pin_button, full, display):
             bar.addWidget(button)
         bar.addSpacing(themes.SPACE_XS)
         self.settings_button = QtWidgets.QPushButton()
@@ -194,6 +187,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.fit_button.setToolTip("Fit the complete dataset (Ctrl+Return)")
         self.fit_button.clicked.connect(lambda: self.fitting.fit())
         bar.addWidget(self.fit_button)
+        self.inspector_button = self._tool("panel-right", "Inspector", checkable=True)
+        self.inspector_button.setChecked(True)
+        self.inspector_button.clicked.connect(self.toggle_inspector)
+        bar.addWidget(self.inspector_button)
         return toolbar
 
     def _build_plane_strip(self, dataset: Dataset) -> QtWidgets.QWidget:
@@ -248,8 +245,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         for button, name in self._icons:
             button.setIcon(icon(name, theme))
         self.canvas.apply_theme(theme)
-        self.rail.apply_theme(theme)
-        self.profile.apply_colors(dark=theme.dark)
+        self.navigator.apply_theme(theme)
+        self.panel.apply_theme(theme)
+        self._update_inspector()
 
     def update_settings_summary(self) -> None:
         """The working fit settings, always visible beside the Fit button."""
@@ -272,6 +270,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         steps = config.fitting.steps
         passes = f"{len(steps)} steps" if steps else f"{config.fitting.refine_iterations} passes"
         self._settings_text = f"{shapes} · {threshold} · {passes}"
+        self._settings_rows = [
+            ("Lineshapes", shapes),
+            ("Clustering", clustering.removeprefix("clustering ").capitalize()),
+            ("Optimizer", passes + (", cross-talk updated between passes" if not steps else "")),
+        ]
         self._adapt_toolbar()
         self.settings_button.setToolTip(
             f"Fit settings: lineshapes {shapes} · {clustering} · {passes}. Click to review."
@@ -376,7 +379,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         ]
         for action in self.actions_for_menu:
             self.addAction(action)
-        for widget in (self.canvas.main, self.rail.list):
+        for widget in (self.canvas.main, self.navigator.list):
             for key, callback in (("Delete", self.delete_peaks), ("Backspace", self.delete_peaks)):
                 shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), widget)
                 shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -419,10 +422,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         """Resolve drafts before changing the one stable inspector identity."""
         if not self.commit_fields():
             # Restore list identity without overwriting the invalid visible draft.
-            with QtCore.QSignalBlocker(self.rail.list):
-                item = self.rail._items.get(self.selected_id or "")
+            with QtCore.QSignalBlocker(self.navigator.list):
+                item = self.navigator._items.get(self.selected_id or "")
                 if item:
-                    self.rail.list.setCurrentItem(item)
+                    self.navigator.list.setCurrentItem(item)
             return
         self.selected_id = identity
         self.canvas.select(identity)
@@ -431,49 +434,63 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def _sync_inspector(self) -> None:
         peak = next((p for p in self.peaks if p.id == self.selected_id), None)
-        self.rail.select(peak, self.canvas.display(peak) if peak else None)
-        self._update_profile()
+        self.navigator.select(peak)
+        self.panel.set_peak(peak, self.canvas.display(peak) if peak else None)
+        self._update_inspector()
 
-    def _update_profile(self) -> None:
+    def _cluster_members(self, result) -> tuple[str, ...]:
+        """Working IDs that the active run fitted together with the selected peak."""
+        found = find_cluster(result, self.selected_id) if result and self.selected_id else None
+        if found is None:
+            return ()
+        ids = {i.engine_name: i.working_id for i in result.inputs.identities}
+        return tuple(ids[name] for name in found[1].peak_names if name in ids)
+
+    def _update_inspector(self) -> None:
         """Follow the accepted selection and active run; never resolves drafts."""
         fitting = getattr(self, "fitting", None)
+        if fitting is None:
+            return
         spectra = self.dataset.spectra
-        self.profile.show_selection(
-            fitting.result if fitting else None,
-            self.selected_id,
-            current=bool(fitting and fitting.current),
-            busy=bool(fitting and fitting.busy),
+        result = fitting.result
+        self.navigator.set_result(result, current=bool(fitting.current))
+        self.canvas.set_cluster(self._cluster_members(result))
+        self.panel.show_result(
+            result,
+            current=bool(fitting.current),
+            busy=fitting.busy,
             plane_values=tuple(float(v) for v in spectra.z_values)
             if self.dataset.has_plane_values
             else None,
             plane=self.canvas.plane,
         )
-
-    def _restore_profile(self) -> None:
-        """Start collapsed unless the user expanded the panel in an earlier session."""
-        settings = QtCore.QSettings()
-        expanded = settings.value("profile/expanded", defaultValue=False, type=bool)
-        self.profile.set_expanded(bool(expanded))
-        if expanded:
-            self._size_profile()
-
-    def _size_profile(self) -> None:
-        stored = QtCore.QSettings().value("profile/height", _PROFILE_HEIGHT)
-        height = int(stored) if isinstance(stored, int | str) else _PROFILE_HEIGHT
-        total = max(self.column.height(), sum(self.column.sizes()))
-        self.column.setSizes([max(1, total - height), height])
-
-    def _profile_toggled(self, expanded: bool) -> None:
-        QtCore.QSettings().setValue("profile/expanded", expanded)
-        if expanded:
-            self._size_profile()
+        x, y = (
+            formatting.nucleus(a.nucleus, a.label) for a in (self.canvas.x_axis, self.canvas.y_axis)
+        )
+        planes = spectra.data.shape[0]
+        if fitting.busy:
+            run = self.summary.text()
+        elif result is not None:
+            flagged = self.warnings.property("count") or 0
+            run = (
+                f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'}\n"
+                f"{dataset_summary(result, warnings=False)}\n"
+                f"Fitted in {result.execution_seconds:.1f} s · {result.completed_at[:19]} UTC"
+                + (f"\n▲ {flagged} clusters with an uncertainty warning" if flagged else "")
+            )
         else:
-            # Give the whole column back to the spectrum and its traces.
-            self.column.setSizes([_WHOLE_COLUMN, 0])
-
-    def _profile_resized(self, _position: int, _index: int) -> None:
-        if self.profile.toggle.isChecked():
-            QtCore.QSettings().setValue("profile/height", self.column.sizes()[1])
+            run = "Not fitted yet. Fit uses every working peak across all planes."
+        if fitting.failure:
+            run += f"\n{fitting.attempt}: {fitting.failure}"
+        self.panel.show_analysis(
+            self.dataset.path.stem,
+            f"{len(self.peaks)} working peaks · {planes} planes · {x} × {y}",
+            getattr(self, "_settings_rows", []),
+            run,
+            "Select a peak or cluster to see its position, profile, fitted values and "
+            "review. Save analysis keeps working state and the latest ten runs; "
+            "spectra stay external.",
+        )
 
     def _refresh(self) -> None:
         peak_sources = tuple(
@@ -491,7 +508,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.canvas.selected_id = self.selected_id
         self.canvas.markers.selected_id = self.selected_id
         self.canvas.set_peaks(self.peaks)
-        self.rail.refresh(self.peaks, self.selected_id)
+        self.navigator.refresh(self.peaks, self.selected_id)
         self._sync_inspector()
         self._update_actions()
         self.fitting.update()
@@ -565,8 +582,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         if self.fit_busy:
             return
         identities = {self.selected_id} if self.selected_id else set()
-        if self.rail.list.hasFocus():
-            identities = {item.data(256) for item in self.rail.list.selectedItems()}
+        if self.navigator.list.hasFocus():
+            identities = {item.data(256) for item in self.navigator.list.selectedItems()}
         if identities:
             self.cancel_gesture()
             self.edits.delete_many(identities)
@@ -578,20 +595,22 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.canvas.cancel_gesture()
         self.add_button.setChecked(False)
 
-    def toggle_rail(self) -> None:
-        """Resolve a draft on explicit hide, preserving the user's later resize choice."""
-        visible = self.peaks_button.isChecked()
+    def toggle_navigator(self) -> None:
+        """Hide or show the navigator; panel choices never change on resize."""
+        self.navigator.setVisible(self.peaks_button.isChecked())
+
+    def toggle_inspector(self) -> None:
+        """Resolve a draft on explicit hide, since the editor lives in the inspector."""
+        visible = self.inspector_button.isChecked()
         if not visible and not self.commit_fields():
-            self.peaks_button.setChecked(True)
+            self.inspector_button.setChecked(True)
             return
-        self.rail.setVisible(visible)
-        if visible:
-            self.splitter.setSizes([300, max(520, self.width() - 300)])
+        self.panel.setVisible(visible)
 
     def focus_editor(self) -> None:
-        """Explicit editing opens the rail without changing selection."""
-        self.peaks_button.setChecked(True)
-        self.toggle_rail()
+        """Explicit editing opens the inspector without changing selection."""
+        self.inspector_button.setChecked(True)
+        self.toggle_inspector()
         if self.selected_id:
             self.inspector.x_field.setFocus()
             self.inspector.x_field.selectAll()
@@ -615,7 +634,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             if values
             else ""
         )
-        self._update_profile()
+        self.panel.set_plane(plane - 1)
 
     def display_dialog(self) -> None:
         """Display choices do not change scientific inputs or edit history."""

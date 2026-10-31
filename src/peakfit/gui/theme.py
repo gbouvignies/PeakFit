@@ -166,9 +166,17 @@ QStatusBar::item {{ border: 0; }}
 QWidget#toolbar, QWidget#planeStrip {{ background: {t.chrome}; }}
 QWidget#toolbar {{ border-bottom: 1px solid {t.divider}; }}
 QWidget#planeStrip {{ border-top: 1px solid {t.divider}; }}
-QWidget#rail {{ background: {t.panel}; border-right: 1px solid {t.divider}; }}
-QWidget#rail QScrollArea, QWidget#rail QScrollArea > QWidget > QWidget {{
-    background: {t.panel}; border: 0; }}
+QWidget#navigator {{ background: {t.panel}; }}
+QScrollArea#inspector, QWidget#inspectorBody {{ background: {t.panel}; border: 0; }}
+QPushButton#tab {{ border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    background: transparent; padding: 4px 0; min-height: 20px; color: {t.secondary};
+    font-weight: 600; }}
+QPushButton#tab:checked {{ color: {t.text}; border-bottom-color: {t.accent}; }}
+QPushButton#tab:disabled {{ color: {t.faint}; }}
+QPushButton#tab:hover:enabled {{ background: transparent; color: {t.text}; }}
+QTreeWidget::item {{ height: {ROW_HEIGHT}px; border-bottom: 1px solid {t.divider}; }}
+QTreeWidget::item:selected {{ background: {t.selection}; color: {t.text}; }}
+QTreeWidget::item:hover:!selected {{ background: {t.hover}; }}
 
 QLabel#title {{ font-size: {FONT_TITLE}px; font-weight: 600; }}
 QLabel#welcome {{ font-size: 30px; font-weight: 600; }}
@@ -232,8 +240,7 @@ QTableView {{ gridline-color: {t.divider}; }}
 QGroupBox {{ border: 0; border-top: 1px solid {t.divider}; margin-top: 14px;
     padding-top: 14px; font-weight: 600; }}
 QGroupBox::title {{ subcontrol-origin: margin; left: 0; padding: 0; }}
-QWidget#rail QGroupBox::title {{ left: {SPACE_M}px; }}
-QWidget#rail QGroupBox {{ border-top: 0; }}
+QScrollArea#inspector QGroupBox {{ border: 0; margin-top: 0; padding-top: 0; }}
 QScrollArea {{ border: 0; background: transparent; }}
 QTextBrowser {{ border: 0; background: {t.panel}; }}
 
