@@ -296,6 +296,8 @@ class DatasetFitting(QtCore.QObject):
                 action.setEnabled(False)
         w.fit_button.setEnabled(bool(w.peaks) and not busy and not w.inputs_loading)
         w.settings_button.setEnabled(bool(w.peaks) and not busy and not w.inputs_loading)
+        # While a fit runs its settings cannot change; the run line needs the room.
+        w.settings_button.setVisible(not busy)
         w.cancel_fit.setVisible(busy)
         w.review_fit.setEnabled(self.result is not None or bool(self.failure))
         usable = (
@@ -314,9 +316,11 @@ class DatasetFitting(QtCore.QObject):
                 stage = "Canceling and reaping fit process"
             text = f"{stage} · {perf_counter() - self._started:.1f} s · Navigation available"
         elif self.result is not None:
-            text = (self.attempt + " · " if self.attempt else "") + (
+            # Currentness first: a narrow toolbar elides only the tail.
+            text = (
                 f"Run {self.result.run_id[:8]} · {'Current' if self.current else 'Outdated'} · "
-                + dataset_summary(self.result)
+                + (self.attempt + " · " if self.attempt else "")
+                + dataset_summary(self.result, warnings=False)
             )
         else:
             text = (
@@ -324,6 +328,22 @@ class DatasetFitting(QtCore.QObject):
                 or f"Not fitted · {len(w.peaks)} peaks · {w.dataset.spectra.data.shape[0]} planes"
             )
         w.summary.setText(text)
+        flagged = (
+            sum(
+                c.analytical_evaluation is not None
+                and c.analytical_evaluation.uncertainty_warning is not None
+                for c in self.result.outcome.clusters
+            )
+            if self.result is not None and not busy
+            else 0
+        )
+        w.warnings.setProperty("count", flagged)
+        w.warnings.setToolTip(
+            f"{flagged} clusters with an engine uncertainty warning; "
+            "Review lists them cluster by cluster"
+        )
+        w.warnings.setVisible(bool(flagged))
+        w.update_settings_summary()
         w.summary.setToolTip(text + ("\n" + self.failure if self.failure else ""))
         if self.review.isVisible():
             self.show_diagnostics()

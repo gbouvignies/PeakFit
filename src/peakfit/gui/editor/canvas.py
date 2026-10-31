@@ -12,10 +12,12 @@ from PySide6 import QtCore, QtGui, QtWidgets
 # isort: split
 import pyqtgraph as pg
 
+from peakfit.gui import formatting
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editing import PeakMarkers
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.spectrum import contour_geometry, display_position, paths_from_geometry
+from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
@@ -26,18 +28,63 @@ _PICK_RADIUS = 8.0  # Logical pixels, shared by hover/click/drag at every DPR.
 _CACHE_BYTES = 32 * 1024**2
 _CACHE_PLANES = 8
 _RESIDUAL = 2
-_MODEL_POSITIVE = 2
-_MODEL_NEGATIVE = 3
+_RESIDUAL_LEVELS = np.asarray([3.0, 5.0, 8.0, 13.0, 21.0])
 
 
 def signed_geometry(data, axes, levels) -> list[tuple[np.ndarray, np.ndarray]]:
-    """Combine levels into two sign paths; no Qt work on the numerical thread."""
-    geometry = contour_geometry(data, axes, np.concatenate((levels, -levels)))
-    count = len(levels)
-    return [
-        (np.concatenate([p for p, _ in group]), np.concatenate([c for _, c in group]))
-        for group in (geometry[:count], geometry[count:])
-    ]
+    """One geometry per level, positive levels then negative; no Qt work here."""
+    return contour_geometry(data, axes, np.concatenate((levels, -levels)))
+
+
+class ContourLayer(QtWidgets.QGraphicsItem):
+    """One layer of signed contour levels painted as a single cached graphic.
+
+    Positive levels come first, then the matching negative levels. Each level has
+    its own pen so low levels can be lighter, without one scene item per level.
+    """
+
+    def __init__(self, role: str, paths: list[QtGui.QPainterPath]) -> None:
+        super().__init__()
+        self.role = role
+        self.levels = paths
+        self._pens: list[QtGui.QPen] = []
+        rect = QtCore.QRectF()
+        for path in paths:
+            rect = rect.united(path.boundingRect())
+        margin = max(rect.width(), rect.height()) * 1e-3
+        self._rect = rect.adjusted(-margin, -margin, margin, margin)
+        self.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.setCacheMode(QtWidgets.QGraphicsItem.CacheMode.DeviceCoordinateCache)
+
+    def set_pens(self, pens: list[QtGui.QPen]) -> None:
+        """Restyle retained geometry; never recomputes contours."""
+        self._pens = pens
+        self.update()
+
+    def boundingRect(self) -> QtCore.QRectF:  # noqa: N802
+        """Union of every level, with room for cosmetic strokes."""
+        return self._rect
+
+    def paint(self, painter, _option, widget=None) -> None:  # noqa: ARG002
+        """Draw levels from lowest to highest so strong contours stay on top."""
+        painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+        for path, pen in zip(self.levels, self._pens, strict=False):
+            painter.setPen(pen)
+            painter.drawPath(path)
+
+
+def _level_pens(colors: tuple[str, str], count: int, *, weight: float, fade: float, dashes):
+    """Graded pens for `count` positive then `count` negative levels."""
+    pens = []
+    for sign_color, dash in zip(colors, dashes, strict=True):
+        for index in range(count):
+            position = index / (count - 1) if count > 1 else 1.0
+            pen = QtGui.QPen(color(sign_color, fade * (0.62 + 0.38 * position)))
+            pen.setWidthF(weight * (0.9 + 0.5 * position))
+            pen.setCosmetic(True)
+            pen.setStyle(dash)
+            pens.append(pen)
+    return pens
 
 
 class InspectionMarkers(PeakMarkers):
@@ -128,7 +175,9 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self._preview_timer.timeout.connect(self._deliver_pointer)
         self._worker = ViewerComputation(self)
         self._worker.completed.connect(self._contours_ready)
-        self._colors = {}
+        self.theme: Theme = LIGHT
+        self.decimals_x = formatting.ppm_decimals(self.x_axis)
+        self.decimals_y = formatting.ppm_decimals(self.y_axis)
         grid = QtWidgets.QGridLayout(self)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(0)
@@ -147,43 +196,43 @@ class SpectrumCanvas(QtWidgets.QWidget):
         )
         self.top.setAccessibleName("Horizontal native cross-section; raw intensity")
         self.right.setAccessibleName("Vertical native cross-section; raw intensity")
-        self.top.setFixedHeight(112)
-        self.right.setFixedWidth(116)
+        self.top.setFixedHeight(96)
+        self.right.setFixedWidth(104)
         grid.addWidget(self.top, 0, 0)
         grid.addWidget(self.main, 1, 0)
         grid.addWidget(self.right, 1, 1)
         grid.setRowStretch(1, 1)
         grid.setColumnStretch(0, 1)
         self.main.setMinimumSize(565, 330)
-        self.main.setLabel("bottom", self.axis_title(self.x_axis), units="ppm")
-        self.main.setLabel("left", self.axis_title(self.y_axis), units="ppm")
         for plot in (self.main, self.top):
-            plot.getAxis("left").setWidth(64)
+            plot.getAxis("left").setWidth(58)
             plot.getViewBox().invertX(True)
         for plot in (self.main, self.right):
-            plot.getAxis("bottom").setHeight(44)
+            plot.getAxis("bottom").setHeight(38)
             plot.getViewBox().invertY(True)
         self.top.hideAxis("bottom")
         self.right.hideAxis("left")
-        self.top.getAxis("left").setLabel("a.u.")
-        self.right.getAxis("bottom").setLabel("a.u.")
         self.top.setXLink(self.main)
         self.right.setYLink(self.main)
         self.top.setMouseEnabled(x=False, y=False)
         self.right.setMouseEnabled(x=False, y=False)
         self.curve_x = self.top.plot(antialias=True)
         self.curve_y = self.right.plot(antialias=True)
-        self.model_x = self.top.plot(pen=pg.mkPen("#b47a32", width=1.5))
-        self.model_y = self.right.plot(pen=pg.mkPen("#b47a32", width=1.5))
-        self.top.addItem(pg.InfiniteLine(angle=0, pos=0, pen="#8493a0"))
-        self.right.addItem(pg.InfiniteLine(angle=90, pos=0, pen="#8493a0"))
+        self.model_x = self.top.plot(antialias=True)
+        self.model_y = self.right.plot(antialias=True)
+        self.zero_x = pg.InfiniteLine(angle=0, pos=0)
+        self.zero_y = pg.InfiniteLine(angle=90, pos=0)
+        self.top.addItem(self.zero_x)
+        self.right.addItem(self.zero_y)
         self.cross_x = pg.InfiniteLine(angle=90, movable=False)
         self.cross_y = pg.InfiniteLine(angle=0, movable=False)
         for line in (self.cross_x, self.cross_y):
             line.setZValue(10)
             self.main.getPlotItem().addItem(line, ignoreBounds=True)
             line.sigDragged.connect(self._crosshair_dragged)
-        self.markers = InspectionMarkers(symbol="+", size=6, brush=None, hoverable=True, tip=None)
+        # A plot-coloured cross under each marker keeps it legible over contours.
+        self.marker_halo = self._scatter("+", 8, 19)
+        self.markers = InspectionMarkers(symbol="+", size=7, brush=None, hoverable=True, tip=None)
         self.markers.setZValue(20)
         self.markers.sigClicked.connect(self._marker_clicked)
         self.markers.moved.connect(self._move_peak)
@@ -191,20 +240,22 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.ring = self._scatter("o", 18, 30)
         self.halo = self._scatter("o", 15, 31)
         self.ghost = self._scatter("+", 10, 32)
-        self.hover_label = pg.TextItem(anchor=(-0.1, 1.2))
-        self.hover_label.setZValue(35)
-        self.hover_label.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
-        self.main.getPlotItem().addItem(self.hover_label, ignoreBounds=True)
-        self.paths: list[QtWidgets.QGraphicsPathItem] = []
+        self.hover_label = self._label(35, (-0.08, 1.15))
+        self.selection_label = self._label(34, (-0.12, 1.05))
+        self.paths: list[ContourLayer] = []
         self.pending_label = pg.TextItem("Preparing contours…", anchor=(0, 0))
         self.pending_label.setZValue(40)
         self.pending_label.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
         self.main.getPlotItem().addItem(self.pending_label, ignoreBounds=True)
+        self.legend = QtWidgets.QLabel(self.main)
+        self.legend.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.legend.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.legend.setAccessibleName("Contour legend")
         scene = cast("pg.GraphicsScene", self.main.scene())
         scene.sigMouseMoved.connect(self._pointer_moved)
         scene.sigMouseClicked.connect(self._blank_click)
         self._set_trace_limit(self.trace_limit)
-        self.apply_colors(False)
+        self.apply_theme(LIGHT)
         self.full_spectrum()
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
         self.request_contours()
@@ -212,7 +263,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
     @staticmethod
     def axis_title(axis) -> str:
         """Use loaded names rather than assume a particular pair of nuclei."""
-        return f"{axis.nucleus or axis.label} · {axis.label}"
+        return f"{formatting.nucleus(axis.nucleus, axis.label)} · {axis.label}"
 
     @staticmethod
     def _plot() -> pg.PlotWidget:
@@ -224,8 +275,12 @@ class SpectrumCanvas(QtWidgets.QWidget):
         plot.getViewBox().setDefaultPadding(0)
         plot.getPlotItem().layout.setContentsMargins(0, 0, 0, 0)
         plot.getPlotItem().layout.setSpacing(0)
+        font = QtGui.QFont(QtWidgets.QApplication.font())
+        font.setPixelSize(FONT_CAPTION)
         for name in ("left", "bottom"):
-            plot.getAxis(name).setStyle(maxTickLevel=0, tickLength=-4)
+            axis = plot.getAxis(name)
+            axis.setStyle(maxTickLevel=0, tickLength=-4, tickFont=font, tickTextOffset=4)
+            axis.enableAutoSIPrefix(False)
         return plot
 
     def _scatter(self, symbol, size, z):
@@ -234,6 +289,29 @@ class SpectrumCanvas(QtWidgets.QWidget):
         item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
         self.main.addItem(item)
         return item
+
+    def _label(self, z: float, anchor: tuple[float, float]) -> pg.TextItem:
+        label = pg.TextItem(anchor=anchor)
+        label.setZValue(z)
+        label.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        self.main.getPlotItem().addItem(label, ignoreBounds=True)
+        return label
+
+    def _coordinates(self, x: float, y: float) -> str:
+        return (
+            f"{formatting.number(x, self.decimals_x)}, {formatting.number(y, self.decimals_y)} ppm"
+        )
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        """Keep the legend in the plot's top-right corner."""
+        super().resizeEvent(event)
+        self._place_legend()
+
+    def _place_legend(self) -> None:
+        self.legend.adjustSize()
+        rect = self.main.getViewBox().sceneBoundingRect()
+        corner = self.main.mapFromScene(rect.topRight())
+        self.legend.move(max(0, corner.x() - self.legend.width() - 8), corner.y() + 6)
 
     def display(self, peak: WorkingPeak) -> tuple[float, float]:
         """Convert only indirect aliases; retain unfolded source coordinates."""
@@ -248,9 +326,9 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self._by_id = {peak.id: peak for peak in peaks}
         self.marker_rebuilds += 1
         positions = [self.display(peak) for peak in peaks]
-        self.markers.setData(
-            x=[p[0] for p in positions], y=[p[1] for p in positions], data=[p.id for p in peaks]
-        )
+        xs, ys = [p[0] for p in positions], [p[1] for p in positions]
+        self.marker_halo.setData(x=xs, y=ys)
+        self.markers.setData(x=xs, y=ys, data=[p.id for p in peaks])
         self._refresh_labels()
         self._selection_ring()
         self.hover(None)
@@ -279,9 +357,12 @@ class SpectrumCanvas(QtWidgets.QWidget):
         peak = self._by_id.get(self.selected_id or "")
         if peak is None:
             self.ring.setData([], [])
+            self.selection_label.setText("")
         else:
             x, y = self.display(peak)
             self.ring.setData([x], [y])
+            self.selection_label.setText(peak.name)
+            self.selection_label.setPos(x, y)
 
     def hover(self, peak_id: str | None, *, from_list: bool = False) -> None:
         """Change transient feedback only, preserving editor drafts and selection."""
@@ -291,18 +372,17 @@ class SpectrumCanvas(QtWidgets.QWidget):
             if peak:
                 x, y = self.display(peak)
                 self.halo.setData([x], [y])
+                folded = (x, y) != tuple(reversed(peak.positions))
                 self.hover_label.setText(
-                    f"{peak.name} · {peak.positions[1]:.8f}, {peak.positions[0]:.8f} ppm"
-                    + (
-                        f"\nDisplayed {x:.8f}, {y:.8f}"
-                        if (x, y) != tuple(reversed(peak.positions))
-                        else ""
-                    )
+                    f"{peak.name}  {self._coordinates(peak.positions[1], peak.positions[0])}"
+                    + (f"\nDisplayed {self._coordinates(x, y)}" if folded else "")
                 )
                 self.hover_label.setPos(x, y)
+                self.selection_label.setVisible(peak_id != self.selected_id)
             else:
                 self.halo.setData([], [])
                 self.hover_label.setText("")
+                self.selection_label.setVisible(True)
             self.hovered.emit(peak_id)
         if from_list and not self.pinned and peak_id in self._by_id:
             self.sample(*self.display(self._by_id[peak_id]))
@@ -383,9 +463,12 @@ class SpectrumCanvas(QtWidgets.QWidget):
     def _emit_status(self, raw: float, clipped: bool) -> None:
         text = (
             f"{'Draft' if self._drag_peak else 'Pinned' if self.pinned else 'Preview'} · "
-            f"{self.axis_title(self.x_axis)} {self.ppm_x[self.ix]:.8f}, "
-            f"{self.axis_title(self.y_axis)} {self.ppm_y[self.iy]:.8f} ppm · "
-            f"{raw:.9g} {'σ_stat residual' if self.comparison_mode == _RESIDUAL else 'a.u.'}"
+            f"{self.axis_title(self.x_axis)} "
+            f"{formatting.number(self.ppm_x[self.ix], self.decimals_x)}, "
+            f"{self.axis_title(self.y_axis)} "
+            f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)} ppm · "
+            f"{formatting.intensity(raw)} "
+            f"{'σ_stat residual' if self.comparison_mode == _RESIDUAL else 'a.u.'}"
             + (" · ▲ Trace clipped: use Display → Fit current traces" if clipped else "")
             + self._scale_note
         )
@@ -400,7 +483,10 @@ class SpectrumCanvas(QtWidgets.QWidget):
             line.setMovable(pinned)
             line.setPen(
                 pg.mkPen(
-                    self._colors["pin"] if pinned else self._colors["preview"],
+                    color(self.theme.pin)
+                    if pinned
+                    else color(self.theme.accent, 0.55 if self.theme.dark else 0.45),
+                    width=1,
                     style=QtCore.Qt.PenStyle.DashLine if pinned else QtCore.Qt.PenStyle.DotLine,
                 )
             )
@@ -448,8 +534,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
         menu.setTitle("Choose coincident peak")
         for peak in hits:
             action = menu.addAction(
-                f"{peak.name} · {peak.positions[1]:.8f}, "
-                f"{peak.positions[0]:.8f} ppm · {peak.id[:6]}"
+                f"{peak.name} · {self._coordinates(peak.positions[1], peak.positions[0])}"
+                f" · {peak.id[:6]}"
             )
             action.triggered.connect(
                 lambda _checked=False, identity=peak.id: self.selected.emit(identity)
@@ -527,6 +613,17 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.trace_limit = value
         self.top.getViewBox().setYRange(-value, value, padding=0)
         self.right.getViewBox().setXRange(-value, value, padding=0)
+        self._label_traces()
+
+    def _label_traces(self) -> None:
+        """Signed trace axes share one locked range, labelled with a common power of ten."""
+        power = formatting.exponent(self.trace_limit)
+        unit = "σ" if self.comparison_mode == _RESIDUAL else "a.u."
+        title = f"×10{formatting.superscript(str(power))} {unit}" if power else unit
+        style = {"color": getattr(self, "theme", LIGHT).faint, "font-size": f"{FONT_CAPTION}px"}
+        for axis in (self.top.getAxis("left"), self.right.getAxis("bottom")):
+            axis.setScale(10.0**-power)
+            axis.setLabel(title, **style)
 
     def fit_current_traces(self) -> None:
         """Explicit gain change, then keep a common signed scale locked again."""
@@ -560,9 +657,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.comparison_result = result
         self.comparison_mode = mode if result is not None else 0
         self._set_trace_limit(self._trace_limits[2 if self.comparison_mode == _RESIDUAL else 0])
-        unit = "σ_stat" if self.comparison_mode == _RESIDUAL else "a.u."
-        self.top.setLabel("left", unit)
-        self.right.setLabel("bottom", unit)
+        self._style_traces()
+        self._update_legend()
         self.request_contours()
 
     def request_contours(self) -> None:  # noqa: PLR0915
@@ -630,7 +726,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self._worker.submit("contours", self._revision, prepare_experiment)
         if not mode:
             return
-        residual_levels = self.residual_threshold / 3 * np.asarray([3.0, 5.0, 8.0, 13.0, 21.0])
+        residual_levels = self.residual_threshold / 3 * _RESIDUAL_LEVELS
 
         def calculate():
             model = grid
@@ -729,10 +825,16 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self.main.removeItem(item)
         self.paths.clear()
         self._displaying_experiment = experimental
-        for path in paths_from_geometry(geometry):
-            item = QtWidgets.QGraphicsPathItem(path)
-            item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
-            item.setCacheMode(QtWidgets.QGraphicsItem.CacheMode.DeviceCoordinateCache)
+        paths = paths_from_geometry(geometry)
+        if self.comparison_mode == _RESIDUAL and not experimental:
+            layers = [("residual", paths)]
+        elif len(paths) == 4 * self.contour_count:
+            half = 2 * self.contour_count
+            layers = [("measured", paths[:half]), ("model", paths[half:])]
+        else:
+            layers = [("measured", paths)]
+        for role, levels in layers:
+            item = ContourLayer(role, levels)
             self.main.addItem(item)
             self.paths.append(item)
         self._style_contours()
@@ -740,64 +842,125 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.contour_pending = pending
 
     def _style_contours(self) -> None:
-        for index, item in enumerate(self.paths):
-            pen = pg.mkPen(
-                (
-                    "#b47a32"
-                    if index >= _MODEL_POSITIVE
-                    or (
-                        self.comparison_mode == _RESIDUAL
-                        and not self._displaying_experiment
-                        and index == 0
-                    )
-                    else self._colors["measured"]
-                ),
-                width=1.8 if self.heavy_strokes else 1,
-                style=(
-                    QtCore.Qt.PenStyle.DotLine
-                    if index == _MODEL_NEGATIVE
-                    else QtCore.Qt.PenStyle.DashLine
-                    if index in (1, 2)
-                    else QtCore.Qt.PenStyle.SolidLine
-                ),
-            )
-            pen.setCosmetic(True)
-            item.setPen(pen)
+        """Hue and stroke encode layer and sign; lightness grades the levels."""
+        t = self.theme
+        weight = 1.7 if self.heavy_strokes else 1.0
+        solid, dash, dot = (
+            QtCore.Qt.PenStyle.SolidLine,
+            QtCore.Qt.PenStyle.DashLine,
+            QtCore.Qt.PenStyle.DotLine,
+        )
+        overlay = any(layer.role == "model" for layer in self.paths)
+        for layer in self.paths:
+            count = len(layer.levels) // 2
+            if layer.role == "residual":
+                pens = _level_pens(
+                    (t.residual_positive, t.residual_negative),
+                    count,
+                    weight=weight * 1.2,
+                    fade=1.0,
+                    dashes=(solid, dash),
+                )
+            elif layer.role == "model":
+                pens = _level_pens(
+                    (t.model, t.model), count, weight=weight * 0.85, fade=1.0, dashes=(solid, dot)
+                )
+            else:
+                # Under a model the measured strokes widen so both stay visible where
+                # they coincide; the thinner model contour is drawn on top.
+                pens = _level_pens(
+                    (t.measured, t.measured_negative),
+                    count,
+                    weight=weight * (1.5 if overlay else 1.0),
+                    fade=0.75 if overlay else 1.0,
+                    dashes=(solid, dash),
+                )
+            layer.set_pens(pens)
 
-    def apply_colors(self, dark: bool) -> None:
+    def _style_traces(self) -> None:
+        t = self.theme
+        residual = self.comparison_mode == _RESIDUAL
+        measured = pg.mkPen(color(t.text if residual else t.measured), width=1.3)
+        model = pg.mkPen(color(t.model), width=1.3, style=QtCore.Qt.PenStyle.DashLine)
+        for curve in (self.curve_x, self.curve_y):
+            curve.setPen(measured)
+        for curve in (self.model_x, self.model_y):
+            curve.setPen(model)
+
+    def _update_legend(self) -> None:
+        """Name each visible layer with its stroke, so no encoding needs memorizing."""
+        t = self.theme
+
+        def key(value: str, glyph: str, text: str) -> str:
+            return f'<span style="color:{value}">{glyph}</span>&nbsp;{text}'
+
+        solid, dashed = "━━", "╍╍"
+        if self.comparison_mode == _RESIDUAL:
+            first = self.residual_threshold
+            items = [
+                key(t.residual_positive, solid, f"residual &gt; +{first:g}σ"),
+                key(t.residual_negative, dashed, f"&lt; −{first:g}σ"),
+            ]
+        else:
+            items = [key(t.measured, solid, "measured +"), key(t.measured_negative, dashed, "−")]
+            if self.comparison_mode == 1:
+                items.append(key(t.model, solid, "model"))
+        self.legend.setText(
+            f'<div style="color:{t.secondary};font-size:{FONT_CAPTION}px">'
+            + "&nbsp;&nbsp;&nbsp;".join(items)
+            + "</div>"
+        )
+        self.legend.setStyleSheet(
+            f"background:{color(t.plot, 0.85).name(QtGui.QColor.NameFormat.HexArgb)};"
+            "border-radius:4px;padding:3px 7px;"
+        )
+        self._place_legend()
+
+    def apply_theme(self, theme: Theme) -> None:
         """Restyle retained geometry; no scientific work on an appearance change."""
-        self._colors = {
-            "bg": "#171d24" if dark else "#fbfcfd",
-            "fg": "#e1e7ee" if dark else "#25313d",
-            "muted": "#aab7c4" if dark else "#586875",
-            "measured": "#73b5d5" if dark else "#23688a",
-            "pin": "#e2ad65" if dark else "#966021",
-            "preview": "#78accc" if dark else "#357da7",
-        }
-        colors = self._colors
+        self.theme = t = theme
+        # The empty corner beside the traces belongs to the plot surface.
+        surface = self.palette()
+        surface.setColor(QtGui.QPalette.ColorRole.Window, QtGui.QColor(t.plot))
+        self.setPalette(surface)
+        self.setAutoFillBackground(True)
         for plot in (self.top, self.main, self.right):
-            plot.setBackground(colors["bg"])
+            plot.setBackground(t.plot)
             for name in ("left", "bottom"):
                 axis = plot.getAxis(name)
-                axis.setPen(colors["muted"])
-                axis.setTextPen(colors["muted"])
-                axis.setLabel(axis.labelText, units=axis.labelUnits, color=colors["muted"])
-        for curve in (self.curve_x, self.curve_y):
-            curve.setPen(pg.mkPen(colors["measured"], width=1.5))
-        self.markers.setPen(pg.mkPen(colors["muted"], width=1))
-        self.ring.setPen(pg.mkPen(colors["measured"], width=2))
-        self.halo.setPen(pg.mkPen(colors["measured"], width=1))
-        self.ghost.setPen(pg.mkPen(colors["pin"], width=2))
-        self.hover_label.fill = pg.mkBrush(colors["bg"])
-        self.hover_label.setColor(colors["fg"])
-        self.pending_label.setColor(colors["muted"])
+                axis.setPen(pg.mkPen(t.divider))
+                axis.setTextPen(pg.mkPen(t.secondary))
+        style = {"color": t.secondary, "font-size": f"{FONT_CAPTION + 1}px"}
+        self.main.setLabel("bottom", f"{self.axis_title(self.x_axis)}  (ppm)", **style)
+        self.main.setLabel("left", f"{self.axis_title(self.y_axis)}  (ppm)", **style)
+        self._label_traces()
+        for line in (self.zero_x, self.zero_y):
+            line.setPen(pg.mkPen(t.divider))
+        self._style_traces()
+        self.marker_halo.setPen(pg.mkPen(color(t.plot, 0.9), width=2.6))
+        self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
+        self.ring.setPen(pg.mkPen(t.accent, width=2))
+        self.halo.setPen(pg.mkPen(color(t.accent, 0.8), width=1.2))
+        self.ghost.setPen(pg.mkPen(t.pin, width=2))
+        fill = pg.mkBrush(color(t.plot, 0.86))
+        for label, value in ((self.hover_label, t.text), (self.selection_label, t.accent)):
+            label.fill = fill
+            label.setColor(value)
+        font = QtGui.QFont(QtWidgets.QApplication.font())
+        font.setPixelSize(FONT_CAPTION + 1)
+        self.hover_label.setFont(font)
+        bold = QtGui.QFont(font)
+        bold.setWeight(QtGui.QFont.Weight.DemiBold)
+        self.selection_label.setFont(bold)
+        self.pending_label.setColor(t.faint)
         self._style_contours()
+        self._update_legend()
         # Do not change whether this is a selected-peak pin.
         following = self.pin_peak_id
         self.set_pinned(self.pinned)
         self.pin_peak_id = following
         for label in self._labels:
-            label.setColor(colors["fg"])
+            label.setColor(t.text)
 
     def _refresh_labels(self) -> None:
         for label in self._labels:
@@ -805,7 +968,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self._labels.clear()
         if self.labels_visible:
             for peak in self.peaks:
-                label = pg.TextItem(peak.name, anchor=(-0.1, 1.1), color=self._colors["fg"])
+                label = pg.TextItem(peak.name, anchor=(-0.1, 1.1), color=self.theme.text)
                 label.setPos(*self.display(peak))
                 label.setZValue(25)
                 label.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)

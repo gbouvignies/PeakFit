@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editor.persistence import AnalysisActions
 from peakfit.gui.editor.workspace import EditorWorkspace
@@ -121,6 +122,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self._append = False
         self._export_path: Path | None = None
         self._appearance = "System"
+        self.theme = themes.LIGHT
         self._system_palette = QtGui.QPalette(QtWidgets.QApplication.palette())
         self._worker = ViewerComputation(self)
         self._worker.completed.connect(self._loaded)
@@ -140,28 +142,38 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
 
     def _build_welcome(self) -> None:
         welcome = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout(welcome)
-        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        outer = QtWidgets.QVBoxLayout(welcome)
+        outer.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        card = QtWidgets.QWidget()
+        card.setFixedWidth(380)
+        layout = QtWidgets.QVBoxLayout(card)
+        layout.setSpacing(themes.SPACE_S)
         title = QtWidgets.QLabel("PeakFit")
         title.setObjectName("welcome")
         layout.addWidget(title)
-        subtitle = QtWidgets.QLabel(
-            "Open a spectrum. Inspect native samples. Edit exact peak positions."
-        )
+        subtitle = QtWidgets.QLabel("Fit overlapping peaks across pseudo-ND NMR spectra.")
         subtitle.setObjectName("muted")
+        subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
+        layout.addSpacing(themes.SPACE_L)
         button = QtWidgets.QPushButton("Open dataset…")
         button.setObjectName("primary")
+        button.setMinimumHeight(32)
         button.clicked.connect(self.open_dialog)
         layout.addWidget(button)
         analysis_button = QtWidgets.QPushButton("Open analysis…")
+        analysis_button.setMinimumHeight(32)
         analysis_button.clicked.connect(self.open_analysis_dialog)
         layout.addWidget(analysis_button)
+        layout.addSpacing(themes.SPACE_M)
         note = QtWidgets.QLabel(
-            "Fit the complete dataset · Compare native model and residual · Export results"
+            "A dataset is an NMRPipe spectrum with an optional peak list and plane values. "
+            "An analysis is a saved .peakfit directory."
         )
-        note.setObjectName("muted")
+        note.setObjectName("caption")
+        note.setWordWrap(True)
         layout.addWidget(note)
+        outer.addWidget(card)
         self.setCentralWidget(welcome)
 
     def _action(self, menu, title, callback, key=None):
@@ -394,9 +406,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self._end_loading()
         self._saved_key = self._analysis_key()
         self._work_changed()
-        self.loading_status.setText(
-            "Click to pin · Select then drag to move · Space resumes preview"
-        )
+        self.loading_status.setText("Drag a selected peak to move it · Space pins traces")
         duplicates = len({p.name for p in dataset.peaks}) != len(dataset.peaks)
         if duplicates:
             workspace.error.setText(
@@ -700,73 +710,10 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             < _DARK_LIGHTNESS
         )
         dark = name == "Dark" or (name == "System" and system_dark)
-        bg, surface, fg, muted, border, accent, wash = (
-            ("#171d24", "#202833", "#e1e7ee", "#aab7c4", "#4b5b6c", "#73b5d5", "#304959")
-            if dark
-            else ("#fbfcfd", "#f0f3f6", "#25313d", "#586875", "#bac5d0", "#23688a", "#dceaf2")
-        )
-        palette = QtGui.QPalette()
-        for role, value in {
-            QtGui.QPalette.ColorRole.Window: bg,
-            QtGui.QPalette.ColorRole.Base: bg,
-            QtGui.QPalette.ColorRole.WindowText: fg,
-            QtGui.QPalette.ColorRole.Text: fg,
-            QtGui.QPalette.ColorRole.Button: surface,
-            QtGui.QPalette.ColorRole.ButtonText: fg,
-            QtGui.QPalette.ColorRole.AlternateBase: surface,
-            QtGui.QPalette.ColorRole.Highlight: wash,
-            QtGui.QPalette.ColorRole.HighlightedText: fg,
-            QtGui.QPalette.ColorRole.PlaceholderText: muted,
-            QtGui.QPalette.ColorRole.ToolTipBase: surface,
-            QtGui.QPalette.ColorRole.ToolTipText: fg,
-            QtGui.QPalette.ColorRole.Link: accent,
-            QtGui.QPalette.ColorRole.LinkVisited: accent,
-        }.items():
-            palette.setColor(role, QtGui.QColor(value))
-        for role in (
-            QtGui.QPalette.ColorRole.Text,
-            QtGui.QPalette.ColorRole.ButtonText,
-            QtGui.QPalette.ColorRole.WindowText,
-        ):
-            palette.setColor(QtGui.QPalette.ColorGroup.Disabled, role, QtGui.QColor(muted))
-        self.setStyleSheet(f"""
-            QWidget {{font-size:13px;}}
-            QWidget#rail {{background:{surface};border-radius:4px;}}
-            QLabel#title {{font-size:18px;font-weight:600;}}
-            QLabel#welcome {{font-size:30px;font-weight:600;}}
-            QLabel#section {{font-weight:600;}}
-            QLabel#muted {{color:{muted};font-size:12px;}}
-            QLabel#error {{color:{"#ffa09c" if dark else "#9a2924"};}}
-            QLabel#warning {{color:{"#e2ad65" if dark else "#875619"};font-size:12px;}}
-            QPushButton {{padding:6px 10px;border:1px solid {border};
-                border-radius:4px;background:{bg};}}
-            QPushButton:hover:enabled {{background:{surface};border-color:{accent};}}
-            QPushButton:checked {{background:{wash};border-color:{accent};}}
-            QPushButton:disabled {{color:{muted};}}
-            QPushButton#primary {{background:{accent};
-                color:{"#171d24" if dark else "#ffffff"};font-weight:600;}}
-            QPushButton#mode {{border-radius:0;}}
-            QLineEdit, QAbstractSpinBox, QComboBox {{padding:5px 6px;
-                border:1px solid {muted};border-radius:4px;background:{bg};}}
-            QLineEdit:focus, QAbstractSpinBox:focus, QPushButton:focus,
-            QListWidget:focus, QComboBox:focus {{border:2px solid {accent};}}
-            QListWidget {{border:0;background:{surface};outline:0;}}
-            QListWidget::item {{padding:6px 2px;}}
-            QListWidget::item:selected {{background:{wash};color:{fg};}}
-            QHeaderView::section {{background:{surface};color:{muted};
-                border:0;padding:4px 2px;font-size:11px;}}
-            QGroupBox {{border:0;border-top:1px solid {border};
-                margin-top:12px;padding-top:16px;font-weight:600;}}
-            QGroupBox::title {{subcontrol-origin:margin;left:0;}}
-            QScrollArea {{border:0;background:{surface};}}
-            QSplitter::handle {{background:{bg};}}
-        """)
-        self.setPalette(palette)
-        for widget in self.findChildren(QtWidgets.QWidget):
-            widget.setPalette(palette)
+        self.theme = themes.DARK if dark else themes.LIGHT
+        themes.apply(self, self.theme)
         if self.workspace:
-            self.workspace.canvas.apply_colors(dark)
-            self.workspace.rail._wash = QtGui.QColor(wash)
+            self.workspace.apply_theme(self.theme)
         if hasattr(self, "appearance_group"):
             for action in self.appearance_group.actions():
                 action.setChecked(action.text() == name)

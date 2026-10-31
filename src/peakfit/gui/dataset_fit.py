@@ -159,7 +159,7 @@ def run_dataset_child(connection: Connection) -> None:
         connection.close()
 
 
-def dataset_summary(result: DatasetFitResult) -> str:
+def dataset_summary(result: DatasetFitResult, *, warnings: bool = True) -> str:
     """Describe numerical completion without claiming scientific validity."""
     clusters = result.outcome.clusters
     usable = sum(cluster.usable for cluster in clusters)
@@ -177,7 +177,5 @@ def dataset_summary(result: DatasetFitResult) -> str:
         else "No usable model"
     )
     # Warnings and completeness first: a narrow window elides the tail.
-    return (
-        f"{uncertain} uncertainty warnings · {model} · "
-        f"{converged}/{len(clusters)} converged · {usable}/{len(clusters)} usable"
-    )
+    counts = f"{model} · {converged}/{len(clusters)} converged · {usable}/{len(clusters)} usable"
+    return f"{uncertain} uncertainty warnings · {counts}" if warnings else counts

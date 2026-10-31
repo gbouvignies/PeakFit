@@ -125,7 +125,10 @@ def test_group_edit_keeps_untouched_precision_and_invalid_draft(workspace, app):
     workspace._refresh()
     workspace.select_peak(peak.id)
     editor = workspace.inspector
-    assert editor.x_field.text() == "8.23456789"
+    # Unfocused fields show one decimal beyond the axis digital resolution.
+    decimals = workspace.canvas.decimals_x
+    assert editor.x_field.text() == f"{peak.positions[1]:.{decimals}f}"
+    assert decimals < len(repr(peak.positions[1]).split(".")[1])
     editor.name.setText("Renamed")
     assert workspace.commit_fields()
     assert workspace.peaks[0].positions == peak.positions
@@ -259,7 +262,7 @@ def test_preview_does_no_contour_or_marker_work_and_cache_is_bounded(workspace):
     wait_for(lambda: not canvas.contour_pending)
     assert canvas.plane == 0
     np.testing.assert_array_equal(canvas.curve_x.getData()[1], canvas.spectra.data[0, canvas.iy, :])
-    assert len(canvas.paths) == 2
+    assert [layer.role for layer in canvas.paths] == ["measured"]
 
 
 def test_theme_preserves_science_and_geometry(app, dataset):
@@ -273,7 +276,7 @@ def test_theme_preserves_science_and_geometry(app, dataset):
     workspace.canvas.main.getViewBox().setRange(xRange=(7.5, 9), yRange=(115, 120), padding=0)
     app.processEvents()
     before = workspace.canvas.main.getViewBox().viewRange()
-    paths = [p.path() for p in workspace.canvas.paths]
+    paths = [list(layer.levels) for layer in workspace.canvas.paths]
     jobs = workspace.canvas.contour_jobs
     for appearance in ("Dark", "Light", "Dark", "System"):
         window.apply_appearance(appearance)
@@ -281,7 +284,7 @@ def test_theme_preserves_science_and_geometry(app, dataset):
         assert workspace.edits.revision == 0
         assert workspace.selected_id == dataset.peaks[3].id
         assert workspace.canvas.main.getViewBox().viewRange() == before
-        assert [p.path() for p in workspace.canvas.paths] == paths
+        assert [list(layer.levels) for layer in workspace.canvas.paths] == paths
         assert workspace.canvas.contour_jobs == jobs
     window.close()
 

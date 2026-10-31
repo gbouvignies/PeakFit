@@ -20,7 +20,11 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   (see "GUI v2" below). Shared modules: `gui.spectrum` validates complete dataset
   handoffs and contour geometry; `gui.editing` provides the peak inspector and
   markers; `gui.background.ViewerComputation` is the serial latest-pending worker
-  lane. `gui.fitting.prepare_dataset_fit` builds engine-safe peaks from snapshots
+  lane. `gui.theme` holds the light/dark tokens, palette, stylesheet and UI font;
+  every GUI colour, including plot pens, comes from it. `gui.icons` draws the
+  tinted tool icons and `gui.formatting` formats displayed numbers (display
+  precision from axis digital resolution, value ± σ, axis powers of ten) without
+  ever rounding stored values. `gui.fitting.prepare_dataset_fit` builds engine-safe peaks from snapshots
   and reuses engine clustering and pipeline parameter preparation;
   `gui.dataset_dialog` reviews effective settings and initial bounds
   asynchronously. `gui.dataset_fit` runs `run_pipeline_iter` with the reviewed
