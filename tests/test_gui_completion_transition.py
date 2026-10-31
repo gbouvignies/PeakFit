@@ -3,11 +3,12 @@
 from dataclasses import replace
 
 import pytest
-from test_gui_dataset import _dataset
+from test_gui_dataset import _dataset, _example
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fit_positions import dataset_completion
+from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.peaks import PeakEdits
 
 
@@ -139,3 +140,23 @@ def test_fatal_revision_source_and_identity_mismatch_publish_nothing(completed):
     )
     with pytest.raises(ValueError, match="mapping"):
         dataset_completion(broken, inputs, submitted_revision=0, manual_revision=0)
+
+
+def test_custom_axis_labels_follow_coordinate_order():
+    spectra, working, config = _example()
+    # Labels deliberately sort in the opposite order to working coordinates.
+    spectra.params[1].label = "F3"
+    spectra.params[2].label = "F2"
+    config.clustering.contour_level = 0.01
+    prepared = prepare_dataset_fit(spectra, working, config)
+    result = finish_dataset_fit(prepared, compute_dataset_fit(prepared))
+    submitted = result.inputs.snapshot
+    transition = dataset_completion(result, submitted, submitted_revision=0, manual_revision=0)
+    assert not transition.warnings
+    final = {p.name: p.value for p in result.outcome.final_nonlinear_parameters}
+    adopted = {p.id: p.positions for p in transition.working_peaks}
+    for identity in prepared.identities:
+        assert adopted[identity.working_id] == (
+            final[f"{identity.engine_name}.F3.cs"],
+            final[f"{identity.engine_name}.F2.cs"],
+        )

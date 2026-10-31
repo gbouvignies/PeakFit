@@ -40,7 +40,6 @@ Repository = "https://github.com/gbouvignies/peakfit"
 
 [project.scripts]
 peakfit = "peakfit.cli.app:app"
-peakfit-editor = "peakfit.gui.editor.window:main"
 
 # Development tools managed by `uv sync` / `uv run`
 [dependency-groups]

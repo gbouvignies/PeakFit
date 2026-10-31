@@ -169,13 +169,6 @@ def paths_from_geometry(geometry: ContourGeometry) -> list[QPainterPath]:
     ]
 
 
-def contour_paths(
-    plane: np.ndarray, axes: list[SpectralParameters], levels: np.ndarray
-) -> list[QPainterPath]:
-    """Synchronous geometry convenience for callers already on the GUI thread."""
-    return paths_from_geometry(contour_geometry(plane, axes, levels))
-
-
 @dataclass(frozen=True, slots=True)
 class Dataset:
     """One verified source with original plane order and immutable working seeds.

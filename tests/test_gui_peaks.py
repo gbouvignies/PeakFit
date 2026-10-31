@@ -2,10 +2,18 @@
 
 from pathlib import Path
 
+import nmrglue as ng
+import numpy as np
 import pytest
 
 from peakfit.gui.peaks import PeakEdits, WorkingPeak, export_peaks
-from peakfit.gui.spectrum import load_peaks, load_spectrum
+from peakfit.gui.spectrum import (
+    contour_geometry,
+    display_position,
+    load_peaks,
+    load_spectrum,
+    paths_from_geometry,
+)
 
 DATA = Path(__file__).resolve().parents[1] / "examples" / "02-advanced-fitting" / "data"
 
@@ -51,3 +59,36 @@ def test_export_round_trips_unfolded_coordinates_assignments_and_empty_list(tmp_
         assert restored.positions == original.positions
     export_peaks(path, ())
     assert load_peaks(path, spectra) == []
+
+
+def test_2d_loading_signed_contours_and_indirect_peak_aliasing(tmp_path: Path) -> None:
+    # Write a genuine 2D NMRPipe file from one bundled experimental plane.
+    spectra = load_spectrum(DATA / "pseudo3d.ft2")
+    udic = ng.pipe.guess_udic(spectra.dic, spectra.data)
+    plane_udic = {"ndim": 2, 0: udic[1], 1: udic[2]}
+    path = tmp_path / "plane.ft2"
+    ng.pipe.write(str(path), ng.pipe.create_dic(plane_udic), spectra.data[0])
+    single = load_spectrum(path)
+    assert single.data.shape == (1, *spectra.data.shape[1:])
+    np.testing.assert_array_equal(single.data[0], spectra.data[0])
+    y_axis, x_axis = single.spectral_params
+    plane = np.zeros(single.data.shape[1:])
+    plane[80, 120] = 10
+    plane[100, 200] = -10
+    paths = paths_from_geometry(contour_geometry(plane, single.spectral_params, np.array([5, -5])))
+    for contour, (iy, ix) in zip(paths, [(80, 120), (100, 200)], strict=True):
+        bounds = contour.boundingRect()
+        assert bounds.center().x() == pytest.approx(x_axis.pts2ppm(ix))
+        assert bounds.center().y() == pytest.approx(y_axis.pts2ppm(iy))
+        assert bounds.width() == pytest.approx(abs(x_axis.delta))
+        assert bounds.height() == pytest.approx(abs(y_axis.delta))
+    unfolded = y_axis.pts2ppm(y_axis.size + 3.25)
+    assert display_position(y_axis, unfolded) == pytest.approx(y_axis.pts2ppm(3.25))
+    direct = x_axis.pts2ppm(x_axis.size + 3.25)
+    assert display_position(x_axis, direct) == direct
+    bad_values = tmp_path / "values.txt"
+    bad_values.write_text("42\n")
+    np.testing.assert_array_equal(load_spectrum(path, bad_values).z_values, [42])
+    bad_values.write_text("1\n2\n")
+    with pytest.raises(ValueError, match="exactly 1"):
+        load_spectrum(path, bad_values)

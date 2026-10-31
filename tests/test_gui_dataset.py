@@ -4,41 +4,110 @@ import pickle
 from concurrent.futures import CancelledError
 from copy import deepcopy
 from dataclasses import replace
+from pathlib import Path
 from threading import Event
+from time import perf_counter
 
 import numpy as np
 import pytest
 from PySide6 import QtCore, QtTest, QtWidgets
-from test_gui_fit_execution import _example, _wait
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.domain.cluster import Cluster
+from peakfit.engine.domain.config import FitConfig, PeakFitConfig
+from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
+from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.gui.dataset_dialog import DatasetFitDialog
 from peakfit.gui.dataset_fit import (
-    DatasetFitResult,
     _completed_bytes,
     compute_dataset_fit,
     dataset_summary,
     finish_dataset_fit,
 )
-from peakfit.gui.fit_display import dataset_model_plane, dataset_model_slices
+from peakfit.gui.editor.workspace import EditorWorkspace
+from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.fit_export import export_fit_result
-from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.peaks import WorkingPeak
-from peakfit.gui.viewer import SpectrumViewer
+from peakfit.gui.spectrum import Dataset
 from peakfit.io.scientific import read_scientific
 
 pytestmark = pytest.mark.gui
 
 
+def _example():
+    """Two overlapping synthetic Gaussians across three planes with repeated values."""
+    axes = [
+        SpectralParameters(
+            size=size,
+            sw=500,
+            obs=500,
+            car=0,
+            aq_time=0.03,
+            apocode=0,
+            apodq1=0,
+            apodq2=0,
+            apodq3=0,
+            p180=not direct,
+            direct=direct,
+            ft=True,
+        )
+        for size, direct in ((3, False), (32, False), (32, True))
+    ]
+    spectra = Spectra(
+        dic={},
+        data=np.zeros((3, 32, 32)),
+        z_values=np.array([2.0, 0.0, 2.0]),
+        params=axes,
+    )
+    config = PeakFitConfig(
+        noise_level=0.002,
+        fitting=FitConfig(lineshape="gaussian", steps=[FitStep(fix=["*.*.lw"])]),
+    )
+    config.parameters.position_window = 0.04
+    positions = [
+        (axes[1].pts2ppm(14.2) + 1.0, axes[2].pts2ppm(14.4)),
+        (axes[1].pts2ppm(15.5), axes[2].pts2ppm(15.7)),
+    ]
+    from peakfit.engine.domain.peaks import Peak  # noqa: PLC0415
+
+    peaks = [
+        Peak(
+            f"p_{i}",
+            np.array(pos),
+            create_shapes(spectra, config.fitting, f"p_{i}", pos, ["gaussian", "gaussian"]),
+        )
+        for i, pos in enumerate(positions)
+    ]
+    indices = [index.ravel() for index in np.indices((32, 32))]
+    shapes = Cluster.evaluate_peaks(peaks, Parameters.from_peaks(peaks), indices)
+    amplitudes = np.array([[5.0, -3.0, 2.0], [3.0, -2.0, 4.0]])
+    rng = np.random.default_rng(42)
+    spectra.data[:] = (shapes.T @ amplitudes).T.reshape(3, 32, 32)
+    spectra.data += rng.normal(0, 0.002, spectra.data.shape)
+    working = tuple(
+        WorkingPeak(str(i), "Duplicate", (pos[0] + 0.003, pos[1] - 0.003))
+        for i, pos in enumerate(positions)
+    )
+    return spectra, working, config
+
+
+def _wait(condition, timeout=10):
+    started = perf_counter()
+    while not condition() and perf_counter() - started < timeout:
+        loop = QtCore.QEventLoop()
+        QtCore.QTimer.singleShot(10, loop.quit)
+        loop.exec()
+    assert condition(), "Timed out waiting for background work"
+
+
 def _dataset():
-    spectra, peaks, _prepared, config = _example()
+    spectra, peaks, config = _example()
     pos = tuple(
         axis.pts2ppm(point)
         for axis, point in zip(
@@ -71,18 +140,17 @@ def _dataset():
 
 
 @pytest.fixture
-def dataset_viewer():
+def dataset_workspace():
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     spectra, peaks, config, prepared = _dataset()
-    viewer = SpectrumViewer(spectra)
-    viewer.set_peaks(peaks)
-    viewer.resize(1280, 800)
-    viewer.show()
+    workspace = EditorWorkspace(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    workspace.resize(1280, 800)
+    workspace.show()
     app.processEvents()
-    yield viewer, config, prepared
-    viewer.stop_preparation()
-    viewer.close()
-    viewer.deleteLater()
+    yield workspace, config, prepared
+    workspace.stop()
+    workspace.close()
+    workspace.deleteLater()
     QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
     app.processEvents()
 
@@ -138,11 +206,8 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
     )
     plane = dataset_model_plane(result, spectra.spectral_params, 2, cancel=Event())
     np.testing.assert_allclose(plane.values.ravel(), total[:, 0], rtol=1e-14, atol=1e-14)
-    slices = dataset_model_slices(
-        result, spectra.spectral_params, spectra.data, 14, 15, cancel=Event()
-    )
-    np.testing.assert_allclose(slices.x[:, 2], plane.values[14], rtol=1e-14, atol=1e-14)
-    np.testing.assert_array_equal(slices.residual_x, spectra.data[:, 14, :].T - slices.x)
+    with pytest.raises(ValueError, match="paired"):
+        project_final_outcome(result.outcome, result.simulation_snapshot, [np.array([np.nan])])
     assert result.inputs.snapshot.plane_values == (2.0, 0.0, 2.0)
     saved = export_fit_result(result, tmp_path / "dataset")
     outcome, _samples, companion = read_scientific(saved / "scientific.npz")
@@ -159,11 +224,10 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
     assert (outcome.n_correction_updates > 0) is False
 
 
-def test_settings_are_reviewed_and_independent_of_display(dataset_viewer):
-    viewer, config, _prepared = dataset_viewer
-    viewer.threshold.setValue(20)
+def test_settings_are_reviewed_and_independent_of_display(dataset_workspace):
+    workspace, config, _prepared = dataset_workspace
     config.clustering.contour_level = None
-    dialog = DatasetFitDialog(viewer, config)
+    dialog = DatasetFitDialog(workspace, config)
     dialog.show()
     try:
         _wait(lambda: dialog.prepared is not None)
@@ -171,7 +235,7 @@ def test_settings_are_reviewed_and_independent_of_display(dataset_viewer):
         assert prepared is not None
         assert dialog.passes.value() == 2
         assert prepared.contour_level == config.clustering.contour_factor * prepared.noise
-        viewer.threshold.setValue(10)
+        workspace.canvas.set_plane(2)
         assert dialog.prepared is prepared
         QtTest.QTest.mouseClick(dialog.advanced_toggle, QtCore.Qt.MouseButton.LeftButton)
         assert dialog.parameters.isVisible()
@@ -189,77 +253,6 @@ def test_settings_are_reviewed_and_independent_of_display(dataset_viewer):
         dialog.deleteLater()
 
 
-def test_complete_gui_review_navigation_cancel_failure_and_outdated(  # noqa: PLR0915
-    dataset_viewer, monkeypatch
-):
-    viewer, _config, prepared = dataset_viewer
-    viewer.run_dataset_fit(prepared)
-    _wait(lambda: not viewer.fit_busy)
-    assert viewer._fit_process.state == "completed", viewer.workspace.summary.toolTip()
-    retained = viewer.fit_result
-    assert isinstance(retained.scientific, DatasetFitResult)
-    assert viewer.workspace.details.isHidden()
-    comparison = viewer.comparison
-    _wait(lambda: comparison._current is not None and comparison._slice is not None)
-    assert comparison.mode.currentText() == "Overlay"
-    assert "Complete model" in viewer.workspace.summary.text()
-    assert any(path.isVisible() for path in comparison.paths)
-    original_revision, original_model = comparison._revision, comparison._current
-    for plane in (3, 1, 2):
-        viewer.set_plane(plane)
-    comparison._completed("model", original_revision, ((0,), original_model))
-    assert comparison._current is None
-    _wait(lambda: comparison._current is not None and comparison._slice is not None)
-    direct = dataset_model_plane(
-        retained.scientific, viewer.spectra.spectral_params, 1, cancel=Event()
-    )
-    np.testing.assert_array_equal(comparison._current.grid.values, direct.values)
-    np.testing.assert_allclose(
-        comparison.model_x.yData, direct.values[viewer.iy], rtol=1e-14, atol=1e-14
-    )
-    comparison.mode.setCurrentIndex(2)
-    _wait(lambda: comparison.residual.isVisible() and comparison._slice is not None)
-    np.testing.assert_allclose(
-        comparison.model_x.yData,
-        (viewer.spectra.data[1, viewer.iy] - direct.values[viewer.iy]) / prepared.noise,
-    )
-    assert comparison.residual.image.shape[:2] == direct.values.shape
-    assert np.all(comparison.residual.image[..., 3] == 255)
-    comparison.mode.setCurrentIndex(0)
-    assert not any(path.isVisible() for path in comparison.paths)
-    assert not comparison.residual.isVisible()
-    monkeypatch.setattr(
-        viewer, "_result_loss_choice", lambda _: QtWidgets.QMessageBox.StandardButton.Cancel
-    )
-    viewer.run_dataset_fit(prepared)
-    assert not viewer.fit_busy
-    assert viewer.fit_result is retained
-    # A cancelled replacement and a real child failure preserve the original run.
-    monkeypatch.setattr(viewer, "confirm_result_loss", lambda _: True)
-    viewer.run_dataset_fit(prepared)
-    viewer._fit_process.cancel()
-    _wait(lambda: not viewer.fit_busy)
-    assert viewer.fit_result is retained
-    invalid = replace(prepared, parameters=Parameters())
-    # Broken geometry reaches the real child; there is no invented partial model.
-    invalid = deepcopy(invalid)
-    invalid.clusters[0].data = np.full_like(invalid.clusters[0].data, np.nan)
-    viewer.run_dataset_fit(invalid)
-    _wait(lambda: not viewer.fit_busy)
-    assert viewer._fit_process.state == "failed"
-    assert viewer.fit_result is retained
-    before = retained.scientific.completed_fit.samples[0].data.copy()
-    viewer.edits.update(viewer.peaks[0].id, "Edited", viewer.peaks[0].positions)
-    viewer.edits_changed.emit()
-    assert not comparison.active
-    assert "Outdated" in viewer.workspace.summary.text()
-    viewer.undo()
-    assert not comparison.active
-    viewer.show_fit_result(activate=False)
-    assert not comparison.active  # Undo does not recertify a retained result.
-    np.testing.assert_array_equal(retained.scientific.completed_fit.samples[0].data, before)
-
-
 def test_projection_cancellation_never_returns_partial_model():
     spectra, _peaks, _config, prepared = _dataset()
     result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
@@ -270,8 +263,8 @@ def test_projection_cancellation_never_returns_partial_model():
     assert "uncertainty" in dataset_summary(result)
 
 
-def test_summary_separates_termination_from_usability_and_no_model(dataset_viewer):
-    viewer, _config, prepared = dataset_viewer
+def test_summary_separates_termination_from_usability_and_no_model():
+    _spectra, _peaks, _config, prepared = _dataset()
     result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
     outcomes = result.outcome.clusters
     assert len(outcomes) == 2
@@ -308,7 +301,3 @@ def test_summary_separates_termination_from_usability_and_no_model(dataset_viewe
     )
     unusable = replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
     assert "No usable model" in dataset_summary(unusable)
-    viewer.comparison.show_result(FitProcessResult(unusable, 0, 0, 0, 0), outdated=False)
-    assert not viewer.comparison.active
-    assert viewer.comparison._current is None
-    assert not viewer.comparison.residual.isVisible()

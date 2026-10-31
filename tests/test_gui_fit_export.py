@@ -1,57 +1,65 @@
-"""Scientific round trips and transactional GUI export protection."""
+"""Scientific round trips and transactional export of completed dataset fits."""
 
 import csv
 import json
+from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 import pytest
-from PySide6 import QtCore, QtGui, QtWidgets
-from test_gui_fit_execution import _example, _wait
+from PySide6 import QtCore, QtWidgets
+from test_gui_dataset import _example
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
-from peakfit.gui.app import PeakFitWindow
+from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
-from peakfit.gui.fit_process import FitProcessResult
-from peakfit.gui.local_fit import execute_local_fit
+from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.spectrum import verified_source_files
-from peakfit.gui.viewer import SpectrumViewer
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.scientific import read_scientific
 
 pytestmark = pytest.mark.gui
 
 
+def _prepare(configure=lambda _config: None):
+    spectra, working, config = _example()
+    config.clustering.contour_level = 0.01
+    configure(config)
+    prepared = prepare_dataset_fit(spectra, working, config)
+    assert len(prepared.clusters) == 1
+    return working, prepared
+
+
+def _fit(prepared):
+    return finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+
+
 @pytest.mark.parametrize("classification", ["converged", "usable_non_converged", "unusable"])
 def test_export_authoritative_values_and_original_identities(tmp_path, monkeypatch, classification):  # noqa: PLR0915
-    _spectra, working, prepared, config = _example()
-    config.output.formats = ["json", "csv"]
-    config.output.detailed_evidence = True
-    prepared = replace(
-        prepared, snapshot=replace(prepared.snapshot, configuration=config.model_dump_json())
-    )
-    if classification == "usable_non_converged":
-        config.fitting.max_iterations = 1
-        prepared = replace(
-            prepared, snapshot=replace(prepared.snapshot, configuration=config.model_dump_json())
-        )
-    if classification == "unusable":
-        from peakfit.gui import local_fit  # noqa: PLC0415
+    def configure(config):
+        config.output.formats = ["json", "csv"]
+        config.output.detailed_evidence = True
+        if classification == "usable_non_converged":
+            config.fitting.max_iterations = 1
 
-        real_fit = local_fit.fit_single_cluster_task
+    working, prepared = _prepare(configure)
+    if classification == "unusable":
+        from peakfit.fit import pipeline  # noqa: PLC0415
+
+        real_fit = pipeline.fit_single_cluster_task
 
         def unusable_attempt(task):
             result = real_fit(task)
             result.cost = np.nan
             return result
 
-        monkeypatch.setattr(local_fit, "fit_single_cluster_task", unusable_attempt)
+        monkeypatch.setattr(pipeline, "fit_single_cluster_task", unusable_attempt)
     source = tmp_path / "original.ft2"
     source.write_bytes(b"verified original input")
     with verified_source_files({"spectrum": source}) as records:
         prepared = replace(prepared, snapshot=replace(prepared.snapshot, source_files=records))
-    completed = execute_local_fit(prepared)
+    completed = _fit(prepared)
     cluster = completed.outcome.clusters[0]
     assert cluster.classification == FitOutcomeClassification(classification)
     path = export_fit_result(completed, tmp_path / "export")
@@ -71,7 +79,7 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
         {"engine_name": f"p_{i}", "peak_id": peak.id, "assignment": peak.name}
         for i, peak in enumerate(working)
     ]
-    for old, new in zip(prepared.scope.grid_indices, samples[0].grid_indices, strict=True):
+    for old, new in zip(prepared.clusters[0].grid_indices, samples[0].grid_indices, strict=True):
         np.testing.assert_array_equal(old, new)
     assert (
         summary.clusters[0].optimizer_provenance.termination_message
@@ -125,8 +133,8 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
 
 
 def test_partial_failure_has_no_published_directory(tmp_path, monkeypatch):
-    _spectra, _working, prepared, _config = _example()
-    completed = execute_local_fit(prepared)
+    _working, prepared = _prepare()
+    completed = _fit(prepared)
     from peakfit.gui import fit_export  # noqa: PLC0415
 
     def fail(_outcome, output, *_args, **_kwargs):
@@ -147,8 +155,8 @@ def test_partial_failure_has_no_published_directory(tmp_path, monkeypatch):
 def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
     from peakfit.gui import fit_export  # noqa: PLC0415
 
-    _spectra, _working, prepared, _config = _example()
-    completed = execute_local_fit(prepared)
+    _working, prepared = _prepare()
+    completed = _fit(prepared)
     destination = tmp_path / "export"
     lock = tmp_path / ".export.export-lock"
     write = fit_export.write_completed_outputs
@@ -197,141 +205,6 @@ def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
         assert (destination / "existing-result").read_text() == "keep me"
 
 
-def test_long_export_path_does_not_change_footer_layout(tmp_path, monkeypatch):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    spectra, working, prepared, _config = _example()
-    viewer = SpectrumViewer(spectra)
-    viewer.set_peaks(working)
-    viewer.fit_result = FitProcessResult(execute_local_fit(prepared), 0, 0, 0, 0)
-    viewer.resize(1000, 720)
-    viewer.show()
-    app.processEvents()
-    # Layout starts with the same compact wording: only the destination length changes.
-    viewer.result_notice.setText("Fit results exported")
-    app.processEvents()
-    before = (
-        viewer.size(),
-        viewer.minimumSizeHint(),
-        viewer.spectrum_plot.size(),
-        viewer.trace_x.size(),
-    )
-    destination = tmp_path.joinpath(*(["long-export-directory"] * 30))
-    messages = []
-    monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_, **_kwargs: destination)
-    monkeypatch.setattr(
-        QtWidgets.QMessageBox, "information", lambda *args: messages.append(args[-1])
-    )
-    try:
-        assert viewer.export_fit_results()
-        app.processEvents()
-        assert viewer.result_notice.text() == "Fit results exported"
-        assert viewer.result_notice.toolTip() == str(destination)
-        assert str(destination) in messages[0]
-        assert (
-            viewer.size(),
-            viewer.minimumSizeHint(),
-            viewer.spectrum_plot.size(),
-            viewer.trace_x.size(),
-        ) == before
-    finally:
-        _wait(lambda: not viewer._computation._busy)
-        viewer.stop_preparation()
-        viewer.close()
-        viewer.deleteLater()
-        QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
-        app.processEvents()
-
-
-def test_export_and_close_keep_result_and_peak_states_separate(tmp_path, monkeypatch):  # noqa: PLR0915
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    spectra, working, prepared, _config = _example()
-    scientific = execute_local_fit(prepared)
-    window = PeakFitWindow()
-    viewer = SpectrumViewer(spectra)
-    window.setCentralWidget(viewer)
-    window.viewer = viewer
-    viewer.set_peaks(working)
-    viewer.edits.update(
-        working[0].id, working[0].name, (working[0].positions[0] + 0.001, working[0].positions[1])
-    )
-    retained = FitProcessResult(scientific, 0, 0, 0, 0)
-    viewer.fit_result = retained
-    viewer._result_revision = -1  # Outdated inputs are still exportable.
-    before = viewer.peaks
-    viewer.show_fit_result()
-    try:
-        monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", lambda *_, **_kwargs: None)
-        assert not viewer.export_fit_results()
-        assert not viewer.result_exported
-        monkeypatch.setattr(
-            viewer, "_result_loss_choice", lambda _: QtWidgets.QMessageBox.StandardButton.Save
-        )
-        assert not viewer.confirm_result_loss("discard")
-        assert viewer.fit_result is retained
-        # Exercise the real off-thread disk path and responsive Qt event loop.
-        from peakfit.gui.export_dialog import choose_and_export  # noqa: PLC0415
-
-        monkeypatch.setattr("peakfit.gui.viewer.choose_and_export", choose_and_export)
-        monkeypatch.setattr(
-            "peakfit.gui.export_dialog._choose_export_directory",
-            lambda *_, **_kw: (str(tmp_path), False),
-        )
-        monkeypatch.setattr(QtWidgets.QMessageBox, "information", lambda *_: None)
-        monkeypatch.setattr(QtWidgets.QMessageBox, "warning", lambda *_: None)
-        beats = []
-        timer = QtCore.QTimer(viewer)
-        timer.setInterval(1)
-        timer.timeout.connect(lambda: beats.append(1))
-        timer.start()
-        assert viewer.export_fit_results()
-        _, _, context = read_scientific(
-            tmp_path / f"local-fit-{scientific.run_id}" / "scientific.npz"
-        )
-        assert context["export_state"]["currentness"] == "outdated"
-        timer.stop()
-        assert beats
-        assert viewer.result_exported
-        assert viewer.fit_result is retained
-        assert viewer.peaks == before
-        assert viewer.edits.dirty
-        assert viewer.confirm_result_loss("replace")  # No result prompt after exporting.
-        # Existing directory fails; an earlier success remains a success for that exact result.
-        assert not viewer.export_fit_results()
-        assert viewer.result_exported
-        # New result identity has independent export state, even with identical fitted values.
-        viewer.fit_result = replace(
-            retained, scientific=replace(scientific, run_id="another-result")
-        )
-        assert not viewer.result_exported
-        # A failed export of this new result cannot inherit the previous saved state.
-        (tmp_path / "local-fit-another-result").mkdir()
-        assert not viewer.export_fit_results()
-        assert not viewer.result_exported
-        (tmp_path / "local-fit-another-result").rmdir()
-        monkeypatch.setattr(
-            viewer, "_result_loss_choice", lambda _: QtWidgets.QMessageBox.StandardButton.Cancel
-        )
-        close = QtGui.QCloseEvent()
-        monkeypatch.setattr(window, "_protect_edits", lambda: True)
-        window.closeEvent(close)
-        assert not close.isAccepted()
-        assert not viewer._closing
-        assert viewer.fit_result is not None
-        monkeypatch.setattr(
-            viewer, "_result_loss_choice", lambda _: QtWidgets.QMessageBox.StandardButton.Save
-        )
-        assert viewer.confirm_result_loss("discard")
-        assert viewer.result_exported
-        window.closeEvent(close)
-        assert close.isAccepted()
-    finally:
-        _wait(lambda: not viewer._computation._busy)
-        viewer.stop_preparation()
-        window.deleteLater()
-        QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
-        app.processEvents()
-
-
 def test_export_shows_progress_before_starting_writer(tmp_path, monkeypatch):
     from threading import Event  # noqa: PLC0415
 
@@ -349,8 +222,8 @@ def test_export_shows_progress_before_starting_writer(tmp_path, monkeypatch):
             super().showEvent(event)
             shown.set()
 
-    _spectra, _working, prepared, _config = _example()
-    completed = execute_local_fit(prepared)
+    _working, prepared = _prepare()
+    completed = _fit(prepared)
 
     def write(*_args, **_kwargs):
         observed.append(shown.is_set())

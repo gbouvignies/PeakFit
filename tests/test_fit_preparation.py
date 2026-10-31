@@ -1,25 +1,36 @@
-"""Shared optimizer preparation agrees with the local scientific preview."""
+"""Desktop dataset-fit preparation agrees with the shared optimizer pipeline."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from peakfit.engine.algorithms.noise import prepare_noise_level
+from peakfit.engine.algorithms.clustering import create_clusters
+from peakfit.engine.algorithms.noise import estimate_noise, prepare_noise_level
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConstraint, PeakConstraints
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
+from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.engine.results import FitResult
 from peakfit.fit.pipeline import ClusterFitTask, run_pipeline_iter
-from peakfit.gui.fitting import prepare_local_fit
+from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
 from peakfit.gui.peaks import WorkingPeak
+from peakfit.gui.spectrum import load_peaks, load_spectrum
+from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
 
 DATA = Path(__file__).resolve().parents[1] / "examples" / "02-advanced-fitting" / "data"
 
 
-def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> None:  # noqa: PLR0915
+def _prepare(spectra, peak, config, contour_level) -> PreparedDatasetFit:
+    settings = config.model_copy(deep=True)
+    settings.clustering.contour_level = contour_level
+    return prepare_dataset_fit(spectra, (peak,), settings)
+
+
+def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) -> None:  # noqa: PLR0915
     spectra = read_spectra(DATA / "pseudo3d.ft2")
     contour_level = 5 * prepare_noise_level(None, spectra)
     peak = WorkingPeak.new("same.assignment", (120.0, 8.5))
@@ -31,9 +42,8 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
             value=35, min=10, max=80, vary=False
         )
         config.parameters.defaults.patterns["*.F2.cs"] = ParameterConstraint(vary=False)
-        prepared = prepare_local_fit(spectra, (peak,), peak.id, config, contour_level=contour_level)
-        assert prepared.cluster is not None
-        assert prepared.parameters is not None
+        prepared = _prepare(spectra, peak, config, contour_level)
+        (cluster,) = prepared.clusters
         assert not prepared.parameters[f"{prepared.identities[0].engine_name}.F2.cs"].vary
         widths = [
             p
@@ -53,10 +63,10 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
             list(
                 run_pipeline_iter(
                     config,
-                    [prepared.cluster],
+                    [cluster],
                     prepared.noise,
-                    Parameters.from_peaks(prepared.cluster.peaks),
-                    prepared.cluster.peaks,
+                    Parameters.from_peaks(cluster.peaks),
+                    cluster.peaks,
                     executor=capture,
                 )
             )
@@ -94,13 +104,13 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
     unsupported.append(from_file)
     for settings in unsupported:
         with pytest.raises(ValueError, match=r"assignment.*not supported.*wildcard"):
-            prepare_local_fit(spectra, (peak,), peak.id, settings, contour_level=contour_level)
+            _prepare(spectra, peak, settings, contour_level)
 
     # A configured start must be used once; explicit later release continues from
     # the preceding fit rather than resetting to 35 Hz. No optimizer is executed.
     config.fitting.lineshape = "gaussian"
-    prepared = prepare_local_fit(spectra, (peak,), peak.id, config, contour_level=contour_level)
-    assert prepared.cluster is not None
+    prepared = _prepare(spectra, peak, config, contour_level)
+    (cluster,) = prepared.clusters
     config.fitting.steps = [FitStep(name="start"), FitStep(name="release", vary=["*.*.lw"])]
     captured = []
 
@@ -125,10 +135,10 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
     # Finalization is irrelevant here; stop just after both tasks are submitted.
     items = run_pipeline_iter(
         config,
-        [prepared.cluster],
+        [cluster],
         prepared.noise,
-        Parameters.from_peaks(prepared.cluster.peaks),
-        prepared.cluster.peaks,
+        Parameters.from_peaks(cluster.peaks),
+        cluster.peaks,
     )
     while len(captured) < 2:
         next(items)
@@ -142,5 +152,74 @@ def test_preview_matches_submitted_parameters_and_continuation(monkeypatch) -> N
         for p in captured[0].values()
         if p.param_id is not None and p.param_id.label == "lw"
     )
-    with pytest.raises(ValueError, match="one isolated"):
-        prepare_local_fit(spectra, (peak,), peak.id, config, contour_level=contour_level)
+
+
+def test_dataset_cluster_identity_aliasing_and_direct_axis_guard() -> None:
+    spectra = load_spectrum(DATA / "pseudo3d.ft2", DATA / "b1_offsets.txt")
+    peaks = tuple(load_peaks(DATA / "pseudo3d.list", spectra))
+    config = PeakFitConfig()
+    # Use the existing reader + engine clustering as the reference, independently
+    # of the GUI's identity conversion. Select a real overlapping group.
+    reference_peaks = read_list(
+        DATA / "pseudo3d.list", spectra, get_shape_names(config.fitting, spectra), config.fitting
+    )
+    noise = prepare_noise_level(None, spectra)
+    contour_level = 5 * estimate_noise(spectra.data[0])
+    groups = create_clusters(spectra, reference_peaks, contour_level)
+    high_groups = create_clusters(spectra, reference_peaks, 1000 * estimate_noise(spectra.data[0]))
+    high_sizes = {peak.name: len(group.peaks) for group in high_groups for peak in group.peaks}
+    reference = next(
+        group for group in groups if high_sizes[group.peaks[0].name] < len(group.peaks)
+    )
+    selected = next(peak for peak in peaks if peak.name == reference.peaks[0].name)
+    expected_ids = {peak.id for peak in peaks if peak.name in {p.name for p in reference.peaks}}
+    # Rename two members to the same assignment, preserving separate identities;
+    # unfold one indirect position by exactly a spectral width.
+    y_axis, x_axis = spectra.spectral_params
+    duplicate_id = next(identity for identity in expected_ids if identity != selected.id)
+    peaks = tuple(
+        replace(
+            peak,
+            name="Duplicate",
+            positions=(peak.positions[0] + y_axis.delta * y_axis.size, peak.positions[1]),
+        )
+        if peak.id == selected.id
+        else replace(peak, name="Duplicate")
+        if peak.id == duplicate_id
+        else peak
+        for peak in peaks
+    )
+    config.clustering.contour_level = contour_level
+    prepared = prepare_dataset_fit(spectra, peaks, config)
+    assert {item.working_id for item in prepared.identities} == {peak.id for peak in peaks}
+    assert len({item.engine_name for item in prepared.identities}) == len(peaks)
+    assert sum(item.assignment == "Duplicate" for item in prepared.identities) == 2
+    identity = next(item for item in prepared.identities if item.working_id == selected.id)
+    cluster = next(
+        c for c in prepared.clusters if identity.engine_name in {p.name for p in c.peaks}
+    )
+    engine_ids = {item.engine_name: item.working_id for item in prepared.identities}
+    assert {engine_ids[peak.name] for peak in cluster.peaks} == expected_ids
+    for actual, expected in zip(cluster.grid_indices, reference.grid_indices, strict=True):
+        np.testing.assert_array_equal(actual, expected)
+    np.testing.assert_array_equal(cluster.data, reference.data)
+    assert cluster.n_series == spectra.data.shape[0]
+    assert prepared.noise == noise
+    assert prepared.contour_level == contour_level
+    assert prepared.snapshot.contour_level == contour_level
+    scientific = next(peak for peak in cluster.peaks if peak.name == identity.engine_name)
+    working = next(peak for peak in peaks if peak.id == selected.id)
+    np.testing.assert_array_equal(scientific.positions, working.positions)
+    # The engine's indirect alias sign must be retained as well as folded indices.
+    original = reference.peaks[0].shapes[0]
+    offsets, signs = scientific.shapes[0].dim_ctx.compute_offsets(
+        np.array([0, y_axis.size - 1]), np.array([working.positions[0]])
+    )
+    old_offsets, old_signs = original.dim_ctx.compute_offsets(
+        np.array([0, y_axis.size - 1]), np.array([selected.positions[0]])
+    )
+    np.testing.assert_allclose(offsets, old_offsets)
+    np.testing.assert_array_equal(signs, -old_signs if y_axis.p180 else old_signs)
+    outside = replace(peaks[0], positions=(peaks[0].positions[0], x_axis.pts2ppm(x_axis.size)))
+    with pytest.raises(ValueError, match="direct-axis position"):
+        prepare_dataset_fit(spectra, (outside, *peaks[1:]), config)

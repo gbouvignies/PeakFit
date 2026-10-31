@@ -12,19 +12,16 @@ from PySide6 import QtCore
 
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit, run_dataset_child
 from peakfit.gui.fitting import PreparedDatasetFit
-from peakfit.gui.local_fit import LocalFitAttempt, finish_local_fit, run_fit_child
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
-    from peakfit.gui.fitting import PreparedLocalFit
-    from peakfit.gui.local_fit import LocalFitResult
 
 
 @dataclass(frozen=True, slots=True)
 class FitProcessResult:
     """Completed result and observed transfer/startup costs for diagnostics."""
 
-    scientific: LocalFitResult | DatasetFitResult
+    scientific: DatasetFitResult
     startup_seconds: float
     serialization_seconds: float
     input_bytes: int
@@ -58,7 +55,7 @@ class FitProcess(QtCore.QObject):
         """Remain busy until cancellation has reaped the actual child."""
         return self.state in {"starting", "running", "canceling"}
 
-    def start(self, prepared: PreparedLocalFit | PreparedDatasetFit) -> int:
+    def start(self, prepared: PreparedDatasetFit) -> int:
         """Start exactly one operation; serialize and launch outside the Qt thread."""
         if self.busy or self._closed:
             raise RuntimeError("A fit is already active or this viewer is closed.")
@@ -98,14 +95,13 @@ class FitProcess(QtCore.QObject):
                 self._delivery.emit(generation, state, value)
 
     def _work(  # noqa: PLR0912, PLR0915
-        self, generation: int, prepared: PreparedLocalFit | PreparedDatasetFit, cancel: Event
+        self, generation: int, prepared: PreparedDatasetFit, cancel: Event
     ) -> None:
         started = perf_counter()
         context = multiprocessing.get_context("spawn")
         receiver, sender = context.Pipe()
-        dataset = isinstance(prepared, PreparedDatasetFit)
         process = context.Process(
-            target=run_dataset_child if dataset else run_fit_child,
+            target=run_dataset_child,
             args=(sender,),
             daemon=True,
         )
@@ -146,12 +142,10 @@ class FitProcess(QtCore.QObject):
                     self._emit(generation, "progress", attempt[1])
                     continue
                 break
-            if dataset and isinstance(attempt, bytes):
+            if isinstance(attempt, bytes):
                 attempt = pickle.loads(attempt)  # Only our own child's trusted in-memory record.
             if isinstance(owned, PreparedDatasetFit) and isinstance(attempt, DatasetFitAttempt):
                 scientific = finish_dataset_fit(owned, attempt)
-            elif not isinstance(owned, PreparedDatasetFit) and isinstance(attempt, LocalFitAttempt):
-                scientific = finish_local_fit(owned, attempt)
             else:
                 raise RuntimeError(str(attempt))
             outcome = FitProcessResult(

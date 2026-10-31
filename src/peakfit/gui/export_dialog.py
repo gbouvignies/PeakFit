@@ -8,14 +8,13 @@ from typing import TYPE_CHECKING
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.engine.scientific.completed import FinalClusterSamples
-from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fit_export import export_fit_result
 
 if TYPE_CHECKING:
     from concurrent.futures import Future
 
+    from peakfit.gui.dataset_fit import DatasetFitResult
     from peakfit.gui.fit_positions import DatasetCompletion
-    from peakfit.gui.local_fit import LocalFitResult
 
 
 class _ExportProgress(QtWidgets.QProgressDialog):
@@ -51,7 +50,7 @@ def _choose_export_directory(parent, include_evidence=False, *, evidence_availab
 
 def choose_and_export(
     parent: QtWidgets.QWidget,
-    result: LocalFitResult | DatasetFitResult,
+    result: DatasetFitResult,
     *,
     completion: DatasetCompletion | None = None,
     current: bool | None = None,
@@ -59,18 +58,15 @@ def choose_and_export(
 ) -> Path | None:
     """Choose a parent directory and create a new result-specific child directory."""
     setting = json.loads(result.inputs.snapshot.configuration).get("output", {})
-    available = (
-        dataset is not None
-        or not isinstance(result, DatasetFitResult)
-        or all(isinstance(s, FinalClusterSamples) for s in result.completed_fit.samples)
+    available = dataset is not None or all(
+        isinstance(s, FinalClusterSamples) for s in result.completed_fit.samples
     )
     directory, detailed = _choose_export_directory(
         parent, setting.get("detailed_evidence", False), evidence_available=available
     )
     if not directory:
         return None
-    prefix = "dataset-fit" if isinstance(result, DatasetFitResult) else "local-fit"
-    destination = Path(directory) / f"{prefix}-{result.run_id}"
+    destination = Path(directory) / f"dataset-fit-{result.run_id}"
     progress = _ExportProgress("Exporting completed fit results…", "", 0, 0, parent)
     progress.setCancelButton(None)
     progress.setWindowTitle("PeakFit export")
