@@ -166,7 +166,9 @@ value offer a choice. Error bars are the scaled analytical standard errors writt
 by **Export results…**: computed with the fitted lineshape parameters held fixed,
 multiplied by √χ²ᵣ when the cluster's χ²ᵣ exceeds 1, one σ per peak for every
 plane. They can underestimate the uncertainty of overlapping peaks; warned
-clusters use hollow markers and dashed bars. When at most two observations sit
+clusters use hollow markers and dashed bars. When the core reports no finite σ for
+a peak, its amplitudes stay visible without error bars and are labeled
+**σ unavailable**. When at most two observations sit
 beyond a gap wider than half the span, such as a distant reference plane, the
 plot frames the remaining range and labels the off-scale points; **Show all
 points** shows them. Outdated runs stay visible and labeled; peaks added after a

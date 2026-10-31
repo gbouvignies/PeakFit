@@ -588,3 +588,42 @@ def test_compact_header_and_profile_at_minimum_window(scientific, settings, monk
     assert w.profile.plot.isVisible()
     window.close()
     window.deleteLater()
+
+
+def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(scientific):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    result = scientific[-1]
+    cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
+    evaluation = cluster.analytical_evaluation
+    assert evaluation is not None
+    # A usable but poorly identifiable cluster can report NaN amplitude errors.
+    errors = evaluation.scaled_amplitude_standard_errors.copy()
+    errors[0] = np.nan
+    weak = replace(
+        cluster,
+        analytical_evaluation=replace(evaluation, scaled_amplitude_standard_errors=errors),
+    )
+    clusters = tuple(weak if c is cluster else c for c in result.outcome.clusters)
+    outcome = replace(
+        result.outcome,
+        clusters=clusters,
+        by_cluster_id=MappingProxyType({c.cluster_id: c for c in clusters}),
+    )
+    run = replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
+    peak = next(i.working_id for i in run.inputs.identities if i.engine_name == weak.peak_names[0])
+    panel = ProfilePanel()
+    panel.set_expanded(True)
+    panel.resize(800, 240)
+    panel.show()
+    panel.show_selection(run, peak, current=True, busy=False, plane_values=None, plane=0)
+    app.processEvents()
+    assert not panel.plot.grab().isNull()
+    assert panel._profile is not None
+    np.testing.assert_array_equal(panel._profile.series[0].amplitudes, evaluation.amplitudes[0])
+    assert np.isnan(panel._profile.series[0].error)
+    bars = [i for i in panel.plot.getPlotItem().items if isinstance(i, pg.ErrorBarItem)]
+    assert len(bars) == len(weak.peak_names) - 1
+    assert np.all(np.isfinite(panel.plot.getViewBox().viewRange()))
+    assert "σ unavailable" in panel.title.text()
+    assert "σ unavailable" in panel.basis.text()
+    panel.close()

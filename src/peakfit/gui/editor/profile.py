@@ -89,6 +89,11 @@ def peak_profile(
     )
 
 
+def _sigma(error: float) -> str:
+    """Name an unavailable standard error instead of formatting NaN as a value."""
+    return f"σ = {error:.3g}" if np.isfinite(error) else "σ unavailable"
+
+
 def framed_range(x: np.ndarray) -> tuple[float, float] | None:
     """Return the main x-range when at most two observations lie beyond a dominant gap.
 
@@ -264,10 +269,12 @@ class ProfilePanel(QtWidgets.QWidget):
             return
         self._profile = profile
         selected, *members = profile.series
+        unavailable = [s.assignment for s in profile.series if not np.isfinite(s.error)]
         self.title.setText(
             selected.assignment
             + (f" with {', '.join(s.assignment for s in members)}" if members else "")
             + f" · {run} · ±1σ scaled analytical"
+            + (f" · σ unavailable: {', '.join(unavailable)}" if unavailable else "")
         )
         if profile.warning:
             self.badge.setToolTip(profile.warning)
@@ -282,8 +289,9 @@ class ProfilePanel(QtWidgets.QWidget):
             "Errors are analytical amplitude standard errors computed with the fitted "
             "lineshape parameters held fixed, so their uncertainty and correlations are "
             f"not propagated; {scaling}. One σ per peak applies to every plane "
-            f"({selected.assignment}: σ = {selected.error:.3g}). They can underestimate "
+            f"({selected.assignment}: {_sigma(selected.error)}). They can underestimate "
             "the uncertainty of overlapping peaks."
+            + (" No error bar is drawn where σ is unavailable." if unavailable else "")
         ) + (f"<br><b>▲ {escape(profile.warning)}</b>" if profile.warning else "")
         self.side.setVisible(self.toggle.isChecked())
         self.plot.setLabel(
@@ -312,19 +320,21 @@ class ProfilePanel(QtWidgets.QWidget):
         self._key_html = " ".join(
             f'<span style="color:{self._color(index)}">{marker}</span> {escape(s.assignment)}'
             + (" (selected)" if index == 0 else "")
+            + ("" if np.isfinite(s.error) else " · σ unavailable")
             for index, s in enumerate(profile.series)
         )
         for index, series in reversed(list(enumerate(profile.series))):
             color = self._color(index)
-            self.plot.addItem(
-                pg.ErrorBarItem(
-                    x=x,
-                    y=series.amplitudes,
-                    height=np.full(x.size, 2 * series.error),
-                    beam=0,
-                    pen=pg.mkPen(color, width=1, style=style),
+            if np.isfinite(series.error):
+                self.plot.addItem(
+                    pg.ErrorBarItem(
+                        x=x,
+                        y=series.amplitudes,
+                        height=np.full(x.size, 2 * series.error),
+                        beam=0,
+                        pen=pg.mkPen(color, width=1, style=style),
+                    )
                 )
-            )
             points = pg.ScatterPlotItem(
                 x=x,
                 y=series.amplitudes,
@@ -340,13 +350,17 @@ class ProfilePanel(QtWidgets.QWidget):
         self.plot.getPlotItem().addItem(self.plane_line, ignoreBounds=True)
         low, high = float(x[visible].min()), float(x[visible].max())
         pad = 0.03 * (high - low) or 0.5
+        # Bounds cover amplitudes, finite error bars and zero; unavailable σ adds none.
         ys = np.concatenate(
-            [
+            [s.amplitudes[visible] for s in profile.series]
+            + [
                 np.concatenate((s.amplitudes[visible] - s.error, s.amplitudes[visible] + s.error))
                 for s in profile.series
+                if np.isfinite(s.error)
             ]
             + [np.zeros(1)]
         )
+        ys = ys[np.isfinite(ys)]
         bottom, top = float(ys.min()), float(ys.max())
         margin = 0.08 * (top - bottom) or 1.0
         self.plot.getViewBox().setRange(
@@ -364,7 +378,7 @@ class ProfilePanel(QtWidgets.QWidget):
             self.show_all.setToolTip(
                 "Off-scale observations: "
                 + "; ".join(
-                    f"{s.assignment} {s.amplitudes[j]:.4g} ± {s.error:.3g} at {x[j]:g} "
+                    f"{s.assignment} {s.amplitudes[j]:.4g} ({_sigma(s.error)}) at {x[j]:g} "
                     f"(plane {profile.source_planes[j] + 1})"
                     for j in hidden
                     for s in profile.series
