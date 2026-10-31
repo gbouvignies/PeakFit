@@ -161,12 +161,20 @@ actual correction/pass counts, post-fit coordinates, adoption warnings and
 currentness at export. Outdated export requires an explicit acknowledgment and
 exports that retained run's evidence. Raw spectra are never rewritten.
 
-There is one resident immutable completed result. Cancellation and failure preserve
-it. A successful refit replaces it; export results you need to keep before refitting.
-Routine repeated fits introduce no discard/export prompt. There are no private
-session pickle files or write-only recovery storage. Self-contained analysis saving/reopening and lazy history use the same
-scientific evidence. See [formats and
-migration](outputs.md).
+The **active result** is the one completed run shown in the comparison and result
+line. Cancellation and failure leave it unchanged. A successful refit makes the new
+run active; the previous run is not discarded but stays in the **analysis history**
+(**File → Analysis history…**, see below), so routine refits need no discard/export
+prompt. Three operations are distinct:
+
+- **Analysis history** retains earlier completed runs within the session, under the
+  retention limits described below.
+- **Save analysis** writes the working state, the active result and the retained
+  history to a `.peakfit` directory that references the external spectrum.
+- **Export results…** writes one run's canonical scientific outputs for use outside
+  PeakFit; it does not save the analysis.
+
+All three use the same scientific evidence. See [formats and migration](outputs.md).
 
 A successful canonical result export also preserves its exact post-fit working
 peak tuple. When those are still the working coordinates, closing does not ask
@@ -203,8 +211,9 @@ platform Save As shortcut. Open dataset moves to Ctrl+Shift+O / Command+Shift+O.
 Save As requires a new destination. Keep the whole directory together. Routine
 saves show brief status-bar progress without a dialog; expensive archive and source
 verification work runs outside Qt, with cancellation available in the status bar.
-Closing changed work offers **Save analysis / Discard changes / Cancel**. CSV or
-canonical result export is separate and does not save the complete analysis.
+Closing changed work offers **Save analysis / Discard changes / Cancel**. Exporting
+peaks (CSV) or results is separate and does not save the analysis; an unsaved
+session's history is lost on Discard.
 
 Projects reference the original NMRPipe spectrum; they never copy it. Working peak
 IDs/positions, effective settings, ordered plane values, accepted numerical evidence,
