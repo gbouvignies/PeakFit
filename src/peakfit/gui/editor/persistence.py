@@ -115,7 +115,8 @@ class AnalysisActions:
             "pinned": c.pinned,
             "pin_peak_id": c.pin_peak_id,
             "ranges": c.main.getViewBox().viewRange(),
-            "rail": w.peaks_button.isChecked(),
+            "navigator": w.peaks_button.isChecked(),
+            "inspector": w.inspector_button.isChecked(),
             "splitter": w.splitter.sizes(),
             "display": {
                 name: getattr(c, name)
@@ -361,9 +362,12 @@ class AnalysisActions:
             if v.get("ranges"):
                 x, y = v["ranges"]
                 w.canvas.main.getViewBox().setRange(xRange=x, yRange=y, padding=0)
-            w.peaks_button.setChecked(v.get("rail", True))
-            w.toggle_rail()
-            if v.get("splitter"):
+            w.peaks_button.setChecked(v.get("navigator", True))
+            w.toggle_navigator()
+            w.inspector_button.setChecked(v.get("inspector", True))
+            w.toggle_inspector()
+            # Sizes from another layout (a different number of columns) are not applied.
+            if len(v.get("splitter") or ()) == w.splitter.count():
                 w.splitter.setSizes(v["splitter"])
             w.set_mode(v.get("mode", 0))
             w.fitting.update()

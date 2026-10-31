@@ -203,7 +203,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         grid.addWidget(self.right, 1, 1)
         grid.setRowStretch(1, 1)
         grid.setColumnStretch(0, 1)
-        self.main.setMinimumSize(565, 330)
+        self.main.setMinimumSize(400, 300)
         for plot in (self.main, self.top):
             plot.getAxis("left").setWidth(58)
             plot.getViewBox().invertX(True)

@@ -114,9 +114,9 @@ def test_hover_preview_pinning_and_draft_are_independent(workspace):
     assert workspace.inspector.pending
     workspace.inspector.show_peak(first)
     assert not workspace.inspector.pending
-    workspace.rail.search.setText("nonexistent assignment")
+    workspace.navigator.search.setText("nonexistent assignment")
     assert workspace.selected_id == first.id
-    assert workspace.rail.reveal.isVisible()
+    assert workspace.navigator.reveal.isVisible()
 
 
 def test_group_edit_keeps_untouched_precision_and_invalid_draft(workspace, app):
@@ -215,7 +215,7 @@ def test_free_placement_delete_and_exact_export_roundtrip(workspace, tmp_path):
     assert workspace.edits.revision == 3
 
 
-def test_keyboard_sample_text_and_hidden_rail(workspace, app):
+def test_keyboard_sample_text_and_hidden_panels(workspace, app):
     workspace.select_peak(workspace.peaks[0].id)
     workspace.canvas.main.setFocus()
     ix = workspace.canvas.ix
@@ -231,13 +231,25 @@ def test_keyboard_sample_text_and_hidden_rail(workspace, app):
     assert not workspace.canvas.pinned
     QtTest.QTest.keyClick(workspace.inspector.name, QtCore.Qt.Key.Key_Escape)
     workspace.peaks_button.setChecked(False)
-    workspace.toggle_rail()
-    assert workspace.rail.isHidden()
+    workspace.toggle_navigator()
+    assert workspace.navigator.isHidden()
     workspace.select_peak(workspace.peaks[1].id)
-    assert workspace.rail.isHidden()
+    assert workspace.navigator.isHidden()
     workspace.resize(1440, 850)
     app.processEvents()
-    assert workspace.rail.isHidden()
+    assert workspace.navigator.isHidden()
+    # Hiding the inspector resolves a draft first; an invalid draft keeps it open.
+    workspace.inspector.x_field.setText("not a number")
+    workspace.inspector_button.setChecked(False)
+    workspace.toggle_inspector()
+    assert not workspace.panel.isHidden()
+    assert workspace.inspector_button.isChecked()
+    QtTest.QTest.keyClick(workspace.inspector.x_field, QtCore.Qt.Key.Key_Escape)
+    workspace.inspector_button.setChecked(False)
+    workspace.toggle_inspector()
+    assert workspace.panel.isHidden()
+    workspace.focus_editor()
+    assert not workspace.panel.isHidden()
 
 
 def test_preview_does_no_contour_or_marker_work_and_cache_is_bounded(workspace):

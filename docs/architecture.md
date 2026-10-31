@@ -149,9 +149,11 @@ on `experiments/`.
 
 The workspace has concrete responsibilities: `gui.spectrum.read_dataset` validates
 one complete reader handoff off Qt; `editor.canvas` owns retained signed geometry,
-native slices and gestures; `editor.rail` owns a flat assignment list and the precise
-whole-group editor; `editor.workspace` commits scientific edits and composes those
-views. `editor.window` owns file dialogs, atomic replacement, menus and appearance.
+native slices and gestures; `editor.navigator` owns the flat assignment list and the
+active run's cluster table; `editor.inspector` owns the precise whole-group editor and
+shows the selected peak's recorded profile, parameters and cluster review read from
+`FinalFitOutcome` (`editor.profile` draws the profile); `editor.workspace` commits
+scientific edits and composes the three columns. `editor.window` owns file dialogs, atomic replacement, menus and appearance.
 `editor.fitting` directly coordinates the shared `DatasetFitDialog`,
 `prepare_dataset_fit`, disposable `FitProcess`, `DatasetCompletion`, and canonical
 exporter. It does not duplicate fitting algorithms or introduce a job framework.

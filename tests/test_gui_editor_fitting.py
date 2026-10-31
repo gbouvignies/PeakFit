@@ -16,9 +16,10 @@ from test_gui_editor import wait_for
 
 import peakfit.gui.editor.canvas as canvas_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
-from peakfit.gui.editor.profile import PeakProfile, ProfilePanel, framed_range, peak_profile
+from peakfit.gui.editor.profile import PeakProfile, ProfilePlot, framed_range, peak_profile
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
@@ -191,11 +192,18 @@ def test_partial_usability_nonconvergence_and_free_pin(workspace, scientific):
             == seeds[identities[name]]
         )
     assert "Incomplete model" in w.summary.text()
-    w.fitting.toggle_review()
-    assert "Not converged" in w.fitting.review.toPlainText()
     w.fitting.next_warning(None)
+    assert "Not converged" in _review_text(w)
     w.fitting.next_warning(None)
-    assert "synthetic unusable" in w.fitting.review.toPlainText()
+    assert "synthetic unusable" in _review_text(w)
+    # The navigator lists every recorded cluster and marks engine warnings.
+    flagged = [
+        w.navigator.tree.topLevelItem(i)
+        for i in range(w.navigator.tree.topLevelItemCount())
+        if w.navigator.tree.topLevelItem(i).text(0)
+    ]
+    assert w.navigator.tree.topLevelItemCount() == len(mixed.outcome.clusters)
+    assert len(flagged) == 2
 
 
 def test_latest_plane_wins_and_cache_survives_modes(workspace, scientific):
@@ -388,7 +396,7 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
 
 @pytest.fixture
 def settings(tmp_path):
-    """Keep profile preferences out of the developer's own application settings."""
+    """Keep application preferences out of the developer's own settings."""
     QtCore.QSettings.setDefaultFormat(QtCore.QSettings.Format.IniFormat)
     QtCore.QSettings.setPath(
         QtCore.QSettings.Format.IniFormat, QtCore.QSettings.Scope.UserScope, str(tmp_path)
@@ -416,6 +424,10 @@ def _warned(result):
     return replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
 
 
+def _review_text(w) -> str:
+    return " ".join(label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel))
+
+
 def _selected_points(panel):
     # The selected peak is drawn last, above its cluster members.
     return [i for i in panel.plot.getPlotItem().items if isinstance(i, pg.ScatterPlotItem)][-1]
@@ -438,7 +450,7 @@ def test_profile_frames_only_a_distant_minority(values, expected):
 
 
 def test_profile_shows_recorded_run_values_and_follows_selection(workspace, scientific, tmp_path):
-    w, panel = workspace, workspace.profile
+    w, panel = workspace, workspace.panel.profile
     result = scientific[-1]
     publish(w, result)
     cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
@@ -477,10 +489,10 @@ def test_profile_shows_recorded_run_values_and_follows_selection(workspace, scie
     # Outdated evidence stays visible and labeled; a later peak was not in the run.
     peak = next(p for p in w.peaks if p.id == identities[cluster.peak_names[0]])
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 1e-5))
-    assert "Outdated" in panel.title.text()
+    assert "Outdated" in w.panel.status.text()
     assert panel._profile is not None
     w.place_peak(peak.positions)
-    assert panel.title.text().startswith(f"Not part of run {result.run_id[:8]}")
+    assert f"Not part of run {result.run_id[:8]}" in w.panel.status.text()
 
 
 def test_profile_follows_only_accepted_selection(workspace, scientific):
@@ -489,18 +501,18 @@ def test_profile_follows_only_accepted_selection(workspace, scientific):
     publish(w, result)
     first, second = w.peaks[0], w.peaks[1]
     w.select_peak(first.id)
-    title, revision = w.profile.title.text(), w.edits.revision
+    title, revision = w.panel.title.text(), w.edits.revision
     w.inspector.x_field.setText("not a number")
     w.select_peak(second.id)
     assert w.selected_id == first.id
-    assert w.profile.title.text() == title
+    assert w.panel.title.text() == title
     assert w.edits.revision == revision
     # A valid draft is committed exactly once by the existing selection rule.
     w.inspector.x_field.setText(repr(first.positions[1] + 0.001))
     w.select_peak(second.id)
     assert w.selected_id == second.id
     assert w.edits.revision == revision + 1
-    assert w.profile.title.text().startswith(second.name)
+    assert w.panel.title.text().startswith(second.name)
     assert w.edits.undo_label == f"move {first.name}"
     w.edits.undo()
     assert not w.edits.can_undo
@@ -521,10 +533,12 @@ def test_profile_keeps_repeated_plane_values_distinct(scientific):
     changed = peak_profile(run, peak, (1.0, 1.0, 3.0))
     assert isinstance(changed, PeakProfile)
     assert not changed.plane_values
-    panel = ProfilePanel()
+    panel = ProfilePlot()
     requested = []
     panel.plane_requested.connect(requested.append)
-    panel.show_selection(run, peak, current=True, busy=False, plane_values=repeated, plane=0)
+    shown = peak_profile(run, peak, repeated)
+    assert isinstance(shown, PeakProfile)
+    panel.show_profile(shown, 0)
     assert panel._profile is not None
     np.testing.assert_array_equal(panel._profile.x, repeated)
     points = _selected_points(panel)
@@ -535,9 +549,8 @@ def test_profile_keeps_repeated_plane_values_distinct(scientific):
     assert requested == [2]
 
 
-def test_compact_header_and_profile_at_minimum_window(  # noqa: PLR0915
-    scientific, settings, monkeypatch
-):
+@pytest.mark.usefixtures("settings")
+def test_compact_header_and_inspector_at_minimum_window(scientific, monkeypatch):
     app = QtWidgets.QApplication.instance()
     assert app is not None
     spectra, peaks, config, _, result = scientific
@@ -552,8 +565,6 @@ def test_compact_header_and_profile_at_minimum_window(  # noqa: PLR0915
     w.fitting.configuration = config.model_copy(deep=True)
     w.fitting.reviewed = True
     app.processEvents()
-    assert not w.profile.toggle.isChecked()
-    assert not w.profile.plot.isVisible()
     publish(w, _warned(result))
     warned = result.outcome.clusters[0].peak_names[0]
     w.select_peak(next(i.working_id for i in result.inputs.identities if i.engine_name == warned))
@@ -567,7 +578,7 @@ def test_compact_header_and_profile_at_minimum_window(  # noqa: PLR0915
     def rect(widget):
         return QtCore.QRect(widget.mapTo(window, QtCore.QPoint(0, 0)), widget.size())
 
-    buttons = [w.cancel_fit, w.review_fit, w.peaks_button, w.add_button, w.fit_button]
+    buttons = [w.cancel_fit, w.inspector_button, w.peaks_button, w.add_button, w.fit_button]
     assert all(b.isVisible() and window.rect().contains(rect(b)) for b in buttons)
     # Settings cannot change during a fit; their chip yields its room to progress.
     assert not w.settings_button.isVisible()
@@ -577,7 +588,7 @@ def test_compact_header_and_profile_at_minimum_window(  # noqa: PLR0915
     w.fitting._preparing = False
     w.fitting.update()
     app.processEvents()
-    buttons = [w.review_fit, w.peaks_button, w.add_button, w.fit_button, w.settings_button]
+    buttons = [w.inspector_button, w.peaks_button, w.add_button, w.fit_button, w.settings_button]
     assert all(b.isVisible() and window.rect().contains(rect(b)) for b in buttons)
     for label in (w.title, w.summary):
         assert not any(rect(label).intersects(rect(b)) for b in buttons)
@@ -588,17 +599,14 @@ def test_compact_header_and_profile_at_minimum_window(  # noqa: PLR0915
     assert w.warnings.text().startswith("▲")
     assert w.warnings.isVisible()
     assert window.rect().contains(rect(w.warnings))
-    assert w.profile.badge.isVisible()
-    assert window.rect().contains(rect(w.profile.badge))
-    assert "Outdated" in w.profile.title.toolTip()
-    # An oversized remembered height never squeezes the spectrum below its minimum.
-    settings.setValue("profile/height", 5000)
-    w.profile.toggle.setChecked(True)
-    app.processEvents()
-    assert settings.value("profile/expanded", type=bool)
+    # The inspector names the selected peak's run state and its engine warning.
+    assert "Outdated" in w.panel.status.text()
+    assert "Uncertainty unreliable" in _review_text(w)
+    assert w.panel.profile.isVisible()
+    assert window.rect().contains(rect(w.panel.profile.plot))
+    # Three columns never squeeze the spectrum below its minimum.
+    assert w.canvas.main.width() >= w.canvas.main.minimumWidth()
     assert w.canvas.main.height() >= w.canvas.main.minimumHeight()
-    assert w.canvas.top.height() == w.canvas.top.minimumHeight()
-    assert w.profile.plot.isVisible()
     window.close()
     window.deleteLater()
 
@@ -624,11 +632,12 @@ def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(scientific):
     )
     run = replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
     peak = next(i.working_id for i in run.inputs.identities if i.engine_name == weak.peak_names[0])
-    panel = ProfilePanel()
-    panel.set_expanded(True)
-    panel.resize(800, 240)
+    panel = ProfilePlot()
+    panel.resize(320, 260)
     panel.show()
-    panel.show_selection(run, peak, current=True, busy=False, plane_values=None, plane=0)
+    shown = peak_profile(run, peak, None)
+    assert isinstance(shown, PeakProfile)
+    panel.show_profile(shown, 0)
     app.processEvents()
     assert not panel.plot.grab().isNull()
     assert panel._profile is not None
@@ -637,6 +646,64 @@ def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(scientific):
     bars = [i for i in panel.plot.getPlotItem().items if isinstance(i, pg.ErrorBarItem)]
     assert len(bars) == len(weak.peak_names) - 1
     assert np.all(np.isfinite(panel.plot.getViewBox().viewRange()))
-    assert "σ unavailable" in panel.title.text()
-    assert "σ unavailable" in panel.basis.text()
+    assert "σ unavailable" in panel.legend.text()
+    assert "σ unavailable" in panel.legend.text()
     panel.close()
+
+
+def test_navigator_clusters_and_inspector_show_recorded_values(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    assert not w.navigator.tab_buttons[1].isEnabled()
+    publish(w, result)
+    # The first result opens the cluster list; one row per recorded cluster.
+    assert w.navigator.pages.currentIndex() == 1
+    tree = w.navigator.tree
+    assert tree.topLevelItemCount() == len(result.outcome.clusters)
+    cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    member = identities[cluster.peak_names[1]]
+    row = w.navigator._clusters[member]
+    evaluation = cluster.analytical_evaluation
+    assert evaluation is not None
+    assert row.text(2) == f"{evaluation.statistics.reduced_chi_squared:.2f}"
+    # Choosing a cluster row selects one of its members, never another peak.
+    tree.setCurrentItem(row)
+    assert w.selected_id in {identities[n] for n in cluster.peak_names}
+    w.select_peak(member)
+    assert tree.currentItem() is row
+    # Fitted values are the recorded parameters, formatted to their σ.
+    parameter = next(
+        p
+        for p in cluster.final_nonlinear_parameters
+        if p.name.startswith(cluster.peak_names[1] + ".")
+    )
+    value, sigma = formatting.with_sigma(parameter.value, parameter.standard_error)
+    assert f"{value} ± {sigma}" in _review_text(w)
+    assert w.edits.revision == 0
+
+
+def test_dense_profile_click_opens_the_nearest_plane(scientific):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    result = scientific[-1]
+    peak = result.inputs.identities[0].working_id
+    shown = peak_profile(result, peak, None)
+    assert isinstance(shown, PeakProfile)
+    panel = ProfilePlot()
+    panel.resize(320, 260)
+    panel.show()
+    panel.show_profile(shown, 0)
+    app.processEvents()
+    requested = []
+    panel.plane_requested.connect(requested.append)
+    points = _selected_points(panel)
+    spots = points.points()[:3]
+    target = spots[1].pos()
+
+    class Click:
+        def pos(self):
+            return target
+
+    # Several points under the pointer: the nearest one wins, with no chooser.
+    points.sigClicked.emit(points, spots, Click())
+    assert requested == [int(shown.source_planes[1]) + 1]
