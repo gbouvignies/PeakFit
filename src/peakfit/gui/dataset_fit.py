@@ -176,7 +176,8 @@ def dataset_summary(result: DatasetFitResult) -> str:
         if usable
         else "No usable model"
     )
+    # Warnings and completeness first: a narrow window elides the tail.
     return (
-        f"{converged}/{len(clusters)} converged · {usable}/{len(clusters)} usable · {model}"
-        f" · {uncertain} uncertainty warnings"
+        f"{uncertain} uncertainty warnings · {model} · "
+        f"{converged}/{len(clusters)} converged · {usable}/{len(clusters)} usable"
     )

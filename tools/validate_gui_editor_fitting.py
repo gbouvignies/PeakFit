@@ -253,7 +253,7 @@ def main():  # noqa: PLR0915
     phase[0] = "export"
     with patch.object(QtWidgets.QFileDialog, "getExistingDirectory", return_value="/tmp"):
         started = perf_counter()
-        click(w.export_fit)
+        w.fitting.export()
         report["export_s"] = perf_counter() - started
         report["export"] = str(Path("/tmp") / f"dataset-fit-{result.run_id}")
         assert result.run_id in w.fitting.exported
@@ -284,7 +284,7 @@ def main():  # noqa: PLR0915
     assert w.fitting.result.inputs.snapshot.peaks == new_seeds
     phase[0] = "export_refit"
     with patch.object(QtWidgets.QFileDialog, "getExistingDirectory", return_value="/tmp"):
-        click(w.export_fit)
+        w.fitting.export()
         assert w.fitting.result.run_id in w.fitting.exported
         assert not w.edits.dirty
     heartbeat.stop()
