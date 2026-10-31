@@ -1,33 +1,24 @@
 ## Summary
 
-What changed?
+What changed, and what does it improve for users?
 
-## Rationale
+## Scientific impact
 
-Why is this simpler, more correct, or more useful?
+Does this change numerical results, fitted values, outputs or stored analyses?
+If so, explain why the new behavior is correct and which tests protect it.
+Write "None" otherwise.
 
-## Simplification
+## Behavior changes
 
-What became smaller, clearer, deleted, or easier to maintain?
-
-## Behavior Changes
-
-List user-facing or compatibility changes. Write "None" if there are none.
+User-facing or compatibility changes, with migration notes. Write "None" if
+there are none.
 
 ## Verification
 
-Check what was run:
-
-- [ ] `uv run ruff check src tests`
-- [ ] `uv run ruff format --check src tests`
-- [ ] `uv run ty check --error-on-warning`
-- [ ] `uv run lint-imports`
-- [ ] `QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg uv run pytest -q`
-- [ ] `uv run prek run --all-files`
-- [ ] `uv build`
+List the checks that fit this change, for example the focused tests, the full
+headless suite for cross-package changes, `ruff`, `ty` or `lint-imports`, and a
+manual GUI walkthrough for interface changes.
 
 ## Documentation
 
-- [ ] Updated relevant docs, examples, or `AGENTS.md`
-- [ ] Removed stale docs when applicable
-- [ ] Recorded lasting architectural decisions in `docs/decisions.md` when needed
+- [ ] Updated the document that describes the changed behavior, or none applies

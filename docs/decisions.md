@@ -19,3 +19,12 @@ Short records of non‑obvious design choices and trade‑offs.
   checks, or focused user/developer guides.
 - Experimental workflows should stay isolated and clearly labeled so they do not
   complicate the main fitting path.
+
+## 2026-10-31: One set of agent instructions, no project-local agent tooling
+- `AGENTS.md` is the only project instruction file; Claude Code reads it directly,
+  so there is no `CLAUDE.md`.
+- Agent skills (Matt Pocock's) are installed globally, not vendored in `.agents/`.
+- Graphify was removed; the code, `CONTEXT.md` and `docs/` are the navigation
+  sources.
+- The current focus is the scientifically rigorous desktop GUI, built on the
+  completed scientific storage architecture.
