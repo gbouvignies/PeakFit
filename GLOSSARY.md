@@ -18,7 +18,9 @@ One spectrum in a pseudo-ND series, identified by its index and plane value.
 
 **Plane value**:
 The experiment-specific coordinate associated with a plane. Its physical meaning
-depends on the experiment and input configuration.
+depends on the experiment and input configuration. The GUI labels it "Plane
+value" (or "Plane number" without values) unless the user supplies a display name
+and unit; PeakFit never infers either.
 _Avoid_: Z-value when a more specific experiment-defined name is known
 
 **Spectral axis**:
@@ -101,6 +103,43 @@ classification, reason, correction revision, and optimizer provenance.
 Whether the shared analytical evaluation can supply finite amplitudes, model,
 residuals, statistics, and uncertainty inputs. It is independent of optimizer
 convergence.
+
+**Recorded optimizer residual**:
+The residual of one peak cluster on its fitting samples after subtracting the
+terminal cross-talk corrections and the cluster model, as stored in the final fit
+outcome. Reduced chi-squared derives from it.
+_Avoid_: Calling it the spectrum residual
+
+**Whole-spectrum residual**:
+The difference between the experimental plane and the sum of all usable cluster
+models at every native point, divided by the statistical noise. It includes points
+outside fitting samples and is used for display and to locate unexplained signal.
+
+**Numerical warning**:
+An objective, engine-recorded condition of a cluster outcome: unusable, not
+converged, unreliable uncertainty, or a varied parameter at a bound.
+
+**Review measure**:
+A descriptive number about a completed cluster fit, such as reduced chi-squared,
+the largest recorded residual or the amplitude correlation, shown with its
+definition and never combined into a quality score.
+
+**Review heuristic**:
+A descriptive highlight with an adjustable display threshold, such as a large
+position shift or a linewidth outlier. It is never a numerical warning.
+
+**Amplitude correlation**:
+The correlation between cluster members' amplitudes derived from the recorded
+amplitude covariance. It is conditional on the fitted lineshape parameters.
+
+**Reference-normalized profile**:
+A display of an intensity profile divided by the mean amplitude of explicitly
+chosen reference planes, with propagated uncertainty. It never replaces the
+recorded amplitudes.
+
+**Cluster lens**:
+The GUI view that juxtaposes experimental, overlay and whole-spectrum residual
+panels of one peak cluster with its profiles and parameters.
 
 **Automatic peak picking**:
 Experimental peak discovery from residual signal when no peak list is supplied.

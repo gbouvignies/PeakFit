@@ -8,10 +8,12 @@ belong in [architecture](architecture.md), [outputs](outputs.md), and
 
 ## Scientific and interaction principles
 
-The 2D spectrum remains central. The two synchronized 1D slices stay on the right;
-the lower analysis panel starts collapsed. Background preparation, fitting, and
-result delivery must never open or resize that panel. Navigation, crosshairs,
-plane identity, and visible ppm ranges survive changes of presentation.
+The 2D spectrum remains central, between a left navigator and a right inspector,
+with its row trace above and column trace to its right
+([specification §2](PeakFit_GUI_Design_Specification_v2.0.md#2-permanent-workspace)).
+Background preparation, fitting, and result delivery never open, close or resize
+panels. Navigation, crosshairs, plane identity, and visible ppm ranges survive
+changes of presentation.
 
 Overlay is the default comparison. One coordinated selector exposes Overlay,
 Experimental, and Residual across the spectral views. Total-model comparison
@@ -19,11 +21,12 @@ continues to include all usable fitted clusters when selection changes. Both
 signs of experimental and fitted signals remain visible, in common intensity
 units. A model contour is a prediction, not an additional observation.
 
-A useful, collapsible cluster navigator appears on the left when a whole-dataset
-result is available. It offers member assignments, numerical status, meaningful
-review reasons, assignment search, and a Needs review filter. Selecting a cluster
-highlights its members and recorded fitting region without opening details or
-silently changing comparison scope. No empty navigator is reserved beforehand.
+After a whole-dataset fit the navigator lists clusters with member assignments,
+numerical warnings, review measures and labeled heuristics, with sorting and
+filters but no composite quality score
+([specification §8](PeakFit_GUI_Design_Specification_v2.0.md#review-numerical-warnings-measures-and-heuristics)).
+Selecting a cluster highlights its members and recorded fitting region without
+silently changing comparison scope; the Cluster lens is an explicit action.
 
 Details expose parameters with units, bounds and uncertainty availability,
 recorded fitting diagnostics, signed amplitudes across planes, and provenance.
