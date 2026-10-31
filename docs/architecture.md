@@ -1,9 +1,7 @@
 # PeakFit Architecture Guide
 
 This is a short map of the current repository, not an immutable contract. `AGENTS.md`
-is the source of truth for AI-assisted work and explicitly allows architecture changes
-when they simplify the project while preserving scientific correctness and useful
-workflows.
+is the source of truth for AI-assisted work.
 
 ## Purpose
 

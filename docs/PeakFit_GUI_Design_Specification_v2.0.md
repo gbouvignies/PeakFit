@@ -28,7 +28,7 @@ refine → quantify uncertainty → save/export**. The spectrum stays visible th
 the workflow. There are no separate editing and results applications, dashboard,
 wizard on every fit, or hidden changes of scientific scope.
 
-The design follows the domain vocabulary in [CONTEXT.md](../CONTEXT.md).
+The design follows the domain vocabulary in [GLOSSARY.md](../GLOSSARY.md).
 An intensity profile means fitted peak amplitudes across the series dimension;
 crosshair intensity and integrated volume are different quantities.
 

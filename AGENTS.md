@@ -1,223 +1,116 @@
 # AGENTS.md
 
+Project instructions for every coding assistant. This is the single source; there
+is no separate `CLAUDE.md`.
+
 ## Mission
 
-PeakFit is a Python package and CLI for fitting pseudo-ND NMR spectra.
+PeakFit fits lineshape models to pseudo-ND NMR spectra through a Python package,
+a CLI and a desktop GUI.
 
-The current priority is **major simplification**: architecture, code, CLI, terminal UI, output model, documentation, and developer workflow may all be changed when this makes the project easier to understand, maintain, test, or use.
+The current priority is a **scientifically rigorous, intuitive, polished desktop
+GUI** built on the existing scientific core. Engine, CLI and output work serves
+that GUI or fixes scientific correctness.
 
-Do not preserve the current design just because it exists. Preserve scientific correctness, useful user workflows, and tested behavior unless an intentional change is clearly proposed.
+## Scientific rigor
 
-## Source of truth for AI agents
+Scientific correctness outranks convenience, speed and visual polish.
 
-This file is the main instruction file for AI-assisted work.
+- Change numerical behavior only deliberately: explain the scientific reason and
+  protect it with a test.
+- Golden files, reference values and tolerances are evidence. Change them only
+  with an explained, reviewed scientific reason (see `docs/development.md`).
+- Name things with the vocabulary in `GLOSSARY.md`. When a new domain term
+  settles, add it there.
+- The GUI presents published scientific results exactly as recorded. Values come
+  from the scientific core, never from GUI-side approximations or refits.
 
-Files in `docs/` are useful context, but they are not immutable constraints.
-They may be simplified, merged, rewritten, or deleted if their content becomes
-redundant or misleading.
+## Scientific storage (complete)
 
-When changing architecture or behavior, update the relevant documentation so the repository remains coherent.
+The storage architecture is finished and validated. Treat it as the foundation:
 
-## What may be changed
+- `FinalFitOutcome` is the sole completed scientific result; `FittingState` is
+  continuation-only.
+- One writer, schema and reader serve CLI and GUI exports (`docs/outputs.md`).
+- Projects link external spectra and never embed them; reopening never refits or
+  recovers amplitudes.
 
-Agents may propose and implement changes to:
+Design and evidence: `docs/architecture.md` ("External-source analysis
+persistence") and `docs/validation/scientific-storage*.md`,
+`docs/validation/external-projects.md`. Change formats or retention only when the
+task is explicitly a storage change.
 
-- package architecture and module boundaries;
-- CLI commands, options, defaults, and help text;
-- terminal UI/UX and Rich output;
-- output files and report structure;
-- internal data models and naming;
-- fitting orchestration and pipeline structure;
-- documentation and AI guardrails;
-- tests and development tooling.
+## Architecture
 
-Breaking changes are allowed when they are justified by a simpler and better design, but they must be explicit. Explain what breaks, why it is worth it, and how a user or developer should migrate.
+- `engine` stays pure: no Qt, Typer, Rich or filesystem side effects. The GUI is a
+  presentation layer above the scientific code. `uv run lint-imports` enforces the
+  layers.
+- Prefer direct functions and explicit data flow over managers, services,
+  registries, factories or adapters.
+- `auto_pick` is experimental and stays isolated from the routine workflow.
+- Package map and boundaries: `docs/architecture.md`.
 
-## Current project shape
+## Focused development
 
-The current code is roughly organized as:
+- Make the change the task asks for, in its smallest coherent form. Refactor code
+  only where that makes the requested change simpler or correct.
+- Add a feature, option or setting only for a concrete user workflow.
+- Match planning to risk: go straight to code for clear changes; for a genuinely
+  ambiguous scientific, UX or compatibility trade-off, ask one focused question.
+- Make breaking changes explicit: what breaks, why, and how to migrate.
 
-- `src/peakfit/cli/` — Typer command-line interface.
-- `src/peakfit/ui/` — Rich terminal UI helpers.
-- `src/peakfit/fit/` — fitting workflow orchestration.
-- `src/peakfit/auto_pick/` — experimental automatic peak-picking workflow.
-- `src/peakfit/mcmc/` — MCMC uncertainty workflows.
-- `src/peakfit/plot/` — plotting and spectrum viewer.
-- `src/peakfit/io/` — parsing, serialization, and file-format handling.
-- `src/peakfit/engine/` — domain models, algorithms, lineshapes, and numerical computation.
-- `src/peakfit/shared/` — small shared helpers.
-- `tests/` — test suite.
-- `docs/` and `examples/` — user/developer documentation and runnable workflows.
+## GUI
 
-This structure is a starting point, not a constraint. Prefer a simpler structure if the evidence supports it.
+Visual design, readability, intuitiveness and consistency are product
+requirements, not finishing touches.
 
-## Design principles
+- Design baseline: `docs/PeakFit_GUI_Design_Specification_v2.0.md`.
+- User workflow: `docs/gui.md`.
+- Long work runs off the UI thread; see "GUI responsiveness" in
+  `docs/development.md`.
+- Errors say what went wrong and what the user can do next.
 
-Prefer:
+## Testing
 
-- fewer concepts;
-- fewer files;
-- fewer user-facing options;
-- one obvious way to do each task;
-- explicit scientific/domain names;
-- direct data flow;
-- small cohesive modules;
-- simple functions over frameworks or managers;
-- deleting, merging, or renaming before adding abstractions;
-- tests that protect scientific behavior.
+Test in proportion to risk: numerical and storage changes need scientific tests;
+GUI changes need behavior tests of the workflow they touch.
 
-Avoid:
-
-- preserving abstractions only because they already exist;
-- generic service layers, registries, managers, factories, or adapters without clear benefit;
-- duplicated representations of the same concept;
-- UI/CLI conditionals that hide domain rules;
-- output formats or configuration options that are not clearly useful;
-- large rewrites that cannot be reviewed safely.
-
-## Stable invariants
-
-Even during simplification, protect these invariants unless explicitly changing them:
-
-- numerical/scientific behavior should remain correct and tested;
-- input parsing errors should be clear and actionable;
-- long-running CLI jobs should produce understandable progress and failure information;
-- pure numerical code should not depend on terminal UI, Rich, Typer, Qt, or filesystem side effects unless a new architecture deliberately changes that boundary;
-- public behavior changes should be documented.
-
-## Working mode
-
-For small bug fixes, make the smallest clear change and verify it.
-
-For architecture, refactoring, UI/UX, output, or simplification work:
-
-1. Inspect the relevant code before editing.
-2. Identify the real problem with concrete file/function evidence.
-3. Separate essential scientific complexity from accidental implementation complexity.
-4. Propose the simplest target design.
-5. State what will be deleted, merged, renamed, or intentionally broken.
-6. Implement in small reviewable steps.
-7. Verify with tests or explain why verification was not possible.
-
-Do not ask for permission to simplify current architecture. The project goal is simplification. Ask only when scientific behavior, user expectations, or compatibility trade-offs are genuinely ambiguous.
-
-## Agentic development loop
-
-Long-running AI-assisted development should converge through living contracts, not
-through accumulating plans. Prefer this loop:
-
-1. Make one coherent simplification or behavior change.
-2. Update the smallest relevant documentation in `docs/`, examples, or this file.
-3. Add or adjust executable protection when possible: tests, schemas, import-linter,
-   CLI help checks, or golden-output checks.
-4. Run the smallest meaningful verification set.
-5. Commit the reviewable slice.
-
-Avoid creating new planning documents unless they will stay useful after the
-current change. If a plan is implemented, merge the lasting decision into
-`docs/architecture.md`, `docs/development.md`, `docs/decisions.md`, or the relevant
-user guide, then delete the stale plan.
-
-Every few refactor slices, do a short architecture audit:
-
-- Are package boundaries in `docs/architecture.md` still true?
-- Did an experimental workflow leak into the routine user path?
-- Did a helper become a manager, service layer, or framework?
-- Are examples still teaching the recommended workflow?
-- Are output files still canonical and documented?
-
-## UI/UX simplification
-
-The CLI and terminal UI should make the main workflows obvious.
-
-Prefer:
-
-- clear defaults;
-- fewer prompts/options;
-- concise progress information;
-- actionable warnings and errors;
-- summaries that help users decide what to do next;
-- output that is useful in logs and long-running jobs.
-
-Avoid:
-
-- decorative complexity;
-- exposing internal implementation details;
-- multiple equivalent ways to do the same thing;
-- verbose output that hides failures or outliers;
-- UI components that exist only because the code structure is complicated.
-
-UI/UX changes should explain the user workflow improvement, not just the visual change.
-
-## Testing and verification
-
-Use `uv` for project commands.
-
-Common checks:
+Use `uv`. Run tests headless:
 
 ```bash
-uv sync --all-extras
-uv run pytest
-QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg uv run pytest
-uv run ruff check .
-uv run ruff format --check .
-uv run ty check --error-on-warning
-uv run lint-imports
-uv run prek run --all-files
-uv build
+QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg uv run pytest -q tests/<relevant>
 ```
 
-Before finishing a code-changing task, run the smallest relevant check. For broad refactors, run tests, Ruff, formatting check, type check, and import-linter when possible.
+Run the focused tests for each change. Before finishing a change that crosses
+packages, also run the full suite, `ruff check`, `ruff format --check`,
+`ty check --error-on-warning` and `lint-imports`. The full command list is in
+`docs/development.md`. Report failures with their output, including pre-existing
+ones.
 
-If a check fails because of a pre-existing or unrelated issue, report it clearly with the relevant output.
+## Documentation and records
 
-## Documentation rules
-
-Documentation should be simplified together with the code.
-
-Prefer one accurate document over several overlapping documents. Remove or merge stale docs when they conflict with the current design.
-
-For major changes, document:
-
-- what changed;
-- why it is simpler;
-- what behavior changed, if any;
-- how to migrate, if needed;
-- what tests protect the change.
-
-## Final response format for agents
-
-When finishing a task, report:
-
-- what changed;
-- what became simpler;
-- behavior changes or compatibility breaks;
-- tests/checks run;
-- remaining risks or recommended next step.
-
-## graphify
-
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
-
-When the user explicitly requests Graphify, read and follow the installed Graphify skill before doing anything else.
-
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- Update the one document that describes the changed behavior; delete stale text
+  rather than layering corrections.
+- Short decisions go in `docs/decisions.md`; hard-to-reverse ones in `docs/adr/`.
+- Long-form scientific specifications live in version-controlled Markdown under
+  `docs/`; issues link to them.
 
 ## Agent skills
 
 ### Issue tracker
 
-Issues and specs are tracked as local Markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+GitHub Issues on `gbouvignies/PeakFit`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-Triage roles use the default canonical status strings. See `docs/agents/triage-labels.md`.
+Default vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`,
+`ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-PeakFit uses a single-context domain layout. See `docs/agents/domain.md`.
+Single context: `GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.
+
+## Final report
+
+Report what changed, behavior or compatibility changes, checks run with their
+results, and remaining risks.
