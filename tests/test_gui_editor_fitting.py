@@ -707,3 +707,33 @@ def test_dense_profile_click_opens_the_nearest_plane(scientific):
     # Several points under the pointer: the nearest one wins, with no chooser.
     points.sigClicked.emit(points, spots, Click())
     assert requested == [int(shown.source_planes[1]) + 1]
+
+
+def test_selected_cluster_members_are_marked_without_changing_view_or_scope(workspace, scientific):
+    w, c = workspace, workspace.canvas
+    result = scientific[-1]
+    publish(w, result)
+    cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    members = {identities[n] for n in cluster.peak_names}
+    selected = identities[cluster.peak_names[0]]
+    w.select_peak(selected)
+    ranges, mode = c.main.getViewBox().viewRange(), c.comparison_mode
+    model, jobs = c.comparison_result, c.contour_jobs
+    # Choosing the cluster row keeps the selected member and marks the others.
+    w.navigator.tree.setCurrentItem(w.navigator._clusters[selected])
+    assert w.selected_id == selected
+    assert set(c.cluster_ids) == members
+    marked = {(round(x, 9), round(y, 9)) for x, y in zip(*c.cluster_rings.getData(), strict=True)}
+    others = {
+        tuple(round(v, 9) for v in c.display(p))
+        for p in w.peaks
+        if p.id in members and p.id != selected
+    }
+    assert marked == others
+    # Highlighting changes neither the viewport, the comparison nor contour work.
+    assert c.main.getViewBox().viewRange() == ranges
+    assert (c.comparison_mode, c.comparison_result, c.contour_jobs) == (mode, model, jobs)
+    # A peak outside the run has no recorded cluster to mark.
+    w.place_peak(w.peaks[0].positions)
+    assert c.cluster_ids == ()

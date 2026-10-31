@@ -11,7 +11,7 @@ from peakfit.gui import theme as themes
 from peakfit.gui.dataset_fit import dataset_summary
 from peakfit.gui.editor.canvas import SpectrumCanvas
 from peakfit.gui.editor.fitting import DatasetFitting
-from peakfit.gui.editor.inspector import Inspector
+from peakfit.gui.editor.inspector import Inspector, find_cluster
 from peakfit.gui.editor.labels import ElidedLabel
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.icons import icon
@@ -438,6 +438,14 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.set_peak(peak, self.canvas.display(peak) if peak else None)
         self._update_inspector()
 
+    def _cluster_members(self, result) -> tuple[str, ...]:
+        """Working IDs that the active run fitted together with the selected peak."""
+        found = find_cluster(result, self.selected_id) if result and self.selected_id else None
+        if found is None:
+            return ()
+        ids = {i.engine_name: i.working_id for i in result.inputs.identities}
+        return tuple(ids[name] for name in found[1].peak_names if name in ids)
+
     def _update_inspector(self) -> None:
         """Follow the accepted selection and active run; never resolves drafts."""
         fitting = getattr(self, "fitting", None)
@@ -446,6 +454,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         spectra = self.dataset.spectra
         result = fitting.result
         self.navigator.set_result(result, current=bool(fitting.current))
+        self.canvas.set_cluster(self._cluster_members(result))
         self.panel.show_result(
             result,
             current=bool(fitting.current),

@@ -161,7 +161,10 @@ or unreliable uncertainty), its members, χ²ᵣ and the largest |amplitude
 correlation| between members ("–" for a single peak, "n/a" when the covariance is
 unavailable). Columns sort on click; the default is χ²ᵣ, highest first. Choosing a
 row selects one of its members, keeping the selected peak when it belongs to the
-cluster. **N** in the cluster list, or **Select next cluster with a warning** on
+cluster. Whenever the selected peak belongs to the active run, the other members
+of its recorded cluster carry a thin accent ring on the spectrum, while the
+selected peak keeps its stronger ring and label; this never changes the viewport,
+comparison mode or the total-model scope. **N** in the cluster list, or **Select next cluster with a warning** on
 the analysis page, moves to the next cluster with an engine warning. The
 inspector's **Cluster review** keeps numerical warnings (with the engine's own
 text) separate from measures: χ²ᵣ with its sample count, the largest recorded
