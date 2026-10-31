@@ -5,7 +5,8 @@ Start with the root [`README.md`](../README.md) and the ready-to-run
 
 ## User Guides
 
-- [`gui-editor.md`](gui-editor.md) - GUI v2 open/inspect/edit workspace.
+- [`gui.md`](gui.md) - desktop application (`peakfit gui`): open, edit, fit,
+  compare, export, save and reopen.
 
 - [`outputs.md`](outputs.md) - canonical fit output files.
 - [`constraints-and-fit-steps.md`](constraints-and-fit-steps.md) - parameter

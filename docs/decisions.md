@@ -37,3 +37,17 @@ Short records of non‑obvious design choices and trade‑offs.
   point/series axis contract) remain in Git history:
   `git log --diff-filter=D --name-only -- .scratch`.
 - `CONTEXT.md` was renamed `GLOSSARY.md`, the name the skills expect.
+
+## 2026-10-31: `peakfit gui` is the only desktop entry point
+- `peakfit gui` launches the v2 application (`gui.editor.window.launch`). The
+  `peakfit-editor` script, `python -m peakfit.gui.editor` and the original viewer
+  (`gui.app`, `gui.viewer`) were removed, with no alias.
+- `peakfit gui PATH` opens an NMRPipe spectrum or a saved `.peakfit` analysis.
+  `--peaks` now requires `--peak-axis-order {indirect-direct,direct-indirect}`; no
+  axis order is guessed. Plane values keep `--z-values` / `-z`, matching
+  `peakfit fit`. Companion options are rejected with a `.peakfit` analysis.
+  Migration: add `--peak-axis-order indirect-direct` to reproduce the old
+  `peakfit gui spectrum --peaks list` mapping.
+- Local fit and Apply fitted positions were retired, as the v2 design specified:
+  whole-dataset fitting with automatic adoption is the one refinement path. Earlier
+  local-fit exports remain readable.

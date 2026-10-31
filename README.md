@@ -11,14 +11,16 @@ peakfit mcmc Fits/<run_dir>
 peakfit plot intensity Fits/<run_dir>
 peakfit plot cest Fits/<run_dir>
 peakfit plot spectrum --spectrum spectrum.ft2 --results Fits/<run_dir>
-peakfit gui spectrum.ft2 --peaks peaks.list
+peakfit gui spectrum.ft2 --peaks peaks.list --peak-axis-order indirect-direct
 ```
 
 Start with [`examples/02-advanced-fitting`](examples/02-advanced-fitting/) for a
 ready-to-run pseudo-ND CEST workflow.
 
-For responsive spectrum exploration and manual peak editing, use `peakfit gui` (with or without
-an initial spectrum). See the [desktop viewer guide](docs/gui.md).
+`peakfit gui` opens the desktop application: inspect and edit peaks, fit the
+complete dataset, compare model and residual, export results, and save analyses
+that reopen with `peakfit gui Analysis.peakfit`. See the
+[desktop application guide](docs/gui.md).
 
 ## Install
 
@@ -164,12 +166,3 @@ Use `uv` for project commands. Use `prek`, not `pre-commit`, for hooks.
 ## License
 
 GPL-3.0-or-later.
-
-## GUI v2 scientific workspace
-
-`uv run peakfit-editor` opens the production spectrum/peak workspace with aligned
-slices and exact Undo. It fits the whole dataset, automatically adopts optimized
-positions, compares the total model/residual and exports canonical results.
-The existing `uv run peakfit gui` remains available. See
-[the editor guide](docs/gui-editor.md) for the bundled-data launch,
-keyboard commands and milestone boundaries.
