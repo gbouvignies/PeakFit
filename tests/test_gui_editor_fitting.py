@@ -213,7 +213,7 @@ def test_latest_plane_wins_and_cache_survives_modes(workspace, scientific):
     w.set_mode(2)
     wait_for(lambda: not c.contour_pending)
     assert c._model is model
-    assert len(c.paths) == 2
+    assert [layer.role for layer in c.paths] == ["residual"]
 
 
 def test_all_unusable_completion_and_invalid_replacement(workspace, scientific):
@@ -278,7 +278,9 @@ def test_pending_comparison_keeps_current_experiment(workspace, scientific, monk
             w.set_mode(2)
         assert c.contour_pending
         assert c._model is None
-        assert len(c.paths) == 2, "Current-plane experimental contours must remain visible"
+        assert [layer.role for layer in c.paths] == ["measured"], (
+            "Current-plane experimental contours must remain visible"
+        )
         assert "Experimental" in c.pending_label.toPlainText()
         assert ("Residual" if mode == 2 else "Overlay") in c.pending_label.toPlainText()
         if mode == 2:
@@ -353,7 +355,7 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
         w.set_mode(2)
         w.set_plane(2)
         wait_for(entered.is_set)
-        assert len(c.paths) == 2
+        assert [layer.role for layer in c.paths] == ["measured"]
         assert c._displaying_experiment
         assert c._model is None
         assert c.curve_x.getData()[1] is None
@@ -375,7 +377,7 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
     c.set_comparison(replace(result, run_id="replacement"), 2)
     assert c._model is None
     assert c._displaying_experiment
-    assert len(c.paths) == 2
+    assert [layer.role for layer in c.paths] == ["measured"]
     c._contours_ready("model", obsolete, (current_model, []))
     assert c._model is None
     wait_for(lambda: not c.contour_pending)
@@ -533,7 +535,9 @@ def test_profile_keeps_repeated_plane_values_distinct(scientific):
     assert requested == [2]
 
 
-def test_compact_header_and_profile_at_minimum_window(scientific, settings, monkeypatch):
+def test_compact_header_and_profile_at_minimum_window(  # noqa: PLR0915
+    scientific, settings, monkeypatch
+):
     app = QtWidgets.QApplication.instance()
     assert app is not None
     spectra, peaks, config, _, result = scientific
@@ -564,17 +568,26 @@ def test_compact_header_and_profile_at_minimum_window(scientific, settings, monk
         return QtCore.QRect(widget.mapTo(window, QtCore.QPoint(0, 0)), widget.size())
 
     buttons = [w.cancel_fit, w.review_fit, w.peaks_button, w.add_button, w.fit_button]
-    buttons.append(w.settings_button)
     assert all(b.isVisible() and window.rect().contains(rect(b)) for b in buttons)
+    # Settings cannot change during a fit; their chip yields its room to progress.
+    assert not w.settings_button.isVisible()
     for label in (w.title, w.summary):
         assert not any(rect(label).intersects(rect(b)) for b in buttons)
     assert "Preparing complete dataset" in w.summary.displayed_text()
     w.fitting._preparing = False
     w.fitting.update()
     app.processEvents()
+    buttons = [w.review_fit, w.peaks_button, w.add_button, w.fit_button, w.settings_button]
+    assert all(b.isVisible() and window.rect().contains(rect(b)) for b in buttons)
+    for label in (w.title, w.summary):
+        assert not any(rect(label).intersects(rect(b)) for b in buttons)
     shown = w.summary.displayed_text()
     assert "Outdated" in shown
-    assert "uncertainty warnings" in shown
+    # Numerical warnings keep their own unelided label in the one-row toolbar.
+    assert "uncertainty warning" in w.warnings.toolTip()
+    assert w.warnings.text().startswith("▲")
+    assert w.warnings.isVisible()
+    assert window.rect().contains(rect(w.warnings))
     assert w.profile.badge.isVisible()
     assert window.rect().contains(rect(w.profile.badge))
     assert "Outdated" in w.profile.title.toolTip()

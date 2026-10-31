@@ -339,8 +339,10 @@ centroid. Hovering a cluster highlights its members, with no arbitrary slice cho
 
 Navigation preserves ppm orientation (normally descending), axis calibration and
 folding. Working coordinates remain unfolded; indirect-axis aliases use the
-existing scientific conversion, direct positions never wrap. Selected/hover labels
-show folded and unfolded coordinates when different. Peak placement and dragging
+existing scientific conversion, direct positions never wrap. On-spectrum
+selected/hover labels show the assignment only, marked "alias" when the displayed
+position is folded; the marker tooltip, list tooltip and inspector give exact
+folded and unfolded coordinates. Peak placement and dragging
 are not snapped to sample centers; only the inspection crosshair is snapped.
 Cross-sections follow the visible frequency ranges and have no independent pan.
 

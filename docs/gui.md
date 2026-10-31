@@ -46,7 +46,7 @@ or failed validation retains the current dataset. Loading can be canceled while
 its private file read finishes.
 
 The spectrum's top and right traces are native row/column cross-sections. Move
-over the plot to preview them. **Pin slices**, Space on the canvas, or a click on
+over the plot to preview them. The **Pin traces** tool, Space on the canvas, or a click on
 blank spectrum freezes the sample. Selecting a peak pins once; later blank clicks
 and arrow-key sample steps retain selection. Resume preview without losing the
 selected peak or its coordinate draft. Plane controls preserve acquisition order,
@@ -69,8 +69,9 @@ aliases into the display window. Only the inspection crosshair snaps to samples.
 Name and coordinates form one editing group. Enter or leaving the whole group
 commits; Tab within it retains the draft; Escape discards. Invalid text stays
 visible with an error, while spectrum and plane navigation remain available.
-Coordinates show eight decimal places when unfocused and round-trip precision
-when focused/copied. Untouched fields retain their original float64 value.
+Coordinates show one decimal place beyond the axis digital resolution when
+unfocused (four in ¹H and three in ¹⁵N for the bundled dataset) and round-trip
+precision when focused/copied. Untouched fields retain their original float64 value.
 Dot-decimal/scientific notation is accepted; a comma is also accepted when it is
 the local decimal separator. Thousands separators and mixed punctuation are not.
 
@@ -95,7 +96,7 @@ for undoable IDs, rather than appearing as active scientific provenance.
 
 ## Fit → compare → export
 
-Choose **Fit dataset** in the header or Analysis menu (Cmd/Ctrl+Return).
+Choose **Fit** in the toolbar or **Fit dataset** in the Analysis menu (Cmd/Ctrl+Return).
 The first action opens a concise scientific-settings review. It prepares every
 working peak and original plane, independently of selection, viewport, search and
 display thresholds. The default is the existing **two-pass** whole-dataset
@@ -104,10 +105,12 @@ statistical noise, threshold, cluster/sample counts and expanded actual starts,
 bounds, units and freedom are reviewable before **Run dataset fit**.
 
 Subsequent fits reuse those reviewed settings directly and prepare fresh masks,
-clusters and bounds from the current optimized working coordinates. **Settings…**
-reopens the review; Cancel leaves the current settings/result unchanged. Numerical
-execution uses the existing disposable process outside Qt. The result line under
-the analysis name shows pass/cluster/stage and elapsed time, with **Cancel** beside it. Navigation, selection,
+clusters and bounds from the current optimized working coordinates. The settings
+summary beside **Fit** (lineshapes · clustering threshold · passes; "Fit settings"
+in windows narrower than 1200 px, with the summary in its tooltip) reopens the review; Cancel leaves the current settings/result unchanged. Numerical
+execution uses the existing disposable process outside Qt. The run line beside the
+analysis name shows pass/cluster/stage and elapsed time, with **Cancel** beside **Fit**;
+the settings summary steps aside while a fit runs. Navigation, selection,
 preview and pinning remain available; scientific edits and input replacement pause.
 Cancellation, process failure and validation failure retain the previous result
 and working coordinates. No partial result is adopted.
@@ -141,9 +144,10 @@ residual slices wait for a matching model. Hover reads cached native rows/column
 and starts no model or contour jobs. Display caches are bounded to 128 MiB/eight
 model planes and 32 MiB/eight contour geometries, with stale deliveries rejected.
 
-The result line separates Current/Outdated, uncertainty warnings, completeness,
-convergence and usable/total clusters, in that order, so a narrow window shortens
-only the tail; its tooltip keeps the full text. **Review** reveals concise selected-cluster
+The run line starts with the run and Current/Outdated, then completeness,
+convergence and usable/total clusters, so a narrow window shortens only the tail;
+its tooltip keeps the full text. Engine uncertainty warnings have their own amber
+label (▲ N) that never elides. The **Review** tool reveals concise selected-cluster
 diagnostics in the rail's existing inspector scroll area. **Next cluster needing
 review** explicitly navigates non-convergence, unusable results and uncertainty
 warnings. Recorded optimizer statistics refer to corrected fitting samples and
@@ -209,10 +213,15 @@ their existing close protection. Exporting an outdated run never marks different
 working peaks as preserved. Failed or canceled exports leave the state unchanged.
 MCMC and full cluster refinement remain out of scope.
 
-**Display…** changes signed contour threshold, spacing/count, labels and stroke
-weight. Trace amplitude limits are common, signed and locked across hover and
+The **Display** tool changes signed contour threshold, spacing/count, labels and
+stroke weight. Contours are graded from light low levels to strong high levels;
+measured data is blue (negative plum, dashed), the model amber (negative dotted)
+and the residual vermilion/teal, as named in the in-plot legend. Peak markers
+keep a plot-coloured halo so they stay visible over contours; the selected and
+hovered peaks are labelled with their assignment only, and resting on a marker
+shows its exact unfolded (and displayed alias) coordinates in a tooltip. Trace axes show a common power of ten (for example ×10⁶). Trace amplitude limits are common, signed and locked across hover and
 planes. **Fit current traces** explicitly changes gain once; a clipped trace is
-identified in the sampled-value status. **Full spectrum** changes only frequency
+identified in the sampled-value status. The **Full spectrum** tool changes only frequency
 ranges. Appearance follows System or explicit Light/Dark under View.
 
 Keyboard access includes Cmd/Ctrl+O, Cmd/Ctrl+F, Cmd/Ctrl+Z/Shift+Z,

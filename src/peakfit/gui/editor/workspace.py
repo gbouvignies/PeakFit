@@ -5,11 +5,15 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.domain.spectrum import get_shape_names
+from peakfit.gui import formatting
+from peakfit.gui import theme as themes
 from peakfit.gui.editor.canvas import SpectrumCanvas
 from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.labels import ElidedLabel
 from peakfit.gui.editor.profile import ProfilePanel
 from peakfit.gui.editor.rail import PeakRail
+from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
 
 if TYPE_CHECKING:
@@ -20,6 +24,7 @@ if TYPE_CHECKING:
 _RESIDUAL = 2
 _PROFILE_HEIGHT = 200
 _WHOLE_COLUMN = 1_000_000  # QSplitter scales sizes to the space available
+_WIDE_TOOLBAR = 1200
 
 
 class EditorWorkspace(QtWidgets.QWidget):
@@ -39,19 +44,21 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.selected_id: str | None = None
         self.canvas = SpectrumCanvas(dataset)
         self.rail = PeakRail(
-            self.canvas.axis_title(self.canvas.x_axis), self.canvas.axis_title(self.canvas.y_axis)
+            self.canvas.axis_title(self.canvas.x_axis),
+            self.canvas.axis_title(self.canvas.y_axis),
+            (self.canvas.decimals_x, self.canvas.decimals_y),
         )
         self.inspector = self.rail.inspector
         self.canvas.resolve_edit = self.commit_fields
         self.splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
         self.splitter.setChildrenCollapsible(False)
-        self.splitter.setHandleWidth(8)
+        self.splitter.setHandleWidth(1)
         # The profile shares the spectrum's column; the canvas minimum size keeps
         # the 2D plot and both traces usable whatever height is restored.
         self.profile = ProfilePanel()
         self.column = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.column.setChildrenCollapsible(False)
-        self.column.setHandleWidth(6)
+        self.column.setHandleWidth(1)
         self.column.addWidget(self.canvas)
         self.column.addWidget(self.profile)
         self.column.setStretchFactor(0, 1)
@@ -63,111 +70,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.splitter.addWidget(self.column)
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
-        self.splitter.setSizes([320, 1000])
+        self.splitter.setSizes([300, 1000])
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(16, 6, 16, 4)
-        layout.setSpacing(6)
-        header = QtWidgets.QHBoxLayout()
-        identity = QtWidgets.QVBoxLayout()
-        identity.setSpacing(0)
-        name_row = QtWidgets.QHBoxLayout()
-        name_row.setSpacing(10)
-        self.title = ElidedLabel(dataset.path.stem)
-        self.title.setObjectName("title")
-        name_row.addWidget(self.title)
-        self.modified = QtWidgets.QLabel()
-        self.modified.setObjectName("muted")
-        name_row.addWidget(self.modified)
-        name_row.addStretch()
-        identity.addLayout(name_row)
-        # One compact result line under the name; its full text stays in the tooltip.
-        self.summary = ElidedLabel()
-        self.summary.setObjectName("muted")
-        identity.addWidget(self.summary)
-        header.addLayout(identity, 1)
-        self.cancel_fit = QtWidgets.QPushButton("Cancel")
-        self.cancel_fit.clicked.connect(lambda: self.fitting.cancel())
-        self.review_fit = QtWidgets.QPushButton("Review")
-        self.review_fit.clicked.connect(lambda: self.fitting.toggle_review())
-        header.addWidget(self.cancel_fit)
-        header.addWidget(self.review_fit)
-        self.peaks_button = QtWidgets.QPushButton("Peaks")
-        self.peaks_button.setCheckable(True)
-        self.peaks_button.setChecked(bool(dataset.peaks))
-        self.peaks_button.clicked.connect(self.toggle_rail)
-        self.add_button = QtWidgets.QPushButton("Add peak")
-        self.add_button.setCheckable(True)
-        self.add_button.clicked.connect(self.start_placing)
-        for button in (self.peaks_button, self.add_button):
-            header.addWidget(button)
-        self.fit_button = QtWidgets.QPushButton("Fit dataset")
-        self.fit_button.setObjectName("primary")
-        self.fit_button.clicked.connect(lambda: self.fitting.fit())
-        self.settings_button = QtWidgets.QPushButton("Settings…")
-        self.settings_button.clicked.connect(lambda: self.fitting.fit(settings=True))
-        header.addWidget(self.fit_button)
-        header.addWidget(self.settings_button)
-        layout.addLayout(header)
-        strip = QtWidgets.QHBoxLayout()
-        strip.setSpacing(0)
-        self.mode_buttons = []
-        for index, name in enumerate(("Experimental", "Overlay", "Residual")):
-            button = QtWidgets.QPushButton(name)
-            button.setObjectName("mode")
-            button.setCheckable(True)
-            button.setChecked(index == 0)
-            button.setEnabled(index == 0)
-            if index:
-                button.setToolTip("Available after whole-dataset fitting in the next milestone")
-            button.clicked.connect(lambda _checked=False, mode=index: self.set_mode(mode))
-            self.mode_buttons.append(button)
-            strip.addWidget(button)
-        strip.addSpacing(16)
-        display = QtWidgets.QPushButton("Display…")
-        display.clicked.connect(self.display_dialog)
-        full = QtWidgets.QPushButton("Full spectrum")
-        full.clicked.connect(self.canvas.full_spectrum)
-        self.pin_button = QtWidgets.QPushButton("Pin slices")
-        self.pin_button.setCheckable(True)
-        self.pin_button.setMinimumWidth(110)
-        self.pin_button.toggled.connect(self.canvas.set_pinned)
-        self.canvas.pin_changed.connect(self._pin_changed)
-        for button in (display, full, self.pin_button):
-            strip.addWidget(button)
-            strip.addSpacing(8)
-        strip.addStretch()
-        self.legend = QtWidgets.QLabel("Measured: + solid / − dashed · a.u.")
-        self.legend.setObjectName("muted")
-        strip.addWidget(self.legend)
-        layout.addLayout(strip)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self._build_toolbar(dataset))
         layout.addWidget(self.splitter, 1)
-        planes = QtWidgets.QHBoxLayout()
-        self.previous = QtWidgets.QPushButton("‹")
-        self.previous.setAccessibleName("Previous plane")
-        self.next = QtWidgets.QPushButton("›")
-        self.next.setAccessibleName("Next plane")
-        for button in (self.previous, self.next):
-            button.setFixedWidth(32)
-        self.previous.clicked.connect(lambda: self.set_plane(self.canvas.plane))
-        self.next.clicked.connect(lambda: self.set_plane(self.canvas.plane + 2))
-        self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
-        self.slider.setAccessibleName("Plane navigation")
-        self.spin = QtWidgets.QSpinBox()
-        self.spin.setAccessibleName("One-based plane number")
-        self.spin.setKeyboardTracking(False)
-        n_planes = dataset.spectra.data.shape[0]
-        for control in (self.slider, self.spin):
-            control.setRange(1, n_planes)
-            control.setValue(1)
-            control.valueChanged.connect(self.set_plane)
-        self.plane_label = QtWidgets.QLabel()
-        planes.addWidget(QtWidgets.QLabel("Plane"))
-        for widget in (self.previous, self.next, self.slider, self.spin, self.plane_label):
-            planes.addWidget(widget, 1 if widget is self.slider else 0)
-        if n_planes == 1:
-            for widget in (self.previous, self.next, self.slider, self.spin):
-                widget.hide()
-        layout.addLayout(planes)
+        layout.addWidget(self._build_plane_strip(dataset))
         self.status = QtWidgets.QLabel()
         self.status.setObjectName("muted")
         self.status.setSizePolicy(
@@ -178,6 +87,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.error = QtWidgets.QLabel()
         self.error.setObjectName("error")
         self.error.setWordWrap(True)
+        self.error.setContentsMargins(
+            themes.SPACE_M, themes.SPACE_XS, themes.SPACE_M, themes.SPACE_XS
+        )
         self.error.hide()
         layout.addWidget(self.error)
         self.canvas.status_changed.connect(self.status.setText)
@@ -199,6 +111,189 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.rail.setVisible(bool(dataset.peaks))
         self.set_plane(1)
         self._restore_profile()
+
+    def _tool(self, name: str, tip: str, *, checkable: bool = False) -> QtWidgets.QToolButton:
+        button = QtWidgets.QToolButton()
+        button.setCheckable(checkable)
+        button.setToolTip(tip)
+        button.setAccessibleName(tip.split(" (")[0])
+        button.setIconSize(QtCore.QSize(18, 18))
+        button.setFixedSize(28, 28)
+        self._icons.append((button, name))
+        return button
+
+    def _build_toolbar(self, dataset: Dataset) -> QtWidgets.QWidget:  # noqa: PLR0915
+        """One row: identity and run, comparison, canvas tools, settings, Fit."""
+        self._icons: list[tuple[QtWidgets.QAbstractButton, str]] = []
+        toolbar = QtWidgets.QWidget()
+        toolbar.setObjectName("toolbar")
+        toolbar.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
+        bar = QtWidgets.QHBoxLayout(toolbar)
+        bar.setContentsMargins(themes.SPACE_M, 7, themes.SPACE_M, 7)
+        bar.setSpacing(6)
+        self.peaks_button = self._tool("panel-left", "Peaks panel", checkable=True)
+        self.peaks_button.setChecked(bool(dataset.peaks))
+        self.peaks_button.clicked.connect(self.toggle_rail)
+        bar.addWidget(self.peaks_button)
+        self.title = ElidedLabel(dataset.path.stem)
+        self.title.setObjectName("title")
+        self.title.setMaximumWidth(160)
+        bar.addWidget(self.title)
+        self.modified = QtWidgets.QLabel()
+        self.modified.setObjectName("muted")
+        bar.addWidget(self.modified)
+        # The run line: currentness and counts first, so a narrow window elides the tail.
+        self.summary = ElidedLabel()
+        self.summary.setObjectName("muted")
+        bar.addWidget(self.summary, 1)
+        self.warnings = QtWidgets.QLabel()
+        self.warnings.setObjectName("warning")
+        self.warnings.hide()
+        bar.addWidget(self.warnings)
+        segment = QtWidgets.QHBoxLayout()
+        segment.setSpacing(0)
+        self.mode_buttons = []
+        for index, name in enumerate(("Experimental", "Overlay", "Residual")):
+            button = QtWidgets.QPushButton(name)
+            button.setObjectName("segment")
+            button.setProperty("edge", ("first", "", "last")[index])
+            button.setCheckable(True)
+            button.setChecked(index == 0)
+            button.setEnabled(index == 0)
+            button.clicked.connect(lambda _checked=False, mode=index: self.set_mode(mode))
+            self.mode_buttons.append(button)
+            segment.addWidget(button)
+        bar.addLayout(segment)
+        bar.addSpacing(themes.SPACE_XS)
+        self.add_button = self._tool("add-peak", "Add peak (A)", checkable=True)
+        self.add_button.clicked.connect(self.start_placing)
+        self.pin_button = self._tool(
+            "pin", "Pin traces at the sampled position (Space)", checkable=True
+        )
+        self.pin_button.toggled.connect(self.canvas.set_pinned)
+        self.canvas.pin_changed.connect(self._pin_changed)
+        full = self._tool("full", "Full spectrum (Ctrl+0)")
+        full.clicked.connect(self.canvas.full_spectrum)
+        display = self._tool("sliders", "Display: contours, labels, trace scale")
+        display.clicked.connect(self.display_dialog)
+        self.review_fit = self._tool("review", "Review the selected cluster's diagnostics")
+        self.review_fit.clicked.connect(lambda: self.fitting.toggle_review())
+        for button in (self.add_button, self.pin_button, full, display, self.review_fit):
+            bar.addWidget(button)
+        bar.addSpacing(themes.SPACE_XS)
+        self.settings_button = QtWidgets.QPushButton()
+        self.settings_button.setObjectName("chip")
+        self.settings_button.setToolTip("Fit settings: lineshapes, clustering and passes")
+        self.settings_button.clicked.connect(lambda: self.fitting.fit(settings=True))
+        bar.addWidget(self.settings_button)
+        self.cancel_fit = QtWidgets.QPushButton("Cancel")
+        self.cancel_fit.clicked.connect(lambda: self.fitting.cancel())
+        bar.addWidget(self.cancel_fit)
+        self.fit_button = QtWidgets.QPushButton("Fit")
+        self.fit_button.setObjectName("primary")
+        self.fit_button.setToolTip("Fit the complete dataset (Ctrl+Return)")
+        self.fit_button.clicked.connect(lambda: self.fitting.fit())
+        bar.addWidget(self.fit_button)
+        return toolbar
+
+    def _build_plane_strip(self, dataset: Dataset) -> QtWidgets.QWidget:
+        """Plain plane navigation: index, count, slider and the plane value."""
+        strip = QtWidgets.QWidget()
+        strip.setObjectName("planeStrip")
+        strip.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
+        planes = QtWidgets.QHBoxLayout(strip)
+        planes.setContentsMargins(themes.SPACE_M, 6, themes.SPACE_M, 6)
+        planes.setSpacing(themes.SPACE_S)
+        self.previous = self._tool("chevron-left", "Previous plane")
+        self.next = self._tool("chevron-right", "Next plane")
+        self.previous.clicked.connect(lambda: self.set_plane(self.canvas.plane))
+        self.next.clicked.connect(lambda: self.set_plane(self.canvas.plane + 2))
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.slider.setAccessibleName("Plane navigation")
+        self.spin = QtWidgets.QSpinBox()
+        self.spin.setAccessibleName("One-based plane number")
+        self.spin.setKeyboardTracking(False)
+        self.spin.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.NoButtons)
+        self.spin.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+        n_planes = dataset.spectra.data.shape[0]
+        self.spin.setFixedWidth(16 + self.spin.fontMetrics().horizontalAdvance(str(n_planes)) * 2)
+        for control in (self.slider, self.spin):
+            control.setRange(1, n_planes)
+            control.setValue(1)
+            control.valueChanged.connect(self.set_plane)
+        caption = QtWidgets.QLabel("Plane")
+        caption.setObjectName("muted")
+        count = QtWidgets.QLabel(f"of {n_planes}")
+        count.setObjectName("muted")
+        self.plane_caption = QtWidgets.QLabel("Plane value")
+        self.plane_caption.setObjectName("muted")
+        self.plane_label = QtWidgets.QLabel()
+        self.plane_label.setObjectName("value")
+        self.plane_label.setMinimumWidth(64)
+        for widget in (self.previous, self.next, caption, self.spin, count):
+            planes.addWidget(widget)
+        planes.addSpacing(themes.SPACE_S)
+        planes.addWidget(self.slider, 1)
+        planes.addSpacing(themes.SPACE_S)
+        planes.addWidget(self.plane_caption)
+        planes.addWidget(self.plane_label)
+        if n_planes == 1:
+            for widget in (self.previous, self.next, caption, self.spin, count, self.slider):
+                widget.hide()
+        return strip
+
+    def apply_theme(self, theme: themes.Theme) -> None:
+        """Retint icons and plots; no scientific state or geometry changes."""
+        self.theme = theme
+        for button, name in self._icons:
+            button.setIcon(icon(name, theme))
+        self.canvas.apply_theme(theme)
+        self.rail.apply_theme(theme)
+        self.profile.apply_colors(dark=theme.dark)
+
+    def update_settings_summary(self) -> None:
+        """The working fit settings, always visible beside the Fit button."""
+        config = self.fitting.configuration
+        try:
+            shapes = " × ".join(
+                name.upper() for name in get_shape_names(config.fitting, self.dataset.spectra)
+            )
+        except (ValueError, KeyError, AttributeError):
+            shapes = config.fitting.lineshape
+        level = config.clustering.contour_level
+        threshold, clustering = (
+            (f"{level:.3g}", f"clustering threshold {level:.6g} (explicit)")
+            if level is not None
+            else (
+                f"{config.clustering.contour_factor:g}σ",
+                f"clustering threshold {config.clustering.contour_factor:g} × noise",
+            )
+        )
+        steps = config.fitting.steps
+        passes = f"{len(steps)} steps" if steps else f"{config.fitting.refine_iterations} passes"
+        self._settings_text = f"{shapes} · {threshold} · {passes}"
+        self._adapt_toolbar()
+        self.settings_button.setToolTip(
+            f"Fit settings: lineshapes {shapes} · {clustering} · {passes}. Click to review."
+        )
+
+    def _adapt_toolbar(self) -> None:
+        """Below 1200 px the run line needs the room; tooltips keep the full text."""
+        wide = self.width() >= _WIDE_TOOLBAR
+        self.title.setMaximumWidth(160 if wide else 120)
+        self.settings_button.setText(
+            getattr(self, "_settings_text", "") if wide else "Fit settings"
+        )
+        count = self.warnings.property("count") or 0
+        self.warnings.setText(
+            f"▲ {count} uncertainty warning{'s' if count != 1 else ''}" if wide else f"▲ {count}"
+        )
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        """Adapt the toolbar to the window width without changing panel choices."""
+        super().resizeEvent(event)
+        if hasattr(self, "settings_button"):
+            self._adapt_toolbar()
 
     @property
     def spectra(self):
@@ -223,13 +318,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         for index, button in enumerate(self.mode_buttons):
             button.setChecked(index == mode)
         self.canvas.set_comparison(result, mode)
-        self.legend.setText(
-            f"Residual ±{self.canvas.residual_threshold:g} σ_stat · + solid / − dashed"
-            if mode == _RESIDUAL
-            else "Measured + solid / − dashed · Model + dashed / − dotted · a.u."
-            if mode
-            else "Measured: + solid / − dashed · a.u."
-        )
 
     @property
     def peaks(self):
@@ -263,7 +351,11 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _pin_changed(self, pinned: bool) -> None:
         with QtCore.QSignalBlocker(self.pin_button):
             self.pin_button.setChecked(pinned)
-        self.pin_button.setText("Slices pinned" if pinned else "Pin slices")
+        self.pin_button.setToolTip(
+            "Traces pinned · click to follow the pointer (Space)"
+            if pinned
+            else "Pin traces at the sampled position (Space)"
+        )
 
     def _build_actions(self) -> None:
         self.undo_action = QtGui.QAction("Undo peak edit", self)
@@ -411,13 +503,15 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.undo_action.setEnabled(self.edits.can_undo and not self.pending and not self.fit_busy)
         self.redo_action.setEnabled(self.edits.can_redo and not self.pending and not self.fit_busy)
         self.delete_action.setEnabled(self.selected_id is not None and not self.fit_busy)
-        self.modified.setText(
+        detail = (
             "Modified inputs · plane values session-only"
             if self.plane_values_modified
             else "Modified peaks"
             if self.edits.dirty or self.pending
             else ""
         )
+        self.modified.setText("Modified" if detail else "")
+        self.modified.setToolTip(detail)
 
     def history(self, redo: bool) -> None:
         """Undo exact records; monotonic scientific revision never recertifies a run."""
@@ -492,7 +586,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             return
         self.rail.setVisible(visible)
         if visible:
-            self.splitter.setSizes([320, max(520, self.width() - 320)])
+            self.splitter.setSizes([300, max(520, self.width() - 300)])
 
     def focus_editor(self) -> None:
         """Explicit editing opens the rail without changing selection."""
@@ -512,12 +606,15 @@ class EditorWorkspace(QtWidgets.QWidget):
         count = self.dataset.spectra.data.shape[0]
         self.previous.setEnabled(plane > 1)
         self.next.setEnabled(plane < count)
-        value = (
-            f"value = {self.dataset.spectra.z_values[plane - 1]:.9g} (file units)"
-            if self.dataset.has_plane_values
-            else "no plane values"
+        values = self.dataset.has_plane_values and count > 1
+        self.plane_caption.setVisible(values)
+        self.plane_label.setText(
+            "Single plane"
+            if count == 1
+            else formatting.intensity(float(self.dataset.spectra.z_values[plane - 1]))
+            if values
+            else ""
         )
-        self.plane_label.setText("Single plane" if count == 1 else f"/ {count} · {value}")
         self._update_profile()
 
     def display_dialog(self) -> None:

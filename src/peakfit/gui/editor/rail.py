@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.gui import theme as themes
 from peakfit.gui.editing import PeakInspector
 
 if TYPE_CHECKING:
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
 
 class PeakRowDelegate(QtWidgets.QStyledItemDelegate):
     """Draw one flat native list row with aligned coordinate columns."""
+
+    secondary = QtGui.QColor(themes.LIGHT.secondary)  # coordinate text
 
     def paint(self, painter, option, index) -> None:
         """Keep native focus/selection and expose full row text to accessibility."""
@@ -26,11 +29,12 @@ class PeakRowDelegate(QtWidgets.QStyledItemDelegate):
             QtWidgets.QStyle.ControlElement.CE_ItemViewItem, styled, painter, styled.widget
         )
         name, x, y = text.rsplit("\t", 2)
-        rect = styled.rect.adjusted(4, 0, -4, 0)
-        width = max(60, styled.fontMetrics.horizontalAdvance("-123.12345") + 6)
+        rect = styled.rect.adjusted(themes.SPACE_M, 0, -themes.SPACE_S, 0)
+        width = column_width(styled.fontMetrics)
+        palette = styled.palette
         painter.save()
         painter.setFont(styled.font)
-        painter.setPen(styled.palette.color(QtGui.QPalette.ColorRole.Text))
+        painter.setPen(palette.color(QtGui.QPalette.ColorRole.Text))
         label = QtCore.QRect(
             rect.left(), rect.top(), max(0, rect.width() - width * 2), rect.height()
         )
@@ -39,6 +43,7 @@ class PeakRowDelegate(QtWidgets.QStyledItemDelegate):
             QtCore.Qt.AlignmentFlag.AlignVCenter,
             styled.fontMetrics.elidedText(name, QtCore.Qt.TextElideMode.ElideRight, label.width()),
         )
+        painter.setPen(self.secondary)
         for offset, coordinate in ((2, x), (1, y)):
             cell = QtCore.QRect(rect.right() - width * offset, rect.top(), width, rect.height())
             painter.drawText(
@@ -48,6 +53,15 @@ class PeakRowDelegate(QtWidgets.QStyledItemDelegate):
             )
         painter.restore()
 
+    def sizeHint(self, option, index) -> QtCore.QSize:  # noqa: N802
+        """Uniform rows at the shared row height."""
+        return QtCore.QSize(super().sizeHint(option, index).width(), themes.ROW_HEIGHT)
+
+
+def column_width(metrics: QtGui.QFontMetrics) -> int:
+    """Room for one coordinate column, shared by the rows and their headings."""
+    return max(64, metrics.horizontalAdvance("−123.1234") + themes.SPACE_S)
+
 
 class PeakRail(QtWidgets.QWidget):
     """Keep hover, keyboard selection and typed drafts independent."""
@@ -56,28 +70,42 @@ class PeakRail(QtWidgets.QWidget):
     hovered = QtCore.Signal(object)
     edit_requested = QtCore.Signal()
 
-    def __init__(self, x_title: str, y_title: str) -> None:  # noqa: PLR0915
+    def __init__(  # noqa: PLR0915
+        self, x_title: str, y_title: str, decimals: tuple[int, int] = (4, 3)
+    ) -> None:
         super().__init__()
         self.setObjectName("rail")
         self.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setMinimumWidth(290)
+        self.setMinimumWidth(280)
+        self.decimals = decimals
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
-        title = QtWidgets.QLabel("Peaks")
+        layout.setContentsMargins(0, themes.SPACE_M, 0, themes.SPACE_M)
+        layout.setSpacing(themes.SPACE_S)
+        inset = (themes.SPACE_M, 0, themes.SPACE_M, 0)
+        title = QtWidgets.QLabel("PEAKS")
         title.setObjectName("section")
+        title.setContentsMargins(*inset)
         layout.addWidget(title)
         self.search = QtWidgets.QLineEdit()
         self.search.setPlaceholderText("Find assignment or ID")
         self.search.setAccessibleName("Find assignment or peak identity")
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self._filter)
-        layout.addWidget(self.search)
+        search_row = QtWidgets.QHBoxLayout()
+        search_row.setContentsMargins(*inset)
+        search_row.addWidget(self.search)
+        layout.addLayout(search_row)
         headings = QtWidgets.QHBoxLayout()
-        headings.addWidget(QtWidgets.QLabel("Assignment"), 1)
+        headings.setContentsMargins(themes.SPACE_M, 0, themes.SPACE_S + 10, 0)
+        headings.setSpacing(0)
+        assignment = QtWidgets.QLabel("Assignment")
+        assignment.setObjectName("caption")
+        headings.addWidget(assignment, 1)
         for title in (x_title, y_title):
-            heading = QtWidgets.QLabel(title.split(" · ")[0] + " / ppm")
-            heading.setObjectName("muted")
+            heading = QtWidgets.QLabel(title.split(" · ")[0] + " ppm")
+            heading.setObjectName("caption")
+            heading.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+            heading.setFixedWidth(column_width(heading.fontMetrics()))
             headings.addWidget(heading)
         layout.addLayout(headings)
         self.list = QtWidgets.QListWidget()
@@ -95,13 +123,16 @@ class PeakRail(QtWidgets.QWidget):
         self.list.installEventFilter(self)
         layout.addWidget(self.list, 1)
         self.count = QtWidgets.QLabel()
-        self.count.setObjectName("muted")
+        self.count.setObjectName("caption")
+        self.count.setContentsMargins(*inset)
         layout.addWidget(self.count)
         self.reveal = QtWidgets.QPushButton("Reveal selected peak in list")
         self.reveal.clicked.connect(self._reveal)
         self.reveal.hide()
         layout.addWidget(self.reveal)
-        self.inspector = PreciseInspector(x_title + " / ppm", y_title + " / ppm")
+        self.inspector = PreciseInspector(x_title + " ppm", y_title + " ppm")
+        self.inspector.decimals = decimals
+        self.inspector.details.setObjectName("caption")
         grid = self.inspector.layout()
         assert isinstance(grid, QtWidgets.QGridLayout)
         # Same validated group-commit component, composed vertically in the rail.
@@ -122,12 +153,23 @@ class PeakRail(QtWidgets.QWidget):
         scroll.setWidget(self.inspector)
         scroll.setMinimumHeight(250)
         scroll.setMaximumHeight(310)
+        scroll.setContentsMargins(*inset)
+        self.inspector.setContentsMargins(themes.SPACE_M, 0, themes.SPACE_M, 0)
         layout.addWidget(scroll)
         self._items: dict[str, QtWidgets.QListWidgetItem] = {}
         self._selected: str | None = None
         self._hovered: str | None = None
-        self._wash = QtGui.QColor("#dceaf2")
+        self._wash = QtGui.QColor(themes.LIGHT.hover)
         self._draft_changed()
+
+    def apply_theme(self, theme: themes.Theme) -> None:
+        """Hovered-marker rows use the theme's hover wash."""
+        self._wash = QtGui.QColor(theme.hover)
+        delegate = self.list.itemDelegate()
+        if isinstance(delegate, PeakRowDelegate):
+            delegate.secondary = QtGui.QColor(theme.secondary)
+        if self._hovered in self._items:
+            self._items[self._hovered].setBackground(QtGui.QBrush(self._wash))
 
     def refresh(self, peaks: tuple[WorkingPeak, ...], selected: str | None) -> None:
         """Update rows after a commit, never during hover or a drag draft."""
@@ -147,7 +189,8 @@ class PeakRail(QtWidgets.QWidget):
                 elif self.list.row(item) != row:
                     self.list.takeItem(self.list.row(item))
                     self.list.insertItem(row, item)
-                item.setText(f"{peak.name}\t{peak.positions[1]:.5f}\t{peak.positions[0]:.5f}")
+                dx, dy = self.decimals
+                item.setText(f"{peak.name}\t{peak.positions[1]:.{dx}f}\t{peak.positions[0]:.{dy}f}")
                 item.setToolTip(
                     f"{peak.name}\nID {peak.id}\nUnfolded ppm: "
                     f"{peak.positions[0]!r}, {peak.positions[1]!r}"
@@ -221,7 +264,9 @@ class PeakRail(QtWidgets.QWidget):
 
 
 class PreciseInspector(PeakInspector):
-    """Eight-place labels with exact unchanged values and round-trip focus/copy."""
+    """Display-precision labels with exact unchanged values and round-trip focus/copy."""
+
+    decimals: tuple[int, int] = (4, 3)  # (horizontal, vertical) display decimals
 
     def show_peak(self, peak, displayed=None) -> None:
         """Populate a new committed group without feeding formatted values into science."""
@@ -230,8 +275,9 @@ class PreciseInspector(PeakInspector):
         self.setTitle(peak.name if peak else "Select a peak to edit")
         for field in (self.name, self.x_field, self.y_field, self.delete):
             field.setEnabled(peak is not None)
+        dx, dy = self.decimals
         values = (
-            (peak.name, f"{peak.positions[1]:.8f}", f"{peak.positions[0]:.8f}")
+            (peak.name, f"{peak.positions[1]:.{dx}f}", f"{peak.positions[0]:.{dy}f}")
             if peak
             else ("", "", "")
         )
@@ -245,7 +291,7 @@ class PreciseInspector(PeakInspector):
                 field.setText(text)
             self._baseline[field] = text
         alias = (
-            f"Displayed alias: {displayed[0]:.8f}, {displayed[1]:.8f} ppm\n"
+            f"Displayed alias: {displayed[0]:.{dx}f}, {displayed[1]:.{dy}f} ppm\n"
             if peak
             and displayed
             and any(
@@ -327,8 +373,14 @@ class PreciseInspector(PeakInspector):
             and event.type() in (QtCore.QEvent.Type.FocusIn, QtCore.QEvent.Type.FocusOut)
             and watched.text() == self._baseline.get(watched)
         ):
-            value = peak.positions[1 if watched is self.x_field else 0]
-            text = repr(value) if event.type() == QtCore.QEvent.Type.FocusIn else f"{value:.8f}"
+            index = 1 if watched is self.x_field else 0
+            value = peak.positions[index]
+            decimals = self.decimals[0 if index == 1 else 1]
+            text = (
+                repr(value)
+                if event.type() == QtCore.QEvent.Type.FocusIn
+                else f"{value:.{decimals}f}"
+            )
             with QtCore.QSignalBlocker(watched):
                 watched.setText(text)
             self._baseline[watched] = text
