@@ -57,7 +57,10 @@ task is explicitly a storage change.
 - Add a feature, option or setting only for a concrete user workflow.
 - Match planning to risk: go straight to code for clear changes; for a genuinely
   ambiguous scientific, UX or compatibility trade-off, ask one focused question.
-- Make breaking changes explicit: what breaks, why, and how to migrate.
+- Backward compatibility is not a requirement. Prefer the cleaner design for APIs,
+  project formats, data structures and GUI architecture; add no compatibility
+  layers, migration mechanisms or legacy adapters without a compelling reason, and
+  remove obsolete code. State breaking changes explicitly: what breaks and why.
 
 ## GUI
 

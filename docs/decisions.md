@@ -51,3 +51,25 @@ Short records of non‑obvious design choices and trade‑offs.
 - Local fit and Apply fitted positions were retired, as the v2 design specified:
   whole-dataset fitting with automatic adoption is the one refinement path. Earlier
   local-fit exports remain readable.
+
+## 2026-10-31: Review workspace direction (GUI specification revision 2.1)
+- Keep PySide6/Qt Widgets/PyQtGraph. The weaknesses found in a design review were
+  information design and visual craft; invest in an owned presentation layer
+  (tokens, proxy style, icons, plot chrome) rather than a framework change.
+- Three columns: cluster navigator, spectrum, inspector. A Cluster lens gives
+  side-by-side judgment of one cluster. No lower analysis panel.
+- Review separates numerical warnings, review measures and labeled heuristics; no
+  composite quality score.
+- Fit settings are an integrated setup with an exact clustering preview, always
+  visible as a toolbar summary; no first-fit modal dialog.
+- Reference-normalized profiles are display-only, with full-gradient uncertainty
+  propagation and explicit unavailable cases.
+- No storage change is authorized; four storage items are deferred (specification §14).
+
+## 2026-10-31: Backward compatibility is not a requirement
+- APIs, project formats, data structures and GUI architecture may change whenever
+  that yields a cleaner design.
+- No compatibility layers, migration mechanisms or legacy adapters without a
+  compelling reason; obsolete code is removed rather than preserved.
+- Breaking changes are stated explicitly. Numerical behavior still changes only for
+  an explained scientific reason protected by tests.

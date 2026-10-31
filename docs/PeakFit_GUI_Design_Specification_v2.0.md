@@ -14,12 +14,20 @@ vertical slices. **Date:** 29 October 2026.
 **Focused revision (30 October 2026):** lightweight analysis persistence with
 verified external spectral sources, explicit evidence retention and capability-checked
 reopening. Compact refinement and automatic fitted-position adoption remain in force.
+**Design revision 2.1 (31 October 2026):** three-column review workspace
+(navigator · spectrum · inspector), Cluster lens, separate numerical warnings,
+review measures and heuristics, integrated fit setup with clustering preview,
+optional reference-normalized profiles and a revised visual system. Sections 1–3,
+5–10 and 12–14 change; scientific state, persistence and MCMC contracts do not.
+This revision authorizes no storage or export format change (§14).
 
 **Technology decision:** PySide6 + Qt Widgets + PyQtGraph, accepted by the project
-owner after hands-on evaluation. Framework selection is closed. React supplies the
-visual and compositional reference; the improved Qt trial supplies the interaction
-and scientific-rendering reference. This document specifies the target application,
-not a claim that these workflows are already implemented.
+owner after hands-on evaluation and reconfirmed by the 31 October 2026 design
+review: the observed weaknesses were information-design and visual-system
+problems, not toolkit limits. Framework selection is closed. Sections 2 and 12
+define the visual and compositional direction; the improved Qt trial remains the
+interaction and scientific-rendering reference. This document specifies the
+target application, not a claim that these workflows are already implemented.
 
 ## 1. Product direction and evidence
 
@@ -49,13 +57,17 @@ The reviewed evidence is:
   [completed scientific review contracts](gui-design.md). Existing whole-dataset
   fitting and canonical outputs are foundations, not disposable prototypes.
 
-Concrete problems to resolve: production `gui.workspace.SpectrumWorkspace` puts
-both slices in a side column and editing in a lower panel, separating peak browsing
-from editing. The React rail groups them better. The Qt trial combines everything
-in one experimental `Canvas`; neither prototype supplies complete persistence,
-refinement or MCMC semantics. Production `gui.editing.PeakInspector` already has
-the desired whole-group commit behavior. Preserve that behavior while changing its
-placement. Preserve `CompletedFit`/`FinalFitOutcome` as scientific truth.
+Concrete problems to resolve, observed in the running application at 1280×800
+(design review, 31 October 2026): navigation lists peaks in input order without
+status, although fitting, overlap and uncertainty are properties of clusters; the
+amplitude profile, the product of the analysis, gets about 100 px of height below
+the spectrum; diagnostics are prose in nested scroll areas; peak markers disappear
+under contours; layer and sign encodings rely on 1 px dash patterns and reuse ochre
+for both model and positive residual; the result line emphasizes convergence counts
+while fit-quality evidence stays inside per-cluster text. The production
+`PreciseInspector` group commit and the hover/selection/pin model are correct and
+are preserved while their placement changes. `CompletedFit`/`FinalFitOutcome`
+remain scientific truth.
 
 Historical reports retain their original conclusions and limitations. Their
 statements that framework acceptance remained open are superseded by the owner's
@@ -66,113 +78,124 @@ No experiment is merged or copied wholesale into production.
 
 ## 2. Permanent workspace
 
-**Recommend one collapsible left rail containing peak/cluster navigation and the
-selected-peak inspector.** Reading an assignment, choosing a peak and editing its
-coordinates is one task. Keeping those controls together avoids a second side
-panel and leaves the right edge available for the vertical spectral cross-section.
-This also follows the preferred React composition. A right inspector would push
-that cross-section away from its axis or compete with it for width. Handedness
-does not justify a user preference or freely dockable layout system here.
-
-The rail is open for a newly opened analysis with peaks, closed for spectrum-only
-inspection, and subsequently remembers the user's choice. Selection updates its
-contents without opening it. A visible **Peaks** toggle restores it. At initial
-launch on a small screen it may start closed; later resizing never changes the
-user's panel choices.
+**Three columns: navigator, spectrum, inspector.** The cluster is the unit of
+review and the peak is the unit of editing. A 16:10 window has spare width rather
+than height, so wide information goes to the sides and the spectrum keeps the full
+height. The vertical cross-section stays attached to the 2D plot; the inspector
+sits beyond it.
 
 | Area | Permanent responsibility |
 | --- | --- |
-| Header | Analysis/dataset name, saved/modified state, Peaks toggle, Add peak, primary **Fit dataset** action and adjacent settings chevron. File/Edit/View/Analysis/Help commands live in normal menus. |
-| Comparison strip | Joined **Experimental / Overlay / Residual** selector, **Display…**, **Full spectrum**, **Pin slices** state, short layer/unit legend. The selector stays in place when modes are unavailable, with an explanation. |
-| Result line | One compact line: run identity/currentness, usable/total clusters, convergence and review-warning counts; **Review** reveals concise selected-cluster diagnostics in the rail. Before fitting: “Not fitted · 166 peaks · 131 planes”. During fitting this same line carries job progress and Cancel. |
-| Left rail | Search and peak list; after fitting, a **Peaks / Clusters** switch and Needs review filter. Below the list: selected identity, working coordinate editor, concise accepted-result comparison. Independent scrolling preserves useful list space. |
-| Spectral area | Dominant 2D spectrum, horizontal cross-section directly above it, vertical cross-section directly to its right. Their frequency axes align exactly with the 2D viewport. |
-| Plane strip | Previous/next, slider, exact one-based plane field, count and experiment-specific plane value/unit. A 2D dataset shows “Single plane”; no inactive slider. |
+| Toolbar | One row: analysis name and Modified state; run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the fit setup (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin traces, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
+| Navigator (left) | **Clusters / Peaks** tabs, search, filter chips with counts and sortable rows (§8). Before a fit only Peaks exists; rows show assignment and display-precision coordinates. |
+| Spectral area | Dominant 2D spectrum, row trace directly above, column trace directly to its right; their frequency axes align exactly with the 2D viewport. In the Cluster lens this area shows the lens (§3). |
+| Inspector (right) | Contextual pages chosen by selection (below). |
+| Plane strip | Previous/next, exact one-based plane field with count, slider by plane index, plane value with its optional display label (§5). Chosen reference planes are marked on the slider. A 2D dataset shows “Single plane”. No embedded profile plot. |
 | Status line | Preview/Pinned, sampled coordinates, raw intensity or residual with units, short contextual gesture hint. Long failures remain available in run details, not a disappearing toast. |
 
 The upper trace is a row at the sampled vertical coordinate; the right trace is a
 column at the sampled horizontal coordinate. Neither is a projection or sum.
-Plot tick labels use the loaded axis/nucleus names, not hard-coded H/N/F2/F3.
+Traces show measured data and, while a current model exists, the total model in
+common units; Residual shows residual traces. Plot labels use the loaded
+axis/nucleus names, not hard-coded H/N/F2/F3.
 
-### Contextual surfaces
+Both side panels are splitter panes with remembered widths (an application
+preference) and can be hidden completely with a toolbar toggle and shortcut.
+Default widths at 1280×800: navigator 256–280 px, inspector 300–320 px. Resizing
+never changes the user's panel choices; selection never opens a hidden panel, and
+background work never opens, closes or resizes one. Target minimum window 1040×720
+with at least 500×320 px of 2D plot; below that, hiding a panel is the remedy, not
+smaller text.
 
-- **Peak inspector:** always the selected working peak, never the hovered peak.
-  Name and unfolded ppm coordinates form one edit group. An expandable Parameters
-  section gives working starts, bounds and fixed/vary flags. Accepted values are
-  read-only, explicitly labeled by run, with value, unit and uncertainty status.
-  No selection shows a short instruction, not empty input fields.
-- **Concise review stays in the rail:** cluster members, convergence/usability,
-  one or two warning lines and working parameters sit beside the selected peak.
-  A pinned warning summary remains visible while longer inspector content scrolls.
-  Normal refinement opens no lower panel. Navigation retains at least four visible
-  rows; coordinates and parameter groups scroll independently of that list.
-- **Lower analysis panel:** starts closed and opens explicitly for Profiles,
-  Uncertainty plots, wide parameter/correlation tables or run History/provenance.
-  It is primarily a plot/wide-information surface, not a permanent diagnostic text
-  area. Background work never opens/resizes it. Closing it restores spectrum space.
-- **Fit dataset dialog:** a short-lived review of the actual scientific problem,
-  with advanced settings disclosed below essentials. It opens for initial setup or
-  explicit Settings; repeating a reviewed fit does not reopen it.
-- **Display popover:** display contour threshold/spacing/count, labels, exact fitting
-  samples, appearance/accessibility stroke weight. It never contains fit settings.
-- **Open/import and export dialogs:** native file selection followed by compact
-  validation or export choices. Errors identify the file, row/axis and remedy.
+### Inspector pages
 
-Use ordinary splitters and layouts. Do not add detachable docks, a ribbon, separate
-permanent toolbars for each plot, or an extensible panel framework.
+The inspector shows one page, chosen by selection and never by hover:
+
+- **Analysis (no selection):** before the first fit, the fit setup (§7); afterwards
+  the working settings, the active run's summary, warning counts and changes from
+  its parent run. Reachable at any time by clearing selection (Escape on the canvas),
+  from the toolbar settings summary or from Analysis → Fit settings.
+- **Peak:** identity and working-position editor (group commit, §5); an expandable
+  Parameters section with working starts, bounds and fixed/vary flags; accepted
+  values of the active run with value, σ and unit, labeled by run; the review items
+  of its cluster; and the amplitude profile with the other cluster members.
+- **Cluster:** members, numerical warnings, review measures and heuristics (§8),
+  amplitude profiles of all members, parameter table and amplitude-correlation
+  matrix.
+- **Lens:** in the Cluster lens the inspector widens to about 340 px and shows the
+  cluster page with every member's parameters side by side.
+
+The profile plot is at least 280×170 px at 1280×800. A page scrolls as a whole;
+there are no nested scroll areas. Provenance (optimizer, termination message,
+correction revision, run identity) sits behind one disclosure at the foot of each
+page rather than inline prose. No selection never shows empty input fields.
+
+Other surfaces: the **Display popover** holds display contour threshold, spacing
+and count, labels, fitting-sample regions and stroke weight, never fit settings.
+**Open/import and export dialogs** use native file selection followed by compact
+validation; errors identify the file, row/axis and remedy.
+
+Use ordinary splitters and layouts. Do not add detachable docks, a ribbon,
+per-plot toolbars, an extensible panel framework or freely arranged layouts. Wide
+future views (MCMC traces, run history) use the lens area or a separate explicit
+window, never a permanent lower panel.
 
 ## 3. Representative application states
 
-The accompanying annotated compositions use illustrative signals and values;
-they are design drawings, not new fit evidence or production screenshots.
+The mockups below are drawn at 1280×800 from the bundled dataset and a real
+two-pass fit: real contours, positions, amplitudes, covariances and fitting regions.
+They are compositions, not production screenshots or new fit evidence.
 
-### A. Before fitting: inspect and establish the peak list
+### A. Before the first fit: establish peaks and fit setup
 
-![Before fitting: left inspector and aligned spectral views](images/gui-v2-before.svg)
+![Before the first fit: Peaks navigator, cluster preview on the spectrum and fit setup in the inspector](images/gui-v2.1-before-fit.webp)
 
-The left rail exposes useful peak controls immediately. Only Experimental is
-available. A selected peak pins the slices; a user can resume preview without
-losing that selection. No empty result table or cluster list reserves space.
+The navigator shows Peaks. The spectrum shows experimental contours with visible
+markers. With nothing selected, the inspector shows the fit setup, and **Preview
+clusters** draws the clusters of the exact prepared problem on the spectrum (§7).
+Only Experimental is available; Overlay and Residual explain why.
 
-### B. After fitting: compare first, investigate on demand
+### B. Overview after fitting: find what deserves attention
 
-![After fitting: overlay with stable scientific scope](images/gui-v2-after.svg)
+![Fitted overview: cluster navigator sorted by reduced chi-squared, selected peak 22N-H with profile, fitted parameters and cluster review](images/gui-v2.1-overview.webp)
 
 Successful completion selects Overlay and automatically shows optimized positions
-in the markers, list and inspector. It preserves viewport, selection and panel
+in the markers, navigator and inspector. It preserves viewport, selection and panel
 visibility; a selected-peak pin follows the optimized peak once, while a free
-inspection pin stays fixed. The total model includes every usable cluster.
-The rail can switch to clusters, show warnings and guide review. Selecting a
-cluster highlights its members and exact recorded samples; it does not isolate
-its model or automatically zoom. **Frame cluster** is an explicit action.
+inspection pin stays fixed. The total model includes every usable cluster. The
+navigator switches to Clusters with warnings, measures, heuristics, sorting and
+filters (§8). Selecting a cluster highlights its members and recorded fitting
+region; it neither isolates its model nor changes the viewport. **Frame cluster**
+is an explicit action.
+The mockup shows the overview after the user switched to Experimental.
 
-### C. Refinement: visible working changes and retained evidence
+### C. Cluster lens: judge one cluster
 
-![Refinement: draft editing preserves accepted overlay and spectrum space](images/gui-v2-refinement.svg)
+![Cluster lens on 53N-H and 147N-H: experimental, overlay and whole-spectrum residual panels with raw signed profiles and amplitude correlation](images/gui-v2.1-cluster-lens.webp)
 
-The revised drawing keeps the full-height spectrum and puts concise diagnostics,
-working parameters and warnings in the left rail. An **uncommitted** coordinate or
-parameter draft leaves the valid current Overlay/Residual visible, labeled as
-accepted evidence; no provisional model is calculated. A committed manual edit
-makes that run Outdated and switches the live spectral views to Experimental.
-The lower panel stays closed through ordinary inspection, editing and refitting.
+Enter or double-click on a Clusters row, or **Open lens** in the inspector or
+context menu, replaces the spectral area with the lens; Escape (when no draft,
+gesture or dialog is active) or **‹ Spectrum** returns with the overview viewport
+unchanged. Three linked panels show the cluster region as **Experimental**,
+**Overlay** and **Whole-spectrum residual**, sharing zoom, crosshair, plane and
+markers. Below them, the row trace through the selected member shows measured
+data, total model and whole-spectrum residual in σ_stat with a ±3 σ band. The
+default region is the recorded fitting-sample extent plus a margin; zoom and pan
+are free. The comparison selector does not apply inside the lens; leaving restores
+the previous mode. The plane strip and profile points change plane in the lens.
 
-At 1280×800, use a 300–320 px rail (320 px in the native check), about 96 px upper
-trace and 115 px right trace. The native Cocoa check had a 1280×772 client area and
-an approximately **740×478 px 2D plotting rectangle**, with coordinate/linewidth
-fields and the selected overlap cluster's real uncertainty warning visible.
-See the [native refinement view](validation/gui-v2-refinement/native-refinement.webp)
-and [validation scope](validation/gui-v2-refinement.md). This validates density,
-not an implemented full application: the fit action is an explanatory stub, with
-fixture replay a separate probe command. Save, MCMC and real refit integration
-remain release gates.
+### D. Correct and refit
 
-At 1440×900, give extra space to the spectrum rather than enlarging text panels.
-A lower plot panel normally opens at 220 px, never reducing the 2D plot below
-350 px high at 1280×800. Below that size, show wide information in a separate
-explicit window if needed rather than squeeze the spectrum into a strip. Target
-minimum window 1040×720 with collapsible rail/details and at least 500×280 px of 2D
-plot. Large fonts may require closing a panel. Later resizing preserves choices.
+Drafts and commits follow §4–§5 in the overview and in every lens panel. An
+uncommitted draft keeps the accepted comparison visible and labeled. A commit
+makes the run Outdated; overlay and residual panels then show “Outdated · fit to
+compare” rather than stale data. **Fit** refits the whole dataset; the lens stays
+open on the cluster identified by its members' stable IDs. If membership changed,
+the lens says so and offers the new cluster containing the selected peak.
+
+At 1280×800 with both side panels open, the 2D plot is at least about 560×480 px.
+At 1440×900 and above, extra space goes to the spectrum. Large fonts may require
+hiding a panel; later resizing preserves choices.
 
 ## 4. Scientific state and result lifecycle
 
@@ -304,7 +327,8 @@ losing the sole result. Closing unsaved work retains the normal save guard.
 | Pin slices / canvas Space | Toggle preview/pinned. Resuming preview keeps selection and editor contents. Space in text inputs remains ordinary input. |
 | Add peak / canvas A | One-shot placement cursor; next click places a working peak with a unique placeholder name and selects it. Escape cancels without history. No automatic peak picking. |
 | Delete/Backspace in canvas/list | Delete selected peak, one undo entry, no routine confirmation; text fields keep normal text deletion. Multi-selection for deletion is list-only with native modifier keys and a visible count. |
-| Double-click marker or Enter in list | Focus coordinate editor, opening the rail explicitly if needed. |
+| Double-click marker, or Enter on a Peaks row | Focus the coordinate editor, revealing the inspector explicitly if hidden. |
+| Enter or double-click on a Clusters row | Open the Cluster lens on that cluster; Escape returns to the overview. |
 
 Picking uses a consistent logical-pixel tolerance across hover, click and drag,
 tested at multiple device pixel ratios. Coincident peaks present one small anchored
@@ -321,15 +345,21 @@ are not snapped to sample centers; only the inspection crosshair is snapped.
 Cross-sections follow the visible frequency ranges and have no independent pan.
 
 Plane navigation preserves original acquisition order, including equal or unordered
-plane values. The exact index is always visible. No values file means “Plane 1 of
-131 · no plane values”, not invented physical units. Selection of a profile point
-returns to its original plane. Plane changes keep ppm ranges and pinned row/column.
+plane values; the slider moves by plane index and the exact one-based index is
+always visible. The plane-axis label is optional, user-defined display metadata,
+independent of numerical values and calculations: with plane values the default
+label is “Plane value” without a unit; without values it is “Plane number”; the
+user may enter a descriptive name and unit when useful. PeakFit never infers the
+variable or its unit, whatever the experiment (offsets, frequencies, delays,
+temperatures or other series). Until a storage decision (§14) the label is
+session-only. Selecting a profile point returns to its original plane. Plane
+changes keep ppm ranges and the pinned row/column.
 
 ### Precise edits without Apply
 
 Enter or leaving the complete editing group commits all valid changes together.
 Tab/Shift+Tab inside it retains the draft. Escape discards the whole group. Clicking
-another peak, hiding the rail, saving/exporting or fitting first resolves the draft.
+another peak, hiding the inspector, saving/exporting or fitting first resolves the draft.
 A valid no-op creates no Undo entry and no scientific revision. Valid/invalid drafts
 do not hide an otherwise current comparison; a small Draft label identifies that
 the editor differs from the displayed accepted model. Escape leaves mode/scale
@@ -343,8 +373,11 @@ Menus, popovers and loss of application focus are not accidental group exits.
 Deletion explicitly discards that peak's draft, then deletes its committed record.
 
 Store float64 values without display rounding. Unchanged fields retain their exact
-value; no-op focus/formatting never changes science. Coordinate fields display
-eight decimal places by default and reveal full round-trip precision on focus/copy.
+value; no-op focus/formatting never changes science. Unfocused coordinates show one
+decimal place beyond the axis digital resolution (ppm per point; for the bundled
+dataset four decimals in ¹H and three in ¹⁵N); focus and copy reveal full
+round-trip precision. Fitted values show σ to two significant figures and the
+value to the same decimal position. Display precision never changes stored values.
 Accept scientific notation and either an unambiguous local decimal separator or
 dot; do not accept thousands separators or ambiguous mixed punctuation. Exports
 use canonical round-trip dot-decimal values. Reject non-finite numbers. Show ppm,
@@ -367,8 +400,14 @@ canvas arrows move the pinned sample one point; explicit axis/range fields in
 View support navigation without a pointing device. Escape acts on the current
 draft/gesture/dialog, never silently cancels a numerical job.
 
-Every visible command is keyboard reachable; focus order follows header → rail →
-plots → open details → plane strip. Labels have buddies; the comparison selector
+In the navigator, arrows move, Enter opens the lens on a Clusters row (§5 table)
+and N / Shift+N move to the next/previous row matching the active filters. With
+the canvas focused, E / O / R choose Experimental / Overlay / Residual, [ and ]
+change plane, A adds a peak and Space pins. Single-letter keys never act inside
+text fields.
+
+Every visible command is keyboard reachable; focus order follows toolbar → navigator →
+plots → inspector → plane strip. Labels have buddies; the comparison selector
 is one accessible choice group. Provide a keyboard-shortcuts help sheet. Plot
 accessibility exposes sampled values, selected identity and numerical tables;
 screen-reader access must not depend on reading contour geometry.
@@ -400,52 +439,67 @@ peaks; accepted cluster IDs belong only to their original run.
 The Peaks list searches assignment text and stable identity; the Clusters list
 searches members and run-local cluster ID. Search/filtering never deletes data or
 changes scientific scope. A selected item hidden by filtering remains identified
-in the inspector with **Reveal in list**. Need-review navigation follows a stable
-order with Previous/Next and count. A user review acknowledgement is separate from
-numerical warnings; it cannot erase them or make an outdated run current.
+in the inspector with **Reveal in list**. Review navigation follows the navigator's
+current sort and filters with Next/Previous and a count (§8). A user acknowledgement
+of review would be separate from numerical warnings and could never erase them or
+make an outdated run current; recording it is a deferred storage decision (§14).
 
 ## 7. Fit setup, execution and acceptance
 
 **Fit dataset always fits the whole working dataset**, independent of selection,
-viewport and display mode. First use opens Settings for scientific review. Thereafter
-the main button (and Cmd/Ctrl+Return) repeats with the last reviewed settings,
-committing valid inspector drafts and asynchronously preparing the current optimized
-working positions afresh. The adjacent chevron offers Settings; no routine confirmation
-dialog intervenes. New invalid bounds or newly omitted/ambiguous peaks stop with
-an actionable review, rather than silently reusing old masks or excluding peaks.
-The settings dialog reviews all peaks and every source plane;
-v2 initially provides no plane exclusion workflow. Show resolved lineshapes per
-axis (including processing-derived assumptions), statistical noise and its method,
-clustering contour as both noise factor and absolute intensity, and optimizer
-passes. Default to two passes, with cross-talk updates only between passes, as
-in the current GUI. CLI defaults are unaffected.
+viewport, lens and display mode. Scientific settings are always visible and
+explicit; a modal confirmation dialog does not gate fitting.
 
-Expanded Scientific settings exposes effective starts, units, bounds, fixed/vary
-flags, position windows, solver, iteration limit and tolerance. Models requiring
-phase/coupling parameters reveal those controls only when relevant. Imported
-multi-step configurations show their actual ordered steps and effective schedule;
-the simple pass field is replaced, not shown as a competing control. Supported
-settings must round-trip through the engine configuration; never silently discard
-unrepresented settings. Dialog settings are a draft until Run fit; Cancel discards
-them without invalidating a current result. Run commits the reviewed settings and
-starts that exact problem. Changing a draft setting invalidates preparation.
+**Fit setup.** Before the first fit the inspector's Analysis page is the fit setup
+and is shown by default: resolved lineshape per axis with its source (for example
+“SP2 · from NMRPipe apodization” or “explicit”); statistical noise with value and
+method; clustering threshold as a noise factor and as absolute intensity; optimizer
+passes (default two, cross-talk updates only between passes, as in the current GUI;
+CLI defaults are unaffected). **Advanced** discloses solver, iteration limit,
+tolerance and an imported multi-step schedule, which replaces the pass field rather
+than competing with it. Phase/coupling controls appear only for models that need
+them. Per-peak starts, bounds, position windows and fixed/vary flags live in the
+Peak page's Parameters section, not in a dataset-wide table. Setting edits are
+working-input drafts with the same group-commit rules as coordinates; a committed
+change marks an existing run Outdated. Supported settings round-trip through the
+engine configuration; unrepresented settings are never silently discarded. v2
+provides no plane-exclusion workflow; every source plane is fitted.
 
-Before **Run fit**, asynchronously prepare the exact input snapshot, show cluster
-and point counts, missing/excluded peaks with reasons, resolved models and bounds,
-and errors/warnings. Repeated fits show this preparation summary in the result line
-and continue automatically when valid; materially new omissions/ambiguities require
-explicit review. No peak is silently omitted. Run remains disabled for invalid
-inputs or obsolete preparation. The reviewed snapshot is the executed snapshot.
-Statistical noise must be finite and positive; an override records its value and
-source. Display-contour noise/threshold changes never alter clustering, samples,
+**Clustering preview.** **Preview clusters**, on by default in the fit setup,
+prepares the exact fitting problem off Qt with the same preparation function that
+Fit submits, and draws its clusters on the spectrum: member grouping and sampled
+fitting regions, with cluster and sample counts and any omitted or ambiguous peaks
+with reasons. It depends only on working peaks, scientific settings and source
+data, never on display contour threshold, spacing or count, which are labeled
+display-only. A committed change hides the preview and starts a fresh preparation;
+an obsolete preview is never shown. After a fit, the spectrum can show the active
+run's recorded fitting regions; a preview for changed settings is labeled “Preview
+for current settings”, distinct from “Recorded in run N”.
+
+**Running.** **Fit** (toolbar, Cmd/Ctrl+Return) commits valid drafts and submits
+the prepared snapshot that the setup describes; the executed snapshot is the
+reviewed one. Safeguards replace the confirmation dialog: the first Fit of an
+analysis whose setup has not been displayed in this session reveals the Analysis
+page instead of running, and the next Fit runs; Fit is disabled, with the reason
+in the setup, when an automatic lineshape cannot be resolved or conflicts with
+processing metadata, when bounds are invalid, when statistical noise is not finite
+and positive, or when preparation reports newly omitted or ambiguous peaks. No peak
+is silently omitted. A statistical-noise override records its value and source.
+Display-contour noise/threshold changes never alter clustering, samples,
 statistical noise, starts, bounds or run readiness.
+
+**Discoverability after fitting.** The toolbar always shows a compact summary of
+the working settings (for example “SP2 × SP2 · clusters ≥ 5 σ · 2 passes”) that
+opens the Analysis page; the run chip opens the run record with the settings
+actually used. When working settings differ from the active run's, both say so.
+Settings are never reachable only through a menu or a button chevron.
 
 During fitting, keep pan/zoom, plane navigation and read-only inspection available.
 Pause scientific edits, replacement and sampling, with a short reason. Show actual
 stage/pass/cluster and elapsed time. Use determinate progress only when the engine
 provides a denominator; correction/finalization stages may be indeterminate. Do not
-invent ETA from cluster count. Cancel stays visible in the result line even with
-details closed. Cancel requests stop and reaping; until acknowledged show Canceling.
+invent ETA from cluster count. Cancel stays visible in the toolbar.
+Cancel requests stop and reaping; until acknowledged show Canceling.
 No partial run becomes accepted. Crash/failure identifies the stage and preserves
 the old analysis and full diagnostic log. Closing a running analysis offers
 Keep running / Stop and close, then the usual unsaved-analysis choice.
@@ -461,7 +515,8 @@ explained. Default Overlay only when there is an evaluable model.
 
 ## 8. Comparison and scientific review
 
-One selector controls **all spectral views**, including crosshair-intensity profiles:
+One selector controls **all spectral views** outside the Cluster lens (§3), including
+crosshair-intensity profiles:
 
 | Mode | 2D and aligned 1D behavior |
 | --- | --- |
@@ -469,13 +524,14 @@ One selector controls **all spectral views**, including crosshair-intensity prof
 | Overlay (default after fit) | Experimental plus sum of every usable accepted cluster, common contour levels and common trace units/scales. Selection never changes this sum. |
 | Residual | Native experimental data minus that same total model, displayed as `(D − M) / σ_stat`. Signed residual contours by default in 2D and residual samples/traces in both slices. Crosshair profiles use the same difference and units. |
 
-Observed/model layers differ by color and stroke pattern; sign also has a visible
-encoding. The legend explicitly describes the combination: measured positive solid,
-measured negative dashed; calculated positive dashed, calculated negative dotted.
-Color still separates measured-negative from calculated-positive.
+Layers and signs are encoded twice, by hue and by stroke, with the fixed scientific
+palette of §12: measured positive as a graded blue ramp (solid), measured negative
+in plum (dashed), model in amber (solid positive, dotted negative) drawn over a
+lightened measured layer in Overlay. In-plot legends name each layer; no layer
+shares a hue with another.
 
 **Residual default: signed contours**, initially at ±3, ±5, ±8, ±13 and ±21 σ_stat,
-positive ochre solid and negative blue dashed. Display can lower/widen those levels;
+positive vermilion solid and negative teal dashed. Display can lower/widen those levels;
 they are distinct from experimental contours and scientific clustering thresholds.
 The legend always states the first level: absence of a contour means below the
 visible threshold, not zero residual. Do not draw zero/noise-level contour forests.
@@ -485,7 +541,7 @@ the raster made weak/correlated noise more visible but obscured sparse structure
 This is a design assessment of that dataset, not a universal statistical result.
 
 A contextual **Display → Residual rendering → Raster** remains available for
-noise-field inspection, with an explicit blue/neutral/ochre −3/0/+3 σ scale and
+noise-field inspection, with an explicit teal/neutral/vermilion −3/0/+3 σ scale and
 saturation indicators. No extra permanent control. Both renderings use the same
 native total residual; no smoothing, denoising or sample interpolation. Contour
 geometry interpolates crossings, not observations. Missing samples stay absent.
@@ -516,20 +572,64 @@ default and are not residual support. Model tails remain visible without silent 
 
 
 
-**Recorded optimizer residual** is separately labeled in cluster Review:
-`D_cluster − terminal_neighbor_corrections − cluster_model`. It can differ from
-the whole-spectrum difference because terminal corrections need not equal final
-neighbor models. Its statistics never come from the display raster. No local-fit
-residual is presented as a total-model residual. Details show sample counts,
-parameter freedom, noise, termination reason, bounds, analytical errors and
-uncertainty warnings. Unavailable values say Unavailable with a reason, never zero.
+### Two residuals, never mixed
 
-Needs review includes engine-reported failures/non-convergence, unusable outcomes,
-unreliable uncertainties and parameters at bounds. Numerical thresholds and their
-definitions are inspectable and versioned; no invented universal “fit score”.
-Recorded residual statistics may guide ordering but cannot prove absence of
-structured residuals. The user can flag suspicious residual structure/assignments
-and add a short note. Acknowledgement records review without hiding the evidence.
+The **recorded optimizer residual** is
+`D_cluster − terminal_neighbor_corrections − cluster_model` on a cluster's corrected
+fitting samples, normalized by statistical noise, exactly as stored in the outcome.
+χ²ᵣ and the largest recorded residual come from it. The **whole-spectrum residual**
+is `(D − Σ usable M) / σ_stat` at every native point, including outside fitting
+masks; the Residual view, the lens residual panel, residual traces and the
+unexplained-signal list use it. They can differ on fitted samples because terminal
+corrections need not equal final neighbor models. Every display names which one it
+shows; neither is derived from the other, and no statistic comes from the display
+raster. No local-fit residual is presented as a total-model residual.
+
+### Review: numerical warnings, measures and heuristics
+
+There is no overall quality score, ranking formula or pass/fail verdict, in the UI
+or in exports. Review items belong to three families, kept visually and textually
+separate. Each item states its value, definition and source. Unavailable values say
+Unavailable with a reason, never zero; inapplicable items say so (for example a
+correlation for a one-peak cluster).
+
+| Family | Item | Definition and source |
+| --- | --- | --- |
+| Numerical warning (objective, engine-recorded) | Unusable | Recorded classification and reason. |
+| | Not converged | Usable non-converged classification with its termination message. |
+| | Uncertainty unreliable | The engine's recorded uncertainty warning. One message covers several causes today; recording them separately is a deferred storage decision (§14). |
+| | At bound | A varied recorded parameter within 10⁻⁶ of its range from a recorded bound; the parameter is named. |
+| Review measure (descriptive number) | χ²ᵣ | Recorded statistic on corrected fitting samples; relative to the statistical-noise estimate, so it inherits that estimate's accuracy. An elevated value does not by itself mean a wrong assignment. |
+| | Largest recorded residual | Maximum \|normalized recorded residual\| in σ, shown with the sample count. Read it against that count: the largest of 10⁴ independent standard-normal values is typically about 4 σ. |
+| | Amplitude correlation | Largest \|ρ\| between members from the recorded amplitude covariance (one matrix per cluster, shared by all planes); the full matrix is on the cluster page. It is conditional on the fitted lineshape parameters. Unavailable when the recorded covariance is unavailable; not applicable for one-peak clusters. A small residual with \|ρ\| near 1 means the decomposition is not determined by the data. |
+| Heuristic (descriptive, adjustable threshold) | Large position shift | \|fitted − initial\| position, converted to Hz with the axis spectrometer frequency, relative to the fitted linewidth; default highlight above 0.5. |
+| | Linewidth outlier | Fitted linewidth relative to the run's median for that axis over usable peaks; default highlight outside 0.5–2×. |
+
+Numerical warnings appear as a warning glyph with text on every affected row and
+page; the toolbar summary counts only these. Measures are sortable navigator
+columns. Optional highlight thresholds on measures and all heuristics use a
+subdued glyph labeled with the rule (“\|ρ\| ≥ 0.9”, “shift 1.03 × LW”) and never
+the warning colour. Thresholds are application display preferences, shown with
+each highlight; changing them changes no scientific data or run state, and their
+definitions are versioned with this document. Filters offer one chip per warning
+type and per highlight plus “Any warning” and “Any highlight”, each with counts.
+The default sort is by assignment; any measure sorts with one click. Measures and
+highlights cannot prove the absence of structured residuals, so whole-spectrum
+residuals remain one key away.
+
+For the bundled dataset (two passes) all 121 clusters converge and are usable;
+three carry the uncertainty warning, those same three have amplitude correlation
+\|ρ\| = 1.00, and the median χ²ᵣ is 1.97.
+
+### Unexplained signal
+
+**Signal not explained on this plane** is a read-only list computed on request from
+the whole-spectrum residual of the current plane: connected regions beyond ±k σ_stat
+(default k = 5, a display preference) with location, extreme value, size in samples
+and distance to the nearest working peak. Selecting a region frames it. The list
+never adds or proposes peaks, never flags a cluster and does not imply a poor fit of
+the peaks chosen for analysis; unmodelled signals may be deliberately excluded. It
+uses the same off-Qt model projection as the Residual view.
 
 On a plane/mode/revision change, remove mismatched calculated/residual graphics
 immediately. Show the experimental plane as an explicitly labeled temporary
@@ -538,16 +638,17 @@ Residual label. Coordinate-matched calculated slices may arrive before the model
 plane, but each pending view is labeled and never reuses another plane's values.
 Only the latest valid request is installed. The mode, zoom and pin survive work.
 
-## 9. Refinement and intensity profiles
+## 9. Refinement and amplitude profiles
 
-Review a flagged cluster → frame it explicitly → inspect residual and parameters →
-edit a draft while comparing accepted evidence → commit → **Fit dataset** → see
-optimized positions and review the new run. Concise diagnostics stay in the rail;
-wide tables/plots open below only on request.
-The inspector labels **Working for next fit** and **Accepted · run …**. It shows
-differences without pretending that typed linewidths have already been fitted.
-Changing a model rebuilds its applicable working fields, with a preview of removed
-settings; incompatible bounds are errors rather than silently adjusted guesses.
+Find a cluster in the navigator → open the lens → judge experimental, overlay and
+whole-spectrum residual side by side with profiles, parameters and correlations →
+edit a draft while accepted evidence remains visible → commit → **Fit** → review the
+new run in the same lens. The inspector labels **Working for next fit** and
+**Accepted · run N**; typed values are never presented as fitted. Changing a model
+rebuilds its applicable working fields with a preview of removed settings;
+incompatible bounds are errors rather than silently adjusted guesses. Each run shows
+its changes from the parent run: clusters whose warnings or highlights changed and
+peaks whose fitted positions moved by more than their σ.
 
 Whole-dataset refitting is the single production refinement command in v2. Cluster
 selection supplies focus, not scope. An isolated cluster optimization cannot
@@ -556,7 +657,7 @@ completion must remain coherent. The existing isolated Local fit workflow is
 retired from the primary v2 UI; its exports remain readable as explicitly local
 numerical evidence. A future local-trial feature needs a separate reviewed contract.
 
-Profiles provides an explicit quantity choice:
+Profiles have an explicit quantity:
 
 - **Crosshair intensity:** native observations and matching total model, or total
   residual in Residual mode. Header gives sampled location and units.
@@ -565,17 +666,65 @@ Profiles provides an explicit quantity choice:
   This is a parameter profile, so the spectral comparison selector does not
   transform it into “residual amplitudes”; the quantity label remains visible.
 
-Points remain unconnected by default; repeated/unordered plane values remain
-distinct selectable observations. Preserve source index in tooltips and tables.
-No response law, normalization, integration or interpolation is implied. A
-parameter profile from an outdated run stays read-only and explicitly labeled;
-a crosshair/model profile is disabled when the model comparison is outdated.
-Analytical and MCMC intervals have separate names and explanations; they are not
-interchanged automatically.
+Points remain unconnected; repeated/unordered plane values remain distinct
+selectable observations, with source index in tooltips and tables. No response law,
+integration or interpolation is implied. A parameter profile from an outdated run
+stays read-only and labeled; a crosshair/model profile is disabled when the model
+comparison is outdated. Analytical and MCMC intervals have separate names and
+explanations and are never interchanged automatically.
+
+**Default: raw signed amplitudes** for every experiment, in recorded units with
+engineering axis scaling (for example ×10⁵) and a visible zero. The selected peak is
+emphasized and other cluster members are drawn lighter on the same scale. When at
+most two observations lie beyond a gap wider than half the span, the plot frames the
+rest and labels them off-scale, with **Show all points**.
+
+### Reference-normalized profiles (display only)
+
+**Normalize to reference** is optional. The user chooses an explicit set S of one
+or more reference planes by source plane index, never by value, since values can
+repeat. PeakFit may point out an isolated plane but never applies a reference by
+itself. The axis states the reference, for example “A / A_ref (plane 1)”.
+Normalization is a display transform of recorded amplitudes: it never alters
+authoritative amplitudes, uncertainties, exports, run records or saved scientific
+results. Until a storage decision (§14) the reference choice is session-only.
+
+For a peak with amplitudes A_k and scaled analytical standard errors σ_k:
+
+- R = (1/n) Σ_{j∈S} A_j and r_k = A_k / R.
+- Uncertainty uses first-order propagation with the full gradient, so that a
+  numerator belonging to S is correlated with R:
+  ∂r_k/∂A_k = 1/R − [k∈S]·A_k/(nR²); ∂r_k/∂A_j = −A_k/(nR²) for j ∈ S, j ≠ k;
+  σ²(r_k) = Σ_j (∂r_k/∂A_j)² σ_j².
+- For k ∉ S this reduces to σ²(r_k) = (σ_k² + r_k² σ_R²) / R², with
+  σ_R² = (1/n²) Σ_{j∈S} σ_j².
+- The current analytical uncertainties hold lineshape parameters fixed, so
+  amplitudes of different planes come from disjoint observations with independent
+  noise and have zero covariance. Uncertainty from shared lineshape parameters is
+  not included; the authoritative σ has the same limitation and the profile says so.
+
+Special cases:
+
+- **n = 1, k ∈ S:** r_k = 1 exactly with zero uncertainty; it is drawn as a reference
+  marker, not as an observation with an error bar.
+- **n > 1, k ∈ S:** the correlated expression applies and the point is marked as part
+  of the reference.
+- **Unavailable:** if R is zero or non-finite, if σ_R is unavailable, or if σ_R/|R|
+  exceeds a reliability limit (default 0.1, displayed), normalization is unavailable
+  for that peak with the reason (“reference not distinguishable from its uncertainty:
+  σ_R/|R| = 0.34”) and the raw profile remains. First-order propagation is not used
+  beyond this limit because the ratio's distribution becomes strongly skewed.
+- **Unavailable σ for the peak:** the normalized profile is unavailable rather than
+  shown without error bars.
+- **Negative R** is valid for signed data; ratios keep their sign and the label
+  states the reference sign.
+
+When MCMC samples exist, a ratio computed per sample is a separate, named display; it
+replaces nothing automatically.
 
 ## 10. MCMC uncertainty workflow
 
-From a usable current result, **Uncertainty…** opens the lower panel. Default scope
+From a usable current result, **Uncertainty…** opens in the Cluster lens. Default scope
 is the selected peak's whole overlap cluster; no selection requires an explicit
 choice of cluster(s) or All fitted clusters. Display all included members. Sampling
 is post-fit analysis of a named parent run, not a replacement optimizer or a way
@@ -763,8 +912,8 @@ necessary. Scientific detailed-evidence exports remain a separate operation;
 they do not change the project persistence policy.
 
 **Export…** separates Working peaks, Accepted fit results, Profiles/tables,
-Uncertainty diagnostics/chains and Figure. Canonical JSON/CSV retains existing
-schemas and units. Existing fitted-coordinate fields keep their meaning. Add a
+Uncertainty diagnostics/chains and Figure. Canonical JSON/CSV schemas are versioned and change
+when a cleaner design warrants it; a field never changes meaning silently. Add a
 versioned companion/table keyed by run/peak ID for `initial_unfolded_ppm`,
 `fitted_unfolded_ppm` and adoption status/reason; Working peaks exports current
 optimized/manual coordinates and identifies them as working positions. Never
@@ -776,36 +925,36 @@ by default and states whether it uses experimental, overlay or residual data.
 Exports never rewrite raw spectra. Saving/reopening a complete analysis is a release
 criterion, not an optional add-on after GUI v2 is declared complete.
 
-## 12. Restrained visual system
+## 12. Visual system
 
-Use Qt layouts, standard inputs and a shared small palette/spacing vocabulary.
-Use Fusion for predictable cross-platform control metrics, QPalette for appearance,
-and limited scoped QSS for consistent selected/hover/focus states. Keep native menus,
-dialogs and standard shortcuts; no custom title bar or scientific canvas renderer.
+Quiet chrome, loud data: colour belongs to the science, and chrome is neutral and
+compact. Implement with Qt layouts and standard inputs; one tokens module that feeds
+QPalette, a short scoped QSS, a QProxyStyle over Fusion for control metrics and focus
+rings, and every plot pen; no colour literals elsewhere. Keep native menus, dialogs
+and standard shortcuts; no custom title bar or scientific canvas renderer. PyQtGraph
+views share one plot-style function and an AxisItem subclass for tick formatting.
 
 | Element | Design rule |
 | --- | --- |
-| Typography | System UI family; 13 px equivalent body/controls, 12 px plot labels/secondary text, 16 px dataset title; respect system font scaling. Semibold for selected identity/section heading only. Tabular numerals in numeric fields/tables. Never reduce labels to fit. |
-| Rhythm | 4/8/12/16/24 logical-pixel spacing; 12–16 px panel padding, 8 px field gaps, roughly 30–32 px controls and 28–32 px rows at default scale. |
-| Surfaces | One quiet workspace background, one subtle rail/detail surface, thin dividers, 4 px control corners. Avoid nested cards, gradients, shadows and boxes around every value. |
-| Hierarchy | One filled blue Fit action; secondary commands outlined or text-with-icon. Destructive actions contextual. Text labels for essential commands; tooltips supplement them. |
-| Light palette | Background `#FBFCFD`, surface `#F0F3F6`, text `#25313D`, secondary `#586875`, border `#BAC5D0`, accent `#23688A`. |
-| Dark palette | Background `#171D24`, surface `#202833`, text `#E1E7EE`, secondary `#AAB7C4`, border `#4B5B6C`, accent `#73B5D5`. |
-| Scientific layers | Measured blue, calculated ochre; both signs patterned as specified above. Preview light blue dotted crosshair, pinned amber dashed crosshair. Hover halo thin; selected ring stronger and persistent. Editing adds a distinct handle and text. |
-| State | Neutral Pending; amber Outdated/Warning; red Failed/Invalid. Always include text/icon, not color alone. Current means verified run-derived state match, never “scientifically correct”. |
-| Focus/contrast | Persistent keyboard focus outline, distinct from selection; normal text ≥4.5:1 and essential graphics/control boundaries ≥3:1 against adjacent background. Validate actual rendered palettes, including disabled explanations and residual scale. |
+| Typography | System UI family; 13 px body/controls, 12 px secondary text and plot labels, 11 px minimum for dense captions, 15 px selected identity; respect system font scaling. Tabular numerals (OpenType `tnum`) in every numeric field, table, axis and status. One shared number formatter (§5 display precision; engineering axis scaling, never `2e+06`). Semibold only for selected identity and section titles. Never shrink labels to fit. |
+| Rhythm | 4/8/12/16/24 logical-pixel spacing; 24–26 px controls, 28–30 px navigator rows, 10–14 px panel padding. |
+| Surfaces | Window, chrome, panel and plot surfaces only; thin dividers; 4–6 px radii; no shadows, gradients or nested cards inside the window. |
+| Commands | One filled accent **Fit** action. Canvas tools are icon buttons from one permissively licensed SVG set, tinted from tokens, with tooltips naming shortcuts; the comparison selector is a joined segmented control. Unavailable commands are disabled with an explanation; a command is hidden only when it cannot apply to the dataset (plane controls for a 2D spectrum). |
+| Light UI palette | Window `#EEF0F3`, chrome `#F7F8FA`, panel `#FBFBFC`, plot `#FFFFFF`, divider `#E1E5EA`, text `#1D232B`, secondary `#67717D`, accent `#2F5DA8`, selection `#DBE6F6`. |
+| Dark UI palette | Window `#0F1318`, chrome `#171C22`, panel `#1A2027`, plot `#13171C`, divider `#29313A`, text `#E1E6EC`, secondary `#99A4B0`, accent `#7EA6E8`, selection `#22324A`. |
+| Scientific encoding | Measured positive: graded blue ramp ending at `#1F4F99` light / `#8FB3EA` dark, low levels thinner and lighter. Measured negative: plum `#8E3B8E` / `#D08AD0`, dashed. Model: amber `#C98512` / `#E9A83C`, dotted when negative. Whole-spectrum residual: positive vermilion `#D2492E` / `#F07A5E` solid, negative teal `#1F8A8A` / `#4CC2C2` dashed. Profile members: a categorical set distinct from layer hues. Pinned crosshair amber dashed; selection ring accent. |
+| Markers and labels | Small crosses with a plot-coloured halo, drawn above contours and visible at full view. Labels for the selection, its cluster and hover; all labels when zoom leaves room or when Display requests them. |
+| State | Neutral Pending; amber glyph with text for numerical warnings and Outdated; red for Failed/Invalid; subdued outline glyph with its rule for heuristic highlights. Never colour alone. Current means verified run-derived state match, never “scientifically correct”. |
+| Focus/contrast | Visible keyboard focus distinct from selection; normal text ≥4.5:1 and essential graphics/control boundaries ≥3:1 in both appearances, including disabled explanations, profile plots and residual scale. Every plot follows the appearance. |
 
-The border tokens are decorative dividers. Essential input boundaries and selected
-controls use stronger secondary/accent colors where required to meet contrast;
-the illustrative layouts are composition references, not contrast certification.
-
-Fine antialiased contours use the proven one-physical-pixel setting as the initial
-default; traces/selection/focus remain stronger. Provide an accessible heavier
-stroke preference and validate its cost separately. If fine lines are unreadable
-on a tested display, readability takes priority: profile/revise rendering before
-claiming acceptance. Theme changes preserve data, numerical values, viewport,
-selection and caches' scientific identity. Default appearance follows the system;
-View offers System / Light / Dark rather than a permanent theme button.
+The hex values are the starting tokens; rendered palettes must be checked for
+contrast before acceptance. Contours are graded antialiased strokes starting at
+one physical pixel for the lowest level; traces, selection and focus remain
+stronger. Provide an accessible heavier-stroke preference and validate its cost
+separately. If fine lines are unreadable on a tested display, readability takes
+priority. Theme changes preserve data, numerical values, viewport, selection and
+caches' scientific identity. Default appearance follows the system; View offers
+System / Light / Dark rather than a permanent theme button.
 
 macOS gets the application menu and standard file dialogs; Linux keeps a conventional
 window menu and the same content hierarchy. Verify both X11 and Wayland where
@@ -823,14 +972,14 @@ fixtures with signed overlap, aliases, unusable clusters and repeated plane valu
 | --- | --- |
 | UX-1 | A scientist can open real data, locate an assignment, pin/unpin slices, edit/Undo, fit, inspect residuals, refine, sample, save, reopen and export using visible commands and short help. A moderated walkthrough requires no instruction on hidden gestures; any missed action becomes a concrete design issue before release. |
 | UX-2 | Hover never selects or overwrites a draft; selection/list/marker agree; pin survives unrelated hover; canceled drags leave no history; a completed drag/group edit adds exactly one entry. Test real pointer/keyboard input as well as Qt events. |
-| UX-3 | Before fit, after fit and refinement layouts remain readable at 1280×800 and near 1440×900, both appearances; minimum-window operation remains possible. No clipped numeric units, obscured Cancel, panel opening on delivery or lost viewport. |
+| UX-3 | Before-fit (with fit setup and clustering preview), overview, lens and refinement layouts remain readable at 1280×800 and near 1440×900 in both appearances with both side panels open; minimum-window operation remains possible with panels hidden. No clipped numbers or units, nested scroll areas, obscured Cancel, panel opening on delivery or lost viewport. |
 | UX-4 | Keyboard can perform selection, exact coordinate and sample navigation, editing/cancel/Undo, fit/cancel, save and review. Screen-reader names/state and focus order are checked on both platforms; disabled actions explain why. |
 | SCI-1 | Native row/column/plane values match source arrays exactly; cross-section frequency alignment error ≤1 logical pixel after resize/zoom. Repeated plane values retain distinct source indices. Alias round-trips and unchanged coordinate edits preserve original float64 values. |
 | SCI-2 | Overlay/model values match the authoritative completed projector within an explicitly tested numerical tolerance; signs, all usable contributions and mask-independent tails survive every mode. No view performs an amplitude solve. Display controls leave prepared scientific inputs byte/value-equivalent. |
 | SCI-3 | Total residual equals native `D − Σ usable M`, normalized only by retained statistical noise. Recorded corrected residuals/statistics stay unchanged. Mixed/all-unusable cases show incomplete/no model honestly. Pending views never show mismatched plane/run data. |
 | SCI-4 | Drafts, including invalid text, preserve current comparison/mode/scale; Escape removes only the draft. Every committed manual scientific edit invalidates comparison. Undo alone never recertifies. Accepted arrays/parameters remain unchanged; cancellation publishes no partial outcome. |
 | SCI-6 | Successful completion atomically adopts every usable valid fitted position by stable ID, preserves exact submitted seeds and result, and stays Current through the recorded completion transition. Mixed unusability retains prior position pairs with warnings. Test aliases, duplicate assignments, non-convergence, uncertainty warnings, malformed mappings, crash/cancel and no-op shifts. Next fit prepares fresh masks/clusters from optimized seeds. |
-| UX-5 | Twenty place/fit/adjust/refit cycles require no Apply/transfer or third-run save prompt; routine repeated fits reuse reviewed settings. History remains navigable with explicit evidence levels and bounded memory/payload retention. |
+| UX-5 | Twenty place/fit/adjust/refit cycles require no Apply/transfer, settings dialog or third-run save prompt; routine fits run the visible working settings. History remains navigable with explicit evidence levels and bounded memory/payload retention. |
 | UX-6 | Hover ≥500 samples across strong/weak peaks, several planes and both signs: amplitude limits remain unchanged, measured/calculated axes agree, mode-specific scales restore exactly and clipping is explicit. |
 | SCI-5 | Sampling uses the selected cluster's exact validated parent problem; cancellation, incomplete chains, unavailable intervals and diagnostic assumptions are visible. Analytical and MCMC uncertainty labels/exports retain their actual meanings. |
 | SAVE-1 | Save → close → reopen preserves working values, exact review arrays, run-derived currentness, exact initial versus optimized coordinates, original plane identity and retained chains without refitting. Verify model reconstruction by evaluation separately from numerical-only reopening. Corrupt/missing inputs, disk-full, interrupted save and version mismatch have explicit tested outcomes. |
@@ -843,6 +992,10 @@ fixtures with signed overlap, aliases, unusable clusters and repeated plane valu
 | PERF-3 | While loading/projecting/fitting/sampling, target p95 event-loop heartbeat gap ≤33 ms and no unexplained >100 ms stall. Cancel acknowledges ≤100 ms, target worker termination/reaping ≤1 s. Record cold preparation/dialog/finalization costs too; do not omit outliers. |
 | PERF-4 | Caches and run retention have measured bounds. Repeated hover and 100 plane round trips do not grow memory monotonically; record RSS/cache footprint, platform, DPR, dataset and cache policy. Larger data may compute longer but cannot silently reduce science to meet timings. |
 | PERF-5 | On declared hardware, report first/routine Save and Save as duration, bytes read/written and project size with small and very large external datasets but fixed retained evidence. Instrument routine Save to require zero source-content hashing/copying and zero unchanged evidence/chain rewrites; storage and save I/O scale with project evidence, not source size. Measure initial fingerprinting and reopen/relink verification separately, off Qt with progress/cancellation. |
+| SCI-7 | Review items equal recorded values: warnings from classification, recorded warning and bounds; χ²ᵣ and largest recorded residual from the recorded optimizer residual only; correlations from recorded covariance, including Unavailable and not-applicable cases; heuristics labeled with their rule. No composite score exists in the UI or exports, and the whole-spectrum residual never feeds a cluster item. |
+| SCI-8 | Normalized profiles match an independent calculation for k ∉ S, k ∈ S with n = 1 (exactly 1, zero σ) and n > 1 (correlated), negative R, zero/non-finite R, unavailable σ and σ_R/\|R\| above the limit. Authoritative amplitudes, σ, exports and saved results are value-identical with normalization on or off. |
+| SCI-9 | The clustering preview equals the clusters and samples of the submitted preparation for the same working inputs and settings, and no display-contour setting changes it. |
+| UX-7 | The working-settings summary is visible at all times, the Analysis page is reachable without menus, and differences between working and run settings are labeled. The first Fit of an analysis never runs with undisplayed settings. |
 
 Existing evidence is a useful baseline, not proof of these gates: Qt native hover
 p95 was about 9.8 ms over 21 events, whereas production uncached complete-plane
@@ -858,54 +1011,69 @@ writers and validated sampling code through direct calls. Keep Qt out of numeric
 code. Introduce only seams required by the workflow; no generic job/panel/service
 framework or prototype monolith transplant.
 
-1. **Open → inspect → edit.** Build the permanent shell, left rail and aligned
-   top/right slices on real inputs; preserve preview/pin/selection and precise
-   atomic editing/Undo. Deliver a useful spectrum/peak editor with peak export.
-   Rehome existing functionality rather than duplicating it. Gates UX-2/3/4, SCI-1.
-2. **Fit → compare → export.** Integrate existing whole-dataset preparation,
-   cancellation and immutable completion into that shell, including atomic automatic
-   optimized positions and interruption-free repeat fitting. Deliver default Overlay,
-   synchronized Residual, honest completeness and export. Gates SCI-2/3/4 and
-   applicable performance checks. This replaces the old workspace without removing
-   a working whole-dataset workflow prematurely.
-3. **Save → reopen the same analysis.** Implement versioned manifest/payload writer
-   and strict reader together, including external source references/fingerprints,
-   verified relinking, atomic save, Outdated,
-   journal/spooled history, capability-checked reopening and legacy numerical-only
-   review. Gates SAVE-1–5 and PERF-5; chain-specific checks extend in slice 5.
-   Establish durable work before expanding long-running analyses.
-4. **Find poor fits → refine → refit.** Add cluster navigation, reasons, notes,
-   working starts/bounds, rail diagnostics and Profiles. Deliver the
-   complete correction loop with whole-dataset refit and saved scientific settings.
-   Verify overlaps, changing membership and previous-run evidence.
-5. **Sample → diagnose → save/export uncertainty.** Validate executable sampling
+1. **Open → inspect → edit** (delivered). Permanent shell, aligned top/right slices
+   on real inputs, preview/pin/selection and precise atomic editing/Undo. Gates
+   UX-2/3/4, SCI-1.
+2. **Fit → compare → export** (delivered). Whole-dataset preparation, cancellation,
+   immutable completion, atomic automatic optimized positions, Overlay/Residual,
+   honest completeness and export. Gates SCI-2/3/4.
+3. **Save → reopen the same analysis** (delivered). Versioned manifest/payload,
+   external source references and verified relinking, atomic save, history and
+   capability-checked reopening. Gates SAVE-1–5 and PERF-5.
+4. **Visual-system foundations.** Tokens, proxy style, icon set, one-row toolbar,
+   number formatter, plot chrome, scientific encoding, graded contours, visible
+   markers and complete dark appearance. No layout change. Gates the visual parts of
+   UX-3/4.
+5. **Review workspace.** Three-column layout; cluster navigator with warnings,
+   measures, heuristics and filters; inspector pages with profiles and parameters;
+   plane strip with optional label; fit setup with clustering preview; run-to-run
+   changes; reference-normalized profiles. Gates SCI-7/8/9, UX-5/7.
+6. **Cluster lens and diagnosis.** Lens, unexplained-signal list and the complete
+   correction loop with whole-dataset refit, verified on overlaps, changing
+   membership and previous-run evidence.
+7. **Sample → diagnose → save/export uncertainty.** Validate executable sampling
    requests from live and reopened results, integrate cancellable sampling and
-   genuine diagnostics/intervals. Extend project round-trip tests to chains and
-   uncertainty provenance. Gate SCI-5.
-6. **Release acceptance.** Run the complete scientist walkthrough, native macOS and
+   genuine diagnostics/intervals in the lens and inspector. Extend project round-trip
+   tests to chains and uncertainty provenance. Gate SCI-5.
+8. **Release acceptance.** Run the complete scientist walkthrough, native macOS and
    Linux matrix, large-font/resize/theme checks, persistence failures and declared
    performance protocol. Resolve usability blockers before calling this GUI v2.
 
-Intentional UI changes: move ordinary peak editing to the left rail; align slices
-above/right rather than stacking both on the right; replace separate editing/local
-fit/profile entry points with one inspector and contextual lower panel; remove
-persistent Apply controls and the routine Local fit command. Existing CLI/scientific
-outputs and numerical algorithms remain compatible. Users migrate to Enter/focus
-exit for edits, Fit dataset for fitting/refinement and Save analysis for reopening;
-Export results retains its existing scientific purpose. This design supersedes
-earlier layout/delivery proposals but preserves their completed scientific contracts.
-Ordinary fitted coordinates now become working coordinates automatically, including
-usable coordinates with uncertainty warnings. Original seeds remain run provenance;
-the only Currentness exception is the recorded atomic completion transition, never
-an exemption for later manual edits. Initial/fitted export distinctions are additive
-companions, not changed meanings for existing canonical fitted-coordinate fields.
+### Deferred storage decisions
 
-The approved architecture remains unchanged. This revision replaces the text-heavy
+Revision 2.1 authorizes no project or export format change. Each item below needs
+its own explicit storage decision before implementation; until then the behavior
+is session-only or unchanged:
+
+- separately recorded causes for the engine's uncertainty warning;
+- a persistent per-cluster review acknowledgement;
+- the optional plane-axis display name and unit;
+- the reference-plane choice for normalized profiles.
+
+Intentional UI changes in revision 2.1: editing, review and profiles move into a
+right-hand inspector beside a left navigator; the lower analysis panel, its text
+diagnostics and the profile below the spectrum are removed; the first-fit dialog
+becomes an integrated fit setup with clustering preview; the result line becomes a
+run chip, settings summary and warning summary in one toolbar; the plane strip
+loses any embedded plot. Earlier intentional changes stand: aligned slices
+above/right, no persistent Apply controls and no routine Local fit command.
+Backward compatibility is not a constraint: APIs, project and export formats and
+GUI code change when that gives a cleaner design, without compatibility layers,
+migrations or legacy adapters, and obsolete code is removed. Numerical algorithms
+change only for explained scientific reasons. Users move to Enter/focus exit for edits, Fit for fitting/refinement and Save
+analysis for reopening; Export results retains its scientific purpose. Ordinary
+fitted coordinates become working coordinates automatically, including usable
+coordinates with uncertainty warnings. Original seeds remain run provenance; the
+only Currentness exception is the recorded atomic completion transition, never an
+exemption for later manual edits. Exports distinguish initial and fitted
+coordinates explicitly.
+
+The approved architecture remains unchanged. The 30 October revision replaced the text-heavy
 refinement panel, two-run interruption policy, draft-driven comparison hiding,
 raster default, per-preview autoscaling and manual fitted-position transfer.
 Standard Save now references external spectra instead of requiring embedded inputs;
 old project formats are explicitly unsupported. Moving a project may require
-moving its sources separately and verified relinking. Canonical exports stay compatible.
+moving its sources separately and verified relinking.
 
 Remaining acceptance concerns are full production fit/save/MCMC integration,
 retention/reconstruction failure paths, and native Linux/large-font accessibility;
