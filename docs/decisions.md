@@ -24,7 +24,16 @@ Short records of non‑obvious design choices and trade‑offs.
 - `AGENTS.md` is the only project instruction file; Claude Code reads it directly,
   so there is no `CLAUDE.md`.
 - Agent skills (Matt Pocock's) are installed globally, not vendored in `.agents/`.
-- Graphify was removed; the code, `CONTEXT.md` and `docs/` are the navigation
+- Graphify was removed; the code, `GLOSSARY.md` and `docs/` are the navigation
   sources.
 - The current focus is the scientifically rigorous desktop GUI, built on the
   completed scientific storage architecture.
+
+## 2026-10-31: Track work in GitHub Issues
+- GitHub Issues is the only issue tracker; agent skills read
+  `docs/agents/issue-tracker.md`.
+- Specifications and decisions stay in version-controlled Markdown under `docs/`.
+- `.scratch/` was removed. Its two completed efforts (final fit outcome,
+  point/series axis contract) remain in Git history:
+  `git log --diff-filter=D --name-only -- .scratch`.
+- `CONTEXT.md` was renamed `GLOSSARY.md`, the name the skills expect.

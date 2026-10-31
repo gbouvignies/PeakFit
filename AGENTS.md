@@ -20,7 +20,7 @@ Scientific correctness outranks convenience, speed and visual polish.
   protect it with a test.
 - Golden files, reference values and tolerances are evidence. Change them only
   with an explained, reviewed scientific reason (see `docs/development.md`).
-- Name things with the vocabulary in `CONTEXT.md`. When a new domain term
+- Name things with the vocabulary in `GLOSSARY.md`. When a new domain term
   settles, add it there.
 - The GUI presents published scientific results exactly as recorded. Values come
   from the scientific core, never from GUI-side approximations or refits.
@@ -92,10 +92,18 @@ ones.
 - Update the one document that describes the changed behavior; delete stale text
   rather than layering corrections.
 - Short decisions go in `docs/decisions.md`; hard-to-reverse ones in `docs/adr/`.
-- Issue tracker: local Markdown under `.scratch/<feature>/` (`spec.md`,
-  `issues/NN-slug.md`); a ticket is fetched by reading its file. `#NN` in commit
-  messages refers to a GitHub pull request, not a local issue. `.scratch/archive/`
-  is historical context, not a task queue.
+- Long-form scientific specifications live in version-controlled Markdown under
+  `docs/`; issues link to them.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `gbouvignies/PeakFit`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single context: `GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.
 
 ## Final report
 

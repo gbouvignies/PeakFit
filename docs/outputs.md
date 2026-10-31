@@ -206,8 +206,12 @@ Amplitude errors condition on the fitted nonlinear parameters. They do not
 include uncertainty in positions or linewidths. As before, the exported scaled
 amplitude errors inflate by `sqrt(reduced chi_squared)` when it exceeds one;
 nonlinear errors use the supplied/estimated statistical noise without that
-inflation. For nonlinear uncertainty or multimodal fits, compare alternative
-starts and inspect sampling/profile likelihoods; the local errors alone cannot
+inflation. Degrees of freedom are `max(1, n_observations - n_fitted_parameters)`,
+which treats every spectral sample as independent (zero-filling correlates them)
+and counts the nominal `n_peaks × n_series` amplitudes rather than the effective
+design rank; reduced chi-squared and that inflation inherit both approximations.
+For nonlinear uncertainty or multimodal fits, compare alternative starts and
+inspect sampling/profile likelihoods; the local errors alone cannot
 certify a scientific assignment. See [the overlap investigation](validation/overlapping-peaks.md).
 
 
