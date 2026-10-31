@@ -142,11 +142,13 @@ window, never a permanent lower panel.
 
 ## 3. Representative application states
 
-Illustrative mockups of states B and C, drawn from the bundled dataset and a real
-two-pass fit, accompany the [31 October 2026 design review](https://claude.ai/artifact/21en2PPQ1nb2HVui4bq4Sd). They are
-compositions, not production screenshots or new fit evidence.
+The mockups below are drawn at 1280×800 from the bundled dataset and a real
+two-pass fit: real contours, positions, amplitudes, covariances and fitting regions.
+They are compositions, not production screenshots or new fit evidence.
 
 ### A. Before the first fit: establish peaks and fit setup
+
+![Before the first fit: Peaks navigator, cluster preview on the spectrum and fit setup in the inspector](images/gui-v2.1-before-fit.webp)
 
 The navigator shows Peaks. The spectrum shows experimental contours with visible
 markers. With nothing selected, the inspector shows the fit setup, and **Preview
@@ -154,6 +156,8 @@ clusters** draws the clusters of the exact prepared problem on the spectrum (§7
 Only Experimental is available; Overlay and Residual explain why.
 
 ### B. Overview after fitting: find what deserves attention
+
+![Fitted overview: cluster navigator sorted by reduced chi-squared, selected peak 22N-H with profile, fitted parameters and cluster review](images/gui-v2.1-overview.webp)
 
 Successful completion selects Overlay and automatically shows optimized positions
 in the markers, navigator and inspector. It preserves viewport, selection and panel
@@ -163,8 +167,11 @@ navigator switches to Clusters with warnings, measures, heuristics, sorting and
 filters (§8). Selecting a cluster highlights its members and recorded fitting
 region; it neither isolates its model nor changes the viewport. **Frame cluster**
 is an explicit action.
+The mockup shows the overview after the user switched to Experimental.
 
 ### C. Cluster lens: judge one cluster
+
+![Cluster lens on 53N-H and 147N-H: experimental, overlay and whole-spectrum residual panels with raw signed profiles and amplitude correlation](images/gui-v2.1-cluster-lens.webp)
 
 Enter or double-click on a Clusters row, or **Open lens** in the inspector or
 context menu, replaces the spectral area with the lens; Escape (when no draft,
