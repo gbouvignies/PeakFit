@@ -111,6 +111,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self.resize(1280, 800)
         self.setMinimumSize(1040, 720)
         self.workspace: EditorWorkspace | None = None
+        self._sample_status: QtWidgets.QLabel | None = None
         self._revision = 0
         self._close_timer = QtCore.QTimer(self)
         self._close_timer.setSingleShot(True)
@@ -184,12 +185,10 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self.export_action = self._action(
             file_menu, "&Export working peaks…", self.export_dialog, "Ctrl+Shift+E"
         )
+        self.fit_export_action = self._action(file_menu, "Export &results…", self.export_fit_dialog)
+        self.fit_export_action.setEnabled(False)
         file_menu.addSeparator()
         self._action(file_menu, "&Close", self.close, QtGui.QKeySequence.StandardKey.Close)
-        self.fit_export_action = self._action(
-            file_menu, "Export fit results…", self.export_fit_dialog
-        )
-        self.fit_export_action.setEnabled(False)
         self.edit_menu = self.menuBar().addMenu("&Edit")
         view = self.menuBar().addMenu("&View")
         self._action(
@@ -384,6 +383,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             previous.stop()
         self.setCentralWidget(workspace)
         self.workspace = workspace
+        self.adopt_status(workspace)
         self._export_path = None
         self.edit_menu.clear()
         self.edit_menu.addActions(workspace.actions_for_menu)
@@ -404,6 +404,16 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
                 "coordinates disambiguate them."
             )
             workspace.error.show()
+
+    def adopt_status(self, workspace: EditorWorkspace | None) -> None:
+        """Show the workspace's sampled values in the status bar, beside job messages."""
+        if self._sample_status is not None:
+            self.statusBar().removeWidget(self._sample_status)
+            self._sample_status.deleteLater()
+        self._sample_status = workspace.status if workspace else None
+        if workspace:
+            self.statusBar().insertWidget(0, workspace.status, 3)
+            workspace.status.show()
 
     def _work_changed(self) -> None:
         if self.workspace:

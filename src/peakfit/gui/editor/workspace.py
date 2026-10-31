@@ -7,6 +7,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.gui.editor.canvas import SpectrumCanvas
 from peakfit.gui.editor.fitting import DatasetFitting
+from peakfit.gui.editor.labels import ElidedLabel
+from peakfit.gui.editor.profile import ProfilePanel
 from peakfit.gui.editor.rail import PeakRail
 from peakfit.gui.peaks import PeakEdits
 
@@ -16,6 +18,8 @@ if TYPE_CHECKING:
 
 
 _RESIDUAL = 2
+_PROFILE_HEIGHT = 200
+_WHOLE_COLUMN = 1_000_000  # QSplitter scales sizes to the space available
 
 
 class EditorWorkspace(QtWidgets.QWidget):
@@ -42,23 +46,51 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
         self.splitter.setChildrenCollapsible(False)
         self.splitter.setHandleWidth(8)
+        # The profile shares the spectrum's column; the canvas minimum size keeps
+        # the 2D plot and both traces usable whatever height is restored.
+        self.profile = ProfilePanel()
+        self.column = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        self.column.setChildrenCollapsible(False)
+        self.column.setHandleWidth(6)
+        self.column.addWidget(self.canvas)
+        self.column.addWidget(self.profile)
+        self.column.setStretchFactor(0, 1)
+        self.column.setStretchFactor(1, 0)
+        self.column.splitterMoved.connect(self._profile_resized)
+        self.profile.expanded_changed.connect(self._profile_toggled)
+        self.profile.plane_requested.connect(self.set_plane)
         self.splitter.addWidget(self.rail)
-        self.splitter.addWidget(self.canvas)
+        self.splitter.addWidget(self.column)
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
         self.splitter.setSizes([320, 1000])
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(16, 10, 16, 4)
-        layout.setSpacing(8)
+        layout.setContentsMargins(16, 6, 16, 4)
+        layout.setSpacing(6)
         header = QtWidgets.QHBoxLayout()
-        self.title = QtWidgets.QLabel(dataset.path.stem)
-        self.title.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        identity = QtWidgets.QVBoxLayout()
+        identity.setSpacing(0)
+        name_row = QtWidgets.QHBoxLayout()
+        name_row.setSpacing(10)
+        self.title = ElidedLabel(dataset.path.stem)
         self.title.setObjectName("title")
-        header.addWidget(self.title)
+        name_row.addWidget(self.title)
         self.modified = QtWidgets.QLabel()
         self.modified.setObjectName("muted")
-        header.addWidget(self.modified)
-        header.addStretch()
+        name_row.addWidget(self.modified)
+        name_row.addStretch()
+        identity.addLayout(name_row)
+        # One compact result line under the name; its full text stays in the tooltip.
+        self.summary = ElidedLabel()
+        self.summary.setObjectName("muted")
+        identity.addWidget(self.summary)
+        header.addLayout(identity, 1)
+        self.cancel_fit = QtWidgets.QPushButton("Cancel")
+        self.cancel_fit.clicked.connect(lambda: self.fitting.cancel())
+        self.review_fit = QtWidgets.QPushButton("Review")
+        self.review_fit.clicked.connect(lambda: self.fitting.toggle_review())
+        header.addWidget(self.cancel_fit)
+        header.addWidget(self.review_fit)
         self.peaks_button = QtWidgets.QPushButton("Peaks")
         self.peaks_button.setCheckable(True)
         self.peaks_button.setChecked(bool(dataset.peaks))
@@ -108,22 +140,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.legend.setObjectName("muted")
         strip.addWidget(self.legend)
         layout.addLayout(strip)
-        self.summary = QtWidgets.QLabel()
-        self.summary.setObjectName("muted")
-        self.summary.setSizePolicy(
-            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Fixed
-        )
-        result_line = QtWidgets.QHBoxLayout()
-        result_line.addWidget(self.summary, 1)
-        self.cancel_fit = QtWidgets.QPushButton("Cancel")
-        self.cancel_fit.clicked.connect(lambda: self.fitting.cancel())
-        self.review_fit = QtWidgets.QPushButton("Review")
-        self.review_fit.clicked.connect(lambda: self.fitting.toggle_review())
-        self.export_fit = QtWidgets.QPushButton("Export results…")
-        self.export_fit.clicked.connect(lambda: self.fitting.export())
-        for button in (self.cancel_fit, self.review_fit, self.export_fit):
-            result_line.addWidget(button)
-        layout.addLayout(result_line)
         layout.addWidget(self.splitter, 1)
         planes = QtWidgets.QHBoxLayout()
         self.previous = QtWidgets.QPushButton("‹")
@@ -182,6 +198,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._refresh()
         self.rail.setVisible(bool(dataset.peaks))
         self.set_plane(1)
+        self._restore_profile()
 
     @property
     def spectra(self):
@@ -323,6 +340,48 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _sync_inspector(self) -> None:
         peak = next((p for p in self.peaks if p.id == self.selected_id), None)
         self.rail.select(peak, self.canvas.display(peak) if peak else None)
+        self._update_profile()
+
+    def _update_profile(self) -> None:
+        """Follow the accepted selection and active run; never resolves drafts."""
+        fitting = getattr(self, "fitting", None)
+        spectra = self.dataset.spectra
+        self.profile.show_selection(
+            fitting.result if fitting else None,
+            self.selected_id,
+            current=bool(fitting and fitting.current),
+            busy=bool(fitting and fitting.busy),
+            plane_values=tuple(float(v) for v in spectra.z_values)
+            if self.dataset.has_plane_values
+            else None,
+            plane=self.canvas.plane,
+        )
+
+    def _restore_profile(self) -> None:
+        """Start collapsed unless the user expanded the panel in an earlier session."""
+        settings = QtCore.QSettings()
+        expanded = settings.value("profile/expanded", defaultValue=False, type=bool)
+        self.profile.set_expanded(bool(expanded))
+        if expanded:
+            self._size_profile()
+
+    def _size_profile(self) -> None:
+        stored = QtCore.QSettings().value("profile/height", _PROFILE_HEIGHT)
+        height = int(stored) if isinstance(stored, int | str) else _PROFILE_HEIGHT
+        total = max(self.column.height(), sum(self.column.sizes()))
+        self.column.setSizes([max(1, total - height), height])
+
+    def _profile_toggled(self, expanded: bool) -> None:
+        QtCore.QSettings().setValue("profile/expanded", expanded)
+        if expanded:
+            self._size_profile()
+        else:
+            # Give the whole column back to the spectrum and its traces.
+            self.column.setSizes([_WHOLE_COLUMN, 0])
+
+    def _profile_resized(self, _position: int, _index: int) -> None:
+        if self.profile.toggle.isChecked():
+            QtCore.QSettings().setValue("profile/height", self.column.sizes()[1])
 
     def _refresh(self) -> None:
         peak_sources = tuple(
@@ -459,6 +518,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             else "no plane values"
         )
         self.plane_label.setText("Single plane" if count == 1 else f"/ {count} · {value}")
+        self._update_profile()
 
     def display_dialog(self) -> None:
         """Display choices do not change scientific inputs or edit history."""

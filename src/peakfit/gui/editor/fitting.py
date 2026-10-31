@@ -297,7 +297,6 @@ class DatasetFitting(QtCore.QObject):
         w.fit_button.setEnabled(bool(w.peaks) and not busy and not w.inputs_loading)
         w.settings_button.setEnabled(bool(w.peaks) and not busy and not w.inputs_loading)
         w.cancel_fit.setVisible(busy)
-        w.export_fit.setEnabled(self.result is not None and not busy)
         w.review_fit.setEnabled(self.result is not None or bool(self.failure))
         usable = (
             self.current
@@ -328,6 +327,7 @@ class DatasetFitting(QtCore.QObject):
         w.summary.setToolTip(text + ("\n" + self.failure if self.failure else ""))
         if self.review.isVisible():
             self.show_diagnostics()
+        w._update_profile()
         self.state_changed.emit()
 
     def toggle_review(self) -> None:

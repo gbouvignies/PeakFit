@@ -106,8 +106,8 @@ bounds, units and freedom are reviewable before **Run dataset fit**.
 Subsequent fits reuse those reviewed settings directly and prepare fresh masks,
 clusters and bounds from the current optimized working coordinates. **Settings…**
 reopens the review; Cancel leaves the current settings/result unchanged. Numerical
-execution uses the existing disposable process outside Qt. The result line shows
-pass/cluster/stage and elapsed time, with visible **Cancel**. Navigation, selection,
+execution uses the existing disposable process outside Qt. The result line under
+the analysis name shows pass/cluster/stage and elapsed time, with **Cancel** beside it. Navigation, selection,
 preview and pinning remain available; scientific edits and input replacement pause.
 Cancellation, process failure and validation failure retain the previous result
 and working coordinates. No partial result is adopted.
@@ -141,19 +141,45 @@ residual slices wait for a matching model. Hover reads cached native rows/column
 and starts no model or contour jobs. Display caches are bounded to 128 MiB/eight
 model planes and 32 MiB/eight contour geometries, with stale deliveries rejected.
 
-The result line separates Current/Outdated, usable/total clusters, convergence,
-completeness and uncertainty warnings. **Review** reveals concise selected-cluster
+The result line separates Current/Outdated, uncertainty warnings, completeness,
+convergence and usable/total clusters, in that order, so a narrow window shortens
+only the tail; its tooltip keeps the full text. **Review** reveals concise selected-cluster
 diagnostics in the rail's existing inspector scroll area. **Next cluster needing
 review** explicitly navigates non-convergence, unusable results and uncertainty
 warnings. Recorded optimizer statistics refer to corrected fitting samples and
 are not recomputed from the displayed whole-spectrum residual.
+
+The **Profile** panel below the spectrum shows the selected peak's signed fitted
+amplitudes across planes, with the other members of its cluster on the same
+vertical scale. It follows the accepted selection only: an invalid draft that
+blocks selection leaves the profile unchanged. It starts collapsed; its header
+always names the peak, cluster members, source run and Current/Outdated state, and
+shows **▲ Uncertainty unreliable** when the engine warned about that cluster.
+Expanding or resizing it is remembered as an application preference, not in the
+analysis, and the spectrum keeps its minimum size.
+
+Points are the recorded amplitudes, unconnected, against the supplied plane values
+in acquisition order; repeated values stay separate observations. Without plane
+values, or when the current values differ from those the run recorded, the axis is
+the one-based plane number. Clicking a point opens its plane; points sharing a
+value offer a choice. Error bars are the scaled analytical standard errors written
+by **Export results…**: computed with the fitted lineshape parameters held fixed,
+multiplied by √χ²ᵣ when the cluster's χ²ᵣ exceeds 1, one σ per peak for every
+plane. They can underestimate the uncertainty of overlapping peaks; warned
+clusters use hollow markers and dashed bars. When the core reports no finite σ for
+a peak, its amplitudes stay visible without error bars and are labeled
+**σ unavailable**. When at most two observations sit
+beyond a gap wider than half the span, such as a distant reference plane, the
+plot frames the remaining range and labels the off-scale points; **Show all
+points** shows them. Outdated runs stay visible and labeled; peaks added after a
+run and unusable clusters show why there is no profile.
 
 Drafts retain the accepted comparison. A committed manual scientific change marks
 the run **Outdated** and switches to Experimental. Undo alone cannot recertify it.
 Refit to establish a new Current result. An all-unusable run remains inspectable
 and exportable, with comparisons disabled and “No usable model”.
 
-**Export results…**, also under File, uses the shared scientific archive and
+**File → Export results…** uses the shared scientific archive and
 CSV/report writers with an optional detailed-evidence checkbox in a new `dataset-fit-<run_id>` directory. The stable-ID
 coordinate table and export-state metadata in `scientific.npz` preserve exact
 submitted seeds, stable identities, source fingerprints, original plane order,
