@@ -12,64 +12,29 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 ## Current Package Map
 
 - `src/peakfit/cli/` - Typer command-line entrypoints and terminal presentation.
-- `src/peakfit/gui/` - PySide6/PyQtGraph desktop window, reusable spectrum viewer,
-  and contour geometry helpers. Uses the existing `Spectra` model and input readers;
-  working peak records and undo history are Qt-independent. Imported placeholder
-  shapes are discarded; editable GUI coordinates are separate from completed results.
-  Local scope preparation constructs fresh engine-safe peaks from snapshots, reuses
-  engine clustering and pipeline parameter preparation, and displays the exact mask
-  over persistent spectrum/slice plots. `gui.workspace.SpectrumWorkspace` owns
-  splitter geometry, side-slice visibility and the collapsed-by-default lower
-  panel. It receives existing widgets and owns no scientific state. The viewer
-  keeps preparation/result state independent of which details are visible;
-  background deliveries never open panels. `gui.fit_preview` presents local
-  scope/results below the plots; `gui.editing` requests a whole-peak commit on Enter
-  or focus leaving the field group. Tab between fields retains the draft; Escape
-  restores committed values. The viewer also commits before selection, hiding
-  details, fitting and peak export, retaining invalid drafts with inline errors. The
-  `pending_edits_changed` notification updates editor controls and unsaved-work
-  indicators only; `edits_changed` is reserved for actual committed peak changes
-  and invalidates scientific dependents. No-op commit/history/drag operations do
-  not advance the scientific revision. One coordinated
-  comparison selector identifies either complete-dataset or isolated local scope. The reserved
-  footer exposes fit state and cancellation while details are closed.
-  One serial background lane handles numerical
-  preparation, contour extraction and display projection; Qt applies only current
-  results. `gui.fit_display` evaluates bounded planes/native traces through the
-  scientific simulation API; `gui.comparison` owns Qt graphics and bounded caches.
-  Complete models evaluate every native coordinate and every usable final cluster;
-  their residual is experimental minus total model outside as well as inside masks.
-  Local display retains its distinct bounded prediction and fitted-sample residual.
-  Experimental contours have queue priority; obsolete projections cancel between
-  chunks. Graphics never connect model/experiment from different planes.
-  Exact lightweight scope geometry remains available even when numerical data
-  exceeds preparation limits; only eligible selected-group arrays are materialized.
-  Full contour geometry has no vertex cutoff. Existing experimental contours remain
-  during threshold replacement; comparison hides them during a plane change.
-  `gui.local_fit.execute_local_fit()` is Qt-independent: it submits the reviewed
-  cluster/parameters through `fit_single_cluster_task()`, classifies its analytical
-  evaluation, and uses the pipeline's shared `complete_fit()` finalization boundary.
-  It never repeats clustering or effective-parameter preparation. Frozen outcomes
-  retain signed amplitudes, sampled model/residual values, diagnostics, original
-  inputs, stable GUI identities, and copied model geometry for deterministic graphical comparison.
-  One disposable spawned fit process runs independently of the preview/contour lane;
-  `gui.fit_process.FitProcess` serializes reviewed inputs and receives completed
-  values off Qt. `gui.dataset_dialog` prepares complete problems asynchronously
-  and presents effective settings and initial bounds. `gui.dataset_fit` runs
-  `run_pipeline_iter` with the reviewed configuration, including cross-cluster
-  updates, and binds its `CompletedFit` to the original input snapshot. It does not
-  implement another fitting scheduler. The GUI defaults to two passes; CLI defaults
-  are unchanged. A private trusted-child pickle transport preserves mapping proxies
-  and read-only NumPy buffers; it is not a saved-run format or an external reader.
-  There is no fit queue. Cancellation terminates/reaps the child. Scientific edits
-  pause until execution stops; navigation remains available. One unsaved result is
-  retained separately and protected against replacement/loss. No automatic peak
-  picking or persistence is involved. `gui.fit_positions` validates final chemical
-  shifts against retained shape axes and the engine-to-working-ID mapping. Explicit
-  application uses one `PeakEdits.update_positions()` history entry, with all edits
-  validated before commit. Scientific inputs must still match. The original outcome
-  and export state remain owned by the retained result; applying positions makes
-  comparison graphics stale without discarding that result.
+- `src/peakfit/gui/` - PySide6/PyQtGraph desktop application, launched only by
+  `peakfit gui` (`cli.commands.gui` imports Qt lazily, inside the command). Uses
+  the existing `Spectra` model and input readers; working peak records and undo
+  history (`gui.peaks`) are Qt-independent, and editable coordinates are separate
+  from completed results. `gui.editor` holds the application shell and its views
+  (see "GUI v2" below). Shared modules: `gui.spectrum` validates complete dataset
+  handoffs and contour geometry; `gui.editing` provides the peak inspector and
+  markers; `gui.background.ViewerComputation` is the serial latest-pending worker
+  lane. `gui.fitting.prepare_dataset_fit` builds engine-safe peaks from snapshots
+  and reuses engine clustering and pipeline parameter preparation;
+  `gui.dataset_dialog` reviews effective settings and initial bounds
+  asynchronously. `gui.dataset_fit` runs `run_pipeline_iter` with the reviewed
+  configuration, including cross-cluster updates, and binds its `CompletedFit` to
+  the original input snapshot; it does not implement another fitting scheduler.
+  The GUI defaults to two passes; CLI defaults are unchanged.
+  `gui.fit_process.FitProcess` runs one fit in a disposable spawned child and
+  receives completed values off Qt. A private trusted-child pickle transport
+  preserves mapping proxies and read-only NumPy buffers; it is not a saved-run
+  format or an external reader. There is no fit queue; cancellation terminates and
+  reaps the child. `gui.fit_display` evaluates the complete model on native planes
+  through the scientific simulation API. `gui.fit_positions.dataset_completion`
+  adopts usable fitted coordinates by stable peak ID. No automatic peak picking is
+  involved.
 - `src/peakfit/ui/` - Rich terminal helpers used by the current CLI.
 - `src/peakfit/fit/` - validation, data loading, fitting workflow, result assembly, and output coordination.
 - `src/peakfit/auto_pick/` - experimental automatic peak-picking workflow used only when no peak list is provided.
@@ -173,9 +138,10 @@ remain distinct. See [the scientific overlap validation](validation/overlapping-
 
 ## GUI v2: open → inspect → edit → fit → compare → save → reopen
 
-`gui.editor.window` is the separately launched production shell (`peakfit-editor`).
-The existing `gui.app` / `gui.viewer` remains the fitting application until v2
-reaches core fitting parity. There is no runtime dependency on `experiments/`.
+`gui.editor.window.launch` is the only application entry point, called by
+`peakfit gui` with an optional spectrum (plus peak list, plane values and explicit
+peak-axis mapping) or a saved `.peakfit` analysis. There is no runtime dependency
+on `experiments/`.
 
 The workspace has concrete responsibilities: `gui.spectrum.read_dataset` validates
 one complete reader handoff off Qt; `editor.canvas` owns retained signed geometry,

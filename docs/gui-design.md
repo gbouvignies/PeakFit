@@ -95,7 +95,7 @@ its absence never means that a displayed residual was used in optimization.
 Lorentzian calculation, overlapping signed contributions, disjoint irregular
 masks in non-raster order, nonzero terminal corrections, mixed usability, repeated
 plane values and reordered/repeated requested columns. Existing full-grid and GUI
-tests continue to protect model projection and isolated local fitting.
+tests continue to protect model projection.
 
 ## Measured projection cost
 
@@ -173,8 +173,8 @@ cluster-level access and substantially less space than JSON. Load with
 `allow_pickle=False`. NPZ cannot efficiently slice a compressed member by plane;
 HDF5 offers chunked slicing and should be reconsidered if measured larger runs
 need it. The analysis reader/writer implements manifest validation, archive size limits
-and atomic publication. Existing local-fit companions remain export-only in the
-legacy GUI; they do not establish reconstructable analysis capabilities. No experimental archive from the benchmark is a supported output format.
+and atomic publication. Exports from the retired local-fit preview remain
+readable results; they do not establish reconstructable analysis capabilities. No experimental archive from the benchmark is a supported output format.
 
 The same run compared all additional terminal input arrays (13,005,696 bytes in
 memory). Each format was written/read once and checked for exact values and dtypes;

@@ -113,8 +113,9 @@ existing destinations are refused. Failure cleans staging. This provides atomic
 visibility, not a power-loss durability guarantee. Project saving has its stronger
 flush/manifest transaction described below. Export-time Current/Outdated and
 recorded GUI adoption remain context separate from the immutable numerical result;
-CLI records absent GUI adoption explicitly. Local exports contain their fitted
-group, and unusable clusters retain diagnostics without fabricated predictions.
+CLI records absent GUI adoption explicitly. Unusable clusters retain diagnostics
+without fabricated predictions. Exports from the retired GUI local-fit preview
+contain only their fitted group and remain readable.
 
 Readers inspect NPY headers/lengths before allocation, bound metadata to 16 MiB
 and total expanded scientific payloads to 8 GiB, reject duplicate/unreferenced
@@ -142,9 +143,8 @@ positions, including usable non-converged fits. Uncertainty warnings do not veto
 this automatic transition. An unusable or invalid tuple records `retained_initial`
 and its exact starting positions with a reason. The GUI completion and both
 exporters use the same coordinate-resolution function; no second scientific
-position rule or GUI-specific writer exists. Manual local-preview application
-has its existing stricter guards; without a recorded completion transition,
-exports report `not_recorded` and no adopted tuple rather than guessing.
+position rule or GUI-specific writer exists. Without a recorded completion
+transition, exports report `not_recorded` and no adopted tuple rather than guessing.
 
 CLI uses the identical row schema and exact initial/fitted coordinates, with
 `adoption_status: not_recorded`, `adopted_unfolded_ppm: None` and an explicit reason:
@@ -155,7 +155,7 @@ parameter authority. Readers reject mismatched coordinates/parameter mappings
 and false adoption claims.
 
 `context.export_state` is separate from the immutable outcome and the run-owned
-coordinate evidence. It contains `scope` (`dataset`/`cluster`), `currentness`
+coordinate evidence. It contains `scope` (`dataset`; `cluster` only in earlier local-fit exports), `currentness`
 (`current`/`outdated`/`unknown`/`not_applicable`), and recorded `adoption_warnings`.
 GUI actions supply the actual export-time Current/Outdated state. A direct GUI
 API call without that state explicitly reports `unknown`; CLI reports

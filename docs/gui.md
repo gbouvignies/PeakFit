@@ -1,8 +1,205 @@
-# Desktop analysis
+# Desktop application
 
-## Production v2 workspace: save, reopen and continue
+`peakfit gui` is the PeakFit desktop application. It opens 2D and pseudo-3D NMRPipe
+datasets, edits working peaks, fits the complete dataset, compares the model with
+the experiment, exports scientific results and saves analyses that can be reopened.
 
-Launch `uv run peakfit-editor` (or `uv run peakfit-editor Analysis.peakfit`).
+## Launch
+
+```bash
+uv run peakfit gui
+```
+
+opens an empty window. To open a dataset at startup:
+
+```bash
+uv run peakfit gui examples/02-advanced-fitting/data/pseudo3d.ft2 \
+  --peaks examples/02-advanced-fitting/data/pseudo3d.list \
+  --peak-axis-order indirect-direct \
+  --z-values examples/02-advanced-fitting/data/b1_offsets.txt
+```
+
+To reopen a saved analysis, pass its `.peakfit` directory:
+
+```bash
+uv run peakfit gui Analysis.peakfit
+```
+
+`--peaks` requires `--peak-axis-order`: `indirect-direct` maps the list's first
+coordinate to the vertical (indirect) axis and the second to the horizontal (direct)
+axis; `direct-indirect` swaps them. Choose it from the peak list's metadata; no
+mapping is guessed. `--peaks`, `--z-values` and `--peak-axis-order` require a
+spectrum and cannot be combined with a `.peakfit` analysis, which records its own
+inputs. These combinations are rejected before the window opens. Files are then
+validated off the UI thread; a startup loading failure is reported in a dialog,
+and the window stays open so you can choose **Open dataset…** or **Open analysis…**.
+
+## Open, inspect and edit
+
+Use **Open dataset…** for 2D/pseudo-3D NMRPipe spectra, optionally with a peak list
+and plane-values file. Choose the peak-axis order explicitly from your file's
+metadata. The reader's first/second coordinates map to the two spectral axes;
+`indirect-direct` places the first coordinate vertically and the second
+horizontally. No mapping is inferred from assignment names. A validated preview
+shows actual axes, dimensions and example assignments before replacement. Cancel
+or failed validation retains the current dataset. Loading can be canceled while
+its private file read finishes.
+
+The spectrum's top and right traces are native row/column cross-sections. Move
+over the plot to preview them. **Pin slices**, Space on the canvas, or a click on
+blank spectrum freezes the sample. Selecting a peak pins once; later blank clicks
+and arrow-key sample steps retain selection. Resume preview without losing the
+selected peak or its coordinate draft. Plane controls preserve acquisition order,
+including repeated or unordered plane values. Missing values are labeled honestly;
+imported values use the file's units, since a plain values file provides no unit
+metadata.
+
+The **Peaks** rail combines searching, selection and exact editing. Hover never
+selects or overwrites a draft. Selection alone never opens a closed rail. Search
+matches assignments and stable IDs. A filtered-out selection remains in the
+inspector and can be revealed in the list. Coincident markers open a chooser with
+coordinates and IDs, rather than silently choosing one assignment.
+
+Use **Add peak** or canvas A, then click an exact ppm location. Select a marker,
+then drag it to move; a ghost shows the draft while the committed marker stays.
+Release commits one change; Escape or deactivation cancels the gesture. Working
+positions are continuous unfolded float64 ppm, even when an indirect position
+aliases into the display window. Only the inspection crosshair snaps to samples.
+
+Name and coordinates form one editing group. Enter or leaving the whole group
+commits; Tab within it retains the draft; Escape discards. Invalid text stays
+visible with an error, while spectrum and plane navigation remain available.
+Coordinates show eight decimal places when unfocused and round-trip precision
+when focused/copied. Untouched fields retain their original float64 value.
+Dot-decimal/scientific notation is accepted; a comma is also accepted when it is
+the local decimal separator. Thousands separators and mixed punctuation are not.
+
+Delete acts on the selected peak; native modifier selection in the list permits
+one-step multi-delete. Undo/Redo restores exact records. In a clean coordinate
+field, Cmd/Ctrl+Z invokes peak Undo; within a draft, ordinary text Undo remains
+available. Undo labels identify the edit.
+
+**File → Export working peaks…** writes canonical PeakFit CSV atomically, using
+round-trip dot-decimal coordinates. Replacement/close offers export for unexported
+peak edits. Importing or replacing plane values marks the session Modified, even
+when no peaks changed. Peak CSV cannot preserve that plane mapping: exporting peaks
+leaves it Modified, and close/replacement requires explicit **Discard session
+changes** or Cancel. Keep the values file and select it again when reopening;
+plane-value imports are session-only and are not undone by peak Undo.
+
+Peak imports retain their source fingerprints by stable peak ID. Replace drops
+superseded peak sources from the effective inputs; Append retains sources of all
+current peaks. Undo/Redo restores the effective sources of the restored IDs,
+including across later coordinate edits. Previous sources remain available only
+for undoable IDs, rather than appearing as active scientific provenance.
+
+## Fit → compare → export
+
+Choose **Fit dataset** in the header or Analysis menu (Cmd/Ctrl+Return).
+The first action opens a concise scientific-settings review. It prepares every
+working peak and original plane, independently of selection, viewport, search and
+display thresholds. The default is the existing **two-pass** whole-dataset
+pipeline, including the neighbor correction update between passes. Resolved models,
+statistical noise, threshold, cluster/sample counts and expanded actual starts,
+bounds, units and freedom are reviewable before **Run dataset fit**.
+
+Subsequent fits reuse those reviewed settings directly and prepare fresh masks,
+clusters and bounds from the current optimized working coordinates. **Settings…**
+reopens the review; Cancel leaves the current settings/result unchanged. Numerical
+execution uses the existing disposable process outside Qt. The result line shows
+pass/cluster/stage and elapsed time, with visible **Cancel**. Navigation, selection,
+preview and pinning remain available; scientific edits and input replacement pause.
+Cancellation, process failure and validation failure retain the previous result
+and working coordinates. No partial result is adopted.
+
+Successful completion automatically adopts each usable valid fitted coordinate
+pair by stable peak ID. Usable non-converged fits and uncertainty warnings retain
+their positions and warnings. Missing/unusable pairs keep their submitted positions
+with explicit reasons. There is no Apply operation. Selection, viewport, plane,
+rail visibility and free sample pins survive; a pin following a selected peak moves
+to its optimized sample once. Pre-fit Undo is reset to avoid silently restoring
+seeds under a Current label; the run retains exact submitted seeds independently.
+Optimized working coordinates remain exportable as ordinary peak CSV.
+
+A usable completed run opens **Overlay**, showing the sum of every usable cluster
+at native coordinates and both aligned slices. Selection never isolates the model.
+**Residual** shows `(native experiment − total usable model) / σ_stat`, including
+model tails outside fitting masks. Default signed contours are ±3, ±5, ±8, ±13 and
+±21 σ_stat; Display can scale these levels by changing the first residual contour.
+Absence of contours means below the visible threshold. The horizontal
+and vertical residual traces share a locked ±8 σ_stat range. Experimental/Overlay
+share their original intensity range. **Display → Fit current traces** changes gain
+explicitly and retains it through hover and plane navigation; clipping is labeled.
+A newly accepted model can expand the intensity scale once, with an explicit notice.
+
+Model planes compute asynchronously. Old-plane model/residual graphics disappear
+immediately. While Overlay or Residual is pending, the 2D view shows the current
+plane’s experimental contours with an explicit pending label. Cached experimental
+geometry is reused; otherwise it is prepared off Qt before model projection.
+No old plane or run is used as a fallback. Native measured inspection remains available;
+residual slices wait for a matching model. Hover reads cached native rows/columns
+and starts no model or contour jobs. Display caches are bounded to 128 MiB/eight
+model planes and 32 MiB/eight contour geometries, with stale deliveries rejected.
+
+The result line separates Current/Outdated, usable/total clusters, convergence,
+completeness and uncertainty warnings. **Review** reveals concise selected-cluster
+diagnostics in the rail's existing inspector scroll area. **Next cluster needing
+review** explicitly navigates non-convergence, unusable results and uncertainty
+warnings. Recorded optimizer statistics refer to corrected fitting samples and
+are not recomputed from the displayed whole-spectrum residual.
+
+Drafts retain the accepted comparison. A committed manual scientific change marks
+the run **Outdated** and switches to Experimental. Undo alone cannot recertify it.
+Refit to establish a new Current result. An all-unusable run remains inspectable
+and exportable, with comparisons disabled and “No usable model”.
+
+**Export results…**, also under File, uses the shared scientific archive and
+CSV/report writers with an optional detailed-evidence checkbox in a new `dataset-fit-<run_id>` directory. The stable-ID
+coordinate table and export-state metadata in `scientific.npz` preserve exact
+submitted seeds, stable identities, source fingerprints, original plane order,
+actual correction/pass counts, post-fit coordinates, adoption warnings and
+currentness at export. Outdated export requires an explicit acknowledgment and
+exports that retained run's evidence. Raw spectra are never rewritten.
+
+The **active result** is the one completed run shown in the comparison and result
+line. Cancellation and failure leave it unchanged. A successful refit makes the new
+run active; the previous run is not discarded but stays in the **analysis history**
+(**File → Analysis history…**, see below), so routine refits need no discard/export
+prompt. Three operations are distinct:
+
+- **Analysis history** retains earlier completed runs within the session, under the
+  retention limits described below.
+- **Save analysis** writes the working state, the active result and the retained
+  history to a `.peakfit` directory that references the external spectrum.
+- **Export results…** writes one run's canonical scientific outputs for use outside
+  PeakFit; it does not save the analysis.
+
+All three use the same scientific evidence. See [formats and migration](outputs.md).
+
+A successful canonical result export also preserves its exact post-fit working
+peak tuple. When those are still the working coordinates, closing does not ask
+for a duplicate peak export. Later manual edits and imported plane metadata keep
+their existing close protection. Exporting an outdated run never marks different
+working peaks as preserved. Failed or canceled exports leave the state unchanged.
+MCMC and full cluster refinement remain out of scope.
+
+**Display…** changes signed contour threshold, spacing/count, labels and stroke
+weight. Trace amplitude limits are common, signed and locked across hover and
+planes. **Fit current traces** explicitly changes gain once; a clipped trace is
+identified in the sampled-value status. **Full spectrum** changes only frequency
+ranges. Appearance follows System or explicit Light/Dark under View.
+
+Keyboard access includes Cmd/Ctrl+O, Cmd/Ctrl+F, Cmd/Ctrl+Z/Shift+Z,
+Cmd/Ctrl+0, Ctrl+Page Up/Down, native list arrows/Enter and canvas arrows/Space/A.
+View also provides exact sample coordinates and frequency ranges. Help lists the
+shortcuts. Delete and Space in text fields retain their ordinary text behavior.
+
+See [the approved design](PeakFit_GUI_Design_Specification_v2.0.md) and
+[editor validation](validation/gui-v2-editor.md) and
+[fit/comparison validation, screenshots and limitations](validation/gui-v2-fitting.md).
+
+## Save, reopen and continue
+
 Use **Open dataset…** to load a spectrum, optional peak list and plane values.
 Confirm the peak-axis mapping. Edit unfolded positions and choose **Fit dataset**;
 usable optimized positions are adopted automatically, while initial positions stay
@@ -14,8 +211,9 @@ platform Save As shortcut. Open dataset moves to Ctrl+Shift+O / Command+Shift+O.
 Save As requires a new destination. Keep the whole directory together. Routine
 saves show brief status-bar progress without a dialog; expensive archive and source
 verification work runs outside Qt, with cancellation available in the status bar.
-Closing changed work offers **Save analysis / Discard changes / Cancel**. CSV or
-canonical result export is separate and does not save the complete analysis.
+Closing changed work offers **Save analysis / Discard changes / Cancel**. Exporting
+peaks (CSV) or results is separate and does not save the analysis; an unsaved
+session's history is lost on Discard.
 
 Projects reference the original NMRPipe spectrum; they never copy it. Working peak
 IDs/positions, effective settings, ordered plane values, accepted numerical evidence,
@@ -46,521 +244,4 @@ analysis can read the recovery path shown in diagnostics. Source-dependent MCMC,
 embedding and reopening legacy local-fit exports remain outside this workflow.
 
 See [native workflow evidence, measurements and limitations](validation/gui-v2-persistence.md)
-and [project format](outputs.md#linked-source-analysis-projects). The remaining
-sections describe the compatible legacy `peakfit gui` application.
-
-The desktop application fits complete datasets and compares the retained scientific
-result directly with the experimental spectrum. Cluster navigation and reopening
-saved analyses are subsequent work; see [GUI design](gui-design.md).
-
-Launch the desktop application with a 2D or pseudo-3D NMRPipe spectrum:
-
-```bash
-uv run peakfit gui examples/02-advanced-fitting/data/pseudo3d.ft2 \
-  --peaks examples/02-advanced-fitting/data/pseudo3d.list \
-  --z-values examples/02-advanced-fitting/data/b1_offsets.txt
-```
-
-Both options are optional. `uv run peakfit gui` opens an empty application window.
-Use **File → Open spectrum** to open or replace the current spectrum, and the same
-menu to load a peak list or plane values afterward. A missing peak list never
-starts automatic peak picking. Other dimensionalities are rejected with an error.
-
-## Fit and review the complete dataset
-
-Choose **Fit dataset…** in the toolbar, or **Analysis → Fit dataset…**
-(Ctrl+Return; Command+Return on macOS). No peak selection is required. The dialog
-prepares all committed working peaks and every original experimental plane outside
-the interface thread. It shows the resolved models, statistical noise, absolute
-clustering threshold, cluster count and number of fitting samples before enabling
-**Run dataset fit**. Invalid pending peak edits must be corrected first.
-
-The GUI defaults to **two optimizer passes**, with the existing cross-cluster
-correction update between passes. This deliberately differs from the CLI's unchanged
-one-pass default. The clustering threshold defaults to 5× the independently estimated
-all-plane statistical noise. Display contours have their own first-plane noise scale;
-changing their threshold never changes a whole-dataset fitting problem.
-
-Expand **Scientific settings and starting parameters** to review or change the
-global lineshape, optimizer iteration limit and tolerance, and inspect the actual
-first-pass starting values, bounds, units and fixed/variable flags. Processing-derived
-models require scientific judgment. Positions and lineshape parameters are shared
-across planes; signed amplitudes are independently solved per peak and plane. No
-response law is assumed. The reviewed problem is passed to the regular whole-dataset
-pipeline in one disposable process, including all configured neighbor corrections.
-
-During execution the summary shows the actual pass/cluster progress, correction
-updates and finalization. **Cancel fit** stops and reaps the process; no partial
-result is published. Navigation stays available, while scientific edits and dataset
-replacement pause. Preparation, completion and failure never open the lower panel.
-
-After completion **Overlay** displays the sum of every usable final cluster model
-over the experiment, with the same absolute contour levels and both signs. One
-**Experimental / Overlay / Residual** selector coordinates the spectrum and both
-slices. The **Total model** label remains explicit even when a peak is selected.
-Model values come from `CompletedFit` and its retained geometry and amplitudes;
-display never optimizes parameters or solves amplitudes again.
-
-**Residual** shows experimental minus total final usable model throughout the
-native plane, including outside fitting masks, divided by retained statistical noise.
-Its blue/neutral/red raster saturates at −3/+3 σ; traces use the same residual units.
-This is distinct from recorded optimizer residuals against terminal neighbor-corrected
-fitting samples. Their statistics are retained unchanged, not recalculated from the
-display. **Contours → Show exact fitting samples** exposes the recorded sample mask.
-
-The compact summary distinguishes optimizer convergence, numerical usability,
-model completeness and uncertainty warnings. Unusable contributions are omitted
-explicitly: an incomplete model is labeled; an all-unusable run offers no model
-comparison. Convergence does not establish scientific validity. **Result details**
-explicitly opens recorded statistics, model assumptions, uncertainty limitations and
-original run provenance without replacing the spectra.
-
-Model projection runs asynchronously over the entire native plane without spatial
-cutoffs. Plane input and measured slices update immediately. Mismatched calculated
-graphics disappear while **Calculating total model…** identifies pending work.
-Bounded caches reuse model planes independently of display thresholds; latest
-requests supersede obsolete calculations. Plane identities remain original indices,
-including reordered or repeated coordinate values. Both model slices evaluate the
-same total model at native coordinates across all original planes.
-
-Only one completed run is retained. A canceled or failed replacement keeps the
-previous result. Later scientific edits mark it **Outdated**, hide comparison and
-retain original numerical quantities and provenance. Undo does not recertify it.
-Closing or replacing an unexported result offers **Export… / Discard / Cancel**.
-**File → Export fit results…** writes canonical JSON/CSV plus a dataset provenance
-companion in `dataset-fit-<run_id>/`. This is scientific export, not a reopenable
-analysis or continuation archive. Applying whole-dataset fitted positions is not
-part of this first workflow; existing local-fit position application remains available.
-
-![Whole-dataset overlay in the compact workspace](images/dataset-1280-light-overlay.png)
-
-[Native before/after review and measured responsiveness](validation/gui-dataset-fit.md)
-includes both appearances, whole-spectrum residuals and the settings dialog.
-
-## Workspace
-
-The 2D spectrum and two synchronized 1D slices form the main viewing area.
-The native toolbar prioritizes **Fit dataset…**, separates secondary inspection
-actions from comparison/display controls, and offers **1D slices** directly.
-**Edit peak**, **Local fit**, and **Across planes** are labeled entry points to a
-lower analysis panel. It starts collapsed. **Close details** restores the larger
-viewing area; opening and closing never resets the plane, crosshair, selection,
-comparison mode, or ppm ranges. Drag the horizontal divider to resize details;
-the last expanded height is remembered while this workspace is open.
-
-**Across planes** opens the sampled crosshair profile alongside all three spectral
-views. With a current local fit, its quantity selector distinguishes crosshair intensity
-from signed fitted peak amplitudes. Neither quantity is inferred from the other.
-The right slices and their divider are resizable. **View → 1D slices** hides or
-restores the slice column. It starts at 260 logical pixels and can be dragged down
-to 220 pixels. The spectrum always remains visible. Cluster navigation is subsequent
-work; no empty placeholder reserves space.
-
-The local numerical inspector places scope beside a read-only parameter table.
-Long tables and diagnostics scroll inside the lower panel; they never replace
-the spectrum or slices.
-
-## Navigation
-
-- Drag the spectrum to pan; scroll to zoom about the pointer. **View → Reset view** or
-  **Ctrl+0** restores the full spectral range.
-- Click to place the crosshair, or drag either crosshair line. It snaps to sampled
-  points so the two orthogonal traces and raw plane profile inspect the same data.
-- Use the plane slider/spin box or **Ctrl+Page Up / Ctrl+Page Down**. Plane numbers start at
-  1; the adjacent value is the experimental coordinate supplied by `--z-values`,
-  or the original zero-based plane index when no values file is supplied.
-- **Contours · 5.0× ▾** in the command row shows the current threshold.
-  Click it for precise threshold, spacing and level-count inputs and their sliders. The threshold slider is
-  logarithmic (0.1–1000 × the first plane's estimated noise), with fine relative
-  adjustments at low thresholds. Slider arrow keys make small changes; Page Up /
-  Page Down make larger changes when a slider has focus. Blue solid contours are
-  positive; red dashed contours are negative. Changes are briefly coalesced.
-- Imported peaks appear as crosses. Hover to see a name and displayed coordinates;
-  enable **View → Peak labels** for assignments. Indirect positions fold into the
-  sampled window using PeakFit's coordinate conversions. Direct positions do not wrap.
-
-Both right-hand traces follow the visible spectral ranges during zooming and
-panning: the upper trace follows the horizontal (direct) axis, and the second
-follows the vertical (indirect) axis. Both retain descending ppm orientation and
-automatically scale intensity to the visible region. Navigate in the main spectrum;
-the traces are inspection panels, with no independent pan/zoom. Both inspect the
-crosshair position on the selected plane. **Across planes** shows
-raw sampled intensity at the crosshair across all planes, not fitted amplitudes.
-The larger point identifies the current plane. Points are deliberately not joined:
-experimental coordinates may repeat or arrive out of order. Values have no assumed
-physical units; their interpretation depends on the experiment.
-
-Plot backgrounds and labels follow Qt's system palette, with contrasting contour,
-trace, and crosshair colors for light and dark appearances. The horizontal splitter
-lets you allocate space between the spectrum and inspection panels.
-
-## Working peak coordinates
-
-Click a marker to select its assignment. Coincident markers open a chooser.
-Choose **Edit peak** to edit the name and unfolded ppm coordinates together.
-Press **Enter**, leave the editor, or select another peak to
-commit the whole peak as one undoable edit. Closing details, switching panels,
-placing or dragging a peak, preparing a fit, and exporting working peaks also
-commit valid pending fields. **Tab** and **Shift+Tab** between the three fields
-keep one draft, including partially typed coordinates. Tab navigation follows the
-system's keyboard preferences. If Tab reaches **Delete peak**, the draft remains
-uncommitted so it can be discarded by deletion; tabbing out of the editor commits
-it. **Escape** restores all three last-committed values, including when Delete peak
-has focus. Space activates the focused Delete peak button.
-There are no Apply/Revert buttons. Native text-field undo and context menus remain
-available while editing; after committing, use **Edit → Undo/Redo** for peak history.
-Peak-history actions pause while a draft is pending; finish editing or press Escape
-first. **Delete peak** discards pending text, even invalid text, and deletes the
-selected peak directly without validation or confirmation. This is one undoable
-operation: Undo restores its last committed name and coordinates, never the discarded
-draft. Delete/Backspace with spectrum focus also deletes the selected peak; inside
-a field these keys retain their normal text-editing behavior.
-
-Text context menus, temporary loss of focus, dialogs, and switching applications
-preserve the draft. Returning to an editor field resumes editing; moving focus
-elsewhere in the workspace commits valid changes after focus settles. Escape in
-a text context menu closes that menu first. Clicking another marker or an overlapping
-marker chooser resolves the draft before changing selection.
-
-An empty name or non-finite/invalid coordinate keeps the entire draft visible,
-focuses the field needing correction, and explains the error inline. Selection,
-closing/switching details, fitting and working-peak export cannot discard invalid
-fields. Correct them and finish editing, or press Escape. Names need not be unique;
-unfolded coordinates retain their full precision.
-
-Typing updates the unsaved-work indicator without changing scientific inputs.
-Escape preserves the prepared scope, retained result and current comparison.
-Only an actual committed change invalidates dependents: equivalent numeric text
-and unchanged fields create neither history nor a scientific revision. Committed
-assignment or coordinate changes hide stale comparison graphics and mark retained
-results **Outdated** while preserving their original values and export status.
-Undo/Redo does not make a retained fit current again; prepare a new fit for a current
-comparison. Exporting working peaks still requires choosing a file; committing a
-field never overwrites an imported file.
-
-![Peak editor without Apply/Revert controls](images/peak-editor.png)
-
-[Inline validation keeps the draft visible](images/peak-editor-validation.png).
-
-Choose **Add peak…** (or A with spectrum focus), then click once to place a peak.
-The same button becomes **Cancel placement**; click it or press Escape to cancel.
-The spectrum tooltip describes the active placement gesture.
-Inspector fields pause during placement and become editable again when it finishes.
-Spectrum tooltips explain selection, navigation, and editing the selected peak.
-Select a peak before dragging it: an open-hand cursor advertises movement. The ring and label preview the new position while the original cross
-remains as a reference. Release commits one undoable move; Escape restores it.
-Dragging an unselected marker pans. Peak coordinates retain fractional precision
-and dragging preserves the original unfolded chemical-shift representation.
-
-Imported shapes are discarded, and working peaks are not fitted results.
-
-## Export and unsaved edits
-
-**File → Export peaks…** (Command+S on macOS, Ctrl+S elsewhere) writes a canonical
-PeakFit CSV (`name,F1_ppm,F2_ppm`) that can be loaded by the GUI or existing fitting
-commands. Coordinates retain unfolded values and round-trip float precision;
-quoted names, duplicate assignments, and names such as `001` and `NA` are preserved.
-Exports contain names and coordinates, not internal identities, undo history,
-plane values, or fitting configuration. Imported files are never changed implicitly.
-
-The window's modified indicator and status bar identify unsaved edits, including
-typed inspector fields. Opening another spectrum, replacing a peak list, and closing
-the window offer Export/Discard/Cancel (the native dialog labels Export as Save).
-Canceling export or encountering a write error keeps the working list. Undo/redo
-continues across exports; returning to the saved coordinates clears the indicator.
-Native text-field undo and deletion remain local to text; A and peak deletion
-shortcuts require spectrum focus. Selection, zoom, crosshairs, and plane navigation
-never enter peak history. Internal identities survive rename, move, and undo, but
-are newly allocated on import; they are not scientific parameter identifiers.
-
-
-
-## Compact contour controls
-
-The command row contains one compact **Contours · 5.0× ▾** control. Its value is the current threshold in multiples of first-plane noise.
-Click once to edit the precise numerical threshold, logarithmic threshold slider,
-spacing and level count in an anchored popup. The numeric input receives focus;
-Enter commits a typed value, Tab moves between controls, and Escape or clicking
-outside closes the popup. The button has a fixed width, so changing values never
-moves it or the plots. It remains outside the spectral data area.
-
-There is no permanent threshold editor or interaction banner.
-Reset is available through **View → Reset view** and **Ctrl+0**. Plane navigation
-remains below the spectrum. Interaction instructions are in spectrum tooltips;
-contour progress/errors temporarily use the existing coordinate footer. Threshold
-uses first-plane noise for its scale, not the independently estimated statistical
-fitting noise. The numerical contour worker and debouncing are unchanged.
-
-
-During preparation, threshold changes still update the exact group and sampled mask.
-Once submitted, a fit retains its original scientific inputs: contour changes during
-execution or result inspection affect display only. Spacing and level count always
-affect display only.
-
-## Local fitting scope preview
-
-Select a peak, then choose **Local fit**. Its scope, member list and effective
-starting parameters appear in the lower panel; the F3 and F2 slices stay visible.
-Preparation does not run optimization. Valid pending peak fields commit before
-preparation; invalid drafts remain visible and block it.
-
-Closing or switching details changes presentation only: it does not cancel an
-active preparation, remove a completed comparison, or change the fitting scope.
-Background preparation, completion and failure update content without opening or
-resizing details. Fit execution status and **Cancel fit** remain in the reserved
-footer even while details are closed. Reopen **Local fit** for numerical content.
-
-PeakFit constructs fresh scientific peaks from a snapshot of **all working peaks**,
-resolves the existing lineshape models from NMRPipe processing metadata, estimates
-noise from **all planes**, and uses the regular clustering algorithm. Safe internal
-names and an explicit ID/assignment mapping keep duplicate assignments distinct.
-The selected peak identifies its connected cluster, including every other working
-peak in that cluster. The region combines thresholded signal from any plane with
-small neighborhoods around working peaks; it is not a rectangular crop.
-
-Amber cells show the **actual sampled fitting mask**, aligned with the spectral
-samples, and rings highlight all included peaks. The preview lists group members,
-plane/sample counts, resolved axis models, noise and clustering threshold, and the
-nonlinear starting values, bounds, units, and fixed/variable flags from the same
-parameter preparation function used by the pipeline. Positions remain unfolded;
-direct-axis coordinates outside the sampled extent are rejected instead of wrapped.
-The clustering threshold is the **absolute intensity of the lowest displayed
-contour**, shared with the viewer's Threshold control (whose scale uses first-plane
-noise). The optimizer's statistical noise is estimated independently from all planes;
-changing the contour threshold does not change that estimate. No model or parameter
-editing controls are exposed yet. Programmatic local preparation
-supports only global and axis/parameter-wide wildcard rules (`*`, `*.*.lw`,
-`*.F2.cs`, and the same pattern forms in fit-step fix/vary rules). It rejects
-`parameters.peaks`, name-targeted patterns, and `parameters.from_file` with an
-actionable error: assignment names cannot safely target the generated scientific
-IDs, especially with duplicate assignments. Use the CLI for those configurations;
-CLI constraint handling is unchanged.
-
-The local fit is **one isolated pass across every experimental plane**.
-Positions and lineshape parameters are shared across planes; signed amplitudes are
-solved independently per peak and plane, with no amplitude starting controls or
-assumed response law. Models inferred from processing metadata need scientific
-review; a successful preparation does not validate their suitability for the data.
-Signals from other clusters are **not** subtracted, and the complete iterative
-cross-cluster correction procedure is not included. Check surrounding peaks before
-using a local fit; a missing peak or significant external signal needs attention.
-
-Panning, zooming, and plane navigation remain available. Preparing or dismissing a
-preview does not change committed peaks, undo history, source files, or spectrum
-samples. Selecting another member keeps the same prepared group without recomputing it.
-During scope review, selecting an outside peak or clearing selection dismisses the preview without opening or switching details. Peak edits, peak-list replacement, and plane-coordinate changes also
-dismiss it. Snapshots retain working IDs/assignments, spectrum identity and shape,
-spectral metadata, plane coordinates, the effective absolute clustering threshold,
-and fitting configuration. They are preparation inputs, not completed results
-or a persisted session.
-
-Changing **Threshold** during scope review updates membership, mask,
-member rings, and effective parameters. Rapid slider changes are coalesced after a
-short pause (150 ms); the previous scope stays visible at reduced opacity, marked
-as updating until the new exact scope is ready. Spacing, number of levels, and displayed plane affect
-rendering only and never redefine the cluster. The all-plane noise estimate is
-reused for the unchanged dataset. Closing details retains the current preparation and pending update.
-
-Preparation and numerical contour extraction run outside the GUI event loop in
-one serial background lane. Each kind of request retains only its latest pending
-version, and obsolete results are discarded. Working records and spectral metadata
-are captured before submission. Only the selected cluster's data is materialized;
-all-plane segmentation, boundary merging, and sampled-point order are unchanged.
-Changing selection before a scope is ready, replacing the spectrum, or closing the window invalidates the corresponding work without waiting.
-Qt paths, widgets, and graphics are constructed only on the GUI thread.
-
-## Scope and performance
-
-Manual editing changes one shared peak list across all experimental planes.
-Whole-dataset and local optimization and graphical review are available; session
-persistence is not yet implemented. Existing
-Matplotlib viewers and static plots remain available unchanged.
-
-The viewer keeps the `Spectra` object in memory. Panning and zooming reuse retained
-Qt graphics; raw traces and plane navigation remain available while work is pending.
-
-Low-threshold contours remain fully available. Existing contours stay visible while
-their replacement is computed, and the complete new set is installed together.
-There is no contour-vertex cutoff. Progress uses a reserved one-line status area;
-status changes do not move the spectrum or its controls.
-
-Numerical preparation is separate from scope visualization. If a selected group's
-data/correction arrays would exceed 128 MiB, its exact segmentation mask, all member
-markers, model metadata, and sample counts still appear. No dense point-by-plane
-arrays are allocated, and the parameter table remains unavailable. A compact status
-explains that numerical preparation is unavailable; diagnostics in **Local fit**
-provide the full explanation, required memory, and advice to use the CLI or a
-higher threshold for numerical preparation. No region is truncated. Internally,
-`PreparedLocalFit.scope` always contains geometry and membership; `cluster` and
-`parameters` are explicitly absent when only the lightweight scope is available.
-
-The reserved footer keeps plot geometry stable during progress, warnings and fit
-execution. Only explicit opening, closing or resizing of details changes layout.
-The [native comparison](development.md#gui-responsiveness) covers the original
-viewer and this workspace down to 0.1× noise.
-
-Running preparation/contour work is not forcefully interrupted; it finishes in the
-background and its obsolete result is ignored. Optimization uses a separate,
-terminable process described below. Shutdown does not wait in the Qt event loop.
-The first all-plane noise estimate still has substantial temporary memory use.
-
-## Execute a reviewed local fit
-
-After reviewing the prepared group, choose **Run local fit**. It executes the
-exact sampled data, shape objects, starting values, bounds, and parameter freedom
-shown in the preview. It does not repeat clustering or parameter preparation.
-A scope-only preparation cannot run; the disabled button and diagnostics explain
-why. Configurations with no variable nonlinear parameters are also rejected.
-
-One dedicated spawned process executes the existing VarPro single-cluster engine,
-followed by the existing analytical evaluation and completed-outcome finalization.
-Only the selected cluster and input metadata are transmitted, not the full spectrum.
-The existing preview/contour worker remains independent. Status reports startup,
-running time, completion/failure, and cancellation; it does not invent percentages.
-**Cancel fit** terminates and reaps the numerical process, then restores editing.
-No partial result is retained. Exiting during execution asks before canceling it.
-Canceling any close, peak-discard/export, or result-discard confirmation keeps the
-fit running. Shutdown begins only after every confirmation is accepted; results
-that finish during an earlier dialog are checked by the final result-discard guard.
-
-While fitting, zoom, pan, crosshair inspection, plane navigation, and ordinary
-contour controls remain available. Switching details and selecting another
-peak retain the active fit. Scientific edits, Undo/Redo, peak-list/plane-coordinate
-replacement, and opening another spectrum pause until the fit stops. The local-fit panel
-and spectrum tooltip explain this restriction. Contour changes affect rendering only once a fit
-has been submitted; its original fitting threshold and mask remain fixed.
-
-The completed local-fit panel distinguishes **converged**, **usable but not converged**,
-and **unusable** outcomes. Its summary shows numerical usability and reduced
-χ², labeled as an all-plane statistic over fitted samples. The termination message, evaluation
-counts, χ², observation/parameter counts, and degrees of freedom are in the panel diagnostics.
-Convergence describes optimizer termination and is not styled as scientific success.
-The read-only table switches between starting/fitted nonlinear
-parameters (including bounds and fixed/variable flags) and independently recovered signed amplitudes for the displayed
-experimental plane. Use the main plane controls to inspect other amplitudes;
-repeated/unordered plane values retain their original plane identities.
-The panel diagnostics retain model assumptions, statistical noise, the submitted threshold,
-warnings, optimizer settings, software/run identity, timings, and child peak memory.
-Use the graphical comparison described below to assess fit quality.
-
-Working peaks, their undo history, and spectrum samples never change on completion.
-The result separately owns the original input snapshot and stable GUI identities,
-effective starting parameters, sampled data and exact grid indices, frozen nonlinear
-values, amplitudes, model/residual arrays, analytical statistics, diagnostics, and
-copied model geometry. Graphical comparison never repeats fitting.
-Only one completed result is retained. A new fit requires confirmation before
-replacing it; a canceled or failed attempt keeps the previous result, accessible
-through **Retained result**. **Prepare again** starts another review.
-
-Choose **File → Export fit results…** and select a parent directory. PeakFit writes
-`local-fit-<run_id>/` containing canonical JSON 4.1.0, CSV tables and a local-fit
-provenance record ([format details](outputs.md#gui-local-fit-export)). The footer
-and confirmation show the destination. The completed fit and graphical comparison
-remain available. Working coordinates, pending inspector fields, undo history and
-peak-list saved status are unchanged. Exporting working peaks remains a separate action.
-
-Closing, replacing the spectrum, or starting a replacement fit offers
-**Export… / Discard / Cancel** for an unexported completed result. Canceling the
-directory picker or a failed write keeps the result unexported. Already exported
-results do not prompt again. Every new completed result has its own export state;
-a failed/canceled replacement attempt retains the old result and its export status.
-No shutdown/cancellation begins until all close decisions are accepted, including
-when a fit finishes while an earlier dialog is open.
-
-Later scientific edits mark the retained result outdated and remove its
-current-spectrum scope overlays. Numerical inspection and export still use its
-original scientific inputs, which the export companion records explicitly.
-Obsolete background deliveries never replace it. Export is scientific output, not
-an editable GUI session; reopening exported results in the GUI is not available.
-
-### Apply fitted positions
-
-After reviewing a numerically usable result, choose **Apply fitted positions** in
-its **Local fit** panel. The confirmation shows the number of changed peaks and a compact
-preview of indirect/direct ppm changes; **Show Details…** lists the whole group.
-Cancel leaves working peaks untouched. No coordinates change automatically on fit
-completion or scientific export.
-
-Apply copies only the retained final chemical shifts, including fixed coordinates,
-using engine identifiers mapped to stable working peak IDs. Duplicate assignments
-remain distinct. Coordinate order follows the spectral axes, preserving unfolded
-indirect shifts and existing aliasing. Missing, ambiguous, nonfinite, out-of-bounds,
-or invalid direct-axis coordinates reject the entire operation. No parameters are
-recalculated; linewidths and amplitudes are never applied to the working list.
-
-One Apply is one **Undo peak edit** step; **Redo peak edit** restores the entire
-group. Other peaks, assignments, ordering and selection stay unchanged. If every
-position already matches, PeakFit explains that no edit was made and adds no undo
-entry. Applying marks the working peak list modified; use **Export peaks…** to save
-it independently of scientific results.
-
-Apply requires unchanged scientific inputs and is unavailable during fitting or
-with pending inspector edits. After applying, the header says **Outdated · comparison
-hidden**: working inputs changed, so model/residual graphics and fitting-sample
-overlays are hidden. The original fit, provenance, fitted quantities, and successful
-export status remain intact. An unexported result can still be exported from
-**File → Export fit results…**. Undo/Redo restores working coordinates without
-reclassifying the retained fit as a new fit; prepare and run again for a current
-comparison.
-
-![Native confirmation for applying three fitted positions](images/apply-fitted-positions.png)
-
-## Comparing a completed local fit
-
-A usable completed fit selects **Overlay** in the command row without opening details.
-**Experimental** restores the experimental view; **Residual** shows only the actual
-fitted-sample errors, with faint experimental contours for orientation. Changing
-mode preserves the spectrum viewport, two slices and across-plane profile. The adjacent
-**Local group comparison** label makes the existing scientific scope explicit.
-
-Purple contours show the **local group contribution**, at the same absolute
-positive/negative contour levels as the experiment. They do not simulate other
-groups. Solid (negative: dashed) fragments lie in sampled native cells; dotted
-(negative: dash-dot) fragments are predictions outside that support. The short
-legend and selector tooltip explain this distinction. Open **Contours** and check
-**Show exact fitting samples** for the original amber mask; it is off by default.
-Changing display thresholds never changes the retained fit's inputs.
-
-Smooth model contours evaluate the retained scientific lineshapes and signed
-amplitudes on a bounded fractional grid. Bounds start at the sampled region plus
-six fitted linewidths and double until visible tails no longer cross the boundary,
-or the loaded spectral edge is reached. **Edge clipped** warns when visible model
-tails still reach that edge. There is no wrapping of graphical paths across aliases.
-Narrow lines receive additional near-center samples. These contours are display
-predictions, not additional observations or an uncertainty estimate.
-
-F3/F2 traces follow the same crosshair and native ppm coordinates as experiment,
-with common intensity units and scales. Purple points/solid lines identify fitted
-cells; dotted lines identify predictions. The evaluated model continues underneath
-the solid fragments so the styles meet without a missing boundary segment. The scientific model is explicitly
-evaluated along the native rows/columns, including tails outside the 2D grid.
-Undefined residual samples stay absent; lines never bridge fitting-mask gaps.
-
-The plane-profile selector distinguishes **Crosshair intensity** (experimental
-circles and calculated total-group triangles) from each peak's **Amplitude**.
-Amplitudes have their own signed scale and replace the intensity points. Profiles
-keep the original plane order and use unconnected points, including repeated or
-unordered plane values. Clicking a point navigates to its original plane.
-
-**Residual** uses experimental minus local-model intensities at exact fitted
-samples, divided by the retained statistical noise. The raster has a fixed
-blue/neutral/red scale saturated at −3/+3 σ; neutral cells remain visible, and
-unsampled cells are transparent. There is no residual interpolation. The traces
-and coordinate profile show residual points in σ units; an unsampled crosshair
-explicitly reports **No fitted sample at crosshair**. Neighboring unmodeled signals
-may remain. Residual structure matters even when the optimizer converged.
-
-Scientific edits remove comparison graphics immediately. Retained outdated results
-remain numerically inspectable, but cannot restore current-spectrum model graphics.
-Plane changes hide mismatched graphics until the current experimental/model pair
-is ready. Existing editing, cancellation and unsaved-result guards still apply.
-
-
-[Compact dark overlay](images/local-fit-overlay-dark.png) ·
-
-Fits with unreliable local uncertainties remain available for model/residual
-comparison and export. The result header warns about the uncertainty, and
-**Apply fitted positions** is disabled with that explanation. This prevents
-optimizer success alone from endorsing an unidentifiable peak decomposition.
-Manual peak editing and its Undo/Redo history remain available. See
-[uncertainty conventions](outputs.md#unavailable-and-unreliable-uncertainties).
+and [project format](outputs.md#linked-source-analysis-projects).

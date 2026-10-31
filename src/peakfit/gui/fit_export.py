@@ -9,20 +9,19 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from peakfit.engine.domain.config import PeakFitConfig
-from peakfit.engine.scientific.completed import CompletedFit, FinalClusterSamples
+from peakfit.engine.scientific.completed import FinalClusterSamples
 from peakfit.fit.export import write_completed_outputs
-from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.project_results import reconstruct_result
 from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.writers.config import WriterConfig
 
 if TYPE_CHECKING:
+    from peakfit.gui.dataset_fit import DatasetFitResult
     from peakfit.gui.fit_positions import DatasetCompletion
-    from peakfit.gui.local_fit import LocalFitResult
 
 
 def export_fit_result(
-    result: LocalFitResult | DatasetFitResult,
+    result: DatasetFitResult,
     destination: Path,
     *,
     completion: DatasetCompletion | None = None,
@@ -42,10 +41,8 @@ def export_fit_result(
         raise FileExistsError(f"Choose a new results directory: {destination} already exists.")
     if completion is not None and completion.result is not result:
         raise ValueError("Export completion belongs to a different run.")
-    if (
-        isinstance(result, DatasetFitResult)
-        and dataset is not None
-        and any(not isinstance(s, FinalClusterSamples) for s in result.completed_fit.samples)
+    if dataset is not None and any(
+        not isinstance(s, FinalClusterSamples) for s in result.completed_fit.samples
     ):
         result = reconstruct_result(result, dataset)
         if completion is not None:
@@ -64,23 +61,7 @@ def export_fit_result(
     )
     if completion is not None and completion.result is not result:
         raise ValueError("Export completion belongs to a different run.")
-    if isinstance(result, DatasetFitResult):
-        completed = result.completed_fit
-    else:
-        cluster = result.inputs.cluster
-        assert cluster is not None
-        completed = CompletedFit(
-            result.outcome,
-            result.simulation_snapshot,
-            (
-                FinalClusterSamples(
-                    cluster.cluster_id,
-                    tuple(cluster.grid_indices),
-                    cluster.data,
-                    cluster.corrections,
-                ),
-            ),
-        )
+    completed = result.completed_fit
     settings = PeakFitConfig.model_validate(configuration).output
     with TemporaryDirectory(prefix=".peakfit-export-", dir=destination.parent) as temporary:
         staged = Path(temporary) / "results"
@@ -110,7 +91,7 @@ def export_fit_result(
             if completion
             else None,
             export_state={
-                "scope": "dataset" if isinstance(result, DatasetFitResult) else "cluster",
+                "scope": "dataset",
                 "currentness": "unknown"
                 if current is None
                 else ("current" if current else "outdated"),

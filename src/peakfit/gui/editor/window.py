@@ -1,6 +1,5 @@
 """Native application shell and validated, asynchronous input replacement."""
 
-import argparse
 import sys
 from dataclasses import replace
 from functools import partial
@@ -104,7 +103,7 @@ class OpenDatasetDialog(QtWidgets.QDialog):
 
 
 class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
-    """Keep the existing application working while v2 gains complete vertical slices."""
+    """PeakFit desktop application: inspect, edit, fit, compare, save and export."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -806,32 +805,23 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         event.accept()
 
 
-def main() -> None:
-    """Launch the v2 editor separately; peakfit gui keeps the fitting application."""
-    parser = argparse.ArgumentParser(
-        description="PeakFit v2: inspect, edit, fit, compare and export NMR spectra"
-    )
-    parser.add_argument("spectrum", nargs="?", type=Path)
-    parser.add_argument("--peaks", type=Path)
-    parser.add_argument("--plane-values", type=Path)
-    parser.add_argument("--peak-axis-order", choices=("indirect-direct", "direct-indirect"))
-    args = parser.parse_args()
-    if args.peaks and not args.peak_axis_order:
-        parser.error("--peaks requires --peak-axis-order; confirm your list's coordinate mapping")
+def launch(
+    path: Path | None = None,
+    peaks: Path | None = None,
+    plane_values: Path | None = None,
+    *,
+    swap_peak_axes: bool = False,
+) -> None:
+    """Start PeakFit, optionally opening a dataset or a saved ``.peakfit`` analysis."""
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
+    assert isinstance(app, QtWidgets.QApplication)
     app.setApplicationName("PeakFit")
     app.setOrganizationName("PeakFit")
-    assert isinstance(app, QtWidgets.QApplication)
     app.setStyle("Fusion")
     window = EditorWindow()
     window.show()
-    if args.spectrum and args.spectrum.suffix == ".peakfit":
-        window.load_analysis(args.spectrum)
-    elif args.spectrum:
-        window.load(
-            args.spectrum,
-            args.peaks,
-            args.plane_values,
-            swap=args.peak_axis_order == "direct-indirect",
-        )
+    if path is not None and path.suffix == ".peakfit":
+        window.load_analysis(path)
+    elif path is not None:
+        window.load(path, peaks, plane_values, swap=swap_peak_axes)
     app.exec()
