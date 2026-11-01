@@ -509,35 +509,57 @@ class Inspector(QtWidgets.QScrollArea):
         self._show_profile(result, peak.id, plane_values, plane, current=current)
         self.fitted_title.setText(f"FITTED · RUN {result.run_id[:8].upper()}")
         self._fill_parameters(engine, cluster)
+        start = next((p for p in result.inputs.snapshot.peaks if p.id == peak.id), None)
+        if start is not None:
+            # The run's submitted position, for inspection; movement is not a diagnostic.
+            dx, dy = self.editor.decimals
+            x_title, y_title = (self._axes[label] for label in self._axis_order)
+            started = _label(
+                f"Started from {x_title} {start.positions[1]:.{dx}f}, "
+                f"{y_title} {start.positions[0]:.{dy}f} ppm",
+                "caption",
+                wrap=True,
+            )
+            self.fitted.addWidget(started, self.fitted.rowCount(), 0, 1, 3)
         self._fill_review(engine, cluster, result, review)
         self.provenance.setText(_provenance(cluster, result))
 
-    def show_changes(
-        self, title: str, rows: list[tuple[str, str, str, bool]], notes: list[str]
-    ) -> None:
-        """Run-to-run changes: (link text, detail, working ID, opens a cluster) rows."""
-        key = (title, tuple(rows), tuple(notes))
+    def show_changes(self, title: str, entries: list[tuple]) -> None:
+        """Show run-to-run changes as a list of entries.
+
+        Entries are ("line", text), ("heading", text), ("note", text) or
+        ("link", text, detail, working ID, opens a cluster page).
+        """
+        key = (title, tuple(entries))
         if key == self._changes_key:
             return
         self._changes_key = key
         self.changes_title.setText(title)
         self.changes_title.setVisible(bool(title))
         _clear(self.changes)
-        for text, detail, identity, cluster in rows:
-            row = QtWidgets.QHBoxLayout()
-            row.setSpacing(themes.SPACE_S)
-            link = QtWidgets.QPushButton(text)
-            link.setObjectName("link")
-            link.setFlat(True)
-            link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
-            link.clicked.connect(
-                lambda _checked=False, i=identity, c=cluster: self.change_chosen.emit(i, c)
-            )
-            row.addWidget(link, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-            row.addWidget(_label(detail, "caption", wrap=True), 1)
-            self.changes.addLayout(row)
-        for note in notes:
-            self.changes.addWidget(_label(note, "caption", wrap=True))
+        for entry in entries:
+            kind = entry[0]
+            if kind == "link":
+                _kind, text, detail, identity, cluster = entry
+                row = QtWidgets.QHBoxLayout()
+                row.setSpacing(themes.SPACE_S)
+                link = QtWidgets.QPushButton(text)
+                link.setObjectName("link")
+                link.setFlat(True)
+                link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+                link.clicked.connect(
+                    lambda _checked=False, i=identity, c=cluster: self.change_chosen.emit(i, c)
+                )
+                row.addWidget(link, 0, QtCore.Qt.AlignmentFlag.AlignTop)
+                row.addWidget(_label(detail, "caption", wrap=True), 1)
+                self.changes.addLayout(row)
+            elif kind == "heading":
+                self.changes.addSpacing(4)
+                self.changes.addWidget(_label(entry[1], "muted"))
+            else:
+                self.changes.addWidget(
+                    _label(entry[1], "" if kind == "line" else "caption", wrap=True)
+                )
 
     def show_cluster_result(
         self,

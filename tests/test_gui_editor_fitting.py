@@ -899,29 +899,38 @@ def test_review_measures_are_recorded_and_heuristics_follow_their_definitions(sc
         assert review.samples == int(evaluation.statistics.n_observations)
         largest = np.max(np.abs(cluster.sample_evaluation.normalized_residuals))
         assert review.largest_residual == float(largest)
-    # Shift: |fitted − initial| in Hz relative to the fitted linewidth, largest axis.
-    cluster = next(c for c in result.outcome.clusters if c.usable)
-    name = cluster.peak_names[0]
-    identity = next(i for i in result.inputs.identities if i.engine_name == name)
-    start = next(p for p in result.inputs.snapshot.peaks if p.id == identity.working_id)
-    values = {p.name: p.value for p in cluster.final_nonlinear_parameters}
-    expected = max(
-        abs(values[f"{name}.F{i + 2}.cs"] - start.positions[i])
-        * a.obs
-        / values[f"{name}.F{i + 2}.lw"]
-        for i, a in enumerate(spectra.spectral_params)
+    # Linewidth outlier: fitted LW over the run's median for that axis, usable peaks only.
+    usable = [c for c in result.outcome.clusters if c.usable]
+    widths = [
+        p.value for c in usable for p in c.final_nonlinear_parameters if p.name.endswith(".F2.lw")
+    ]
+    median = float(np.median(widths))
+    width, name, cluster = max(
+        (
+            (p.value, p.name.split(".")[0], c)
+            for c in usable
+            for p in c.final_nonlinear_parameters
+            if p.name.endswith(".F2.lw")
+        ),
+        key=lambda item: abs(item[0] / median - 1),
     )
-    nothing = review_module.HighlightRules(1.0, 1e9, 0.0, 1e9)
-    everything = review_module.HighlightRules(0.0, expected / 2, 1.0, 1.0)
+    identity = next(i for i in result.inputs.identities if i.engine_name == name)
+    ratio = width / median
+    nothing = review_module.HighlightRules(1.0, 0.0, 1e9)
+    everything = review_module.HighlightRules(0.0, 1.0, 1.0)
     assert not any(r.highlights for r in _review(result, spectra, nothing))
     flagged = next(
         r for r in _review(result, spectra, everything) if r.cluster_id == cluster.cluster_id
     )
-    shift = next(h for h in flagged.highlights if h.kind == "Position shift")
-    assert shift.peak == identity.working_id
-    assert shift.rule.startswith(f"shift {expected:.2f} × LW")
-    # Thresholds equal to 1 × median flag every usable linewidth except the median.
-    assert any(h.kind == "Linewidth outlier" for h in flagged.highlights)
+    outlier = next(
+        h
+        for h in flagged.highlights
+        if h.kind == "Linewidth outlier" and h.peak == identity.working_id and "axis 0" in h.rule
+    )
+    assert outlier.rule == f"LW {ratio:.2f} × median (axis 0)"
+    # Movement from the initial position is normal optimization, never a highlight.
+    kinds = {h.kind for r in _review(result, spectra, everything) for h in r.highlights}
+    assert kinds <= {"Amplitude correlation", "Linewidth outlier"}
 
 
 def _with_bound(result):
@@ -956,7 +965,7 @@ def test_highlight_thresholds_filter_clusters_without_touching_the_run(workspace
     publish(w, result)
     navigator = w.navigator
     revision, current, flagged = w.edits.revision, w.fitting.current, w.warnings.property("count")
-    w.set_rules(review_module.HighlightRules(0.0, 0.0, 1.0, 1.0))
+    w.set_rules(review_module.HighlightRules(0.0, 1.0, 1.0))
     reviews = w.reviews()
     highlighted = sum(bool(r.highlights) for r in reviews)
     assert highlighted
@@ -1024,7 +1033,7 @@ def test_warning_navigation_never_selects_a_hidden_cluster(workspace, scientific
     publish(w, _with_bound(scientific[-1])[0])
     navigator = w.navigator
     # Make every cluster highlighted, then warn about none that the filter shows.
-    w.set_rules(review_module.HighlightRules(0.0, 0.0, 1.0, 1.0))
+    w.set_rules(review_module.HighlightRules(0.0, 1.0, 1.0))
     options = [navigator.filter.itemText(i) for i in range(navigator.filter.count())]
     warned_choice = next(i for i, t in enumerate(options) if t.startswith("Any warning"))
     highlight_choice = next(i for i, t in enumerate(options) if t.startswith("Any highlight"))
@@ -1315,7 +1324,8 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
     wait_for(lambda: fitting._parents.get(parent.run_id) is parent)
     fitting.update()
     assert panel.changes_title.text() == "CHANGES FROM RUN PARENT00"
-    assert any("▲ Uncertainty unreliable resolved" in t for t in texts())
+    assert any("▲ Uncertainty unreliable no longer reported" in t for t in texts())
+    assert not any("resolved" in t for t in texts())
     links = [
         b
         for b in panel.analysis_page.findChildren(QtWidgets.QPushButton)
@@ -1326,3 +1336,19 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
     identities = {i.engine_name: i.working_id for i in result.inputs.identities}
     assert w.selected_id in {identities[n] for n in cluster.peak_names}
     assert panel.cluster_view
+
+
+def test_peak_page_shows_where_the_run_started(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    peak = result.inputs.snapshot.peaks[0]
+    w.select_peak(peak.id)
+    dx, dy = w.panel.editor.decimals
+    x_title, y_title = (w.panel._axes[label] for label in w.panel._axis_order)
+    expected = (
+        f"Started from {x_title} {peak.positions[1]:.{dx}f}, "
+        f"{y_title} {peak.positions[0]:.{dy}f} ppm"
+    )
+    labels = [label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel)]
+    assert expected in labels

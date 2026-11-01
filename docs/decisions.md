@@ -92,3 +92,17 @@ Short records of non‑obvious design choices and trade‑offs.
   non-finite reference, unavailable σ).
 - Approved in review of #82 as conservative behavior; revisit when the engine
   provides more specific identifiability diagnostics.
+
+## 2026-11-01: Position movement is not a review diagnostic
+- A peak may start far from its true position; moving toward it is what the
+  optimizer is for. The "position shift" highlight (|fitted − initial| over the
+  fitted linewidth) is removed with its threshold. Initial and fitted positions
+  remain visible on each peak page.
+- Run-to-run changes no longer report positions that moved by more than σ: the
+  recorded position σ (about 10⁻⁵ ppm on the bundled data) flagged 113 of 166 peaks
+  after a routine threshold change. No replacement threshold is introduced; the
+  largest position differences are listed as neutral information, in ppm and in
+  fitted linewidths.
+- Run-to-run comparison keeps numerical warnings, highlights and cluster membership,
+  matched by stable peak ID; a warning that disappears because a cluster was
+  regrouped is not described as resolved.

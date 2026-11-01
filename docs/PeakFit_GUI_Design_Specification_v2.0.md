@@ -608,13 +608,12 @@ correlation for a one-peak cluster).
 | Review measure (descriptive number) | χ²ᵣ | Recorded statistic on corrected fitting samples; relative to the statistical-noise estimate, so it inherits that estimate's accuracy. An elevated value does not by itself mean a wrong assignment. |
 | | Largest recorded residual | Maximum \|normalized recorded residual\| in σ, shown with the sample count. Read it against that count: the largest of 10⁴ independent standard-normal values is typically about 4 σ. |
 | | Amplitude correlation | Largest \|ρ\| between members from the recorded amplitude covariance (one matrix per cluster, shared by all planes); the full matrix is on the cluster page. It is conditional on the fitted lineshape parameters. Unavailable when the recorded covariance is unavailable; not applicable for one-peak clusters. A small residual with \|ρ\| near 1 means the decomposition is not determined by the data. |
-| Heuristic (descriptive, adjustable threshold) | Large position shift | \|fitted − initial\| position, converted to Hz with the axis spectrometer frequency, relative to the fitted linewidth; default highlight above 0.5. |
-| | Linewidth outlier | Fitted linewidth relative to the run's median for that axis over usable peaks; default highlight outside 0.5–2×. |
+| Heuristic (descriptive, adjustable threshold) | Linewidth outlier | Fitted linewidth relative to the run's median for that axis over usable peaks; default highlight outside 0.5–2×. |
 
 Numerical warnings appear as a warning glyph with text on every affected row and
 page; the toolbar summary counts only these. Measures are sortable navigator
 columns. Optional highlight thresholds on measures and all heuristics use a
-subdued glyph labeled with the rule (“\|ρ\| ≥ 0.9”, “shift 1.03 × LW”) and never
+subdued glyph labeled with the rule (“\|ρ\| ≥ 0.9”, “LW 0.43 × median”) and never
 the warning colour. Thresholds are application display preferences, shown with
 each highlight; changing them changes no scientific data or run state, and their
 definitions are versioned with this document. Thresholds are session-only; saving
@@ -659,8 +658,13 @@ new run in the same lens. The inspector labels **Working for next fit** and
 **Accepted · run N**; typed values are never presented as fitted. Changing a model
 rebuilds its applicable working fields with a preview of removed settings;
 incompatible bounds are errors rather than silently adjusted guesses. Each run shows
-its changes from the parent run: clusters whose warnings or highlights changed and
-peaks whose fitted positions moved by more than their σ.
+its changes from the parent run, read from both recorded runs and matched by stable
+peak ID, to help the scientist understand what changed, not to judge the optimizer:
+median χ²ᵣ and clusters with numerical warnings before → after; clusters before →
+after and how many were regrouped; clusters whose warnings, highlights or members
+changed, where a warning that disappears with regrouping is never called resolved;
+and the few largest fitted-position differences as neutral information (Δ in ppm
+and in fitted linewidths), with no threshold.
 
 Whole-dataset refitting is the single production refinement command in v2. Cluster
 selection supplies focus, not scope. An isolated cluster optimization cannot

@@ -356,7 +356,6 @@ class Navigator(QtWidgets.QWidget):
         rules = self.rules
         return {
             "Amplitude correlation": f"|ρ| ≥ {rules.correlation:g}",
-            "Position shift": f"Shift > {rules.shift:g} × LW",
             "Linewidth outlier": (
                 f"LW outside {rules.linewidth_low:g}–{rules.linewidth_high:g} × median"
             ),
