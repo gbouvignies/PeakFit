@@ -189,7 +189,9 @@ any highlight, or one warning or highlight type, each with its count. Columns so
 on click; the default is χ²ᵣ, highest first. Choosing a
 row, or **N**, opens the inspector's **Cluster** page and selects one of its
 members (keeping the selected peak when it belongs to the cluster), so the cluster
-is the unit of review while a peak stays the unit of editing. The cluster page
+is the unit of review while a peak stays the unit of editing. Under its header, a
+compact amber line names the cluster's numerical warnings (“▲ Uncertainty
+unreliable · see Review”); their explanations stay in Review. The cluster page
 lists the numbered members, each a link to its peak page; the amplitude profile of
 all members; a parameter table of every member's recorded values at display
 precision (± σ on hover, recorded bounds in amber); the recorded amplitude

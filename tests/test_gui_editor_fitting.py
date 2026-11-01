@@ -1251,3 +1251,22 @@ def test_cluster_page_explains_missing_correlations(workspace, scientific):
     if single is not None:
         w.select_peak(identities[single.peak_names[0]], cluster=True)
         assert "Not applicable: a single-peak cluster." in _page_labels(w.panel.cluster_page)
+
+
+def test_cluster_page_names_numerical_warnings_at_the_top(workspace, scientific):
+    w = workspace
+    edited, bounded, parameter = _with_bound(scientific[-1])
+    publish(w, edited)
+    identities = {i.engine_name: i.working_id for i in edited.inputs.identities}
+    page = w.panel.cluster_page
+    w.select_peak(identities[bounded.peak_names[0]], cluster=True)
+    # A compact line names the warning; its explanation stays under Review.
+    assert page.warnings.isVisible()
+    assert page.warnings.text() == "▲ At bound · see Review"
+    assert parameter.name not in page.warnings.text()
+    assert parameter.name in _review_text(w)  # the detail stays under Review
+    other = next(c for c in edited.outcome.clusters if c.cluster_id != bounded.cluster_id)
+    review = next(r for r in w.reviews() if r.cluster_id == other.cluster_id)
+    if not review.warnings:
+        w.select_peak(identities[other.peak_names[0]], cluster=True)
+        assert not page.warnings.isVisible()

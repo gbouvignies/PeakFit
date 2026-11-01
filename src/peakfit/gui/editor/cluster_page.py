@@ -43,6 +43,10 @@ class ClusterPage(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, themes.SPACE_XS, 0, 0)
         layout.setSpacing(themes.SPACE_S)
+        # Numerical warnings named at the top; their explanations stay under Review.
+        self.warnings = text_label("", "warning", wrap=True)
+        self.warnings.hide()
+        layout.addWidget(self.warnings)
         _section(layout, "Members")
         self.members = QtWidgets.QGridLayout()
         self.members.setHorizontalSpacing(themes.SPACE_S)
@@ -102,6 +106,9 @@ class ClusterPage(QtWidgets.QWidget):
         """Fill every section from the recorded outcome; ``engine_names`` match ``review.ids``."""
         for layout in (self.members, self.parameters, self.matrix, self.review):
             clear_layout(layout)
+        kinds = list(dict.fromkeys(w.kind for w in review.warnings))
+        self.warnings.setText(f"▲ {' · '.join(kinds)} · see Review" if kinds else "")
+        self.warnings.setVisible(bool(kinds))
         self._fill_members(review, selected)
         self._fill_parameters(review, cluster, engine_names)
         self._fill_matrix(review, cluster, engine_names)
