@@ -128,6 +128,11 @@ definition and never combined into a quality score.
 A descriptive highlight with an adjustable display threshold, such as a large
 position shift or a linewidth outlier. It is never a numerical warning.
 
+**Highlight**:
+The subdued mark (◇) raised by a review heuristic or by a display threshold on a
+review measure, labelled with its rule and value. It changes no results, warnings
+or run state.
+
 **Amplitude correlation**:
 The correlation between cluster members' amplitudes derived from the recorded
 amplitude covariance. It is conditional on the fitted lineshape parameters.

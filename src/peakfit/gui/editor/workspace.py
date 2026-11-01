@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.engine.domain.spectrum import get_shape_names
+from peakfit.engine.domain.spectrum import get_dimension_label, get_shape_names
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.dataset_fit import dataset_summary
@@ -14,6 +14,7 @@ from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.inspector import Inspector, find_cluster
 from peakfit.gui.editor.labels import ElidedLabel
 from peakfit.gui.editor.navigator import Navigator
+from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
@@ -43,6 +44,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._peak_sources = {peak.id: peak_sources for peak in dataset.peaks}
         self.plane_values_modified = False
         self.selected_id: str | None = None
+        self.rules = HighlightRules()  # review highlight thresholds; display only
+        self._reviews: tuple[object, list] = (None, [])
         self.canvas = SpectrumCanvas(dataset)
         decimals = (self.canvas.decimals_x, self.canvas.decimals_y)
         self.navigator = Navigator(
@@ -339,7 +342,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         count = self.warnings.property("count") or 0
         self.warnings.setText(
-            f"▲ {count} uncertainty warning{'s' if count != 1 else ''}" if wide else f"▲ {count}"
+            f"▲ {count} cluster{'s' if count != 1 else ''} with warnings" if wide else f"▲ {count}"
         )
 
     def resizeEvent(self, event) -> None:  # noqa: N802
@@ -486,6 +489,74 @@ class EditorWorkspace(QtWidgets.QWidget):
         ids = {i.engine_name: i.working_id for i in result.inputs.identities}
         return tuple(ids[name] for name in found[1].peak_names if name in ids)
 
+    def reviews(self) -> list:
+        """The active run's cluster review at the current highlight thresholds."""
+        result = self.fitting.result
+        key = (result.run_id, self.rules) if result is not None else None
+        if key != self._reviews[0]:
+            reviews = []
+            if result is not None:
+                axes = list(self.dataset.spectra.spectral_params)
+                titles = [formatting.nucleus(a.nucleus, a.label) for a in axes]
+                reviews = review_clusters(result, axes, titles, self.rules)
+            self._reviews = (key, reviews)
+        return self._reviews[1]
+
+    def _starting_values(self) -> tuple[list[tuple[str, str, str, str]] | None, str]:
+        """The selected peak's parameters as the current preparation would submit them."""
+        fitting = self.fitting
+        prepared = fitting.prepared
+        if prepared is None:
+            return None, fitting.blocked or "Preparing the current settings…"
+        engine = next(
+            (i.engine_name for i in prepared.identities if i.working_id == self.selected_id), None
+        )
+        axes = {
+            get_dimension_label(index): (
+                formatting.nucleus(a.nucleus, a.label),
+                formatting.ppm_decimals(a),
+            )
+            for index, a in enumerate(self.dataset.spectra.spectral_params)
+        }
+        rows = []
+        # Horizontal (direct) axis first, as in Fitted; then position before width.
+        order = list(reversed(axes))
+        kinds = ["cs", "lw"]
+        parameters = sorted(
+            (
+                p
+                for p in prepared.parameters.values()
+                if p.param_id is not None and p.param_id.peak_name == engine
+            ),
+            key=lambda p: (
+                order.index(p.param_id.axis) if p.param_id.axis in order else len(order),
+                kinds.index(p.param_id.label) if p.param_id.label in kinds else len(kinds),
+            ),
+        )
+        for parameter in parameters:
+            identifier = parameter.param_id
+            assert identifier is not None
+            title, decimals = axes.get(identifier.axis or "", (identifier.axis or "", 4))
+            kind = {"cs": "δ", "lw": "LW"}.get(identifier.label, identifier.label)
+            places = decimals if parameter.unit == "ppm" else 2
+            low, high = (formatting.number(v, places) for v in (parameter.min, parameter.max))
+            freedom = "varied" if parameter.vary else "fixed"
+            rows.append(
+                (
+                    f"{kind} {title}",
+                    formatting.number(parameter.value, places),
+                    f"range {low} – {high} · {freedom}",
+                    parameter.unit,
+                )
+            )
+        return rows, "For the next fit, from the working position and fit setup."
+
+    def set_rules(self, rules: HighlightRules) -> None:
+        """Change highlight thresholds; no scientific data or run state changes."""
+        self.rules = rules
+        self.navigator.rules = rules
+        self.fitting.update()
+
     def _update_inspector(self) -> None:
         """Follow the accepted selection and active run; never resolves drafts."""
         fitting = getattr(self, "fitting", None)
@@ -493,7 +564,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             return
         spectra = self.dataset.spectra
         result = fitting.result
-        self.navigator.set_result(result, current=bool(fitting.current))
+        reviews = self.reviews()
+        self.navigator.set_result(result, reviews, current=bool(fitting.current))
         self.canvas.set_cluster(self._cluster_members(result))
         self.canvas.set_regions(*self._fitting_regions())
         self.panel.setup.show_state(
@@ -509,7 +581,10 @@ class EditorWorkspace(QtWidgets.QWidget):
             if self.dataset.has_plane_values
             else None,
             plane=self.canvas.plane,
+            review=next((r for r in reviews if self.selected_id in r.ids), None),
         )
+        if self.selected_id is not None:
+            self.panel.show_starts(*self._starting_values())
         x, y = (
             formatting.nucleus(a.nucleus, a.label) for a in (self.canvas.x_axis, self.canvas.y_axis)
         )
@@ -522,7 +597,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'}\n"
                 f"{dataset_summary(result, warnings=False)}\n"
                 f"Fitted in {result.execution_seconds:.1f} s · {result.completed_at[:19]} UTC"
-                + (f"\n▲ {flagged} clusters with an uncertainty warning" if flagged else "")
+                + (f"\n▲ {flagged} clusters with numerical warnings" if flagged else "")
             )
         else:
             run = "Not fitted yet. Fit uses every working peak across all planes."
@@ -717,6 +792,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             ("Signed trace scale", fit),
         ):
             form.addRow(title, field)
+        chosen_rules = self._highlight_fields(form)
         buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.StandardButton.Ok
             | QtWidgets.QDialogButtonBox.StandardButton.Cancel
@@ -735,6 +811,46 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.canvas.heavy_strokes = heavy.isChecked()
             self.canvas._refresh_labels()
             self.set_mode(self.canvas.comparison_mode)
+            chosen = chosen_rules()
+            if chosen != self.rules:
+                self.set_rules(chosen)
+
+    def _highlight_fields(self, form: QtWidgets.QFormLayout):
+        """Highlight thresholds in the Display dialog; returns a reader for them."""
+        rules = self.rules
+        highlights = QtWidgets.QLabel("REVIEW HIGHLIGHTS")
+        highlights.setObjectName("section")
+        form.addRow(highlights)
+
+        def spin(value: float, low: float, high: float, suffix: str) -> QtWidgets.QDoubleSpinBox:
+            field = QtWidgets.QDoubleSpinBox()
+            field.setLocale(QtCore.QLocale.c())
+            field.setRange(low, high)
+            field.setDecimals(2)
+            field.setSingleStep(0.05)
+            field.setValue(value)
+            field.setSuffix(suffix)
+            return field
+
+        correlation = spin(rules.correlation, 0.05, 1.0, "")
+        shift = spin(rules.shift, 0.05, 10.0, " × fitted LW")
+        low = spin(rules.linewidth_low, 0.05, 1.0, " × median")
+        high = spin(rules.linewidth_high, 1.0, 20.0, " × median")
+        for title, field in (
+            ("Amplitude correlation |ρ| ≥", correlation),
+            ("Position shift >", shift),
+            ("Linewidth below", low),
+            ("Linewidth above", high),
+        ):
+            form.addRow(title, field)
+        note = QtWidgets.QLabel(
+            "Highlights are descriptive display rules; they never change results, "
+            "warnings or run state."
+        )
+        note.setObjectName("caption")
+        note.setWordWrap(True)
+        form.addRow(note)
+        return lambda: HighlightRules(correlation.value(), shift.value(), low.value(), high.value())
 
     def stop(self) -> None:
         """Stop display computation without blocking window close."""

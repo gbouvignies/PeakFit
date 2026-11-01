@@ -15,6 +15,7 @@ from test_gui_dataset import _dataset
 from test_gui_editor import wait_for
 
 import peakfit.gui.editor.canvas as canvas_module
+import peakfit.gui.editor.review as review_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
@@ -596,7 +597,7 @@ def test_compact_header_and_inspector_at_minimum_window(scientific, monkeypatch)
     shown = w.summary.displayed_text()
     assert "Outdated" in shown
     # Numerical warnings keep their own unelided label in the one-row toolbar.
-    assert "uncertainty warning" in w.warnings.toolTip()
+    assert "numerical warning" in w.warnings.toolTip()
     assert w.warnings.text().startswith("▲")
     assert w.warnings.isVisible()
     assert window.rect().contains(rect(w.warnings))
@@ -866,3 +867,137 @@ def test_default_lineshape_fallback_is_a_caution_not_a_block(workspace):
     assert setup.shape_caution.text().startswith("▲ ¹⁵N: no recognized apodization")
     assert w.fit_button.isEnabled()
     assert not fitting.blocked
+
+
+def _review(result, spectra, rules=None):
+    axes = list(spectra.spectral_params)
+    titles = [f"axis {i}" for i in range(len(axes))]
+    return review_module.review_clusters(
+        result, axes, titles, rules or review_module.HighlightRules()
+    )
+
+
+def test_review_measures_are_recorded_and_heuristics_follow_their_definitions(scientific):
+    spectra, _peaks, _config, _prepared, result = scientific
+    reviews = _review(result, spectra)
+    assert [r.cluster_id for r in reviews] == [c.cluster_id for c in result.outcome.clusters]
+    for review, cluster in zip(reviews, result.outcome.clusters, strict=True):
+        evaluation = cluster.analytical_evaluation
+        if evaluation is None:
+            continue
+        assert review.chi2 == float(evaluation.statistics.reduced_chi_squared)
+        assert review.samples == int(evaluation.statistics.n_observations)
+        largest = np.max(np.abs(cluster.sample_evaluation.normalized_residuals))
+        assert review.largest_residual == float(largest)
+    # Shift: |fitted − initial| in Hz relative to the fitted linewidth, largest axis.
+    cluster = next(c for c in result.outcome.clusters if c.usable)
+    name = cluster.peak_names[0]
+    identity = next(i for i in result.inputs.identities if i.engine_name == name)
+    start = next(p for p in result.inputs.snapshot.peaks if p.id == identity.working_id)
+    values = {p.name: p.value for p in cluster.final_nonlinear_parameters}
+    expected = max(
+        abs(values[f"{name}.F{i + 2}.cs"] - start.positions[i])
+        * a.obs
+        / values[f"{name}.F{i + 2}.lw"]
+        for i, a in enumerate(spectra.spectral_params)
+    )
+    nothing = review_module.HighlightRules(1.0, 1e9, 0.0, 1e9)
+    everything = review_module.HighlightRules(0.0, expected / 2, 1.0, 1.0)
+    assert not any(r.highlights for r in _review(result, spectra, nothing))
+    flagged = next(
+        r for r in _review(result, spectra, everything) if r.cluster_id == cluster.cluster_id
+    )
+    shift = next(h for h in flagged.highlights if h.kind == "Position shift")
+    assert shift.peak == identity.working_id
+    assert shift.rule.startswith(f"shift {expected:.2f} × LW")
+    # Thresholds equal to 1 × median flag every usable linewidth except the median.
+    assert any(h.kind == "Linewidth outlier" for h in flagged.highlights)
+
+
+def test_at_bound_is_a_numerical_warning(scientific):
+    spectra, *_, result = scientific
+    cluster = next(c for c in result.outcome.clusters if c.usable)
+    parameter = next(p for p in cluster.final_nonlinear_parameters if p.vary)
+    bounded = replace(
+        cluster,
+        final_nonlinear_parameters=tuple(
+            replace(p, value=p.min) if p is parameter else p
+            for p in cluster.final_nonlinear_parameters
+        ),
+    )
+    outcome = replace(
+        result.outcome,
+        clusters=tuple(bounded if c is cluster else c for c in result.outcome.clusters),
+    )
+    edited = replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
+    review = next(r for r in _review(edited, spectra) if r.cluster_id == cluster.cluster_id)
+    assert ("At bound", parameter.name) in [(w.kind, w.detail) for w in review.warnings]
+
+
+def test_highlight_thresholds_filter_clusters_without_touching_the_run(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    navigator = w.navigator
+    revision, current, flagged = w.edits.revision, w.fitting.current, w.warnings.property("count")
+    w.set_rules(review_module.HighlightRules(0.0, 0.0, 1.0, 1.0))
+    reviews = w.reviews()
+    highlighted = sum(bool(r.highlights) for r in reviews)
+    assert highlighted
+    options = [navigator.filter.itemText(i) for i in range(navigator.filter.count())]
+    assert f"Any highlight ({highlighted})" in options
+    assert any(o.strip().startswith("|ρ| ≥ 0") for o in options) or all(r.single for r in reviews)
+    navigator.filter.setCurrentIndex(options.index(f"Any highlight ({highlighted})"))
+    visible = [
+        navigator.tree.topLevelItem(i)
+        for i in range(navigator.tree.topLevelItemCount())
+        if not navigator.tree.topLevelItem(i).isHidden()
+    ]
+    assert len(visible) == highlighted
+    assert all(item.text(0) in {"◇", "▲"} for item in visible)
+    total = len(reviews)
+    expected = f"{total} clusters" if highlighted == total else f"{highlighted} of {total} clusters"
+    assert navigator.cluster_count.text().startswith(expected)
+    warned = sum(bool(r.warnings) for r in reviews)
+    navigator.filter.setCurrentIndex(options.index(f"Any warning ({warned})"))
+    if warned < total:
+        assert navigator.cluster_count.text().startswith(f"{warned} of {total} clusters")
+    # Display thresholds change no scientific state, warnings or run currentness.
+    assert w.fitting.result is result
+    assert (w.edits.revision, w.fitting.current) == (revision, current)
+    assert w.warnings.property("count") == flagged
+    # The inspector lists highlights apart from numerical warnings.
+    review = next(r for r in reviews if r.highlights)
+    w.select_peak(review.ids[0])
+    text = _review_text(w)
+    assert "Highlights" in text
+    assert "Numerical warnings" in text
+    assert review.highlights[0].rule in text
+
+
+def test_starting_values_show_the_next_fit_inputs(workspace):
+    w, fitting = workspace, workspace.fitting
+    wait_for(lambda: fitting.prepared is not None)
+    peak = w.peaks[0]
+    w.select_peak(peak.id)
+    w._update_inspector()
+    prepared = fitting.prepared
+    engine = next(i.engine_name for i in prepared.identities if i.working_id == peak.id)
+    expected = [
+        p for p in prepared.parameters.values() if p.param_id and p.param_id.peak_name == engine
+    ]
+    grid = w.panel.start_grid
+    shown = [grid.itemAtPosition(2 * row, 1).widget().text() for row in range(len(expected))]
+    assert len(shown) == len(expected)
+    # Rows follow display order (horizontal axis first); compare independently of order.
+    values = sorted(float(text.replace("−", "-")) for text in shown)
+    assert values == pytest.approx(sorted(p.value for p in expected), rel=1e-3, abs=1e-3)
+    assert "next fit" in w.panel.starts_note.text()
+    # Without a current preparation the section says why instead of showing stale values.
+    invalid = fitting.configuration.model_copy(deep=True)
+    invalid.exclude_planes = [1]
+    fitting.configure(invalid)
+    wait_for(lambda: bool(fitting.blocked))
+    w._update_inspector()
+    assert grid.count() == 0
+    assert fitting.blocked in w.panel.starts_note.text()
