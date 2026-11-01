@@ -80,3 +80,12 @@ Short records of non‑obvious design choices and trade‑offs.
   and shows a visible caution, but Fit stays available.
 - Blocking would make such datasets unfittable until a model is chosen explicitly;
   the scientist judges suitability.
+
+## 2026-11-01: No normalized profile for clusters with unreliable uncertainties
+- On the bundled dataset the degenerate pairs (|ρ| = 1.00) record amplitudes near
+  ±6×10¹² with σ/|A| ≈ 0.014, like well-determined peaks. The σ_R/|R| limit
+  therefore passes, and the ratio cancels the arbitrary scale, giving a plausible
+  profile with small error bars for undetermined amplitudes.
+- Reference normalization is unavailable, with the reason, for clusters carrying
+  the engine's uncertainty warning; the raw profile, which shows the inflated
+  amplitudes, remains.

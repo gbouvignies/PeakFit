@@ -726,6 +726,10 @@ Special cases:
   beyond this limit because the ratio's distribution becomes strongly skewed.
 - **Unavailable σ for the peak:** the normalized profile is unavailable rather than
   shown without error bars.
+- **Engine uncertainty warning:** when the cluster's uncertainties are marked
+  unreliable, normalization is unavailable with that reason. A degenerate
+  decomposition (|ρ| ≈ 1) can inflate amplitudes and σ by one arbitrary scale; the
+  ratio would cancel it and show a well-determined-looking profile.
 - **Negative R** is valid for signed data; ratios keep their sign and the label
   states the reference sign.
 

@@ -88,6 +88,84 @@ def peak_profile(
     )
 
 
+RELIABILITY_LIMIT = 0.1  # largest σ_R/|R| for which first-order propagation is used
+
+
+@dataclass(frozen=True, slots=True)
+class Normalized:
+    """Display-only ratios r_k = A_k / R to a reference mean, with propagated σ."""
+
+    values: np.ndarray
+    errors: np.ndarray  # first-order σ(r_k); zero for an exact reference point
+    reference: float  # R
+    reference_error: float  # σ_R
+    in_reference: np.ndarray  # columns belonging to S
+    exact: bool  # one reference plane: its ratio is exactly 1, with no error bar
+
+
+def normalize(
+    amplitudes: np.ndarray,
+    errors: np.ndarray,
+    reference: np.ndarray,
+    limit: float = RELIABILITY_LIMIT,
+) -> Normalized | str:
+    """Normalize one peak's amplitudes to the mean of its reference columns S.
+
+    Uses first-order propagation with the full gradient (specification §9):
+    ∂r_k/∂A_k = 1/R − [k∈S]·A_k/(nR²) and ∂r_k/∂A_j = −A_k/(nR²) for j∈S, j≠k.
+    Amplitudes of different planes are treated as uncorrelated, as the recorded
+    analytical uncertainties (lineshapes held fixed) imply. Returns the reason
+    instead when the ratio is not reliable enough to show.
+    """
+    amplitudes = np.asarray(amplitudes, dtype=float)
+    errors = np.asarray(errors, dtype=float)
+    columns = np.asarray(reference, dtype=int)
+    n = columns.size
+    if n == 0:
+        return "no reference plane chosen"
+    if not np.all(np.isfinite(errors)):
+        return "σ unavailable for this peak"
+    mean = float(np.mean(amplitudes[columns]))
+    if not np.isfinite(mean) or mean == 0:
+        return "reference amplitude is zero or not finite"
+    sigma_r = float(np.sqrt(np.sum(errors[columns] ** 2)) / n)
+    ratio = sigma_r / abs(mean)
+    if ratio > limit:
+        return f"reference not distinguishable from its uncertainty: σ_R/|R| = {ratio:.2f}"
+    values = amplitudes / mean
+    in_reference = np.zeros(amplitudes.size, dtype=bool)
+    in_reference[columns] = True
+    coupling = amplitudes / (n * mean**2)  # |∂r_k/∂A_j| for j in S, j ≠ k
+    reference_variance = float(np.sum(errors[columns] ** 2))
+    own = 1 / mean - in_reference * coupling  # ∂r_k/∂A_k
+    others = reference_variance - in_reference * errors**2  # Σ σ_j² over S without k
+    variance = own**2 * errors**2 + coupling**2 * others
+    exact = n == 1
+    if exact:
+        values[columns] = 1.0
+        variance[columns] = 0.0
+    return Normalized(values, np.sqrt(variance), mean, sigma_r, in_reference, exact)
+
+
+def parse_planes(text: str, count: int) -> tuple[int, ...]:
+    """One-based plane numbers from "1, 3-5"; raise ValueError naming the problem."""
+    planes: set[int] = set()
+    for part in text.replace(" ", "").split(","):
+        if not part:
+            continue
+        low, _dash, high = part.partition("-")
+        try:
+            first, last = int(low), int(high or low)
+        except ValueError:
+            raise ValueError(f"“{part}” is not a plane number or range") from None
+        if not 1 <= first <= last <= count:
+            raise ValueError(f"Planes must lie between 1 and {count}: “{part}”")
+        planes.update(range(first, last + 1))
+    if not planes:
+        raise ValueError("Enter at least one reference plane")
+    return tuple(sorted(planes))
+
+
 def _sigma(error: float) -> str:
     """Name an unavailable standard error instead of formatting NaN as a value."""
     return f"σ = {error:.3g}" if np.isfinite(error) else "σ unavailable"
@@ -153,14 +231,12 @@ class ProfilePlot(QtWidgets.QWidget):
         self.note = QtWidgets.QLabel()
         self.note.setObjectName("caption")
         self.note.setWordWrap(True)
-        self.show_all = QtWidgets.QPushButton("Show all points")
-        self.show_all.setObjectName("chip")
-        self.show_all.setCheckable(True)
-        self.show_all.toggled.connect(self._draw)
-        self.show_all.hide()
         notes.addWidget(self.note)
-        notes.addWidget(self.show_all, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        notes.addLayout(self._chips())
         layout.addLayout(notes)
+        self.reference: tuple[int, ...] = ()  # zero-based source planes; session only
+        self._normalized: Normalized | None = None
+        self.normalized = False
         self.zero = pg.InfiniteLine(angle=0, pos=0)
         self.plane_line = pg.InfiniteLine(angle=90)
         self._profile: PeakProfile | None = None
@@ -168,6 +244,25 @@ class ProfilePlot(QtWidgets.QWidget):
         self._visible = np.array([], dtype=bool)
         self._hidden_text = ""
         self.theme: Theme = LIGHT
+
+    def _chips(self) -> QtWidgets.QHBoxLayout:
+        """Quantity choice and the off-scale toggle, side by side under the note."""
+        self.show_all = QtWidgets.QPushButton("Show all points")
+        self.show_all.setObjectName("chip")
+        self.show_all.setCheckable(True)
+        self.show_all.toggled.connect(self._draw)
+        self.show_all.hide()
+        # Raw amplitudes by default; a reference is only ever chosen explicitly.
+        self.mode = QtWidgets.QPushButton("Raw amplitudes")
+        self.mode.setObjectName("chip")
+        self.mode.setToolTip("Profile quantity: raw amplitudes or normalized to reference planes")
+        self.mode.clicked.connect(self._mode_menu)
+        chips = QtWidgets.QHBoxLayout()
+        chips.setSpacing(6)
+        chips.addWidget(self.mode)
+        chips.addWidget(self.show_all)
+        chips.addStretch(1)
+        return chips
 
     def apply_theme(self, theme: Theme) -> None:
         """Follow the application appearance; no scientific values change."""
@@ -198,9 +293,50 @@ class ProfilePlot(QtWidgets.QWidget):
     def _colors(self) -> list[str]:
         return list(self.theme.members)
 
-    def _draw(self) -> None:
+    def _rows(self, profile: PeakProfile) -> tuple[list, list[str], str]:
+        """Series as drawn: raw amplitudes, or ratios to the reference when available.
+
+        Returns rows of (series index, values, errors or None, reference mask), the
+        members whose normalization is unavailable, and the selected peak's reason
+        when it is unavailable (then every row is raw).
+        """
+        raw = [
+            (
+                index,
+                s.amplitudes,
+                np.full(s.amplitudes.size, s.error) if np.isfinite(s.error) else None,
+                None,
+            )
+            for index, s in enumerate(profile.series)
+        ]
+        if not (self.normalized and self.reference):
+            return raw, [], ""
+        if profile.warning is not None:
+            # A degenerate decomposition can have amplitudes and σ inflated by the
+            # same arbitrary scale; the ratio would cancel it and look well determined.
+            return raw, [], "the engine marks this cluster's uncertainties unreliable"
+        columns = np.flatnonzero(np.isin(profile.source_planes, self.reference))
+        if columns.size != len(self.reference):
+            return raw, [], "a reference plane is not in this run"
+        rows, unavailable = [], []
+        for index, series in enumerate(profile.series):
+            shown = normalize(
+                series.amplitudes, np.full(series.amplitudes.size, series.error), columns
+            )
+            if isinstance(shown, str):
+                if index == 0:
+                    return raw, [], shown
+                unavailable.append(f"{series.assignment}: {shown}")
+                continue
+            if index == 0:
+                self._normalized = shown
+            rows.append((index, shown.values, shown.errors, shown.in_reference))
+        return rows, unavailable, ""
+
+    def _draw(self) -> None:  # noqa: PLR0915
         profile = self._profile
         self.plot.clear()
+        self._normalized = None
         if profile is None:
             return
         x = profile.x
@@ -212,28 +348,35 @@ class ProfilePlot(QtWidgets.QWidget):
             np.ones(x.size, dtype=bool) if frame is None else (x >= frame[0]) & (x <= frame[1])
         )
         self._visible = visible
+        rows, unavailable, reason = self._rows(profile)
+        normalized = self._normalized is not None
         warned = profile.warning is not None
         colors = self._colors()
         style = QtCore.Qt.PenStyle.DashLine if warned else QtCore.Qt.PenStyle.SolidLine
-        for index, series in reversed(list(enumerate(profile.series))):
+        for index, values, errors, in_reference in reversed(rows):
             value = colors[index % len(colors)]
             selected = index == 0
             alpha = 1.0 if selected else 0.5
-            if np.isfinite(series.error):
+            if errors is not None:
                 self.plot.addItem(
                     pg.ErrorBarItem(
                         x=x,
-                        y=series.amplitudes,
-                        height=np.full(x.size, 2 * series.error),
+                        y=values,
+                        height=2 * errors,
                         beam=0,
                         pen=pg.mkPen(color(value, alpha * 0.7), width=1, style=style),
                     )
                 )
+            symbols = (
+                ["d" if member else "o" for member in in_reference]
+                if in_reference is not None
+                else "o"
+            )
             points = pg.ScatterPlotItem(
                 x=x,
-                y=series.amplitudes,
+                y=values,
                 data=np.arange(x.size),
-                symbol="o",
+                symbol=symbols,
                 size=6 if selected else 4,
                 pen=pg.mkPen(color(value, alpha), width=1.2),
                 brush=None if warned else pg.mkBrush(color(value, alpha)),
@@ -244,13 +387,15 @@ class ProfilePlot(QtWidgets.QWidget):
         self.plot.getPlotItem().addItem(self.plane_line, ignoreBounds=True)
         low, high = float(x[visible].min()), float(x[visible].max())
         pad = 0.03 * (high - low) or 0.5
-        # Bounds cover amplitudes, finite error bars and zero; unavailable σ adds none.
+        # Bounds cover values, finite error bars and zero; unavailable σ adds none.
         ys = np.concatenate(
-            [s.amplitudes[visible] for s in profile.series]
+            [values[visible] for _i, values, _e, _r in rows]
             + [
-                np.concatenate((s.amplitudes[visible] - s.error, s.amplitudes[visible] + s.error))
-                for s in profile.series
-                if np.isfinite(s.error)
+                np.concatenate(
+                    (values[visible] - errors[visible], values[visible] + errors[visible])
+                )
+                for _i, values, errors, _r in rows
+                if errors is not None
             ]
             + [np.zeros(1)]
         )
@@ -264,18 +409,31 @@ class ProfilePlot(QtWidgets.QWidget):
         style_text = {"color": self.theme.faint, "font-size": f"{FONT_CAPTION}px"}
         left = self.plot.getAxis("left")
         left.setScale(10.0**-power)
-        left.setLabel(f"×10{formatting.superscript(str(power))}" if power else "", **style_text)
+        scale = f"×10{formatting.superscript(str(power))}" if power else ""
+        quantity = f"A / A_ref ({self.reference_text()})" if normalized else ""
+        left.setLabel(" ".join(t for t in (quantity, scale) if t), **style_text)
+        left.setWidth(52 if normalized else 40)
         self.plot.setLabel(
             "bottom", "Plane value" if profile.plane_values else "Plane number", **style_text
         )
         marker = "○" if warned else "●"
+        shown = {index for index, *_ in rows}
+        entries = [
+            f'<span style="color:{colors[i % len(colors)]}">{marker}</span>&nbsp;'
+            + (f"<b>{escape(s.assignment)}</b>" if i == 0 else escape(s.assignment))
+            + ("" if np.isfinite(s.error) else " · σ unavailable")
+            for i, s in enumerate(profile.series)
+            if i in shown
+        ] + (["◆&nbsp;reference"] if normalized else [])
+        # Wrap between entries only, never inside an assignment such as 159N-H.
         self.legend.setText(
-            "&nbsp;&nbsp;".join(
-                f'<span style="color:{colors[i % len(colors)]}">{marker}</span>&nbsp;'
-                + (f"<b>{escape(s.assignment)}</b>" if i == 0 else escape(s.assignment))
-                + ("" if np.isfinite(s.error) else " · σ unavailable")
-                for i, s in enumerate(profile.series)
-            )
+            " &nbsp;".join(f'<span style="white-space:nowrap">{e}</span>' for e in entries)
+        )
+        self.mode.setText(f"÷ {self.reference_text()}" if self.normalized else "Raw amplitudes")
+        self._normalization_note = (
+            f"Normalization unavailable: {reason}; showing raw amplitudes"
+            if reason
+            else "; ".join(f"{text}, not shown" for text in unavailable)
         )
         hidden = np.flatnonzero(~visible)
         self._hidden_text = ""
@@ -298,6 +456,110 @@ class ProfilePlot(QtWidgets.QWidget):
             )
         self._place_plane_marker()
 
+    def reference_text(self) -> str:
+        """Name the reference set by one-based source plane number."""
+        planes = [p + 1 for p in self.reference]
+        if len(planes) == 1:
+            return f"plane {planes[0]}"
+        return "planes " + ", ".join(str(p) for p in planes) + ", mean"
+
+    def _mode_menu(self) -> None:
+        menu = QtWidgets.QMenu(self)
+        raw = menu.addAction("Raw amplitudes")
+        raw.setCheckable(True)
+        raw.setChecked(not self.normalized)
+        raw.triggered.connect(lambda: self.set_normalized(False))
+        if self.reference:
+            ratio = menu.addAction(f"Normalized to {self.reference_text()}")
+            ratio.setCheckable(True)
+            ratio.setChecked(self.normalized)
+            ratio.triggered.connect(lambda: self.set_normalized(True))
+        menu.addSeparator()
+        menu.addAction("Choose reference planes…").triggered.connect(self.choose_reference)
+        menu.popup(self.mode.mapToGlobal(QtCore.QPoint(0, self.mode.height())))
+        self._menu = menu
+
+    def set_normalized(self, normalized: bool) -> None:
+        """Switch the display quantity; recorded amplitudes never change."""
+        self.normalized = normalized and bool(self.reference)
+        self._draw()
+
+    def set_reference(self, planes: tuple[int, ...]) -> None:
+        """Adopt an explicit reference set (zero-based source planes) and show ratios."""
+        self.reference = tuple(sorted(set(planes)))
+        self.set_normalized(bool(self.reference))
+
+    def choose_reference(self) -> None:
+        """Ask for reference planes by one-based source plane number; never by value."""
+        profile = self._profile
+        count = int(profile.source_planes.max()) + 1 if profile is not None else 0
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Normalize to reference")
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.addWidget(
+            QtWidgets.QLabel("Reference planes by plane number, for example 1 or 1-3, 131:")
+        )
+        field = QtWidgets.QLineEdit(", ".join(str(p + 1) for p in self.reference))
+        field.setAccessibleName("Reference plane numbers")
+        layout.addWidget(field)
+        hint = QtWidgets.QLabel(self._isolated_hint())
+        hint.setObjectName("caption")
+        hint.setWordWrap(True)
+        hint.setVisible(bool(hint.text()))
+        layout.addWidget(hint)
+        note = QtWidgets.QLabel(
+            "A / A_ref with R the mean reference amplitude of each peak. Display only: "
+            "recorded amplitudes, uncertainties and exports are unchanged. Unavailable "
+            f"when σ_R/|R| exceeds {RELIABILITY_LIMIT:g}."
+        )
+        note.setObjectName("caption")
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        error = QtWidgets.QLabel()
+        error.setObjectName("error")
+        error.hide()
+        layout.addWidget(error)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Ok
+            | QtWidgets.QDialogButtonBox.StandardButton.Cancel
+        )
+        layout.addWidget(buttons)
+
+        def accept() -> None:
+            try:
+                planes = parse_planes(field.text(), count)
+            except ValueError as exc:
+                error.setText(str(exc))
+                error.show()
+                return
+            dialog.accept()
+            self.set_reference(tuple(p - 1 for p in planes))
+
+        buttons.accepted.connect(accept)
+        buttons.rejected.connect(dialog.reject)
+        dialog.open()
+        self._dialog = dialog
+
+    def _isolated_hint(self) -> str:
+        """Point out planes isolated from the rest; never choose them."""
+        profile = self._profile
+        if profile is None:
+            return ""
+        frame = framed_range(profile.x)
+        if frame is None:
+            return ""
+        isolated = [j for j in range(profile.x.size) if not frame[0] <= profile.x[j] <= frame[1]]
+        planes = ", ".join(
+            f"plane {profile.source_planes[j] + 1}"
+            + (
+                f" (value {formatting.intensity(float(profile.x[j]))})"
+                if profile.plane_values
+                else ""
+            )
+            for j in isolated
+        )
+        return f"Isolated from the other planes: {planes}."
+
     def _place_plane_marker(self) -> None:
         profile = self._profile
         if profile is None:
@@ -314,9 +576,19 @@ class ProfilePlot(QtWidgets.QWidget):
             if profile.uncertainty_scale > 1
             else "not scaled (χ²ᵣ ≤ 1)"
         )
+        shown = self._normalized
+        quantity = (
+            f"±1σ propagated to the ratio (first order, full gradient) from analytical σ, "
+            f"lineshapes held fixed; σ_R/|R| = {shown.reference_error / abs(shown.reference):.3f}"
+            f" (limit {RELIABILITY_LIMIT:g})"
+            + (" · reference amplitude negative" if shown.reference < 0 else "")
+            if shown is not None
+            else "±1σ analytical, lineshapes held fixed, " + scale
+        )
+        extra = getattr(self, "_normalization_note", "")
         self.note.setText(
-            "±1σ analytical, lineshapes held fixed, "
-            + scale
+            quantity
+            + (f" · {extra}" if extra else "")
             + (f" · {self._hidden_text}" if self._hidden_text else "")
             + (" · current plane is off scale" if off else "")
         )
