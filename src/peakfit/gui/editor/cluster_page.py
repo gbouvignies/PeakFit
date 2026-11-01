@@ -35,14 +35,23 @@ class ClusterPage(QtWidgets.QWidget):
     """Review of one cluster; choosing a member opens that peak's page."""
 
     member_chosen = QtCore.Signal(str)
+    lens_requested = QtCore.Signal()
 
-    def __init__(self, axes: list[tuple[str, str, int]]) -> None:
+    def __init__(self, axes: list[tuple[str, str, int]]) -> None:  # noqa: PLR0915
         """``axes`` lists (engine axis name, display title, ppm decimals), horizontal first."""
         super().__init__()
         self._axes = axes
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, themes.SPACE_XS, 0, 0)
         layout.setSpacing(themes.SPACE_S)
+        self.lens_button = QtWidgets.QPushButton("Open lens")
+        self.lens_button.setObjectName("chip")
+        self.lens_button.setToolTip(
+            "Judge this cluster as Experimental, Overlay and whole-spectrum residual (Enter in the "
+            "cluster list)"
+        )
+        self.lens_button.clicked.connect(self.lens_requested)
+        layout.addWidget(self.lens_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
         # Numerical warnings named at the top; their explanations stay under Review.
         self.warnings = text_label("", "warning", wrap=True)
         self.warnings.hide()

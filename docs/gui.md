@@ -220,6 +220,19 @@ all members; a parameter table of every member's recorded values at display
 precision (± σ on hover, recorded bounds in amber); the recorded amplitude
 correlation matrix in member numbers, shaded by |ρ|, or why it is unavailable or
 not applicable; the cluster's warnings, measures and highlights; and provenance.
+**Enter** or a double-click on a cluster row, or **Open lens** on the cluster page,
+opens the **Cluster lens** in place of the spectrum: three linked panels show the
+cluster region as **Experimental**, **Overlay** and **Whole-spectrum residual**
+(the overview's display contour levels, model and `(D − M) / σ_stat`), sharing
+zoom, pan, plane and markers, with the selected member's crosshair. Below them, the
+row through the selected member shows measured data with the total model (dashed)
+and the whole-spectrum residual in σ with a ±3 σ band. The lens opens framed on the
+recorded fitting-sample extent plus a margin, follows the selected peak's cluster
+and the plane strip, and widens the inspector to 340 px on the cluster page. When
+the run is Outdated, Overlay and Residual say “Outdated · fit to compare” instead
+of showing a stale model. The comparison selector is unavailable in the lens;
+**Escape** or **‹ Spectrum** returns to the overview with its viewport, mode and
+panel widths unchanged. Clicking a marker in a lens panel selects that peak.
 On a peak page, **Review cluster of N ›** opens its cluster page; selecting a peak
 on the spectrum or in the Peaks list opens its peak page. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the

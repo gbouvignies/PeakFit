@@ -402,9 +402,18 @@ class DatasetFitting(QtCore.QObject):
             and self.result is not None
             and any(c.usable for c in self.result.outcome.clusters)
         )
-        for button in w.mode_buttons[1:]:
-            button.setEnabled(usable)
-            button.setToolTip("" if usable else "Requires a current result with usable clusters")
+        lens = getattr(w, "lens_open", False)
+        for button in w.mode_buttons:
+            button.setEnabled(not lens and (usable or button is w.mode_buttons[0]))
+            button.setToolTip(
+                "The lens shows all three views; return to the spectrum to choose one"
+                if lens
+                else ""
+                if usable or button is w.mode_buttons[0]
+                else "Requires a current result with usable clusters"
+            )
+        for tool in (w.add_button, w.pin_button):
+            tool.setEnabled(tool.isEnabled() and not lens)
         if not self.current and w.canvas.comparison_result is not None:
             w.set_mode(0)
         if busy:
