@@ -14,6 +14,7 @@ from peakfit.gui.editor.changes import RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.inspector import Inspector, find_cluster
 from peakfit.gui.editor.labels import ElidedLabel
+from peakfit.gui.editor.lens import ClusterLens
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
@@ -28,12 +29,14 @@ if TYPE_CHECKING:
 _RESIDUAL = 2
 _WIDE_TOOLBAR = 1200
 _SIDES = (280, 320)  # default navigator and inspector widths at 1280 px
+_LENS_INSPECTOR = 340  # the inspector widens while the lens is open
 
 
 class EditorWorkspace(QtWidgets.QWidget):
     """Own committed scientific edits; navigation and drafts never change revision."""
 
     changed = QtCore.Signal()
+    guidance_changed = QtCore.Signal(str)
 
     def __init__(self, dataset: Dataset) -> None:  # noqa: PLR0915
         super().__init__()
@@ -62,7 +65,14 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.splitter.setChildrenCollapsible(False)
         self.splitter.setHandleWidth(1)
         self.splitter.addWidget(self.navigator)
-        self.splitter.addWidget(self.canvas)
+        # The spectral area shows the overview canvas or, while open, the cluster lens.
+        self.lens = ClusterLens(dataset)
+        self.spectral = QtWidgets.QStackedWidget()
+        self.spectral.addWidget(self.canvas)
+        self.spectral.addWidget(self.lens)
+        self.lens_open = False
+        self._sizes_before_lens: list[int] = []
+        self.splitter.addWidget(self.spectral)
         self.splitter.addWidget(self.panel)
         for index, stretch in enumerate((0, 1, 0)):
             self.splitter.setStretchFactor(index, stretch)
@@ -95,6 +105,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.navigator.cluster_chosen.connect(lambda i: self.select_peak(i, cluster=True))
         self.panel.cluster_requested.connect(self.open_cluster)
         self.panel.member_chosen.connect(self.select_peak)
+        self.panel.lens_requested.connect(self.open_lens)
+        self.navigator.lens_requested.connect(self.open_lens)
+        self.lens.close_requested.connect(self.close_lens)
+        self.lens.selected.connect(lambda i: self.select_peak(i, cluster=True))
         self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c))
         self.navigator.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.next_warning.connect(lambda: self.fitting.next_warning())
@@ -179,7 +193,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.pin_button.toggled.connect(self.canvas.set_pinned)
         self.canvas.pin_changed.connect(self._pin_changed)
         full = self._tool("full", "Full spectrum (Ctrl+0)")
-        full.clicked.connect(self.canvas.full_spectrum)
+        full.clicked.connect(self.full_view)
         display = self._tool("sliders", "Display: contours, labels, trace scale")
         display.clicked.connect(self.display_dialog)
         for button in (self.add_button, self.pin_button, full, display):
@@ -256,6 +270,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         for button, name in self._icons:
             button.setIcon(icon(name, theme))
         self.canvas.apply_theme(theme)
+        self.lens.apply_theme(theme)
         self.navigator.apply_theme(theme)
         self.panel.apply_theme(theme)
         self._update_inspector()
@@ -613,6 +628,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         reviews = self.reviews()
         self.navigator.set_result(result, reviews, current=bool(fitting.current))
         self.canvas.set_cluster(self._cluster_members(result))
+        if self.lens_open:
+            self._update_lens()
         self.canvas.set_regions(*self._fitting_regions())
         self.panel.setup.show_state(
             fitting.configuration, self._shapes(), fitting.prepared, fitting.blocked
@@ -815,28 +832,129 @@ class EditorWorkspace(QtWidgets.QWidget):
             else ""
         )
         self.panel.set_plane(plane - 1)
+        if self.lens_open:
+            self._update_lens()
+
+    def open_lens(self, identity: str | None = None) -> None:
+        """Replace the spectral area with the lens on the selected peak's recorded cluster."""
+        if identity is not None:
+            self.select_peak(identity, cluster=True)
+        elif not self.commit_fields():
+            return
+        result = self.fitting.result
+        if result is None or not self.selected_id or find_cluster(result, self.selected_id) is None:
+            return
+        if not self.lens_open:
+            self.lens_open = True
+            self._sizes_before_lens = self.splitter.sizes()
+            sizes = list(self._sizes_before_lens)
+            if sizes[2] < _LENS_INSPECTOR:  # the inspector widens for members side by side
+                sizes[1] -= _LENS_INSPECTOR - sizes[2]
+                sizes[2] = _LENS_INSPECTOR
+                self.splitter.setSizes(sizes)
+            self.spectral.setCurrentWidget(self.lens)
+            self.panel.cluster_page.lens_button.hide()
+        self._sync_inspector(cluster=True)
+        self.fitting.update()
+        self.lens.setFocus()
+        self.guidance_changed.emit(self.guidance())
+
+    def guidance(self) -> str:
+        """The status-bar hint for what the spectral area currently allows."""
+        if self.lens_open:
+            return "Lens · click a marker to select its peak · Escape returns to the spectrum"
+        return "Drag a selected peak to move it · Space pins traces"
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:  # noqa: N802
+        """Escape leaves the lens from any column unless a draft or gesture is active."""
+        if (
+            event.key() == QtCore.Qt.Key.Key_Escape
+            and self.lens_open
+            and not self.pending
+            and QtWidgets.QApplication.activeModalWidget() is None
+        ):
+            self.close_lens()
+            return
+        super().keyPressEvent(event)
+
+    def full_view(self) -> None:
+        """Full spectrum in the overview; the cluster's default region in the lens."""
+        if self.lens_open:
+            self.lens.reframe()
+        else:
+            self.canvas.full_spectrum()
+
+    def close_lens(self) -> None:
+        """Return to the overview with its viewport, mode and panel widths unchanged."""
+        if not self.lens_open:
+            return
+        self.lens_open = False
+        self.spectral.setCurrentWidget(self.canvas)
+        self.panel.cluster_page.lens_button.show()
+        if self._sizes_before_lens:
+            self.splitter.setSizes(self._sizes_before_lens)
+        self.fitting.update()
+        self.canvas.main.setFocus()
+        self.guidance_changed.emit(self.guidance())
+
+    def _update_lens(self) -> None:
+        """Keep the lens on the selected peak's recorded cluster, plane and display levels."""
+        result = self.fitting.result
+        found = find_cluster(result, self.selected_id) if result and self.selected_id else None
+        if result is None or found is None:
+            self.close_lens()
+            return
+        _engine, cluster = found
+        review = next((r for r in self.reviews() if r.cluster_id == cluster.cluster_id), None)
+        samples = next(
+            s for s in result.completed_fit.samples if s.cluster_id == cluster.cluster_id
+        )
+        canvas = self.canvas
+        self.lens.show_cluster(
+            result,
+            current=bool(self.fitting.current),
+            ids=review.ids if review else (),
+            names=review.names if review else (),
+            selected=self.selected_id,
+            peaks=self.peaks,
+            plane=canvas.plane,
+            levels=(
+                canvas.contour_threshold,
+                canvas.contour_factor,
+                canvas.contour_count,
+                canvas.residual_threshold,
+            ),
+            grid_indices=samples.grid_indices,
+            model_cache=canvas._model_cache,
+        )
 
     def display_dialog(self) -> None:
         """Display choices do not change scientific inputs or edit history."""
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle("Spectrum display")
         form = QtWidgets.QFormLayout(dialog)
+        # Both contour sets are always offered: the lens draws experiment, model and
+        # residual at once, and the overview may switch modes after the dialog.
         threshold = QtWidgets.QDoubleSpinBox()
         threshold.setRange(0.01, 1e12)
         threshold.setDecimals(4)
-        residual = self.canvas.comparison_mode == _RESIDUAL
-        threshold.setValue(
-            self.canvas.residual_threshold if residual else self.canvas.contour_threshold
-        )
+        threshold.setValue(self.canvas.contour_threshold)
         threshold.setKeyboardTracking(False)
+        residual = QtWidgets.QDoubleSpinBox()
+        residual.setRange(0.1, 1000)
+        residual.setDecimals(2)
+        residual.setValue(self.canvas.residual_threshold)
+        residual.setKeyboardTracking(False)
+        threshold.setAccessibleName("First contour")
+        residual.setAccessibleName("First residual contour")
+        for field in (threshold, residual):
+            field.setLocale(QtCore.QLocale.c())
         factor = QtWidgets.QDoubleSpinBox()
         factor.setRange(1.1, 5)
         factor.setValue(self.canvas.contour_factor)
         count = QtWidgets.QSpinBox()
         count.setRange(1, 20)
         count.setValue(self.canvas.contour_count)
-        factor.setEnabled(not residual)
-        count.setEnabled(not residual)
         labels = QtWidgets.QCheckBox("Show peak labels")
         labels.setChecked(self.canvas.labels_visible)
         heavy = QtWidgets.QCheckBox("Heavier contours")
@@ -844,9 +962,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         fit = QtWidgets.QPushButton("Fit current traces")
         fit.clicked.connect(self.canvas.fit_current_traces)
         for title, field in (
-            ("First residual contour / σ_stat" if residual else "First contour / a.u.", threshold),
+            ("First contour / a.u.", threshold),
             ("Level factor", factor),
             ("Levels per sign", count),
+            ("First residual contour / σ_stat", residual),
             ("", labels),
             ("", heavy),
             ("Signed trace scale", fit),
@@ -861,16 +980,16 @@ class EditorWorkspace(QtWidgets.QWidget):
         buttons.rejected.connect(dialog.reject)
         form.addRow(buttons)
         if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-            if residual:
-                self.canvas.residual_threshold = threshold.value()
-            else:
-                self.canvas.contour_threshold = threshold.value()
+            self.canvas.contour_threshold = threshold.value()
+            self.canvas.residual_threshold = residual.value()
             self.canvas.contour_factor = factor.value()
             self.canvas.contour_count = count.value()
             self.canvas.labels_visible = labels.isChecked()
             self.canvas.heavy_strokes = heavy.isChecked()
             self.canvas._refresh_labels()
             self.set_mode(self.canvas.comparison_mode)
+            if self.lens_open:
+                self._update_lens()
             chosen = chosen_rules()
             if chosen != self.rules:
                 self.set_rules(chosen)
@@ -914,6 +1033,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         """Stop display computation without blocking window close."""
         self.fitting.stop()
         self.canvas.stop()
+        self.lens.stop()
 
 
 def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple]:

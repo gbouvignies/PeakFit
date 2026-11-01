@@ -10,7 +10,7 @@ from types import MappingProxyType
 import numpy as np
 import pyqtgraph as pg
 import pytest
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtTest, QtWidgets
 from test_gui_dataset import _dataset
 from test_gui_editor import wait_for
 
@@ -1352,3 +1352,133 @@ def test_peak_page_shows_where_the_run_started(workspace, scientific):
     )
     labels = [label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel)]
     assert expected in labels
+
+
+def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scientific):  # noqa: PLR0915
+    w, c = workspace, workspace.canvas
+    result = scientific[-1]
+    publish(w, result)
+    cluster = next(cl for cl in result.outcome.clusters if cl.usable and len(cl.peak_names) > 1)
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    member = identities[cluster.peak_names[0]]
+    nav = w.navigator
+    nav.tree.setCurrentItem(nav._clusters[member])
+    view, mode, sizes = c.main.getViewBox().viewRange(), c.comparison_mode, w.splitter.sizes()
+    nav.tree.setFocus()
+    QtTest.QTest.keyClick(nav.tree, QtCore.Qt.Key.Key_Return)
+    lens = w.lens
+    assert w.lens_open
+    assert w.spectral.currentWidget() is lens
+    assert w.panel.cluster_view
+    assert not w.panel.cluster_page.lens_button.isVisible()
+    assert not any(button.isEnabled() for button in w.mode_buttons)
+    wait_for(lambda: not lens.pending)
+    # Default framing covers every recorded fitting sample of the cluster.
+    samples = next(s for s in result.completed_fit.samples if s.cluster_id == cluster.cluster_id)
+    (x_low, x_high), (y_low, y_high) = lens.panels[0].getViewBox().viewRange()
+    rows, columns = samples.grid_indices
+    assert x_low <= lens.ppm_x[columns].min()
+    assert lens.ppm_x[columns].max() <= x_high
+    assert y_low <= lens.ppm_y[rows].min()
+    assert lens.ppm_y[rows].max() <= y_high
+    # The residual is the whole-spectrum residual of the overview: (D − M) / σ_stat.
+    axes = [axis.model_copy(deep=True) for axis in c.spectra.spectral_params]
+    model = dataset_model_plane(result, axes, c.plane, cancel=Event())
+    expected = (c.spectra.data[c.plane] - model.values) / result.outcome.noise
+    np.testing.assert_allclose(lens._data["residual"], expected)
+    assert lens.layers[1]
+    assert lens.layers[2]
+    # Full spectrum (Ctrl+0) reframes the lens; the hidden overview never moves.
+    framed = lens.panels[0].getViewBox().viewRange()
+    lens.panels[0].getViewBox().setRange(xRange=(x_low, (x_low + x_high) / 2), padding=0)
+    w.full_view()
+    assert lens.panels[0].getViewBox().viewRange() == framed
+    assert c.main.getViewBox().viewRange() == view
+    # The lens follows the plane.
+    w.set_plane(2)
+    wait_for(lambda: not lens.pending)
+    assert lens.plane == 1
+    # A committed edit makes the run Outdated: no stale model in the lens.
+    peak = next(p for p in w.peaks if p.id == member)
+    w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
+    wait_for(lambda: not lens.pending)
+    assert lens.unavailable[1].toPlainText() == "Outdated · fit to compare"
+    assert lens.unavailable[2].toPlainText() == "Outdated · fit to compare"
+    assert not lens.layers[1]
+    # Escape returns with the overview viewport, mode and panel widths unchanged.
+    lens.setFocus()
+    QtTest.QTest.keyClick(lens, QtCore.Qt.Key.Key_Escape)
+    assert not w.lens_open
+    assert w.spectral.currentWidget() is c
+    assert c.main.getViewBox().viewRange() == view
+    assert c.comparison_mode in {0, mode}
+    assert w.splitter.sizes() == sizes
+
+
+def _open_lens(w, result):
+    cluster = next(cl for cl in result.outcome.clusters if cl.usable and len(cl.peak_names) > 1)
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    w.open_lens(identities[cluster.peak_names[0]])
+    wait_for(lambda: not w.lens.pending)
+    return cluster
+
+
+def test_display_settings_refresh_the_lens_without_touching_results(
+    workspace, scientific, monkeypatch
+):
+    w, c = workspace, workspace.canvas
+    result = scientific[-1]
+    publish(w, result)
+    _open_lens(w, result)
+    view, residual_layers = c.main.getViewBox().viewRange(), w.lens.layers[2][0]
+    chosen = {"First contour": c.contour_threshold * 2, "First residual contour": 5.0}
+
+    def accept(dialog):
+        for field in dialog.findChildren(QtWidgets.QDoubleSpinBox):
+            if field.accessibleName() in chosen:
+                field.setValue(chosen[field.accessibleName()])
+        return QtWidgets.QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(QtWidgets.QDialog, "exec", accept)
+    w.display_dialog()
+    # Both contour sets apply to the lens at once, whatever the overview mode.
+    assert w.lens.levels[0] == chosen["First contour"]
+    assert w.lens.levels[3] == chosen["First residual contour"]
+    wait_for(lambda: not w.lens.pending)
+    assert w.lens.layers[2][0] is not residual_layers
+    # Display only: same run, still Current; the hidden overview did not move.
+    assert w.fitting.result is result
+    assert w.fitting.current
+    assert c.main.getViewBox().viewRange() == view
+
+
+def test_escape_leaves_the_lens_from_any_column_but_discards_a_draft_first(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    window_guidance = []
+    w.guidance_changed.connect(window_guidance.append)
+    _open_lens(w, result)
+    assert window_guidance[-1].startswith("Lens ·")
+    assert "Drag" not in w.guidance()
+    assert "pins" not in w.guidance()
+    # From the cluster list.
+    w.navigator.tree.setFocus()
+    QtTest.QTest.keyClick(w.navigator.tree, QtCore.Qt.Key.Key_Escape)
+    assert not w.lens_open
+    assert window_guidance[-1] == "Drag a selected peak to move it · Space pins traces"
+    # From the inspector: a draft is discarded first, then Escape leaves the lens.
+    _open_lens(w, result)
+    w.select_peak(w.selected_id)  # a member link: the peak page, with the lens still open
+    assert w.lens_open
+    assert w.panel.peak_page.isVisible()
+    field = w.inspector.x_field
+    assert field.isVisible()
+    field.setFocus()
+    QtTest.QTest.keyClicks(field, "1")
+    assert w.inspector.pending
+    QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
+    assert not w.inspector.pending
+    assert w.lens_open
+    QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
+    assert not w.lens_open

@@ -206,7 +206,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self._action(
             view,
             "Full spectrum",
-            lambda: self.workspace and self.workspace.canvas.full_spectrum(),
+            lambda: self.workspace and self.workspace.full_view(),
             "Ctrl+0",
         )
         self._action(
@@ -406,7 +406,8 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self._end_loading()
         self._saved_key = self._analysis_key()
         self._work_changed()
-        self.loading_status.setText("Drag a selected peak to move it · Space pins traces")
+        self.loading_status.setText(workspace.guidance())
+        workspace.guidance_changed.connect(self.loading_status.setText)
         duplicates = len({p.name for p in dataset.peaks}) != len(dataset.peaks)
         if duplicates:
             workspace.error.setText(

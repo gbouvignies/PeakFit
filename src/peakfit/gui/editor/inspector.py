@@ -202,6 +202,7 @@ class Inspector(QtWidgets.QScrollArea):
     cluster_requested = QtCore.Signal()
     change_chosen = QtCore.Signal(str, bool)  # working ID, open its cluster page
     member_chosen = QtCore.Signal(str)
+    lens_requested = QtCore.Signal()
 
     def __init__(self, x_axis, y_axis, decimals: tuple[int, int]) -> None:  # noqa: PLR0915
         super().__init__()
@@ -315,6 +316,7 @@ class Inspector(QtWidgets.QScrollArea):
             ]
         )
         self.cluster_page.member_chosen.connect(self.member_chosen)
+        self.cluster_page.lens_requested.connect(self.lens_requested)
         layout.addWidget(self.cluster_page)
         # Analysis page
         self.analysis_page = QtWidgets.QWidget()
