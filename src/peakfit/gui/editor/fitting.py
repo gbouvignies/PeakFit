@@ -12,7 +12,7 @@ from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import DatasetFitResult, dataset_summary
 from peakfit.gui.export_dialog import choose_and_export
-from peakfit.gui.fit_positions import dataset_completion
+from peakfit.gui.fit_positions import DatasetCompletion, dataset_completion
 from peakfit.gui.fit_process import FitProcess, FitProcessResult
 from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
 from peakfit.gui.project import Analysis, dataset_header, run_id
@@ -39,6 +39,8 @@ class DatasetFitting(QtCore.QObject):
         self.preview: PreparedDatasetFit | None = None
         self.preview_error = ""
         self._preview_inputs = None
+        # Parent runs read for run-to-run changes: result, reason, or "loading".
+        self._parents: dict[str, DatasetFitResult | str] = {}
         self._preview_generation = 0
         self._preview_timer = QtCore.QTimer(self)
         self._preview_timer.setSingleShot(True)
@@ -190,7 +192,46 @@ class DatasetFitting(QtCore.QObject):
         self._worker.submit("fit", self._generation, prepare)
         self.update()
 
+    def parent_result(self) -> tuple[str | None, DatasetFitResult | str | None]:
+        """The active run's parent: (its ID, its result, a reason, or None while loading).
+
+        Stored history is loaded once off Qt and cached; nothing is refitted.
+        """
+        result = self.result
+        if result is None:
+            return None, None
+        entry = next((e for e in reversed(self.journal) if e.get("run_id") == result.run_id), None)
+        parent_id = entry.get("parent_run_id") if entry else None
+        if not parent_id:
+            return None, None
+        known = self._parents.get(parent_id)
+        if known is None:
+            run = next((r for r in self.history if run_id(r) == parent_id), None)
+            if run is None:
+                known = "its recorded evidence is no longer retained"
+            elif isinstance(run, DatasetCompletion):
+                known = run.result
+            else:
+                self._parents[parent_id] = "loading"
+                self._worker.submit("parent", 0, lambda: (parent_id, run.load()))
+                return parent_id, None
+            self._parents[parent_id] = known
+        if known == "loading":
+            return parent_id, None
+        return parent_id, known
+
     def _prepared(self, kind, generation, outcome) -> None:
+        if kind == "parent":
+            if isinstance(outcome, Exception):
+                # The failing run is unknown here; mark every pending load as failed.
+                for key, value in self._parents.items():
+                    if value == "loading":
+                        self._parents[key] = f"its recorded evidence could not be read: {outcome}"
+            else:
+                parent_id, completion = outcome
+                self._parents[parent_id] = completion.result
+            self.update()
+            return
         if kind == "preview":
             if generation == self._preview_generation:
                 if isinstance(outcome, Exception):

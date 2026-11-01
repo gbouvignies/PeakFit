@@ -200,6 +200,7 @@ class Inspector(QtWidgets.QScrollArea):
     plane_requested = QtCore.Signal(int)
     next_warning = QtCore.Signal()
     cluster_requested = QtCore.Signal()
+    change_chosen = QtCore.Signal(str, bool)  # working ID, open its cluster page
     member_chosen = QtCore.Signal(str)
 
     def __init__(self, x_axis, y_axis, decimals: tuple[int, int]) -> None:  # noqa: PLR0915
@@ -326,6 +327,12 @@ class Inspector(QtWidgets.QScrollArea):
         self._section(analysis, "Active run")
         self.run_text = _label("", "", wrap=True)
         analysis.addWidget(self.run_text)
+        self.changes_title = _label("", "caption")
+        analysis.addWidget(self.changes_title)
+        self.changes = QtWidgets.QVBoxLayout()
+        self.changes.setSpacing(2)
+        analysis.addLayout(self.changes)
+        self._changes_key = None
         self.next_button = QtWidgets.QPushButton("Select next cluster with a warning")
         self.next_button.clicked.connect(self.next_warning)
         analysis.addWidget(self.next_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
@@ -504,6 +511,33 @@ class Inspector(QtWidgets.QScrollArea):
         self._fill_parameters(engine, cluster)
         self._fill_review(engine, cluster, result, review)
         self.provenance.setText(_provenance(cluster, result))
+
+    def show_changes(
+        self, title: str, rows: list[tuple[str, str, str, bool]], notes: list[str]
+    ) -> None:
+        """Run-to-run changes: (link text, detail, working ID, opens a cluster) rows."""
+        key = (title, tuple(rows), tuple(notes))
+        if key == self._changes_key:
+            return
+        self._changes_key = key
+        self.changes_title.setText(title)
+        self.changes_title.setVisible(bool(title))
+        _clear(self.changes)
+        for text, detail, identity, cluster in rows:
+            row = QtWidgets.QHBoxLayout()
+            row.setSpacing(themes.SPACE_S)
+            link = QtWidgets.QPushButton(text)
+            link.setObjectName("link")
+            link.setFlat(True)
+            link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+            link.clicked.connect(
+                lambda _checked=False, i=identity, c=cluster: self.change_chosen.emit(i, c)
+            )
+            row.addWidget(link, 0, QtCore.Qt.AlignmentFlag.AlignTop)
+            row.addWidget(_label(detail, "caption", wrap=True), 1)
+            self.changes.addLayout(row)
+        for note in notes:
+            self.changes.addWidget(_label(note, "caption", wrap=True))
 
     def show_cluster_result(
         self,

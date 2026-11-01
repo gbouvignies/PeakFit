@@ -138,6 +138,17 @@ preview and pinning remain available; scientific edits and input replacement pau
 Cancellation, process failure and validation failure retain the previous result
 and working coordinates. No partial result is adopted.
 
+After a refit, the analysis page lists **Changes from run …**, the run it was
+refitted from, read from both recorded runs without refitting. It lists clusters
+whose numerical warnings or highlights changed (“▲ Uncertainty unreliable new”,
+“◇ Position shift resolved”, judged at the same highlight thresholds), and peaks
+whose fitted position moved by more than the active run's σ on an axis (“δ ¹H moved
+3.2 σ”), largest first. Each entry opens its cluster or peak; at most six of each
+are listed, with counts of the rest and of peaks added, removed, or not judged
+(unusable in either run, or σ unavailable). Peaks are matched by stable ID, so
+renamed peaks still compare. A stored parent run is read off Qt; one whose evidence
+is no longer retained is named as such. The first run has nothing to compare.
+
 Successful completion automatically adopts each usable valid fitted coordinate
 pair by stable peak ID. Usable non-converged fits and uncertainty warnings retain
 their positions and warnings. Missing/unusable pairs keep their submitted positions

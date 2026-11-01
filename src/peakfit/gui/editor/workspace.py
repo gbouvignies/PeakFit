@@ -10,6 +10,7 @@ from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.dataset_fit import dataset_summary
 from peakfit.gui.editor.canvas import SpectrumCanvas
+from peakfit.gui.editor.changes import RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.inspector import Inspector, find_cluster
 from peakfit.gui.editor.labels import ElidedLabel
@@ -46,6 +47,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.selected_id: str | None = None
         self.rules = HighlightRules()  # review highlight thresholds; display only
         self._reviews: tuple[object, list] = (None, [])
+        self._changes: tuple[object, RunChanges | None] = (None, None)
         self.canvas = SpectrumCanvas(dataset)
         decimals = (self.canvas.decimals_x, self.canvas.decimals_y)
         self.navigator = Navigator(
@@ -93,6 +95,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.navigator.cluster_chosen.connect(lambda i: self.select_peak(i, cluster=True))
         self.panel.cluster_requested.connect(self.open_cluster)
         self.panel.member_chosen.connect(self.select_peak)
+        self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c))
         self.navigator.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.setup.changed.connect(lambda settings: self.fitting.configure(settings))
@@ -567,6 +570,78 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
         return rows, "For the next fit, from the working position and fit setup."
 
+    def _run_changes(self) -> tuple[str, list[tuple[str, str, str, bool]], list[str]]:
+        """What changed since the run this one was refitted from, as page rows."""
+        fitting = self.fitting
+        result = fitting.result
+        parent_id, parent = fitting.parent_result()
+        if result is None:
+            return "", [], []
+        if parent_id is None:
+            return "", [], ["First run: there is no earlier run to compare with."]
+        title = f"CHANGES FROM RUN {parent_id[:8].upper()}"
+        if parent is None:
+            return title, [], [f"Reading run {parent_id[:8]}…"]
+        if isinstance(parent, str):
+            return title, [], [f"Run {parent_id[:8]} cannot be compared: {parent}."]
+        key = (result.run_id, parent_id, self.rules)
+        if key != self._changes[0]:
+            axes = list(self.dataset.spectra.spectral_params)
+            titles = [formatting.nucleus(a.nucleus, a.label) for a in axes]
+            parent_reviews = review_clusters(parent, axes, titles, self.rules)
+            changes = compare_runs(result, self.reviews(), parent, parent_reviews, titles)
+            self._changes = (key, changes)
+        changes = self._changes[1]
+        assert changes is not None
+        decimals = {
+            formatting.nucleus(a.nucleus, a.label): formatting.ppm_decimals(a)
+            for a in self.dataset.spectra.spectral_params
+        }
+        limit = 6
+        rows = []
+        for change in changes.clusters[:limit]:
+            names = change.names
+            label = names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "")
+            # One change per line, numerical warnings (▲) before highlights (◇).
+            detail = "\n".join(
+                sorted(
+                    [f"{mark} new" for mark in change.gained]
+                    + [f"{mark} resolved" for mark in change.lost],
+                    key=lambda text: (not text.startswith("▲"), text),
+                )
+            )
+            rows.append((label, detail, change.ids[0], True))
+        for shift in changes.shifts[:limit]:
+            delta = formatting.number(shift.delta, decimals.get(shift.axis, 4) + 1)
+            rows.append(
+                (
+                    shift.name,
+                    f"δ {shift.axis} moved {shift.ratio:.1f} σ ({delta} ppm)",
+                    shift.working_id,
+                    False,
+                )
+            )
+        notes = []
+        hidden = max(0, len(changes.clusters) - limit) + max(0, len(changes.shifts) - limit)
+        if hidden:
+            notes.append(f"and {hidden} more")
+        if not changes.clusters and not changes.shifts:
+            notes.append("No warning or highlight changes and no position moved beyond its σ.")
+        counts = [
+            f"{n} {text}"
+            for n, text in (
+                (len(changes.clusters), "clusters with changed warnings or highlights"),
+                (len(changes.shifts), "position shifts beyond σ"),
+                (changes.added, "peaks added"),
+                (changes.removed, "peaks removed"),
+                (changes.unjudged, "peaks not judged (unusable or σ unavailable)"),
+            )
+            if n
+        ]
+        if counts:
+            notes.append(" · ".join(counts))
+        return title, rows, notes
+
     def set_rules(self, rules: HighlightRules) -> None:
         """Change highlight thresholds; no scientific data or run state changes."""
         self.rules = rules
@@ -639,6 +714,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             "review. Save analysis keeps working state and the latest ten runs; "
             "spectra stay external.",
         )
+        if self.selected_id is None:
+            self.panel.show_changes(*self._run_changes())
 
     def _refresh(self) -> None:
         peak_sources = tuple(

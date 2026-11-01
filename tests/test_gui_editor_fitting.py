@@ -35,6 +35,7 @@ from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_process import FitProcessResult
+from peakfit.gui.project import StoredRun
 from peakfit.gui.spectrum import Dataset
 from peakfit.io.scientific import read_scientific
 
@@ -1270,3 +1271,58 @@ def test_cluster_page_names_numerical_warnings_at_the_top(workspace, scientific)
     if not review.warnings:
         w.select_peak(identities[other.peak_names[0]], cluster=True)
         assert not page.warnings.isVisible()
+
+
+def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
+    w, fitting = workspace, workspace.fitting
+    result = scientific[-1]
+    publish(w, result)
+    w.select_peak(None)
+    fitting.update()
+    first = [label.text() for label in w.panel.analysis_page.findChildren(QtWidgets.QLabel)]
+    assert "First run: there is no earlier run to compare with." in first
+    cluster = next(c for c in result.outcome.clusters if c.usable and c.analytical_evaluation)
+    warned = replace(
+        cluster,
+        analytical_evaluation=replace(cluster.analytical_evaluation, uncertainty_warning="x"),
+    )
+    outcome = replace(
+        result.outcome,
+        clusters=tuple(warned if c is cluster else c for c in result.outcome.clusters),
+    )
+    parent = replace(
+        result,
+        run_id="parent0000000000",
+        completed_fit=replace(result.completed_fit, outcome=outcome),
+    )
+    completion = replace(fitting.completion, result=parent)
+
+    class Stored(StoredRun):
+        def load(self):
+            return completion
+
+    fitting.history = [Stored(Path(), {"run_id": parent.run_id}), *fitting.history]
+    fitting.journal = [
+        {**e, "parent_run_id": parent.run_id} if e.get("run_id") == result.run_id else e
+        for e in fitting.journal
+    ]
+    w.select_peak(None)
+    fitting.update()
+    panel = w.panel
+    texts = lambda: [label.text() for label in panel.analysis_page.findChildren(QtWidgets.QLabel)]  # noqa: E731
+    # The stored parent is read off Qt; the page says so meanwhile.
+    assert "Reading run parent00…" in texts()
+    wait_for(lambda: fitting._parents.get(parent.run_id) is parent)
+    fitting.update()
+    assert panel.changes_title.text() == "CHANGES FROM RUN PARENT00"
+    assert any("▲ Uncertainty unreliable resolved" in t for t in texts())
+    links = [
+        b
+        for b in panel.analysis_page.findChildren(QtWidgets.QPushButton)
+        if b.objectName() == "link"
+    ]
+    assert links
+    links[0].click()
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    assert w.selected_id in {identities[n] for n in cluster.peak_names}
+    assert panel.cluster_view
