@@ -233,6 +233,8 @@ the run is Outdated, Overlay and Residual say “Outdated · fit to compare” i
 of showing a stale model. The comparison selector is unavailable in the lens;
 **Escape** or **‹ Spectrum** returns to the overview with its viewport, mode and
 panel widths unchanged. Clicking a marker in a lens panel selects that peak.
+**Full spectrum** (Cmd/Ctrl+0) reframes the lens on its cluster; adding peaks and
+pinning traces are overview tools.
 On a peak page, **Review cluster of N ›** opens its cluster page; selecting a peak
 on the spectrum or in the Peaks list opens its peak page. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the

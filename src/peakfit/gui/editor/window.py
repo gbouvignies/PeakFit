@@ -206,7 +206,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self._action(
             view,
             "Full spectrum",
-            lambda: self.workspace and self.workspace.canvas.full_spectrum(),
+            lambda: self.workspace and self.workspace.full_view(),
             "Ctrl+0",
         )
         self._action(

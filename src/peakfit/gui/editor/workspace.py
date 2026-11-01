@@ -192,7 +192,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.pin_button.toggled.connect(self.canvas.set_pinned)
         self.canvas.pin_changed.connect(self._pin_changed)
         full = self._tool("full", "Full spectrum (Ctrl+0)")
-        full.clicked.connect(self.canvas.full_spectrum)
+        full.clicked.connect(self.full_view)
         display = self._tool("sliders", "Display: contours, labels, trace scale")
         display.clicked.connect(self.display_dialog)
         for button in (self.add_button, self.pin_button, full, display):
@@ -856,6 +856,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._sync_inspector(cluster=True)
         self.fitting.update()
         self.lens.setFocus()
+
+    def full_view(self) -> None:
+        """Full spectrum in the overview; the cluster's default region in the lens."""
+        if self.lens_open:
+            self.lens.reframe()
+        else:
+            self.canvas.full_spectrum()
 
     def close_lens(self) -> None:
         """Return to the overview with its viewport, mode and panel widths unchanged."""

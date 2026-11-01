@@ -1354,7 +1354,7 @@ def test_peak_page_shows_where_the_run_started(workspace, scientific):
     assert expected in labels
 
 
-def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scientific):
+def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scientific):  # noqa: PLR0915
     w, c = workspace, workspace.canvas
     result = scientific[-1]
     publish(w, result)
@@ -1388,6 +1388,12 @@ def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scient
     np.testing.assert_allclose(lens._data["residual"], expected)
     assert lens.layers[1]
     assert lens.layers[2]
+    # Full spectrum (Ctrl+0) reframes the lens; the hidden overview never moves.
+    framed = lens.panels[0].getViewBox().viewRange()
+    lens.panels[0].getViewBox().setRange(xRange=(x_low, (x_low + x_high) / 2), padding=0)
+    w.full_view()
+    assert lens.panels[0].getViewBox().viewRange() == framed
+    assert c.main.getViewBox().viewRange() == view
     # The lens follows the plane.
     w.set_plane(2)
     wait_for(lambda: not lens.pending)

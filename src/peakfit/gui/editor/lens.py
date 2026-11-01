@@ -158,6 +158,7 @@ class ClusterLens(QtWidgets.QWidget):
         self._revision = 0
         self._key = None
         self._frame_key = None
+        self._grid: tuple[np.ndarray, ...] | None = None
         self._data: dict | None = None
         self.result: DatasetFitResult | None = None
         self.current = False
@@ -207,6 +208,7 @@ class ClusterLens(QtWidgets.QWidget):
 
     def frame(self, grid_indices: tuple[np.ndarray, ...]) -> None:
         """Default region: the recorded fitting-sample extent plus a margin."""
+        self._grid = grid_indices
         rows, columns = (np.asarray(i) for i in grid_indices)
         ranges = []
         for indices, ppm in ((columns, self.ppm_x), (rows, self.ppm_y)):
@@ -215,6 +217,11 @@ class ClusterLens(QtWidgets.QWidget):
             low, high = max(0, low - pad), min(ppm.size - 1, high + pad)
             ranges.append(sorted((float(ppm[low]), float(ppm[high]))))
         self.panels[0].getViewBox().setRange(xRange=ranges[0], yRange=ranges[1], padding=0)
+
+    def reframe(self) -> None:
+        """Return to the default region of the cluster on show."""
+        if self._grid is not None:
+            self.frame(self._grid)
 
     def apply_theme(self, theme: themes.Theme) -> None:
         """Restyle retained geometry; no recomputation."""
