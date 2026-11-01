@@ -10,6 +10,7 @@ from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.dataset_fit import dataset_summary
 from peakfit.gui.editor.canvas import SpectrumCanvas
+from peakfit.gui.editor.changes import RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.inspector import Inspector, find_cluster
 from peakfit.gui.editor.labels import ElidedLabel
@@ -46,6 +47,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.selected_id: str | None = None
         self.rules = HighlightRules()  # review highlight thresholds; display only
         self._reviews: tuple[object, list] = (None, [])
+        self._changes: tuple[object, RunChanges | None] = (None, None)
         self.canvas = SpectrumCanvas(dataset)
         decimals = (self.canvas.decimals_x, self.canvas.decimals_y)
         self.navigator = Navigator(
@@ -93,6 +95,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.navigator.cluster_chosen.connect(lambda i: self.select_peak(i, cluster=True))
         self.panel.cluster_requested.connect(self.open_cluster)
         self.panel.member_chosen.connect(self.select_peak)
+        self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c))
         self.navigator.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.setup.changed.connect(lambda settings: self.fitting.configure(settings))
@@ -567,6 +570,33 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
         return rows, "For the next fit, from the working position and fit setup."
 
+    def _run_changes(self) -> tuple[str, list[tuple]]:
+        """What changed since the run this one was refitted from, as page entries."""
+        fitting = self.fitting
+        result = fitting.result
+        parent_id, parent = fitting.parent_result()
+        if result is None:
+            return "", []
+        if parent_id is None:
+            return "", [("note", "First run: there is no earlier run to compare with.")]
+        title = f"CHANGES FROM RUN {parent_id[:8].upper()}"
+        if parent is None:
+            return title, [("note", f"Reading run {parent_id[:8]}…")]
+        if isinstance(parent, str):
+            return title, [("note", f"Run {parent_id[:8]} cannot be compared: {parent}.")]
+        axes = list(self.dataset.spectra.spectral_params)
+        titles = [formatting.nucleus(a.nucleus, a.label) for a in axes]
+        key = (result.run_id, parent_id, self.rules)
+        if key != self._changes[0]:
+            parent_reviews = review_clusters(parent, axes, titles, self.rules)
+            changes = compare_runs(result, self.reviews(), parent, parent_reviews, axes, titles)
+            self._changes = (key, changes)
+        changes = self._changes[1]
+        assert changes is not None
+        return title, _change_entries(
+            changes, dict(zip(titles, map(formatting.ppm_decimals, axes), strict=True))
+        )
+
     def set_rules(self, rules: HighlightRules) -> None:
         """Change highlight thresholds; no scientific data or run state changes."""
         self.rules = rules
@@ -639,6 +669,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             "review. Save analysis keeps working state and the latest ten runs; "
             "spectra stay external.",
         )
+        if self.selected_id is None:
+            self.panel.show_changes(*self._run_changes())
 
     def _refresh(self) -> None:
         peak_sources = tuple(
@@ -861,12 +893,10 @@ class EditorWorkspace(QtWidgets.QWidget):
             return field
 
         correlation = spin(rules.correlation, 0.05, 1.0, "")
-        shift = spin(rules.shift, 0.05, 10.0, " × fitted LW")
         low = spin(rules.linewidth_low, 0.05, 1.0, " × median")
         high = spin(rules.linewidth_high, 1.0, 20.0, " × median")
         for title, field in (
             ("Amplitude correlation |ρ| ≥", correlation),
-            ("Position shift >", shift),
             ("Linewidth below", low),
             ("Linewidth above", high),
         ):
@@ -878,9 +908,65 @@ class EditorWorkspace(QtWidgets.QWidget):
         note.setObjectName("caption")
         note.setWordWrap(True)
         form.addRow(note)
-        return lambda: HighlightRules(correlation.value(), shift.value(), low.value(), high.value())
+        return lambda: HighlightRules(correlation.value(), low.value(), high.value())
 
     def stop(self) -> None:
         """Stop display computation without blocking window close."""
         self.fitting.stop()
         self.canvas.stop()
+
+
+def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple]:
+    """Compact page entries answering: fit, warnings, clustering, largest differences."""
+    (chi_before, chi_after), (warned_before, warned_after) = changes.median_chi2, changes.warned
+    before, after = changes.clusters
+    clustering = f"Clusters {before} → {after}"
+    if changes.regrouped:
+        clustering += f" · {changes.regrouped} regrouped"
+    if changes.added or changes.removed:
+        clustering += f" · peaks +{changes.added} −{changes.removed}"
+    # One short line per question: fit, warnings, clustering.
+    entries: list[tuple] = [
+        ("line", f"Median χ²ᵣ {chi_before:.2f} → {chi_after:.2f}"),
+        ("line", f"Clusters with ▲ warnings {warned_before} → {warned_after}"),
+        ("line", clustering),
+    ]
+    limit = 6
+    if changes.changes:
+        entries.append(("heading", "Clusters"))
+    for change in changes.changes[:limit]:
+        names = change.names
+        label = names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "")
+        if change.regrouped_from:
+            lines = [f"Regrouped from {', '.join(change.regrouped_from)}"]
+            if change.now:
+                lines.append("Now " + ", ".join(change.now))
+            if change.before:
+                lines.append("Before regrouping " + ", ".join(change.before))
+        else:
+            lines = [f"{m} now reported" for m in change.now if m not in change.before]
+            lines += [f"{m} no longer reported" for m in change.before if m not in change.now]
+        entries.append(("link", label, "\n".join(lines), change.ids[0], True))
+    if len(changes.changes) > limit:
+        entries.append(("note", f"and {len(changes.changes) - limit} more"))
+    if changes.displacements:
+        entries.append(("heading", "Largest position differences"))
+        for move in changes.displacements:
+            delta = formatting.number(move.delta, decimals.get(move.axis, 4) + 1)
+            entries.append(
+                (
+                    "link",
+                    move.name,
+                    f"δ {move.axis} {delta} ppm · {move.linewidths:.2f} LW",
+                    move.working_id,
+                    False,
+                )
+            )
+        entries.append(
+            ("note", "Differences between fitted positions; not a measure of fit quality.")
+        )
+    if changes.uncompared:
+        entries.append(
+            ("note", f"{changes.uncompared} peaks not compared: unusable in either run.")
+        )
+    return entries

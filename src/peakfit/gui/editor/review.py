@@ -27,7 +27,6 @@ class HighlightRules:
     """Display thresholds for highlights; never part of a run or its warnings."""
 
     correlation: float = 0.9  # |ρ| at or above
-    shift: float = 0.5  # position shift above this many fitted linewidths
     linewidth_low: float = 0.5  # fitted linewidth below this × the axis median
     linewidth_high: float = 2.0  # or above this × the axis median
 
@@ -44,8 +43,8 @@ class NumericalWarning:
 class Highlight:
     """One heuristic or measure highlight, labelled with the rule that raised it."""
 
-    kind: str  # |ρ| ≥ threshold, Position shift, Linewidth outlier
-    rule: str  # for example "shift 1.03 × LW (¹H)"
+    kind: str  # Amplitude correlation or Linewidth outlier
+    rule: str  # for example "LW 0.43 × median (¹H)"
     peak: str | None = None  # working ID, or None for the whole cluster
 
 
@@ -70,15 +69,15 @@ class ClusterReview:
 
 
 WARNING_KINDS = ("Unusable", "Not converged", "Uncertainty unreliable", "At bound")
-HIGHLIGHT_KINDS = ("Amplitude correlation", "Position shift", "Linewidth outlier")
+HIGHLIGHT_KINDS = ("Amplitude correlation", "Linewidth outlier")
 
 
 def _parameters(cluster) -> dict[tuple[str, str, str], float]:
-    """Fitted values keyed by (engine peak, axis, kind) for cs and lw."""
+    """Fitted linewidths keyed by (engine peak, axis, "lw")."""
     values = {}
     for parameter in cluster.final_nonlinear_parameters:
         parts = parameter.name.split(".")
-        if len(parts) == 3 and parts[2] in ("cs", "lw"):  # noqa: PLR2004
+        if len(parts) == 3 and parts[2] == "lw":  # noqa: PLR2004
             values[tuple(parts)] = float(parameter.value)
     return values
 
@@ -135,9 +134,7 @@ def review_clusters(
     display names (for example "¹H"). Parameters name axes by the engine rule.
     """
     identities = {i.engine_name: i for i in result.inputs.identities}
-    initial = {p.id: p.positions for p in result.inputs.snapshot.peaks}
     order = [get_dimension_label(index) for index in range(len(axes))]
-    frequency = {label: float(axis.obs) for label, axis in zip(order, axes, strict=True)}
     names_of = dict(zip(order, titles, strict=True))
     fitted = {c.cluster_id: _parameters(c) for c in result.outcome.clusters}
     medians = {}
@@ -171,31 +168,16 @@ def review_clusters(
         if cluster.usable:
             for name in names:
                 working = identities[name].working_id
-                start = initial.get(working)
-                ratios = []
-                for index, label in enumerate(order):
-                    cs, lw = values.get((name, label, "cs")), values.get((name, label, "lw"))
+                for label in order:
+                    lw = values.get((name, label, "lw"))
                     if lw is None or not lw > 0:
                         continue
-                    if cs is not None and start is not None:
-                        shift = abs(cs - start[index]) * frequency[label] / lw
-                        ratios.append((shift, label))
                     ratio = lw / medians[label]
                     if not rules.linewidth_low <= ratio <= rules.linewidth_high:
                         highlights.append(
                             Highlight(
                                 "Linewidth outlier",
                                 f"LW {ratio:.2f} × median ({names_of[label]})",
-                                working,
-                            )
-                        )
-                if ratios:
-                    shift, label = max(ratios)
-                    if shift > rules.shift:
-                        highlights.append(
-                            Highlight(
-                                "Position shift",
-                                f"shift {shift:.2f} × LW ({names_of[label]})",
                                 working,
                             )
                         )

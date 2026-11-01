@@ -138,6 +138,28 @@ preview and pinning remain available; scientific edits and input replacement pau
 Cancellation, process failure and validation failure retain the previous result
 and working coordinates. No partial result is adopted.
 
+After a refit, the analysis page summarizes **Changes from run …**, the run it was
+refitted from, read from both recorded runs without refitting or judging either.
+Peaks are matched by stable ID, so renamed peaks still compare.
+
+- **Fit:** median χ²ᵣ before → after and clusters with numerical warnings before →
+  after. χ²ᵣ is descriptive; it also changes when clustering changes the fitting
+  samples.
+- **Clustering:** clusters before → after, how many were regrouped, and peaks added
+  or removed.
+- **Clusters:** each cluster whose warnings or highlights changed, or whose members
+  were grouped differently, warnings first. With the same members, a mark is
+  “now reported” or “no longer reported”. A regrouped cluster names the clusters it
+  came from and lists its marks “Now” and “Before regrouping”; a mark that
+  disappeared with regrouping is not presented as resolved.
+- **Largest position differences:** the five largest, as Δ in ppm and in fitted
+  linewidths on the axis that moved most. They are neutral information, not a
+  measure of fit quality; there is no threshold.
+
+Each name opens its cluster or peak; at most six clusters are listed with a count of
+the rest. A stored parent run is read off Qt; one whose evidence is no longer
+retained is named as such. The first run has nothing to compare.
+
 Successful completion automatically adopts each usable valid fitted coordinate
 pair by stable peak ID. Usable non-converged fits and uncertainty warnings retain
 their positions and warnings. Missing/unusable pairs keep their submitted positions
@@ -179,11 +201,12 @@ residual| in σ (|r|max) and the largest |amplitude correlation| between members
 column shows an amber ▲ for a numerical warning (unusable, not converged,
 uncertainty unreliable, or a varied parameter at a recorded bound) or else a
 subdued ◇ for a highlight; its tooltip names each one. Highlights are descriptive
-rules, never warnings: amplitude correlation |ρ| ≥ 0.9; a position shift
-(|fitted − initial| in Hz, over the fitted linewidth, on the larger axis) above
-0.5; a fitted linewidth outside 0.5–2× the run's median for that axis over usable
-peaks. Each highlight states its rule and value, for example "shift 1.03 × LW
-(¹⁵N)". **Display** sets the thresholds for this session; they change no results,
+rules, never warnings: amplitude correlation |ρ| ≥ 0.9, and a fitted linewidth
+outside 0.5–2× the run's median for that axis over usable peaks. Each highlight
+states its rule and value, for example "LW 0.43 × median (¹H)". Movement from the
+initial position is not highlighted: reaching the right position from a rough
+start is what the optimizer is for; initial and fitted positions remain on each
+peak page. **Display** sets the thresholds for this session; they change no results,
 warnings or run state. The menu above the list shows all clusters, any warning,
 any highlight, or one warning or highlight type, each with its count. Columns sort
 on click; the default is χ²ᵣ, highest first. Choosing a

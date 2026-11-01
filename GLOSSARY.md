@@ -125,8 +125,8 @@ the largest recorded residual or the amplitude correlation, shown with its
 definition and never combined into a quality score.
 
 **Review heuristic**:
-A descriptive highlight with an adjustable display threshold, such as a large
-position shift or a linewidth outlier. It is never a numerical warning.
+A descriptive highlight with an adjustable display threshold, such as a linewidth
+outlier. It is never a numerical warning.
 
 **Highlight**:
 The subdued mark (◇) raised by a review heuristic or by a display threshold on a
