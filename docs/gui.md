@@ -104,8 +104,8 @@ for undoable IDs, rather than appearing as active scientific provenance.
 
 The **fit setup** is the inspector's analysis page, shown whenever nothing is
 selected. It edits the working settings directly: lineshape model (each axis's
-resolved model with its source: NMRPipe apodization, a default when no apodization
-is recognized, or explicit), clustering threshold as a factor of the statistical
+resolved model with its source: NMRPipe apodization, the pseudo-Voigt default,
+shown as a caution, when no apodization is recognized, or explicit), clustering threshold as a factor of the statistical
 noise with its absolute intensity, optimizer passes (default **two**, with the
 neighbor correction update between passes; an imported step schedule replaces
 the field) and, under **Advanced**, iteration limit and tolerance. Statistical

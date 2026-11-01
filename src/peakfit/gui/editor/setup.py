@@ -28,6 +28,10 @@ _LINESHAPES = {
     "no_apod": "No apodization",
 }
 
+# Automatic models fall back to pseudo-Voigt without recognized apodization; the
+# fit stays available, with a visible caution (docs/decisions.md).
+DEFAULT_SOURCE = "no recognized apodization; default model"
+
 
 def lineshape_text(name: str) -> str:
     """Readable model name; doublet variants keep their base name."""
@@ -60,6 +64,7 @@ class FitSetup(QtWidgets.QWidget):
             self.lineshape.addItem(lineshape_text(name), name)
         self.lineshape.currentIndexChanged.connect(self._edited)
         self.shapes = text_label("", "caption", wrap=True)
+        self.shape_caution = text_label("", "warning", wrap=True)
         self.noise = text_label("", "", wrap=True)
         self.noise_source = text_label("", "caption", wrap=True)
         self.threshold = QtWidgets.QDoubleSpinBox()
@@ -78,7 +83,7 @@ class FitSetup(QtWidgets.QWidget):
         self.schedule = text_label("", "", wrap=True)
         self.passes_note = text_label("cross-talk updated between passes", "caption", wrap=True)
         rows = (
-            ("Lineshapes", (self.lineshape, self.shapes)),
+            ("Lineshapes", (self.lineshape, self.shapes, self.shape_caution)),
             ("Statistical noise", (self.noise, self.noise_source)),
             ("Clustering", (self.threshold, self.level)),
             ("Passes", (self.passes, self.schedule, self.passes_note)),
@@ -192,6 +197,14 @@ class FitSetup(QtWidgets.QWidget):
         self.shapes.setText(
             "\n".join(f"{axis}: {shape} · {source}" for axis, shape, source in shapes)
         )
+        defaulted = [axis for axis, _shape, source in shapes if source == DEFAULT_SOURCE]
+        self.shape_caution.setText(
+            f"▲ {' and '.join(defaulted)}: no recognized apodization. Check that the "
+            "pseudo-Voigt default suits these data, or choose a model."
+            if defaulted
+            else ""
+        )
+        self.shape_caution.setVisible(bool(defaulted))
         steps = fitting.steps
         self.passes.setVisible(not steps)
         self.passes_note.setVisible(not steps)

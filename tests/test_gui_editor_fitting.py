@@ -20,6 +20,7 @@ from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
 from peakfit.gui.editor.profile import PeakProfile, ProfilePlot, framed_range, peak_profile
+from peakfit.gui.editor.setup import DEFAULT_SOURCE
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
@@ -857,3 +858,14 @@ def test_fitting_regions_are_labelled_by_source_and_never_obsolete(workspace, sc
     w.panel.setup.regions.setChecked(False)
     assert not c.region_curves[0].isVisible()
     assert "fitting regions" not in c.legend.text()
+
+
+def test_default_lineshape_fallback_is_a_caution_not_a_block(workspace):
+    w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
+    wait_for(lambda: fitting.prepared is not None)
+    shapes = [("¹⁵N", "Pseudo-Voigt", DEFAULT_SOURCE), ("¹H", "SP2", "from NMRPipe apodization")]
+    setup.show_state(fitting.configuration, shapes, fitting.prepared, fitting.blocked)
+    assert setup.shape_caution.isVisible()
+    assert setup.shape_caution.text().startswith("▲ ¹⁵N: no recognized apodization")
+    assert w.fit_button.isEnabled()
+    assert not fitting.blocked

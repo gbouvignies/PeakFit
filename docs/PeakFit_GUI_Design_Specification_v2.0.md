@@ -477,10 +477,11 @@ the prepared snapshot that the setup describes; the executed snapshot is the
 reviewed one. Safeguards replace the confirmation dialog: the first Fit of an
 analysis whose setup has not been displayed in this session reveals the Analysis
 page instead of running, and the next Fit runs; Fit is disabled, with the reason
-in the setup, when an automatic lineshape cannot be resolved or conflicts with
-processing metadata, when bounds are invalid, when statistical noise is not finite
+in the setup, when an automatic lineshape conflicts with processing metadata,
+when bounds are invalid, when statistical noise is not finite
 and positive, or when preparation reports newly omitted or ambiguous peaks. No peak
-is silently omitted. A statistical-noise override records its value and source.
+is silently omitted. An automatic lineshape that falls back to the default model
+because no apodization is recognized is a visible caution, not a block. A statistical-noise override records its value and source.
 Display-contour noise/threshold changes never alter clustering, samples,
 statistical noise, starts, bounds or run readiness.
 

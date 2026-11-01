@@ -14,7 +14,7 @@ from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.inspector import Inspector, find_cluster
 from peakfit.gui.editor.labels import ElidedLabel
 from peakfit.gui.editor.navigator import Navigator
-from peakfit.gui.editor.setup import lineshape_text
+from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
 
@@ -301,7 +301,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             if config.lineshape != "auto":
                 source = "explicit"
             elif name == "pvoigt":
-                source = "no recognized apodization; default model"
+                source = DEFAULT_SOURCE
             else:
                 source = "from NMRPipe apodization"
             title = formatting.nucleus(axis.nucleus, axis.label)
