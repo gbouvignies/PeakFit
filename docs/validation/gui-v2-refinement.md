@@ -87,16 +87,5 @@ researcher workflow and those failure paths are explicit acceptance gates in the
 The fixed scale was exercised across the twelve plane/mode comparisons; continuous
 500-event preview, large fonts, dark native refinement and Linux remain release checks.
 
-Disposable source is archived on `codex/gui-v2-evaluation` at commit
-`441bf42656eb8784d27783403e60ffe7c261159e`, path
-`experiments/gui-v2/refinement_design_probe.py`. It subclasses the existing trial
-instead of copying its monolithic canvas. From that checkout, with the generated
-fixture, run `uv run --no-sync python experiments/gui-v2/refinement_design_probe.py`;
-Probe → Capture comparisons reproduces the matrix. Later type-only assertions and
-explicit ViewBox dispatch preserve the captured rendering/interaction behavior.
-
-For integration into main, carry this report, its relative image/JSON assets and
-the revised SVGs with the specification. They have no runtime dependency on the
-experiment directory. Historical React/Qt evidence is linked at immutable already
-published commit `ea98e5c7002bcf94ce5582aa051bea865820960a`; retain the evaluation
-branch/source commit for reproduction rather than merging experimental code.
+The probe was discarded after the evaluation; the captures and records in
+[gui-v2-refinement/](gui-v2-refinement/) are the retained evidence.
