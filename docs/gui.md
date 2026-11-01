@@ -117,10 +117,11 @@ fitting problem off Qt, with the same preparation that Fit submits, and reports
 cluster and sample counts. Preparation never depends on selection, viewport,
 search or display contours. An obsolete preparation is hidden at once. When
 preparation fails, **Fit** is disabled and the setup and its tooltip give the
-reason. **Show fitting regions on the spectrum** (on by default) outlines every
-cluster's sampled points in grey and the selected peak's cluster in the accent
-colour. The legend names the source: "recorded in run …" while the active run is
-Current, otherwise "preview for current settings". Outlining never changes the
+reason. The member rings are the default sign of a selected peak's cluster.
+**Show sampled fitting regions** (off by default) adds a faint tint behind the
+contours, one cell per sampled point, with the selected peak's cluster slightly
+stronger. The legend names the source: "recorded in run …" while the active run
+is Current, otherwise "preview for current settings". The tint never changes the
 viewport, comparison mode or model scope.
 
 Choose **Fit** in the toolbar or **Fit dataset** in the Analysis menu

@@ -29,25 +29,8 @@ _CACHE_BYTES = 32 * 1024**2
 _CACHE_PLANES = 8
 _RESIDUAL = 2
 _RESIDUAL_LEVELS = np.asarray([3.0, 5.0, 8.0, 13.0, 21.0])
-
-
-def region_outline(labels: np.ndarray, x_axis, y_axis) -> tuple[np.ndarray, np.ndarray]:
-    """Boundaries between differently labelled sample cells, as ppm segment pairs.
-
-    ``labels`` holds one integer per sampled point (0 outside every region). Each
-    point owns the cell half a point either side, so outlines follow the samples
-    exactly, without smoothing or contour interpolation.
-    """
-    padded = np.pad(labels, 1)
-    rows, columns = np.nonzero(padded[:, 1:] != padded[:, :-1])
-    x_vertical = np.repeat(columns - 0.5, 2)
-    y_vertical = np.stack((rows - 1.5, rows - 0.5), axis=1).ravel()
-    rows, columns = np.nonzero(padded[1:, :] != padded[:-1, :])
-    x_horizontal = np.stack((columns - 1.5, columns - 0.5), axis=1).ravel()
-    y_horizontal = np.repeat(rows - 0.5, 2)
-    x = x_axis.pts2ppm(np.concatenate((x_vertical, x_horizontal)).astype(float))
-    y = y_axis.pts2ppm(np.concatenate((y_vertical, y_horizontal)).astype(float))
-    return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+REGION_ALPHA = 0.08  # every fitting region, behind the contours
+SELECTED_REGION_ALPHA = 0.16  # the selected peak's cluster
 
 
 def signed_geometry(data, axes, levels) -> list[tuple[np.ndarray, np.ndarray]]:
@@ -263,15 +246,19 @@ class SpectrumCanvas(QtWidgets.QWidget):
         # mark the unit of review while the selected peak stays the unit of editing.
         self.cluster_rings = self._scatter("o", 14, 29)
         self.cluster_ids: tuple[str, ...] = ()
-        # Fitting regions: every cluster faintly, the selected peak's cluster clearly.
-        self.region_curves = []
-        for z in (5, 6):
-            curve = pg.PlotCurveItem(connect="pairs")
-            curve.setZValue(z)
-            curve.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
-            self.main.getPlotItem().addItem(curve, ignoreBounds=True)
-            self.region_curves.append(curve)
-        self.regions_visible = True
+        # Fitting regions on request: a faint tint behind the contours, one cell per
+        # sampled point, with the selected peak's cluster slightly stronger.
+        self.region_image = pg.ImageItem(axisOrder="row-major")
+        self.region_image.setZValue(-1)
+        self.region_image.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        cell = QtGui.QTransform()
+        x0, y0 = (float(axis.pts2ppm(-0.5)) for axis in (self.x_axis, self.y_axis))
+        cell.translate(x0, y0)
+        cell.scale(float(self.x_axis.pts2ppm(0.5)) - x0, float(self.y_axis.pts2ppm(0.5)) - y0)
+        self.region_image.setTransform(cell)
+        self.main.getPlotItem().addItem(self.region_image, ignoreBounds=True)
+        self.region_image.setVisible(False)
+        self.regions_visible = False
         self.region_key = None
         self.region_source = ""
         self._regions: tuple[tuple[str, ...], ...] = ()
@@ -432,7 +419,6 @@ class SpectrumCanvas(QtWidgets.QWidget):
             labels[tuple(np.asarray(i) for i in indices)] = number
         self._regions = tuple(members for _indices, members in regions)
         self._region_labels = labels
-        self.region_curves[0].setData(*region_outline(labels, self.x_axis, self.y_axis))
         self._selected_region = -1
         self._place_selected_region()
         self._update_legend()
@@ -440,8 +426,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
     def set_regions_visible(self, visible: bool) -> None:
         """Explicit display choice; regions stay prepared while hidden."""
         self.regions_visible = visible
-        for curve in self.region_curves:
-            curve.setVisible(visible)
+        self.region_image.setVisible(visible)
         self._update_legend()
 
     def _place_selected_region(self) -> None:
@@ -451,12 +436,19 @@ class SpectrumCanvas(QtWidgets.QWidget):
         if number == self._selected_region:
             return
         self._selected_region = number
-        curve = self.region_curves[1]
-        if number:
-            mask = (self._region_labels == number).astype(np.int8)
-            curve.setData(*region_outline(mask, self.x_axis, self.y_axis))
-        else:
-            curve.setData([], [])
+        self._paint_regions()
+
+    def _paint_regions(self) -> None:
+        """Tint exactly the sampled points: all clusters faintly, the selected one more."""
+        labels = self._region_labels
+        tint = np.zeros((*labels.shape, 4), dtype=np.uint8)
+        layers = ((REGION_ALPHA, self.theme.secondary, labels > 0),)
+        if self._selected_region:
+            layers += ((SELECTED_REGION_ALPHA, self.theme.accent, labels == self._selected_region),)
+        for alpha, value, mask in layers:
+            rgb = QtGui.QColor(value)
+            tint[mask] = (rgb.red(), rgb.green(), rgb.blue(), round(255 * alpha))
+        self.region_image.setImage(tint, autoLevels=False, levels=(0, 255))
 
     def _selection_ring(self) -> None:
         peak = self._by_id.get(self.selected_id or "")
@@ -1049,9 +1041,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
         self.ring.setPen(pg.mkPen(t.accent, width=2))
         self.cluster_rings.setPen(pg.mkPen(color(t.accent, 0.6), width=1.2))
-        # Neutral, so sampled regions never read as contour data.
-        self.region_curves[0].setPen(pg.mkPen(color(t.secondary, 0.45), width=1))
-        self.region_curves[1].setPen(pg.mkPen(color(t.accent, 0.85), width=1.4))
+        if self._region_labels.size:
+            self._paint_regions()
         self.halo.setPen(pg.mkPen(color(t.accent, 0.8), width=1.2))
         self.ghost.setPen(pg.mkPen(t.pin, width=2))
         fill = pg.mkBrush(color(t.plot, 0.86))

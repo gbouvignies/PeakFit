@@ -740,19 +740,10 @@ def test_selected_cluster_members_are_marked_without_changing_view_or_scope(work
     assert c.cluster_ids == ()
 
 
-def _outline(curve) -> set[tuple[float, float]]:
-    x, y = curve.getData()
-    return (
-        {(round(a, 9), round(b, 9)) for a, b in zip(x, y, strict=True)} if x is not None else set()
-    )
-
-
-def _region_points(c, indices) -> set[tuple[float, float]]:
-    rows, columns = (np.asarray(i) for i in indices)
-    return {
-        (round(float(c.ppm_x[j]), 9), round(float(c.ppm_y[i]), 9))
-        for i, j in zip(rows, columns, strict=True)
-    }
+def _tinted(c, alpha: float) -> set[tuple[int, int]]:
+    image = c.region_image.image
+    rows, columns = np.nonzero(image[..., 3] == round(255 * alpha))
+    return set(zip(rows.tolist(), columns.tolist(), strict=True))
 
 
 def test_first_fit_reveals_the_setup_then_runs_the_prepared_inputs(workspace, monkeypatch):
@@ -816,27 +807,34 @@ def test_setup_edits_mark_the_run_outdated_and_prepare_afresh(workspace, scienti
     assert "Gaussian · explicit" in setup.shapes.text()
 
 
-def test_fitting_regions_are_labelled_by_source_and_never_obsolete(workspace, scientific):
+def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, scientific):
     w, c, fitting = workspace, workspace.canvas, workspace.fitting
     wait_for(lambda: fitting.prepared is not None)
     w._update_inspector()
     prepared = fitting.prepared
-    assert c.region_source == "preview for current settings"
-    assert "preview for current settings" in c.legend.text()
+    # Member rings are the default cue; sampled regions appear only on request.
+    assert not c.regions_visible
+    assert not c.region_image.isVisible()
+    assert "fitting regions" not in c.legend.text()
+    w.panel.setup.regions.setChecked(True)
+    assert c.region_image.isVisible()
+    assert "fitting regions · preview for current settings" in c.legend.text()
     cluster = next(cl for cl in prepared.clusters if len(cl.peaks) > 1)
     ids = {i.engine_name: i.working_id for i in prepared.identities}
-    selected = ids[cluster.peaks[0].name]
-    w.select_peak(selected)
+    w.select_peak(ids[cluster.peaks[0].name])
     view, mode, jobs = c.main.getViewBox().viewRange(), c.comparison_mode, c.contour_jobs
     w._update_inspector()
-    # The selected cluster's outline encloses exactly its sampled points.
-    outline = _outline(c.region_curves[1])
-    points = _region_points(c, cluster.grid_indices)
-    xs = sorted({x for x, _ in outline})
-    ys = sorted({y for _, y in outline})
-    assert outline
-    assert all(xs[0] < x < xs[-1] and ys[0] < y < ys[-1] for x, y in points)
-    assert _outline(c.region_curves[0]) >= outline
+    # One tinted cell per sampled point, exactly; the selected cluster is stronger.
+    samples = sum(len(cl.grid_indices[0]) for cl in prepared.clusters)
+    selected = set(zip(*(np.asarray(i).tolist() for i in cluster.grid_indices), strict=True))
+    assert _tinted(c, canvas_module.SELECTED_REGION_ALPHA) == selected
+    assert len(_tinted(c, canvas_module.REGION_ALPHA)) == samples - len(selected)
+    # Each cell is centred on its sample's ppm coordinates.
+    row, column = next(iter(selected))
+    centre = c.region_image.mapToParent(QtCore.QPointF(column + 0.5, row + 0.5))
+    assert centre.x() == pytest.approx(c.ppm_x[column])
+    assert centre.y() == pytest.approx(c.ppm_y[row])
+    assert c.region_image.zValue() < 0  # behind the contours
     assert (c.comparison_mode, c.contour_jobs) == (mode, jobs)
     assert view == c.main.getViewBox().viewRange()
     # After a fit the recorded regions replace the preview, with the run named.
@@ -844,19 +842,18 @@ def test_fitting_regions_are_labelled_by_source_and_never_obsolete(workspace, sc
     publish(w, result)
     w._update_inspector()
     assert c.region_source == f"recorded in run {result.run_id[:8]}"
-    # A committed edit hides the preparation at once: no obsolete outline is shown.
+    # A committed edit hides the preparation at once: no obsolete region is shown.
     peak = w.peaks[0]
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
     assert not fitting.current
     assert fitting.prepared is None
     assert c.region_source == ""
-    assert not _outline(c.region_curves[0])
+    assert not np.any(c.region_image.image[..., 3])
     wait_for(lambda: fitting.prepared is not None)
     w._update_inspector()
     assert c.region_source == "preview for current settings"
-    # The display choice hides outlines and their legend entry.
     w.panel.setup.regions.setChecked(False)
-    assert not c.region_curves[0].isVisible()
+    assert not c.region_image.isVisible()
     assert "fitting regions" not in c.legend.text()
 
 

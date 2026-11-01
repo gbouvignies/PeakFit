@@ -146,8 +146,7 @@ class FitSetup(QtWidgets.QWidget):
         layout.addSpacing(themes.SPACE_XS)
         layout.addWidget(self.preparation)
         layout.addWidget(self.blocked)
-        self.regions = QtWidgets.QCheckBox("Show fitting regions on the spectrum")
-        self.regions.setChecked(True)
+        self.regions = QtWidgets.QCheckBox("Show sampled fitting regions")
         self.regions.toggled.connect(self.regions_toggled)
         layout.addWidget(self.regions)
         layout.addWidget(
