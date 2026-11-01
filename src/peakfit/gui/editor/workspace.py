@@ -14,6 +14,7 @@ from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.inspector import Inspector, find_cluster
 from peakfit.gui.editor.labels import ElidedLabel
 from peakfit.gui.editor.navigator import Navigator
+from peakfit.gui.editor.setup import lineshape_text
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
 
@@ -88,7 +89,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.navigator.selected.connect(self.select_peak)
         self.navigator.next_warning.connect(lambda: self.fitting.next_warning(None))
         self.panel.next_warning.connect(lambda: self.fitting.next_warning(None))
-        self.panel.settings_requested.connect(lambda: self.fitting.fit(settings=True))
+        self.panel.setup.changed.connect(lambda settings: self.fitting.configure(settings))
+        self.panel.setup.regions_toggled.connect(self.canvas.set_regions_visible)
         self.panel.plane_requested.connect(self.set_plane)
         self.canvas.selected.connect(self.select_peak)
         self.canvas.placed.connect(self.place_peak)
@@ -177,7 +179,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.settings_button = QtWidgets.QPushButton()
         self.settings_button.setObjectName("chip")
         self.settings_button.setToolTip("Fit settings: lineshapes, clustering and passes")
-        self.settings_button.clicked.connect(lambda: self.fitting.fit(settings=True))
+        self.settings_button.clicked.connect(self.show_fit_setup)
         bar.addWidget(self.settings_button)
         self.cancel_fit = QtWidgets.QPushButton("Cancel")
         self.cancel_fit.clicked.connect(lambda: self.fitting.cancel())
@@ -270,15 +272,63 @@ class EditorWorkspace(QtWidgets.QWidget):
         steps = config.fitting.steps
         passes = f"{len(steps)} steps" if steps else f"{config.fitting.refine_iterations} passes"
         self._settings_text = f"{shapes} · {threshold} · {passes}"
-        self._settings_rows = [
-            ("Lineshapes", shapes),
-            ("Clustering", clustering.removeprefix("clustering ").capitalize()),
-            ("Optimizer", passes + (", cross-talk updated between passes" if not steps else "")),
-        ]
         self._adapt_toolbar()
         self.settings_button.setToolTip(
-            f"Fit settings: lineshapes {shapes} · {clustering} · {passes}. Click to review."
+            f"Fit settings: lineshapes {shapes} · {clustering} · {passes}. "
+            "Click to open the fit setup."
         )
+
+    def show_fit_setup(self) -> None:
+        """Clear the selection and open the inspector at the fit setup."""
+        if not self.commit_fields():
+            return
+        self.inspector_button.setChecked(True)
+        self.toggle_inspector()
+        self.select_peak(None)
+        self.panel.verticalScrollBar().setValue(0)
+        self.fitting.setup_seen = True
+
+    def _shapes(self) -> list[tuple[str, str, str]]:
+        """Resolved lineshape per spectral axis, with where it came from."""
+        config = self.fitting.configuration.fitting
+        spectra = self.dataset.spectra
+        try:
+            names = get_shape_names(config, spectra)
+        except (ValueError, KeyError, AttributeError) as exc:
+            return [("Lineshape", "unresolved", str(exc))]
+        rows = []
+        for axis, name in zip(spectra.spectral_params, names, strict=True):
+            if config.lineshape != "auto":
+                source = "explicit"
+            elif name == "pvoigt":
+                source = "no recognized apodization; default model"
+            else:
+                source = "from NMRPipe apodization"
+            title = formatting.nucleus(axis.nucleus, axis.label)
+            rows.append((title, lineshape_text(name), source))
+        return rows
+
+    def _fitting_regions(self):
+        """The active run's recorded regions, or else the current preparation's."""
+        fitting = self.fitting
+        result = fitting.result
+        if result is not None and fitting.current:
+            ids = {i.engine_name: i.working_id for i in result.inputs.identities}
+            members = {c.cluster_id: c.peak_names for c in result.outcome.clusters}
+            regions = tuple(
+                (s.grid_indices, tuple(ids[n] for n in members[s.cluster_id] if n in ids))
+                for s in result.completed_fit.samples
+            )
+            return ("run", result.run_id), regions, f"recorded in run {result.run_id[:8]}"
+        prepared = fitting.prepared
+        if prepared is not None:
+            ids = {i.engine_name: i.working_id for i in prepared.identities}
+            regions = tuple(
+                (tuple(c.grid_indices), tuple(ids[p.name] for p in c.peaks))
+                for c in prepared.clusters
+            )
+            return ("preview", id(prepared)), regions, "preview for current settings"
+        return None, (), ""
 
     def _adapt_toolbar(self) -> None:
         """Below 1200 px the run line needs the room; tooltips keep the full text."""
@@ -297,16 +347,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         super().resizeEvent(event)
         if hasattr(self, "settings_button"):
             self._adapt_toolbar()
-
-    @property
-    def spectra(self):
-        """Expose the loaded scientific source to the shared settings dialog."""
-        return self.dataset.spectra
-
-    @property
-    def source_files(self):
-        """Verified effective sources of the current working dataset."""
-        return self.dataset.sources
 
     @property
     def fit_busy(self) -> bool:
@@ -418,7 +458,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._refresh()
         return True
 
-    def select_peak(self, identity: str) -> None:
+    def select_peak(self, identity: str | None) -> None:
         """Resolve drafts before changing the one stable inspector identity."""
         if not self.commit_fields():
             # Restore list identity without overwriting the invalid visible draft.
@@ -455,6 +495,12 @@ class EditorWorkspace(QtWidgets.QWidget):
         result = fitting.result
         self.navigator.set_result(result, current=bool(fitting.current))
         self.canvas.set_cluster(self._cluster_members(result))
+        self.canvas.set_regions(*self._fitting_regions())
+        self.panel.setup.show_state(
+            fitting.configuration, self._shapes(), fitting.prepared, fitting.blocked
+        )
+        if self.selected_id is None and self.panel.isVisible():
+            fitting.setup_seen = True
         self.panel.show_result(
             result,
             current=bool(fitting.current),
@@ -485,7 +531,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.show_analysis(
             self.dataset.path.stem,
             f"{len(self.peaks)} working peaks · {planes} planes · {x} × {y}",
-            getattr(self, "_settings_rows", []),
             run,
             "Select a peak or cluster to see its position, profile, fitted values and "
             "review. Save analysis keeps working state and the latest ten runs; "

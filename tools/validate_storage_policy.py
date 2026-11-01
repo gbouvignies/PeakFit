@@ -268,7 +268,6 @@ def native_refit(analysis, args, report, timed):
     from PySide6 import QtCore, QtTest, QtWidgets  # noqa: PLC0415
     from validate_gui_editor import settle, wait_until  # noqa: PLC0415
 
-    from peakfit.gui.dataset_dialog import DatasetFitDialog  # noqa: PLC0415
     from peakfit.gui.editor.window import EditorWindow  # noqa: PLC0415
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
@@ -296,17 +295,6 @@ def native_refit(analysis, args, report, timed):
     peak = workspace.peaks[0]
     workspace.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.00001))
     assert not workspace.fitting.current
-    timer = QtCore.QTimer()
-    timer.setInterval(30)
-
-    def accept():
-        dialogs = workspace.findChildren(DatasetFitDialog)
-        if dialogs and dialogs[-1].run.isEnabled():
-            timer.stop()
-            QtTest.QTest.mouseClick(dialogs[-1].run, QtCore.Qt.MouseButton.LeftButton)
-
-    timer.timeout.connect(accept)
-    timer.start()
 
     def execute():
         QtTest.QTest.mouseClick(workspace.fit_button, QtCore.Qt.MouseButton.LeftButton)

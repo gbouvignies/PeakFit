@@ -45,7 +45,7 @@ def workspace(scientific):
     dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 5.0, 0.01)
     widget = EditorWorkspace(dataset)
     widget.fitting.configuration = config.model_copy(deep=True)
-    widget.fitting.reviewed = True
+    widget.fitting.setup_seen = True
     widget.resize(1280, 750)
     widget.show()
     app.processEvents()
@@ -563,7 +563,7 @@ def test_compact_header_and_inspector_at_minimum_window(scientific, monkeypatch)
     w = window.workspace
     assert w is not None
     w.fitting.configuration = config.model_copy(deep=True)
-    w.fitting.reviewed = True
+    w.fitting.setup_seen = True
     app.processEvents()
     publish(w, _warned(result))
     warned = result.outcome.clusters[0].peak_names[0]
@@ -737,3 +737,123 @@ def test_selected_cluster_members_are_marked_without_changing_view_or_scope(work
     # A peak outside the run has no recorded cluster to mark.
     w.place_peak(w.peaks[0].positions)
     assert c.cluster_ids == ()
+
+
+def _outline(curve) -> set[tuple[float, float]]:
+    x, y = curve.getData()
+    return (
+        {(round(a, 9), round(b, 9)) for a, b in zip(x, y, strict=True)} if x is not None else set()
+    )
+
+
+def _region_points(c, indices) -> set[tuple[float, float]]:
+    rows, columns = (np.asarray(i) for i in indices)
+    return {
+        (round(float(c.ppm_x[j]), 9), round(float(c.ppm_y[i]), 9))
+        for i, j in zip(rows, columns, strict=True)
+    }
+
+
+def test_first_fit_reveals_the_setup_then_runs_the_prepared_inputs(workspace, monkeypatch):
+    w, fitting = workspace, workspace.fitting
+    fitting.setup_seen = False
+    w.select_peak(w.peaks[0].id)
+    w.inspector_button.setChecked(False)
+    w.toggle_inspector()
+    fitting.fit()
+    # Revealed, not run: the inspector opens at the setup with nothing selected.
+    assert not fitting.busy
+    assert fitting.result is None
+    assert w.selected_id is None
+    assert w.panel.isVisible()
+    assert w.panel.analysis_page.isVisible()
+    wait_for(lambda: fitting.prepared is not None)
+    submitted = []
+    monkeypatch.setattr(fitting, "start", submitted.append)
+    fitting.fit()
+    # The second Fit submits exactly the preparation the setup describes.
+    assert submitted == [fitting.prepared]
+
+
+def test_fit_is_disabled_with_the_preparation_reason(workspace):
+    w, fitting = workspace, workspace.fitting
+    wait_for(lambda: fitting.prepared is not None)
+    invalid = fitting.configuration.model_copy(deep=True)
+    invalid.exclude_planes = [1]
+    fitting.configure(invalid)
+    assert fitting.prepared is None
+    wait_for(lambda: bool(fitting.blocked))
+    assert "exclusions are unsupported" in fitting.blocked
+    assert not w.fit_button.isEnabled()
+    assert fitting.blocked in w.fit_button.toolTip()
+    assert w.panel.setup.blocked.isVisible()
+    assert fitting.blocked in w.panel.setup.blocked.text()
+    w.select_peak(w.peaks[0].id)
+    fitting.fit()
+    assert not fitting.busy
+    assert w.selected_id is None
+    valid = invalid.model_copy(deep=True)
+    valid.exclude_planes = []
+    fitting.configure(valid)
+    wait_for(lambda: fitting.prepared is not None)
+    assert w.fit_button.isEnabled()
+    assert not fitting.blocked
+
+
+def test_setup_edits_mark_the_run_outdated_and_prepare_afresh(workspace, scientific):
+    w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
+    publish(w, scientific[-1])
+    assert fitting.current
+    setup.passes.setValue(3)
+    assert fitting.configuration.fitting.refine_iterations == 3
+    assert not fitting.current
+    assert fitting.prepared is None
+    wait_for(lambda: fitting.prepared is not None)
+    assert '"refine_iterations":3' in fitting.prepared.snapshot.configuration
+    setup.lineshape.setCurrentIndex(setup.lineshape.findData("gaussian"))
+    assert fitting.configuration.fitting.lineshape == "gaussian"
+    assert "Gaussian · explicit" in setup.shapes.text()
+
+
+def test_fitting_regions_are_labelled_by_source_and_never_obsolete(workspace, scientific):
+    w, c, fitting = workspace, workspace.canvas, workspace.fitting
+    wait_for(lambda: fitting.prepared is not None)
+    w._update_inspector()
+    prepared = fitting.prepared
+    assert c.region_source == "preview for current settings"
+    assert "preview for current settings" in c.legend.text()
+    cluster = next(cl for cl in prepared.clusters if len(cl.peaks) > 1)
+    ids = {i.engine_name: i.working_id for i in prepared.identities}
+    selected = ids[cluster.peaks[0].name]
+    w.select_peak(selected)
+    view, mode, jobs = c.main.getViewBox().viewRange(), c.comparison_mode, c.contour_jobs
+    w._update_inspector()
+    # The selected cluster's outline encloses exactly its sampled points.
+    outline = _outline(c.region_curves[1])
+    points = _region_points(c, cluster.grid_indices)
+    xs = sorted({x for x, _ in outline})
+    ys = sorted({y for _, y in outline})
+    assert outline
+    assert all(xs[0] < x < xs[-1] and ys[0] < y < ys[-1] for x, y in points)
+    assert _outline(c.region_curves[0]) >= outline
+    assert (c.comparison_mode, c.contour_jobs) == (mode, jobs)
+    assert view == c.main.getViewBox().viewRange()
+    # After a fit the recorded regions replace the preview, with the run named.
+    result = scientific[-1]
+    publish(w, result)
+    w._update_inspector()
+    assert c.region_source == f"recorded in run {result.run_id[:8]}"
+    # A committed edit hides the preparation at once: no obsolete outline is shown.
+    peak = w.peaks[0]
+    w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
+    assert not fitting.current
+    assert fitting.prepared is None
+    assert c.region_source == ""
+    assert not _outline(c.region_curves[0])
+    wait_for(lambda: fitting.prepared is not None)
+    w._update_inspector()
+    assert c.region_source == "preview for current settings"
+    # The display choice hides outlines and their legend entry.
+    w.panel.setup.regions.setChecked(False)
+    assert not c.region_curves[0].isVisible()
+    assert "fitting regions" not in c.legend.text()

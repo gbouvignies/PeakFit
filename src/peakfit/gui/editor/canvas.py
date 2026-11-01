@@ -31,6 +31,25 @@ _RESIDUAL = 2
 _RESIDUAL_LEVELS = np.asarray([3.0, 5.0, 8.0, 13.0, 21.0])
 
 
+def region_outline(labels: np.ndarray, x_axis, y_axis) -> tuple[np.ndarray, np.ndarray]:
+    """Boundaries between differently labelled sample cells, as ppm segment pairs.
+
+    ``labels`` holds one integer per sampled point (0 outside every region). Each
+    point owns the cell half a point either side, so outlines follow the samples
+    exactly, without smoothing or contour interpolation.
+    """
+    padded = np.pad(labels, 1)
+    rows, columns = np.nonzero(padded[:, 1:] != padded[:, :-1])
+    x_vertical = np.repeat(columns - 0.5, 2)
+    y_vertical = np.stack((rows - 1.5, rows - 0.5), axis=1).ravel()
+    rows, columns = np.nonzero(padded[1:, :] != padded[:-1, :])
+    x_horizontal = np.stack((columns - 1.5, columns - 0.5), axis=1).ravel()
+    y_horizontal = np.repeat(rows - 0.5, 2)
+    x = x_axis.pts2ppm(np.concatenate((x_vertical, x_horizontal)).astype(float))
+    y = y_axis.pts2ppm(np.concatenate((y_vertical, y_horizontal)).astype(float))
+    return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+
+
 def signed_geometry(data, axes, levels) -> list[tuple[np.ndarray, np.ndarray]]:
     """One geometry per level, positive levels then negative; no Qt work here."""
     return contour_geometry(data, axes, np.concatenate((levels, -levels)))
@@ -244,6 +263,20 @@ class SpectrumCanvas(QtWidgets.QWidget):
         # mark the unit of review while the selected peak stays the unit of editing.
         self.cluster_rings = self._scatter("o", 14, 29)
         self.cluster_ids: tuple[str, ...] = ()
+        # Fitting regions: every cluster faintly, the selected peak's cluster clearly.
+        self.region_curves = []
+        for z in (5, 6):
+            curve = pg.PlotCurveItem(connect="pairs")
+            curve.setZValue(z)
+            curve.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+            self.main.getPlotItem().addItem(curve, ignoreBounds=True)
+            self.region_curves.append(curve)
+        self.regions_visible = True
+        self.region_key = None
+        self.region_source = ""
+        self._regions: tuple[tuple[str, ...], ...] = ()
+        self._region_labels = np.zeros(0, dtype=np.int32)
+        self._selected_region = -1
         self.halo = self._scatter("o", 15, 31)
         self.ghost = self._scatter("+", 10, 32)
         self.hover_label = self._label(35, (-0.08, 1.15))
@@ -384,6 +417,47 @@ class SpectrumCanvas(QtWidgets.QWidget):
         ]
         self.cluster_rings.setData([p[0] for p in positions], [p[1] for p in positions])
 
+    def set_regions(self, key, regions, source: str) -> None:
+        """Show sampled fitting regions; never changes view, mode or model scope.
+
+        ``regions`` pairs each cluster's sample indices with its working peak IDs;
+        ``source`` says whether they were recorded by a run or merely prepared.
+        """
+        if key == self.region_key:
+            return
+        self.region_key = key
+        self.region_source = source
+        labels = np.zeros((self.y_axis.size, self.x_axis.size), dtype=np.int32)
+        for number, (indices, _members) in enumerate(regions, 1):
+            labels[tuple(np.asarray(i) for i in indices)] = number
+        self._regions = tuple(members for _indices, members in regions)
+        self._region_labels = labels
+        self.region_curves[0].setData(*region_outline(labels, self.x_axis, self.y_axis))
+        self._selected_region = -1
+        self._place_selected_region()
+        self._update_legend()
+
+    def set_regions_visible(self, visible: bool) -> None:
+        """Explicit display choice; regions stay prepared while hidden."""
+        self.regions_visible = visible
+        for curve in self.region_curves:
+            curve.setVisible(visible)
+        self._update_legend()
+
+    def _place_selected_region(self) -> None:
+        number = next(
+            (n for n, members in enumerate(self._regions, 1) if self.selected_id in members), 0
+        )
+        if number == self._selected_region:
+            return
+        self._selected_region = number
+        curve = self.region_curves[1]
+        if number:
+            mask = (self._region_labels == number).astype(np.int8)
+            curve.setData(*region_outline(mask, self.x_axis, self.y_axis))
+        else:
+            curve.setData([], [])
+
     def _selection_ring(self) -> None:
         peak = self._by_id.get(self.selected_id or "")
         if peak is None:
@@ -395,6 +469,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self.selection_label.setText(peak.name)
             self.selection_label.setPos(x, y)
         self._place_cluster_rings()
+        self._place_selected_region()
 
     def hover(self, peak_id: str | None, *, from_list: bool = False) -> None:
         """Change transient feedback only, preserving editor drafts and selection."""
@@ -936,6 +1011,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
             items = [key(t.measured, solid, "measured +"), key(t.measured_negative, dashed, "−")]
             if self.comparison_mode == 1:
                 items.append(key(t.model, solid, "model"))
+        if self.regions_visible and self.region_source:
+            items.append(key(t.secondary, "▭", f"fitting regions · {self.region_source}"))
         self.legend.setText(
             f'<div style="color:{t.secondary};font-size:{FONT_CAPTION}px">'
             + "&nbsp;&nbsp;&nbsp;".join(items)
@@ -972,6 +1049,9 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
         self.ring.setPen(pg.mkPen(t.accent, width=2))
         self.cluster_rings.setPen(pg.mkPen(color(t.accent, 0.6), width=1.2))
+        # Neutral, so sampled regions never read as contour data.
+        self.region_curves[0].setPen(pg.mkPen(color(t.secondary, 0.45), width=1))
+        self.region_curves[1].setPen(pg.mkPen(color(t.accent, 0.85), width=1.4))
         self.halo.setPen(pg.mkPen(color(t.accent, 0.8), width=1.2))
         self.ghost.setPen(pg.mkPen(t.pin, width=2))
         fill = pg.mkBrush(color(t.plot, 0.86))

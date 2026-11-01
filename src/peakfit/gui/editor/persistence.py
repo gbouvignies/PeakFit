@@ -322,7 +322,6 @@ class AnalysisActions:
             assert w is not None
             w.edits = PeakEdits(analysis.peaks, revision=analysis.revision)
             w.fitting.configuration = PeakFitConfig.model_validate_json(analysis.configuration)
-            w.fitting.reviewed = True
             # Only the active result is resident and needs a process-local identity.
             completion = analysis.completion
             if completion:

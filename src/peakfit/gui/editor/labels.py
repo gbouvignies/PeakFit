@@ -1,4 +1,4 @@
-"""Plain-text label that elides on narrow windows without losing its text."""
+"""Plain-text labels: selectable styled text, and one that elides without losing its text."""
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -41,3 +41,13 @@ class ElidedLabel(QtWidgets.QLabel):
             self.displayed_text(),
             self.foregroundRole(),
         )
+
+
+def text_label(text: str = "", name: str = "", *, wrap: bool = False) -> QtWidgets.QLabel:
+    """Selectable label styled by its object name (section, muted, caption, warning)."""
+    label = QtWidgets.QLabel(text)
+    if name:
+        label.setObjectName(name)
+    label.setWordWrap(wrap)
+    label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+    return label

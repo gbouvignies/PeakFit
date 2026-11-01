@@ -119,7 +119,7 @@ def main():  # noqa: PLR0915
     window.show()
     w = window.workspace
     assert w is not None
-    w.fitting.reviewed = True
+    w.fitting.setup_seen = True
     mark_phase("fit")
     started = perf_counter()
     w.fitting.fit()

@@ -450,6 +450,8 @@ def test_save_ten_reopen_fit_save_reopen_preserves_evicted_scientific_summary(
     del loaded, runs
     w = window.workspace
     assert w is not None
+    w.fitting.fit()  # The first Fit of a session reveals the setup instead of running.
+    assert (w.fitting.setup_seen, w.fitting.busy, w.selected_id) == (True, False, None)
     w.fitting.fit()  # Fresh preparation and a real optimizer invocation after reopening.
     wait_for(lambda: not w.fitting.busy, timeout=20)
     assert w.fitting.current, w.fitting.failure
@@ -586,7 +588,7 @@ def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup
     f = w.fitting
     f.configuration = PeakFitConfig.model_validate_json(analysis.configuration)
     for index in range(12):
-        prepared = prepare_dataset_fit(w.spectra, w.peaks, f.configuration)
+        prepared = prepare_dataset_fit(w.dataset.spectra, w.peaks, f.configuration)
         prepared = replace(
             prepared, snapshot=replace(prepared.snapshot, source_files=w.dataset.sources)
         )
