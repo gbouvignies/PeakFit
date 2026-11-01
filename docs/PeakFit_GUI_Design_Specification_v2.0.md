@@ -634,13 +634,29 @@ three carry the uncertainty warning, those same three have amplitude correlation
 
 ### Unexplained signal
 
-**Signal not explained on this plane** is a read-only list computed on request from
-the whole-spectrum residual of the current plane: connected regions beyond ±k σ_stat
-(default k = 5, a display preference) with location, extreme value, size in samples
-and distance to the nearest working peak. Selecting a region frames it. The list
-never adds or proposes peaks, never flags a cluster and does not imply a poor fit of
-the peaks chosen for analysis; unmodelled signals may be deliberately excluded. It
-uses the same off-Qt model projection as the Residual view.
+**Signal not explained on this plane** is a read-only list on the Analysis page,
+computed on request from the whole-spectrum residual of the current plane: connected
+regions beyond +k or beyond −k σ_stat (default k = 5, a session display preference in
+Display), with location, extreme value, size in samples and distance to the nearest
+working peak.
+
+- A region is a connected set of samples beyond the threshold with one sign; samples
+  touching diagonally are connected, so a tilted ridge stays one region and a
+  dispersive residual gives one positive and one negative region.
+- Its location is its extreme sample; the distance to the nearest working peak is
+  Euclidean in native samples, the same unit as the size, because the two axes have
+  no common ppm scale.
+- Rows are ordered by |extreme|, eight shown with a count of the rest.
+- Selecting a region frames it with at least 24 points of context on each side and
+  places the slices through its extreme; plane, comparison mode and selection are
+  kept.
+- A list belongs to one run, plane and threshold. It is not computed for an Outdated
+  run, because the working peaks would not match the model.
+
+The list never adds or proposes peaks, never flags a cluster and does not imply a
+poor fit of the peaks chosen for analysis; unmodelled signals may be deliberately
+excluded. It uses the same off-Qt model projection as the Residual view, reusing its
+model-plane cache.
 
 On a plane/mode/revision change, remove mismatched calculated/residual graphics
 immediately. Show the experimental plane as an explicitly labeled temporary

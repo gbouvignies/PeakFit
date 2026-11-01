@@ -30,13 +30,14 @@ from peakfit.gui.editor.profile import (
     peak_profile,
 )
 from peakfit.gui.editor.setup import DEFAULT_SOURCE
+from peakfit.gui.editor.unexplained import unexplained_regions
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.project import StoredRun
-from peakfit.gui.spectrum import Dataset
+from peakfit.gui.spectrum import Dataset, display_position
 from peakfit.io.scientific import read_scientific
 
 pytestmark = pytest.mark.gui
@@ -1482,3 +1483,100 @@ def test_escape_leaves_the_lens_from_any_column_but_discards_a_draft_first(works
     assert w.lens_open
     QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
     assert not w.lens_open
+
+
+def _unexplained_links(w):
+    layout = w.panel.unexplained
+    return [
+        widget
+        for index in range(layout.count())
+        if (row := layout.itemAt(index).layout()) is not None
+        and isinstance(widget := row.itemAt(0).widget(), QtWidgets.QPushButton)
+    ]
+
+
+def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # noqa: PLR0915
+    workspace, scientific, monkeypatch
+):
+    w, c = workspace, workspace.canvas
+    result = scientific[-1]
+    publish(w, result)
+    w.select_peak(None)
+    panel = w.panel
+    assert panel.unexplained_button.text() == "Find on plane 1"
+    assert panel.unexplained_button.isEnabled()
+    assert _unexplained_links(w) == []  # nothing is computed until asked
+    assert "beyond ±5 σ_stat" in panel.unexplained_note.text()
+
+    # A low Display threshold, so the synthetic noise crosses it.
+    def accept(dialog):
+        for field in dialog.findChildren(QtWidgets.QDoubleSpinBox):
+            if field.accessibleName() == "Unexplained signal beyond":
+                field.setValue(2.0)
+        return QtWidgets.QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(QtWidgets.QDialog, "exec", accept)
+    w.display_dialog()
+    assert w.unexplained_threshold == 2.0
+    assert "beyond ±2 σ_stat" in panel.unexplained_note.text()
+    revision, peaks, mode = w.edits.revision, w.peaks, c.comparison_mode
+    panel.unexplained_button.click()
+    wait_for(lambda: w._unexplained[1] != "pending")
+    assert isinstance(w._unexplained[1], list), w._unexplained
+    regions = w._unexplained[1]
+    # Exactly the regions of the whole-spectrum residual (D − M) / σ_stat.
+    axes = [axis.model_copy(deep=True) for axis in c.spectra.spectral_params]
+    model = dataset_model_plane(result, axes, 0, cancel=Event())
+    residual = (c.spectra.data[0] - model.values) / result.outcome.noise
+    positions = [
+        (
+            p.id,
+            float(c.y_axis.ppm2pts(display_position(c.y_axis, p.positions[0]))),
+            float(c.x_axis.ppm2pts(display_position(c.x_axis, p.positions[1]))),
+        )
+        for p in w.peaks
+    ]
+    assert regions == unexplained_regions(residual, 2.0, positions)
+    assert regions
+    count = len(regions)
+    assert panel.unexplained_title.text() == (
+        f"Plane 1 · {count} region{'s' if count != 1 else ''} beyond ±2 σ_stat"
+    )
+    assert not panel.unexplained_button.isEnabled()
+    # The new list scrolls into view below the fit setup.
+    section = panel.unexplained_section
+    wait_for(lambda: section.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y() >= 0)
+    assert section.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y() < panel.viewport().height()
+    links = _unexplained_links(w)
+    assert len(links) == min(count, 8)
+    first = regions[0]
+    name = next(p.name for p in w.peaks if p.id == first.nearest)
+    detail = links[0].parent().findChildren(QtWidgets.QLabel)
+    assert any(
+        label.text().startswith(f"{first.extreme:+.1f} σ · {first.size} sample")
+        and label.text().endswith(f"{first.distance:.1f} pts from {name}")
+        for label in detail
+    )
+    # Choosing a region frames it and samples through its extreme; nothing is edited.
+    links[0].click()
+    (x_low, x_high), (y_low, y_high) = c.main.getViewBox().viewRange()
+    for low, high, ppm, (start, stop) in (
+        (x_low, x_high, c.ppm_x, first.columns),
+        (y_low, y_high, c.ppm_y, first.rows),
+    ):
+        assert low <= min(ppm[start], ppm[stop]) <= max(ppm[start], ppm[stop]) <= high
+    assert (c.iy, c.ix) == (first.row, first.column)
+    assert (w.edits.revision, w.peaks, c.comparison_mode) == (revision, peaks, mode)
+    assert w.selected_id is None
+    assert w.fitting.current
+    # Another plane needs its own request; the old list is not shown for it.
+    w.set_plane(2)
+    assert panel.unexplained_button.text() == "Find on plane 2"
+    assert panel.unexplained_button.isEnabled()
+    assert _unexplained_links(w) == []
+    # An Outdated run cannot be compared with the working peaks.
+    peak = w.peaks[0]
+    w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
+    w.select_peak(None)
+    assert not panel.unexplained_button.isEnabled()
+    assert panel.unexplained_title.text() == "Outdated · fit to compare with the working peaks"

@@ -106,3 +106,13 @@ Short records of non‑obvious design choices and trade‑offs.
 - Run-to-run comparison keeps numerical warnings, highlights and cluster membership,
   matched by stable peak ID; a warning that disappears because a cluster was
   regrouped is not described as resolved.
+
+## 2026-11-02: Unexplained-signal regions are signed, diagonally connected and measured in samples
+- Positive and negative excursions are labelled separately, so a dispersive residual
+  next to a misplaced peak reads as two regions rather than one cancelling blob;
+  diagonal neighbours are connected so a tilted ridge stays one region.
+- Distance to the nearest working peak is Euclidean in native samples: the two axes
+  have no common ppm scale, and samples are also the unit of the region size. The
+  list shows the ppm location of each region's extreme sample.
+- The list is computed only for a Current run: an Outdated run's model no longer
+  corresponds to the working peaks it would be measured against.

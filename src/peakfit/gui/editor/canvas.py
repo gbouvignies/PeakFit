@@ -29,8 +29,26 @@ _CACHE_BYTES = 32 * 1024**2
 _CACHE_PLANES = 8
 _RESIDUAL = 2
 _RESIDUAL_LEVELS = np.asarray([3.0, 5.0, 8.0, 13.0, 21.0])
+_FRAME_MARGIN = 0.35  # a framed extent gains this fraction on each side
+_FRAME_POINTS = 6  # and at least this many points on each side
 REGION_ALPHA = 0.08  # every fitting region, behind the contours
 SELECTED_REGION_ALPHA = 0.16  # the selected peak's cluster
+
+
+def framed_ranges(
+    rows: tuple[int, int],
+    columns: tuple[int, int],
+    ppm_y: np.ndarray,
+    ppm_x: np.ndarray,
+    points: int = _FRAME_POINTS,
+) -> tuple[list[float], list[float]]:
+    """Ranges in ppm (x, y) of an inclusive sample extent plus a margin on each side."""
+    ranges = []
+    for (first, last), ppm in ((columns, ppm_x), (rows, ppm_y)):
+        pad = max(points, int((last - first) * _FRAME_MARGIN))
+        low, high = max(0, first - pad), min(ppm.size - 1, last + pad)
+        ranges.append(sorted((float(ppm[low]), float(ppm[high]))))
+    return ranges[0], ranges[1]
 
 
 def signed_geometry(data, axes, levels) -> list[tuple[np.ndarray, np.ndarray]]:
@@ -700,6 +718,11 @@ class SpectrumCanvas(QtWidgets.QWidget):
             yRange=(float(min(self.ppm_y)), float(max(self.ppm_y))),
             padding=0,
         )
+
+    def frame(self, rows: tuple[int, int], columns: tuple[int, int], points: int) -> None:
+        """Frame an inclusive sample extent with a margin, keeping plane and mode."""
+        x_range, y_range = framed_ranges(rows, columns, self.ppm_y, self.ppm_x, points)
+        self.main.getViewBox().setRange(xRange=x_range, yRange=y_range, padding=0)
 
     def set_plane(self, plane: int) -> None:
         """Use original acquisition index, retaining view and sampled row/column."""

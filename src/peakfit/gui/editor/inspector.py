@@ -203,6 +203,8 @@ class Inspector(QtWidgets.QScrollArea):
     change_chosen = QtCore.Signal(str, bool)  # working ID, open its cluster page
     member_chosen = QtCore.Signal(str)
     lens_requested = QtCore.Signal()
+    unexplained_requested = QtCore.Signal()
+    region_chosen = QtCore.Signal(int)  # index in the unexplained-signal list
 
     def __init__(self, x_axis, y_axis, decimals: tuple[int, int]) -> None:  # noqa: PLR0915
         super().__init__()
@@ -338,6 +340,21 @@ class Inspector(QtWidgets.QScrollArea):
         self.next_button = QtWidgets.QPushButton("Select next cluster with a warning")
         self.next_button.clicked.connect(self.next_warning)
         analysis.addWidget(self.next_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.unexplained_section = self._section(analysis, "Signal not explained on this plane")
+        self.unexplained_button = QtWidgets.QPushButton()
+        self.unexplained_button.clicked.connect(self.unexplained_requested)
+        analysis.addWidget(self.unexplained_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.unexplained_title = _label("", "muted", wrap=True)
+        analysis.addWidget(self.unexplained_title)
+        self.unexplained = QtWidgets.QVBoxLayout()
+        self.unexplained.setSpacing(2)
+        analysis.addLayout(self.unexplained)
+        self.unexplained_note = _label("", "caption", wrap=True)
+        analysis.addWidget(self.unexplained_note)
+        self._unexplained_key = None
+        self._reveal = False
+        self.verticalScrollBar().rangeChanged.connect(self._scroll_to_unexplained)
+        self.verticalScrollBar().actionTriggered.connect(self._stop_reveal)
         self.analysis_note = _label("", "caption", wrap=True)
         analysis.addWidget(self.analysis_note)
         layout.addWidget(self.analysis_page)
@@ -410,6 +427,7 @@ class Inspector(QtWidgets.QScrollArea):
         The editor resets only on selection or commit; the cluster page keeps the
         selected peak, so the spectrum and the editor stay on it.
         """
+        self._reveal = False
         cluster = cluster and peak is not None
         if (
             peak is None
@@ -562,6 +580,54 @@ class Inspector(QtWidgets.QScrollArea):
                 self.changes.addWidget(
                     _label(entry[1], "" if kind == "line" else "caption", wrap=True)
                 )
+
+    def show_unexplained(
+        self, button: str, enabled: bool, title: str, rows: list[tuple[str, str]], note: str
+    ) -> None:
+        """The on-request list of residual regions; each row's link frames its region."""
+        key = (button, enabled, title, tuple(rows), note)
+        if key == self._unexplained_key:
+            return
+        self._unexplained_key = key
+        self.unexplained_button.setText(button)
+        self.unexplained_button.setEnabled(enabled)
+        self.unexplained_title.setText(title)
+        self.unexplained_title.setVisible(bool(title))
+        self.unexplained_note.setText(note)
+        _clear(self.unexplained)
+        for index, (text, detail) in enumerate(rows):
+            if not text:
+                self.unexplained.addWidget(_label(detail, "caption"))
+                continue
+            row = QtWidgets.QHBoxLayout()
+            row.setSpacing(themes.SPACE_S)
+            link = QtWidgets.QPushButton(text)
+            link.setObjectName("link")
+            link.setFlat(True)
+            link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+            link.setToolTip("Frame this region in the spectrum")
+            link.clicked.connect(lambda _checked=False, i=index: self.region_chosen.emit(i))
+            row.addWidget(link, 0, QtCore.Qt.AlignmentFlag.AlignTop)
+            row.addWidget(_label(detail, "caption", wrap=True), 1)
+            self.unexplained.addLayout(row)
+
+    def reveal_unexplained(self) -> None:
+        """Scroll a freshly computed list to the top of the inspector."""
+        self._reveal = self.analysis_page.isVisible()
+        self._scroll_to_unexplained()
+
+    def _stop_reveal(self, *_args) -> None:
+        self._reveal = False
+
+    def _scroll_to_unexplained(self) -> None:
+        # New rows reach the scroll range over several layout passes; follow it there.
+        if not self._reveal:
+            return
+        top = self.unexplained_section.mapTo(self.widget(), QtCore.QPoint(0, 0)).y()
+        bar = self.verticalScrollBar()
+        target = top - themes.SPACE_M
+        bar.setValue(target)
+        self._reveal = bar.maximum() < target
 
     def show_cluster_result(
         self,
