@@ -147,11 +147,12 @@ class PeakInspector(QtWidgets.QGroupBox):
         return self.name.text(), (coordinates[0], coordinates[1])
 
     def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:  # noqa: N802
-        """Escape restores committed fields; other editing keys remain native."""
+        """Escape discards a draft; without one it passes on, other keys stay native."""
         if (
             event.type() == QtCore.QEvent.Type.KeyPress
             and isinstance(event, QtGui.QKeyEvent)
             and event.key() == QtCore.Qt.Key.Key_Escape
+            and self.pending
         ):
             self.show_peak(self._peak)
             return True

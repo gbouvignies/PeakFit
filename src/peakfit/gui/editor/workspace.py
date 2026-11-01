@@ -36,6 +36,7 @@ class EditorWorkspace(QtWidgets.QWidget):
     """Own committed scientific edits; navigation and drafts never change revision."""
 
     changed = QtCore.Signal()
+    guidance_changed = QtCore.Signal(str)
 
     def __init__(self, dataset: Dataset) -> None:  # noqa: PLR0915
         super().__init__()
@@ -856,6 +857,25 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._sync_inspector(cluster=True)
         self.fitting.update()
         self.lens.setFocus()
+        self.guidance_changed.emit(self.guidance())
+
+    def guidance(self) -> str:
+        """The status-bar hint for what the spectral area currently allows."""
+        if self.lens_open:
+            return "Lens · click a marker to select its peak · Escape returns to the spectrum"
+        return "Drag a selected peak to move it · Space pins traces"
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:  # noqa: N802
+        """Escape leaves the lens from any column unless a draft or gesture is active."""
+        if (
+            event.key() == QtCore.Qt.Key.Key_Escape
+            and self.lens_open
+            and not self.pending
+            and QtWidgets.QApplication.activeModalWidget() is None
+        ):
+            self.close_lens()
+            return
+        super().keyPressEvent(event)
 
     def full_view(self) -> None:
         """Full spectrum in the overview; the cluster's default region in the lens."""
@@ -875,6 +895,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.splitter.setSizes(self._sizes_before_lens)
         self.fitting.update()
         self.canvas.main.setFocus()
+        self.guidance_changed.emit(self.guidance())
 
     def _update_lens(self) -> None:
         """Keep the lens on the selected peak's recorded cluster, plane and display levels."""
@@ -912,22 +933,28 @@ class EditorWorkspace(QtWidgets.QWidget):
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle("Spectrum display")
         form = QtWidgets.QFormLayout(dialog)
+        # Both contour sets are always offered: the lens draws experiment, model and
+        # residual at once, and the overview may switch modes after the dialog.
         threshold = QtWidgets.QDoubleSpinBox()
         threshold.setRange(0.01, 1e12)
         threshold.setDecimals(4)
-        residual = self.canvas.comparison_mode == _RESIDUAL
-        threshold.setValue(
-            self.canvas.residual_threshold if residual else self.canvas.contour_threshold
-        )
+        threshold.setValue(self.canvas.contour_threshold)
         threshold.setKeyboardTracking(False)
+        residual = QtWidgets.QDoubleSpinBox()
+        residual.setRange(0.1, 1000)
+        residual.setDecimals(2)
+        residual.setValue(self.canvas.residual_threshold)
+        residual.setKeyboardTracking(False)
+        threshold.setAccessibleName("First contour")
+        residual.setAccessibleName("First residual contour")
+        for field in (threshold, residual):
+            field.setLocale(QtCore.QLocale.c())
         factor = QtWidgets.QDoubleSpinBox()
         factor.setRange(1.1, 5)
         factor.setValue(self.canvas.contour_factor)
         count = QtWidgets.QSpinBox()
         count.setRange(1, 20)
         count.setValue(self.canvas.contour_count)
-        factor.setEnabled(not residual)
-        count.setEnabled(not residual)
         labels = QtWidgets.QCheckBox("Show peak labels")
         labels.setChecked(self.canvas.labels_visible)
         heavy = QtWidgets.QCheckBox("Heavier contours")
@@ -935,9 +962,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         fit = QtWidgets.QPushButton("Fit current traces")
         fit.clicked.connect(self.canvas.fit_current_traces)
         for title, field in (
-            ("First residual contour / σ_stat" if residual else "First contour / a.u.", threshold),
+            ("First contour / a.u.", threshold),
             ("Level factor", factor),
             ("Levels per sign", count),
+            ("First residual contour / σ_stat", residual),
             ("", labels),
             ("", heavy),
             ("Signed trace scale", fit),
@@ -952,16 +980,16 @@ class EditorWorkspace(QtWidgets.QWidget):
         buttons.rejected.connect(dialog.reject)
         form.addRow(buttons)
         if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-            if residual:
-                self.canvas.residual_threshold = threshold.value()
-            else:
-                self.canvas.contour_threshold = threshold.value()
+            self.canvas.contour_threshold = threshold.value()
+            self.canvas.residual_threshold = residual.value()
             self.canvas.contour_factor = factor.value()
             self.canvas.contour_count = count.value()
             self.canvas.labels_visible = labels.isChecked()
             self.canvas.heavy_strokes = heavy.isChecked()
             self.canvas._refresh_labels()
             self.set_mode(self.canvas.comparison_mode)
+            if self.lens_open:
+                self._update_lens()
             chosen = chosen_rules()
             if chosen != self.rules:
                 self.set_rules(chosen)

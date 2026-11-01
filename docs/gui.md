@@ -231,8 +231,12 @@ recorded fitting-sample extent plus a margin, follows the selected peak's cluste
 and the plane strip, and widens the inspector to 340 px on the cluster page. When
 the run is Outdated, Overlay and Residual say “Outdated · fit to compare” instead
 of showing a stale model. The comparison selector is unavailable in the lens;
-**Escape** or **‹ Spectrum** returns to the overview with its viewport, mode and
-panel widths unchanged. Clicking a marker in a lens panel selects that peak.
+**‹ Spectrum**, or **Escape** from the lens, the cluster list or the inspector,
+returns to the overview with its viewport, mode and panel widths unchanged. In an
+inspector field with a draft, the first Escape discards the draft and the next one
+leaves the lens. **Display** sets the experimental and model contour levels and the
+first residual contour together; both apply to the overview and the lens at once.
+The status bar shows the lens's own guidance while it is open. Clicking a marker in a lens panel selects that peak.
 **Full spectrum** (Cmd/Ctrl+0) reframes the lens on its cluster; adding peaks and
 pinning traces are overview tools.
 On a peak page, **Review cluster of N ›** opens its cluster page; selecting a peak

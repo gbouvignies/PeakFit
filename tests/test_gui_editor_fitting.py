@@ -1413,3 +1413,72 @@ def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scient
     assert c.main.getViewBox().viewRange() == view
     assert c.comparison_mode in {0, mode}
     assert w.splitter.sizes() == sizes
+
+
+def _open_lens(w, result):
+    cluster = next(cl for cl in result.outcome.clusters if cl.usable and len(cl.peak_names) > 1)
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    w.open_lens(identities[cluster.peak_names[0]])
+    wait_for(lambda: not w.lens.pending)
+    return cluster
+
+
+def test_display_settings_refresh_the_lens_without_touching_results(
+    workspace, scientific, monkeypatch
+):
+    w, c = workspace, workspace.canvas
+    result = scientific[-1]
+    publish(w, result)
+    _open_lens(w, result)
+    view, residual_layers = c.main.getViewBox().viewRange(), w.lens.layers[2][0]
+    chosen = {"First contour": c.contour_threshold * 2, "First residual contour": 5.0}
+
+    def accept(dialog):
+        for field in dialog.findChildren(QtWidgets.QDoubleSpinBox):
+            if field.accessibleName() in chosen:
+                field.setValue(chosen[field.accessibleName()])
+        return QtWidgets.QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(QtWidgets.QDialog, "exec", accept)
+    w.display_dialog()
+    # Both contour sets apply to the lens at once, whatever the overview mode.
+    assert w.lens.levels[0] == chosen["First contour"]
+    assert w.lens.levels[3] == chosen["First residual contour"]
+    wait_for(lambda: not w.lens.pending)
+    assert w.lens.layers[2][0] is not residual_layers
+    # Display only: same run, still Current; the hidden overview did not move.
+    assert w.fitting.result is result
+    assert w.fitting.current
+    assert c.main.getViewBox().viewRange() == view
+
+
+def test_escape_leaves_the_lens_from_any_column_but_discards_a_draft_first(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    window_guidance = []
+    w.guidance_changed.connect(window_guidance.append)
+    _open_lens(w, result)
+    assert window_guidance[-1].startswith("Lens ·")
+    assert "Drag" not in w.guidance()
+    assert "pins" not in w.guidance()
+    # From the cluster list.
+    w.navigator.tree.setFocus()
+    QtTest.QTest.keyClick(w.navigator.tree, QtCore.Qt.Key.Key_Escape)
+    assert not w.lens_open
+    assert window_guidance[-1] == "Drag a selected peak to move it · Space pins traces"
+    # From the inspector: a draft is discarded first, then Escape leaves the lens.
+    _open_lens(w, result)
+    w.select_peak(w.selected_id)  # a member link: the peak page, with the lens still open
+    assert w.lens_open
+    assert w.panel.peak_page.isVisible()
+    field = w.inspector.x_field
+    assert field.isVisible()
+    field.setFocus()
+    QtTest.QTest.keyClicks(field, "1")
+    assert w.inspector.pending
+    QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
+    assert not w.inspector.pending
+    assert w.lens_open
+    QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
+    assert not w.lens_open
