@@ -20,7 +20,15 @@ from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
-from peakfit.gui.editor.profile import PeakProfile, ProfilePlot, framed_range, peak_profile
+from peakfit.gui.editor.profile import (
+    Normalized,
+    PeakProfile,
+    ProfilePlot,
+    framed_range,
+    normalize,
+    parse_planes,
+    peak_profile,
+)
 from peakfit.gui.editor.setup import DEFAULT_SOURCE
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
@@ -1039,3 +1047,112 @@ def test_warning_navigation_never_selects_a_hidden_cluster(workspace, scientific
         visited.append(navigator._clusters[w.selected_id])
     assert visited == shown
     assert all(not item.isHidden() for item in visited)
+
+
+def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(scientific):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    result = scientific[-1]
+    peak = result.inputs.identities[0].working_id
+    shown = peak_profile(result, peak, None)
+    assert isinstance(shown, PeakProfile)
+    recorded = shown.series[0].amplitudes.copy()
+    panel = ProfilePlot()
+    panel.resize(320, 260)
+    panel.show()
+    panel.show_profile(shown, 0)
+    app.processEvents()
+    # Raw by default; nothing is normalized until a reference is chosen.
+    assert panel.mode.text() == "Raw amplitudes"
+    assert panel._normalized is None
+    reference = int(shown.source_planes[0])
+    panel.set_reference((reference,))
+    selected = shown.series[0]
+    expected = normalize(
+        selected.amplitudes, np.full(selected.amplitudes.size, selected.error), np.array([0])
+    )
+    assert isinstance(expected, Normalized)
+    _x, y = _selected_points(panel).getData()
+    np.testing.assert_allclose(y, expected.values)
+    assert y[0] == 1.0
+    assert panel.mode.text() == f"÷ plane {reference + 1}"
+    assert f"A / A_ref (plane {reference + 1})" in panel.plot.getAxis("left").labelText
+    assert "reference" in panel.legend.text()
+    assert "full gradient" in panel.note.text()
+    # The reference set persists across selections; recorded amplitudes never change.
+    panel.show_profile(shown, 0)
+    assert panel.normalized
+    np.testing.assert_array_equal(shown.series[0].amplitudes, recorded)
+    panel.set_normalized(False)
+    _x, y = _selected_points(panel).getData()
+    np.testing.assert_array_equal(y, recorded)
+
+
+def test_unavailable_normalization_keeps_the_raw_profile_with_the_reason(scientific):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    result = scientific[-1]
+    shown = peak_profile(result, result.inputs.identities[0].working_id, None)
+    assert isinstance(shown, PeakProfile)
+    selected = shown.series[0]
+    zeroed = replace(
+        shown,
+        series=(replace(selected, amplitudes=np.zeros_like(selected.amplitudes)),),
+    )
+    panel = ProfilePlot()
+    panel.show()
+    panel.show_profile(zeroed, 0)
+    panel.set_reference((int(shown.source_planes[0]),))
+    app.processEvents()
+    assert panel._normalized is None
+    assert panel.fallback.isVisible()
+    assert panel.fallback.text().startswith("▲ Showing raw amplitudes.")
+    assert "is undefined: reference amplitude is zero" in panel.fallback.text()
+    assert panel.mode.text().endswith("· not applied")
+    assert "A / A_ref" not in panel.plot.getAxis("left").labelText
+    _x, y = _selected_points(panel).getData()
+    np.testing.assert_array_equal(y, zeroed.series[0].amplitudes)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("1", (1,)), ("1-3, 5", (1, 2, 3, 5)), (" 3 ,1 ", (1, 3))],
+)
+def test_reference_planes_are_plane_numbers(text, expected):
+    assert parse_planes(text, 5) == expected
+
+
+@pytest.mark.parametrize("text", ["", "0", "6", "a", "3-1"])
+def test_invalid_reference_planes_are_rejected(text):
+    with pytest.raises(ValueError, match=r"plane|Planes"):
+        parse_planes(text, 5)
+
+
+def test_normalization_is_unavailable_when_uncertainties_are_unreliable(scientific):
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    result = scientific[-1]
+    shown = peak_profile(result, result.inputs.identities[0].working_id, None)
+    assert isinstance(shown, PeakProfile)
+    # Inflated amplitudes and σ by one arbitrary scale, as in a degenerate pair.
+    selected = shown.series[0]
+    inflated = replace(
+        shown,
+        series=(
+            replace(selected, amplitudes=selected.amplitudes * 1e3, error=selected.error * 1e3),
+        ),
+        warning="Unreliable local uncertainties",
+    )
+    panel = ProfilePlot()
+    panel.show()
+    panel.show_profile(inflated, 0)
+    panel.set_reference((int(shown.source_planes[0]),))
+    app.processEvents()
+    assert panel._normalized is None
+    assert "withheld as unreliable" in panel.fallback.text()
+    assert "uncertainties unreliable" in panel.fallback.text()
+    assert "uncertainties unreliable" not in panel.note.text()
+    _x, y = _selected_points(panel).getData()
+    np.testing.assert_array_equal(y, inflated.series[0].amplitudes)
+    # The reference stays: a well-determined profile normalizes again at once.
+    panel.show_profile(shown, 0)
+    assert panel._normalized is not None
+    assert not panel.fallback.isVisible()
+    assert panel.mode.text() == f"÷ plane {int(shown.source_planes[0]) + 1}"

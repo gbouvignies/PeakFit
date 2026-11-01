@@ -230,6 +230,27 @@ plot frames the remaining range and labels the off-scale points; **Show all
 points** shows them. Outdated runs stay visible and labeled; peaks added after a
 run and unusable clusters show why there is no profile.
 
+The profile shows **Raw amplitudes** by default. Its quantity chip offers
+**Choose reference planes…**: enter one or more plane numbers (for example `1` or
+`1-3`); the dialog points out isolated planes but never chooses one. The profile
+then shows each peak's ratio A / A_ref to the mean of its own amplitudes on those
+planes, with ±1σ propagated to first order using the full gradient, so a plane in a
+multi-plane reference is treated as correlated with the mean. A single reference
+plane is drawn exactly at 1 without an error bar; reference planes use diamonds.
+Normalization is a display: recorded amplitudes, σ, exports and saved results are
+unchanged, and the reference lasts for the session.
+
+When a ratio cannot be shown, the profile keeps the raw amplitudes and says so
+directly under the plot (“▲ Showing raw amplitudes …”); the quantity chip reads
+“÷ plane 1 · not applied” and the axis names what is plotted. A ratio is
+**undefined** when the reference mean is zero or not finite, when σ is
+unavailable, or when a reference plane is not in the run. It is **withheld as
+unreliable**, although computable, when σ_R/|R| exceeds 0.1 or when the engine
+marks the cluster's uncertainties unreliable: a degenerate decomposition can
+inflate amplitudes and σ by one arbitrary scale that the ratio would cancel,
+giving precise-looking values for amplitudes the data do not determine. The
+reference choice is kept, so the next well-determined peak is normalized again.
+
 Drafts retain the accepted comparison. A committed manual scientific change marks
 the run **Outdated** and switches to Experimental. Undo alone cannot recertify it.
 Refit to establish a new Current result. An all-unusable run remains inspectable
