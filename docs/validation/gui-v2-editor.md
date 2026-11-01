@@ -1,7 +1,7 @@
 # GUI v2 milestone 1: production validation
 
-Production **open → inspect → edit**, implemented from the approved design without
-merging the evaluation branch. `peakfit-editor` is separate from the existing
+Production **open → inspect → edit**, implemented from the approved design.
+`peakfit-editor` is separate from the existing
 `peakfit gui` fitting application. This validates the first vertical slice, not
 fit/save/MCMC release acceptance.
 

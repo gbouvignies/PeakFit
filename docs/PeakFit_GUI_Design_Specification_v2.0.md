@@ -25,8 +25,7 @@ This revision authorizes no storage or export format change (§14).
 owner after hands-on evaluation and reconfirmed by the 31 October 2026 design
 review: the observed weaknesses were information-design and visual-system
 problems, not toolkit limits. Framework selection is closed. Sections 2 and 12
-define the visual and compositional direction; the improved Qt trial remains the
-interaction and scientific-rendering reference. This document specifies the
+define the visual and compositional direction. This document specifies the
 target application, not a claim that these workflows are already implemented.
 
 ## 1. Product direction and evidence
@@ -40,18 +39,17 @@ The design follows the domain vocabulary in [GLOSSARY.md](../GLOSSARY.md).
 An intensity profile means fitted peak amplitudes across the series dimension;
 crosshair intensity and integrated volume are different quantities.
 
-The reviewed evidence is:
+The design carries forward these conclusions from the completed Qt/React
+evaluation:
 
-- [Final Qt design challenge](https://github.com/gbouvignies/PeakFit/blob/ea98e5c7002bcf94ce5582aa051bea865820960a/experiments/gui-v2/reports/04-final-qt-design-challenge.md)
-  and the final React [light overview](https://github.com/gbouvignies/PeakFit/blob/ea98e5c7002bcf94ce5582aa051bea865820960a/experiments/gui-v2/evidence/final-challenge/react-1280-light.jpg)
-  and [dark inspector](https://github.com/gbouvignies/PeakFit/blob/ea98e5c7002bcf94ce5582aa051bea865820960a/experiments/gui-v2/evidence/final-challenge/react-1280-dark.jpg).
-  Keep their quiet background, joined comparison selector, deliberate spacing,
-  short labels and clear primary action. Do not copy their persistent Apply button.
-- [Improved Qt interaction trial](https://github.com/gbouvignies/PeakFit/blob/ea98e5c7002bcf94ce5582aa051bea865820960a/experiments/gui-v2/reports/05-qt-interaction-trial.md),
-  including commit `ea98e5c` and its interaction implementation in
-  `experiments/gui-v2/qt_canvas.py`: separate hover/selection, continuous native
-  slices, pinning, atomic movement, precise edits and Undo. Subsequent replay-harness
-  corrections do not change the product interaction decision.
+- Visual direction: a quiet background, joined comparison selector, deliberate
+  spacing, short labels and a clear primary action, without a persistent Apply
+  button.
+- Interaction model: separate hover and selection, continuous native slices,
+  pinning, atomic movement, precise edits and Undo.
+
+The current references are:
+
 - [Current desktop guide](gui.md), [architecture](architecture.md),
   [whole-dataset validation](validation/gui-dataset-fit.md), and
   [completed scientific review contracts](gui-design.md). Existing whole-dataset
@@ -69,12 +67,8 @@ while fit-quality evidence stays inside per-cluster text. The production
 are preserved while their placement changes. `CompletedFit`/`FinalFitOutcome`
 remain scientific truth.
 
-Historical reports retain their original conclusions and limitations. Their
-statements that framework acceptance remained open are superseded by the owner's
-decision above. Historical experiment links are immutable Git commit permalinks,
-so integration into main does not depend on copying `experiments/`. Native revision
-evidence lives with this document in [the compact-view record](validation/gui-v2-refinement.md).
-No experiment is merged or copied wholesale into production.
+Native revision evidence lives with this document in
+[the compact-view record](validation/gui-v2-refinement.md).
 
 ## 2. Permanent workspace
 

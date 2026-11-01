@@ -144,8 +144,7 @@ remain distinct. See [the scientific overlap validation](validation/overlapping-
 
 `gui.editor.window.launch` is the only application entry point, called by
 `peakfit gui` with an optional spectrum (plus peak list, plane values and explicit
-peak-axis mapping) or a saved `.peakfit` analysis. There is no runtime dependency
-on `experiments/`.
+peak-axis mapping) or a saved `.peakfit` analysis.
 
 The workspace has concrete responsibilities: `gui.spectrum.read_dataset` validates
 one complete reader handoff off Qt; `editor.canvas` owns retained signed geometry,
