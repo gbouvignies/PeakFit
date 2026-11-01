@@ -103,35 +103,46 @@ class Normalized:
     exact: bool  # one reference plane: its ratio is exactly 1, with no error bar
 
 
+@dataclass(frozen=True, slots=True)
+class Unavailable:
+    """Why no ratio is shown: undefined (cannot be computed) or unreliable (withheld)."""
+
+    reason: str
+    undefined: bool  # False: computable, but not trustworthy enough to show
+
+
 def normalize(
     amplitudes: np.ndarray,
     errors: np.ndarray,
     reference: np.ndarray,
     limit: float = RELIABILITY_LIMIT,
-) -> Normalized | str:
+) -> Normalized | Unavailable:
     """Normalize one peak's amplitudes to the mean of its reference columns S.
 
     Uses first-order propagation with the full gradient (specification §9):
     ∂r_k/∂A_k = 1/R − [k∈S]·A_k/(nR²) and ∂r_k/∂A_j = −A_k/(nR²) for j∈S, j≠k.
     Amplitudes of different planes are treated as uncorrelated, as the recorded
-    analytical uncertainties (lineshapes held fixed) imply. Returns the reason
-    instead when the ratio is not reliable enough to show.
+    analytical uncertainties (lineshapes held fixed) imply. Returns why instead
+    when the ratio is undefined, or computable but not reliable enough to show.
     """
     amplitudes = np.asarray(amplitudes, dtype=float)
     errors = np.asarray(errors, dtype=float)
     columns = np.asarray(reference, dtype=int)
     n = columns.size
     if n == 0:
-        return "no reference plane chosen"
+        return Unavailable("no reference plane chosen", undefined=True)
     if not np.all(np.isfinite(errors)):
-        return "σ unavailable for this peak"
+        return Unavailable("σ unavailable for this peak", undefined=True)
     mean = float(np.mean(amplitudes[columns]))
     if not np.isfinite(mean) or mean == 0:
-        return "reference amplitude is zero or not finite"
+        return Unavailable("reference amplitude is zero or not finite", undefined=True)
     sigma_r = float(np.sqrt(np.sum(errors[columns] ** 2)) / n)
     ratio = sigma_r / abs(mean)
     if ratio > limit:
-        return f"reference not distinguishable from its uncertainty: σ_R/|R| = {ratio:.2f}"
+        return Unavailable(
+            f"reference not distinguishable from its uncertainty: σ_R/|R| = {ratio:.2f}",
+            undefined=False,
+        )
     values = amplitudes / mean
     in_reference = np.zeros(amplitudes.size, dtype=bool)
     in_reference[columns] = True
@@ -222,6 +233,11 @@ class ProfilePlot(QtWidgets.QWidget):
             axis.enableAutoSIPrefix(False)
         self.plot.getAxis("left").setWidth(40)
         layout.addWidget(self.plot)
+        self.fallback = QtWidgets.QLabel()
+        self.fallback.setObjectName("warning")
+        self.fallback.setWordWrap(True)
+        self.fallback.hide()
+        layout.addWidget(self.fallback)
         self.legend = QtWidgets.QLabel()
         self.legend.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.legend.setWordWrap(True)
@@ -293,12 +309,12 @@ class ProfilePlot(QtWidgets.QWidget):
     def _colors(self) -> list[str]:
         return list(self.theme.members)
 
-    def _rows(self, profile: PeakProfile) -> tuple[list, list[str], str]:
+    def _rows(self, profile: PeakProfile) -> tuple[list, list[str], Unavailable | None]:
         """Series as drawn: raw amplitudes, or ratios to the reference when available.
 
         Returns rows of (series index, values, errors or None, reference mask), the
-        members whose normalization is unavailable, and the selected peak's reason
-        when it is unavailable (then every row is raw).
+        members whose normalization is unavailable, and why the selected peak's is
+        unavailable (then every row is raw).
         """
         raw = [
             (
@@ -310,28 +326,29 @@ class ProfilePlot(QtWidgets.QWidget):
             for index, s in enumerate(profile.series)
         ]
         if not (self.normalized and self.reference):
-            return raw, [], ""
+            return raw, [], None
         if profile.warning is not None:
             # A degenerate decomposition can have amplitudes and σ inflated by the
             # same arbitrary scale; the ratio would cancel it and look well determined.
-            return raw, [], "the engine marks this cluster's uncertainties unreliable"
+            reason = "the engine marks this cluster's uncertainties unreliable"
+            return raw, [], Unavailable(reason, undefined=False)
         columns = np.flatnonzero(np.isin(profile.source_planes, self.reference))
         if columns.size != len(self.reference):
-            return raw, [], "a reference plane is not in this run"
+            return raw, [], Unavailable("a reference plane is not in this run", undefined=True)
         rows, unavailable = [], []
         for index, series in enumerate(profile.series):
             shown = normalize(
                 series.amplitudes, np.full(series.amplitudes.size, series.error), columns
             )
-            if isinstance(shown, str):
+            if isinstance(shown, Unavailable):
                 if index == 0:
                     return raw, [], shown
-                unavailable.append(f"{series.assignment}: {shown}")
+                unavailable.append(f"{series.assignment}: {shown.reason}")
                 continue
             if index == 0:
                 self._normalized = shown
             rows.append((index, shown.values, shown.errors, shown.in_reference))
-        return rows, unavailable, ""
+        return rows, unavailable, None
 
     def _draw(self) -> None:  # noqa: PLR0915
         profile = self._profile
@@ -429,12 +446,24 @@ class ProfilePlot(QtWidgets.QWidget):
         self.legend.setText(
             " &nbsp;".join(f'<span style="white-space:nowrap">{e}</span>' for e in entries)
         )
-        self.mode.setText(f"÷ {self.reference_text()}" if self.normalized else "Raw amplitudes")
-        self._normalization_note = (
-            f"Normalization unavailable: {reason}; showing raw amplitudes"
+        # The chip names the requested quantity; the axis and the fallback line the shown one.
+        requested = f"÷ {self.reference_text()}"
+        self.mode.setText(
+            "Raw amplitudes"
+            if not self.normalized
+            else f"{requested} · not applied"
             if reason
-            else "; ".join(f"{text}, not shown" for text in unavailable)
+            else requested
         )
+        self.fallback.setText(
+            f"▲ Showing raw amplitudes. Normalization to {self.reference_text()} is "
+            + ("undefined" if reason.undefined else "withheld as unreliable")
+            + f": {reason.reason}."
+            if reason
+            else ""
+        )
+        self.fallback.setVisible(reason is not None)
+        self._normalization_note = "; ".join(f"{text}, not shown" for text in unavailable)
         hidden = np.flatnonzero(~visible)
         self._hidden_text = ""
         if hidden.size:

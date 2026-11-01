@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from peakfit.gui.editor.profile import RELIABILITY_LIMIT, Normalized, normalize
+from peakfit.gui.editor.profile import RELIABILITY_LIMIT, Normalized, Unavailable, normalize
 
 
 def _normalized(*args, **kwargs) -> Normalized:
@@ -55,18 +55,21 @@ def test_full_gradient_matches_monte_carlo_inside_and_outside_the_reference():
 
 
 @pytest.mark.parametrize(
-    ("amplitudes", "errors", "reason"),
+    ("amplitudes", "errors", "reason", "undefined"),
     [
-        ([0.0, 1.0], [0.1, 0.1], "zero or not finite"),
-        ([np.nan, 1.0], [0.1, 0.1], "zero or not finite"),
-        ([1.0, 2.0], [np.nan, np.nan], "σ unavailable"),
-        ([1.0, 2.0], [0.34, 0.34], "σ_R/|R| = 0.34"),
+        ([0.0, 1.0], [0.1, 0.1], "zero or not finite", True),
+        ([np.nan, 1.0], [0.1, 0.1], "zero or not finite", True),
+        ([1.0, 2.0], [np.nan, np.nan], "σ unavailable", True),
+        ([1.0, 2.0], [0.34, 0.34], "σ_R/|R| = 0.34", False),
     ],
 )
-def test_unreliable_references_are_unavailable_with_a_reason(amplitudes, errors, reason):
+def test_unavailable_ratios_say_why_and_whether_they_are_undefined(
+    amplitudes, errors, reason, undefined
+):
     result = normalize(np.array(amplitudes), np.array(errors), np.array([0]))
-    assert isinstance(result, str)
-    assert reason in result
+    assert isinstance(result, Unavailable)
+    assert reason in result.reason
+    assert result.undefined is undefined
 
 
 def test_the_limit_is_inclusive_and_displayed():

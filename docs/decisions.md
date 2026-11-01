@@ -86,6 +86,9 @@ Short records of non‑obvious design choices and trade‑offs.
   ±6×10¹² with σ/|A| ≈ 0.014, like well-determined peaks. The σ_R/|R| limit
   therefore passes, and the ratio cancels the arbitrary scale, giving a plausible
   profile with small error bars for undetermined amplitudes.
-- Reference normalization is unavailable, with the reason, for clusters carrying
-  the engine's uncertainty warning; the raw profile, which shows the inflated
-  amplitudes, remains.
+- Reference normalization is withheld as unreliable, with the reason, for clusters
+  carrying the engine's uncertainty warning; the raw profile, which shows the
+  inflated amplitudes, remains. This is distinct from an undefined ratio (zero or
+  non-finite reference, unavailable σ).
+- Approved in review of #82 as conservative behavior; revisit when the engine
+  provides more specific identifiability diagnostics.

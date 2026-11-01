@@ -21,6 +21,7 @@ from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
 from peakfit.gui.editor.profile import (
+    Normalized,
     PeakProfile,
     ProfilePlot,
     framed_range,
@@ -1069,7 +1070,7 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(scientifi
     expected = normalize(
         selected.amplitudes, np.full(selected.amplitudes.size, selected.error), np.array([0])
     )
-    assert not isinstance(expected, str)
+    assert isinstance(expected, Normalized)
     _x, y = _selected_points(panel).getData()
     np.testing.assert_allclose(y, expected.values)
     assert y[0] == 1.0
@@ -1102,7 +1103,11 @@ def test_unavailable_normalization_keeps_the_raw_profile_with_the_reason(scienti
     panel.set_reference((int(shown.source_planes[0]),))
     app.processEvents()
     assert panel._normalized is None
-    assert "Normalization unavailable: reference amplitude is zero" in panel.note.text()
+    assert panel.fallback.isVisible()
+    assert panel.fallback.text().startswith("▲ Showing raw amplitudes.")
+    assert "is undefined: reference amplitude is zero" in panel.fallback.text()
+    assert panel.mode.text().endswith("· not applied")
+    assert "A / A_ref" not in panel.plot.getAxis("left").labelText
     _x, y = _selected_points(panel).getData()
     np.testing.assert_array_equal(y, zeroed.series[0].amplitudes)
 
@@ -1141,6 +1146,13 @@ def test_normalization_is_unavailable_when_uncertainties_are_unreliable(scientif
     panel.set_reference((int(shown.source_planes[0]),))
     app.processEvents()
     assert panel._normalized is None
-    assert "uncertainties unreliable" in panel.note.text()
+    assert "withheld as unreliable" in panel.fallback.text()
+    assert "uncertainties unreliable" in panel.fallback.text()
+    assert "uncertainties unreliable" not in panel.note.text()
     _x, y = _selected_points(panel).getData()
     np.testing.assert_array_equal(y, inflated.series[0].amplitudes)
+    # The reference stays: a well-determined profile normalizes again at once.
+    panel.show_profile(shown, 0)
+    assert panel._normalized is not None
+    assert not panel.fallback.isVisible()
+    assert panel.mode.text() == f"÷ plane {int(shown.source_planes[0]) + 1}"

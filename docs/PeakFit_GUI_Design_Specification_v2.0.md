@@ -713,23 +713,29 @@ For a peak with amplitudes A_k and scaled analytical standard errors σ_k:
   noise and have zero covariance. Uncertainty from shared lineshape parameters is
   not included; the authoritative σ has the same limitation and the profile says so.
 
-Special cases:
+Special cases. Unavailability has two kinds, named as such in the display:
+**undefined**, where no ratio can be computed, and **unreliable**, where a ratio is
+computable but withheld because it would look more precise than the evidence
+allows. Either way the raw profile is shown, the fallback is stated beside the plot,
+and the requested quantity stays distinct from the one displayed.
 
 - **n = 1, k ∈ S:** r_k = 1 exactly with zero uncertainty; it is drawn as a reference
   marker, not as an observation with an error bar.
 - **n > 1, k ∈ S:** the correlated expression applies and the point is marked as part
   of the reference.
-- **Unavailable:** if R is zero or non-finite, if σ_R is unavailable, or if σ_R/|R|
-  exceeds a reliability limit (default 0.1, displayed), normalization is unavailable
-  for that peak with the reason (“reference not distinguishable from its uncertainty:
+- **Undefined:** if R is zero or non-finite, or σ_R is unavailable. **Unreliable:** if
+  σ_R/|R| exceeds a reliability limit (default 0.1, displayed). Normalization is
+  unavailable for that peak with the reason (“reference not distinguishable from its uncertainty:
   σ_R/|R| = 0.34”) and the raw profile remains. First-order propagation is not used
   beyond this limit because the ratio's distribution becomes strongly skewed.
-- **Unavailable σ for the peak:** the normalized profile is unavailable rather than
-  shown without error bars.
-- **Engine uncertainty warning:** when the cluster's uncertainties are marked
-  unreliable, normalization is unavailable with that reason. A degenerate
+- **Unavailable σ for the peak (undefined):** the normalized profile is unavailable
+  rather than shown without error bars.
+- **Engine uncertainty warning (unreliable):** when the cluster's uncertainties are
+  marked unreliable, normalization is withheld with that reason. A degenerate
   decomposition (|ρ| ≈ 1) can inflate amplitudes and σ by one arbitrary scale; the
-  ratio would cancel it and show a well-determined-looking profile.
+  ratio would cancel it and show a well-determined-looking profile. This
+  conservative rule may be narrowed once the engine reports identifiability more
+  specifically.
 - **Negative R** is valid for signed data; ratios keep their sign and the label
   states the reference sign.
 
