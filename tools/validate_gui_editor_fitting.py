@@ -154,7 +154,7 @@ def main():  # noqa: PLR0915
     window.resize(1280, 800)
     window.apply_appearance("Light")
     # Review lives in the inspector: select the next cluster with an engine warning.
-    w.fitting.next_warning(None)
+    w.fitting.next_warning()
     settle(100)
     window.grab().save(str(OUTPUT / "review.webp"), "WEBP", 95)
     phase[0] = "hover"

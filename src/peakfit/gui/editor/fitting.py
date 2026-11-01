@@ -396,14 +396,14 @@ class DatasetFitting(QtCore.QObject):
         w._update_inspector()
         self.state_changed.emit()
 
-    def next_warning(self, _url) -> None:
-        """Explicitly navigate questionable clusters without isolating their models."""
-        warned = [r for r in self.workspace.reviews() if r.warnings and r.ids]
-        if not warned:
-            return
-        selected = self.workspace.selected_id
-        index = next((i for i, r in enumerate(warned) if selected in r.ids), -1)
-        self.workspace.select_peak(warned[(index + 1) % len(warned)].ids[0])
+    def next_warning(self) -> None:
+        """Move to the next warned cluster the navigator shows, never a hidden one."""
+        w = self.workspace
+        target = w.navigator.next_warned(w.selected_id)
+        if target is not None:
+            w.select_peak(target)
+        elif any(r.warnings for r in w.reviews()):
+            w.status.setText("No cluster with a numerical warning is shown by the current filter")
 
     def export(self) -> bool:
         """Export retained evidence with its currentness explicitly labeled."""

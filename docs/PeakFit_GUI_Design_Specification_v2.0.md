@@ -81,7 +81,7 @@ sits beyond it.
 | Area | Permanent responsibility |
 | --- | --- |
 | Toolbar | One row: analysis name and Modified state; run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the fit setup (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin traces, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
-| Navigator (left) | **Clusters / Peaks** tabs, search, filter chips with counts and sortable rows (§8). Before a fit only Peaks exists; rows show assignment and display-precision coordinates. |
+| Navigator (left) | **Clusters / Peaks** tabs, search, a filter menu with counts and sortable rows (§8). Before a fit only Peaks exists; rows show assignment and display-precision coordinates. |
 | Spectral area | Dominant 2D spectrum, row trace directly above, column trace directly to its right; their frequency axes align exactly with the 2D viewport. In the Cluster lens this area shows the lens (§3). |
 | Inspector (right) | Contextual pages chosen by selection (below). |
 | Plane strip | Previous/next, exact one-based plane field with count, slider by plane index, plane value with its optional display label (§5). Chosen reference planes are marked on the slider. A 2D dataset shows “Single plane”. No embedded profile plot. |
@@ -615,9 +615,15 @@ columns. Optional highlight thresholds on measures and all heuristics use a
 subdued glyph labeled with the rule (“\|ρ\| ≥ 0.9”, “shift 1.03 × LW”) and never
 the warning colour. Thresholds are application display preferences, shown with
 each highlight; changing them changes no scientific data or run state, and their
-definitions are versioned with this document. Filters offer one chip per warning
-type and per highlight plus “Any warning” and “Any highlight”, each with counts.
-The default sort is by assignment; any measure sorts with one click. Measures and
+definitions are versioned with this document. Thresholds are session-only; saving
+them with a project would be a storage decision (§14). A **Show** menu above the
+cluster list filters it: all clusters, “Any warning”, “Any highlight”, and each
+warning type and highlight rule present, each with its count; a menu rather than
+chips keeps every option and count legible in the narrow navigator. Warning
+navigation (**N**, or the analysis page's “Select next cluster with a warning”)
+moves in list order through the warned clusters the filter shows and never selects
+a hidden one; when the filter shows none it says so and keeps the selection. The
+default sort is reduced χ², highest first; any column sorts with one click. Measures and
 highlights cannot prove the absence of structured residuals, so whole-spectrum
 residuals remain one key away.
 

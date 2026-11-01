@@ -194,9 +194,9 @@ def test_partial_usability_nonconvergence_and_free_pin(workspace, scientific):
             == seeds[identities[name]]
         )
     assert "Incomplete model" in w.summary.text()
-    w.fitting.next_warning(None)
+    w.fitting.next_warning()
     assert "Not converged" in _review_text(w)
-    w.fitting.next_warning(None)
+    w.fitting.next_warning()
     assert "synthetic unusable" in _review_text(w)
     # The navigator lists every recorded cluster and marks engine warnings.
     flagged = [
@@ -914,8 +914,8 @@ def test_review_measures_are_recorded_and_heuristics_follow_their_definitions(sc
     assert any(h.kind == "Linewidth outlier" for h in flagged.highlights)
 
 
-def test_at_bound_is_a_numerical_warning(scientific):
-    spectra, *_, result = scientific
+def _with_bound(result):
+    """The run with one varied parameter of its first usable cluster at its lower bound."""
     cluster = next(c for c in result.outcome.clusters if c.usable)
     parameter = next(p for p in cluster.final_nonlinear_parameters if p.vary)
     bounded = replace(
@@ -930,6 +930,12 @@ def test_at_bound_is_a_numerical_warning(scientific):
         clusters=tuple(bounded if c is cluster else c for c in result.outcome.clusters),
     )
     edited = replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
+    return edited, cluster, parameter
+
+
+def test_at_bound_is_a_numerical_warning(scientific):
+    spectra, *_, result = scientific
+    edited, cluster, parameter = _with_bound(result)
     review = next(r for r in _review(edited, spectra) if r.cluster_id == cluster.cluster_id)
     assert ("At bound", parameter.name) in [(w.kind, w.detail) for w in review.warnings]
 
@@ -1001,3 +1007,35 @@ def test_starting_values_show_the_next_fit_inputs(workspace):
     w._update_inspector()
     assert grid.count() == 0
     assert fitting.blocked in w.panel.starts_note.text()
+
+
+def test_warning_navigation_never_selects_a_hidden_cluster(workspace, scientific):
+    w = workspace
+    publish(w, _with_bound(scientific[-1])[0])
+    navigator = w.navigator
+    # Make every cluster highlighted, then warn about none that the filter shows.
+    w.set_rules(review_module.HighlightRules(0.0, 0.0, 1.0, 1.0))
+    options = [navigator.filter.itemText(i) for i in range(navigator.filter.count())]
+    warned_choice = next(i for i, t in enumerate(options) if t.startswith("Any warning"))
+    highlight_choice = next(i for i, t in enumerate(options) if t.startswith("Any highlight"))
+    navigator.filter.setCurrentIndex(highlight_choice)
+    rows = [navigator.tree.topLevelItem(i) for i in range(navigator.tree.topLevelItemCount())]
+    warned = [r for r in rows if r.data(0, QtCore.Qt.ItemDataRole.UserRole).warnings]
+    assert warned
+    assert len(warned) < len(rows)
+    # Hide every warned row: N must not select any of them.
+    for row in warned:
+        row.setHidden(True)
+    before = w.selected_id
+    w.fitting.next_warning()
+    assert w.selected_id == before
+    assert "current filter" in w.status.text()
+    # With warned rows shown, N visits exactly them, in list order.
+    navigator.filter.setCurrentIndex(warned_choice)
+    shown = [r for r in rows if not r.isHidden()]
+    visited = []
+    for _ in shown:
+        w.fitting.next_warning()
+        visited.append(navigator._clusters[w.selected_id])
+    assert visited == shown
+    assert all(not item.isHidden() for item in visited)

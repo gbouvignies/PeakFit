@@ -389,6 +389,20 @@ class Navigator(QtWidgets.QWidget):
             f"{warned} clusters with a numerical warning; N in the list selects the next one"
         )
 
+    def next_warned(self, selected: str | None) -> str | None:
+        """First member of the next shown cluster with a numerical warning, in list order."""
+        rows = [
+            item
+            for index in range(self.tree.topLevelItemCount())
+            if (item := self.tree.topLevelItem(index)) is not None
+            and not item.isHidden()
+            and item.data(0, _ID).warnings
+        ]
+        if not rows:
+            return None
+        current = next((i for i, row in enumerate(rows) if selected in row.data(2, _ID)), -1)
+        return rows[(current + 1) % len(rows)].data(1, _ID)
+
     def _add_cluster(self, review: ClusterReview) -> None:
         item = _ClusterItem()
         names = review.names

@@ -192,7 +192,8 @@ cluster. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the
 selected peak keeps its stronger ring and label; this never changes the viewport,
 comparison mode or the total-model scope. **N** in the cluster list, or **Select next cluster with a warning** on
-the analysis page, moves to the next cluster with a numerical warning. The
+the analysis page, moves in list order to the next cluster with a numerical
+warning that the current filter shows; it never selects a hidden row. The
 inspector's **Cluster review** keeps three families apart: numerical warnings
 (with the engine's own text), highlights (with their rule), and measures: χ²ᵣ with its sample count, the largest recorded
 residual against the maximum expected from Gaussian noise for that many samples,
