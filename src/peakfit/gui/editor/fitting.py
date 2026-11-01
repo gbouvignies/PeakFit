@@ -384,19 +384,11 @@ class DatasetFitting(QtCore.QObject):
                 or f"Not fitted · {len(w.peaks)} peaks · {w.dataset.spectra.data.shape[0]} planes"
             )
         w.summary.setText(text)
-        flagged = (
-            sum(
-                c.analytical_evaluation is not None
-                and c.analytical_evaluation.uncertainty_warning is not None
-                for c in self.result.outcome.clusters
-            )
-            if self.result is not None and not busy
-            else 0
-        )
+        flagged = sum(bool(r.warnings) for r in w.reviews()) if not busy else 0
         w.warnings.setProperty("count", flagged)
         w.warnings.setToolTip(
-            f"{flagged} clusters with an engine uncertainty warning; "
-            "Review lists them cluster by cluster"
+            f"{flagged} clusters with a numerical warning (unusable, not converged, "
+            "uncertainty unreliable or at bound); N in the cluster list moves between them"
         )
         w.warnings.setVisible(bool(flagged))
         w.update_settings_summary()
@@ -404,31 +396,14 @@ class DatasetFitting(QtCore.QObject):
         w._update_inspector()
         self.state_changed.emit()
 
-    def next_warning(self, _url) -> None:
-        """Explicitly navigate questionable clusters without isolating their models."""
-        result = self.result
-        if result is None:
-            return
-        warnings = [
-            c
-            for c in result.outcome.clusters
-            if not c.usable
-            or not c.optimizer_provenance.converged
-            or (c.analytical_evaluation and c.analytical_evaluation.uncertainty_warning)
-        ]
-        if not warnings:
-            return
-        identities = {i.engine_name: i.working_id for i in result.inputs.identities}
-        index = next(
-            (
-                index
-                for index, cluster in enumerate(warnings)
-                if self.workspace.selected_id in [identities[n] for n in cluster.peak_names]
-            ),
-            -1,
-        )
-        cluster = warnings[(index + 1) % len(warnings)]
-        self.workspace.select_peak(identities[cluster.peak_names[0]])
+    def next_warning(self) -> None:
+        """Move to the next warned cluster the navigator shows, never a hidden one."""
+        w = self.workspace
+        target = w.navigator.next_warned(w.selected_id)
+        if target is not None:
+            w.select_peak(target)
+        elif any(r.warnings for r in w.reviews()):
+            w.status.setText("No cluster with a numerical warning is shown by the current filter")
 
     def export(self) -> bool:
         """Export retained evidence with its currentness explicitly labeled."""

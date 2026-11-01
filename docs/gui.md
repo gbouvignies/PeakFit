@@ -169,29 +169,44 @@ model planes and 32 MiB/eight contour geometries, with stale deliveries rejected
 
 The run line starts with the run and Current/Outdated, then completeness,
 convergence and usable/total clusters, so a narrow window shortens only the tail;
-its tooltip keeps the full text. Engine uncertainty warnings have their own amber
-label (▲ N) that never elides.
+its tooltip keeps the full text. Clusters with a numerical warning have their own
+amber label (▲ N) that never elides.
 
 The first completed run opens the navigator's **Clusters** tab: one row per
-recorded cluster with an amber ▲ for an engine warning (unusable, not converged
-or unreliable uncertainty), its members, χ²ᵣ and the largest |amplitude
-correlation| between members ("–" for a single peak, "n/a" when the covariance is
-unavailable). Columns sort on click; the default is χ²ᵣ, highest first. Choosing a
+recorded cluster with its members and three measures: χ²ᵣ, the largest |recorded
+residual| in σ (|r|max) and the largest |amplitude correlation| between members
+("–" for a single peak, "n/a" when the covariance is unavailable). The first
+column shows an amber ▲ for a numerical warning (unusable, not converged,
+uncertainty unreliable, or a varied parameter at a recorded bound) or else a
+subdued ◇ for a highlight; its tooltip names each one. Highlights are descriptive
+rules, never warnings: amplitude correlation |ρ| ≥ 0.9; a position shift
+(|fitted − initial| in Hz, over the fitted linewidth, on the larger axis) above
+0.5; a fitted linewidth outside 0.5–2× the run's median for that axis over usable
+peaks. Each highlight states its rule and value, for example "shift 1.03 × LW
+(¹⁵N)". **Display** sets the thresholds for this session; they change no results,
+warnings or run state. The menu above the list shows all clusters, any warning,
+any highlight, or one warning or highlight type, each with its count. Columns sort
+on click; the default is χ²ᵣ, highest first. Choosing a
 row selects one of its members, keeping the selected peak when it belongs to the
 cluster. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the
 selected peak keeps its stronger ring and label; this never changes the viewport,
 comparison mode or the total-model scope. **N** in the cluster list, or **Select next cluster with a warning** on
-the analysis page, moves to the next cluster with an engine warning. The
-inspector's **Cluster review** keeps numerical warnings (with the engine's own
-text) separate from measures: χ²ᵣ with its sample count, the largest recorded
+the analysis page, moves in list order to the next cluster with a numerical
+warning that the current filter shows; it never selects a hidden row. The
+inspector's **Cluster review** keeps three families apart: numerical warnings
+(with the engine's own text), highlights (with their rule), and measures: χ²ᵣ with its sample count, the largest recorded
 residual against the maximum expected from Gaussian noise for that many samples,
 and the selected peak's strongest amplitude correlation, conditional on the
 fitted lineshapes. Recorded optimizer statistics refer to corrected fitting
 samples and are not recomputed from the displayed whole-spectrum residual.
 **Provenance** discloses the optimizer, termination message, correction revision
 and run identity. **Fitted** lists the peak's recorded parameters with σ and
-units; parameters at a recorded bound are marked.
+units; parameters at a recorded bound are marked. **Starting values and bounds**
+(collapsed) shows the selected peak's parameters as the next fit would submit
+them: start, range, unit and whether each is varied or fixed, from the current
+preparation of the working position and fit setup. They are read-only; while
+preparation runs or fails the section says so rather than showing old values.
 
 The inspector's **Amplitude profile** shows the selected peak's signed fitted
 amplitudes across planes, with the other members of its cluster lighter on the

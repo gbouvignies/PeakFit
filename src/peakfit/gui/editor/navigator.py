@@ -3,13 +3,14 @@
 import math
 from typing import TYPE_CHECKING, Any, cast
 
-import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.gui import theme as themes
+from peakfit.gui.editor.review import HIGHLIGHT_KINDS, WARNING_KINDS, HighlightRules
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
+    from peakfit.gui.editor.review import ClusterReview
     from peakfit.gui.peaks import WorkingPeak
 
 _ID = QtCore.Qt.ItemDataRole.UserRole
@@ -78,43 +79,6 @@ class _ClusterItem(QtWidgets.QTreeWidgetItem):
         return str(mine) < str(theirs)
 
 
-def cluster_rows(result: DatasetFitResult) -> list[dict]:
-    """One row per recorded cluster, with values read from the completed outcome."""
-    identities = {i.engine_name: i for i in result.inputs.identities}
-    rows = []
-    for cluster in result.outcome.clusters:
-        members = [identities[name] for name in cluster.peak_names if name in identities]
-        evaluation = cluster.analytical_evaluation
-        reasons = []
-        if not cluster.usable:
-            reasons.append(f"Unusable: {cluster.unusable_reason or 'no reason recorded'}")
-        elif not cluster.optimizer_provenance.converged:
-            reasons.append("Not converged")
-        if evaluation is not None and evaluation.uncertainty_warning:
-            reasons.append("Uncertainty unreliable")
-        chi2 = float(evaluation.statistics.reduced_chi_squared) if evaluation else math.nan
-        rho = math.nan
-        if evaluation is not None and len(members) > 1:
-            covariance = np.asarray(evaluation.amplitude_covariance, dtype=float)
-            if np.all(np.isfinite(covariance)):
-                scale = np.sqrt(np.diag(covariance))
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    correlation = covariance / np.outer(scale, scale)
-                np.fill_diagonal(correlation, 0.0)
-                rho = float(np.nanmax(np.abs(correlation)))
-        rows.append(
-            {
-                "ids": [m.working_id for m in members],
-                "names": [m.assignment for m in members],
-                "reasons": reasons,
-                "chi2": chi2,
-                "rho": rho,
-                "single": len(members) == 1,
-            }
-        )
-    return rows
-
-
 class Navigator(QtWidgets.QWidget):
     """Peaks for editing, clusters for review; hover, selection and drafts stay independent."""
 
@@ -153,11 +117,14 @@ class Navigator(QtWidgets.QWidget):
         self.pages.addWidget(self._build_clusters(inset))
         self._items: dict[str, QtWidgets.QListWidgetItem] = {}
         self._clusters: dict[str, _ClusterItem] = {}
-        self._run: tuple[str, bool] | None = None
+        self._run: tuple | None = None  # run, currentness and review shown
         self._selected: str | None = None
         self._hovered: str | None = None
         self._wash = QtGui.QColor(themes.LIGHT.hover)
         self._warning = QtGui.QColor(themes.LIGHT.warning)
+        self._subdued = QtGui.QColor(themes.LIGHT.secondary)
+        self._reviews: list[ClusterReview] = []
+        self.rules = HighlightRules()  # display thresholds, named in the filter
         self.tab_buttons[_CLUSTERS].setEnabled(False)
         self.show_page(_PEAKS)
 
@@ -220,30 +187,41 @@ class Navigator(QtWidgets.QWidget):
         self.run_label.setObjectName("caption")
         self.run_label.setContentsMargins(*inset)
         layout.addWidget(self.run_label)
+        self.filter = QtWidgets.QComboBox()
+        self.filter.setAccessibleName("Show clusters")
+        self.filter.currentIndexChanged.connect(self._filter_clusters)
+        filter_row = QtWidgets.QHBoxLayout()
+        filter_row.setContentsMargins(*inset)
+        filter_row.addWidget(self.filter)
+        layout.addLayout(filter_row)
         self.tree = QtWidgets.QTreeWidget()
-        self.tree.setColumnCount(4)
-        self.tree.setHeaderLabels(["", "Cluster", "χ²ᵣ", "|ρ|"])
+        self.tree.setColumnCount(5)
+        self.tree.setHeaderLabels(["", "Cluster", "χ²ᵣ", "|r|max", "|ρ|"])
         self.tree.setRootIsDecorated(False)
         self.tree.setUniformRowHeights(True)
         self.tree.setSortingEnabled(True)
         self.tree.setMouseTracking(True)
         self.tree.setAccessibleName(
-            "Clusters of the active run; engine warning, members, reduced chi-squared, "
-            "largest amplitude correlation"
+            "Clusters of the active run; warning or highlight, members, reduced chi-squared, "
+            "largest recorded residual, largest amplitude correlation"
         )
         header = self.tree.header()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        for column, width in ((0, 26), (2, 56), (3, 50)):
+        for column, width in ((0, 24), (2, 48), (3, 52), (4, 42)):
             header.setSectionResizeMode(column, QtWidgets.QHeaderView.ResizeMode.Fixed)
             self.tree.setColumnWidth(column, width)
-        for column in (2, 3):
+        for column in (2, 3, 4):
             self.tree.headerItem().setTextAlignment(
                 column, QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
             )
+        self.tree.headerItem().setToolTip(0, "▲ numerical warning · ◇ highlight")
         self.tree.headerItem().setToolTip(2, "Reduced χ² on corrected fitting samples")
         self.tree.headerItem().setToolTip(
-            3, "Largest |amplitude correlation| between members, conditional on lineshapes"
+            3, "Largest |recorded residual| on the cluster's fitting samples, in σ"
+        )
+        self.tree.headerItem().setToolTip(
+            4, "Largest |amplitude correlation| between members, conditional on lineshapes"
         )
         self.tree.currentItemChanged.connect(self._cluster_changed)
         self.tree.itemEntered.connect(lambda item, _column: self.hovered.emit(item.data(1, _ID)))
@@ -265,11 +243,14 @@ class Navigator(QtWidgets.QWidget):
         """Hovered-marker rows use the theme's hover wash; warnings use its amber."""
         self._wash = QtGui.QColor(theme.hover)
         self._warning = QtGui.QColor(theme.warning)
+        self._subdued = QtGui.QColor(theme.secondary)
         delegate = self.list.itemDelegate()
         if isinstance(delegate, PeakRowDelegate):
             delegate.secondary = QtGui.QColor(theme.secondary)
         for item in self._clusters.values():
-            item.setForeground(0, QtGui.QBrush(self._warning))
+            item.setForeground(
+                0, QtGui.QBrush(self._warning if item.text(0) == "▲" else self._subdued)
+            )
         if self._hovered in self._items:
             self._items[self._hovered].setBackground(QtGui.QBrush(self._wash))
 
@@ -302,68 +283,156 @@ class Navigator(QtWidgets.QWidget):
         self.tab_buttons[_PEAKS].setText(f"Peaks  {len(peaks)}")
         self._filter(self.search.text())
 
-    def set_result(self, result: DatasetFitResult | None, *, current: bool) -> None:
+    def set_result(
+        self,
+        result: DatasetFitResult | None,
+        reviews: list[ClusterReview],
+        *,
+        current: bool,
+    ) -> None:
         """List the active run's clusters; the first result switches to this tab."""
-        key = (result.run_id, current) if result is not None else None
+        key = (result.run_id, current, tuple(reviews)) if result is not None else None
         if key == self._run:
             return
         first = self._run is None and key is not None
         self._run = key
+        self._reviews = reviews
         self._clusters.clear()
         with QtCore.QSignalBlocker(self.tree):
             self.tree.clear()
             if result is not None:
                 self.tree.setSortingEnabled(False)
-                for row in cluster_rows(result):
-                    self._add_cluster(row)
+                for review in reviews:
+                    self._add_cluster(review)
                 self.tree.setSortingEnabled(True)
-                self.tree.sortByColumn(2, QtCore.Qt.SortOrder.DescendingOrder)
+                if first:
+                    self.tree.sortByColumn(2, QtCore.Qt.SortOrder.DescendingOrder)
         self.tab_buttons[_CLUSTERS].setEnabled(result is not None)
         if result is None:
             self.tab_buttons[_CLUSTERS].setText("Clusters")
             self.show_page(_PEAKS)
             return
-        count = self.tree.topLevelItemCount()
-        # Several members map to one row; count rows, not peaks.
-        rows = (self.tree.topLevelItem(i) for i in range(count))
-        flagged = sum(bool(row.text(0)) for row in rows if row is not None)
-        self.tab_buttons[_CLUSTERS].setText(f"Clusters  {count}")
+        self.tab_buttons[_CLUSTERS].setText(f"Clusters  {len(reviews)}")
         self.run_label.setText(
             f"Run {result.run_id[:8]} · {'Current' if current else 'Outdated: refit to update'}"
         )
-        self.cluster_count.setText(
-            f"{count} clusters · {flagged} with ▲ engine warnings · N: next warning"
-        )
+        self._fill_filter()
         self._mark_selected()
         if first:
             self.show_page(_CLUSTERS)
 
-    def _add_cluster(self, row: dict) -> None:
+    def _fill_filter(self) -> None:
+        """One choice per warning type and highlight present, with counts."""
+        reviews = self._reviews
+        chosen = self.filter.currentData()
+        options: list[tuple[str, object]] = [(f"All clusters ({len(reviews)})", None)]
+        families = (
+            ("Any warning", "warning", WARNING_KINDS, lambda r: [w.kind for w in r.warnings]),
+            (
+                "Any highlight",
+                "highlight",
+                HIGHLIGHT_KINDS,
+                lambda r: [h.kind for h in r.highlights],
+            ),
+        )
+        for title, family, kinds, found in families:
+            count = sum(bool(found(r)) for r in reviews)
+            options.append((f"{title} ({count})", (family, None)))
+            for kind in kinds:
+                count = sum(kind in found(r) for r in reviews)
+                if count:
+                    options.append((f"   {self._kind_title(kind)} ({count})", (family, kind)))
+        with QtCore.QSignalBlocker(self.filter):
+            self.filter.clear()
+            for text, data in options:
+                self.filter.addItem(text, data)
+            index = self.filter.findData(chosen)
+            self.filter.setCurrentIndex(max(index, 0))
+        self._filter_clusters()
+
+    def _kind_title(self, kind: str) -> str:
+        """Name a highlight by its rule, so the threshold is always visible."""
+        rules = self.rules
+        return {
+            "Amplitude correlation": f"|ρ| ≥ {rules.correlation:g}",
+            "Position shift": f"Shift > {rules.shift:g} × LW",
+            "Linewidth outlier": (
+                f"LW outside {rules.linewidth_low:g}–{rules.linewidth_high:g} × median"
+            ),
+        }.get(kind, kind)
+
+    def _filter_clusters(self) -> None:
+        choice = self.filter.currentData()
+        shown = 0
+        for index in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(index)
+            if item is None:
+                continue
+            review = item.data(0, _ID)
+            if choice is None:
+                visible = True
+            else:
+                family, kind = choice
+                kinds = (
+                    [w.kind for w in review.warnings]
+                    if family == "warning"
+                    else [h.kind for h in review.highlights]
+                )
+                visible = bool(kinds) if kind is None else kind in kinds
+            item.setHidden(not visible)
+            shown += visible
+        total = self.tree.topLevelItemCount()
+        warned = sum(bool(r.warnings) for r in self._reviews)
+        prefix = f"{shown} of {total} clusters" if shown != total else f"{total} clusters"
+        self.cluster_count.setText(f"{prefix} · ▲ {warned} · N: next ▲")
+        self.cluster_count.setToolTip(
+            f"{warned} clusters with a numerical warning; N in the list selects the next one"
+        )
+
+    def next_warned(self, selected: str | None) -> str | None:
+        """First member of the next shown cluster with a numerical warning, in list order."""
+        rows = [
+            item
+            for index in range(self.tree.topLevelItemCount())
+            if (item := self.tree.topLevelItem(index)) is not None
+            and not item.isHidden()
+            and item.data(0, _ID).warnings
+        ]
+        if not rows:
+            return None
+        current = next((i for i, row in enumerate(rows) if selected in row.data(2, _ID)), -1)
+        return rows[(current + 1) % len(rows)].data(1, _ID)
+
+    def _add_cluster(self, review: ClusterReview) -> None:
         item = _ClusterItem()
-        names = row["names"]
+        names = review.names
         label = names[0] + (f"  +{len(names) - 1}" if len(names) > 1 else "")
-        item.setText(0, "▲" if row["reasons"] else "")
-        item.setToolTip(0, "\n".join(row["reasons"]) or "No engine warning")
-        item.setForeground(0, QtGui.QBrush(self._warning))
+        warned = bool(review.warnings)
+        item.setText(0, "▲" if warned else "◇" if review.highlights else "")
+        tips = [f"▲ {w.kind}" for w in review.warnings] + [f"◇ {h.rule}" for h in review.highlights]
+        item.setToolTip(0, "\n".join(tips) or "No numerical warning or highlight")
+        item.setForeground(0, QtGui.QBrush(self._warning if warned else self._subdued))
         item.setText(1, label)
         item.setToolTip(1, " · ".join(names))
-        chi2, rho = row["chi2"], row["rho"]
+        chi2, largest, rho = review.chi2, review.largest_residual, review.correlation
         item.setText(2, f"{chi2:.2f}" if math.isfinite(chi2) else "–")
-        item.setText(3, "–" if row["single"] else f"{rho:.2f}" if math.isfinite(rho) else "n/a")
-        if not row["single"] and not math.isfinite(rho):
-            item.setToolTip(3, "Amplitude covariance unavailable for this cluster")
-        for column in (2, 3):
+        item.setText(3, f"{largest:.1f}" if math.isfinite(largest) else "–")
+        item.setText(4, "–" if review.single else f"{rho:.2f}" if math.isfinite(rho) else "n/a")
+        if not review.single and not math.isfinite(rho):
+            item.setToolTip(4, "Amplitude covariance unavailable for this cluster")
+        for column in (2, 3, 4):
             item.setTextAlignment(
                 column, QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
             )
-        item.setData(0, _SORT, str(bool(row["reasons"])))
+        item.setData(0, _SORT, f"{2 if warned else 1 if review.highlights else 0}")
         item.setData(1, _SORT, " ".join(names))
-        item.setData(2, _SORT, chi2 if math.isfinite(chi2) else -1.0)
-        item.setData(3, _SORT, rho if math.isfinite(rho) else -1.0)
-        item.setData(1, _ID, row["ids"][0] if row["ids"] else None)
-        item.setData(2, _ID, row["ids"])
+        for column, value in ((2, chi2), (3, largest), (4, rho)):
+            item.setData(column, _SORT, value if math.isfinite(value) else -1.0)
+        item.setData(0, _ID, review)
+        item.setData(1, _ID, review.ids[0] if review.ids else None)
+        item.setData(2, _ID, list(review.ids))
         self.tree.addTopLevelItem(item)
-        for identity in row["ids"]:
+        for identity in review.ids:
             self._clusters[identity] = item
 
     def select(self, peak: WorkingPeak | None) -> None:

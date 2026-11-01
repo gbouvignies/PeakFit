@@ -17,14 +17,15 @@ from peakfit.gui import theme as themes
 from peakfit.gui.editing import PeakInspector
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
+from peakfit.gui.editor.review import BOUND_TOLERANCE, correlation_matrix
 from peakfit.gui.editor.setup import FitSetup
 
 if TYPE_CHECKING:
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome
     from peakfit.gui.dataset_fit import DatasetFitResult
+    from peakfit.gui.editor.review import ClusterReview
     from peakfit.gui.peaks import WorkingPeak
 
-_BOUND_TOLERANCE = 1e-6  # fraction of a parameter's range
 _KINDS = {"cs": "δ", "lw": "LW"}
 
 
@@ -229,6 +230,22 @@ class Inspector(QtWidgets.QScrollArea):
         grid.addWidget(self.draft, 5, 0, 1, 2)
         self.editor.fields_changed.connect(self._draft_changed)
         peak.addWidget(self.editor)
+        self.starts_toggle = self._disclosure("Starting values and bounds")
+        self.starts_toggle.toggled.connect(lambda shown: self.starts.setVisible(shown))
+        peak.addWidget(self.starts_toggle, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.starts = QtWidgets.QWidget()
+        starts = QtWidgets.QVBoxLayout(self.starts)
+        starts.setContentsMargins(0, 0, 0, 0)
+        starts.setSpacing(4)
+        self.starts_note = _label("", "caption", wrap=True)
+        starts.addWidget(self.starts_note)
+        self.start_grid = QtWidgets.QGridLayout()
+        self.start_grid.setHorizontalSpacing(themes.SPACE_S)
+        self.start_grid.setVerticalSpacing(3)
+        starts.addLayout(self.start_grid)
+        self.starts.hide()
+        peak.addWidget(self.starts)
+        self._starts_key = None
         self.profile_title = self._section(peak, "Amplitude profile")
         self.profile = ProfilePlot()
         self.profile.plane_requested.connect(self.plane_requested)
@@ -244,15 +261,8 @@ class Inspector(QtWidgets.QScrollArea):
         self.review = QtWidgets.QVBoxLayout()
         self.review.setSpacing(2)
         peak.addLayout(self.review)
-        self.provenance_toggle = QtWidgets.QToolButton()
-        self.provenance_toggle.setObjectName("text")
-        self.provenance_toggle.setText("Provenance")
-        self.provenance_toggle.setCheckable(True)
-        self.provenance_toggle.setToolButtonStyle(
-            QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon
-        )
-        self.provenance_toggle.setArrowType(QtCore.Qt.ArrowType.RightArrow)
-        self.provenance_toggle.toggled.connect(self._toggle_provenance)
+        self.provenance_toggle = self._disclosure("Provenance")
+        self.provenance_toggle.toggled.connect(lambda shown: self.provenance.setVisible(shown))
         self.provenance = _label("", "caption", wrap=True)
         self.provenance.hide()
         peak.addSpacing(themes.SPACE_XS)
@@ -295,11 +305,38 @@ class Inspector(QtWidgets.QScrollArea):
         self.profile.apply_theme(theme)
         self._key = None
 
-    def _toggle_provenance(self, shown: bool) -> None:
-        self.provenance.setVisible(shown)
-        self.provenance_toggle.setArrowType(
-            QtCore.Qt.ArrowType.DownArrow if shown else QtCore.Qt.ArrowType.RightArrow
+    @staticmethod
+    def _disclosure(text: str) -> QtWidgets.QToolButton:
+        """A collapsed-by-default section toggle with a turning arrow."""
+        button = QtWidgets.QToolButton()
+        button.setObjectName("text")
+        button.setText(text)
+        button.setCheckable(True)
+        button.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        button.setArrowType(QtCore.Qt.ArrowType.RightArrow)
+        button.toggled.connect(
+            lambda shown: button.setArrowType(
+                QtCore.Qt.ArrowType.DownArrow if shown else QtCore.Qt.ArrowType.RightArrow
+            )
         )
+        return button
+
+    def show_starts(self, rows: list[tuple[str, str, str, str]] | None, note: str) -> None:
+        """The next fit's starting value, range and freedom per parameter (read-only)."""
+        key = (tuple(rows) if rows is not None else None, note)
+        if key == self._starts_key:
+            return
+        self._starts_key = key
+        self.starts_note.setText(note)
+        _clear(self.start_grid)
+        for row, (name, start, detail, unit) in enumerate(rows or ()):
+            value = _label(start)
+            value.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+            self.start_grid.addWidget(_label(name, "muted"), 2 * row, 0)
+            self.start_grid.addWidget(value, 2 * row, 1)
+            self.start_grid.addWidget(_label(unit, "caption"), 2 * row, 2)
+            self.start_grid.addWidget(_label(detail, "caption"), 2 * row + 1, 1, 1, 2)
+        self.start_grid.setColumnStretch(1, 1)
 
     def _draft_changed(self) -> None:
         self.draft.setText("Draft · Enter commits · Escape discards" if self.editor.pending else "")
@@ -343,12 +380,21 @@ class Inspector(QtWidgets.QScrollArea):
         busy: bool,
         plane_values: tuple[float, ...] | None,
         plane: int,
+        review: ClusterReview | None = None,
     ) -> None:
         """Recorded profile, parameters and review of the selected peak's cluster."""
         peak = self._peak
         if peak is None:
             return
-        key = (peak.id, peak.name, result.run_id if result else None, current, busy, plane_values)
+        key = (
+            peak.id,
+            peak.name,
+            result.run_id if result else None,
+            current,
+            busy,
+            plane_values,
+            review,
+        )
         if key == self._key:
             self.profile.set_plane(plane)
             return
@@ -399,7 +445,7 @@ class Inspector(QtWidgets.QScrollArea):
             self.profile_reason.setText("" if current else "Recorded by an outdated run.")
         self.fitted_title.setText(f"FITTED · RUN {result.run_id[:8].upper()}")
         self._fill_parameters(engine, cluster)
-        self._fill_review(engine, cluster, result)
+        self._fill_review(engine, cluster, result, review)
         provenance = cluster.optimizer_provenance
         self.provenance.setText(
             "\n".join(
@@ -441,7 +487,7 @@ class Inspector(QtWidgets.QScrollArea):
                 parameter.vary
                 and math.isfinite(span)
                 and min(parameter.value - parameter.min, parameter.max - parameter.value)
-                <= _BOUND_TOLERANCE * span
+                <= BOUND_TOLERANCE * span
             )
             text = value if not parameter.vary else f"{value} ± {sigma}"
             if sigma == "σ unavailable" and parameter.vary:
@@ -476,69 +522,63 @@ class Inspector(QtWidgets.QScrollArea):
         self.review.addLayout(row)
 
     def _fill_review(
-        self, engine: str, cluster: FinalClusterOutcome, result: DatasetFitResult
+        self,
+        engine: str,
+        cluster: FinalClusterOutcome,
+        result: DatasetFitResult,
+        review: ClusterReview | None,
     ) -> None:
-        evaluation = cluster.analytical_evaluation
-        warnings = []
-        if not cluster.usable:
-            warnings.append(("Unusable", cluster.unusable_reason or ""))
-        elif not cluster.optimizer_provenance.converged:
-            warnings.append(
-                ("Not converged", cluster.optimizer_provenance.termination_message or "")
+        """Three separate families: numerical warnings, measures and highlights."""
+        warnings = review.warnings if review is not None else ()
+        for index, warning in enumerate(warnings):
+            self._item(
+                "Numerical warnings" if index == 0 else "",
+                "▲",
+                warning.kind,
+                warning.detail,
+                warn=True,
             )
-        if evaluation is not None and evaluation.uncertainty_warning:
-            warnings.append(("Uncertainty unreliable", evaluation.uncertainty_warning))
-        bounded = [
-            p.name
-            for p in cluster.final_nonlinear_parameters
-            if p.vary
-            and math.isfinite(p.max - p.min)
-            and min(p.value - p.min, p.max - p.value) <= _BOUND_TOLERANCE * (p.max - p.min)
-        ]
-        if bounded:
-            warnings.append(("At bound", ", ".join(bounded)))
-        for index, (text, detail) in enumerate(warnings):
-            self._item("Numerical warnings" if index == 0 else "", "▲", text, detail, warn=True)
         if not warnings:
             self._item("Numerical warnings", "–", "None recorded")
-        if evaluation is None:
+        evaluation = cluster.analytical_evaluation
+        if evaluation is None or review is None:
             return
-        statistics = evaluation.statistics
-        samples = int(statistics.n_observations)
+        samples = review.samples
         self._item(
             "Measures",
             "·",
-            f"χ²ᵣ {statistics.reduced_chi_squared:.3g}",
+            f"χ²ᵣ {review.chi2:.3g}",
             f"{samples:,} fitting samples · relative to the noise estimate".replace(",", " "),
         )
-        sampled = cluster.sample_evaluation
-        if sampled is not None and samples > 1:
-            largest = float(np.max(np.abs(sampled.normalized_residuals)))
+        if math.isfinite(review.largest_residual) and samples > 1:
             self._item(
                 "",
                 "·",
-                f"Largest recorded residual {largest:.1f} σ",
+                f"Largest recorded residual {review.largest_residual:.1f} σ",
                 f"typical maximum for {samples:,} Gaussian samples ≈ "
                 f"{math.sqrt(2 * math.log(samples)):.1f} σ".replace(",", " "),
             )
         names = {i.engine_name: i.assignment for i in result.inputs.identities}
+        matrix = correlation_matrix(cluster)
         if len(cluster.peak_names) == 1:
             self._item("", "·", "Amplitude correlation not applicable", "single-peak cluster")
-            return
-        covariance = np.asarray(evaluation.amplitude_covariance, dtype=float)
-        if not np.all(np.isfinite(covariance)):
+        elif matrix is None:
             self._item("", "·", "Amplitude correlation unavailable", "covariance not recorded")
-            return
-        index = cluster.peak_names.index(engine)
-        scale = np.sqrt(np.diag(covariance))
-        with np.errstate(divide="ignore", invalid="ignore"):
-            row = covariance[index] / (scale[index] * scale)
-        row[index] = 0.0
-        partner = int(np.nanargmax(np.abs(row)))
-        self._item(
-            "",
-            "·",
-            f"Amplitude correlation ρ {formatting.number(float(row[partner]), 2)}"
-            f" with {names.get(cluster.peak_names[partner], cluster.peak_names[partner])}",
-            "conditional on the fitted lineshapes",
-        )
+        else:
+            index = cluster.peak_names.index(engine)
+            row = matrix[index].copy()
+            row[index] = 0.0
+            partner = int(np.nanargmax(np.abs(row)))
+            self._item(
+                "",
+                "·",
+                f"Amplitude correlation ρ {formatting.number(float(row[partner]), 2)}"
+                f" with {names.get(cluster.peak_names[partner], cluster.peak_names[partner])}",
+                "conditional on the fitted lineshapes",
+            )
+        assignments = dict(zip(review.ids, review.names, strict=True))
+        for index, highlight in enumerate(review.highlights):
+            prefix = f"{assignments[highlight.peak]}: " if highlight.peak in assignments else ""
+            self._item("Highlights" if index == 0 else "", "◇", prefix + highlight.rule)
+        if not review.highlights:
+            self._item("Highlights", "–", "None at the current thresholds")
