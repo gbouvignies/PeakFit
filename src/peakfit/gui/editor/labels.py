@@ -51,3 +51,48 @@ def text_label(text: str = "", name: str = "", *, wrap: bool = False) -> QtWidge
     label.setWordWrap(wrap)
     label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
     return label
+
+
+def review_item(
+    layout: QtWidgets.QVBoxLayout,
+    family: str,
+    glyph: str,
+    text: str,
+    detail: str = "",
+    *,
+    warn: bool = False,
+) -> None:
+    """One review line: an optional family heading, a glyph, text and a caption."""
+    if family:
+        layout.addSpacing(4)
+        layout.addWidget(text_label(family, "caption"))
+    row = QtWidgets.QHBoxLayout()
+    row.setSpacing(6)
+    mark = text_label(glyph, "warning" if warn else "caption")
+    mark.setFixedWidth(12)
+    row.addWidget(mark, 0, QtCore.Qt.AlignmentFlag.AlignTop)
+    body = QtWidgets.QVBoxLayout()
+    body.setSpacing(0)
+    body.addWidget(text_label(text, "warning" if warn else "", wrap=True))
+    if detail:
+        body.addWidget(text_label(detail, "caption", wrap=True))
+    row.addLayout(body, 1)
+    layout.addLayout(row)
+
+
+def clear_layout(layout: QtWidgets.QLayout) -> None:
+    """Remove every widget and nested row layout from a section."""
+    while layout.count():
+        item = layout.takeAt(0)
+        if item is None:
+            continue
+        widget, nested = item.widget(), item.layout()
+        if widget is not None:
+            # Detach now: deferred deletion alone would leave it painted until the
+            # event loop runs.
+            widget.hide()
+            widget.setParent(None)
+            widget.deleteLater()
+        elif nested is not None:
+            clear_layout(nested)
+            nested.deleteLater()

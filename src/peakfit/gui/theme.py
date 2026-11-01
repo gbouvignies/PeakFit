@@ -220,6 +220,9 @@ QToolButton:hover:enabled {{ background: {t.hover}; }}
 QToolButton:checked {{ background: {t.selection}; }}
 QToolButton:focus {{ border-color: {t.accent}; }}
 QToolButton#text {{ padding: 3px 8px; }}
+QPushButton#link {{ border: 0; background: transparent; color: {t.accent}; padding: 1px 0;
+  min-height: 0; text-align: left; }}
+QPushButton#link:hover {{ text-decoration: underline; }}
 
 QLineEdit, QAbstractSpinBox, QComboBox {{ min-height: {CONTROL_HEIGHT - 4}px; padding: 0 6px;
     border: 1px solid {t.border}; border-radius: 5px; background: {t.plot}; color: {t.text};

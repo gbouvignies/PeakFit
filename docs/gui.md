@@ -187,8 +187,18 @@ peaks. Each highlight states its rule and value, for example "shift 1.03 × LW
 warnings or run state. The menu above the list shows all clusters, any warning,
 any highlight, or one warning or highlight type, each with its count. Columns sort
 on click; the default is χ²ᵣ, highest first. Choosing a
-row selects one of its members, keeping the selected peak when it belongs to the
-cluster. Whenever the selected peak belongs to the active run, the other members
+row, or **N**, opens the inspector's **Cluster** page and selects one of its
+members (keeping the selected peak when it belongs to the cluster), so the cluster
+is the unit of review while a peak stays the unit of editing. Under its header, a
+compact amber line names the cluster's numerical warnings (“▲ Uncertainty
+unreliable · see Review”); their explanations stay in Review. The cluster page
+lists the numbered members, each a link to its peak page; the amplitude profile of
+all members; a parameter table of every member's recorded values at display
+precision (± σ on hover, recorded bounds in amber); the recorded amplitude
+correlation matrix in member numbers, shaded by |ρ|, or why it is unavailable or
+not applicable; the cluster's warnings, measures and highlights; and provenance.
+On a peak page, **Review cluster of N ›** opens its cluster page; selecting a peak
+on the spectrum or in the Peaks list opens its peak page. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the
 selected peak keeps its stronger ring and label; this never changes the viewport,
 comparison mode or the total-model scope. **N** in the cluster list, or **Select next cluster with a warning** on

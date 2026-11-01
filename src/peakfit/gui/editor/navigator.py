@@ -83,6 +83,7 @@ class Navigator(QtWidgets.QWidget):
     """Peaks for editing, clusters for review; hover, selection and drafts stay independent."""
 
     selected = QtCore.Signal(str)
+    cluster_chosen = QtCore.Signal(str)  # a member of the chosen cluster
     hovered = QtCore.Signal(object)
     edit_requested = QtCore.Signal()
     next_warning = QtCore.Signal()
@@ -498,7 +499,7 @@ class Navigator(QtWidgets.QWidget):
         # Keep the selected peak when it belongs to the chosen cluster.
         target = self._selected if self._selected in members else item.data(1, _ID)
         if target:
-            self.selected.emit(target)
+            self.cluster_chosen.emit(target)
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
         """Clear row hover on leave; Enter explicitly opens precise editing."""

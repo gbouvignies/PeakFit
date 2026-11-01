@@ -113,7 +113,9 @@ The inspector shows one page, chosen by selection and never by hover:
   Parameters section with working starts, bounds and fixed/vary flags; accepted
   values of the active run with value, σ and unit, labeled by run; the review items
   of its cluster; and the amplitude profile with the other cluster members.
-- **Cluster:** members, numerical warnings, review measures and heuristics (§8),
+- **Cluster** (chosen in the cluster list or with N; a peak page links to it, and
+  each member links back; the selected peak stays the unit of editing): members,
+  numerical warnings, review measures and heuristics (§8),
   amplitude profiles of all members, parameter table and amplitude-correlation
   matrix.
 - **Lens:** in the Cluster lens the inspector widens to about 340 px and shows the
