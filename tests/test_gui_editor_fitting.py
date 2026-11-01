@@ -435,7 +435,8 @@ def _warned(result):
 
 
 def _review_text(w) -> str:
-    return " ".join(label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel))
+    page = w.panel.cluster_page if w.panel.cluster_view else w.panel.peak_page
+    return " ".join(label.text() for label in page.findChildren(QtWidgets.QLabel))
 
 
 def _selected_points(panel):
@@ -1156,3 +1157,97 @@ def test_normalization_is_unavailable_when_uncertainties_are_unreliable(scientif
     assert panel._normalized is not None
     assert not panel.fallback.isVisible()
     assert panel.mode.text() == f"÷ plane {int(shown.source_planes[0]) + 1}"
+
+
+def _page_labels(page) -> list[str]:
+    return [label.text() for label in page.findChildren(QtWidgets.QLabel) if label.isVisible()]
+
+
+def test_cluster_row_opens_the_cluster_page_with_recorded_values(workspace, scientific):
+    w, c = workspace, workspace.canvas
+    result = scientific[-1]
+    publish(w, result)
+    cluster = next(cl for cl in result.outcome.clusters if cl.usable and len(cl.peak_names) > 1)
+    identities = {i.engine_name: i for i in result.inputs.identities}
+    members = [identities[n] for n in cluster.peak_names]
+    row = w.navigator._clusters[members[0].working_id]
+    w.navigator.tree.setCurrentItem(row)
+    panel = w.panel
+    # The cluster is the unit of review; a member stays selected for editing.
+    assert panel.cluster_view
+    assert panel.cluster_page.isVisible()
+    assert not panel.peak_page.isVisible()
+    assert w.selected_id in {m.working_id for m in members}
+    assert panel.kind.text() == f"CLUSTER · {len(members)} PEAKS"
+    review = next(r for r in w.reviews() if w.selected_id in r.ids)
+    links = [
+        b
+        for b in panel.cluster_page.findChildren(QtWidgets.QPushButton)
+        if b.objectName() == "link"
+    ]
+    assert [b.text() for b in links] == list(review.names)
+    # Matrix cells are the recorded correlations in member order.
+    matrix = review_module.correlation_matrix(cluster)
+    assert matrix is not None
+    engines = {i.working_id: i.engine_name for i in result.inputs.identities}
+    order = [cluster.peak_names.index(engines[m]) for m in review.ids]
+    grid = panel.cluster_page.matrix
+    for i, a in enumerate(order):
+        for j, b in enumerate(order):
+            text = grid.itemAtPosition(i + 1, j + 1).widget().text()
+            expected = "1" if i == j else formatting.number(round(float(matrix[a, b]), 2) + 0.0, 2)
+            assert text == expected
+    # Parameter cells are the recorded values at display precision, σ in the tooltip.
+    parameter = next(p for p in cluster.final_nonlinear_parameters if p.name.endswith(".lw"))
+    cells = [
+        label
+        for label in panel.cluster_page.findChildren(QtWidgets.QLabel)
+        if label.toolTip().startswith(parameter.name + ":")
+    ]
+    assert len(cells) == 1
+    assert cells[0].text() == formatting.number(parameter.value, 1)
+    # The shared profile sits on the cluster page; the view never moved.
+    assert panel.profile_block.parent() is not None
+    assert panel.cluster_page.isAncestorOf(panel.profile_block)
+    view = c.main.getViewBox().viewRange()
+    # A member link opens that peak's page; the peak page links back to its cluster.
+    target = review.ids[-1]
+    links[-1].click()  # assignments may repeat; links follow member order
+    assert w.selected_id == target
+    assert not panel.cluster_view
+    assert panel.peak_page.isVisible()
+    assert panel.peak_page.isAncestorOf(panel.profile_block)
+    assert panel.cluster_link.isVisible()
+    assert panel.cluster_link.text() == f"Review cluster of {len(members)} ›"
+    panel.cluster_link.click()
+    assert panel.cluster_view
+    assert w.selected_id == target
+    assert c.main.getViewBox().viewRange() == view
+    # Selecting on the canvas or in the Peaks list returns to the peak page.
+    w.select_peak(members[0].working_id)
+    assert not panel.cluster_view
+
+
+def test_cluster_page_explains_missing_correlations(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    single = next((c for c in result.outcome.clusters if len(c.peak_names) == 1), None)
+    multi = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
+    evaluation = multi.analytical_evaluation
+    hidden = replace(
+        evaluation, amplitude_covariance=np.full_like(evaluation.amplitude_covariance, np.nan)
+    )
+    edited = replace(multi, analytical_evaluation=hidden)
+    outcome = replace(
+        result.outcome,
+        clusters=tuple(edited if cl is multi else cl for cl in result.outcome.clusters),
+    )
+    publish(w, replace(result, completed_fit=replace(result.completed_fit, outcome=outcome)))
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    w.select_peak(identities[multi.peak_names[0]], cluster=True)
+    assert "Unavailable: the amplitude covariance was not recorded." in _page_labels(
+        w.panel.cluster_page
+    )
+    if single is not None:
+        w.select_peak(identities[single.peak_names[0]], cluster=True)
+        assert "Not applicable: a single-peak cluster." in _page_labels(w.panel.cluster_page)

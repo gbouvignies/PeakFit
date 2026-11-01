@@ -12,9 +12,13 @@ from typing import TYPE_CHECKING
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editing import PeakInspector
+from peakfit.gui.editor.cluster_page import ClusterPage
+from peakfit.gui.editor.labels import clear_layout as _clear
+from peakfit.gui.editor.labels import review_item
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
 from peakfit.gui.editor.review import BOUND_TOLERANCE, correlation_matrix
@@ -140,22 +144,35 @@ class PreciseInspector(PeakInspector):
         return super().eventFilter(watched, event)
 
 
-def _clear(layout: QtWidgets.QLayout) -> None:
-    """Remove every widget and nested row layout from a section."""
-    while layout.count():
-        item = layout.takeAt(0)
-        if item is None:
-            continue
-        widget, nested = item.widget(), item.layout()
-        if widget is not None:
-            # Detach now: deferred deletion alone would leave it painted until the
-            # event loop runs.
-            widget.hide()
-            widget.setParent(None)
-            widget.deleteLater()
-        elif nested is not None:
-            _clear(nested)
-            nested.deleteLater()
+def _run_text(result: DatasetFitResult | None, *, current: bool, busy: bool) -> str:
+    if result is None:
+        return ""
+    return f"run {result.run_id[:8]} · {'Current' if current else 'Outdated'}" + (
+        " · new fit running" if busy else ""
+    )
+
+
+def _state(cluster: FinalClusterOutcome) -> str:
+    if not cluster.usable:
+        return "Unusable"
+    return (
+        "Converged · usable" if cluster.optimizer_provenance.converged else "Not converged · usable"
+    )
+
+
+def _provenance(cluster: FinalClusterOutcome, result: DatasetFitResult) -> str:
+    provenance = cluster.optimizer_provenance
+    return "\n".join(
+        [
+            f"Optimizer: {provenance.optimizer_kind or 'not recorded'}",
+            f"Termination: {provenance.termination_message or 'not recorded'}",
+            f"Function evaluations: {provenance.function_evaluations}",
+            f"Correction revision: {cluster.correction_revision}",
+            f"Statistical noise: {formatting.intensity(result.outcome.noise)} a.u.",
+            f"Run {result.run_id}",
+            f"Completed {result.completed_at} · PeakFit {result.software_version}",
+        ]
+    )
 
 
 def _dimension_and_kind(name: str) -> tuple[str, str]:
@@ -182,6 +199,8 @@ class Inspector(QtWidgets.QScrollArea):
 
     plane_requested = QtCore.Signal(int)
     next_warning = QtCore.Signal()
+    cluster_requested = QtCore.Signal()
+    member_chosen = QtCore.Signal(str)
 
     def __init__(self, x_axis, y_axis, decimals: tuple[int, int]) -> None:  # noqa: PLR0915
         super().__init__()
@@ -210,6 +229,13 @@ class Inspector(QtWidgets.QScrollArea):
         peak = QtWidgets.QVBoxLayout(self.peak_page)
         peak.setContentsMargins(0, themes.SPACE_XS, 0, 0)
         peak.setSpacing(themes.SPACE_S)
+        self.cluster_link = QtWidgets.QPushButton()
+        self.cluster_link.setObjectName("link")
+        self.cluster_link.setFlat(True)
+        self.cluster_link.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.cluster_link.clicked.connect(self.cluster_requested)
+        self.cluster_link.hide()
+        peak.addWidget(self.cluster_link, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
         x_title = f"{self._axes[x_axis.label]} · {x_axis.label} ppm"
         y_title = f"{self._axes[y_axis.label]} · {y_axis.label} ppm"
         self.editor = PreciseInspector(x_title, y_title)
@@ -246,12 +272,22 @@ class Inspector(QtWidgets.QScrollArea):
         self.starts.hide()
         peak.addWidget(self.starts)
         self._starts_key = None
-        self.profile_title = self._section(peak, "Amplitude profile")
+        # One amplitude profile, moved between the peak and cluster pages, so its
+        # normalization reference is shared by both.
+        self.profile_block = QtWidgets.QWidget()
+        block = QtWidgets.QVBoxLayout(self.profile_block)
+        block.setContentsMargins(0, 0, 0, 0)
+        block.setSpacing(themes.SPACE_S)
+        self.profile_title = self._section(block, "Amplitude profile")
         self.profile = ProfilePlot()
         self.profile.plane_requested.connect(self.plane_requested)
-        peak.addWidget(self.profile)
+        block.addWidget(self.profile)
         self.profile_reason = _label("", "muted", wrap=True)
-        peak.addWidget(self.profile_reason)
+        block.addWidget(self.profile_reason)
+        self.peak_profile_slot = QtWidgets.QVBoxLayout()
+        self.peak_profile_slot.setContentsMargins(0, 0, 0, 0)
+        self.peak_profile_slot.addWidget(self.profile_block)
+        peak.addLayout(self.peak_profile_slot)
         self.fitted_title = self._section(peak, "Fitted")
         self.fitted = QtWidgets.QGridLayout()
         self.fitted.setHorizontalSpacing(themes.SPACE_S)
@@ -269,6 +305,16 @@ class Inspector(QtWidgets.QScrollArea):
         peak.addWidget(self.provenance_toggle, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
         peak.addWidget(self.provenance)
         layout.addWidget(self.peak_page)
+        # Cluster page: parameters keyed by the engine's axis names, horizontal first.
+        decimals_x, decimals_y = decimals
+        self.cluster_page = ClusterPage(
+            [
+                (get_dimension_label(1), self._axes[x_axis.label], decimals_x),
+                (get_dimension_label(0), self._axes[y_axis.label], decimals_y),
+            ]
+        )
+        self.cluster_page.member_chosen.connect(self.member_chosen)
+        layout.addWidget(self.cluster_page)
         # Analysis page
         self.analysis_page = QtWidgets.QWidget()
         analysis = QtWidgets.QVBoxLayout(self.analysis_page)
@@ -288,6 +334,7 @@ class Inspector(QtWidgets.QScrollArea):
         layout.addWidget(self.analysis_page)
         layout.addStretch(1)
         self._peak: WorkingPeak | None = None
+        self.cluster_view = False
         self._key = None
         self.theme = themes.LIGHT
         self.set_peak(None, None)
@@ -302,6 +349,7 @@ class Inspector(QtWidgets.QScrollArea):
     def apply_theme(self, theme: themes.Theme) -> None:
         """Retint the profile; labels follow the stylesheet."""
         self.theme = theme
+        self.cluster_page.theme = theme
         self.profile.apply_theme(theme)
         self._key = None
 
@@ -341,15 +389,41 @@ class Inspector(QtWidgets.QScrollArea):
     def _draft_changed(self) -> None:
         self.draft.setText("Draft · Enter commits · Escape discards" if self.editor.pending else "")
 
-    def set_peak(self, peak: WorkingPeak | None, displayed: tuple[float, float] | None) -> None:
-        """Show the committed selection; the editor resets only on selection or commit."""
-        if peak is None or self._peak is None or peak.id != self._peak.id:
+    def set_peak(
+        self,
+        peak: WorkingPeak | None,
+        displayed: tuple[float, float] | None,
+        *,
+        cluster: bool = False,
+    ) -> None:
+        """Show the committed selection as its peak page, or as its cluster's page.
+
+        The editor resets only on selection or commit; the cluster page keeps the
+        selected peak, so the spectrum and the editor stay on it.
+        """
+        cluster = cluster and peak is not None
+        if (
+            peak is None
+            or self._peak is None
+            or peak.id != self._peak.id
+            or cluster != self.cluster_view
+        ):
             self.verticalScrollBar().setValue(0)
         self._peak = peak
+        self.cluster_view = cluster
         self.editor.show_peak(peak, displayed)
-        self.peak_page.setVisible(peak is not None)
+        self.peak_page.setVisible(peak is not None and not cluster)
+        self.cluster_page.setVisible(cluster)
         self.analysis_page.setVisible(peak is None)
-        if peak is not None:
+        source, target = (
+            (self.peak_profile_slot, self.cluster_page.profile_slot)
+            if cluster
+            else (self.cluster_page.profile_slot, self.peak_profile_slot)
+        )
+        if source.indexOf(self.profile_block) >= 0:
+            source.removeWidget(self.profile_block)
+            target.addWidget(self.profile_block)
+        if peak is not None and not cluster:
             self.title.setText(peak.name)
         self._key = None
 
@@ -384,7 +458,7 @@ class Inspector(QtWidgets.QScrollArea):
     ) -> None:
         """Recorded profile, parameters and review of the selected peak's cluster."""
         peak = self._peak
-        if peak is None:
+        if peak is None or self.cluster_view:
             return
         key = (
             peak.id,
@@ -400,12 +474,10 @@ class Inspector(QtWidgets.QScrollArea):
             return
         self._key = key
         found = find_cluster(result, peak.id) if result is not None else None
-        run = (
-            f"run {result.run_id[:8]} · {'Current' if current else 'Outdated'}"
-            + (" · new fit running" if busy else "")
-            if result is not None
-            else ""
-        )
+        run = _run_text(result, current=current, busy=busy)
+        self.cluster_link.setVisible(found is not None and len(found[1].peak_names) > 1)
+        if found is not None:
+            self.cluster_link.setText(f"Review cluster of {len(found[1].peak_names)} ›")
         for widget in (self.profile_title, self.fitted_title, self.review_title):
             widget.setVisible(found is not None)
         self.provenance_toggle.setVisible(found is not None)
@@ -426,15 +498,70 @@ class Inspector(QtWidgets.QScrollArea):
         engine, cluster = found
         members = len(cluster.peak_names)
         self.kind.setText(f"PEAK · CLUSTER OF {members}" if members > 1 else "PEAK")
-        state = (
-            "Unusable"
-            if not cluster.usable
-            else "Converged · usable"
-            if cluster.optimizer_provenance.converged
-            else "Not converged · usable"
+        self.status.setText(f"{_state(cluster)} · {run}")
+        self._show_profile(result, peak.id, plane_values, plane, current=current)
+        self.fitted_title.setText(f"FITTED · RUN {result.run_id[:8].upper()}")
+        self._fill_parameters(engine, cluster)
+        self._fill_review(engine, cluster, result, review)
+        self.provenance.setText(_provenance(cluster, result))
+
+    def show_cluster_result(
+        self,
+        result: DatasetFitResult | None,
+        review: ClusterReview | None,
+        *,
+        current: bool,
+        busy: bool,
+        plane_values: tuple[float, ...] | None,
+        plane: int,
+    ) -> None:
+        """The selected peak's recorded cluster as one unit of review."""
+        peak = self._peak
+        if peak is None or not self.cluster_view:
+            return
+        key = (
+            "cluster",
+            peak.id,
+            result.run_id if result else None,
+            current,
+            busy,
+            plane_values,
+            review,
         )
-        self.status.setText(f"{state} · {run}")
-        profile = peak_profile(result, peak.id, plane_values)
+        if key == self._key:
+            self.profile.set_plane(plane)
+            return
+        self._key = key
+        found = find_cluster(result, peak.id) if result is not None else None
+        if result is None or found is None or review is None:
+            self.kind.setText("CLUSTER")
+            self.title.setText(peak.name)
+            self.status.setText("Not part of the active run")
+            return
+        _engine, cluster = found
+        names = review.names
+        count = len(names)
+        self.kind.setText(f"CLUSTER · {count} PEAK{'S' if count != 1 else ''}")
+        self.title.setText(names[0] + (f"  +{count - 1}" if count > 1 else ""))
+        self.status.setText(f"{_state(cluster)} · {_run_text(result, current=current, busy=busy)}")
+        self._show_profile(result, peak.id, plane_values, plane, current=current)
+        engines = {i.working_id: i.engine_name for i in result.inputs.identities}
+        self.cluster_page.show_cluster(
+            review, cluster, tuple(engines[i] for i in review.ids), peak.id
+        )
+        self.cluster_page.provenance.setText(_provenance(cluster, result))
+
+    def _show_profile(
+        self,
+        result: DatasetFitResult,
+        peak_id: str,
+        plane_values: tuple[float, ...] | None,
+        plane: int,
+        *,
+        current: bool,
+    ) -> None:
+        profile = peak_profile(result, peak_id, plane_values)
+        self.profile_title.show()
         if isinstance(profile, str):
             self.profile.show_profile(None, plane)
             self.profile.hide()
@@ -443,23 +570,6 @@ class Inspector(QtWidgets.QScrollArea):
             self.profile.show()
             self.profile.show_profile(profile, plane)
             self.profile_reason.setText("" if current else "Recorded by an outdated run.")
-        self.fitted_title.setText(f"FITTED · RUN {result.run_id[:8].upper()}")
-        self._fill_parameters(engine, cluster)
-        self._fill_review(engine, cluster, result, review)
-        provenance = cluster.optimizer_provenance
-        self.provenance.setText(
-            "\n".join(
-                [
-                    f"Optimizer: {provenance.optimizer_kind or 'not recorded'}",
-                    f"Termination: {provenance.termination_message or 'not recorded'}",
-                    f"Function evaluations: {provenance.function_evaluations}",
-                    f"Correction revision: {cluster.correction_revision}",
-                    f"Statistical noise: {formatting.intensity(result.outcome.noise)} a.u.",
-                    f"Run {result.run_id}",
-                    f"Completed {result.completed_at} · PeakFit {result.software_version}",
-                ]
-            )
-        )
 
     def _fill_parameters(self, engine: str, cluster: FinalClusterOutcome) -> None:
         if cluster.analytical_evaluation is None:
@@ -504,22 +614,7 @@ class Inspector(QtWidgets.QScrollArea):
         self.fitted.setColumnStretch(1, 1)
 
     def _item(self, family: str, glyph: str, text: str, detail: str = "", *, warn=False) -> None:
-        if family:
-            heading = _label(family, "caption")
-            self.review.addSpacing(4)
-            self.review.addWidget(heading)
-        row = QtWidgets.QHBoxLayout()
-        row.setSpacing(6)
-        mark = _label(glyph, "warning" if warn else "caption")
-        mark.setFixedWidth(12)
-        row.addWidget(mark, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-        body = QtWidgets.QVBoxLayout()
-        body.setSpacing(0)
-        body.addWidget(_label(text, "warning" if warn else "", wrap=True))
-        if detail:
-            body.addWidget(_label(detail, "caption", wrap=True))
-        row.addLayout(body, 1)
-        self.review.addLayout(row)
+        review_item(self.review, family, glyph, text, detail, warn=warn)
 
     def _fill_review(
         self,

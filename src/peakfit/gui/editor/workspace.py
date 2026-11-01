@@ -90,6 +90,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.canvas.hovered.connect(self.navigator.highlight)
         self.navigator.hovered.connect(lambda identity: self.canvas.hover(identity, from_list=True))
         self.navigator.selected.connect(self.select_peak)
+        self.navigator.cluster_chosen.connect(lambda i: self.select_peak(i, cluster=True))
+        self.panel.cluster_requested.connect(self.open_cluster)
+        self.panel.member_chosen.connect(self.select_peak)
         self.navigator.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.setup.changed.connect(lambda settings: self.fitting.configure(settings))
@@ -461,8 +464,12 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._refresh()
         return True
 
-    def select_peak(self, identity: str | None) -> None:
-        """Resolve drafts before changing the one stable inspector identity."""
+    def select_peak(self, identity: str | None, *, cluster: bool = False) -> None:
+        """Resolve drafts before changing the one stable inspector identity.
+
+        ``cluster`` opens the inspector on the peak's recorded cluster rather than
+        the peak itself; the selected peak stays the unit of editing either way.
+        """
         if not self.commit_fields():
             # Restore list identity without overwriting the invalid visible draft.
             with QtCore.QSignalBlocker(self.navigator.list):
@@ -472,13 +479,22 @@ class EditorWorkspace(QtWidgets.QWidget):
             return
         self.selected_id = identity
         self.canvas.select(identity)
-        self._sync_inspector()
+        self._sync_inspector(cluster=cluster)
         self._update_actions()
 
-    def _sync_inspector(self) -> None:
+    def open_cluster(self) -> None:
+        """Show the selected peak's recorded cluster, keeping the peak selected."""
+        if self.commit_fields():
+            self._sync_inspector(cluster=True)
+
+    def _sync_inspector(self, *, cluster: bool | None = None) -> None:
         peak = next((p for p in self.peaks if p.id == self.selected_id), None)
+        if cluster is None:
+            cluster = self.panel.cluster_view
+        result = self.fitting.result if hasattr(self, "fitting") else None
+        cluster = cluster and bool(result and peak and find_cluster(result, peak.id))
         self.navigator.select(peak)
-        self.panel.set_peak(peak, self.canvas.display(peak) if peak else None)
+        self.panel.set_peak(peak, self.canvas.display(peak) if peak else None, cluster=cluster)
         self._update_inspector()
 
     def _cluster_members(self, result) -> tuple[str, ...]:
@@ -573,15 +589,27 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         if self.selected_id is None and self.panel.isVisible():
             fitting.setup_seen = True
+        plane_values = (
+            tuple(float(v) for v in spectra.z_values) if self.dataset.has_plane_values else None
+        )
+        review = next((r for r in reviews if self.selected_id in r.ids), None)
+        current, plane = bool(fitting.current), self.canvas.plane
+        # Only the page on show fills itself; the other returns at once.
         self.panel.show_result(
             result,
-            current=bool(fitting.current),
+            current=current,
             busy=fitting.busy,
-            plane_values=tuple(float(v) for v in spectra.z_values)
-            if self.dataset.has_plane_values
-            else None,
-            plane=self.canvas.plane,
-            review=next((r for r in reviews if self.selected_id in r.ids), None),
+            plane_values=plane_values,
+            plane=plane,
+            review=review,
+        )
+        self.panel.show_cluster_result(
+            result,
+            review,
+            current=current,
+            busy=fitting.busy,
+            plane_values=plane_values,
+            plane=plane,
         )
         if self.selected_id is not None:
             self.panel.show_starts(*self._starting_values())

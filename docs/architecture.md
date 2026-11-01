@@ -150,7 +150,8 @@ one complete reader handoff off Qt; `editor.canvas` owns retained signed geometr
 native slices and gestures; `editor.navigator` owns the flat assignment list and the
 active run's cluster table; `editor.inspector` owns the precise whole-group editor and
 shows the selected peak's recorded profile, parameters and cluster review read from
-`FinalFitOutcome` (`editor.profile` draws the profile; `editor.review` derives each
+`FinalFitOutcome` (`editor.profile` draws the profile; `editor.cluster_page` shows one recorded cluster;
+`editor.review` derives each
 cluster's numerical warnings, measures and display-only highlights from the recorded outcome, without Qt); `editor.workspace` commits
 scientific edits and composes the three columns. `editor.window` owns file dialogs, atomic replacement, menus and appearance.
 `editor.setup` edits the working settings in the inspector. `editor.fitting` directly
