@@ -35,7 +35,7 @@ def main():  # noqa: PLR0915
     workspace = EditorWorkspace(dataset)
     workspace.resize(1280, 800)
     workspace.show()
-    workspace.fitting.reviewed = True
+    workspace.fitting.setup_seen = True
     wait_until(lambda: not workspace.canvas.contour_pending)
     report: dict[str, Any] = {
         "platform": platform.platform(),

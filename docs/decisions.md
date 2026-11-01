@@ -73,3 +73,10 @@ Short records of non‑obvious design choices and trade‑offs.
   compelling reason; obsolete code is removed rather than preserved.
 - Breaking changes are stated explicitly. Numerical behavior still changes only for
   an explained scientific reason protected by tests.
+
+## 2026-11-01: Automatic lineshape fallback is a caution, not a block
+- When `auto` finds no recognized NMRPipe apodization on an axis, the engine uses
+  its pseudo-Voigt default, as the CLI does. The GUI fit setup labels that axis
+  and shows a visible caution, but Fit stays available.
+- Blocking would make such datasets unfittable until a model is chosen explicitly;
+  the scientist judges suitability.

@@ -60,7 +60,7 @@ or show the side columns; their widths are adjustable. The navigator's **Peaks**
 tab lists working peaks with search; after a fit its **Clusters** tab lists the
 active run's clusters. The inspector shows the selected peak (position editor,
 amplitude profile, fitted values and cluster review) or, with nothing selected,
-the analysis: fit settings and the active run. Hover never selects or overwrites
+the analysis: the fit setup and the active run. Hover never selects or overwrites
 a draft. Selection alone never opens a hidden column. Search matches assignments
 and stable IDs. A filtered-out selection remains in the inspector and can be
 revealed in the list. Coincident markers open a chooser with
@@ -102,19 +102,36 @@ for undoable IDs, rather than appearing as active scientific provenance.
 
 ## Fit → compare → export
 
-Choose **Fit** in the toolbar or **Fit dataset** in the Analysis menu (Cmd/Ctrl+Return).
-The first action opens a concise scientific-settings review. It prepares every
-working peak and original plane, independently of selection, viewport, search and
-display thresholds. The default is the existing **two-pass** whole-dataset
-pipeline, including the neighbor correction update between passes. Resolved models,
-statistical noise, threshold, cluster/sample counts and expanded actual starts,
-bounds, units and freedom are reviewable before **Run dataset fit**.
+The **fit setup** is the inspector's analysis page, shown whenever nothing is
+selected. It edits the working settings directly: lineshape model (each axis's
+resolved model with its source: NMRPipe apodization, the pseudo-Voigt default,
+shown as a caution, when no apodization is recognized, or explicit), clustering threshold as a factor of the statistical
+noise with its absolute intensity, optimizer passes (default **two**, with the
+neighbor correction update between passes; an imported step schedule replaces
+the field) and, under **Advanced**, iteration limit and tolerance. Statistical
+noise is shown with its source. A committed setting change marks an existing run
+Outdated; settings are not part of peak Undo.
 
-Subsequent fits reuse those reviewed settings directly and prepare fresh masks,
-clusters and bounds from the current optimized working coordinates. The settings
-summary beside **Fit** (lineshapes · clustering threshold · passes; "Fit settings"
-in windows narrower than 1200 px, with the summary in its tooltip) reopens the review; Cancel leaves the current settings/result unchanged. Numerical
-execution uses the existing disposable process outside Qt. The run line beside the
+After every committed change to peaks or settings the setup prepares the exact
+fitting problem off Qt, with the same preparation that Fit submits, and reports
+cluster and sample counts. Preparation never depends on selection, viewport,
+search or display contours. An obsolete preparation is hidden at once. When
+preparation fails, **Fit** is disabled and the setup and its tooltip give the
+reason. The member rings are the default sign of a selected peak's cluster.
+**Show sampled fitting regions** (off by default) adds a faint tint behind the
+contours, one cell per sampled point, with the selected peak's cluster slightly
+stronger. The legend names the source: "recorded in run …" while the active run
+is Current, otherwise "preview for current settings". The tint never changes the
+viewport, comparison mode or model scope.
+
+Choose **Fit** in the toolbar or **Fit dataset** in the Analysis menu
+(Cmd/Ctrl+Return). Fit commits a valid draft and submits the prepared problem;
+it always covers every working peak and original plane. There is no confirmation
+dialog: the first Fit of a session whose setup has not been displayed opens it
+instead of running, and the next Fit runs. The settings summary beside **Fit**
+(lineshapes · clustering threshold · passes; "Fit settings" in windows narrower
+than 1200 px, with the summary in its tooltip) and **Analysis › Fit setup** open
+the setup. Numerical execution uses the existing disposable process outside Qt. The run line beside the
 analysis name shows pass/cluster/stage and elapsed time, with **Cancel** beside **Fit**;
 the settings summary steps aside while a fit runs. Navigation, selection,
 preview and pinning remain available; scientific edits and input replacement pause.

@@ -10,7 +10,7 @@ from time import perf_counter
 
 import numpy as np
 import pytest
-from PySide6 import QtCore, QtTest, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.domain.cluster import Cluster
@@ -22,7 +22,6 @@ from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.pipeline import run_pipeline
-from peakfit.gui.dataset_dialog import DatasetFitDialog
 from peakfit.gui.dataset_fit import (
     _completed_bytes,
     compute_dataset_fit,
@@ -224,33 +223,26 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
     assert (outcome.n_correction_updates > 0) is False
 
 
-def test_settings_are_reviewed_and_independent_of_display(dataset_workspace):
+def test_fit_setup_prepares_working_settings_independently_of_display(dataset_workspace):
     workspace, config, _prepared = dataset_workspace
+    fitting, setup = workspace.fitting, workspace.panel.setup
     config.clustering.contour_level = None
-    dialog = DatasetFitDialog(workspace, config)
-    dialog.show()
-    try:
-        _wait(lambda: dialog.prepared is not None)
-        prepared = dialog.prepared
-        assert prepared is not None
-        assert dialog.passes.value() == 2
-        assert prepared.contour_level == config.clustering.contour_factor * prepared.noise
-        workspace.canvas.set_plane(2)
-        assert dialog.prepared is prepared
-        QtTest.QTest.mouseClick(dialog.advanced_toggle, QtCore.Qt.MouseButton.LeftButton)
-        assert dialog.parameters.isVisible()
-        assert dialog.parameters.rowCount() == len(prepared.parameters)
-        dialog.threshold.setValue(7)
-        assert not dialog.run.isEnabled()
-        _wait(lambda: dialog.prepared is not None)
-        assert dialog.prepared is not None
-        assert dialog.prepared.contour_level == 7 * dialog.prepared.noise
-        assert dialog.run.isDefault()
-        QtTest.QTest.keyClick(dialog.run, QtCore.Qt.Key.Key_Return)
-        assert dialog.result() == QtWidgets.QDialog.DialogCode.Accepted
-    finally:
-        dialog.reject()
-        dialog.deleteLater()
+    fitting.configure(config)
+    _wait(lambda: fitting.prepared is not None)
+    prepared = fitting.prepared
+    assert prepared is not None
+    assert setup.passes.value() == 2
+    assert prepared.contour_level == config.clustering.contour_factor * prepared.noise
+    assert setup.preparation.text().startswith(f"{len(prepared.clusters)} clusters")
+    workspace.canvas.set_plane(2)
+    workspace.canvas.contour_threshold *= 3
+    workspace.canvas.request_contours()
+    assert fitting.prepared is prepared
+    setup.threshold.setValue(7)
+    assert fitting.prepared is None
+    assert fitting.configuration.clustering.contour_factor == 7
+    _wait(lambda: fitting.prepared is not None)
+    assert fitting.prepared.contour_level == 7 * fitting.prepared.noise
 
 
 def test_projection_cancellation_never_returns_partial_model():

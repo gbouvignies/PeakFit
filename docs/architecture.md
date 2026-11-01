@@ -25,9 +25,8 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   tinted tool icons and `gui.formatting` formats displayed numbers (display
   precision from axis digital resolution, value ± σ, axis powers of ten) without
   ever rounding stored values. `gui.fitting.prepare_dataset_fit` builds engine-safe peaks from snapshots
-  and reuses engine clustering and pipeline parameter preparation;
-  `gui.dataset_dialog` reviews effective settings and initial bounds
-  asynchronously. `gui.dataset_fit` runs `run_pipeline_iter` with the reviewed
+  and reuses engine clustering and pipeline parameter preparation; the editor's
+  fit setup runs it off Qt after every committed change. `gui.dataset_fit` runs `run_pipeline_iter` with the reviewed
   configuration, including cross-cluster updates, and binds its `CompletedFit` to
   the original input snapshot; it does not implement another fitting scheduler.
   The GUI defaults to two passes; CLI defaults are unchanged.
@@ -153,8 +152,8 @@ active run's cluster table; `editor.inspector` owns the precise whole-group edit
 shows the selected peak's recorded profile, parameters and cluster review read from
 `FinalFitOutcome` (`editor.profile` draws the profile); `editor.workspace` commits
 scientific edits and composes the three columns. `editor.window` owns file dialogs, atomic replacement, menus and appearance.
-`editor.fitting` directly coordinates the shared `DatasetFitDialog`,
-`prepare_dataset_fit`, disposable `FitProcess`, `DatasetCompletion`, and canonical
+`editor.setup` edits the working settings in the inspector. `editor.fitting` directly
+coordinates `prepare_dataset_fit` (the setup's preparation is the one Fit submits), disposable `FitProcess`, `DatasetCompletion`, and canonical
 exporter. It does not duplicate fitting algorithms or introduce a job framework.
 These are direct widgets/functions, with no panel/job/state framework. Shared
 `gui.spectrum`, `gui.peaks`, `gui.editing` and `gui.background` retain reader,

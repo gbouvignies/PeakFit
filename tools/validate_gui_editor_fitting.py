@@ -15,7 +15,6 @@ import numpy as np
 from PySide6 import QtCore, QtTest, QtWidgets
 from validate_gui_editor import percentiles, rss_mib, settle, wait_until
 
-from peakfit.gui.dataset_dialog import DatasetFitDialog
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.spectrum import read_dataset
@@ -78,29 +77,21 @@ def main():  # noqa: PLR0915
     w.set_plane(60)
     view = c.main.getViewBox().viewRange()
     seeds = w.peaks
-    dialog_timer = QtCore.QTimer()
-    dialog_timer.setInterval(30)
-
-    def review_settings():
-        dialogs = w.findChildren(DatasetFitDialog)
-        if dialogs and dialogs[-1].run.isEnabled():
-            dialog = dialogs[-1]
-            assert dialog.passes.value() == 2
-            dialog.grab().save(str(OUTPUT / "settings.webp"), "WEBP", 95)
-            assert dialog.prepared is not None
-            report["prepared_clusters"] = len(dialog.prepared.clusters)
-            report["prepared_peaks"] = len(dialog.prepared.identities)
-            dialog_timer.stop()
-            click(dialog.run)
-
-    dialog_timer.timeout.connect(review_settings)
-    dialog_timer.start()
+    w.show_fit_setup()
+    wait_until(lambda: w.fitting.prepared is not None, timeout=60)
+    prepared = w.fitting.prepared
+    assert prepared is not None
+    assert w.panel.setup.passes.value() == 2
+    w.panel.grab().save(str(OUTPUT / "settings.webp"), "WEBP", 95)
+    report["prepared_clusters"] = len(prepared.clusters)
+    report["prepared_peaks"] = len(prepared.identities)
+    w.select_peak(chosen.id)
     started = perf_counter()
     click(w.fit_button)
     phase[0] = "fit"
     wait_until(lambda: not w.fit_busy, timeout=240)
     assert w.fitting.current, w.fitting.failure
-    report["first_fit_including_settings_s"] = perf_counter() - started
+    report["first_fit_s"] = perf_counter() - started
     result = w.fitting.result
     assert result is not None
     assert result.inputs.snapshot.peaks == seeds

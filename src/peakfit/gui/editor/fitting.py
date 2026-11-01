@@ -10,7 +10,6 @@ from PySide6 import QtCore, QtWidgets
 
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui.background import ViewerComputation
-from peakfit.gui.dataset_dialog import DatasetFitDialog
 from peakfit.gui.dataset_fit import DatasetFitResult, dataset_summary
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.fit_positions import dataset_completion
@@ -34,7 +33,17 @@ class DatasetFitting(QtCore.QObject):
         super().__init__(workspace)
         self.workspace = workspace
         self.configuration = PeakFitConfig(fitting=FitConfig(refine_iterations=2))
-        self.reviewed = False
+        # The first Fit of a session reveals the setup unless it was already displayed.
+        self.setup_seen = False
+        # Preparation of the working inputs, refreshed after every committed change.
+        self.preview: PreparedDatasetFit | None = None
+        self.preview_error = ""
+        self._preview_inputs = None
+        self._preview_generation = 0
+        self._preview_timer = QtCore.QTimer(self)
+        self._preview_timer.setSingleShot(True)
+        self._preview_timer.setInterval(150)
+        self._preview_timer.timeout.connect(self._prepare_preview)
         self.completion = None
         self.history = []
         self.journal = []
@@ -101,19 +110,68 @@ class DatasetFitting(QtCore.QObject):
             self.snapshot(self.completion.result.inputs.snapshot), self.workspace.edits.revision
         )
 
-    def fit(self, *, settings: bool = False) -> None:
-        """Review once; subsequent runs prepare all working peaks afresh off Qt."""
+    def _inputs(self):
+        return self.workspace.peaks, self.configuration.model_dump_json()
+
+    def configure(self, configuration: PeakFitConfig) -> None:
+        """Adopt edited working settings; an existing run becomes Outdated."""
+        if self.busy or configuration == self.configuration:
+            return
+        self.configuration = configuration
+        self.request_preview()
+        self.update()
+
+    def request_preview(self) -> None:
+        """Hide an obsolete preparation and prepare the committed inputs afresh."""
+        inputs = self._inputs()
+        if inputs == self._preview_inputs:
+            return
+        self._preview_inputs = inputs
+        self._preview_generation += 1
+        self.preview = None
+        self.preview_error = ""
+        self._preview_timer.start()
+
+    def _prepare_preview(self) -> None:
+        w = self.workspace
+        if not w.peaks:
+            self.preview_error = "Load or add peaks before fitting the dataset."
+            self.update()
+            return
+        spectra, peaks, sources = w.dataset.spectra, w.peaks, w.dataset.sources
+        settings = self.configuration.model_copy(deep=True)
+
+        def prepare():
+            value = prepare_dataset_fit(spectra, peaks, settings)
+            return replace(value, snapshot=replace(value.snapshot, source_files=sources))
+
+        self._worker.submit("preview", self._preview_generation, prepare)
+
+    @property
+    def prepared(self) -> PreparedDatasetFit | None:
+        """The preparation of exactly the current working inputs, if ready."""
+        preview = self.preview
+        if preview is None or preview.snapshot != self.snapshot(preview.snapshot):
+            return None
+        return preview
+
+    @property
+    def blocked(self) -> str:
+        """Why the current working inputs cannot be fitted, from their preparation."""
+        return self.preview_error if self._preview_inputs == self._inputs() else ""
+
+    def fit(self) -> None:
+        """Submit the prepared working inputs; the first Fit may reveal the setup."""
         w = self.workspace
         if self.busy or getattr(w, "inputs_loading", False) or not w.peaks or not w.commit_fields():
             return
+        if not self.setup_seen or self.blocked:
+            w.show_fit_setup()
+            return
         w.cancel_gesture()
-        if settings or not self.reviewed:
-            dialog = DatasetFitDialog(w, self.configuration)
-            if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted or dialog.prepared is None:
-                return
-            self.configuration = dialog.configuration
-            self.reviewed = True
-            self.start(dialog.prepared)
+        prepared = self.prepared
+        if prepared is not None:
+            self.start(prepared)
             return
         self._generation += 1
         self._submitted_revision = w.edits.revision
@@ -133,6 +191,14 @@ class DatasetFitting(QtCore.QObject):
         self.update()
 
     def _prepared(self, kind, generation, outcome) -> None:
+        if kind == "preview":
+            if generation == self._preview_generation:
+                if isinstance(outcome, Exception):
+                    self.preview_error = str(outcome)
+                else:
+                    self.preview = outcome
+                self.update()
+            return
         if generation != self._generation:
             return
         if kind == "publication":
@@ -149,7 +215,7 @@ class DatasetFitting(QtCore.QObject):
     def start(self, prepared: PreparedDatasetFit) -> None:
         """Submit exactly the reviewed snapshot, independently of view/selection."""
         if prepared.snapshot != self.snapshot(prepared.snapshot):
-            self.attempt = "Failed: obsolete preparation; review settings again"
+            self.attempt = "Failed: inputs changed during preparation; fit again"
             self.update()
             return
         self._submitted_revision = self.workspace.edits.revision
@@ -271,6 +337,7 @@ class DatasetFitting(QtCore.QObject):
     def update(self) -> None:
         """One compact status line; inspection and navigation stay available."""
         w = self.workspace
+        self.request_preview()
         busy = self.busy
         w.canvas.editing_enabled = not busy
         w.inspector.setEnabled(not busy)
@@ -280,8 +347,12 @@ class DatasetFitting(QtCore.QObject):
         for action in (w.undo_action, w.redo_action, w.add_action, w.delete_action):
             if busy:
                 action.setEnabled(False)
-        w.fit_button.setEnabled(bool(w.peaks) and not busy and not w.inputs_loading)
-        w.settings_button.setEnabled(bool(w.peaks) and not busy and not w.inputs_loading)
+        blocked = self.blocked
+        w.fit_button.setEnabled(bool(w.peaks) and not busy and not w.inputs_loading and not blocked)
+        w.fit_button.setToolTip(
+            f"Fit unavailable: {blocked}" if blocked else "Fit the complete dataset (Ctrl+Return)"
+        )
+        w.panel.setup.setEnabled(not busy)
         # While a fit runs its settings cannot change; the run line needs the room.
         w.settings_button.setVisible(not busy)
         w.cancel_fit.setVisible(busy)

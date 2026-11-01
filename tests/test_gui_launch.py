@@ -72,7 +72,7 @@ def test_dataset_with_peaks_values_and_mapping(started, swap) -> None:
     expected = read_dataset(DATA / "pseudo3d.ft2", peaks, values, swap_peak_axes=swap)
     assert [p.positions for p in window.workspace.peaks] == [p.positions for p in expected.peaks]
     assert [p.name for p in window.workspace.peaks] == [p.name for p in expected.peaks]
-    assert window.workspace.spectra.z_values.tolist() == expected.spectra.z_values.tolist()
+    assert window.workspace.dataset.spectra.z_values.tolist() == expected.spectra.z_values.tolist()
 
 
 def test_saved_analysis_reopens_with_its_recorded_inputs(started, tmp_path) -> None:

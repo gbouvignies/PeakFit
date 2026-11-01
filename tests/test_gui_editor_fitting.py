@@ -20,6 +20,7 @@ from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
 from peakfit.gui.editor.profile import PeakProfile, ProfilePlot, framed_range, peak_profile
+from peakfit.gui.editor.setup import DEFAULT_SOURCE
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
@@ -45,7 +46,7 @@ def workspace(scientific):
     dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 5.0, 0.01)
     widget = EditorWorkspace(dataset)
     widget.fitting.configuration = config.model_copy(deep=True)
-    widget.fitting.reviewed = True
+    widget.fitting.setup_seen = True
     widget.resize(1280, 750)
     widget.show()
     app.processEvents()
@@ -563,7 +564,7 @@ def test_compact_header_and_inspector_at_minimum_window(scientific, monkeypatch)
     w = window.workspace
     assert w is not None
     w.fitting.configuration = config.model_copy(deep=True)
-    w.fitting.reviewed = True
+    w.fitting.setup_seen = True
     app.processEvents()
     publish(w, _warned(result))
     warned = result.outcome.clusters[0].peak_names[0]
@@ -737,3 +738,131 @@ def test_selected_cluster_members_are_marked_without_changing_view_or_scope(work
     # A peak outside the run has no recorded cluster to mark.
     w.place_peak(w.peaks[0].positions)
     assert c.cluster_ids == ()
+
+
+def _tinted(c, alpha: float) -> set[tuple[int, int]]:
+    image = c.region_image.image
+    rows, columns = np.nonzero(image[..., 3] == round(255 * alpha))
+    return set(zip(rows.tolist(), columns.tolist(), strict=True))
+
+
+def test_first_fit_reveals_the_setup_then_runs_the_prepared_inputs(workspace, monkeypatch):
+    w, fitting = workspace, workspace.fitting
+    fitting.setup_seen = False
+    w.select_peak(w.peaks[0].id)
+    w.inspector_button.setChecked(False)
+    w.toggle_inspector()
+    fitting.fit()
+    # Revealed, not run: the inspector opens at the setup with nothing selected.
+    assert not fitting.busy
+    assert fitting.result is None
+    assert w.selected_id is None
+    assert w.panel.isVisible()
+    assert w.panel.analysis_page.isVisible()
+    wait_for(lambda: fitting.prepared is not None)
+    submitted = []
+    monkeypatch.setattr(fitting, "start", submitted.append)
+    fitting.fit()
+    # The second Fit submits exactly the preparation the setup describes.
+    assert submitted == [fitting.prepared]
+
+
+def test_fit_is_disabled_with_the_preparation_reason(workspace):
+    w, fitting = workspace, workspace.fitting
+    wait_for(lambda: fitting.prepared is not None)
+    invalid = fitting.configuration.model_copy(deep=True)
+    invalid.exclude_planes = [1]
+    fitting.configure(invalid)
+    assert fitting.prepared is None
+    wait_for(lambda: bool(fitting.blocked))
+    assert "exclusions are unsupported" in fitting.blocked
+    assert not w.fit_button.isEnabled()
+    assert fitting.blocked in w.fit_button.toolTip()
+    assert w.panel.setup.blocked.isVisible()
+    assert fitting.blocked in w.panel.setup.blocked.text()
+    w.select_peak(w.peaks[0].id)
+    fitting.fit()
+    assert not fitting.busy
+    assert w.selected_id is None
+    valid = invalid.model_copy(deep=True)
+    valid.exclude_planes = []
+    fitting.configure(valid)
+    wait_for(lambda: fitting.prepared is not None)
+    assert w.fit_button.isEnabled()
+    assert not fitting.blocked
+
+
+def test_setup_edits_mark_the_run_outdated_and_prepare_afresh(workspace, scientific):
+    w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
+    publish(w, scientific[-1])
+    assert fitting.current
+    setup.passes.setValue(3)
+    assert fitting.configuration.fitting.refine_iterations == 3
+    assert not fitting.current
+    assert fitting.prepared is None
+    wait_for(lambda: fitting.prepared is not None)
+    assert '"refine_iterations":3' in fitting.prepared.snapshot.configuration
+    setup.lineshape.setCurrentIndex(setup.lineshape.findData("gaussian"))
+    assert fitting.configuration.fitting.lineshape == "gaussian"
+    assert "Gaussian · explicit" in setup.shapes.text()
+
+
+def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, scientific):
+    w, c, fitting = workspace, workspace.canvas, workspace.fitting
+    wait_for(lambda: fitting.prepared is not None)
+    w._update_inspector()
+    prepared = fitting.prepared
+    # Member rings are the default cue; sampled regions appear only on request.
+    assert not c.regions_visible
+    assert not c.region_image.isVisible()
+    assert "fitting regions" not in c.legend.text()
+    w.panel.setup.regions.setChecked(True)
+    assert c.region_image.isVisible()
+    assert "fitting regions · preview for current settings" in c.legend.text()
+    cluster = next(cl for cl in prepared.clusters if len(cl.peaks) > 1)
+    ids = {i.engine_name: i.working_id for i in prepared.identities}
+    w.select_peak(ids[cluster.peaks[0].name])
+    view, mode, jobs = c.main.getViewBox().viewRange(), c.comparison_mode, c.contour_jobs
+    w._update_inspector()
+    # One tinted cell per sampled point, exactly; the selected cluster is stronger.
+    samples = sum(len(cl.grid_indices[0]) for cl in prepared.clusters)
+    selected = set(zip(*(np.asarray(i).tolist() for i in cluster.grid_indices), strict=True))
+    assert _tinted(c, canvas_module.SELECTED_REGION_ALPHA) == selected
+    assert len(_tinted(c, canvas_module.REGION_ALPHA)) == samples - len(selected)
+    # Each cell is centred on its sample's ppm coordinates.
+    row, column = next(iter(selected))
+    centre = c.region_image.mapToParent(QtCore.QPointF(column + 0.5, row + 0.5))
+    assert centre.x() == pytest.approx(c.ppm_x[column])
+    assert centre.y() == pytest.approx(c.ppm_y[row])
+    assert c.region_image.zValue() < 0  # behind the contours
+    assert (c.comparison_mode, c.contour_jobs) == (mode, jobs)
+    assert view == c.main.getViewBox().viewRange()
+    # After a fit the recorded regions replace the preview, with the run named.
+    result = scientific[-1]
+    publish(w, result)
+    w._update_inspector()
+    assert c.region_source == f"recorded in run {result.run_id[:8]}"
+    # A committed edit hides the preparation at once: no obsolete region is shown.
+    peak = w.peaks[0]
+    w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
+    assert not fitting.current
+    assert fitting.prepared is None
+    assert c.region_source == ""
+    assert not np.any(c.region_image.image[..., 3])
+    wait_for(lambda: fitting.prepared is not None)
+    w._update_inspector()
+    assert c.region_source == "preview for current settings"
+    w.panel.setup.regions.setChecked(False)
+    assert not c.region_image.isVisible()
+    assert "fitting regions" not in c.legend.text()
+
+
+def test_default_lineshape_fallback_is_a_caution_not_a_block(workspace):
+    w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
+    wait_for(lambda: fitting.prepared is not None)
+    shapes = [("¹⁵N", "Pseudo-Voigt", DEFAULT_SOURCE), ("¹H", "SP2", "from NMRPipe apodization")]
+    setup.show_state(fitting.configuration, shapes, fitting.prepared, fitting.blocked)
+    assert setup.shape_caution.isVisible()
+    assert setup.shape_caution.text().startswith("▲ ¹⁵N: no recognized apodization")
+    assert w.fit_button.isEnabled()
+    assert not fitting.blocked

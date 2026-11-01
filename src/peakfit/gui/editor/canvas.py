@@ -29,6 +29,8 @@ _CACHE_BYTES = 32 * 1024**2
 _CACHE_PLANES = 8
 _RESIDUAL = 2
 _RESIDUAL_LEVELS = np.asarray([3.0, 5.0, 8.0, 13.0, 21.0])
+REGION_ALPHA = 0.08  # every fitting region, behind the contours
+SELECTED_REGION_ALPHA = 0.16  # the selected peak's cluster
 
 
 def signed_geometry(data, axes, levels) -> list[tuple[np.ndarray, np.ndarray]]:
@@ -244,6 +246,24 @@ class SpectrumCanvas(QtWidgets.QWidget):
         # mark the unit of review while the selected peak stays the unit of editing.
         self.cluster_rings = self._scatter("o", 14, 29)
         self.cluster_ids: tuple[str, ...] = ()
+        # Fitting regions on request: a faint tint behind the contours, one cell per
+        # sampled point, with the selected peak's cluster slightly stronger.
+        self.region_image = pg.ImageItem(axisOrder="row-major")
+        self.region_image.setZValue(-1)
+        self.region_image.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+        cell = QtGui.QTransform()
+        x0, y0 = (float(axis.pts2ppm(-0.5)) for axis in (self.x_axis, self.y_axis))
+        cell.translate(x0, y0)
+        cell.scale(float(self.x_axis.pts2ppm(0.5)) - x0, float(self.y_axis.pts2ppm(0.5)) - y0)
+        self.region_image.setTransform(cell)
+        self.main.getPlotItem().addItem(self.region_image, ignoreBounds=True)
+        self.region_image.setVisible(False)
+        self.regions_visible = False
+        self.region_key = None
+        self.region_source = ""
+        self._regions: tuple[tuple[str, ...], ...] = ()
+        self._region_labels = np.zeros(0, dtype=np.int32)
+        self._selected_region = -1
         self.halo = self._scatter("o", 15, 31)
         self.ghost = self._scatter("+", 10, 32)
         self.hover_label = self._label(35, (-0.08, 1.15))
@@ -384,6 +404,52 @@ class SpectrumCanvas(QtWidgets.QWidget):
         ]
         self.cluster_rings.setData([p[0] for p in positions], [p[1] for p in positions])
 
+    def set_regions(self, key, regions, source: str) -> None:
+        """Show sampled fitting regions; never changes view, mode or model scope.
+
+        ``regions`` pairs each cluster's sample indices with its working peak IDs;
+        ``source`` says whether they were recorded by a run or merely prepared.
+        """
+        if key == self.region_key:
+            return
+        self.region_key = key
+        self.region_source = source
+        labels = np.zeros((self.y_axis.size, self.x_axis.size), dtype=np.int32)
+        for number, (indices, _members) in enumerate(regions, 1):
+            labels[tuple(np.asarray(i) for i in indices)] = number
+        self._regions = tuple(members for _indices, members in regions)
+        self._region_labels = labels
+        self._selected_region = -1
+        self._place_selected_region()
+        self._update_legend()
+
+    def set_regions_visible(self, visible: bool) -> None:
+        """Explicit display choice; regions stay prepared while hidden."""
+        self.regions_visible = visible
+        self.region_image.setVisible(visible)
+        self._update_legend()
+
+    def _place_selected_region(self) -> None:
+        number = next(
+            (n for n, members in enumerate(self._regions, 1) if self.selected_id in members), 0
+        )
+        if number == self._selected_region:
+            return
+        self._selected_region = number
+        self._paint_regions()
+
+    def _paint_regions(self) -> None:
+        """Tint exactly the sampled points: all clusters faintly, the selected one more."""
+        labels = self._region_labels
+        tint = np.zeros((*labels.shape, 4), dtype=np.uint8)
+        layers = ((REGION_ALPHA, self.theme.secondary, labels > 0),)
+        if self._selected_region:
+            layers += ((SELECTED_REGION_ALPHA, self.theme.accent, labels == self._selected_region),)
+        for alpha, value, mask in layers:
+            rgb = QtGui.QColor(value)
+            tint[mask] = (rgb.red(), rgb.green(), rgb.blue(), round(255 * alpha))
+        self.region_image.setImage(tint, autoLevels=False, levels=(0, 255))
+
     def _selection_ring(self) -> None:
         peak = self._by_id.get(self.selected_id or "")
         if peak is None:
@@ -395,6 +461,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self.selection_label.setText(peak.name)
             self.selection_label.setPos(x, y)
         self._place_cluster_rings()
+        self._place_selected_region()
 
     def hover(self, peak_id: str | None, *, from_list: bool = False) -> None:
         """Change transient feedback only, preserving editor drafts and selection."""
@@ -936,6 +1003,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
             items = [key(t.measured, solid, "measured +"), key(t.measured_negative, dashed, "−")]
             if self.comparison_mode == 1:
                 items.append(key(t.model, solid, "model"))
+        if self.regions_visible and self.region_source:
+            items.append(key(t.secondary, "▭", f"fitting regions · {self.region_source}"))
         self.legend.setText(
             f'<div style="color:{t.secondary};font-size:{FONT_CAPTION}px">'
             + "&nbsp;&nbsp;&nbsp;".join(items)
@@ -972,6 +1041,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
         self.ring.setPen(pg.mkPen(t.accent, width=2))
         self.cluster_rings.setPen(pg.mkPen(color(t.accent, 0.6), width=1.2))
+        if self._region_labels.size:
+            self._paint_regions()
         self.halo.setPen(pg.mkPen(color(t.accent, 0.8), width=1.2))
         self.ghost.setPen(pg.mkPen(t.pin, width=2))
         fill = pg.mkBrush(color(t.plot, 0.86))

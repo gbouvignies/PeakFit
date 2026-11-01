@@ -237,7 +237,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self.fit_action = self._action(
             self.analysis_menu, "Fit dataset", self.fit_dataset, "Ctrl+Return"
         )
-        self.settings_action = self._action(self.analysis_menu, "Fit settings…", self.fit_settings)
+        self.settings_action = self._action(self.analysis_menu, "Fit setup", self.fit_setup)
         self.fit_action.setEnabled(False)
         self.settings_action.setEnabled(False)
         help_menu = self.menuBar().addMenu("&Help")
@@ -250,10 +250,10 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         if self.workspace and not self._busy:
             self.workspace.fitting.fit()
 
-    def fit_settings(self) -> None:
-        """Explicitly review settings; Cancel preserves accepted comparison."""
-        if self.workspace and not self._busy:
-            self.workspace.fitting.fit(settings=True)
+    def fit_setup(self) -> None:
+        """Open the inspector at the fit setup."""
+        if self.workspace:
+            self.workspace.show_fit_setup()
 
     def export_fit_dialog(self) -> bool:
         """Export the retained scientific run using the canonical writers."""
@@ -432,7 +432,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             for action in (self.open_action, self.import_action, self.values_action):
                 action.setEnabled(not w.fit_busy and not self._busy)
             self.fit_action.setEnabled(bool(w.peaks) and not w.fit_busy)
-            self.settings_action.setEnabled(bool(w.peaks) and not w.fit_busy)
+            self.settings_action.setEnabled(True)
             self.fit_export_action.setEnabled(w.fitting.result is not None and not w.fit_busy)
 
         self._analysis_actions()

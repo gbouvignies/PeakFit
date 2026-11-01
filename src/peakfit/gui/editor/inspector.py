@@ -1,4 +1,6 @@
-"""Right inspector: the selected peak's position, recorded results and cluster review.
+"""Right inspector: the selected peak's results and review, or the fit setup.
+
+With nothing selected the inspector shows the fit setup and the active run.
 
 Every value shown comes from the completed outcome as recorded; the inspector
 never refits, re-solves amplitudes or recomputes statistics.
@@ -13,7 +15,9 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editing import PeakInspector
+from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
+from peakfit.gui.editor.setup import FitSetup
 
 if TYPE_CHECKING:
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome
@@ -135,15 +139,6 @@ class PreciseInspector(PeakInspector):
         return super().eventFilter(watched, event)
 
 
-def _label(text: str = "", name: str = "", *, wrap: bool = False) -> QtWidgets.QLabel:
-    label = QtWidgets.QLabel(text)
-    if name:
-        label.setObjectName(name)
-    label.setWordWrap(wrap)
-    label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
-    return label
-
-
 def _clear(layout: QtWidgets.QLayout) -> None:
     """Remove every widget and nested row layout from a section."""
     while layout.count():
@@ -186,7 +181,6 @@ class Inspector(QtWidgets.QScrollArea):
 
     plane_requested = QtCore.Signal(int)
     next_warning = QtCore.Signal()
-    settings_requested = QtCore.Signal()
 
     def __init__(self, x_axis, y_axis, decimals: tuple[int, int]) -> None:  # noqa: PLR0915
         super().__init__()
@@ -270,14 +264,9 @@ class Inspector(QtWidgets.QScrollArea):
         analysis = QtWidgets.QVBoxLayout(self.analysis_page)
         analysis.setContentsMargins(0, themes.SPACE_XS, 0, 0)
         analysis.setSpacing(themes.SPACE_S)
-        self._section(analysis, "Fit settings")
-        self.settings = QtWidgets.QGridLayout()
-        self.settings.setHorizontalSpacing(themes.SPACE_M)
-        self.settings.setVerticalSpacing(4)
-        analysis.addLayout(self.settings)
-        self.settings_button = QtWidgets.QPushButton("Review fit settings…")
-        self.settings_button.clicked.connect(self.settings_requested)
-        analysis.addWidget(self.settings_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        self._section(analysis, "Fit setup")
+        self.setup = FitSetup()
+        analysis.addWidget(self.setup)
         self._section(analysis, "Active run")
         self.run_text = _label("", "", wrap=True)
         analysis.addWidget(self.run_text)
@@ -331,24 +320,17 @@ class Inspector(QtWidgets.QScrollArea):
         """Move the profile's plane marker only."""
         self.profile.set_plane(plane)
 
-    def show_analysis(
-        self, title: str, summary: str, settings: list[tuple[str, str]], run: str, note: str
-    ) -> None:
-        """No selection: what will be fitted and what the active run recorded."""
+    def show_analysis(self, title: str, summary: str, run: str, note: str) -> None:
+        """No selection: the fit setup and what the active run recorded."""
         if self._peak is not None:
             return
         self.kind.setText("ANALYSIS")
         self.title.setText(title)
         self.status.setText(summary)
-        key = ("analysis", tuple(settings), run, note)
+        key = ("analysis", run, note)
         if key == self._key:
             return
         self._key = key
-        _clear(self.settings)
-        for row, (name, value) in enumerate(settings):
-            self.settings.addWidget(_label(name, "muted"), row, 0)
-            self.settings.addWidget(_label(value, "", wrap=True), row, 1)
-        self.settings.setColumnStretch(1, 1)
         self.run_text.setText(run)
         self.next_button.setVisible("warning" in run)
         self.analysis_note.setText(note)

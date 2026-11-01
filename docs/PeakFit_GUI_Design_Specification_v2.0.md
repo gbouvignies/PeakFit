@@ -145,9 +145,11 @@ They are compositions, not production screenshots or new fit evidence.
 ![Before the first fit: Peaks navigator, cluster preview on the spectrum and fit setup in the inspector](images/gui-v2.1-before-fit.webp)
 
 The navigator shows Peaks. The spectrum shows experimental contours with visible
-markers. With nothing selected, the inspector shows the fit setup, and **Preview
-clusters** draws the clusters of the exact prepared problem on the spectrum (§7).
-Only Experimental is available; Overlay and Residual explain why.
+markers. With nothing selected, the inspector shows the fit setup, which prepares
+the exact fitting problem in the background and reports its cluster and sample
+counts (§7). Sampled fitting regions are drawn on the spectrum only on request;
+the mockup shows that optional display. Only Experimental is available; Overlay
+and Residual explain why.
 
 ### B. Overview after fitting: find what deserves attention
 
@@ -158,8 +160,9 @@ in the markers, navigator and inspector. It preserves viewport, selection and pa
 visibility; a selected-peak pin follows the optimized peak once, while a free
 inspection pin stays fixed. The total model includes every usable cluster. The
 navigator switches to Clusters with warnings, measures, heuristics, sorting and
-filters (§8). Selecting a cluster highlights its members and recorded fitting
-region; it neither isolates its model nor changes the viewport. **Frame cluster**
+filters (§8). Selecting a cluster marks its other members with light rings and,
+when fitting regions are shown, emphasizes its recorded region (§7); it neither
+isolates its model nor changes the viewport. **Frame cluster**
 is an explicit action.
 The mockup shows the overview after the user switched to Experimental.
 
@@ -461,26 +464,31 @@ change marks an existing run Outdated. Supported settings round-trip through the
 engine configuration; unrepresented settings are never silently discarded. v2
 provides no plane-exclusion workflow; every source plane is fitted.
 
-**Clustering preview.** **Preview clusters**, on by default in the fit setup,
-prepares the exact fitting problem off Qt with the same preparation function that
-Fit submits, and draws its clusters on the spectrum: member grouping and sampled
-fitting regions, with cluster and sample counts and any omitted or ambiguous peaks
-with reasons. It depends only on working peaks, scientific settings and source
-data, never on display contour threshold, spacing or count, which are labeled
-display-only. A committed change hides the preview and starts a fresh preparation;
-an obsolete preview is never shown. After a fit, the spectrum can show the active
-run's recorded fitting regions; a preview for changed settings is labeled “Preview
-for current settings”, distinct from “Recorded in run N”.
+**Clustering preview.** The fit setup always prepares the exact fitting problem
+off Qt, with the same preparation function that Fit submits, and reports cluster
+and sample counts and any omitted or ambiguous peaks with reasons. It depends only
+on working peaks, scientific settings and source data, never on display contour
+threshold, spacing or count, which are labeled display-only. A committed change
+hides the preparation and starts a fresh one; an obsolete preparation is never
+shown.
+
+**Fitting regions** are an optional display, off by default: **Show sampled
+fitting regions** tints each cluster's exact sampled points faintly behind the
+contours, the selected peak's cluster slightly more. Cluster membership is
+otherwise shown by the member rings (§3 B). The regions are the active run's
+recorded ones while it is Current, labeled “Recorded in run N”, and otherwise
+the current preparation's, labeled “Preview for current settings”.
 
 **Running.** **Fit** (toolbar, Cmd/Ctrl+Return) commits valid drafts and submits
 the prepared snapshot that the setup describes; the executed snapshot is the
 reviewed one. Safeguards replace the confirmation dialog: the first Fit of an
 analysis whose setup has not been displayed in this session reveals the Analysis
 page instead of running, and the next Fit runs; Fit is disabled, with the reason
-in the setup, when an automatic lineshape cannot be resolved or conflicts with
-processing metadata, when bounds are invalid, when statistical noise is not finite
+in the setup, when an automatic lineshape conflicts with processing metadata,
+when bounds are invalid, when statistical noise is not finite
 and positive, or when preparation reports newly omitted or ambiguous peaks. No peak
-is silently omitted. A statistical-noise override records its value and source.
+is silently omitted. An automatic lineshape that falls back to the default model
+because no apodization is recognized is a visible caution, not a block. A statistical-noise override records its value and source.
 Display-contour noise/threshold changes never alter clustering, samples,
 statistical noise, starts, bounds or run readiness.
 
