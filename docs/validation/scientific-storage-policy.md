@@ -16,8 +16,9 @@ user-facing contract.
 Default scientific exports retain published results, exact terminal corrections,
 exact observation dtype/checksums, masks/plane identities, model descriptors and
 small evaluator references, with CSV tables and one short report. Large observed,
-model and residual matrices are absent; JSON and executable pickle are no longer
-default outputs. Both interfaces use one writer, scientific schema and reader.
+model and residual matrices are absent; only the per-cluster largest recorded
+residual is retained as a scalar so review measures survive without the source.
+JSON and executable pickle are no longer default outputs. Both interfaces use one writer, scientific schema and reader.
 
 The audit's 5.77 MB estimate omitted terminal corrections. Retaining them adds
 about 6.16 MB plus the small reference/checksum budget; omitting them would lose

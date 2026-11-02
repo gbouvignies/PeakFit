@@ -49,6 +49,9 @@ class Highlight:
     peak: str | None = None  # working ID, or None for the whole cluster
 
 
+NOT_RETAINED = "not retained by this project"
+
+
 @dataclass(frozen=True, slots=True)
 class CollinearShapes:
     """Two members whose recorded fitted shapes are near-collinear (working IDs)."""
@@ -82,7 +85,7 @@ class ClusterReview:
     names: tuple[str, ...]
     warnings: tuple[NumericalWarning, ...]
     chi2: float  # NaN when no analytical evaluation was recorded
-    largest_residual: float  # in σ; NaN when unavailable
+    largest_residual: float | None  # in σ; NaN without evaluation; None when not retained
     samples: int
     correlation: float  # largest |ρ|; NaN when unavailable or one peak
     highlights: tuple[Highlight, ...]
@@ -208,10 +211,6 @@ def review_clusters(
                             )
                         )
         evaluation = cluster.analytical_evaluation
-        sampled = cluster.sample_evaluation
-        residuals = (
-            np.asarray(sampled.normalized_residuals, dtype=float) if sampled is not None else None
-        )
         reviews.append(
             ClusterReview(
                 cluster.cluster_id,
@@ -219,9 +218,7 @@ def review_clusters(
                 tuple(identities[n].assignment for n in names),
                 _warnings(cluster),
                 float(evaluation.statistics.reduced_chi_squared) if evaluation else math.nan,
-                float(np.max(np.abs(residuals)))
-                if residuals is not None and residuals.size
-                else math.nan,
+                evaluation.largest_recorded_residual if evaluation else math.nan,
                 int(evaluation.statistics.n_observations) if evaluation else 0,
                 correlation,
                 tuple(highlights),

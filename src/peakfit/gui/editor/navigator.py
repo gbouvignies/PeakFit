@@ -6,7 +6,12 @@ from typing import TYPE_CHECKING, Any, cast
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.gui import theme as themes
-from peakfit.gui.editor.review import HIGHLIGHT_KINDS, WARNING_KINDS, HighlightRules
+from peakfit.gui.editor.review import (
+    HIGHLIGHT_KINDS,
+    NOT_RETAINED,
+    WARNING_KINDS,
+    HighlightRules,
+)
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
@@ -418,7 +423,12 @@ class Navigator(QtWidgets.QWidget):
         item.setToolTip(1, " · ".join(names))
         chi2, largest, rho = review.chi2, review.largest_residual, review.correlation
         item.setText(2, f"{chi2:.2f}" if math.isfinite(chi2) else "–")
-        item.setText(3, f"{largest:.1f}" if math.isfinite(largest) else "–")
+        if largest is None:
+            item.setText(3, "n/a")
+            item.setToolTip(3, f"Largest recorded residual {NOT_RETAINED}")
+            largest = math.nan
+        else:
+            item.setText(3, f"{largest:.1f}" if math.isfinite(largest) else "–")
         item.setText(4, "–" if review.single else f"{rho:.2f}" if math.isfinite(rho) else "n/a")
         if not review.single and not math.isfinite(rho):
             item.setToolTip(4, "Amplitude covariance unavailable for this cluster")

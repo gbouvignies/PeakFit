@@ -129,6 +129,19 @@ Short records of non‑obvious design choices and trade‑offs.
 - Undo back to a run's exact inputs still leaves that run Outdated, as before:
   returning values through Undo does not recertify a run (docs/architecture.md).
 
+## 2026-11-02: The largest recorded residual is a retained scalar of the published result
+- The review measure "largest recorded residual" was computed from dense
+  normalized residuals, which projects and default exports do not retain, so it
+  vanished after Save and reopen. It is now `largest_recorded_residual` on
+  `FinalAnalyticalResult`, computed once at finalization from the live recorded
+  optimizer residuals and written by the single scientific writer at every
+  evidence level (scientific archive 2.1.0), so CLI exports carry it too.
+- Its sample count is the existing `statistics.n_observations`; no second count is
+  stored. Dense residuals stay out of projects. The whole-spectrum residual is
+  never used for it.
+- Archives written before 2.1.0 read it as `None`; the GUI says "not retained by
+  this project" instead of showing a dash or recomputing. No migration.
+
 ## 2026-11-02: A refit continues unchanged peaks from the active run
 - Adopting fitted positions while restarting every linewidth at 20 Hz gave starts
   that matched no solution; on the bundled data the second fit collapsed the
