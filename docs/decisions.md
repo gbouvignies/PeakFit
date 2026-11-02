@@ -114,8 +114,8 @@ Short records of non‑obvious design choices and trade‑offs.
 - Distance to the nearest working peak is Euclidean in native samples: the two axes
   have no common ppm scale, and samples are also the unit of the region size. The
   list shows the ppm location of each region's extreme sample.
-- The list is computed only for a Current run: an Outdated run's model no longer
-  corresponds to the working peaks it would be measured against.
+- An Outdated run's list is its historical residual, labelled with the run; see
+  "An Outdated run stays a labelled historical comparison" below.
 
 ## 2026-11-02: The lens keeps its region for peaks the run has not fitted
 - A peak just added belongs to no recorded cluster. Following only the selected
@@ -128,3 +128,19 @@ Short records of non‑obvious design choices and trade‑offs.
   members as having left.
 - Undo back to a run's exact inputs still leaves that run Outdated, as before:
   returning values through Undo does not recertify a run (docs/architecture.md).
+
+## 2026-11-02: An Outdated run stays a labelled historical comparison
+- Scientists make several corrections before refitting. Withdrawing Overlay,
+  Residual, the lens panels and the unexplained list at the first commit removed
+  the residual that guides the next correction, so the Outdated run's immutable
+  model stays on show, labelled “Run 5d7b4768 · historical” wherever it appears.
+  Current/Outdated is unchanged and Undo never recertifies a run.
+- It is shown only on the data the run recorded: spectral axes, source plane
+  indices, plane values and the spectrum's identity, shape and source files must
+  match the run's input snapshot. Otherwise it is withdrawn with the reason.
+- Working peaks are compared with the run's adopted working peaks by stable ID: ◇
+  marks a peak the model does not contain; × the model's position of a peak moved or
+  deleted since, so a residual centred on the old position is read correctly.
+- The unexplained list keeps the run's regions but measures distances to the
+  current working peaks, recomputed after every edit and said in its note: the
+  question while correcting is whether a working peak already covers a region.

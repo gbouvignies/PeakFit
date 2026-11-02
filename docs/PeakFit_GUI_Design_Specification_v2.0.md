@@ -187,8 +187,9 @@ the previous mode. The plane strip and profile points change plane in the lens.
 
 Drafts and commits follow §4–§5 in the overview and in every lens panel. An
 uncommitted draft keeps the accepted comparison visible and labeled. A commit
-makes the run Outdated; overlay and residual panels then show “Outdated · fit to
-compare” rather than stale data. **Fit** refits the whole dataset; the lens stays
+makes the run Outdated; its model and residual stay on show as **historical
+evidence** (§8), so several corrections can follow one residual before the next
+fit. **Fit** refits the whole dataset; the lens stays
 open on the cluster identified by its members' stable IDs. If membership changed,
 the lens says so and offers the new cluster containing the selected peak.
 
@@ -207,6 +208,12 @@ the lens says so and offers the new cluster containing the selected peak.
   previous run says which peaks it is now fitted with, with a link back to the
   cluster that was on show. The line stays until the lens moves to an unrelated
   cluster, closes or the next fit completes.
+- **Historical comparison.** After a commit the overlay and residual panel titles
+  and the row caption name the run (“Whole-spectrum residual · Run 5d7b4768 ·
+  historical”), and the header says “model and residual are historical”. Those
+  panels mark working peaks the model does not contain with ◇, and the model's
+  recorded positions of peaks moved or deleted since with ×, joined by a dotted
+  line to where a peak now is.
 - **Cancel or failure** keeps the previous run, every working edit and the lens.
 
 At 1280×800 with both side panels open, the 2D plot is at least about 560×480 px.
@@ -224,7 +231,7 @@ hiding a panel; later resizing preserves choices.
 | Draft | Uncommitted text or drag position, visibly marked Draft. Keep the valid accepted comparison and committed marker visible. A drag uses a distinct ghost marker; a text draft does not move the marker. No scientific revision or model recomputation until commit; Escape removes the draft without display transitions. |
 | Working inputs | Committed peaks, model settings, bounds/freedom, source data and plane mapping used for the next fit. Undoable edits; separate from results. |
 | Accepted result | Atomically published completed run with exact submitted input snapshot and a recorded fit-derived working state. Optimized working positions and accepted result arrive together, Current. No Apply/transfer/accept step. Acceptance means retained evidence, not scientific endorsement. |
-| Outdated result | Working scientific inputs changed after that run. Preserve its numerical inspection, provenance, warnings and export. Disable live Overlay/Residual and sampling from the working workspace. |
+| Outdated result | Working scientific inputs changed after that run. Preserve its numerical inspection, provenance, warnings and export. Its model and residual remain comparable as labelled historical evidence while the spectrum, axes and plane mapping are those it recorded (§8); its statistics are never presented as measurements of the working model. Undo never makes it Current again. |
 
 Saving a project is independent of fitting: **Modified** means unsaved analysis;
 **Outdated** means working state no longer matches the verified run-derived state.
@@ -569,6 +576,32 @@ saturation indicators. No extra permanent control. Both renderings use the same
 native total residual; no smoothing, denoising or sample interpolation. Contour
 geometry interpolates crossings, not observations. Missing samples stay absent.
 
+### Historical comparison after an edit
+
+An Outdated run keeps Overlay, Residual, the lens panels and the unexplained-signal
+list available as **historical** comparisons: the immutable recorded model of that
+run, against the same measured planes. Nothing is refitted and Current/Outdated is
+unchanged.
+
+- **Labelled everywhere.** Every view of that model names the recorded run: the
+  in-plot legend and pending label (“model · Run 5d7b4768 · historical”), the status
+  bar sample text (“σ_stat residual · residual of Run 5d7b4768 · historical”), the
+  mode-button tooltips, the lens panel titles and row caption, and the unexplained
+  list title.
+- **What changed since.** Compared with the run's adopted working peaks by stable
+  ID, a working peak the run did not fit is marked ◇ (“not in this model”); a
+  model peak moved or deleted since is drawn as × at its recorded position, with a
+  dotted line to its working marker. The marks show only with a model on show.
+- **Compatible data only.** The run's input snapshot must match the working data:
+  spectral axes, source plane indices, plane values, and spectrum identity, shape
+  and source files. Otherwise the comparison is withdrawn with the reason
+  (“Unavailable: Run 5d7b4768 was recorded with different plane values”) in the
+  mode tooltips, the lens panels and the unexplained list, and the overview returns
+  to Experimental.
+- **No borrowed statistics.** Cluster and peak pages keep saying “Recorded by an
+  outdated run”; fitting statistics stay the run's and are not presented as
+  measurements of the working model.
+
 ### Stable signed 1D scale
 
 Use a symmetric signed range `[-S,+S]`, a visible zero and labeled values/units.
@@ -667,8 +700,12 @@ working peak.
 - Selecting a region frames it with at least 24 points of context on each side and
   places the slices through its extreme; plane, comparison mode and selection are
   kept.
-- A list belongs to one run, plane and threshold. It is not computed for an Outdated
-  run, because the working peaks would not match the model.
+- A list belongs to one run, plane and threshold. For an Outdated run it is the
+  historical residual of that run, titled with it (“· Run 5d7b4768 · historical”);
+  the regions are the run's, while distances are to the **current** working peaks,
+  recomputed after each edit and stated in the note, and a nearest peak added since
+  the run carries ◇. Distances to working peaks are what tell the scientist whether
+  a correction already covers a region.
 
 The list never adds or proposes peaks, never flags a cluster and does not imply a
 poor fit of the peaks chosen for analysis; unmodelled signals may be deliberately

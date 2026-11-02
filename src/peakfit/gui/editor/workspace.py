@@ -24,6 +24,7 @@ from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
 from peakfit.gui.editor.unexplained import (
     DEFAULT_THRESHOLD,
     UnexplainedRegion,
+    nearest_peak,
     unexplained_regions,
 )
 from peakfit.gui.fit_display import dataset_model_plane
@@ -414,12 +415,13 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def set_mode(self, mode: int) -> None:
         """One visible choice controls the plane and both aligned slices."""
-        result = self.fitting.result if self.fitting.current else None
+        comparison = self.fitting.comparison
+        result = comparison.result
         if result is None or not any(c.usable for c in result.outcome.clusters):
             mode = 0
         for index, button in enumerate(self.mode_buttons):
             button.setChecked(index == mode)
-        self.canvas.set_comparison(result, mode)
+        self.canvas.set_comparison(result, mode, label=comparison.label)
 
     @property
     def peaks(self):
@@ -910,8 +912,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.guidance_changed.emit(self.guidance())
 
     def _unexplained_key(self):
-        result = self.fitting.result
-        if result is None or not self.fitting.current:
+        result = self.fitting.comparison.result
+        if result is None:
             return None
         return (result.run_id, self.canvas.plane, self.unexplained_threshold)
 
@@ -920,20 +922,12 @@ class EditorWorkspace(QtWidgets.QWidget):
         key = self._unexplained_key()
         if key is None or key == self._unexplained[0]:
             return
-        result, plane, threshold = self.fitting.result, self.canvas.plane, key[2]
+        result, plane, threshold = self.fitting.comparison.result, self.canvas.plane, key[2]
         assert result is not None
         observed = self.dataset.spectra.data[plane]
         axes = [axis.model_copy(deep=True) for axis in self.dataset.spectra.spectral_params]
         cached = self.canvas._model_cache.get((result.run_id, plane))
-        y_axis, x_axis = self.canvas.y_axis, self.canvas.x_axis
-        peaks = [
-            (
-                peak.id,
-                float(y_axis.ppm2pts(display_position(y_axis, peak.positions[0]))),
-                float(x_axis.ppm2pts(display_position(x_axis, peak.positions[1]))),
-            )
-            for peak in self.peaks
-        ]
+        peaks = self._native_peaks()
 
         self._unexplained_cancel.set()
         self._unexplained_cancel = cancel = Event()
@@ -947,6 +941,18 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._unexplained_revision += 1
         self._unexplained_worker.submit("unexplained", self._unexplained_revision, compute)
         self._show_unexplained()
+
+    def _native_peaks(self) -> list[tuple[str, float, float]]:
+        """Working peaks as (ID, row, column) in fractional native samples."""
+        y_axis, x_axis = self.canvas.y_axis, self.canvas.x_axis
+        return [
+            (
+                peak.id,
+                float(y_axis.ppm2pts(display_position(y_axis, peak.positions[0]))),
+                float(x_axis.ppm2pts(display_position(x_axis, peak.positions[1]))),
+            )
+            for peak in self.peaks
+        ]
 
     def _unexplained_ready(self, _kind: str, revision: int, outcome: object) -> None:
         if revision != self._unexplained_revision:
@@ -972,11 +978,18 @@ class EditorWorkspace(QtWidgets.QWidget):
         if fitting.result is None or fitting.busy:
             self.panel.show_unexplained(button, False, "", [], "Available after a fit. " + note)
             return
+        comparison = fitting.comparison
         if key is None:
             self.panel.show_unexplained(
-                button, False, "Outdated · fit to compare with the working peaks", [], note
+                button, False, f"Unavailable: {comparison.reason}", [], note
             )
             return
+        if comparison.historical:
+            # The residual is the run's; distances are to today's working peaks.
+            note = (
+                f"Residual of {comparison.label}. Distances are to the current working "
+                "peaks; ◇ marks a peak added since that run. " + note
+            )
         found_key, outcome = self._unexplained
         if found_key != key:
             self.panel.show_unexplained(button, True, "", [], note)
@@ -993,7 +1006,16 @@ class EditorWorkspace(QtWidgets.QWidget):
             f"Plane {plane + 1} · "
             + (f"{count} region{'s' if count != 1 else ''}" if count else "no region")
             + f" beyond ±{k} σ_stat"
+            + (f" · {comparison.label}" if comparison.historical else "")
         )
+        if comparison.historical:
+            # The run's regions stay; nearest peaks follow the edits since that run.
+            peaks = self._native_peaks()
+            regions = [
+                replace(region, nearest=nearest, distance=distance)
+                for region in regions
+                for nearest, distance in (nearest_peak(region.row, region.column, peaks),)
+            ]
         names = {peak.id: peak.name for peak in self.peaks}
         canvas = self.canvas
         x, y = (formatting.nucleus(a.nucleus, a.label) for a in (canvas.x_axis, canvas.y_axis))
@@ -1005,6 +1027,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
             nearest = (
                 f" · {region.distance:.1f} pts from {names.get(region.nearest, '')}"
+                + (" ◇" if region.nearest in comparison.added else "")
                 if region.nearest is not None
                 else ""
             )
@@ -1107,9 +1130,14 @@ class EditorWorkspace(QtWidgets.QWidget):
         samples = next(s for s in result.completed_fit.samples if s.cluster_id == review.cluster_id)
         canvas = self.canvas
         self.lens.editing_enabled = not self.fit_busy
+        comparison = self.fitting.comparison
         self.lens.show_cluster(
             result,
             current=bool(self.fitting.current),
+            label=comparison.label,
+            withdrawn=comparison.reason,
+            added=comparison.added,
+            departed=comparison.departed,
             ids=review.ids,
             names=review.names,
             selected=self.selected_id,

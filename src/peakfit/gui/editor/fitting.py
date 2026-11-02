@@ -1,6 +1,6 @@
 """Whole-dataset execution and atomic completion in the existing editor workspace."""
 
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import TYPE_CHECKING
@@ -22,6 +22,53 @@ from peakfit.gui.session_evidence import SessionEvidence
 if TYPE_CHECKING:
     from peakfit.gui.editor.workspace import EditorWorkspace
     from peakfit.gui.fitting import FitInputSnapshot
+    from peakfit.gui.peaks import WorkingPeak
+
+
+@dataclass(frozen=True)
+class Comparison:
+    """The run whose model and residual the spectral views compare with, if any.
+
+    A current run compares directly. After working inputs change, the Outdated run
+    stays comparable as *historical* evidence while it was recorded on the same
+    spectrum, axes and planes; ``reason`` says why it was withdrawn otherwise.
+    ``added`` holds working IDs that run did not fit; ``departed`` the run's
+    adopted peaks that were moved or deleted since, at their recorded positions.
+    """
+
+    result: DatasetFitResult | None = None
+    historical: bool = False
+    reason: str = ""
+    added: frozenset[str] = frozenset()
+    departed: tuple[WorkingPeak, ...] = field(default=())
+
+    @property
+    def label(self) -> str:
+        """The recorded run identity every historical display carries; empty if current."""
+        if self.result is None or not self.historical:
+            return ""
+        return f"Run {self.result.run_id[:8]} · historical"
+
+
+def comparison_mismatch(recorded: FitInputSnapshot, working: FitInputSnapshot) -> str:
+    """Why a run's model cannot be compared with the working data, or an empty string.
+
+    The model of plane i is compared with measured plane i on the same axes, so the
+    spectrum, its axes and its plane mapping must be the ones the run recorded.
+    """
+    if recorded.spectral_parameters != working.spectral_parameters:
+        return "recorded with different spectral axes"
+    if recorded.source_plane_indices != working.source_plane_indices:
+        return "recorded on a different selection of planes"
+    if recorded.plane_values != working.plane_values:
+        return "recorded with different plane values"
+    if (recorded.spectrum_id, recorded.data_shape, recorded.source_files) != (
+        working.spectrum_id,
+        working.data_shape,
+        working.source_files,
+    ):
+        return "recorded on a different spectrum"
+    return ""
 
 
 class DatasetFitting(QtCore.QObject):
@@ -110,6 +157,39 @@ class DatasetFitting(QtCore.QObject):
         """Only the recorded completion transition can certify optimized starts."""
         return self.completion is not None and self.completion.is_current(
             self.snapshot(self.completion.result.inputs.snapshot), self.workspace.edits.revision
+        )
+
+    @property
+    def comparison(self) -> Comparison:
+        """The current run, else the Outdated run as historical evidence on the same data.
+
+        Currentness is unchanged: a historical comparison never certifies the run.
+        """
+        completion = self.completion
+        if completion is None:
+            return Comparison()
+        result = completion.result
+        if self.current:
+            return Comparison(result)
+        recorded = result.inputs.snapshot
+        working = replace(
+            self.snapshot(recorded),
+            source_plane_indices=tuple(self.workspace.dataset.spectra.source_plane_indices),
+        )
+        reason = comparison_mismatch(recorded, working)
+        if reason:
+            return Comparison(reason=f"Run {result.run_id[:8]} was {reason}")
+        fitted = {p.id: p for p in completion.working_peaks}
+        working_peaks = {p.id: p for p in self.workspace.peaks}
+        return Comparison(
+            result,
+            historical=True,
+            added=frozenset(working_peaks.keys() - fitted.keys()),
+            departed=tuple(
+                p
+                for p in completion.working_peaks
+                if p.id not in working_peaks or working_peaks[p.id].positions != p.positions
+            ),
         )
 
     def _inputs(self):
@@ -397,10 +477,9 @@ class DatasetFitting(QtCore.QObject):
         # While a fit runs its settings cannot change; the run line needs the room.
         w.settings_button.setVisible(not busy)
         w.cancel_fit.setVisible(busy)
-        usable = (
-            self.current
-            and self.result is not None
-            and any(c.usable for c in self.result.outcome.clusters)
+        comparison = self.comparison
+        usable = comparison.result is not None and any(
+            c.usable for c in comparison.result.outcome.clusters
         )
         lens = getattr(w, "lens_open", False)
         for button in w.mode_buttons:
@@ -408,13 +487,25 @@ class DatasetFitting(QtCore.QObject):
             button.setToolTip(
                 "The lens shows all three views; return to the spectrum to choose one"
                 if lens
+                else f"Compares with {comparison.label}"
+                if usable and comparison.historical and button is not w.mode_buttons[0]
                 else ""
                 if usable or button is w.mode_buttons[0]
-                else "Requires a current result with usable clusters"
+                else f"Unavailable: {comparison.reason}"
+                if comparison.reason
+                else "Requires a run with usable clusters"
             )
         w.pin_button.setEnabled(w.pin_button.isEnabled() and not lens)
-        if not self.current and w.canvas.comparison_result is not None:
-            w.set_mode(0)
+        canvas = w.canvas
+        if canvas.comparison_result is not None and (
+            comparison.result is not canvas.comparison_result
+            or comparison.historical != canvas.historical
+        ):
+            # Withdraw an incompatible model, or relabel the same run as historical.
+            w.set_mode(canvas.comparison_mode if usable else 0)
+            if not usable and comparison.reason:
+                w.status.setText(f"Comparison withdrawn: {comparison.reason}")
+        canvas.set_changes(comparison.added, comparison.departed)
         if busy:
             stage = self.process.progress if self.process.busy else self.attempt
             if self.process.state == "canceling":

@@ -33,6 +33,17 @@ class UnexplainedRegion:
     distance: float  # from the location to that peak, in samples on the native grid
 
 
+def nearest_peak(
+    row: int, column: int, peaks: Sequence[tuple[str, float, float]]
+) -> tuple[str | None, float]:
+    """The working ID nearest a sample and its distance in native samples, if any peak."""
+    if not peaks:
+        return None, float("nan")
+    distances = [np.hypot(r - row, c - column) for _id, r, c in peaks]
+    closest = int(np.argmin(distances))
+    return peaks[closest][0], float(distances[closest])
+
+
 def unexplained_regions(
     residual: np.ndarray,
     threshold: float,
@@ -50,11 +61,7 @@ def unexplained_regions(
             values = np.where(inside, sign * residual[extent], -np.inf)
             local = np.unravel_index(int(np.argmax(values)), values.shape)
             row, column = extent[0].start + int(local[0]), extent[1].start + int(local[1])
-            nearest, distance = None, float("nan")
-            if peaks:
-                distances = [np.hypot(r - row, c - column) for _id, r, c in peaks]
-                closest = int(np.argmin(distances))
-                nearest, distance = peaks[closest][0], float(distances[closest])
+            nearest, distance = nearest_peak(row, column, peaks)
             regions.append(
                 UnexplainedRegion(
                     row=row,

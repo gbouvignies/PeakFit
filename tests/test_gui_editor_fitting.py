@@ -30,7 +30,7 @@ from peakfit.gui.editor.profile import (
     peak_profile,
 )
 from peakfit.gui.editor.setup import DEFAULT_SOURCE
-from peakfit.gui.editor.unexplained import unexplained_regions
+from peakfit.gui.editor.unexplained import nearest_peak, unexplained_regions
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
@@ -117,10 +117,14 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     peak = w.peaks[0]
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.00001))
     assert not w.fitting.current
-    assert c.comparison_mode == 0
+    # The Outdated run's residual stays, explicitly historical; nothing is refitted.
+    assert c.comparison_mode == 2
+    assert c.comparison_result is result
+    assert c.comparison_label == f"Run {result.run_id[:8]} · historical"
     w.history(False)
     assert w.peaks == w.fitting.completion.working_peaks
-    assert not w.fitting.current
+    assert not w.fitting.current  # Undo never recertifies a run
+    assert w.fitting.comparison.historical
     path = export_fit_result(
         result, tmp_path / "result", completion=w.fitting.completion, current=w.fitting.current
     )
@@ -1400,13 +1404,19 @@ def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scient
     w.set_plane(2)
     wait_for(lambda: not lens.pending)
     assert lens.plane == 1
-    # A committed edit makes the run Outdated: no stale model in the lens.
+    # A committed edit makes the run Outdated: its model stays, labelled historical.
     peak = next(p for p in w.peaks if p.id == member)
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
     wait_for(lambda: not lens.pending)
-    assert lens.unavailable[1].toPlainText() == "Outdated · fit to compare"
-    assert lens.unavailable[2].toPlainText() == "Outdated · fit to compare"
-    assert not lens.layers[1]
+    tag = f"Run {result.run_id[:8]} · historical"
+    assert [label.text() for label in lens.captions] == [
+        "Experimental",
+        f"Overlay · {tag}",
+        f"Whole-spectrum residual · {tag}",
+    ]
+    assert "Outdated · model and residual are historical" in lens.note.text()
+    assert lens.layers[1]
+    assert lens.unavailable[1].toPlainText() == ""
     # Escape returns with the overview viewport, mode and panel widths unchanged.
     lens.setFocus()
     QtTest.QTest.keyClick(lens, QtCore.Qt.Key.Key_Escape)
@@ -1575,12 +1585,14 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     assert panel.unexplained_button.text() == "Find on plane 2"
     assert panel.unexplained_button.isEnabled()
     assert _unexplained_links(w) == []
-    # An Outdated run cannot be compared with the working peaks.
+    # An Outdated run's list stays available, labelled with its run.
     peak = w.peaks[0]
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
     w.select_peak(None)
-    assert not panel.unexplained_button.isEnabled()
-    assert panel.unexplained_title.text() == "Outdated · fit to compare with the working peaks"
+    assert panel.unexplained_button.isEnabled()
+    assert panel.unexplained_note.text().startswith(
+        f"Residual of Run {result.run_id[:8]} · historical. Distances are to the current"
+    )
 
 
 def _view_point(plot, x: float, y: float) -> QtCore.QPoint:
@@ -1754,3 +1766,112 @@ def test_an_added_peak_keeps_lens_context_and_is_followed_after_refit(workspace,
     # It joined the remote peak's cluster: a merge, said without a link back.
     assert set(lens.ids) == {"remote", added.id}
     assert lens.membership_plain == f"Run {refit.run_id[:8]} fits {added.name} with Duplicate"
+
+
+def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientific):  # noqa: PLR0915
+    w, c = workspace, workspace.canvas
+    result = scientific[-1]
+    publish(w, result)
+    w.set_mode(2)
+    wait_for(lambda: not c.contour_pending)
+    tag = f"Run {result.run_id[:8]} · historical"
+    axes = [axis.model_copy(deep=True) for axis in c.spectra.spectral_params]
+    model = dataset_model_plane(result, axes, c.plane, cancel=Event())
+    residual = (c.spectra.data[c.plane] - model.values) / result.outcome.noise
+    recorded = next(p for p in w.fitting.completion.working_peaks if p.id == "1")
+
+    # Two corrections in a row without refitting: a move and an added peak.
+    w.move_peak("1", (recorded.positions[0] + 0.01, recorded.positions[1] + 0.01))
+    added = w.edits.add((recorded.positions[0] + 0.05, recorded.positions[1] - 0.05))
+    w._refresh()
+    w.select_peak(added.id)
+    assert not w.fitting.current
+    comparison = w.fitting.comparison
+    assert (comparison.result, comparison.historical, comparison.label) == (result, True, tag)
+    assert comparison.added == {added.id}
+    assert comparison.departed == (recorded,)
+    # The overview keeps the run's residual, labelled in the legend and sample text.
+    assert all(button.isEnabled() for button in w.mode_buttons)
+    assert w.mode_buttons[2].toolTip() == f"Compares with {tag}"
+    assert c.comparison_mode == 2
+    wait_for(lambda: not c.contour_pending)
+    np.testing.assert_array_equal(c._model.values, model.values)
+    c.sample(float(c.ppm_x[12]), float(c.ppm_y[13]))
+    np.testing.assert_array_equal(c.curve_x.getData()[1], residual[13, :])
+    assert f"σ_stat residual · residual of {tag}" in w.status.text()
+    legend = c.legend.text()
+    assert tag in legend
+    assert "not in this model" in legend
+    assert "position in this model" in legend
+    # ◇ marks the added peak; × the run's position of the moved one, linked to it.
+    assert list(zip(*c.added_marks.getData(), strict=True)) == [c.display(added)]
+    assert list(zip(*c.recorded_marks.getData(), strict=True)) == [c.display(recorded)]
+    moved = next(p for p in w.peaks if p.id == "1")
+    assert list(zip(*c.recorded_links.getData(), strict=True)) == [
+        c.display(recorded),
+        c.display(moved),
+    ]
+    x, y = c.display(added)
+    assert c._marker_tip(x=x, y=y, data=added.id).endswith(f"Not in the model of {tag}")
+    # The Experimental view shows no model, so no model-relative marks either.
+    w.set_mode(0)
+    assert c.added_marks.getData()[0].size == 0
+    assert tag not in c.legend.text()
+    w.set_mode(1)
+    assert "model · " + tag in c.legend.text()
+
+    # The lens compares with the same historical model and marks the same peaks.
+    w.open_lens("1")
+    lens = w.lens
+    wait_for(lambda: not lens.pending)
+    np.testing.assert_allclose(lens._data["residual"], residual)
+    assert lens.captions[2].text() == f"Whole-spectrum residual · {tag}"
+    assert f"total model of {tag} (dashed)" in lens.trace_caption.text()
+    assert lens.added_marks[0].getData()[0].size == 0
+    assert lens.added_marks[1].getData()[0].size == 1
+    assert lens.recorded_marks[2].getData()[0].size == 1
+    w.close_lens()
+
+    # The unexplained list keeps the run's residual; distances follow working peaks.
+    w.select_peak(None)
+    w.unexplained_threshold = 2.0
+    w.panel.unexplained_button.click()
+    wait_for(lambda: w._unexplained[1] != "pending")
+    regions = w._unexplained[1]
+    assert isinstance(regions, list)
+    assert regions
+    first = regions[0]
+    assert w.panel.unexplained_title.text().endswith(f"beyond ±2 σ_stat · {tag}")
+    nearest, distance = nearest_peak(first.row, first.column, w._native_peaks())
+    names = {p.id: p.name for p in w.peaks}
+    detail = _unexplained_links(w)[0].parent().findChildren(QtWidgets.QLabel)
+    assert any(f"{distance:.1f} pts from {names[nearest]}" in label.text() for label in detail)
+
+    # Undo restores the run's peaks: no marks, yet the run stays Outdated.
+    w.history(False)
+    w.history(False)
+    assert w.peaks == w.fitting.completion.working_peaks
+    assert not w.fitting.current
+    assert w.fitting.comparison.historical
+    assert c.added_marks.getData()[0].size == 0
+    assert c.recorded_marks.getData()[0].size == 0
+
+    # New plane values: the run's planes no longer match, so the comparison withdraws.
+    values = w.dataset.spectra.z_values + 1.0
+    spectra = w.dataset.spectra.model_copy(update={"z_values": values})
+    w.dataset = w.canvas.dataset = replace(w.dataset, spectra=spectra)
+    w.canvas.spectra = spectra
+    w.edits.revision += 1
+    w.changed.emit()
+    reason = f"Run {result.run_id[:8]} was recorded with different plane values"
+    assert w.fitting.comparison.reason == reason
+    assert c.comparison_mode == 0
+    assert c.comparison_result is None
+    assert not w.mode_buttons[2].isEnabled()
+    assert w.mode_buttons[2].toolTip() == f"Unavailable: {reason}"
+    assert w.panel.unexplained_title.text() == f"Unavailable: {reason}"
+    w.open_lens("1")
+    wait_for(lambda: not lens.pending)
+    assert lens.unavailable[2].toPlainText() == f"Unavailable: {reason}"
+    assert not lens.layers[2]
+    assert lens.captions[2].text() == "Whole-spectrum residual"
