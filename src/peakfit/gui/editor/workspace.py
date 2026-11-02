@@ -157,6 +157,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.navigator.edit_requested.connect(self.focus_editor)
         self.canvas.edit_requested.connect(self.focus_editor)
         self.inspector.commit_requested.connect(self.commit_fields)
+        # Enter on a name hands the keyboard back to the spectrum or lens, so A can
+        # place the next peak at once. Coordinate fields keep focus and show the
+        # exact committed value.
+        self.inspector.name.returnPressed.connect(self._focus_spectral_area)
         self.inspector.deleted.connect(self.delete_peaks)
         self.inspector.fields_changed.connect(self._fields_changed)
         self._build_actions()
@@ -200,6 +204,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         # The run line: currentness and counts first, so a narrow window elides the tail.
         self.summary = ElidedLabel()
         self.summary.setObjectName("muted")
+        # The run summary opens the analysis page at the active run.
+        self.summary.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+        self.summary.installEventFilter(self)
         bar.addWidget(self.summary, 1)
         self.warnings = QtWidgets.QLabel()
         self.warnings.setObjectName("warning")
@@ -344,8 +351,17 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.inspector_button.setChecked(True)
         self.toggle_inspector()
         self.select_peak(None)
-        self.panel.verticalScrollBar().setValue(0)
+        self.panel.reveal("setup")
         self.fitting.setup_seen = True
+
+    def show_analysis_page(self) -> None:
+        """Clear the selection and open the inspector at the active run's review."""
+        if not self.commit_fields():
+            return
+        self.inspector_button.setChecked(True)
+        self.toggle_inspector()
+        self.select_peak(None)
+        self.panel.reveal("review")
 
     def _shapes(self) -> list[tuple[str, str, str]]:
         """Resolved lineshape per spectral axis, with where it came from."""
@@ -732,6 +748,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             "Select a peak or cluster to see its position, profile, fitted values and "
             "review. Save analysis keeps working state and the latest ten runs; "
             "spectra stay external.",
+            fitted=result is not None,
         )
         if self.selected_id is None:
             self.panel.show_changes(*self._run_changes())
@@ -1040,6 +1057,21 @@ class EditorWorkspace(QtWidgets.QWidget):
         if self.lens_open:
             return "Lens · drag selected peak · A adds a peak · Esc exits"
         return "Drag a selected peak to move it · Space pins traces"
+
+    def _focus_spectral_area(self) -> None:
+        if not self.inspector.pending:
+            (self.lens if self.lens_open else self.canvas.main).setFocus()
+
+    def eventFilter(self, watched, event) -> bool:  # noqa: N802
+        """A click on the run summary opens the analysis page."""
+        if (
+            watched is self.summary
+            and event.type() == QtCore.QEvent.Type.MouseButtonRelease
+            and event.button() == QtCore.Qt.MouseButton.LeftButton
+        ):
+            self.show_analysis_page()
+            return True
+        return super().eventFilter(watched, event)
 
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:  # noqa: N802
         """Escape leaves the lens from any column unless a draft or gesture is active."""
