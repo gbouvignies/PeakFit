@@ -446,16 +446,15 @@ def _load_run(root, entry):
         raise ValueError("Projects must reference external observations, not retain sampled data.")
     result = restore_result(record, outcome, samples)
     post = read_peaks(record["post_fit_peaks"])
-    # Validate automatic adoption again rather than trusting a saved Current flag.
+    # Validate the recorded adoption again rather than trusting a saved Current flag.
     completion = dataset_completion(
         result,
         result.inputs.snapshot,
         submitted_revision=record["manual_revision"],
         manual_revision=record["manual_revision"],
+        recorded=post,
     )
-    if completion.working_peaks != post or completion.warnings != tuple(
-        record["completion_warnings"]
-    ):
+    if completion.warnings != tuple(record["completion_warnings"]):
         raise ValueError("Saved working transition disagrees with the fitted outcome.")
     return completion
 

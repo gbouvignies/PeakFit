@@ -141,3 +141,21 @@ Short records of non‑obvious design choices and trade‑offs.
   (`continuation`) is new. A rename keeps a peak continuing, since it changes no
   model input. Coincident pairs from earlier runs continue coincident and warned;
   no separation, deletion, basin choice or classification change was introduced.
+
+## 2026-11-02: Near-collinear fitted shapes are not adopted or continued
+- On the bundled data three pairs (53N-H/147N-H, 36N-H/93N-H, 5N-H/76N-H) end
+  with recorded shapes at 1 − |cos| ≤ 6.4×10⁻⁷, contributions cancelling ×320
+  to ×4 000; every other pair has 1 − |cos| ≥ 0.33. A real opposite-sign peak
+  0.5 linewidth away stays resolved (0.136, ×2.95); at 0.25 linewidth the fit
+  collapses although two resonances are present.
+- The criterion is near-collinearity alone, 1 − |cos| ≤ 10⁻⁴ (equal shapes to about
+  1 % of a linewidth): a conservative operational threshold, not a physical
+  boundary. It does not use the uncertainty warning, cancellation or optimality,
+  and cannot tell an optimizer failure from an identifiability problem, so it
+  treats both alike and never selects another solution.
+- Both members keep their working positions and start the next fit from defaults;
+  the fitted result is untouched. On the bundled data the first refit then
+  reaches the better resolved fit of 5N-H/76N-H (χ² 18 378 → 17 947), while the
+  other two pairs re-collapse in place; later refits reproduce.
+- Reopening validates the recorded adoption, so runs recorded before this rule,
+  which adopted such peaks, still open and export as recorded.

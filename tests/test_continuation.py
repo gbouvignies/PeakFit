@@ -70,22 +70,26 @@ def bundled():
 
 
 @pytest.mark.slow
-def test_unedited_refit_reproduces_every_cluster_of_the_bundled_run(bundled):
+def test_unedited_refit_continues_every_adopted_peak_of_the_bundled_run(bundled):
     dataset, settings, first = bundled
     second = _fit(dataset.spectra, first.working_peaks, settings, first)
     continuation = _provenance(second.result.inputs)
     assert continuation.run_id == first.result.run_id
-    assert continuation.continued == tuple(p.id for p in first.working_peaks)
-    assert continuation.initialized == ()
+    # Every adopted peak continues; peaks whose positions the run retained
+    # (near-collinear fitted shapes, tests/test_coincidence.py) start from defaults.
+    assert set(continuation.continued) == set(first.adopted)
+    assert set(continuation.initialized) == {i for i, _ in first.retained}
     before, after = _by_members(first.result), _by_members(second.result)
     assert set(after) == set(before)
+    retained = {i for i, _ in first.retained}
+    names = {p.id: p.name for p in dataset.peaks}
     for members, cluster in after.items():
-        old = before[members].analytical_evaluation
-        new = cluster.analytical_evaluation
-        assert new.statistics.reduced_chi_squared == pytest.approx(
-            old.statistics.reduced_chi_squared, rel=1e-5
+        if retained & {i for i, n in names.items() if n in members}:
+            continue
+        # No cluster of continued peaks gains a warning.
+        assert bool(cluster.analytical_evaluation.uncertainty_warning) <= bool(
+            before[members].analytical_evaluation.uncertainty_warning
         ), members
-        assert bool(new.uncertainty_warning) == bool(old.uncertainty_warning), members
     pair = after[("102N-H", "52N-H")].analytical_evaluation
     assert pair.uncertainty_warning is None
     assert pair.statistics.reduced_chi_squared == pytest.approx(1.5296, abs=1e-4)

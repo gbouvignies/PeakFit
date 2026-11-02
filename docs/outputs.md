@@ -141,7 +141,12 @@ exact engine `parameter_names`, plus:
 The GUI's automatic dataset completion records `adopted_fitted` for usable finite
 positions, including usable non-converged fits. Uncertainty warnings do not veto
 this automatic transition. An unusable or invalid tuple records `retained_initial`
-and its exact starting positions with a reason. The GUI completion and both
+and its exact starting positions with a reason. So does a usable peak whose
+recorded fitted shape is near-collinear with another's (1 − |cos| ≤ 10⁻⁴ on the
+fitting samples): its row keeps `fitted_unfolded_ppm` and records
+`adoption_reason` “near-collinear fitted shapes with p_…”, recomputed by readers
+from the recorded shapes. Runs recorded before that rule may show such peaks as
+`adopted_fitted`, which remains valid. The GUI completion and both
 exporters use the same coordinate-resolution function; no second scientific
 position rule or GUI-specific writer exists. Without a recorded completion
 transition, exports report `not_recorded` and no adopted tuple rather than guessing.
