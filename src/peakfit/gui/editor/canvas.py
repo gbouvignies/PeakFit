@@ -1,5 +1,6 @@
 """Retained signed contours, aligned native slices and independent inspection gestures."""
 
+import html
 from collections import OrderedDict
 from concurrent.futures import CancelledError
 from dataclasses import replace
@@ -146,6 +147,10 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.ppm_y = self.y_axis.pts2ppm(np.arange(self.y_axis.size, dtype=float))
         self.comparison_result: DatasetFitResult | None = None
         self.comparison_mode = 0
+        # The recorded run identity of a historical (Outdated) model; empty if current.
+        self.comparison_label = ""
+        self.added: frozenset[str] = frozenset()
+        self.departed: tuple[WorkingPeak, ...] = ()
         self.residual_threshold = 3.0
         self._model_cache = OrderedDict()
         self._model_cancel = Event()
@@ -264,7 +269,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         # mark the unit of review while the selected peak stays the unit of editing.
         self.cluster_rings = self._scatter("o", 14, 29)
         # Recorded fitted positions the run did not adopt (working markers stay put).
-        self.unadopted = self._scatter("d", 8, 18)
+        self.unadopted = self._scatter("s", 7, 18)
         self.cluster_ids: tuple[str, ...] = ()
         # Fitting regions on request: a faint tint behind the contours, one cell per
         # sampled point, with the selected peak's cluster slightly stronger.
@@ -284,6 +289,14 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self._regions: tuple[tuple[str, ...], ...] = ()
         self._region_labels = np.zeros(0, dtype=np.int32)
         self._selected_region = -1
+        # Against a historical model: a diamond marks a working peak that model does
+        # not contain; × marks a model peak's recorded position, linked by a dotted
+        # line to where it was moved.
+        self.added_marks = self._scatter("d", 15, 21)
+        self.recorded_marks = self._scatter("x", 9, 18)
+        self.recorded_links = pg.PlotDataItem(connect="pairs")
+        self.recorded_links.setZValue(18)
+        self.main.getPlotItem().addItem(self.recorded_links, ignoreBounds=True)
         self.halo = self._scatter("o", 15, 31)
         self.ghost = self._scatter("+", 10, 32)
         self.hover_label = self._label(35, (-0.08, 1.15))
@@ -351,6 +364,11 @@ class SpectrumCanvas(QtWidgets.QWidget):
         text = f"{peak.name}\nUnfolded {self._coordinates(peak.positions[1], peak.positions[0])}"
         if (x, y) != tuple(reversed(peak.positions)):
             text += f"\nDisplayed {self._coordinates(x, y)}"
+        if self.comparison_label and self.comparison_mode:
+            if peak.id in self.added:
+                text += f"\nNot in the model of {self.comparison_label}"
+            elif any(p.id == peak.id for p in self.departed):
+                text += f"\nMoved since {self.comparison_label}; × marks it in that model"
         return text
 
     def _coordinates(self, x: float, y: float) -> str:
@@ -364,8 +382,17 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self._place_legend()
 
     def _place_legend(self) -> None:
-        self.legend.adjustSize()
         rect = self.main.getViewBox().sceneBoundingRect()
+        # One line when it fits; otherwise keys wrap within the plot, never past it.
+        limit = max(120, int(rect.width()) - 16)
+        self.legend.setWordWrap(False)
+        self.legend.setMinimumWidth(0)
+        self.legend.setMaximumWidth(16777215)  # QWIDGETSIZE_MAX: undo a previous fixed width
+        self.legend.adjustSize()
+        if self.legend.width() > limit:
+            self.legend.setWordWrap(True)
+            self.legend.setFixedWidth(limit)
+            self.legend.resize(limit, self.legend.heightForWidth(limit))
         corner = self.main.mapFromScene(rect.topRight())
         self.legend.move(max(0, corner.x() - self.legend.width() - 8), corner.y() + 6)
 
@@ -386,6 +413,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         xs, ys = [p[0] for p in positions], [p[1] for p in positions]
         self.marker_halo.setData(x=xs, y=ys)
         self.markers.setData(x=xs, y=ys, data=[p.id for p in peaks])
+        self._place_changes()
         self._refresh_labels()
         self._selection_ring()
         self.hover(None)
@@ -409,6 +437,29 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 delta = min(value - low - margin, 0) + max(value - high + margin, 0)
                 shifted.append((low + delta, high + delta))
             view.setRange(xRange=shifted[0], yRange=shifted[1], padding=0)
+
+    def set_changes(self, added: frozenset[str], departed: tuple[WorkingPeak, ...]) -> None:
+        """Mark working peaks added, and model peaks moved or deleted, since a historical run."""
+        if (added, departed) != (self.added, self.departed):
+            self.added, self.departed = added, departed
+            self._place_changes()
+            self._update_legend()
+
+    def _place_changes(self) -> None:
+        shown = bool(self.comparison_label and self.comparison_mode)
+        added = (
+            [self.display(self._by_id[i]) for i in self.added if i in self._by_id] if shown else []
+        )
+        self.added_marks.setData([p[0] for p in added], [p[1] for p in added])
+        recorded = [self.display(p) for p in self.departed] if shown else []
+        self.recorded_marks.setData([p[0] for p in recorded], [p[1] for p in recorded])
+        links = [
+            point
+            for p in (self.departed if shown else ())
+            if p.id in self._by_id
+            for point in (self.display(p), self.display(self._by_id[p.id]))
+        ]
+        self.recorded_links.setData([p[0] for p in links], [p[1] for p in links])
 
     def set_unadopted(self, points: list[tuple[float, float]]) -> None:
         """Show recorded fitted positions that were not adopted as working positions."""
@@ -561,7 +612,9 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 self.curve_x.clear()
                 self.curve_y.clear()
                 self.status_changed.emit(
-                    "Residual pending · calculating total model for this plane"
+                    "Residual pending · calculating total model"
+                    + (f" of {self.comparison_label}" if self.comparison_label else "")
+                    + " for this plane"
                 )
                 return
             assert self.comparison_result is not None
@@ -592,6 +645,12 @@ class SpectrumCanvas(QtWidgets.QWidget):
             f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)} ppm · "
             f"{formatting.intensity(raw)} "
             f"{'σ_stat residual' if self.comparison_mode == _RESIDUAL else 'a.u.'}"
+            + (
+                f" · {'residual' if self.comparison_mode == _RESIDUAL else 'model'} of "
+                f"{self.comparison_label}"
+                if self.comparison_label and self.comparison_mode
+                else ""
+            )
             + (" · ▲ Trace clipped: use Display → Fit current traces" if clipped else "")
             + self._scale_note
         )
@@ -776,14 +835,27 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self._set_trace_limit(self._trace_limits[2 if self.comparison_mode == _RESIDUAL else 0])
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
 
-    def set_comparison(self, result: DatasetFitResult | None, mode: int = 0) -> None:
-        """Bind a current immutable run and one mode across all three spectral views."""
+    @property
+    def historical(self) -> bool:
+        """Whether the bound model is an Outdated run's, shown as historical evidence."""
+        return bool(self.comparison_label)
+
+    def set_comparison(
+        self, result: DatasetFitResult | None, mode: int = 0, *, label: str = ""
+    ) -> None:
+        """Bind one immutable run and one mode across all three spectral views.
+
+        ``label`` names a historical run (``Run 5d7b4768 · historical``) wherever its
+        model or residual is shown; it is empty for the current run.
+        """
         if result is not self.comparison_result:
             self._model_cache.clear()
             self._expanded_model = False
             self._scale_note = ""
         self.comparison_result = result
         self.comparison_mode = mode if result is not None else 0
+        self.comparison_label = label if result is not None else ""
+        self._place_changes()
         self._set_trace_limit(self._trace_limits[2 if self.comparison_mode == _RESIDUAL else 0])
         self._style_traces()
         self._update_legend()
@@ -820,6 +892,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         mode_name = "Residual" if mode == _RESIDUAL else "Overlay"
         self.pending_label.setText(
             f"Experimental spectrum · {mode_name} pending"
+            + (f" · {self.comparison_label}" if self.comparison_label else "")
             if mode
             else "Preparing experimental contours…"
         )
@@ -1020,26 +1093,37 @@ class SpectrumCanvas(QtWidgets.QWidget):
         t = self.theme
 
         def key(value: str, glyph: str, text: str) -> str:
-            return f'<span style="color:{value}">{glyph}</span>&nbsp;{text}'
+            return (
+                f'<span style="white-space:nowrap"><span style="color:{value}">{glyph}</span>'
+                f"&nbsp;{text}</span>"
+            )
 
         solid, dashed = "━━", "╍╍"
+        run = html.escape(self.comparison_label)
         if self.comparison_mode == _RESIDUAL:
             first = self.residual_threshold
             items = [
                 key(t.residual_positive, solid, f"residual &gt; +{first:g}σ"),
-                key(t.residual_negative, dashed, f"&lt; −{first:g}σ"),
+                key(
+                    t.residual_negative, dashed, f"&lt; −{first:g}σ" + (f" · {run}" if run else "")
+                ),
             ]
         else:
             items = [key(t.measured, solid, "measured +"), key(t.measured_negative, dashed, "−")]
             if self.comparison_mode == 1:
-                items.append(key(t.model, solid, "model"))
+                items.append(key(t.model, solid, f"model · {run}" if run else "model"))
+        if run and self.comparison_mode:
+            if any(i in self._by_id for i in self.added):
+                items.append(key(t.warning, "◇", "not in this model"))
+            if self.departed:
+                items.append(key(t.secondary, "×", "position in this model"))
         if self.regions_visible and self.region_source:
             items.append(key(t.secondary, "▭", f"fitting regions · {self.region_source}"))
         if len(self.unadopted.data):
-            items.append(key(t.warning, "◇", "fitted position, not adopted"))
+            items.append(key(t.model, "□", "fitted position, not adopted"))
         self.legend.setText(
             f'<div style="color:{t.secondary};font-size:{FONT_CAPTION}px">'
-            + "&nbsp;&nbsp;&nbsp;".join(items)
+            + "&nbsp;&nbsp; ".join(items)
             + "</div>"
         )
         self.legend.setStyleSheet(
@@ -1073,11 +1157,16 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
         self.ring.setPen(pg.mkPen(t.accent, width=2))
         self.cluster_rings.setPen(pg.mkPen(color(t.accent, 0.6), width=1.2))
-        self.unadopted.setPen(pg.mkPen(color(t.warning, 0.9), width=1.2))
+        self.unadopted.setPen(pg.mkPen(t.model, width=1.4))
         if self._region_labels.size:
             self._paint_regions()
         self.halo.setPen(pg.mkPen(color(t.accent, 0.8), width=1.2))
         self.ghost.setPen(pg.mkPen(t.pin, width=2))
+        self.added_marks.setPen(pg.mkPen(t.warning, width=1.6))
+        self.recorded_marks.setPen(pg.mkPen(color(t.secondary, 0.9), width=1.4))
+        self.recorded_links.setPen(
+            pg.mkPen(color(t.secondary, 0.8), width=1, style=QtCore.Qt.PenStyle.DotLine)
+        )
         fill = pg.mkBrush(color(t.plot, 0.86))
         for label, value in ((self.hover_label, t.text), (self.selection_label, t.accent)):
             label.fill = fill

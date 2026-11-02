@@ -6,6 +6,13 @@ the selected member shows measured data with the total model, and the
 whole-spectrum residual in σ_stat with a ±3 σ band. Contours, model and residual
 are the same quantities as in the overview (§8), computed off Qt.
 
+After a committed edit the run is Outdated; its model and residual stay on show
+as historical evidence, labelled with the run, while the data are those it was
+recorded on. Overlay and residual panels then mark working peaks the model does
+not contain (◇) and the recorded positions of model peaks moved or deleted
+since (×); every panel marks recorded fitted positions the run did not adopt (□).
+A key above the panels names the marks on show, as the overview legend does.
+
 Edits follow the overview (§3 D): the selected marker drags in any panel with a
 ghost at the proposed position, and placement takes the next click. The lens only
 proposes; the workspace commits through the same undoable peak edits.
@@ -102,6 +109,14 @@ class ClusterLens(QtWidgets.QWidget):
         self.membership_plain = ""
         self.membership.hide()
         layout.addWidget(self.membership)
+        # What the panel marks mean, listing only those on show (as the overview legend).
+        self.key = QtWidgets.QLabel()
+        self.key.setObjectName("caption")
+        self.key.setAccessibleName("Lens marker legend")
+        self.key.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.key.setWordWrap(True)
+        self.key.hide()
+        layout.addWidget(self.key)
         panels = QtWidgets.QHBoxLayout()
         panels.setSpacing(themes.SPACE_S)
         self.panels: list[pg.PlotWidget] = []
@@ -112,6 +127,10 @@ class ClusterLens(QtWidgets.QWidget):
         self.unadopted: list[pg.ScatterPlotItem] = []
         self.rings: list[pg.ScatterPlotItem] = []
         self.crosses: list[tuple[pg.InfiniteLine, pg.InfiniteLine]] = []
+        # Overlay and residual panels: ◇ not in a historical model, × recorded position.
+        self.added_marks: list[pg.ScatterPlotItem] = []
+        self.recorded_marks: list[pg.ScatterPlotItem] = []
+        self.recorded_links: list[pg.PlotDataItem] = []
         self.unavailable: list[pg.TextItem] = []
         for caption in _TITLES:
             column = QtWidgets.QVBoxLayout()
@@ -139,15 +158,24 @@ class ClusterLens(QtWidgets.QWidget):
             ghost.setZValue(32)
             ghost.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
             # Recorded fitted positions the run did not adopt.
-            fitted = pg.ScatterPlotItem(symbol="d", size=9, brush=None)
+            fitted = pg.ScatterPlotItem(symbol="s", size=7, brush=None)
             fitted.setZValue(19)
             fitted.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
             cross = (
                 pg.InfiniteLine(angle=90, movable=False),
                 pg.InfiniteLine(angle=0, movable=False),
             )
-            for item in (markers, ring, ghost, fitted, *cross):
+            added = pg.ScatterPlotItem(symbol="d", size=15, brush=None)
+            recorded = pg.ScatterPlotItem(symbol="x", size=9, brush=None)
+            links = pg.PlotDataItem(connect="pairs")
+            for item in (added, recorded, links):
+                item.setZValue(18)
+                item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+            for item in (markers, ring, ghost, fitted, *cross, added, recorded, links):
                 plot.getPlotItem().addItem(item, ignoreBounds=True)
+            self.added_marks.append(added)
+            self.recorded_marks.append(recorded)
+            self.recorded_links.append(links)
             view = plot.getViewBox()
             scene = cast("pg.GraphicsScene", plot.scene())
             scene.sigMouseClicked.connect(lambda event, v=view: self._clicked(event, v))
@@ -205,6 +233,10 @@ class ClusterLens(QtWidgets.QWidget):
         self._data: dict | None = None
         self.result: DatasetFitResult | None = None
         self.current = False
+        self.label = ""  # the recorded run identity of a historical model
+        self.withdrawn = ""
+        self.added: frozenset[str] = frozenset()
+        self.departed: tuple[WorkingPeak, ...] = ()
         self.ids: tuple[str, ...] = ()
         self.selected_id: str | None = None
         self.peaks: tuple[WorkingPeak, ...] = ()
@@ -232,25 +264,38 @@ class ClusterLens(QtWidgets.QWidget):
         levels: tuple[float, float, int, float],
         grid_indices: tuple[np.ndarray, ...],
         model_cache=None,
+        label: str = "",
+        withdrawn: str = "",
+        added: frozenset[str] = frozenset(),
+        departed: tuple[WorkingPeak, ...] = (),
     ) -> None:
-        """Show a recorded cluster; reframe only when the cluster itself changes."""
+        """Show a recorded cluster; reframe only when the cluster itself changes.
+
+        An Outdated run compares as historical evidence when ``label`` names it;
+        ``withdrawn`` says why it cannot be compared with the working data.
+        """
         self.result, self.current, self.ids, self.peaks = result, current, ids, peaks
+        self.label, self.withdrawn = label, withdrawn
+        self.added, self.departed = added, departed
         self.selected_id = selected
         self.levels = levels
-        label = names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "") if names else ""
-        self.title.setText(f"Lens · {label}")
+        cluster = names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "") if names else ""
+        self.title.setText(f"Lens · {cluster}")
         outside = next((p.name for p in peaks if p.id == selected and selected not in ids), None)
         self.note.setText(
             f"run {result.run_id[:8]} · {'Current' if current else 'Outdated'}"
+            + (" · model and residual are historical" if label and not current else "")
             + (f" · {outside} is not in this cluster of the run" if outside is not None else "")
         )
+        for caption, title in zip(self.captions[1:], _TITLES[1:], strict=True):
+            caption.setText(f"{title} · {label}" if label else title)
         # A refit of the same members keeps the scientist's zoom.
         frame = ids
         if frame != self._frame_key:
             self._frame_key = frame
             self.frame(grid_indices)
         self.plane = plane
-        key = (result.run_id, current, plane, levels)
+        key = (result.run_id, current, label, withdrawn, plane, levels)
         if key != self._key:
             self._key = key
             self._request(model_cache)
@@ -287,6 +332,14 @@ class ClusterLens(QtWidgets.QWidget):
             plot.setLabel("bottom", f"{SpectrumCanvas.axis_title(self.x_axis)} (ppm)", **style)
         self.panels[0].setLabel("left", f"{SpectrumCanvas.axis_title(self.y_axis)} (ppm)", **style)
         self.residual_trace.setLabel("left", "σ", **style)
+        for added, recorded, links in zip(
+            self.added_marks, self.recorded_marks, self.recorded_links, strict=True
+        ):
+            added.setPen(pg.mkPen(t.warning, width=1.6))
+            recorded.setPen(pg.mkPen(color(t.secondary, 0.9), width=1.4))
+            links.setPen(
+                pg.mkPen(color(t.secondary, 0.8), width=1, style=QtCore.Qt.PenStyle.DotLine)
+            )
         for markers, ring, cross, text in zip(
             self.markers, self.rings, self.crosses, self.unavailable, strict=True
         ):
@@ -298,7 +351,8 @@ class ClusterLens(QtWidgets.QWidget):
         for ghost in self.ghosts:
             ghost.setPen(pg.mkPen(t.pin, width=2))
         for fitted in self.unadopted:
-            fitted.setPen(pg.mkPen(color(t.warning, 0.9), width=1.2))
+            fitted.setPen(pg.mkPen(t.model, width=1.4))
+        self._update_key()
         self.measured.setPen(pg.mkPen(color(t.measured), width=1.3))
         self.model.setPen(pg.mkPen(color(t.model), width=1.3, style=QtCore.Qt.PenStyle.DashLine))
         self.residual_curve.setPen(pg.mkPen(color(t.text), width=1.2))
@@ -327,7 +381,8 @@ class ClusterLens(QtWidgets.QWidget):
         self.pending = True
         for text in self.unavailable:
             text.setText("Preparing…")
-        result, plane, current = self.result, self.plane, self.current
+        result, plane = self.result, self.plane
+        comparable = self.current or bool(self.label)
         assert result is not None
         threshold, factor, count, residual_threshold = self.levels
         levels = threshold * factor ** np.arange(count)
@@ -338,7 +393,7 @@ class ClusterLens(QtWidgets.QWidget):
 
         def compute():
             experiment = signed_geometry(observed, axes, levels)
-            if not current:
+            if not comparable:
                 return {"experiment": experiment, "model": None}
             model = cached or dataset_model_plane(result, axes, plane, cancel=cancel)
             if cancel.is_set():
@@ -367,8 +422,9 @@ class ClusterLens(QtWidgets.QWidget):
         experiment = paths_from_geometry(data["experiment"])
         self._add(0, "measured", experiment)
         if data["model"] is None:
+            reason = f"Unavailable: {self.withdrawn}" if self.withdrawn else "Fit to compare"
             for index in (1, 2):
-                self.unavailable[index].setText("Outdated · fit to compare")
+                self.unavailable[index].setText(reason)
         else:
             self._add(1, "measured", experiment)
             self._add(1, "model", paths_from_geometry(data["overlay"]))
@@ -433,6 +489,7 @@ class ClusterLens(QtWidgets.QWidget):
             markers.setData(x=xs, y=ys, data=list(positions))
             markers.selected_id = self.selected_id
             markers.editable = self.editing_enabled
+        self._place_changes(positions)
         selected = positions.get(self.selected_id or "")
         for ring, (vertical, horizontal) in zip(self.rings, self.crosses, strict=True):
             ring.setData([selected[0]] if selected else [], [selected[1]] if selected else [])
@@ -447,6 +504,58 @@ class ClusterLens(QtWidgets.QWidget):
             x_range, y_range = self.panels[0].getViewBox().viewRange()
             text.setPos(sum(x_range) / 2, sum(y_range) / 2)
         self._draw_trace(selected)
+
+    def _place_changes(self, positions) -> None:
+        """◇ and × on the overlay and residual panels while a historical model shows."""
+        shown = bool(self.label) and (self._data or {}).get("model") is not None
+        added = [positions[i] for i in self.added if i in positions] if shown else []
+        recorded = [
+            (
+                display_position(self.x_axis, p.positions[1]),
+                display_position(self.y_axis, p.positions[0]),
+            )
+            for p in (self.departed if shown else ())
+        ]
+        links = [
+            point
+            for p, here in zip(self.departed if shown else (), recorded, strict=True)
+            if p.id in positions
+            for point in (here, positions[p.id])
+        ]
+        for index, (marks, crosses, lines) in enumerate(
+            zip(self.added_marks, self.recorded_marks, self.recorded_links, strict=True)
+        ):
+            panel = shown and index > 0
+            marks.setData(
+                [p[0] for p in added] if panel else [], [p[1] for p in added] if panel else []
+            )
+            crosses.setData(
+                [p[0] for p in recorded] if panel else [], [p[1] for p in recorded] if panel else []
+            )
+            lines.setData(
+                [p[0] for p in links] if panel else [], [p[1] for p in links] if panel else []
+            )
+        self._update_key()
+
+    def _update_key(self) -> None:
+        t = self.theme
+        shown = [
+            (marks, colour, glyph, text)
+            for marks, colour, glyph, text in (
+                (self.added_marks[-1], t.warning, "◇", "not in this model"),
+                (self.recorded_marks[-1], t.secondary, "×", "position in this model"),
+                (self.unadopted[-1], t.model, "□", "fitted position, not adopted"),
+            )
+            if len(marks.getData()[0])
+        ]
+        self.key.setText(
+            "&nbsp;&nbsp; ".join(
+                f'<span style="white-space:nowrap"><span style="color:{colour}">{glyph}</span>'
+                f"&nbsp;{text}</span>"
+                for _marks, colour, glyph, text in shown
+            )
+        )
+        self.key.setVisible(bool(shown))
 
     def _draw_trace(self, selected) -> None:
         if selected is None:
@@ -468,9 +577,11 @@ class ClusterLens(QtWidgets.QWidget):
         self.residual_curve.setData(self.ppm_x, residual[row] if residual is not None else [])
         name = next((p.name for p in self.peaks if p.id == self.selected_id), "")
         decimals = formatting.ppm_decimals(self.y_axis)
+        # The run comes first so a narrow lens elides the tail, never the provenance.
+        run = f"{self.label} model · " if self.label and not self.current else ""
         self.trace_caption.setText(
-            f"Row through {name} at {formatting.number(float(self.ppm_y[row]), decimals)} ppm · "
-            f"measured, total model (dashed) · residual in σ, ±{_BAND:g} σ band"
+            f"{run}Row through {name} at {formatting.number(float(self.ppm_y[row]), decimals)} "
+            f"ppm · measured, total model (dashed) · residual in σ, ±{_BAND:g} σ band"
             + ("" if model is not None else " · model unavailable")
         )
 
@@ -485,9 +596,10 @@ class ClusterLens(QtWidgets.QWidget):
     # Editing proposals --------------------------------------------------------------
 
     def set_unadopted(self, points: list[tuple[float, float]]) -> None:
-        """Recorded fitted positions not adopted as working positions (◇)."""
+        """Recorded fitted positions not adopted as working positions (□)."""
         for fitted in self.unadopted:
             fitted.setData([p[0] for p in points], [p[1] for p in points])
+        self._update_key()
 
     def set_membership(self, text: str, links: list[tuple[str, str]]) -> None:
         """Say how a refit regrouped the cluster; links open where members went."""

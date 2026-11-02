@@ -144,7 +144,8 @@ and working coordinates. No partial result is adopted.
 
 When two peaks' fitted shapes are near-collinear (1 − |cos| ≤ 10⁻⁴ over the
 fitting samples), their fitted positions are not adopted: their markers stay at
-the working positions, a ◇ marks each recorded fitted position, and the peak page
+the working positions, a small □ in the model colour marks each recorded fitted
+position, and the peak page
 says “Fitted position not adopted: near-collinear fitted shapes with …”. The
 recorded fit is kept as it is; their individual amplitudes are poorly constrained,
 which the profile notes. The next fit starts them from the configured defaults;
@@ -182,7 +183,9 @@ samples to the nearest working peak, largest |extreme| first (eight rows, then a
 count of the rest). Choosing a row frames the region with surrounding context and
 places the slices through its extreme, keeping the plane, the comparison mode and the
 selection. A list belongs to one plane, run and threshold: another plane needs
-another request, and an Outdated run offers none. The list is descriptive. It never
+another request. For an Outdated run the list is that run's historical residual,
+titled “· Run 5d7b4768 · historical”; distances are to the current working peaks
+and follow each edit, and a nearest peak added since the run is marked ◇. The list is descriptive. It never
 adds or proposes peaks and never flags clusters; a signal may be left unmodelled
 on purpose.
 
@@ -255,8 +258,12 @@ row through the selected member shows measured data with the total model (dashed
 and the whole-spectrum residual in σ with a ±3 σ band. The lens opens framed on the
 recorded fitting-sample extent plus a margin, follows the selected peak's cluster
 and the plane strip, and widens the inspector to 340 px on the cluster page. When
-the run is Outdated, Overlay and Residual say “Outdated · fit to compare” instead
-of showing a stale model. The comparison selector is unavailable in the lens;
+the run is Outdated, Overlay and Residual keep its model as historical evidence,
+titled with the run (“Overlay · Run 5d7b4768 · historical”), with ◇ on working
+peaks that model does not contain and × at the recorded position of each model
+peak moved or deleted since. A key above the panels names the marks on show (◇, ×,
+and □ for a fitted position not adopted), as the overview legend does. The
+comparison selector is unavailable in the lens;
 **‹ Spectrum**, or **Escape** from the lens, the cluster list or the inspector,
 returns to the overview with its viewport, mode and panel widths unchanged. In an
 inspector field with a draft, the first Escape discards the draft and the next one
@@ -349,7 +356,16 @@ giving precise-looking values for amplitudes the data do not determine. The
 reference choice is kept, so the next well-determined peak is normalized again.
 
 Drafts retain the accepted comparison. A committed manual scientific change marks
-the run **Outdated** and switches to Experimental. Undo alone cannot recertify it.
+the run **Outdated**; Overlay and Residual stay selectable and keep showing that
+run's model as **historical** evidence, named “Run 5d7b4768 · historical” in the
+legend, the pending label, the status bar sample text and the mode tooltips. On
+the spectrum, ◇ marks a working peak the model does not contain, and × the
+model's recorded position of a peak moved or deleted since, with a dotted line to
+the peak. The cluster and peak pages still report that run's statistics as
+“Recorded by an outdated run”. The historical comparison is withdrawn, with the
+reason in the mode tooltips, the lens and the unexplained list, when the spectrum,
+axes, plane selection or plane values differ from those the run recorded; the
+overview then returns to Experimental. Undo alone cannot recertify a run.
 Refit to establish a new Current result. An all-unusable run remains inspectable
 and exportable, with comparisons disabled and “No usable model”.
 
