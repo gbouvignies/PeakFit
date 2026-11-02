@@ -2,7 +2,7 @@
 
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and full experimental data; it does not
-replace scientific exports. The current formats are scientific archive **2.0.0**
+replace scientific exports. The current formats are scientific archive **2.1.0**
 and analysis project **3.0.0**.
 
 ## Default scientific export
@@ -28,6 +28,10 @@ Retain exactly:
   per-plane amplitudes, covariance and all reported amplitude errors.
 - Cluster/global statistics, classifications, optimizer termination diagnostics,
   noise, terminal correction revision, pass counts and provenance.
+- Per usable cluster, the **largest recorded residual**
+  (`analytical_evaluation.largest_recorded_residual`): the maximum |recorded
+  optimizer residual| / σ over the cluster's `statistics.n_observations` corrected
+  fitting samples, computed once from the live residuals at finalization.
 - Exact observation dtype/checksums, paired sample indices and **terminal corrections**, including unusable
   clusters. Corrections cannot be regenerated from the final model.
 - Model/calibration/processing descriptors and a small sampled-shape reference
@@ -36,7 +40,8 @@ Retain exactly:
   exact source-plane identities, ordered experimental values and exclusions.
 
 Large observations, sampled models and both residual representations are absent
-from default exports. Published values are never re-fitted or re-solved to read
+from default exports; the largest recorded residual is the only residual summary
+retained, so review measures need no source. Published values are never re-fitted or re-solved to read
 them. The small shape reference is retained for validation, rather than for size
 reduction; its cost is approximately 0.12 MB including archive framing here.
 
@@ -250,7 +255,8 @@ starts, or `null` for a first fit), the stable peak IDs `continued` from it and
 incompatible. Runs saved before this record existed read it as not recorded.
 
 Projects do not retain extracted observations, sampled model predictions or dense
-residual arrays. The bundled two-pass one-run project is approximately **7.12 MB**.
+residual arrays; review measures (χ²ᵣ, sample count, largest recorded residual,
+amplitude correlation) all come from retained scalars and reopen identically. The bundled two-pass one-run project is approximately **7.12 MB**.
 Observed values are sampled from the verified source in the original order/dtype
 and checked against their exact digests. Reconstruction uses saved fitted values
 and amplitudes without optimization or an amplitude solve. Existing continuation
@@ -287,9 +293,13 @@ no embedded-project readers, conversion adapters or alternative project modes re
 
 ## Reading and migrating existing files
 
-- Scientific NPZ **1.0.0** and **2.0.0** remain readable, including the first PR
-  schema-1 context without later coordinate/adoption fields. Missing old facts
-  remain unknown; new exports require the complete context. New writes use 2.0.0.
+- Scientific NPZ **1.0.0**, **2.0.0** and **2.1.0** remain readable, including the
+  first PR schema-1 context without later coordinate/adoption fields. Missing old
+  facts remain unknown; new exports require the complete context. New writes use
+  2.1.0. Archives before 2.1.0 have no largest recorded residual: it reads as
+  `None`, and the GUI shows "Largest recorded residual · not retained by this
+  project" rather than a value. When detailed evidence or a verified source is
+  available, the stored value is checked against the regenerated residuals.
 - Earlier `.peakfit` project formats are unsupported. Scientific exports remain
   independently readable. To continue an older analysis, retain its original
   spectrum and scientific outputs; open the spectrum and refit into a new project.

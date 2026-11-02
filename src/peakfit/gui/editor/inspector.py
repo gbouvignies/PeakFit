@@ -21,7 +21,7 @@ from peakfit.gui.editor.labels import clear_layout as _clear
 from peakfit.gui.editor.labels import review_item
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
-from peakfit.gui.editor.review import BOUND_TOLERANCE, correlation_matrix
+from peakfit.gui.editor.review import BOUND_TOLERANCE, NOT_RETAINED, correlation_matrix
 from peakfit.gui.editor.setup import FitSetup
 
 if TYPE_CHECKING:
@@ -325,9 +325,21 @@ class Inspector(QtWidgets.QScrollArea):
         analysis = QtWidgets.QVBoxLayout(self.analysis_page)
         analysis.setContentsMargins(0, themes.SPACE_XS, 0, 0)
         analysis.setSpacing(themes.SPACE_S)
-        self._section(analysis, "Fit setup")
+        self._analysis_layout = analysis
+        # Two blocks: the fit setup leads before the first fit, the run review after.
+        self.setup_block = QtWidgets.QWidget()
+        setup = QtWidgets.QVBoxLayout(self.setup_block)
+        setup.setContentsMargins(0, 0, 0, 0)
+        setup.setSpacing(themes.SPACE_S)
+        self.setup_section = self._section(setup, "Fit setup")
         self.setup = FitSetup()
-        analysis.addWidget(self.setup)
+        setup.addWidget(self.setup)
+        self.review_block = QtWidgets.QWidget()
+        analysis.addWidget(self.setup_block)
+        analysis.addWidget(self.review_block)
+        analysis = QtWidgets.QVBoxLayout(self.review_block)
+        analysis.setContentsMargins(0, 0, 0, 0)
+        analysis.setSpacing(themes.SPACE_S)
         self._section(analysis, "Active run")
         self.run_text = _label("", "", wrap=True)
         analysis.addWidget(self.run_text)
@@ -356,7 +368,7 @@ class Inspector(QtWidgets.QScrollArea):
         self.verticalScrollBar().rangeChanged.connect(self._scroll_to_unexplained)
         self.verticalScrollBar().actionTriggered.connect(self._stop_reveal)
         self.analysis_note = _label("", "caption", wrap=True)
-        analysis.addWidget(self.analysis_note)
+        self._analysis_layout.addWidget(self.analysis_note)
         layout.addWidget(self.analysis_page)
         layout.addStretch(1)
         self._peak: WorkingPeak | None = None
@@ -458,10 +470,22 @@ class Inspector(QtWidgets.QScrollArea):
         """Move the profile's plane marker only."""
         self.profile.set_plane(plane)
 
-    def show_analysis(self, title: str, summary: str, run: str, note: str) -> None:
-        """No selection: the fit setup and what the active run recorded."""
+    def show_analysis(
+        self, title: str, summary: str, run: str, note: str, *, fitted: bool = False
+    ) -> None:
+        """No selection: the fit setup and what the active run recorded.
+
+        Before the first fit the setup leads; afterwards the run review does,
+        with the setup below it.
+        """
         if self._peak is not None:
             return
+        layout = self._analysis_layout
+        first = self.review_block if fitted else self.setup_block
+        if layout.indexOf(first) != 0:
+            layout.insertWidget(0, first)
+        for widget in (self.unexplained_section, self.unexplained_button, self.unexplained_note):
+            widget.setVisible(fitted)
         self.kind.setText("ANALYSIS")
         self.title.setText(title)
         self.status.setText(summary)
@@ -643,6 +667,21 @@ class Inspector(QtWidgets.QScrollArea):
             row.addWidget(_label(detail, "caption", wrap=True), 1)
             self.unexplained.addLayout(row)
 
+    def reveal(self, block: str) -> None:
+        """Scroll the analysis page to the run review or to the fit setup."""
+        target = self.setup_block if block == "setup" else self.review_block
+        self._reveal = False
+
+        def scroll():  # once the reordered page has its geometry
+            if self._analysis_layout.indexOf(target) == 0:  # keep the page header in view
+                self.verticalScrollBar().setValue(0)
+                return
+            body = self.widget()
+            top = target.mapTo(body, QtCore.QPoint(0, 0)).y()
+            self.verticalScrollBar().setValue(max(0, top - themes.SPACE_M))
+
+        QtCore.QTimer.singleShot(0, self, scroll)  # dropped if the inspector goes first
+
     def reveal_unexplained(self) -> None:
         """Scroll a freshly computed list to the top of the inspector."""
         self._reveal = self.analysis_page.isVisible()
@@ -801,7 +840,9 @@ class Inspector(QtWidgets.QScrollArea):
             f"χ²ᵣ {review.chi2:.3g}",
             f"{samples:,} fitting samples · relative to the noise estimate".replace(",", " "),
         )
-        if math.isfinite(review.largest_residual) and samples > 1:
+        if review.largest_residual is None:
+            self._item("", "·", f"Largest recorded residual · {NOT_RETAINED}")
+        elif math.isfinite(review.largest_residual) and samples > 1:
             self._item(
                 "",
                 "·",

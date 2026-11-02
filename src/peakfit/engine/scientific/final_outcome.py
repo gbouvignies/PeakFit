@@ -52,6 +52,9 @@ class FinalAnalyticalResult:
     scaled_amplitude_standard_errors: FloatArray
     statistics: AnalyticalFitStatistics
     uncertainty_warning: str | None = None
+    # max |recorded optimizer residual| / σ over the statistics.n_observations
+    # corrected fitting samples; None when an archive predates its retention.
+    largest_recorded_residual: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -438,6 +441,7 @@ def _freeze_evaluation(evaluation: AnalyticalModelEvaluation) -> FinalAnalytical
         normalized_residuals=_freeze_array(evaluation.normalized_residuals),
         statistics=evaluation.statistics,
         uncertainty_warning=evaluation.uncertainty_warning,
+        largest_recorded_residual=float(np.max(np.abs(evaluation.normalized_residuals))),
     )
 
 

@@ -140,7 +140,8 @@ def test_nonfinite_uncertainties_and_array_bits_are_lossless(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "corruption", ["extra", "shape", "dtype", "identity", "residual", "revision"]
+    "corruption",
+    ["extra", "shape", "dtype", "identity", "residual", "revision", "largest_residual"],
 )
 def test_malformed_scientific_evidence_rejected(tmp_path, corruption):
     _spectra, _config, _pipeline, gui = completed_result([], False)
@@ -160,6 +161,8 @@ def test_malformed_scientific_evidence_rejected(tmp_path, corruption):
         document["samples"][0]["cluster_id"] = -500
     elif corruption == "revision":
         c["correction_revision"] += 1
+    elif corruption == "largest_residual":
+        c["analytical_evaluation"]["largest_recorded_residual"] *= 2
     else:
         # Replace a residual with a different, structurally valid array member.
         c["analytical_evaluation"]["raw_residuals"], c["analytical_evaluation"]["model_values"] = (

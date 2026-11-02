@@ -93,6 +93,7 @@ class AnalysisActions:
             "values_action",
             "fit_action",
             "settings_action",
+            "run_action",
         ):
             action = getattr(self, name, None)
             if action is not None and busy:
@@ -387,6 +388,7 @@ class AnalysisActions:
                 self.export_action,
                 self.fit_action,
                 self.settings_action,
+                self.run_action,
                 self.fit_export_action,
             ):
                 action.setEnabled(False)

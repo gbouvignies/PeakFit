@@ -122,6 +122,12 @@ terminal cross-talk corrections and the cluster model, as stored in the final fi
 outcome. Reduced chi-squared derives from it.
 _Avoid_: Calling it the spectrum residual
 
+**Largest recorded residual**:
+The maximum absolute recorded optimizer residual of one cluster, in units of the
+statistical noise, over its corrected fitting samples. Computed once at
+finalization and retained at every evidence level.
+_Avoid_: Deriving it from the whole-spectrum residual
+
 **Whole-spectrum residual**:
 The difference between the experimental plane and the sum of all usable cluster
 models at every native point, divided by the statistical noise. It includes points

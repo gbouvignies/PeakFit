@@ -545,9 +545,13 @@ statistical noise, starts, bounds or run readiness.
 
 **Discoverability after fitting.** The toolbar always shows a compact summary of
 the working settings (for example “SP2 × SP2 · clusters ≥ 5 σ · 2 passes”) that
-opens the Analysis page; the run chip opens the run record with the settings
-actually used. When working settings differ from the active run's, both say so.
-Settings are never reachable only through a menu or a button chevron.
+opens the Analysis page at the fit setup; the run summary beside it opens the
+Analysis page at the active run's review (also **Analysis ▸ Active run**). Before
+the first fit the setup leads the page; once a run exists, the review leads
+(active run, changes from the previous run, warning navigation, unexplained
+signal) and the setup follows it. When working settings differ from the active
+run's, both say so. Settings are never reachable only through a menu or a button
+chevron.
 
 During fitting, keep pan/zoom, plane navigation and read-only inspection available.
 Pause scientific edits, replacement and sampling, with a short reason. Show actual

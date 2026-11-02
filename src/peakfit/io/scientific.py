@@ -33,7 +33,7 @@ from peakfit.engine.scientific.final_outcome import (
     freeze_provenance,
 )
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 MAX_METADATA_BYTES = 16 * 1024**2
 MAX_ARRAY_BYTES = 8 * 1024**3
 _SAMPLE_DIMENSIONS = 2
@@ -172,7 +172,7 @@ def read_scientific(path):  # noqa: PLR0915
             return {k: decode(v) for k, v in value.items()}
 
         if (
-            document.get("schema_version") not in {"1.0.0", VERSION}
+            document.get("schema_version") not in {"1.0.0", "2.0.0", VERSION}
             or document.get("kind") != "peakfit_scientific_result"
         ):
             raise ValueError("Unsupported scientific result version.")
@@ -299,6 +299,9 @@ def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
                 or not np.all(np.isfinite(e.shapes))
             ):
                 raise ValueError("Invalid published analytical result dimensions or identity.")
+            largest = e.largest_recorded_residual
+            if largest is not None and not (math.isfinite(largest) and largest >= 0):
+                raise ValueError("Invalid largest recorded residual.")
         if (
             not s.grid_indices
             or any(i.shape != s.grid_indices[0].shape for i in s.grid_indices)
@@ -372,6 +375,13 @@ def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
         np.testing.assert_allclose(
             np.sum(e.normalized_residuals**2), e.statistics.chi_squared, rtol=1e-10, atol=1e-9
         )
+        if e.largest_recorded_residual is not None:
+            np.testing.assert_allclose(
+                np.max(np.abs(e.normalized_residuals)),
+                e.largest_recorded_residual,
+                rtol=1e-10,
+                atol=1e-9,
+            )
         if e.statistics.n_observations != s.data.size:
             raise ValueError("Recorded observation count disagrees with samples.")
 

@@ -102,8 +102,12 @@ for undoable IDs, rather than appearing as active scientific provenance.
 
 ## Fit → compare → export
 
-The **fit setup** is the inspector's analysis page, shown whenever nothing is
-selected. It edits the working settings directly: lineshape model (each axis's
+The **fit setup** is part of the inspector's analysis page, shown whenever nothing
+is selected. Before the first fit it leads the page; once a run exists, the run
+review leads (active run, changes from the previous run, warning navigation and
+unexplained signal) and the setup follows it. A click on the toolbar run summary,
+or **Analysis ▸ Active run**, opens the page at the review; the settings chip, or
+**Analysis ▸ Fit setup**, opens it at the setup. It edits the working settings directly: lineshape model (each axis's
 resolved model with its source: NMRPipe apodization, the pseudo-Voigt default,
 shown as a caution, when no apodization is recognized, or explicit), clustering threshold as a factor of the statistical
 noise with its absolute intensity, optimizer passes (default **two**, with the
@@ -274,7 +278,9 @@ Dragging the selected marker in any panel shows a ghost at the proposed position
 and “Draft · release to commit · Escape cancels” while the committed marker and the
 accepted comparison stay as they were; releasing commits one undoable move in
 unfolded ppm, so a folded peak keeps its aliased display. **A** (or the add tool)
-places a peak at the next click in any panel; **Escape** cancels a drag or a
+places a peak at the next click in any panel. Enter on its name in the inspector
+returns the keyboard to the lens, so **A** places the next one at once (coordinate
+fields keep focus). **Escape** cancels a drag or a
 placement before it leaves the lens. Each commit makes the run Outdated. A peak the
 run has not fitted, such as one just added, keeps the lens on the cluster in view;
 selected from elsewhere, it opens the cluster with the nearest member. **Fit**
