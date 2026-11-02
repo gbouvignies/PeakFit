@@ -268,6 +268,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
         # Other members of the selected peak's recorded cluster: lighter rings that
         # mark the unit of review while the selected peak stays the unit of editing.
         self.cluster_rings = self._scatter("o", 14, 29)
+        # Recorded fitted positions the run did not adopt (working markers stay put).
+        self.unadopted = self._scatter("d", 8, 18)
         self.cluster_ids: tuple[str, ...] = ()
         # Fitting regions on request: a faint tint behind the contours, one cell per
         # sampled point, with the selected peak's cluster slightly stronger.
@@ -449,6 +451,11 @@ class SpectrumCanvas(QtWidgets.QWidget):
             for point in (self.display(p), self.display(self._by_id[p.id]))
         ]
         self.recorded_links.setData([p[0] for p in links], [p[1] for p in links])
+
+    def set_unadopted(self, points: list[tuple[float, float]]) -> None:
+        """Show recorded fitted positions that were not adopted as working positions."""
+        self.unadopted.setData([p[0] for p in points], [p[1] for p in points])
+        self._update_legend()
 
     def set_cluster(self, peak_ids: tuple[str, ...]) -> None:
         """Mark a recorded cluster's members; never changes view, mode or model scope."""
@@ -1100,6 +1107,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 items.append(key(t.secondary, "×", "position in this model"))
         if self.regions_visible and self.region_source:
             items.append(key(t.secondary, "▭", f"fitting regions · {self.region_source}"))
+        if len(self.unadopted.data):
+            items.append(key(t.warning, "◇", "fitted position, not adopted"))
         self.legend.setText(
             f'<div style="color:{t.secondary};font-size:{FONT_CAPTION}px">'
             + "&nbsp;&nbsp;&nbsp;".join(items)
@@ -1136,6 +1145,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
         self.ring.setPen(pg.mkPen(t.accent, width=2))
         self.cluster_rings.setPen(pg.mkPen(color(t.accent, 0.6), width=1.2))
+        self.unadopted.setPen(pg.mkPen(color(t.warning, 0.9), width=1.2))
         if self._region_labels.size:
             self._paint_regions()
         self.halo.setPen(pg.mkPen(color(t.accent, 0.8), width=1.2))

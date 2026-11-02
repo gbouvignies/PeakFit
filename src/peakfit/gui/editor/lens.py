@@ -115,6 +115,7 @@ class ClusterLens(QtWidgets.QWidget):
         self.layers: list[list[ContourLayer]] = [[], [], []]
         self.markers: list[InspectionMarkers] = []
         self.ghosts: list[pg.ScatterPlotItem] = []
+        self.unadopted: list[pg.ScatterPlotItem] = []
         self.rings: list[pg.ScatterPlotItem] = []
         self.crosses: list[tuple[pg.InfiniteLine, pg.InfiniteLine]] = []
         # Overlay and residual panels: ◇ not in a historical model, × recorded position.
@@ -147,6 +148,10 @@ class ClusterLens(QtWidgets.QWidget):
             ghost = pg.ScatterPlotItem(symbol="+", size=11, brush=None)
             ghost.setZValue(32)
             ghost.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+            # Recorded fitted positions the run did not adopt.
+            fitted = pg.ScatterPlotItem(symbol="d", size=9, brush=None)
+            fitted.setZValue(19)
+            fitted.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
             cross = (
                 pg.InfiniteLine(angle=90, movable=False),
                 pg.InfiniteLine(angle=0, movable=False),
@@ -157,7 +162,7 @@ class ClusterLens(QtWidgets.QWidget):
             for item in (added, recorded, links):
                 item.setZValue(18)
                 item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
-            for item in (markers, ring, ghost, *cross, added, recorded, links):
+            for item in (markers, ring, ghost, fitted, *cross, added, recorded, links):
                 plot.getPlotItem().addItem(item, ignoreBounds=True)
             self.added_marks.append(added)
             self.recorded_marks.append(recorded)
@@ -174,6 +179,7 @@ class ClusterLens(QtWidgets.QWidget):
             self.captions.append(label)
             self.markers.append(markers)
             self.ghosts.append(ghost)
+            self.unadopted.append(fitted)
             self.rings.append(ring)
             self.crosses.append(cross)
             self.unavailable.append(text)
@@ -335,6 +341,8 @@ class ClusterLens(QtWidgets.QWidget):
             text.setColor(t.secondary)
         for ghost in self.ghosts:
             ghost.setPen(pg.mkPen(t.pin, width=2))
+        for fitted in self.unadopted:
+            fitted.setPen(pg.mkPen(color(t.warning, 0.9), width=1.2))
         self.measured.setPen(pg.mkPen(color(t.measured), width=1.3))
         self.model.setPen(pg.mkPen(color(t.model), width=1.3, style=QtCore.Qt.PenStyle.DashLine))
         self.residual_curve.setPen(pg.mkPen(color(t.text), width=1.2))
@@ -555,6 +563,11 @@ class ClusterLens(QtWidgets.QWidget):
             self.selected.emit(points[0].data())
 
     # Editing proposals --------------------------------------------------------------
+
+    def set_unadopted(self, points: list[tuple[float, float]]) -> None:
+        """Recorded fitted positions not adopted as working positions (◇)."""
+        for fitted in self.unadopted:
+            fitted.setData([p[0] for p in points], [p[1] for p in points])
 
     def set_membership(self, text: str, links: list[tuple[str, str]]) -> None:
         """Say how a refit regrouped the cluster; links open where members went."""

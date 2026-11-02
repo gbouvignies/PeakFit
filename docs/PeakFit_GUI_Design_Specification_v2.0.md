@@ -267,6 +267,31 @@ with unusable/missing/non-finite/unmappable positions retains its prior pair and
 gets a specific warning. Do not update only one axis. Fatal result/source/identity
 validation failure publishes neither new positions nor a new active result.
 Canceled or failed jobs leave all working positions and the previous result intact.
+
+**Near-collinear fitted shapes.** When two peaks' recorded fitted shapes over the
+cluster's fitting samples are near-collinear (1 − |cos| ≤ 10⁻⁴), neither fitted
+position is adopted: both keep their working positions, and the reason is recorded
+by stable ID. Such a pair makes the per-plane amplitude problem nearly rank
+deficient, so the split between the two peaks, and the positions that produced it,
+are poorly constrained and can be unstable; it does not show how many resonances
+are present (a collapse also occurs on data with two). The diagnostic stands on
+its own, independent of the uncertainty warning, and is recomputed from the
+recorded shapes. 10⁻⁴ is a conservative operational threshold supported by the
+current evidence ([repeat-fit collapse](validation/repeat-fit-collapse.md)), not
+a physical boundary. Fitted values, warnings and classifications are unchanged.
+The peak page says “Fitted position not adopted: near-collinear fitted shapes
+with …”, the review lists the pair as a measure with 1 − |cos| and the amplitude
+cancellation, and the spectrum and lens mark each recorded fitted position not
+adopted with ◇. The run is Current: working markers deliberately stay where they
+were. Retained peaks start the next fit from defaults; moving one makes it an
+ordinary edited peak. Runs recorded before this rule keep their recorded adoption.
+
+The next fit continues from the active run. Each peak whose working position is
+still the adopted one starts from that run's complete fitted nonlinear state
+(positions, linewidths and any other shape parameter), mapped by stable ID; added
+or moved peaks start from configured defaults, and so does every peak after a
+lineshape, constraint or axis change. An unedited refit therefore reproduces its
+run. The run records which peaks continued and from which run.
 An all-unusable completed run changes no positions and offers no model comparison.
 
 **Currentness is not raw equality with initial seeds.** Record both the execution
