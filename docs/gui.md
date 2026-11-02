@@ -160,6 +160,20 @@ Each name opens its cluster or peak; at most six clusters are listed with a coun
 the rest. A stored parent run is read off Qt; one whose evidence is no longer
 retained is named as such. The first run has nothing to compare.
 
+**Signal not explained on this plane**, also on the analysis page, lists on request
+(**Find on plane N**) the connected regions where the current plane's
+whole-spectrum residual exceeds ±5 σ_stat; Display sets the threshold for the
+session. Positive and negative excursions are separate regions, and samples touching
+diagonally belong to one. Each row gives the location of the region's extreme
+sample, that extreme in σ, the region's size in samples and the distance in native
+samples to the nearest working peak, largest |extreme| first (eight rows, then a
+count of the rest). Choosing a row frames the region with surrounding context and
+places the slices through its extreme, keeping the plane, the comparison mode and the
+selection. A list belongs to one plane, run and threshold: another plane needs
+another request, and an Outdated run offers none. The list is descriptive. It never
+adds or proposes peaks and never flags clusters; a signal may be left unmodelled
+on purpose.
+
 Successful completion automatically adopts each usable valid fitted coordinate
 pair by stable peak ID. Usable non-converged fits and uncertainty warnings retain
 their positions and warnings. Missing/unusable pairs keep their submitted positions

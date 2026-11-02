@@ -22,6 +22,7 @@ from peakfit.gui.editor.canvas import (
     ContourLayer,
     SpectrumCanvas,
     _level_pens,
+    framed_ranges,
     signed_geometry,
 )
 from peakfit.gui.fit_display import dataset_model_plane
@@ -33,8 +34,6 @@ if TYPE_CHECKING:
     from peakfit.gui.peaks import WorkingPeak
     from peakfit.gui.spectrum import Dataset
 
-_MARGIN = 0.35  # default region: fitting-sample extent plus this fraction on each side
-_MINIMUM_POINTS = 6  # and at least this many points on each side
 _BAND = 3.0  # σ band around the residual trace
 _TITLES = ("Experimental", "Overlay", "Whole-spectrum residual")
 
@@ -210,13 +209,13 @@ class ClusterLens(QtWidgets.QWidget):
         """Default region: the recorded fitting-sample extent plus a margin."""
         self._grid = grid_indices
         rows, columns = (np.asarray(i) for i in grid_indices)
-        ranges = []
-        for indices, ppm in ((columns, self.ppm_x), (rows, self.ppm_y)):
-            low, high = int(indices.min()), int(indices.max())
-            pad = max(_MINIMUM_POINTS, int((high - low) * _MARGIN))
-            low, high = max(0, low - pad), min(ppm.size - 1, high + pad)
-            ranges.append(sorted((float(ppm[low]), float(ppm[high]))))
-        self.panels[0].getViewBox().setRange(xRange=ranges[0], yRange=ranges[1], padding=0)
+        x_range, y_range = framed_ranges(
+            (int(rows.min()), int(rows.max())),
+            (int(columns.min()), int(columns.max())),
+            self.ppm_y,
+            self.ppm_x,
+        )
+        self.panels[0].getViewBox().setRange(xRange=x_range, yRange=y_range, padding=0)
 
     def reframe(self) -> None:
         """Return to the default region of the cluster on show."""

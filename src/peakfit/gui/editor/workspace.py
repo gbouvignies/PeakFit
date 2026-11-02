@@ -1,13 +1,15 @@
 """Three columns: navigator, spectrum and inspector, around one editing workflow."""
 
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from threading import Event
+from typing import TYPE_CHECKING, cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.engine.domain.spectrum import get_dimension_label, get_shape_names
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
+from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import dataset_summary
 from peakfit.gui.editor.canvas import SpectrumCanvas
 from peakfit.gui.editor.changes import RunChanges, compare_runs
@@ -18,8 +20,15 @@ from peakfit.gui.editor.lens import ClusterLens
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
+from peakfit.gui.editor.unexplained import (
+    DEFAULT_THRESHOLD,
+    UnexplainedRegion,
+    unexplained_regions,
+)
+from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
+from peakfit.gui.spectrum import display_position
 
 if TYPE_CHECKING:
     from peakfit.gui.peaks import WorkingPeak
@@ -30,6 +39,8 @@ _RESIDUAL = 2
 _WIDE_TOOLBAR = 1200
 _SIDES = (280, 320)  # default navigator and inspector widths at 1280 px
 _LENS_INSPECTOR = 340  # the inspector widens while the lens is open
+_UNEXPLAINED_ROWS = 8  # regions listed before "and N more"
+_REGION_CONTEXT = 24  # a framed region keeps at least this many points around it
 
 
 class EditorWorkspace(QtWidgets.QWidget):
@@ -51,6 +62,17 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.rules = HighlightRules()  # review highlight thresholds; display only
         self._reviews: tuple[object, list] = (None, [])
         self._changes: tuple[object, RunChanges | None] = (None, None)
+        # Signal not explained on this plane: computed on request, kept for its key only.
+        self.unexplained_threshold = DEFAULT_THRESHOLD  # k in σ_stat; display only
+        # (key, regions, "pending" or the failure)
+        self._unexplained: tuple[object, list[UnexplainedRegion] | str | Exception | None] = (
+            None,
+            None,
+        )
+        self._unexplained_revision = 0
+        self._unexplained_cancel = Event()
+        self._unexplained_worker = ViewerComputation(self)
+        self._unexplained_worker.completed.connect(self._unexplained_ready)
         self.canvas = SpectrumCanvas(dataset)
         decimals = (self.canvas.decimals_x, self.canvas.decimals_y)
         self.navigator = Navigator(
@@ -110,6 +132,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.lens.close_requested.connect(self.close_lens)
         self.lens.selected.connect(lambda i: self.select_peak(i, cluster=True))
         self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c))
+        self.panel.unexplained_requested.connect(self.find_unexplained)
+        self.panel.region_chosen.connect(self.frame_region)
         self.navigator.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.next_warning.connect(lambda: self.fitting.next_warning())
         self.panel.setup.changed.connect(lambda settings: self.fitting.configure(settings))
@@ -688,6 +712,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         if self.selected_id is None:
             self.panel.show_changes(*self._run_changes())
+            self._show_unexplained()
 
     def _refresh(self) -> None:
         peak_sources = tuple(
@@ -832,6 +857,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             else ""
         )
         self.panel.set_plane(plane - 1)
+        if self.selected_id is None:
+            self._show_unexplained()
         if self.lens_open:
             self._update_lens()
 
@@ -858,6 +885,127 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.fitting.update()
         self.lens.setFocus()
         self.guidance_changed.emit(self.guidance())
+
+    def _unexplained_key(self):
+        result = self.fitting.result
+        if result is None or not self.fitting.current:
+            return None
+        return (result.run_id, self.canvas.plane, self.unexplained_threshold)
+
+    def find_unexplained(self) -> None:
+        """Compute the current plane's residual regions off Qt; read-only."""
+        key = self._unexplained_key()
+        if key is None or key == self._unexplained[0]:
+            return
+        result, plane, threshold = self.fitting.result, self.canvas.plane, key[2]
+        assert result is not None
+        observed = self.dataset.spectra.data[plane]
+        axes = [axis.model_copy(deep=True) for axis in self.dataset.spectra.spectral_params]
+        cached = self.canvas._model_cache.get((result.run_id, plane))
+        y_axis, x_axis = self.canvas.y_axis, self.canvas.x_axis
+        peaks = [
+            (
+                peak.id,
+                float(y_axis.ppm2pts(display_position(y_axis, peak.positions[0]))),
+                float(x_axis.ppm2pts(display_position(x_axis, peak.positions[1]))),
+            )
+            for peak in self.peaks
+        ]
+
+        self._unexplained_cancel.set()
+        self._unexplained_cancel = cancel = Event()
+
+        def compute():
+            model = cached or dataset_model_plane(result, axes, plane, cancel=cancel)
+            residual = (observed - model.values) / result.outcome.noise
+            return unexplained_regions(residual, threshold, peaks)
+
+        self._unexplained = (key, "pending")
+        self._unexplained_revision += 1
+        self._unexplained_worker.submit("unexplained", self._unexplained_revision, compute)
+        self._show_unexplained()
+
+    def _unexplained_ready(self, _kind: str, revision: int, outcome: object) -> None:
+        if revision != self._unexplained_revision:
+            return
+        self._unexplained = (
+            self._unexplained[0],
+            cast("list[UnexplainedRegion] | Exception", outcome),
+        )
+        self._show_unexplained()
+        self.panel.reveal_unexplained()
+
+    def _show_unexplained(self) -> None:
+        """Fill the analysis page's list for the current plane, run and threshold."""
+        fitting, plane = self.fitting, self.canvas.plane
+        k = formatting.number(self.unexplained_threshold, 1).removesuffix(".0")
+        note = (
+            f"Connected regions of the whole-spectrum residual beyond ±{k} σ_stat. "
+            "Signal may be left unmodelled on purpose; this list never proposes peaks "
+            "or flags clusters."
+        )
+        button = f"Find on plane {plane + 1}"
+        key = self._unexplained_key()
+        if fitting.result is None or fitting.busy:
+            self.panel.show_unexplained(button, False, "", [], "Available after a fit. " + note)
+            return
+        if key is None:
+            self.panel.show_unexplained(
+                button, False, "Outdated · fit to compare with the working peaks", [], note
+            )
+            return
+        found_key, outcome = self._unexplained
+        if found_key != key:
+            self.panel.show_unexplained(button, True, "", [], note)
+            return
+        if isinstance(outcome, str):
+            self.panel.show_unexplained(button, False, f"Computing plane {plane + 1}…", [], note)
+            return
+        if isinstance(outcome, Exception):
+            self.panel.show_unexplained(button, True, f"Unavailable: {outcome}", [], note)
+            return
+        regions = outcome if isinstance(outcome, list) else []
+        count = len(regions)
+        title = (
+            f"Plane {plane + 1} · "
+            + (f"{count} region{'s' if count != 1 else ''}" if count else "no region")
+            + f" beyond ±{k} σ_stat"
+        )
+        names = {peak.id: peak.name for peak in self.peaks}
+        canvas = self.canvas
+        x, y = (formatting.nucleus(a.nucleus, a.label) for a in (canvas.x_axis, canvas.y_axis))
+        rows = []
+        for region in regions[:_UNEXPLAINED_ROWS]:
+            location = (
+                f"{x} {formatting.number(float(canvas.ppm_x[region.column]), canvas.decimals_x)}"
+                f" · {y} {formatting.number(float(canvas.ppm_y[region.row]), canvas.decimals_y)}"
+            )
+            nearest = (
+                f" · {region.distance:.1f} pts from {names.get(region.nearest, '')}"
+                if region.nearest is not None
+                else ""
+            )
+            rows.append(
+                (
+                    location,
+                    f"{region.extreme:+.1f} σ · {region.size} sample"
+                    f"{'s' if region.size != 1 else ''}{nearest}",
+                )
+            )
+        if count > _UNEXPLAINED_ROWS:
+            rows.append(("", f"… and {count - _UNEXPLAINED_ROWS} more"))
+        self.panel.show_unexplained(button, False, title, rows, note)
+
+    def frame_region(self, index: int) -> None:
+        """Frame a listed region in the overview and sample through its extreme."""
+        outcome = self._unexplained[1]
+        if not isinstance(outcome, list) or index >= len(outcome):
+            return
+        region = outcome[index]
+        self.canvas.frame(region.rows, region.columns, _REGION_CONTEXT)
+        self.canvas.sample(
+            float(self.canvas.ppm_x[region.column]), float(self.canvas.ppm_y[region.row])
+        )
 
     def guidance(self) -> str:
         """The status-bar hint for what the spectral area currently allows."""
@@ -928,7 +1076,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             model_cache=canvas._model_cache,
         )
 
-    def display_dialog(self) -> None:
+    def display_dialog(self) -> None:  # noqa: PLR0915
         """Display choices do not change scientific inputs or edit history."""
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle("Spectrum display")
@@ -945,9 +1093,14 @@ class EditorWorkspace(QtWidgets.QWidget):
         residual.setDecimals(2)
         residual.setValue(self.canvas.residual_threshold)
         residual.setKeyboardTracking(False)
+        unexplained = QtWidgets.QDoubleSpinBox()
+        unexplained.setRange(1, 100)
+        unexplained.setDecimals(1)
+        unexplained.setValue(self.unexplained_threshold)
         threshold.setAccessibleName("First contour")
         residual.setAccessibleName("First residual contour")
-        for field in (threshold, residual):
+        unexplained.setAccessibleName("Unexplained signal beyond")
+        for field in (threshold, residual, unexplained):
             field.setLocale(QtCore.QLocale.c())
         factor = QtWidgets.QDoubleSpinBox()
         factor.setRange(1.1, 5)
@@ -966,6 +1119,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             ("Level factor", factor),
             ("Levels per sign", count),
             ("First residual contour / σ_stat", residual),
+            ("Unexplained signal beyond ± / σ_stat", unexplained),
             ("", labels),
             ("", heavy),
             ("Signed trace scale", fit),
@@ -986,6 +1140,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.canvas.contour_count = count.value()
             self.canvas.labels_visible = labels.isChecked()
             self.canvas.heavy_strokes = heavy.isChecked()
+            self.unexplained_threshold = unexplained.value()
+            self._show_unexplained()
             self.canvas._refresh_labels()
             self.set_mode(self.canvas.comparison_mode)
             if self.lens_open:
@@ -1034,6 +1190,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.fitting.stop()
         self.canvas.stop()
         self.lens.stop()
+        self._unexplained_cancel.set()
+        self._unexplained_worker.close()
 
 
 def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple]:
