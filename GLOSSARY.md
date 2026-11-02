@@ -89,6 +89,18 @@ from that cluster's data before fitting.
 **Fit run**:
 One completed fitting workflow and its associated results.
 
+**Near-collinear fitted shapes**:
+Two peaks whose recorded fitted shapes over a cluster's fitting samples satisfy
+1 − |cos| ≤ 10⁻⁴. Their per-plane amplitude split is ill-conditioned, so their
+individual amplitudes and the positions that produced them are poorly
+constrained; it says nothing about how many resonances are present.
+
+**Continued start**:
+A peak's starting nonlinear values taken from the active run's fitted state,
+because its working position is still the one that run adopted. Other peaks start
+from the configured defaults; each run records which peaks continued and from which
+run.
+
 **Final fit outcome**:
 The immutable authoritative scientific result assembled once every terminal
 cluster optimizer result has been classified under the frozen final correction

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from peakfit.engine.diagnostics.coincidence import collinear_pairs
 from peakfit.engine.domain.spectrum import get_dimension_label
 
 if TYPE_CHECKING:
@@ -49,6 +50,30 @@ class Highlight:
 
 
 @dataclass(frozen=True, slots=True)
+class CollinearShapes:
+    """Two members whose recorded fitted shapes are near-collinear (working IDs)."""
+
+    first: str
+    second: str
+    dissimilarity: float  # 1 − |cos| over the fitting samples
+    cancellation: float  # how much larger the two contributions are than their sum
+
+    def describe(self, names: dict[str, str]) -> tuple[str, str]:
+        """Review text and its caption; descriptive, not a statement about resonances."""
+        a, b = names.get(self.first, self.first), names.get(self.second, self.second)
+        cancel = (
+            f" · contributions cancel ×{self.cancellation:,.0f}".replace(",", " ")
+            if math.isfinite(self.cancellation)
+            else ""
+        )
+        return (
+            f"Near-collinear fitted shapes: {a} / {b}",
+            f"1 − |cos| {self.dissimilarity:.1e}{cancel} · their split, and the positions "
+            "that produced it, are poorly constrained",
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ClusterReview:
     """Everything the navigator and inspector show about one recorded cluster."""
 
@@ -61,6 +86,7 @@ class ClusterReview:
     samples: int
     correlation: float  # largest |ρ|; NaN when unavailable or one peak
     highlights: tuple[Highlight, ...]
+    collinear: tuple[CollinearShapes, ...] = ()
 
     @property
     def single(self) -> bool:
@@ -199,6 +225,19 @@ def review_clusters(
                 int(evaluation.statistics.n_observations) if evaluation else 0,
                 correlation,
                 tuple(highlights),
+                tuple(
+                    CollinearShapes(
+                        identities[cluster.peak_names[p.first]].working_id,
+                        identities[cluster.peak_names[p.second]].working_id,
+                        p.dissimilarity,
+                        p.cancellation,
+                    )
+                    for p in (
+                        collinear_pairs(evaluation.shapes, evaluation.amplitudes)
+                        if evaluation is not None and cluster.usable
+                        else ()
+                    )
+                ),
             )
         )
     return reviews

@@ -506,8 +506,13 @@ class Inspector(QtWidgets.QScrollArea):
         plane_values: tuple[float, ...] | None,
         plane: int,
         review: ClusterReview | None = None,
+        retained: str | None = None,
     ) -> None:
-        """Recorded profile, parameters and review of the selected peak's cluster."""
+        """Recorded profile, parameters and review of the selected peak's cluster.
+
+        ``retained`` is why the run kept this peak's working position instead of
+        adopting its fitted one, if it did.
+        """
         peak = self._peak
         if peak is None or self.cluster_view:
             return
@@ -519,6 +524,7 @@ class Inspector(QtWidgets.QScrollArea):
             busy,
             plane_values,
             review,
+            retained,
         )
         if key == self._key:
             self.profile.set_plane(plane)
@@ -549,7 +555,10 @@ class Inspector(QtWidgets.QScrollArea):
         engine, cluster = found
         members = len(cluster.peak_names)
         self.kind.setText(f"PEAK · CLUSTER OF {members}" if members > 1 else "PEAK")
-        self.status.setText(f"{_state(cluster)} · {run}")
+        self.status.setText(
+            f"{_state(cluster)} · {run}"
+            + ("\n◇ Fitted position not adopted · working position kept" if retained else "")
+        )
         self._show_profile(result, peak.id, plane_values, plane, current=current)
         self.fitted_title.setText(f"FITTED · RUN {result.run_id[:8].upper()}")
         self._fill_parameters(engine, cluster)
@@ -565,6 +574,29 @@ class Inspector(QtWidgets.QScrollArea):
                 wrap=True,
             )
             self.fitted.addWidget(started, self.fitted.rowCount(), 0, 1, 3)
+        if retained:
+            # Working and recorded fitted positions differ on purpose: say so here.
+            kept = _label(
+                f"Fitted position not adopted: {retained}. The working position stays at "
+                "this run's start; the values above remain the recorded result.",
+                "warning",
+                wrap=True,
+            )
+            self.fitted.addWidget(kept, self.fitted.rowCount(), 0, 1, 3)
+        partners = [
+            pair.second if pair.first == peak.id else pair.first
+            for pair in (review.collinear if review else ())
+            if peak.id in (pair.first, pair.second)
+        ]
+        if partners:
+            names = dict(zip(review.ids, review.names, strict=True)) if review else {}
+            caution = (
+                "Near-collinear fitted shapes with "
+                + ", ".join(names.get(p, p) for p in partners)
+                + ": this peak's amplitudes are poorly constrained individually."
+            )
+            reason = self.profile_reason.text()
+            self.profile_reason.setText(f"{reason}\n{caution}" if reason else caution)
         self._fill_review(engine, cluster, result, review)
         self.provenance.setText(_provenance(cluster, result))
 
@@ -835,6 +867,10 @@ class Inspector(QtWidgets.QScrollArea):
                 "conditional on the fitted lineshapes",
             )
         assignments = dict(zip(review.ids, review.names, strict=True))
+        selected = self._peak.id if self._peak else None
+        for pair in review.collinear:
+            if selected in (pair.first, pair.second):
+                self._item("", "·", *pair.describe(assignments))
         for index, highlight in enumerate(review.highlights):
             prefix = f"{assignments[highlight.peak]}: " if highlight.peak in assignments else ""
             self._item("Highlights" if index == 0 else "", "◇", prefix + highlight.rule)

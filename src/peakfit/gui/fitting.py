@@ -9,6 +9,7 @@ import numpy as np
 from peakfit.engine.algorithms.clustering import create_clusters
 from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
+from peakfit.engine.domain.constraints import apply_constraints
 from peakfit.engine.domain.fit_steps import build_fit_steps
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
@@ -17,6 +18,8 @@ from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.fit.pipeline import prepare_cluster_parameters
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.gui.peaks import WorkingPeak
@@ -46,6 +49,41 @@ class FitInputSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class ContinuationSource:
+    """A completed run's fitted nonlinear state, keyed by stable working ID.
+
+    ``positions`` are that run's post-fit working positions (adopted or retained);
+    ``values`` hold every fitted nonlinear value by parameter suffix (``F2.cs``,
+    ``F3.lw`` …), only for peaks whose fitted positions were adopted.
+    """
+
+    run_id: str
+    positions: Mapping[str, tuple[float, ...]]
+    values: Mapping[str, Mapping[str, float]]
+    shape_names: tuple[str, ...]
+    configuration: str
+    spectral_parameters: tuple[str, ...]
+    retained: Mapping[str, str]  # fitted but not adopted by that run, with the reason
+
+
+@dataclass(frozen=True, slots=True)
+class Continuation:
+    """Where the submitted starting values came from, by stable working ID.
+
+    ``continued`` peaks start from run ``run_id``'s fitted nonlinear state; the
+    ``initialized`` ones from the configured defaults. ``reason`` says why no peak
+    could continue when a source run was present but incompatible; ``reasons``
+    says why each other initialized peak did not (added, moved, not adopted …).
+    """
+
+    run_id: str | None
+    continued: tuple[str, ...]
+    initialized: tuple[str, ...]
+    reason: str = ""
+    reasons: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class PeakIdentity:
     """One safe scientific identifier and its original editable assignment."""
 
@@ -65,14 +103,23 @@ class PreparedDatasetFit:
     contour_level: float
     clusters: tuple[Cluster, ...]
     parameters: Parameters
+    # None only for runs recorded before continuation provenance was retained.
+    continuation: Continuation | None = None
 
 
 def prepare_dataset_fit(
     spectra: Spectra,
     peaks: tuple[WorkingPeak, ...],
     config: PeakFitConfig | None = None,
+    source: ContinuationSource | None = None,
 ) -> PreparedDatasetFit:
-    """Resolve the regular whole-dataset problem from committed working records."""
+    """Resolve the regular whole-dataset problem from committed working records.
+
+    With a ``source`` run, every peak whose working position is still the one that
+    run adopted continues from its complete fitted nonlinear state; new and edited
+    peaks start from the configured defaults. The submitted ``parameters`` record
+    the exact starts, and ``continuation`` records where they came from.
+    """
     if not peaks:
         raise ValueError("Load or add peaks before fitting the dataset.")
     settings = (
@@ -104,8 +151,16 @@ def prepare_dataset_fit(
     if not steps or sum(step.iterations for step in steps) < 1:
         raise ValueError("Fitting requires at least one optimizer pass.")
     parameters = Parameters()
+    incompatible = _incompatible(source, settings, shape_names, spectra) if source else ""
+    seeding = source if not incompatible else None
+    working = {i.engine_name: i.working_id for i in identities}
+    positions = {p.id: tuple(p.positions) for p in peaks}
+    continued: set[str] = set()
+    reasons: dict[str, str] = {}
     for cluster in clusters:
         initial = prepare_cluster_parameters(cluster, settings, steps[0])
+        if seeding is not None:
+            continued |= _continue(initial, cluster, settings, working, positions, seeding, reasons)
         if not initial.get_vary_names():
             raise ValueError(f"Cluster {cluster.cluster_id} has no variable nonlinear parameters.")
         for parameter in initial.values():
@@ -132,7 +187,70 @@ def prepare_dataset_fit(
         float(threshold),
         tuple(clusters),
         parameters,
+        Continuation(
+            source.run_id if source else None,
+            tuple(p.id for p in peaks if p.id in continued),
+            tuple(p.id for p in peaks if p.id not in continued),
+            incompatible,
+            tuple((p.id, reasons[p.id]) for p in peaks if p.id in reasons),
+        ),
     )
+
+
+def _incompatible(source, settings, shape_names, spectra) -> str:
+    """Why a run's fitted values cannot seed this model at all, or ""."""
+    previous = PeakFitConfig.model_validate_json(source.configuration)
+    if tuple(source.shape_names) != tuple(shape_names):
+        return "lineshape models differ from that run"
+    if previous.parameters != settings.parameters:
+        return "parameter constraints differ from that run"
+    if source.spectral_parameters != tuple(axis.model_dump_json() for axis in spectra.params):
+        return "spectral axes differ from that run"
+    return ""
+
+
+def _continue(initial, cluster, settings, working, positions, source, reasons) -> set[str]:
+    """Seed each unchanged peak of one cluster from its fitted values; return its IDs.
+
+    A peak continues only if its working position is the one the run adopted and
+    every parameter the configuration lets vary (in any fit step) has a fitted value
+    within the new bounds; values are never clamped. Parameters the configuration
+    fixes keep their configured values, and so does any parameter given an explicit
+    configured start: the pipeline re-applies the constraints to the submitted
+    starts, so they are applied here too and the recorded starts are the real ones.
+    """
+    configured = apply_constraints(Parameters.from_peaks(cluster.peaks), settings.parameters)
+    seeded: list[str] = []
+    ids: set[str] = set()
+    run = source.run_id[:8]
+    for peak in cluster.peaks:
+        identity = working[peak.name]
+        fitted = source.values.get(identity)
+        if identity not in source.positions:
+            reasons[identity] = f"added since run {run}"
+            continue
+        if tuple(source.positions[identity]) != positions[identity]:
+            reasons[identity] = f"moved since run {run}"
+            continue
+        if identity in source.retained or fitted is None:
+            why = source.retained.get(identity, "no fitted values")
+            reasons[identity] = f"not adopted by run {run}: {why}"
+            continue
+        names = [n for n, p in configured.items() if p.vary and n.partition(".")[0] == peak.name]
+        seeds = {n: fitted.get(n.partition(".")[2]) for n in names}
+        if not names or any(
+            v is None or not initial[n].min <= v <= initial[n].max for n, v in seeds.items()
+        ):
+            reasons[identity] = f"fitted values of run {run} outside the current bounds"
+            continue
+        for name, value in seeds.items():
+            initial[name].value = value
+        seeded.extend(seeds)
+        ids.add(identity)
+    resolved = apply_constraints(initial.copy(deep=True), settings.parameters)
+    for name in seeded:
+        initial[name].value = resolved[name].value
+    return ids
 
 
 def _working_model(spectra, peaks, settings, shape_names):

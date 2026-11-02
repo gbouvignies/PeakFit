@@ -17,6 +17,7 @@ from test_gui_editor import wait_for
 import peakfit.gui.editor.canvas as canvas_module
 import peakfit.gui.editor.review as review_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
@@ -38,7 +39,7 @@ from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import StoredRun
-from peakfit.gui.spectrum import Dataset, display_position
+from peakfit.gui.spectrum import Dataset, display_position, read_dataset
 from peakfit.io.scientific import read_scientific
 
 pytestmark = pytest.mark.gui
@@ -1813,3 +1814,82 @@ def test_enter_on_a_name_returns_focus_so_a_places_the_next_peak(workspace, scie
     field.setText(repr(w.peaks[-1].positions[1] + 0.001))
     QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Return)
     assert QtWidgets.QApplication.focusWidget() is field
+
+
+def test_preview_is_prepared_again_when_only_the_continuation_source_changes(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    fitting = w.fitting
+    wait_for(lambda: fitting.prepared is not None)
+    first = fitting.prepared
+    assert first.continuation.run_id == result.run_id
+    assert first.continuation.continued  # unchanged peaks continue from the run
+    # Same working peaks and settings, but a different active run.
+    other = replace(fitting.completion, result=replace(fitting.completion.result, run_id="other"))
+    peaks, settings = w.peaks, fitting.configuration.model_dump_json()
+    fitting.completion = other
+    fitting.update()
+    assert (w.peaks, fitting.configuration.model_dump_json()) == (peaks, settings)
+    assert fitting.prepared is None  # the previous preparation is never reused
+    wait_for(lambda: fitting.prepared is not None)
+    assert fitting.prepared.continuation.run_id == "other"
+
+
+@pytest.fixture
+def bundled_workspace():
+    """The editor on the bundled CEST data, whose near-collinear pairs reproduce on
+    every platform tested (an exact synthetic duplicate does not)."""
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    data = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
+    dataset = read_dataset(data / "pseudo3d.ft2", data / "pseudo3d.list", data / "b1_offsets.txt")
+    widget = EditorWorkspace(dataset)
+    widget.fitting.configuration = PeakFitConfig(fitting=FitConfig(refine_iterations=2))
+    widget.fitting.setup_seen = True
+    widget.resize(1280, 750)
+    widget.show()
+    app.processEvents()
+    yield widget
+    widget.stop()
+    widget.close()
+    widget.deleteLater()
+    QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
+    app.processEvents()
+
+
+@pytest.mark.slow
+def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspace):
+    w = bundled_workspace
+    ids = {p.name: p.id for p in w.peaks}
+    before = {p.id: p.positions for p in w.peaks}
+    _refit(w)
+    completion = w.fitting.completion
+    retained = dict(completion.retained)
+    assert retained[ids["53N-H"]] == "near-collinear fitted shapes with 147N-H"
+    assert retained[ids["147N-H"]] == "near-collinear fitted shapes with 53N-H"
+    # Current, with the working markers deliberately not following the recorded fit.
+    assert w.fitting.current
+    after = {p.id: p.positions for p in w.peaks}
+    for name in ("53N-H", "147N-H"):
+        assert after[ids[name]] == before[ids[name]]
+    assert len(w.canvas.unadopted.data) == len(retained)
+    assert "fitted position, not adopted" in w.canvas.legend.text()
+    # The peak page states it, and the review lists the pair as a measure.
+    w.select_peak(ids["53N-H"])
+    labels = [label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel)]
+    kept = "Fitted position not adopted: near-collinear fitted shapes with 147N-H"
+    assert any(text.startswith(kept) for text in labels)
+    assert "Near-collinear fitted shapes: 53N-H / 147N-H" in labels
+    assert "Fitted position not adopted · working position kept" in w.panel.status.text()
+    assert "amplitudes are poorly constrained individually" in w.panel.profile_reason.text()
+    # Moving one restores ordinary initialization; its partner stays retained.
+    moved = next(p for p in w.peaks if p.id == ids["147N-H"])
+    w.move_peak(moved.id, (moved.positions[0] + 0.002, moved.positions[1]))
+    wait_for(lambda: w.fitting.prepared is not None, timeout=60)
+    prepared = w.fitting.prepared
+    assert prepared is not None
+    assert prepared.continuation is not None
+    reasons = dict(prepared.continuation.reasons)
+    run = completion.result.run_id[:8]
+    assert reasons[moved.id] == f"moved since run {run}"
+    assert reasons[ids["53N-H"]].startswith(f"not adopted by run {run}: near-collinear")

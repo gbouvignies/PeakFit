@@ -700,6 +700,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         review = next((r for r in reviews if self.selected_id in r.ids), None)
         current, plane = bool(fitting.current), self.canvas.plane
         # Only the page on show fills itself; the other returns at once.
+        retained = dict(fitting.completion.retained) if fitting.completion else {}
         self.panel.show_result(
             result,
             current=current,
@@ -707,7 +708,11 @@ class EditorWorkspace(QtWidgets.QWidget):
             plane_values=plane_values,
             plane=plane,
             review=review,
+            retained=retained.get(self.selected_id or ""),
         )
+        unadopted = self._unadopted()
+        self.canvas.set_unadopted(unadopted)
+        self.lens.set_unadopted(unadopted)
         self.panel.show_cluster_result(
             result,
             review,
@@ -1082,6 +1087,32 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.close_lens()
             return
         super().keyPressEvent(event)
+
+    def _unadopted(self) -> list[tuple[float, float]]:
+        """Display positions of recorded fitted coordinates the active run did not adopt.
+
+        Only peaks retained because of near-collinear fitted shapes: their fitted
+        values are valid numbers that the working markers deliberately do not follow.
+        """
+        completion = self.fitting.completion
+        if completion is None:
+            return []
+        reasons = dict(completion.retained)
+        result = completion.result
+        engine = {i.working_id: i.engine_name for i in result.inputs.identities}
+        values = {
+            p.name: p.value for c in result.outcome.clusters for p in c.final_nonlinear_parameters
+        }
+        x_axis, y_axis = self.canvas.x_axis, self.canvas.y_axis
+        x_label, y_label = get_dimension_label(1), get_dimension_label(0)
+        points = []
+        for identity, reason in reasons.items():
+            name = engine.get(identity)
+            x = values.get(f"{name}.{x_label}.cs")
+            y = values.get(f"{name}.{y_label}.cs")
+            if reason.startswith("near-collinear") and x is not None and y is not None:
+                points.append((display_position(x_axis, x), display_position(y_axis, y)))
+        return points
 
     def _lens_escape(self) -> None:
         """Escape in the lens cancels a gesture first, then returns to the spectrum."""

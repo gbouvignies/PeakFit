@@ -12,7 +12,7 @@ from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import DatasetFitResult, dataset_summary
 from peakfit.gui.export_dialog import choose_and_export
-from peakfit.gui.fit_positions import DatasetCompletion, dataset_completion
+from peakfit.gui.fit_positions import DatasetCompletion, continuation_source, dataset_completion
 from peakfit.gui.fit_process import FitProcess, FitProcessResult
 from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
 from peakfit.gui.project import Analysis, dataset_header, run_id
@@ -113,7 +113,16 @@ class DatasetFitting(QtCore.QObject):
         )
 
     def _inputs(self):
-        return self.workspace.peaks, self.configuration.model_dump_json()
+        # The continuation source is an input: a new or reopened run re-prepares.
+        return self.workspace.peaks, self.configuration.model_dump_json(), self._source_id
+
+    @property
+    def _source_id(self) -> str | None:
+        return self.completion.result.run_id if self.completion else None
+
+    def _source(self):
+        """The active run's fitted state, which unchanged peaks continue from."""
+        return continuation_source(self.completion) if self.completion else None
 
     def configure(self, configuration: PeakFitConfig) -> None:
         """Adopt edited working settings; an existing run becomes Outdated."""
@@ -142,9 +151,10 @@ class DatasetFitting(QtCore.QObject):
             return
         spectra, peaks, sources = w.dataset.spectra, w.peaks, w.dataset.sources
         settings = self.configuration.model_copy(deep=True)
+        source = self._source()
 
         def prepare():
-            value = prepare_dataset_fit(spectra, peaks, settings)
+            value = prepare_dataset_fit(spectra, peaks, settings, source)
             return replace(value, snapshot=replace(value.snapshot, source_files=sources))
 
         self._worker.submit("preview", self._preview_generation, prepare)
@@ -153,7 +163,12 @@ class DatasetFitting(QtCore.QObject):
     def prepared(self) -> PreparedDatasetFit | None:
         """The preparation of exactly the current working inputs, if ready."""
         preview = self.preview
-        if preview is None or preview.snapshot != self.snapshot(preview.snapshot):
+        if (
+            preview is None
+            or preview.snapshot != self.snapshot(preview.snapshot)
+            or preview.continuation is None
+            or preview.continuation.run_id != self._source_id
+        ):
             return None
         return preview
 
@@ -184,9 +199,10 @@ class DatasetFitting(QtCore.QObject):
         spectra, peaks = w.dataset.spectra, w.peaks
         settings_copy = self.configuration.model_copy(deep=True)
         sources = w.dataset.sources
+        source = self._source()
 
         def prepare():
-            value = prepare_dataset_fit(spectra, peaks, settings_copy)
+            value = prepare_dataset_fit(spectra, peaks, settings_copy, source)
             return replace(value, snapshot=replace(value.snapshot, source_files=sources))
 
         self._worker.submit("fit", self._generation, prepare)
@@ -255,7 +271,9 @@ class DatasetFitting(QtCore.QObject):
 
     def start(self, prepared: PreparedDatasetFit) -> None:
         """Submit exactly the reviewed snapshot, independently of view/selection."""
-        if prepared.snapshot != self.snapshot(prepared.snapshot):
+        if prepared.snapshot != self.snapshot(prepared.snapshot) or (
+            prepared.continuation is None or prepared.continuation.run_id != self._source_id
+        ):
             self.attempt = "Failed: inputs changed during preparation; fit again"
             self.update()
             return

@@ -4,6 +4,7 @@ import math
 
 import numpy as np
 
+from peakfit.engine.diagnostics.coincidence import collinear_pairs
 from peakfit.engine.domain.spectrum import SpectralParameters
 from peakfit.engine.lineshapes.utils import get_axis_label
 
@@ -40,6 +41,37 @@ def resolved_coordinates(terminal, engine_name, shape_axes, axes):
     return names, tuple(values), None
 
 
+def collinear_partners(terminal, engine_name) -> tuple[str, ...]:
+    """Peaks whose recorded fitted shape is near-collinear with this peak's.
+
+    Computed only from the recorded shapes over the fitting samples, so it is
+    reproducible from retained evidence and independent of any warning.
+    """
+    evaluation = terminal.analytical_evaluation
+    if not terminal.usable or evaluation is None or engine_name not in terminal.peak_names:
+        return ()
+    index = terminal.peak_names.index(engine_name)
+    partners = []
+    for pair in collinear_pairs(evaluation.shapes):
+        if index in (pair.first, pair.second):
+            other = pair.second if pair.first == index else pair.first
+            partners.append(terminal.peak_names[other])
+    return tuple(partners)
+
+
+def adoption_veto(terminal, engine_name) -> str | None:
+    """Why a valid fitted position is still not adopted, or None.
+
+    Near-collinear fitted shapes leave the split between the two peaks, and the
+    positions that produced it, poorly constrained and potentially unstable. The
+    fitted values stay in the result; only the working position is retained.
+    """
+    partners = collinear_partners(terminal, engine_name)
+    if not partners:
+        return None
+    return "near-collinear fitted shapes with " + ", ".join(partners)
+
+
 def coordinate_table(
     completed, identities, spectral_parameters, run_id, *, initial=None, adopted=None
 ):
@@ -73,15 +105,16 @@ def coordinate_table(
             adoption_reason = "no working-coordinate transition recorded"
             if adopted is not None:
                 adopted_values = np.asarray(adopted[peak_id])
-                resolved = fitted if fitted is not None else submitted
-                if not np.array_equal(adopted_values, resolved):
+                veto = adoption_veto(terminal, peak.name) if fitted is not None else None
+                if fitted is not None and np.array_equal(adopted_values, fitted):
+                    # Runs recorded before the near-collinearity rule adopted these too.
+                    status, adoption_reason = "adopted_fitted", "usable finite fitted coordinates"
+                elif np.array_equal(adopted_values, submitted) and (fitted is None or veto):
+                    status, adoption_reason = "retained_initial", reason or veto
+                else:
                     raise ValueError(
                         "Recorded coordinate adoption disagrees with scientific evidence."
                     )
-                status = "adopted_fitted" if fitted is not None else "retained_initial"
-                adoption_reason = (
-                    "usable finite fitted coordinates" if fitted is not None else reason
-                )
             rows[peak_id] = {
                 "engine_name": peak.name,
                 "assignment": identity["assignment"],
@@ -148,10 +181,13 @@ def validate_coordinate_table(table, outcome, context):
                 and row["adoption_reason"] == "usable finite fitted coordinates"
             )
         elif status == "retained_initial":
+            expected = (
+                reason if fitted is None else adoption_veto(outcome.cluster(cid), model["name"])
+            )
             valid = (
-                fitted is None
+                expected is not None
                 and np.array_equal(adopted, row["initial_unfolded_ppm"])
-                and row["adoption_reason"] == reason
+                and row["adoption_reason"] == expected
             )
         else:
             valid = False
