@@ -1,5 +1,6 @@
 """Three columns: navigator, spectrum and inspector, around one editing workflow."""
 
+from collections import Counter
 from dataclasses import replace
 from threading import Event
 from typing import TYPE_CHECKING, cast
@@ -94,6 +95,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.spectral.addWidget(self.lens)
         self.lens_open = False
         self._sizes_before_lens: list[int] = []
+        # The lens cluster by stable peak IDs, the run it came from, and the peaks a
+        # regrouping notice is about.
+        self._lens_ids: tuple[str, ...] = ()
+        self._lens_run: str | None = None
+        self._membership_ids: frozenset[str] = frozenset()
         self.splitter.addWidget(self.spectral)
         self.splitter.addWidget(self.panel)
         for index, stretch in enumerate((0, 1, 0)):
@@ -130,7 +136,12 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.lens_requested.connect(self.open_lens)
         self.navigator.lens_requested.connect(self.open_lens)
         self.lens.close_requested.connect(self.close_lens)
+        self.lens.escape_pressed.connect(self._lens_escape)
         self.lens.selected.connect(lambda i: self.select_peak(i, cluster=True))
+        self.lens.moved.connect(self.move_peak)
+        self.lens.placed.connect(self.place_peak)
+        self.lens.draft_changed.connect(self._drag_draft)
+        self.lens.resolve_edit = self.commit_fields
         self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c))
         self.panel.unexplained_requested.connect(self.find_unexplained)
         self.panel.region_chosen.connect(self.frame_region)
@@ -418,7 +429,11 @@ class EditorWorkspace(QtWidgets.QWidget):
     @property
     def pending(self) -> bool:
         """Uncommitted editor or pointer draft."""
-        return self.inspector.pending or self.canvas._drag_peak is not None
+        return (
+            self.inspector.pending
+            or self.canvas._drag_peak is not None
+            or self.lens.dragging is not None
+        )
 
     @property
     def has_changes(self) -> bool:
@@ -476,6 +491,9 @@ class EditorWorkspace(QtWidgets.QWidget):
             shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.canvas.main)
             shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
             shortcut.activated.connect(callback)
+        placing = QtGui.QShortcut(QtGui.QKeySequence("A"), self.lens)
+        placing.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        placing.activated.connect(self.start_placing)
 
     def _fields_changed(self) -> None:
         if hasattr(self, "undo_action"):
@@ -770,9 +788,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         if not self.commit_fields():
             self.add_button.setChecked(False)
             return
-        self.canvas.set_placing(True)
         self.add_button.setChecked(True)
-        self.canvas.main.setFocus()
+        if self.lens_open:
+            self.lens.set_placing(True)
+            self.lens.setFocus()
+        else:
+            self.canvas.set_placing(True)
+            self.canvas.main.setFocus()
         self.status.setText("Place peak · click exact ppm position · Escape cancels")
 
     def place_peak(self, positions) -> None:
@@ -792,7 +814,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         if self.fit_busy:
             return
         if not self.commit_fields():
-            self.canvas.cancel_gesture()
+            self.cancel_gesture()
             return
         peak = next(p for p in self.peaks if p.id == identity)
         self.edits.update(identity, peak.name, positions)
@@ -815,6 +837,7 @@ class EditorWorkspace(QtWidgets.QWidget):
     def cancel_gesture(self) -> None:
         """Escape on the canvas cancels its current gesture, never numerical work."""
         self.canvas.cancel_gesture()
+        self.lens.cancel_gesture()
         self.add_button.setChecked(False)
 
     def toggle_navigator(self) -> None:
@@ -1010,11 +1033,14 @@ class EditorWorkspace(QtWidgets.QWidget):
     def guidance(self) -> str:
         """The status-bar hint for what the spectral area currently allows."""
         if self.lens_open:
-            return "Lens · click a marker to select its peak · Escape returns to the spectrum"
+            return "Lens · drag selected peak · A adds a peak · Esc exits"
         return "Drag a selected peak to move it · Space pins traces"
 
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:  # noqa: N802
         """Escape leaves the lens from any column unless a draft or gesture is active."""
+        if event.key() == QtCore.Qt.Key.Key_Escape and self.lens.placing:
+            self.cancel_gesture()
+            return
         if (
             event.key() == QtCore.Qt.Key.Key_Escape
             and self.lens_open
@@ -1024,6 +1050,13 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.close_lens()
             return
         super().keyPressEvent(event)
+
+    def _lens_escape(self) -> None:
+        """Escape in the lens cancels a gesture first, then returns to the spectrum."""
+        if self.lens.placing or self.lens.dragging is not None:
+            self.cancel_gesture()
+        else:
+            self.close_lens()
 
     def full_view(self) -> None:
         """Full spectrum in the overview; the cluster's default region in the lens."""
@@ -1036,7 +1069,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         """Return to the overview with its viewport, mode and panel widths unchanged."""
         if not self.lens_open:
             return
+        self.cancel_gesture()
         self.lens_open = False
+        self._lens_ids, self._lens_run = (), None
+        self._membership_ids = frozenset()
+        self.lens.set_membership("", [])
         self.spectral.setCurrentWidget(self.canvas)
         self.panel.cluster_page.lens_button.show()
         if self._sizes_before_lens:
@@ -1046,23 +1083,35 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.guidance_changed.emit(self.guidance())
 
     def _update_lens(self) -> None:
-        """Keep the lens on the selected peak's recorded cluster, plane and display levels."""
+        """Keep the lens on a recorded cluster by stable peak IDs, plane and display levels.
+
+        The lens follows the selected peak's cluster. A selected peak that the run
+        did not fit (one just added) keeps the lens on its cluster; after a refit,
+        the lens follows the same peak and says how the cluster was regrouped.
+        """
         result = self.fitting.result
-        found = find_cluster(result, self.selected_id) if result and self.selected_id else None
-        if result is None or found is None:
+        reviews = self.reviews() if result is not None else []
+        by_id = {identity: review for review in reviews for identity in review.ids}
+        review = by_id.get(self.selected_id or "")
+        if review is None:
+            review = self._context_cluster(reviews, by_id)
+        if result is None or review is None:
             self.close_lens()
             return
-        _engine, cluster = found
-        review = next((r for r in self.reviews() if r.cluster_id == cluster.cluster_id), None)
-        samples = next(
-            s for s in result.completed_fit.samples if s.cluster_id == cluster.cluster_id
-        )
+        if self._lens_run is not None and result.run_id != self._lens_run:
+            self._show_membership(review, by_id, result.run_id)
+        elif self._membership_ids and self._membership_ids.isdisjoint(review.ids):
+            self._membership_ids = frozenset()
+            self.lens.set_membership("", [])
+        self._lens_ids, self._lens_run = review.ids, result.run_id
+        samples = next(s for s in result.completed_fit.samples if s.cluster_id == review.cluster_id)
         canvas = self.canvas
+        self.lens.editing_enabled = not self.fit_busy
         self.lens.show_cluster(
             result,
             current=bool(self.fitting.current),
-            ids=review.ids if review else (),
-            names=review.names if review else (),
+            ids=review.ids,
+            names=review.names,
             selected=self.selected_id,
             peaks=self.peaks,
             plane=canvas.plane,
@@ -1075,6 +1124,86 @@ class EditorWorkspace(QtWidgets.QWidget):
             grid_indices=samples.grid_indices,
             model_cache=canvas._model_cache,
         )
+
+    def _context_cluster(self, reviews, by_id):
+        """The lens cluster for a selection the run did not fit (a peak just added).
+
+        The lens keeps its cluster while that peak is in view, so adding a peak
+        keeps its context; otherwise it shows the cluster with the nearest member.
+        """
+        peak = next((p for p in self.peaks if p.id == self.selected_id), None)
+        current = next((r for r in reviews if r.ids == self._lens_ids), None)
+        if peak is None or not reviews:
+            if current is None and self._lens_ids:
+                # A deleted selection: keep most of the lens members together.
+                counts = Counter(by_id[i].cluster_id for i in self._lens_ids if i in by_id)
+                if counts:
+                    chosen = counts.most_common(1)[0][0]
+                    return next(r for r in reviews if r.cluster_id == chosen)
+            return current
+        x, y = self.canvas.display(peak)
+        (x0, x1), (y0, y1) = self.lens.panels[0].getViewBox().viewRange()
+        if (
+            current is not None
+            and min(x0, x1) <= x <= max(x0, x1)
+            and min(y0, y1) <= y <= max(y0, y1)
+        ):
+            return current
+        axes = (self.canvas.x_axis, self.canvas.y_axis)
+        points = {
+            p.id: tuple(
+                float(axis.ppm2pts(value))
+                for axis, value in zip(axes, self.canvas.display(p), strict=True)
+            )
+            for p in self.peaks
+        }
+        here = points[peak.id]
+        nearest = min(
+            (i for i in by_id if i in points),
+            key=lambda i: (points[i][0] - here[0]) ** 2 + (points[i][1] - here[1]) ** 2,
+            default=None,
+        )
+        return by_id[nearest] if nearest is not None else current
+
+    def _show_membership(self, review, by_id, run_id: str) -> None:
+        """After a refit, say how the followed peak's cluster changed, by stable IDs.
+
+        A peak the previous run fitted compares its previous and new clusters:
+        joined members, members now fitted elsewhere (a split) and members not in
+        this run. A peak added since says where it is now fitted, with a link back
+        to the cluster that was on show.
+        """
+        names = {peak.id: peak.name for peak in self.peaks}
+        followed = self.selected_id
+        before = self._lens_ids
+        if followed is not None and followed not in before and followed in review.ids:
+            others = [names.get(i, i[:6]) for i in review.ids if i != followed]
+            text = f"Run {run_id[:8]} fits {names.get(followed, followed[:6])} " + (
+                "with " + ", ".join(others) if others else "on its own"
+            )
+            links = [] if set(before) & set(review.ids) else [(names.get(before[0], ""), before[0])]
+            self._membership_ids = frozenset(review.ids) | frozenset(before)
+            self.lens.set_membership(text + (" · previously shown:" if links else ""), links)
+            return
+        joined = [i for i in review.ids if i not in before]
+        left = [i for i in before if i not in review.ids]
+        if not joined and not left:
+            self._membership_ids = frozenset()
+            self.lens.set_membership("", [])
+            return
+        previous = [names.get(i, i[:6]) for i in before]
+        label = previous[0] + (f" +{len(previous) - 1}" if len(previous) > 1 else "")
+        elsewhere = [i for i in left if i in by_id]
+        gone = [i for i in left if i not in by_id]
+        parts = [f"Regrouped by run {run_id[:8]} · was {label}"]
+        if joined:
+            parts.append("joined by " + ", ".join(names.get(i, i[:6]) for i in joined))
+        if gone:
+            parts.append("not in this run: " + ", ".join(names.get(i, i[:6]) for i in gone))
+        if elsewhere:
+            parts.append("now fitted in other clusters:")
+        self._membership_ids = frozenset(before) | frozenset(review.ids)
+        self.lens.set_membership(" · ".join(parts), [(names.get(i, i[:6]), i) for i in elsewhere])
 
     def display_dialog(self) -> None:  # noqa: PLR0915
         """Display choices do not change scientific inputs or edit history."""

@@ -116,3 +116,15 @@ Short records of non‑obvious design choices and trade‑offs.
   list shows the ppm location of each region's extreme sample.
 - The list is computed only for a Current run: an Outdated run's model no longer
   corresponds to the working peaks it would be measured against.
+
+## 2026-11-02: The lens keeps its region for peaks the run has not fitted
+- A peak just added belongs to no recorded cluster. Following only the selected
+  peak's cluster would close the lens at the moment of the correction, so a
+  selected unfitted peak keeps the lens on the cluster in view; selected from
+  elsewhere, it opens the cluster with its nearest member in native samples.
+- After a refit the regrouping line compares the followed peak's previous and new
+  clusters by stable ID. A newly added peak has no previous cluster, so the line
+  says which peaks it is now fitted with instead of reporting the context cluster's
+  members as having left.
+- Undo back to a run's exact inputs still leaves that run Outdated, as before:
+  returning values through Undo does not recertify a run (docs/architecture.md).

@@ -251,8 +251,25 @@ inspector field with a draft, the first Escape discards the draft and the next o
 leaves the lens. **Display** sets the experimental and model contour levels and the
 first residual contour together; both apply to the overview and the lens at once.
 The status bar shows the lens's own guidance while it is open. Clicking a marker in a lens panel selects that peak.
-**Full spectrum** (Cmd/Ctrl+0) reframes the lens on its cluster; adding peaks and
-pinning traces are overview tools.
+**Full spectrum** (Cmd/Ctrl+0) reframes the lens on its cluster; pinning traces is
+an overview tool.
+
+Corrections happen in the lens with the overview's edits and the same Undo/Redo.
+Dragging the selected marker in any panel shows a ghost at the proposed position
+and “Draft · release to commit · Escape cancels” while the committed marker and the
+accepted comparison stay as they were; releasing commits one undoable move in
+unfolded ppm, so a folded peak keeps its aliased display. **A** (or the add tool)
+places a peak at the next click in any panel; **Escape** cancels a drag or a
+placement before it leaves the lens. Each commit makes the run Outdated. A peak the
+run has not fitted, such as one just added, keeps the lens on the cluster in view;
+selected from elsewhere, it opens the cluster with the nearest member. **Fit**
+refits the whole dataset with the lens open, and the lens follows the selected peak
+by its stable ID, keeping the zoom when the members are unchanged. When the
+members changed, a line under the header says how: “Regrouped by run … · was … ·
+joined by …”, peaks not in the run, and links to the clusters former members are
+now fitted in; a peak added since says which peaks it is now fitted with, with a
+link back to the cluster that was on show. A canceled or failed fit keeps every
+working edit and the lens.
 On a peak page, **Review cluster of N ›** opens its cluster page; selecting a peak
 on the spectrum or in the Peaks list opens its peak page. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the

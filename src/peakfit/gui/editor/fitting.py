@@ -412,8 +412,7 @@ class DatasetFitting(QtCore.QObject):
                 if usable or button is w.mode_buttons[0]
                 else "Requires a current result with usable clusters"
             )
-        for tool in (w.add_button, w.pin_button):
-            tool.setEnabled(tool.isEnabled() and not lens)
+        w.pin_button.setEnabled(w.pin_button.isEnabled() and not lens)
         if not self.current and w.canvas.comparison_result is not None:
             w.set_mode(0)
         if busy:

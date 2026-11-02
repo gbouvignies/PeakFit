@@ -5,8 +5,14 @@ plane, markers and the selected member's crosshair; below them, the row through
 the selected member shows measured data with the total model, and the
 whole-spectrum residual in σ_stat with a ±3 σ band. Contours, model and residual
 are the same quantities as in the overview (§8), computed off Qt.
+
+Edits follow the overview (§3 D): the selected marker drags in any panel with a
+ghost at the proposed position, and placement takes the next click. The lens only
+proposes; the workspace commits through the same undoable peak edits.
 """
 
+import html
+from dataclasses import replace
 from threading import Event
 from typing import TYPE_CHECKING, Any, cast
 
@@ -20,11 +26,13 @@ from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editor.canvas import (
     _RESIDUAL_LEVELS,
     ContourLayer,
+    InspectionMarkers,
     SpectrumCanvas,
     _level_pens,
     framed_ranges,
     signed_geometry,
 )
+from peakfit.gui.editor.labels import ElidedLabel
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.spectrum import display_position, paths_from_geometry
 from peakfit.gui.theme import FONT_CAPTION, color
@@ -42,7 +50,11 @@ class ClusterLens(QtWidgets.QWidget):
     """Three linked views of one recorded cluster and the row through one member."""
 
     close_requested = QtCore.Signal()
+    escape_pressed = QtCore.Signal()
     selected = QtCore.Signal(str)
+    moved = QtCore.Signal(str, object)  # working ID, proposed unfolded (y, x) ppm
+    placed = QtCore.Signal(object)  # (y, x) ppm of a placement click
+    draft_changed = QtCore.Signal(bool)
 
     def __init__(self, dataset: Dataset) -> None:  # noqa: PLR0915
         super().__init__()
@@ -65,20 +77,38 @@ class ClusterLens(QtWidgets.QWidget):
         self.back.clicked.connect(self.close_requested)
         self.title = QtWidgets.QLabel()
         self.title.setObjectName("value")
-        self.note = QtWidgets.QLabel()
+        self.note = ElidedLabel()
         self.note.setObjectName("muted")
+        self.draft = QtWidgets.QLabel()
+        self.draft.setObjectName("warning")
         header.addWidget(self.back)
         header.addSpacing(themes.SPACE_S)
         header.addWidget(self.title)
         header.addSpacing(themes.SPACE_S)
         header.addWidget(self.note, 1)
+        header.addWidget(self.draft)
         layout.addLayout(header)
+        # After a refit that regrouped the cluster: what changed, with links to
+        # wherever the previous members are now fitted.
+        self.membership = QtWidgets.QLabel()
+        self.membership.setObjectName("caption")
+        self.membership.setWordWrap(True)
+        self.membership.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.membership.setTextInteractionFlags(
+            QtCore.Qt.TextInteractionFlag.LinksAccessibleByMouse
+            | QtCore.Qt.TextInteractionFlag.LinksAccessibleByKeyboard
+        )
+        self.membership.linkActivated.connect(self.selected)
+        self.membership_plain = ""
+        self.membership.hide()
+        layout.addWidget(self.membership)
         panels = QtWidgets.QHBoxLayout()
         panels.setSpacing(themes.SPACE_S)
         self.panels: list[pg.PlotWidget] = []
         self.captions: list[QtWidgets.QLabel] = []
         self.layers: list[list[ContourLayer]] = [[], [], []]
-        self.markers: list[pg.ScatterPlotItem] = []
+        self.markers: list[InspectionMarkers] = []
+        self.ghosts: list[pg.ScatterPlotItem] = []
         self.rings: list[pg.ScatterPlotItem] = []
         self.crosses: list[tuple[pg.InfiniteLine, pg.InfiniteLine]] = []
         self.unavailable: list[pg.TextItem] = []
@@ -97,18 +127,25 @@ class ClusterLens(QtWidgets.QWidget):
             if self.panels:
                 plot.setXLink(self.panels[0])
                 plot.setYLink(self.panels[0])
-            markers = pg.ScatterPlotItem(symbol="+", size=8, brush=None, hoverable=True)
+            markers = InspectionMarkers(symbol="+", size=8, brush=None, hoverable=True)
             markers.setZValue(20)
             markers.sigClicked.connect(self._marker_clicked)
+            markers.moved.connect(self._drag)
             ring = pg.ScatterPlotItem(symbol="o", size=16, brush=None)
             ring.setZValue(21)
             ring.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+            ghost = pg.ScatterPlotItem(symbol="+", size=11, brush=None)
+            ghost.setZValue(32)
+            ghost.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
             cross = (
                 pg.InfiniteLine(angle=90, movable=False),
                 pg.InfiniteLine(angle=0, movable=False),
             )
-            for item in (markers, ring, *cross):
+            for item in (markers, ring, ghost, *cross):
                 plot.getPlotItem().addItem(item, ignoreBounds=True)
+            view = plot.getViewBox()
+            scene = cast("pg.GraphicsScene", plot.scene())
+            scene.sigMouseClicked.connect(lambda event, v=view: self._clicked(event, v))
             text = pg.TextItem("", anchor=(0.5, 0.5))
             text.setZValue(30)
             plot.getPlotItem().addItem(text, ignoreBounds=True)
@@ -117,6 +154,7 @@ class ClusterLens(QtWidgets.QWidget):
             self.panels.append(plot)
             self.captions.append(label)
             self.markers.append(markers)
+            self.ghosts.append(ghost)
             self.rings.append(ring)
             self.crosses.append(cross)
             self.unavailable.append(text)
@@ -146,10 +184,10 @@ class ClusterLens(QtWidgets.QWidget):
         self.residual_trace.getPlotItem().addItem(self.band, ignoreBounds=True)
         self.residual_curve = self.residual_trace.plot(antialias=True)
         self.residual_trace.getViewBox().setYRange(-3 * _BAND, 3 * _BAND, padding=0)
-        # Escape anywhere in the lens returns; drafts live in the inspector, not here.
+        # Escape cancels a gesture first; otherwise the workspace leaves the lens.
         escape = QtGui.QShortcut(QtGui.QKeySequence("Escape"), self)
         escape.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        escape.activated.connect(self.close_requested)
+        escape.activated.connect(self.escape_pressed)
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
         self._worker = ViewerComputation(self)
         self._worker.completed.connect(self._ready)
@@ -166,6 +204,11 @@ class ClusterLens(QtWidgets.QWidget):
         self.peaks: tuple[WorkingPeak, ...] = ()
         self.plane = 0
         self.pending = False
+        # Editing proposals; the workspace resolves inspector drafts and commits.
+        self.editing_enabled = True
+        self.resolve_edit = lambda: True
+        self.placing = False
+        self.dragging: WorkingPeak | None = None
         self.apply_theme(self.theme)
 
     # Public state -------------------------------------------------------------
@@ -190,11 +233,13 @@ class ClusterLens(QtWidgets.QWidget):
         self.levels = levels
         label = names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "") if names else ""
         self.title.setText(f"Lens · {label}")
+        outside = next((p.name for p in peaks if p.id == selected and selected not in ids), None)
         self.note.setText(
             f"run {result.run_id[:8]} · {'Current' if current else 'Outdated'}"
-            " · comparison selector not used in the lens"
+            + (f" · {outside} is not in this cluster of the run" if outside is not None else "")
         )
-        frame = (result.run_id, ids)
+        # A refit of the same members keeps the scientist's zoom.
+        frame = ids
         if frame != self._frame_key:
             self._frame_key = frame
             self.frame(grid_indices)
@@ -244,6 +289,8 @@ class ClusterLens(QtWidgets.QWidget):
             for line in cross:
                 line.setPen(pg.mkPen(color(t.pin, 0.7), width=1, style=QtCore.Qt.PenStyle.DashLine))
             text.setColor(t.secondary)
+        for ghost in self.ghosts:
+            ghost.setPen(pg.mkPen(t.pin, width=2))
         self.measured.setPen(pg.mkPen(color(t.measured), width=1.3))
         self.model.setPen(pg.mkPen(color(t.model), width=1.3, style=QtCore.Qt.PenStyle.DashLine))
         self.residual_curve.setPen(pg.mkPen(color(t.text), width=1.2))
@@ -376,6 +423,8 @@ class ClusterLens(QtWidgets.QWidget):
         ys = [p[1] for p in positions.values()]
         for markers in self.markers:
             markers.setData(x=xs, y=ys, data=list(positions))
+            markers.selected_id = self.selected_id
+            markers.editable = self.editing_enabled
         selected = positions.get(self.selected_id or "")
         for ring, (vertical, horizontal) in zip(self.rings, self.crosses, strict=True):
             ring.setData([selected[0]] if selected else [], [selected[1]] if selected else [])
@@ -424,3 +473,89 @@ class ClusterLens(QtWidgets.QWidget):
     def _marker_clicked(self, _item, points, _event) -> None:
         if points:
             self.selected.emit(points[0].data())
+
+    # Editing proposals --------------------------------------------------------------
+
+    def set_membership(self, text: str, links: list[tuple[str, str]]) -> None:
+        """Say how a refit regrouped the cluster; links open where members went."""
+        self.membership_plain = " ".join([text, *(f"{name} ›" for name, _i in links)])
+        anchors = [
+            f'<a href="{html.escape(identity)}">{html.escape(name)} ›</a>'
+            for name, identity in links
+        ]
+        self.membership.setText(" ".join([html.escape(text), *anchors]))
+        self.membership.setToolTip("Links show the cluster each peak is now fitted in")
+        self.membership.setVisible(bool(text))
+
+    def set_placing(self, placing: bool) -> None:
+        """One-shot placement owns the next click in any panel, markers included."""
+        self.placing = placing
+        for markers, plot in zip(self.markers, self.panels, strict=True):
+            markers.placing = placing
+            plot.viewport().setCursor(
+                QtCore.Qt.CursorShape.CrossCursor if placing else QtCore.Qt.CursorShape.ArrowCursor
+            )
+        self._show_draft()
+
+    def cancel_gesture(self) -> None:
+        """Drop a drag or placement without any edit; the committed marker never moved."""
+        for markers in self.markers:
+            markers.cancel_drag()
+        was = self.dragging is not None
+        self.dragging = None
+        for ghost in self.ghosts:
+            ghost.setData([], [])
+        if self.placing:
+            self.set_placing(False)
+        self._show_draft()
+        if was:
+            self.draft_changed.emit(False)
+
+    def _show_draft(self) -> None:
+        self.draft.setText(
+            "Draft · release to commit · Escape cancels"
+            if self.dragging is not None
+            else "Click to place a peak · Escape cancels"
+            if self.placing
+            else ""
+        )
+
+    def _drag(self, dx: float, dy: float, finished: bool) -> None:
+        """Propose a move of the selected peak; the committed marker stays until commit."""
+        peak = next((p for p in self.peaks if p.id == self.selected_id), None)
+        if peak is None or not self.editing_enabled:
+            return
+        if self.dragging is None:
+            if not self.resolve_edit():
+                for markers in self.markers:
+                    markers.cancel_drag()
+                return
+            self.dragging = peak
+            self.draft_changed.emit(True)
+        original = self.dragging
+        # The same continuous delta in unfolded ppm as the overview; no snapping.
+        proposed = (original.positions[0] + dy, original.positions[1] + dx)
+        moved = replace(original, positions=proposed)
+        x = display_position(self.x_axis, moved.positions[1])
+        y = display_position(self.y_axis, moved.positions[0])
+        for ghost in self.ghosts:
+            ghost.setData([x], [y])
+        self._show_draft()
+        if finished:
+            self.dragging = None
+            for ghost in self.ghosts:
+                ghost.setData([], [])
+            self._show_draft()
+            self.draft_changed.emit(False)
+            self.moved.emit(original.id, proposed)
+
+    def _clicked(self, event, view) -> None:
+        if (
+            not self.placing
+            or event.button() != QtCore.Qt.MouseButton.LeftButton
+            or not view.sceneBoundingRect().contains(event.scenePos())
+        ):
+            return
+        point = view.mapSceneToView(event.scenePos())
+        event.accept()
+        self.placed.emit((point.y(), point.x()))
