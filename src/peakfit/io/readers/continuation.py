@@ -114,7 +114,7 @@ def restore_geometry(
     return model, clusters
 
 
-def restore_completed(outcome, samples, context, *, source_data=None, source_planes=None):
+def restore_completed(outcome, samples, context, *, source_data=None, source_planes=None):  # noqa: PLR0912
     """Reconstruct exact inputs and validate the recorded evaluator before continuation."""
     shape = tuple(context["data_shape"])
     full = []
@@ -192,6 +192,14 @@ def restore_completed(outcome, samples, context, *, source_data=None, source_pla
             atol=1e-9,
             err_msg="Reconstructed terminal problem disagrees with recorded fit",
         )
+        if e.largest_recorded_residual is not None:
+            np.testing.assert_allclose(
+                np.max(np.abs(normalized)),
+                e.largest_recorded_residual,
+                rtol=1e-8,
+                atol=1e-9,
+                err_msg="Reconstructed residuals disagree with the largest recorded residual",
+            )
         for array in (predicted, residual, normalized):
             array.flags.writeable = False
         values = {f.name: getattr(e, f.name) for f in fields(e)}

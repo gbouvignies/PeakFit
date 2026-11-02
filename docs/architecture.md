@@ -283,7 +283,8 @@ uncertainties/covariance, diagnostics/provenance, exact terminal corrections,
 observation dtype/digests, paired coordinates and plane identities. The small
 component-basis reference validates evaluators, not a precomputed spectrum.
 There are no extracted observations, sampled predictions or dense residual arrays
-in projects. Missing sources permit numerical review. Exact observation recovery
+in projects; the per-cluster largest recorded residual is a retained scalar of the
+published analytical result. Missing sources permit numerical review. Exact observation recovery
 and on-demand model/residual calculation share `io.readers.continuation`, including
 its digest, evaluator-reference and terminal-statistics checks; no visualization
 path solves amplitudes or refits parameters. Scientific export policies are unchanged.
