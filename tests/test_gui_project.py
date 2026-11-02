@@ -1042,3 +1042,86 @@ def test_runs_saved_before_provenance_read_with_it_unrecorded(analysis, tmp_path
     outcome, samples, _ = read_scientific(review.parent / "result.npz")
     restored = restore_result(record, outcome, samples)
     assert restored.inputs.continuation is None
+
+
+@pytest.fixture
+def collinear(analysis, evidence):
+    """The analysis refitted with an exact duplicate of one peak: a near-collinear pair.
+
+    Both start from defaults (no continuation source), as a duplicate assignment
+    of a listed peak would in a first fit.
+    """
+    spectra, config, _completion = evidence
+    first = analysis.completion
+    original = next(p for p in first.working_peaks if p.id == "1")
+    duplicate = replace(original, id="duplicate", name="Duplicate copy")
+    prepared = prepare_dataset_fit(spectra, (*first.working_peaks, duplicate), config)
+    prepared = replace(
+        prepared, snapshot=replace(prepared.snapshot, source_files=analysis.dataset.sources)
+    )
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    second = dataset_completion(
+        result, result.inputs.snapshot, submitted_revision=0, manual_revision=0
+    )
+    assert dict(second.retained).keys() >= {"duplicate", original.id}
+    return replace(analysis, peaks=second.working_peaks, runs=(first, second))
+
+
+def test_retained_collinear_positions_and_reasons_survive_reopening(
+    collinear, tmp_path, monkeypatch
+):
+    second = collinear.runs[-1]
+    path = save_analysis(collinear, tmp_path / "collinear.peakfit")
+    monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: collinear.dataset)
+    loaded = open_analysis(path)
+    reopened = loaded.completion
+    assert reopened.retained == second.retained
+    assert reopened.warnings == second.warnings
+    assert reopened.working_peaks == second.working_peaks
+    assert loaded.current
+    # The fitted values themselves are the recorded ones, bit for bit (withheld
+    # standard errors are NaN in both).
+    for a, b in zip(second.result.outcome.clusters, reopened.result.outcome.clusters, strict=True):
+        for p, q in zip(a.final_nonlinear_parameters, b.final_nonlinear_parameters, strict=True):
+            assert (p.name, p.value, p.min, p.max, p.vary) == (
+                q.name,
+                q.value,
+                q.min,
+                q.max,
+                q.vary,
+            )
+            np.testing.assert_array_equal(p.standard_error, q.standard_error)
+
+
+def test_a_run_recorded_before_the_rule_reopens_and_exports_as_recorded(collinear, tmp_path):
+    second = collinear.runs[-1]
+    result = second.result
+    # The previous rule adopted every usable fitted position, collinear or not.
+    fitted = {
+        p.id: p
+        for p in dataset_completion(
+            result,
+            result.inputs.snapshot,
+            submitted_revision=0,
+            manual_revision=0,
+            recorded=None,
+        ).working_peaks
+    }
+    names = {i.working_id: i.engine_name for i in result.inputs.identities}
+    values = {
+        p.name: p.value for c in result.outcome.clusters for p in c.final_nonlinear_parameters
+    }
+    old = tuple(
+        replace(p, positions=(values[f"{names[p.id]}.F2.cs"], values[f"{names[p.id]}.F3.cs"]))
+        for p in fitted.values()
+    )
+    recorded = dataset_completion(
+        result, result.inputs.snapshot, submitted_revision=0, manual_revision=0, recorded=old
+    )
+    assert recorded.retained == ()
+    assert {"duplicate"} <= recorded.adopted
+    from peakfit.gui.fit_export import export_fit_result  # noqa: PLC0415
+
+    path = export_fit_result(result, tmp_path / "old", completion=recorded)
+    _, _, context = read_scientific(path / "scientific.npz")
+    assert context["coordinate_table"]["peaks"]["duplicate"]["adoption_status"] == "adopted_fitted"

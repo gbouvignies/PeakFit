@@ -99,6 +99,7 @@ def _read_continuation(record, peaks):
         tuple(record["continued"]),
         tuple(record["initialized"]),
         record["reason"],
+        tuple((identity, reason) for identity, reason in record.get("reasons", ())),
     )
     ids = [p.id for p in peaks]
     if sorted(continuation.continued + continuation.initialized) != sorted(ids):

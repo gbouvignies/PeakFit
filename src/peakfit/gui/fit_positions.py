@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from peakfit.engine.domain.spectrum import SpectralParameters
 from peakfit.engine.lineshapes.utils import get_axis_label
-from peakfit.engine.scientific.coordinates import resolved_coordinates
+from peakfit.engine.scientific.coordinates import collinear_partners, resolved_coordinates
 from peakfit.gui.fitting import ContinuationSource
 
 if TYPE_CHECKING:
@@ -32,6 +32,9 @@ class DatasetCompletion:
     manual_revision: int
     warnings: tuple[str, ...]
     adopted: frozenset[str] = frozenset()  # working IDs whose fitted positions were adopted
+    # Working IDs whose position was retained, with why: unusable, invalid or a
+    # near-collinear fitted shape (the fitted values themselves stay in the result).
+    retained: tuple[tuple[str, str], ...] = ()
 
     def is_current(self, inputs: FitInputSnapshot, manual_revision: int) -> bool:
         """Compare against verified post-fit W, never against the original seeds I."""
@@ -45,13 +48,19 @@ def dataset_completion(
     *,
     submitted_revision: int,
     manual_revision: int,
+    recorded: tuple[WorkingPeak, ...] | None = None,
 ) -> DatasetCompletion:
     """Validate the whole completion before returning any adopted coordinates.
 
     Fatal source/identity errors produce no value to publish. Unusable or invalid
-    individual pairs retain their exact original positions with specific warnings.
-    Convergence and uncertainty warnings do not invalidate usable finite positions.
-    No accepted numerical quantity, bound, mask or shape start is rewritten here.
+    individual pairs retain their exact original positions with specific warnings,
+    and so do peaks whose fitted shape is near-collinear with another's: their
+    split, and the positions that produced it, are poorly constrained. Convergence
+    and uncertainty warnings do not invalidate usable finite positions. No accepted
+    numerical quantity, bound, mask or shape start is rewritten here.
+
+    ``recorded`` re-validates a saved transition instead of deciding afresh: a run
+    recorded before the near-collinearity rule may have adopted such peaks.
     """
     submitted = result.inputs.snapshot
     if current != submitted or submitted_revision != manual_revision:
@@ -84,8 +93,11 @@ def dataset_completion(
         for axis in axes
     ):
         raise ValueError("Completion requires valid recorded spectral calibration.")
+    assignment = {item.engine_name: item.assignment for item in identities}
+    saved = {p.id: tuple(p.positions) for p in recorded} if recorded is not None else None
     updates = {}
     warnings = []
+    retained = []
     for cluster in result.outcome.clusters:
         for name in cluster.peak_names:
             identity = engine[name]
@@ -93,15 +105,32 @@ def dataset_completion(
             _names, coordinates, reason = resolved_coordinates(
                 cluster, name, [s.axis for s in members[name].shapes], axes
             )
+            partners = collinear_partners(cluster, name) if coordinates is not None else ()
+            if partners:
+                reason = "near-collinear fitted shapes with " + ", ".join(
+                    assignment[p] for p in partners
+                )
+            if saved is not None and coordinates is not None and saved[identity] == coordinates:
+                reason = None  # adopted under the rule in force when the run was recorded
             if reason:
                 warnings.append(f"{peak.name} [{identity}]: retained starting position; {reason}.")
+                retained.append((identity, reason))
             else:
                 assert coordinates is not None
                 updates[identity] = (coordinates[0], coordinates[1])
     post_fit = tuple(
         replace(p, positions=updates[p.id]) if p.id in updates else p for p in submitted.peaks
     )
-    return DatasetCompletion(result, post_fit, manual_revision, tuple(warnings), frozenset(updates))
+    if recorded is not None and post_fit != tuple(recorded):
+        raise ValueError("Saved working transition disagrees with the fitted outcome.")
+    return DatasetCompletion(
+        result,
+        post_fit,
+        manual_revision,
+        tuple(warnings),
+        frozenset(updates),
+        tuple(retained),
+    )
 
 
 def continuation_source(completion: DatasetCompletion) -> ContinuationSource:
@@ -124,9 +153,10 @@ def continuation_source(completion: DatasetCompletion) -> ContinuationSource:
     snapshot = result.inputs.snapshot
     return ContinuationSource(
         result.run_id,
-        {p.id: p.positions for p in completion.working_peaks if p.id in values},
+        {p.id: p.positions for p in completion.working_peaks},
         {identity: MappingProxyType(v) for identity, v in values.items()},
         result.inputs.shape_names,
         snapshot.configuration,
         snapshot.spectral_parameters,
+        MappingProxyType(dict(completion.retained)),
     )

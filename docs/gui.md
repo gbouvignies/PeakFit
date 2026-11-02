@@ -138,6 +138,14 @@ preview and pinning remain available; scientific edits and input replacement pau
 Cancellation, process failure and validation failure retain the previous result
 and working coordinates. No partial result is adopted.
 
+When two peaks' fitted shapes are near-collinear (1 − |cos| ≤ 10⁻⁴ over the
+fitting samples), their fitted positions are not adopted: their markers stay at
+the working positions, a ◇ marks each recorded fitted position, and the peak page
+says “Fitted position not adopted: near-collinear fitted shapes with …”. The
+recorded fit is kept as it is; their individual amplitudes are poorly constrained,
+which the profile notes. The next fit starts them from the configured defaults;
+moving either peak makes it an ordinary edited peak.
+
 After a refit, the analysis page summarizes **Changes from run …**, the run it was
 refitted from, read from both recorded runs without refitting or judging either.
 Peaks are matched by stable ID, so renamed peaks still compare.

@@ -52,9 +52,9 @@ class FitInputSnapshot:
 class ContinuationSource:
     """A completed run's fitted nonlinear state, keyed by stable working ID.
 
-    ``positions`` are the positions that run adopted; ``values`` hold every fitted
-    nonlinear value by parameter suffix (``F2.cs``, ``F3.lw`` …). Only peaks of
-    usable clusters whose positions were adopted are present.
+    ``positions`` are that run's post-fit working positions (adopted or retained);
+    ``values`` hold every fitted nonlinear value by parameter suffix (``F2.cs``,
+    ``F3.lw`` …), only for peaks whose fitted positions were adopted.
     """
 
     run_id: str
@@ -63,6 +63,7 @@ class ContinuationSource:
     shape_names: tuple[str, ...]
     configuration: str
     spectral_parameters: tuple[str, ...]
+    retained: Mapping[str, str]  # fitted but not adopted by that run, with the reason
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,13 +72,15 @@ class Continuation:
 
     ``continued`` peaks start from run ``run_id``'s fitted nonlinear state; the
     ``initialized`` ones from the configured defaults. ``reason`` says why no peak
-    could continue when a source run was present but incompatible.
+    could continue when a source run was present but incompatible; ``reasons``
+    says why each other initialized peak did not (added, moved, not adopted …).
     """
 
     run_id: str | None
     continued: tuple[str, ...]
     initialized: tuple[str, ...]
     reason: str = ""
+    reasons: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,10 +156,11 @@ def prepare_dataset_fit(
     working = {i.engine_name: i.working_id for i in identities}
     positions = {p.id: tuple(p.positions) for p in peaks}
     continued: set[str] = set()
+    reasons: dict[str, str] = {}
     for cluster in clusters:
         initial = prepare_cluster_parameters(cluster, settings, steps[0])
         if seeding is not None:
-            continued |= _continue(initial, cluster, settings, working, positions, seeding)
+            continued |= _continue(initial, cluster, settings, working, positions, seeding, reasons)
         if not initial.get_vary_names():
             raise ValueError(f"Cluster {cluster.cluster_id} has no variable nonlinear parameters.")
         for parameter in initial.values():
@@ -188,6 +192,7 @@ def prepare_dataset_fit(
             tuple(p.id for p in peaks if p.id in continued),
             tuple(p.id for p in peaks if p.id not in continued),
             incompatible,
+            tuple((p.id, reasons[p.id]) for p in peaks if p.id in reasons),
         ),
     )
 
@@ -204,7 +209,7 @@ def _incompatible(source, settings, shape_names, spectra) -> str:
     return ""
 
 
-def _continue(initial, cluster, settings, working, positions, source) -> set[str]:
+def _continue(initial, cluster, settings, working, positions, source, reasons) -> set[str]:
     """Seed each unchanged peak of one cluster from its fitted values; return its IDs.
 
     A peak continues only if its working position is the one the run adopted and
@@ -217,16 +222,26 @@ def _continue(initial, cluster, settings, working, positions, source) -> set[str
     configured = apply_constraints(Parameters.from_peaks(cluster.peaks), settings.parameters)
     seeded: list[str] = []
     ids: set[str] = set()
+    run = source.run_id[:8]
     for peak in cluster.peaks:
         identity = working[peak.name]
         fitted = source.values.get(identity)
-        if fitted is None or tuple(source.positions.get(identity, ())) != positions[identity]:
+        if identity not in source.positions:
+            reasons[identity] = f"added since run {run}"
+            continue
+        if tuple(source.positions[identity]) != positions[identity]:
+            reasons[identity] = f"moved since run {run}"
+            continue
+        if identity in source.retained or fitted is None:
+            why = source.retained.get(identity, "no fitted values")
+            reasons[identity] = f"not adopted by run {run}: {why}"
             continue
         names = [n for n, p in configured.items() if p.vary and n.partition(".")[0] == peak.name]
         seeds = {n: fitted.get(n.partition(".")[2]) for n in names}
         if not names or any(
             v is None or not initial[n].min <= v <= initial[n].max for n, v in seeds.items()
         ):
+            reasons[identity] = f"fitted values of run {run} outside the current bounds"
             continue
         for name, value in seeds.items():
             initial[name].value = value

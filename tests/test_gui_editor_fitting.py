@@ -1774,3 +1774,42 @@ def test_preview_is_prepared_again_when_only_the_continuation_source_changes(wor
     assert fitting.prepared is None  # the previous preparation is never reused
     wait_for(lambda: fitting.prepared is not None)
     assert fitting.prepared.continuation.run_id == "other"
+
+
+def test_near_collinear_peaks_keep_working_positions_and_say_why(workspace):
+    w = workspace
+    original = next(p for p in w.peaks if p.id == "1")
+    w.place_peak(original.positions)  # an exact duplicate: a near-collinear decomposition
+    duplicate = w.peaks[-1]
+    before = {p.id: p.positions for p in w.peaks}
+    _refit(w)
+    completion = w.fitting.completion
+    retained = dict(completion.retained)
+    assert retained["1"] == f"near-collinear fitted shapes with {duplicate.name}"
+    assert retained[duplicate.id] == f"near-collinear fitted shapes with {original.name}"
+    # Current, with the working markers deliberately not following the recorded fit.
+    assert w.fitting.current
+    after = {p.id: p.positions for p in w.peaks}
+    assert after["1"] == before["1"]
+    assert after[duplicate.id] == before[duplicate.id]
+    assert len(w.canvas.unadopted.data) == 2
+    assert "fitted position, not adopted" in w.canvas.legend.text()
+    # The peak page states it, and the review lists the pair as a measure.
+    w.select_peak("1")
+    labels = [label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel)]
+    assert any(
+        text.startswith(
+            f"Fitted position not adopted: near-collinear fitted shapes with {duplicate.name}"
+        )
+        for text in labels
+    )
+    assert any(text.startswith("Near-collinear fitted shapes:") for text in labels)
+    assert "Fitted position not adopted · working position kept" in w.panel.status.text()
+    assert "amplitudes are poorly constrained individually" in w.panel.profile_reason.text()
+    # Moving one restores ordinary initialization; the other stays retained.
+    w.move_peak(duplicate.id, (duplicate.positions[0] + 0.002, duplicate.positions[1]))
+    wait_for(lambda: w.fitting.prepared is not None)
+    reasons = dict(w.fitting.prepared.continuation.reasons)
+    run = completion.result.run_id[:8]
+    assert reasons[duplicate.id] == f"moved since run {run}"
+    assert reasons["1"].startswith(f"not adopted by run {run}: near-collinear")
