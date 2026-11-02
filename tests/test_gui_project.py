@@ -16,7 +16,7 @@ from PySide6 import QtCore, QtWidgets
 from test_gui_dataset import _dataset
 from test_gui_editor import wait_for
 
-from peakfit.engine.domain.config import PeakFitConfig
+from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.fit import pipeline
 from peakfit.gui import fitting, project, spectrum
 from peakfit.gui.background import ViewerComputation
@@ -1044,36 +1044,42 @@ def test_runs_saved_before_provenance_read_with_it_unrecorded(analysis, tmp_path
     assert restored.inputs.continuation is None
 
 
-@pytest.fixture
-def collinear(analysis, evidence):
-    """The analysis refitted with an exact duplicate of one peak: a near-collinear pair.
+@pytest.fixture(scope="module")
+def collinear():
+    """A first fit of the bundled data, whose three near-collinear pairs are retained.
 
-    Both start from defaults (no continuation source), as a duplicate assignment
-    of a listed peak would in a first fit.
+    These pairs collapse on every platform tested. An exact duplicate on the small
+    synthetic dataset does not: from an identical start, whether it collapses or
+    separates differs between platforms, so it cannot anchor a test.
     """
-    spectra, config, _completion = evidence
-    first = analysis.completion
-    original = next(p for p in first.working_peaks if p.id == "1")
-    duplicate = replace(original, id="duplicate", name="Duplicate copy")
-    prepared = prepare_dataset_fit(spectra, (*first.working_peaks, duplicate), config)
-    prepared = replace(
-        prepared, snapshot=replace(prepared.snapshot, source_files=analysis.dataset.sources)
-    )
+    dataset = read_dataset(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
+    config = PeakFitConfig(fitting=FitConfig(refine_iterations=2))
+    prepared = prepare_dataset_fit(dataset.spectra, dataset.peaks, config)
+    prepared = replace(prepared, snapshot=replace(prepared.snapshot, source_files=dataset.sources))
     result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
-    second = dataset_completion(
+    completion = dataset_completion(
         result, result.inputs.snapshot, submitted_revision=0, manual_revision=0
     )
-    assert dict(second.retained).keys() >= {"duplicate", original.id}
-    return replace(analysis, peaks=second.working_peaks, runs=(first, second))
+    ids = {p.name: p.id for p in dataset.peaks}
+    assert dict(completion.retained).keys() >= {ids["53N-H"], ids["147N-H"]}
+    analysis = Analysis(
+        dataset,
+        dataset_header(dataset),
+        completion.working_peaks,
+        config.model_dump_json(),
+        0,
+        (completion,),
+        {"plane": 1},
+    )
+    return analysis, ids
 
 
-def test_retained_collinear_positions_and_reasons_survive_reopening(
-    collinear, tmp_path, monkeypatch
-):
-    second = collinear.runs[-1]
-    path = save_analysis(collinear, tmp_path / "collinear.peakfit")
-    monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: collinear.dataset)
-    loaded = open_analysis(path)
+@pytest.mark.slow
+def test_retained_collinear_positions_and_reasons_survive_reopening(collinear, tmp_path):
+    analysis, _ids = collinear
+    second = analysis.runs[-1]
+    path = save_analysis(analysis, tmp_path / "collinear.peakfit")
+    loaded = open_analysis(path)  # reads and verifies the real linked spectrum
     reopened = loaded.completion
     assert reopened.retained == second.retained
     assert reopened.warnings == second.warnings
@@ -1093,8 +1099,11 @@ def test_retained_collinear_positions_and_reasons_survive_reopening(
             np.testing.assert_array_equal(p.standard_error, q.standard_error)
 
 
+@pytest.mark.slow
 def test_a_run_recorded_before_the_rule_reopens_and_exports_as_recorded(collinear, tmp_path):
-    second = collinear.runs[-1]
+    analysis, ids = collinear
+    second = analysis.runs[-1]
+    flagged = ids["147N-H"]
     result = second.result
     # The previous rule adopted every usable fitted position, collinear or not.
     fitted = {
@@ -1119,9 +1128,9 @@ def test_a_run_recorded_before_the_rule_reopens_and_exports_as_recorded(collinea
         result, result.inputs.snapshot, submitted_revision=0, manual_revision=0, recorded=old
     )
     assert recorded.retained == ()
-    assert {"duplicate"} <= recorded.adopted
+    assert flagged in recorded.adopted
     from peakfit.gui.fit_export import export_fit_result  # noqa: PLC0415
 
     path = export_fit_result(result, tmp_path / "old", completion=recorded)
     _, _, context = read_scientific(path / "scientific.npz")
-    assert context["coordinate_table"]["peaks"]["duplicate"]["adoption_status"] == "adopted_fitted"
+    assert context["coordinate_table"]["peaks"][flagged]["adoption_status"] == "adopted_fitted"
