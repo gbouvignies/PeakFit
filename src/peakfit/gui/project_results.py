@@ -12,7 +12,7 @@ from peakfit.engine.scientific.completed import CompletedFit
 from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.export import model_records
 from peakfit.gui.dataset_fit import DatasetFitResult
-from peakfit.gui.fitting import FitInputSnapshot, PeakIdentity, PreparedDatasetFit
+from peakfit.gui.fitting import Continuation, FitInputSnapshot, PeakIdentity, PreparedDatasetFit
 from peakfit.gui.peaks import WorkingPeak
 from peakfit.io.readers.continuation import UnavailableShape, restore_completed, restore_geometry
 
@@ -77,6 +77,7 @@ def restore_result(run, outcome, retained_samples):
         snapshot.contour_level,
         tuple(clusters),
         initial,
+        _read_continuation(run.get("continuation"), snapshot.peaks),
     )
     return DatasetFitResult(
         prepared,
@@ -87,6 +88,28 @@ def restore_result(run, outcome, retained_samples):
         run["run_id"],
         run["completed_at"],
     )
+
+
+def _read_continuation(record, peaks):
+    """Starting-value provenance; runs recorded before it was retained read as None."""
+    if record is None:
+        return None
+    continuation = Continuation(
+        record["run_id"],
+        tuple(record["continued"]),
+        tuple(record["initialized"]),
+        record["reason"],
+    )
+    ids = [p.id for p in peaks]
+    if sorted(continuation.continued + continuation.initialized) != sorted(ids):
+        raise ValueError("Starting-value provenance must name every submitted peak once.")
+    return continuation
+
+
+def continuation_record(result):
+    """Which run supplied the starts, and which stable IDs continued or were initialized."""
+    c = result.inputs.continuation
+    return asdict(c) if c is not None else None
 
 
 def verify_model(result):
@@ -138,6 +161,7 @@ def run_record(result):
         "identities": [asdict(i) for i in result.inputs.identities],
         "shape_names": result.inputs.shape_names,
         "initial_parameters": initial_parameter_records(result),
+        "continuation": continuation_record(result),
         "models": [
             dict(c, peaks=[dict(p, positions=p["positions"].tolist()) for p in c["peaks"]])
             for c in model_records(result.simulation_snapshot)
@@ -160,6 +184,7 @@ def journal_entry(completion):
         "n_correction_updates": result.outcome.n_correction_updates,
         "terminal_correction_revision": result.outcome.terminal_correction_revision,
         "initial_parameters": initial_parameter_records(result),
+        "continuation": continuation_record(result),
         "source_files": result.inputs.snapshot.source_files,
         "spectral_parameters": result.inputs.snapshot.spectral_parameters,
         "plane_values": result.inputs.snapshot.plane_values,

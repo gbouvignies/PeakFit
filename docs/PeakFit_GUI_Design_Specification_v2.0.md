@@ -260,6 +260,13 @@ with unusable/missing/non-finite/unmappable positions retains its prior pair and
 gets a specific warning. Do not update only one axis. Fatal result/source/identity
 validation failure publishes neither new positions nor a new active result.
 Canceled or failed jobs leave all working positions and the previous result intact.
+
+The next fit continues from the active run. Each peak whose working position is
+still the adopted one starts from that run's complete fitted nonlinear state
+(positions, linewidths and any other shape parameter), mapped by stable ID; added
+or moved peaks start from configured defaults, and so does every peak after a
+lineshape, constraint or axis change. An unedited refit therefore reproduces its
+run. The run records which peaks continued and from which run.
 An all-unusable completed run changes no positions and offers no model comparison.
 
 **Currentness is not raw equality with initial seeds.** Record both the execution

@@ -128,3 +128,16 @@ Short records of non‑obvious design choices and trade‑offs.
   members as having left.
 - Undo back to a run's exact inputs still leaves that run Outdated, as before:
   returning values through Undo does not recertify a run (docs/architecture.md).
+
+## 2026-11-02: A refit continues unchanged peaks from the active run
+- Adopting fitted positions while restarting every linewidth at 20 Hz gave starts
+  that matched no solution; on the bundled data the second fit collapsed the
+  resolved pair 52N-H/102N-H (χ²ᵣ 1.53 → 2.32) and later fits kept it
+  ([repeat-fit collapse](validation/repeat-fit-collapse.md)).
+- Unchanged peaks now start from the run's complete fitted nonlinear state, by
+  stable ID; added, moved and incompatible peaks start from defaults. An unedited
+  refit reproduces every cluster (largest relative χ²ᵣ change 2×10⁻⁶).
+- The exact starts stay in the existing `initial_parameters`; only their provenance
+  (`continuation`) is new. A rename keeps a peak continuing, since it changes no
+  model input. Coincident pairs from earlier runs continue coincident and warned;
+  no separation, deletion, basin choice or classification change was introduced.
