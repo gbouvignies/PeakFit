@@ -1754,3 +1754,23 @@ def test_an_added_peak_keeps_lens_context_and_is_followed_after_refit(workspace,
     # It joined the remote peak's cluster: a merge, said without a link back.
     assert set(lens.ids) == {"remote", added.id}
     assert lens.membership_plain == f"Run {refit.run_id[:8]} fits {added.name} with Duplicate"
+
+
+def test_preview_is_prepared_again_when_only_the_continuation_source_changes(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    fitting = w.fitting
+    wait_for(lambda: fitting.prepared is not None)
+    first = fitting.prepared
+    assert first.continuation.run_id == result.run_id
+    assert first.continuation.continued  # unchanged peaks continue from the run
+    # Same working peaks and settings, but a different active run.
+    other = replace(fitting.completion, result=replace(fitting.completion.result, run_id="other"))
+    peaks, settings = w.peaks, fitting.configuration.model_dump_json()
+    fitting.completion = other
+    fitting.update()
+    assert (w.peaks, fitting.configuration.model_dump_json()) == (peaks, settings)
+    assert fitting.prepared is None  # the previous preparation is never reused
+    wait_for(lambda: fitting.prepared is not None)
+    assert fitting.prepared.continuation.run_id == "other"

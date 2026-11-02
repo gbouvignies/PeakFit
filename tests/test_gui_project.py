@@ -23,12 +23,17 @@ from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.numerical import NumericalReview
 from peakfit.gui.editor.window import EditorWindow
-from peakfit.gui.fit_positions import dataset_completion
+from peakfit.gui.fit_positions import continuation_source, dataset_completion
 from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import Analysis, dataset_header, open_analysis, save_analysis
 from peakfit.gui.project_process import project_operation
-from peakfit.gui.project_results import journal_entry, reconstruct_result, verify_model
+from peakfit.gui.project_results import (
+    journal_entry,
+    reconstruct_result,
+    restore_result,
+    verify_model,
+)
 from peakfit.gui.session_evidence import SessionEvidence, interrupted_sessions
 from peakfit.gui.spectrum import Dataset, read_dataset
 from peakfit.io.scientific import read_scientific
@@ -979,3 +984,61 @@ def test_reopened_project_exports_preserve_completed_science(analysis, tmp_path,
         export_fit_result(
             loaded.completion.result, tmp_path / "NumericalOnly", detailed_evidence=False
         )
+
+
+@pytest.fixture
+def continued(analysis, evidence):
+    """The analysis refitted once without edits, continuing from its first run."""
+    spectra, config, _completion = evidence
+    first = analysis.completion
+    prepared = prepare_dataset_fit(spectra, first.working_peaks, config, continuation_source(first))
+    prepared = replace(
+        prepared, snapshot=replace(prepared.snapshot, source_files=analysis.dataset.sources)
+    )
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    second = dataset_completion(
+        result, result.inputs.snapshot, submitted_revision=0, manual_revision=0
+    )
+    return replace(analysis, peaks=second.working_peaks, runs=(first, second))
+
+
+def test_reopened_continuation_provenance_and_refit_are_identical(
+    continued, evidence, tmp_path, monkeypatch
+):
+    spectra, config, _completion = evidence
+    first, second = continued.runs
+    provenance = second.result.inputs.continuation
+    assert provenance.run_id == first.result.run_id
+    assert provenance.continued == tuple(p.id for p in first.working_peaks)
+    path = save_analysis(continued, tmp_path / "continued.peakfit")
+    monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: continued.dataset)
+    loaded = open_analysis(path)
+    reopened = loaded.completion
+    # Provenance and the exact submitted starts survive, independently of the parent.
+    assert reopened.result.inputs.continuation == provenance
+    assert [
+        (p.name, p.value, p.min, p.max, p.vary) for p in reopened.result.inputs.parameters.values()
+    ] == [(p.name, p.value, p.min, p.max, p.vary) for p in second.result.inputs.parameters.values()]
+    # Refitting the reopened analysis prepares and fits exactly as before saving.
+    live = prepare_dataset_fit(spectra, second.working_peaks, config, continuation_source(second))
+    again = prepare_dataset_fit(spectra, loaded.peaks, config, continuation_source(reopened))
+    assert again.continuation == live.continuation
+    assert [(p.name, p.value) for p in again.parameters.values()] == [
+        (p.name, p.value) for p in live.parameters.values()
+    ]
+    a = compute_dataset_fit(deepcopy(live)).completed_fit.outcome
+    b = compute_dataset_fit(deepcopy(again)).completed_fit.outcome
+    assert [c.final_nonlinear_parameters for c in a.clusters] == [
+        c.final_nonlinear_parameters for c in b.clusters
+    ]
+
+
+def test_runs_saved_before_provenance_read_with_it_unrecorded(analysis, tmp_path):
+    path = save_analysis(analysis, tmp_path / "older.peakfit")
+    review = next(path.rglob("review.json"))
+    record = json.loads(review.read_text())
+    assert record["continuation"]["run_id"] is None  # a first fit: every peak initialized
+    record.pop("continuation")
+    outcome, samples, _ = read_scientific(review.parent / "result.npz")
+    restored = restore_result(record, outcome, samples)
+    assert restored.inputs.continuation is None

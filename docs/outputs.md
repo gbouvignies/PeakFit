@@ -238,6 +238,12 @@ identities, observation dtype/SHA-256, calibration and a small component-basis
 reference for evaluator validation. Terminal corrections are independent terminal
 inputs and cannot be substituted with final neighboring models.
 
+Each run's `review.json` keeps its exact submitted starts as `initial_parameters`
+and their provenance as `continuation`: `run_id` (the run that supplied continued
+starts, or `null` for a first fit), the stable peak IDs `continued` from it and
+`initialized` from configured defaults, and a `reason` when that run's model was
+incompatible. Runs saved before this record existed read it as not recorded.
+
 Projects do not retain extracted observations, sampled model predictions or dense
 residual arrays. The bundled two-pass one-run project is approximately **7.12 MB**.
 Observed values are sampled from the verified source in the original order/dtype

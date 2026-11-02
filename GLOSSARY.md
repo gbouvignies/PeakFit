@@ -89,6 +89,12 @@ from that cluster's data before fitting.
 **Fit run**:
 One completed fitting workflow and its associated results.
 
+**Continued start**:
+A peak's starting nonlinear values taken from the active run's fitted state,
+because its working position is still the one that run adopted. Other peaks start
+from the configured defaults; each run records which peaks continued and from which
+run.
+
 **Final fit outcome**:
 The immutable authoritative scientific result assembled once every terminal
 cluster optimizer result has been classified under the frozen final correction

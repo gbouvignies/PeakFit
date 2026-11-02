@@ -2,11 +2,13 @@
 
 import math
 from dataclasses import dataclass, replace
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from peakfit.engine.domain.spectrum import SpectralParameters
 from peakfit.engine.lineshapes.utils import get_axis_label
 from peakfit.engine.scientific.coordinates import resolved_coordinates
+from peakfit.gui.fitting import ContinuationSource
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
@@ -29,6 +31,7 @@ class DatasetCompletion:
     working_peaks: tuple[WorkingPeak, ...]
     manual_revision: int
     warnings: tuple[str, ...]
+    adopted: frozenset[str] = frozenset()  # working IDs whose fitted positions were adopted
 
     def is_current(self, inputs: FitInputSnapshot, manual_revision: int) -> bool:
         """Compare against verified post-fit W, never against the original seeds I."""
@@ -98,4 +101,32 @@ def dataset_completion(
     post_fit = tuple(
         replace(p, positions=updates[p.id]) if p.id in updates else p for p in submitted.peaks
     )
-    return DatasetCompletion(result, post_fit, manual_revision, tuple(warnings))
+    return DatasetCompletion(result, post_fit, manual_revision, tuple(warnings), frozenset(updates))
+
+
+def continuation_source(completion: DatasetCompletion) -> ContinuationSource:
+    """The run's fitted nonlinear state for each peak whose position it adopted.
+
+    Peaks of unusable clusters, and peaks whose fitted position was not adopted,
+    have no values here and start from the configured defaults.
+    """
+    result = completion.result
+    working = {i.engine_name: i.working_id for i in result.inputs.identities}
+    values: dict[str, dict[str, float]] = {}
+    for cluster in result.outcome.clusters:
+        if not cluster.usable:
+            continue
+        for parameter in cluster.final_nonlinear_parameters:
+            engine, _, suffix = parameter.name.partition(".")
+            identity = working.get(engine)
+            if identity in completion.adopted and math.isfinite(parameter.value):
+                values.setdefault(identity, {})[suffix] = float(parameter.value)
+    snapshot = result.inputs.snapshot
+    return ContinuationSource(
+        result.run_id,
+        {p.id: p.positions for p in completion.working_peaks if p.id in values},
+        {identity: MappingProxyType(v) for identity, v in values.items()},
+        result.inputs.shape_names,
+        snapshot.configuration,
+        snapshot.spectral_parameters,
+    )
