@@ -192,6 +192,23 @@ compare” rather than stale data. **Fit** refits the whole dataset; the lens st
 open on the cluster identified by its members' stable IDs. If membership changed,
 the lens says so and offers the new cluster containing the selected peak.
 
+- **Edits.** The lens proposes and the workspace commits through the same
+  undoable peak edits as the overview: a drag of the selected marker in any panel
+  (ghost marker, “Draft” in the lens header, continuous unfolded ppm), and one-shot
+  placement (**A**). Escape cancels a gesture before it leaves the lens.
+- **Context.** A selected peak that the run did not fit keeps the lens on its
+  cluster while the peak is in view, so adding a peak never loses the region;
+  selected from elsewhere, it opens the cluster with its nearest member (native
+  samples).
+- **After Fit.** The lens follows the selected peak's stable ID and keeps the zoom
+  when the members are unchanged. When they changed, the header says “Regrouped by
+  run … · was … · joined by …”, names peaks not in the run, and links to the
+  clusters that former members are now fitted in (a split). A peak added since the
+  previous run says which peaks it is now fitted with, with a link back to the
+  cluster that was on show. The line stays until the lens moves to an unrelated
+  cluster, closes or the next fit completes.
+- **Cancel or failure** keeps the previous run, every working edit and the lens.
+
 At 1280×800 with both side panels open, the 2D plot is at least about 560×480 px.
 At 1440×900 and above, extra space goes to the spectrum. Large fonts may require
 hiding a panel; later resizing preserves choices.

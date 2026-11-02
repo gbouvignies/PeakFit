@@ -36,6 +36,7 @@ from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_process import FitProcessResult
+from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import StoredRun
 from peakfit.gui.spectrum import Dataset, display_position
 from peakfit.io.scientific import read_scientific
@@ -1461,8 +1462,8 @@ def test_escape_leaves_the_lens_from_any_column_but_discards_a_draft_first(works
     w.guidance_changed.connect(window_guidance.append)
     _open_lens(w, result)
     assert window_guidance[-1].startswith("Lens ·")
-    assert "Drag" not in w.guidance()
-    assert "pins" not in w.guidance()
+    assert "drag selected peak" in w.guidance()
+    assert "pins" not in w.guidance()  # pinning stays an overview tool
     # From the cluster list.
     w.navigator.tree.setFocus()
     QtTest.QTest.keyClick(w.navigator.tree, QtCore.Qt.Key.Key_Escape)
@@ -1580,3 +1581,176 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     w.select_peak(None)
     assert not panel.unexplained_button.isEnabled()
     assert panel.unexplained_title.text() == "Outdated · fit to compare with the working peaks"
+
+
+def _view_point(plot, x: float, y: float) -> QtCore.QPoint:
+    scene = plot.getViewBox().mapViewToScene(QtCore.QPointF(x, y))
+    return plot.mapFromScene(scene)
+
+
+def _refit(w):
+    """A real whole-dataset fit of the current working inputs, published as Fit would."""
+    prepared = prepare_dataset_fit(
+        w.dataset.spectra, w.peaks, w.fitting.configuration.model_copy(deep=True)
+    )
+    prepared = replace(
+        prepared, snapshot=replace(prepared.snapshot, source_files=w.dataset.sources)
+    )
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    publish(w, result)
+    return result
+
+
+def test_correct_and_refit_in_the_lens(workspace, scientific):  # noqa: PLR0915
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    lens = w.lens
+    w.open_lens("1")
+    wait_for(lambda: not lens.pending)
+    pair = lens.ids
+    assert set(pair) == {"0", "1"}
+    before = {p.id: p.positions for p in w.peaks}
+    revision = w.edits.revision
+
+    # A drag in any panel is a draft: ghost at the proposal, accepted model kept.
+    lens._drag(0.01, 0.02, False)
+    assert w.pending
+    assert lens.draft.text().startswith("Draft")
+    x, y = lens.ghosts[1].getData()
+    assert (x[0], y[0]) == pytest.approx((before["1"][1] + 0.01, before["1"][0] + 0.02))
+    assert lens.markers[1].getData()[0].tolist() == [
+        display_position(lens.x_axis, p.positions[1]) for p in w.peaks
+    ]
+    assert lens.current
+    assert lens._data["model"] is not None
+    assert w.edits.revision == revision
+    lens._drag(0.01, 0.02, True)
+    moved = next(p for p in w.peaks if p.id == "1").positions
+    assert moved == (before["1"][0] + 0.02, before["1"][1] + 0.01)  # exact, unsnapped
+    assert w.edits.revision == revision + 1
+    assert not w.fitting.current
+    assert lens.ghosts[1].getData()[0].size == 0
+    assert w.lens_open
+    assert lens.ids == pair
+
+    # The folded peak moves in unfolded ppm; its marker stays at the aliased position.
+    w.select_peak("0", cluster=True)
+    lens._drag(-0.005, 0.01, True)
+    folded = next(p for p in w.peaks if p.id == "0").positions
+    assert folded == (before["0"][0] + 0.01, before["0"][1] - 0.005)
+    marker_y = lens.markers[0].getData()[1][[p.id for p in w.peaks].index("0")]
+    assert marker_y == display_position(lens.y_axis, folded[0])
+    assert marker_y != folded[0]
+
+    # Undo and Redo are the workspace's; the lens stays on its cluster.
+    w.history(False)
+    assert next(p for p in w.peaks if p.id == "0").positions == before["0"]
+    w.history(True)
+    assert next(p for p in w.peaks if p.id == "0").positions == folded
+    assert w.lens_open
+    assert lens.ids == pair
+
+    # Placement: A arms it, Escape cancels it without leaving the lens.
+    lens.setFocus()
+    QtTest.QTest.keyClick(lens, QtCore.Qt.Key.Key_A)
+    assert lens.placing
+    QtTest.QTest.keyClick(lens, QtCore.Qt.Key.Key_Escape)
+    assert not lens.placing
+    assert w.lens_open
+    # A click in the residual panel adds a peak at its exact position.
+    count = len(w.peaks)
+    w.start_placing()
+    (x0, x1), (y0, y1) = lens.panels[2].getViewBox().viewRange()
+    target = ((x0 + x1) / 2, (y0 + y1) / 2)
+    point = _view_point(lens.panels[2], *target)
+    QtTest.QTest.mouseClick(lens.panels[2].viewport(), QtCore.Qt.MouseButton.LeftButton, pos=point)
+    assert len(w.peaks) == count + 1
+    added = w.peaks[-1]
+    assert w.selected_id == added.id
+    clicked = lens.panels[2].getViewBox().mapSceneToView(lens.panels[2].mapToScene(point))
+    assert added.positions == (clicked.y(), clicked.x())
+    # The new peak is not in the run, yet the lens keeps its cluster and says so.
+    assert w.lens_open
+    assert lens.ids == pair
+    assert f"{added.name} is not in this cluster of the run" in lens.note.text()
+    assert not lens.placing
+    # Undoing the addition keeps the lens too.
+    w.history(False)
+    assert len(w.peaks) == count
+    assert w.lens_open
+    assert lens.ids == pair
+
+    # A failed or canceled fit keeps the edits and the lens.
+    edited = w.peaks
+    w.fitting._finished(0, RuntimeError("worker died"))
+    assert w.fitting.failure == "worker died"
+    w.fitting.cancel()
+    assert w.peaks == edited
+    assert w.lens_open
+    assert lens.ids == pair
+
+    # Move peak 1 next to the remote peak: the refit splits the pair and merges 1.
+    w.select_peak("1", cluster=True)
+    remote = next(p for p in w.peaks if p.id == "remote").positions
+    current = next(p for p in w.peaks if p.id == "1").positions
+    lens._drag(remote[1] - current[1] + 0.02, remote[0] - current[0] + 0.03, True)
+    refit = _refit(w)
+    wait_for(lambda: not lens.pending)
+    identities = {i.engine_name: i.working_id for i in refit.inputs.identities}
+    now = next(
+        tuple(identities[n] for n in c.peak_names)
+        for c in refit.outcome.clusters
+        if "1" in {identities[n] for n in c.peak_names}
+    )
+    assert set(now) == {"1", "remote"}
+    assert w.lens_open
+    assert lens.ids == now
+    assert lens.current
+    text = lens.membership_plain
+    assert text.startswith(f"Regrouped by run {refit.run_id[:8]} · was Duplicate +1")
+    assert "joined by Duplicate" in text
+    assert text.endswith("now fitted in other clusters: Duplicate ›")
+    assert '<a href="0">Duplicate ›</a>' in lens.membership.text()
+    # The link opens the cluster the previous member is now fitted in.
+    lens.membership.linkActivated.emit("0")
+    assert w.selected_id == "0"
+    assert "0" in lens.ids
+    assert lens.membership.isVisible()
+
+
+def test_an_added_peak_keeps_lens_context_and_is_followed_after_refit(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    lens = w.lens
+    w.open_lens("remote")
+    wait_for(lambda: not lens.pending)
+    assert lens.ids == ("remote",)
+    # Placed in view: the lens keeps the cluster it shows.
+    remote = next(p for p in w.peaks if p.id == "remote").positions
+    w.start_placing()
+    w.place_peak((remote[0] + 0.02, remote[1] + 0.02))
+    added = w.peaks[-1]
+    assert w.selected_id == added.id
+    assert lens.ids == ("remote",)
+    # Out of view, an unfitted peak shows the cluster with its nearest member.
+    one = next(p for p in w.peaks if p.id == "1")
+    lens.panels[0].getViewBox().setRange(
+        xRange=(remote[1] - 0.001, remote[1] + 0.001),
+        yRange=(remote[0] - 0.001, remote[0] + 0.001),
+        padding=0,
+    )
+    far = w.edits.add((one.positions[0] + 0.001, one.positions[1] + 0.001))
+    w._refresh()
+    w.select_peak(far.id, cluster=True)
+    assert set(lens.ids) == {"0", "1"}
+    assert w.lens_open
+    # Remove it again; refit with the first added peak selected.
+    w.history(False)
+    w.select_peak(added.id, cluster=True)
+    assert lens.ids == ("remote",)
+    refit = _refit(w)
+    wait_for(lambda: not lens.pending)
+    # It joined the remote peak's cluster: a merge, said without a link back.
+    assert set(lens.ids) == {"remote", added.id}
+    assert lens.membership_plain == f"Run {refit.run_id[:8]} fits {added.name} with Duplicate"
