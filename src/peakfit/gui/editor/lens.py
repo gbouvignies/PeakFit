@@ -10,7 +10,8 @@ After a committed edit the run is Outdated; its model and residual stay on show
 as historical evidence, labelled with the run, while the data are those it was
 recorded on. Overlay and residual panels then mark working peaks the model does
 not contain (◇) and the recorded positions of model peaks moved or deleted
-since (×).
+since (×); every panel marks recorded fitted positions the run did not adopt (□).
+A key above the panels names the marks on show, as the overview legend does.
 
 Edits follow the overview (§3 D): the selected marker drags in any panel with a
 ghost at the proposed position, and placement takes the next click. The lens only
@@ -108,6 +109,14 @@ class ClusterLens(QtWidgets.QWidget):
         self.membership_plain = ""
         self.membership.hide()
         layout.addWidget(self.membership)
+        # What the panel marks mean, listing only those on show (as the overview legend).
+        self.key = QtWidgets.QLabel()
+        self.key.setObjectName("caption")
+        self.key.setAccessibleName("Lens marker legend")
+        self.key.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.key.setWordWrap(True)
+        self.key.hide()
+        layout.addWidget(self.key)
         panels = QtWidgets.QHBoxLayout()
         panels.setSpacing(themes.SPACE_S)
         self.panels: list[pg.PlotWidget] = []
@@ -149,7 +158,7 @@ class ClusterLens(QtWidgets.QWidget):
             ghost.setZValue(32)
             ghost.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
             # Recorded fitted positions the run did not adopt.
-            fitted = pg.ScatterPlotItem(symbol="d", size=9, brush=None)
+            fitted = pg.ScatterPlotItem(symbol="s", size=7, brush=None)
             fitted.setZValue(19)
             fitted.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
             cross = (
@@ -342,7 +351,8 @@ class ClusterLens(QtWidgets.QWidget):
         for ghost in self.ghosts:
             ghost.setPen(pg.mkPen(t.pin, width=2))
         for fitted in self.unadopted:
-            fitted.setPen(pg.mkPen(color(t.warning, 0.9), width=1.2))
+            fitted.setPen(pg.mkPen(t.model, width=1.4))
+        self._update_key()
         self.measured.setPen(pg.mkPen(color(t.measured), width=1.3))
         self.model.setPen(pg.mkPen(color(t.model), width=1.3, style=QtCore.Qt.PenStyle.DashLine))
         self.residual_curve.setPen(pg.mkPen(color(t.text), width=1.2))
@@ -525,6 +535,27 @@ class ClusterLens(QtWidgets.QWidget):
             lines.setData(
                 [p[0] for p in links] if panel else [], [p[1] for p in links] if panel else []
             )
+        self._update_key()
+
+    def _update_key(self) -> None:
+        t = self.theme
+        shown = [
+            (marks, colour, glyph, text)
+            for marks, colour, glyph, text in (
+                (self.added_marks[-1], t.warning, "◇", "not in this model"),
+                (self.recorded_marks[-1], t.secondary, "×", "position in this model"),
+                (self.unadopted[-1], t.model, "□", "fitted position, not adopted"),
+            )
+            if len(marks.getData()[0])
+        ]
+        self.key.setText(
+            "&nbsp;&nbsp; ".join(
+                f'<span style="white-space:nowrap"><span style="color:{colour}">{glyph}</span>'
+                f"&nbsp;{text}</span>"
+                for _marks, colour, glyph, text in shown
+            )
+        )
+        self.key.setVisible(bool(shown))
 
     def _draw_trace(self, selected) -> None:
         if selected is None:
@@ -565,9 +596,10 @@ class ClusterLens(QtWidgets.QWidget):
     # Editing proposals --------------------------------------------------------------
 
     def set_unadopted(self, points: list[tuple[float, float]]) -> None:
-        """Recorded fitted positions not adopted as working positions (◇)."""
+        """Recorded fitted positions not adopted as working positions (□)."""
         for fitted in self.unadopted:
             fitted.setData([p[0] for p in points], [p[1] for p in points])
+        self._update_key()
 
     def set_membership(self, text: str, links: list[tuple[str, str]]) -> None:
         """Say how a refit regrouped the cluster; links open where members went."""

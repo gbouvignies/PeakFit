@@ -282,7 +282,7 @@ a physical boundary. Fitted values, warnings and classifications are unchanged.
 The peak page says “Fitted position not adopted: near-collinear fitted shapes
 with …”, the review lists the pair as a measure with 1 − |cos| and the amplitude
 cancellation, and the spectrum and lens mark each recorded fitted position not
-adopted with ◇. The run is Current: working markers deliberately stay where they
+adopted with a small □ in the model colour. The run is Current: working markers deliberately stay where they
 were. Retained peaks start the next fit from defaults; moving one makes it an
 ordinary edited peak. Runs recorded before this rule keep their recorded adoption.
 

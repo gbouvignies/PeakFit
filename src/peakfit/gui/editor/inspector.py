@@ -533,7 +533,7 @@ class Inspector(QtWidgets.QScrollArea):
         self.kind.setText(f"PEAK · CLUSTER OF {members}" if members > 1 else "PEAK")
         self.status.setText(
             f"{_state(cluster)} · {run}"
-            + ("\n◇ Fitted position not adopted · working position kept" if retained else "")
+            + ("\n□ Fitted position not adopted · working position kept" if retained else "")
         )
         self._show_profile(result, peak.id, plane_values, plane, current=current)
         self.fitted_title.setText(f"FITTED · RUN {result.run_id[:8].upper()}")

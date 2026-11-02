@@ -1831,6 +1831,10 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     assert lens.added_marks[0].getData()[0].size == 0
     assert lens.added_marks[1].getData()[0].size == 1
     assert lens.recorded_marks[2].getData()[0].size == 1
+    # The lens names its marks as the overview legend does.
+    assert lens.key.isVisibleTo(lens)
+    assert "not in this model" in lens.key.text()
+    assert "position in this model" in lens.key.text()
     w.close_lens()
 
     # The unexplained list keeps the run's residual; distances follow working peaks.
@@ -1936,13 +1940,17 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
         assert after[ids[name]] == before[ids[name]]
     assert len(w.canvas.unadopted.data) == len(retained)
     assert "fitted position, not adopted" in w.canvas.legend.text()
+    # A small model-coloured □, distinct from the ◇ of a peak absent from a historical model.
+    assert w.canvas.unadopted.opts["symbol"] == "s"
+    assert w.canvas.added_marks.opts["symbol"] == "d"
+    assert all(m.opts["symbol"] == "s" for m in w.lens.unadopted)
     # The peak page states it, and the review lists the pair as a measure.
     w.select_peak(ids["53N-H"])
     labels = [label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel)]
     kept = "Fitted position not adopted: near-collinear fitted shapes with 147N-H"
     assert any(text.startswith(kept) for text in labels)
     assert "Near-collinear fitted shapes: 53N-H / 147N-H" in labels
-    assert "Fitted position not adopted · working position kept" in w.panel.status.text()
+    assert "□ Fitted position not adopted · working position kept" in w.panel.status.text()
     assert "amplitudes are poorly constrained individually" in w.panel.profile_reason.text()
     # Moving one restores ordinary initialization; its partner stays retained.
     moved = next(p for p in w.peaks if p.id == ids["147N-H"])
@@ -1955,3 +1963,9 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
     run = completion.result.run_id[:8]
     assert reasons[moved.id] == f"moved since run {run}"
     assert reasons[ids["53N-H"]].startswith(f"not adopted by run {run}: near-collinear")
+    # The lens on the pair keys its □ marks, as the overview legend does.
+    w.open_lens(ids["53N-H"])
+    wait_for(lambda: not w.lens.pending, timeout=60)
+    assert w.lens.unadopted[1].getData()[0].size == len(retained)
+    assert "□" in w.lens.key.text()
+    assert "fitted position, not adopted" in w.lens.key.text()

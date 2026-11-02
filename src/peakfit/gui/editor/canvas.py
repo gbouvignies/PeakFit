@@ -269,7 +269,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         # mark the unit of review while the selected peak stays the unit of editing.
         self.cluster_rings = self._scatter("o", 14, 29)
         # Recorded fitted positions the run did not adopt (working markers stay put).
-        self.unadopted = self._scatter("d", 8, 18)
+        self.unadopted = self._scatter("s", 7, 18)
         self.cluster_ids: tuple[str, ...] = ()
         # Fitting regions on request: a faint tint behind the contours, one cell per
         # sampled point, with the selected peak's cluster slightly stronger.
@@ -382,8 +382,17 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self._place_legend()
 
     def _place_legend(self) -> None:
-        self.legend.adjustSize()
         rect = self.main.getViewBox().sceneBoundingRect()
+        # One line when it fits; otherwise keys wrap within the plot, never past it.
+        limit = max(120, int(rect.width()) - 16)
+        self.legend.setWordWrap(False)
+        self.legend.setMinimumWidth(0)
+        self.legend.setMaximumWidth(16777215)  # QWIDGETSIZE_MAX: undo a previous fixed width
+        self.legend.adjustSize()
+        if self.legend.width() > limit:
+            self.legend.setWordWrap(True)
+            self.legend.setFixedWidth(limit)
+            self.legend.resize(limit, self.legend.heightForWidth(limit))
         corner = self.main.mapFromScene(rect.topRight())
         self.legend.move(max(0, corner.x() - self.legend.width() - 8), corner.y() + 6)
 
@@ -1084,7 +1093,10 @@ class SpectrumCanvas(QtWidgets.QWidget):
         t = self.theme
 
         def key(value: str, glyph: str, text: str) -> str:
-            return f'<span style="color:{value}">{glyph}</span>&nbsp;{text}'
+            return (
+                f'<span style="white-space:nowrap"><span style="color:{value}">{glyph}</span>'
+                f"&nbsp;{text}</span>"
+            )
 
         solid, dashed = "━━", "╍╍"
         run = html.escape(self.comparison_label)
@@ -1108,10 +1120,10 @@ class SpectrumCanvas(QtWidgets.QWidget):
         if self.regions_visible and self.region_source:
             items.append(key(t.secondary, "▭", f"fitting regions · {self.region_source}"))
         if len(self.unadopted.data):
-            items.append(key(t.warning, "◇", "fitted position, not adopted"))
+            items.append(key(t.model, "□", "fitted position, not adopted"))
         self.legend.setText(
             f'<div style="color:{t.secondary};font-size:{FONT_CAPTION}px">'
-            + "&nbsp;&nbsp;&nbsp;".join(items)
+            + "&nbsp;&nbsp; ".join(items)
             + "</div>"
         )
         self.legend.setStyleSheet(
@@ -1145,7 +1157,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
         self.ring.setPen(pg.mkPen(t.accent, width=2))
         self.cluster_rings.setPen(pg.mkPen(color(t.accent, 0.6), width=1.2))
-        self.unadopted.setPen(pg.mkPen(color(t.warning, 0.9), width=1.2))
+        self.unadopted.setPen(pg.mkPen(t.model, width=1.4))
         if self._region_labels.size:
             self._paint_regions()
         self.halo.setPen(pg.mkPen(color(t.accent, 0.8), width=1.2))

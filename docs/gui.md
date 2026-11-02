@@ -140,7 +140,8 @@ and working coordinates. No partial result is adopted.
 
 When two peaks' fitted shapes are near-collinear (1 − |cos| ≤ 10⁻⁴ over the
 fitting samples), their fitted positions are not adopted: their markers stay at
-the working positions, a ◇ marks each recorded fitted position, and the peak page
+the working positions, a small □ in the model colour marks each recorded fitted
+position, and the peak page
 says “Fitted position not adopted: near-collinear fitted shapes with …”. The
 recorded fit is kept as it is; their individual amplitudes are poorly constrained,
 which the profile notes. The next fit starts them from the configured defaults;
@@ -256,7 +257,9 @@ and the plane strip, and widens the inspector to 340 px on the cluster page. Whe
 the run is Outdated, Overlay and Residual keep its model as historical evidence,
 titled with the run (“Overlay · Run 5d7b4768 · historical”), with ◇ on working
 peaks that model does not contain and × at the recorded position of each model
-peak moved or deleted since. The comparison selector is unavailable in the lens;
+peak moved or deleted since. A key above the panels names the marks on show (◇, ×,
+and □ for a fitted position not adopted), as the overview legend does. The
+comparison selector is unavailable in the lens;
 **‹ Spectrum**, or **Escape** from the lens, the cluster list or the inspector,
 returns to the overview with its viewport, mode and panel widths unchanged. In an
 inspector field with a draft, the first Escape discards the draft and the next one
