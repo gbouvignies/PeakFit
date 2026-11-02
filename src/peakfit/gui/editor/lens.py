@@ -538,10 +538,11 @@ class ClusterLens(QtWidgets.QWidget):
         self.residual_curve.setData(self.ppm_x, residual[row] if residual is not None else [])
         name = next((p.name for p in self.peaks if p.id == self.selected_id), "")
         decimals = formatting.ppm_decimals(self.y_axis)
-        of = f" of {self.label}" if self.label and not self.current else ""
+        # The run comes first so a narrow lens elides the tail, never the provenance.
+        run = f"{self.label} model · " if self.label and not self.current else ""
         self.trace_caption.setText(
-            f"Row through {name} at {formatting.number(float(self.ppm_y[row]), decimals)} ppm · "
-            f"measured, total model{of} (dashed) · residual{of} in σ, ±{_BAND:g} σ band"
+            f"{run}Row through {name} at {formatting.number(float(self.ppm_y[row]), decimals)} "
+            f"ppm · measured, total model (dashed) · residual in σ, ±{_BAND:g} σ band"
             + ("" if model is not None else " · model unavailable")
         )
 

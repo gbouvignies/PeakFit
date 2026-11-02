@@ -1826,7 +1826,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     wait_for(lambda: not lens.pending)
     np.testing.assert_allclose(lens._data["residual"], residual)
     assert lens.captions[2].text() == f"Whole-spectrum residual · {tag}"
-    assert f"total model of {tag} (dashed)" in lens.trace_caption.text()
+    assert lens.trace_caption.text().startswith(f"{tag} model · Row through")
     assert lens.added_marks[0].getData()[0].size == 0
     assert lens.added_marks[1].getData()[0].size == 1
     assert lens.recorded_marks[2].getData()[0].size == 1
