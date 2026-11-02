@@ -214,8 +214,16 @@ compares exact inputs to the recorded post-fit tuple and the recorded manual
 revision, rather than comparing optimized coordinates to original seeds. Returning
 values through Undo cannot recertify a run. Source/settings/plane replacements
 also change the snapshot/revision. Completion preparation never rewrites accepted
-bounds/masks/parameters; the next fit must call `prepare_dataset_fit` afresh from
-optimized working positions. Failed/canceled jobs never call completion publication.
+bounds/masks/parameters. The next fit calls `prepare_dataset_fit` afresh with the
+active run as its continuation source (`continuation_source`): each peak whose
+working position is still the one that run adopted starts from its complete fitted
+nonlinear state, mapped by stable ID; new and edited peaks, and every peak after a
+lineshape, constraint or axis change, start from configured defaults. The prepared
+`parameters` are the exact submitted starts (persisted as `initial_parameters`) and
+`continuation` records the source run and which IDs continued, so a run's starts
+never depend on its parent remaining available. The GUI's preparation preview is
+keyed on the source run as well as peaks and settings
+([repeat-fit collapse](validation/repeat-fit-collapse.md)). Failed/canceled jobs never call completion publication.
 The UI delivery must preserve selection, viewport and panel choices and move a
 selected-peak pin once, retaining a free inspection pin. `test_gui_editor_fitting.py` protects the real process loop, partial/all-unusable
 completion, invalid publication, selected/free pins, rapid stale plane requests,

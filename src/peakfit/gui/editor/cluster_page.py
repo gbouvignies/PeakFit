@@ -294,6 +294,8 @@ class ClusterPage(QtWidgets.QWidget):
                     f"{math.sqrt(2 * math.log(samples)):.1f} σ".replace(",", " "),
                 )
         names = dict(zip(review.ids, review.names, strict=True))
+        for pair in review.collinear:
+            review_item(self.review, "", "·", *pair.describe(names))
         for index, highlight in enumerate(review.highlights):
             prefix = f"{names[highlight.peak]}: " if highlight.peak in names else ""
             review_item(

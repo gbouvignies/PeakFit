@@ -146,7 +146,12 @@ exact engine `parameter_names`, plus:
 The GUI's automatic dataset completion records `adopted_fitted` for usable finite
 positions, including usable non-converged fits. Uncertainty warnings do not veto
 this automatic transition. An unusable or invalid tuple records `retained_initial`
-and its exact starting positions with a reason. The GUI completion and both
+and its exact starting positions with a reason. So does a usable peak whose
+recorded fitted shape is near-collinear with another's (1 − |cos| ≤ 10⁻⁴ on the
+fitting samples): its row keeps `fitted_unfolded_ppm` and records
+`adoption_reason` “near-collinear fitted shapes with p_…”, recomputed by readers
+from the recorded shapes. Runs recorded before that rule may show such peaks as
+`adopted_fitted`, which remains valid. The GUI completion and both
 exporters use the same coordinate-resolution function; no second scientific
 position rule or GUI-specific writer exists. Without a recorded completion
 transition, exports report `not_recorded` and no adopted tuple rather than guessing.
@@ -242,6 +247,12 @@ also retain exact terminal corrections, paired sample indices, ordered source-pl
 identities, observation dtype/SHA-256, calibration and a small component-basis
 reference for evaluator validation. Terminal corrections are independent terminal
 inputs and cannot be substituted with final neighboring models.
+
+Each run's `review.json` keeps its exact submitted starts as `initial_parameters`
+and their provenance as `continuation`: `run_id` (the run that supplied continued
+starts, or `null` for a first fit), the stable peak IDs `continued` from it and
+`initialized` from configured defaults, and a `reason` when that run's model was
+incompatible. Runs saved before this record existed read it as not recorded.
 
 Projects do not retain extracted observations, sampled model predictions or dense
 residual arrays; review measures (χ²ᵣ, sample count, largest recorded residual,
