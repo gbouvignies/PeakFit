@@ -441,7 +441,11 @@ class DatasetFitting(QtCore.QObject):
         )
         w.warnings.setVisible(bool(flagged))
         w.update_settings_summary()
-        w.summary.setToolTip(text + ("\n" + self.failure if self.failure else ""))
+        w.summary.setToolTip(
+            text
+            + ("\n" + self.failure if self.failure else "")
+            + "\nClick to open the analysis page at the active run"
+        )
         w._update_inspector()
         self.state_changed.emit()
 

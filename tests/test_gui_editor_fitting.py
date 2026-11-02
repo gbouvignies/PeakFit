@@ -1754,3 +1754,62 @@ def test_an_added_peak_keeps_lens_context_and_is_followed_after_refit(workspace,
     # It joined the remote peak's cluster: a merge, said without a link back.
     assert set(lens.ids) == {"remote", added.id}
     assert lens.membership_plain == f"Run {refit.run_id[:8]} fits {added.name} with Duplicate"
+
+
+def test_run_summary_opens_the_review_which_leads_the_analysis_page_after_a_fit(
+    workspace, scientific
+):
+    w = workspace
+    panel = w.panel
+    layout = panel._analysis_layout
+    w.select_peak(None)
+    # Before the first fit the setup leads and there is no unexplained-signal section.
+    assert layout.indexOf(panel.setup_block) == 0
+    assert not panel.unexplained_button.isVisible()
+    publish(w, scientific[-1])
+    w.select_peak(w.peaks[0].id)
+    assert not panel.analysis_page.isVisible()
+    # A click on the toolbar run summary clears the selection and opens the review.
+    QtTest.QTest.mouseClick(w.summary, QtCore.Qt.MouseButton.LeftButton)
+    wait_for(lambda: panel.analysis_page.isVisible())
+    assert w.selected_id is None
+    assert layout.indexOf(panel.review_block) == 0
+    assert panel.unexplained_button.isVisible()
+    assert "Click to open the analysis page" in w.summary.toolTip()
+    review = panel.review_block.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y()
+    assert 0 <= review < panel.viewport().height()
+    # The settings chip still reaches the setup, now below the review.
+    QtTest.QTest.mouseClick(w.settings_button, QtCore.Qt.MouseButton.LeftButton)
+    wait_for(
+        lambda: 0
+        <= panel.setup_block.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y()
+        < panel.viewport().height()
+    )
+
+
+def test_enter_on_a_name_returns_focus_so_a_places_the_next_peak(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    w.open_lens("1")
+    wait_for(lambda: not w.lens.pending)
+    w.start_placing()
+    remote = next(p for p in w.peaks if p.id == "remote").positions
+    w.place_peak((remote[0] + 0.02, remote[1] + 0.02))
+    name = w.inspector.name
+    name.setFocus()
+    name.selectAll()
+    QtTest.QTest.keyClicks(name, "U1")
+    QtTest.QTest.keyClick(name, QtCore.Qt.Key.Key_Return)
+    assert w.peaks[-1].name == "U1"
+    focus = QtWidgets.QApplication.focusWidget()
+    assert focus is not None
+    assert focus is w.lens or w.lens.isAncestorOf(focus)
+    QtTest.QTest.keyClick(focus, QtCore.Qt.Key.Key_A)
+    assert w.lens.placing
+    # A coordinate field keeps focus after Enter, showing the exact committed value.
+    w.cancel_gesture()
+    field = w.inspector.x_field
+    field.setFocus()
+    field.setText(repr(w.peaks[-1].positions[1] + 0.001))
+    QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Return)
+    assert QtWidgets.QApplication.focusWidget() is field

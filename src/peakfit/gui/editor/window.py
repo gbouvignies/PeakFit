@@ -237,9 +237,15 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self.fit_action = self._action(
             self.analysis_menu, "Fit dataset", self.fit_dataset, "Ctrl+Return"
         )
+        self.run_action = self._action(
+            self.analysis_menu,
+            "Active run",
+            lambda: self.workspace and self.workspace.show_analysis_page(),
+        )
         self.settings_action = self._action(self.analysis_menu, "Fit setup", self.fit_setup)
         self.fit_action.setEnabled(False)
         self.settings_action.setEnabled(False)
+        self.run_action.setEnabled(False)
         help_menu = self.menuBar().addMenu("&Help")
         self._action(help_menu, "Keyboard &shortcuts", self.shortcuts)
         for action in (self.import_action, self.values_action, self.export_action):
@@ -434,6 +440,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
                 action.setEnabled(not w.fit_busy and not self._busy)
             self.fit_action.setEnabled(bool(w.peaks) and not w.fit_busy)
             self.settings_action.setEnabled(True)
+            self.run_action.setEnabled(True)
             self.fit_export_action.setEnabled(w.fitting.result is not None and not w.fit_busy)
 
         self._analysis_actions()
