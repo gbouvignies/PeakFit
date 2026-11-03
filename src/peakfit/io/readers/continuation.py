@@ -13,7 +13,6 @@ import numpy as np
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
@@ -316,10 +315,8 @@ def continuation_state(completed):
         )
         cluster.corrections = sample.neighbor_corrections.copy()
         clusters.append(cluster)
-    peaks = [p for c in clusters for p in c.peaks]
     return FittingState(
         clusters=clusters,
-        params=FitParameters.from_parameters(params, peaks),
         scalar_params=params,
         noise=completed.outcome.noise,
     )

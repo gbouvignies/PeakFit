@@ -71,7 +71,6 @@ def _completed_case(mode, monkeypatch):
         prepared.clusters,
         prepared.noise,
         prepared.parameters,
-        [p for c in prepared.clusters for p in c.peaks],
     )
     result = finish_dataset_fit(prepared, DatasetFitAttempt(completed.completed_fit, (), 1.0))
     completion = dataset_completion(

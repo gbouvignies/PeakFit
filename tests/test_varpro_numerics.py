@@ -15,7 +15,6 @@ from peakfit.engine.algorithms.varpro import (
     fit_cluster,
     identifiable_covariance,
 )
-from peakfit.engine.domain.params_vector import FitParameters
 
 
 def test_duplicate_shapes_cannot_fit_a_nonexistent_direction() -> None:
@@ -49,7 +48,6 @@ def _optimizer(cluster, params, noise=1.0):
         cluster,
         params.get_vary_names(),
         params,
-        FitParameters.from_parameters(params, cluster.peaks),
         noise,
     )
 
@@ -100,8 +98,12 @@ def test_identifiable_overlapping_profiles_recover_truth(separation) -> None:
 def test_rank_loss_has_no_trustworthy_joint_nonlinear_covariance() -> None:
     cluster, params = peak_pair(0.0)
     optimizer = _optimizer(cluster, params)
-    errors, amplitude_errors = _calculate_errors(optimizer, params.get_vary_values(), 1.0)
+    errors = _calculate_errors(optimizer, params.get_vary_values())
     assert np.isnan(errors).all()
+    assert optimizer._shapes is not None
+    _, amplitude_errors, _ = calculate_amplitudes_with_uncertainty(
+        optimizer._shapes, cluster.corrected_data, noise=1.0
+    )
     assert np.isnan(amplitude_errors).all()
 
 
@@ -123,8 +125,8 @@ def test_covariance_respects_parameter_units_and_known_noise() -> None:
     cluster, params = peak_pair(6.0)
     small = _optimizer(cluster, params.copy(deep=True), 0.01)
     large = _optimizer(cluster, params.copy(deep=True), 0.02)
-    errors, _ = _calculate_errors(small, params.get_vary_values(), 0.01)
-    doubled, _ = _calculate_errors(large, params.get_vary_values(), 0.02)
+    errors = _calculate_errors(small, params.get_vary_values())
+    doubled = _calculate_errors(large, params.get_vary_values())
     np.testing.assert_allclose(doubled, 2 * errors)
 
 
@@ -133,7 +135,7 @@ def test_active_bound_uncertainty_is_unavailable() -> None:
     name = params.get_vary_names()[0]
     params[name].min = params[name].value
     optimizer = _optimizer(cluster, params, 0.01)
-    errors, _ = _calculate_errors(optimizer, params.get_vary_values(), 0.01)
+    errors = _calculate_errors(optimizer, params.get_vary_values())
     assert np.isnan(errors[0])
 
 

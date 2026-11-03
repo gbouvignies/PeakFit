@@ -55,7 +55,6 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
         direct.clusters,
         direct.noise,
         direct.parameters,
-        [peak for cluster in direct.clusters for peak in cluster.peaks],
     )
     progress = []
     attempt = compute_dataset_fit(deepcopy(prepared), progress.append)

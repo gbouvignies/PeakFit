@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.params_scalar import Parameter, Parameters
     from peakfit.engine.results import FitResult
-    from peakfit.fit.pipeline import PipelineCompletion
+    from peakfit.engine.scientific.completion import PipelineCompletion
     from peakfit.shared.typing import FloatArray
 
 
@@ -373,7 +373,7 @@ def _final_cluster_parameters(
     terminal_parameters: Parameters,
     final_parameters: Parameters,
 ) -> tuple[FinalParameter, ...]:
-    names = _cluster_nonlinear_parameter_names(cluster, terminal_parameters)
+    names = cluster.parameter_names(terminal_parameters)
     frozen: list[FinalParameter] = []
     for name in names:
         if name not in final_parameters:
@@ -390,30 +390,6 @@ def _final_cluster_parameters(
             )
         frozen.append(_freeze_parameter(merged))
     return tuple(sorted(frozen, key=lambda parameter: parameter.name))
-
-
-def _cluster_nonlinear_parameter_names(
-    cluster: Cluster,
-    parameters: Parameters,
-) -> list[str]:
-    peak_names = {peak.name for peak in cluster.peaks}
-    prefix = f"cluster_{cluster.cluster_id}."
-    names: list[str] = []
-    for name, parameter in parameters.items():
-        identifier = parameter.param_id
-        if identifier is not None:
-            if identifier.label == "I":
-                continue
-            belongs_to_cluster = identifier.cluster_id == cluster.cluster_id
-            belongs_to_peak = identifier.peak_name in peak_names
-        else:
-            if name.rsplit(".", maxsplit=1)[-1].startswith("I"):
-                continue
-            belongs_to_cluster = name.startswith(prefix)
-            belongs_to_peak = any(name.startswith(f"{peak_name}.") for peak_name in peak_names)
-        if belongs_to_cluster or belongs_to_peak:
-            names.append(name)
-    return names
 
 
 def _freeze_parameter(parameter: Parameter) -> FinalParameter:

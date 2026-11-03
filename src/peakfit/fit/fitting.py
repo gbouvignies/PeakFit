@@ -3,7 +3,6 @@
 Public API:
 - LoadedData: Container for all loaded fitting data
 - load_data: Function to load spectrum, peaks, and compute clusters
-- RunSummary: Statistics for a fitting run
 - FitRun: Result of a fitting operation
 - run_fit: Execute the fitting pipeline
 - write_fit_run_outputs: Write outputs from a FitRun
@@ -14,7 +13,6 @@ Public API:
 
 from __future__ import annotations
 
-import logging
 import multiprocessing
 from typing import TYPE_CHECKING, Any
 
@@ -26,7 +24,7 @@ from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.fit.export import write_completed_outputs
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
-from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart, RunSummary
+from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart
 from peakfit.io.output_metadata import capture_output_metadata
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
@@ -171,39 +169,32 @@ def run_fit(
     Returns:
         FitRun with fitting state, results, and summary
     """
-    logger = logging.getLogger("peakfit")
-    prev_level = logger.level
-    logger.setLevel(logging.CRITICAL)
+    params = Parameters.from_peaks(data.peaks, fixed=False)
+    n_workers = workers if workers > 0 else multiprocessing.cpu_count()
 
-    try:
-        params = Parameters.from_peaks(data.peaks, fixed=False)
-        n_workers = workers if workers > 0 else multiprocessing.cpu_count()
+    if reporter:
+        reporter.info(f"Fitting {len(data.clusters)} clusters with {n_workers} workers.")
 
-        if reporter:
-            reporter.info(f"Fitting {len(data.clusters)} clusters with {n_workers} workers.")
+    # Emit progress start event with total steps
+    if progress_callback:
+        total_steps = _calc_total_steps(data, config)
+        progress_callback(ProgressStart(total_steps, len(data.clusters), n_workers))
 
-        # Emit progress start event with total steps
-        if progress_callback:
-            total_steps = _calc_total_steps(data, config)
-            progress_callback(ProgressStart(total_steps, len(data.clusters), n_workers))
+    items = _iter_pipeline(config, data, params, n_workers)
 
-        items = _iter_pipeline(config, data, params, n_workers)
+    pipeline_result = _consume_pipeline(items, progress_callback)
 
-        pipeline_result = _consume_pipeline(items, progress_callback)
+    if pipeline_result is None:
+        raise RuntimeError("Pipeline produced no result")
 
-        if pipeline_result is None:
-            raise RuntimeError("Pipeline produced no result")
-
-        return FitRun(
-            outcome=pipeline_result.final_outcome,
-            continuation_state=pipeline_result.continuation_state,
-            output_dir=output_dir,
-            spectra=data.spectra,
-            simulation_snapshot=pipeline_result.simulation_snapshot,
-            completed_fit=pipeline_result.completed_fit,
-        )
-    finally:
-        logger.setLevel(prev_level)
+    return FitRun(
+        outcome=pipeline_result.final_outcome,
+        continuation_state=pipeline_result.continuation_state,
+        output_dir=output_dir,
+        spectra=data.spectra,
+        simulation_snapshot=pipeline_result.simulation_snapshot,
+        completed_fit=pipeline_result.completed_fit,
+    )
 
 
 def _calc_total_steps(data: LoadedData, config: PeakFitConfig) -> int:
@@ -230,7 +221,6 @@ def _iter_pipeline(
                 data.clusters,
                 data.noise,
                 params,
-                data.peaks,
                 executor=pool.imap_unordered,
             )
     else:
@@ -239,7 +229,6 @@ def _iter_pipeline(
             data.clusters,
             data.noise,
             params,
-            data.peaks,
             executor=None,
         )
 
@@ -312,7 +301,6 @@ __all__ = [
     "FitRun",
     "LoadedData",
     "ProgressStart",
-    "RunSummary",
     "find_review_clusters",
     "load_data",
     "run_fit",

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING
@@ -112,7 +111,7 @@ def _evaluate_analytical_model(
     params: Parameters,
     noise: float,
 ) -> AnalyticalModelEvaluation:
-    nonlinear_names = _cluster_nonlinear_parameter_names(cluster, params)
+    nonlinear_names = cluster.parameter_names(params)
     nonfinite_names = [name for name in nonlinear_names if not np.isfinite(params[name].value)]
     if nonfinite_names:
         raise _InvalidEvaluationError(
@@ -421,30 +420,6 @@ def _analytical_failure(
     reason: str,
 ) -> AnalyticalEvaluationFailure:
     return AnalyticalEvaluationFailure(cluster_id=cluster.cluster_id, reason=reason)
-
-
-def _cluster_nonlinear_parameter_names(
-    cluster: Cluster,
-    params: Parameters,
-) -> list[str]:
-    peak_names = {peak.name for peak in cluster.peaks}
-    cluster_prefix = f"cluster_{cluster.cluster_id}."
-    names: list[str] = []
-    for name, parameter in params.items():
-        param_id = parameter.param_id
-        if param_id is not None:
-            if param_id.label == "I":
-                continue
-            belongs_to_cluster = param_id.cluster_id == cluster.cluster_id
-            belongs_to_peak = param_id.peak_name in peak_names
-        else:
-            if re.search(r"\.I\d+$", name):
-                continue
-            belongs_to_cluster = name.startswith(cluster_prefix)
-            belongs_to_peak = any(name.startswith(f"{peak_name}.") for peak_name in peak_names)
-        if belongs_to_cluster or belongs_to_peak:
-            names.append(name)
-    return names
 
 
 __all__ = [

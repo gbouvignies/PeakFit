@@ -7,7 +7,7 @@ import numpy as np
 
 from peakfit.engine.scientific.coordinates import coordinate_table
 from peakfit.engine.scientific.simulation import simulate_final_outcome
-from peakfit.fit.run_models import RunSummary
+from peakfit.engine.scientific.summary import RunSummary
 from peakfit.io.scientific import write_scientific
 from peakfit.io.writers.orchestrator import write_fit_outputs
 

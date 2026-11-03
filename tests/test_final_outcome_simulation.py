@@ -13,17 +13,16 @@ from peakfit.engine.algorithms.evaluation import classify_optimizer_result
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
 from peakfit.engine.scientific.completed import CompletedFit
+from peakfit.engine.scientific.completion import CorrectionSnapshot, PipelineCompletion
 from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
 from peakfit.engine.scientific.simulation import FinalModelSnapshot, simulate_final_outcome
 from peakfit.fit.export import write_completed_outputs
-from peakfit.fit.pipeline import CorrectionSnapshot, PipelineCompletion
 from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.writers.config import WriterConfig
 
@@ -144,7 +143,6 @@ def _fixture(
     params = Parameters.from_peaks(peaks, fixed=False)
     state = FittingState(
         clusters=clusters,
-        params=FitParameters.from_parameters(params, peaks),
         scalar_params=params,
         noise=1.0,
     )

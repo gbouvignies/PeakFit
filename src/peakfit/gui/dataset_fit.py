@@ -67,7 +67,6 @@ def compute_dataset_fit(
 ) -> DatasetFitAttempt:
     """Run all configured passes, including real cross-cluster correction updates."""
     config = PeakFitConfig.model_validate_json(prepared.snapshot.configuration)
-    peaks = [peak for cluster in prepared.clusters for peak in cluster.peaks]
     total = len(prepared.clusters)
     passes = sum(
         step.iterations
@@ -85,7 +84,6 @@ def compute_dataset_fit(
             prepared.clusters,
             prepared.noise,
             prepared.parameters,
-            peaks,
         ):
             if isinstance(item, PipelineResult):
                 return DatasetFitAttempt(

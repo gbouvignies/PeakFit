@@ -18,7 +18,6 @@ from peakfit.engine.domain.config import (
 )
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
@@ -196,7 +195,6 @@ def _final_outcome_for_json(
         results.append(result)
     state = FittingState(
         clusters=fit.clusters,
-        params=FitParameters.from_parameters(fit.params, fit.peaks),
         scalar_params=fit.params,
         noise=1.0,
     )
@@ -264,7 +262,6 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
     ]
     state = FittingState(
         clusters=fit.clusters,
-        params=FitParameters.from_parameters(fit.params, fit.peaks),
         scalar_params=fit.params,
         noise=1.0,
     )
@@ -583,7 +580,6 @@ def _run_with_executor(
         clusters=fit.clusters,
         data_noise=1.0,
         base_params=fit.params,
-        peaks=fit.peaks,
         executor=executor,
     )
     return result, completion_order, correction_snapshots
@@ -633,7 +629,6 @@ def test_cluster_identity_rejects_duplicate_input_identifiers() -> None:
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
-            peaks=fit.peaks,
             executor=executor,
         )
 
@@ -650,7 +645,6 @@ def test_cluster_identity_rejects_missing_optimizer_results() -> None:
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
-            peaks=fit.peaks,
             executor=executor,
         )
 
@@ -671,7 +665,6 @@ def test_cluster_identity_rejects_duplicate_optimizer_results() -> None:
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
-            peaks=fit.peaks,
             executor=executor,
         )
 
@@ -693,7 +686,6 @@ def test_cluster_identity_rejects_unexpected_optimizer_results() -> None:
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
-            peaks=fit.peaks,
             executor=executor,
         )
 
@@ -713,7 +705,6 @@ def test_results_with_other_optimizer_provenance_are_rejected(optimizer_kind) ->
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
-            peaks=fit.peaks,
             executor=executor,
         )
 
@@ -737,7 +728,6 @@ def test_cluster_identity_preserves_returned_nonconverged_result() -> None:
         clusters=fit.clusters,
         data_noise=1.0,
         base_params=fit.params,
-        peaks=fit.peaks,
         executor=executor,
     )
 
@@ -759,7 +749,6 @@ def test_cluster_identity_optimizer_exception_aborts_run() -> None:
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
-            peaks=fit.peaks,
             executor=executor,
         )
 
@@ -829,7 +818,6 @@ def test_numerical_usability_controls_parameter_merging_and_corrections() -> Non
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
-            peaks=fit.peaks,
             executor=executor,
         )
         parameter_name, original_value, rejected_value = unusable_parameter[0]
@@ -923,7 +911,6 @@ def test_correction_snapshots_are_isolated_from_later_mutation() -> None:
         clusters=fit.clusters,
         data_noise=1.0,
         base_params=fit.params,
-        peaks=fit.peaks,
         executor=executor,
     )
 
@@ -965,7 +952,6 @@ def test_pipeline_rejects_a_stale_result_correction_revision() -> None:
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
-            peaks=fit.peaks,
             executor=executor,
         )
 
@@ -991,7 +977,6 @@ def test_usable_nonconverged_results_contribute_to_the_next_correction() -> None
             clusters=fit.clusters,
             data_noise=1.0,
             base_params=fit.params,
-            peaks=fit.peaks,
             executor=executor,
         )
         return next_pass_corrections[0]

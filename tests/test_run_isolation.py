@@ -4,12 +4,18 @@ import numpy as np
 from builders import two_cluster_dataset
 
 from peakfit.engine.domain.params_scalar import Parameter, Parameters
-from peakfit.fit.pipeline import run_pipeline
+from peakfit.engine.results import FitResult
+from peakfit.fit.pipeline import PipelineResult, run_pipeline, run_pipeline_iter
+from peakfit.fit.run_models import CorrectionUpdate, PassStart
 
 
 def _run(config, prepared):
-    peaks = [p for c in prepared.clusters for p in c.peaks]
-    return run_pipeline(config, prepared.clusters, prepared.noise, prepared.parameters, peaks)
+    return run_pipeline(
+        config,
+        prepared.clusters,
+        prepared.noise,
+        prepared.parameters,
+    )
 
 
 def _recorded(result):
@@ -53,3 +59,16 @@ def test_parameter_sets_share_no_parameter_objects_after_update():
     assert source.get_vary_names() == []
     assert target.get_vary_names() == ["a"]
     assert isinstance(target["a"], Parameter)
+
+
+def test_the_pipeline_reports_passes_and_correction_updates_as_typed_events():
+    _spectra, _peaks, config, prepared = two_cluster_dataset()
+    assert config.fitting.refine_iterations == 2
+    events = [
+        item
+        for item in run_pipeline_iter(
+            config, prepared.clusters, prepared.noise, prepared.parameters
+        )
+        if not isinstance(item, (FitResult, PipelineResult))
+    ]
+    assert events == [PassStart(1, 2), CorrectionUpdate(), PassStart(2, 2)]

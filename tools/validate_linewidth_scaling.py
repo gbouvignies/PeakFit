@@ -34,7 +34,6 @@ from peakfit.engine.algorithms.varpro import VarProOptimizer, fit_cluster
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.fit.fitting import load_data
 
 PAIR = {269: ("36N-H", "93N-H"), 360: ("5N-H", "76N-H"), 424: ("53N-H", "147N-H")}
@@ -280,9 +279,7 @@ def normalization_probe(cluster, params, noise):
     """Compare residual/Jacobian and column-normalized linear solve at fixed physics."""
 
     def optimizer(c, p, n):
-        return VarProOptimizer(
-            c, p.get_vary_names(), p, FitParameters.from_parameters(p, c.peaks), n
-        )
+        return VarProOptimizer(c, p.get_vary_names(), p, n)
 
     x = params.get_vary_values()
     original = optimizer(cluster, params.copy(deep=True), noise)

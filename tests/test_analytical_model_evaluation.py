@@ -15,7 +15,6 @@ from peakfit.engine.algorithms.evaluation import (
     evaluate_analytical_model,
 )
 from peakfit.engine.algorithms.linear_algebra import (
-    calculate_amplitude_covariance,
     calculate_amplitudes_with_uncertainty,
 )
 from peakfit.engine.domain.cluster import Cluster
@@ -295,7 +294,6 @@ def test_amplitude_calculations_preserve_ordinary_finite_results() -> None:
     np.testing.assert_allclose(amplitudes, [[2.0, 3.0], [3.0, 4.0]])
     np.testing.assert_allclose(errors, [1.0, 2.0 / 3.0])
     np.testing.assert_allclose(covariance, [[1.0, 0.0], [0.0, 4.0 / 9.0]])
-    np.testing.assert_allclose(calculate_amplitude_covariance(shapes, noise=2.0), covariance)
 
 
 def test_amplitude_covariance_suppresses_floating_point_overflow_warning() -> None:
@@ -303,7 +301,7 @@ def test_amplitude_covariance_suppresses_floating_point_overflow_warning() -> No
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", RuntimeWarning)
-        covariance = calculate_amplitude_covariance(shapes, noise=1.0)
+        _, _, covariance = calculate_amplitudes_with_uncertainty(shapes, np.ones((1, 1)), noise=1.0)
 
     assert not np.isfinite(covariance).all()
 

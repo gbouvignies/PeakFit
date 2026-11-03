@@ -21,6 +21,7 @@ from peakfit.fit.fitting import (
     run_fit,
     write_fit_run_outputs,
 )
+from peakfit.fit.run_models import CorrectionUpdate, PassStart
 from peakfit.fit.validation import validate_inputs
 from peakfit.ui.branding import show_command_summary
 from peakfit.ui.console import Verbosity, console, display_path, set_verbosity
@@ -297,9 +298,15 @@ def _run_interactive_fit(
             # Start the live display with the pipeline total
             live_ctx["display"] = live_fit_display(total_steps=item.total_steps)
             live_ctx["update"] = live_ctx["display"].__enter__()
-        elif isinstance(item, tuple) and item[0] == "status":
+        elif isinstance(item, PassStart):
             if live_ctx["update"]:
-                live_ctx["update"](status_message=item[1], advance=0)
+                status = f"[bold blue]Iteration {item.iteration}/{item.iterations}[/]"
+                live_ctx["update"](status_message=status, advance=0)
+        elif isinstance(item, CorrectionUpdate):
+            if live_ctx["update"]:
+                live_ctx["update"](
+                    status_message="[dim]Correcting data with neighbors...[/]", advance=0
+                )
         elif isinstance(item, FitResult):
             if live_ctx["update"]:
                 cluster_id = str(item.cluster_id)

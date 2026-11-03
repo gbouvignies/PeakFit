@@ -21,8 +21,9 @@ from peakfit.engine.scientific.final_outcome import (
     FinalParameter,
     OptimizerProvenance,
 )
+from peakfit.engine.scientific.summary import RunSummary
 from peakfit.fit.fitting import find_review_clusters
-from peakfit.fit.run_models import FitRun, RunSummary
+from peakfit.fit.run_models import FitRun
 from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.schemas import FitSummarySchema
 from peakfit.io.writers.config import WriterConfig

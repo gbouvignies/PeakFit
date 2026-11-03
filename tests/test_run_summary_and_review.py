@@ -16,8 +16,9 @@ from peakfit.engine.scientific.final_outcome import (
     FinalFitStatistics,
     OptimizerProvenance,
 )
+from peakfit.engine.scientific.summary import RunSummary
 from peakfit.fit.fitting import find_review_clusters
-from peakfit.fit.run_models import FitRun, RunSummary
+from peakfit.fit.run_models import FitRun
 
 
 def _outcome(

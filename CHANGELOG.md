@@ -57,6 +57,15 @@ Notable user-facing and architecture changes are recorded here.
   from Python) started from the corrections the first run left on them, while
   recording its first pass as uncorrected, and gave different results. Parameter
   sets also no longer share parameter objects after `Parameters.update`.
+- Engine boundary: `CorrectionSnapshot`, `PipelineCompletion` and `RunSummary` moved
+  into `engine.scientific`, so `engine` and `io` no longer reference `fit` even for
+  type checking, and the import contracts now count type-only imports. Removed
+  `FitParameters`, the unused `peaks` argument of `run_pipeline[_iter]`, the
+  never-matched amplitude-parameter paths (`ParameterMap.from_peaks`, VarPro's
+  amplitude-parameter update, `calculate_amplitude_covariance`) and the duplicate
+  nonlinear-parameter filters (`Cluster.parameter_names` replaces them). Pipeline
+  progress is reported as typed `PassStart`/`CorrectionUpdate` events instead of
+  Rich-markup tuples, and `run_fit` no longer changes the `peakfit` logger level.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.

@@ -20,13 +20,13 @@ if TYPE_CHECKING:
 
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.state import FittingState
+    from peakfit.engine.scientific.completion import CorrectionSnapshot
     from peakfit.engine.scientific.final_outcome import (
         FinalAnalyticalResult,
         FinalClusterOutcome,
         FinalFitOutcome,
         FinalParameter,
     )
-    from peakfit.fit.pipeline import CorrectionSnapshot
     from peakfit.shared.typing import FloatArray
 
 

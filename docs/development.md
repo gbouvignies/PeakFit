@@ -85,7 +85,9 @@ its run ID, timestamps, output directory or fit timings.
 The import-linter contracts in `pyproject.toml` enforce the current package
 layers, keep the siblings `gui`/`ui` and `fit`/`mcmc`/`plot` independent of each
 other, and keep Qt, Typer, Rich and matplotlib out of `engine`, `fit`, `io`,
-`mcmc` and `shared`, and Qt out of `plot`.
+`mcmc` and `shared`, and Qt out of `plot`. Imports used only for type checking
+count too; the few mutual type references between sibling modules are listed in
+the acyclic contract's `ignore_imports`, which fails if one of them disappears.
 
 ## CLI And Terminal Output
 

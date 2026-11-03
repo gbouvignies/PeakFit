@@ -99,6 +99,17 @@ class Cluster:
         """Return the number of amplitude parameters (DOF)."""
         return len(self.peaks) * self.n_series
 
+    def parameter_names(self, params: Parameters) -> list[str]:
+        """The cluster's nonlinear model parameters present in ``params``, in its order.
+
+        These are its peaks' parameters and cluster-shared ones such as a fitted phase;
+        amplitudes are solved, never parameters.
+        """
+        model = {
+            name for peak in self.peaks for shape in peak.shapes for name in shape.parameter_names()
+        }
+        return [name for name in params if name in model]
+
     def evaluate(
         self,
         params: Parameters,

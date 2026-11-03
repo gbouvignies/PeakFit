@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
-from pydantic import ValidationError
 
 from peakfit.engine.algorithms.clustering import create_clusters
 from peakfit.engine.algorithms.common import residuals
@@ -16,10 +15,8 @@ from peakfit.engine.algorithms.evaluation import (
 )
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
-from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
-from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
 
@@ -328,23 +325,3 @@ def test_authoritative_uncertainties_use_the_series_axis_reduced_chi_squared() -
         analytical.scaled_amplitude_standard_errors,
         analytical.amplitude_standard_errors * np.sqrt(expected_redchi),
     )
-
-
-def test_fitting_state_rejects_the_development_axis_contract_version() -> None:
-    cluster, _spectra, params = _axis_reproduction()
-    state = FittingState(
-        clusters=[cluster],
-        params=FitParameters.from_parameters(params, cluster.peaks),
-        scalar_params=params,
-        noise=1.0,
-    )
-    assert state.version == "2.0"
-
-    state_data = state.model_dump()
-    state_data["version"] = "1.1"
-    with pytest.raises(ValidationError, match="version") as error:
-        FittingState.model_validate(state_data)
-
-    message = str(error.value)
-    assert "1.1" in message
-    assert "2.0" in message
