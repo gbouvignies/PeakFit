@@ -331,3 +331,17 @@ Short records of non‑obvious design choices and trade‑offs.
   parameters are identical under the old CLI rule, the old GUI rule and the new
   rule (none, except `1011N-H.F3.lw` for `per_peak`). Fit digests and the golden
   regression are unchanged.
+
+## 2026-11-03: Each fit run owns its correction state
+- `run_pipeline_iter` shallow-copies its input clusters with zero corrections. Pass 1
+  is then really revision 0, and correction updates never reach the caller's
+  clusters. Before, `update_cluster_corrections` updated the caller's clusters in
+  place and the next run snapshotted them as revision 0. On the bundled example with
+  three passes, a second run on the same prepared clusters changed all 664
+  parameters (χ² 1825695.05 → 1825690.58). The CLI and GUI were not affected only
+  because they build fresh clusters or fit a pickled copy in a child process.
+- `Parameters.update` copies parameters instead of storing and re-parenting the
+  other set's objects, so a run's parameters no longer alias its optimizer results.
+- Single runs are unchanged: the example digest, the golden regression and a
+  three-pass example fit (values, errors, amplitudes and terminal corrections) are
+  bit-identical to before.

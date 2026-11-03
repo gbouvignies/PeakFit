@@ -225,10 +225,11 @@ class Parameters(BaseModel):
         return self.params.items()
 
     def update(self, other: Parameters) -> None:
-        """Update parameters from another Parameters object."""
+        """Copy another set's parameters in; the two sets share no parameter objects."""
         for name, param in other.items():
-            self.params[name] = param
-            self._register_param(param)
+            copied = param.model_copy()
+            self.params[name] = copied
+            self._register_param(copied)
 
     @classmethod
     def from_peaks(cls, peaks: Sequence[Peak], *, fixed: bool = False) -> Parameters:
