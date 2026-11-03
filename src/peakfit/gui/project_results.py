@@ -15,6 +15,7 @@ from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.fitting import Continuation, FitInputSnapshot, PeakIdentity, PreparedDatasetFit
 from peakfit.gui.peaks import WorkingPeak
 from peakfit.io.readers.continuation import UnavailableShape, restore_completed, restore_geometry
+from peakfit.shared.exceptions import require_close
 
 
 def read_peaks(records):
@@ -133,18 +134,28 @@ def verify_model(result):
             c for c in result.simulation_snapshot.clusters if c.cluster_id == s.cluster_id
         )
         shapes = Cluster.evaluate_peaks(geometry.peaks, parameters, list(s.grid_indices))
-        np.testing.assert_allclose(shapes, e.shapes, rtol=1e-10, atol=1e-12)
+        require_close(
+            shapes,
+            e.shapes,
+            rtol=1e-10,
+            atol=1e-12,
+            message=f"Cluster {s.cluster_id}: the saved model evaluator no longer "
+            "reproduces its recorded shapes; this PeakFit version cannot review the run. "
+            "Refit the dataset.",
+        )
         if not result.outcome.cluster(s.cluster_id).sample_evaluation:
             continue
         projected = project_final_outcome(
             result.outcome, result.simulation_snapshot, s.grid_indices, cluster_id=s.cluster_id
         )
         assert projected is not None
-        np.testing.assert_allclose(
+        require_close(
             projected,
             result.outcome.cluster(s.cluster_id).sample_evaluation.model_values,
             rtol=1e-10,
             atol=1e-9,
+            message=f"Cluster {s.cluster_id}: the saved model no longer reproduces its "
+            "recorded model values. Refit the dataset.",
         )
 
 

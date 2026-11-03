@@ -28,6 +28,8 @@ from peakfit.gui.project_results import (
 )
 from peakfit.gui.spectrum import Dataset, read_dataset
 from peakfit.io.scientific import read_scientific, write_scientific
+from peakfit.shared.exceptions import ScientificIntegrityError
+from peakfit.shared.paths import format_path
 
 VERSION = "7.0.0"
 MAX_RUNS = 10
@@ -431,7 +433,10 @@ def _validate_run_files(root, entry):
             or path.stat().st_size != info["bytes"]
             or _digest(path) != info["sha256"]
         ):
-            raise ValueError(f"Corrupt project evidence: {run_id}/{name}")
+            raise ScientificIntegrityError(
+                f"Corrupt project evidence: {run_id}/{name} does not match its recorded "
+                "checksum. Restore an intact copy of the project."
+            )
     return directory
 
 
@@ -462,8 +467,23 @@ def _load_run(root, entry):
 def open_analysis(
     path: Path, *, relink: Path | None = None, progress=lambda _: None, canceled=lambda: False
 ) -> Analysis:
-    """Verify retained numerical evidence and the explicitly linked spectrum."""
+    """Verify retained numerical evidence and the explicitly linked spectrum.
+
+    A manifest or run record with missing or mistyped fields raises
+    ``ScientificIntegrityError`` naming the project and what to do next.
+    """
     path = path.resolve()
+    try:
+        return _open_analysis(path, relink=relink, progress=progress, canceled=canceled)
+    except (KeyError, TypeError, IndexError, AttributeError) as error:
+        detail = f"missing field {error}" if isinstance(error, KeyError) else str(error)
+        raise ScientificIntegrityError(
+            f"Cannot open analysis {format_path(path)}: {detail}. The project is damaged; "
+            "restore an intact copy, or open the spectrum and peak list as a new analysis."
+        ) from error
+
+
+def _open_analysis(path, *, relink, progress, canceled):
     manifest = _read_json(path / "manifest.json")
     if manifest.get("schema_version") != VERSION or manifest.get("kind") != "peakfit_analysis":
         raise ValueError(f"Unsupported analysis version: {manifest.get('schema_version')!r}")
@@ -481,7 +501,9 @@ def open_analysis(
         "storage_bytes",
     }
     if set(manifest) != allowed:
-        raise ValueError("Invalid analysis manifest fields.")
+        raise ScientificIntegrityError(
+            "Invalid analysis manifest fields. Restore an intact copy of the project."
+        )
     entries = manifest["runs"]
     if len({r["run_id"] for r in entries}) != len(entries):
         raise ValueError("Invalid retained run list.")

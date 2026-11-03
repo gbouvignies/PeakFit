@@ -265,3 +265,16 @@ Short records of non‑obvious design choices and trade‑offs.
   keeps the configuration as an opaque mapping and nothing rebuilds a
   configuration from it.
 - If CLI fits need previous-fit starts, read them from `scientific.npz`.
+
+## 2026-11-03: Integrity failures raise one actionable error
+- `ScientificIntegrityError(ValueError)` replaces production `np.testing.assert_allclose`
+  checks in the archive reader, continuation and GUI model verification. `require_close`
+  keeps numpy's rule (shapes match or one is scalar, NaNs equal) and every call keeps
+  its tolerance; `tests/test_scientific_integrity.py` pins both.
+- `read_scientific` and `open_analysis` turn malformed-file errors (`BadZipFile`,
+  `KeyError`, `TypeError`, ...) into that error, naming the file and what to do next.
+- `prepare_noise_level` is the one validation point for fitting noise; it raises
+  instead of replacing an invalid configured level by an estimate. Invariant checks
+  on recorded outcomes stay where they are.
+- The example fit's outcome, samples and context digests are identical before and
+  after.

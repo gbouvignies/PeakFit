@@ -1,6 +1,7 @@
 """Noise estimation algorithms."""
 
 import logging
+import math
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
@@ -12,18 +13,25 @@ if TYPE_CHECKING:
 
 
 def prepare_noise_level(noise_level: float | None, spectra: Spectra) -> float:
-    """Prepare the noise level for fitting.
+    """Return the configured noise level, or estimate it when none is configured.
 
-    If noise_level is provided and positive, it is returned.
-    Otherwise, noise is estimated from the spectra data.
+    This is the one validation point for fitting noise: a configured or estimated
+    level that is not positive and finite raises instead of being replaced.
     """
-    if noise_level is not None and noise_level <= 0.0:
-        noise_level = None
-
-    if noise_level is None:
-        noise_level = estimate_noise(spectra.data)
-
-    return noise_level
+    if noise_level is not None:
+        noise = float(noise_level)
+        if not math.isfinite(noise) or noise <= 0.0:
+            msg = f"The noise level must be positive and finite, got {noise_level}."
+            raise ValueError(msg)
+        return noise
+    noise = float(estimate_noise(spectra.data))
+    if not math.isfinite(noise) or noise <= 0.0:
+        msg = (
+            f"Cannot estimate a positive finite noise level from this spectrum (got {noise}); "
+            "set noise_level explicitly."
+        )
+        raise ValueError(msg)
+    return noise
 
 
 def _gaussian(x: FloatArray, amplitude: float, sigma: float) -> np.ndarray:

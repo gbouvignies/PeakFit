@@ -13,6 +13,7 @@ from peakfit.io.readers.continuation import continuation_state, load_completed, 
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.scientific import read_scientific
 from peakfit.mcmc.analysis import _create_cluster_params
+from peakfit.shared.exceptions import ScientificIntegrityError
 
 
 @pytest.mark.parametrize("detailed", [False, True])
@@ -95,7 +96,7 @@ def test_reconstruction_refuses_changed_evaluator_reference(tmp_path):
     e = outcome.clusters[0].analytical_evaluation
     e.shapes.flags.writeable = True
     e.shapes[0, 0] += 0.1
-    with pytest.raises(AssertionError, match="reference"):
+    with pytest.raises(ScientificIntegrityError, match="evaluator no longer reproduces"):
         restore_completed(outcome, samples, context, source_data=spectra.data)
 
 

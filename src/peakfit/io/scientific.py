@@ -15,7 +15,7 @@ from dataclasses import fields, is_dataclass
 from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
 import numpy as np
 
@@ -32,6 +32,8 @@ from peakfit.engine.scientific.final_outcome import (
     OptimizerProvenance,
     freeze_provenance,
 )
+from peakfit.shared.exceptions import ScientificIntegrityError, require_close
+from peakfit.shared.paths import format_path
 
 VERSION = "5.0.0"
 MAX_METADATA_BYTES = 16 * 1024**2
@@ -137,8 +139,31 @@ def write_scientific(
     return path
 
 
-def read_scientific(path):  # noqa: PLR0915
-    """Validate bounded untrusted evidence and restore one immutable outcome."""
+def read_scientific(path):
+    """Validate bounded untrusted evidence and restore one immutable outcome.
+
+    Any malformed, damaged or other-version archive raises
+    ``ScientificIntegrityError`` naming the file and what to do next.
+    """
+    try:
+        return _read_scientific(path)
+    except (
+        BadZipFile,
+        KeyError,
+        TypeError,
+        IndexError,
+        AttributeError,
+        struct.error,
+        ValueError,
+    ) as error:
+        detail = f"missing field {error}" if isinstance(error, KeyError) else str(error)
+        raise ScientificIntegrityError(
+            f"Cannot read scientific archive {format_path(path)}: {detail.rstrip('.')}. "
+            "Refit the dataset, or restore an intact copy of the file."
+        ) from error
+
+
+def _read_scientific(path):  # noqa: PLR0915
     with ZipFile(path) as archive:
         members = archive.infolist()
         names = [m.filename for m in members]
@@ -175,7 +200,10 @@ def read_scientific(path):  # noqa: PLR0915
             document.get("schema_version") != VERSION
             or document.get("kind") != "peakfit_scientific_result"
         ):
-            raise ValueError("Unsupported scientific result version.")
+            raise ValueError(
+                f"Unsupported scientific result version {document.get('schema_version')!r} "
+                f"(this PeakFit reads {VERSION})"
+            )
         evidence = document.get("evidence")
         if evidence not in {"results", "detailed", "full"}:
             raise ValueError("Unsupported scientific evidence policy.")
@@ -366,18 +394,33 @@ def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
                 raise ValueError("Nonfinite analytical evaluation.")
         if not np.array_equal(s.data - s.neighbor_corrections - e.model_values, e.raw_residuals):
             raise ValueError("Retained terminal residuals disagree with observations.")
-        np.testing.assert_allclose(e.shapes.T @ e.amplitudes, e.model_values, rtol=1e-10, atol=1e-9)
-        np.testing.assert_allclose(
-            e.raw_residuals.ravel() / outcome.noise, e.normalized_residuals, rtol=1e-10, atol=1e-9
+        require_close(
+            e.shapes.T @ e.amplitudes,
+            e.model_values,
+            rtol=1e-10,
+            atol=1e-9,
+            message="Recorded model values disagree with shapes and amplitudes.",
         )
-        np.testing.assert_allclose(
-            np.sum(e.normalized_residuals**2), e.statistics.chi_squared, rtol=1e-10, atol=1e-9
+        require_close(
+            e.raw_residuals.ravel() / outcome.noise,
+            e.normalized_residuals,
+            rtol=1e-10,
+            atol=1e-9,
+            message="Recorded normalized residuals disagree with residuals and noise.",
         )
-        np.testing.assert_allclose(
+        require_close(
+            np.sum(e.normalized_residuals**2),
+            e.statistics.chi_squared,
+            rtol=1e-10,
+            atol=1e-9,
+            message="Recorded chi-squared disagrees with the normalized residuals.",
+        )
+        require_close(
             np.max(np.abs(e.normalized_residuals)),
             e.largest_recorded_residual,
             rtol=1e-10,
             atol=1e-9,
+            message="Recorded largest residual disagrees with the normalized residuals.",
         )
         if e.statistics.n_observations != s.data.size:
             raise ValueError("Recorded observation count disagrees with samples.")
