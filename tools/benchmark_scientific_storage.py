@@ -17,7 +17,8 @@ from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 import h5py
 import numpy as np
 
-from peakfit.gui.dataset_fit import _completed_bytes, compute_dataset_fit, finish_dataset_fit
+from peakfit.gui.child_process import encode
+from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fit_positions import dataset_completion
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import (
@@ -100,7 +101,7 @@ def main():  # noqa: PLR0915
     with TemporaryDirectory(prefix="peakfit-storage-benchmark-") as temporary:
         root = Path(temporary)
         payload = root / "trusted-ipc.pkl"
-        payload.write_bytes(_completed_bytes(analysis))
+        payload.write_bytes(encode(analysis))
         publication_report = root / "publication.json"
         subprocess.run(
             [

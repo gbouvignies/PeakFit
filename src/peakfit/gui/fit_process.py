@@ -1,32 +1,20 @@
 """One disposable spawned fit process; contours keep their existing worker."""
 
-import multiprocessing
 import pickle
+from concurrent.futures import CancelledError
 from contextlib import suppress
-from dataclasses import dataclass
 from threading import Event, Thread
 from time import perf_counter
 from typing import TYPE_CHECKING
 
 from PySide6 import QtCore
 
-from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit, run_dataset_child
-from peakfit.gui.failures import WorkerError, failure_message, log_failure, raise_child_failure
-from peakfit.gui.fitting import PreparedDatasetFit
+from peakfit.gui.child_process import encode, run_child
+from peakfit.gui.dataset_fit import finish_dataset_fit, fit_in_child
+from peakfit.gui.failures import WorkerError, failure_message, log_failure
 
 if TYPE_CHECKING:
-    from peakfit.gui.dataset_fit import DatasetFitResult
-
-
-@dataclass(frozen=True, slots=True)
-class FitProcessResult:
-    """Completed result and observed transfer/startup costs for diagnostics."""
-
-    scientific: DatasetFitResult
-    startup_seconds: float
-    serialization_seconds: float
-    input_bytes: int
-    wall_seconds: float
+    from peakfit.gui.fitting import PreparedDatasetFit
 
 
 class FitProcess(QtCore.QObject):
@@ -95,85 +83,31 @@ class FitProcess(QtCore.QObject):
             with suppress(RuntimeError):
                 self._delivery.emit(generation, state, value)
 
-    def _work(  # noqa: PLR0912, PLR0915
-        self, generation: int, prepared: PreparedDatasetFit, cancel: Event
-    ) -> None:
-        started = perf_counter()
-        context = multiprocessing.get_context("spawn")
-        receiver, sender = context.Pipe()
-        process = context.Process(
-            target=run_dataset_child,
-            args=(sender,),
-            daemon=True,
-        )
+    def _work(self, generation: int, prepared: PreparedDatasetFit, cancel: Event) -> None:
         outcome: object = None
         state = "failed"
         try:
-            before_serialization = perf_counter()
-            payload = pickle.dumps(prepared, protocol=pickle.HIGHEST_PROTOCOL)
+            payload = encode(prepared)
             # This owned copy retains the exact inputs that cross the process boundary.
             owned = pickle.loads(payload)
-            serialization_seconds = perf_counter() - before_serialization
-            if cancel.is_set():
-                return
-            process.start()
-            sender.close()
-            while not receiver.poll(0.02):
-                if cancel.is_set():
-                    return
-                if not process.is_alive():
-                    raise RuntimeError(f"Fit process exited with code {process.exitcode}.")
-            if receiver.recv() != "ready":
-                raise RuntimeError("Fit process did not initialize correctly.")
-            startup_seconds = perf_counter() - started - serialization_seconds
-            if cancel.is_set():
-                return
-            receiver.send_bytes(payload)
-            self._emit(generation, "running")
-            while True:
-                while not receiver.poll(0.02):
-                    if cancel.is_set():
-                        return
-                    if not process.is_alive():
-                        raise RuntimeError(f"Fit process exited with code {process.exitcode}.")
-                if cancel.is_set():
-                    return
-                attempt = receiver.recv()
-                if isinstance(attempt, tuple) and attempt[0] == "progress":
-                    self._emit(generation, "progress", attempt[1])
-                    continue
-                if isinstance(attempt, tuple) and attempt[0] == "error":
-                    raise_child_failure(attempt, "Dataset fit")
-                break
-            if isinstance(attempt, bytes):
-                attempt = pickle.loads(attempt)  # Only our own child's trusted in-memory record.
-            if isinstance(owned, PreparedDatasetFit) and isinstance(attempt, DatasetFitAttempt):
-                scientific = finish_dataset_fit(owned, attempt)
-            else:
-                raise RuntimeError(str(attempt))
-            outcome = FitProcessResult(
-                scientific,
-                startup_seconds,
-                serialization_seconds,
-                len(payload),
-                perf_counter() - started,
+            attempt = run_child(
+                fit_in_child,
+                payload,
+                operation="Dataset fit",
+                progress=lambda text: self._emit(generation, "progress", text),
+                canceled=cancel.is_set,
+                terminate_on_cancel=True,
+                started=lambda: self._emit(generation, "running"),
             )
+            outcome = finish_dataset_fit(owned, attempt)
             state = "completed"
+        except CancelledError:
+            pass
         except Exception as error:
             if not isinstance(error, WorkerError):
                 log_failure("Dataset fit", error)
             outcome = failure_message(error)
         finally:
-            if process.pid is not None:
-                if process.is_alive():
-                    process.terminate()
-                process.join(timeout=1)
-                if process.is_alive():
-                    process.kill()
-                    process.join()
-                process.close()
-            receiver.close()
-            sender.close()
             self._emit(generation, "canceled" if cancel.is_set() else state, outcome)
 
     @QtCore.Slot(int, str, object)

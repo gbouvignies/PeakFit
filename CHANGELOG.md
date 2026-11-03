@@ -80,6 +80,11 @@ Notable user-facing and architecture changes are recorded here.
   keeps only its kernel. Removed the test-only module functions (`function`,
   `function_doublet`, `bounds`, `PARAM_NAMES`) and the unused `LineshapeContext`,
   `require_grid` and `get_apodization_state`. Numerically bit-identical.
+- GUI fits and analysis operations share one child-process runner
+  (`gui.child_process.run_child`) with one handshake, serializer, error channel and
+  reaping; a child that exits without a result is reported with its exit code.
+  Historical runs load on the view's background worker instead of a separate
+  process.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.

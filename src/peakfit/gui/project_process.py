@@ -1,16 +1,14 @@
-"""Disposable archive process for scientific evidence and source verification.
+"""Analysis save, open and source verification in a disposable child process.
 
-Only records created by our own child cross this trusted pipe. Project files
-remain strictly metadata/typed arrays and are never unpickled.
+Only records created by our own child cross the private pipe
+(``gui.child_process``). Project files remain strictly metadata/typed arrays and
+are never unpickled.
 """
 
 import json
-import multiprocessing
-import pickle
 from dataclasses import replace
 
-from peakfit.gui.dataset_fit import _completed_bytes
-from peakfit.gui.failures import child_failure, raise_child_failure
+from peakfit.gui.child_process import encode, run_child
 from peakfit.gui.project import (
     open_analysis,
     save_analysis,
@@ -19,47 +17,26 @@ from peakfit.gui.project import (
 )
 
 
-def _archive_child(connection):
-    try:
-        kind, payload = pickle.loads(connection.recv_bytes())
-        canceled = False
-
-        def is_canceled():
-            nonlocal canceled
-            if connection.poll():
-                canceled = connection.recv() == "cancel"
-            return canceled
-
-        def progress(message):
-            connection.send(("progress", message))
-
-        if kind in {"save", "preserve"}:
-            analysis, destination = payload
-            result = save_analysis(
-                analysis,
-                destination,
-                progress=progress,
-                canceled=is_canceled,
-                preserve_input_runs=kind == "preserve",
-            )
-        elif kind == "open":
-            result = open_analysis(payload, progress=progress, canceled=is_canceled)
-        elif kind == "history":
-            result = payload.load()
-        else:
-            analysis, relink = payload
-            result = verify_sources(
-                analysis, relink=relink, progress=progress, canceled=is_canceled
-            )
-        connection.send(("result", _completed_bytes(result)))
-    except Exception as error:
-        connection.send(child_failure(error))
-    finally:
-        connection.close()
+def _archive_operation(job, *, progress, canceled):
+    """Run one archive operation in the child; ``canceled`` polls the parent's request."""
+    kind, payload = job
+    if kind in {"save", "preserve"}:
+        analysis, destination = payload
+        return save_analysis(
+            analysis,
+            destination,
+            progress=progress,
+            canceled=canceled,
+            preserve_input_runs=kind == "preserve",
+        )
+    if kind == "open":
+        return open_analysis(payload, progress=progress, canceled=canceled)
+    analysis, relink = payload
+    return verify_sources(analysis, relink=relink, progress=progress, canceled=canceled)
 
 
 def project_operation(kind, payload, *, progress, canceled):
-    """Bridge one operation off Qt, with cooperative cancellation and child reaping."""
+    """Run one archive operation off Qt, with cooperative cancellation and child reaping."""
     if kind in {"save", "preserve", "relink"}:
         analysis, path = payload
         payload = (
@@ -70,39 +47,13 @@ def project_operation(kind, payload, *, progress, canceled):
             ),
             path,
         )
-    context = multiprocessing.get_context("spawn")
-    receiver, sender = context.Pipe()
-    process = context.Process(target=_archive_child, args=(sender,), daemon=True)
-    try:
-        encoded = _completed_bytes((kind, payload))
-        process.start()
-        sender.close()
-        receiver.send_bytes(encoded)
-        cancel_sent = False
-        while True:
-            if canceled() and not cancel_sent:
-                receiver.send("cancel")
-                cancel_sent = True
-            if not receiver.poll(0.02):
-                if not process.is_alive():
-                    raise RuntimeError(f"Analysis worker exited with code {process.exitcode}")
-                continue
-            record = receiver.recv()
-            if record[0] == "progress":
-                progress(record[1])
-            elif record[0] == "result":
-                return pickle.loads(record[1])  # Trusted child output only, never a project file.
-            else:
-                raise_child_failure(record, f"Analysis {kind}")
-    finally:
-        if process.pid is not None:
-            process.join(timeout=1)
-            if process.is_alive():
-                process.terminate()
-                process.join()
-            process.close()
-        receiver.close()
-        sender.close()
+    return run_child(
+        _archive_operation,
+        encode((kind, payload)),
+        operation=f"Analysis {kind}",
+        progress=progress,
+        canceled=canceled,
+    )
 
 
 def save_project(analysis, destination, *, reusable, progress, canceled):

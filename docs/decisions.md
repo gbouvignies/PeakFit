@@ -438,3 +438,17 @@ Short records of non‑obvious design choices and trade‑offs.
 - Bit-identical: every built-in shape's specs, values and derivatives (with and
   without derivatives) match byte for byte before and after; fit digests, the
   golden regression and a three-pass fit match main. No tolerance was relaxed.
+
+## 2026-11-03: One child-process runner
+- `gui.child_process.run_child` replaces the fit and archive bridges, which
+  duplicated spawn, pipe, polling, liveness and reaping but differed in handshake,
+  serializer and error transport. Every child now sends `ready`, receives the
+  encoded payload, streams progress and ends with one result or `child_failure`
+  record. Callers choose cancellation: fits terminate the child, archive
+  operations forward a request the operation polls. Cancellation before the
+  payload is sent always terminates, since the child cannot yet read a request.
+- `FitProcessResult`'s startup, serialization and wall-time fields were never read;
+  the fit process delivers the `DatasetFitResult` itself.
+- One policy for historical runs: `StoredRun.load` runs on the requesting view's
+  background worker, as fitting's parent-run lookup already did. Numerical review
+  no longer spawns a process for it.
