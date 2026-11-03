@@ -205,3 +205,18 @@ Short records of non‑obvious design choices and trade‑offs.
 - The three clusters with the uncertainty warning (269, 360, 424) are compared by
   classification, warning and chi-squared only: the same 1e-9 ppm change moved
   their amplitudes by 4×10⁻⁴ (relative).
+
+## 2026-11-03: Automatic peak picking is retired; earlier storage versions are rejected
+- The experimental `auto_pick` workflow, its `--auto-pick-step` window and the
+  `[auto_peak]` configuration are removed; `peakfit fit` requires a peak list.
+  `--fixed`/`--jx` and `[fitting].fix_positions`/`fit_j_coupling` go too: only
+  auto-pick read them, so in routine fits they did nothing. VarPro's shared-alias
+  support, used only by auto-pick, is removed. Routine fits are bit-identical; the
+  example's `scientific.npz` differs only by the three configuration keys it no
+  longer records.
+- Projects and archives record their configuration, so earlier ones would fail
+  validation against the new model. Rather than ignore retired keys, the scientific
+  archive moves to 3.0.0 and the project to 6.0.0, and only those versions are read.
+  Earlier files are rejected with their version message; refit them from their
+  spectrum and peak list. The schema-1 context branch and the "largest recorded
+  residual not retained" path, reachable only from pre-2.1.0 archives, are removed.

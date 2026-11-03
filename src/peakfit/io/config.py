@@ -86,8 +86,6 @@ def generate_default_config() -> str:
 [fitting]
 lineshape = "auto"  # auto, gaussian, lorentzian, pvoigt, sp1, sp2, no_apod
 refine_iterations = 1
-fix_positions = false
-fit_j_coupling = false
 fit_phase = []  # List of dimensions to fit phase for, e.g. ["F2"]
 max_iterations = 1000
 tolerance = 1e-8
@@ -95,22 +93,6 @@ tolerance = 1e-8
 [clustering]
 contour_factor = 5.0
 # contour_level = 1000.0  # Uncomment to set explicit contour level
-
-[auto_peak]
-enabled = true
-start_threshold_sigma = 15.0
-add_threshold_sigma = 3.0
-f_test_pvalue = 1e-6
-max_clusters = 2000
-# max_peaks_per_roi = 12  # Optional hard cap per ROI (omit for no fixed limit)
-min_peak_separation_pts = 5
-position_window_ppm = 0.05
-max_nfev_per_fit = 250
-position_constraint_factor = 1.5
-max_constraint_refits = 3
-proton_constraint_margin_ppm = 0.002
-heteronuclear_constraint_margin_ppm = 0.02
-amplitude_zero_tolerance = 1e-12
 
 [output]
 directory = "Fits"

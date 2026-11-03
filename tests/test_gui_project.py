@@ -1013,62 +1013,6 @@ def test_save_close_reopen_preserves_every_review_measure_exactly(analysis, tmp_
     assert any(r.largest_residual is not None and r.largest_residual > 0 for r in after)
 
 
-def test_project_without_retained_residual_summary_says_so(qapp, analysis, tmp_path, monkeypatch):
-    from zipfile import ZipFile  # noqa: PLC0415
-
-    from peakfit.gui.editor.cluster_page import ClusterPage  # noqa: PLC0415
-    from peakfit.gui.editor.navigator import Navigator  # noqa: PLC0415
-
-    path = save_analysis(analysis, tmp_path / "Earlier.peakfit")
-    archive_path = next(path.rglob("result.npz"))
-    with ZipFile(archive_path) as archive:
-        members = {name: archive.read(name) for name in archive.namelist()}
-    # A schema-2.0.0 archive, written before the summary was retained.
-    document = json.loads(members["metadata.json"])
-    document["schema_version"] = "2.0.0"
-    for cluster in document["outcome"]["clusters"]:
-        if cluster["analytical_evaluation"] is not None:
-            del cluster["analytical_evaluation"]["largest_recorded_residual"]
-    members["metadata.json"] = json.dumps(document).encode()
-    with ZipFile(archive_path, "w") as archive:
-        for name, data in members.items():
-            archive.writestr(name, data)
-    manifest_path = path / "manifest.json"
-    manifest = json.loads(manifest_path.read_text())
-    for entry in manifest["runs"]:
-        if "result.npz" in entry["files"]:
-            entry["files"]["result.npz"] = {
-                "sha256": project._digest(archive_path),
-                "bytes": archive_path.stat().st_size,
-            }
-    manifest_path.write_text(json.dumps(manifest))
-    monkeypatch.setattr(
-        project, "read_dataset", lambda _path, **_kw: (_ for _ in ()).throw(OSError("missing"))
-    )
-    result = open_analysis(path).completion.result
-    reviews = _reviews(result, analysis.dataset)
-    usable = [r for r in reviews if np.isfinite(r.chi2)]
-    assert usable
-    assert all(r.largest_residual is None for r in usable)
-
-    navigator = Navigator("x", "y")
-    navigator.set_result(result, reviews, current=True)
-    tree = navigator.tree
-    items = [item for i in range(tree.topLevelItemCount()) if (item := tree.topLevelItem(i))]
-    by_id = {item.data(0, QtCore.Qt.ItemDataRole.UserRole).cluster_id: item for item in items}
-    for review in usable:
-        assert by_id[review.cluster_id].text(3) == "n/a"
-        assert by_id[review.cluster_id].toolTip(3) == (
-            "Largest recorded residual not retained by this project"
-        )
-
-    page = ClusterPage([])
-    page._fill_review(usable[0])
-    labels = [label.text() for label in page.findChildren(QtWidgets.QLabel)]
-    assert "Largest recorded residual · not retained by this project" in labels
-    qapp.processEvents()
-
-
 @pytest.fixture
 def continued(analysis, evidence):
     """The analysis refitted once without edits, continuing from its first run."""

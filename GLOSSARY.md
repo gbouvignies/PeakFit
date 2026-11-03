@@ -164,9 +164,6 @@ recorded amplitudes.
 The GUI view that juxtaposes experimental, overlay and whole-spectrum residual
 panels of one peak cluster with its profiles and parameters.
 
-**Automatic peak picking**:
-Experimental peak discovery from residual signal when no peak list is supplied.
-
 **MCMC uncertainty analysis**:
 Post-fit sampling used to estimate parameter uncertainty for fitted peak
 clusters. It is not a fitting optimizer.

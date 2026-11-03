@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from builders import gaussian_pair
+from builders import peak_pair
 from scipy.optimize._numdiff import approx_derivative
 
 from peakfit.engine.algorithms.linear_algebra import (
@@ -12,7 +12,6 @@ from peakfit.engine.algorithms.linear_algebra import (
 from peakfit.engine.algorithms.varpro import (
     VarProOptimizer,
     _calculate_errors,
-    _inject_shared_aliases_into_map,
     fit_cluster,
     identifiable_covariance,
 )
@@ -57,7 +56,7 @@ def _optimizer(cluster, params, noise=1.0):
 
 @pytest.mark.parametrize("separation", [0.0, 1e-10, 1.5, 6.0, 30.0])
 def test_actual_model_and_projection_agree(separation) -> None:
-    cluster, params = gaussian_pair(separation, noise=0.01)
+    cluster, params = peak_pair(separation, noise=0.01)
     optimizer = _optimizer(cluster, params)
     x = params.get_vary_values()
     residual = optimizer.compute_residuals(x)
@@ -73,7 +72,7 @@ def test_actual_model_and_projection_agree(separation) -> None:
 
 @pytest.mark.parametrize("separation", [1.5, 6.0, 30.0])
 def test_jacobian_differentiates_the_actual_objective(separation) -> None:
-    cluster, params = gaussian_pair(separation, noise=0.01)
+    cluster, params = peak_pair(separation, noise=0.01)
     optimizer = _optimizer(cluster, params, noise=0.01)
     x = params.get_vary_values()
     analytical = optimizer.compute_jacobian(x)
@@ -86,7 +85,7 @@ def test_jacobian_differentiates_the_actual_objective(separation) -> None:
 
 @pytest.mark.parametrize("separation", [1.5, 6.0, 30.0])
 def test_identifiable_overlapping_profiles_recover_truth(separation) -> None:
-    cluster, truth = gaussian_pair(separation)
+    cluster, truth = peak_pair(separation)
     params = truth.copy(deep=True)
     for name, parameter in params.items():
         parameter.value += 0.0002 if name.endswith(".cs") else 0.5
@@ -99,7 +98,7 @@ def test_identifiable_overlapping_profiles_recover_truth(separation) -> None:
 
 
 def test_rank_loss_has_no_trustworthy_joint_nonlinear_covariance() -> None:
-    cluster, params = gaussian_pair(0.0)
+    cluster, params = peak_pair(0.0)
     optimizer = _optimizer(cluster, params)
     errors, amplitude_errors = _calculate_errors(optimizer, params.get_vary_values(), 1.0)
     assert np.isnan(errors).all()
@@ -121,7 +120,7 @@ def test_covariance_respects_parameter_units_and_known_noise() -> None:
         identifiable_covariance(jacobian * scales) * scales[:, None] * scales[None, :],
         expected,
     )
-    cluster, params = gaussian_pair(6.0)
+    cluster, params = peak_pair(6.0)
     small = _optimizer(cluster, params.copy(deep=True), 0.01)
     large = _optimizer(cluster, params.copy(deep=True), 0.02)
     errors, _ = _calculate_errors(small, params.get_vary_values(), 0.01)
@@ -130,7 +129,7 @@ def test_covariance_respects_parameter_units_and_known_noise() -> None:
 
 
 def test_active_bound_uncertainty_is_unavailable() -> None:
-    cluster, params = gaussian_pair(6.0)
+    cluster, params = peak_pair(6.0)
     name = params.get_vary_names()[0]
     params[name].min = params[name].value
     optimizer = _optimizer(cluster, params, 0.01)
@@ -138,29 +137,23 @@ def test_active_bound_uncertainty_is_unavailable() -> None:
     assert np.isnan(errors[0])
 
 
-def test_shared_linewidth_uses_each_peaks_signed_amplitude() -> None:
-    cluster, params = gaussian_pair(6.0, noise=0.01)
-    aliases = {"B.F2.lw": "A.F2.lw"}
-    # The synthetic single spectral dimension is labelled F2.
-    assert "B.F2.lw" in params
-    params["B.F2.lw"].vary = False
-    fit_params = FitParameters.from_parameters(params, cluster.peaks)
-    _inject_shared_aliases_into_map(fit_params, params, aliases)
-    optimizer = VarProOptimizer(cluster, params.get_vary_names(), params, fit_params, 1.0, aliases)
+def test_shared_cluster_phase_jacobian_sums_each_peaks_signed_contribution() -> None:
+    cluster, params = peak_pair(6.0, noise=0.01, lineshape="no_apod", fit_phase=("F2",))
+    # One cluster-scoped phase parameter drives both peaks' shapes.
+    assert [name for name in params if name.endswith(".phase")] == ["cluster_1.F2.phase"]
+    params["cluster_1.F2.phase"].value = 4.0
+    optimizer = _optimizer(cluster, params, 1.0)
     x = params.get_vary_values()
     jacobian = optimizer.compute_jacobian(x)
     steps = [1e-7 if name.endswith(".cs") else 1e-3 for name in optimizer.names]
     numerical = approx_derivative(optimizer.compute_residuals, x, method="3-point", abs_step=steps)
     np.testing.assert_allclose(jacobian, numerical, atol=1e-7, rtol=2e-5)
-    result = fit_cluster(params.copy(deep=True), cluster, 0.01, shared_aliases=aliases)
-    assert result.params["A.F2.lw"].stderr > 0
-    assert result.params["B.F2.lw"].stderr == result.params["A.F2.lw"].stderr
 
 
 def test_noisy_identifiable_synthetic_positions_have_calibrated_local_errors() -> None:
     covered = []
     for seed in range(20):
-        cluster, truth = gaussian_pair(6.0)
+        cluster, truth = peak_pair(6.0)
         cluster.data += np.random.default_rng(seed).normal(scale=0.005, size=cluster.data.shape)
         result = fit_cluster(truth.copy(deep=True), cluster, 0.005)
         for name in truth:

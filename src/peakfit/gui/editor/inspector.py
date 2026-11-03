@@ -21,7 +21,7 @@ from peakfit.gui.editor.labels import clear_layout as _clear
 from peakfit.gui.editor.labels import review_item
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
-from peakfit.gui.editor.review import BOUND_TOLERANCE, NOT_RETAINED, correlation_matrix
+from peakfit.gui.editor.review import BOUND_TOLERANCE, correlation_matrix
 from peakfit.gui.editor.setup import FitSetup
 
 if TYPE_CHECKING:
@@ -840,9 +840,7 @@ class Inspector(QtWidgets.QScrollArea):
             f"χ²ᵣ {review.chi2:.3g}",
             f"{samples:,} fitting samples · relative to the noise estimate".replace(",", " "),
         )
-        if review.largest_residual is None:
-            self._item("", "·", f"Largest recorded residual · {NOT_RETAINED}")
-        elif math.isfinite(review.largest_residual) and samples > 1:
+        if math.isfinite(review.largest_residual) and samples > 1:
             self._item(
                 "",
                 "·",

@@ -59,25 +59,6 @@ explicit `vary` settings are respected
 initialization strategy should operate within these existing preparation
 functions and preserve explicit user starts, fixed values, and bounds.
 
-Automatic peak picking already provides a small reusable idea:
-`initialize_new_peak_from_median` groups previous fitted parameters by
-`(axis, label)`, excludes positions and amplitudes, and clips the median to
-the new parameter's bounds. `initialize_existing_params_from_previous`
-warm-starts existing parameters, filtering nonfinite values. The median
-helper itself does **not** filter nonfinite previous values or check
-identifiability/fit quality, so it is not directly a robust experimental
-linewidth estimator
-([auto-pick parameters](../../src/peakfit/auto_pick/parameters.py)).
-
-Auto-pick's trial loop also ties linewidths and scalar couplings within each
-axis, fits amplitudes with nonlinear parameters fixed, releases non-position
-parameters, then releases positions within linewidth-based windows. These
-staging/tying rules differ from routine fitting and must not be imported into
-the controlled comparison
-([_fit_trial_state](../../src/peakfit/auto_pick/algorithm.py)). Reuse the
-per-axis median concept and the production VarPro/model evaluation, rather
-than creating a second optimizer or copying auto-pick's scientific constraints.
-
 The analytical Jacobian uses physical parameter units: derivatives with
 respect to `cs` include the negative Hz-per-ppm chain rule, `lw` derivatives
 include `pi * aq`, and phase derivatives include `pi / 180`. Residual and

@@ -33,7 +33,7 @@ from peakfit.engine.scientific.final_outcome import (
     freeze_provenance,
 )
 
-VERSION = "2.1.0"
+VERSION = "3.0.0"
 MAX_METADATA_BYTES = 16 * 1024**2
 MAX_ARRAY_BYTES = 8 * 1024**3
 _SAMPLE_DIMENSIONS = 2
@@ -172,7 +172,7 @@ def read_scientific(path):  # noqa: PLR0915
             return {k: decode(v) for k, v in value.items()}
 
         if (
-            document.get("schema_version") not in {"1.0.0", "2.0.0", VERSION}
+            document.get("schema_version") != VERSION
             or document.get("kind") != "peakfit_scientific_result"
         ):
             raise ValueError("Unsupported scientific result version.")
@@ -239,9 +239,7 @@ def read_scientific(path):  # noqa: PLR0915
         **raw,
     )
     _validate_science(outcome, samples)
-    _validate_context(
-        outcome, samples, decoded["context"], legacy=document["schema_version"] == "1.0.0"
-    )
+    _validate_context(outcome, samples, decoded["context"])
     return outcome, samples, decoded["context"]
 
 
@@ -300,7 +298,7 @@ def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
             ):
                 raise ValueError("Invalid published analytical result dimensions or identity.")
             largest = e.largest_recorded_residual
-            if largest is not None and not (math.isfinite(largest) and largest >= 0):
+            if not (math.isfinite(largest) and largest >= 0):
                 raise ValueError("Invalid largest recorded residual.")
         if (
             not s.grid_indices
@@ -375,18 +373,17 @@ def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
         np.testing.assert_allclose(
             np.sum(e.normalized_residuals**2), e.statistics.chi_squared, rtol=1e-10, atol=1e-9
         )
-        if e.largest_recorded_residual is not None:
-            np.testing.assert_allclose(
-                np.max(np.abs(e.normalized_residuals)),
-                e.largest_recorded_residual,
-                rtol=1e-10,
-                atol=1e-9,
-            )
+        np.testing.assert_allclose(
+            np.max(np.abs(e.normalized_residuals)),
+            e.largest_recorded_residual,
+            rtol=1e-10,
+            atol=1e-9,
+        )
         if e.statistics.n_observations != s.data.size:
             raise ValueError("Recorded observation count disagrees with samples.")
 
 
-def _validate_context(outcome, samples, context, *, legacy=False):  # noqa: PLR0912
+def _validate_context(outcome, samples, context):  # noqa: PLR0912
     """Validate export coordinate/identity associations when full context is present."""
     if not context:
         return
@@ -415,21 +412,17 @@ def _validate_context(outcome, samples, context, *, legacy=False):  # noqa: PLR0
     identities = [i["engine_name"] for i in identity_records]
     if len(set(identities)) != len(identities) or set(identities) != names:
         raise ValueError("Scientific peak identity mapping disagrees with the outcome.")
-    # Initial PR #71 schema-1 exports predate coordinate/adoption context.
-    # Read their original evidence without inventing working-state facts. New
-    # context must supply the complete contract; partial legacy context is invalid.
     coordinate_keys = {"export_state", "coordinate_table"}
-    if not (legacy and coordinate_keys.isdisjoint(context)):
-        if not coordinate_keys <= context.keys():
-            raise ValueError("Missing scientific coordinate/export-state context.")
-        state = context["export_state"]
-        if (
-            set(state) != {"scope", "currentness", "adoption_warnings"}
-            or state["scope"] not in {"dataset", "cluster"}
-            or state["currentness"] not in {"current", "outdated", "unknown", "not_applicable"}
-        ):
-            raise ValueError("Invalid scientific export-time state.")
-        validate_coordinate_table(context["coordinate_table"], outcome, context)
+    if not coordinate_keys <= context.keys():
+        raise ValueError("Missing scientific coordinate/export-state context.")
+    state = context["export_state"]
+    if (
+        set(state) != {"scope", "currentness", "adoption_warnings"}
+        or state["scope"] not in {"dataset", "cluster"}
+        or state["currentness"] not in {"current", "outdated", "unknown", "not_applicable"}
+    ):
+        raise ValueError("Invalid scientific export-time state.")
+    validate_coordinate_table(context["coordinate_table"], outcome, context)
     for sample in samples:
         if (
             sample.neighbor_corrections.shape[1] != len(planes)

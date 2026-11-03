@@ -8,11 +8,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 
-from peakfit.cli.commands.fit_setup import (
-    build_fit_config,
-    resolve_output_dir,
-    write_autopicked_peaklist,
-)
+from peakfit.cli.commands.fit_setup import build_fit_config, resolve_output_dir
 from peakfit.engine.domain.config import LineshapeName  # noqa: TC001 - Typer evaluates annotations.
 from peakfit.engine.results import FitResult
 from peakfit.fit.fitting import (
@@ -34,10 +30,7 @@ from peakfit.ui.views import display_post_fit_summary, live_fit_display
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.config import PeakFitConfig
-    from peakfit.engine.domain.peaks import Peak
     from peakfit.fit.fitting import LoadedData
-    from peakfit.shared.reporter import Reporter
-    from peakfit.ui.auto_pick_stepper import AutoPickStepController
 
 
 def fit_command(
@@ -51,17 +44,14 @@ def fit_command(
         ),
     ],
     peaklist: Annotated[
-        Path | None,
+        Path,
         typer.Argument(
-            help=(
-                "Peak list file (.list, .csv, .json, .xlsx, .xls). Omitting it uses "
-                "experimental automatic peak picking."
-            ),
+            help="Peak list file (.list, .csv, .json, .xlsx, .xls)",
             exists=True,
             dir_okay=False,
             resolve_path=True,
         ),
-    ] = None,
+    ],
     z_values: Annotated[
         Path | None,
         typer.Option(
@@ -110,14 +100,6 @@ def fit_command(
         float | None,
         typer.Option("--noise", "-n", help="Manual noise level"),
     ] = None,
-    fixed: Annotated[
-        bool,
-        typer.Option("--fixed/--no-fixed", help="Fix peak positions"),
-    ] = False,
-    jx: Annotated[
-        bool,
-        typer.Option("--jx/--no-jx", help="Fit J-coupling"),
-    ] = False,
     phx: Annotated[
         bool,
         typer.Option("--phx/--no-phx", help="Fit X phase"),
@@ -153,16 +135,6 @@ def fit_command(
         bool | None,
         typer.Option("--headless/--interactive", help="Disable live UI"),
     ] = None,
-    auto_pick_step: Annotated[
-        bool,
-        typer.Option(
-            "--auto-pick-step/--no-auto-pick-step",
-            help=(
-                "Experimental: when no peak list is provided, open an interactive GUI to manually "
-                "add/remove peaks per ROI and jump to the next cluster."
-            ),
-        ),
-    ] = False,
     verbose: Annotated[
         bool,
         typer.Option("--verbose", "-v", help="Verbose output"),
@@ -198,8 +170,6 @@ def fit_command(
         contour_level=contour_level,
         lineshape=lineshape,
         refine=refine,
-        fixed=fixed,
-        jx=jx,
         phx=phx,
         phy=phy,
         exclude=exclude,
@@ -215,18 +185,11 @@ def fit_command(
             z_values=z_values,
             fit_config=fit_config,
             optimizer=optimizer,
-            auto_pick_step=auto_pick_step,
             workers=workers,
         )
 
-    data = _load_fit_data(
-        spectrum=spectrum,
-        peaklist=peaklist,
-        z_values=z_values,
-        fit_config=fit_config,
-        auto_pick_step=auto_pick_step,
-        reporter=reporter,
-    )
+    with console.status("[info]Loading data...[/info]", spinner="dots"):
+        data = load_data(spectrum, peaklist, z_values, fit_config)
 
     output_dir = resolve_output_dir(fit_config)
 
@@ -270,13 +233,9 @@ def fit_command(
             if result.spectra is None:
                 raise ValueError("No spectra in result")
 
-            input_paths = _collect_input_paths(
-                spectrum=spectrum,
-                peaklist=peaklist,
-                z_values=z_values,
-                output_dir=result.output_dir,
-                peaks=data.peaks,
-            )
+            input_paths = {"spectrum": spectrum, "peaklist": peaklist}
+            if z_values is not None:
+                input_paths["z_values"] = z_values
             write_fit_run_outputs(result, result.spectra, fit_config, input_paths, reporter)
 
     except Exception as e:
@@ -287,11 +246,10 @@ def fit_command(
 def _show_headless_command_summary(
     *,
     spectrum: Path,
-    peaklist: Path | None,
+    peaklist: Path,
     z_values: Path | None,
     fit_config: PeakFitConfig,
     optimizer: str,
-    auto_pick_step: bool,
     workers: int,
 ) -> None:
     """Show the compact header used when the live pre-fit panel is disabled."""
@@ -302,7 +260,7 @@ def _show_headless_command_summary(
                 "Inputs",
                 {
                     "Spectrum": display_path(spectrum),
-                    "Peak list": display_path(peaklist) if peaklist is not None else "Auto",
+                    "Peak list": display_path(peaklist),
                     "Plane values": display_path(z_values) if z_values is not None else "None",
                 },
             ),
@@ -312,7 +270,6 @@ def _show_headless_command_summary(
                     "Optimizer": optimizer,
                     "Lineshape": str(fit_config.fitting.lineshape),
                     "Optimizer passes": str(fit_config.fitting.refine_iterations),
-                    "Auto-pick step mode": "Yes" if auto_pick_step else "No",
                     "Workers": "All CPUs" if workers == -1 else str(workers),
                 },
             ),
@@ -325,72 +282,6 @@ def _show_headless_command_summary(
             ),
         ],
     )
-
-
-def _load_fit_data(
-    *,
-    spectrum: Path,
-    peaklist: Path | None,
-    z_values: Path | None,
-    fit_config: PeakFitConfig,
-    auto_pick_step: bool,
-    reporter: Reporter,
-) -> LoadedData:
-    """Load fitting inputs with optional step-wise auto-pick GUI control."""
-    stepper: AutoPickStepController | None = None
-    if auto_pick_step:
-        if peaklist is not None:
-            reporter.warning("--auto-pick-step ignored because a peak list was provided.")
-        elif fit_config.output.headless:
-            error("--auto-pick-step requires interactive mode (disable --headless).")
-            raise typer.Exit(1)
-        else:
-            from peakfit.ui.auto_pick_stepper import AutoPickStepController  # noqa: PLC0415
-
-            stepper = AutoPickStepController()
-
-    callback_builder = stepper.bind if stepper is not None else None
-
-    try:
-        if peaklist is None:
-            return load_data(
-                spectrum,
-                peaklist,
-                z_values,
-                fit_config,
-                reporter=reporter,
-                auto_pick_callback_builder=callback_builder,
-            )
-
-        with console.status("[info]Loading data...[/info]", spinner="dots"):
-            return load_data(
-                spectrum,
-                peaklist,
-                z_values,
-                fit_config,
-                reporter=reporter,
-            )
-    finally:
-        if stepper is not None:
-            stepper.close()
-
-
-def _collect_input_paths(
-    *,
-    spectrum: Path,
-    peaklist: Path | None,
-    z_values: Path | None,
-    output_dir: Path,
-    peaks: list[Peak],
-) -> dict[str, Path]:
-    """Collect reproducibility input paths for output metadata."""
-    input_paths = {"spectrum": spectrum}
-    input_paths["peaklist"] = (
-        peaklist if peaklist is not None else write_autopicked_peaklist(output_dir, peaks)
-    )
-    if z_values is not None:
-        input_paths["z_values"] = z_values
-    return input_paths
 
 
 def _run_interactive_fit(

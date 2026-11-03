@@ -5,7 +5,7 @@ from dataclasses import replace
 import numpy as np
 
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import FitConfig, PeakFitConfig
+from peakfit.engine.domain.config import FitConfig, LineshapeName, PeakFitConfig
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
@@ -126,8 +126,18 @@ def completed_result(formats, save_simulated, detailed=False):
     return spectra, config, pipeline, gui
 
 
-def gaussian_pair(separation: float, *, noise: float = 0.0):
-    """One cluster of two 1D Gaussians ``separation`` points apart, over four planes."""
+def peak_pair(
+    separation: float,
+    *,
+    noise: float = 0.0,
+    lineshape: LineshapeName = "gaussian",
+    fit_phase: tuple[str, ...] = (),
+):
+    """One cluster of two 1D peaks ``separation`` points apart, over four planes.
+
+    ``fit_phase`` adds the cluster's phase on those axes (for lineshapes that have one),
+    a single parameter shared by both peaks.
+    """
 
     def axis(size, direct):
         return SpectralParameters(
@@ -158,7 +168,11 @@ def gaussian_pair(separation: float, *, noise: float = 0.0):
             name=name,
             positions=np.array([center]),
             shapes=create_shapes(
-                spectra, FitConfig(lineshape="gaussian"), name, [center], ["gaussian"]
+                spectra,
+                FitConfig(lineshape=lineshape, fit_phase=list(fit_phase)),
+                name,
+                [center],
+                [lineshape],
             ),
         )
         peak.set_cluster_id(1)

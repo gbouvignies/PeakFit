@@ -49,9 +49,6 @@ class Highlight:
     peak: str | None = None  # working ID, or None for the whole cluster
 
 
-NOT_RETAINED = "not retained by this project"
-
-
 @dataclass(frozen=True, slots=True)
 class CollinearShapes:
     """Two members whose recorded fitted shapes are near-collinear (working IDs)."""
@@ -85,7 +82,7 @@ class ClusterReview:
     names: tuple[str, ...]
     warnings: tuple[NumericalWarning, ...]
     chi2: float  # NaN when no analytical evaluation was recorded
-    largest_residual: float | None  # in σ; NaN without evaluation; None when not retained
+    largest_residual: float  # in σ; NaN without evaluation
     samples: int
     correlation: float  # largest |ρ|; NaN when unavailable or one peak
     highlights: tuple[Highlight, ...]

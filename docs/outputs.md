@@ -2,8 +2,8 @@
 
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and full experimental data; it does not
-replace scientific exports. The current formats are scientific archive **2.1.0**
-and analysis project **3.0.0**.
+replace scientific exports. The current formats are scientific archive **3.0.0**
+and analysis project **6.0.0**.
 
 ## Default scientific export
 
@@ -288,21 +288,18 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **5.0.0**. Earlier experimental project formats are rejected;
+New projects use schema **6.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
-- Scientific NPZ **1.0.0**, **2.0.0** and **2.1.0** remain readable, including the
-  first PR schema-1 context without later coordinate/adoption fields. Missing old
-  facts remain unknown; new exports require the complete context. New writes use
-  2.1.0. Archives before 2.1.0 have no largest recorded residual: it reads as
-  `None`, and the GUI shows "Largest recorded residual · not retained by this
-  project" rather than a value. When detailed evidence or a verified source is
-  available, the stored value is checked against the regenerated residuals.
-- Earlier `.peakfit` project formats are unsupported. Scientific exports remain
-  independently readable. To continue an older analysis, retain its original
-  spectrum and scientific outputs; open the spectrum and refit into a new project.
+- Only scientific archive **3.0.0** and project **6.0.0** are read. Earlier
+  versions are rejected with "Unsupported scientific result version" or
+  "Unsupported analysis version": they record configuration keys
+  (`[auto_peak]`, `fix_positions`, `fit_j_coupling`) that no longer exist. To
+  continue an older analysis, open its spectrum and peak list and refit. When
+  detailed evidence or a verified source is available, the stored largest recorded
+  residual is checked against the regenerated residuals.
   No old project is silently rewritten or stripped of data.
 - Existing JSON 4.0/4.1 readers and explicit exports remain supported. Native
   summaries mark unavailable dense evidence explicitly; they do not invent it.

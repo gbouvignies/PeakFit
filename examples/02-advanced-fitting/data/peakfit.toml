@@ -6,8 +6,6 @@ exclude_planes = []
 [fitting]
 lineshape = "auto"
 refine_iterations = 1
-fix_positions = false
-fit_j_coupling = false
 fit_phase = []
 
 [clustering]
