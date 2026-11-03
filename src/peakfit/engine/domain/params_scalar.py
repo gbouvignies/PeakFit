@@ -101,12 +101,6 @@ class Parameter(BaseModel):
         if previous != current and self._parent is not None:
             self._parent._invalidate_vary_cache()
 
-    def is_at_boundary(self, tol: float = 1e-6) -> bool:
-        """Check if parameter is at or near its boundary."""
-        at_min = abs(self.value - self.min) < tol * (1 + abs(self.value))
-        at_max = abs(self.value - self.max) < tol * (1 + abs(self.value))
-        return at_min or at_max
-
 
 class Parameters(BaseModel):
     """Collection of fitting parameters."""

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from peakfit.engine.algorithms.clustering import create_clusters
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.algorithms.noise import prepare_noise_level
+from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.fit.export import write_completed_outputs
@@ -104,7 +105,7 @@ def find_review_clusters(result: FitRun) -> list[ClusterReview]:
         at_bounds = [
             parameter.name
             for parameter in outcome.final_nonlinear_parameters
-            if _is_at_boundary(parameter.value, parameter.min, parameter.max)
+            if at_bound(parameter)
         ]
         non_converged = outcome.classification is not FitOutcomeClassification.CONVERGED
         uncertain = evaluation is not None and evaluation.uncertainty_warning is not None
@@ -260,13 +261,6 @@ def _consume_pipeline(
         elif callback is not None:
             callback(item)
     return result
-
-
-def _is_at_boundary(value: float, minimum: float, maximum: float, tol: float = 1e-6) -> bool:
-    """Match scalar parameter bound checks using immutable final values."""
-    return abs(value - minimum) < tol * (1 + abs(value)) or abs(value - maximum) < tol * (
-        1 + abs(value)
-    )
 
 
 # =============================================================================

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 import typer
 
 from peakfit.cli.commands.fit_setup import build_fit_config, resolve_output_dir
+from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.config import LineshapeName  # noqa: TC001 - Typer evaluates annotations.
 from peakfit.engine.results import FitResult
 from peakfit.fit.fitting import (
@@ -312,7 +313,7 @@ def _run_interactive_fit(
             if live_ctx["update"]:
                 cluster_id = str(item.cluster_id)
                 warnings = []
-                bounds_hit = [p for p in item.params.values() if p.is_at_boundary()]
+                bounds_hit = [p for p in item.params.values() if at_bound(p)]
                 if bounds_hit:
                     warnings.append(f"Bounds: {', '.join(p.name for p in bounds_hit)}")
                 if item.message and "Maximum iterations reached" in item.message:

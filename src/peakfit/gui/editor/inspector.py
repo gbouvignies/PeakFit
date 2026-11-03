@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
@@ -21,7 +22,7 @@ from peakfit.gui.editor.labels import clear_layout as _clear
 from peakfit.gui.editor.labels import review_item
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
-from peakfit.gui.editor.review import BOUND_TOLERANCE, correlation_matrix
+from peakfit.gui.editor.review import correlation_matrix
 from peakfit.gui.editor.setup import FitSetup
 
 if TYPE_CHECKING:
@@ -787,21 +788,15 @@ class Inspector(QtWidgets.QScrollArea):
             dim, kind = _dimension_and_kind(parameter.name)
             name = f"{_KINDS.get(kind, kind)} {self._axes.get(dim, dim)}"
             value, sigma = formatting.with_sigma(parameter.value, parameter.standard_error)
-            span = parameter.max - parameter.min
-            at_bound = (
-                parameter.vary
-                and math.isfinite(span)
-                and min(parameter.value - parameter.min, parameter.max - parameter.value)
-                <= BOUND_TOLERANCE * span
-            )
+            bounded = at_bound(parameter)
             text = value if not parameter.vary else f"{value} ± {sigma}"
             if sigma == "σ unavailable" and parameter.vary:
                 text = f"{value} · σ unavailable"
             cell = _label(text)
             cell.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
             unit = _label(parameter.unit + (" · fixed" if not parameter.vary else ""), "caption")
-            title = _label(name, "warning" if at_bound else "muted")
-            if at_bound:
+            title = _label(name, "warning" if bounded else "muted")
+            if bounded:
                 title.setToolTip("At a recorded bound")
             self.fitted.addWidget(title, row, 0)
             self.fitted.addWidget(cell, row, 1)

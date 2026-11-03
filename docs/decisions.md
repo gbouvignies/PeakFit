@@ -313,3 +313,21 @@ Short records of non‑obvious design choices and trade‑offs.
   changes MCMC results for phase-fitted runs only, which were wrong.
 - `FitParameters` still uses `spec.default` as index placeholders; it is removed in
   the engine-boundary work.
+
+## 2026-11-03: One At bound rule for review (D8)
+- `engine.diagnostics.bounds.at_bound` is the only review rule: a varied parameter
+  is At bound when its distance from the nearest bound is at most 10⁻⁶ of its bound
+  interval. It was the GUI rule. The CLI's live progress and review summary used
+  10⁻⁶ × (1 + |value|), which tied the tolerance to the value's magnitude rather
+  than the allowed range, and they flagged fixed parameters; both are removed with
+  `Parameter.is_at_boundary`.
+- Fixed parameters are never flagged. Without two finite bounds there is no
+  interval to scale the tolerance, so one-sided or unbounded parameters are never
+  flagged; a value outside its bounds or in a zero-width interval is.
+- VarPro's active-bound test (absolute 10⁻⁷) decides whether symmetric standard
+  errors are withheld. That is an uncertainty decision, not a display warning, and
+  is unchanged; aligning it would need its own scientific validation.
+- On the bundled example and the three example-05 configurations the flagged
+  parameters are identical under the old CLI rule, the old GUI rule and the new
+  rule (none, except `1011N-H.F3.lw` for `per_peak`). Fit digests and the golden
+  regression are unchanged.
