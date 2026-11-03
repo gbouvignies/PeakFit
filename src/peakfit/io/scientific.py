@@ -33,7 +33,7 @@ from peakfit.engine.scientific.final_outcome import (
     freeze_provenance,
 )
 
-VERSION = "4.0.0"
+VERSION = "5.0.0"
 MAX_METADATA_BYTES = 16 * 1024**2
 MAX_ARRAY_BYTES = 8 * 1024**3
 _SAMPLE_DIMENSIONS = 2

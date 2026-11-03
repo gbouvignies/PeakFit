@@ -74,6 +74,9 @@ Notable user-facing and architecture changes are recorded here.
   recorded the repository of the current directory rather than PeakFit's source.
   Runs now record no source revision; `software_version` is the package version,
   which does not change between development commits.
+- Removed `[parameters].from_file`. It had read no values since fit JSON renamed
+  its parameter keys, so fits silently started from the usual defaults; a config
+  that still sets it is now rejected.
 - Removed unused internal functions (unused `Parameters`, spectrum and peak helpers,
   J-coupling utilities, MCMC formatters and plot helpers), the legacy
   `engine.fitting.simulation` module and the `tomli-w` dependency. Python code
@@ -88,5 +91,6 @@ Notable user-facing and architecture changes are recorded here.
   `--optimizer basin_hopping`.
 - Configs containing `[auto_peak]`, `fix_positions` or `fit_j_coupling` are rejected;
   delete those keys.
-- Scientific archives move to 4.0.0 and fit JSON to 5.0.0; earlier versions are
-  rejected. Refit results written before this change.
+- Scientific archives move to 5.0.0, fit JSON to 5.0.0 and projects to 7.0.0;
+  earlier versions are rejected. Refit results and recreate projects written
+  before this change.

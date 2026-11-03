@@ -1,5 +1,8 @@
 """The native archive reconstructs the same terminal problem through both interfaces."""
 
+import json
+from zipfile import ZipFile
+
 import numpy as np
 import pytest
 from builders import completed_result, two_cluster_dataset
@@ -54,6 +57,31 @@ def test_native_terminal_problem_and_parent_likelihood(tmp_path, detailed):
             load_completed(directory / "scientific.npz")
         with pytest.raises(ValueError, match="verified spectrum"):
             restore_completed(outcome, samples, context)
+
+
+def test_archive_recording_a_removed_config_key_is_rejected_by_version(tmp_path):
+    _, _, _, result = completed_result([], False, True)
+    directory = export_fit_result(result, tmp_path / "results")
+    archive = directory / "scientific.npz"
+    state = ResultsLoader(directory).load_fitting_state()
+    assert state.noise is not None
+    assert [p.name for p in state.scalar_params.values()] == [
+        p.name for p in result.outcome.final_nonlinear_parameters
+    ]
+
+    # Archive 4.0.0 recorded `[parameters].from_file`, which configuration validation forbids.
+    with ZipFile(archive) as source:
+        members = {name: source.read(name) for name in source.namelist()}
+    document = json.loads(members["metadata.json"])
+    configuration = document["context"]["mapping"]["metadata"]["mapping"]["configuration"]
+    configuration["mapping"]["parameters"]["mapping"]["from_file"] = None
+    document["schema_version"] = "4.0.0"
+    members["metadata.json"] = json.dumps(document).encode()
+    with ZipFile(archive, "w") as target:
+        for name, payload in members.items():
+            target.writestr(name, payload)
+    with pytest.raises(ValueError, match="Unsupported scientific result version"):
+        ResultsLoader(directory).load_fitting_state()
 
 
 def test_reconstruction_refuses_changed_evaluator_reference(tmp_path):

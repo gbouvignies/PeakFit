@@ -4,7 +4,6 @@ This module provides a flexible constraint system that allows users to:
 - Set parameter starting values, bounds, and vary status
 - Define position windows relative to peak positions
 - Apply constraints using glob-style pattern matching
-- Load constraints from previous fit results
 
 The constraint priority (low to high):
 1. Code defaults (from lineshape models)
@@ -16,13 +15,11 @@ The constraint priority (low to high):
 """
 
 import fnmatch
-import json
 import re
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -205,6 +202,8 @@ class ParameterConfig(BaseModel):
         F3 = 0.03
     """
 
+    model_config = {"extra": "forbid"}
+
     # Global position window (ppm) for all peaks/axes
     position_window: float | None = None
 
@@ -216,17 +215,6 @@ class ParameterConfig(BaseModel):
 
     # Per-peak constraints
     peaks: dict[str, PeakConstraints] = Field(default_factory=dict)
-
-    # Load starting values from previous fit
-    from_file: Path | None = None
-
-    @field_validator("from_file", mode="before")
-    @classmethod
-    def validate_from_file(cls, v: str | Path | None) -> Path | None:
-        """Convert string to Path."""
-        if v is None:
-            return None
-        return Path(v)
 
 
 @dataclass
@@ -268,47 +256,6 @@ class ConstraintResolver:
     """
 
     config: ParameterConfig
-    _from_file_values: dict[str, float] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        """Load values from file if specified."""
-        if self.config.from_file is not None:
-            self._load_from_file(self.config.from_file)
-
-    def _load_from_file(self, path: Path) -> None:
-        """Load parameter values from a previous fit result."""
-        if not path.exists():
-            msg = f"Parameter file not found: {path}"
-            raise FileNotFoundError(msg)
-
-        suffix = path.suffix.lower()
-        if suffix == ".json":
-            self._load_from_json(path)
-        else:
-            msg = f"Unsupported file format: {suffix}"
-            raise ValueError(msg)
-
-    def _load_from_json(self, path: Path) -> None:
-        """Load parameter values from JSON fit summary."""
-        with path.open() as f:
-            data = json.load(f)
-
-        # Handle summary/fit.json format
-        if "clusters" in data:
-            for cluster in data["clusters"]:
-                for param in cluster.get("parameters", cluster.get("lineshape_parameters", [])):
-                    name = param.get("name", "")
-                    value = param.get("value")
-                    if name and value is not None:
-                        self._from_file_values[name] = float(value)
-
-                for amp in cluster.get("amplitudes", []):
-                    peak = amp.get("peak_name", "")
-                    plane = amp.get("plane_index", 0)
-                    value = amp.get("value")
-                    if peak and value is not None:
-                        name = f"{peak}.F1.I{plane}"
-                        self._from_file_values[name] = float(value)
 
     def resolve(
         self,
@@ -342,11 +289,6 @@ class ConstraintResolver:
 
         # 3. Apply per-peak constraints
         self._apply_peak_constraints(resolved, peak_name, axis, param_type)
-
-        # 4. Apply values from file (lowest priority for values, doesn't affect bounds/vary)
-        if param_name in self._from_file_values and resolved.value == current_value:
-            resolved.value = self._from_file_values[param_name]
-            resolved.source = "from_file"
 
         return resolved
 
@@ -528,7 +470,6 @@ def constraints_from_cli(
     position_window: float | None = None,
     position_window_f2: float | None = None,
     position_window_f3: float | None = None,
-    from_file: Path | None = None,
 ) -> ParameterConfig:
     """Create ParameterConfig from CLI arguments.
 
@@ -538,16 +479,12 @@ def constraints_from_cli(
         position_window: Global position window (ppm)
         position_window_f2: F2 (indirect) position window
         position_window_f3: F3 (direct) position window
-        from_file: Path to load starting values from
 
     Returns:
     -------
         ParameterConfig instance
     """
-    config = ParameterConfig(
-        position_window=position_window,
-        from_file=from_file,
-    )
+    config = ParameterConfig(position_window=position_window)
 
     # Set per-axis windows
     if position_window_f2 is not None:

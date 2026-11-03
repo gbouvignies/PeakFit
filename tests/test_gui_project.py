@@ -175,6 +175,21 @@ def test_corrupt_and_unsupported_project_rejected(analysis, tmp_path):
         open_analysis(path)
 
 
+def test_project_recording_a_removed_config_key_is_rejected_by_version(analysis, tmp_path):
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+    assert open_analysis(path).completion is not None
+
+    # Project 6.0.0 recorded `[parameters].from_file`, which configuration validation forbids.
+    manifest = json.loads((path / "manifest.json").read_text())
+    configuration = json.loads(manifest["configuration"])
+    configuration["parameters"]["from_file"] = None
+    manifest["configuration"] = json.dumps(configuration)
+    manifest["schema_version"] = "6.0.0"
+    (path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match=r"Unsupported analysis version: '6\.0\.0'"):
+        open_analysis(path)
+
+
 def test_verified_reopen_rebinds_currentness_and_manual_edit_outdates(
     qapp, analysis, tmp_path, monkeypatch
 ):

@@ -39,6 +39,13 @@ def test_redundant_strategy_name_config_is_rejected() -> None:
         PeakFitConfig.model_validate(payload)
 
 
+def test_removed_previous_fit_parameter_file_is_rejected() -> None:
+    payload = {"parameters": {"from_file": "previous_fit/summary/fit.json"}}
+
+    with pytest.raises(ValidationError, match="from_file"):
+        PeakFitConfig.model_validate(payload)
+
+
 def test_cli_output_formats_are_normalized_and_deduped() -> None:
     assert normalize_output_formats(["JSON", "csv", "json"]) == ["json", "csv"]
 
