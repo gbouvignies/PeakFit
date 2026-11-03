@@ -10,7 +10,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from test_gui_dataset import _dataset
+from builders import two_cluster_dataset
 
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConfig, apply_constraints
@@ -57,7 +57,7 @@ def _fitted(result, identity):
 
 @pytest.fixture(scope="module")
 def synthetic():
-    spectra, peaks, config, _prepared = _dataset()
+    spectra, peaks, config, _prepared = two_cluster_dataset()
     return spectra, peaks, config, _fit(spectra, peaks, config)
 
 

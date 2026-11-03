@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+from builders import gaussian_pair
 from scipy.optimize._numdiff import approx_derivative
 
 from peakfit.engine.algorithms.linear_algebra import (
@@ -15,13 +16,7 @@ from peakfit.engine.algorithms.varpro import (
     fit_cluster,
     identifiable_covariance,
 )
-from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import FitConfig
-from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.params_vector import FitParameters
-from peakfit.engine.domain.peaks import Peak
-from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
-from peakfit.engine.lineshapes.create import create_shapes
 
 
 def test_duplicate_shapes_cannot_fit_a_nonexistent_direction() -> None:
@@ -50,49 +45,6 @@ def test_duplicate_amplitude_uncertainties_are_unavailable() -> None:
     assert np.isnan(covariance).all()
 
 
-def _gaussian_group(separation: float, *, noise: float = 0.0):
-    def axis(size, direct):
-        return SpectralParameters(
-            size=size,
-            sw=500,
-            obs=500,
-            car=0,
-            aq_time=0.01,
-            apocode=0,
-            apodq1=0,
-            apodq2=0,
-            apodq3=0,
-            p180=False,
-            direct=direct,
-            ft=True,
-        )
-
-    spectra = Spectra(
-        dic={},
-        data=np.zeros((4, 101)),
-        z_values=np.arange(4.0),
-        params=[axis(4, False), axis(101, True)],
-    )
-    peaks = []
-    for name, point in zip(("A", "B"), (50 - separation / 2, 50 + separation / 2), strict=True):
-        center = float(spectra.spectral_params[0].pts2ppm(point))
-        peak = Peak(
-            name=name,
-            positions=np.array([center]),
-            shapes=create_shapes(
-                spectra, FitConfig(lineshape="gaussian"), name, [center], ["gaussian"]
-            ),
-        )
-        peak.set_cluster_id(1)
-        peaks.append(peak)
-    params = Parameters.from_peaks(peaks)
-    cluster = Cluster(1, peaks, [np.arange(101)], np.zeros((101, 4)))
-    amplitudes = np.array([[2.0, -1.0, 3.0, 0.5], [-1.0, 3.0, 0.5, 2.0]])
-    cluster.data = cluster.evaluate(params).T @ amplitudes
-    cluster.data += noise * np.random.default_rng(59).normal(size=cluster.data.shape)
-    return cluster, params
-
-
 def _optimizer(cluster, params, noise=1.0):
     return VarProOptimizer(
         cluster,
@@ -105,7 +57,7 @@ def _optimizer(cluster, params, noise=1.0):
 
 @pytest.mark.parametrize("separation", [0.0, 1e-10, 1.5, 6.0, 30.0])
 def test_actual_model_and_projection_agree(separation) -> None:
-    cluster, params = _gaussian_group(separation, noise=0.01)
+    cluster, params = gaussian_pair(separation, noise=0.01)
     optimizer = _optimizer(cluster, params)
     x = params.get_vary_values()
     residual = optimizer.compute_residuals(x)
@@ -121,7 +73,7 @@ def test_actual_model_and_projection_agree(separation) -> None:
 
 @pytest.mark.parametrize("separation", [1.5, 6.0, 30.0])
 def test_jacobian_differentiates_the_actual_objective(separation) -> None:
-    cluster, params = _gaussian_group(separation, noise=0.01)
+    cluster, params = gaussian_pair(separation, noise=0.01)
     optimizer = _optimizer(cluster, params, noise=0.01)
     x = params.get_vary_values()
     analytical = optimizer.compute_jacobian(x)
@@ -134,7 +86,7 @@ def test_jacobian_differentiates_the_actual_objective(separation) -> None:
 
 @pytest.mark.parametrize("separation", [1.5, 6.0, 30.0])
 def test_identifiable_overlapping_profiles_recover_truth(separation) -> None:
-    cluster, truth = _gaussian_group(separation)
+    cluster, truth = gaussian_pair(separation)
     params = truth.copy(deep=True)
     for name, parameter in params.items():
         parameter.value += 0.0002 if name.endswith(".cs") else 0.5
@@ -147,7 +99,7 @@ def test_identifiable_overlapping_profiles_recover_truth(separation) -> None:
 
 
 def test_rank_loss_has_no_trustworthy_joint_nonlinear_covariance() -> None:
-    cluster, params = _gaussian_group(0.0)
+    cluster, params = gaussian_pair(0.0)
     optimizer = _optimizer(cluster, params)
     errors, amplitude_errors = _calculate_errors(optimizer, params.get_vary_values(), 1.0)
     assert np.isnan(errors).all()
@@ -169,7 +121,7 @@ def test_covariance_respects_parameter_units_and_known_noise() -> None:
         identifiable_covariance(jacobian * scales) * scales[:, None] * scales[None, :],
         expected,
     )
-    cluster, params = _gaussian_group(6.0)
+    cluster, params = gaussian_pair(6.0)
     small = _optimizer(cluster, params.copy(deep=True), 0.01)
     large = _optimizer(cluster, params.copy(deep=True), 0.02)
     errors, _ = _calculate_errors(small, params.get_vary_values(), 0.01)
@@ -178,7 +130,7 @@ def test_covariance_respects_parameter_units_and_known_noise() -> None:
 
 
 def test_active_bound_uncertainty_is_unavailable() -> None:
-    cluster, params = _gaussian_group(6.0)
+    cluster, params = gaussian_pair(6.0)
     name = params.get_vary_names()[0]
     params[name].min = params[name].value
     optimizer = _optimizer(cluster, params, 0.01)
@@ -187,7 +139,7 @@ def test_active_bound_uncertainty_is_unavailable() -> None:
 
 
 def test_shared_linewidth_uses_each_peaks_signed_amplitude() -> None:
-    cluster, params = _gaussian_group(6.0, noise=0.01)
+    cluster, params = gaussian_pair(6.0, noise=0.01)
     aliases = {"B.F2.lw": "A.F2.lw"}
     # The synthetic single spectral dimension is labelled F2.
     assert "B.F2.lw" in params
@@ -208,7 +160,7 @@ def test_shared_linewidth_uses_each_peaks_signed_amplitude() -> None:
 def test_noisy_identifiable_synthetic_positions_have_calibrated_local_errors() -> None:
     covered = []
     for seed in range(20):
-        cluster, truth = _gaussian_group(6.0)
+        cluster, truth = gaussian_pair(6.0)
         cluster.data += np.random.default_rng(seed).normal(scale=0.005, size=cluster.data.shape)
         result = fit_cluster(truth.copy(deep=True), cluster, 0.005)
         for name in truth:

@@ -10,9 +10,9 @@ from types import MappingProxyType
 import numpy as np
 import pyqtgraph as pg
 import pytest
+from builders import two_cluster_dataset
+from gui_helpers import wait_until
 from PySide6 import QtCore, QtTest, QtWidgets
-from test_gui_dataset import _dataset
-from test_gui_editor import wait_for
 
 import peakfit.gui.editor.canvas as canvas_module
 import peakfit.gui.editor.review as review_module
@@ -47,14 +47,13 @@ pytestmark = pytest.mark.gui
 
 @pytest.fixture(scope="module")
 def scientific():
-    spectra, peaks, config, prepared = _dataset()
+    spectra, peaks, config, prepared = two_cluster_dataset()
     result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
     return spectra, peaks, config, prepared, result
 
 
 @pytest.fixture
-def workspace(scientific):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def workspace(qapp, scientific):
     spectra, peaks, config, _, _ = scientific
     dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 5.0, 0.01)
     widget = EditorWorkspace(dataset)
@@ -62,13 +61,13 @@ def workspace(scientific):
     widget.fitting.setup_seen = True
     widget.resize(1280, 750)
     widget.show()
-    app.processEvents()
+    qapp.processEvents()
     yield widget
     widget.stop()
     widget.close()
     widget.deleteLater()
     QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
-    app.processEvents()
+    qapp.processEvents()
 
 
 def publish(workspace, result):
@@ -76,7 +75,7 @@ def publish(workspace, result):
     fitting._submitted_revision = workspace.edits.revision
     fitting.process.state = "completed"
     fitting._finished(0, FitProcessResult(result, 0, 0, 0, 0))
-    wait_for(lambda: not fitting.busy)
+    wait_until(lambda: not fitting.busy)
     assert fitting.result is result, fitting.failure
 
 
@@ -96,11 +95,11 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     assert c.selected_id == following
     np.testing.assert_allclose(c.main.getViewBox().viewRange(), ranges)
     assert c.comparison_mode == 1
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
     authoritative = dataset_model_plane(result, c.spectra.spectral_params, c.plane, cancel=Event())
     np.testing.assert_array_equal(c._model.values, authoritative.values)
     w.set_mode(2)
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
     residual = (c.spectra.data[c.plane] - authoritative.values) / result.outcome.noise
     np.testing.assert_array_equal(c.curve_x.getData()[1], residual[c.iy, :])
     np.testing.assert_array_equal(c.curve_y.getData()[0], residual[:, c.ix])
@@ -141,7 +140,7 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
 def test_repeat_actual_process_cancel_failure_and_fresh_masks(workspace):
     w = workspace
     w.fitting.fit()
-    wait_for(lambda: not w.fitting.busy, timeout=20)
+    wait_until(lambda: not w.fitting.busy, timeout=20)
     assert w.fitting.current, w.fitting.failure
     previous = w.fitting.result
     seeds = w.peaks
@@ -151,7 +150,7 @@ def test_repeat_actual_process_cancel_failure_and_fresh_masks(workspace):
     w.delete_peaks()
     assert w.peaks == seeds
     w.fitting.cancel()
-    wait_for(lambda: not w.fit_busy)
+    wait_until(lambda: not w.fit_busy)
     assert w.fitting.result is previous
     assert w.peaks == seeds
     w.fitting.process.state = "failed"
@@ -159,14 +158,14 @@ def test_repeat_actual_process_cancel_failure_and_fresh_masks(workspace):
     assert w.fitting.result is previous
     assert w.fitting.current
     w.fitting.fit()
-    wait_for(lambda: not w.fit_busy, timeout=20)
+    wait_until(lambda: not w.fit_busy, timeout=20)
     assert w.fitting.current, w.fitting.failure
     assert w.fitting.result.inputs.snapshot.peaks == seeds
     assert w.fitting.result.inputs is not previous.inputs
     for _ in range(20):
         seeds = w.peaks
         w.fitting.fit()
-        wait_for(lambda: not w.fit_busy, timeout=20)
+        wait_until(lambda: not w.fit_busy, timeout=20)
         assert w.fitting.current, w.fitting.failure
         assert w.fitting.result.inputs.snapshot.peaks == seeds
 
@@ -230,14 +229,14 @@ def test_latest_plane_wins_and_cache_survives_modes(workspace, scientific):
     for _ in range(40):
         w.set_plane(_ % 3 + 1)
     w.set_plane(3)
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
     assert c.plane == 2
     expected = dataset_model_plane(scientific[-1], c.spectra.spectral_params, 2, cancel=Event())
     np.testing.assert_array_equal(c._model.values, expected.values)
     model = c._model
     w.set_mode(0)
     w.set_mode(2)
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
     assert c._model is model
     assert [layer.role for layer in c.paths] == ["residual"]
 
@@ -276,7 +275,7 @@ def test_all_unusable_completion_and_invalid_replacement(workspace, scientific):
         result, inputs=replace(result.inputs, identities=result.inputs.identities[:-1])
     )
     w.fitting._finished(0, FitProcessResult(invalid, 0, 0, 0, 0))
-    wait_for(lambda: not w.fit_busy)
+    wait_until(lambda: not w.fit_busy)
     assert w.fitting.result is unusable
     assert w.peaks == seeds
     assert "stable-ID mapping" in w.fitting.failure
@@ -287,7 +286,7 @@ def test_pending_comparison_keeps_current_experiment(workspace, scientific, monk
     w, c = workspace, workspace.canvas
     # Prime experimental geometry for this plane before requesting an uncached model.
     w.set_plane(3)
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
     entered, release = Event(), Event()
     project = canvas_module.dataset_model_plane
 
@@ -299,7 +298,7 @@ def test_pending_comparison_keeps_current_experiment(workspace, scientific, monk
     monkeypatch.setattr(canvas_module, "dataset_model_plane", delayed)
     try:
         publish(w, scientific[-1])
-        wait_for(entered.is_set)
+        wait_until(entered.is_set)
         if mode == 2:
             w.set_mode(2)
         assert c.contour_pending
@@ -313,7 +312,7 @@ def test_pending_comparison_keeps_current_experiment(workspace, scientific, monk
             assert c.curve_x.getData()[1] is None
     finally:
         release.set()
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
 
 
 def test_result_export_preserves_adopted_peaks_for_close(
@@ -363,7 +362,7 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
     w, c = workspace, workspace.canvas
     result = scientific[-1]
     publish(w, result)
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
     old_model = c._model
     entered, release = Event(), Event()
     project = canvas_module.dataset_model_plane
@@ -380,7 +379,7 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
         # then keep them visible while the model calculation is held pending.
         w.set_mode(2)
         w.set_plane(2)
-        wait_for(entered.is_set)
+        wait_until(entered.is_set)
         assert [layer.role for layer in c.paths] == ["measured"]
         assert c._displaying_experiment
         assert c._model is None
@@ -392,7 +391,7 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
         assert c._model is None
     finally:
         release.set()
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
     expected = project(result, c.spectra.spectral_params, 2, cancel=Event())
     np.testing.assert_array_equal(c._model.values, expected.values)
     current_model = c._model
@@ -406,7 +405,7 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
     assert [layer.role for layer in c.paths] == ["measured"]
     c._contours_ready("model", obsolete, (current_model, []))
     assert c._model is None
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
     assert all(key[0] == "replacement" for key in c._model_cache)
     residual = (c.spectra.data[2] - c._model.values) / result.outcome.noise
     np.testing.assert_array_equal(c.curve_x.getData()[1], residual[c.iy])
@@ -569,9 +568,7 @@ def test_profile_keeps_repeated_plane_values_distinct(scientific):
 
 
 @pytest.mark.usefixtures("settings")
-def test_compact_header_and_inspector_at_minimum_window(scientific, monkeypatch):
-    app = QtWidgets.QApplication.instance()
-    assert app is not None
+def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkeypatch):
     spectra, peaks, config, _, result = scientific
     window = EditorWindow()
     monkeypatch.setattr(window, "protect_edits", lambda **_: True)
@@ -583,7 +580,7 @@ def test_compact_header_and_inspector_at_minimum_window(scientific, monkeypatch)
     assert w is not None
     w.fitting.configuration = config.model_copy(deep=True)
     w.fitting.setup_seen = True
-    app.processEvents()
+    qapp.processEvents()
     publish(w, _warned(result))
     warned = result.outcome.clusters[0].peak_names[0]
     w.select_peak(next(i.working_id for i in result.inputs.identities if i.engine_name == warned))
@@ -592,7 +589,7 @@ def test_compact_header_and_inspector_at_minimum_window(scientific, monkeypatch)
     w.fitting._preparing = True
     w.fitting.attempt = "Preparing complete dataset"
     w.fitting.update()
-    app.processEvents()
+    qapp.processEvents()
 
     def rect(widget):
         return QtCore.QRect(widget.mapTo(window, QtCore.QPoint(0, 0)), widget.size())
@@ -606,7 +603,7 @@ def test_compact_header_and_inspector_at_minimum_window(scientific, monkeypatch)
     assert "Preparing complete dataset" in w.summary.displayed_text()
     w.fitting._preparing = False
     w.fitting.update()
-    app.processEvents()
+    qapp.processEvents()
     buttons = [w.inspector_button, w.peaks_button, w.add_button, w.fit_button, w.settings_button]
     assert all(b.isVisible() and window.rect().contains(rect(b)) for b in buttons)
     for label in (w.title, w.summary):
@@ -630,8 +627,7 @@ def test_compact_header_and_inspector_at_minimum_window(scientific, monkeypatch)
     window.deleteLater()
 
 
-def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(scientific):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(qapp, scientific):
     result = scientific[-1]
     cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
     evaluation = cluster.analytical_evaluation
@@ -657,7 +653,7 @@ def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(scientific):
     shown = peak_profile(run, peak, None)
     assert isinstance(shown, PeakProfile)
     panel.show_profile(shown, 0)
-    app.processEvents()
+    qapp.processEvents()
     assert not panel.plot.grab().isNull()
     assert panel._profile is not None
     np.testing.assert_array_equal(panel._profile.series[0].amplitudes, evaluation.amplitudes[0])
@@ -702,8 +698,7 @@ def test_navigator_clusters_and_inspector_show_recorded_values(workspace, scient
     assert w.edits.revision == 0
 
 
-def test_dense_profile_click_opens_the_nearest_plane(scientific):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def test_dense_profile_click_opens_the_nearest_plane(qapp, scientific):
     result = scientific[-1]
     peak = result.inputs.identities[0].working_id
     shown = peak_profile(result, peak, None)
@@ -712,7 +707,7 @@ def test_dense_profile_click_opens_the_nearest_plane(scientific):
     panel.resize(320, 260)
     panel.show()
     panel.show_profile(shown, 0)
-    app.processEvents()
+    qapp.processEvents()
     requested = []
     panel.plane_requested.connect(requested.append)
     points = _selected_points(panel)
@@ -777,7 +772,7 @@ def test_first_fit_reveals_the_setup_then_runs_the_prepared_inputs(workspace, mo
     assert w.selected_id is None
     assert w.panel.isVisible()
     assert w.panel.analysis_page.isVisible()
-    wait_for(lambda: fitting.prepared is not None)
+    wait_until(lambda: fitting.prepared is not None)
     submitted = []
     monkeypatch.setattr(fitting, "start", submitted.append)
     fitting.fit()
@@ -787,12 +782,12 @@ def test_first_fit_reveals_the_setup_then_runs_the_prepared_inputs(workspace, mo
 
 def test_fit_is_disabled_with_the_preparation_reason(workspace):
     w, fitting = workspace, workspace.fitting
-    wait_for(lambda: fitting.prepared is not None)
+    wait_until(lambda: fitting.prepared is not None)
     invalid = fitting.configuration.model_copy(deep=True)
     invalid.exclude_planes = [1]
     fitting.configure(invalid)
     assert fitting.prepared is None
-    wait_for(lambda: bool(fitting.blocked))
+    wait_until(lambda: bool(fitting.blocked))
     assert "exclusions are unsupported" in fitting.blocked
     assert not w.fit_button.isEnabled()
     assert fitting.blocked in w.fit_button.toolTip()
@@ -805,7 +800,7 @@ def test_fit_is_disabled_with_the_preparation_reason(workspace):
     valid = invalid.model_copy(deep=True)
     valid.exclude_planes = []
     fitting.configure(valid)
-    wait_for(lambda: fitting.prepared is not None)
+    wait_until(lambda: fitting.prepared is not None)
     assert w.fit_button.isEnabled()
     assert not fitting.blocked
 
@@ -818,7 +813,7 @@ def test_setup_edits_mark_the_run_outdated_and_prepare_afresh(workspace, scienti
     assert fitting.configuration.fitting.refine_iterations == 3
     assert not fitting.current
     assert fitting.prepared is None
-    wait_for(lambda: fitting.prepared is not None)
+    wait_until(lambda: fitting.prepared is not None)
     assert '"refine_iterations":3' in fitting.prepared.snapshot.configuration
     setup.lineshape.setCurrentIndex(setup.lineshape.findData("gaussian"))
     assert fitting.configuration.fitting.lineshape == "gaussian"
@@ -827,7 +822,7 @@ def test_setup_edits_mark_the_run_outdated_and_prepare_afresh(workspace, scienti
 
 def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, scientific):
     w, c, fitting = workspace, workspace.canvas, workspace.fitting
-    wait_for(lambda: fitting.prepared is not None)
+    wait_until(lambda: fitting.prepared is not None)
     w._update_inspector()
     prepared = fitting.prepared
     # Member rings are the default cue; sampled regions appear only on request.
@@ -867,7 +862,7 @@ def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, sci
     assert fitting.prepared is None
     assert c.region_source == ""
     assert not np.any(c.region_image.image[..., 3])
-    wait_for(lambda: fitting.prepared is not None)
+    wait_until(lambda: fitting.prepared is not None)
     w._update_inspector()
     assert c.region_source == "preview for current settings"
     w.panel.setup.regions.setChecked(False)
@@ -877,7 +872,7 @@ def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, sci
 
 def test_default_lineshape_fallback_is_a_caution_not_a_block(workspace):
     w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
-    wait_for(lambda: fitting.prepared is not None)
+    wait_until(lambda: fitting.prepared is not None)
     shapes = [("¹⁵N", "Pseudo-Voigt", DEFAULT_SOURCE), ("¹H", "SP2", "from NMRPipe apodization")]
     setup.show_state(fitting.configuration, shapes, fitting.prepared, fitting.blocked)
     assert setup.shape_caution.isVisible()
@@ -1009,7 +1004,7 @@ def test_highlight_thresholds_filter_clusters_without_touching_the_run(workspace
 
 def test_starting_values_show_the_next_fit_inputs(workspace):
     w, fitting = workspace, workspace.fitting
-    wait_for(lambda: fitting.prepared is not None)
+    wait_until(lambda: fitting.prepared is not None)
     peak = w.peaks[0]
     w.select_peak(peak.id)
     w._update_inspector()
@@ -1029,7 +1024,7 @@ def test_starting_values_show_the_next_fit_inputs(workspace):
     invalid = fitting.configuration.model_copy(deep=True)
     invalid.exclude_planes = [1]
     fitting.configure(invalid)
-    wait_for(lambda: bool(fitting.blocked))
+    wait_until(lambda: bool(fitting.blocked))
     w._update_inspector()
     assert grid.count() == 0
     assert fitting.blocked in w.panel.starts_note.text()
@@ -1067,8 +1062,7 @@ def test_warning_navigation_never_selects_a_hidden_cluster(workspace, scientific
     assert all(not item.isHidden() for item in visited)
 
 
-def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(scientific):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(qapp, scientific):
     result = scientific[-1]
     peak = result.inputs.identities[0].working_id
     shown = peak_profile(result, peak, None)
@@ -1078,7 +1072,7 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(scientifi
     panel.resize(320, 260)
     panel.show()
     panel.show_profile(shown, 0)
-    app.processEvents()
+    qapp.processEvents()
     # Raw by default; nothing is normalized until a reference is chosen.
     assert panel.mode.text() == "Raw amplitudes"
     assert panel._normalized is None
@@ -1105,8 +1099,7 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(scientifi
     np.testing.assert_array_equal(y, recorded)
 
 
-def test_unavailable_normalization_keeps_the_raw_profile_with_the_reason(scientific):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def test_unavailable_normalization_keeps_the_raw_profile_with_the_reason(qapp, scientific):
     result = scientific[-1]
     shown = peak_profile(result, result.inputs.identities[0].working_id, None)
     assert isinstance(shown, PeakProfile)
@@ -1119,7 +1112,7 @@ def test_unavailable_normalization_keeps_the_raw_profile_with_the_reason(scienti
     panel.show()
     panel.show_profile(zeroed, 0)
     panel.set_reference((int(shown.source_planes[0]),))
-    app.processEvents()
+    qapp.processEvents()
     assert panel._normalized is None
     assert panel.fallback.isVisible()
     assert panel.fallback.text().startswith("▲ Showing raw amplitudes.")
@@ -1144,8 +1137,7 @@ def test_invalid_reference_planes_are_rejected(text):
         parse_planes(text, 5)
 
 
-def test_normalization_is_unavailable_when_uncertainties_are_unreliable(scientific):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def test_normalization_is_unavailable_when_uncertainties_are_unreliable(qapp, scientific):
     result = scientific[-1]
     shown = peak_profile(result, result.inputs.identities[0].working_id, None)
     assert isinstance(shown, PeakProfile)
@@ -1162,7 +1154,7 @@ def test_normalization_is_unavailable_when_uncertainties_are_unreliable(scientif
     panel.show()
     panel.show_profile(inflated, 0)
     panel.set_reference((int(shown.source_planes[0]),))
-    app.processEvents()
+    qapp.processEvents()
     assert panel._normalized is None
     assert "withheld as unreliable" in panel.fallback.text()
     assert "uncertainties unreliable" in panel.fallback.text()
@@ -1328,7 +1320,7 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
     texts = lambda: [label.text() for label in panel.analysis_page.findChildren(QtWidgets.QLabel)]  # noqa: E731
     # The stored parent is read off Qt; the page says so meanwhile.
     assert "Reading run parent00…" in texts()
-    wait_for(lambda: fitting._parents.get(parent.run_id) is parent)
+    wait_until(lambda: fitting._parents.get(parent.run_id) is parent)
     fitting.update()
     assert panel.changes_title.text() == "CHANGES FROM RUN PARENT00"
     assert any("▲ Uncertainty unreliable no longer reported" in t for t in texts())
@@ -1379,7 +1371,7 @@ def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scient
     assert w.panel.cluster_view
     assert not w.panel.cluster_page.lens_button.isVisible()
     assert not any(button.isEnabled() for button in w.mode_buttons)
-    wait_for(lambda: not lens.pending)
+    wait_until(lambda: not lens.pending)
     # Default framing covers every recorded fitting sample of the cluster.
     samples = next(s for s in result.completed_fit.samples if s.cluster_id == cluster.cluster_id)
     (x_low, x_high), (y_low, y_high) = lens.panels[0].getViewBox().viewRange()
@@ -1403,12 +1395,12 @@ def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scient
     assert c.main.getViewBox().viewRange() == view
     # The lens follows the plane.
     w.set_plane(2)
-    wait_for(lambda: not lens.pending)
+    wait_until(lambda: not lens.pending)
     assert lens.plane == 1
     # A committed edit makes the run Outdated: its model stays, labelled historical.
     peak = next(p for p in w.peaks if p.id == member)
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
-    wait_for(lambda: not lens.pending)
+    wait_until(lambda: not lens.pending)
     tag = f"Run {result.run_id[:8]} · historical"
     assert [label.text() for label in lens.captions] == [
         "Experimental",
@@ -1432,7 +1424,7 @@ def _open_lens(w, result):
     cluster = next(cl for cl in result.outcome.clusters if cl.usable and len(cl.peak_names) > 1)
     identities = {i.engine_name: i.working_id for i in result.inputs.identities}
     w.open_lens(identities[cluster.peak_names[0]])
-    wait_for(lambda: not w.lens.pending)
+    wait_until(lambda: not w.lens.pending)
     return cluster
 
 
@@ -1457,7 +1449,7 @@ def test_display_settings_refresh_the_lens_without_touching_results(
     # Both contour sets apply to the lens at once, whatever the overview mode.
     assert w.lens.levels[0] == chosen["First contour"]
     assert w.lens.levels[3] == chosen["First residual contour"]
-    wait_for(lambda: not w.lens.pending)
+    wait_until(lambda: not w.lens.pending)
     assert w.lens.layers[2][0] is not residual_layers
     # Display only: same run, still Current; the hidden overview did not move.
     assert w.fitting.result is result
@@ -1533,7 +1525,7 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     assert "beyond ±2 σ_stat" in panel.unexplained_note.text()
     revision, peaks, mode = w.edits.revision, w.peaks, c.comparison_mode
     panel.unexplained_button.click()
-    wait_for(lambda: w._unexplained[1] != "pending")
+    wait_until(lambda: w._unexplained[1] != "pending")
     assert isinstance(w._unexplained[1], list), w._unexplained
     regions = w._unexplained[1]
     # Exactly the regions of the whole-spectrum residual (D − M) / σ_stat.
@@ -1557,7 +1549,7 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     assert not panel.unexplained_button.isEnabled()
     # The new list scrolls into view below the fit setup.
     section = panel.unexplained_section
-    wait_for(lambda: section.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y() >= 0)
+    wait_until(lambda: section.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y() >= 0)
     assert section.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y() < panel.viewport().height()
     links = _unexplained_links(w)
     assert len(links) == min(count, 8)
@@ -1620,7 +1612,7 @@ def test_correct_and_refit_in_the_lens(workspace, scientific):  # noqa: PLR0915
     publish(w, result)
     lens = w.lens
     w.open_lens("1")
-    wait_for(lambda: not lens.pending)
+    wait_until(lambda: not lens.pending)
     pair = lens.ids
     assert set(pair) == {"0", "1"}
     before = {p.id: p.positions for p in w.peaks}
@@ -1709,7 +1701,7 @@ def test_correct_and_refit_in_the_lens(workspace, scientific):  # noqa: PLR0915
     current = next(p for p in w.peaks if p.id == "1").positions
     lens._drag(remote[1] - current[1] + 0.02, remote[0] - current[0] + 0.03, True)
     refit = _refit(w)
-    wait_for(lambda: not lens.pending)
+    wait_until(lambda: not lens.pending)
     identities = {i.engine_name: i.working_id for i in refit.inputs.identities}
     now = next(
         tuple(identities[n] for n in c.peak_names)
@@ -1737,7 +1729,7 @@ def test_an_added_peak_keeps_lens_context_and_is_followed_after_refit(workspace,
     publish(w, scientific[-1])
     lens = w.lens
     w.open_lens("remote")
-    wait_for(lambda: not lens.pending)
+    wait_until(lambda: not lens.pending)
     assert lens.ids == ("remote",)
     # Placed in view: the lens keeps the cluster it shows.
     remote = next(p for p in w.peaks if p.id == "remote").positions
@@ -1763,7 +1755,7 @@ def test_an_added_peak_keeps_lens_context_and_is_followed_after_refit(workspace,
     w.select_peak(added.id, cluster=True)
     assert lens.ids == ("remote",)
     refit = _refit(w)
-    wait_for(lambda: not lens.pending)
+    wait_until(lambda: not lens.pending)
     # It joined the remote peak's cluster: a merge, said without a link back.
     assert set(lens.ids) == {"remote", added.id}
     assert lens.membership_plain == f"Run {refit.run_id[:8]} fits {added.name} with Duplicate"
@@ -1774,7 +1766,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     result = scientific[-1]
     publish(w, result)
     w.set_mode(2)
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
     tag = f"Run {result.run_id[:8]} · historical"
     axes = [axis.model_copy(deep=True) for axis in c.spectra.spectral_params]
     model = dataset_model_plane(result, axes, c.plane, cancel=Event())
@@ -1795,7 +1787,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     assert all(button.isEnabled() for button in w.mode_buttons)
     assert w.mode_buttons[2].toolTip() == f"Compares with {tag}"
     assert c.comparison_mode == 2
-    wait_for(lambda: not c.contour_pending)
+    wait_until(lambda: not c.contour_pending)
     np.testing.assert_array_equal(c._model.values, model.values)
     c.sample(float(c.ppm_x[12]), float(c.ppm_y[13]))
     np.testing.assert_array_equal(c.curve_x.getData()[1], residual[13, :])
@@ -1824,7 +1816,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     # The lens compares with the same historical model and marks the same peaks.
     w.open_lens("1")
     lens = w.lens
-    wait_for(lambda: not lens.pending)
+    wait_until(lambda: not lens.pending)
     np.testing.assert_allclose(lens._data["residual"], residual)
     assert lens.captions[2].text() == f"Whole-spectrum residual · {tag}"
     assert lens.trace_caption.text().startswith(f"{tag} model · Row through")
@@ -1841,7 +1833,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     w.select_peak(None)
     w.unexplained_threshold = 2.0
     w.panel.unexplained_button.click()
-    wait_for(lambda: w._unexplained[1] != "pending")
+    wait_until(lambda: w._unexplained[1] != "pending")
     regions = w._unexplained[1]
     assert isinstance(regions, list)
     assert regions
@@ -1876,7 +1868,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     assert w.mode_buttons[2].toolTip() == f"Unavailable: {reason}"
     assert w.panel.unexplained_title.text() == f"Unavailable: {reason}"
     w.open_lens("1")
-    wait_for(lambda: not lens.pending)
+    wait_until(lambda: not lens.pending)
     assert lens.unavailable[2].toPlainText() == f"Unavailable: {reason}"
     assert not lens.layers[2]
     assert lens.captions[2].text() == "Whole-spectrum residual"
@@ -1897,7 +1889,7 @@ def test_run_summary_opens_the_review_which_leads_the_analysis_page_after_a_fit(
     assert not panel.analysis_page.isVisible()
     # A click on the toolbar run summary clears the selection and opens the review.
     QtTest.QTest.mouseClick(w.summary, QtCore.Qt.MouseButton.LeftButton)
-    wait_for(lambda: panel.analysis_page.isVisible())
+    wait_until(lambda: panel.analysis_page.isVisible())
     assert w.selected_id is None
     assert layout.indexOf(panel.review_block) == 0
     assert panel.unexplained_button.isVisible()
@@ -1906,7 +1898,7 @@ def test_run_summary_opens_the_review_which_leads_the_analysis_page_after_a_fit(
     assert 0 <= review < panel.viewport().height()
     # The settings chip still reaches the setup, now below the review.
     QtTest.QTest.mouseClick(w.settings_button, QtCore.Qt.MouseButton.LeftButton)
-    wait_for(
+    wait_until(
         lambda: 0
         <= panel.setup_block.mapTo(panel.viewport(), QtCore.QPoint(0, 0)).y()
         < panel.viewport().height()
@@ -1917,7 +1909,7 @@ def test_enter_on_a_name_returns_focus_so_a_places_the_next_peak(workspace, scie
     w = workspace
     publish(w, scientific[-1])
     w.open_lens("1")
-    wait_for(lambda: not w.lens.pending)
+    wait_until(lambda: not w.lens.pending)
     w.start_placing()
     remote = next(p for p in w.peaks if p.id == "remote").positions
     w.place_peak((remote[0] + 0.02, remote[1] + 0.02))
@@ -1946,7 +1938,7 @@ def test_preview_is_prepared_again_when_only_the_continuation_source_changes(wor
     result = scientific[-1]
     publish(w, result)
     fitting = w.fitting
-    wait_for(lambda: fitting.prepared is not None)
+    wait_until(lambda: fitting.prepared is not None)
     first = fitting.prepared
     assert first.continuation.run_id == result.run_id
     assert first.continuation.continued  # unchanged peaks continue from the run
@@ -1957,15 +1949,14 @@ def test_preview_is_prepared_again_when_only_the_continuation_source_changes(wor
     fitting.update()
     assert (w.peaks, fitting.configuration.model_dump_json()) == (peaks, settings)
     assert fitting.prepared is None  # the previous preparation is never reused
-    wait_for(lambda: fitting.prepared is not None)
+    wait_until(lambda: fitting.prepared is not None)
     assert fitting.prepared.continuation.run_id == "other"
 
 
 @pytest.fixture
-def bundled_workspace():
+def bundled_workspace(qapp):
     """The editor on the bundled CEST data, whose near-collinear pairs reproduce on
     every platform tested (an exact synthetic duplicate does not)."""
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     data = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
     dataset = read_dataset(data / "pseudo3d.ft2", data / "pseudo3d.list", data / "b1_offsets.txt")
     widget = EditorWorkspace(dataset)
@@ -1973,13 +1964,13 @@ def bundled_workspace():
     widget.fitting.setup_seen = True
     widget.resize(1280, 750)
     widget.show()
-    app.processEvents()
+    qapp.processEvents()
     yield widget
     widget.stop()
     widget.close()
     widget.deleteLater()
     QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
-    app.processEvents()
+    qapp.processEvents()
 
 
 @pytest.mark.slow
@@ -2014,7 +2005,7 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
     # Moving one restores ordinary initialization; its partner stays retained.
     moved = next(p for p in w.peaks if p.id == ids["147N-H"])
     w.move_peak(moved.id, (moved.positions[0] + 0.002, moved.positions[1]))
-    wait_for(lambda: w.fitting.prepared is not None, timeout=60)
+    wait_until(lambda: w.fitting.prepared is not None, timeout=60)
     prepared = w.fitting.prepared
     assert prepared is not None
     assert prepared.continuation is not None
@@ -2024,7 +2015,7 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
     assert reasons[ids["53N-H"]].startswith(f"not adopted by run {run}: near-collinear")
     # The lens on the pair keys its □ marks, as the overview legend does.
     w.open_lens(ids["53N-H"])
-    wait_for(lambda: not w.lens.pending, timeout=60)
+    wait_until(lambda: not w.lens.pending, timeout=60)
     assert w.lens.unadopted[1].getData()[0].size == len(retained)
     assert "□" in w.lens.key.text()
     assert "fitted position, not adopted" in w.lens.key.text()

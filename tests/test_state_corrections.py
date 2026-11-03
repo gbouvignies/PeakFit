@@ -4,7 +4,7 @@ import pickle
 
 import numpy as np
 import pytest
-from test_scientific_storage import completed_result
+from builders import completed_result
 
 from peakfit.io.state import load_state, save_state
 

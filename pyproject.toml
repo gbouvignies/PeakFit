@@ -79,6 +79,7 @@ exclude_lines = [
 [tool.importlinter]
 root_package = "peakfit"
 exclude_type_checking_imports = true
+include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "Layering"
@@ -114,6 +115,18 @@ ancestors = [
   "peakfit.ui"
 ]
 
+[[tool.importlinter.contracts]]
+name = "Scientific code imports no interface framework"
+type = "forbidden"
+source_modules = [
+  "peakfit.engine",
+  "peakfit.fit",
+  "peakfit.io",
+  "peakfit.mcmc",
+  "peakfit.shared"
+]
+forbidden_modules = ["PySide6", "pyqtgraph", "typer", "rich", "matplotlib"]
+
 [tool.pytest]
 addopts = ["--strict-config", "--strict-markers", "-ra"]
 filterwarnings = [
@@ -128,6 +141,9 @@ markers = [
 ]
 minversion = "9.0"
 testpaths = ["tests"]
+# Fail a hung Qt event loop or child process instead of blocking CI; the slowest
+# test takes about 25 s.
+timeout = "300"
 
 [tool.ruff]
 line-length = 100

@@ -6,7 +6,7 @@ from zipfile import ZipFile
 
 import numpy as np
 import pytest
-from test_gui_dataset import _dataset
+from builders import completed_result, two_cluster_dataset
 
 from peakfit.fit import fitting
 from peakfit.fit.pipeline import run_pipeline
@@ -15,25 +15,6 @@ from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.io import scientific as storage
 from peakfit.io.output_metadata import RunMetadata
-
-
-def completed_result(formats, save_simulated, detailed=False):
-    spectra, _peaks, config, prepared = _dataset()
-    config.output.formats = formats
-    config.output.save_simulated = save_simulated
-    config.output.detailed_evidence = detailed
-    prepared = replace(
-        prepared, snapshot=replace(prepared.snapshot, configuration=config.model_dump_json())
-    )
-    pipeline = run_pipeline(
-        config,
-        prepared.clusters,
-        prepared.noise,
-        prepared.parameters,
-        [p for c in prepared.clusters for p in c.peaks],
-    )
-    gui = finish_dataset_fit(prepared, DatasetFitAttempt(pipeline.completed_fit, (), 1.0))
-    return spectra, config, pipeline, gui
 
 
 @pytest.mark.parametrize("formats", [[], ["csv"], ["json", "csv", "txt"]])
@@ -195,7 +176,7 @@ def test_reader_limits_before_allocation(tmp_path, monkeypatch):
 def test_repeated_plane_values_retain_source_columns_after_exclusion(tmp_path):
     from peakfit.gui.fitting import prepare_dataset_fit  # noqa: PLC0415
 
-    spectra, peaks, config, _prepared = _dataset()
+    spectra, peaks, config, _prepared = two_cluster_dataset()
     spectra.exclude_planes([1])
     assert spectra.source_plane_indices == (0, 2)
     prepared = prepare_dataset_fit(spectra, peaks, config)

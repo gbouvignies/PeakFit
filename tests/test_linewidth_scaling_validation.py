@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 import scipy.optimize
-from test_varpro_numerics import _gaussian_group
+from builders import gaussian_pair
 
 from peakfit.engine.algorithms.varpro import fit_cluster
 
@@ -19,7 +19,7 @@ def investigation(monkeypatch):
 
 
 def test_physical_scale_is_independent_of_absolute_chemical_shift(investigation):
-    _, params = _gaussian_group(6.0)
+    _, params = gaussian_pair(6.0)
     expected = investigation.physical_scale(params, {"F2": 500.0})
     for name, param in params.items():
         if name.endswith(".cs"):
@@ -31,7 +31,7 @@ def test_physical_scale_is_independent_of_absolute_chemical_shift(investigation)
 
 
 def test_width_initialization_respects_fixed_parameters_and_bounds(investigation):
-    _, params = _gaussian_group(6.0)
+    _, params = gaussian_pair(6.0)
     params["A.F2.lw"].vary = False
     fixed = params["A.F2.lw"].value
     params["B.F2.lw"].value = 7.0
@@ -43,7 +43,7 @@ def test_width_initialization_respects_fixed_parameters_and_bounds(investigation
 
 @pytest.mark.parametrize("scaling", ["standard", "jac", "physical"])
 def test_experimental_solver_recovers_identifiable_truth_and_restores_scipy(investigation, scaling):
-    cluster, truth = _gaussian_group(6.0)
+    cluster, truth = gaussian_pair(6.0)
     params = truth.copy(deep=True)
     investigation.set_widths(params, {"F2": 6.37})
     original = scipy.optimize.least_squares
@@ -57,7 +57,7 @@ def test_experimental_solver_recovers_identifiable_truth_and_restores_scipy(inve
 
 
 def test_common_intensity_noise_and_column_scaling_preserve_physical_model(investigation):
-    cluster, truth = _gaussian_group(6.0, noise=0.01)
+    cluster, truth = gaussian_pair(6.0, noise=0.01)
     result = fit_cluster(truth.copy(deep=True), cluster, 0.01)
     probe = investigation.normalization_probe(cluster, result.params, 0.01)
     assert probe["residual_relative_gap"] < 1e-12
@@ -69,7 +69,7 @@ def test_common_intensity_noise_and_column_scaling_preserve_physical_model(inves
 
 
 def test_synthetic_recovery_distinguishes_assignment_swap_from_model_error(investigation):
-    cluster, truth = _gaussian_group(6.0)
+    cluster, truth = gaussian_pair(6.0)
     swapped = truth.copy(deep=True)
     for label in ("cs", "lw"):
         swapped[f"A.F2.{label}"].value = truth[f"B.F2.{label}"].value

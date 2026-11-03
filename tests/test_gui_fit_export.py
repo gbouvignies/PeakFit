@@ -8,8 +8,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from builders import overlapping_gaussians
 from PySide6 import QtCore, QtWidgets
-from test_gui_dataset import _example
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
@@ -23,7 +23,7 @@ pytestmark = pytest.mark.gui
 
 
 def _prepare(configure=lambda _config: None):
-    spectra, working, config = _example()
+    spectra, working, config = overlapping_gaussians()
     config.clustering.contour_level = 0.01
     configure(config)
     prepared = prepare_dataset_fit(spectra, working, config)
@@ -205,15 +205,14 @@ def test_directory_publication_and_cleanup(tmp_path, monkeypatch, publication):
         assert (destination / "existing-result").read_text() == "keep me"
 
 
-def test_export_shows_progress_before_starting_writer(tmp_path, monkeypatch):
+def test_export_shows_progress_before_starting_writer(qapp, tmp_path, monkeypatch):
     from threading import Event  # noqa: PLC0415
 
     from peakfit.gui import export_dialog  # noqa: PLC0415
 
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     parent = QtWidgets.QWidget()
     parent.show()
-    app.processEvents()
+    qapp.processEvents()
     shown = Event()
     observed = []
 
@@ -240,17 +239,16 @@ def test_export_shows_progress_before_starting_writer(tmp_path, monkeypatch):
     parent.deleteLater()
 
 
-def test_export_picker_has_one_evidence_option_and_honors_configuration(tmp_path):
+def test_export_picker_has_one_evidence_option_and_honors_configuration(qapp, tmp_path):
     from peakfit.gui.export_dialog import _choose_export_directory  # noqa: PLC0415
 
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    assert isinstance(app, QtWidgets.QApplication)
+    assert isinstance(qapp, QtWidgets.QApplication)
     observed = []
 
     def accept():
         dialog = next(
             w
-            for w in app.topLevelWidgets()
+            for w in qapp.topLevelWidgets()
             if isinstance(w, QtWidgets.QFileDialog) and w.isVisible()
         )
         checks = [
