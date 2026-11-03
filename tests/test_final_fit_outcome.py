@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 
 import numpy as np
@@ -205,6 +205,16 @@ def test_finalization_uses_cluster_identity_for_lookup_and_display_order() -> No
         outcome.cluster(999)
     with pytest.raises(TypeError):
         outcome.by_cluster_id[11] = outcome.cluster(11)  # type: ignore[index]
+
+
+def test_outcome_rejects_duplicate_cluster_ids_instead_of_dropping_one() -> None:
+    outcome = finalize_fit(_completion_fixture({11: (True, True), 37: (True, True)}).completion)
+    first, second = outcome.clusters
+
+    with pytest.raises(ValueError, match=r"Duplicate cluster_id values in final outcome: \[11\]"):
+        replace(outcome, clusters=(first, replace(second, cluster_id=11)))
+    # The identifier lookup still covers every cluster of a valid outcome.
+    assert outcome.by_cluster_id == {11: first, 37: second}
 
 
 def test_finalization_copies_ticket_three_evaluation_and_freezes_nested_values() -> None:

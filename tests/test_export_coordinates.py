@@ -105,6 +105,7 @@ def test_shared_coordinate_provenance_and_actual_adoption(tmp_path, monkeypatch,
         configuration=json.loads(result.inputs.snapshot.configuration),
         run_duration_seconds=result.execution_seconds,
     )
+    # The shared writer with the CLI's export arguments, not the CLI facade itself.
     write_as_cli(result, spectra, config, tmp_path / "cli", metadata)
     cli_outcome, _, cli_context = read_scientific(tmp_path / "cli/scientific.npz")
     assert cli_context["export_state"] == {

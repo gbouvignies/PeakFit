@@ -138,8 +138,13 @@ class FinalFitOutcome:
     by_cluster_id: Mapping[int, FinalClusterOutcome] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        """Index the clusters by identifier."""
+        """Index the clusters by identifier, rejecting duplicate identifiers."""
         by_id = MappingProxyType({cluster.cluster_id: cluster for cluster in self.clusters})
+        if len(by_id) != len(self.clusters):
+            ids = [cluster.cluster_id for cluster in self.clusters]
+            duplicates = sorted({cid for cid in ids if ids.count(cid) > 1})
+            msg = f"Duplicate cluster_id values in final outcome: {duplicates}"
+            raise ValueError(msg)
         object.__setattr__(self, "by_cluster_id", by_id)
 
     def cluster(self, cluster_id: int) -> FinalClusterOutcome:

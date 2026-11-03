@@ -187,10 +187,11 @@ def peak_pair(
 
 
 def write_as_cli(result, spectra, config, directory, metadata):
-    """Write a GUI run through the CLI's export arguments, with the GUI's peak identities.
+    """Call the shared writer with the arguments ``write_fit_run_outputs`` passes.
 
-    The CLI names peaks by engine name; passing the GUI identities lets CLI and GUI
-    exports of one run be compared byte for byte.
+    It adds the GUI's peak identities, which the CLI does not record (it names peaks by
+    engine name), so CLI- and GUI-argument exports of one run compare byte for byte.
+    It does not exercise ``write_fit_run_outputs`` itself.
     """
     write_completed_outputs(
         result.completed_fit,

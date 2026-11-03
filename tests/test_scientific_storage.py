@@ -1,4 +1,4 @@
-"""Binary authority, untrusted array limits, and cross-interface scientific parity."""
+"""Binary authority, untrusted array limits, and shared-writer parity of CLI and GUI exports."""
 
 import json
 from dataclasses import replace
@@ -18,7 +18,16 @@ from peakfit.shared.exceptions import ScientificIntegrityError
 
 @pytest.mark.parametrize("formats", [[], ["csv"], ["json", "csv", "txt"]])
 @pytest.mark.parametrize("detailed", [False, True])
-def test_cli_gui_export_scientific_parity(tmp_path, formats, detailed):
+def test_shared_writer_exports_identical_science_from_cli_and_gui_arguments(
+    tmp_path, formats, detailed
+):
+    """The shared writer, given the CLI's export arguments, matches the GUI export.
+
+    This calls ``write_completed_outputs`` as ``write_fit_run_outputs`` does (with the
+    GUI's peak identities), not the CLI facade itself. The facade is covered by
+    ``test_completed_writer_path_ignores_mutated_continuation_state`` and by the
+    end-to-end CLI fits of ``tools/scientific_digest.py``.
+    """
     spectra, config, _pipeline, gui = completed_result(formats, True, detailed)
     metadata = RunMetadata(
         run_id=gui.run_id,
