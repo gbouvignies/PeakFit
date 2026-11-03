@@ -99,9 +99,6 @@ def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) 
         targeted_step = PeakFitConfig()
         targeted_step.fitting.steps = [step]
         unsupported.append(targeted_step)
-    from_file = PeakFitConfig()
-    from_file.parameters.from_file = DATA / "previous-fit.json"
-    unsupported.append(from_file)
     for settings in unsupported:
         with pytest.raises(ValueError, match=r"assignment.*not supported.*wildcard"):
             _prepare(spectra, peak, settings, contour_level)

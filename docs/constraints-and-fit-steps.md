@@ -5,7 +5,6 @@ PeakFit supports advanced parameter control through constraints and multi-step f
 - Set custom starting values, bounds, and fix/vary status for parameters
 - Define position windows relative to peak positions (per-peak and per-axis)
 - Create multi-step fitting workflows (e.g., fix positions first, then release)
-- Load starting values from previous fits
 
 ## Quick Start
 
@@ -102,22 +101,9 @@ Patterns use glob-style matching:
 - `2N-H.*.*` - all parameters for peak "2N-H"
 - `G4?N-HN.*.cs` - CS parameters for peaks matching "G4?N-HN"
 
-### Loading from Previous Fits
-
-Start from a previous fit result:
-
-```toml
-[parameters]
-from_file = "previous_fit/summary/fit.json"
-```
-
-This loads parameter values from a JSON fit summary and uses them as starting points while
-respecting any other constraints you define.
-
 ## Effective parameter preparation
 
-Configured starting values (including values loaded from previous results) are
-resolved before the first optimizer pass. Subsequent passes continue from usable
+Configured starting values are resolved before the first optimizer pass. Subsequent passes continue from usable
 fitted values rather than resetting to configured starts. The default step preserves
 configured fixed/variable flags. Explicit step `fix`/`vary` patterns override those
 flags, with `vary` taking precedence over `fix` within a step.
@@ -259,6 +245,4 @@ F3 = 0.02  # But keep 1H tight
 
 3. **Be conservative with bounds**: Overly tight bounds can prevent convergence; overly loose bounds can lead to unphysical results.
 
-4. **Load from previous fits**: When refitting similar data or refining fits, use `from_file` to start from known-good values.
-
-5. **Document your fit steps**: Use the `description` field to explain the fitting sequence for reproducibility.
+4. **Document your fit steps**: Use the `description` field to explain the fitting sequence for reproducibility.

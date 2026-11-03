@@ -72,6 +72,9 @@ Notable user-facing and architecture changes are recorded here.
   path that guessed input-file locations and defaulted the noise to 1.0. Also
   removed the unused run README writer and the `git_commit` run metadata, which
   recorded the repository of the current directory rather than PeakFit's source.
+- Removed `[parameters].from_file`. It had read no values since fit JSON renamed
+  its parameter keys, so fits silently started from the usual defaults; a config
+  that still sets it is now rejected.
   Runs now record no source revision; `software_version` is the package version,
   which does not change between development commits.
 - Removed unused internal functions (unused `Parameters`, spectrum and peak helpers,

@@ -283,23 +283,18 @@ def _validate_constraint_targets(settings: PeakFitConfig) -> None:
     """Reject assignment-dependent rules before replacing names with safe IDs.
 
     Only whole-model '*' or '*.<axis>.<parameter>' patterns are supported here.
-    Apply the same restriction to fit-step rules; previous-fit files also contain
-    name-based identities and cannot safely be reused without explicit mapping.
+    Apply the same restriction to fit-step rules.
     """
     patterns = list(settings.parameters.defaults.patterns)
     for step in settings.fitting.steps:
         patterns.extend((*step.fix, *step.vary))
-    if (
-        settings.parameters.peaks
-        or settings.parameters.from_file is not None
-        or any(
-            pattern != "*" and re.fullmatch(r"\*\.[^.]+\.[^.]+", pattern) is None
-            for pattern in patterns
-        )
+    if settings.parameters.peaks or any(
+        pattern != "*" and re.fullmatch(r"\*\.[^.]+\.[^.]+", pattern) is None
+        for pattern in patterns
     ):
         raise ValueError(
-            "Name/assignment-targeted constraints and previous-fit parameter files are not "
-            "supported in the desktop dataset fit. Remove parameters.peaks/from_file and "
+            "Name/assignment-targeted constraints are not supported in the desktop dataset "
+            "fit. Remove parameters.peaks and "
             "use global or axis/parameter-wide wildcard rules (e.g. '*.*.lw', '*.F2.cs'); "
             "use the CLI for assignment-specific constraints."
         )
