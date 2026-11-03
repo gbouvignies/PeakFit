@@ -36,6 +36,7 @@ from peakfit.gui.project_results import (
 from peakfit.gui.session_evidence import SessionEvidence, interrupted_sessions
 from peakfit.gui.spectrum import Dataset, read_dataset
 from peakfit.io.scientific import read_scientific
+from peakfit.shared.exceptions import ScientificIntegrityError
 
 DATA = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
 pytestmark = pytest.mark.gui
@@ -166,12 +167,50 @@ def test_corrupt_and_unsupported_project_rejected(analysis, tmp_path):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     payload = next(path.rglob("result.npz"))
     payload.write_bytes(b"corrupt")
-    with pytest.raises(ValueError, match="Corrupt project evidence"):
+    with pytest.raises(ScientificIntegrityError, match=r"Corrupt project evidence.*intact copy"):
         open_analysis(path)
     manifest = json.loads((path / "manifest.json").read_text())
     manifest["schema_version"] = "999"
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match="Unsupported analysis version"):
+        open_analysis(path)
+
+
+@pytest.mark.parametrize(
+    ("damage", "detail"),
+    [
+        ("missing", "missing field 'source'"),
+        ("mistyped", "string indices must be integers"),
+        ("not_an_object", "the manifest is not a JSON object"),
+    ],
+)
+def test_damaged_project_names_the_project_and_the_next_step(analysis, tmp_path, damage, detail):
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+    manifest = json.loads((path / "manifest.json").read_text())
+    if damage == "not_an_object":
+        manifest = [manifest]
+    else:
+        manifest["dataset"] = {} if damage == "missing" else "dataset"
+    (path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ScientificIntegrityError) as error:
+        open_analysis(path)
+    message = str(error.value)
+    assert message.startswith("Cannot open analysis ")
+    assert "test.peakfit" in message
+    assert detail in message
+    assert message.endswith("open the spectrum and peak list as a new analysis.")
+
+
+def test_project_reader_defects_are_not_reported_as_damaged_projects(
+    analysis, tmp_path, monkeypatch
+):
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+
+    def broken(_self):
+        raise AttributeError("reader defect")
+
+    monkeypatch.setattr(project.StoredRun, "load", broken)
+    with pytest.raises(AttributeError, match="reader defect"):
         open_analysis(path)
 
 
@@ -940,7 +979,7 @@ def test_reconstruction_checks_evaluator_tolerance_and_rejects_drift(
     )
     reconstruct_result(loaded.completion.result, analysis.dataset)
     monkeypatch.setattr(Cluster, "evaluate_peaks", lambda *a, **kw: original(*a, **kw) * (1 + 1e-4))
-    with pytest.raises(AssertionError, match="reference"):
+    with pytest.raises(ScientificIntegrityError, match="evaluator no longer reproduces"):
         reconstruct_result(loaded.completion.result, analysis.dataset)
 
 

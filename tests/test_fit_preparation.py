@@ -1,5 +1,6 @@
 """Desktop dataset-fit preparation agrees with the shared optimizer pipeline."""
 
+import math
 from dataclasses import replace
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConstraint, PeakConstraints
 from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.spectrum import get_shape_names
+from peakfit.engine.domain.spectrum import Spectra, get_shape_names
 from peakfit.engine.results import FitResult
 from peakfit.fit.pipeline import ClusterFitTask, run_pipeline_iter
 from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
@@ -220,3 +221,22 @@ def test_dataset_cluster_identity_aliasing_and_direct_axis_guard() -> None:
     outside = replace(peaks[0], positions=(peaks[0].positions[0], x_axis.pts2ppm(x_axis.size)))
     with pytest.raises(ValueError, match="direct-axis position"):
         prepare_dataset_fit(spectra, (outside, *peaks[1:]), config)
+
+
+def _spectrum(data):
+    return Spectra(dic={}, data=data, z_values=np.arange(len(data), dtype=float), params=[])
+
+
+@pytest.mark.parametrize("configured", [0.0, -1.0, math.nan, math.inf])
+def test_invalid_configured_noise_is_rejected_not_replaced_by_an_estimate(configured):
+    spectra = _spectrum(np.random.default_rng(0).normal(size=(2, 32, 32)))
+    with pytest.raises(ValueError, match="noise level must be positive and finite"):
+        prepare_noise_level(configured, spectra)
+
+
+def test_noise_is_configured_or_a_positive_finite_estimate():
+    spectra = _spectrum(np.random.default_rng(0).normal(size=(2, 32, 32)))
+    assert prepare_noise_level(3.0, spectra) == 3.0
+    assert prepare_noise_level(None, spectra) == estimate_noise(spectra.data) > 0
+    with pytest.raises(ValueError, match="set noise_level explicitly"):
+        prepare_noise_level(None, _spectrum(np.zeros((2, 8, 8))))

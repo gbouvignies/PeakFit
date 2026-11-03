@@ -23,6 +23,7 @@ from peakfit.engine.scientific.final_outcome import FinalAnalyticalEvaluation
 from peakfit.engine.scientific.simulation import FinalModelCluster, FinalModelSnapshot
 from peakfit.io.readers.spectrum import read_spectra
 from peakfit.io.scientific import read_scientific
+from peakfit.shared.exceptions import require_close
 
 if TYPE_CHECKING:
     from peakfit.engine.types import Shape
@@ -171,33 +172,45 @@ def restore_completed(outcome, samples, context, *, source_data=None, source_pla
             restored.append(terminal)
             continue
         evaluated = Cluster.evaluate_peaks(cluster.peaks, params, cluster.grid_indices)
-        np.testing.assert_allclose(
+        require_close(
             evaluated,
             e.shapes,
             rtol=1e-10,
             atol=1e-12,
-            err_msg="Saved model evaluator no longer reproduces its reference",
+            message=f"Cluster {terminal.cluster_id}: the saved model evaluator no longer "
+            "reproduces its recorded shapes; this PeakFit version cannot continue the fit. "
+            "Refit the dataset.",
         )
         predicted = e.shapes.T @ e.amplitudes
         if isinstance(e, FinalAnalyticalEvaluation):
-            np.testing.assert_allclose(predicted, e.model_values, rtol=1e-10, atol=1e-9)
+            require_close(
+                predicted,
+                e.model_values,
+                rtol=1e-10,
+                atol=1e-9,
+                message=f"Cluster {terminal.cluster_id}: recorded model values disagree with "
+                "shapes and amplitudes; the fit cannot be continued. Refit the dataset.",
+            )
             restored.append(terminal)
             continue
         residual = cluster.corrected_data - predicted
         normalized = residual.ravel() / outcome.noise
-        np.testing.assert_allclose(
+        require_close(
             np.sum(normalized**2),
             e.statistics.chi_squared,
             rtol=1e-8,
             atol=1e-9,
-            err_msg="Reconstructed terminal problem disagrees with recorded fit",
+            message=f"Cluster {terminal.cluster_id}: the reconstructed terminal problem "
+            "disagrees with the recorded chi-squared; the fit cannot be continued. "
+            "Refit the dataset.",
         )
-        np.testing.assert_allclose(
+        require_close(
             np.max(np.abs(normalized)),
             e.largest_recorded_residual,
             rtol=1e-8,
             atol=1e-9,
-            err_msg="Reconstructed residuals disagree with the largest recorded residual",
+            message=f"Cluster {terminal.cluster_id}: reconstructed residuals disagree with "
+            "the largest recorded residual; the fit cannot be continued. Refit the dataset.",
         )
         for array in (predicted, residual, normalized):
             array.flags.writeable = False

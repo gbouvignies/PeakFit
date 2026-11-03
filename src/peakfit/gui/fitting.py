@@ -129,9 +129,7 @@ def prepare_dataset_fit(
     )
     _validate_constraint_targets(settings)
     _validate_inputs(spectra, peaks, settings)
-    noise = float(prepare_noise_level(settings.noise_level, spectra))
-    if not np.isfinite(noise) or noise <= 0:
-        raise ValueError("Cannot estimate positive finite noise for this spectrum.")
+    noise = prepare_noise_level(settings.noise_level, spectra)
     threshold = settings.clustering.contour_level
     if threshold is None:
         threshold = settings.clustering.contour_factor * noise

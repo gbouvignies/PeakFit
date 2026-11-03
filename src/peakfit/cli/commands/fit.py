@@ -188,8 +188,12 @@ def fit_command(
             workers=workers,
         )
 
-    with console.status("[info]Loading data...[/info]", spinner="dots"):
-        data = load_data(spectrum, peaklist, z_values, fit_config)
+    try:
+        with console.status("[info]Loading data...[/info]", spinner="dots"):
+            data = load_data(spectrum, peaklist, z_values, fit_config)
+    except (OSError, ValueError) as e:
+        show_error_with_details("Loading data", e)
+        raise typer.Exit(1) from e
 
     output_dir = resolve_output_dir(fit_config)
 

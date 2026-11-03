@@ -15,6 +15,7 @@ from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.io import scientific as storage
 from peakfit.io.output_metadata import RunMetadata
+from peakfit.shared.exceptions import ScientificIntegrityError
 
 
 @pytest.mark.parametrize("formats", [[], ["csv"], ["json", "csv", "txt"]])
@@ -155,7 +156,7 @@ def test_malformed_scientific_evidence_rejected(tmp_path, corruption):
     with ZipFile(broken, "w") as archive:
         for name, value in members.items():
             archive.writestr(name, value)
-    with pytest.raises((ValueError, AssertionError)):
+    with pytest.raises(ScientificIntegrityError, match=r"broken\.npz.*Refit the dataset"):
         storage.read_scientific(broken)
 
 

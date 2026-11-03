@@ -41,6 +41,9 @@ Notable user-facing and architecture changes are recorded here.
   the current CLI, canonical outputs, `prek`, and simplified architecture.
 - Moved architecture and decisions documentation into `docs/` so project
   documentation has one canonical folder.
+- Damaged, inconsistent or other-version scientific archives and projects now raise
+  `ScientificIntegrityError` naming the file and the next step, instead of raw
+  `AssertionError`, `KeyError` or `TypeError`. Integrity tolerances are unchanged.
 
 ### Removed
 
@@ -94,3 +97,6 @@ Notable user-facing and architecture changes are recorded here.
 - Scientific archives move to 5.0.0, fit JSON to 5.0.0 and projects to 7.0.0;
   earlier versions are rejected. Refit results and recreate projects written
   before this change.
+- A non-positive or non-finite `noise_level` is rejected; it was silently replaced
+  by an estimate when set through `--noise` with a config file. A spectrum whose
+  estimated noise is not positive and finite asks for `noise_level` explicitly.

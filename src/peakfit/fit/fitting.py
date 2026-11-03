@@ -30,7 +30,6 @@ from peakfit.io.output_metadata import capture_output_metadata
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
 from peakfit.io.writers.config import WriterConfig
-from peakfit.shared.exceptions import DataIOError
 from peakfit.shared.paths import format_path
 
 if TYPE_CHECKING:
@@ -63,12 +62,8 @@ def load_data(
     spectra = read_spectra(spectrum_path, z_values_path, config.exclude_planes)
 
     # 2. Estimate Noise
-    computed_noise = prepare_noise_level(config.noise_level, spectra)
-    if computed_noise is None:
-        raise DataIOError("Could not estimate noise level.")
-
-    noise_val = float(computed_noise)
-    noise_source = "user-provided" if config.noise_level and config.noise_level > 0 else "estimated"
+    noise_val = prepare_noise_level(config.noise_level, spectra)
+    noise_source = "user-provided" if config.noise_level is not None else "estimated"
 
     # 3. Detect Lineshapes
     shape_names = get_shape_names(config.fitting, spectra)
