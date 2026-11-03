@@ -29,7 +29,7 @@ from peakfit.gui.project_results import (
 from peakfit.gui.spectrum import Dataset, read_dataset
 from peakfit.io.scientific import read_scientific, write_scientific
 
-VERSION = "6.0.0"
+VERSION = "7.0.0"
 MAX_RUNS = 10
 MAX_EVIDENCE_BYTES = 1024**3
 MAX_ARCHIVE_BYTES = 8 * 1024**3

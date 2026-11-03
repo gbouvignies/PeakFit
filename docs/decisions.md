@@ -258,4 +258,10 @@ Short records of non‑obvious design choices and trade‑offs.
   and depended on a JSON export rather than `scientific.npz`. The GUI already
   rejected it and continues fits by stable peak ID.
 - `[parameters]` now rejects unknown keys, so a leftover `from_file` fails at load.
+- Scientific archives and projects record the configuration and validate it on
+  reopening; those written before this change record `from_file: null`. The
+  scientific archive moves to 5.0.0 and the project to 7.0.0, so they are rejected
+  by version before configuration validation. Fit JSON stays at 5.0.0: its schema
+  keeps the configuration as an opaque mapping and nothing rebuilds a
+  configuration from it.
 - If CLI fits need previous-fit starts, read them from `scientific.npz`.
