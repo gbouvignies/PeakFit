@@ -79,7 +79,6 @@ its run ID, timestamps, output directory or fit timings.
 - Keep `engine` focused on numerical/domain primitives.
 - Keep `fit` focused on loading, validation, orchestration, and fit-output
   assembly.
-- Keep `auto_pick` isolated as an experimental workflow.
 - Keep one shared scientific authority: `scientific.npz`, CSV tables under
   `tables/`, and a short report; JSON is explicit interoperability.
 

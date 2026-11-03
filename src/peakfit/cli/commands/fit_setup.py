@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, cast, get_args
+from typing import cast, get_args
 
 import typer
 
@@ -19,9 +19,6 @@ from peakfit.engine.domain.config import (
 from peakfit.io.config import load_config
 from peakfit.shared.constants import BASIN_HOPPING_NITER
 
-if TYPE_CHECKING:
-    from peakfit.engine.domain.peaks import Peak
-
 VALID_OUTPUT_FORMATS = get_args(OutputFormat)
 VALID_OPTIMIZERS = ("varpro", "basin_hopping")
 
@@ -35,8 +32,6 @@ def build_fit_config(
     contour_level: float | None,
     lineshape: LineshapeName,
     refine: int,
-    fixed: bool,
-    jx: bool,
     phx: bool,
     phy: bool,
     exclude: list[int] | None,
@@ -78,8 +73,6 @@ def build_fit_config(
         fitting=FitConfig(
             lineshape=lineshape,
             refine_iterations=refine,
-            fix_positions=fixed,
-            fit_j_coupling=jx,
             fit_phase=fit_phase,
         ),
         clustering=ClusterConfig(contour_level=contour_level),
@@ -137,21 +130,3 @@ def resolve_output_dir(fit_config: PeakFitConfig) -> Path:
     fit_config.output.directory = output_dir
     fit_config.output.include_timestamp = False
     return output_dir
-
-
-def write_autopicked_peaklist(output_dir: Path, peaks: list[Peak]) -> Path:
-    """Write auto-detected peaks to Sparky-like list format for reproducibility."""
-    peaklist_dir = output_dir / "metadata"
-    peaklist_dir.mkdir(parents=True, exist_ok=True)
-    peaklist_path = peaklist_dir / "autopicked.list"
-
-    columns = [f"w{i + 1}" for i in range(len(peaks[0].positions))] if peaks else []
-    header = "Assignment" if not columns else f"Assignment {' '.join(columns)}"
-
-    lines = [header]
-    for peak in peaks:
-        positions = " ".join(f"{float(pos):.6f}" for pos in peak.positions)
-        lines.append(f"{peak.name} {positions}")
-
-    peaklist_path.write_text("\n".join(lines) + "\n")
-    return peaklist_path

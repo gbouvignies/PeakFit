@@ -42,7 +42,6 @@ class FitConfig(BaseModel):
         [fitting]
         lineshape = "auto"
         refine_iterations = 2
-        fix_positions = false
 
     Advanced multi-step fit:
         [[fitting.steps]]
@@ -77,11 +76,6 @@ class FitConfig(BaseModel):
     refine_iterations: Annotated[int, Field(le=20)] = Field(
         default=1,
         description="Number of optimizer passes; corrections update between passes.",
-    )
-    fix_positions: bool = Field(default=False, description="Fix peak positions during fitting.")
-    fit_j_coupling: bool = Field(
-        default=False,
-        description="Fit J-coupling constant in direct dimension.",
     )
     fit_phase: list[str] = Field(
         default_factory=list,
@@ -130,72 +124,6 @@ class ClusterConfig(BaseModel):
     contour_level: float | None = Field(
         default=None,
         description="Explicit contour level (overrides contour_factor if set).",
-    )
-
-
-class AutoPeakConfig(BaseModel):
-    """Configuration for automatic peak picking when no peak list is provided."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: bool = Field(
-        default=True,
-        description="Enable automatic peak picking when no peak list is given.",
-    )
-    start_threshold_sigma: Annotated[float, Field(gt=0)] = Field(
-        default=15.0,
-        description="Stop when residual maximum falls below this noise multiple.",
-    )
-    add_threshold_sigma: Annotated[float, Field(gt=0)] = Field(
-        default=3.0,
-        description="Minimum residual-noise multiple required to add a peak within an ROI.",
-    )
-    f_test_pvalue: Annotated[float, Field(gt=0, lt=1)] = Field(
-        default=1e-6,
-        description="P-value cutoff used when accepting additional peaks in an ROI.",
-    )
-    max_clusters: Annotated[int, Field(gt=0)] = Field(
-        default=2000,
-        description="Maximum number of ROI iterations during automatic picking.",
-    )
-    max_peaks_per_roi: int | None = Field(
-        default=None,
-        gt=0,
-        description="Optional maximum number of peaks to add in a single ROI.",
-    )
-    min_peak_separation_pts: Annotated[int, Field(ge=0)] = Field(
-        default=5,
-        description="Minimum separation between automatically inserted peaks (in points).",
-    )
-    position_window_ppm: Annotated[float, Field(gt=0)] = Field(
-        default=0.05,
-        description="Initial +/- window for peak position parameters during ROI fitting.",
-    )
-    max_nfev_per_fit: Annotated[int, Field(gt=0)] = Field(
-        default=250,
-        description="Maximum VARPRO function evaluations for each ROI trial fit.",
-    )
-    position_constraint_factor: Annotated[float, Field(gt=0)] = Field(
-        default=1.5,
-        description="CS bound factor in units of fitted linewidth during constrained release.",
-    )
-    max_constraint_refits: Annotated[int, Field(ge=0)] = Field(
-        default=3,
-        description=(
-            "Maximum number of additional constrained CS-release retries when CS lands near bounds."
-        ),
-    )
-    proton_constraint_margin_ppm: Annotated[float, Field(gt=0)] = Field(
-        default=0.002,
-        description="Boundary proximity threshold for 1H CS constraints (ppm).",
-    )
-    heteronuclear_constraint_margin_ppm: Annotated[float, Field(gt=0)] = Field(
-        default=0.02,
-        description="Boundary proximity threshold for heteronuclear CS constraints (ppm).",
-    )
-    amplitude_zero_tolerance: Annotated[float, Field(ge=0)] = Field(
-        default=1e-12,
-        description="Tolerance used to reject peaks with near-zero amplitudes in all spectra.",
     )
 
 
@@ -277,7 +205,6 @@ class PeakFitConfig(BaseModel):
 
     fitting: FitConfig = Field(default_factory=FitConfig)
     clustering: ClusterConfig = Field(default_factory=ClusterConfig)
-    auto_peak: AutoPeakConfig = Field(default_factory=AutoPeakConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
     parameters: ParameterConfig = Field(
         default_factory=ParameterConfig,
@@ -333,7 +260,6 @@ OptimizerConfig = VarProConfig | BasinHoppingConfig
 
 
 __all__ = [
-    "AutoPeakConfig",
     "BasinHoppingConfig",
     "ClusterConfig",
     "FitConfig",

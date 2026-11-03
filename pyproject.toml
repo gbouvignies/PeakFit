@@ -90,7 +90,6 @@ layers = [
   "gui",
   "ui",
   "fit",
-  "auto_pick",
   "mcmc",
   "plot",
   "io",
@@ -106,7 +105,6 @@ type = "acyclic_siblings"
 ancestors = [
   "peakfit.engine",
   "peakfit.gui",
-  "peakfit.auto_pick",
   "peakfit.fit",
   "peakfit.io",
   "peakfit.mcmc",
@@ -216,7 +214,6 @@ ban-relative-imports = "parents"
   "PLR2004",  # Allow magic values in tests (assert x == 5)
 ]
 "src/peakfit/engine/domain/cluster.py" = ["TC001"]
-"src/peakfit/auto_pick/algorithm.py" = ["PLR0912", "PLR0915"]
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-base-classes = ["pydantic.BaseModel"]

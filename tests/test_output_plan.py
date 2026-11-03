@@ -32,6 +32,7 @@ def _outcome() -> FinalFitOutcome:
         model_values=matrix,
         raw_residuals=matrix,
         normalized_residuals=vector,
+        largest_recorded_residual=float(np.max(np.abs(vector))),
         statistics=AnalyticalFitStatistics(
             chi_squared=10.0,
             n_observations=1,

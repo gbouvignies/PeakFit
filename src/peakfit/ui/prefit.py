@@ -68,7 +68,7 @@ def show_prefit_check(
     optimizer: str,
     config: PeakFitConfig,
     spectrum_path: Path,
-    peaklist_path: Path | None,
+    peaklist_path: Path,
     workers: int | str = 1,
 ) -> None:
     """Display the pre-fit setup panel.
@@ -98,11 +98,7 @@ def show_prefit_check(
 
     rel_output = _relative_path(output_dir)
 
-    peaklist_label = (
-        f"Auto-detected ({n_peaks} peaks)"
-        if peaklist_path is None
-        else f"{peaklist_path.name} ({n_peaks} peaks)"
-    )
+    peaklist_label = f"{peaklist_path.name} ({n_peaks} peaks)"
 
     show_command_summary(
         "Fitting",

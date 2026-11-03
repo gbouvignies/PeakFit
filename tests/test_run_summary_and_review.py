@@ -116,6 +116,7 @@ def _evaluation(cluster_id: int, redchi: float) -> FinalAnalyticalEvaluation:
         model_values=values,
         raw_residuals=values,
         normalized_residuals=values,
+        largest_recorded_residual=float(np.max(np.abs(values))),
         statistics=statistics,
     )
 

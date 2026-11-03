@@ -14,7 +14,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editor.labels import clear_layout, review_item, text_label
-from peakfit.gui.editor.review import NOT_RETAINED, correlation_matrix
+from peakfit.gui.editor.review import correlation_matrix
 
 if TYPE_CHECKING:
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome
@@ -282,9 +282,7 @@ class ClusterPage(QtWidgets.QWidget):
                 f"χ²ᵣ {review.chi2:.3g}",
                 f"{samples:,} fitting samples · relative to the noise estimate".replace(",", " "),
             )
-            if review.largest_residual is None:
-                review_item(self.review, "", "·", f"Largest recorded residual · {NOT_RETAINED}")
-            elif math.isfinite(review.largest_residual) and samples > 1:
+            if math.isfinite(review.largest_residual) and samples > 1:
                 review_item(
                     self.review,
                     "",

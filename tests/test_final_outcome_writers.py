@@ -85,6 +85,7 @@ def _cluster(
             model_values=matrix,
             raw_residuals=matrix,
             normalized_residuals=vector,
+            largest_recorded_residual=float(np.max(np.abs(vector))),
             statistics=AnalyticalFitStatistics(
                 chi_squared=float(cluster_id),
                 n_observations=1,

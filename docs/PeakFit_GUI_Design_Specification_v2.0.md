@@ -479,7 +479,7 @@ guess from the field names alone. A failed import leaves the existing analysis
 intact. Large imports show cancellable progress; do not publish half-loaded data.
 
 No peak list means inspection and manual placement are available, with Fit disabled
-and an explanation. Automatic peak picking remains an experimental separate workflow.
+and an explanation.
 Import peaks offers explicit Replace / Append after showing counts; Append allocates
 new stable IDs. Duplicate assignments are allowed with a warning and disambiguating
 coordinates/ID. Missing assignments receive unique editable placeholders. Renaming

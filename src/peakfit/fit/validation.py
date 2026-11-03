@@ -33,12 +33,12 @@ class ValidationResult:
         return len(self.errors) == 0
 
 
-def validate_inputs(spectrum_path: Path, peaklist_path: Path | None) -> ValidationResult:
+def validate_inputs(spectrum_path: Path, peaklist_path: Path) -> ValidationResult:
     """Validate input files.
 
     Args:
         spectrum_path: Path to spectrum file.
-        peaklist_path: Path to peak list file (optional).
+        peaklist_path: Path to peak list file.
 
     Returns:
     -------
@@ -48,8 +48,7 @@ def validate_inputs(spectrum_path: Path, peaklist_path: Path | None) -> Validati
 
     _validate_spectrum(spectrum_path, result)
 
-    if peaklist_path is not None:
-        _validate_peaklist(peaklist_path, result)
+    _validate_peaklist(peaklist_path, result)
 
     return result
 

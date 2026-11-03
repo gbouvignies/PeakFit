@@ -18,9 +18,6 @@ import logging
 import multiprocessing
 from typing import TYPE_CHECKING, Any
 
-from peakfit.auto_pick import auto_pick_peaks
-from peakfit.auto_pick.logging import log_auto_pick_cycle
-from peakfit.auto_pick.types import AutoPickCycleAction
 from peakfit.engine.algorithms.clustering import create_clusters
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.algorithms.noise import prepare_noise_level
@@ -40,33 +37,24 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from pathlib import Path
 
-    from peakfit.auto_pick.types import AutoPickCycleReport
     from peakfit.engine.domain.config import PeakFitConfig
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.shared.reporter import Reporter
 
-    type AutoPickCallbackBuilder = Callable[
-        [Spectra, float], Callable[[AutoPickCycleReport], AutoPickCycleAction]
-    ]
-
 
 def load_data(
     spectrum_path: Path,
-    peaklist_path: Path | None,
+    peaklist_path: Path,
     z_values_path: Path | None,
     config: PeakFitConfig,
-    reporter: Reporter | None = None,
-    auto_pick_callback_builder: AutoPickCallbackBuilder | None = None,
 ) -> LoadedData:
     """Load all data required for fitting.
 
     Args:
         spectrum_path: Path to spectrum file
-        peaklist_path: Path to peak list file (optional)
+        peaklist_path: Path to peak list file
         z_values_path: Path to Z-series file
         config: Full configuration object
-        reporter: Optional progress reporter for auto-pick logs
-        auto_pick_callback_builder: Optional callback builder for step-wise auto-pick control
 
     Returns:
         LoadedData container with spectra, peaks, noise, clusters, etc.
@@ -92,54 +80,8 @@ def load_data(
         else config.clustering.contour_factor * noise_val
     )
 
-    # 5. Load or Auto-Pick Peaks
-    if peaklist_path is None:
-        if not config.auto_peak.enabled:
-            raise DataIOError("No peak list provided and automatic peak picking is disabled.")
-        if reporter is not None:
-            reporter.action("Running automatic peak picking (no peak list provided)...")
-
-        user_cycle_callback = (
-            auto_pick_callback_builder(spectra, contour)
-            if auto_pick_callback_builder is not None
-            else None
-        )
-
-        def _cycle_callback(cycle: AutoPickCycleReport) -> AutoPickCycleAction:
-            if reporter is not None:
-                log_auto_pick_cycle(reporter, cycle)
-            if user_cycle_callback is None:
-                return AutoPickCycleAction()
-            return user_cycle_callback(cycle)
-
-        auto_result = auto_pick_peaks(
-            spectra,
-            shape_names,
-            noise_val,
-            contour,
-            config,
-            cycle_callback=_cycle_callback if (reporter or user_cycle_callback) else None,
-        )
-        peaks = auto_result.peaks
-        if reporter is not None:
-            stop_msg = " (stopped by user)" if auto_result.diagnostics.stopped_by_user else ""
-            reporter.success(
-                "Automatic peak picking completed"
-                f"{stop_msg}: peaks={len(peaks)} "
-                f"accepted_rois={auto_result.diagnostics.accepted_rois} "
-                f"rejected_rois={auto_result.diagnostics.rejected_rois}"
-            )
-        if not peaks:
-            if auto_result.diagnostics.stopped_by_user:
-                raise DataIOError(
-                    "Automatic peak picking was stopped before any peak was accepted."
-                )
-            raise DataIOError(
-                "Automatic peak picking found no peaks above threshold. "
-                "Lower auto_peak.start_threshold_sigma or provide a peak list."
-            )
-    else:
-        peaks = read_list(peaklist_path, spectra, shape_names, config.fitting)
+    # 5. Load Peaks
+    peaks = read_list(peaklist_path, spectra, shape_names, config.fitting)
 
     # 6. Create Clusters
     clusters = create_clusters(spectra, peaks, contour)

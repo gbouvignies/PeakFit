@@ -57,6 +57,13 @@ Notable user-facing and architecture changes are recorded here.
   the legacy serialized-state `peaks` fallback.
 - Removed stale standalone MCMC workflow and duplicate terminal/typing
   development notes after merging current guidance into `docs/development.md`.
+- Retired experimental automatic peak picking: the `auto_pick` package, the
+  `--auto-pick-step` window and the `[auto_peak]` configuration. `peakfit fit`
+  requires a peak list.
+- Removed `peakfit fit --fixed/--no-fixed` and `--jx/--no-jx` and the
+  `[fitting].fix_positions` and `fit_j_coupling` keys, which only auto-pick read;
+  in routine fits they did nothing. Fix positions with a fit step
+  (`fix = ["*.*.cs"]`) and fit J with a doublet lineshape.
 
 ### Compatibility
 
@@ -65,3 +72,5 @@ Notable user-facing and architecture changes are recorded here.
 - `peakfit fit --optimizer differential_evolution` and configs containing
   `[fitting].strategy_name` are no longer accepted; use the default `varpro` or
   `--optimizer basin_hopping`.
+- Configs containing `[auto_peak]`, `fix_positions` or `fit_j_coupling` are rejected;
+  delete those keys.

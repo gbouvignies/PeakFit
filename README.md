@@ -50,9 +50,7 @@ peakfit fit data/pseudo3d.ft2 data/pseudo3d.list \
   --output Fits
 ```
 
-`peakfit fit` validates inputs before fitting. Omitting the peak list invokes the
-experimental automatic peak-picking workflow; provide a peak list for routine
-analyses.
+`peakfit fit` validates inputs before fitting; a peak list is required.
 
 Useful fit options:
 

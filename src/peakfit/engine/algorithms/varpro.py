@@ -27,17 +27,6 @@ class ScipyOptimizerError(Exception):
     """Exception raised for errors in scipy optimization."""
 
 
-def _sync_alias_values(params: Parameters, shared_aliases: dict[str, str] | None) -> None:
-    """Copy source parameter values and errors into aliased target parameters."""
-    if not shared_aliases:
-        return
-
-    for target_name, source_name in shared_aliases.items():
-        if target_name in params and source_name in params:
-            params[target_name].value = params[source_name].value
-            params[target_name].stderr = params[source_name].stderr
-
-
 @dataclass
 class VarProOptimizer:
     """Variable Projection Optimizer state manager.
@@ -51,7 +40,6 @@ class VarProOptimizer:
     params_template: Parameters
     fit_params: FitParameters
     noise: float
-    shared_aliases: dict[str, str] | None = None
 
     # Cache fields
     _cache_hash: int | None = field(default=None, init=False, repr=False)
@@ -130,9 +118,6 @@ class VarProOptimizer:
         # Update parameter values in template
         for i, name in enumerate(self.names):
             self.params_template[name].value = x[i]
-
-        # Keep aliased parameters synchronized with their source parameter.
-        _sync_alias_values(self.params_template, self.shared_aliases)
 
         assert self._d_matrix is not None
         assert self._grid_dims is not None
@@ -321,42 +306,10 @@ def _update_amplitude_params(
                 params.add(pid, value=val, computed=True, vary=False, stderr=peak_err)
 
 
-def _apply_shared_aliases_to_params(
-    params: Parameters,
-    shared_aliases: dict[str, str] | None,
-) -> None:
-    """Freeze target aliases and synchronize their values from source names."""
-    if not shared_aliases:
-        return
-
-    _sync_alias_values(params, shared_aliases)
-    for target_name in shared_aliases:
-        if target_name in params:
-            params[target_name].vary = False
-
-
-def _inject_shared_aliases_into_map(
-    fit_params: FitParameters,
-    params: Parameters,
-    shared_aliases: dict[str, str] | None,
-) -> None:
-    """Map aliased names to the same fitted index as their source parameter."""
-    if not shared_aliases or fit_params.map is None:
-        return
-
-    name_to_index = dict(fit_params.map.name_to_index)
-    for target_name, source_name in shared_aliases.items():
-        source_index = name_to_index.get(source_name)
-        if source_index is not None and target_name in params:
-            name_to_index[target_name] = source_index
-    fit_params.map = ParameterMap(name_to_index=name_to_index)
-
-
 def fit_cluster(
     params: Parameters,
     cluster: Cluster,
     noise: float,
-    shared_aliases: dict[str, str] | None = None,
     max_nfev: int = 1000,
     ftol: float = 1e-8,
     xtol: float = 1e-8,
@@ -369,14 +322,11 @@ def fit_cluster(
     if not cluster.peaks:
         raise ScipyOptimizerError("Cluster has no peaks to fit")
 
-    _apply_shared_aliases_to_params(params, shared_aliases)
-
     x0 = params.get_vary_values()
     lower, upper = params.get_vary_bounds()
     vary_names = params.get_vary_names()
 
     fit_params = FitParameters.from_parameters(params, cluster.peaks)
-    _inject_shared_aliases_into_map(fit_params, params, shared_aliases)
 
     optimizer = VarProOptimizer(
         cluster=cluster,
@@ -384,7 +334,6 @@ def fit_cluster(
         params_template=params,
         fit_params=fit_params,
         noise=noise,
-        shared_aliases=shared_aliases,
     )
 
     try:
@@ -411,7 +360,6 @@ def fit_cluster(
     # Update parameters & clamp
     result.x = np.clip(result.x, lower, upper)
     params.set_vary_values(result.x)
-    _apply_shared_aliases_to_params(params, shared_aliases)
 
     # Ensure final state is computed and amplitudes are recoverable
     optimizer.compute_residuals(result.x)
@@ -419,7 +367,6 @@ def fit_cluster(
 
     stderrs, amp_stderrs = _calculate_errors(optimizer, result.x, noise)
     params.set_errors(stderrs)
-    _sync_alias_values(params, shared_aliases)
 
     _update_amplitude_params(cluster, params, final_amplitudes, amp_stderrs)
 

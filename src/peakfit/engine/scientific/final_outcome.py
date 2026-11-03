@@ -53,8 +53,8 @@ class FinalAnalyticalResult:
     statistics: AnalyticalFitStatistics
     uncertainty_warning: str | None = None
     # max |recorded optimizer residual| / σ over the statistics.n_observations
-    # corrected fitting samples; None when an archive predates its retention.
-    largest_recorded_residual: float | None = None
+    # corrected fitting samples.
+    largest_recorded_residual: float
 
 
 @dataclass(frozen=True, slots=True)

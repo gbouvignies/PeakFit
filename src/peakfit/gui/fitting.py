@@ -313,11 +313,6 @@ def _validate_inputs(
         raise ValueError(
             "The desktop dataset fit includes every plane; exclusions are unsupported."
         )
-    if settings.fitting.fix_positions or settings.fitting.fit_j_coupling:
-        raise ValueError(
-            "Legacy fix_positions/fit_j_coupling flags are not supported by preparation. "
-            "Use explicit fit-step rules or explicit doublet models instead."
-        )
     if len({peak.id for peak in peaks}) != len(peaks):
         raise ValueError("Working peaks must have unique internal identities.")
     if (

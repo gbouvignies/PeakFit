@@ -47,7 +47,6 @@ task is explicitly a storage change.
   layers.
 - Prefer direct functions and explicit data flow over managers, services,
   registries, factories or adapters.
-- `auto_pick` is experimental and stays isolated from the routine workflow.
 - Package map and boundaries: `docs/architecture.md`.
 
 ## Focused development
