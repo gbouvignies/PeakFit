@@ -67,7 +67,6 @@ def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) 
                     [cluster],
                     prepared.noise,
                     Parameters.from_peaks(cluster.peaks),
-                    cluster.peaks,
                     executor=capture,
                 )
             )
@@ -137,7 +136,6 @@ def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) 
         [cluster],
         prepared.noise,
         Parameters.from_peaks(cluster.peaks),
-        cluster.peaks,
     )
     while len(captured) < 2:
         next(items)

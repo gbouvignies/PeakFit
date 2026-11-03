@@ -9,15 +9,15 @@ from peakfit.engine.algorithms.evaluation import classify_optimizer_result
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
 from peakfit.engine.scientific.completed import CompletedFit
+from peakfit.engine.scientific.completion import CorrectionSnapshot, PipelineCompletion
 from peakfit.engine.scientific.simulation import project_final_outcome, project_final_residual
-from peakfit.fit.pipeline import CorrectionSnapshot, PipelineCompletion, complete_fit
+from peakfit.fit.pipeline import complete_fit
 
 
 @pytest.fixture
@@ -112,7 +112,6 @@ def completed():
         evaluations.append(classify_optimizer_result(cluster=cluster, result=result, noise=0.25))
     state = FittingState(
         clusters=clusters,
-        params=FitParameters.from_parameters(params, peaks),
         scalar_params=params,
         noise=0.25,
     )

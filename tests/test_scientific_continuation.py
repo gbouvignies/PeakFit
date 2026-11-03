@@ -135,7 +135,6 @@ def test_compact_continuation_verifies_source_and_exact_excluded_plane_identity(
         prepared.clusters,
         prepared.noise,
         prepared.parameters,
-        [p for c in prepared.clusters for p in c.peaks],
     )
     result = finish_dataset_fit(prepared, DatasetFitAttempt(pipeline.completed_fit, (), 1.0))
     directory = export_fit_result(result, tmp_path / "results")

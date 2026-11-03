@@ -95,7 +95,10 @@ def main():
         preparation_seconds = perf_counter() - started
         started = perf_counter()
         pipeline = run_pipeline(
-            config, data.clusters, data.noise, Parameters.from_peaks(data.peaks), data.peaks
+            config,
+            data.clusters,
+            data.noise,
+            Parameters.from_peaks(data.peaks),
         )
         fit_seconds = perf_counter() - started
         outcome, snapshot = pipeline.final_outcome, pipeline.simulation_snapshot

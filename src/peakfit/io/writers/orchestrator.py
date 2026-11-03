@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
-    from peakfit.fit.run_models import RunSummary
+    from peakfit.engine.scientific.summary import RunSummary
     from peakfit.io.output_metadata import RunMetadata
     from peakfit.shared.typing import FloatArray, IntArray
 

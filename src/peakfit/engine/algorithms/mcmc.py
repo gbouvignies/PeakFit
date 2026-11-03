@@ -19,6 +19,7 @@ from peakfit.engine.algorithms.linear_algebra import (
     factorize_shapes,
 )
 from peakfit.engine.diagnostics.convergence import diagnose_convergence
+from peakfit.engine.domain.param_id import PSEUDO_AXIS, ParameterId
 from peakfit.shared.constants import MCMC_N_STEPS, MCMC_N_WALKERS
 
 if TYPE_CHECKING:
@@ -138,14 +139,7 @@ def _prepare_mcmc_sampling(
 
     for name, p in params.items():
         if p.vary:
-            is_amplitude = (
-                p.param_id and p.param_id.label.startswith("I") and p.param_id.label[1:].isdigit()
-            )
-            if is_amplitude:
-                # We do NOT sample amplitudes directly; they are solved analytically
-                params_clean[name].vary = False
-            else:
-                vary_names.append(name)
+            vary_names.append(name)
 
     if not vary_names:
         raise ValueError("No nonlinear parameters found to vary for MCMC.")
@@ -358,10 +352,12 @@ def estimate_uncertainties_mcmc(
     # Consistent with the point-by-series cluster data contract.
     n_series = cluster.n_series
 
-    amp_names = []
-    # Standardized amplitude naming aligned with scalar parameter conventions:
-    # <peak>.F1.I<plane_index>
-    amp_names = [f"{p.name}.F1.I{i}" for p in cluster.peaks for i in range(n_series)]
+    # Amplitudes are solved, never parameters; they are named <peak>.F1.I<plane_index>.
+    amp_names = [
+        ParameterId(peak_name=p.name, axis=PSEUDO_AXIS, label="I", index=i).name
+        for p in cluster.peaks
+        for i in range(n_series)
+    ]
 
     combined_names = lineshape_names + amp_names
 

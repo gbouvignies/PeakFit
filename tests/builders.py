@@ -120,7 +120,6 @@ def completed_result(formats, save_simulated, detailed=False):
         prepared.clusters,
         prepared.noise,
         prepared.parameters,
-        [p for c in prepared.clusters for p in c.peaks],
     )
     gui = finish_dataset_fit(prepared, DatasetFitAttempt(pipeline.completed_fit, (), 1.0))
     return spectra, config, pipeline, gui

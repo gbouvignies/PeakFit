@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from copy import copy
-from dataclasses import dataclass, field
-from types import MappingProxyType
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -18,54 +17,19 @@ from peakfit.engine.domain.config import FitConfig, PeakFitConfig, VarProConfig
 from peakfit.engine.domain.constraints import apply_constraints
 from peakfit.engine.domain.fit_steps import FitStep, apply_step_constraints, build_fit_steps
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.varpro_fit import fit_varpro
 from peakfit.engine.scientific.completed import CompletedFit
+from peakfit.engine.scientific.completion import CorrectionSnapshot, PipelineCompletion
 from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
+from peakfit.fit.run_models import CorrectionUpdate, PassStart
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Iterator, Sequence
 
     from peakfit.engine.domain.cluster import Cluster
-    from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.results import FitResult
     from peakfit.engine.scientific.simulation import FinalModelSnapshot
-    from peakfit.shared.typing import FloatArray
-
-
-@dataclass(frozen=True, slots=True)
-class CorrectionSnapshot:
-    """Read-only correction arrays used by a single optimizer pass."""
-
-    revision: int
-    corrections: Mapping[int, FloatArray]
-
-    @classmethod
-    def from_clusters(
-        cls,
-        clusters: Sequence[Cluster],
-        revision: int,
-    ) -> CorrectionSnapshot:
-        """Copy corrections so later scheduling cannot alter this pass."""
-        copied_corrections: dict[int, FloatArray] = {}
-        for cluster in clusters:
-            correction = cluster.corrections.copy()
-            correction.flags.writeable = False
-            copied_corrections[cluster.cluster_id] = correction
-        return cls(revision=revision, corrections=MappingProxyType(copied_corrections))
-
-
-@dataclass(frozen=True)
-class PipelineCompletion:
-    """Internal terminal attempts and state consumed once by finalization."""
-
-    state: FittingState
-    results: list[FitResult]
-    evaluations: list[FitEvaluation] = field(default_factory=list)
-    correction_snapshot: CorrectionSnapshot | None = None
-    n_optimizer_passes: int = 0
-    n_correction_updates: int = 0
 
 
 @dataclass(frozen=True)
@@ -150,7 +114,6 @@ def run_pipeline(
     clusters: Sequence[Cluster],
     data_noise: float,
     base_params: Parameters,
-    peaks: Sequence[Peak],
     *,
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,
 ) -> PipelineResult:
@@ -161,7 +124,6 @@ def run_pipeline(
         clusters,
         data_noise,
         base_params,
-        peaks,
         executor=executor,
     ):
         if isinstance(item, PipelineResult):
@@ -178,7 +140,6 @@ def run_pipeline_iter(
     clusters: Sequence[Cluster],
     data_noise: float,
     base_params: Parameters,
-    peaks: Sequence[Peak],
     *,
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,
 ) -> Iterator[Any]:
@@ -208,8 +169,7 @@ def run_pipeline_iter(
 
     for pass_index, (step, iteration) in enumerate(passes):
         if step.iterations > 1:
-            iter_msg = f"Iteration {iteration + 1}/{step.iterations}"
-            yield ("status", f"[bold blue]{iter_msg}[/]")
+            yield PassStart(iteration + 1, step.iterations)
 
         correction_snapshot = CorrectionSnapshot.from_clusters(clusters, correction_revision)
         terminal_snapshot = correction_snapshot
@@ -253,7 +213,7 @@ def run_pipeline_iter(
                 final_params.update(result.params)
 
         if pass_index < len(passes) - 1:
-            yield ("status", "[dim]Correcting data with neighbors...[/]")
+            yield CorrectionUpdate()
             update_cluster_corrections(
                 final_params,
                 clusters,
@@ -270,10 +230,8 @@ def run_pipeline_iter(
         terminal_snapshot.revision,
     )
 
-    fit_params = FitParameters.from_parameters(final_params, list(peaks))
     state = FittingState(
         clusters=sorted(clusters, key=lambda cluster: cluster.cluster_id),
-        params=fit_params,
         scalar_params=final_params,
         noise=data_noise,
     )

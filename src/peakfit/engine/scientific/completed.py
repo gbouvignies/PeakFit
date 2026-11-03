@@ -9,8 +9,8 @@ from peakfit.engine.scientific.simulation import FinalModelSnapshot
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.state import FittingState
+    from peakfit.engine.scientific.completion import CorrectionSnapshot
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
-    from peakfit.fit.pipeline import CorrectionSnapshot
     from peakfit.shared.typing import FloatArray, IntArray
 
 

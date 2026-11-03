@@ -213,7 +213,6 @@ def test_repeated_plane_values_retain_source_columns_after_exclusion(tmp_path):
         prepared.clusters,
         prepared.noise,
         prepared.parameters,
-        [p for c in prepared.clusters for p in c.peaks],
     )
     gui = finish_dataset_fit(prepared, DatasetFitAttempt(pipeline.completed_fit, (), 1.0))
     path = export_fit_result(gui, tmp_path / "selected")

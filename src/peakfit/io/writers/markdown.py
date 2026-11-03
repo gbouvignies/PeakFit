@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from peakfit.engine.scientific.final_outcome import FinalClusterOutcome, FinalFitOutcome
-    from peakfit.fit.run_models import RunSummary
+    from peakfit.engine.scientific.summary import RunSummary
 
 _MAX_CLUSTER_ROWS = 40
 _MAX_PARAMETER_ROWS = 40

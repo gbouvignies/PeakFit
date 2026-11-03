@@ -65,12 +65,6 @@ def calculate_amplitudes(shapes: FloatArray, data: FloatArray) -> FloatArray:
         return factorize_shapes(shapes).solve(data)
 
 
-def calculate_amplitude_covariance(shapes: FloatArray, noise: float) -> FloatArray:
-    """Return conditional amplitude covariance, or NaNs if not identifiable."""
-    with np.errstate(over="ignore", invalid="ignore"):
-        return factorize_shapes(shapes).covariance * np.square(noise)
-
-
 def calculate_amplitudes_with_uncertainty(
     shapes: FloatArray, data: FloatArray, noise: float
 ) -> tuple[FloatArray, FloatArray, FloatArray]:

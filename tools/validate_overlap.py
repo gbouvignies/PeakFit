@@ -94,13 +94,11 @@ def spectrum_metrics(matrix):
 def diagnostics(cluster, params, noise):
     """Compare model, residual, Jacobian and a rank-aware least-squares reference."""
     from peakfit.engine.algorithms.varpro import VarProOptimizer
-    from peakfit.engine.domain.params_vector import FitParameters
 
     optimizer = VarProOptimizer(
         cluster,
         params.get_vary_names(),
         params,
-        FitParameters.from_parameters(params, cluster.peaks),
         noise,
     )
     x = params.get_vary_values()

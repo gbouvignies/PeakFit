@@ -91,7 +91,6 @@ def main():  # noqa: PLR0915
                 prepared.clusters,
                 prepared.noise,
                 prepared.parameters,
-                [p for c in prepared.clusters for p in c.peaks],
             ),
         )
         result = finish_dataset_fit(
@@ -227,7 +226,6 @@ def main():  # noqa: PLR0915
                             again.clusters,
                             again.noise,
                             again.parameters,
-                            [p for c in again.clusters for p in c.peaks],
                         ),
                     )
                 report["source_free_adjust_refit"] = True

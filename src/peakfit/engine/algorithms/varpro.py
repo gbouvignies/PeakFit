@@ -9,12 +9,9 @@ import numpy as np
 import scipy.optimize
 
 from peakfit.engine.algorithms.linear_algebra import (
-    calculate_amplitude_covariance,
     factorize_shapes,
 )
-from peakfit.engine.domain.param_id import ParameterId
 from peakfit.engine.domain.param_map import ParameterMap
-from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.results import FitResult
 
 if TYPE_CHECKING:
@@ -38,7 +35,6 @@ class VarProOptimizer:
     cluster: Cluster
     names: list[str]
     params_template: Parameters
-    fit_params: FitParameters
     noise: float
 
     # Cache fields
@@ -60,7 +56,7 @@ class VarProOptimizer:
     def __post_init__(self) -> None:
         """Pre-compute constants that don't change during optimization."""
         # Parameter index mapping
-        self._param_map = self.fit_params.map or ParameterMap.from_names(self.names)
+        self._param_map = ParameterMap.from_names(self.names)
         self._param_peak_indices = np.zeros(len(self.names), dtype=int)
 
         parameter_peaks: dict[int, list[int]] = {}
@@ -225,10 +221,8 @@ class VarProOptimizer:
         return cast("FloatArray", j_final / self.noise)
 
 
-def _calculate_errors(
-    optimizer: VarProOptimizer, x: FloatArray, noise: float
-) -> tuple[FloatArray, FloatArray]:
-    """Calculate parameter standard errors."""
+def _calculate_errors(optimizer: VarProOptimizer, x: FloatArray) -> FloatArray:
+    """Calculate nonlinear parameter standard errors."""
     jacobian = optimizer.compute_jacobian(x)
     stderrs = np.sqrt(np.diag(identifiable_covariance(jacobian)))
     lower, upper = optimizer.params_template.get_vary_bounds()
@@ -237,9 +231,7 @@ def _calculate_errors(
         np.isfinite(upper) & np.isclose(x, upper, rtol=0, atol=1e-7)
     )
     stderrs[active | (stderrs > np.minimum(x - lower, upper - x))] = np.nan
-    assert optimizer._shapes is not None
-    amp_cov = calculate_amplitude_covariance(optimizer._shapes, noise)
-    return stderrs, np.sqrt(np.diag(amp_cov))
+    return stderrs
 
 
 def identifiable_covariance(jacobian: np.ndarray) -> np.ndarray:
@@ -265,47 +257,6 @@ def identifiable_covariance(jacobian: np.ndarray) -> np.ndarray:
     return inverse @ inverse.T
 
 
-def _update_amplitude_params(
-    cluster: Cluster,
-    params: Parameters,
-    amplitudes: FloatArray,
-    amp_stderrs: FloatArray,
-) -> None:
-    """Update amplitude parameters in the params object."""
-    n_series = amplitudes.shape[1]
-
-    for i, peak in enumerate(cluster.peaks):
-        axis = peak.shapes[0].axis if peak.shapes else "pseudo"
-        peak_err = amp_stderrs[i] if i < len(amp_stderrs) else np.nan
-
-        for series_idx in range(n_series):
-            val = amplitudes[i, series_idx]
-
-            if n_series == 1:
-                pid = ParameterId(
-                    peak_name=peak.name,
-                    axis=axis,
-                    label="I",
-                    index=0,
-                )
-            else:
-                pid = ParameterId(
-                    peak_name=peak.name,
-                    axis=axis,
-                    label="I",
-                    index=series_idx,
-                )
-
-            if pid.name in params:
-                p = params[pid.name]
-                p.value = val
-                p.stderr = peak_err
-                p.computed = True
-                p.vary = False
-            else:
-                params.add(pid, value=val, computed=True, vary=False, stderr=peak_err)
-
-
 def fit_cluster(
     params: Parameters,
     cluster: Cluster,
@@ -326,13 +277,10 @@ def fit_cluster(
     lower, upper = params.get_vary_bounds()
     vary_names = params.get_vary_names()
 
-    fit_params = FitParameters.from_parameters(params, cluster.peaks)
-
     optimizer = VarProOptimizer(
         cluster=cluster,
         names=vary_names,
         params_template=params,
-        fit_params=fit_params,
         noise=noise,
     )
 
@@ -361,14 +309,10 @@ def fit_cluster(
     result.x = np.clip(result.x, lower, upper)
     params.set_vary_values(result.x)
 
-    # Ensure final state is computed and amplitudes are recoverable
+    # Ensure the final state is computed at the clipped solution.
     optimizer.compute_residuals(result.x)
-    final_amplitudes = optimizer.get_optimized_amplitudes()
 
-    stderrs, amp_stderrs = _calculate_errors(optimizer, result.x, noise)
-    params.set_errors(stderrs)
-
-    _update_amplitude_params(cluster, params, final_amplitudes, amp_stderrs)
+    params.set_errors(_calculate_errors(optimizer, result.x))
 
     return FitResult(
         cluster_id=cluster.cluster_id,

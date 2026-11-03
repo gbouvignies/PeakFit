@@ -366,3 +366,28 @@ Short records of non‑obvious design choices and trade‑offs.
 - Routine fits are unchanged: the example's outcome, samples and context digests,
   the golden regression and a three-pass fit are bit-identical to main; archive
   metadata differs only by the version and the absent key.
+
+## 2026-11-03: Engine boundary and parameter representation
+- `CorrectionSnapshot` and `PipelineCompletion` (built only from engine types) move to
+  `engine.scientific.completion`, and `RunSummary` (a projection of
+  `FinalFitOutcome`) to `engine.scientific.summary`. `engine` and `io` no longer
+  import `fit`, even for annotations, so import-linter now counts type-only imports.
+  Five mutual type references between sibling modules (domain types, lineshape
+  grid, editor mixins) are listed explicitly in the acyclic contract; restructuring
+  them is not worth it here.
+- `FitParameters` is removed: VarPro's map was the same `ParameterMap.from_names` of
+  the varied names, and `FittingState.params` only fed a self-check. The serialized
+  state `version` goes with it.
+- Amplitudes are always solved, never parameters, so the amplitude-parameter paths
+  never ran: `ParameterMap.from_peaks`, VarPro's amplitude-parameter update with its
+  amplitude covariance, and MCMC's amplitude exclusion. MCMC chain labels, the one
+  remaining amplitude name, are built with `ParameterId` and unchanged
+  (`<peak>.F1.I<plane>`). `Cluster.parameter_names` selects a cluster's nonlinear
+  model parameters from its shapes' declared names and replaces the two filters in
+  evaluation and finalization and MCMC's selection.
+- Pipeline progress uses typed `PassStart`/`CorrectionUpdate` events; the CLI owns
+  their styling. `run_fit` no longer silences the `peakfit` logger, which nothing
+  logs to during a fit.
+- No numerical or format change: the example digest (outcome, samples, context),
+  the golden regression and a three-pass fit match main, and archive metadata
+  differs only by input paths.

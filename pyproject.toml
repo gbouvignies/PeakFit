@@ -77,7 +77,7 @@ exclude_lines = [
 
 [tool.importlinter]
 root_package = "peakfit"
-exclude_type_checking_imports = true
+exclude_type_checking_imports = false
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -107,6 +107,16 @@ ancestors = [
   "peakfit.plot",
   "peakfit.shared",
   "peakfit.ui"
+]
+# Type-only references between mutually dependent modules (annotations only).
+# An ignored edge that no longer exists fails the contract, so this list stays exact.
+ignore_imports = [
+  "peakfit.engine.types -> peakfit.engine.domain.param_map",
+  "peakfit.engine.types -> peakfit.engine.domain.params_scalar",
+  "peakfit.engine.domain.params_scalar -> peakfit.engine.domain.peaks",
+  "peakfit.engine.lineshapes.utils -> peakfit.engine.lineshapes.grid",
+  "peakfit.gui.editor.persistence -> peakfit.gui.editor.window",
+  "peakfit.gui.editor.fitting -> peakfit.gui.editor.workspace",
 ]
 
 [[tool.importlinter.contracts]]

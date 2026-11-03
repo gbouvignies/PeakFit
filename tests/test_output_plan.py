@@ -11,7 +11,7 @@ from peakfit.engine.scientific.final_outcome import (
     FinalParameter,
     OptimizerProvenance,
 )
-from peakfit.fit.run_models import RunSummary
+from peakfit.engine.scientific.summary import RunSummary
 from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import build_output_plan, write_fit_outputs

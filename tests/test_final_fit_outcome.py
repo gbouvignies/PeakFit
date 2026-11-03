@@ -16,14 +16,13 @@ from peakfit.engine.algorithms.evaluation import (
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
+from peakfit.engine.scientific.completion import CorrectionSnapshot, PipelineCompletion
 from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
-from peakfit.fit.pipeline import CorrectionSnapshot, PipelineCompletion
 
 
 @dataclass(frozen=True)
@@ -138,7 +137,6 @@ def _completion_fixture(
     final_params = Parameters.from_peaks(peaks, fixed=False)
     state = FittingState(
         clusters=clusters,
-        params=FitParameters.from_parameters(final_params, peaks),
         scalar_params=final_params,
         noise=1.0,
     )
