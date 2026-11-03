@@ -15,7 +15,8 @@ peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 ```
 
 If `--peaks` is omitted, all clusters are analyzed. A selected peak analyzes its
-whole overlap cluster.
+whole overlap cluster. Sampling covers every fitted nonlinear parameter of the
+cluster, including a cluster's fitted phase (`--phx`/`--phy`).
 
 ## Inputs And Outputs
 
@@ -27,10 +28,9 @@ MCMC reads:
   `--detailed-evidence` exports. The original peak/plane text files are unnecessary
   for native continuation.
 
-Older JSON/pickle runs remain readable. New scientific evidence takes precedence;
-legacy multi-pass pickles that lost corrections require scientific evidence or a
-refit before continuation. This starts sampling the parent likelihood; it does
-not promise resumption of a chain/RNG state. See [storage policy](outputs.md).
+Results without `scientific.npz` are not read; refit them. MCMC starts sampling
+the parent likelihood; it does not resume a chain or RNG state. See
+[storage policy](outputs.md).
 
 MCMC writes chain files under:
 

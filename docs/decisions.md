@@ -297,3 +297,19 @@ Short records of non‑obvious design choices and trade‑offs.
   post-fit position that disagrees with the adoption the outcome implies; comparing
   warning text added nothing but made rewording a warning break reopening. The
   project format moves to 8.0.0; 7.0.0 projects are rejected by version.
+
+## 2026-11-03: Model parameters are never silently defaulted
+- `ShapeBase.get_cluster_parameters` raises when a model parameter or a peak's
+  lineshape on the axis is missing, instead of substituting `spec.default` (or 0 for
+  a missing shape). The lineshape templates read `cs`, `lw`, `j` and `eta` without
+  fallbacks (`lw = 25` or `20`, `j = 0`, `eta = 0.5`), which were unreachable.
+- A phase not fitted on an axis has no parameter and no entry in the cluster
+  parameters; the phased templates state the model explicitly as no phase
+  correction. Every phase default was 0, so routine fits are bit-identical: the
+  example fit's outcome, samples and context digests match main.
+- `peakfit mcmc` selected parameters by peak-name prefix and dropped the
+  cluster-shared `cluster_<id>.<axis>.phase`, so a phase-fitted run sampled the
+  likelihood at zero phase. It now adds each shape's `parameter_names()`; this
+  changes MCMC results for phase-fitted runs only, which were wrong.
+- `FitParameters` still uses `spec.default` as index placeholders; it is removed in
+  the engine-boundary work.

@@ -93,8 +93,8 @@ class SimpleSingletBase(ShapeBase):
         compute_derivs: bool = False,
     ) -> LineshapeResult:
         """Evaluate lineshape for a cluster of peaks."""
-        positions = cluster_params.extras.get("cs", np.full(cluster_params.n_peaks, self.center))
-        lw_hz = cluster_params.extras.get("lw", np.full(cluster_params.n_peaks, 25.0))[None, :]
+        positions = cluster_params.extras["cs"]
+        lw_hz = cluster_params.extras["lw"][None, :]
 
         dw_hz, sign = self._grid.compute_offsets(x_grid, positions)
 
@@ -154,9 +154,9 @@ class SimpleDoubletBase(ShapeBase):
         compute_derivs: bool = False,
     ) -> LineshapeResult:
         """Evaluate doublet lineshape for a cluster of peaks."""
-        positions = cluster_params.extras.get("cs", np.full(cluster_params.n_peaks, self.center))
-        lw_hz = cluster_params.extras.get("lw", np.full(cluster_params.n_peaks, 25.0))[None, :]
-        j_coupling = cluster_params.extras.get("j", np.zeros(cluster_params.n_peaks))
+        positions = cluster_params.extras["cs"]
+        lw_hz = cluster_params.extras["lw"][None, :]
+        j_coupling = cluster_params.extras["j"]
 
         extra_params = self._get_extra_params(cluster_params)
 
@@ -233,8 +233,9 @@ class PhasedSingletBase(ShapeBase):
         compute_derivs: bool = False,
     ) -> LineshapeResult:
         """Evaluate lineshape for a cluster of peaks."""
-        positions = cluster_params.extras.get("cs", np.full(cluster_params.n_peaks, self.center))
-        lw_hz = cluster_params.extras.get("lw", np.full(cluster_params.n_peaks, 20.0))
+        positions = cluster_params.extras["cs"]
+        lw_hz = cluster_params.extras["lw"]
+        # An unfitted phase is absent from the model: no phase correction.
         phases = cluster_params.extras.get("phase", np.zeros(cluster_params.n_peaks))
 
         dw_hz, sign = self._grid.compute_offsets(x_grid, positions)
@@ -291,9 +292,10 @@ class PhasedDoubletBase(ShapeBase):
         compute_derivs: bool = False,
     ) -> LineshapeResult:
         """Evaluate doublet lineshape for a cluster of peaks."""
-        positions = cluster_params.extras.get("cs", np.full(cluster_params.n_peaks, self.center))
-        lw_hz = cluster_params.extras.get("lw", np.full(cluster_params.n_peaks, 20.0))
-        j_coupling = cluster_params.extras.get("j", np.zeros(cluster_params.n_peaks))
+        positions = cluster_params.extras["cs"]
+        lw_hz = cluster_params.extras["lw"]
+        j_coupling = cluster_params.extras["j"]
+        # An unfitted phase is absent from the model: no phase correction.
         phases = cluster_params.extras.get("phase", np.zeros(cluster_params.n_peaks))
 
         if compute_derivs:
