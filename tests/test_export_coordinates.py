@@ -7,8 +7,7 @@ from zipfile import ZipFile
 
 import numpy as np
 import pytest
-from test_gui_dataset import _dataset
-from test_scientific_storage import completed_result
+from builders import completed_result, two_cluster_dataset
 
 from peakfit.fit import fitting, pipeline
 from peakfit.fit.run_models import FitRun
@@ -49,7 +48,7 @@ def test_intensity_csv_has_both_plane_identities(tmp_path):
 
 
 def _completed_case(mode, monkeypatch):
-    spectra, _peaks, config, prepared = _dataset()
+    spectra, _peaks, config, prepared = two_cluster_dataset()
     config.output.formats = ["csv"]
     if mode == "non_converged":
         config.fitting.max_iterations = 1

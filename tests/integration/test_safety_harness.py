@@ -55,6 +55,9 @@ def _cli_env(tmp_path: Path) -> dict[str, str]:
     mpl_config = tmp_path / "matplotlib"
     mpl_config.mkdir(exist_ok=True)
     env["MPLCONFIGDIR"] = str(mpl_config)
+    # Rich wraps error panels at the console width, which would make text assertions
+    # depend on the temporary path's length (longer under pytest-xdist).
+    env["COLUMNS"] = "1000"
     return env
 
 
@@ -588,6 +591,7 @@ class TestCLIEntrypoints:
             check=False,
             capture_output=True,
             text=True,
+            env=_cli_env(tmp_path),
         )
 
         combined_output = f"{result.stdout}\n{result.stderr}"

@@ -32,8 +32,7 @@ jobs:
         run: uv run ruff format --check
 
       - name: Type Check (ty)
-        # Checks entire project by default.
-        run: uv run ty check
+        run: uv run ty check --error-on-warning
 
       - name: Import Linter
         run: uv run lint-imports
@@ -63,21 +62,20 @@ jobs:
           sudo apt-get install -y --no-install-recommends libegl1
 
       - name: Install dependencies
-        # --all-extras installs 'mcmc', 'profiling' etc.
-        run: uv sync --all-extras
+        # Installs the project and its 'dev' dependency group.
+        run: uv sync
 
       - name: Run tests
         env:
           QT_QPA_PLATFORM: offscreen
           MPLBACKEND: Agg
-        # pyproject.toml already handles coverage paths and branch settings.
-        # We only need to specify the XML report for Codecov here.
-        run: uv run pytest --cov-report=xml --cov-report=term
+        # In-process coverage only; CLI tests that run in a subprocess are not counted.
+        run: uv run pytest -n auto --cov=peakfit --cov-report=xml --cov-report=term
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false

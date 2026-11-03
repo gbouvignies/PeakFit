@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from test_scientific_storage import completed_result
+from builders import completed_result, two_cluster_dataset
 
 from peakfit.engine.algorithms.mcmc import _init_mcmc_worker, _log_likelihood_blobs
 from peakfit.gui.fit_export import export_fit_result
@@ -78,13 +78,11 @@ def test_compact_continuation_verifies_source_and_exact_excluded_plane_identity(
     import json  # noqa: PLC0415
     from dataclasses import replace  # noqa: PLC0415
 
-    from test_gui_dataset import _dataset  # noqa: PLC0415
-
     from peakfit.fit.pipeline import run_pipeline  # noqa: PLC0415
     from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit  # noqa: PLC0415
     from peakfit.gui.fitting import prepare_dataset_fit  # noqa: PLC0415
 
-    spectra, peaks, config, _ = _dataset()
+    spectra, peaks, config, _ = two_cluster_dataset()
     original = spectra.model_copy(deep=True)
     spectra.exclude_planes([1])
     source = tmp_path / "original.ft2"

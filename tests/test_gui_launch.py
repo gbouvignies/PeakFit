@@ -3,8 +3,8 @@
 from pathlib import Path
 
 import pytest
+from gui_helpers import wait_until
 from PySide6 import QtCore, QtWidgets
-from test_gui_editor import wait_for
 
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.gui.editor.window import EditorWindow, launch
@@ -16,9 +16,8 @@ pytestmark = pytest.mark.gui
 
 
 @pytest.fixture
-def started(monkeypatch):
+def started(qapp, monkeypatch):
     """Run launch with an event loop that returns once startup loading settles."""
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     windows: list[EditorWindow] = []
     show = EditorWindow.show
 
@@ -27,7 +26,7 @@ def started(monkeypatch):
         show(window)
 
     def settle(_app):
-        wait_for(lambda: not windows[0]._busy, timeout=30)
+        wait_until(lambda: not windows[0]._busy, timeout=30)
         return 0
 
     monkeypatch.setattr(EditorWindow, "show", record)
@@ -53,7 +52,7 @@ def started(monkeypatch):
         window.close()
         window.deleteLater()
     QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
-    app.processEvents()
+    qapp.processEvents()
 
 
 def test_empty_window(started) -> None:

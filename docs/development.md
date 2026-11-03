@@ -8,7 +8,7 @@ it short; implementation details should live in code and tests.
 Use `uv` for project commands.
 
 ```bash
-uv sync --all-extras
+uv sync
 uv run ruff check src tests
 uv run ruff format --check src tests
 uv run ty check --error-on-warning
@@ -24,7 +24,14 @@ Use `prek`, not `pre-commit`, for hooks.
 
 Run the complete suite headlessly with `QT_QPA_PLATFORM=offscreen` and
 `MPLBACKEND=Agg`, as shown above. This is the supported environment for
-automated tests that may import GUI or plotting dependencies.
+automated tests that may import GUI or plotting dependencies. The suite can run
+in parallel with `-n auto`, as CI does.
+
+Shared synthetic inputs and completed fits live in `tests/builders.py`, which
+imports no Qt; `tests/gui_helpers.wait_until` runs the Qt event loop until a
+condition holds, and GUI tests take the session `qapp` fixture from
+`tests/conftest.py`. Test modules do not import each other, and GUI tests wait
+for a condition before asserting, not for a fixed delay.
 
 Tests protect both numerical/scientific behavior and refactoring compatibility
 baselines. Treat golden files, regression data, tolerances, and reference values
@@ -50,7 +57,8 @@ reviewing the scientific or contract reason.
   `tables/`, and a short report; JSON is explicit interoperability.
 
 The import-linter contracts in `pyproject.toml` enforce the current package
-layers.
+layers and keep Qt, Typer, Rich and matplotlib out of `engine`, `fit`, `io`,
+`mcmc` and `shared`.
 
 ## CLI And Terminal Output
 

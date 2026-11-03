@@ -12,9 +12,9 @@ from uuid import uuid4
 
 import numpy as np
 import pytest
+from builders import two_cluster_dataset
+from gui_helpers import wait_until
 from PySide6 import QtCore, QtWidgets
-from test_gui_dataset import _dataset
-from test_gui_editor import wait_for
 
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.fit import pipeline
@@ -44,7 +44,7 @@ pytestmark = pytest.mark.gui
 
 @pytest.fixture(scope="module")
 def evidence():
-    spectra, _peaks, config, prepared = _dataset()
+    spectra, _peaks, config, prepared = two_cluster_dataset()
     result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
     completion = dataset_completion(
         result, prepared.snapshot, submitted_revision=0, manual_revision=0
@@ -177,9 +177,8 @@ def test_corrupt_and_unsupported_project_rejected(analysis, tmp_path):
 
 
 def test_verified_reopen_rebinds_currentness_and_manual_edit_outdates(
-    analysis, tmp_path, monkeypatch
+    qapp, analysis, tmp_path, monkeypatch
 ):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)
     loaded = open_analysis(path)
@@ -194,11 +193,10 @@ def test_verified_reopen_rebinds_currentness_and_manual_edit_outdates(
     assert not w.fitting.current
     window._saved_key = window._analysis_key()
     window.close()
-    app.processEvents()
+    qapp.processEvents()
 
 
-def test_canceled_verification_numerical_workspace(analysis, tmp_path, monkeypatch):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def test_canceled_verification_numerical_workspace(qapp, analysis, tmp_path, monkeypatch):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     monkeypatch.setattr(
         project, "read_dataset", lambda _, **_kw: (_ for _ in ()).throw(OSError("missing"))
@@ -214,7 +212,7 @@ def test_canceled_verification_numerical_workspace(analysis, tmp_path, monkeypat
     assert window.analysis_save.isEnabled()
     assert window.relink_action.isEnabled()
     window.close()
-    app.processEvents()
+    qapp.processEvents()
 
 
 def test_real_source_relocation_missing_changed_and_explicit_relink(tmp_path):
@@ -434,9 +432,8 @@ def test_interrupted_first_save_never_publishes_and_dead_pid_lock_recovers(
 
 
 def test_save_ten_reopen_fit_save_reopen_preserves_evicted_scientific_summary(
-    analysis, tmp_path, monkeypatch
+    qapp, analysis, tmp_path, monkeypatch
 ):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     runs = tuple(
         replace(analysis.completion, result=replace(analysis.completion.result, run_id=uuid4().hex))
         for _ in range(10)
@@ -458,7 +455,7 @@ def test_save_ten_reopen_fit_save_reopen_preserves_evicted_scientific_summary(
     w.fitting.fit()  # The first Fit of a session reveals the setup instead of running.
     assert (w.fitting.setup_seen, w.fitting.busy, w.selected_id) == (True, False, None)
     w.fitting.fit()  # Fresh preparation and a real optimizer invocation after reopening.
-    wait_for(lambda: not w.fitting.busy, timeout=20)
+    wait_until(lambda: not w.fitting.busy, timeout=20)
     assert w.fitting.current, w.fitting.failure
     assert all(isinstance(r, project.StoredRun) for r in w.fitting.history)
     recovery = w.fitting._recovery_path
@@ -468,10 +465,10 @@ def test_save_ten_reopen_fit_save_reopen_preserves_evicted_scientific_summary(
     assert recoverable.completion.result.run_id == w.fitting.result.run_id
     del recoverable
     assert window.save_analysis_dialog()
-    wait_for(lambda: not window._saving, timeout=20)
-    wait_for(lambda: not recovery.exists(), timeout=10)
+    wait_until(lambda: not window._saving, timeout=20)
+    wait_until(lambda: not recovery.exists(), timeout=10)
     window.close()
-    app.processEvents()
+    qapp.processEvents()
     reopened = open_analysis(path)
     evicted = next(e for e in reopened.journal if e["run_id"] == expected["run_id"])
     assert evicted["evidence"] == "Summary only"
@@ -500,9 +497,8 @@ def test_save_ten_reopen_fit_save_reopen_preserves_evicted_scientific_summary(
 
 
 def test_open_and_history_list_materialize_only_active_then_selected_run(
-    analysis, tmp_path, monkeypatch
+    qapp, analysis, tmp_path, monkeypatch
 ):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     runs = tuple(
         replace(analysis.completion, result=replace(analysis.completion.result, run_id=uuid4().hex))
         for _ in range(10)
@@ -522,21 +518,20 @@ def test_open_and_history_list_materialize_only_active_then_selected_run(
     assert review._loaded_completion is None
     assert materialized == [runs[-1].result.run_id]
     review.run.setCurrentIndex(1)
-    wait_for(lambda: review._loaded_completion is not None, timeout=10)
+    wait_until(lambda: review._loaded_completion is not None, timeout=10)
     assert review.selected_run().result.run_id == runs[-2].result.run_id
     review.run.setCurrentIndex(0)
     assert review._loaded_completion is None
     assert review.selected_run() is loaded.completion
     review.close()
     review.deleteLater()
-    app.processEvents()
+    qapp.processEvents()
 
 
 @pytest.mark.skipif(
     os.name != "posix", reason="Safe automatic recovery ownership uses POSIX PID checks"
 )
-def test_session_evidence_cleanup_and_explicit_recovery(analysis, tmp_path, monkeypatch):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def test_session_evidence_cleanup_and_explicit_recovery(qapp, analysis, tmp_path, monkeypatch):
     owner = SessionEvidence()
     saved = owner.preserve(analysis)
     recovery = owner.path
@@ -558,10 +553,10 @@ def test_session_evidence_cleanup_and_explicit_recovery(analysis, tmp_path, monk
         QtWidgets.QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(destination), "")
     )
     assert window.save_analysis_dialog()
-    wait_for(lambda: not window._saving, timeout=15)
-    wait_for(lambda: not root.exists())
+    wait_until(lambda: not window._saving, timeout=15)
+    wait_until(lambda: not root.exists())
     window.close()
-    app.processEvents()
+    qapp.processEvents()
     assert open_analysis(destination, canceled=lambda: True).peaks == analysis.peaks
     owner.root = None  # Ownership transferred to the recovered workspace and cleaned there.
 
@@ -583,9 +578,8 @@ def test_typed_scientific_archive_has_no_json_arrays(analysis, tmp_path):
 
 
 def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup_on_close(
-    analysis, tmp_path, monkeypatch
+    qapp, analysis, tmp_path, monkeypatch
 ):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     window = EditorWindow()
     window.install_dataset(analysis.dataset)
     w = window.workspace
@@ -602,12 +596,12 @@ def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup
         f.process.state = "completed"
         f._finished(0, FitProcessResult(result, 0, 0, 0, 0))
         del result, prepared
-        wait_for(lambda: not f.busy, timeout=15)
+        wait_until(lambda: not f.busy, timeout=15)
         assert f.current, f.failure
         assert len(f.history) == min(index + 1, 10)
         assert all(isinstance(r, project.StoredRun) for r in f.history)
         assert all(not hasattr(r, "result") for r in f.history)
-        wait_for(lambda: len(list((f._session.path / "runs").iterdir())) == len(f.history))
+        wait_until(lambda: len(list((f._session.path / "runs").iterdir())) == len(f.history))
     recovery = f._recovery_path
     assert recovery is not None
     root = recovery.parent
@@ -622,8 +616,8 @@ def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup
         lambda dialog: next(b for b in dialog.buttons() if b.text() == "Discard changes"),
     )
     window.close()
-    wait_for(lambda: not root.exists())
-    app.processEvents()
+    wait_until(lambda: not root.exists())
+    qapp.processEvents()
     reopened = open_analysis(snapshot, canceled=lambda: True)
     assert reopened.completion.result.run_id == last_id
     assert len(reopened.runs) == 10
@@ -632,8 +626,7 @@ def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup
     assert all(e["parameters"] for e in reopened.journal if e["evidence"] == "Summary only")
 
 
-def test_numerical_capability_transition_transfers_temporary_evidence_owner(analysis):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def test_numerical_capability_transition_transfers_temporary_evidence_owner(qapp, analysis):
     owner = SessionEvidence()
     saved = owner.preserve(analysis)
     recovery = owner.path
@@ -647,14 +640,14 @@ def test_numerical_capability_transition_transfers_temporary_evidence_owner(anal
     window.install_analysis(replace(saved, dataset=None, reason="Source unavailable"))
     assert w.fitting._session is not owner
     assert window._recovered_session is owner
-    app.processEvents()
+    qapp.processEvents()
     assert recovery.exists()  # Stopping spectral widgets must not delete numerical history.
     loaded = open_analysis(recovery, canceled=lambda: True)
     assert loaded.completion.result.run_id == analysis.completion.result.run_id
     window.install_dataset(
         analysis.dataset
     )  # Replacing the numerical workspace also ends ownership.
-    wait_for(lambda: not root.exists())
+    wait_until(lambda: not root.exists())
     window.close()
 
 
@@ -679,8 +672,7 @@ def test_budget_eviction_materializes_summary_before_removing_payload(
     assert not (path / "runs" / runs[0].result.run_id).exists()
 
 
-def test_normal_close_waits_for_inflight_preservation_before_cleanup(analysis, tmp_path):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def test_normal_close_waits_for_inflight_preservation_before_cleanup(qapp, analysis, tmp_path):
     owner = SessionEvidence()
     owner.preserve(analysis)
     root = owner.root
@@ -707,9 +699,9 @@ def test_normal_close_waits_for_inflight_preservation_before_cleanup(analysis, t
         assert root.exists()  # Cleanup must queue behind the writer, not race it.
     finally:
         release.set()
-    wait_for(lambda: not root.exists(), timeout=10)
+    wait_until(lambda: not root.exists(), timeout=10)
     assert not second_root.exists()
-    app.processEvents()
+    qapp.processEvents()
 
 
 def test_checkpoint_before_ui_adoption_does_not_delete_live_history_references(analysis):
@@ -890,8 +882,7 @@ def test_reconstruction_exact_parent_inputs_no_solve_and_reference_failure(
         reconstruct_result(loaded.completion.result, replace(loaded.dataset, spectra=broken))
 
 
-def test_missing_source_disables_samples_preserves_numerical_inspection(analysis, tmp_path):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+def test_missing_source_disables_samples_preserves_numerical_inspection(qapp, analysis, tmp_path):
     path = save_analysis(analysis, tmp_path / "External.peakfit")
     missing = open_analysis(path, canceled=lambda: True)
     review = NumericalReview(missing)
@@ -902,25 +893,24 @@ def test_missing_source_disables_samples_preserves_numerical_inspection(analysis
     assert review.samples.rowCount() == 0
     assert review.export.isEnabled()
     review.close()
-    app.processEvents()
+    qapp.processEvents()
 
 
 def test_verified_numerical_review_materializes_only_requested_samples(
-    analysis, tmp_path, monkeypatch
+    qapp, analysis, tmp_path, monkeypatch
 ):
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     path = save_analysis(analysis, tmp_path / "External.peakfit")
     monkeypatch.setattr(project, "read_dataset", lambda _, **_kw: analysis.dataset)
     loaded = open_analysis(path)
     assert all(c.sample_evaluation is None for c in loaded.completion.result.outcome.clusters)
     review = NumericalReview(loaded)
-    wait_for(lambda: review._loaded_completion is not None)
+    wait_until(lambda: review._loaded_completion is not None)
     assert review.parameters.rowCount() > 0
     assert review.samples.rowCount() > 0
     assert review.plane.isEnabled()
     assert all(c.sample_evaluation is None for c in loaded.completion.result.outcome.clusters)
     review.close()
-    app.processEvents()
+    qapp.processEvents()
 
 
 def test_reconstruction_checks_evaluator_tolerance_and_rejects_drift(
@@ -1023,13 +1013,12 @@ def test_save_close_reopen_preserves_every_review_measure_exactly(analysis, tmp_
     assert any(r.largest_residual is not None and r.largest_residual > 0 for r in after)
 
 
-def test_project_without_retained_residual_summary_says_so(analysis, tmp_path, monkeypatch):
+def test_project_without_retained_residual_summary_says_so(qapp, analysis, tmp_path, monkeypatch):
     from zipfile import ZipFile  # noqa: PLC0415
 
     from peakfit.gui.editor.cluster_page import ClusterPage  # noqa: PLC0415
     from peakfit.gui.editor.navigator import Navigator  # noqa: PLC0415
 
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     path = save_analysis(analysis, tmp_path / "Earlier.peakfit")
     archive_path = next(path.rglob("result.npz"))
     with ZipFile(archive_path) as archive:
@@ -1077,7 +1066,7 @@ def test_project_without_retained_residual_summary_says_so(analysis, tmp_path, m
     page._fill_review(usable[0])
     labels = [label.text() for label in page.findChildren(QtWidgets.QLabel)]
     assert "Largest recorded residual · not retained by this project" in labels
-    app.processEvents()
+    qapp.processEvents()
 
 
 @pytest.fixture

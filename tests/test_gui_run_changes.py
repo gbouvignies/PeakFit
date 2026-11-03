@@ -4,7 +4,7 @@ from copy import deepcopy
 from dataclasses import replace
 
 import pytest
-from test_gui_dataset import _dataset
+from builders import two_cluster_dataset
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
@@ -15,7 +15,7 @@ from peakfit.gui.editor.workspace import _change_entries
 
 @pytest.fixture(scope="module")
 def run():
-    spectra, _peaks, _config, prepared = _dataset()
+    spectra, _peaks, _config, prepared = two_cluster_dataset()
     result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
     return spectra, result
 

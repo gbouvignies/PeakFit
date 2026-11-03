@@ -3,7 +3,7 @@
 from dataclasses import replace
 
 import pytest
-from test_gui_dataset import _dataset, _example
+from builders import overlapping_gaussians, two_cluster_dataset
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
@@ -14,7 +14,7 @@ from peakfit.gui.peaks import PeakEdits
 
 @pytest.fixture(scope="module")
 def completed():
-    _, _, _, prepared = _dataset()
+    _, _, _, prepared = two_cluster_dataset()
     return finish_dataset_fit(prepared, compute_dataset_fit(prepared))
 
 
@@ -143,7 +143,7 @@ def test_fatal_revision_source_and_identity_mismatch_publish_nothing(completed):
 
 
 def test_custom_axis_labels_follow_coordinate_order():
-    spectra, working, config = _example()
+    spectra, working, config = overlapping_gaussians()
     # Labels deliberately sort in the opposite order to working coordinates.
     spectra.params[1].label = "F3"
     spectra.params[2].label = "F2"

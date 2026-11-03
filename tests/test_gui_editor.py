@@ -2,10 +2,10 @@
 
 from pathlib import Path
 from threading import Event
-from time import perf_counter
 
 import numpy as np
 import pytest
+from gui_helpers import wait_until
 from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
 from peakfit.gui.editor.window import EditorWindow
@@ -17,41 +17,27 @@ DATA = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
 pytestmark = pytest.mark.gui
 
 
-def wait_for(condition, timeout=8):
-    started = perf_counter()
-    while not condition() and perf_counter() - started < timeout:
-        loop = QtCore.QEventLoop()
-        QtCore.QTimer.singleShot(10, loop.quit)
-        loop.exec()
-    assert condition(), "Timed out waiting for editor delivery"
-
-
-@pytest.fixture(scope="module")
-def app():
-    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-
-
 @pytest.fixture(scope="module")
 def dataset():
     return read_dataset(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
 
 
 @pytest.fixture
-def workspace(app, dataset):
+def workspace(qapp, dataset):
     widget = EditorWorkspace(dataset)
     widget.resize(1280, 750)
     widget.show()
-    app.processEvents()
-    wait_for(lambda: not widget.canvas.contour_pending)
+    qapp.processEvents()
+    wait_until(lambda: not widget.canvas.contour_pending)
     yield widget
     widget.stop()
     widget.close()
     widget.deleteLater()
     QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
-    app.processEvents()
+    qapp.processEvents()
 
 
-def test_native_arrays_plane_order_alignment_and_resize(workspace, app):
+def test_native_arrays_plane_order_alignment_and_resize(workspace, qapp):
     canvas = workspace.canvas
     assert not canvas.spectra.data.flags.writeable
     assert not canvas.spectra.z_values.flags.writeable
@@ -59,9 +45,9 @@ def test_native_arrays_plane_order_alignment_and_resize(workspace, app):
     workspace.select_peak(workspace.peaks[3].id)
     for width, height in ((1280, 750), (1440, 850), (1040, 670)):
         workspace.resize(width, height)
-        app.processEvents()
+        qapp.processEvents()
         canvas.main.getViewBox().setRange(xRange=(7.5, 9), yRange=(115, 125), padding=0)
-        app.processEvents()
+        qapp.processEvents()
         for plane in (1, 60, 131):
             workspace.set_plane(plane)
             ix, iy = canvas.ix, canvas.iy
@@ -119,7 +105,7 @@ def test_hover_preview_pinning_and_draft_are_independent(workspace):
     assert workspace.navigator.reveal.isVisible()
 
 
-def test_group_edit_keeps_untouched_precision_and_invalid_draft(workspace, app):
+def test_group_edit_keeps_untouched_precision_and_invalid_draft(workspace, qapp):
     peak = WorkingPeak.new("Exact", (117.12345678901234, 8.234567890123456))
     workspace.edits = PeakEdits((peak, workspace.peaks[0]))
     workspace._refresh()
@@ -138,7 +124,7 @@ def test_group_edit_keeps_untouched_precision_and_invalid_draft(workspace, app):
     assert workspace.edits.revision == 2
     workspace.select_peak(peak.id)
     editor.x_field.setFocus()
-    app.processEvents()
+    qapp.processEvents()
     assert editor.x_field.text() == repr(peak.positions[1])
     assert not editor.pending
     editor.x_field.setText("8.345678901234567e0")
@@ -215,7 +201,7 @@ def test_free_placement_delete_and_exact_export_roundtrip(workspace, tmp_path):
     assert workspace.edits.revision == 3
 
 
-def test_keyboard_sample_text_and_hidden_panels(workspace, app):
+def test_keyboard_sample_text_and_hidden_panels(workspace, qapp):
     workspace.select_peak(workspace.peaks[0].id)
     workspace.canvas.main.setFocus()
     ix = workspace.canvas.ix
@@ -236,7 +222,7 @@ def test_keyboard_sample_text_and_hidden_panels(workspace, app):
     workspace.select_peak(workspace.peaks[1].id)
     assert workspace.navigator.isHidden()
     workspace.resize(1440, 850)
-    app.processEvents()
+    qapp.processEvents()
     assert workspace.navigator.isHidden()
     # Hiding the inspector resolves a draft first; an invalid draft keeps it open.
     workspace.inspector.x_field.setText("not a number")
@@ -265,34 +251,34 @@ def test_preview_does_no_contour_or_marker_work_and_cache_is_bounded(workspace):
     assert canvas.trace_limit == limit
     for plane in range(1, 13):
         workspace.set_plane(plane)
-        wait_for(lambda: not canvas.contour_pending)
+        wait_until(lambda: not canvas.contour_pending)
     assert canvas.cache_bytes <= 32 * 1024**2
     assert len(canvas._cache) <= 8
     workspace.set_plane(60)
     workspace.set_plane(131)
     workspace.set_plane(1)
-    wait_for(lambda: not canvas.contour_pending)
+    wait_until(lambda: not canvas.contour_pending)
     assert canvas.plane == 0
     np.testing.assert_array_equal(canvas.curve_x.getData()[1], canvas.spectra.data[0, canvas.iy, :])
     assert [layer.role for layer in canvas.paths] == ["measured"]
 
 
-def test_theme_preserves_science_and_geometry(app, dataset):
+def test_theme_preserves_science_and_geometry(qapp, dataset):
     window = EditorWindow()
     window.install_dataset(dataset)
     window.show()
     workspace = window.workspace
     assert workspace is not None
-    wait_for(lambda: not workspace.canvas.contour_pending)
+    wait_until(lambda: not workspace.canvas.contour_pending)
     workspace.select_peak(dataset.peaks[3].id)
     workspace.canvas.main.getViewBox().setRange(xRange=(7.5, 9), yRange=(115, 120), padding=0)
-    app.processEvents()
+    qapp.processEvents()
     before = workspace.canvas.main.getViewBox().viewRange()
     paths = [list(layer.levels) for layer in workspace.canvas.paths]
     jobs = workspace.canvas.contour_jobs
     for appearance in ("Dark", "Light", "Dark", "System"):
         window.apply_appearance(appearance)
-        app.processEvents()
+        qapp.processEvents()
         assert workspace.edits.revision == 0
         assert workspace.selected_id == dataset.peaks[3].id
         assert workspace.canvas.main.getViewBox().viewRange() == before
@@ -317,8 +303,8 @@ def test_imported_plane_values_preserve_duplicates_and_axis_mapping(dataset, tmp
     assert display_position(x_axis, direct) == direct
 
 
-def test_async_cancel_failure_and_atomic_replacement(app, dataset, monkeypatch):
-    app.processEvents()
+def test_async_cancel_failure_and_atomic_replacement(qapp, dataset, monkeypatch):
+    qapp.processEvents()
     window = EditorWindow()
     window.install_dataset(dataset)
     previous = window.workspace
@@ -329,23 +315,26 @@ def test_async_cancel_failure_and_atomic_replacement(app, dataset, monkeypatch):
         release.wait(2)
         return dataset
 
+    delivered = []
+    window._worker.completed.connect(lambda kind, *_: delivered.append(kind))
     window._start_loading(slow_read)
-    wait_for(entered.is_set)
+    wait_until(entered.is_set)
     window.cancel_loading()
     assert window.workspace is previous
     release.set()
-    QtTest.QTest.qWait(50)
+    # Wait for the canceled read to actually reach the window, not for a fixed delay.
+    wait_until(lambda: "load" in delivered)
     assert window.workspace is previous
     errors = []
     monkeypatch.setattr(QtWidgets.QMessageBox, "warning", lambda *args: errors.append(args))
     window.load(Path("/missing/invalid.ft2"))
-    wait_for(lambda: not window._busy)
+    wait_until(lambda: not window._busy)
     assert window.workspace is previous
     assert errors
     assert "invalid.ft2" in str(errors)
     monkeypatch.setattr(window, "confirm_dataset", lambda _: True)
     window.load(dataset.path)
-    wait_for(lambda: window.workspace is not previous)
+    wait_until(lambda: window.workspace is not previous)
     assert window.workspace is not None
     assert window.workspace.dataset.spectra.data.shape == dataset.spectra.data.shape
     assert not window.workspace.peaks  # Optional peaks never leak from previous source.
@@ -376,7 +365,7 @@ def test_manual_revision_is_monotonic_and_noop_edits_preserve_provenance(dataset
     assert edits.revision == 3
 
 
-def test_clean_editor_undo_routes_to_peak_history(workspace, app):
+def test_clean_editor_undo_routes_to_peak_history(workspace, qapp):
     peak = workspace.peaks[0]
     workspace.select_peak(peak.id)
     field = workspace.inspector.x_field
@@ -387,25 +376,25 @@ def test_clean_editor_undo_routes_to_peak_history(workspace, app):
     assert not workspace.inspector.pending
     assert field.text() == repr(workspace.peaks[0].positions[1])
     QtTest.QTest.keySequence(field, QtGui.QKeySequence(QtGui.QKeySequence.StandardKey.Undo))
-    app.processEvents()
+    qapp.processEvents()
     assert workspace.peaks[0] == peak
     assert workspace.edits.revision == 2
 
 
-def test_real_qt_marker_drag_cancel_and_blank_pan(workspace, app):
+def test_real_qt_marker_drag_cancel_and_blank_pan(workspace, qapp):
     canvas = workspace.canvas
     peak = workspace.peaks[3]
     workspace.select_peak(peak.id)
     view = canvas.main.getViewBox()
     x, y = canvas.display(peak)
     view.setRange(xRange=(x - 0.4, x + 0.4), yRange=(y - 2, y + 2), padding=0)
-    app.processEvents()
+    qapp.processEvents()
     start = canvas.main.mapFromScene(view.mapViewToScene(QtCore.QPointF(x, y)))
     end = start + QtCore.QPoint(25, 15)
     viewport = canvas.main.viewport()
     QtTest.QTest.mouseMove(viewport, start)
     QtTest.QTest.qWait(30)
-    app.processEvents()
+    qapp.processEvents()
     QtTest.QTest.mousePress(viewport, QtCore.Qt.MouseButton.LeftButton, pos=start)
     move = QtGui.QMouseEvent(
         QtCore.QEvent.Type.MouseMove,
@@ -415,8 +404,8 @@ def test_real_qt_marker_drag_cancel_and_blank_pan(workspace, app):
         QtCore.Qt.MouseButton.LeftButton,
         QtCore.Qt.KeyboardModifier.NoModifier,
     )
-    app.sendEvent(viewport, move)
-    app.processEvents()
+    qapp.sendEvent(viewport, move)
+    qapp.processEvents()
     assert canvas._drag_peak == peak
     assert workspace.peaks[3] == peak
     QtTest.QTest.keyClick(canvas.main, QtCore.Qt.Key.Key_Escape)
@@ -439,7 +428,7 @@ def test_real_qt_marker_drag_cancel_and_blank_pan(workspace, app):
         QtCore.Qt.MouseButton.LeftButton,
         QtCore.Qt.KeyboardModifier.NoModifier,
     )
-    app.sendEvent(viewport, move)
+    qapp.sendEvent(viewport, move)
     QtTest.QTest.mouseRelease(viewport, QtCore.Qt.MouseButton.LeftButton, pos=end)
     assert not canvas.pinned
     assert workspace.edits.revision == 0
@@ -449,7 +438,7 @@ def test_real_qt_marker_drag_cancel_and_blank_pan(workspace, app):
 
 @pytest.mark.parametrize("has_values", [False, True])
 def test_plane_metadata_stays_modified_and_protected_after_peak_export(
-    app, dataset, tmp_path, monkeypatch, has_values
+    qapp, dataset, tmp_path, monkeypatch, has_values
 ):
     window = EditorWindow()
     initial = dataset if has_values else read_dataset(dataset.path, DATA / "pseudo3d.list")
@@ -468,7 +457,7 @@ def test_plane_metadata_stays_modified_and_protected_after_peak_export(
     )
     monkeypatch.setattr(window, "confirm_dataset", lambda _: True)
     try:
-        app.processEvents()
+        qapp.processEvents()
         for number in (1, 2):
             values = np.arange(131, dtype=float) + number / 8
             values.flags.writeable = False
@@ -506,7 +495,7 @@ def test_plane_metadata_stays_modified_and_protected_after_peak_export(
 
 @pytest.mark.parametrize("mode", ["Replace", "Append"])
 def test_peak_import_provenance_follows_current_ids_through_undo_redo(  # noqa: PLR0915
-    app, dataset, monkeypatch, mode
+    qapp, dataset, monkeypatch, mode
 ):
     window = EditorWindow()
     window.install_dataset(dataset)
@@ -531,7 +520,7 @@ def test_peak_import_provenance_follows_current_ids_through_undo_redo(  # noqa: 
         return tuple(s for s in workspace.dataset.sources if s[0] == "peak_list")
 
     try:
-        app.processEvents()
+        qapp.processEvents()
         imported = WorkingPeak.new("Imported", original[0].positions)
         first_source = (("peak_list", "import-A"),)
         window._accept_peaks(((imported,), first_source))
