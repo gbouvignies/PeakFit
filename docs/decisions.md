@@ -230,3 +230,19 @@ Short records of non‑obvious design choices and trade‑offs.
   recorded result. Opening CLI results in `peakfit gui` is possible future work,
   not planned.
 - `peakfit.plot` no longer imports Qt; an import-linter contract keeps it so.
+
+## 2026-11-03: `parameters.from_file` loads the previous fit's nonlinear values
+- The option read `clusters[*].parameters` and per-plane amplitude records, keys the
+  completed-fit JSON stopped writing in schema 4. It loaded nothing, so every fit
+  configured with it used the default starts. It now reads the validated top-level
+  `final_nonlinear_parameters` of `summary/fit.json` and uses them as starts by name.
+  Fits that set the option now start elsewhere and can converge to a different
+  optimum; fits without it are unchanged.
+- Amplitudes are not loaded. VarPro solves them for every nonlinear trial, so a
+  start value for them is meaningless.
+- Unusable clusters record no parameters, so their peaks keep the default starts.
+  Configured `value`s still win, and position windows stay centred on the peak list.
+- The document is validated with `FitSummarySchema`. A file in another format, or one
+  whose names match no parameter of the fit, is an error instead of a silent no-op.
+- The fit pipeline reads the file (`io.readers.previous_fit`) and passes the values to
+  `apply_constraints`, so the engine no longer touches the filesystem.

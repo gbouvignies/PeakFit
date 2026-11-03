@@ -27,9 +27,12 @@ from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.optimizers import fit_with_optimizer
 from peakfit.engine.scientific.completed import CompletedFit
 from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
+from peakfit.io.readers.previous_fit import read_fitted_nonlinear_values
+from peakfit.shared.paths import format_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+    from pathlib import Path
 
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.peaks import Peak
@@ -212,7 +215,11 @@ def run_pipeline_iter(
     mapper = executor or map
     # Resolve starting values once. Later passes continue from fitted values;
     # configured starts must neither be ignored nor reset each optimizer pass.
-    final_params = apply_constraints(base_params.copy(deep=True), fit_config.parameters)
+    final_params = apply_constraints(
+        base_params.copy(deep=True),
+        fit_config.parameters,
+        _previous_fitted_values(fit_config.parameters.from_file, base_params),
+    )
     current_fit_results: list[FitResult] = []
     current_evaluations: list[FitEvaluation] = []
     optimizer_config = build_optimizer_config(fit_config, optimizer)
@@ -334,6 +341,21 @@ def _validate_cluster_ids(clusters: Sequence[Cluster]) -> tuple[int, ...]:
         msg = f"Duplicate cluster_id values in pipeline input: {sorted(duplicates)}"
         raise ValueError(msg)
     return tuple(sorted(cluster_ids))
+
+
+def _previous_fitted_values(path: Path | None, params: Parameters) -> dict[str, float]:
+    """Read ``parameters.from_file``, refusing a summary that matches no parameter."""
+    if path is None:
+        return {}
+    values = read_fitted_nonlinear_values(path)
+    if values.keys().isdisjoint(params):
+        msg = (
+            f"parameters.from_file {format_path(path)} shares no parameter name with this "
+            "fit. Use a summary fitted with the same peak names and lineshapes, or remove "
+            "parameters.from_file."
+        )
+        raise ValueError(msg)
+    return values
 
 
 def _normalize_config(config: FitConfig | PeakFitConfig) -> PeakFitConfig:

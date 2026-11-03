@@ -68,6 +68,13 @@ Notable user-facing and architecture changes are recorded here.
   (`--results`); `peakfit gui` is the one graphical interface. The PDF plot
   commands (`intensity`, `cest`, `cpmg`, `mcmc`) are unchanged.
 
+### Fixed
+
+- `[parameters].from_file` now starts the fit from the previous fit's nonlinear values.
+  It read keys the completed-fit JSON no longer writes, so it silently used the default
+  starts. A file that is not a current `summary/fit.json`, or that matches no parameter,
+  is now an error.
+
 ### Compatibility
 
 - This development cycle intentionally breaks several internal Python imports as part of

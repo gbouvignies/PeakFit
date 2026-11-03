@@ -4,7 +4,7 @@ This module provides a flexible constraint system that allows users to:
 - Set parameter starting values, bounds, and vary status
 - Define position windows relative to peak positions
 - Apply constraints using glob-style pattern matching
-- Load constraints from previous fit results
+- Start from values fitted in a previous run
 
 The constraint priority (low to high):
 1. Code defaults (from lineshape models)
@@ -16,7 +16,6 @@ The constraint priority (low to high):
 """
 
 import fnmatch
-import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from peakfit.engine.domain.params_scalar import Parameters
 
@@ -221,7 +220,8 @@ class ParameterConfig(BaseModel):
     # Per-peak constraints
     peaks: dict[str, PeakConstraints] = Field(default_factory=dict)
 
-    # Load starting values from previous fit
+    # Previous fit summary whose fitted nonlinear values become the starts.
+    # The fit pipeline reads it; the engine receives only the values.
     from_file: Path | None = None
 
     @field_validator("from_file", mode="before")
@@ -272,47 +272,7 @@ class ConstraintResolver:
     """
 
     config: ParameterConfig
-    _from_file_values: dict[str, float] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        """Load values from file if specified."""
-        if self.config.from_file is not None:
-            self._load_from_file(self.config.from_file)
-
-    def _load_from_file(self, path: Path) -> None:
-        """Load parameter values from a previous fit result."""
-        if not path.exists():
-            msg = f"Parameter file not found: {path}"
-            raise FileNotFoundError(msg)
-
-        suffix = path.suffix.lower()
-        if suffix == ".json":
-            self._load_from_json(path)
-        else:
-            msg = f"Unsupported file format: {suffix}"
-            raise ValueError(msg)
-
-    def _load_from_json(self, path: Path) -> None:
-        """Load parameter values from JSON fit summary."""
-        with path.open() as f:
-            data = json.load(f)
-
-        # Handle summary/fit.json format
-        if "clusters" in data:
-            for cluster in data["clusters"]:
-                for param in cluster.get("parameters", cluster.get("lineshape_parameters", [])):
-                    name = param.get("name", "")
-                    value = param.get("value")
-                    if name and value is not None:
-                        self._from_file_values[name] = float(value)
-
-                for amp in cluster.get("amplitudes", []):
-                    peak = amp.get("peak_name", "")
-                    plane = amp.get("plane_index", 0)
-                    value = amp.get("value")
-                    if peak and value is not None:
-                        name = f"{peak}.F1.I{plane}"
-                        self._from_file_values[name] = float(value)
+    previous_values: Mapping[str, float] = field(default_factory=dict)
 
     def resolve(
         self,
@@ -347,9 +307,9 @@ class ConstraintResolver:
         # 3. Apply per-peak constraints
         self._apply_peak_constraints(resolved, peak_name, axis, param_type)
 
-        # 4. Apply values from file (lowest priority for values, doesn't affect bounds/vary)
-        if param_name in self._from_file_values and resolved.value == current_value:
-            resolved.value = self._from_file_values[param_name]
+        # 4. Apply previous fitted values (lowest priority for values, doesn't affect bounds/vary)
+        if param_name in self.previous_values and resolved.value == current_value:
+            resolved.value = self.previous_values[param_name]
             resolved.source = "from_file"
 
         return resolved
@@ -443,6 +403,7 @@ class ConstraintResolver:
 def apply_constraints(
     params: Parameters,
     config: ParameterConfig,
+    previous_values: Mapping[str, float] | None = None,
 ) -> Parameters:
     """Apply constraints from configuration to parameters.
 
@@ -451,12 +412,13 @@ def apply_constraints(
     Args:
         params: Parameters object to modify
         config: Parameter configuration with constraints
+        previous_values: Fitted values read from ``config.from_file``, by parameter name
 
     Returns:
     -------
         Modified Parameters object (same instance)
     """
-    resolver = ConstraintResolver(config)
+    resolver = ConstraintResolver(config, previous_values or {})
 
     for name, param in params.items():
         # Extract components from parameter name or param_id

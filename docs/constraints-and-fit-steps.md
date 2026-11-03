@@ -111,8 +111,20 @@ Start from a previous fit result:
 from_file = "previous_fit/summary/fit.json"
 ```
 
-This loads parameter values from a JSON fit summary and uses them as starting points while
-respecting any other constraints you define.
+Each fitted nonlinear parameter in that summary (positions, linewidths, phases and
+other lineshape parameters) becomes the starting value of the parameter with the same
+name. Amplitudes are not loaded: they are linear and solved for every set of nonlinear
+values. Parameters absent from the summary, including those of peaks in clusters the
+previous fit marked unusable, keep their usual starts.
+
+Your other constraints still apply. An explicit `value` wins over the loaded one, bounds
+and `vary` are unchanged, and position windows stay centred on the peak-list positions,
+so a loaded position outside its window is clamped to it.
+
+The file must be a `summary/fit.json` written by this PeakFit version. A file that is not
+one, or that shares no parameter name with the current fit, stops the fit with an error.
+A relative path is resolved from the directory where you run `peakfit fit`. The desktop
+GUI does not support `from_file`.
 
 ## Effective parameter preparation
 
