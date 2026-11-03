@@ -35,7 +35,6 @@ from peakfit.fit.pipeline import (
 )
 from peakfit.fit.run_models import FitRun
 from peakfit.io.output_metadata import RunMetadata
-from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.schemas import FitSummarySchema
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.json import write_final_outcome_summary
@@ -426,7 +425,7 @@ def test_future_contract_persistence_uses_terminal_classification_and_provenance
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     clusters_by_id = {int(cluster["cluster_id"]): cluster for cluster in payload["clusters"]}
 
-    assert payload["schema_version"] == "4.1.0"
+    assert payload["schema_version"] == "5.0.0"
     assert "statistics" in payload
     assert "global_statistics" not in payload
     assert clusters_by_id[11]["classification"] == "converged"
@@ -449,7 +448,7 @@ def test_json_projects_all_converged_outcomes_in_final_identity_order(tmp_path: 
 
     payload = _write_final_outcome_json(outcome, spectra, tmp_path / "fit.json")
 
-    assert payload["schema_version"] == "4.1.0"
+    assert payload["schema_version"] == "5.0.0"
     assert [cluster["cluster_id"] for cluster in payload["clusters"]] == [11, 37, 91]  # type: ignore[index]
     assert all(cluster["classification"] == "converged" for cluster in payload["clusters"])  # type: ignore[index]
     assert all(cluster["analytical_evaluation"] is not None for cluster in payload["clusters"])  # type: ignore[index]
@@ -503,7 +502,7 @@ def test_json_leaves_unavailable_optimizer_diagnostics_absent(tmp_path: Path) ->
     assert "iterations" not in provenance
 
 
-def test_json_reader_round_trips_classifications_and_distinguishes_absent_evaluation(
+def test_json_summary_round_trips_classifications_and_distinguishes_absent_evaluation(
     tmp_path: Path,
 ) -> None:
     outcome, spectra, _ = _final_outcome_for_json(
@@ -512,7 +511,7 @@ def test_json_reader_round_trips_classifications_and_distinguishes_absent_evalua
     summary_path = tmp_path / "summary" / "fit.json"
     _write_final_outcome_json(outcome, spectra, summary_path)
 
-    summary = ResultsLoader(tmp_path).load_summary()
+    summary = FitSummarySchema.model_validate(json.loads(summary_path.read_text()))
 
     assert [cluster.cluster_id for cluster in summary.clusters] == [11, 37, 91]
     assert [cluster.classification for cluster in summary.clusters] == [
@@ -536,7 +535,7 @@ def test_json_reader_round_trips_classifications_and_distinguishes_absent_evalua
             ),
             "unusable outcomes must not contain an analytical evaluation",
         ),
-        (lambda payload: payload.update(schema_version="3.0.0"), "3.0.0.*4.1.0"),
+        (lambda payload: payload.update(schema_version="3.0.0"), "3.0.0.*5.0.0"),
     ],
 )
 def test_json_schema_rejects_malformed_identity_order_and_outcome_combinations(

@@ -6,8 +6,7 @@
 repo = "builtin"
 hooks = [
   { id = "trailing-whitespace" },
-  # Legacy writer fixtures are checksummed byte evidence, including absent final newlines.
-  { id = "end-of-file-fixer", exclude = '^tests/data/storage-compat/.*\.peakfit/.*\.json$' },
+  { id = "end-of-file-fixer" },
   { id = "check-yaml" },
   { id = "check-added-large-files" },
   { id = "check-merge-conflict" },

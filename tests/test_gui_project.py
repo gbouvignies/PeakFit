@@ -31,7 +31,6 @@ from peakfit.gui.project_process import project_operation
 from peakfit.gui.project_results import (
     journal_entry,
     reconstruct_result,
-    restore_result,
     verify_model,
 )
 from peakfit.gui.session_evidence import SessionEvidence, interrupted_sessions
@@ -1058,17 +1057,6 @@ def test_reopened_continuation_provenance_and_refit_are_identical(
     assert [c.final_nonlinear_parameters for c in a.clusters] == [
         c.final_nonlinear_parameters for c in b.clusters
     ]
-
-
-def test_runs_saved_before_provenance_read_with_it_unrecorded(analysis, tmp_path):
-    path = save_analysis(analysis, tmp_path / "older.peakfit")
-    review = next(path.rglob("review.json"))
-    record = json.loads(review.read_text())
-    assert record["continuation"]["run_id"] is None  # a first fit: every peak initialized
-    record.pop("continuation")
-    outcome, samples, _ = read_scientific(review.parent / "result.npz")
-    restored = restore_result(record, outcome, samples)
-    assert restored.inputs.continuation is None
 
 
 @pytest.fixture(scope="module")

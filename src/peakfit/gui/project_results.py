@@ -37,7 +37,7 @@ def restore_result(run, outcome, retained_samples):
         raw["configuration"],
         raw["contour_level"],
         tuple(tuple(s) for s in raw["source_files"]),
-        tuple(raw.get("source_plane_indices", range(raw["data_shape"][0]))),
+        tuple(raw["source_plane_indices"]),
     )
     config = PeakFitConfig.model_validate_json(snapshot.configuration)
     snapshot = replace(snapshot, configuration=config.model_dump_json())
@@ -77,7 +77,7 @@ def restore_result(run, outcome, retained_samples):
         snapshot.contour_level,
         tuple(clusters),
         initial,
-        _read_continuation(run.get("continuation"), snapshot.peaks),
+        _read_continuation(run["continuation"], snapshot.peaks),
     )
     return DatasetFitResult(
         prepared,
@@ -99,7 +99,7 @@ def _read_continuation(record, peaks):
         tuple(record["continued"]),
         tuple(record["initialized"]),
         record["reason"],
-        tuple((identity, reason) for identity, reason in record.get("reasons", ())),
+        tuple((identity, reason) for identity, reason in record["reasons"]),
     )
     ids = [p.id for p in peaks]
     if sorted(continuation.continued + continuation.initialized) != sorted(ids):

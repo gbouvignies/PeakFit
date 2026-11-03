@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from types import MappingProxyType
-from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -19,10 +18,6 @@ from peakfit.engine.scientific.final_outcome import (
 )
 from peakfit.fit.fitting import find_review_clusters
 from peakfit.fit.run_models import FitRun, RunSummary
-from peakfit.io.writers.run_files import write_readme
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def _outcome(
@@ -170,9 +165,7 @@ def test_run_summary_includes_only_usable_outcomes_in_statistics() -> None:
     assert summary.median_redchi == 3.0
 
 
-def test_all_unusable_runs_report_no_numeric_distribution_or_fabricated_readme_value(
-    tmp_path: Path,
-) -> None:
+def test_all_unusable_runs_report_no_numeric_distribution() -> None:
     summary = RunSummary.from_outcome(
         _outcome(
             [
@@ -188,7 +181,6 @@ def test_all_unusable_runs_report_no_numeric_distribution_or_fabricated_readme_v
     assert summary.mean_redchi is None
     assert summary.std_redchi is None
     assert summary.median_redchi is None
-    assert "N/A (no usable outcomes)" in write_readme(tmp_path, summary).read_text(encoding="utf-8")
 
 
 def test_cluster_review_uses_ordered_outcomes_and_actual_provenance() -> None:

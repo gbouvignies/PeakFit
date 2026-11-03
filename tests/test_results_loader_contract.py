@@ -10,20 +10,10 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def test_results_loader_uses_canonical_summary_path(tmp_path: Path) -> None:
+def test_results_loader_reads_only_the_scientific_archive(tmp_path: Path) -> None:
     summary_dir = tmp_path / "summary"
     summary_dir.mkdir()
     (summary_dir / "fit.json").write_text("{}\n", encoding="utf-8")
 
-    loader = ResultsLoader(tmp_path)
-
-    assert loader.summary_path == tmp_path / "summary" / "fit.json"
-
-
-def test_results_loader_rejects_summary_subdirectory(tmp_path: Path) -> None:
-    summary_dir = tmp_path / "summary"
-    summary_dir.mkdir()
-    (summary_dir / "fit.json").write_text("{}\n", encoding="utf-8")
-
-    with pytest.raises(FileNotFoundError):
-        ResultsLoader(summary_dir)
+    with pytest.raises(FileNotFoundError, match=r"No scientific\.npz"):
+        ResultsLoader(tmp_path)

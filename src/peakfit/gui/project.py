@@ -499,9 +499,6 @@ def open_analysis(
         fingerprint = json.loads(dict(snapshot.source_files)["spectrum"])["checksum_sha256"]
         if fingerprint != manifest["dataset"]["source"]["checksum_sha256"]:
             raise ValueError("Run source identity disagrees with the analysis source.")
-    manifest["dataset"].setdefault(
-        "source_plane_indices", list(range(manifest["dataset"]["shape"][0]))
-    )
     analysis = Analysis(
         None,
         manifest["dataset"],
@@ -511,8 +508,8 @@ def open_analysis(
         runs,
         manifest["view"],
         path=path,
-        journal=tuple(manifest.get("journal", [])),
-        protected=frozenset(manifest.get("protected", [])),
+        journal=tuple(manifest["journal"]),
+        protected=frozenset(manifest["protected"]),
         active=active,
     )
     return verify_sources(analysis, relink=relink, progress=progress, canceled=canceled)

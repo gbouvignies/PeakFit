@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING, Any
 from peakfit.engine.algorithms.mcmc import estimate_uncertainties_mcmc
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.io.readers.results import ResultsLoader
-from peakfit.io.state import default_state_path, load_state
-from peakfit.shared.paths import format_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -44,9 +42,6 @@ class PeaksNotFoundError(ValueError):
     def __init__(self, peaks: list[str]) -> None:
         super().__init__(f"No clusters found for peaks: {peaks}")
         self.peaks = peaks
-
-
-_DEFAULT_NOISE = 1.0
 
 
 @dataclass(slots=True, frozen=True)
@@ -80,25 +75,10 @@ def run_mcmc_analysis(
     progress_callback: Callable[[int, int, str, float | None], None] | None = None,
 ) -> MCMCAnalysisResult:
     """Run MCMC sampling for the results in the given directory."""
-    results_dir = Path(results_dir)
-    loader = ResultsLoader(results_dir)
-    state_path = default_state_path(results_dir)
-    native = results_dir / "scientific.npz"
-    if native.is_file():
-        state = loader.load_fitting_state()
-    else:
-        summary = loader.load_summary()
-        if not state_path.exists():
-            raise ValueError(
-                "Legacy summary lacks validated terminal samples. "
-                "Use scientific evidence or refit before MCMC continuation."
-            )
-        state = load_state(state_path, require_corrections=summary.terminal_correction_revision > 0)
-        spec_path, list_path = _resolve_input_paths(results_dir, summary.metadata.input_files)
-        if not spec_path.exists() or not list_path.exists():
-            raise FileNotFoundError("Legacy results require original spectrum and peak list.")
-
-    noise = state.noise if state.noise is not None else _DEFAULT_NOISE
+    state = ResultsLoader(Path(results_dir)).load_fitting_state()
+    if state.noise is None:
+        raise ValueError("The fit records no noise level; refit before running MCMC.")
+    noise = state.noise
     target_clusters = _filter_clusters(state.clusters, target_peaks)
     if target_peaks and not target_clusters:
         raise PeaksNotFoundError(target_peaks)
@@ -145,61 +125,10 @@ def run_mcmc_analysis(
     return MCMCAnalysisResult(
         clusters=target_clusters,
         params=state.scalar_params,
-        noise=state.noise or 0.0,
+        noise=noise,
         peaks=state.peaks,
         cluster_results=results,
     )
-
-
-def _resolve_input_paths(results_dir: Path, input_files: dict[str, Any]) -> tuple[Path, Path]:
-    """Resolve spectrum and peaklist paths, handling potential relocation."""
-    spectrum_info = input_files.get("spectrum")
-    peaklist_info = input_files.get("peaklist")
-
-    if spectrum_info is None or peaklist_info is None:
-        raise ValueError("Input paths missing from results metadata.")
-
-    if hasattr(spectrum_info, "path"):
-        spec_path_str = spectrum_info.path
-    else:
-        spec_path_str = spectrum_info.get("path") if isinstance(spectrum_info, dict) else None
-
-    if hasattr(peaklist_info, "path"):
-        list_path_str = peaklist_info.path
-    else:
-        list_path_str = peaklist_info.get("path") if isinstance(peaklist_info, dict) else None
-
-    if not spec_path_str or not list_path_str:
-        raise ValueError("Input paths missing from results metadata.")
-
-    spec_path = _find_input_file(Path(spec_path_str), results_dir)
-    list_path = _find_input_file(Path(list_path_str), results_dir)
-
-    if not spec_path.exists():
-        raise FileNotFoundError(f"Spectrum file not found: {format_path(spec_path_str)}")
-    if not list_path.exists():
-        raise FileNotFoundError(f"Peak list file not found: {format_path(list_path_str)}")
-
-    return spec_path, list_path
-
-
-def _find_input_file(path: Path, results_dir: Path) -> Path:
-    """Find an input file after a results directory has moved."""
-    parent = results_dir.parent
-    grandparent = parent.parent
-    candidates = [
-        path,
-        results_dir / path.name,
-        parent / path.name,
-        grandparent / path.name,
-        grandparent / "data" / path.name,
-        grandparent / path,
-    ]
-
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return path
 
 
 def _filter_clusters(clusters: list[Cluster], peaks: list[str] | None) -> list[Cluster]:

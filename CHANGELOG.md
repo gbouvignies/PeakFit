@@ -67,6 +67,12 @@ Notable user-facing and architecture changes are recorded here.
 - Removed the legacy `peakfit plot spectrum` viewer and its fit-result overlay
   (`--results`); `peakfit gui` is the one graphical interface. The PDF plot
   commands (`intensity`, `cest`, `cpmg`, `mcmc`) are unchanged.
+- Removed reading of results without `scientific.npz`: pickled fitting state
+  (`metadata/fitting_state.pkl`), JSON-only result folders and the legacy MCMC
+  path that guessed input-file locations and defaulted the noise to 1.0. Also
+  removed the unused run README writer and the `git_commit` run metadata, which
+  recorded the repository of the current directory rather than PeakFit's version
+  (`software_version` records that).
 
 ### Compatibility
 
@@ -77,3 +83,5 @@ Notable user-facing and architecture changes are recorded here.
   `--optimizer basin_hopping`.
 - Configs containing `[auto_peak]`, `fix_positions` or `fit_j_coupling` are rejected;
   delete those keys.
+- Scientific archives move to 4.0.0 and fit JSON to 5.0.0; earlier versions are
+  rejected. Refit results written before this change.

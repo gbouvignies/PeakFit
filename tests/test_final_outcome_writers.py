@@ -9,6 +9,8 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pytest
+from pydantic import ValidationError
 
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
 from peakfit.engine.scientific.final_outcome import (
@@ -22,11 +24,9 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.fit.fitting import find_review_clusters
 from peakfit.fit.run_models import FitRun, RunSummary
 from peakfit.io.output_metadata import RunMetadata
-from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.schemas import FitSummarySchema
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.orchestrator import write_fit_outputs
-from peakfit.io.writers.run_files import write_readme
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -197,14 +197,11 @@ def test_writers_project_mixed_outcomes_in_final_identity_order(tmp_path) -> Non
         output_dir=tmp_path,
     )
     review_ids = {review.cluster_id for review in find_review_clusters(run)}
-    readme = write_readme(tmp_path, summary).read_text(encoding="utf-8")
 
     assert {"37", "91"}.issubset(review_ids)
     assert summary.n_converged == 1
     assert summary.n_usable_non_converged == 1
     assert summary.n_unusable == 1
-    assert "**Usable, not converged**: 1" in readme
-    assert "**Unusable clusters**: 1" in readme
 
 
 def test_markdown_report_remains_bounded_for_large_final_outcomes(tmp_path) -> None:
@@ -261,14 +258,11 @@ def test_writers_omit_numerical_rows_for_all_unusable_outcomes(tmp_path) -> None
     report = written["report"].read_text(encoding="utf-8")
     parameters = written["parameters"].read_text(encoding="utf-8").splitlines()
     intensities = written["intensities"].read_text(encoding="utf-8").splitlines()
-    readme = write_readme(tmp_path, RunSummary.from_outcome(outcome)).read_text(encoding="utf-8")
 
     assert len(parameters) == 1
     assert len(intensities) == 1
     assert "Global reduced chi2: N/A (no usable outcomes)" in report
     assert "unusable: non-finite terminal result" in report
-    assert "**Usable clusters**: 0/2" in readme
-    assert "N/A (no usable outcomes)" in readme
 
 
 def test_writers_project_all_converged_statistics_and_populations(tmp_path) -> None:
@@ -328,14 +322,12 @@ def test_unavailable_uncertainties_remain_explicit_in_json_and_csv(tmp_path) -> 
     assert row["uncertainty_warning"] == "Unidentifiable group"
 
 
-def test_legacy_schema_remains_readable_and_missing_errors_stay_unknown(tmp_path) -> None:
+def test_missing_errors_stay_unknown_and_earlier_schema_is_rejected(tmp_path) -> None:
     written = _write(_outcome([(11, FitOutcomeClassification.CONVERGED, "converged")]), tmp_path)
     payload = json.loads(written["summary_fit"].read_text())
-    payload["schema_version"] = "4.0.0"
-    payload["clusters"][0]["analytical_evaluation"].pop("uncertainty_warning")
     payload["clusters"][0]["final_nonlinear_parameters"][0]["standard_error"] = None
     parsed = FitSummarySchema.model_validate(payload)
-    # Exercise reconstruction directly: display-only peak geometry is unrelated
-    # to the uncertainty round trip and intentionally minimal in this fixture.
-    parameters = ResultsLoader(tmp_path)._reconstruct_parameters(parsed.clusters)
-    assert np.isnan(parameters["P11.F2.cs"].stderr)
+    assert parsed.clusters[0].final_nonlinear_parameters[0].standard_error is None
+    payload["schema_version"] = "4.0.0"
+    with pytest.raises(ValidationError, match="Unsupported fit JSON schema version"):
+        FitSummarySchema.model_validate(payload)
