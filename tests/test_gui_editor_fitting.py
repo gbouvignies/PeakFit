@@ -35,7 +35,6 @@ from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.fit_export import export_fit_result
-from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import StoredRun
 from peakfit.gui.spectrum import Dataset, display_position, read_dataset
@@ -73,7 +72,7 @@ def publish(workspace, result):
     fitting = workspace.fitting
     fitting._submitted_revision = workspace.edits.revision
     fitting.process.state = "completed"
-    fitting._finished(0, FitProcessResult(result, 0, 0, 0, 0))
+    fitting._finished(0, result)
     wait_until(lambda: not fitting.busy)
     assert fitting.result is result, fitting.failure
 
@@ -271,7 +270,7 @@ def test_all_unusable_completion_and_invalid_replacement(workspace, scientific):
     invalid = replace(
         result, inputs=replace(result.inputs, identities=result.inputs.identities[:-1])
     )
-    w.fitting._finished(0, FitProcessResult(invalid, 0, 0, 0, 0))
+    w.fitting._finished(0, invalid)
     wait_until(lambda: not w.fit_busy)
     assert w.fitting.result is unusable
     assert w.peaks == seeds

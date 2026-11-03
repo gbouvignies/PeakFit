@@ -10,7 +10,6 @@ from peakfit.engine.scientific.completed import FinalClusterSamples
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.project import StoredRun, run_id
-from peakfit.gui.project_process import project_operation
 from peakfit.gui.project_results import reconstruct_result
 
 
@@ -189,13 +188,8 @@ class NumericalReview(QtWidgets.QWidget):
             self.peak.clear()
             self.export.setEnabled(False)
             self.keep.setEnabled(False)
-            self._worker.submit(
-                "history",
-                self._history_generation,
-                lambda: project_operation(
-                    "history", raw, progress=lambda _: None, canceled=lambda: False
-                ),
-            )
+            # Historical runs load on this background worker, as fitting's parent runs do.
+            self._worker.submit("history", self._history_generation, raw.load)
             return
         if (
             completion is not None

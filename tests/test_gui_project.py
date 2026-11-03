@@ -24,7 +24,6 @@ from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.numerical import NumericalReview
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.fit_positions import continuation_source, dataset_completion
-from peakfit.gui.fit_process import FitProcessResult
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import Analysis, dataset_header, open_analysis, save_analysis
 from peakfit.gui.project_process import project_operation
@@ -681,7 +680,7 @@ def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup
         result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
         f._submitted_revision = w.edits.revision
         f.process.state = "completed"
-        f._finished(0, FitProcessResult(result, 0, 0, 0, 0))
+        f._finished(0, result)
         del result, prepared
         wait_until(lambda: not f.busy, timeout=15)
         assert f.current, f.failure

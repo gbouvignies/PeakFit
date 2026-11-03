@@ -16,8 +16,8 @@ from PySide6 import QtCore
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.pipeline import run_pipeline
+from peakfit.gui.child_process import encode
 from peakfit.gui.dataset_fit import (
-    _completed_bytes,
     compute_dataset_fit,
     dataset_summary,
     finish_dataset_fit,
@@ -58,7 +58,7 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
     )
     progress = []
     attempt = compute_dataset_fit(deepcopy(prepared), progress.append)
-    transferred = pickle.loads(_completed_bytes(attempt))
+    transferred = pickle.loads(encode(attempt))
     result = finish_dataset_fit(prepared, transferred)
     assert result.outcome.n_optimizer_passes == 2
     assert result.outcome.n_correction_updates == 1

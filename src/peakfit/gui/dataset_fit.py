@@ -1,13 +1,10 @@
 """Whole-dataset execution using the existing pipeline and completed-fit contracts."""
 
-import io
-import pickle
 import warnings
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import version
 from time import perf_counter
-from types import MappingProxyType
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -17,11 +14,9 @@ from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.fit_steps import build_fit_steps
 from peakfit.engine.results import FitResult
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
-from peakfit.gui.failures import child_failure
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from multiprocessing.connection import Connection
 
     from peakfit.engine.scientific.completed import CompletedFit
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
@@ -114,42 +109,12 @@ def finish_dataset_fit(
     )
 
 
-def _mapping(values):
-    return MappingProxyType(values)
-
-
-def _reduce_mapping(value):
-    return _mapping, (dict(value),)
-
-
-def _completed_bytes(attempt: object) -> bytes:
-    """Preserve immutable mappings and read-only NumPy buffers across a trusted pipe.
-
-    This private protocol is not a file format or an archive reader. Protocol 5
-    retains array write protection; the dispatch table applies only to this writer.
-    """
-    stream = io.BytesIO()
-    writer = pickle.Pickler(stream, protocol=5)
-    writer.dispatch_table = {MappingProxyType: _reduce_mapping}
-    writer.dump(attempt)
-    return stream.getvalue()
-
-
-def run_dataset_child(connection: Connection) -> None:
-    """One serial pipeline in a disposable process, with no nested worker children."""
-    try:
-        connection.send("ready")
-        prepared = connection.recv()
-        try:
-            attempt = compute_dataset_fit(
-                prepared, lambda text: connection.send(("progress", text))
-            )
-            connection.send(("progress", "Transferring completed result"))
-            connection.send(_completed_bytes(attempt))
-        except Exception as error:
-            connection.send(child_failure(error))
-    finally:
-        connection.close()
+def fit_in_child(prepared: PreparedDatasetFit, *, progress, canceled) -> DatasetFitAttempt:
+    """Run the whole-dataset fit in the disposable child; cancellation ends the process."""
+    del canceled
+    attempt = compute_dataset_fit(prepared, progress)
+    progress("Transferring completed result")
+    return attempt
 
 
 def dataset_summary(result: DatasetFitResult, *, warnings: bool = True) -> str:

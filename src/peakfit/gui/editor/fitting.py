@@ -13,7 +13,7 @@ from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import DatasetFitResult, dataset_summary
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.fit_positions import DatasetCompletion, continuation_source, dataset_completion
-from peakfit.gui.fit_process import FitProcess, FitProcessResult
+from peakfit.gui.fit_process import FitProcess
 from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
 from peakfit.gui.project import Analysis, dataset_header, run_id
 from peakfit.gui.project_results import journal_entry
@@ -382,12 +382,10 @@ class DatasetFitting(QtCore.QObject):
     def _finished(self, _generation: int, outcome: object) -> None:
         if self.process.state == "canceled":
             self.attempt = "Canceled · previous result retained"
-        elif isinstance(outcome, FitProcessResult) and isinstance(
-            outcome.scientific, DatasetFitResult
-        ):
+        elif isinstance(outcome, DatasetFitResult):
             self._preparing = True
             self.attempt = "Validating completion"
-            result = outcome.scientific
+            result = outcome
             current = self.snapshot(result.inputs.snapshot)
             revision = self.workspace.edits.revision
             submitted = self._submitted_revision

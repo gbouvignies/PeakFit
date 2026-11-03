@@ -132,13 +132,15 @@ The desktop application keeps the Qt event loop free of scientific and disk work
   projection run in a `ViewerComputation` lane: one serial background worker per
   owner, with latest-pending requests and revision checks so stale deliveries are
   dropped.
-- Fitting runs in one disposable spawned process (`gui.fit_process.FitProcess`).
-  Cancellation terminates and reaps the child off the GUI thread; only records from
-  our own child cross the pipe, and cancellation or failure never publishes a
+- Fits and analysis save, open and source verification each run in one disposable
+  spawned process through `gui.child_process.run_child`: a `ready` handshake, the
+  encoded payload, progress messages, then one result or error record, with the
+  child always reaped. Only records from our own child cross the pipe. A fit's
+  cancellation terminates the child; archive operations cancel cooperatively, with
+  cancellation in the status bar. Cancellation or failure never publishes a
   partial result.
-- Saving, opening and source verification of `.peakfit` analyses run in a
-  disposable archive process (`gui.project_process`), with cancellation in the
-  status bar.
+- Historical runs from a saved analysis (`StoredRun.load`) are validated and
+  loaded on the requesting view's background worker, not in a separate process.
 - Result export writes off-thread behind a modal progress dialog, then publishes
   a staged directory by rename.
 - Every job boundary (background lane, fit process, archive process, export) logs
