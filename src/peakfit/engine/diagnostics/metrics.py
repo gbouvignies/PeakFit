@@ -51,22 +51,9 @@ class TraceMetrics:
     rhat: float
 
     @property
-    def is_converged(self) -> bool:
-        """Check if R-hat indicates convergence (< 1.01).
-
-        Following BARG recommendations (Kruschke 2021).
-        """
-        return self.rhat <= _RHAT_CONVERGENCE_THRESHOLD
-
-    @property
     def ci_68(self) -> tuple[float, float]:
         """68% credible interval (approximately 1 sigma)."""
         return (self.q16, self.q84)
-
-    @property
-    def ci_90(self) -> tuple[float, float]:
-        """90% credible interval."""
-        return (self.q05, self.q95)
 
 
 @dataclass(frozen=True)
@@ -85,27 +72,6 @@ class AutocorrelationResult:
     autocorr: FloatArray
     integrated_autocorr_time: float
     effective_decorrelation_lag: int
-
-
-@dataclass(frozen=True)
-class CorrelationPair:
-    """A pair of correlated parameters.
-
-    Attributes:
-    ----------
-        index_i: Index of first parameter
-        index_j: Index of second parameter
-        correlation: Pearson correlation coefficient
-    """
-
-    index_i: int
-    index_j: int
-    correlation: float
-
-    @property
-    def is_strong(self) -> bool:
-        """Check if correlation is strong (|r| >= 0.5)."""
-        return abs(self.correlation) >= _STRONG_CORRELATION_THRESHOLD
 
 
 def compute_trace_metrics(
@@ -231,75 +197,3 @@ def compute_autocorrelation(
         integrated_autocorr_time=float(iat),
         effective_decorrelation_lag=effective_lag,
     )
-
-
-def compute_correlation_matrix(samples: FloatArray) -> FloatArray:
-    """Compute correlation matrix for samples.
-
-    Args:
-        samples: Array of shape (n_samples, n_params)
-
-    Returns:
-    -------
-        Correlation matrix of shape (n_params, n_params)
-    """
-    return np.asarray(np.corrcoef(samples.T), dtype=np.float64)
-
-
-def find_correlated_pairs(
-    samples: FloatArray,
-    min_correlation: float = _STRONG_CORRELATION_THRESHOLD,
-) -> list[CorrelationPair]:
-    """Find strongly correlated parameter pairs.
-
-    Args:
-        samples: Array of shape (n_samples, n_params)
-        min_correlation: Minimum |correlation| to report
-
-    Returns:
-    -------
-        List of CorrelationPair, sorted by |correlation| (strongest first)
-    """
-    n_params = samples.shape[1]
-    corr_matrix = compute_correlation_matrix(samples)
-
-    pairs = []
-    for i in range(n_params):
-        for j in range(i + 1, n_params):
-            corr = corr_matrix[i, j]
-            if abs(corr) >= min_correlation:
-                pairs.append(
-                    CorrelationPair(
-                        index_i=i,
-                        index_j=j,
-                        correlation=float(corr),
-                    )
-                )
-
-    # Sort by absolute correlation (strongest first)
-    pairs.sort(key=lambda x: abs(x.correlation), reverse=True)
-    return pairs
-
-
-def compute_posterior_statistics(
-    samples: FloatArray,
-) -> dict[str, FloatArray]:
-    """Compute summary statistics for posterior samples.
-
-    Args:
-        samples: Array of shape (n_samples, n_params)
-
-    Returns:
-    -------
-        Dictionary with arrays for each statistic:
-        - medians: Median for each parameter
-        - ci_16, ci_84: 68% credible interval bounds
-        - ci_025, ci_975: 95% credible interval bounds
-    """
-    return {
-        "medians": np.median(samples, axis=0),
-        "ci_16": np.percentile(samples, 16, axis=0),
-        "ci_84": np.percentile(samples, 84, axis=0),
-        "ci_025": np.percentile(samples, 2.5, axis=0),
-        "ci_975": np.percentile(samples, 97.5, axis=0),
-    }

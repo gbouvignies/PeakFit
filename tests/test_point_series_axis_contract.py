@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from peakfit.engine.algorithms.clustering import create_clusters
-from peakfit.engine.algorithms.common import calculate_shape_heights, residuals
+from peakfit.engine.algorithms.common import residuals
 from peakfit.engine.algorithms.evaluation import (
     AnalyticalModelEvaluation,
     evaluate_analytical_model,
@@ -20,7 +20,6 @@ from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
-from peakfit.engine.fitting.simulation import simulate_data
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
 
@@ -329,30 +328,6 @@ def test_authoritative_uncertainties_use_the_series_axis_reduced_chi_squared() -
         analytical.scaled_amplitude_standard_errors,
         analytical.amplitude_standard_errors * np.sqrt(expected_redchi),
     )
-
-
-def test_simulation_transposes_point_major_cluster_data_back_to_series_major_spectra() -> None:
-    cluster, spectra, params = _axis_reproduction()
-
-    shapes, amplitudes = calculate_shape_heights(params, cluster)
-    simulated = simulate_data(params, [cluster], spectra.data)
-
-    assert amplitudes.shape == (len(cluster.peaks), N_SERIES)
-    assert simulated.shape == (N_SERIES, N_POINTS)
-    assert simulated == pytest.approx((shapes.T @ amplitudes).T)
-
-
-def test_simulation_rejects_cluster_and_spectrum_series_mismatch() -> None:
-    cluster, spectra, params = _axis_reproduction()
-    single_series = Cluster(
-        cluster_id=cluster.cluster_id,
-        peaks=cluster.peaks,
-        grid_indices=cluster.grid_indices,
-        data=cluster.data[:, :1],
-    )
-
-    with pytest.raises(ValueError, match="series count"):
-        simulate_data(params, [single_series], spectra.data)
 
 
 def test_fitting_state_rejects_the_development_axis_contract_version() -> None:

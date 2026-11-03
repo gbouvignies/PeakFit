@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:
-    from peakfit.engine.algorithms.mcmc import UncertaintyResult
     from peakfit.engine.domain.params_scalar import Parameters
     from peakfit.shared.typing import FloatArray
 
@@ -49,7 +48,6 @@ class FitResult:
     message: str = ""
     optimality: float = 0.0
     n_amplitude_params: int = 0
-    uncertainty: UncertaintyResult | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property

@@ -78,16 +78,6 @@ class SpectralParameters(BaseModel):
         return self
 
     @overload
-    def hz2pts_delta(self, hz: float) -> float: ...
-
-    @overload
-    def hz2pts_delta(self, hz: FloatArray) -> FloatArray: ...
-
-    def hz2pts_delta(self, hz: float | FloatArray) -> float | FloatArray:
-        """Convert a frequency difference in Hz into point units using delta scaling."""
-        return hz / (self.obs * self.delta)
-
-    @overload
     def pts2hz_delta(self, pts: float) -> float: ...
 
     @overload
@@ -96,30 +86,6 @@ class SpectralParameters(BaseModel):
     def pts2hz_delta(self, pts: float | FloatArray) -> float | FloatArray:
         """Convert a point delta count back to Hz using delta scaling."""
         return pts * self.obs * self.delta
-
-    @overload
-    def hz2pts(self, hz: float) -> float: ...
-
-    @overload
-    def hz2pts(self, hz: FloatArray) -> FloatArray: ...
-
-    def hz2pts(self, hz: float | FloatArray) -> float | FloatArray:
-        """Convert a frequency in Hz to fractional point coordinate."""
-        return ((hz / self.obs) - self.first) / self.delta
-
-    def hz2pt_i(self, hz: float) -> int:
-        """Convert a frequency in Hz to the nearest integer point index within the dimension."""
-        return int(round(self.hz2pts(hz)) % self.size)
-
-    @overload
-    def pts2hz(self, pts: float) -> float: ...
-
-    @overload
-    def pts2hz(self, pts: FloatArray) -> FloatArray: ...
-
-    def pts2hz(self, pts: float | FloatArray) -> float | FloatArray:
-        """Convert a fractional point coordinate back to frequency (Hz)."""
-        return (pts * self.delta + self.first) * self.obs
 
     @overload
     def ppm2pts(self, ppm: float) -> float: ...
@@ -164,16 +130,6 @@ class SpectralParameters(BaseModel):
     def ppm2hz(self, ppm: float | FloatArray) -> float | FloatArray:
         """Convert ppm to frequency (Hz) using observation frequency (MHz)."""
         return ppm * self.obs
-
-    @overload
-    def ppm2rads(self, ppm: float) -> float: ...
-
-    @overload
-    def ppm2rads(self, ppm: FloatArray) -> FloatArray: ...
-
-    def ppm2rads(self, ppm: float | FloatArray) -> float | FloatArray:
-        """Convert ppm difference to angular frequency (rad/s)."""
-        return (2.0 * np.pi) * self.ppm2hz(ppm)
 
     def to_dimension_context(self, label: str) -> DimensionContext:
         """Create a DimensionContext for this dimension.
@@ -272,24 +228,6 @@ class Spectra(BaseModel):
                 )
             )
         return dims
-
-    def get_dimension(self, identifier: str | int) -> DimensionInfo:
-        """Get dimension info by label or index."""
-        if isinstance(identifier, int):
-            if 0 <= identifier < len(self.dimensions):
-                return self.dimensions[identifier]
-            msg = f"Dimension index {identifier} out of range (0-{len(self.dimensions) - 1})"
-            raise KeyError(msg)
-
-        for dim in self.dimensions:
-            if dim.label == identifier:
-                return dim
-        msg = f"Dimension '{identifier}' not found. Available: {[d.label for d in self.dimensions]}"
-        raise KeyError(msg)
-
-    def get_dimension_labels(self) -> list[str]:
-        """Get ordered list of dimension labels (e.g., ['F1', 'F2'] for 2D)."""
-        return [dim.label for dim in self.dimensions]
 
     def exclude_planes(self, exclude_list: Sequence[int] | None) -> None:
         """Remove planes (first axis) listed in exclude_list from the data."""

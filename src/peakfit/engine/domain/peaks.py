@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.domain.param_id import ParameterId
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.types import Shape
 from peakfit.shared.typing import FloatArray, IntArray
@@ -74,42 +73,6 @@ class Peak:
     def positions_i(self) -> IntArray:
         """Integer position indices for each shape in the peak."""
         return np.array([shape.center_i for shape in self.shapes], dtype=np.int_)
-
-    @property
-    def positions_hz(self) -> FloatArray:
-        """Position centers in Hz for the peak shapes, converted from ppm."""
-        return np.array(
-            [shape.dim_ctx.ppm2hz(np.array([shape.center]))[0] for shape in self.shapes],
-            dtype=np.float64,
-        )
-
-    def update_positions(self, params: Parameters) -> None:
-        """Update the peak's positions array based on parameter values from `params`."""
-        new_positions = []
-        for shape in self.shapes:
-            specs = shape.get_parameter_spec()
-            if not specs:
-                new_positions.append(shape.center)
-                continue
-
-            param_id = ParameterId(
-                peak_name=self.name,
-                axis=shape.axis,
-                label=specs[0].name,
-            )
-            param_name = param_id.name
-
-            if param_name in params:
-                new_positions.append(params[param_name].value)
-            else:
-                # Fallback: maintain current position if parameter not found
-                new_positions.append(shape.center)
-
-        self.positions = np.array(new_positions)
-
-        # Update shape objects
-        for shape, position in zip(self.shapes, self.positions, strict=True):
-            shape.center = position
 
 
 __all__ = ["Peak"]

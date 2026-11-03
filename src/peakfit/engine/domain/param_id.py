@@ -42,13 +42,6 @@ class ParameterId(BaseModel):
         """Full parameter name in dot-notation."""
         return self._build_name()
 
-    @property
-    def user_name(self) -> str:
-        """User-friendly parameter name for output (e.g., 'cs_F2', 'I0_F1')."""
-        short_name = self.label or "param"
-        base = f"{short_name}{self.index}" if self.index is not None else short_name
-        return f"{base}_{self.axis}" if self.axis else base
-
     def _build_name(self) -> str:
         """Build the full parameter name."""
         parts: list[str] = []
@@ -75,11 +68,6 @@ class ParameterId(BaseModel):
 
         return base_name
 
-    @classmethod
-    def from_name(cls, name: str) -> ParameterId:
-        """Parse a parameter name back into a ParameterId."""
-        return _parse_parameter_name(name)
-
     def __str__(self) -> str:
         """Return the full parameter name."""
         return self.name
@@ -87,46 +75,6 @@ class ParameterId(BaseModel):
     def __hash__(self) -> int:
         """Hash based on the full name."""
         return hash(self.name)
-
-
-def _parse_parameter_name(name: str) -> ParameterId:
-    """Parse a parameter name into a ParameterId.
-
-    Supported formats:
-    - {peak}.{axis}.{type}     (e.g., "peak1.F2.cs")
-    - {peak}.{axis}.I{index}   (e.g., "peak1.F2.I0")
-    - cluster_{id}.{axis}.{type} (e.g., "cluster_1.F2.phase")
-    """
-    parts = name.split(".")
-    if len(parts) != _PARAMETER_NAME_PARTS:
-        raise ValueError(f"Invalid parameter name format: {name}")
-
-    entity, axis, suffix = parts
-
-    # Handle amplitude (I0, I1, etc.)
-    if suffix.startswith("I") and suffix[1:].isdigit():
-        return ParameterId(peak_name=entity, axis=axis, label="I", index=int(suffix[1:]))
-
-    # Cluster ID check
-    cluster_id = None
-    peak_name = ""
-
-    if entity.startswith("cluster_"):
-        try:
-            cluster_id = int(entity.split("_")[1])
-        except (IndexError, ValueError):
-            # Fallback if not strictly "cluster_N"
-            peak_name = entity
-    else:
-        peak_name = entity
-
-    # Standard parameter types
-    return ParameterId(
-        peak_name=peak_name,
-        axis=axis,
-        cluster_id=cluster_id,
-        label=suffix,
-    )
 
 
 __all__ = ["PSEUDO_AXIS", "ParameterId"]

@@ -107,14 +107,6 @@ class Parameter(BaseModel):
         at_max = abs(self.value - self.max) < tol * (1 + abs(self.value))
         return at_min or at_max
 
-    def relative_position(self) -> float:
-        """Get the relative position of value within bounds (0 to 1)."""
-        if self.max == self.min:
-            return 0.5
-        if np.isinf(self.min) or np.isinf(self.max):
-            return 0.5
-        return (self.value - self.min) / (self.max - self.min)
-
 
 class Parameters(BaseModel):
     """Collection of fitting parameters."""
@@ -294,14 +286,6 @@ class Parameters(BaseModel):
         """Get names of computed parameters (e.g., amplitudes)."""
         return [name for name, param in self.params.items() if param.computed]
 
-    def get_fitted_names(self) -> list[str]:
-        """Get names of all fitted parameters (vary=True or computed=True)."""
-        return [name for name, param in self.params.items() if param.vary or param.computed]
-
-    def get_n_fitted_params(self) -> int:
-        """Get total number of fitted parameters for DOF calculation."""
-        return sum(1 for param in self.params.values() if param.vary or param.computed)
-
     def get_vary_values(self) -> np.ndarray:
         """Get values of varying parameters as array."""
         names = self._get_vary_names_cached()
@@ -363,46 +347,6 @@ class Parameters(BaseModel):
             lines.append(line)
         lines.append("=" * 60)
         return "\n".join(lines)
-
-    def get_boundary_params(self) -> list[str]:
-        """Get names of parameters that are at their boundaries."""
-        return [
-            name for name, param in self.params.items() if param.vary and param.is_at_boundary()
-        ]
-
-    def freeze(self, names: list[str] | None = None) -> None:
-        """Set parameters to not vary (freeze them)."""
-        if names is None:
-            names = list(self.params.keys())
-        for name in names:
-            if name in self.params:
-                param = self.params[name]
-                param.vary = False
-
-    def unfreeze(self, names: list[str] | None = None) -> None:
-        """Set parameters to vary (unfreeze them)."""
-        if names is None:
-            names = list(self.params.keys())
-        for name in names:
-            if name in self.params:
-                param = self.params[name]
-                param.vary = True
-
-    def get_by_peak(self, peak_name: str) -> list[Parameter]:
-        """Get all parameters belonging to a specific peak."""
-        return [
-            param
-            for param in self.params.values()
-            if param.param_id is not None and param.param_id.peak_name == peak_name
-        ]
-
-    def get_by_axis(self, axis: str) -> list[Parameter]:
-        """Get all parameters for a specific axis/dimension."""
-        return [
-            param
-            for param in self.params.values()
-            if param.param_id is not None and param.param_id.axis == axis
-        ]
 
 
 __all__ = ["Parameter", "Parameters"]

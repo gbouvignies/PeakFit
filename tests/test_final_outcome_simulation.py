@@ -17,7 +17,6 @@ from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.domain.state import FittingState
-from peakfit.engine.fitting.simulation import simulate_data
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
 from peakfit.engine.scientific.completed import CompletedFit
@@ -196,16 +195,6 @@ def test_simulation_uses_the_final_outcome_amplitudes_without_resolving_them(
     assert evaluation is not None
     assert simulated is not None
     np.testing.assert_allclose(simulated, (evaluation.shapes.T @ evaluation.amplitudes).T)
-
-
-def test_simulation_preserves_the_previous_finite_full_grid_projection() -> None:
-    fixture = _fixture({11: (True, True), 37: (False, True)})
-
-    simulated = simulate_final_outcome(fixture.outcome, fixture.snapshot, fixture.spectra.data)
-    previous = simulate_data(fixture.params, fixture.clusters, fixture.spectra.data)
-
-    assert simulated is not None
-    np.testing.assert_allclose(simulated, previous)
 
 
 @pytest.mark.parametrize(

@@ -4,10 +4,8 @@ import numpy as np
 
 from peakfit.engine.algorithms.linear_algebra import (
     calculate_amplitudes,
-    calculate_amplitudes_with_uncertainty,
 )
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.param_id import PSEUDO_AXIS, ParameterId
 
 if TYPE_CHECKING:
     from collections.abc import Sequence, Set
@@ -105,53 +103,3 @@ def update_cluster_corrections(
         # -> (n_points, n_series)
         contribution = shapes_ext.T @ amps_ext
         cluster.corrections = contribution.astype(float)
-
-
-def inject_amplitude_parameters(
-    params: Parameters,
-    cluster: Cluster,
-    noise: float,
-) -> None:
-    """Inject amplitude parameters from linear least-squares into params."""
-    shapes = cluster.evaluate(params)
-    amplitudes, errors, _covariance = calculate_amplitudes_with_uncertainty(
-        shapes, cluster.corrected_data, noise
-    )
-
-    n_series = amplitudes.shape[1]
-
-    for i, peak in enumerate(cluster.peaks):
-        peak_error = float(errors[i])
-
-        for j in range(n_series):
-            if n_series == 1:
-                amp_id = ParameterId(
-                    peak_name=peak.name,
-                    axis=PSEUDO_AXIS,
-                    label="I",
-                    index=0,
-                )
-            else:
-                amp_id = ParameterId(
-                    peak_name=peak.name,
-                    axis=PSEUDO_AXIS,
-                    label="I",
-                    index=j,
-                )
-
-            val = float(amplitudes[i, j])
-
-            if amp_id.name in params:
-                p = params[amp_id.name]
-                p.value = val
-                p.vary = False
-                p.computed = True
-                p.stderr = peak_error
-            else:
-                params.add(
-                    amp_id,
-                    value=val,
-                    vary=False,
-                    computed=True,
-                    stderr=peak_error,
-                )

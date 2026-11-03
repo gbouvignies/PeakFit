@@ -74,6 +74,10 @@ Notable user-facing and architecture changes are recorded here.
   recorded the repository of the current directory rather than PeakFit's source.
   Runs now record no source revision; `software_version` is the package version,
   which does not change between development commits.
+- Removed unused internal functions (unused `Parameters`, spectrum and peak helpers,
+  J-coupling utilities, MCMC formatters and plot helpers), the legacy
+  `engine.fitting.simulation` module and the `tomli-w` dependency. Python code
+  importing them breaks; the CLI, GUI and outputs are unchanged.
 
 ### Compatibility
 

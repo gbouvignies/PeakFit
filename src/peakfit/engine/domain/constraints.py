@@ -48,10 +48,6 @@ class ParameterConstraint(BaseModel):
     max: float | None = None
     vary: bool | None = None
 
-    def is_empty(self) -> bool:
-        """Check if constraint has any non-None fields."""
-        return all(v is None for v in [self.value, self.min, self.max, self.vary])
-
 
 class PositionWindowConfig(BaseModel):
     """Position window configuration per axis.

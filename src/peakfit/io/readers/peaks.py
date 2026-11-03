@@ -20,23 +20,6 @@ if TYPE_CHECKING:
 _CCPN_ASSIGNMENT_PARTS = 4
 
 
-def _get_position_column_names(n_spectral_dims: int) -> list[str]:
-    """Generate position column names for N spectral dimensions.
-
-    Uses NMRPipe F1/F2/F3/F4 convention internally but creates column
-    names compatible with the existing DataFrame structure.
-
-    Args:
-        n_spectral_dims: Number of spectral dimensions (excluding pseudo)
-
-    Returns:
-    -------
-        List of column names like ['F1_ppm', 'F2_ppm'] for 2D
-        Ordered from F1 (first indirect) to Fn (direct)
-    """
-    return [f"F{i + 1}_ppm" for i in range(n_spectral_dims)]
-
-
 def _create_peak_list(
     peaks: pd.DataFrame, spectra: Spectra, shape_names: list[str], config: FitConfig
 ) -> list[Peak]:

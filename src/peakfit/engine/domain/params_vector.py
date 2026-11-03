@@ -85,36 +85,6 @@ class FitParameters(BaseModel):
 
         return self
 
-    def to_array(self) -> np.ndarray:
-        """Flatten all present arrays into a single 1D array."""
-        arrays = [self.positions, self.widths]
-        if self.amplitudes is not None:
-            arrays.append(self.amplitudes)
-
-        # Sort keys for deterministic order
-        arrays.extend(self.extras[key] for key in sorted(self.extras))
-
-        return np.concatenate(arrays)
-
-    def from_array(self, array: np.ndarray) -> None:
-        """Update arrays from a flat 1D array."""
-        n = len(self.positions)
-        offset = 0
-
-        self.positions = array[offset : offset + n]
-        offset += n
-
-        self.widths = array[offset : offset + n]
-        offset += n
-
-        if self.amplitudes is not None:
-            self.amplitudes = array[offset : offset + n]
-            offset += n
-
-        for key in sorted(self.extras.keys()):
-            self.extras[key] = array[offset : offset + n]
-            offset += n
-
     @classmethod
     def from_parameters(
         cls,
