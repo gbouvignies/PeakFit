@@ -123,6 +123,7 @@ def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) 
             params=task.params,
             residual=np.zeros(task.cluster.n_observations),
             cost=0,
+            optimizer_kind="varpro",
             nfev=1,
             success=True,
             message="test capture",

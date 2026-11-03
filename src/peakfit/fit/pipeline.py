@@ -401,6 +401,12 @@ def _process_execution_results(
                 f"expected {correction_revision}, got {result.correction_revision}"
             )
             raise ValueError(msg)
+        if result.optimizer_kind != "varpro":
+            msg = (
+                "Optimizer result provenance must record VarPro, "
+                f"got optimizer_kind {result.optimizer_kind!r}"
+            )
+            raise ValueError(msg)
         if result.noise is None:
             result.noise = noise
         elif result.noise != noise:

@@ -698,6 +698,26 @@ def test_cluster_identity_rejects_unexpected_optimizer_results() -> None:
         )
 
 
+@pytest.mark.parametrize("optimizer_kind", ["basin_hopping", None])
+def test_results_with_other_optimizer_provenance_are_rejected(optimizer_kind) -> None:
+    fit = _synthetic_fit()
+
+    def executor(function: Any, tasks: list[Any]) -> list[Any]:
+        completed = [function(task) for task in tasks]
+        completed[1].optimizer_kind = optimizer_kind
+        return completed
+
+    with pytest.raises(ValueError, match="provenance must record VarPro"):
+        run_pipeline(
+            config=FitConfig(lineshape="gaussian", refine_iterations=1),
+            clusters=fit.clusters,
+            data_noise=1.0,
+            base_params=fit.params,
+            peaks=fit.peaks,
+            executor=executor,
+        )
+
+
 def test_cluster_identity_preserves_returned_nonconverged_result() -> None:
     fit = _synthetic_fit(cluster_ids=(37,))
 
