@@ -214,6 +214,22 @@ def test_project_reader_defects_are_not_reported_as_damaged_projects(
         open_analysis(path)
 
 
+def test_project_recording_adoption_warning_text_is_rejected_by_version(analysis, tmp_path):
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+    assert open_analysis(path).completion is not None
+
+    # Project 7.0.0 recorded each run's adoption warnings as text.
+    def record_warnings(review):
+        review["completion_warnings"] = list(analysis.completion.warnings)
+
+    _rewrite_review(path, record_warnings)
+    manifest = json.loads((path / "manifest.json").read_text())
+    manifest["schema_version"] = "7.0.0"
+    (path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match=r"Unsupported analysis version: '7\.0\.0'"):
+        open_analysis(path)
+
+
 def test_project_recording_a_removed_config_key_is_rejected_by_version(analysis, tmp_path):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     assert open_analysis(path).completion is not None
