@@ -148,6 +148,11 @@ The desktop application keeps the Qt event loop free of scientific and disk work
   terminal that started PeakFit; worker processes send theirs back with the
   failure (`gui.failures`). Dialogs show `ValueError`/`OSError` messages as raised,
   and ask for a report for anything else.
+- The editor renders fitting state on its transitions, never by polling:
+  `DatasetFitting.state_changed` fires when a job or result changes, and the
+  workspace redraws from that state (`EditorWorkspace.render_fitting`). One busy
+  state, `DatasetFitting.busy`, locks every scientific edit; a timer runs only
+  while a fit is busy, to show elapsed time.
 - Status and warning text uses fixed-height fields so progress never reflows the
   plots. Large tables are replaced by clearing rows, using interactive column
   sizing and sizing once after population; per-row resizing froze the GUI for

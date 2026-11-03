@@ -85,6 +85,12 @@ Notable user-facing and architecture changes are recorded here.
   reaping; a child that exits without a result is reported with its exit code.
   Historical runs load on the view's background worker instead of a separate
   process.
+- The editor renders fitting state when it changes instead of refreshing every
+  200 ms: `DatasetFitting.state_changed` fires only on job and result transitions,
+  and a clock ticks only while a fit is busy, to show elapsed time. One busy state
+  locks and releases every scientific edit. Fixed the Edit menu's Add peak staying
+  disabled after the first fit, and the pin button staying disabled after the lens
+  closed.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.

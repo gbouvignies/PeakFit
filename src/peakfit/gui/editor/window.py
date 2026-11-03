@@ -293,11 +293,11 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
     def _start_loading(self, operation) -> None:
         if self._busy or self._saving:
             return
-        if self.workspace and self.workspace.fit_busy:
+        if self.workspace and self.workspace.fitting.busy:
             self.loading_status.setText("Cancel the fit before replacing scientific inputs")
             return
         if self.workspace:
-            self.workspace.inputs_loading = True
+            self.workspace.set_inputs_loading(True)
         self._revision += 1
         self._busy = True
         self.loading_status.setText(
@@ -325,7 +325,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
 
     def _end_loading(self) -> None:
         if self.workspace:
-            self.workspace.inputs_loading = False
+            self.workspace.set_inputs_loading(False)
         self._busy = False
         self.cancel_load.hide()
         self.open_action.setEnabled(True)
@@ -437,11 +437,11 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             w = self.workspace
             self.setWindowModified(self._analysis_key() != self._saved_key or w.pending)
             for action in (self.open_action, self.import_action, self.values_action):
-                action.setEnabled(not w.fit_busy and not self._busy)
-            self.fit_action.setEnabled(bool(w.peaks) and not w.fit_busy)
+                action.setEnabled(not w.fitting.busy and not self._busy)
+            self.fit_action.setEnabled(bool(w.peaks) and not w.fitting.busy)
             self.settings_action.setEnabled(True)
             self.run_action.setEnabled(True)
-            self.fit_export_action.setEnabled(w.fitting.result is not None and not w.fit_busy)
+            self.fit_export_action.setEnabled(w.fitting.result is not None and not w.fitting.busy)
 
         self._analysis_actions()
 
@@ -531,7 +531,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         # A plane mapping replacement is a scientific edit, never navigation.
         workspace.edits.revision += 1
         workspace.plane_values_modified = True
-        workspace._update_actions()
+        workspace.render_fitting()
         workspace.changed.emit()
         workspace.set_plane(workspace.canvas.plane + 1)
         self.loading_status.setText(
@@ -741,7 +741,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802
         """Protect the usable input editor, then cancel private display deliveries."""
-        if self.workspace and self.workspace.fit_busy:
+        if self.workspace and self.workspace.fitting.busy:
             if self.workspace.fitting.process.state != "canceling":
                 decision = QtWidgets.QMessageBox.question(
                     self,
@@ -757,7 +757,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
                 self.workspace.fitting.cancel()
             # Reaping and any preceding publication finish outside Qt. Only then
             # resolve unexported prior results and peak inputs in the usual guard.
-            if self.workspace.fit_busy:
+            if self.workspace.fitting.busy:
                 self._close_timer.start(50)
                 event.ignore()
                 return

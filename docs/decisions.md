@@ -452,3 +452,20 @@ Short records of non‑obvious design choices and trade‑offs.
 - One policy for historical runs: `StoredRun.load` runs on the requesting view's
   background worker, as fitting's parent-run lookup already did. Numerical review
   no longer spawns a process for it.
+
+## 2026-11-03: Fitting state without polling
+- The fitting panel refreshed on a 200 ms timer and after every workspace change,
+  re-syncing the canvas and inspector each time. That masked missing notifications
+  (a stage label written from the publication worker, the setup counting as seen)
+  and re-synced the canvas while other work was in flight, which made the
+  stale-delivery test flaky. `DatasetFitting` now emits
+  `state_changed` only on transitions, and the workspace renders from its state;
+  the timer runs only while busy, for elapsed time.
+- The editing lock was computed in the fitting renderer, `_update_actions`, the lens
+  update and per-call guards. `_update_actions` now applies one busy state to every
+  edit control, which re-enables the Edit menu's Add peak after a fit. The pin
+  button follows the lens directly instead of only ever being disabled.
+- The fit setup counts as seen when the dataset page is shown (a Show event)
+  rather than when a poll happened to observe it.
+- The workspace creates its `DatasetFitting` before its widgets, so the `hasattr`
+  construction guards and the `fit_busy` alias are gone.
