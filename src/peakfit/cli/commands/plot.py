@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path  # noqa: TC003 - needed at runtime for Typer
 from typing import TYPE_CHECKING, Annotated
 
-import numpy as np
-import pandas as pd
 import typer
 
 from peakfit.io.readers.results import ResultsLoader
@@ -18,7 +15,6 @@ from peakfit.plot.outputs import (
     generate_intensity_plots,
     generate_mcmc_diagnostics,
 )
-from peakfit.plot.reconstruction import SpectraReconstructor
 from peakfit.ui.branding import show_command_summary
 from peakfit.ui.console import Verbosity, display_path, set_verbosity
 from peakfit.ui.messages import show_error_with_details, success, warning
@@ -26,10 +22,8 @@ from peakfit.ui.reporter import ConsoleReporter
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from typing import Any
 
 
-_MIN_PEAK_POSITIONS_FOR_2D = 2
 _MAX_REF_POINTS_SHOWN = 6
 # Create plot sub-application
 plot_app = typer.Typer(
@@ -138,69 +132,6 @@ def plot_cest(
             reporter=ConsoleReporter(),
         ),
     )
-
-
-@plot_app.command("spectrum")
-def plot_spectrum(
-    spectrum: Annotated[
-        Path,
-        typer.Option(
-            "--spectrum",
-            "-s",
-            help="NMR spectrum file",
-            exists=True,
-            dir_okay=False,
-            resolve_path=True,
-        ),
-    ],
-    results: Annotated[
-        Path | None,
-        typer.Option(
-            "--results", "-r", help="Results directory (optional)", exists=True, resolve_path=True
-        ),
-    ] = None,
-    verbose: Annotated[
-        bool,
-        typer.Option("--verbose", "-v", help="Verbose output"),
-    ] = False,
-) -> None:
-    """Interactive spectrum viewer.
-
-    Opens a Qt-based viewer for exploring NMR spectra with optional
-    overlay of fitted peaks from results.
-
-    Examples:
-        peakfit plot spectrum -s data/spectrum.ft2
-        peakfit plot spectrum -s data/spectrum.ft2 -r Fits/20240101_120000/
-    """
-    _configure_plot_ui(
-        verbose,
-        "Spectrum Viewer",
-        sections=[
-            (
-                "Inputs",
-                {
-                    "Spectrum": display_path(spectrum),
-                    "Results overlay": display_path(results) if results else "None",
-                },
-            )
-        ],
-    )
-    data_exp = _load_spectrum(spectrum)
-    reconstructor = _init_reconstructor(results)
-    plist = _extract_peaks(reconstructor, data_exp)
-
-    try:
-        from peakfit.plot.qt_core import QApplication  # noqa: PLC0415
-        from peakfit.plot.spectra_viewer import SpectraViewer  # noqa: PLC0415
-
-        app = QApplication.instance() or QApplication(sys.argv)
-        viewer = SpectraViewer(data1=data_exp, data2=None, plist=plist, reconstructor=reconstructor)
-        viewer.show()
-        app.exec()
-    except Exception as e:
-        show_error_with_details("launching viewer", e)
-        raise typer.Exit(1) from e
 
 
 @plot_app.command("intensity")
@@ -372,59 +303,3 @@ def plot_mcmc(
     except Exception as e:
         show_error_with_details("generating MCMC diagnostics", e)
         raise typer.Exit(1) from e
-
-
-# === Helpers ===
-
-
-def _load_spectrum(path: Path) -> Any:
-    """Load NMR spectrum data."""
-    try:
-        from peakfit.plot.spectra_viewer import NMRData  # noqa: PLC0415
-
-        return NMRData.from_file(str(path))
-    except Exception as e:
-        show_error_with_details("loading spectrum", e)
-        raise typer.Exit(1) from e
-
-
-def _init_reconstructor(results: Path | None) -> Any | None:
-    """Initialize reconstructor if results provided."""
-    if not results:
-        return None
-
-    summary_path = results / "summary" / "fit.json"
-    if not summary_path.exists():
-        warning(f"No fit summary found in [path]{display_path(results / 'summary')}[/path]")
-        return None
-
-    try:
-        return SpectraReconstructor(results)
-    except Exception as e:
-        show_error_with_details("loading fit state", e)
-        raise typer.Exit(1) from e
-
-
-def _extract_peaks(reconstructor: Any | None, data_exp: Any) -> Any | None:
-    """Extract peak list from reconstructor."""
-    if not reconstructor:
-        return None
-
-    try:
-        peaks = reconstructor.state.peaks
-        peaks_data = [
-            {"name": p.name, "y0_ppm": float(p.positions[0]), "x0_ppm": float(p.positions[1])}
-            for p in peaks
-            if len(p.positions) >= _MIN_PEAK_POSITIONS_FOR_2D
-        ]
-
-        if not peaks_data:
-            return None
-
-        plist = pd.DataFrame(peaks_data)
-        plist["y0_ppm"] = data_exp.unalias_y(plist["y0_ppm"].to_numpy().astype(np.float32))
-        return plist
-
-    except Exception as e:
-        warning(f"Failed to extract peaks: {e}")
-        return None

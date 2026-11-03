@@ -64,6 +64,9 @@ Notable user-facing and architecture changes are recorded here.
   `[fitting].fix_positions` and `fit_j_coupling` keys, which only auto-pick read;
   in routine fits they did nothing. Fix positions with a fit step
   (`fix = ["*.*.cs"]`) and fit J with a doublet lineshape.
+- Removed the legacy `peakfit plot spectrum` viewer and its fit-result overlay
+  (`--results`); `peakfit gui` is the one graphical interface. The PDF plot
+  commands (`intensity`, `cest`, `cpmg`, `mcmc`) are unchanged.
 
 ### Compatibility
 

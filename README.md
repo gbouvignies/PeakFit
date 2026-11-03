@@ -10,7 +10,6 @@ peakfit fit spectrum.ft2 peaks.list
 peakfit mcmc Fits/<run_dir>
 peakfit plot intensity Fits/<run_dir>
 peakfit plot cest Fits/<run_dir>
-peakfit plot spectrum --spectrum spectrum.ft2 --results Fits/<run_dir>
 peakfit gui spectrum.ft2 --peaks peaks.list --peak-axis-order indirect-direct
 ```
 
@@ -100,8 +99,7 @@ The scientific archive retains exact results, provenance, sample mappings and
 terminal corrections. CSV tables and a short report are written by default.
 `--detailed-evidence` adds observations/sample predictions for portable review
 and continuation. Full-grid simulation and large legacy JSON exports are opt-in.
-GUI `.peakfit` projects separately embed the complete experimental spectrum so
-inspection, edits and fitting work without the original files.
+GUI `.peakfit` projects reference the external spectrum rather than embedding it.
 
 See [`docs/outputs.md`](docs/outputs.md) for the exact output
 contract.
@@ -114,7 +112,6 @@ LATEST_RUN="$(find Fits -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
 peakfit plot intensity "$LATEST_RUN" --output "$LATEST_RUN/intensity_profiles.pdf"
 peakfit plot cest "$LATEST_RUN" --output "$LATEST_RUN/cest_profiles.pdf"
 peakfit plot cpmg "$LATEST_RUN" --time-t2 0.04 --output "$LATEST_RUN/cpmg_profiles.pdf"
-peakfit plot spectrum --spectrum data/pseudo3d.ft2 --results "$LATEST_RUN"
 ```
 
 CEST and CPMG plots are generated from `tables/intensities.csv`. CEST preserves

@@ -220,3 +220,13 @@ Short records of non‑obvious design choices and trade‑offs.
   Earlier files are rejected with their version message; refit them from their
   spectrum and peak list. The schema-1 context branch and the "largest recorded
   residual not retained" path, reachable only from pre-2.1.0 archives, are removed.
+
+## 2026-11-03: The legacy spectrum viewer is retired
+- `peakfit plot spectrum` and its modules (`plot.spectra_viewer`, `plot.qt_core`,
+  `plot.widgets`, `plot.reconstruction`) are removed, with no alias. `peakfit gui`
+  is the single graphical interface; the PDF plot commands remain.
+- Lost: overlaying a CLI fit result (`--results`) on the spectrum. The viewer
+  recomputed amplitudes from the saved fitting state rather than reading the
+  recorded result. Opening CLI results in `peakfit gui` is possible future work,
+  not planned.
+- `peakfit.plot` no longer imports Qt; an import-linter contract keeps it so.

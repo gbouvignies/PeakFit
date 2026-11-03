@@ -6,7 +6,7 @@ This example shows how to run `peakfit mcmc` as a first-class CLI step after fit
 
 1. Run `peakfit fit` to create a results directory.
 2. Run `peakfit mcmc <results_dir>` to estimate uncertainties from the saved fit state.
-3. Use `peakfit plot spectrum` for visual fit inspection.
+3. Run `peakfit plot mcmc <results_dir>` to inspect the chains.
 
 ## Quick Start
 
@@ -36,12 +36,6 @@ Run MCMC:
 
 ```bash
 peakfit mcmc "$LATEST_RUN" --peaks 2N-H --walkers 32 --steps 1000
-```
-
-Review the fit visually:
-
-```bash
-peakfit plot spectrum --spectrum data/pseudo3d.ft2 --results "$LATEST_RUN"
 ```
 
 Generate diagnostics PDF from saved chains:
