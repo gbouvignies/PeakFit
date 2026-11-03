@@ -45,7 +45,9 @@ peakfit plot cest "$LATEST_RUN" --output "$LATEST_RUN/figures/cest_profiles.pdf"
 ```
 
 Inspect the peaks, fit the dataset and compare model and residual in the desktop
-application (an important fit-quality check):
+application (an important fit-quality check).
+This starts a separate analysis; it does not reopen the CLI fit. Fit the
+dataset in the GUI to see model overlays.
 
 ```bash
 peakfit gui data/pseudo3d.ft2 --peaks data/pseudo3d.list \

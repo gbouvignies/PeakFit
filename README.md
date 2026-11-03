@@ -99,8 +99,7 @@ The scientific archive retains exact results, provenance, sample mappings and
 terminal corrections. CSV tables and a short report are written by default.
 `--detailed-evidence` adds observations/sample predictions for portable review
 and continuation. Full-grid simulation and large legacy JSON exports are opt-in.
-GUI `.peakfit` projects separately embed the complete experimental spectrum so
-inspection, edits and fitting work without the original files.
+GUI `.peakfit` projects reference the external spectrum rather than embedding it.
 
 See [`docs/outputs.md`](docs/outputs.md) for the exact output
 contract.

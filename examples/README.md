@@ -60,7 +60,9 @@ cd 02-advanced-fitting
 bash run.sh
 ```
 
-Then inspect the peaks and fit quality in the desktop application:
+Then inspect the peaks and fit quality in the desktop application.
+This starts a separate analysis; it does not reopen the CLI fit. Fit the
+dataset in the GUI to see model overlays:
 
 ```bash
 peakfit gui data/pseudo3d.ft2 --peaks data/pseudo3d.list \
