@@ -30,8 +30,5 @@ peakfit mcmc "$latest_run" --peaks 2N-H --walkers 32 --steps 1000
 echo
 echo "MCMC complete."
 echo "Results directory: $latest_run"
-echo "Interactive quality check:"
-echo "  peakfit plot spectrum --spectrum data/pseudo3d.ft2 --results $latest_run"
-echo
 echo "MCMC diagnostics PDF:"
 echo "  peakfit plot mcmc $latest_run --output $latest_run/mcmc_diagnostics.pdf"

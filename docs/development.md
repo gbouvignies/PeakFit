@@ -84,7 +84,7 @@ its run ID, timestamps, output directory or fit timings.
 
 The import-linter contracts in `pyproject.toml` enforce the current package
 layers and keep Qt, Typer, Rich and matplotlib out of `engine`, `fit`, `io`,
-`mcmc` and `shared`.
+`mcmc` and `shared`, and Qt out of `plot`.
 
 ## CLI And Terminal Output
 

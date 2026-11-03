@@ -10,7 +10,6 @@ peakfit fit spectrum.ft2 peaks.list
 peakfit mcmc Fits/<run_dir>
 peakfit plot intensity Fits/<run_dir>
 peakfit plot cest Fits/<run_dir>
-peakfit plot spectrum --spectrum spectrum.ft2 --results Fits/<run_dir>
 peakfit gui spectrum.ft2 --peaks peaks.list --peak-axis-order indirect-direct
 ```
 
@@ -114,7 +113,6 @@ LATEST_RUN="$(find Fits -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
 peakfit plot intensity "$LATEST_RUN" --output "$LATEST_RUN/intensity_profiles.pdf"
 peakfit plot cest "$LATEST_RUN" --output "$LATEST_RUN/cest_profiles.pdf"
 peakfit plot cpmg "$LATEST_RUN" --time-t2 0.04 --output "$LATEST_RUN/cpmg_profiles.pdf"
-peakfit plot spectrum --spectrum data/pseudo3d.ft2 --results "$LATEST_RUN"
 ```
 
 CEST and CPMG plots are generated from `tables/intensities.csv`. CEST preserves

@@ -7,7 +7,7 @@ It demonstrates:
 - pseudo-ND fitting with plane values supplied through `--z-values`
 - structured output files
 - publication-ready PDF plots
-- interactive `plot spectrum` review (Qt + Matplotlib)
+- interactive review in the `peakfit gui` desktop application
 
 ## Dataset
 
@@ -44,10 +44,12 @@ peakfit plot intensity "$LATEST_RUN" --output "$LATEST_RUN/figures/intensity_pro
 peakfit plot cest "$LATEST_RUN" --output "$LATEST_RUN/figures/cest_profiles.pdf"
 ```
 
-Interactive spectrum inspection (important fit-quality check):
+Inspect the peaks, fit the dataset and compare model and residual in the desktop
+application (an important fit-quality check):
 
 ```bash
-peakfit plot spectrum --spectrum data/pseudo3d.ft2 --results "$LATEST_RUN"
+peakfit gui data/pseudo3d.ft2 --peaks data/pseudo3d.list \
+  --peak-axis-order indirect-direct --z-values data/b1_offsets.txt
 ```
 
 ## Config-Driven Variant

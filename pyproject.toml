@@ -125,6 +125,12 @@ source_modules = [
 ]
 forbidden_modules = ["PySide6", "pyqtgraph", "typer", "rich", "matplotlib"]
 
+[[tool.importlinter.contracts]]
+name = "Plotting imports no Qt; peakfit gui is the one graphical interface"
+type = "forbidden"
+source_modules = ["peakfit.plot"]
+forbidden_modules = ["PySide6", "pyqtgraph"]
+
 [tool.pytest]
 addopts = ["--strict-config", "--strict-markers", "-ra"]
 filterwarnings = [

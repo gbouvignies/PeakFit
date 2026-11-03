@@ -40,7 +40,7 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 - `src/peakfit/ui/` - Rich terminal helpers used by the current CLI.
 - `src/peakfit/fit/` - validation, data loading, fitting workflow, result assembly, and output coordination.
 - `src/peakfit/mcmc/` - uncertainty sampling, diagnostics, and MCMC-facing workflows.
-- `src/peakfit/plot/` - plotting and the spectrum viewer.
+- `src/peakfit/plot/` - PDF profile and MCMC diagnostic plots.
 - `src/peakfit/io/` - parsing, serialization, and file-format handling.
 - `src/peakfit/engine/` - domain models, numerical algorithms, lineshapes, and fitting math.
 - `src/peakfit/shared/` - small cross-cutting helpers.

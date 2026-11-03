@@ -8,7 +8,7 @@ PeakFit now follows a simple command flow:
 
 1. `peakfit fit ...` (includes mandatory pre-fit checks)
 2. `peakfit mcmc ...` (post-fit uncertainty analysis)
-3. `peakfit plot ...` (PDF plots and interactive spectrum review)
+3. `peakfit plot ...` (PDF profile and MCMC diagnostic plots)
 
 ## Recommended Path
 
@@ -60,9 +60,9 @@ cd 02-advanced-fitting
 bash run.sh
 ```
 
-Then inspect fit quality with the Qt + Matplotlib spectrum viewer:
+Then inspect the peaks and fit quality in the desktop application:
 
 ```bash
-LATEST_RUN="$(find Fits -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
-peakfit plot spectrum --spectrum data/pseudo3d.ft2 --results "$LATEST_RUN"
+peakfit gui data/pseudo3d.ft2 --peaks data/pseudo3d.list \
+  --peak-axis-order indirect-direct --z-values data/b1_offsets.txt
 ```
