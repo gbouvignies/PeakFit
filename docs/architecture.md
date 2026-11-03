@@ -343,7 +343,7 @@ Ten full runs and protected evidence remain on disk; older entries retain exact
 coordinates, fitted tables/errors/bounds, submitted parameters/settings and concise
 diagnostics/statistics, explicitly without sample/profile capabilities. The 1 GiB
 historical budget excludes active/protected evidence. New writes use project
-schema 7.0.0, always referencing external sources; earlier project formats are
+schema 8.0.0, always referencing external sources; earlier project formats are
 explicitly rejected.
 Scientific schema/defaults remain unchanged. Explicit JSON remains a derived
 optional scientific export, shared by both interfaces. See

@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**5.0.0**, fit JSON **5.0.0** and analysis project **7.0.0**.
+**5.0.0**, fit JSON **5.0.0** and analysis project **8.0.0**.
 
 ## Default scientific export
 
@@ -287,16 +287,17 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **7.0.0**. Earlier project formats are rejected;
+New projects use schema **8.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
-- Only scientific archive **5.0.0**, fit JSON **5.0.0** and project **7.0.0** are
+- Only scientific archive **5.0.0**, fit JSON **5.0.0** and project **8.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
   version": they record configuration keys (`[auto_peak]`, `fix_positions`,
-  `fit_j_coupling`, `[parameters].from_file`) or run metadata (`git_commit`) that no longer exist. To
+  `fit_j_coupling`, `[parameters].from_file`) or run metadata (`git_commit`,
+  `completion_warnings`) that no longer exist. To
   continue an older analysis, open its spectrum and peak list and refit. When
   detailed evidence or a verified source is available, the stored largest recorded
   residual is checked against the regenerated residuals.

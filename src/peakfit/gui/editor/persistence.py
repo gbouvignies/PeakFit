@@ -13,6 +13,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editor.numerical import NumericalReview
+from peakfit.gui.failures import failure_message
 from peakfit.gui.peaks import PeakEdits
 from peakfit.gui.project import (
     Analysis,
@@ -255,11 +256,18 @@ class AnalysisActions:
         self.cancel_load.setText("Cancel loading")
         if isinstance(outcome, CancelledError):
             self._after_save = None
-            self.loading_status.setText("Save canceled · Previous saved analysis retained")
+            self.loading_status.setText(
+                {
+                    "save": "Save canceled · Previous saved analysis retained",
+                    "analysis": "Opening canceled · Current workspace retained",
+                    "relink": "Relink canceled · Source link unchanged",
+                }[kind]
+            )
         elif isinstance(outcome, Exception):
             self._after_save = None
-            self.loading_status.setText(f"Analysis operation failed: {outcome}")
-            QtWidgets.QMessageBox.warning(self, "Cannot complete analysis operation", str(outcome))
+            message = failure_message(outcome)
+            self.loading_status.setText(f"Analysis operation failed: {message}")
+            QtWidgets.QMessageBox.warning(self, "Cannot complete analysis operation", message)
         elif kind == "save":
             path, analysis, storage = outcome
             self.analysis_path = path

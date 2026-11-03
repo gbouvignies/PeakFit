@@ -348,6 +348,17 @@ def test_inconsistent_working_transition_and_sample_mapping_rejected(analysis, t
         open_analysis(path)
 
 
+def test_reopened_adoption_is_checked_structurally_not_by_warning_text(analysis, tmp_path):
+    completion = analysis.completion
+    path = save_analysis(analysis, tmp_path / "adoption.peakfit")
+    review = json.loads(next(path.rglob("review.json")).read_text())
+    assert "completion_warnings" not in review
+    reopened = open_analysis(path).completion
+    assert reopened.adopted == completion.adopted
+    assert reopened.retained == completion.retained
+    assert reopened.working_peaks == completion.working_peaks
+
+
 def test_changed_same_size_same_timestamp_does_not_verify(tmp_path):
     source = tmp_path / "source.ft2"
     shutil.copyfile(DATA / "pseudo3d.ft2", source)

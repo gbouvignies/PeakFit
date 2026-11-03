@@ -7,10 +7,10 @@ remain strictly metadata/typed arrays and are never unpickled.
 import json
 import multiprocessing
 import pickle
-from concurrent.futures import CancelledError
 from dataclasses import replace
 
 from peakfit.gui.dataset_fit import _completed_bytes
+from peakfit.gui.failures import child_failure, raise_child_failure
 from peakfit.gui.project import (
     open_analysis,
     save_analysis,
@@ -53,7 +53,7 @@ def _archive_child(connection):
             )
         connection.send(("result", _completed_bytes(result)))
     except Exception as error:
-        connection.send(("error", f"{type(error).__name__}: {error}"))
+        connection.send(child_failure(error))
     finally:
         connection.close()
 
@@ -87,15 +87,13 @@ def project_operation(kind, payload, *, progress, canceled):
                 if not process.is_alive():
                     raise RuntimeError(f"Analysis worker exited with code {process.exitcode}")
                 continue
-            state, value = receiver.recv()
-            if state == "progress":
-                progress(value)
-            elif state == "result":
-                return pickle.loads(value)  # Trusted child output only, never a project file.
+            record = receiver.recv()
+            if record[0] == "progress":
+                progress(record[1])
+            elif record[0] == "result":
+                return pickle.loads(record[1])  # Trusted child output only, never a project file.
             else:
-                if value.startswith("CancelledError:"):
-                    raise CancelledError("Analysis save canceled; previous generation retained")
-                raise ValueError(value)
+                raise_child_failure(record, f"Analysis {kind}")
     finally:
         if process.pid is not None:
             process.join(timeout=1)

@@ -17,6 +17,7 @@ from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.fit_steps import build_fit_steps
 from peakfit.engine.results import FitResult
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
+from peakfit.gui.failures import child_failure
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -154,7 +155,7 @@ def run_dataset_child(connection: Connection) -> None:
             connection.send(("progress", "Transferring completed result"))
             connection.send(_completed_bytes(attempt))
         except Exception as error:
-            connection.send(f"{type(error).__name__}: {error}")
+            connection.send(child_failure(error))
     finally:
         connection.close()
 

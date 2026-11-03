@@ -139,6 +139,11 @@ The desktop application keeps the Qt event loop free of scientific and disk work
   status bar.
 - Result export writes off-thread behind a modal progress dialog, then publishes
   a staged directory by rename.
+- Every job boundary (background lane, fit process, archive process, export) logs
+  a failure's full traceback to the `peakfit.gui` logger, which prints to the
+  terminal that started PeakFit; worker processes send theirs back with the
+  failure (`gui.failures`). Dialogs show `ValueError`/`OSError` messages as raised,
+  and ask for a report for anything else.
 - Status and warning text uses fixed-height fields so progress never reflows the
   plots. Large tables are replaced by clearing rows, using interactive column
   sizing and sizing once after population; per-row resizing froze the GUI for

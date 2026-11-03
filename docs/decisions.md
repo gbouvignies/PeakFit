@@ -283,3 +283,17 @@ Short records of non‑obvious design choices and trade‑offs.
   on recorded outcomes stay where they are.
 - The example fit's outcome, samples and context digests are identical before and
   after.
+
+## 2026-11-03: GUI job failures are logged; adoption is checked structurally
+- Worker processes send back the failure's type, the message to show and its
+  formatted traceback (`gui.failures.child_failure`); the parent logs the traceback.
+  In-process job boundaries log with `exc_info`. GUI errors go to the `peakfit.gui`
+  logger with no handler of its own, so they reach the launching terminal.
+- `ValueError` and `OSError` messages are shown as raised. Any other exception is a
+  defect: its message asks for a report and points to the logged traceback.
+- Canceled operations are named by what was canceled. Closing while an analysis is
+  saving or opening explains why the window stays open.
+- Run records no longer store `completion_warnings`. Reopening already rejects any
+  post-fit position that disagrees with the adoption the outcome implies; comparing
+  warning text added nothing but made rewording a warning break reopening. The
+  project format moves to 8.0.0; 7.0.0 projects are rejected by version.
