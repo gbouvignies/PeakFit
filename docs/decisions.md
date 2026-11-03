@@ -188,3 +188,20 @@ Short records of non‑obvious design choices and trade‑offs.
   other two pairs re-collapse in place; later refits reproduce.
 - Reopening validates the recorded adoption, so runs recorded before this rule,
   which adopted such peaks, still open and export as recorded.
+
+## 2026-11-03: The golden fit reference records every value
+- The previous baseline held four numbers and compared chi-squared within 50 %,
+  described as stochastic optimization. The fit is deterministic: repeated runs,
+  single-threaded BLAS and serial workers reproduce `scientific.npz` bit for bit
+  (apart from run identity and timings). The baseline had also drifted: its
+  chi-squared, 1 829 681, differs from the current fit, 1 828 682.53, by 5×10⁻⁴.
+- The reference now records the example's classifications, per-cluster
+  chi-squared, all nonlinear parameters and all amplitudes with their standard
+  errors, written from main at 8e0c197 with `tools/write_golden_reference.py`.
+- Tolerances admit only rounding between platforms. Starting positions shifted by
+  1e-9 ppm moved identifiable values by at most 1.5×10⁻⁶ standard errors
+  (parameters) and 2.4×10⁻⁸ (amplitudes); the tolerance is 10⁻³ standard errors.
+  Rescaling the data by 1 + 10⁻⁴ fails the comparison.
+- The three clusters with the uncertainty warning (269, 360, 424) are compared by
+  classification, warning and chi-squared only: the same 1e-9 ppm change moved
+  their amplitudes by 4×10⁻⁴ (relative).

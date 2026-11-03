@@ -2,14 +2,13 @@
 
 These tests provide a minimal safety net for refactoring by validating:
 1. CLI entrypoints work and produce expected output structure
-2. Key numerical outputs are stable within tolerance
+2. Fitted values respect basic invariants (golden values: test_golden_regression.py)
 3. JSON schema compatibility is maintained
 4. Core fitting algorithms produce consistent results
 
 Run with: uv run pytest tests/integration/test_safety_harness.py -v
 """
 
-import json
 import os
 import subprocess
 import sys
@@ -29,24 +28,11 @@ from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION, FitSummarySchema
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE_DIR = REPO_ROOT / "examples" / "02-advanced-fitting"
 DATA_DIR = EXAMPLE_DIR / "data"
-GOLDEN_DIR = REPO_ROOT / "tests" / "data" / "golden"
-BASELINE_PATH = GOLDEN_DIR / "baseline.json"
 
 # Test data files
 SPECTRUM_FILE = DATA_DIR / "pseudo3d.ft2"
 PEAKLIST_FILE = DATA_DIR / "pseudo3d.list"
 Z_VALUES_FILE = DATA_DIR / "b1_offsets.txt"
-
-# Tolerances for numerical comparisons
-CHI2_RELATIVE_TOLERANCE = 0.5  # 50% relative diff (stochastic optimization)
-POSITION_ABSOLUTE_TOLERANCE = 0.01  # ppm
-LINEWIDTH_RELATIVE_TOLERANCE = 0.3  # 30% relative diff
-
-
-def _load_baseline() -> dict[str, float | int]:
-    with BASELINE_PATH.open() as f:
-        data: dict[str, float | int] = json.load(f)
-    return data
 
 
 def _cli_env(tmp_path: Path) -> dict[str, str]:
@@ -81,51 +67,6 @@ def _first_peak_name(results_dir: Path) -> str:
 
 
 # =============================================================================
-# Fixtures
-# =============================================================================
-
-
-@pytest.fixture(scope="module")
-def fit_output_dir(tmp_path_factory):
-    """Run a fit once and return the output directory."""
-    output_dir = tmp_path_factory.mktemp("safety_harness")
-
-    cmd = [
-        sys.executable,
-        "-m",
-        "peakfit",
-        "fit",
-        str(SPECTRUM_FILE),
-        str(PEAKLIST_FILE),
-        "--z-values",
-        str(Z_VALUES_FILE),
-        "--output",
-        str(output_dir),
-        "--refine",
-        "1",
-        "--headless",
-    ]
-
-    result = subprocess.run(cmd, check=False, capture_output=True, text=True)
-
-    if result.returncode != 0:
-        pytest.fail(
-            f"PeakFit CLI failed with exit code {result.returncode}.\n"
-            f"STDOUT: {result.stdout}\n"
-            f"STDERR: {result.stderr}"
-        )
-
-    # Find output directory (may be timestamped subdirectory)
-    if (output_dir / "summary").exists():
-        return output_dir
-
-    subdirs = sorted(
-        [d for d in output_dir.iterdir() if d.is_dir()], key=lambda p: p.stat().st_mtime
-    )
-    return subdirs[-1] if subdirs else output_dir
-
-
-# =============================================================================
 # Test 1: Output Structure Validation
 # =============================================================================
 
@@ -133,14 +74,14 @@ def fit_output_dir(tmp_path_factory):
 class TestOutputStructure:
     """Verify that the output directory structure is correct."""
 
-    def test_required_directories_exist(self, fit_output_dir):
+    def test_required_directories_exist(self, example_fit_dir):
         """Check that required subdirectories are created."""
         required_dirs = ["summary", "tables"]
         for dirname in required_dirs:
-            dir_path = fit_output_dir / dirname
+            dir_path = example_fit_dir / dirname
             assert dir_path.exists(), f"Required directory missing: {dirname}"
 
-    def test_required_files_exist(self, fit_output_dir):
+    def test_required_files_exist(self, example_fit_dir):
         """Check that required output files are created."""
         required_files = [
             "scientific.npz",
@@ -149,17 +90,17 @@ class TestOutputStructure:
             "tables/intensities.csv",
         ]
         for filepath in required_files:
-            file_path = fit_output_dir / filepath
+            file_path = example_fit_dir / filepath
             assert file_path.exists(), f"Required file missing: {filepath}"
 
-    def test_native_summary_is_valid(self, fit_output_dir):
+    def test_native_summary_is_valid(self, example_fit_dir):
         """Verify JSON files are parseable."""
-        data = _summary_payload(fit_output_dir)
+        data = _summary_payload(example_fit_dir)
         assert isinstance(data, dict), "JSON root should be a dictionary"
 
-    def test_no_manifest_file_is_written(self, fit_output_dir):
+    def test_no_manifest_file_is_written(self, example_fit_dir):
         """The fixed output layout should not need a separate file index."""
-        assert not (fit_output_dir / "manifest.json").exists()
+        assert not (example_fit_dir / "manifest.json").exists()
 
 
 # =============================================================================
@@ -170,33 +111,33 @@ class TestOutputStructure:
 class TestPublicWorkflows:
     """Characterize public workflows without depending on internal architecture."""
 
-    def test_explicit_peaklist_fit_writes_core_outputs(self, fit_output_dir):
+    def test_explicit_peaklist_fit_writes_core_outputs(self, example_fit_dir):
         """`peakfit fit spectrum peaklist` should produce the core public outputs."""
         core_outputs = [
-            fit_output_dir / "scientific.npz",
-            fit_output_dir / "summary" / "report.md",
-            fit_output_dir / "tables" / "parameters.csv",
-            fit_output_dir / "tables" / "intensities.csv",
+            example_fit_dir / "scientific.npz",
+            example_fit_dir / "summary" / "report.md",
+            example_fit_dir / "tables" / "parameters.csv",
+            example_fit_dir / "tables" / "intensities.csv",
         ]
 
         for path in core_outputs:
-            assert path.exists(), f"Core output missing: {path.relative_to(fit_output_dir)}"
+            assert path.exists(), f"Core output missing: {path.relative_to(example_fit_dir)}"
             assert path.stat().st_size > 0, (
-                f"Core output is empty: {path.relative_to(fit_output_dir)}"
+                f"Core output is empty: {path.relative_to(example_fit_dir)}"
             )
 
-    def test_scientific_summary_is_readable(self, fit_output_dir):
+    def test_scientific_summary_is_readable(self, example_fit_dir):
         """The summary JSON should be parseable and schema-readable."""
-        payload = _summary_payload(fit_output_dir)
+        payload = _summary_payload(example_fit_dir)
 
         summary = FitSummarySchema.model_validate(payload)
 
         assert summary.clusters
         assert payload["statistics"]["chi_squared"] > 0
 
-    def test_parameters_csv_excludes_amplitudes(self, fit_output_dir):
+    def test_parameters_csv_excludes_amplitudes(self, example_fit_dir):
         """Model parameters and per-plane amplitudes should not be mixed."""
-        params_path = fit_output_dir / "tables" / "parameters.csv"
+        params_path = example_fit_dir / "tables" / "parameters.csv"
         df = pd.read_csv(params_path, comment="#")
 
         assert len(df) > 0
@@ -205,9 +146,9 @@ class TestPublicWorkflows:
         assert not df["parameter_name"].str.contains(r"\.I\d+$", regex=True).any()
         assert not df["parameter_name"].str.contains("amplitude", case=False, regex=False).any()
 
-    def test_intensities_csv_contains_amplitudes(self, fit_output_dir):
+    def test_intensities_csv_contains_amplitudes(self, example_fit_dir):
         """Per-plane fitted amplitudes should be written to intensities.csv."""
-        intensities_path = fit_output_dir / "tables" / "intensities.csv"
+        intensities_path = example_fit_dir / "tables" / "intensities.csv"
         df = pd.read_csv(intensities_path, comment="#")
 
         required_columns = {
@@ -221,7 +162,7 @@ class TestPublicWorkflows:
         assert len(df) > 0
         assert df["intensity"].notna().all()
 
-    def test_plot_intensity_consumes_fit_output(self, fit_output_dir, tmp_path):
+    def test_plot_intensity_consumes_fit_output(self, example_fit_dir, tmp_path):
         """Plotting should consume a fit output directory and produce a PDF artifact."""
         output_path = tmp_path / "intensity_profiles.pdf"
         result = subprocess.run(
@@ -231,7 +172,7 @@ class TestPublicWorkflows:
                 "peakfit",
                 "plot",
                 "intensity",
-                str(fit_output_dir),
+                str(example_fit_dir),
                 "--output",
                 str(output_path),
                 "--no-show",
@@ -250,10 +191,10 @@ class TestPublicWorkflows:
         assert output_path.stat().st_size > 0
 
     @pytest.mark.mcmc
-    def test_mcmc_can_start_from_fit_output(self, fit_output_dir, tmp_path):
+    def test_mcmc_can_start_from_fit_output(self, example_fit_dir, tmp_path):
         """MCMC should run for a selected peak from a completed fit output."""
-        _link_example_inputs_for_mcmc(fit_output_dir)
-        peak_name = _first_peak_name(fit_output_dir)
+        _link_example_inputs_for_mcmc(example_fit_dir)
+        peak_name = _first_peak_name(example_fit_dir)
 
         result = subprocess.run(
             [
@@ -261,7 +202,7 @@ class TestPublicWorkflows:
                 "-m",
                 "peakfit",
                 "mcmc",
-                str(fit_output_dir),
+                str(example_fit_dir),
                 "--peaks",
                 peak_name,
                 "--walkers",
@@ -297,22 +238,22 @@ class TestPublicWorkflows:
 class TestScientificSummarySchema:
     """Verify native result summaries retain downstream scientific semantics."""
 
-    def test_schema_version_present(self, fit_output_dir):
+    def test_schema_version_present(self, example_fit_dir):
         """Check schema version is included for compatibility tracking."""
-        data = _summary_payload(fit_output_dir)
+        data = _summary_payload(example_fit_dir)
         assert data["schema_version"] == OUTPUT_SCHEMA_VERSION
 
-    def test_required_top_level_keys(self, fit_output_dir):
+    def test_required_top_level_keys(self, example_fit_dir):
         """Check required top-level keys are present."""
-        data = _summary_payload(fit_output_dir)
+        data = _summary_payload(example_fit_dir)
 
         required_keys = ["metadata", "clusters", "statistics"]
         for key in required_keys:
             assert key in data, f"Required top-level key missing: {key}"
 
-    def test_final_statistics_structure(self, fit_output_dir):
+    def test_final_statistics_structure(self, example_fit_dir):
         """Verify usable-only final statistics have expected fields."""
-        data = _summary_payload(fit_output_dir)
+        data = _summary_payload(example_fit_dir)
 
         stats = data.get("statistics", {})
         # Core fields that must be present for downstream processing
@@ -323,9 +264,9 @@ class TestScientificSummarySchema:
         for field in expected_fields:
             assert field in stats, f"statistics missing field: {field}"
 
-    def test_cluster_structure(self, fit_output_dir):
+    def test_cluster_structure(self, example_fit_dir):
         """Verify cluster entries have expected structure."""
-        data = _summary_payload(fit_output_dir)
+        data = _summary_payload(example_fit_dir)
 
         clusters = data.get("clusters", [])
         assert len(clusters) > 0, "Should have at least one cluster"
@@ -343,9 +284,9 @@ class TestScientificSummarySchema:
         for field in required_fields:
             assert field in cluster, f"Cluster missing field: {field}"
 
-    def test_parameter_structure(self, fit_output_dir):
+    def test_parameter_structure(self, example_fit_dir):
         """Verify parameter entries have expected structure."""
-        data = _summary_payload(fit_output_dir)
+        data = _summary_payload(example_fit_dir)
 
         clusters = data.get("clusters", [])
         params = clusters[0].get("final_nonlinear_parameters", [])
@@ -366,26 +307,9 @@ class TestScientificSummarySchema:
 class TestNumericalStability:
     """Verify numerical outputs are within expected ranges."""
 
-    def test_chi_squared_reasonable(self, fit_output_dir):
-        """Chi-squared should be positive and reasonable."""
-        data = _summary_payload(fit_output_dir)
-
-        chi2 = data["statistics"]["chi_squared"]
-        assert chi2 > 0, "Chi-squared should be positive"
-        assert chi2 < 1e15, "Chi-squared seems unreasonably large"
-
-    def test_reduced_chi_squared_reasonable(self, fit_output_dir):
-        """Reduced chi-squared should be in reasonable range."""
-        data = _summary_payload(fit_output_dir)
-
-        redchi = data["statistics"]["reduced_chi_squared"]
-        # Good fits typically have reduced chi2 between 0.1 and 10
-        assert redchi > 0, "Reduced chi-squared should be positive"
-        assert redchi < 100, "Reduced chi-squared seems too large (bad fit)"
-
-    def test_positions_within_bounds(self, fit_output_dir):
+    def test_positions_within_bounds(self, example_fit_dir):
         """Check that fitted positions are within spectrum bounds."""
-        csv_path = fit_output_dir / "tables" / "parameters.csv"
+        csv_path = example_fit_dir / "tables" / "parameters.csv"
         df = pd.read_csv(csv_path, comment="#")
 
         # Filter to position parameters
@@ -402,9 +326,9 @@ class TestNumericalStability:
                     f"Position {param_name} = {value} outside [{min_bound}, {max_bound}]"
                 )
 
-    def test_linewidths_positive(self, fit_output_dir):
+    def test_linewidths_positive(self, example_fit_dir):
         """Check that fitted linewidths are positive."""
-        csv_path = fit_output_dir / "tables" / "parameters.csv"
+        csv_path = example_fit_dir / "tables" / "parameters.csv"
         df = pd.read_csv(csv_path, comment="#")
 
         # Filter to linewidth parameters
@@ -414,9 +338,9 @@ class TestNumericalStability:
             if not row["is_fixed"]:
                 assert row["value"] > 0, f"Linewidth {row['parameter_name']} should be positive"
 
-    def test_standard_errors_non_negative(self, fit_output_dir):
+    def test_standard_errors_non_negative(self, example_fit_dir):
         """Check that available standard errors are numeric and non-negative."""
-        csv_path = fit_output_dir / "tables" / "parameters.csv"
+        csv_path = example_fit_dir / "tables" / "parameters.csv"
         df = pd.read_csv(csv_path, comment="#")
 
         # Filter to varying parameters
@@ -426,62 +350,6 @@ class TestNumericalStability:
 
         assert (standard_errors.notna() | unavailable).all(), "Some std_errors are invalid"
         assert (standard_errors.dropna() >= 0).all(), "Some std_errors are negative"
-
-
-# =============================================================================
-# Test 4: Golden Comparison (Key Statistics)
-# =============================================================================
-
-
-class TestGoldenComparison:
-    """Compare key outputs against golden baseline."""
-
-    def test_chi_squared_stable(self, fit_output_dir):
-        """Chi-squared should be within tolerance of golden value."""
-        new_data = _summary_payload(fit_output_dir)
-        baseline = _load_baseline()
-
-        new_chi2 = new_data["statistics"]["chi_squared"]
-        golden_chi2 = baseline["chi_squared"]
-
-        rel_diff = abs(new_chi2 - golden_chi2) / max(golden_chi2, 1e-10)
-        assert rel_diff < CHI2_RELATIVE_TOLERANCE, (
-            f"Chi-squared differs too much: {new_chi2:.2e} vs golden {golden_chi2:.2e} "
-            f"(relative diff: {rel_diff:.1%})"
-        )
-
-    def test_cluster_count_stable(self, fit_output_dir):
-        """Number of clusters should match golden."""
-        new_data = _summary_payload(fit_output_dir)
-        baseline = _load_baseline()
-
-        new_n = len(new_data["clusters"])
-        golden_n = baseline["n_clusters"]
-
-        assert new_n == golden_n, f"Cluster count changed: {new_n} vs golden {golden_n}"
-
-    def test_peak_count_stable(self, fit_output_dir):
-        """Number of peaks should match golden."""
-        new_data = _summary_payload(fit_output_dir)
-        baseline = _load_baseline()
-
-        new_n = sum(len(cluster["peak_names"]) for cluster in new_data["clusters"])
-        golden_n = baseline["n_peaks"]
-
-        assert new_n == golden_n, f"Peak count changed: {new_n} vs golden {golden_n}"
-
-    def test_parameter_count_stable(self, fit_output_dir):
-        """Model parameter table should be compact and non-empty."""
-        new_path = fit_output_dir / "tables" / "parameters.csv"
-        baseline = _load_baseline()
-
-        df_new = pd.read_csv(new_path, comment="#")
-        old_rows = int(baseline["pre_simplification_parameter_rows"])
-
-        assert len(df_new) > 0, "parameters.csv should not be empty"
-        assert len(df_new) < old_rows, (
-            "parameters.csv should contain model parameters only (no per-plane amplitudes)"
-        )
 
 
 # =============================================================================

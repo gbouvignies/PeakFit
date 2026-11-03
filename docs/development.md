@@ -39,6 +39,30 @@ as evidence with an explicit provenance and intended claim. Do not silently
 regenerate them, weaken their assertions, or change them without explaining and
 reviewing the scientific or contract reason.
 
+### Golden fit reference
+
+`tests/integration/test_golden_regression.py` fits the bundled example once and
+compares it with `tests/data/golden/example-fit.json` (provenance, fit arguments,
+statistics, every cluster's classification, chi-squared and nonlinear parameters)
+and `example-fit-amplitudes.npz` (amplitudes and their conditional standard
+errors). Identifiable clusters must match within 1e-3 of each reference standard
+error, standard errors to 1e-6 and chi-squared to 1e-8 (relative). Clusters
+carrying the uncertainty warning are compared through classification, warning and
+chi-squared only, because the data do not determine their individual values. The
+module docstring records the measurements behind these tolerances.
+
+A failure there is a numerical change. If it is intended, explain the scientific
+reason in the PR and `docs/decisions.md`, then regenerate the reference with
+`uv run python tools/write_golden_reference.py --source-commit <commit>`.
+
+### Changes that must not alter numerical results
+
+The golden tolerances admit rounding between platforms. A refactor that claims no
+numerical change must also reproduce the fit exactly in one environment: run
+`uv run python tools/scientific_digest.py` on the base commit and on the change
+and compare the digests. It fits the example and hashes `scientific.npz` without
+its run ID, timestamps, output directory or fit timings.
+
 ## Architecture Rules
 
 - Keep numerical code independent from Typer, Rich, Qt, and filesystem side
