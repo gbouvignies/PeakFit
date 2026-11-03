@@ -1,29 +1,13 @@
-# Optimizers And Runtime Tuning
+# Optimizer And Runtime Tuning
 
-PeakFit exposes the optimizer choice via the CLI `--optimizer` flag. The current
-pipeline supports these optimizers:
+PeakFit fits every cluster with one optimizer, VarPro (variable projection): the
+amplitudes are solved linearly for each set of nonlinear parameters, which
+`scipy.optimize.least_squares` optimizes with an analytical Jacobian. There is no
+optimizer choice. Recorded results name it as `optimizer_kind = "varpro"`.
 
-## Available Optimizers
-
-- `varpro` (default)
-  - Variable projection with analytical Jacobian and `scipy.optimize.least_squares`.
-  - Fast and robust for most datasets.
-
-- `basin_hopping`
-  - Global search warm‑start followed by local refinement.
-  - Useful when initial guesses are poor or peaks overlap heavily.
-
-## CLI Examples
-
-```bash
-peakfit fit spectrum.ft2 peaks.list --optimizer varpro
-peakfit fit spectrum.ft2 peaks.list --optimizer basin_hopping
-```
-
-## Choosing An Optimizer
-
-- Start with `varpro` for speed and stability.
-- Switch to `basin_hopping` when fits diverge or local minima are common.
+When a fit is poor, improve the starting positions and constraints (see
+[constraints and fit steps](constraints-and-fit-steps.md)) or add fit steps;
+the uncertainty and identifiability checks below apply to every result.
 
 ## Runtime Controls
 

@@ -452,16 +452,16 @@ def _freeze_array(values: FloatArray) -> FloatArray:
 
 
 def _optimizer_provenance(result: FitResult, correction_revision: int) -> OptimizerProvenance:
-    iterations = result.metadata.get("global_iterations")
-    has_varpro_diagnostics = result.optimizer_kind == "varpro"
+    # VarPro (scipy least_squares) reports function and Jacobian evaluations and the
+    # first-order optimality, not an iteration count.
     return OptimizerProvenance(
         optimizer_kind=result.optimizer_kind,
         converged=result.success,
         termination_message=result.message or None,
         function_evaluations=result.nfev if result.nfev > 0 else None,
-        jacobian_evaluations=result.njev if has_varpro_diagnostics else None,
-        iterations=iterations if isinstance(iterations, int) else None,
-        optimality=result.optimality if has_varpro_diagnostics else None,
+        jacobian_evaluations=result.njev,
+        iterations=None,
+        optimality=result.optimality,
         final_cost=float(result.cost),
         correction_revision=correction_revision,
         metadata=freeze_provenance(result.metadata),

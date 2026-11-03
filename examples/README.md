@@ -22,7 +22,6 @@ and intensity plots. Use the other examples only when you need that specific tas
 | --- | --- | --- |
 | `01-basic-fitting/` | Minimal fit template for your own data | Template |
 | `02-advanced-fitting/` | Ready-to-run pseudo-ND CEST fit + plotting | Ready |
-| `03-global-optimization/` | Optional optimizer comparison for difficult fits | Ready |
 | `04-uncertainty-analysis/` | Optional post-fit MCMC analysis from saved results | Ready |
 | `05-constraints-and-fit-steps/` | Optional constraint-driven and multi-step fits | Ready |
 

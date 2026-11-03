@@ -19,11 +19,11 @@ from peakfit.engine.algorithms.linear_algebra import (
     calculate_amplitudes_with_uncertainty,
 )
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import BasinHoppingConfig, FitConfig, VarProConfig
+from peakfit.engine.domain.config import FitConfig, VarProConfig
 from peakfit.engine.domain.param_id import PSEUDO_AXIS, ParameterId
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
-from peakfit.engine.fitting.optimizers import fit_with_optimizer
+from peakfit.engine.fitting.varpro_fit import fit_varpro
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.engine.results import FitResult
 
@@ -466,24 +466,12 @@ def test_analytical_model_evaluation_preserves_rank_deficient_fallback(
     np.testing.assert_allclose(evaluation.model_values, cluster.corrected_data)
 
 
-@pytest.mark.parametrize(
-    ("optimizer", "config"),
-    [
-        ("varpro", VarProConfig(max_nfev=25)),
-        ("basin_hopping", BasinHoppingConfig(n_iterations=1, seed=23)),
-    ],
-)
-def test_shared_evaluation_matches_optimizer_terminal_residual(
-    gaussian_fit: GaussianFit,
-    optimizer: str,
-    config: VarProConfig | BasinHoppingConfig,
-) -> None:
-    result = fit_with_optimizer(
-        optimizer,
+def test_shared_evaluation_matches_optimizer_terminal_residual(gaussian_fit: GaussianFit) -> None:
+    result = fit_varpro(
         gaussian_fit.params.copy(deep=True),
         gaussian_fit.cluster,
         noise=1.0,
-        config=config,
+        config=VarProConfig(max_nfev=25),
     )
 
     evaluated = classify_optimizer_result(

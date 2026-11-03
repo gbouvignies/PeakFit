@@ -35,7 +35,7 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
-VERSION = "5.0.0"
+VERSION = "6.0.0"
 _RESULT_ARRAYS = (
     "shapes",
     "amplitudes",

@@ -60,7 +60,15 @@ def test_native_terminal_problem_and_parent_likelihood(tmp_path, detailed):
             restore_completed(outcome, samples, context)
 
 
-def test_archive_recording_a_removed_config_key_is_rejected_by_version(tmp_path):
+# Each earlier archive version recorded a configuration key that no longer exists, and
+# which configuration validation forbids: version rejection must come first.
+@pytest.mark.parametrize(
+    ("version", "section", "key"),
+    [("4.0.0", "parameters", "from_file"), ("5.0.0", "fitting", "optimizer_seed")],
+)
+def test_archive_recording_a_removed_config_key_is_rejected_by_version(
+    tmp_path, version, section, key
+):
     _, _, _, result = completed_result([], False, True)
     directory = export_fit_result(result, tmp_path / "results")
     archive = directory / "scientific.npz"
@@ -70,13 +78,12 @@ def test_archive_recording_a_removed_config_key_is_rejected_by_version(tmp_path)
         p.name for p in result.outcome.final_nonlinear_parameters
     ]
 
-    # Archive 4.0.0 recorded `[parameters].from_file`, which configuration validation forbids.
     with ZipFile(archive) as source:
         members = {name: source.read(name) for name in source.namelist()}
     document = json.loads(members["metadata.json"])
     configuration = document["context"]["mapping"]["metadata"]["mapping"]["configuration"]
-    configuration["mapping"]["parameters"]["mapping"]["from_file"] = None
-    document["schema_version"] = "4.0.0"
+    configuration["mapping"][section]["mapping"][key] = None
+    document["schema_version"] = version
     members["metadata.json"] = json.dumps(document).encode()
     with ZipFile(archive, "w") as target:
         for name, payload in members.items():

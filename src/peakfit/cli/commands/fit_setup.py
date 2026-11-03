@@ -17,10 +17,8 @@ from peakfit.engine.domain.config import (
     PeakFitConfig,
 )
 from peakfit.io.config import load_config
-from peakfit.shared.constants import BASIN_HOPPING_NITER
 
 VALID_OUTPUT_FORMATS = get_args(OutputFormat)
-VALID_OPTIMIZERS = ("varpro", "basin_hopping")
 
 
 def build_fit_config(
@@ -35,10 +33,8 @@ def build_fit_config(
     phx: bool,
     phy: bool,
     exclude: list[int] | None,
-    optimizer: str,
 ) -> PeakFitConfig:
     """Build fit config from CLI options or a TOML config file."""
-    validate_optimizer(optimizer)
     normalized_formats = normalize_output_formats(formats)
 
     if config is not None:
@@ -69,7 +65,7 @@ def build_fit_config(
     if output:
         output_config.directory = output
 
-    cfg = PeakFitConfig(
+    return PeakFitConfig(
         fitting=FitConfig(
             lineshape=lineshape,
             refine_iterations=refine,
@@ -80,20 +76,6 @@ def build_fit_config(
         noise_level=noise,
         exclude_planes=exclude or [],
     )
-
-    if optimizer == "basin_hopping":
-        cfg.fitting.max_iterations = BASIN_HOPPING_NITER
-
-    return cfg
-
-
-def validate_optimizer(optimizer: str) -> None:
-    """Reject unsupported optimizer names before data loading starts."""
-    if optimizer in VALID_OPTIMIZERS:
-        return
-
-    choices = ", ".join(VALID_OPTIMIZERS)
-    raise typer.BadParameter(f"Unknown optimizer: {optimizer}. Choose from: {choices}.")
 
 
 def normalize_output_formats(formats: list[str] | None) -> list[OutputFormat] | None:

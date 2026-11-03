@@ -329,11 +329,10 @@ def test_finalization_copies_actual_optimizer_provenance_without_synthesis() -> 
 def test_finalization_leaves_unavailable_optimizer_metadata_absent() -> None:
     fixture = _completion_fixture({11: (True, True)})
     result = fixture.completion.results[0]
-    result.optimizer_kind = "basin_hopping"
-    result.metadata["global_iterations"] = 3
 
     provenance = finalize_fit(fixture.completion).cluster(11).optimizer_provenance
 
-    assert provenance.jacobian_evaluations is None
-    assert provenance.optimality is None
-    assert provenance.iterations == 3
+    assert provenance.jacobian_evaluations == result.njev
+    assert provenance.optimality == result.optimality
+    # VarPro reports evaluations, not an iteration count.
+    assert provenance.iterations is None

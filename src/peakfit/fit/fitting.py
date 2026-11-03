@@ -153,7 +153,6 @@ def run_fit(
     config: PeakFitConfig,
     output_dir: Path,
     *,
-    optimizer: str = "varpro",
     workers: int = -1,
     reporter: Reporter | None = None,
     progress_callback: Callable[[Any], None] | None = None,
@@ -164,7 +163,6 @@ def run_fit(
         data: Loaded spectrum, peaks, clusters, etc.
         config: Fitting configuration
         output_dir: Directory for outputs
-        optimizer: Optimizer name (varpro or basin_hopping)
         workers: Number of parallel workers (-1 = all CPUs)
         reporter: Optional reporter for headless progress
         progress_callback: Optional callback for interactive progress.
@@ -189,7 +187,7 @@ def run_fit(
             total_steps = _calc_total_steps(data, config)
             progress_callback(ProgressStart(total_steps, len(data.clusters), n_workers))
 
-        items = _iter_pipeline(config, data, params, optimizer, n_workers)
+        items = _iter_pipeline(config, data, params, n_workers)
 
         pipeline_result = _consume_pipeline(items, progress_callback)
 
@@ -222,7 +220,6 @@ def _iter_pipeline(
     config: PeakFitConfig,
     data: LoadedData,
     params: Parameters,
-    optimizer: str,
     n_workers: int,
 ) -> Iterator[Any]:
     """Iterate over pipeline, optionally in parallel."""
@@ -234,7 +231,6 @@ def _iter_pipeline(
                 data.noise,
                 params,
                 data.peaks,
-                optimizer=optimizer,
                 executor=pool.imap_unordered,
             )
     else:
@@ -244,7 +240,6 @@ def _iter_pipeline(
             data.noise,
             params,
             data.peaks,
-            optimizer=optimizer,
             executor=None,
         )
 

@@ -35,15 +35,6 @@ def _summarize_spectra(loaded_data: LoadedData) -> tuple[str, int]:
     return "Pseudo-ND", n_series
 
 
-def _describe_method(optimizer: str) -> str:
-    opt = optimizer.lower()
-    if opt == "varpro":
-        return "VARPRO (Variable Projection)"
-    if opt == "basin_hopping":
-        return "Basin Hopping (Global)"
-    return optimizer.upper()
-
-
 def _format_contour(config: PeakFitConfig, noise_val: float) -> str:
     if config.clustering.contour_level is not None:
         return f"{config.clustering.contour_level:.2e}"
@@ -65,7 +56,6 @@ def _relative_path(path: Path) -> str:
 def show_prefit_check(
     loaded_data: LoadedData,
     output_dir: Path,
-    optimizer: str,
     config: PeakFitConfig,
     spectrum_path: Path,
     peaklist_path: Path,
@@ -88,7 +78,7 @@ def show_prefit_check(
     noise_source = loaded_data.noise_source
 
     contour_str = _format_contour(config, noise_val)
-    method_str = _describe_method(optimizer)
+    method_str = "VARPRO (Variable Projection)"
 
     refine = config.fitting.refine_iterations
     refine_str = f"{refine} iteration{'s' if refine != 1 else ''}"
