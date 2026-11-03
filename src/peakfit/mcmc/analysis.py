@@ -139,13 +139,14 @@ def _filter_clusters(clusters: list[Cluster], peaks: list[str] | None) -> list[C
 
 
 def _create_cluster_params(cluster: Cluster, params_all: Parameters) -> Parameters:
-    """Extract parameters for peaks in the cluster from the full parameter set."""
+    """Extract the cluster's parameters, including cluster-shared ones such as phase."""
     peak_names = {p.name for p in cluster.peaks}
     prefixes = tuple(f"{peak_name}." for peak_name in peak_names)
+    shared = {name for p in cluster.peaks for s in p.shapes for name in s.parameter_names()}
 
     cluster_params = Parameters()
     for key, param in params_all.items():
-        if key.startswith(prefixes):
+        if key.startswith(prefixes) or key in shared:
             cluster_params[key] = param.model_copy(deep=False)
 
     return cluster_params

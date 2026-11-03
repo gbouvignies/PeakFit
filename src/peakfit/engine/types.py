@@ -118,6 +118,10 @@ class Shape(Protocol):
         """Type name of the shape (e.g. 'gaussian')."""
         ...
 
+    def parameter_names(self) -> list[str]:
+        """Names of this shape's model parameters; an unfitted phase has none."""
+        ...
+
     def create_params(self) -> Parameters:
         """Create and return the Parameters object for this shape."""
         ...

@@ -50,6 +50,12 @@ Notable user-facing and architecture changes are recorded here.
   save or open explains why it waits.
 - Reopening a project checks each run's adoption by its post-fit positions instead
   of comparing saved warning text, so rewording a warning no longer blocks reopening.
+- Lineshape models no longer substitute defaults for missing parameters (`lw`, `j`,
+  `eta`, phase); a missing model parameter raises. A phase that is not fitted is
+  absent from the model (no phase correction).
+- `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
+  cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
+  so runs fitted with `--phx`/`--phy` sampled a different model than the fit.
 
 ### Removed
 

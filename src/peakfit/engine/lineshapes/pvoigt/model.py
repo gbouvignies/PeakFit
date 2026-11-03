@@ -107,7 +107,7 @@ class PseudoVoigt(SimpleSingletBase):
 
     def _get_extra_params(self, cluster_params: ClusterParameters) -> tuple[Any, ...]:
         """Extract eta parameter."""
-        eta = cluster_params.extras.get("eta", np.full(cluster_params.n_peaks, 0.5))
+        eta = cluster_params.extras["eta"]
         return (eta,)
 
     def _process_extra_derivs(
@@ -216,7 +216,7 @@ class PseudoVoigtDoublet(SimpleDoubletBase):
 
     def _get_extra_params(self, cluster_params: ClusterParameters) -> tuple[Any, ...]:
         """Extract eta parameter."""
-        eta = cluster_params.extras.get("eta", np.full(cluster_params.n_peaks, 0.5))
+        eta = cluster_params.extras["eta"]
         return (eta,)
 
     def _process_extra_derivs(

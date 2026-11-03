@@ -78,6 +78,14 @@ class ShapeBase:
             return ParameterId(cluster_id=self.cluster_id, axis=self.axis, label=label)
         return ParameterId(peak_name=self.name, axis=self.axis, label=label)
 
+    def parameter_names(self) -> list[str]:
+        """Names of this shape's model parameters; an unfitted phase has none."""
+        return [
+            pid.name
+            for spec in self.get_parameter_spec()
+            if (pid := self._parameter_id(spec.name)) is not None
+        ]
+
     def create_params(self) -> Parameters:
         """Create lmfit Parameters object for this shape."""
         params = Parameters()
@@ -130,7 +138,12 @@ class ShapeBase:
         params: Parameters,
         param_map: ParameterMap | None = None,
     ) -> ClusterParameters:
-        """Extract vectorized parameters for a cluster of peaks."""
+        """Extract vectorized parameters for a cluster of peaks.
+
+        Every model parameter must be present: a missing one raises rather than
+        silently taking its default. A phase that is not fitted on this axis is
+        absent from the model, so it has no entry here.
+        """
         n_peaks = len(peaks)
         extras: dict[str, FloatArray] = {}
         index_map: dict[str, Any] = {}
@@ -138,23 +151,24 @@ class ShapeBase:
         specs = self.get_parameter_spec()
 
         for spec in specs:
+            if self._parameter_id(spec.name) is None:
+                continue
             vals = np.zeros(n_peaks, dtype=np.float64)
             idxs = np.full(n_peaks, -1, dtype=np.intp)
 
             for k, peak in enumerate(peaks):
-                try:
-                    shape = next(s for s in peak.shapes if s.axis == self.axis)
-                except StopIteration:
-                    continue
+                shape = next((s for s in peak.shapes if s.axis == self.axis), None)
+                if shape is None:
+                    msg = f"Peak {peak.name} has no {self.axis} lineshape."
+                    raise ValueError(msg)
 
                 p_name = self._param_name_for_spec(spec.name, shape)
-
-                if p_name in params:
-                    vals[k] = params[p_name].value
-                    if param_map:
-                        idxs[k] = param_map.get(p_name, -1)
-                else:
-                    vals[k] = spec.default
+                if p_name not in params:
+                    msg = f"Model parameter {p_name} is missing from the parameters."
+                    raise ValueError(msg)
+                vals[k] = params[p_name].value
+                if param_map:
+                    idxs[k] = param_map.get(p_name, -1)
 
             extras[spec.name] = vals
             index_map[spec.name] = idxs
