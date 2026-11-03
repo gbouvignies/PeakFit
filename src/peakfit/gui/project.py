@@ -31,7 +31,7 @@ from peakfit.io.scientific import read_scientific, write_scientific
 from peakfit.shared.exceptions import ScientificIntegrityError
 from peakfit.shared.paths import format_path
 
-VERSION = "7.0.0"
+VERSION = "8.0.0"
 MAX_RUNS = 10
 MAX_EVIDENCE_BYTES = 1024**3
 MAX_ARCHIVE_BYTES = 8 * 1024**3
@@ -188,7 +188,6 @@ def _write_run(directory, completion):
     record = run_record(result)
     record["post_fit_peaks"] = [asdict(p) for p in completion.working_peaks]
     record["manual_revision"] = completion.manual_revision
-    record["completion_warnings"] = completion.warnings
     _json(directory / "review.json", record)
     files = ["result.npz", "review.json"]
     for name in files:
@@ -451,17 +450,15 @@ def _load_run(root, entry):
         raise ValueError("Projects must reference external observations, not retain sampled data.")
     result = restore_result(record, outcome, samples)
     post = read_peaks(record["post_fit_peaks"])
-    # Validate the recorded adoption again rather than trusting a saved Current flag.
-    completion = dataset_completion(
+    # Validate the recorded adoption again rather than trusting a saved Current flag:
+    # every post-fit position must be the one this outcome adopts or retains.
+    return dataset_completion(
         result,
         result.inputs.snapshot,
         submitted_revision=record["manual_revision"],
         manual_revision=record["manual_revision"],
         recorded=post,
     )
-    if completion.warnings != tuple(record["completion_warnings"]):
-        raise ValueError("Saved working transition disagrees with the fitted outcome.")
-    return completion
 
 
 def open_analysis(

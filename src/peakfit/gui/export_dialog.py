@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.engine.scientific.completed import FinalClusterSamples
+from peakfit.gui.failures import failure_message, log_failure
 from peakfit.gui.fit_export import export_fit_result
 
 if TYPE_CHECKING:
@@ -107,5 +108,6 @@ def choose_and_export(
             assert future is not None
             return future.result()
         except Exception as error:
-            QtWidgets.QMessageBox.warning(parent, "Fit export failed", str(error))
+            log_failure("Fit export", error)
+            QtWidgets.QMessageBox.warning(parent, "Fit export failed", failure_message(error))
             return None

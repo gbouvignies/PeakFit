@@ -1,10 +1,12 @@
 """One serial computation lane with only the latest pending viewer requests."""
 
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from PySide6 import QtCore
+
+from peakfit.gui.failures import WorkerError, log_failure
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -54,6 +56,8 @@ class ViewerComputation(QtCore.QObject):
         try:
             outcome = future.result()
         except Exception as error:  # Return failures to the GUI, including numerical errors.
+            if not isinstance(error, (CancelledError, WorkerError)):
+                log_failure(f"Background {kind} job", error)
             outcome = error.with_traceback(None)
         if not getattr(self, "_closed", True):
             # The owning window can be destroyed between the check and emit.

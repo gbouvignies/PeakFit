@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from PySide6 import QtCore
 
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit, run_dataset_child
+from peakfit.gui.failures import WorkerError, failure_message, log_failure, raise_child_failure
 from peakfit.gui.fitting import PreparedDatasetFit
 
 if TYPE_CHECKING:
@@ -141,6 +142,8 @@ class FitProcess(QtCore.QObject):
                 if isinstance(attempt, tuple) and attempt[0] == "progress":
                     self._emit(generation, "progress", attempt[1])
                     continue
+                if isinstance(attempt, tuple) and attempt[0] == "error":
+                    raise_child_failure(attempt, "Dataset fit")
                 break
             if isinstance(attempt, bytes):
                 attempt = pickle.loads(attempt)  # Only our own child's trusted in-memory record.
@@ -157,7 +160,9 @@ class FitProcess(QtCore.QObject):
             )
             state = "completed"
         except Exception as error:
-            outcome = f"{type(error).__name__}: {error}"
+            if not isinstance(error, WorkerError):
+                log_failure("Dataset fit", error)
+            outcome = failure_message(error)
         finally:
             if process.pid is not None:
                 if process.is_alive():

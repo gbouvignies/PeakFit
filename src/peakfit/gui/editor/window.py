@@ -574,6 +574,12 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
     def protect_edits(self, after=None) -> bool:
         """Offer a complete analysis save before losing working state or evidence."""
         if self._saving or self._busy:
+            QtWidgets.QMessageBox.information(
+                self,
+                "Analysis operation in progress",
+                "PeakFit is saving or opening an analysis. Wait for it to finish, or cancel "
+                "it, then try again.",
+            )
             return False
         if self._analysis_key() == self._saved_key and not (
             self.workspace and self.workspace.pending

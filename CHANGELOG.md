@@ -44,6 +44,12 @@ Notable user-facing and architecture changes are recorded here.
 - Damaged, inconsistent or other-version scientific archives and projects now raise
   `ScientificIntegrityError` naming the file and the next step, instead of raw
   `AssertionError`, `KeyError` or `TypeError`. Integrity tolerances are unchanged.
+- GUI job failures log their full traceback, including those raised in worker
+  processes, and dialogs show the failure's own message rather than `Type: msg`.
+  Canceling Open or Relink no longer reports "Save canceled", and closing during a
+  save or open explains why it waits.
+- Reopening a project checks each run's adoption by its post-fit positions instead
+  of comparing saved warning text, so rewording a warning no longer blocks reopening.
 
 ### Removed
 
@@ -94,7 +100,7 @@ Notable user-facing and architecture changes are recorded here.
   `--optimizer basin_hopping`.
 - Configs containing `[auto_peak]`, `fix_positions` or `fit_j_coupling` are rejected;
   delete those keys.
-- Scientific archives move to 5.0.0, fit JSON to 5.0.0 and projects to 7.0.0;
+- Scientific archives move to 5.0.0, fit JSON to 5.0.0 and projects to 8.0.0;
   earlier versions are rejected. Refit results and recreate projects written
   before this change.
 - A non-positive or non-finite `noise_level` is rejected; it was silently replaced
