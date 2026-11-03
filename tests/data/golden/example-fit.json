@@ -1,0 +1,6711 @@
+{
+ "provenance": {
+  "description": "peakfit fit of examples/02-advanced-fitting with fit_arguments",
+  "peakfit_version": "2025.11.0",
+  "source_commit": "8e0c197"
+ },
+ "fit_arguments": [
+  "examples/02-advanced-fitting/data/pseudo3d.ft2",
+  "examples/02-advanced-fitting/data/pseudo3d.list",
+  "--z-values",
+  "examples/02-advanced-fitting/data/b1_offsets.txt",
+  "--refine",
+  "1"
+ ],
+ "statistics": {
+  "chi_squared": 1828682.5329716064,
+  "n_observations": 806698,
+  "n_fitted_parameters": 22410,
+  "degrees_of_freedom": 784288
+ },
+ "clusters": [
+  {
+   "cluster_id": 1,
+   "peak_names": [
+    "158EN-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 81087.8137832295,
+   "parameters": [
+    {
+     "name": "158EN-H.F2.cs",
+     "value": 129.0406178508436,
+     "standard_error": 5.365491717229647e-05,
+     "min": 128.42787462196773,
+     "max": 129.66178737803224,
+     "vary": true
+    },
+    {
+     "name": "158EN-H.F2.lw",
+     "value": 7.454842548156758,
+     "standard_error": 0.015380102680731979,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "158EN-H.F3.cs",
+     "value": 10.030743063641317,
+     "standard_error": 5.187306825881422e-06,
+     "min": 9.968826155921914,
+     "max": 10.093871844078087,
+     "vary": true
+    },
+    {
+     "name": "158EN-H.F3.lw",
+     "value": 10.741953328133082,
+     "standard_error": 0.01620166153129541,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 2,
+   "peak_names": [
+    "82N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 23166.8025290519,
+   "parameters": [
+    {
+     "name": "82N-H.F2.cs",
+     "value": 129.0534001664968,
+     "standard_error": 9.88361689955634e-05,
+     "min": 128.43708662196775,
+     "max": 129.67099937803226,
+     "vary": true
+    },
+    {
+     "name": "82N-H.F2.lw",
+     "value": 11.890018752107894,
+     "standard_error": 0.027209516419117674,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "82N-H.F3.cs",
+     "value": 9.068394204042987,
+     "standard_error": 8.588098995046205e-06,
+     "min": 9.006485155921913,
+     "max": 9.131530844078087,
+     "vary": true
+    },
+    {
+     "name": "82N-H.F3.lw",
+     "value": 12.706991251084737,
+     "standard_error": 0.025961122984131873,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 4,
+   "peak_names": [
+    "12N-H",
+    "1002N-H",
+    "1011N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 13369.91816261661,
+   "parameters": [
+    {
+     "name": "1002N-H.F2.cs",
+     "value": 109.70737816457958,
+     "standard_error": 0.0006565359469101806,
+     "min": 109.07812062196773,
+     "max": 110.31203337803227,
+     "vary": true
+    },
+    {
+     "name": "1002N-H.F2.lw",
+     "value": 18.498613070819474,
+     "standard_error": 0.1963058489542539,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "1002N-H.F3.cs",
+     "value": 7.382495174973164,
+     "standard_error": 4.000968505006097e-05,
+     "min": 7.319365155921914,
+     "max": 7.444410844078086,
+     "vary": true
+    },
+    {
+     "name": "1002N-H.F3.lw",
+     "value": 8.282570227820504,
+     "standard_error": 0.16691167106003416,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "1011N-H.F2.cs",
+     "value": 110.3013472310239,
+     "standard_error": 0.0007433447178716943,
+     "min": 109.67774062196773,
+     "max": 110.91165337803227,
+     "vary": true
+    },
+    {
+     "name": "1011N-H.F2.lw",
+     "value": 21.401370080533923,
+     "standard_error": 0.22412417595355663,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "1011N-H.F3.cs",
+     "value": 7.3668738503382185,
+     "standard_error": 4.39223203371141e-05,
+     "min": 7.304567155921914,
+     "max": 7.429612844078086,
+     "vary": true
+    },
+    {
+     "name": "1011N-H.F3.lw",
+     "value": 4.5926467321998246,
+     "standard_error": 0.3203761087631244,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "12N-H.F2.cs",
+     "value": 109.49965649248597,
+     "standard_error": 0.0003091575570326612,
+     "min": 108.87762262196773,
+     "max": 110.11153537803227,
+     "vary": true
+    },
+    {
+     "name": "12N-H.F2.lw",
+     "value": 13.416996012795082,
+     "standard_error": 0.09569069271846045,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "12N-H.F3.cs",
+     "value": 7.349934438412302,
+     "standard_error": 2.852508702144752e-05,
+     "min": 7.288096155921914,
+     "max": 7.413141844078086,
+     "vary": true
+    },
+    {
+     "name": "12N-H.F3.lw",
+     "value": 15.085529614268072,
+     "standard_error": 0.10621711331846358,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 9,
+   "peak_names": [
+    "1013N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 4459.341785586134,
+   "parameters": [
+    {
+     "name": "1013N-H.F2.cs",
+     "value": 110.19156699553861,
+     "standard_error": 0.0004968754715267763,
+     "min": 109.59489762196773,
+     "max": 110.82881037803227,
+     "vary": true
+    },
+    {
+     "name": "1013N-H.F2.lw",
+     "value": 19.35926016078926,
+     "standard_error": 0.14553834977838725,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "1013N-H.F3.cs",
+     "value": 7.5208417737412345,
+     "standard_error": 2.9225189883859926e-05,
+     "min": 7.458211155921914,
+     "max": 7.583256844078086,
+     "vary": true
+    },
+    {
+     "name": "1013N-H.F3.lw",
+     "value": 6.01281786630877,
+     "standard_error": 0.12983870274132867,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 16,
+   "peak_names": [
+    "21N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 17869.584284426695,
+   "parameters": [
+    {
+     "name": "21N-H.F2.cs",
+     "value": 109.92564918785543,
+     "standard_error": 0.00011263019455127849,
+     "min": 109.30814362196773,
+     "max": 110.54205637803227,
+     "vary": true
+    },
+    {
+     "name": "21N-H.F2.lw",
+     "value": 11.910013844621052,
+     "standard_error": 0.03128987908935312,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "21N-H.F3.cs",
+     "value": 8.000501843085924,
+     "standard_error": 9.275319016844966e-06,
+     "min": 7.9385411559219135,
+     "max": 8.063586844078086,
+     "vary": true
+    },
+    {
+     "name": "21N-H.F3.lw",
+     "value": 11.51798329065064,
+     "standard_error": 0.027599158458597898,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 20,
+   "peak_names": [
+    "34N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7804.307201842058,
+   "parameters": [
+    {
+     "name": "34N-H.F2.cs",
+     "value": 109.94644543940922,
+     "standard_error": 0.00015232844321069798,
+     "min": 109.33217962196773,
+     "max": 110.56609237803227,
+     "vary": true
+    },
+    {
+     "name": "34N-H.F2.lw",
+     "value": 10.362487982522113,
+     "standard_error": 0.045983070920137675,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "34N-H.F3.cs",
+     "value": 7.2755342752838725,
+     "standard_error": 1.3009442916094213e-05,
+     "min": 7.213356155921914,
+     "max": 7.338401844078086,
+     "vary": true
+    },
+    {
+     "name": "34N-H.F3.lw",
+     "value": 10.714255589471955,
+     "standard_error": 0.04397973645965889,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 37,
+   "peak_names": [
+    "59N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10874.409529601895,
+   "parameters": [
+    {
+     "name": "59N-H.F2.cs",
+     "value": 109.33555751282391,
+     "standard_error": 0.00011085571977133826,
+     "min": 108.71633962196773,
+     "max": 109.95025237803227,
+     "vary": true
+    },
+    {
+     "name": "59N-H.F2.lw",
+     "value": 10.091362760175281,
+     "standard_error": 0.032462981620710325,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "59N-H.F3.cs",
+     "value": 8.716026810709273,
+     "standard_error": 1.0318708551230362e-05,
+     "min": 8.654063155921913,
+     "max": 8.779108844078086,
+     "vary": true
+    },
+    {
+     "name": "59N-H.F3.lw",
+     "value": 12.692859489991614,
+     "standard_error": 0.034089190318659174,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 39,
+   "peak_names": [
+    "51N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6630.915855790674,
+   "parameters": [
+    {
+     "name": "51N-H.F2.cs",
+     "value": 109.25828169430757,
+     "standard_error": 0.00024297212391582938,
+     "min": 108.64330862196773,
+     "max": 109.87722137803227,
+     "vary": true
+    },
+    {
+     "name": "51N-H.F2.lw",
+     "value": 10.884636944346868,
+     "standard_error": 0.07876420176150667,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "51N-H.F3.cs",
+     "value": 8.412246527567369,
+     "standard_error": 2.4200315017548565e-05,
+     "min": 8.349980155921912,
+     "max": 8.475025844078086,
+     "vary": true
+    },
+    {
+     "name": "51N-H.F3.lw",
+     "value": 15.814454904252825,
+     "standard_error": 0.0769651629346049,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 40,
+   "peak_names": [
+    "30N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 11597.965324892868,
+   "parameters": [
+    {
+     "name": "30N-H.F2.cs",
+     "value": 109.22175735908266,
+     "standard_error": 0.00013834556576802654,
+     "min": 108.60401862196773,
+     "max": 109.83793137803227,
+     "vary": true
+    },
+    {
+     "name": "30N-H.F2.lw",
+     "value": 11.336575813408638,
+     "standard_error": 0.0405354786243746,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "30N-H.F3.cs",
+     "value": 7.9351156457094465,
+     "standard_error": 1.2979994466590004e-05,
+     "min": 7.873442155921914,
+     "max": 7.998487844078086,
+     "vary": true
+    },
+    {
+     "name": "30N-H.F3.lw",
+     "value": 14.530763264132563,
+     "standard_error": 0.03963849697301389,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 41,
+   "peak_names": [
+    "110N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10100.221166790365,
+   "parameters": [
+    {
+     "name": "110N-H.F2.cs",
+     "value": 109.17556441767638,
+     "standard_error": 0.00017338748277843965,
+     "min": 108.56130462196774,
+     "max": 109.79521737803228,
+     "vary": true
+    },
+    {
+     "name": "110N-H.F2.lw",
+     "value": 12.50849708338634,
+     "standard_error": 0.05106179659693092,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "110N-H.F3.cs",
+     "value": 7.599182714466664,
+     "standard_error": 1.659669654939293e-05,
+     "min": 7.536939155921914,
+     "max": 7.661984844078086,
+     "vary": true
+    },
+    {
+     "name": "110N-H.F3.lw",
+     "value": 16.225924626577,
+     "standard_error": 0.05177746489698234,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 48,
+   "peak_names": [
+    "18N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 11448.480577051716,
+   "parameters": [
+    {
+     "name": "18N-H.F2.cs",
+     "value": 127.62998167380111,
+     "standard_error": 0.00014416551472452545,
+     "min": 127.01307562196773,
+     "max": 128.24698837803226,
+     "vary": true
+    },
+    {
+     "name": "18N-H.F2.lw",
+     "value": 10.79469652448728,
+     "standard_error": 0.041710110686472054,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "18N-H.F3.cs",
+     "value": 9.44216119134164,
+     "standard_error": 1.1666753592543362e-05,
+     "min": 9.380078155921913,
+     "max": 9.505123844078087,
+     "vary": true
+    },
+    {
+     "name": "18N-H.F3.lw",
+     "value": 9.77747327263748,
+     "standard_error": 0.03929066035867473,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 57,
+   "peak_names": [
+    "14N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6238.808928883189,
+   "parameters": [
+    {
+     "name": "14N-H.F2.cs",
+     "value": 127.39561554607876,
+     "standard_error": 0.00015473663830847822,
+     "min": 126.78540762196774,
+     "max": 128.01932037803226,
+     "vary": true
+    },
+    {
+     "name": "14N-H.F2.lw",
+     "value": 10.268201171668766,
+     "standard_error": 0.0474690912937293,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "14N-H.F3.cs",
+     "value": 7.961394005120338,
+     "standard_error": 1.4221364858959323e-05,
+     "min": 7.899166155921914,
+     "max": 8.024211844078087,
+     "vary": true
+    },
+    {
+     "name": "14N-H.F3.lw",
+     "value": 12.355386077197835,
+     "standard_error": 0.05235430751212601,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 67,
+   "peak_names": [
+    "157N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8709.66874145301,
+   "parameters": [
+    {
+     "name": "157N-H.F2.cs",
+     "value": 108.21551721867563,
+     "standard_error": 0.0001396541907211037,
+     "min": 107.59989662196773,
+     "max": 108.83380937803227,
+     "vary": true
+    },
+    {
+     "name": "157N-H.F2.lw",
+     "value": 11.156455138276968,
+     "standard_error": 0.04030713830855971,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "157N-H.F3.cs",
+     "value": 7.581185719809088,
+     "standard_error": 1.3100429597095693e-05,
+     "min": 7.519084155921914,
+     "max": 7.644129844078086,
+     "vary": true
+    },
+    {
+     "name": "157N-H.F3.lw",
+     "value": 14.335575259120784,
+     "standard_error": 0.04091568151139678,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 98,
+   "peak_names": [
+    "23N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7273.145395726975,
+   "parameters": [
+    {
+     "name": "23N-H.F2.cs",
+     "value": 107.04441215569064,
+     "standard_error": 0.00018535285918746402,
+     "min": 106.42489062196773,
+     "max": 107.65880337803227,
+     "vary": true
+    },
+    {
+     "name": "23N-H.F2.lw",
+     "value": 10.711392500712046,
+     "standard_error": 0.05556874432495017,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "23N-H.F3.cs",
+     "value": 7.856792972387996,
+     "standard_error": 1.735160385738522e-05,
+     "min": 7.795004155921914,
+     "max": 7.920049844078086,
+     "vary": true
+    },
+    {
+     "name": "23N-H.F3.lw",
+     "value": 13.919576593863368,
+     "standard_error": 0.05236806986834771,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 100,
+   "peak_names": [
+    "33N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6529.192289459292,
+   "parameters": [
+    {
+     "name": "33N-H.F2.cs",
+     "value": 125.56939106182344,
+     "standard_error": 0.00020801332504998498,
+     "min": 124.95246362196772,
+     "max": 126.18637637803226,
+     "vary": true
+    },
+    {
+     "name": "33N-H.F2.lw",
+     "value": 11.643851592134103,
+     "standard_error": 0.06491553992673292,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "33N-H.F3.cs",
+     "value": 9.189614295572929,
+     "standard_error": 1.882761070777288e-05,
+     "min": 9.127709155921913,
+     "max": 9.252754844078087,
+     "vary": true
+    },
+    {
+     "name": "33N-H.F3.lw",
+     "value": 13.875806565353273,
+     "standard_error": 0.06073351292902969,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 102,
+   "peak_names": [
+    "142N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6566.037476994348,
+   "parameters": [
+    {
+     "name": "142N-H.F2.cs",
+     "value": 106.79464140301201,
+     "standard_error": 0.00018880915645007188,
+     "min": 106.17594762196772,
+     "max": 107.40986037803226,
+     "vary": true
+    },
+    {
+     "name": "142N-H.F2.lw",
+     "value": 12.057581100653593,
+     "standard_error": 0.057138717731698055,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "142N-H.F3.cs",
+     "value": 7.712626572741866,
+     "standard_error": 1.8045311642448685e-05,
+     "min": 7.650971155921914,
+     "max": 7.776016844078086,
+     "vary": true
+    },
+    {
+     "name": "142N-H.F3.lw",
+     "value": 15.78702618098419,
+     "standard_error": 0.05633147201278279,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 103,
+   "peak_names": [
+    "164N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 25820.38543325897,
+   "parameters": [
+    {
+     "name": "164N-H.F2.cs",
+     "value": 125.55471330980265,
+     "standard_error": 4.829693742558024e-05,
+     "min": 124.93726662196772,
+     "max": 126.17117937803226,
+     "vary": true
+    },
+    {
+     "name": "164N-H.F2.lw",
+     "value": 6.3309800911074445,
+     "standard_error": 0.015198267317779977,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "164N-H.F3.cs",
+     "value": 7.37492989455781,
+     "standard_error": 4.276787317770277e-06,
+     "min": 7.312688155921914,
+     "max": 7.437733844078086,
+     "vary": true
+    },
+    {
+     "name": "164N-H.F3.lw",
+     "value": 7.74446037144882,
+     "standard_error": 0.013695265021841931,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 105,
+   "peak_names": [
+    "71N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6117.799247198573,
+   "parameters": [
+    {
+     "name": "71N-H.F2.cs",
+     "value": 125.41173231902143,
+     "standard_error": 0.00025348735375596776,
+     "min": 124.78605162196773,
+     "max": 126.01996437803227,
+     "vary": true
+    },
+    {
+     "name": "71N-H.F2.lw",
+     "value": 11.505129351620699,
+     "standard_error": 0.07936877061804633,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "71N-H.F3.cs",
+     "value": 9.237264154382961,
+     "standard_error": 2.3866112089045302e-05,
+     "min": 9.174792155921914,
+     "max": 9.299837844078088,
+     "vary": true
+    },
+    {
+     "name": "71N-H.F3.lw",
+     "value": 14.244834500290183,
+     "standard_error": 0.09111703089725635,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 117,
+   "peak_names": [
+    "35N-H",
+    "149N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 26084.83201835784,
+   "parameters": [
+    {
+     "name": "149N-H.F2.cs",
+     "value": 125.12130885998235,
+     "standard_error": 0.00024734649181712225,
+     "min": 124.50952662196772,
+     "max": 125.74343937803226,
+     "vary": true
+    },
+    {
+     "name": "149N-H.F2.lw",
+     "value": 12.013374872241643,
+     "standard_error": 0.08036308679092274,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "149N-H.F3.cs",
+     "value": 8.625827669083789,
+     "standard_error": 2.35555179252952e-05,
+     "min": 8.563837155921913,
+     "max": 8.688882844078087,
+     "vary": true
+    },
+    {
+     "name": "149N-H.F3.lw",
+     "value": 15.897051746990211,
+     "standard_error": 0.07084506264679503,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "35N-H.F2.cs",
+     "value": 124.96249223695827,
+     "standard_error": 0.00010248711093890152,
+     "min": 124.34445362196773,
+     "max": 125.57836637803227,
+     "vary": true
+    },
+    {
+     "name": "35N-H.F2.lw",
+     "value": 10.541880857123267,
+     "standard_error": 0.02853118217877097,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "35N-H.F3.cs",
+     "value": 8.670841506687799,
+     "standard_error": 9.353308460065135e-06,
+     "min": 8.608915155921913,
+     "max": 8.733960844078087,
+     "vary": true
+    },
+    {
+     "name": "35N-H.F3.lw",
+     "value": 12.955960058953,
+     "standard_error": 0.02919779648887013,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 128,
+   "peak_names": [
+    "8N-H",
+    "20N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 14867.434367944628,
+   "parameters": [
+    {
+     "name": "20N-H.F2.cs",
+     "value": 124.47083975568044,
+     "standard_error": 0.00013050476289572157,
+     "min": 123.85465162196773,
+     "max": 125.08856437803227,
+     "vary": true
+    },
+    {
+     "name": "20N-H.F2.lw",
+     "value": 11.193661055562265,
+     "standard_error": 0.04007557367283494,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "20N-H.F3.cs",
+     "value": 8.515590922545913,
+     "standard_error": 1.1999494485774265e-05,
+     "min": 8.453317155921914,
+     "max": 8.578362844078088,
+     "vary": true
+    },
+    {
+     "name": "20N-H.F3.lw",
+     "value": 10.053417522556863,
+     "standard_error": 0.03720623977807008,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "8N-H.F2.cs",
+     "value": 124.21441894406871,
+     "standard_error": 0.0006655316277232379,
+     "min": 123.57303662196773,
+     "max": 124.80694937803227,
+     "vary": true
+    },
+    {
+     "name": "8N-H.F2.lw",
+     "value": 20.4958515049384,
+     "standard_error": 0.2042806366134027,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "8N-H.F3.cs",
+     "value": 8.498863799512321,
+     "standard_error": 4.2785924024231985e-05,
+     "min": 8.437747155921913,
+     "max": 8.562792844078087,
+     "vary": true
+    },
+    {
+     "name": "8N-H.F3.lw",
+     "value": 13.409434435372958,
+     "standard_error": 0.12804059048992877,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 137,
+   "peak_names": [
+    "41N-H",
+    "77N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 25390.540910513824,
+   "parameters": [
+    {
+     "name": "41N-H.F2.cs",
+     "value": 124.1514462662982,
+     "standard_error": 0.0001210877184820044,
+     "min": 123.53645262196773,
+     "max": 124.77036537803227,
+     "vary": true
+    },
+    {
+     "name": "41N-H.F2.lw",
+     "value": 11.607752240371685,
+     "standard_error": 0.035471922107921605,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "41N-H.F3.cs",
+     "value": 7.786841240475872,
+     "standard_error": 1.0471700027778759e-05,
+     "min": 7.724727155921914,
+     "max": 7.849772844078086,
+     "vary": true
+    },
+    {
+     "name": "41N-H.F3.lw",
+     "value": 12.158584639487524,
+     "standard_error": 0.03132373592088488,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "77N-H.F2.cs",
+     "value": 105.03374029278304,
+     "standard_error": 0.00022672653321361037,
+     "min": 104.41239262196773,
+     "max": 105.64630537803227,
+     "vary": true
+    },
+    {
+     "name": "77N-H.F2.lw",
+     "value": 13.958511082934853,
+     "standard_error": 0.0683473067755715,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "77N-H.F3.cs",
+     "value": 7.800769782864442,
+     "standard_error": 1.9620773102654735e-05,
+     "min": 7.738305155921914,
+     "max": 7.863350844078086,
+     "vary": true
+    },
+    {
+     "name": "77N-H.F3.lw",
+     "value": 14.292941289485867,
+     "standard_error": 0.06532462269938952,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 143,
+   "peak_names": [
+    "78N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8986.691805690127,
+   "parameters": [
+    {
+     "name": "78N-H.F2.cs",
+     "value": 123.94019786681994,
+     "standard_error": 0.00022139801635910416,
+     "min": 123.32562762196773,
+     "max": 124.55954037803227,
+     "vary": true
+    },
+    {
+     "name": "78N-H.F2.lw",
+     "value": 13.699194866140328,
+     "standard_error": 0.06344055948846213,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "78N-H.F3.cs",
+     "value": 8.077472706990566,
+     "standard_error": 2.0584469669296498e-05,
+     "min": 8.015490155921913,
+     "max": 8.140535844078087,
+     "vary": true
+    },
+    {
+     "name": "78N-H.F3.lw",
+     "value": 16.351772153517192,
+     "standard_error": 0.0642209291735103,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 149,
+   "peak_names": [
+    "104N-H",
+    "137N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 22304.390873660726,
+   "parameters": [
+    {
+     "name": "104N-H.F2.cs",
+     "value": 123.34624776038545,
+     "standard_error": 0.00021569214854130428,
+     "min": 122.72354962196773,
+     "max": 123.95746237803228,
+     "vary": true
+    },
+    {
+     "name": "104N-H.F2.lw",
+     "value": 12.168572239996042,
+     "standard_error": 0.06055058266346193,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "104N-H.F3.cs",
+     "value": 9.195626756047696,
+     "standard_error": 1.956869576206922e-05,
+     "min": 9.133402155921914,
+     "max": 9.258447844078088,
+     "vary": true
+    },
+    {
+     "name": "104N-H.F3.lw",
+     "value": 14.035035230690477,
+     "standard_error": 0.06411404993345261,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "137N-H.F2.cs",
+     "value": 123.82642780142535,
+     "standard_error": 0.00015945623158951526,
+     "min": 123.20934962196773,
+     "max": 124.44326237803227,
+     "vary": true
+    },
+    {
+     "name": "137N-H.F2.lw",
+     "value": 11.518713759769478,
+     "standard_error": 0.04759373273636761,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "137N-H.F3.cs",
+     "value": 9.168192303789821,
+     "standard_error": 1.7178080409602395e-05,
+     "min": 9.106687155921913,
+     "max": 9.231732844078087,
+     "vary": true
+    },
+    {
+     "name": "137N-H.F3.lw",
+     "value": 18.74617017032754,
+     "standard_error": 0.048750984743482696,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 154,
+   "peak_names": [
+    "70N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6665.363692854611,
+   "parameters": [
+    {
+     "name": "70N-H.F2.cs",
+     "value": 123.56966384118607,
+     "standard_error": 0.000223905133485529,
+     "min": 122.95598462196773,
+     "max": 124.18989737803227,
+     "vary": true
+    },
+    {
+     "name": "70N-H.F2.lw",
+     "value": 10.971431468123235,
+     "standard_error": 0.06801329049360308,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "70N-H.F3.cs",
+     "value": 8.341621308912446,
+     "standard_error": 2.127578277540594e-05,
+     "min": 8.279608155921913,
+     "max": 8.404653844078087,
+     "vary": true
+    },
+    {
+     "name": "70N-H.F3.lw",
+     "value": 14.166593359910275,
+     "standard_error": 0.07703246010988178,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 155,
+   "peak_names": [
+    "74N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6947.925127372322,
+   "parameters": [
+    {
+     "name": "74N-H.F2.cs",
+     "value": 123.57375096809916,
+     "standard_error": 0.0001942840430710683,
+     "min": 122.95942162196773,
+     "max": 124.19333437803228,
+     "vary": true
+    },
+    {
+     "name": "74N-H.F2.lw",
+     "value": 12.565524561688125,
+     "standard_error": 0.05721903824223819,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "74N-H.F3.cs",
+     "value": 8.25724614313101,
+     "standard_error": 1.7552401560806292e-05,
+     "min": 8.195123155921912,
+     "max": 8.320168844078086,
+     "vary": true
+    },
+    {
+     "name": "74N-H.F3.lw",
+     "value": 14.703755219230908,
+     "standard_error": 0.05600138806243534,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 156,
+   "peak_names": [
+    "114N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 11511.487344566282,
+   "parameters": [
+    {
+     "name": "114N-H.F2.cs",
+     "value": 123.5378675671605,
+     "standard_error": 0.0001042941212001168,
+     "min": 122.91998162196774,
+     "max": 124.15389437803228,
+     "vary": true
+    },
+    {
+     "name": "114N-H.F2.lw",
+     "value": 12.078959038317077,
+     "standard_error": 0.028827055287365597,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "114N-H.F3.cs",
+     "value": 7.962315689812099,
+     "standard_error": 9.475155432800301e-06,
+     "min": 7.899995155921914,
+     "max": 8.025040844078086,
+     "vary": true
+    },
+    {
+     "name": "114N-H.F3.lw",
+     "value": 14.338552208219205,
+     "standard_error": 0.02868685514801405,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 159,
+   "peak_names": [
+    "15N-H",
+    "25N-H",
+    "85N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 50444.10409965915,
+   "parameters": [
+    {
+     "name": "15N-H.F2.cs",
+     "value": 122.90895113678984,
+     "standard_error": 9.759901555656218e-05,
+     "min": 122.29277262196773,
+     "max": 123.52668537803227,
+     "vary": true
+    },
+    {
+     "name": "15N-H.F2.lw",
+     "value": 9.341369136376027,
+     "standard_error": 0.027605837178099665,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "15N-H.F3.cs",
+     "value": 8.858738516553881,
+     "standard_error": 9.051196437890048e-06,
+     "min": 8.796474155921914,
+     "max": 8.921519844078087,
+     "vary": true
+    },
+    {
+     "name": "15N-H.F3.lw",
+     "value": 12.129766390228772,
+     "standard_error": 0.028286080216209635,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "25N-H.F2.cs",
+     "value": 123.52388973532706,
+     "standard_error": 0.0001150295333470192,
+     "min": 122.90822262196772,
+     "max": 124.14213537803226,
+     "vary": true
+    },
+    {
+     "name": "25N-H.F2.lw",
+     "value": 11.006755117790838,
+     "standard_error": 0.03289902449995694,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "25N-H.F3.cs",
+     "value": 8.844221089230512,
+     "standard_error": 1.0304630398196184e-05,
+     "min": 8.782402155921913,
+     "max": 8.907447844078087,
+     "vary": true
+    },
+    {
+     "name": "25N-H.F3.lw",
+     "value": 12.898353331022419,
+     "standard_error": 0.03223823914744021,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "85N-H.F2.cs",
+     "value": 122.34780555347993,
+     "standard_error": 0.00012186975153639316,
+     "min": 121.73142362196774,
+     "max": 122.96533637803228,
+     "vary": true
+    },
+    {
+     "name": "85N-H.F2.lw",
+     "value": 11.718880268034773,
+     "standard_error": 0.0337918084347276,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "85N-H.F3.cs",
+     "value": 8.833570631957617,
+     "standard_error": 1.0728700032928017e-05,
+     "min": 8.771717155921912,
+     "max": 8.896762844078086,
+     "vary": true
+    },
+    {
+     "name": "85N-H.F3.lw",
+     "value": 13.143465163321089,
+     "standard_error": 0.03195122133907967,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 170,
+   "peak_names": [
+    "88N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 17217.522968117322,
+   "parameters": [
+    {
+     "name": "88N-H.F2.cs",
+     "value": 123.0293184562592,
+     "standard_error": 9.104709223921262e-05,
+     "min": 122.41223162196773,
+     "max": 123.64614437803228,
+     "vary": true
+    },
+    {
+     "name": "88N-H.F2.lw",
+     "value": 12.453672537420996,
+     "standard_error": 0.024946877211937658,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "88N-H.F3.cs",
+     "value": 8.564064988690006,
+     "standard_error": 9.433341903946726e-06,
+     "min": 8.502389155921913,
+     "max": 8.627434844078087,
+     "vary": true
+    },
+    {
+     "name": "88N-H.F3.lw",
+     "value": 18.637765811123028,
+     "standard_error": 0.02578702278556868,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 171,
+   "peak_names": [
+    "4N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7274.338100227475,
+   "parameters": [
+    {
+     "name": "4N-H.F2.cs",
+     "value": 123.14286277200615,
+     "standard_error": 0.00021551984253472827,
+     "min": 122.52618562196773,
+     "max": 123.76009837803227,
+     "vary": true
+    },
+    {
+     "name": "4N-H.F2.lw",
+     "value": 12.445976602804453,
+     "standard_error": 0.06672012030896662,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "4N-H.F3.cs",
+     "value": 7.82139023257847,
+     "standard_error": 1.8963651258358685e-05,
+     "min": 7.759682155921914,
+     "max": 7.884727844078086,
+     "vary": true
+    },
+    {
+     "name": "4N-H.F3.lw",
+     "value": 13.6017950022977,
+     "standard_error": 0.06626087689443072,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 175,
+   "peak_names": [
+    "46N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8709.561959368759,
+   "parameters": [
+    {
+     "name": "46N-H.F2.cs",
+     "value": 122.81874681102407,
+     "standard_error": 0.00016827310491593966,
+     "min": 122.19426662196773,
+     "max": 123.42817937803227,
+     "vary": true
+    },
+    {
+     "name": "46N-H.F2.lw",
+     "value": 10.58145424693377,
+     "standard_error": 0.04955192874731461,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "46N-H.F3.cs",
+     "value": 8.3599862448847,
+     "standard_error": 1.4809838315452948e-05,
+     "min": 8.298275155921914,
+     "max": 8.423320844078088,
+     "vary": true
+    },
+    {
+     "name": "46N-H.F3.lw",
+     "value": 11.98966728773994,
+     "standard_error": 0.04661613353129778,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 181,
+   "peak_names": [
+    "152N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7515.253579347598,
+   "parameters": [
+    {
+     "name": "152N-H.F2.cs",
+     "value": 122.75297384760768,
+     "standard_error": 0.00029157721778604604,
+     "min": 122.13180062196773,
+     "max": 123.36571337803227,
+     "vary": true
+    },
+    {
+     "name": "152N-H.F2.lw",
+     "value": 14.812681801132715,
+     "standard_error": 0.08827317081175244,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "152N-H.F3.cs",
+     "value": 7.909177320349457,
+     "standard_error": 2.779450623306705e-05,
+     "min": 7.847256155921914,
+     "max": 7.972301844078086,
+     "vary": true
+    },
+    {
+     "name": "152N-H.F3.lw",
+     "value": 18.621105315611004,
+     "standard_error": 0.08102685592903308,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 182,
+   "peak_names": [
+    "111N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8901.214547173522,
+   "parameters": [
+    {
+     "name": "111N-H.F2.cs",
+     "value": 122.66794303248996,
+     "standard_error": 0.00017078722834488647,
+     "min": 122.04951562196773,
+     "max": 123.28342837803227,
+     "vary": true
+    },
+    {
+     "name": "111N-H.F2.lw",
+     "value": 14.46526615666553,
+     "standard_error": 0.04709788689015498,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "111N-H.F3.cs",
+     "value": 7.691310725092455,
+     "standard_error": 1.4261806591360905e-05,
+     "min": 7.629683155921914,
+     "max": 7.754728844078086,
+     "vary": true
+    },
+    {
+     "name": "111N-H.F3.lw",
+     "value": 14.242139301737662,
+     "standard_error": 0.04589099030068538,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 188,
+   "peak_names": [
+    "155N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7433.187821662554,
+   "parameters": [
+    {
+     "name": "155N-H.F2.cs",
+     "value": 103.91502964938252,
+     "standard_error": 0.0002320238693779029,
+     "min": 103.30036762196772,
+     "max": 104.53428037803226,
+     "vary": true
+    },
+    {
+     "name": "155N-H.F2.lw",
+     "value": 12.874258922892793,
+     "standard_error": 0.07413897656316541,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "155N-H.F3.cs",
+     "value": 8.154414262261794,
+     "standard_error": 2.30317026149386e-05,
+     "min": 8.092121155921912,
+     "max": 8.217166844078086,
+     "vary": true
+    },
+    {
+     "name": "155N-H.F3.lw",
+     "value": 17.93419641350432,
+     "standard_error": 0.07147396134352507,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 190,
+   "peak_names": [
+    "129N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10736.175573312716,
+   "parameters": [
+    {
+     "name": "129N-H.F2.cs",
+     "value": 122.44609468738248,
+     "standard_error": 0.00012048346794961626,
+     "min": 121.83207262196773,
+     "max": 123.06598537803227,
+     "vary": true
+    },
+    {
+     "name": "129N-H.F2.lw",
+     "value": 12.04887429105075,
+     "standard_error": 0.033050937757489164,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "129N-H.F3.cs",
+     "value": 8.718613680067032,
+     "standard_error": 1.0332971166363368e-05,
+     "min": 8.656464155921913,
+     "max": 8.781509844078087,
+     "vary": true
+    },
+    {
+     "name": "129N-H.F3.lw",
+     "value": 12.744719392774106,
+     "standard_error": 0.03182181198455704,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 205,
+   "peak_names": [
+    "91N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7446.877455747199,
+   "parameters": [
+    {
+     "name": "91N-H.F2.cs",
+     "value": 122.11446245087372,
+     "standard_error": 0.00011698251158346893,
+     "min": 121.49741562196773,
+     "max": 122.73132837803227,
+     "vary": true
+    },
+    {
+     "name": "91N-H.F2.lw",
+     "value": 12.709116845626554,
+     "standard_error": 0.03253827165030797,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "91N-H.F3.cs",
+     "value": 7.259382874802653,
+     "standard_error": 9.74117130547454e-06,
+     "min": 7.197060155921914,
+     "max": 7.322105844078086,
+     "vary": true
+    },
+    {
+     "name": "91N-H.F3.lw",
+     "value": 12.596548727923672,
+     "standard_error": 0.030433505685533605,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 211,
+   "peak_names": [
+    "133N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 9168.907078631086,
+   "parameters": [
+    {
+     "name": "133N-H.F2.cs",
+     "value": 121.91970402471048,
+     "standard_error": 0.00016931272693961012,
+     "min": 121.29978362196773,
+     "max": 122.53369637803227,
+     "vary": true
+    },
+    {
+     "name": "133N-H.F2.lw",
+     "value": 12.50673879390641,
+     "standard_error": 0.048876507395291396,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "133N-H.F3.cs",
+     "value": 9.07528249797967,
+     "standard_error": 1.552705932500829e-05,
+     "min": 9.013366155921913,
+     "max": 9.138411844078087,
+     "vary": true
+    },
+    {
+     "name": "133N-H.F3.lw",
+     "value": 14.902762998466425,
+     "standard_error": 0.04701214593400362,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 216,
+   "peak_names": [
+    "62N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6520.507257036352,
+   "parameters": [
+    {
+     "name": "62N-H.F2.cs",
+     "value": 121.83355420012063,
+     "standard_error": 0.00014417086292671684,
+     "min": 121.21783362196773,
+     "max": 122.45174637803227,
+     "vary": true
+    },
+    {
+     "name": "62N-H.F2.lw",
+     "value": 11.463764661654599,
+     "standard_error": 0.042291702207371745,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "62N-H.F3.cs",
+     "value": 7.752105740904056,
+     "standard_error": 1.3764334431885631e-05,
+     "min": 7.690100155921914,
+     "max": 7.815145844078086,
+     "vary": true
+    },
+    {
+     "name": "62N-H.F3.lw",
+     "value": 15.085675761595152,
+     "standard_error": 0.04422223744449767,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 218,
+   "peak_names": [
+    "60N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 27402.11661723685,
+   "parameters": [
+    {
+     "name": "60N-H.F2.cs",
+     "value": 121.65673769772671,
+     "standard_error": 8.47132980342443e-05,
+     "min": 121.03971962196773,
+     "max": 122.27363237803227,
+     "vary": true
+    },
+    {
+     "name": "60N-H.F2.lw",
+     "value": 10.400048486389151,
+     "standard_error": 0.023582775457273296,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "60N-H.F3.cs",
+     "value": 9.212704414218761,
+     "standard_error": 7.012346428083337e-06,
+     "min": 9.150568155921913,
+     "max": 9.275613844078087,
+     "vary": true
+    },
+    {
+     "name": "60N-H.F3.lw",
+     "value": 10.171079996336521,
+     "standard_error": 0.020384924288178296,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 223,
+   "peak_names": [
+    "42N-H",
+    "65N-H",
+    "81N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 23701.18000946942,
+   "parameters": [
+    {
+     "name": "42N-H.F2.cs",
+     "value": 121.10826799651095,
+     "standard_error": 0.0001689290743497116,
+     "min": 120.49197262196773,
+     "max": 121.72588537803227,
+     "vary": true
+    },
+    {
+     "name": "42N-H.F2.lw",
+     "value": 10.893716020011652,
+     "standard_error": 0.039828194636751434,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "42N-H.F3.cs",
+     "value": 7.626239251087853,
+     "standard_error": 2.1856427548599442e-05,
+     "min": 7.564784155921914,
+     "max": 7.689829844078086,
+     "vary": true
+    },
+    {
+     "name": "42N-H.F3.lw",
+     "value": 12.381780180678495,
+     "standard_error": 0.0598038361573832,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "65N-H.F2.cs",
+     "value": 121.02333758141687,
+     "standard_error": 0.0002766662072109653,
+     "min": 120.40818962196774,
+     "max": 121.64210237803228,
+     "vary": true
+    },
+    {
+     "name": "65N-H.F2.lw",
+     "value": 12.467733227429145,
+     "standard_error": 0.0642581868865481,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "65N-H.F3.cs",
+     "value": 7.64904164086673,
+     "standard_error": 3.182387035338192e-05,
+     "min": 7.587388155921914,
+     "max": 7.712433844078086,
+     "vary": true
+    },
+    {
+     "name": "65N-H.F3.lw",
+     "value": 11.763273027945745,
+     "standard_error": 0.09011686295463414,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "81N-H.F2.cs",
+     "value": 121.66153532955683,
+     "standard_error": 0.0001421388277389795,
+     "min": 121.04611262196772,
+     "max": 122.28002537803226,
+     "vary": true
+    },
+    {
+     "name": "81N-H.F2.lw",
+     "value": 11.71194348099922,
+     "standard_error": 0.040641499866879316,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "81N-H.F3.cs",
+     "value": 7.6485659907680965,
+     "standard_error": 1.2312396233751513e-05,
+     "min": 7.586263155921914,
+     "max": 7.711308844078086,
+     "vary": true
+    },
+    {
+     "name": "81N-H.F3.lw",
+     "value": 12.703481760963435,
+     "standard_error": 0.03872938511083868,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 224,
+   "peak_names": [
+    "64N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7298.711307128186,
+   "parameters": [
+    {
+     "name": "64N-H.F2.cs",
+     "value": 121.53132276601733,
+     "standard_error": 0.0001876780089231295,
+     "min": 120.90876962196774,
+     "max": 122.14268237803228,
+     "vary": true
+    },
+    {
+     "name": "64N-H.F2.lw",
+     "value": 12.914383254216782,
+     "standard_error": 0.05507684173564405,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "64N-H.F3.cs",
+     "value": 8.48750615836998,
+     "standard_error": 1.54345753554637e-05,
+     "min": 8.425573155921914,
+     "max": 8.550618844078087,
+     "vary": true
+    },
+    {
+     "name": "64N-H.F3.lw",
+     "value": 12.184448889454545,
+     "standard_error": 0.053621951168369715,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 226,
+   "peak_names": [
+    "56N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7543.815974046616,
+   "parameters": [
+    {
+     "name": "56N-H.F2.cs",
+     "value": 102.84262313830585,
+     "standard_error": 0.0001753498505938049,
+     "min": 102.23066162196773,
+     "max": 103.46457437803227,
+     "vary": true
+    },
+    {
+     "name": "56N-H.F2.lw",
+     "value": 11.577330203196315,
+     "standard_error": 0.05426095121546232,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "56N-H.F3.cs",
+     "value": 8.698571411427547,
+     "standard_error": 1.8131290572900942e-05,
+     "min": 8.636713155921914,
+     "max": 8.761758844078088,
+     "vary": true
+    },
+    {
+     "name": "56N-H.F3.lw",
+     "value": 17.433366281439646,
+     "standard_error": 0.05602056415324011,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 228,
+   "peak_names": [
+    "26N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8386.600226018803,
+   "parameters": [
+    {
+     "name": "26N-H.F2.cs",
+     "value": 121.52920265167786,
+     "standard_error": 0.00015098731802984247,
+     "min": 120.91189062196773,
+     "max": 122.14580337803227,
+     "vary": true
+    },
+    {
+     "name": "26N-H.F2.lw",
+     "value": 11.48180279601841,
+     "standard_error": 0.04443460738981651,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "26N-H.F3.cs",
+     "value": 9.351974933381554,
+     "standard_error": 1.3446191823426744e-05,
+     "min": 9.289847155921914,
+     "max": 9.414892844078087,
+     "vary": true
+    },
+    {
+     "name": "26N-H.F3.lw",
+     "value": 13.176770336713624,
+     "standard_error": 0.04266401595028102,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 234,
+   "peak_names": [
+    "63N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8359.509947580187,
+   "parameters": [
+    {
+     "name": "63N-H.F2.cs",
+     "value": 121.35891307183174,
+     "standard_error": 0.00014232035373411977,
+     "min": 120.74195062196773,
+     "max": 121.97586337803227,
+     "vary": true
+    },
+    {
+     "name": "63N-H.F2.lw",
+     "value": 10.0307527712023,
+     "standard_error": 0.04260407850572697,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "63N-H.F3.cs",
+     "value": 8.619739726779258,
+     "standard_error": 1.3443746346586138e-05,
+     "min": 8.557823155921913,
+     "max": 8.682868844078087,
+     "vary": true
+    },
+    {
+     "name": "63N-H.F3.lw",
+     "value": 13.215520957810357,
+     "standard_error": 0.044520828647246956,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 235,
+   "peak_names": [
+    "122N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 12256.990680781026,
+   "parameters": [
+    {
+     "name": "122N-H.F2.cs",
+     "value": 121.28413232344253,
+     "standard_error": 0.0001551105379212462,
+     "min": 120.66982962196774,
+     "max": 121.90374237803228,
+     "vary": true
+    },
+    {
+     "name": "122N-H.F2.lw",
+     "value": 11.230991917643145,
+     "standard_error": 0.045557605640507294,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "122N-H.F3.cs",
+     "value": 8.315992297783925,
+     "standard_error": 1.527360161807505e-05,
+     "min": 8.253856155921913,
+     "max": 8.378901844078086,
+     "vary": true
+    },
+    {
+     "name": "122N-H.F3.lw",
+     "value": 15.668303254521915,
+     "standard_error": 0.04955438994820971,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 240,
+   "peak_names": [
+    "27N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7141.076118416262,
+   "parameters": [
+    {
+     "name": "27N-H.F2.cs",
+     "value": 121.24060039700028,
+     "standard_error": 0.00016118387105284898,
+     "min": 120.62267362196773,
+     "max": 121.85658637803228,
+     "vary": true
+    },
+    {
+     "name": "27N-H.F2.lw",
+     "value": 11.584074657013641,
+     "standard_error": 0.04832724244001708,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "27N-H.F3.cs",
+     "value": 8.778814420831893,
+     "standard_error": 1.3601886146303443e-05,
+     "min": 8.716421155921912,
+     "max": 8.841466844078086,
+     "vary": true
+    },
+    {
+     "name": "27N-H.F3.lw",
+     "value": 11.844604259444408,
+     "standard_error": 0.04323150425393508,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 241,
+   "peak_names": [
+    "49N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7974.708906850501,
+   "parameters": [
+    {
+     "name": "49N-H.F2.cs",
+     "value": 121.14000575103339,
+     "standard_error": 0.00015464323297237817,
+     "min": 120.51987162196772,
+     "max": 121.75378437803226,
+     "vary": true
+    },
+    {
+     "name": "49N-H.F2.lw",
+     "value": 10.149085896884596,
+     "standard_error": 0.04678718156183325,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "49N-H.F3.cs",
+     "value": 7.944663316838985,
+     "standard_error": 1.3769519716888908e-05,
+     "min": 7.882645155921914,
+     "max": 8.007690844078086,
+     "vary": true
+    },
+    {
+     "name": "49N-H.F3.lw",
+     "value": 11.697224394854834,
+     "standard_error": 0.050274329601881114,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 244,
+   "peak_names": [
+    "24N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 9703.490132939813,
+   "parameters": [
+    {
+     "name": "24N-H.F2.cs",
+     "value": 121.15546487565803,
+     "standard_error": 0.00016283561353546373,
+     "min": 120.53927162196773,
+     "max": 121.77318437803227,
+     "vary": true
+    },
+    {
+     "name": "24N-H.F2.lw",
+     "value": 11.768087610411092,
+     "standard_error": 0.04856045418036982,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "24N-H.F3.cs",
+     "value": 8.22660548628975,
+     "standard_error": 1.5250742235794302e-05,
+     "min": 8.164304155921913,
+     "max": 8.289349844078087,
+     "vary": true
+    },
+    {
+     "name": "24N-H.F3.lw",
+     "value": 14.968286192105246,
+     "standard_error": 0.04713837471174862,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 245,
+   "peak_names": [
+    "48N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7743.750202722754,
+   "parameters": [
+    {
+     "name": "48N-H.F2.cs",
+     "value": 121.18164908190332,
+     "standard_error": 0.000170269154478677,
+     "min": 120.56584662196774,
+     "max": 121.79975937803228,
+     "vary": true
+    },
+    {
+     "name": "48N-H.F2.lw",
+     "value": 10.902899740207173,
+     "standard_error": 0.05347215246575198,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "48N-H.F3.cs",
+     "value": 7.821865434009915,
+     "standard_error": 1.531970571743977e-05,
+     "min": 7.759548155921914,
+     "max": 7.884593844078086,
+     "vary": true
+    },
+    {
+     "name": "48N-H.F3.lw",
+     "value": 12.481164088039886,
+     "standard_error": 0.056524940919127575,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 248,
+   "peak_names": [
+    "128N-H",
+    "138N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 32673.822275684288,
+   "parameters": [
+    {
+     "name": "128N-H.F2.cs",
+     "value": 120.68325746826255,
+     "standard_error": 0.00010441160347419135,
+     "min": 120.06708962196772,
+     "max": 121.30100237803227,
+     "vary": true
+    },
+    {
+     "name": "128N-H.F2.lw",
+     "value": 10.788912952156801,
+     "standard_error": 0.03010448219892592,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "128N-H.F3.cs",
+     "value": 8.374350353994803,
+     "standard_error": 9.825810541752856e-06,
+     "min": 8.312534155921913,
+     "max": 8.437579844078087,
+     "vary": true
+    },
+    {
+     "name": "128N-H.F3.lw",
+     "value": 14.075625668999068,
+     "standard_error": 0.031039695249338577,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "138N-H.F2.cs",
+     "value": 121.05416594071272,
+     "standard_error": 0.00014263687650820526,
+     "min": 120.44029462196772,
+     "max": 121.67420737803226,
+     "vary": true
+    },
+    {
+     "name": "138N-H.F2.lw",
+     "value": 12.157750650466236,
+     "standard_error": 0.04102328211892377,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "138N-H.F3.cs",
+     "value": 8.420601765165978,
+     "standard_error": 1.4528037830121594e-05,
+     "min": 8.358815155921913,
+     "max": 8.483860844078087,
+     "vary": true
+    },
+    {
+     "name": "138N-H.F3.lw",
+     "value": 17.813885085789515,
+     "standard_error": 0.04102342561123554,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 250,
+   "peak_names": [
+    "113N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7342.441648691807,
+   "parameters": [
+    {
+     "name": "113N-H.F2.cs",
+     "value": 102.20276479172072,
+     "standard_error": 0.00020007243116424892,
+     "min": 101.57876062196773,
+     "max": 102.81267337803227,
+     "vary": true
+    },
+    {
+     "name": "113N-H.F2.lw",
+     "value": 12.921418104249497,
+     "standard_error": 0.06102161111011216,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "113N-H.F3.cs",
+     "value": 7.3362422960517994,
+     "standard_error": 1.8984980758889693e-05,
+     "min": 7.2741521559219136,
+     "max": 7.399197844078086,
+     "vary": true
+    },
+    {
+     "name": "113N-H.F3.lw",
+     "value": 16.613684397340137,
+     "standard_error": 0.05572152792314555,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 252,
+   "peak_names": [
+    "57N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 9465.00381851085,
+   "parameters": [
+    {
+     "name": "57N-H.F2.cs",
+     "value": 120.71606759808675,
+     "standard_error": 0.00015580570590232587,
+     "min": 120.09992262196774,
+     "max": 121.33383537803228,
+     "vary": true
+    },
+    {
+     "name": "57N-H.F2.lw",
+     "value": 13.020412312864615,
+     "standard_error": 0.04431286804444387,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "57N-H.F3.cs",
+     "value": 7.511928107378443,
+     "standard_error": 1.3030675856120617e-05,
+     "min": 7.449959155921914,
+     "max": 7.575004844078086,
+     "vary": true
+    },
+    {
+     "name": "57N-H.F3.lw",
+     "value": 12.723763514752255,
+     "standard_error": 0.04441321941958857,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 257,
+   "peak_names": [
+    "13N-H",
+    "103N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 22700.02900574373,
+   "parameters": [
+    {
+     "name": "103N-H.F2.cs",
+     "value": 120.56355797805486,
+     "standard_error": 0.00023767179801589605,
+     "min": 119.94110462196772,
+     "max": 121.17501737803227,
+     "vary": true
+    },
+    {
+     "name": "103N-H.F2.lw",
+     "value": 12.38294959804339,
+     "standard_error": 0.044048732743225016,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "103N-H.F3.cs",
+     "value": 8.181606411379745,
+     "standard_error": 5.1575675777770555e-05,
+     "min": 8.118793155921914,
+     "max": 8.243838844078088,
+     "vary": true
+    },
+    {
+     "name": "103N-H.F3.lw",
+     "value": 17.490781500118416,
+     "standard_error": 0.09998961973531967,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "13N-H.F2.cs",
+     "value": 120.4978932440109,
+     "standard_error": 0.00018736261243793443,
+     "min": 119.87796862196772,
+     "max": 121.11188137803227,
+     "vary": true
+    },
+    {
+     "name": "13N-H.F2.lw",
+     "value": 10.501263694989671,
+     "standard_error": 0.034196222819767204,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "13N-H.F3.cs",
+     "value": 8.162458505426114,
+     "standard_error": 2.343584869029071e-05,
+     "min": 8.100256155921914,
+     "max": 8.225301844078087,
+     "vary": true
+    },
+    {
+     "name": "13N-H.F3.lw",
+     "value": 10.849048742060802,
+     "standard_error": 0.05672710964276875,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 258,
+   "peak_names": [
+    "22N-H",
+    "45N-H",
+    "73N-H",
+    "159N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 52249.70047673838,
+   "parameters": [
+    {
+     "name": "159N-H.F2.cs",
+     "value": 119.72021385169927,
+     "standard_error": 0.0001222418698879652,
+     "min": 119.10131962196773,
+     "max": 120.33523237803227,
+     "vary": true
+    },
+    {
+     "name": "159N-H.F2.lw",
+     "value": 12.259897524971253,
+     "standard_error": 0.03563482829910557,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "159N-H.F3.cs",
+     "value": 8.023519312935315,
+     "standard_error": 1.1650765520075315e-05,
+     "min": 7.9617281559219135,
+     "max": 8.086773844078087,
+     "vary": true
+    },
+    {
+     "name": "159N-H.F3.lw",
+     "value": 15.38827131771107,
+     "standard_error": 0.0346356382672439,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "22N-H.F2.cs",
+     "value": 120.20330040247052,
+     "standard_error": 0.00032495321074854655,
+     "min": 119.60652462196774,
+     "max": 120.84043737803228,
+     "vary": true
+    },
+    {
+     "name": "22N-H.F2.lw",
+     "value": 12.372391021508582,
+     "standard_error": 0.06546227034017825,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "22N-H.F3.cs",
+     "value": 7.985847040159468,
+     "standard_error": 5.2162304581264886e-05,
+     "min": 7.922723155921914,
+     "max": 8.047768844078087,
+     "vary": true
+    },
+    {
+     "name": "22N-H.F3.lw",
+     "value": 15.6553774233055,
+     "standard_error": 0.1017781513600253,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "45N-H.F2.cs",
+     "value": 120.11482244840046,
+     "standard_error": 0.0003452352289129215,
+     "min": 119.50154462196772,
+     "max": 120.73545737803227,
+     "vary": true
+    },
+    {
+     "name": "45N-H.F2.lw",
+     "value": 11.809700453367979,
+     "standard_error": 0.06572946814482393,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "45N-H.F3.cs",
+     "value": 8.003390790692908,
+     "standard_error": 3.782840617232563e-05,
+     "min": 7.940316155921914,
+     "max": 8.065361844078087,
+     "vary": true
+    },
+    {
+     "name": "45N-H.F3.lw",
+     "value": 12.111561000167574,
+     "standard_error": 0.08410455897153024,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "73N-H.F2.cs",
+     "value": 120.56957101016049,
+     "standard_error": 0.00020010765663968562,
+     "min": 119.94995162196773,
+     "max": 121.18386437803227,
+     "vary": true
+    },
+    {
+     "name": "73N-H.F2.lw",
+     "value": 9.309312167632463,
+     "standard_error": 0.06319486860992074,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "73N-H.F3.cs",
+     "value": 8.001722426875578,
+     "standard_error": 1.9475071527600895e-05,
+     "min": 7.939770155921914,
+     "max": 8.064815844078087,
+     "vary": true
+    },
+    {
+     "name": "73N-H.F3.lw",
+     "value": 13.185991245735408,
+     "standard_error": 0.06042831429818606,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 259,
+   "peak_names": [
+    "17N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 16015.957874150725,
+   "parameters": [
+    {
+     "name": "17N-H.F2.cs",
+     "value": 120.67837254784934,
+     "standard_error": 9.126886986417512e-05,
+     "min": 120.06194762196773,
+     "max": 121.29586037803227,
+     "vary": true
+    },
+    {
+     "name": "17N-H.F2.lw",
+     "value": 9.484687591353108,
+     "standard_error": 0.02852318530775133,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "17N-H.F3.cs",
+     "value": 7.566547299298576,
+     "standard_error": 7.720770438858919e-06,
+     "min": 7.504280155921914,
+     "max": 7.629325844078086,
+     "vary": true
+    },
+    {
+     "name": "17N-H.F3.lw",
+     "value": 9.350227144308509,
+     "standard_error": 0.025152039671229632,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 265,
+   "peak_names": [
+    "54N-H",
+    "108N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 23947.697403352067,
+   "parameters": [
+    {
+     "name": "108N-H.F2.cs",
+     "value": 120.38777896446007,
+     "standard_error": 0.00013795329815075147,
+     "min": 119.77120162196773,
+     "max": 121.00511437803227,
+     "vary": true
+    },
+    {
+     "name": "108N-H.F2.lw",
+     "value": 13.421169082645827,
+     "standard_error": 0.03807841734960472,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "108N-H.F3.cs",
+     "value": 9.114735186104362,
+     "standard_error": 1.1567267916737972e-05,
+     "min": 9.052843155921913,
+     "max": 9.177888844078087,
+     "vary": true
+    },
+    {
+     "name": "108N-H.F3.lw",
+     "value": 13.366288839805575,
+     "standard_error": 0.03629615970196251,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "54N-H.F2.cs",
+     "value": 119.74079313781203,
+     "standard_error": 0.00016424242818501256,
+     "min": 119.12887662196773,
+     "max": 120.36278937803228,
+     "vary": true
+    },
+    {
+     "name": "54N-H.F2.lw",
+     "value": 11.889489499318643,
+     "standard_error": 0.04729487766520319,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "54N-H.F3.cs",
+     "value": 9.110322825418278,
+     "standard_error": 1.748648203318566e-05,
+     "min": 9.048884155921913,
+     "max": 9.173929844078087,
+     "vary": true
+    },
+    {
+     "name": "54N-H.F3.lw",
+     "value": 18.84339500972988,
+     "standard_error": 0.04979020117421713,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 267,
+   "peak_names": [
+    "145N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10866.411238693438,
+   "parameters": [
+    {
+     "name": "145N-H.F2.cs",
+     "value": 120.52093212062026,
+     "standard_error": 0.0001699562096857838,
+     "min": 119.90153062196772,
+     "max": 121.13544337803226,
+     "vary": true
+    },
+    {
+     "name": "145N-H.F2.lw",
+     "value": 12.745661033508304,
+     "standard_error": 0.051705242304279,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "145N-H.F3.cs",
+     "value": 7.885146591281112,
+     "standard_error": 1.584312695206973e-05,
+     "min": 7.823100155921914,
+     "max": 7.948145844078086,
+     "vary": true
+    },
+    {
+     "name": "145N-H.F3.lw",
+     "value": 15.789995397815709,
+     "standard_error": 0.04941144132379978,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 269,
+   "peak_names": [
+    "36N-H",
+    "75N-H",
+    "93N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": true,
+   "chi_squared": 20797.70517896844,
+   "parameters": [
+    {
+     "name": "36N-H.F2.cs",
+     "value": 119.8339474505637,
+     "standard_error": 0.4824905544898308,
+     "min": 119.16630562196772,
+     "max": 120.40021837803226,
+     "vary": true
+    },
+    {
+     "name": "36N-H.F2.lw",
+     "value": 11.316466530577893,
+     "standard_error": null,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "36N-H.F3.cs",
+     "value": 8.80970357140133,
+     "standard_error": 0.008500073788012407,
+     "min": 8.747458155921914,
+     "max": 8.872503844078087,
+     "vary": true
+    },
+    {
+     "name": "36N-H.F3.lw",
+     "value": 18.84556755295875,
+     "standard_error": null,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "75N-H.F2.cs",
+     "value": 120.35634157101897,
+     "standard_error": 0.00030961795144607637,
+     "min": 119.73622362196772,
+     "max": 120.97013637803227,
+     "vary": true
+    },
+    {
+     "name": "75N-H.F2.lw",
+     "value": 14.712806085425775,
+     "standard_error": 0.0941816870478722,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "75N-H.F3.cs",
+     "value": 8.830676277407491,
+     "standard_error": 2.6623149369121888e-05,
+     "min": 8.767134155921912,
+     "max": 8.892179844078086,
+     "vary": true
+    },
+    {
+     "name": "75N-H.F3.lw",
+     "value": 15.176734807896311,
+     "standard_error": 0.08619935349032064,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "93N-H.F2.cs",
+     "value": 119.83410542328062,
+     "standard_error": 0.48589961784011804,
+     "min": 119.21902662196773,
+     "max": 120.45293937803227,
+     "vary": true
+    },
+    {
+     "name": "93N-H.F2.lw",
+     "value": 11.30437086018772,
+     "standard_error": null,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "93N-H.F3.cs",
+     "value": 8.809700781935122,
+     "standard_error": 0.008599942020004695,
+     "min": 8.748383155921912,
+     "max": 8.873428844078086,
+     "vary": true
+    },
+    {
+     "name": "93N-H.F3.lw",
+     "value": 18.893692635736116,
+     "standard_error": null,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 270,
+   "peak_names": [
+    "97N-H",
+    "162N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 24166.23759775222,
+   "parameters": [
+    {
+     "name": "162N-H.F2.cs",
+     "value": 119.78934729483892,
+     "standard_error": 0.00011737740092523195,
+     "min": 119.17734562196773,
+     "max": 120.41125837803227,
+     "vary": true
+    },
+    {
+     "name": "162N-H.F2.lw",
+     "value": 10.759510360138618,
+     "standard_error": 0.03321338872450085,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "162N-H.F3.cs",
+     "value": 7.174553407315592,
+     "standard_error": 1.0642349662747037e-05,
+     "min": 7.113001155921914,
+     "max": 7.238046844078086,
+     "vary": true
+    },
+    {
+     "name": "162N-H.F3.lw",
+     "value": 12.96783852876272,
+     "standard_error": 0.031091317909690115,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "97N-H.F2.cs",
+     "value": 120.36500331712917,
+     "standard_error": 0.0001359175624854323,
+     "min": 119.75197562196773,
+     "max": 120.98588837803227,
+     "vary": true
+    },
+    {
+     "name": "97N-H.F2.lw",
+     "value": 12.009216081692886,
+     "standard_error": 0.038876730537316155,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "97N-H.F3.cs",
+     "value": 7.186878121092475,
+     "standard_error": 1.1702348487885361e-05,
+     "min": 7.124536155921914,
+     "max": 7.249581844078086,
+     "vary": true
+    },
+    {
+     "name": "97N-H.F3.lw",
+     "value": 12.698119475402171,
+     "standard_error": 0.037065263858107274,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 272,
+   "peak_names": [
+    "150N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6393.132667477055,
+   "parameters": [
+    {
+     "name": "150N-H.F2.cs",
+     "value": 120.37386106827132,
+     "standard_error": 0.0002757833421462978,
+     "min": 119.75767462196772,
+     "max": 120.99158737803226,
+     "vary": true
+    },
+    {
+     "name": "150N-H.F2.lw",
+     "value": 12.061403367847609,
+     "standard_error": 0.08662238126279169,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "150N-H.F3.cs",
+     "value": 9.648330482965656,
+     "standard_error": 2.7542980572364254e-05,
+     "min": 9.586178155921914,
+     "max": 9.711223844078088,
+     "vary": true
+    },
+    {
+     "name": "150N-H.F3.lw",
+     "value": 16.59426108947561,
+     "standard_error": 0.09060313881458092,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 274,
+   "peak_names": [
+    "19N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7951.861103118134,
+   "parameters": [
+    {
+     "name": "19N-H.F2.cs",
+     "value": 120.23798278298077,
+     "standard_error": 7.469924037556065e-05,
+     "min": 119.61767262196773,
+     "max": 120.85158537803227,
+     "vary": true
+    },
+    {
+     "name": "19N-H.F2.lw",
+     "value": 11.387744610620622,
+     "standard_error": 0.02031114625202237,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "19N-H.F3.cs",
+     "value": 8.474694366236974,
+     "standard_error": 6.398960344295989e-06,
+     "min": 8.412431155921913,
+     "max": 8.537476844078087,
+     "vary": true
+    },
+    {
+     "name": "19N-H.F3.lw",
+     "value": 11.559359923516451,
+     "standard_error": 0.023326746101294128,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 278,
+   "peak_names": [
+    "55N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 12692.385800330032,
+   "parameters": [
+    {
+     "name": "55N-H.F2.cs",
+     "value": 120.26336552142865,
+     "standard_error": 0.0001446359307210822,
+     "min": 119.64700962196773,
+     "max": 120.88092237803227,
+     "vary": true
+    },
+    {
+     "name": "55N-H.F2.lw",
+     "value": 11.09288555404029,
+     "standard_error": 0.04261373722492993,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "55N-H.F3.cs",
+     "value": 9.525742133892217,
+     "standard_error": 1.4883890321200283e-05,
+     "min": 9.463929155921914,
+     "max": 9.588974844078088,
+     "vary": true
+    },
+    {
+     "name": "55N-H.F3.lw",
+     "value": 16.893460199270983,
+     "standard_error": 0.043904373074236835,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 279,
+   "peak_names": [
+    "47N-H",
+    "118N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 23192.273292039972,
+   "parameters": [
+    {
+     "name": "118N-H.F2.cs",
+     "value": 119.97822279560518,
+     "standard_error": 0.00013376056116711375,
+     "min": 119.36570662196773,
+     "max": 120.59961937803227,
+     "vary": true
+    },
+    {
+     "name": "118N-H.F2.lw",
+     "value": 12.48051125388526,
+     "standard_error": 0.037272791494388,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "118N-H.F3.cs",
+     "value": 8.665459825427131,
+     "standard_error": 1.3286944003152952e-05,
+     "min": 8.603250155921913,
+     "max": 8.728295844078087,
+     "vary": true
+    },
+    {
+     "name": "118N-H.F3.lw",
+     "value": 17.418066127139745,
+     "standard_error": 0.03796267957948971,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "47N-H.F2.cs",
+     "value": 120.2757664332752,
+     "standard_error": 0.00018224158272311862,
+     "min": 119.65777162196773,
+     "max": 120.89168437803227,
+     "vary": true
+    },
+    {
+     "name": "47N-H.F2.lw",
+     "value": 9.641279438894854,
+     "standard_error": 0.055940780535083855,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "47N-H.F3.cs",
+     "value": 8.715345408975361,
+     "standard_error": 1.9032598548220905e-05,
+     "min": 8.653358155921913,
+     "max": 8.778403844078086,
+     "vary": true
+    },
+    {
+     "name": "47N-H.F3.lw",
+     "value": 15.481916796314026,
+     "standard_error": 0.0633351270487786,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 281,
+   "peak_names": [
+    "125N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8895.422501718249,
+   "parameters": [
+    {
+     "name": "125N-H.F2.cs",
+     "value": 120.16127611808146,
+     "standard_error": 0.00015078034818294834,
+     "min": 119.54809462196773,
+     "max": 120.78200737803228,
+     "vary": true
+    },
+    {
+     "name": "125N-H.F2.lw",
+     "value": 11.325768246582252,
+     "standard_error": 0.04672991241633822,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "125N-H.F3.cs",
+     "value": 7.755458332510469,
+     "standard_error": 1.3595467158823525e-05,
+     "min": 7.693668155921914,
+     "max": 7.818713844078086,
+     "vary": true
+    },
+    {
+     "name": "125N-H.F3.lw",
+     "value": 13.533032816880521,
+     "standard_error": 0.04104230103647904,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 284,
+   "peak_names": [
+    "153N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10607.780527390798,
+   "parameters": [
+    {
+     "name": "153N-H.F2.cs",
+     "value": 120.22387681679115,
+     "standard_error": 0.00013837813437534745,
+     "min": 119.60570262196772,
+     "max": 120.83961537803226,
+     "vary": true
+    },
+    {
+     "name": "153N-H.F2.lw",
+     "value": 11.298599171274365,
+     "standard_error": 0.041920989008351874,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "153N-H.F3.cs",
+     "value": 8.321405478101168,
+     "standard_error": 1.3074109403506564e-05,
+     "min": 8.259305155921913,
+     "max": 8.384350844078087,
+     "vary": true
+    },
+    {
+     "name": "153N-H.F3.lw",
+     "value": 14.802546929239297,
+     "standard_error": 0.039178513549808856,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 286,
+   "peak_names": [
+    "160N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 11222.32395493326,
+   "parameters": [
+    {
+     "name": "160N-H.F2.cs",
+     "value": 120.0425660402088,
+     "standard_error": 0.000154917387927023,
+     "min": 119.42375562196773,
+     "max": 120.65766837803227,
+     "vary": true
+    },
+    {
+     "name": "160N-H.F2.lw",
+     "value": 10.58876512483924,
+     "standard_error": 0.046584956929793704,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "160N-H.F3.cs",
+     "value": 9.179289170674513,
+     "standard_error": 1.5760018697211688e-05,
+     "min": 9.117292155921913,
+     "max": 9.242337844078087,
+     "vary": true
+    },
+    {
+     "name": "160N-H.F3.lw",
+     "value": 16.173665160249605,
+     "standard_error": 0.0458011252326999,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 305,
+   "peak_names": [
+    "69N-H",
+    "99N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 19530.168097102403,
+   "parameters": [
+    {
+     "name": "69N-H.F2.cs",
+     "value": 119.43102086756338,
+     "standard_error": 0.0003126886856929055,
+     "min": 118.80331962196773,
+     "max": 120.03723237803227,
+     "vary": true
+    },
+    {
+     "name": "69N-H.F2.lw",
+     "value": 17.845100439007116,
+     "standard_error": 0.0938016301604994,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "69N-H.F3.cs",
+     "value": 7.610034791558131,
+     "standard_error": 2.1142735857110172e-05,
+     "min": 7.548585155921914,
+     "max": 7.673630844078086,
+     "vary": true
+    },
+    {
+     "name": "69N-H.F3.lw",
+     "value": 12.111354476042113,
+     "standard_error": 0.0641670419041241,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "99N-H.F2.cs",
+     "value": 119.68773019214252,
+     "standard_error": 0.00014469622343741764,
+     "min": 119.07415662196773,
+     "max": 120.30806937803227,
+     "vary": true
+    },
+    {
+     "name": "99N-H.F2.lw",
+     "value": 12.989683112719693,
+     "standard_error": 0.04462183042093402,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "99N-H.F3.cs",
+     "value": 7.626231974732663,
+     "standard_error": 1.3670226542633746e-05,
+     "min": 7.564083155921914,
+     "max": 7.689128844078086,
+     "vary": true
+    },
+    {
+     "name": "99N-H.F3.lw",
+     "value": 12.915668286189502,
+     "standard_error": 0.0386004500963724,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 306,
+   "peak_names": [
+    "9N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6973.052234084102,
+   "parameters": [
+    {
+     "name": "9N-H.F2.cs",
+     "value": 119.7687962265039,
+     "standard_error": 0.00028597616082068545,
+     "min": 119.14259362196773,
+     "max": 120.37650637803227,
+     "vary": true
+    },
+    {
+     "name": "9N-H.F2.lw",
+     "value": 12.977200688089841,
+     "standard_error": 0.0911052754351735,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "9N-H.F3.cs",
+     "value": 7.5587875674449805,
+     "standard_error": 2.5588256256550772e-05,
+     "min": 7.495794155921914,
+     "max": 7.620839844078086,
+     "vary": true
+    },
+    {
+     "name": "9N-H.F3.lw",
+     "value": 14.824519064042034,
+     "standard_error": 0.08109253611631703,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 316,
+   "peak_names": [
+    "101N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10963.381820307433,
+   "parameters": [
+    {
+     "name": "101N-H.F2.cs",
+     "value": 119.36837946611766,
+     "standard_error": 0.00016782624072121002,
+     "min": 118.75084162196772,
+     "max": 119.98475437803226,
+     "vary": true
+    },
+    {
+     "name": "101N-H.F2.lw",
+     "value": 13.851901314439594,
+     "standard_error": 0.047835629273171844,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "101N-H.F3.cs",
+     "value": 8.451434047626334,
+     "standard_error": 1.4748742348555247e-05,
+     "min": 8.389298155921914,
+     "max": 8.514343844078088,
+     "vary": true
+    },
+    {
+     "name": "101N-H.F3.lw",
+     "value": 14.76437598732164,
+     "standard_error": 0.04816386521543018,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 317,
+   "peak_names": [
+    "6N-H",
+    "66N-H",
+    "72N-H",
+    "131N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 42301.02517129213,
+   "parameters": [
+    {
+     "name": "131N-H.F2.cs",
+     "value": 118.720513173752,
+     "standard_error": 0.00012832678343568043,
+     "min": 118.10873462196773,
+     "max": 119.34264737803227,
+     "vary": true
+    },
+    {
+     "name": "131N-H.F2.lw",
+     "value": 11.93492713255942,
+     "standard_error": 0.03665660375019921,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "131N-H.F3.cs",
+     "value": 7.843508109292346,
+     "standard_error": 1.114761520314571e-05,
+     "min": 7.781664155921914,
+     "max": 7.906709844078086,
+     "vary": true
+    },
+    {
+     "name": "131N-H.F3.lw",
+     "value": 12.956824129198024,
+     "standard_error": 0.0348480246957207,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "66N-H.F2.cs",
+     "value": 118.44219774307395,
+     "standard_error": 0.00014138960407944747,
+     "min": 117.82287062196772,
+     "max": 119.05678337803226,
+     "vary": true
+    },
+    {
+     "name": "66N-H.F2.lw",
+     "value": 10.979855593797614,
+     "standard_error": 0.040611289609779805,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "66N-H.F3.cs",
+     "value": 7.809296867039773,
+     "standard_error": 1.3569867528591155e-05,
+     "min": 7.7474451559219135,
+     "max": 7.872490844078086,
+     "vary": true
+    },
+    {
+     "name": "66N-H.F3.lw",
+     "value": 13.939899734607671,
+     "standard_error": 0.045554547074033835,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "6N-H.F2.cs",
+     "value": 118.46413208390754,
+     "standard_error": 0.00026968580657237245,
+     "min": 117.84850462196773,
+     "max": 119.08241737803228,
+     "vary": true
+    },
+    {
+     "name": "6N-H.F2.lw",
+     "value": 12.775001987055397,
+     "standard_error": 0.08782058953824463,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "6N-H.F3.cs",
+     "value": 7.764905499430863,
+     "standard_error": 2.6452511706259908e-05,
+     "min": 7.702592155921914,
+     "max": 7.827637844078086,
+     "vary": true
+    },
+    {
+     "name": "6N-H.F3.lw",
+     "value": 16.623732031891677,
+     "standard_error": 0.09103071040676859,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "72N-H.F2.cs",
+     "value": 119.4065438448929,
+     "standard_error": 0.0002049582212814478,
+     "min": 118.79358562196774,
+     "max": 120.02749837803228,
+     "vary": true
+    },
+    {
+     "name": "72N-H.F2.lw",
+     "value": 11.935866089712409,
+     "standard_error": 0.06064465521944646,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "72N-H.F3.cs",
+     "value": 7.824759503708124,
+     "standard_error": 1.8008521576866862e-05,
+     "min": 7.762513155921914,
+     "max": 7.887558844078086,
+     "vary": true
+    },
+    {
+     "name": "72N-H.F3.lw",
+     "value": 13.288190897605945,
+     "standard_error": 0.057070997204549286,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 319,
+   "peak_names": [
+    "67N-H",
+    "121N-H",
+    "130N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 41789.366195048744,
+   "parameters": [
+    {
+     "name": "121N-H.F2.cs",
+     "value": 118.5892418161622,
+     "standard_error": 0.00028761577723460346,
+     "min": 117.98603062196773,
+     "max": 119.21994337803227,
+     "vary": true
+    },
+    {
+     "name": "121N-H.F2.lw",
+     "value": 13.383265654208264,
+     "standard_error": 0.08406163288118863,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "121N-H.F3.cs",
+     "value": 8.20191706659815,
+     "standard_error": 1.53040969746828e-05,
+     "min": 8.139744155921914,
+     "max": 8.264789844078088,
+     "vary": true
+    },
+    {
+     "name": "121N-H.F3.lw",
+     "value": 14.830634891833833,
+     "standard_error": 0.04942500721811644,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "130N-H.F2.cs",
+     "value": 118.89626019392666,
+     "standard_error": 0.0002015809922607911,
+     "min": 118.29000262196773,
+     "max": 119.52391537803227,
+     "vary": true
+    },
+    {
+     "name": "130N-H.F2.lw",
+     "value": 14.034685638974524,
+     "standard_error": 0.056147351162089874,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "130N-H.F3.cs",
+     "value": 8.201531234720372,
+     "standard_error": 9.857313060693304e-06,
+     "min": 8.139828155921913,
+     "max": 8.264873844078087,
+     "vary": true
+    },
+    {
+     "name": "130N-H.F3.lw",
+     "value": 14.077886653689758,
+     "standard_error": 0.028593090841742885,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "67N-H.F2.cs",
+     "value": 119.20311507934485,
+     "standard_error": 0.00016659786920546096,
+     "min": 118.58778162196774,
+     "max": 119.82169437803228,
+     "vary": true
+    },
+    {
+     "name": "67N-H.F2.lw",
+     "value": 11.379571357629777,
+     "standard_error": 0.05190396319696672,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "67N-H.F3.cs",
+     "value": 8.270386241983374,
+     "standard_error": 1.6840476602544937e-05,
+     "min": 8.208887155921913,
+     "max": 8.333932844078086,
+     "vary": true
+    },
+    {
+     "name": "67N-H.F3.lw",
+     "value": 16.72137104175078,
+     "standard_error": 0.050298509251261746,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 324,
+   "peak_names": [
+    "116N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10810.636927531892,
+   "parameters": [
+    {
+     "name": "116N-H.F2.cs",
+     "value": 119.16308290302834,
+     "standard_error": 0.00013549871429600888,
+     "min": 118.54990462196773,
+     "max": 119.78381737803227,
+     "vary": true
+    },
+    {
+     "name": "116N-H.F2.lw",
+     "value": 11.107655792837377,
+     "standard_error": 0.039082887299817945,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "116N-H.F3.cs",
+     "value": 9.017131475937282,
+     "standard_error": 1.4172183982797073e-05,
+     "min": 8.954959155921912,
+     "max": 9.080004844078086,
+     "vary": true
+    },
+    {
+     "name": "116N-H.F3.lw",
+     "value": 17.443879369466043,
+     "standard_error": 0.04117924767992014,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 326,
+   "peak_names": [
+    "134N-H",
+    "148N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 11863.687287708482,
+   "parameters": [
+    {
+     "name": "134N-H.F2.cs",
+     "value": 119.14235030432766,
+     "standard_error": 0.00026437432242618303,
+     "min": 118.52757562196773,
+     "max": 119.76148837803227,
+     "vary": true
+    },
+    {
+     "name": "134N-H.F2.lw",
+     "value": 14.283780975594336,
+     "standard_error": 0.06389451165980721,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "134N-H.F3.cs",
+     "value": 7.2658751550057845,
+     "standard_error": 2.6457778449511135e-05,
+     "min": 7.2037411559219136,
+     "max": 7.328786844078086,
+     "vary": true
+    },
+    {
+     "name": "134N-H.F3.lw",
+     "value": 14.808974977039302,
+     "standard_error": 0.08422019370907162,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "148N-H.F2.cs",
+     "value": 119.03426532315139,
+     "standard_error": 0.00025311664755863785,
+     "min": 118.41766162196772,
+     "max": 119.65157437803227,
+     "vary": true
+    },
+    {
+     "name": "148N-H.F2.lw",
+     "value": 11.496907903235131,
+     "standard_error": 0.06710813845131594,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "148N-H.F3.cs",
+     "value": 7.238749811692854,
+     "standard_error": 2.7582507837813405e-05,
+     "min": 7.176134155921914,
+     "max": 7.301179844078086,
+     "vary": true
+    },
+    {
+     "name": "148N-H.F3.lw",
+     "value": 14.067700737431386,
+     "standard_error": 0.09192267560255814,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 328,
+   "peak_names": [
+    "98N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10375.066631539856,
+   "parameters": [
+    {
+     "name": "98N-H.F2.cs",
+     "value": 119.09694883456945,
+     "standard_error": 0.000122060745529888,
+     "min": 118.48375162196773,
+     "max": 119.71766437803227,
+     "vary": true
+    },
+    {
+     "name": "98N-H.F2.lw",
+     "value": 11.803737568127675,
+     "standard_error": 0.03547655460413663,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "98N-H.F3.cs",
+     "value": 6.960610305538532,
+     "standard_error": 1.097522941969708e-05,
+     "min": 6.898328155921914,
+     "max": 7.023373844078086,
+     "vary": true
+    },
+    {
+     "name": "98N-H.F3.lw",
+     "value": 13.7450877278533,
+     "standard_error": 0.03499380562295667,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 329,
+   "peak_names": [
+    "154N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8246.817158352773,
+   "parameters": [
+    {
+     "name": "154N-H.F2.cs",
+     "value": 119.00300487400092,
+     "standard_error": 0.00020167980428206742,
+     "min": 118.38590862196773,
+     "max": 119.61982137803227,
+     "vary": true
+    },
+    {
+     "name": "154N-H.F2.lw",
+     "value": 11.515924066456755,
+     "standard_error": 0.06157336111845048,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "154N-H.F3.cs",
+     "value": 9.161603028744379,
+     "standard_error": 2.2900180324918888e-05,
+     "min": 9.098984155921913,
+     "max": 9.224029844078087,
+     "vary": true
+    },
+    {
+     "name": "154N-H.F3.lw",
+     "value": 19.715759839661004,
+     "standard_error": 0.07311073180381394,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 330,
+   "peak_names": [
+    "94N-H",
+    "132N-H",
+    "139N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 28743.660524687213,
+   "parameters": [
+    {
+     "name": "132N-H.F2.cs",
+     "value": 118.30178692055932,
+     "standard_error": 0.00016470269922832422,
+     "min": 117.68140462196773,
+     "max": 118.91531737803227,
+     "vary": true
+    },
+    {
+     "name": "132N-H.F2.lw",
+     "value": 12.174140990627684,
+     "standard_error": 0.04726392765998594,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "132N-H.F3.cs",
+     "value": 7.6962627865708075,
+     "standard_error": 1.4970847065775513e-05,
+     "min": 7.634380155921914,
+     "max": 7.759425844078086,
+     "vary": true
+    },
+    {
+     "name": "132N-H.F3.lw",
+     "value": 14.105815685044417,
+     "standard_error": 0.04971842537726322,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "139N-H.F2.cs",
+     "value": 117.8624539860363,
+     "standard_error": 0.00018279143855118348,
+     "min": 117.24847662196773,
+     "max": 118.48238937803227,
+     "vary": true
+    },
+    {
+     "name": "139N-H.F2.lw",
+     "value": 13.378146142330845,
+     "standard_error": 0.05340885047382174,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "139N-H.F3.cs",
+     "value": 7.6572999410559035,
+     "standard_error": 1.6641489234644633e-05,
+     "min": 7.595066155921914,
+     "max": 7.720111844078086,
+     "vary": true
+    },
+    {
+     "name": "139N-H.F3.lw",
+     "value": 15.609496190188215,
+     "standard_error": 0.05401867012463508,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "94N-H.F2.cs",
+     "value": 118.90929895896194,
+     "standard_error": 0.00012827974603058805,
+     "min": 118.29157262196773,
+     "max": 119.52548537803227,
+     "vary": true
+    },
+    {
+     "name": "94N-H.F2.lw",
+     "value": 11.243583149829199,
+     "standard_error": 0.03662366699821049,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "94N-H.F3.cs",
+     "value": 7.707130775070353,
+     "standard_error": 1.1413298424356179e-05,
+     "min": 7.645183155921914,
+     "max": 7.770228844078086,
+     "vary": true
+    },
+    {
+     "name": "94N-H.F3.lw",
+     "value": 12.939914723372977,
+     "standard_error": 0.035682802327286156,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 332,
+   "peak_names": [
+    "7N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 4267.081682052871,
+   "parameters": [
+    {
+     "name": "7N-H.F2.cs",
+     "value": 118.94483055483812,
+     "standard_error": 0.00037859748232575913,
+     "min": 118.32540762196773,
+     "max": 119.55932037803227,
+     "vary": true
+    },
+    {
+     "name": "7N-H.F2.lw",
+     "value": 12.425840721760425,
+     "standard_error": 0.13544878827445814,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "7N-H.F3.cs",
+     "value": 7.911357956908348,
+     "standard_error": 3.468635485627159e-05,
+     "min": 7.849956155921914,
+     "max": 7.975001844078086,
+     "vary": true
+    },
+    {
+     "name": "7N-H.F3.lw",
+     "value": 14.222878819781672,
+     "standard_error": 0.12876055159193242,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 335,
+   "peak_names": [
+    "135N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8174.402325351194,
+   "parameters": [
+    {
+     "name": "135N-H.F2.cs",
+     "value": 118.63784760759776,
+     "standard_error": 0.00017409415584847835,
+     "min": 118.02374662196773,
+     "max": 119.25765937803227,
+     "vary": true
+    },
+    {
+     "name": "135N-H.F2.lw",
+     "value": 14.736284119287344,
+     "standard_error": 0.04814632178563636,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "135N-H.F3.cs",
+     "value": 7.198480193961575,
+     "standard_error": 1.351719285383583e-05,
+     "min": 7.136260155921914,
+     "max": 7.261305844078086,
+     "vary": true
+    },
+    {
+     "name": "135N-H.F3.lw",
+     "value": 12.026015071020076,
+     "standard_error": 0.04989596607347332,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 337,
+   "peak_names": [
+    "119N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8793.479050458845,
+   "parameters": [
+    {
+     "name": "119N-H.F2.cs",
+     "value": 118.72273201708215,
+     "standard_error": 0.0001272288157707954,
+     "min": 118.10702062196773,
+     "max": 119.34093337803228,
+     "vary": true
+    },
+    {
+     "name": "119N-H.F2.lw",
+     "value": 12.224511078431492,
+     "standard_error": 0.03587572794807927,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "119N-H.F3.cs",
+     "value": 7.41814970092631,
+     "standard_error": 1.1435984132594027e-05,
+     "min": 7.356255155921914,
+     "max": 7.481300844078086,
+     "vary": true
+    },
+    {
+     "name": "119N-H.F3.lw",
+     "value": 14.204445873399322,
+     "standard_error": 0.03447023734089388,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 338,
+   "peak_names": [
+    "11N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 4464.307882497654,
+   "parameters": [
+    {
+     "name": "11N-H.F2.cs",
+     "value": 118.64446420723436,
+     "standard_error": 0.00046357701547043815,
+     "min": 118.02005162196772,
+     "max": 119.25396437803226,
+     "vary": true
+    },
+    {
+     "name": "11N-H.F2.lw",
+     "value": 13.058105757341046,
+     "standard_error": 0.1571821120549917,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "11N-H.F3.cs",
+     "value": 9.050008567745774,
+     "standard_error": 4.3839835205855694e-05,
+     "min": 8.987997155921914,
+     "max": 9.113042844078088,
+     "vary": true
+    },
+    {
+     "name": "11N-H.F3.lw",
+     "value": 16.1329317983926,
+     "standard_error": 0.15621078257290108,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 339,
+   "peak_names": [
+    "126N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 12078.224703430944,
+   "parameters": [
+    {
+     "name": "126N-H.F2.cs",
+     "value": 118.65715648724583,
+     "standard_error": 9.142819154222527e-05,
+     "min": 118.04044762196773,
+     "max": 119.27436037803227,
+     "vary": true
+    },
+    {
+     "name": "126N-H.F2.lw",
+     "value": 10.606343173824296,
+     "standard_error": 0.0264626409981704,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "126N-H.F3.cs",
+     "value": 6.769956535740146,
+     "standard_error": 7.741128661601646e-06,
+     "min": 6.707931155921914,
+     "max": 6.832976844078086,
+     "vary": true
+    },
+    {
+     "name": "126N-H.F3.lw",
+     "value": 10.483410425840406,
+     "standard_error": 0.027987062869299185,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 343,
+   "peak_names": [
+    "96N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8690.806037029211,
+   "parameters": [
+    {
+     "name": "96N-H.F2.cs",
+     "value": 118.29591554265483,
+     "standard_error": 0.00013948165074976647,
+     "min": 117.68124862196773,
+     "max": 118.91516137803227,
+     "vary": true
+    },
+    {
+     "name": "96N-H.F2.lw",
+     "value": 10.615618990547173,
+     "standard_error": 0.0407812723817802,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "96N-H.F3.cs",
+     "value": 8.724994956009267,
+     "standard_error": 1.2693986454103683e-05,
+     "min": 8.663015155921913,
+     "max": 8.788060844078087,
+     "vary": true
+    },
+    {
+     "name": "96N-H.F3.lw",
+     "value": 13.040365592087332,
+     "standard_error": 0.04007925352493467,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 344,
+   "peak_names": [
+    "3N-H",
+    "151N-H",
+    "158N-H",
+    "1000N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 45171.36553953256,
+   "parameters": [
+    {
+     "name": "1000N-H.F2.cs",
+     "value": 118.49754807984904,
+     "standard_error": 0.00024812787619583545,
+     "min": 117.88419562196773,
+     "max": 119.11810837803228,
+     "vary": true
+    },
+    {
+     "name": "1000N-H.F2.lw",
+     "value": 13.817489153922159,
+     "standard_error": 0.07922238083802838,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "1000N-H.F3.cs",
+     "value": 8.662971320599109,
+     "standard_error": 2.863835880899625e-05,
+     "min": 8.601116155921913,
+     "max": 8.726161844078087,
+     "vary": true
+    },
+    {
+     "name": "1000N-H.F3.lw",
+     "value": 23.462072365784735,
+     "standard_error": 0.08924666496079986,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "151N-H.F2.cs",
+     "value": 117.69388908905013,
+     "standard_error": 0.00018482236790514668,
+     "min": 117.07833062196772,
+     "max": 118.31224337803226,
+     "vary": true
+    },
+    {
+     "name": "151N-H.F2.lw",
+     "value": 13.809171225983267,
+     "standard_error": 0.053730757203512336,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "151N-H.F3.cs",
+     "value": 8.62493650492699,
+     "standard_error": 1.7138146045320058e-05,
+     "min": 8.563046155921914,
+     "max": 8.688091844078087,
+     "vary": true
+    },
+    {
+     "name": "151N-H.F3.lw",
+     "value": 16.64780234141656,
+     "standard_error": 0.05439720035063275,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "158N-H.F2.cs",
+     "value": 117.95876046367174,
+     "standard_error": 7.96308125130142e-05,
+     "min": 117.34067462196774,
+     "max": 118.57458737803228,
+     "vary": true
+    },
+    {
+     "name": "158N-H.F2.lw",
+     "value": 9.16117277228493,
+     "standard_error": 0.023266579876898442,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "158N-H.F3.cs",
+     "value": 8.669715026270524,
+     "standard_error": 7.43981597151419e-06,
+     "min": 8.607459155921912,
+     "max": 8.732504844078086,
+     "vary": true
+    },
+    {
+     "name": "158N-H.F3.lw",
+     "value": 12.248070734482434,
+     "standard_error": 0.023020248825105106,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "3N-H.F2.cs",
+     "value": 117.51832394129669,
+     "standard_error": 0.00014057587374052165,
+     "min": 116.90218262196773,
+     "max": 118.13609537803227,
+     "vary": true
+    },
+    {
+     "name": "3N-H.F2.lw",
+     "value": 10.708620867313769,
+     "standard_error": 0.039756732368127094,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "3N-H.F3.cs",
+     "value": 8.692524865791885,
+     "standard_error": 1.2853928459400109e-05,
+     "min": 8.630439155921913,
+     "max": 8.755484844078087,
+     "vary": true
+    },
+    {
+     "name": "3N-H.F3.lw",
+     "value": 12.810152362604525,
+     "standard_error": 0.044419220622699915,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 345,
+   "peak_names": [
+    "100N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10634.845810543331,
+   "parameters": [
+    {
+     "name": "100N-H.F2.cs",
+     "value": 118.42654876607114,
+     "standard_error": 0.0001418134374085273,
+     "min": 117.80505962196773,
+     "max": 119.03897237803227,
+     "vary": true
+    },
+    {
+     "name": "100N-H.F2.lw",
+     "value": 12.788752989104195,
+     "standard_error": 0.040303969155903965,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "100N-H.F3.cs",
+     "value": 8.579812459575125,
+     "standard_error": 1.3019278225338598e-05,
+     "min": 8.517989155921914,
+     "max": 8.643034844078088,
+     "vary": true
+    },
+    {
+     "name": "100N-H.F3.lw",
+     "value": 15.395213360221005,
+     "standard_error": 0.03888058344625999,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 346,
+   "peak_names": [
+    "146N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7715.72199886796,
+   "parameters": [
+    {
+     "name": "146N-H.F2.cs",
+     "value": 118.50034668552621,
+     "standard_error": 0.00021031812248351644,
+     "min": 117.89166962196774,
+     "max": 119.12558237803228,
+     "vary": true
+    },
+    {
+     "name": "146N-H.F2.lw",
+     "value": 12.345722626452295,
+     "standard_error": 0.06670863340213981,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "146N-H.F3.cs",
+     "value": 8.01205113744513,
+     "standard_error": 1.9205051979878104e-05,
+     "min": 7.950240155921914,
+     "max": 8.075285844078087,
+     "vary": true
+    },
+    {
+     "name": "146N-H.F3.lw",
+     "value": 14.392352057440197,
+     "standard_error": 0.0726567453999145,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 349,
+   "peak_names": [
+    "141N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8057.870434483697,
+   "parameters": [
+    {
+     "name": "141N-H.F2.cs",
+     "value": 118.32961984996585,
+     "standard_error": 0.00019361608980963987,
+     "min": 117.70858162196772,
+     "max": 118.94249437803226,
+     "vary": true
+    },
+    {
+     "name": "141N-H.F2.lw",
+     "value": 12.70833199232249,
+     "standard_error": 0.0581736555060551,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "141N-H.F3.cs",
+     "value": 8.385277045489909,
+     "standard_error": 1.8378354530217466e-05,
+     "min": 8.323278155921914,
+     "max": 8.448323844078088,
+     "vary": true
+    },
+    {
+     "name": "141N-H.F3.lw",
+     "value": 16.45428776404043,
+     "standard_error": 0.05340051014046729,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 351,
+   "peak_names": [
+    "68N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7829.447260183148,
+   "parameters": [
+    {
+     "name": "68N-H.F2.cs",
+     "value": 118.31304839932055,
+     "standard_error": 0.00019625898819099829,
+     "min": 117.70085862196773,
+     "max": 118.93477137803227,
+     "vary": true
+    },
+    {
+     "name": "68N-H.F2.lw",
+     "value": 11.860499108840502,
+     "standard_error": 0.05844651504206186,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "68N-H.F3.cs",
+     "value": 8.843423530716318,
+     "standard_error": 1.7863628343992266e-05,
+     "min": 8.781273155921912,
+     "max": 8.906318844078086,
+     "vary": true
+    },
+    {
+     "name": "68N-H.F3.lw",
+     "value": 14.018723616803026,
+     "standard_error": 0.058104232219573476,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 355,
+   "peak_names": [
+    "95N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 9682.780178548926,
+   "parameters": [
+    {
+     "name": "95N-H.F2.cs",
+     "value": 118.2361620675531,
+     "standard_error": 0.000188258472624646,
+     "min": 117.61770162196773,
+     "max": 118.85161437803227,
+     "vary": true
+    },
+    {
+     "name": "95N-H.F2.lw",
+     "value": 13.332320189104509,
+     "standard_error": 0.05606889613223358,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "95N-H.F3.cs",
+     "value": 7.604568650653621,
+     "standard_error": 1.7717548975887708e-05,
+     "min": 7.542700155921914,
+     "max": 7.667745844078086,
+     "vary": true
+    },
+    {
+     "name": "95N-H.F3.lw",
+     "value": 16.6269207800686,
+     "standard_error": 0.05545075861653004,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 359,
+   "peak_names": [
+    "112N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 9156.874652960343,
+   "parameters": [
+    {
+     "name": "112N-H.F2.cs",
+     "value": 117.85773789184908,
+     "standard_error": 0.0001641849037061298,
+     "min": 117.24019462196773,
+     "max": 118.47410737803227,
+     "vary": true
+    },
+    {
+     "name": "112N-H.F2.lw",
+     "value": 13.914781828137228,
+     "standard_error": 0.045863174010959636,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "112N-H.F3.cs",
+     "value": 8.143225413702226,
+     "standard_error": 1.4074199149849622e-05,
+     "min": 8.081192155921913,
+     "max": 8.206237844078087,
+     "vary": true
+    },
+    {
+     "name": "112N-H.F3.lw",
+     "value": 14.40812101043435,
+     "standard_error": 0.043889657562432495,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 360,
+   "peak_names": [
+    "5N-H",
+    "10N-H",
+    "76N-H",
+    "105N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": true,
+   "chi_squared": 18428.004882024474,
+   "parameters": [
+    {
+     "name": "105N-H.F2.cs",
+     "value": 117.80953398798589,
+     "standard_error": 0.000243349885585124,
+     "min": 117.19414462196772,
+     "max": 118.42805737803226,
+     "vary": true
+    },
+    {
+     "name": "105N-H.F2.lw",
+     "value": 14.233278637113917,
+     "standard_error": 0.06498314140064669,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "105N-H.F3.cs",
+     "value": 7.9819346675864615,
+     "standard_error": 2.2112358967769668e-05,
+     "min": 7.920140155921914,
+     "max": 8.045185844078086,
+     "vary": true
+    },
+    {
+     "name": "105N-H.F3.lw",
+     "value": 16.62693593856419,
+     "standard_error": 0.0773421343944418,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "10N-H.F2.cs",
+     "value": 117.622144284355,
+     "standard_error": 0.0007613993845385735,
+     "min": 117.02697762196773,
+     "max": 118.26089037803227,
+     "vary": true
+    },
+    {
+     "name": "10N-H.F2.lw",
+     "value": 10.32694962554394,
+     "standard_error": 0.15670217314597826,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "10N-H.F3.cs",
+     "value": 8.05834166026996,
+     "standard_error": 5.95159172048063e-05,
+     "min": 7.9955711559219145,
+     "max": 8.120616844078087,
+     "vary": true
+    },
+    {
+     "name": "10N-H.F3.lw",
+     "value": 6.984585892567887,
+     "standard_error": 0.21234850953018344,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "5N-H.F2.cs",
+     "value": 117.70662110083335,
+     "standard_error": 0.3754099511994954,
+     "min": 117.20281062196773,
+     "max": 118.43672337803227,
+     "vary": true
+    },
+    {
+     "name": "5N-H.F2.lw",
+     "value": 12.445017203599134,
+     "standard_error": 2.333282470422445,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "5N-H.F3.cs",
+     "value": 8.03325627071041,
+     "standard_error": null,
+     "min": 7.981140155921914,
+     "max": 8.106185844078087,
+     "vary": true
+    },
+    {
+     "name": "5N-H.F3.lw",
+     "value": 25.111043914192223,
+     "standard_error": null,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "76N-H.F2.cs",
+     "value": 117.70653361185896,
+     "standard_error": 0.37336910277185525,
+     "min": 117.07735562196773,
+     "max": 118.31126837803227,
+     "vary": true
+    },
+    {
+     "name": "76N-H.F2.lw",
+     "value": 12.445552316302123,
+     "standard_error": 2.252696793824556,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "76N-H.F3.cs",
+     "value": 8.033279032550373,
+     "standard_error": null,
+     "min": 7.972698155921914,
+     "max": 8.097743844078087,
+     "vary": true
+    },
+    {
+     "name": "76N-H.F3.lw",
+     "value": 25.069263416235533,
+     "standard_error": null,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 364,
+   "peak_names": [
+    "89N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 31533.10558181847,
+   "parameters": [
+    {
+     "name": "89N-H.F2.cs",
+     "value": 117.42689446563354,
+     "standard_error": 6.999986876673063e-05,
+     "min": 116.80972662196773,
+     "max": 118.04363937803227,
+     "vary": true
+    },
+    {
+     "name": "89N-H.F2.lw",
+     "value": 11.323851812750833,
+     "standard_error": 0.018845965229656734,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "89N-H.F3.cs",
+     "value": 9.18666160081836,
+     "standard_error": 6.180156981685771e-06,
+     "min": 9.124628155921913,
+     "max": 9.249673844078087,
+     "vary": true
+    },
+    {
+     "name": "89N-H.F3.lw",
+     "value": 12.871865216697467,
+     "standard_error": 0.01761196500942556,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 365,
+   "peak_names": [
+    "40N-H",
+    "61N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 44201.9472969372,
+   "parameters": [
+    {
+     "name": "40N-H.F2.cs",
+     "value": 116.94863279129846,
+     "standard_error": 9.1425545243082e-05,
+     "min": 116.33273762196772,
+     "max": 117.56665037803226,
+     "vary": true
+    },
+    {
+     "name": "40N-H.F2.lw",
+     "value": 10.858905205155612,
+     "standard_error": 0.026523322129641987,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "40N-H.F3.cs",
+     "value": 8.353972803299607,
+     "standard_error": 8.007829882087993e-06,
+     "min": 8.291932155921913,
+     "max": 8.416977844078087,
+     "vary": true
+    },
+    {
+     "name": "40N-H.F3.lw",
+     "value": 11.997529309450098,
+     "standard_error": 0.024923773928191315,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "61N-H.F2.cs",
+     "value": 117.39214510353125,
+     "standard_error": 9.412457791355137e-05,
+     "min": 116.77507862196774,
+     "max": 118.00899137803228,
+     "vary": true
+    },
+    {
+     "name": "61N-H.F2.lw",
+     "value": 10.138596147468533,
+     "standard_error": 0.026740759023498106,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "61N-H.F3.cs",
+     "value": 8.340562406803224,
+     "standard_error": 8.714546266139241e-06,
+     "min": 8.278682155921913,
+     "max": 8.403727844078087,
+     "vary": true
+    },
+    {
+     "name": "61N-H.F3.lw",
+     "value": 12.584198585473384,
+     "standard_error": 0.02839308591877884,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 376,
+   "peak_names": [
+    "31N-H",
+    "43N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 18797.95722965442,
+   "parameters": [
+    {
+     "name": "31N-H.F2.cs",
+     "value": 116.84784828372958,
+     "standard_error": 0.00015757476036507958,
+     "min": 116.23063262196773,
+     "max": 117.46454537803227,
+     "vary": true
+    },
+    {
+     "name": "31N-H.F2.lw",
+     "value": 13.005426470022902,
+     "standard_error": 0.0467698517984628,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "31N-H.F3.cs",
+     "value": 8.423386559960083,
+     "standard_error": 1.2848789313116716e-05,
+     "min": 8.361657155921913,
+     "max": 8.486702844078087,
+     "vary": true
+    },
+    {
+     "name": "31N-H.F3.lw",
+     "value": 11.981469909024863,
+     "standard_error": 0.041377140396384356,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "43N-H.F2.cs",
+     "value": 117.18986310079683,
+     "standard_error": 0.0001360402036942738,
+     "min": 116.57055362196773,
+     "max": 117.80446637803227,
+     "vary": true
+    },
+    {
+     "name": "43N-H.F2.lw",
+     "value": 9.852407539716651,
+     "standard_error": 0.041161502570440385,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "43N-H.F3.cs",
+     "value": 8.445449975497356,
+     "standard_error": 1.2245544234466677e-05,
+     "min": 8.383204155921913,
+     "max": 8.508249844078087,
+     "vary": true
+    },
+    {
+     "name": "43N-H.F3.lw",
+     "value": 11.187675418748485,
+     "standard_error": 0.0442097973423624,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 386,
+   "peak_names": [
+    "127N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 15789.2932116733,
+   "parameters": [
+    {
+     "name": "127N-H.F2.cs",
+     "value": 116.65286631008243,
+     "standard_error": 9.59343906939801e-05,
+     "min": 116.03428762196774,
+     "max": 117.26820037803228,
+     "vary": true
+    },
+    {
+     "name": "127N-H.F2.lw",
+     "value": 11.511009838303545,
+     "standard_error": 0.026820063013712862,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "127N-H.F3.cs",
+     "value": 8.589608861063649,
+     "standard_error": 7.980230937977576e-06,
+     "min": 8.527326155921912,
+     "max": 8.652371844078086,
+     "vary": true
+    },
+    {
+     "name": "127N-H.F3.lw",
+     "value": 11.18174850533959,
+     "standard_error": 0.02690739965315053,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 387,
+   "peak_names": [
+    "80N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 5996.62333738028,
+   "parameters": [
+    {
+     "name": "80N-H.F2.cs",
+     "value": 116.6661539889499,
+     "standard_error": 0.00019488976041705727,
+     "min": 116.04762562196773,
+     "max": 117.28153837803227,
+     "vary": true
+    },
+    {
+     "name": "80N-H.F2.lw",
+     "value": 13.02324298293445,
+     "standard_error": 0.05735807141505009,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "80N-H.F3.cs",
+     "value": 7.376799131231606,
+     "standard_error": 1.67423439758391e-05,
+     "min": 7.314424155921914,
+     "max": 7.439469844078086,
+     "vary": true
+    },
+    {
+     "name": "80N-H.F3.lw",
+     "value": 13.641623017026477,
+     "standard_error": 0.05395113140975026,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 390,
+   "peak_names": [
+    "163N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 5882.841171272068,
+   "parameters": [
+    {
+     "name": "163N-H.F2.cs",
+     "value": 116.64834972741919,
+     "standard_error": 0.00016049578739280092,
+     "min": 116.02644662196774,
+     "max": 117.26035937803228,
+     "vary": true
+    },
+    {
+     "name": "163N-H.F2.lw",
+     "value": 9.873677621391735,
+     "standard_error": 0.04871638160913824,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "163N-H.F3.cs",
+     "value": 8.660935603150083,
+     "standard_error": 1.3955352878728748e-05,
+     "min": 8.598907155921912,
+     "max": 8.723952844078086,
+     "vary": true
+    },
+    {
+     "name": "163N-H.F3.lw",
+     "value": 9.988359456278157,
+     "standard_error": 0.053461425682726126,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 393,
+   "peak_names": [
+    "120N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10148.15606178286,
+   "parameters": [
+    {
+     "name": "120N-H.F2.cs",
+     "value": 116.52014519205697,
+     "standard_error": 0.0001310280259020325,
+     "min": 115.90334562196773,
+     "max": 117.13725837803227,
+     "vary": true
+    },
+    {
+     "name": "120N-H.F2.lw",
+     "value": 11.278468086586946,
+     "standard_error": 0.03806562000477718,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "120N-H.F3.cs",
+     "value": 7.659894095607846,
+     "standard_error": 1.2289757121897548e-05,
+     "min": 7.597597155921914,
+     "max": 7.722642844078086,
+     "vary": true
+    },
+    {
+     "name": "120N-H.F3.lw",
+     "value": 14.511182664703185,
+     "standard_error": 0.0365200332590226,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 396,
+   "peak_names": [
+    "144N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 12004.495515763263,
+   "parameters": [
+    {
+     "name": "144N-H.F2.cs",
+     "value": 116.48172094250445,
+     "standard_error": 0.00011557514803077922,
+     "min": 115.86504362196773,
+     "max": 117.09895637803227,
+     "vary": true
+    },
+    {
+     "name": "144N-H.F2.lw",
+     "value": 10.844769760284116,
+     "standard_error": 0.033329916196057366,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "144N-H.F3.cs",
+     "value": 8.000944810214673,
+     "standard_error": 1.0646850119086073e-05,
+     "min": 7.938893155921915,
+     "max": 8.063938844078088,
+     "vary": true
+    },
+    {
+     "name": "144N-H.F3.lw",
+     "value": 13.535483034040515,
+     "standard_error": 0.0323135016817152,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 399,
+   "peak_names": [
+    "58N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 18996.58066141082,
+   "parameters": [
+    {
+     "name": "58N-H.F2.cs",
+     "value": 116.48029483081905,
+     "standard_error": 6.590413646350255e-05,
+     "min": 115.86399762196773,
+     "max": 117.09791037803227,
+     "vary": true
+    },
+    {
+     "name": "58N-H.F2.lw",
+     "value": 7.68753974054512,
+     "standard_error": 0.019384230044936997,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "58N-H.F3.cs",
+     "value": 8.749993672862223,
+     "standard_error": 6.454994952865801e-06,
+     "min": 8.687855155921913,
+     "max": 8.812900844078086,
+     "vary": true
+    },
+    {
+     "name": "58N-H.F3.lw",
+     "value": 12.032899223508513,
+     "standard_error": 0.02039943286370917,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 400,
+   "peak_names": [
+    "38N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 30573.354267314007,
+   "parameters": [
+    {
+     "name": "38N-H.F2.cs",
+     "value": 116.47819762047271,
+     "standard_error": 5.614908553586887e-05,
+     "min": 115.86036062196773,
+     "max": 117.09427337803227,
+     "vary": true
+    },
+    {
+     "name": "38N-H.F2.lw",
+     "value": 7.242650250991653,
+     "standard_error": 0.016373068239177536,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "38N-H.F3.cs",
+     "value": 8.288386502567509,
+     "standard_error": 4.853899316954933e-06,
+     "min": 8.226270155921913,
+     "max": 8.351315844078087,
+     "vary": true
+    },
+    {
+     "name": "38N-H.F3.lw",
+     "value": 8.086639072716954,
+     "standard_error": 0.014972180125785549,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 414,
+   "peak_names": [
+    "84N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8693.718126312631,
+   "parameters": [
+    {
+     "name": "84N-H.F2.cs",
+     "value": 115.90857301348328,
+     "standard_error": 0.00013877590131131388,
+     "min": 115.29149262196773,
+     "max": 116.52540537803227,
+     "vary": true
+    },
+    {
+     "name": "84N-H.F2.lw",
+     "value": 11.50040149119461,
+     "standard_error": 0.041832408695146574,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "84N-H.F3.cs",
+     "value": 7.803115553914759,
+     "standard_error": 1.3922566454657685e-05,
+     "min": 7.740929155921914,
+     "max": 7.865974844078086,
+     "vary": true
+    },
+    {
+     "name": "84N-H.F3.lw",
+     "value": 16.605032733097243,
+     "standard_error": 0.04275011799535606,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 416,
+   "peak_names": [
+    "87N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 32412.06170404861,
+   "parameters": [
+    {
+     "name": "87N-H.F2.cs",
+     "value": 115.71022002556359,
+     "standard_error": 5.874316878986991e-05,
+     "min": 115.09493562196774,
+     "max": 116.32884837803228,
+     "vary": true
+    },
+    {
+     "name": "87N-H.F2.lw",
+     "value": 11.04266660064171,
+     "standard_error": 0.01597599399457417,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "87N-H.F3.cs",
+     "value": 6.960854795213598,
+     "standard_error": 5.986067940094589e-06,
+     "min": 6.8989041559219135,
+     "max": 7.023949844078086,
+     "vary": true
+    },
+    {
+     "name": "87N-H.F3.lw",
+     "value": 16.682638374395985,
+     "standard_error": 0.016570141977870746,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 423,
+   "peak_names": [
+    "2N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 13403.855339123245,
+   "parameters": [
+    {
+     "name": "2N-H.F2.cs",
+     "value": 115.63149284203588,
+     "standard_error": 9.426941074999489e-05,
+     "min": 115.01318062196773,
+     "max": 116.24709337803228,
+     "vary": true
+    },
+    {
+     "name": "2N-H.F2.lw",
+     "value": 9.953327251666185,
+     "standard_error": 0.026884296997287848,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "2N-H.F3.cs",
+     "value": 6.8673255658284775,
+     "standard_error": 7.398081254613735e-06,
+     "min": 6.805061155921914,
+     "max": 6.930106844078086,
+     "vary": true
+    },
+    {
+     "name": "2N-H.F3.lw",
+     "value": 8.25192949649386,
+     "standard_error": 0.022423675708570928,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 424,
+   "peak_names": [
+    "53N-H",
+    "147N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": true,
+   "chi_squared": 21456.135388481525,
+   "parameters": [
+    {
+     "name": "147N-H.F2.cs",
+     "value": 115.35595688574854,
+     "standard_error": null,
+     "min": 114.92521162196773,
+     "max": 116.15912437803227,
+     "vary": true
+    },
+    {
+     "name": "147N-H.F2.lw",
+     "value": 14.683619008704477,
+     "standard_error": null,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "147N-H.F3.cs",
+     "value": 8.35161574489984,
+     "standard_error": null,
+     "min": 8.291451155921912,
+     "max": 8.416496844078086,
+     "vary": true
+    },
+    {
+     "name": "147N-H.F3.lw",
+     "value": 16.19995714194349,
+     "standard_error": null,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "53N-H.F2.cs",
+     "value": 115.35599232980788,
+     "standard_error": null,
+     "min": 114.76249462196773,
+     "max": 115.99640737803227,
+     "vary": true
+    },
+    {
+     "name": "53N-H.F2.lw",
+     "value": 14.683027246223507,
+     "standard_error": null,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "53N-H.F3.cs",
+     "value": 8.351613104681753,
+     "standard_error": null,
+     "min": 8.287159155921913,
+     "max": 8.412204844078087,
+     "vary": true
+    },
+    {
+     "name": "53N-H.F3.lw",
+     "value": 16.194218954214737,
+     "standard_error": null,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 427,
+   "peak_names": [
+    "52N-H",
+    "102N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 11939.955295237232,
+   "parameters": [
+    {
+     "name": "102N-H.F2.cs",
+     "value": 115.5046038876918,
+     "standard_error": 0.0008722420117804763,
+     "min": 114.89462762196773,
+     "max": 116.12854037803227,
+     "vary": true
+    },
+    {
+     "name": "102N-H.F2.lw",
+     "value": 9.585554299261533,
+     "standard_error": 0.11414074338955017,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "102N-H.F3.cs",
+     "value": 7.661494180228385,
+     "standard_error": 9.028421091318028e-05,
+     "min": 7.598354155921914,
+     "max": 7.723399844078086,
+     "vary": true
+    },
+    {
+     "name": "102N-H.F3.lw",
+     "value": 5.916759586031201,
+     "standard_error": 0.19003404652049738,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "52N-H.F2.cs",
+     "value": 115.45452657774749,
+     "standard_error": 0.00042557838673902695,
+     "min": 114.82029262196772,
+     "max": 116.05420537803226,
+     "vary": true
+    },
+    {
+     "name": "52N-H.F2.lw",
+     "value": 11.821693862694987,
+     "standard_error": 0.03849768661978033,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "52N-H.F3.cs",
+     "value": 7.652441881255088,
+     "standard_error": 9.662614257117864e-05,
+     "min": 7.590555155921914,
+     "max": 7.715600844078086,
+     "vary": true
+    },
+    {
+     "name": "52N-H.F3.lw",
+     "value": 12.831976371552669,
+     "standard_error": 0.05815311337583773,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 434,
+   "peak_names": [
+    "92N-H",
+    "124N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 21782.029267017017,
+   "parameters": [
+    {
+     "name": "124N-H.F2.cs",
+     "value": 114.79018714568326,
+     "standard_error": 0.00021956918599631703,
+     "min": 114.16898962196773,
+     "max": 115.40290237803227,
+     "vary": true
+    },
+    {
+     "name": "124N-H.F2.lw",
+     "value": 11.951255130630015,
+     "standard_error": 0.06604706303820153,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "124N-H.F3.cs",
+     "value": 7.427927710974481,
+     "standard_error": 2.0915030493745718e-05,
+     "min": 7.366123155921914,
+     "max": 7.491168844078086,
+     "vary": true
+    },
+    {
+     "name": "124N-H.F3.lw",
+     "value": 15.77704064867479,
+     "standard_error": 0.0643604689665212,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "92N-H.F2.cs",
+     "value": 115.20885880549497,
+     "standard_error": 8.551445395022852e-05,
+     "min": 114.59224562196773,
+     "max": 115.82615837803228,
+     "vary": true
+    },
+    {
+     "name": "92N-H.F2.lw",
+     "value": 10.695282979726525,
+     "standard_error": 0.023708628667814632,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "92N-H.F3.cs",
+     "value": 7.395492128288813,
+     "standard_error": 7.085456658621169e-06,
+     "min": 7.333417155921914,
+     "max": 7.4584628440780865,
+     "vary": true
+    },
+    {
+     "name": "92N-H.F3.lw",
+     "value": 10.2489815114567,
+     "standard_error": 0.025198156455243266,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 445,
+   "peak_names": [
+    "50N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6714.750909858515,
+   "parameters": [
+    {
+     "name": "50N-H.F2.cs",
+     "value": 114.96486887727711,
+     "standard_error": 0.00021939061259259349,
+     "min": 114.34737662196773,
+     "max": 115.58128937803227,
+     "vary": true
+    },
+    {
+     "name": "50N-H.F2.lw",
+     "value": 10.613415938518544,
+     "standard_error": 0.06829243132545598,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "50N-H.F3.cs",
+     "value": 8.431426449101536,
+     "standard_error": 2.115646253516412e-05,
+     "min": 8.369342155921913,
+     "max": 8.494387844078087,
+     "vary": true
+    },
+    {
+     "name": "50N-H.F3.lw",
+     "value": 13.75783733362073,
+     "standard_error": 0.07850405393077652,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 451,
+   "peak_names": [
+    "16N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 9316.148961278752,
+   "parameters": [
+    {
+     "name": "16N-H.F2.cs",
+     "value": 114.83647919292494,
+     "standard_error": 0.00010505632742822415,
+     "min": 114.21917662196773,
+     "max": 115.45308937803227,
+     "vary": true
+    },
+    {
+     "name": "16N-H.F2.lw",
+     "value": 10.730661604162382,
+     "standard_error": 0.029341459442351236,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "16N-H.F3.cs",
+     "value": 7.12850183867799,
+     "standard_error": 8.664609994883591e-06,
+     "min": 7.066175155921914,
+     "max": 7.191220844078086,
+     "vary": true
+    },
+    {
+     "name": "16N-H.F3.lw",
+     "value": 10.244851511178789,
+     "standard_error": 0.027846798838157084,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 452,
+   "peak_names": [
+    "39N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 18618.652414157536,
+   "parameters": [
+    {
+     "name": "39N-H.F2.cs",
+     "value": 133.4200337327418,
+     "standard_error": 0.00010320872206263609,
+     "min": 132.80576662196773,
+     "max": 134.03967937803225,
+     "vary": true
+    },
+    {
+     "name": "39N-H.F2.lw",
+     "value": 11.533629702343587,
+     "standard_error": 0.02796881639101201,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "39N-H.F3.cs",
+     "value": 9.045251651497072,
+     "standard_error": 8.299118113715734e-06,
+     "min": 8.983179155921913,
+     "max": 9.108224844078087,
+     "vary": true
+    },
+    {
+     "name": "39N-H.F3.lw",
+     "value": 10.332929993396336,
+     "standard_error": 0.02699329979988775,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 454,
+   "peak_names": [
+    "115N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 16822.11124349082,
+   "parameters": [
+    {
+     "name": "115N-H.F2.cs",
+     "value": 114.6230272171488,
+     "standard_error": 8.537489743161145e-05,
+     "min": 114.00473062196772,
+     "max": 115.23864337803226,
+     "vary": true
+    },
+    {
+     "name": "115N-H.F2.lw",
+     "value": 10.03910509921443,
+     "standard_error": 0.02521969553915659,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "115N-H.F3.cs",
+     "value": 7.789964339716893,
+     "standard_error": 7.97728401233671e-06,
+     "min": 7.7277281559219135,
+     "max": 7.852773844078086,
+     "vary": true
+    },
+    {
+     "name": "115N-H.F3.lw",
+     "value": 13.067464994328256,
+     "standard_error": 0.025321455618189877,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 477,
+   "peak_names": [
+    "44N-H",
+    "79N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 21028.784387799205,
+   "parameters": [
+    {
+     "name": "44N-H.F2.cs",
+     "value": 113.89413688025184,
+     "standard_error": 0.00026937162613013506,
+     "min": 113.27537362196773,
+     "max": 114.50928637803227,
+     "vary": true
+    },
+    {
+     "name": "44N-H.F2.lw",
+     "value": 14.85363430314564,
+     "standard_error": 0.07181498518675306,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "44N-H.F3.cs",
+     "value": 7.969791190193911,
+     "standard_error": 2.0346492666795667e-05,
+     "min": 7.908157155921914,
+     "max": 8.033202844078087,
+     "vary": true
+    },
+    {
+     "name": "44N-H.F3.lw",
+     "value": 9.91233382667206,
+     "standard_error": 0.05147063182234691,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "79N-H.F2.cs",
+     "value": 114.1145314821367,
+     "standard_error": 0.00036689268180994613,
+     "min": 113.50969962196773,
+     "max": 114.74361237803227,
+     "vary": true
+    },
+    {
+     "name": "79N-H.F2.lw",
+     "value": 15.789476490412296,
+     "standard_error": 0.09722775136256259,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "79N-H.F3.cs",
+     "value": 7.98196027846768,
+     "standard_error": 2.52178825492756e-05,
+     "min": 7.919572155921914,
+     "max": 8.044617844078086,
+     "vary": true
+    },
+    {
+     "name": "79N-H.F3.lw",
+     "value": 10.322848575516872,
+     "standard_error": 0.06451702417763548,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 478,
+   "peak_names": [
+    "32N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 18116.60118559469,
+   "parameters": [
+    {
+     "name": "32N-H.F2.cs",
+     "value": 132.63304155848965,
+     "standard_error": 9.516194170604429e-05,
+     "min": 132.02022762196773,
+     "max": 133.25414037803225,
+     "vary": true
+    },
+    {
+     "name": "32N-H.F2.lw",
+     "value": 11.102671721130656,
+     "standard_error": 0.02675369132990567,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "32N-H.F3.cs",
+     "value": 8.212403278285128,
+     "standard_error": 8.085820289954663e-06,
+     "min": 8.150286155921913,
+     "max": 8.275331844078087,
+     "vary": true
+    },
+    {
+     "name": "32N-H.F3.lw",
+     "value": 11.40022382924915,
+     "standard_error": 0.024722915158434097,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 489,
+   "peak_names": [
+    "83N-H",
+    "161N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 15373.514657296997,
+   "parameters": [
+    {
+     "name": "161N-H.F2.cs",
+     "value": 113.63679813357443,
+     "standard_error": 0.0001256342660717388,
+     "min": 113.02383262196773,
+     "max": 114.25774537803227,
+     "vary": true
+    },
+    {
+     "name": "161N-H.F2.lw",
+     "value": 10.475701807830744,
+     "standard_error": 0.037034607455597904,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "161N-H.F3.cs",
+     "value": 8.088536940325545,
+     "standard_error": 1.30051073823684e-05,
+     "min": 8.026523155921913,
+     "max": 8.151568844078087,
+     "vary": true
+    },
+    {
+     "name": "161N-H.F3.lw",
+     "value": 14.649994783989778,
+     "standard_error": 0.04213059003611841,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "83N-H.F2.cs",
+     "value": 113.58771519854479,
+     "standard_error": 0.00012333981546645825,
+     "min": 112.97148462196773,
+     "max": 114.20539737803227,
+     "vary": true
+    },
+    {
+     "name": "83N-H.F2.lw",
+     "value": 12.407889789921672,
+     "standard_error": 0.03385343317170114,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "83N-H.F3.cs",
+     "value": 8.127776310891072,
+     "standard_error": 1.0931015376385756e-05,
+     "min": 8.065782155921912,
+     "max": 8.190827844078086,
+     "vary": true
+    },
+    {
+     "name": "83N-H.F3.lw",
+     "value": 12.572329164691276,
+     "standard_error": 0.04024404828845145,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 495,
+   "peak_names": [
+    "123N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7934.557007563145,
+   "parameters": [
+    {
+     "name": "123N-H.F2.cs",
+     "value": 113.53063679242703,
+     "standard_error": 0.00014901630368339952,
+     "min": 112.91275762196773,
+     "max": 114.14667037803227,
+     "vary": true
+    },
+    {
+     "name": "123N-H.F2.lw",
+     "value": 11.157757501204788,
+     "standard_error": 0.04261391817193251,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "123N-H.F3.cs",
+     "value": 7.2972397387084555,
+     "standard_error": 1.3241276015271742e-05,
+     "min": 7.235127155921914,
+     "max": 7.360172844078086,
+     "vary": true
+    },
+    {
+     "name": "123N-H.F3.lw",
+     "value": 12.808165602662472,
+     "standard_error": 0.04211699089750903,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 508,
+   "peak_names": [
+    "106N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 6094.347141806836,
+   "parameters": [
+    {
+     "name": "106N-H.F2.cs",
+     "value": 113.13615389448469,
+     "standard_error": 0.00027752154119636694,
+     "min": 112.52511162196772,
+     "max": 113.75902437803227,
+     "vary": true
+    },
+    {
+     "name": "106N-H.F2.lw",
+     "value": 12.885609617490905,
+     "standard_error": 0.08802542307449662,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "106N-H.F3.cs",
+     "value": 8.716986275469988,
+     "standard_error": 2.6272601993830014e-05,
+     "min": 8.654240155921913,
+     "max": 8.779285844078087,
+     "vary": true
+    },
+    {
+     "name": "106N-H.F3.lw",
+     "value": 15.913434794116768,
+     "standard_error": 0.0879986576411512,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 512,
+   "peak_names": [
+    "136N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 8773.504941604555,
+   "parameters": [
+    {
+     "name": "136N-H.F2.cs",
+     "value": 113.08178991320361,
+     "standard_error": 9.16281700332488e-05,
+     "min": 112.46521162196773,
+     "max": 113.69912437803227,
+     "vary": true
+    },
+    {
+     "name": "136N-H.F2.lw",
+     "value": 9.486773968298863,
+     "standard_error": 0.025917769304689118,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "136N-H.F3.cs",
+     "value": 7.545975895641703,
+     "standard_error": 7.985653130648578e-06,
+     "min": 7.484071155921914,
+     "max": 7.609116844078086,
+     "vary": true
+    },
+    {
+     "name": "136N-H.F3.lw",
+     "value": 10.692650839062567,
+     "standard_error": 0.024201663363335305,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 520,
+   "peak_names": [
+    "90N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 10952.796775208777,
+   "parameters": [
+    {
+     "name": "90N-H.F2.cs",
+     "value": 112.78460787572565,
+     "standard_error": 0.00010165832947604186,
+     "min": 112.16604762196773,
+     "max": 113.39996037803228,
+     "vary": true
+    },
+    {
+     "name": "90N-H.F2.lw",
+     "value": 12.059055122624923,
+     "standard_error": 0.028456352751393906,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "90N-H.F3.cs",
+     "value": 7.283097430613232,
+     "standard_error": 8.841038162177397e-06,
+     "min": 7.220987155921914,
+     "max": 7.346032844078086,
+     "vary": true
+    },
+    {
+     "name": "90N-H.F3.lw",
+     "value": 13.016219964627155,
+     "standard_error": 0.02852732429706037,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 537,
+   "peak_names": [
+    "28N-H",
+    "107N-H",
+    "109N-H",
+    "156N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 21519.704572712508,
+   "parameters": [
+    {
+     "name": "107N-H.F2.cs",
+     "value": 111.97979528639043,
+     "standard_error": 0.0012508831894468817,
+     "min": 111.36050662196773,
+     "max": 112.59441937803227,
+     "vary": true
+    },
+    {
+     "name": "107N-H.F2.lw",
+     "value": 16.8934786771317,
+     "standard_error": 0.11919896787529215,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "107N-H.F3.cs",
+     "value": 8.474461533154154,
+     "standard_error": 7.619305890827609e-05,
+     "min": 8.412249155921913,
+     "max": 8.537294844078087,
+     "vary": true
+    },
+    {
+     "name": "107N-H.F3.lw",
+     "value": 17.05159221966704,
+     "standard_error": 0.2545132873753961,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "109N-H.F2.cs",
+     "value": 112.07142950238666,
+     "standard_error": 0.00040558148455180316,
+     "min": 111.45913562196773,
+     "max": 112.69304837803227,
+     "vary": true
+    },
+    {
+     "name": "109N-H.F2.lw",
+     "value": 13.078919469146564,
+     "standard_error": 0.06787972087904037,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "109N-H.F3.cs",
+     "value": 8.491555588282576,
+     "standard_error": 4.2308656629701284e-05,
+     "min": 8.429520155921914,
+     "max": 8.554565844078088,
+     "vary": true
+    },
+    {
+     "name": "109N-H.F3.lw",
+     "value": 11.715526072309558,
+     "standard_error": 0.10179381244707529,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "156N-H.F2.cs",
+     "value": 111.88448766738179,
+     "standard_error": 0.00019331664483095777,
+     "min": 111.26841562196773,
+     "max": 112.50232837803227,
+     "vary": true
+    },
+    {
+     "name": "156N-H.F2.lw",
+     "value": 11.193208535817696,
+     "standard_error": 0.05645928575808957,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "156N-H.F3.cs",
+     "value": 8.523514156339363,
+     "standard_error": 1.7740549922249085e-05,
+     "min": 8.461360155921913,
+     "max": 8.586405844078087,
+     "vary": true
+    },
+    {
+     "name": "156N-H.F3.lw",
+     "value": 14.282358333377848,
+     "standard_error": 0.056619746169441335,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "28N-H.F2.cs",
+     "value": 112.09215849487305,
+     "standard_error": 0.0011585892481591432,
+     "min": 111.49534262196772,
+     "max": 112.72925537803226,
+     "vary": true
+    },
+    {
+     "name": "28N-H.F2.lw",
+     "value": 13.597029225813007,
+     "standard_error": 0.18669553835107314,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "28N-H.F3.cs",
+     "value": 8.46228862432647,
+     "standard_error": 0.00010476876614742691,
+     "min": 8.398039155921913,
+     "max": 8.523084844078086,
+     "vary": true
+    },
+    {
+     "name": "28N-H.F3.lw",
+     "value": 14.940960761727826,
+     "standard_error": 0.19128245516085537,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 545,
+   "peak_names": [
+    "126EN-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 13955.807547226872,
+   "parameters": [
+    {
+     "name": "126EN-H.F2.cs",
+     "value": 112.02198284224451,
+     "standard_error": 0.00010640478711796616,
+     "min": 111.40355962196773,
+     "max": 112.63747237803227,
+     "vary": true
+    },
+    {
+     "name": "126EN-H.F2.lw",
+     "value": 8.453302110538885,
+     "standard_error": 0.0314908617269166,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "126EN-H.F3.cs",
+     "value": 10.404065184102686,
+     "standard_error": 1.14020477526509e-05,
+     "min": 10.342253155921913,
+     "max": 10.467298844078087,
+     "vary": true
+    },
+    {
+     "name": "126EN-H.F3.lw",
+     "value": 15.469346442808398,
+     "standard_error": 0.03307370086937818,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 564,
+   "peak_names": [
+    "138EN-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 19451.879771197142,
+   "parameters": [
+    {
+     "name": "138EN-H.F2.cs",
+     "value": 111.39608000105038,
+     "standard_error": 0.0001232197898975058,
+     "min": 110.78052762196774,
+     "max": 112.01444037803228,
+     "vary": true
+    },
+    {
+     "name": "138EN-H.F2.lw",
+     "value": 9.790035656340853,
+     "standard_error": 0.03681246091675756,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "138EN-H.F3.cs",
+     "value": 10.169172520322315,
+     "standard_error": 1.4347372108155288e-05,
+     "min": 10.107027155921912,
+     "max": 10.232072844078086,
+     "vary": true
+    },
+    {
+     "name": "138EN-H.F3.lw",
+     "value": 19.101368707165026,
+     "standard_error": 0.04092928656520264,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 569,
+   "peak_names": [
+    "29N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 9231.693455625384,
+   "parameters": [
+    {
+     "name": "29N-H.F2.cs",
+     "value": 129.9518143590624,
+     "standard_error": 0.0002372781260232732,
+     "min": 129.33365962196774,
+     "max": 130.56757237803225,
+     "vary": true
+    },
+    {
+     "name": "29N-H.F2.lw",
+     "value": 13.303461016522235,
+     "standard_error": 0.07280244633375806,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "29N-H.F3.cs",
+     "value": 9.5385015893743,
+     "standard_error": 2.4881911729697674e-05,
+     "min": 9.476930155921913,
+     "max": 9.601975844078087,
+     "vary": true
+    },
+    {
+     "name": "29N-H.F3.lw",
+     "value": 19.736982772699452,
+     "standard_error": 0.07625940313461016,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  },
+  {
+   "cluster_id": 572,
+   "peak_names": [
+    "140N-H"
+   ],
+   "classification": "converged",
+   "uncertainty_warning": false,
+   "chi_squared": 7940.2432747548355,
+   "parameters": [
+    {
+     "name": "140N-H.F2.cs",
+     "value": 111.08790003517744,
+     "standard_error": 0.00014676897379131646,
+     "min": 110.46987562196773,
+     "max": 111.70378837803227,
+     "vary": true
+    },
+    {
+     "name": "140N-H.F2.lw",
+     "value": 11.037492442628123,
+     "standard_error": 0.0468258900752379,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    },
+    {
+     "name": "140N-H.F3.cs",
+     "value": 7.281377087271451,
+     "standard_error": 1.356623245644919e-05,
+     "min": 7.219259155921914,
+     "max": 7.344304844078086,
+     "vary": true
+    },
+    {
+     "name": "140N-H.F3.lw",
+     "value": 13.947098714434965,
+     "standard_error": 0.04302999465174727,
+     "min": 0.1,
+     "max": 200.0,
+     "vary": true
+    }
+   ]
+  }
+ ]
+}
