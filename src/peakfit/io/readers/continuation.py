@@ -5,7 +5,6 @@ import json
 from copy import deepcopy
 from dataclasses import dataclass, fields, replace
 from pathlib import Path
-from types import MappingProxyType
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
@@ -105,12 +104,7 @@ def restore_geometry(
             cluster = Cluster(cid, peaks, list(indices), sample.data)
             cluster.corrections = corrections
             clusters.append(cluster)
-    model = FinalModelSnapshot(
-        tuple(geometry),
-        outcome.noise,
-        outcome.terminal_correction_revision,
-        tuple((p.name, p.value) for p in outcome.final_nonlinear_parameters),
-    )
+    model = FinalModelSnapshot(tuple(geometry))
     return model, clusters
 
 
@@ -228,7 +222,6 @@ def restore_completed(outcome, samples, context, *, source_data=None, source_pla
     outcome = replace(
         outcome,
         clusters=tuple(restored),
-        by_cluster_id=MappingProxyType({c.cluster_id: c for c in restored}),
     )
     return CompletedFit(outcome, model, full)
 

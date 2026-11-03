@@ -5,7 +5,6 @@ from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 from threading import Event
-from types import MappingProxyType
 
 import numpy as np
 import pyqtgraph as pg
@@ -189,7 +188,6 @@ def test_partial_usability_nonconvergence_and_free_pin(workspace, scientific):
             outcome=replace(
                 result.outcome,
                 clusters=clusters,
-                by_cluster_id=MappingProxyType({c.cluster_id: c for c in clusters}),
             ),
         ),
     )
@@ -260,7 +258,6 @@ def test_all_unusable_completion_and_invalid_replacement(workspace, scientific):
             outcome=replace(
                 result.outcome,
                 clusters=clusters,
-                by_cluster_id=MappingProxyType({c.cluster_id: c for c in clusters}),
             ),
         ),
     )
@@ -441,7 +438,6 @@ def _warned(result):
     outcome = replace(
         result.outcome,
         clusters=clusters,
-        by_cluster_id=MappingProxyType({c.cluster_id: c for c in clusters}),
     )
     return replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
 
@@ -648,7 +644,6 @@ def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(qapp, scientif
     outcome = replace(
         result.outcome,
         clusters=clusters,
-        by_cluster_id=MappingProxyType({c.cluster_id: c for c in clusters}),
     )
     run = replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
     peak = next(i.working_id for i in run.inputs.identities if i.engine_name == weak.peak_names[0])

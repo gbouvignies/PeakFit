@@ -80,7 +80,6 @@ def _outcome() -> FinalFitOutcome:
     )
     return FinalFitOutcome(
         clusters=(cluster,),
-        by_cluster_id=MappingProxyType({3: cluster}),
         final_nonlinear_parameters=cluster.final_nonlinear_parameters,
         terminal_correction_revision=2,
         noise=1.0,

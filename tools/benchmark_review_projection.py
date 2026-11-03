@@ -101,7 +101,7 @@ def main():
             Parameters.from_peaks(data.peaks),
         )
         fit_seconds = perf_counter() - started
-        outcome, snapshot = pipeline.final_outcome, pipeline.simulation_snapshot
+        outcome, snapshot = pipeline.completed_fit.outcome, pipeline.completed_fit.model_snapshot
         ny, nx = data.spectra.data.shape[1:]
         iy, ix = ny // 2, nx // 2
         grid = tuple(index.ravel() for index in np.indices((ny, nx)))

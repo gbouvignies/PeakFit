@@ -15,7 +15,7 @@ from peakfit.fit.fitting import find_review_clusters
 from peakfit.gui.editor.review import _warnings
 
 if TYPE_CHECKING:
-    from peakfit.fit.run_models import FitRun
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
 
 
 def _parameter(value, minimum, maximum, *, vary=True):
@@ -81,8 +81,8 @@ def test_cli_review_and_gui_warnings_flag_the_same_recorded_parameters():
         *rest,
     )
     cluster = replace(cluster, final_nonlinear_parameters=parameters)
-    run = cast("FitRun", SimpleNamespace(outcome=SimpleNamespace(clusters=[cluster])))
-    (review,) = find_review_clusters(run)
+    outcome = cast("FinalFitOutcome", SimpleNamespace(clusters=[cluster]))
+    (review,) = find_review_clusters(outcome)
     (warning,) = [w for w in _warnings(cluster) if w.kind == "At bound"]
     assert review.at_bounds == [first.name]
     assert warning.detail == first.name

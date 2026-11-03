@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
@@ -127,7 +127,6 @@ class FinalFitOutcome:
     """The sole authoritative completed scientific result of one fit run."""
 
     clusters: tuple[FinalClusterOutcome, ...]
-    by_cluster_id: Mapping[int, FinalClusterOutcome]
     final_nonlinear_parameters: tuple[FinalParameter, ...]
     terminal_correction_revision: int
     noise: float
@@ -135,6 +134,18 @@ class FinalFitOutcome:
     n_correction_updates: int
     overall_converged: bool
     statistics: FinalFitStatistics
+    # Derived from ``clusters``, never supplied, so the two cannot disagree.
+    by_cluster_id: Mapping[int, FinalClusterOutcome] = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        """Index the clusters by identifier, rejecting duplicate identifiers."""
+        by_id = MappingProxyType({cluster.cluster_id: cluster for cluster in self.clusters})
+        if len(by_id) != len(self.clusters):
+            ids = [cluster.cluster_id for cluster in self.clusters]
+            duplicates = sorted({cid for cid in ids if ids.count(cid) > 1})
+            msg = f"Duplicate cluster_id values in final outcome: {duplicates}"
+            raise ValueError(msg)
+        object.__setattr__(self, "by_cluster_id", by_id)
 
     def cluster(self, cluster_id: int) -> FinalClusterOutcome:
         """Look up one terminal outcome without relying on presentation order."""
@@ -206,10 +217,8 @@ def finalize_fit(pipeline_completion: PipelineCompletion) -> FinalFitOutcome:
         outcomes.append(outcome)
 
     frozen_outcomes = tuple(outcomes)
-    by_cluster_id = MappingProxyType({outcome.cluster_id: outcome for outcome in frozen_outcomes})
     return FinalFitOutcome(
         clusters=frozen_outcomes,
-        by_cluster_id=by_cluster_id,
         final_nonlinear_parameters=tuple(
             final_parameters_by_name[name] for name in sorted(final_parameters_by_name)
         ),

@@ -55,6 +55,7 @@ class SyntheticFit:
 class CompetingTruth:
     terminal_results: list[FitResult]
     fit_run: FitRun
+    state: FittingState
 
 
 def _spectral_parameters(*, size: int, direct: bool) -> SpectralParameters:
@@ -284,22 +285,21 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
     outcome = finalize_fit(pipeline_result)
     assert pipeline_result.correction_snapshot is not None
     fit_run = FitRun(
-        outcome=outcome,
-        continuation_state=state,
+        completed_fit=CompletedFit.capture(outcome, state, pipeline_result.correction_snapshot),
         output_dir=tmp_path,
         spectra=fit.spectra,
-        completed_fit=CompletedFit.capture(outcome, state, pipeline_result.correction_snapshot),
     )
     return CompetingTruth(
         terminal_results=terminal_results,
         fit_run=fit_run,
+        state=state,
     )
 
 
 def test_cli_review_projects_final_outcomes_with_actual_terminal_provenance(
     competing_truth: CompetingTruth,
 ) -> None:
-    reviews = find_review_clusters(competing_truth.fit_run)
+    reviews = find_review_clusters(competing_truth.fit_run.outcome)
 
     assert [(review.cluster_id, review.reason) for review in reviews] == [
         ("37", "not_converged"),
@@ -332,7 +332,7 @@ def test_future_contract_cli_json_and_markdown_share_terminal_failures(
 ) -> None:
     assert competing_truth.fit_run.spectra is not None
     review_ids = {
-        int(review.cluster_id) for review in find_review_clusters(competing_truth.fit_run)
+        int(review.cluster_id) for review in find_review_clusters(competing_truth.fit_run.outcome)
     }
     json_path = write_final_outcome_summary(
         competing_truth.fit_run.outcome,
@@ -375,15 +375,9 @@ def test_completed_writer_path_ignores_mutated_continuation_state(
         output=OutputConfig(formats=["json", "csv", "txt"], save_simulated=False),
     )
 
-    assert competing_truth.fit_run.spectra is not None
-    competing_truth.fit_run.continuation_state.clusters[0].data.fill(np.nan)
-    competing_truth.fit_run.continuation_state.noise = np.nan
-    write_fit_run_outputs(
-        competing_truth.fit_run,
-        competing_truth.fit_run.spectra,
-        config,
-        input_paths={},
-    )
+    competing_truth.state.clusters[0].data.fill(np.nan)
+    competing_truth.state.noise = np.nan
+    write_fit_run_outputs(competing_truth.fit_run, config, input_paths={})
 
     output_dir = competing_truth.fit_run.output_dir
     payload = json.loads((output_dir / "summary" / "fit.json").read_text(encoding="utf-8"))
@@ -605,11 +599,11 @@ def test_unordered_execution_associates_nonconsecutive_cluster_ids_by_identity()
     )
     ordered_associations = [
         (cluster.cluster_id, list(cluster.peak_names))
-        for cluster in ordered_result.final_outcome.clusters
+        for cluster in ordered_result.completed_fit.outcome.clusters
     ]
     reversed_associations = [
         (cluster.cluster_id, list(cluster.peak_names))
-        for cluster in reversed_result.final_outcome.clusters
+        for cluster in reversed_result.completed_fit.outcome.clusters
     ]
 
     assert ordered_completion == input_ids
@@ -731,7 +725,7 @@ def test_cluster_identity_preserves_returned_nonconverged_result() -> None:
         executor=executor,
     )
 
-    outcome = result.final_outcome.cluster(37)
+    outcome = result.completed_fit.outcome.cluster(37)
     assert outcome.classification is FitOutcomeClassification.USABLE_NON_CONVERGED
     assert outcome.optimizer_provenance.converged is False
     assert outcome.optimizer_provenance.termination_message == "finite but not converged"
@@ -766,14 +760,17 @@ def test_terminal_pass_uses_the_frozen_final_correction() -> None:
     }
 
     assert len(snapshots) == 1
-    assert result.final_outcome.n_optimizer_passes == 1
-    assert result.final_outcome.n_correction_updates == 0
+    assert result.completed_fit.outcome.n_optimizer_passes == 1
+    assert result.completed_fit.outcome.n_correction_updates == 0
     assert all(
         np.array_equal(final_corrections[cluster_id], terminal_snapshot[cluster_id])
         for cluster_id in terminal_snapshot
     )
-    assert result.final_outcome.terminal_correction_revision == 0
-    assert [cluster.correction_revision for cluster in result.final_outcome.clusters] == [0, 0]
+    assert result.completed_fit.outcome.terminal_correction_revision == 0
+    assert [cluster.correction_revision for cluster in result.completed_fit.outcome.clusters] == [
+        0,
+        0,
+    ]
 
 
 def test_numerical_usability_controls_parameter_merging_and_corrections() -> None:
@@ -826,12 +823,14 @@ def test_numerical_usability_controls_parameter_merging_and_corrections() -> Non
     result, parameter_name, original_value, rejected_value = run_with_unusable_parameter(0.25)
     alternate, _, _, _ = run_with_unusable_parameter(0.75)
 
-    assert [cluster.classification for cluster in result.final_outcome.clusters] == [
+    assert [cluster.classification for cluster in result.completed_fit.outcome.clusters] == [
         FitOutcomeClassification.CONVERGED,
         FitOutcomeClassification.USABLE_NON_CONVERGED,
         FitOutcomeClassification.UNUSABLE,
     ]
-    assert result.final_outcome.cluster(91).unusable_reason == "non-finite optimizer residuals"
+    assert (
+        result.completed_fit.outcome.cluster(91).unusable_reason == "non-finite optimizer residuals"
+    )
     assert result.continuation_state.scalar_params[parameter_name].value == pytest.approx(
         original_value
     )
@@ -869,8 +868,8 @@ def test_refine_iterations_is_the_exact_pass_count(
     )
 
     assert len(snapshots) == expected_passes
-    assert _result.final_outcome.n_optimizer_passes == expected_passes
-    assert _result.final_outcome.n_correction_updates == expected_updates
+    assert _result.completed_fit.outcome.n_optimizer_passes == expected_passes
+    assert _result.completed_fit.outcome.n_correction_updates == expected_updates
 
 
 def test_current_explicit_steps_use_their_configured_pass_counts() -> None:
@@ -887,8 +886,8 @@ def test_current_explicit_steps_use_their_configured_pass_counts() -> None:
     _result, _completion_order, snapshots = _run_with_executor(fit, config)
 
     assert len(snapshots) == 3
-    assert _result.final_outcome.n_optimizer_passes == 3
-    assert _result.final_outcome.n_correction_updates == 2
+    assert _result.completed_fit.outcome.n_optimizer_passes == 3
+    assert _result.completed_fit.outcome.n_correction_updates == 2
 
 
 def test_refine_iterations_must_be_positive() -> None:
@@ -934,8 +933,11 @@ def test_correction_snapshots_are_isolated_from_later_mutation() -> None:
     )
     for cluster_id, correction in final_corrections.items():
         np.testing.assert_array_equal(correction, task_snapshots[1][cluster_id])
-    assert result.final_outcome.terminal_correction_revision == 1
-    assert [cluster.correction_revision for cluster in result.final_outcome.clusters] == [1, 1]
+    assert result.completed_fit.outcome.terminal_correction_revision == 1
+    assert [cluster.correction_revision for cluster in result.completed_fit.outcome.clusters] == [
+        1,
+        1,
+    ]
 
 
 def test_pipeline_rejects_a_stale_result_correction_revision() -> None:

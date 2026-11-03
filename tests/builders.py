@@ -11,10 +11,12 @@ from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
 from peakfit.engine.lineshapes.create import create_shapes
+from peakfit.fit.export import write_completed_outputs
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.peaks import WorkingPeak
+from peakfit.io.writers.config import WriterConfig
 
 
 def overlapping_gaussians():
@@ -182,3 +184,28 @@ def peak_pair(
     cluster.data = cluster.evaluate(params).T @ amplitudes
     cluster.data += noise * np.random.default_rng(59).normal(size=cluster.data.shape)
     return cluster, params
+
+
+def write_as_cli(result, spectra, config, directory, metadata):
+    """Call the shared writer with the arguments ``write_fit_run_outputs`` passes.
+
+    It adds the GUI's peak identities, which the CLI does not record (it names peaks by
+    engine name), so CLI- and GUI-argument exports of one run compare byte for byte.
+    It does not exercise ``write_fit_run_outputs`` itself.
+    """
+    write_completed_outputs(
+        result.completed_fit,
+        directory,
+        WriterConfig(formats=tuple(config.output.formats), precision=17),
+        metadata=metadata,
+        data_shape=spectra.data.shape,
+        spectral_parameters=[axis.model_dump() for axis in spectra.params],
+        plane_values=spectra.z_values,
+        source_plane_indices=spectra.source_plane_indices,
+        peak_identities=[
+            {"engine_name": i.engine_name, "peak_id": i.working_id, "assignment": i.assignment}
+            for i in result.inputs.identities
+        ],
+        save_simulated=config.output.save_simulated,
+        detailed_evidence=config.output.detailed_evidence,
+    )

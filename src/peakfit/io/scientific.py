@@ -14,7 +14,6 @@ from collections.abc import Mapping
 from dataclasses import fields, is_dataclass
 from enum import Enum
 from pathlib import Path
-from types import MappingProxyType
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
 import numpy as np
@@ -296,7 +295,6 @@ def _read_scientific(path):  # noqa: PLR0912, PLR0915
     raw["statistics"] = FinalFitStatistics(**raw["statistics"])
     outcome = FinalFitOutcome(
         clusters=tuple(clusters),
-        by_cluster_id=MappingProxyType({c.cluster_id: c for c in clusters}),
         final_nonlinear_parameters=tuple(parameters),
         **raw,
     )

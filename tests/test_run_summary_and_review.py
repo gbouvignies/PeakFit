@@ -5,7 +5,6 @@ from __future__ import annotations
 from types import MappingProxyType
 
 import numpy as np
-import pytest
 
 from peakfit.cli.commands.fit import _format_review_clusters
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
@@ -18,7 +17,6 @@ from peakfit.engine.scientific.final_outcome import (
 )
 from peakfit.engine.scientific.summary import RunSummary
 from peakfit.fit.fitting import find_review_clusters
-from peakfit.fit.run_models import FitRun
 
 
 def _outcome(
@@ -31,7 +29,6 @@ def _outcome(
     )
     return FinalFitOutcome(
         clusters=clusters,
-        by_cluster_id=MappingProxyType({cluster.cluster_id: cluster for cluster in clusters}),
         final_nonlinear_parameters=(),
         terminal_correction_revision=4,
         noise=1.0,
@@ -197,14 +194,7 @@ def test_cluster_review_uses_ordered_outcomes_and_actual_provenance() -> None:
             (11, FitOutcomeClassification.CONVERGED, 1.0, "converged"),
         ]
     )
-    run = FitRun(
-        outcome=outcome,
-        continuation_state=None,  # type: ignore[arg-type]
-        output_dir=None,  # type: ignore[arg-type]
-        spectra=None,
-    )
-
-    reviews = find_review_clusters(run)
+    reviews = find_review_clusters(outcome)
 
     assert [(review.cluster_id, review.reason) for review in reviews] == [
         ("37", "not_converged"),
@@ -230,13 +220,7 @@ def test_cli_review_keeps_terminal_message_distinct_from_convergence() -> None:
             ),
         ]
     )
-    run = FitRun(
-        outcome=outcome,
-        continuation_state=None,  # type: ignore[arg-type]
-        output_dir=None,  # type: ignore[arg-type]
-    )
-
-    rendered = _format_review_clusters(find_review_clusters(run))
+    rendered = _format_review_clusters(find_review_clusters(outcome))
 
     assert rendered == [
         {
@@ -249,14 +233,3 @@ def test_cli_review_keeps_terminal_message_distinct_from_convergence() -> None:
             "details": "Optimization terminated successfully",
         }
     ]
-
-
-def test_completed_run_exposes_continuation_state_only_by_its_explicit_name() -> None:
-    run = FitRun(
-        outcome=_outcome([(11, FitOutcomeClassification.CONVERGED, 1.0, "converged")]),
-        continuation_state=None,  # type: ignore[arg-type]
-        output_dir=None,  # type: ignore[arg-type]
-    )
-
-    with pytest.raises(AttributeError, match="state"):
-        object.__getattribute__(run, "state")

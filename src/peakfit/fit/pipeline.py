@@ -21,7 +21,7 @@ from peakfit.engine.domain.state import FittingState
 from peakfit.engine.fitting.varpro_fit import fit_varpro
 from peakfit.engine.scientific.completed import CompletedFit
 from peakfit.engine.scientific.completion import CorrectionSnapshot, PipelineCompletion
-from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
+from peakfit.engine.scientific.final_outcome import finalize_fit
 from peakfit.fit.run_models import CorrectionUpdate, PassStart
 
 if TYPE_CHECKING:
@@ -29,7 +29,6 @@ if TYPE_CHECKING:
 
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.results import FitResult
-    from peakfit.engine.scientific.simulation import FinalModelSnapshot
 
 
 @dataclass(frozen=True)
@@ -38,16 +37,6 @@ class PipelineResult:
 
     completed_fit: CompletedFit
     continuation_state: FittingState
-
-    @property
-    def final_outcome(self) -> FinalFitOutcome:
-        """Return the single authoritative completed outcome."""
-        return self.completed_fit.outcome
-
-    @property
-    def simulation_snapshot(self) -> FinalModelSnapshot:
-        """Keep the existing completed-model projection interface."""
-        return self.completed_fit.model_snapshot
 
 
 @dataclass(frozen=True, slots=True)

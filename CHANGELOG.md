@@ -66,6 +66,12 @@ Notable user-facing and architecture changes are recorded here.
   nonlinear-parameter filters (`Cluster.parameter_names` replaces them). Pipeline
   progress is reported as typed `PassStart`/`CorrectionUpdate` events instead of
   Rich-markup tuples, and `run_fit` no longer changes the `peakfit` logger level.
+- `CompletedFit` is the one carrier of a completed fit. `PipelineResult` keeps only
+  it and the continuation state; `FitRun` keeps it, the spectra and the output
+  directory; `find_review_clusters` takes the `FinalFitOutcome`;
+  `write_fit_run_outputs` takes the spectra from the run.
+  `FinalFitOutcome.by_cluster_id` is derived from its clusters, and
+  `FinalModelSnapshot` no longer copies the outcome's noise, revision and values.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.

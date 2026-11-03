@@ -279,7 +279,6 @@ def test_simulation_rejects_output_series_and_amplitude_shape_mismatches() -> No
     malformed_outcome = replace(
         fixture.outcome,
         clusters=(malformed_cluster,),
-        by_cluster_id=MappingProxyType({11: malformed_cluster}),
     )
     with pytest.raises(ValueError, match="amplitude shape"):
         simulate_final_outcome(malformed_outcome, fixture.snapshot, fixture.spectra.data)
@@ -316,18 +315,6 @@ def test_simulation_rejects_stale_snapshot_and_leaves_outcome_arrays_immutable()
                 ),
             ),
         )
-
-
-def test_simulation_rejects_snapshot_with_wrong_terminal_revision() -> None:
-    fixture = _fixture({11: (True, True)})
-    stale = FinalModelSnapshot(
-        clusters=fixture.snapshot.clusters,
-        noise=fixture.snapshot.noise,
-        correction_revision=fixture.snapshot.correction_revision + 1,
-    )
-
-    with pytest.raises(ValueError, match="correction revision"):
-        simulate_final_outcome(fixture.outcome, stale, fixture.spectra.data)
 
 
 def test_simulation_rejects_grid_dimension_mismatch() -> None:
