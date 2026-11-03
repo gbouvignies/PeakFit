@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.algorithms.clustering import create_clusters
-from peakfit.engine.algorithms.noise import prepare_noise_level
+from peakfit.engine.algorithms.clustering import prepare_clusters
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import apply_constraints
 from peakfit.engine.domain.fit_steps import build_fit_steps
@@ -129,15 +128,9 @@ def prepare_dataset_fit(
     )
     _validate_constraint_targets(settings)
     _validate_inputs(spectra, peaks, settings)
-    noise = prepare_noise_level(settings.noise_level, spectra)
-    threshold = settings.clustering.contour_level
-    if threshold is None:
-        threshold = settings.clustering.contour_factor * noise
-    if not np.isfinite(threshold) or threshold <= 0:
-        raise ValueError("The clustering threshold must be positive and finite.")
     shape_names = get_shape_names(settings.fitting, spectra)
     identities, scientific_peaks = _working_model(spectra, peaks, settings, shape_names)
-    clusters = create_clusters(spectra, scientific_peaks, threshold)
+    noise, threshold, clusters = prepare_clusters(spectra, scientific_peaks, settings)
     included = [peak.name for cluster in clusters for peak in cluster.peaks]
     if len(included) != len(identities) or set(included) != {i.engine_name for i in identities}:
         missing = [i.assignment for i in identities if i.engine_name not in included]

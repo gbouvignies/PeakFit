@@ -1,3 +1,4 @@
+import math
 from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
@@ -5,11 +6,13 @@ from scipy.ndimage import binary_dilation, generate_binary_structure, label
 from scipy.sparse import coo_matrix, csr_matrix
 from scipy.sparse.csgraph import connected_components as connected_comps
 
+from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.domain.cluster import Cluster
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
+    from peakfit.engine.domain.config import PeakFitConfig
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.shared.typing import FloatArray, IntArray
@@ -136,6 +139,27 @@ def assign_peaks_to_segments(peaks: list[Peak], segments: IntArray) -> dict[int,
             peak_segments_dict.setdefault(segment_id, []).append(peak)
 
     return peak_segments_dict
+
+
+def prepare_clusters(
+    spectra: Spectra, peaks: list[Peak], config: PeakFitConfig
+) -> tuple[float, float, list[Cluster]]:
+    """Noise, clustering threshold and clusters: the fit preparation of the CLI and GUI.
+
+    The threshold is the configured contour level, else ``contour_factor`` × noise,
+    and must be positive and finite.
+    """
+    noise = prepare_noise_level(config.noise_level, spectra)
+    threshold = config.clustering.contour_level
+    if threshold is None:
+        threshold = config.clustering.contour_factor * noise
+    if not math.isfinite(threshold) or threshold <= 0:
+        msg = (
+            f"The clustering threshold must be positive and finite, got {threshold}; "
+            "set a positive contour level."
+        )
+        raise ValueError(msg)
+    return noise, float(threshold), create_clusters(spectra, peaks, threshold)
 
 
 def create_clusters(spectra: Spectra, peaks: list[Peak], contour_level: float) -> list[Cluster]:

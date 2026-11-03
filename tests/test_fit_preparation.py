@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from peakfit.engine.algorithms.clustering import create_clusters
+from peakfit.engine.algorithms.clustering import create_clusters, prepare_clusters
 from peakfit.engine.algorithms.noise import estimate_noise, prepare_noise_level
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConstraint, PeakConstraints
@@ -15,10 +15,11 @@ from peakfit.engine.domain.fit_steps import FitStep
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import Spectra, get_shape_names
 from peakfit.engine.results import FitResult
+from peakfit.fit.fitting import load_data
 from peakfit.fit.pipeline import ClusterFitTask, run_pipeline_iter
 from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
 from peakfit.gui.peaks import WorkingPeak
-from peakfit.gui.spectrum import load_peaks, load_spectrum
+from peakfit.gui.spectrum import load_peaks, load_spectrum, read_dataset
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
 
@@ -239,3 +240,36 @@ def test_noise_is_configured_or_a_positive_finite_estimate():
     assert prepare_noise_level(None, spectra) == estimate_noise(spectra.data) > 0
     with pytest.raises(ValueError, match="set noise_level explicitly"):
         prepare_noise_level(None, _spectrum(np.zeros((2, 8, 8))))
+
+
+def test_cli_and_gui_prepare_the_same_noise_threshold_and_clusters() -> None:
+    config = PeakFitConfig()
+    cli = load_data(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt", config)
+    dataset = read_dataset(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
+    gui = prepare_dataset_fit(dataset.spectra, dataset.peaks, config)
+
+    assert gui.noise == cli.noise
+    assert gui.contour_level == cli.contour_level
+    # The GUI names engine peaks by stable identity; compare clusters by assignment.
+    assignment = {i.engine_name: i.assignment for i in gui.identities}
+
+    def by_members(clusters, name):
+        return {frozenset(name(p) for p in c.peaks): c for c in clusters}
+
+    cli_clusters = by_members(cli.clusters, lambda p: p.name)
+    gui_clusters = by_members(gui.clusters, lambda p: assignment[p.name])
+    assert cli_clusters.keys() == gui_clusters.keys()
+    for members, cluster in cli_clusters.items():
+        other = gui_clusters[members]
+        for a, b in zip(cluster.grid_indices, other.grid_indices, strict=True):
+            np.testing.assert_array_equal(a, b)
+        np.testing.assert_array_equal(cluster.data, other.data)
+
+
+@pytest.mark.parametrize("level", [0.0, -1.0, math.nan, math.inf])
+def test_an_invalid_clustering_threshold_is_rejected(level) -> None:
+    spectra = _spectrum(np.random.default_rng(0).normal(size=(2, 32, 32)))
+    config = PeakFitConfig()
+    config.clustering.contour_level = level
+    with pytest.raises(ValueError, match="clustering threshold must be positive and finite"):
+        prepare_clusters(spectra, [], config)

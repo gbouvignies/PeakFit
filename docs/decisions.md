@@ -410,3 +410,16 @@ Short records of non‑obvious design choices and trade‑offs.
   outcome. The copies and checks are removed. This is in memory only.
 - No numerical or format change: the example digest, the golden regression and a
   three-pass fit match main; archive metadata differs only by input paths.
+
+## 2026-11-03: One fit-preparation path
+- `engine.algorithms.clustering.prepare_clusters` computes the noise
+  (`prepare_noise_level`), the clustering threshold (the configured contour level,
+  else `contour_factor` × noise, required positive and finite) and the clusters; the
+  CLI's `load_data` and the GUI's `prepare_dataset_fit` both call it. The threshold
+  formula was written twice and only the GUI checked it: `peakfit fit --contour -5`
+  went on to fit with a meaningless threshold and is now rejected.
+- Peak construction stays separate on purpose: the CLI reads the peak list, the GUI
+  converts working peaks to engine peaks with stable identities.
+- A test prepares the bundled example both ways and finds identical noise, threshold,
+  cluster membership, sample coordinates and data. Fit digests, the golden regression
+  and a three-pass fit are unchanged.

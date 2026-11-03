@@ -16,9 +16,8 @@ from __future__ import annotations
 import multiprocessing
 from typing import TYPE_CHECKING, Any
 
-from peakfit.engine.algorithms.clustering import create_clusters
+from peakfit.engine.algorithms.clustering import prepare_clusters
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
-from peakfit.engine.algorithms.noise import prepare_noise_level
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
@@ -60,25 +59,15 @@ def load_data(
     # 1. Load Spectra
     spectra = read_spectra(spectrum_path, z_values_path, config.exclude_planes)
 
-    # 2. Estimate Noise
-    noise_val = prepare_noise_level(config.noise_level, spectra)
-    noise_source = "user-provided" if config.noise_level is not None else "estimated"
-
-    # 3. Detect Lineshapes
+    # 2. Detect Lineshapes
     shape_names = get_shape_names(config.fitting, spectra)
 
-    # 4. Contour Level
-    contour = (
-        config.clustering.contour_level
-        if config.clustering.contour_level is not None
-        else config.clustering.contour_factor * noise_val
-    )
-
-    # 5. Load Peaks
+    # 3. Load Peaks
     peaks = read_list(peaklist_path, spectra, shape_names, config.fitting)
 
-    # 6. Create Clusters
-    clusters = create_clusters(spectra, peaks, contour)
+    # 4. Noise, clustering threshold and clusters, shared with the GUI
+    noise_val, contour, clusters = prepare_clusters(spectra, peaks, config)
+    noise_source = "user-provided" if config.noise_level is not None else "estimated"
 
     return LoadedData(
         spectra=spectra,
