@@ -71,8 +71,9 @@ Notable user-facing and architecture changes are recorded here.
   (`metadata/fitting_state.pkl`), JSON-only result folders and the legacy MCMC
   path that guessed input-file locations and defaulted the noise to 1.0. Also
   removed the unused run README writer and the `git_commit` run metadata, which
-  recorded the repository of the current directory rather than PeakFit's version
-  (`software_version` records that).
+  recorded the repository of the current directory rather than PeakFit's source.
+  Runs now record no source revision; `software_version` is the package version,
+  which does not change between development commits.
 
 ### Compatibility
 
