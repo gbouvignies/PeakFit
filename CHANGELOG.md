@@ -72,6 +72,9 @@ Notable user-facing and architecture changes are recorded here.
   `write_fit_run_outputs` takes the spectra from the run.
   `FinalFitOutcome.by_cluster_id` is derived from its clusters, and
   `FinalModelSnapshot` no longer copies the outcome's noise, revision and values.
+- The CLI and GUI prepare a fit through one function, `prepare_clusters` (noise,
+  clustering threshold, clusters). A clustering threshold that is not positive and
+  finite, for example `--contour -5`, is now rejected before fitting by the CLI too.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.
