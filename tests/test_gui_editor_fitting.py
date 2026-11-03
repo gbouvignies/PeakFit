@@ -397,9 +397,14 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
     current_model = c._model
     c._contours_ready("model", obsolete, (old_model, []))
     assert c._model is current_model
-    # Replacing a run on the same plane can reuse only experimental geometry.
+    # Replacing a run on the same plane can reuse only experimental geometry. The
+    # workspace installs the replacement and binds the canvas, as a completed fit
+    # does; binding the canvas alone would be undone by the next workspace refresh.
     obsolete = c._revision
-    c.set_comparison(replace(result, run_id="replacement"), 2)
+    replacement = replace(result, run_id="replacement")
+    w.fitting.completion = replace(w.fitting.completion, result=replacement)
+    w.set_mode(2)
+    assert c.comparison_result is replacement
     assert c._model is None
     assert c._displaying_experiment
     assert [layer.role for layer in c.paths] == ["measured"]
