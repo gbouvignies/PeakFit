@@ -56,6 +56,11 @@ Notable user-facing and architecture changes are recorded here.
 - CLI and GUI "At bound" warnings use one rule: a varied parameter within 10⁻⁶ of
   its bound interval from a bound. The CLI used 10⁻⁶ × (1 + |value|) and also flagged
   fixed parameters. VarPro's uncertainty withholding at active bounds is unchanged.
+- A fit run now works on its own copy of the clusters, starting with no neighbor
+  corrections. Before, a second run on the same prepared clusters (for example
+  from Python) started from the corrections the first run left on them, while
+  recording its first pass as uncorrected, and gave different results. Parameter
+  sets also no longer share parameter objects after `Parameters.update`.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.

@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from peakfit.engine.algorithms.common import update_cluster_corrections
 from peakfit.engine.algorithms.evaluation import (
     FitEvaluation,
@@ -201,6 +203,9 @@ def run_pipeline_iter(
 ) -> Iterator[Any]:
     """Yield fit progress items and finally a PipelineResult."""
     cluster_ids = _validate_cluster_ids(clusters)
+    # The run owns its clusters and starts uncorrected, so pass 1 is truly revision 0
+    # and the caller's clusters never carry this run's corrections into another run.
+    clusters = [_uncorrected(cluster) for cluster in clusters]
     fit_config = _normalize_config(config)
     steps = build_fit_steps(
         steps=fit_config.fitting.steps,
@@ -319,6 +324,12 @@ def complete_fit(completion: PipelineCompletion) -> PipelineResult:
         completed_fit=completed_fit,
         continuation_state=completion.state,
     )
+
+
+def _uncorrected(cluster: Cluster) -> Cluster:
+    owned = copy(cluster)
+    owned.corrections = np.zeros_like(cluster.data)
+    return owned
 
 
 def _validate_cluster_ids(clusters: Sequence[Cluster]) -> tuple[int, ...]:
