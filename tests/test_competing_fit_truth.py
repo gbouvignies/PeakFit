@@ -174,8 +174,6 @@ def _terminal_result(
 
 def _final_outcome_for_json(
     states: dict[int, tuple[bool, bool]],
-    *,
-    optimizer_kind: str = "varpro",
 ) -> tuple[FinalFitOutcome, Spectra, list[FitResult]]:
     """Build final outcomes with deterministic classifications for JSON contracts."""
     fit = _synthetic_fit(tuple(states))
@@ -195,7 +193,6 @@ def _final_outcome_for_json(
         result.metadata["nested"] = {
             "values": np.array([cluster.cluster_id, index], dtype=np.int64),
         }
-        result.optimizer_kind = optimizer_kind
         results.append(result)
     state = FittingState(
         clusters=fit.clusters,
@@ -489,16 +486,15 @@ def test_json_copies_frozen_analytical_values_and_jsonifies_actual_provenance(
 
 
 def test_json_leaves_unavailable_optimizer_diagnostics_absent(tmp_path: Path) -> None:
-    outcome, spectra, _ = _final_outcome_for_json(
-        {11: (True, True)}, optimizer_kind="basin_hopping"
-    )
+    outcome, spectra, _ = _final_outcome_for_json({11: (True, True)})
 
     payload = _write_final_outcome_json(outcome, spectra, tmp_path / "fit.json")
     provenance = payload["clusters"][0]["optimizer_provenance"]  # type: ignore[index]
 
-    assert provenance["optimizer_kind"] == "basin_hopping"
-    assert "jacobian_evaluations" not in provenance
-    assert "optimality" not in provenance
+    assert provenance["optimizer_kind"] == "varpro"
+    assert "jacobian_evaluations" in provenance
+    assert "optimality" in provenance
+    # VarPro reports evaluations, not an iteration count.
     assert "iterations" not in provenance
 
 
@@ -692,6 +688,26 @@ def test_cluster_identity_rejects_unexpected_optimizer_results() -> None:
         ValueError,
         match=r"Unexpected optimizer result cluster_id values: \[73\]",
     ):
+        run_pipeline(
+            config=FitConfig(lineshape="gaussian", refine_iterations=1),
+            clusters=fit.clusters,
+            data_noise=1.0,
+            base_params=fit.params,
+            peaks=fit.peaks,
+            executor=executor,
+        )
+
+
+@pytest.mark.parametrize("optimizer_kind", ["basin_hopping", None])
+def test_results_with_other_optimizer_provenance_are_rejected(optimizer_kind) -> None:
+    fit = _synthetic_fit()
+
+    def executor(function: Any, tasks: list[Any]) -> list[Any]:
+        completed = [function(task) for task in tasks]
+        completed[1].optimizer_kind = optimizer_kind
+        return completed
+
+    with pytest.raises(ValueError, match="provenance must record VarPro"):
         run_pipeline(
             config=FitConfig(lineshape="gaussian", refine_iterations=1),
             clusters=fit.clusters,

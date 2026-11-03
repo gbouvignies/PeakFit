@@ -113,10 +113,6 @@ def fit_command(
         list[int] | None,
         typer.Option("--exclude", "-e", help="Exclude plane indices"),
     ] = None,
-    optimizer: Annotated[
-        str,
-        typer.Option("--optimizer", help="Optimizer: varpro, basin_hopping"),
-    ] = "varpro",
     formats: Annotated[
         list[str] | None,
         typer.Option("--format", "-f", help="Output formats: json, csv, txt"),
@@ -174,7 +170,6 @@ def fit_command(
         phx=phx,
         phy=phy,
         exclude=exclude,
-        optimizer=optimizer,
     )
     if detailed_evidence:
         fit_config.output.detailed_evidence = True
@@ -185,7 +180,6 @@ def fit_command(
             peaklist=peaklist,
             z_values=z_values,
             fit_config=fit_config,
-            optimizer=optimizer,
             workers=workers,
         )
 
@@ -199,7 +193,7 @@ def fit_command(
     output_dir = resolve_output_dir(fit_config)
 
     if not fit_config.output.headless:
-        show_prefit_check(data, output_dir, optimizer, fit_config, spectrum, peaklist, workers)
+        show_prefit_check(data, output_dir, fit_config, spectrum, peaklist, workers)
 
     try:
         if fit_config.output.headless:
@@ -207,12 +201,11 @@ def fit_command(
                 data,
                 fit_config,
                 output_dir,
-                optimizer=optimizer,
                 workers=workers,
                 reporter=reporter,
             )
         else:
-            result = _run_interactive_fit(data, fit_config, output_dir, optimizer, workers)
+            result = _run_interactive_fit(data, fit_config, output_dir, workers)
 
         duration = (datetime.datetime.now(datetime.UTC) - start_time).total_seconds()
 
@@ -254,7 +247,6 @@ def _show_headless_command_summary(
     peaklist: Path,
     z_values: Path | None,
     fit_config: PeakFitConfig,
-    optimizer: str,
     workers: int,
 ) -> None:
     """Show the compact header used when the live pre-fit panel is disabled."""
@@ -272,7 +264,7 @@ def _show_headless_command_summary(
             (
                 "Fitting",
                 {
-                    "Optimizer": optimizer,
+                    "Optimizer": "varpro",
                     "Lineshape": str(fit_config.fitting.lineshape),
                     "Optimizer passes": str(fit_config.fitting.refine_iterations),
                     "Workers": "All CPUs" if workers == -1 else str(workers),
@@ -293,7 +285,6 @@ def _run_interactive_fit(
     data: LoadedData,
     fit_config: PeakFitConfig,
     output_dir: Path,
-    optimizer: str,
     workers: int,
 ) -> FitRun:
     """Run fitting with interactive live display."""
@@ -335,7 +326,6 @@ def _run_interactive_fit(
             data,
             fit_config,
             output_dir,
-            optimizer=optimizer,
             workers=workers,
             progress_callback=progress_callback,
         )

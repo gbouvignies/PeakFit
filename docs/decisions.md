@@ -345,3 +345,24 @@ Short records of non‑obvious design choices and trade‑offs.
 - Single runs are unchanged: the example digest, the golden regression and a
   three-pass example fit (values, errors, amplitudes and terminal corrections) are
   bit-identical to before.
+
+## 2026-11-03: VarPro is the only optimizer (D7)
+- Basin hopping is removed with its configuration (`BasinHoppingConfig`,
+  `[fitting].optimizer_seed`), constants, `--optimizer`, tests and Example 03. Its
+  standard errors came from a finite-difference Hessian inverted without rank or
+  bound masking, and its `final_cost` was Σr² where VarPro records ½Σr², so the same
+  published quantities meant different things. There was no scientific case for
+  keeping and repairing a second, less reliable optimizer.
+- Optimizer selection is removed rather than left with one choice: tasks carry a
+  `VarProConfig`, `engine.fitting.varpro_fit.fit_varpro` fits a cluster, and the
+  pipeline, `run_fit` and the CLI take no optimizer name.
+- Optimizer provenance keeps every field. `optimizer_kind` is recorded as
+  `"varpro"`; `iterations`, which only basin hopping filled, is recorded as
+  unavailable because least squares reports evaluations, not iterations.
+- Recorded configurations no longer contain `fitting.optimizer_seed`, which the
+  configuration model forbids, so the scientific archive moves to 6.0.0 and the
+  project to 9.0.0 and earlier versions are rejected by version. Fit JSON keeps its
+  opaque configuration mapping and stays at 5.0.0.
+- Routine fits are unchanged: the example's outcome, samples and context digests,
+  the golden regression and a three-pass fit are bit-identical to main; archive
+  metadata differs only by the version and the absent key.

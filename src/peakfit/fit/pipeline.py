@@ -14,19 +14,13 @@ from peakfit.engine.algorithms.evaluation import (
     FitEvaluation,
     classify_optimizer_result,
 )
-from peakfit.engine.domain.config import (
-    BasinHoppingConfig,
-    FitConfig,
-    OptimizerConfig,
-    PeakFitConfig,
-    VarProConfig,
-)
+from peakfit.engine.domain.config import FitConfig, PeakFitConfig, VarProConfig
 from peakfit.engine.domain.constraints import apply_constraints
 from peakfit.engine.domain.fit_steps import FitStep, apply_step_constraints, build_fit_steps
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.params_vector import FitParameters
 from peakfit.engine.domain.state import FittingState
-from peakfit.engine.fitting.optimizers import fit_with_optimizer
+from peakfit.engine.fitting.varpro_fit import fit_varpro
 from peakfit.engine.scientific.completed import CompletedFit
 from peakfit.engine.scientific.final_outcome import FinalFitOutcome, finalize_fit
 
@@ -101,8 +95,7 @@ class ClusterFitTask:
     cluster: Cluster
     params: Parameters
     noise: float
-    optimizer: str
-    config: OptimizerConfig
+    config: VarProConfig
 
     def __post_init__(self) -> None:
         """Reject disagreement between the task key and cluster payload."""
@@ -121,8 +114,7 @@ def fit_single_cluster_task(
     task: ClusterFitTask,
 ) -> FitResult:
     """Execute fitting for a single cluster task."""
-    result = fit_with_optimizer(
-        task.optimizer,
+    result = fit_varpro(
         task.params,
         task.cluster,
         task.noise,
@@ -140,14 +132,6 @@ def fit_single_cluster_task(
         msg = (
             "Optimizer result correction_revision does not match submitted task: "
             f"expected {task.correction_revision}, got {result.correction_revision}"
-        )
-        raise ValueError(msg)
-    if result.optimizer_kind is None:
-        result.optimizer_kind = task.optimizer
-    elif result.optimizer_kind != task.optimizer:
-        msg = (
-            "Optimizer result optimizer_kind does not match submitted task: "
-            f"expected {task.optimizer}, got {result.optimizer_kind}"
         )
         raise ValueError(msg)
     if result.noise is None:
@@ -168,7 +152,6 @@ def run_pipeline(
     base_params: Parameters,
     peaks: Sequence[Peak],
     *,
-    optimizer: str = "varpro",
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,
 ) -> PipelineResult:
     """Execute fitting steps and return the final pipeline result."""
@@ -179,7 +162,6 @@ def run_pipeline(
         data_noise,
         base_params,
         peaks,
-        optimizer=optimizer,
         executor=executor,
     ):
         if isinstance(item, PipelineResult):
@@ -198,7 +180,6 @@ def run_pipeline_iter(
     base_params: Parameters,
     peaks: Sequence[Peak],
     *,
-    optimizer: str = "varpro",
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,
 ) -> Iterator[Any]:
     """Yield fit progress items and finally a PipelineResult."""
@@ -220,7 +201,7 @@ def run_pipeline_iter(
     final_params = apply_constraints(base_params.copy(deep=True), fit_config.parameters)
     current_fit_results: list[FitResult] = []
     current_evaluations: list[FitEvaluation] = []
-    optimizer_config = build_optimizer_config(fit_config, optimizer)
+    optimizer_config = varpro_config(fit_config)
     correction_revision = 0
     correction_updates = 0
     terminal_snapshot: CorrectionSnapshot | None = None
@@ -239,7 +220,6 @@ def run_pipeline_iter(
             current_params=final_params,
             step=step,
             data_noise=data_noise,
-            optimizer=optimizer,
             optimizer_config=optimizer_config,
         )
         task_clusters_by_id = {task.cluster_id: task.cluster for task in tasks}
@@ -250,7 +230,6 @@ def run_pipeline_iter(
             step_results_map,
             expected_cluster_ids=cluster_ids,
             correction_revision=correction_snapshot.revision,
-            optimizer_kind=optimizer,
             noise=data_noise,
         )
 
@@ -381,8 +360,7 @@ def _prepare_cluster_tasks(
     current_params: Parameters,
     step: FitStep,
     data_noise: float,
-    optimizer: str,
-    optimizer_config: OptimizerConfig,
+    optimizer_config: VarProConfig,
 ) -> list[ClusterFitTask]:
     """Prepare task arguments for cluster fitting."""
     tasks = []
@@ -398,7 +376,6 @@ def _prepare_cluster_tasks(
                 cluster=task_cluster,
                 params=cluster_params,
                 noise=data_noise,
-                optimizer=optimizer,
                 config=optimizer_config,
             )
         )
@@ -411,7 +388,6 @@ def _process_execution_results(
     *,
     expected_cluster_ids: Sequence[int],
     correction_revision: int,
-    optimizer_kind: str,
     noise: float,
 ) -> Iterator[FitResult]:
     """Yield fit results from an executor iterator."""
@@ -425,12 +401,10 @@ def _process_execution_results(
                 f"expected {correction_revision}, got {result.correction_revision}"
             )
             raise ValueError(msg)
-        if result.optimizer_kind is None:
-            result.optimizer_kind = optimizer_kind
-        elif result.optimizer_kind != optimizer_kind:
+        if result.optimizer_kind != "varpro":
             msg = (
-                "Optimizer result optimizer_kind does not match pass: "
-                f"expected {optimizer_kind}, got {result.optimizer_kind}"
+                "Optimizer result provenance must record VarPro, "
+                f"got optimizer_kind {result.optimizer_kind!r}"
             )
             raise ValueError(msg)
         if result.noise is None:
@@ -483,27 +457,23 @@ def _validate_terminal_result_revisions(
         raise ValueError(msg)
 
 
-def build_optimizer_config(config: PeakFitConfig, optimizer: str) -> OptimizerConfig:
-    """Resolve the settings used by both pipeline and prepared-cluster execution."""
-    if optimizer == "varpro":
-        return VarProConfig(
-            ftol=config.fitting.tolerance,
-            xtol=config.fitting.tolerance,
-            max_nfev=config.fitting.max_iterations,
-        )
-    if optimizer == "basin_hopping":
-        return BasinHoppingConfig(seed=config.fitting.optimizer_seed)
-    raise ValueError(f"Unknown optimizer: {optimizer}")
+def varpro_config(config: PeakFitConfig) -> VarProConfig:
+    """Resolve the VarPro settings used by both pipeline and prepared-cluster execution."""
+    return VarProConfig(
+        ftol=config.fitting.tolerance,
+        xtol=config.fitting.tolerance,
+        max_nfev=config.fitting.max_iterations,
+    )
 
 
 __all__ = [
     "CorrectionSnapshot",
     "PipelineCompletion",
     "PipelineResult",
-    "build_optimizer_config",
     "complete_fit",
     "fit_single_cluster_task",
     "prepare_cluster_parameters",
     "run_pipeline",
     "run_pipeline_iter",
+    "varpro_config",
 ]

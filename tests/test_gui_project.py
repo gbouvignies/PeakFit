@@ -230,18 +230,25 @@ def test_project_recording_adoption_warning_text_is_rejected_by_version(analysis
         open_analysis(path)
 
 
-def test_project_recording_a_removed_config_key_is_rejected_by_version(analysis, tmp_path):
+# Each earlier project version recorded a configuration key that no longer exists, and
+# which configuration validation forbids: version rejection must come first.
+@pytest.mark.parametrize(
+    ("version", "section", "key"),
+    [("6.0.0", "parameters", "from_file"), ("8.0.0", "fitting", "optimizer_seed")],
+)
+def test_project_recording_a_removed_config_key_is_rejected_by_version(
+    analysis, tmp_path, version, section, key
+):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     assert open_analysis(path).completion is not None
 
-    # Project 6.0.0 recorded `[parameters].from_file`, which configuration validation forbids.
     manifest = json.loads((path / "manifest.json").read_text())
     configuration = json.loads(manifest["configuration"])
-    configuration["parameters"]["from_file"] = None
+    configuration[section][key] = None
     manifest["configuration"] = json.dumps(configuration)
-    manifest["schema_version"] = "6.0.0"
+    manifest["schema_version"] = version
     (path / "manifest.json").write_text(json.dumps(manifest))
-    with pytest.raises(ValueError, match=r"Unsupported analysis version: '6\.0\.0'"):
+    with pytest.raises(ValueError, match=f"Unsupported analysis version: '{version}'"):
         open_analysis(path)
 
 

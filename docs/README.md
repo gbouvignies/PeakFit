@@ -11,7 +11,7 @@ Start with the root [`README.md`](../README.md) and the ready-to-run
 - [`outputs.md`](outputs.md) - canonical fit output files.
 - [`constraints-and-fit-steps.md`](constraints-and-fit-steps.md) - parameter
   constraints and `[[fitting.steps]]`.
-- [`optimizers.md`](optimizers.md) - optimizer choice and runtime controls.
+- [`optimizers.md`](optimizers.md) - the VarPro optimizer and runtime controls.
 - [`mcmc.md`](mcmc.md) - MCMC uncertainty workflow.
 
 ## GUI v2 design baseline

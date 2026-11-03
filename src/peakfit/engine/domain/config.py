@@ -8,11 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.engine.domain.fit_steps import FitStep
-from peakfit.shared.constants import (
-    BASIN_HOPPING_NITER,
-    BASIN_HOPPING_STEPSIZE,
-    BASIN_HOPPING_TEMPERATURE,
-)
 
 LineshapeName = Literal[
     "auto",
@@ -88,10 +83,6 @@ class FitConfig(BaseModel):
     tolerance: Annotated[float, Field(gt=0)] = Field(
         default=1e-8,
         description="Convergence tolerance for optimizer.",
-    )
-    optimizer_seed: Annotated[int, Field(ge=0)] | None = Field(
-        default=None,
-        description="Random seed for stochastic optimizers such as basin-hopping.",
     )
 
     # Multi-step fitting steps
@@ -231,7 +222,7 @@ class PeakFitConfig(BaseModel):
 
 
 # =============================================================================
-# Optimizer Configurations
+# Optimizer Configuration
 # =============================================================================
 
 
@@ -246,26 +237,11 @@ class VarProConfig:
     verbose: int = 0
 
 
-@dataclass(frozen=True)
-class BasinHoppingConfig:
-    """Configuration for the basin-hopping optimizer."""
-
-    n_iterations: int = BASIN_HOPPING_NITER
-    temperature: float = BASIN_HOPPING_TEMPERATURE
-    step_size: float = BASIN_HOPPING_STEPSIZE
-    seed: int | None = None
-
-
-OptimizerConfig = VarProConfig | BasinHoppingConfig
-
-
 __all__ = [
-    "BasinHoppingConfig",
     "ClusterConfig",
     "FitConfig",
     "FitStep",
     "LineshapeName",
-    "OptimizerConfig",
     "OutputConfig",
     "OutputFormat",
     "ParameterConfig",

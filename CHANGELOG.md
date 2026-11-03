@@ -13,12 +13,8 @@ Notable user-facing and architecture changes are recorded here.
 - Renamed fit orchestration concepts from service-oriented names to fit-run terminology.
 - Made the CLI summaries more concise and consistent across commands.
 - Simplified MCMC progress output to show observed progress and acceptance only.
-- Simplified optimizer configuration to the two supported fit paths: `varpro`
-  and `basin_hopping`.
 - Renamed internal optimizer configuration and documentation from "strategy"
   terminology to direct optimizer terminology.
-- Renamed the basin-hopping implementation module from generic global
-  optimization terminology to direct basin-hopping terminology.
 - Moved fit-output result models out of the numerical engine and into the fit
   output boundary.
 - Renamed internal multi-step fitting modules and docs from protocol terminology
@@ -67,6 +63,9 @@ Notable user-facing and architecture changes are recorded here.
 
 ### Removed
 
+- Removed the basin-hopping optimizer, `peakfit fit --optimizer`, the
+  `[fitting].optimizer_seed` key and Example 03. VarPro is the only optimizer; its
+  uncertainty withholding and ½Σr² cost are the only ones PeakFit reports.
 - Removed legacy and duplicate output concepts, including model-comparison output,
   legacy parameter-name fallbacks, placeholder/manifest output paths, and duplicate
   dataclass serialization helpers.
@@ -109,12 +108,11 @@ Notable user-facing and architecture changes are recorded here.
 
 - This development cycle intentionally breaks several internal Python imports as part of
   the architecture cleanup. CLI workflows and scientific behavior remain covered by tests.
-- `peakfit fit --optimizer differential_evolution` and configs containing
-  `[fitting].strategy_name` are no longer accepted; use the default `varpro` or
-  `--optimizer basin_hopping`.
+- `peakfit fit --optimizer` and configs containing `[fitting].strategy_name` or
+  `[fitting].optimizer_seed` are no longer accepted; every fit uses VarPro.
 - Configs containing `[auto_peak]`, `fix_positions` or `fit_j_coupling` are rejected;
   delete those keys.
-- Scientific archives move to 5.0.0, fit JSON to 5.0.0 and projects to 8.0.0;
+- Scientific archives move to 6.0.0, fit JSON to 5.0.0 and projects to 9.0.0;
   earlier versions are rejected. Refit results and recreate projects written
   before this change.
 - A non-positive or non-finite `noise_level` is rejected; it was silently replaced

@@ -55,7 +55,6 @@ Useful fit options:
 
 - `--config peakfit.toml` for reproducible settings.
 - `--lineshape auto|gaussian|lorentzian|pvoigt|sp1|sp2|no_apod`.
-- `--optimizer varpro|basin_hopping`.
 - `--refine N` for exactly `N` optimizer passes; corrections update only between
   passes. Existing commands that relied on the former `N + 1` pass behavior
   should increment `N` by one.
@@ -136,7 +135,7 @@ detailed evidence can continue without it. Chains go under `chains/` when
 - [`docs/outputs.md`](docs/outputs.md) - output files and formats.
 - [`docs/constraints-and-fit-steps.md`](docs/constraints-and-fit-steps.md) -
   parameter constraints and `[[fitting.steps]]`.
-- [`docs/optimizers.md`](docs/optimizers.md) - optimizer choice and runtime controls.
+- [`docs/optimizers.md`](docs/optimizers.md) - the VarPro optimizer and runtime controls.
 - [`docs/mcmc.md`](docs/mcmc.md) - MCMC workflow and diagnostics.
 - [`docs/development.md`](docs/development.md) - contributor workflow and coding conventions.
 - [`docs/architecture.md`](docs/architecture.md) - current package map and boundaries.

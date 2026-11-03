@@ -4,7 +4,7 @@ import pytest
 import typer
 from pydantic import ValidationError
 
-from peakfit.cli.commands.fit_setup import normalize_output_formats, validate_optimizer
+from peakfit.cli.commands.fit_setup import normalize_output_formats
 from peakfit.engine.domain.config import OutputConfig, PeakFitConfig
 from peakfit.io.config import generate_default_config
 from peakfit.io.writers.config import WriterConfig
@@ -55,9 +55,9 @@ def test_invalid_cli_output_format_is_actionable() -> None:
         normalize_output_formats(["json", "html"])
 
 
-def test_invalid_cli_optimizer_is_actionable() -> None:
-    with pytest.raises(typer.BadParameter, match="Unknown optimizer"):
-        validate_optimizer("differential_evolution")
+def test_removed_optimizer_seed_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="optimizer_seed"):
+        PeakFitConfig.model_validate({"fitting": {"optimizer_seed": 1}})
 
 
 @pytest.mark.parametrize(
