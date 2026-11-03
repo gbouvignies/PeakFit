@@ -226,40 +226,6 @@ class MCMCClusterSummary:
         """Get formatted cluster label."""
         return ", ".join(self.peak_names)
 
-    def get_strong_correlations(self, threshold: float = 0.7) -> list[tuple[str, str, float]]:
-        """Get pairs of strongly correlated parameters.
-
-        Returns:
-        -------
-            List of (param1, param2, correlation) tuples
-        """
-        if self.correlation_matrix is None:
-            return []
-
-        pairs = []
-        n_params = len(self.parameter_summaries)
-        for i in range(n_params):
-            for j in range(i + 1, n_params):
-                corr = self.correlation_matrix[i, j]
-                if abs(corr) >= threshold:
-                    pairs.append(
-                        (
-                            self.parameter_summaries[i].name,
-                            self.parameter_summaries[j].name,
-                            corr,
-                        )
-                    )
-        return pairs
-
-    def get_amplitudes_by_peak(self) -> dict[str, list[MCMCAmplitudeSummary]]:
-        """Group amplitude summaries by peak name."""
-        by_peak: dict[str, list[MCMCAmplitudeSummary]] = {}
-        for amp in self.amplitude_summaries:
-            if amp.peak_name not in by_peak:
-                by_peak[amp.peak_name] = []
-            by_peak[amp.peak_name].append(amp)
-        return by_peak
-
 
 def _extract_lineshape_summaries(
     result: Any, diagnostics: ConvergenceDiagnostics | None

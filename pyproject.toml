@@ -31,7 +31,6 @@ dependencies = [
   "rich>=13.7.1",
   "scipy>=1.17.0",
   "threadpoolctl>=3.0.0",
-  "tomli-w>=1.0.0",
   "typer>=0.9.0",
 ]
 
@@ -87,11 +86,8 @@ type = "layers"
 layers = [
   "__main__",
   "cli",
-  "gui",
-  "ui",
-  "fit",
-  "mcmc",
-  "plot",
+  "gui | ui",
+  "fit | mcmc | plot",
   "io",
   "engine",
   "shared"

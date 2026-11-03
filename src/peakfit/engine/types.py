@@ -6,8 +6,6 @@ Lower-level module to avoid circular dependencies across domain components.
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-import numpy as np
-
 if TYPE_CHECKING:
     from peakfit.engine.domain.param_map import ParameterMap
     from peakfit.engine.domain.params_scalar import Parameters
@@ -31,12 +29,6 @@ class ParamSpec:
     min_val: float
     max_val: float
     unit: str
-
-    def create_bounds(self, center: float | None = None) -> tuple[float, float]:
-        """Return the (min, max) bounds, optionally offset by center."""
-        if center is not None:
-            return (center + self.min_val, center + self.max_val)
-        return (self.min_val, self.max_val)
 
 
 @dataclass(slots=True)
@@ -65,11 +57,6 @@ class LineshapeResult:
     def n_peaks(self) -> int:
         """Number of peaks in the values array."""
         return int(self.values.shape[1]) if self.values.ndim > 1 else 1
-
-    def sum_peaks(self) -> FloatArray:
-        """Sum across all peaks to get total lineshape (N,)."""
-        result: FloatArray = np.sum(self.values, axis=1)
-        return result
 
 
 @dataclass(slots=True)

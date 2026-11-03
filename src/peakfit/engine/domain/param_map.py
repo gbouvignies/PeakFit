@@ -8,8 +8,6 @@ from peakfit.engine.domain.param_id import ParameterId
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from peakfit.engine.domain.params_scalar import Parameters
-
 
 @dataclass(frozen=True, slots=True)
 class ParameterMap:
@@ -72,11 +70,6 @@ class ParameterMap:
     def index_of(self, name: str) -> int | None:
         """Return the vector index for a parameter name."""
         return self.name_to_index.get(name)
-
-    def filter_existing(self, params: Parameters) -> ParameterMap:
-        """Return mapping for names present in params."""
-        filtered = {name: idx for name, idx in self.name_to_index.items() if name in params}
-        return type(self)(name_to_index=filtered)
 
     def get(self, name: str, default: int | None = None) -> int | None:
         """Dictionary-style lookup with optional default."""

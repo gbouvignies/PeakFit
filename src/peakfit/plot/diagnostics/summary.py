@@ -6,101 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import MaxNLocator
 
-from peakfit.engine.diagnostics.metrics import compute_posterior_statistics
-
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from peakfit.engine.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.shared.typing import FloatArray
-
-
-def plot_posterior_summary(
-    samples: FloatArray,
-    parameter_names: list[str],
-    max_params: int = 30,
-) -> Figure:
-    """Create a compact summary plot of posterior distributions.
-
-    Shows marginal distributions for all parameters in a single figure.
-
-    Args:
-        samples: Array of shape (n_total_samples, n_params)
-        parameter_names: List of parameter names
-        max_params: Maximum number of parameters to display
-
-    Returns:
-    -------
-        Matplotlib Figure object
-    """
-    n_total_samples, n_params = samples.shape
-    n_params_plot = min(n_params, max_params)
-
-    # Compute statistics using metrics module
-    stats = compute_posterior_statistics(samples[:, :n_params_plot])
-
-    fig, ax = plt.subplots(figsize=(10, max(6, n_params_plot * 0.3)))
-
-    y_positions = np.arange(n_params_plot)
-
-    # 95 percent CI
-    ax.barh(
-        y_positions,
-        stats["ci_975"] - stats["ci_025"],
-        left=stats["ci_025"],
-        height=0.5,
-        alpha=0.3,
-        color="steelblue",
-        label="95% CI",
-    )
-
-    # 68 percent CI
-    ax.barh(
-        y_positions,
-        stats["ci_84"] - stats["ci_16"],
-        left=stats["ci_16"],
-        height=0.5,
-        alpha=0.6,
-        color="steelblue",
-        label="68% CI",
-    )
-
-    # Median
-    ax.scatter(
-        stats["medians"],
-        y_positions,
-        color="red",
-        s=50,
-        zorder=10,
-        marker="|",
-        linewidths=2,
-        label="Median",
-    )
-
-    ax.set_yticks(y_positions)
-    ax.set_yticklabels(parameter_names[:n_params_plot], fontsize=9)
-    ax.set_xlabel("Parameter Value", fontsize=11)
-    ax.set_title(
-        f"Posterior Summary ({n_total_samples:,} samples)",
-        fontsize=12,
-        fontweight="bold",
-    )
-    ax.legend(fontsize=10, loc="best")
-    ax.grid(True, axis="x", alpha=0.3)
-
-    guide_text = "Red line = median | Dark blue = 68% CI (±1σ) | Light blue = 95% CI"
-    fig.text(
-        0.5,
-        0.02,
-        guide_text,
-        ha="center",
-        fontsize=8,
-        style="italic",
-        color="gray",
-    )
-
-    plt.tight_layout(rect=(0, 0.04, 1, 1))
-    return fig
 
 
 def plot_marginal_distributions(

@@ -31,25 +31,6 @@ class ConvergenceDiagnostics:
         ess_ok = np.all(self.ess_bulk >= 100 * self.n_chains)
         return bool(rhat_ok and ess_ok)
 
-    def get_warnings(self) -> list[str]:
-        """Get list of convergence warnings."""
-        warnings: list[str] = []
-        for i, name in enumerate(self.parameter_names):
-            if self.rhat[i] > _RHAT_POOR_THRESHOLD:
-                warnings.append(
-                    f"{name}: R-hat = {self.rhat[i]:.4f} > {_RHAT_POOR_THRESHOLD:.2f} (Poor)"
-                )
-            elif self.rhat[i] > _RHAT_STRICT_THRESHOLD:
-                warnings.append(
-                    f"{name}: R-hat = {self.rhat[i]:.4f} > {_RHAT_STRICT_THRESHOLD:.2f} (Marginal)"
-                )
-
-            if self.ess_bulk[i] < 100 * self.n_chains:
-                warnings.append(
-                    f"{name}: ESS_bulk = {self.ess_bulk[i]:.0f} < {100 * self.n_chains}"
-                )
-        return warnings
-
 
 def compute_rhat(chains: FloatArray) -> float:
     """Compute split R-hat statistic (Gelman & Rubin 1992)."""
@@ -137,15 +118,3 @@ def diagnose_convergence(chains: FloatArray, parameter_names: list[str]) -> Conv
         n_chains=n_chains,
         n_samples=n_samples,
     )
-
-
-def format_diagnostics_table(diagnostics: ConvergenceDiagnostics) -> str:
-    """Format convergence diagnostics into a simple table string."""
-    header = "Parameter | R-hat | ESS (bulk) | ESS (tail)"
-    rows = [header, "-" * len(header)]
-    for i, name in enumerate(diagnostics.parameter_names):
-        rows.append(
-            f"{name} | {diagnostics.rhat[i]:.3f} | {diagnostics.ess_bulk[i]:.1f} | "
-            f"{diagnostics.ess_tail[i]:.1f}"
-        )
-    return "\n".join(rows)

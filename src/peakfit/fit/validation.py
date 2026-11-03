@@ -27,11 +27,6 @@ class ValidationResult:
 
     errors: list[str] = field(default_factory=list)
 
-    @property
-    def is_valid(self) -> bool:
-        """Check if validation passed (no errors)."""
-        return len(self.errors) == 0
-
 
 def validate_inputs(spectrum_path: Path, peaklist_path: Path) -> ValidationResult:
     """Validate input files.

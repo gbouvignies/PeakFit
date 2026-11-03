@@ -1,12 +1,15 @@
-"""Configuration file loading and saving."""
+"""Configuration file loading and the default template."""
+
+from __future__ import annotations
 
 import tomllib
-from pathlib import Path
-
-import tomli_w
+from typing import TYPE_CHECKING
 
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.shared.paths import format_path
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def load_config(path: Path) -> PeakFitConfig:
@@ -32,45 +35,6 @@ def load_config(path: Path) -> PeakFitConfig:
         data = tomllib.load(f)
 
     return PeakFitConfig.model_validate(data)
-
-
-def save_config(config: PeakFitConfig, path: Path) -> None:
-    """Save configuration to a TOML file.
-
-    Args:
-        config: Configuration object to save.
-        path: Path where to save the TOML file.
-    """
-    data = config.model_dump(mode="json", exclude_none=True)
-
-    type TomlScalar = str | int | float | bool
-    type TomlValue = TomlScalar | list["TomlValue"] | dict[str, "TomlValue"]
-
-    def to_toml_value(obj: object) -> TomlValue:
-        if isinstance(obj, Path):
-            return str(obj)
-        if isinstance(obj, (str, int, float, bool)):
-            return obj
-        if isinstance(obj, list):
-            return [to_toml_value(v) for v in obj]
-        if isinstance(obj, dict):
-            out: dict[str, TomlValue] = {}
-            for k, v in obj.items():
-                if not isinstance(k, str):
-                    msg = f"TOML keys must be strings (got {type(k).__name__})"
-                    raise TypeError(msg)
-                out[k] = to_toml_value(v)
-            return out
-        msg = f"Unsupported value type for TOML serialization: {type(obj).__name__}"
-        raise TypeError(msg)
-
-    normalized = to_toml_value(data)
-    if not isinstance(normalized, dict):
-        msg = "Serialized configuration must be a mapping"
-        raise TypeError(msg)
-
-    with path.open("wb") as f:
-        tomli_w.dump(normalized, f)
 
 
 def generate_default_config() -> str:
