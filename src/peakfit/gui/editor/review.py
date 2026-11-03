@@ -13,14 +13,13 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.diagnostics.coincidence import collinear_pairs
 from peakfit.engine.domain.spectrum import get_dimension_label
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.spectrum import SpectralParameters
     from peakfit.gui.dataset_fit import DatasetFitResult
-
-BOUND_TOLERANCE = 1e-6  # fraction of a parameter's range
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,13 +122,7 @@ def _warnings(cluster) -> tuple[NumericalWarning, ...]:
     evaluation = cluster.analytical_evaluation
     if evaluation is not None and evaluation.uncertainty_warning:
         warnings.append(NumericalWarning("Uncertainty unreliable", evaluation.uncertainty_warning))
-    bounded = [
-        p.name
-        for p in cluster.final_nonlinear_parameters
-        if p.vary
-        and math.isfinite(p.max - p.min)
-        and min(p.value - p.min, p.max - p.value) <= BOUND_TOLERANCE * (p.max - p.min)
-    ]
+    bounded = [p.name for p in cluster.final_nonlinear_parameters if at_bound(p)]
     if bounded:
         warnings.append(NumericalWarning("At bound", ", ".join(bounded)))
     return tuple(warnings)

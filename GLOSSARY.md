@@ -137,6 +137,17 @@ outside fitting samples and is used for display and to locate unexplained signal
 An objective, engine-recorded condition of a cluster outcome: unusable, not
 converged, unreliable uncertainty, or a varied parameter at a bound.
 
+**At bound**:
+The review warning for a varied parameter whose distance from its nearest bound is
+at most 10⁻⁶ of its bound interval (`engine.diagnostics.bounds.at_bound`). Fixed
+parameters, and parameters without two finite bounds, are never at bound. It does
+not decide whether uncertainties are withheld; see active bound.
+
+**Active bound**:
+A bound within an absolute 10⁻⁷ of a varied value at the VarPro optimum; its
+symmetric standard error is withheld. A scientific uncertainty decision, separate
+from the At bound review warning.
+
 **Review measure**:
 A descriptive number about a completed cluster fit, such as reduced chi-squared,
 the largest recorded residual or the amplitude correlation, shown with its

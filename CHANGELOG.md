@@ -53,6 +53,9 @@ Notable user-facing and architecture changes are recorded here.
 - Lineshape models no longer substitute defaults for missing parameters (`lw`, `j`,
   `eta`, phase); a missing model parameter raises. A phase that is not fitted is
   absent from the model (no phase correction).
+- CLI and GUI "At bound" warnings use one rule: a varied parameter within 10⁻⁶ of
+  its bound interval from a bound. The CLI used 10⁻⁶ × (1 + |value|) and also flagged
+  fixed parameters. VarPro's uncertainty withholding at active bounds is unchanged.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.

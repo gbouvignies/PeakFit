@@ -206,8 +206,10 @@ export and model visualization remain available.
 Nonlinear errors are local, noise-based errors from the reduced VarPro
 Jacobian, with parameter-column scaling before SVD. A rank-deficient or
 numerically ill-conditioned joint covariance is withheld. Individual symmetric
-errors are also withheld at active bounds or when one standard error crosses a
-parameter bound. These conservative checks are **not** confidence intervals or
+errors are also withheld at an active bound (a finite bound within an absolute
+10⁻⁷ of the value) or when one standard error crosses a parameter bound. The
+"At bound" review warning in the CLI and GUI is a separate, interval-relative rule
+(10⁻⁶ of the bound interval) and does not change uncertainties. These conservative checks are **not** confidence intervals or
 proof of identifiability. Fixed parameters may retain zero error because they
 were not estimated.
 
