@@ -230,3 +230,24 @@ Short records of non‑obvious design choices and trade‑offs.
   recorded result. Opening CLI results in `peakfit gui` is possible future work,
   not planned.
 - `peakfit.plot` no longer imports Qt; an import-linter contract keeps it so.
+
+## 2026-11-03: Only scientific archives are read
+- Pickled fitting state (`io.state`), the JSON-only `ResultsLoader` fallback and its
+  placeholder shapes, and the legacy MCMC branch are removed. `peakfit mcmc`, the
+  plots and the GUI read only `scientific.npz`; nothing outside the GUI's trusted
+  child-process pipes unpickles data. The legacy MCMC branch silently used a noise
+  of 1.0 when none was recorded and searched nearby directories for inputs; MCMC now
+  stops with an error instead.
+- `git_commit` is removed from run metadata: it recorded the repository of the
+  current directory, usually the user's data, not PeakFit. Runs now record no
+  source revision: `software_version` is the package version, which stays the same
+  across development commits, so it does not identify the executed source.
+  Recording the exact source revision is separate work. The field's removal
+  changes the recorded format, so the
+  scientific archive moves to 4.0.0 and fit JSON to 5.0.0; earlier versions are
+  rejected by version. The project manifest is unchanged at 6.0.0.
+- Project-reader defaults for keys the 6.0.0 writer always records are removed, as
+  are the older-format fixtures in `tests/data/storage-compat/`; version rejection
+  is tested with synthetic archives and manifests.
+- The example fit's outcome, samples and context are bit-identical before and after;
+  only metadata changes.

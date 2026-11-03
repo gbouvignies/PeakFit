@@ -1,4 +1,4 @@
-"""JSON 4.1.0 projection of immutable completed-fit outcomes."""
+"""JSON 5.0.0 projection of immutable completed-fit outcomes."""
 
 from __future__ import annotations
 
@@ -71,7 +71,6 @@ def _serialize_metadata(metadata: RunMetadata) -> dict[str, Any]:
     return {
         "timestamp": metadata.timestamp,
         "software_version": metadata.software_version,
-        "git_commit": metadata.git_commit,
         "python_version": metadata.python_version,
         "platform": metadata.platform,
         "input_files": _json_value(metadata.input_files),

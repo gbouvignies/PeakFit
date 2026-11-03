@@ -33,7 +33,7 @@ from peakfit.engine.scientific.final_outcome import (
     freeze_provenance,
 )
 
-VERSION = "3.0.0"
+VERSION = "4.0.0"
 MAX_METADATA_BYTES = 16 * 1024**2
 MAX_ARRAY_BYTES = 8 * 1024**3
 _SAMPLE_DIMENSIONS = 2
@@ -176,7 +176,7 @@ def read_scientific(path):  # noqa: PLR0915
             or document.get("kind") != "peakfit_scientific_result"
         ):
             raise ValueError("Unsupported scientific result version.")
-        evidence = document.get("evidence", "full")
+        evidence = document.get("evidence")
         if evidence not in {"results", "detailed", "full"}:
             raise ValueError("Unsupported scientific evidence policy.")
         decoded = decode(document)
@@ -435,7 +435,7 @@ def _validate_context(outcome, samples, context):  # noqa: PLR0912
 
 
 def read_array_member(archive, name, dtype_name, dimensions):
-    """Read a bounded NPY member for native archives and legacy project migration."""
+    """Read a bounded NPY member of a scientific archive."""
     dtype = np.dtype(dtype_name)
     shape = dimensions
     if dtype.kind not in "biufc" or any(type(n) is not int or n < 0 for n in shape):

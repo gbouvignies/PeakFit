@@ -129,7 +129,7 @@ peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 
 `peakfit mcmc` reads `scientific.npz` and verifies the source for compact results;
 detailed evidence can continue without it. Chains go under `chains/` when
-`--save-chains` is enabled. Existing JSON/pickle results remain readable.
+`--save-chains` is enabled. Results without `scientific.npz` must be refit.
 
 ## Documentation
 

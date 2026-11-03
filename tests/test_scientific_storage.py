@@ -159,6 +159,33 @@ def test_malformed_scientific_evidence_rejected(tmp_path, corruption):
         storage.read_scientific(broken)
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("schema_version", "2.1.0", "Unsupported scientific result version"),
+        ("schema_version", "1.0.0", "Unsupported scientific result version"),
+        ("evidence", None, "Unsupported scientific evidence policy"),
+    ],
+)
+def test_earlier_scientific_archives_are_rejected_by_version(tmp_path, field, value, message):
+    _spectra, _config, _pipeline, gui = completed_result([], False)
+    path = storage.write_scientific(tmp_path / "source.npz", gui.outcome, gui.completed_fit.samples)
+    with ZipFile(path) as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    document = json.loads(members["metadata.json"])
+    if value is None:
+        del document[field]
+    else:
+        document[field] = value
+    members["metadata.json"] = json.dumps(document).encode()
+    earlier = tmp_path / "earlier.npz"
+    with ZipFile(earlier, "w") as archive:
+        for name, payload in members.items():
+            archive.writestr(name, payload)
+    with pytest.raises(ValueError, match=message):
+        storage.read_scientific(earlier)
+
+
 def test_reader_limits_before_allocation(tmp_path, monkeypatch):
     _spectra, _config, _pipeline, gui = completed_result([], False)
     path = storage.write_scientific(

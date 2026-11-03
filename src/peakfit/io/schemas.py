@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
-OUTPUT_SCHEMA_VERSION: Literal["4.1.0"] = "4.1.0"
+OUTPUT_SCHEMA_VERSION: Literal["5.0.0"] = "5.0.0"
 
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 NonNegativeInt = Annotated[StrictInt, Field(ge=0)]
@@ -24,7 +24,6 @@ class RunMetadataSchema(_Schema):
 
     timestamp: datetime
     software_version: str
-    git_commit: str | None = None
     python_version: str
     platform: str
     input_files: dict[str, dict[str, str]] = Field(default_factory=dict)
@@ -66,7 +65,7 @@ class AnalyticalEvaluationSchema(_Schema):
 
     shapes: list[list[FiniteFloat]]
     amplitudes: list[list[FiniteFloat]]
-    uncertainty_warning: str | None = None
+    uncertainty_warning: str | None
     amplitude_standard_errors: list[FiniteFloat | None]
     amplitude_covariance: list[list[FiniteFloat | None]]
     scaled_amplitude_standard_errors: list[FiniteFloat | None]
@@ -189,9 +188,9 @@ class ZAxisSchema(_Schema):
 
 
 class FitSummarySchema(_Schema):
-    """Version 4.1.0 completed-fit JSON document."""
+    """Version 5.0.0 completed-fit JSON document."""
 
-    schema_version: Literal["4.0.0", "4.1.0"]
+    schema_version: Literal["5.0.0"]
     metadata: RunMetadataSchema
     terminal_correction_revision: NonNegativeInt
     noise: FiniteFloat
@@ -203,11 +202,8 @@ class FitSummarySchema(_Schema):
     @model_validator(mode="before")
     @classmethod
     def reject_unsupported_version(cls, value: Any) -> Any:
-        """Name both versions when a development artifact predates this contract."""
-        if isinstance(value, dict) and value.get("schema_version") not in (
-            "4.0.0",
-            OUTPUT_SCHEMA_VERSION,
-        ):
+        """Name both versions when a summary was written by another schema version."""
+        if isinstance(value, dict) and value.get("schema_version") != OUTPUT_SCHEMA_VERSION:
             raise ValueError(
                 "Unsupported fit JSON schema version "
                 f"{value.get('schema_version')!r}; supported version is {OUTPUT_SCHEMA_VERSION!r}."
@@ -228,16 +224,10 @@ class FitSummarySchema(_Schema):
         return self
 
 
-# ``ResultsLoader`` imports this public name.  In schema 4 it is the full final
-# cluster outcome rather than the legacy estimates-only representation.
-ClusterResultSchema = FinalClusterOutcomeSchema
-
-
 __all__ = [
     "OUTPUT_SCHEMA_VERSION",
     "AnalyticalEvaluationSchema",
     "AnalyticalStatisticsSchema",
-    "ClusterResultSchema",
     "FinalClusterOutcomeSchema",
     "FinalFitStatisticsSchema",
     "FinalParameterSchema",
