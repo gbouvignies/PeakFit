@@ -27,7 +27,8 @@ from peakfit.io.scientific import read_scientific
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = ROOT / "tests/data/golden"
 DATA = "examples/02-advanced-fitting/data"
-# Paths are relative to the repository root; the fixture runs them from there.
+# Numerical inputs only: export formats do not affect the fit. Paths are relative
+# to the repository root; the test fixture runs them from there.
 FIT_ARGUMENTS = [
     f"{DATA}/pseudo3d.ft2",
     f"{DATA}/pseudo3d.list",
@@ -35,12 +36,6 @@ FIT_ARGUMENTS = [
     f"{DATA}/b1_offsets.txt",
     "--refine",
     "1",
-    "--format",
-    "json",
-    "--format",
-    "csv",
-    "--format",
-    "txt",
 ]
 
 

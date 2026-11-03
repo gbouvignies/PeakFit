@@ -10,13 +10,7 @@
   "--z-values",
   "examples/02-advanced-fitting/data/b1_offsets.txt",
   "--refine",
-  "1",
-  "--format",
-  "json",
-  "--format",
-  "csv",
-  "--format",
-  "txt"
+  "1"
  ],
  "statistics": {
   "chi_squared": 1828682.5329716064,

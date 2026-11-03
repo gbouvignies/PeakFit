@@ -50,6 +50,9 @@ error, standard errors to 1e-6 and chi-squared to 1e-8 (relative). Clusters
 carrying the uncertainty warning are compared through classification, warning and
 chi-squared only, because the data do not determine their individual values. The
 module docstring records the measurements behind these tolerances.
+The reference reads only `scientific.npz` and records only numerical fit
+arguments; the shared fixture adds the export formats that the export-projection
+tests in `test_safety_harness.py` inspect.
 
 A failure there is a numerical change. If it is intended, explain the scientific
 reason in the PR and `docs/decisions.md`, then regenerate the reference with
