@@ -118,7 +118,7 @@ def verify_model(result):
     """Evaluate saved final values at exact samples, with no preparation or solve."""
     if any(
         isinstance(shape, UnavailableShape)
-        for cluster in result.simulation_snapshot.clusters
+        for cluster in result.completed_fit.model_snapshot.clusters
         for peak in cluster.peaks
         for shape in peak.shapes
     ):
@@ -131,7 +131,7 @@ def verify_model(result):
         if e is None:
             continue
         geometry = next(
-            c for c in result.simulation_snapshot.clusters if c.cluster_id == s.cluster_id
+            c for c in result.completed_fit.model_snapshot.clusters if c.cluster_id == s.cluster_id
         )
         shapes = Cluster.evaluate_peaks(geometry.peaks, parameters, list(s.grid_indices))
         require_close(
@@ -146,7 +146,10 @@ def verify_model(result):
         if not result.outcome.cluster(s.cluster_id).sample_evaluation:
             continue
         projected = project_final_outcome(
-            result.outcome, result.simulation_snapshot, s.grid_indices, cluster_id=s.cluster_id
+            result.outcome,
+            result.completed_fit.model_snapshot,
+            s.grid_indices,
+            cluster_id=s.cluster_id,
         )
         assert projected is not None
         require_close(
@@ -176,7 +179,7 @@ def run_record(result):
         "continuation": continuation_record(result),
         "models": [
             dict(c, peaks=[dict(p, positions=p["positions"].tolist()) for p in c["peaks"]])
-            for c in model_records(result.simulation_snapshot)
+            for c in model_records(result.completed_fit.model_snapshot)
         ],
     }
 
@@ -272,7 +275,7 @@ def reconstruct_result(result, dataset):
         result.completed_fit.samples,
         {
             "data_shape": snapshot.data_shape,
-            "models": model_records(result.simulation_snapshot),
+            "models": model_records(result.completed_fit.model_snapshot),
             "spectral_parameters": [json.loads(p) for p in snapshot.spectral_parameters],
             "plane_values": snapshot.plane_values,
             "metadata": {"configuration": json.loads(snapshot.configuration)},

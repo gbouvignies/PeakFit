@@ -14,10 +14,8 @@ if TYPE_CHECKING:
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra
-    from peakfit.engine.domain.state import FittingState
     from peakfit.engine.scientific.completed import CompletedFit
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
-    from peakfit.engine.scientific.simulation import FinalModelSnapshot
 
 
 @dataclass(frozen=True)
@@ -35,25 +33,16 @@ class LoadedData:
 
 @dataclass(frozen=True)
 class FitRun:
-    """Result of a complete fitting run.
+    """A completed CLI fitting run: the completed fit, its spectra and output directory."""
 
-    Runs returned by run_fit retain completed_fit; its outcome/model are the
-    same objects exposed by the existing fields. The optional default preserves
-    older programmatic construction, which supplies no retained sample inputs.
-    """
-
-    outcome: FinalFitOutcome
-    continuation_state: FittingState
+    completed_fit: CompletedFit
     output_dir: Path
-    spectra: Spectra | None = None
-    simulation_snapshot: FinalModelSnapshot | None = None
-    completed_fit: CompletedFit | None = None
-    peak_identities: tuple[dict[str, str], ...] | None = None
+    spectra: Spectra
 
     @property
-    def success(self) -> bool:
-        """Return overall convergence derived from the immutable outcome."""
-        return self.outcome.overall_converged
+    def outcome(self) -> FinalFitOutcome:
+        """The single authority for completed values and optimizer diagnostics."""
+        return self.completed_fit.outcome
 
     @property
     def summary(self) -> RunSummary:

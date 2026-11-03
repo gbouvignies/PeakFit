@@ -133,7 +133,7 @@ def _expected_model(completed, coordinates, planes):
     """Independent Lorentzian formula, including periodic indirect offsets."""
     result, spectra, _, centers = completed
     total = np.zeros((len(coordinates[0]), len(planes)))
-    for terminal in result.final_outcome.clusters:
+    for terminal in result.completed_fit.outcome.clusters:
         if not terminal.usable:
             continue
         for row, name in enumerate(terminal.peak_names):
@@ -153,7 +153,7 @@ def _expected_model(completed, coordinates, planes):
 
 def test_complete_projection_preserves_signed_contributions_and_plane_order(completed, monkeypatch):
     result, _, grid, _ = completed
-    outcome, snapshot = result.final_outcome, result.simulation_snapshot
+    outcome, snapshot = result.completed_fit.outcome, result.completed_fit.model_snapshot
     assert result.completed_fit.outcome is outcome
     assert result.completed_fit.model_snapshot is snapshot
     assert [c.classification.value for c in outcome.clusters] == [
@@ -185,7 +185,7 @@ def test_complete_projection_preserves_signed_contributions_and_plane_order(comp
 
 def test_display_residual_is_not_the_recorded_corrected_problem(completed):
     result, spectra, grid, _ = completed
-    outcome, snapshot = result.final_outcome, result.simulation_snapshot
+    outcome, snapshot = result.completed_fit.outcome, result.completed_fit.model_snapshot
     planes = [2, 0, 2, 3]
     observed = spectra.data.reshape(4, -1).T[:, planes]
     expected = observed - _expected_model(completed, grid, planes)
@@ -268,22 +268,20 @@ def test_capture_rejects_same_revision_with_wrong_terminal_numerical_inputs(comp
     state.clusters[0].corrections += 1
     correction = CorrectionSnapshot.from_clusters(state.clusters, 7)
     with pytest.raises(ValueError, match="Recorded residuals"):
-        CompletedFit.capture(result.final_outcome, state, correction)
+        CompletedFit.capture(result.completed_fit.outcome, state, correction)
 
 
 def test_all_unusable_display_has_no_fabricated_zero_model(completed):
     result, spectra, grid, _ = completed
-    failed = result.final_outcome.cluster(91)
+    failed = result.completed_fit.outcome.cluster(91)
     outcome = replace(
-        result.final_outcome,
+        result.completed_fit.outcome,
         clusters=(failed,),
-        by_cluster_id={91: failed},
         final_nonlinear_parameters=(),
     )
     snapshot = replace(
-        result.simulation_snapshot,
-        clusters=(result.simulation_snapshot.clusters[-1],),
-        parameter_values=(),
+        result.completed_fit.model_snapshot,
+        clusters=(result.completed_fit.model_snapshot.clusters[-1],),
     )
     assert (
         project_final_residual(

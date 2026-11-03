@@ -23,7 +23,6 @@ from peakfit.engine.scientific.final_outcome import (
 )
 from peakfit.engine.scientific.summary import RunSummary
 from peakfit.fit.fitting import find_review_clusters
-from peakfit.fit.run_models import FitRun
 from peakfit.io.output_metadata import RunMetadata
 from peakfit.io.schemas import FitSummarySchema
 from peakfit.io.writers.config import WriterConfig
@@ -42,7 +41,6 @@ def _outcome(
     )
     return FinalFitOutcome(
         clusters=tuple(sorted(clusters, key=lambda cluster: cluster.cluster_id)),
-        by_cluster_id=MappingProxyType({cluster.cluster_id: cluster for cluster in clusters}),
         final_nonlinear_parameters=(),
         terminal_correction_revision=4,
         noise=1.0,
@@ -192,12 +190,7 @@ def test_writers_project_mixed_outcomes_in_final_identity_order(tmp_path) -> Non
         row["classification"] for row in clusters
     ]
     summary = RunSummary.from_outcome(outcome)
-    run = FitRun(
-        outcome=outcome,
-        continuation_state=None,  # type: ignore[arg-type]
-        output_dir=tmp_path,
-    )
-    review_ids = {review.cluster_id for review in find_review_clusters(run)}
+    review_ids = {review.cluster_id for review in find_review_clusters(outcome)}
 
     assert {"37", "91"}.issubset(review_ids)
     assert summary.n_converged == 1
@@ -230,7 +223,6 @@ def test_tabular_projection_keeps_optimizer_success_distinct_from_classification
     outcome = replace(
         outcome,
         clusters=(outcome.cluster(11), unusable),
-        by_cluster_id=MappingProxyType({11: outcome.cluster(11), 91: unusable}),
     )
 
     written = write_fit_outputs(
@@ -310,7 +302,7 @@ def test_unavailable_uncertainties_remain_explicit_in_json_and_csv(tmp_path) -> 
             uncertainty_warning="Unidentifiable group",
         ),
     )
-    outcome = replace(outcome, clusters=(cluster,), by_cluster_id={11: cluster})
+    outcome = replace(outcome, clusters=(cluster,))
     written = _write(outcome, tmp_path)
     payload = json.loads(written["summary_fit"].read_text())
     analytical = payload["clusters"][0]["analytical_evaluation"]

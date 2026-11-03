@@ -52,7 +52,7 @@ def dataset_model_plane(
     with _BLAS.limit(limits=1):
         values = project_final_outcome(
             result.outcome,
-            result.simulation_snapshot,
+            result.completed_fit.model_snapshot,
             [iy.ravel(), ix.ravel()],
             planes=[plane],
             canceled=cancel.is_set,

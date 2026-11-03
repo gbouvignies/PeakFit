@@ -68,7 +68,8 @@ def dataset_completion(
     identities = result.inputs.identities
     working = {p.id: p for p in submitted.peaks}
     engine = {item.engine_name: item.working_id for item in identities}
-    members = {p.name: p for cluster in result.simulation_snapshot.clusters for p in cluster.peaks}
+    snapshot = result.completed_fit.model_snapshot
+    members = {p.name: p for cluster in snapshot.clusters for p in cluster.peaks}
     terminal_names = [name for cluster in result.outcome.clusters for name in cluster.peak_names]
     if (
         len(working) != len(submitted.peaks)

@@ -124,22 +124,10 @@ def main():  # noqa: PLR0915
             historical = timed("historical_result", lambda: loaded.runs[0].load())
             verify_model(historical.result)
             report["project"] = sizes(permanent)
-            identities = tuple(
-                {"engine_name": i.engine_name, "peak_id": i.working_id, "assignment": i.assignment}
-                for i in prepared.identities
-            )
-            run = FitRun(
-                result.outcome,
-                pipeline.continuation_state,
-                root / "cli",
-                dataset.spectra,
-                result.simulation_snapshot,
-                result.completed_fit,
-                identities,
-            )
+            run = FitRun(result.completed_fit, root / "cli", dataset.spectra)
             timed(
                 "cli_default_export",
-                lambda: write_fit_run_outputs(run, dataset.spectra, config, paths),
+                lambda: write_fit_run_outputs(run, config, paths),
             )
             gui = timed(
                 "gui_default_export",

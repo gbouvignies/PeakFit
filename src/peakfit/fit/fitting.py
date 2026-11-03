@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from peakfit.engine.domain.config import PeakFitConfig
-    from peakfit.engine.domain.spectrum import Spectra
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
     from peakfit.shared.reporter import Reporter
 
 
@@ -94,10 +94,10 @@ def load_data(
 HIGH_REDCHI = 5.0
 
 
-def find_review_clusters(result: FitRun) -> list[ClusterReview]:
+def find_review_clusters(fit_outcome: FinalFitOutcome) -> list[ClusterReview]:
     """Project review rows from ordered final cluster outcomes."""
     reviews: list[ClusterReview] = []
-    for outcome in sorted(result.outcome.clusters, key=lambda cluster: cluster.cluster_id):
+    for outcome in sorted(fit_outcome.clusters, key=lambda cluster: cluster.cluster_id):
         evaluation = outcome.analytical_evaluation
         redchi = evaluation.statistics.reduced_chi_squared if evaluation is not None else None
         at_bounds = [
@@ -188,12 +188,9 @@ def run_fit(
         raise RuntimeError("Pipeline produced no result")
 
     return FitRun(
-        outcome=pipeline_result.final_outcome,
-        continuation_state=pipeline_result.continuation_state,
+        completed_fit=pipeline_result.completed_fit,
         output_dir=output_dir,
         spectra=data.spectra,
-        simulation_snapshot=pipeline_result.simulation_snapshot,
-        completed_fit=pipeline_result.completed_fit,
     )
 
 
@@ -254,7 +251,6 @@ def _consume_pipeline(
 
 def write_fit_run_outputs(
     fit_run: FitRun,
-    spectra: Spectra,
     config: PeakFitConfig,
     input_paths: dict[str, Path],
     reporter: Reporter | None = None,
@@ -263,7 +259,6 @@ def write_fit_run_outputs(
 
     Args:
         fit_run: The fitting result to write
-        spectra: Spectra data for output
         config: Configuration used for the fit
         input_paths: Dictionary of input file paths
         reporter: Optional reporter for progress updates
@@ -276,8 +271,7 @@ def write_fit_run_outputs(
     if reporter:
         reporter.action("Writing outputs...")
 
-    if fit_run.completed_fit is None:
-        raise ValueError("Scientific export requires the retained CompletedFit.")
+    spectra = fit_run.spectra
     write_completed_outputs(
         fit_run.completed_fit,
         output_dir,
@@ -287,7 +281,6 @@ def write_fit_run_outputs(
         spectral_parameters=[axis.model_dump() for axis in spectra.params],
         plane_values=spectra.z_values,
         source_plane_indices=spectra.source_plane_indices,
-        peak_identities=fit_run.peak_identities,
         save_simulated=config.output.save_simulated,
         detailed_evidence=config.output.detailed_evidence,
     )

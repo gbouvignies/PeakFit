@@ -7,10 +7,9 @@ from zipfile import ZipFile
 
 import numpy as np
 import pytest
-from builders import completed_result, two_cluster_dataset
+from builders import completed_result, two_cluster_dataset, write_as_cli
 
-from peakfit.fit import fitting, pipeline
-from peakfit.fit.run_models import FitRun
+from peakfit.fit import pipeline
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fit_positions import dataset_completion
@@ -81,7 +80,7 @@ def _completed_case(mode, monkeypatch):
 
 @pytest.mark.parametrize("mode", ["usable", "partially_unusable", "non_converged", "outdated"])
 def test_shared_coordinate_provenance_and_actual_adoption(tmp_path, monkeypatch, mode):
-    spectra, config, prepared, completed, result, completion = _completed_case(mode, monkeypatch)
+    spectra, config, prepared, _completed, result, completion = _completed_case(mode, monkeypatch)
     if mode == "non_converged":
         assert any(
             c.classification.value == "usable_non_converged" for c in result.outcome.clusters
@@ -106,20 +105,7 @@ def test_shared_coordinate_provenance_and_actual_adoption(tmp_path, monkeypatch,
         configuration=json.loads(result.inputs.snapshot.configuration),
         run_duration_seconds=result.execution_seconds,
     )
-    monkeypatch.setattr(fitting, "capture_output_metadata", lambda *_args: metadata)
-    run = FitRun(
-        result.outcome,
-        completed.continuation_state,
-        tmp_path / "cli",
-        spectra,
-        result.simulation_snapshot,
-        result.completed_fit,
-        tuple(
-            {"engine_name": i.engine_name, "peak_id": i.working_id, "assignment": i.assignment}
-            for i in result.inputs.identities
-        ),
-    )
-    fitting.write_fit_run_outputs(run, spectra, config, {})
+    write_as_cli(result, spectra, config, tmp_path / "cli", metadata)
     cli_outcome, _, cli_context = read_scientific(tmp_path / "cli/scientific.npz")
     assert cli_context["export_state"] == {
         "scope": "dataset",

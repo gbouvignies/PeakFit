@@ -211,7 +211,7 @@ def fit_command(
         duration = (datetime.datetime.now(datetime.UTC) - start_time).total_seconds()
 
         if not fit_config.output.headless:
-            reviews = find_review_clusters(result)
+            reviews = find_review_clusters(result.outcome)
             clusters_to_review = _format_review_clusters(reviews)
             display_post_fit_summary(
                 total_time=duration,
@@ -229,13 +229,10 @@ def fit_command(
             )
 
         with console.status("[info]Writing results...[/info]", spinner="dots"):
-            if result.spectra is None:
-                raise ValueError("No spectra in result")
-
             input_paths = {"spectrum": spectrum, "peaklist": peaklist}
             if z_values is not None:
                 input_paths["z_values"] = z_values
-            write_fit_run_outputs(result, result.spectra, fit_config, input_paths, reporter)
+            write_fit_run_outputs(result, fit_config, input_paths, reporter)
 
     except Exception as e:
         show_error_with_details("Fitting", e)

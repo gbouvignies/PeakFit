@@ -43,9 +43,7 @@ def test_atomic_transition_preserves_seeds_outcome_and_currentness(completed):
 
 
 def changed_clusters(result, clusters):
-    outcome = replace(
-        result.outcome, clusters=tuple(clusters), by_cluster_id={c.cluster_id: c for c in clusters}
-    )
+    outcome = replace(result.outcome, clusters=tuple(clusters))
     return replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
 
 

@@ -65,7 +65,7 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
     assert any(np.any(s.neighbor_corrections != 0) for s in result.completed_fit.samples)
     assert any("Pass 2" in message for message in progress)
     for actual, reference in zip(
-        result.outcome.clusters, expected.final_outcome.clusters, strict=True
+        result.outcome.clusters, expected.completed_fit.outcome.clusters, strict=True
     ):
         np.testing.assert_array_equal(
             actual.analytical_evaluation.model_values, reference.analytical_evaluation.model_values
@@ -75,13 +75,13 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
         result.outcome.by_cluster_id[0] = result.outcome.clusters[0]  # ty: ignore[invalid-assignment]
     grid = tuple(index.ravel() for index in np.indices((32, 32)))
     total = project_final_outcome(
-        result.outcome, result.simulation_snapshot, grid, planes=[2, 0, 2]
+        result.outcome, result.completed_fit.model_snapshot, grid, planes=[2, 0, 2]
     )
     assert total is not None
     contributions = [
         project_final_outcome(
             result.outcome,
-            result.simulation_snapshot,
+            result.completed_fit.model_snapshot,
             grid,
             cluster_id=c.cluster_id,
             planes=[2, 0, 2],
@@ -98,7 +98,9 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
     plane = dataset_model_plane(result, spectra.spectral_params, 2, cancel=Event())
     np.testing.assert_allclose(plane.values.ravel(), total[:, 0], rtol=1e-14, atol=1e-14)
     with pytest.raises(ValueError, match="paired"):
-        project_final_outcome(result.outcome, result.simulation_snapshot, [np.array([np.nan])])
+        project_final_outcome(
+            result.outcome, result.completed_fit.model_snapshot, [np.array([np.nan])]
+        )
     assert result.inputs.snapshot.plane_values == (2.0, 0.0, 2.0)
     saved = export_fit_result(result, tmp_path / "dataset")
     outcome, _samples, companion = read_scientific(saved / "scientific.npz")
@@ -169,7 +171,6 @@ def test_summary_separates_termination_from_usability_and_no_model():
     outcome = replace(
         result.outcome,
         clusters=(usable, failed),
-        by_cluster_id={c.cluster_id: c for c in (usable, failed)},
     )
     mixed = replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
     assert "1/2 converged" in dataset_summary(mixed)
@@ -181,7 +182,6 @@ def test_summary_separates_termination_from_usability_and_no_model():
     outcome = replace(
         outcome,
         clusters=(failed_first, failed),
-        by_cluster_id={c.cluster_id: c for c in (failed_first, failed)},
     )
     unusable = replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
     assert "No usable model" in dataset_summary(unusable)

@@ -391,3 +391,22 @@ Short records of non‑obvious design choices and trade‑offs.
 - No numerical or format change: the example digest (outcome, samples, context),
   the golden regression and a three-pass fit match main, and archive metadata
   differs only by input paths.
+
+## 2026-11-03: One carrier for a completed fit
+- `CompletedFit` carries a completed fit. The records around it keep only what they
+  add: `PipelineResult` the continuation state; `FitRun` the spectra and output
+  directory (its duplicated `outcome`/`simulation_snapshot` fields, unread
+  `continuation_state`, `success` and test-only `peak_identities` are removed);
+  `DatasetFitResult` the reviewed inputs and run identity. `outcome` stays a
+  property on `FitRun` and `DatasetFitResult`; the `final_outcome` and
+  `simulation_snapshot` forwarders are removed.
+- `find_review_clusters` reads only cluster outcomes, so it takes the
+  `FinalFitOutcome`. Tests that compare CLI and GUI exports byte for byte call the
+  shared writer through a test helper with the GUI's peak identities.
+- `FinalFitOutcome.by_cluster_id` is derived in `__post_init__`, so it cannot
+  disagree with `clusters`; it was never serialized.
+- `FinalModelSnapshot` stored the outcome's noise, terminal revision and parameter
+  values only to check that they matched the outcome; simulation reads them from the
+  outcome. The copies and checks are removed. This is in memory only.
+- No numerical or format change: the example digest, the golden regression and a
+  three-pass fit match main; archive metadata differs only by input paths.

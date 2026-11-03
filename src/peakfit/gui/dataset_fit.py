@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
     from peakfit.engine.scientific.completed import CompletedFit
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
-    from peakfit.engine.scientific.simulation import FinalModelSnapshot
     from peakfit.gui.fitting import PreparedDatasetFit
 
 
@@ -54,11 +53,6 @@ class DatasetFitResult:
     def outcome(self) -> FinalFitOutcome:
         """The single authority for completed values and optimizer diagnostics."""
         return self.completed_fit.outcome
-
-    @property
-    def simulation_snapshot(self) -> FinalModelSnapshot:
-        """Owned evaluable geometry; never refit values for display."""
-        return self.completed_fit.model_snapshot
 
 
 def compute_dataset_fit(

@@ -53,9 +53,6 @@ class FinalModelSnapshot:
     """
 
     clusters: tuple[FinalModelCluster, ...]
-    noise: float
-    correction_revision: int
-    parameter_values: tuple[tuple[str, float], ...] = ()
 
     @classmethod
     def capture(
@@ -66,21 +63,12 @@ class FinalModelSnapshot:
     ) -> FinalModelSnapshot:
         """Copy the minimal full-grid model geometry at the finalization boundary."""
         _validate_capture_inputs(outcome, state, correction_snapshot)
-        assert state.noise is not None
         state_clusters = {cluster.cluster_id: cluster for cluster in state.clusters}
         clusters = tuple(
             _freeze_cluster_geometry(state_clusters[cluster_outcome.cluster_id])
             for cluster_outcome in outcome.clusters
         )
-        return cls(
-            clusters=clusters,
-            noise=float(state.noise),
-            correction_revision=correction_snapshot.revision,
-            parameter_values=tuple(
-                (parameter.name, parameter.value)
-                for parameter in outcome.final_nonlinear_parameters
-            ),
-        )
+        return cls(clusters=clusters)
 
 
 def simulate_final_outcome(
@@ -274,30 +262,11 @@ def _freeze_cluster_geometry(cluster: Cluster) -> FinalModelCluster:
 
 
 def _validate_snapshot(outcome: FinalFitOutcome, snapshot: FinalModelSnapshot) -> None:
-    if not np.isfinite(snapshot.noise) or snapshot.noise <= 0.0:
-        raise ValueError(
-            f"Simulation snapshot noise must be positive and finite, got {snapshot.noise}"
-        )
-    if snapshot.noise != outcome.noise:
-        raise ValueError(
-            "Simulation snapshot noise does not match final outcome: "
-            f"expected {outcome.noise}, got {snapshot.noise}"
-        )
-    if snapshot.correction_revision != outcome.terminal_correction_revision:
-        raise ValueError(
-            "Simulation snapshot correction revision does not match final outcome: "
-            f"expected {outcome.terminal_correction_revision}, got {snapshot.correction_revision}"
-        )
     snapshot_ids = {cluster.cluster_id for cluster in snapshot.clusters}
     outcome_ids = {cluster.cluster_id for cluster in outcome.clusters}
     _require_exact_ids(outcome_ids, snapshot_ids, label="simulation snapshot")
     if len(snapshot_ids) != len(snapshot.clusters):
         raise ValueError("Simulation snapshot cluster_id values must be unique")
-    expected_values = tuple(
-        (parameter.name, parameter.value) for parameter in outcome.final_nonlinear_parameters
-    )
-    if snapshot.parameter_values != expected_values:
-        raise ValueError("Simulation snapshot nonlinear parameters do not match final outcome")
     for cluster_outcome in outcome.clusters:
         snapshot_cluster = next(
             cluster

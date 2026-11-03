@@ -94,14 +94,15 @@ The existing full-grid simulation delegates to this same path. Shape evaluation
 is chunked; callers bound their output region. No optimization, amplitude solve,
 or parameter-default preparation takes place during visualization.
 
-`engine.scientific.completed.CompletedFit` retains the outcome, the existing model snapshot,
-and owned read-only `FinalClusterSamples` at pipeline completion. Exact paired
+`engine.scientific.completed.CompletedFit` is the one carrier of a completed fit: the
+outcome, the model snapshot (evaluable geometry only; noise, revision and values
+stay in the outcome) and owned read-only `FinalClusterSamples`. Exact paired
 sample coordinates, original observations and terminal neighbor-correction values
-remain distinct from model geometry and analytical outputs. `PipelineResult`
-exposes this record and preserves its `final_outcome`/`simulation_snapshot`
-accessors; `run_fit()` also supplies it through `FitRun.completed_fit`. Existing
-FitRun construction and writers remain supported. Completed parameter/amplitude
-arrays are referenced, never duplicated into the input record. `FittingState`
+remain distinct from model geometry and analytical outputs. `PipelineResult` adds
+only the continuation state, the CLI's `FitRun` the spectra and output directory,
+and the GUI's `DatasetFitResult` the reviewed inputs and run identity; each reads
+the outcome from its `completed_fit`. Completed parameter/amplitude arrays are
+referenced, never duplicated into the input record. `FittingState`
 remains independently mutable. Capturing this numerical record is not a persisted
 session or an MCMC readiness check.
 

@@ -6,11 +6,9 @@ from zipfile import ZipFile
 
 import numpy as np
 import pytest
-from builders import completed_result, two_cluster_dataset
+from builders import completed_result, two_cluster_dataset, write_as_cli
 
-from peakfit.fit import fitting
 from peakfit.fit.pipeline import run_pipeline
-from peakfit.fit.run_models import FitRun
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.io import scientific as storage
@@ -20,8 +18,8 @@ from peakfit.shared.exceptions import ScientificIntegrityError
 
 @pytest.mark.parametrize("formats", [[], ["csv"], ["json", "csv", "txt"]])
 @pytest.mark.parametrize("detailed", [False, True])
-def test_cli_gui_export_scientific_parity(tmp_path, monkeypatch, formats, detailed):
-    spectra, config, pipeline, gui = completed_result(formats, True, detailed)
+def test_cli_gui_export_scientific_parity(tmp_path, formats, detailed):
+    spectra, config, _pipeline, gui = completed_result(formats, True, detailed)
     metadata = RunMetadata(
         run_id=gui.run_id,
         timestamp=gui.completed_at,
@@ -29,21 +27,8 @@ def test_cli_gui_export_scientific_parity(tmp_path, monkeypatch, formats, detail
         configuration=json.loads(gui.inputs.snapshot.configuration),
         run_duration_seconds=gui.execution_seconds,
     )
-    monkeypatch.setattr(fitting, "capture_output_metadata", lambda *_args: metadata)
     cli_dir = tmp_path / "cli"
-    run = FitRun(
-        gui.outcome,
-        pipeline.continuation_state,
-        cli_dir,
-        spectra,
-        gui.simulation_snapshot,
-        gui.completed_fit,
-        tuple(
-            {"engine_name": i.engine_name, "peak_id": i.working_id, "assignment": i.assignment}
-            for i in gui.inputs.identities
-        ),
-    )
-    fitting.write_fit_run_outputs(run, spectra, config, {})
+    write_as_cli(gui, spectra, config, cli_dir, metadata)
     gui_dir = export_fit_result(gui, tmp_path / "gui")
     # Compare all numerical members and metadata byte-for-byte; ZIP timestamps
     # and directory structure are container details, not scientific differences.
