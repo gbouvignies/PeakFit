@@ -1,14 +1,11 @@
 """Utilities for lineshape modules."""
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, TypeGuard
+from typing import TYPE_CHECKING, TypeGuard
 
 import numpy as np
 import numpy.typing as npt
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from peakfit.engine.lineshapes.grid import SpectralGrid
     from peakfit.shared.typing import ComplexArray, FloatArray
 
@@ -20,14 +17,6 @@ _LN2 = np.log(2.0)
 _SQRT_PI_4LN2 = np.sqrt(np.pi / (4.0 * _LN2))
 
 _J_COUPLING_ABS_THRESHOLD_RAD_S = 1e-10
-
-
-@dataclass(frozen=True, slots=True)
-class LineshapeContext:
-    """Optional context for lineshape evaluation and parameter defaults."""
-
-    grid: SpectralGrid | None = None
-    extras: dict[str, Any] = field(default_factory=dict)
 
 
 def get_axis_label(dim_index: int) -> str:
@@ -170,7 +159,7 @@ def apply_phase_with_derivs(
 
 
 def estimate_cs_bounds_ppm(
-    context: LineshapeContext | None,
+    grid: SpectralGrid | None,
     *,
     fwhm_estimate_hz: float = 50.0,
     default_ppm: float = 0.1,
@@ -180,17 +169,9 @@ def estimate_cs_bounds_ppm(
     If a spectral grid is available, the Hz estimate is converted to ppm using
     the grid's spectral parameters. Otherwise a fixed ppm window is returned.
     """
-    if context is None or context.grid is None:
+    if grid is None:
         return default_ppm
-    return float(context.grid.spec_params.hz2ppm(fwhm_estimate_hz))
-
-
-def require_grid(context: LineshapeContext | None, *, shape: str) -> SpectralGrid:
-    """Return the grid from a LineshapeContext or raise a consistent error."""
-    if context is None or context.grid is None:
-        msg = f"{shape} requires LineshapeContext.grid for unit conversions."
-        raise ValueError(msg)
-    return context.grid
+    return float(grid.spec_params.hz2ppm(fwhm_estimate_hz))
 
 
 def doublet_offsets(
@@ -210,28 +191,3 @@ def doublet_offsets(
     dw_plus, sign_plus = grid.compute_offsets(x_arr, pos_plus)
     dw_minus, sign_minus = grid.compute_offsets(x_arr, pos_minus)
     return dw_plus, sign_plus, dw_minus, sign_minus
-
-
-def get_apodization_state(
-    context: LineshapeContext,
-    *,
-    state_key: str,
-    shape: str,
-    make_state: Callable[[float, float, float], dict[str, complex | float]],
-) -> dict[str, complex | float]:
-    """Extract apodization state, preferring cached state or grid parameters."""
-    state = context.extras.get(state_key)
-    if isinstance(state, dict):
-        return state
-
-    if context.grid is not None:
-        spec_params = context.grid.spec_params
-        return make_state(spec_params.aq_time, spec_params.apodq1, spec_params.apodq2)
-
-    aq = context.extras.get("aq")
-    apodq1 = context.extras.get("apodq1")
-    apodq2 = context.extras.get("apodq2")
-    if aq is None or apodq1 is None or apodq2 is None:
-        msg = f"{shape} requires apodization parameters in LineshapeContext."
-        raise ValueError(msg)
-    return make_state(float(aq), float(apodq1), float(apodq2))

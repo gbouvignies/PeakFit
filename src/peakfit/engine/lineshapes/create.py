@@ -4,12 +4,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from peakfit.engine.lineshapes.gaussian.model import Gaussian, GaussianDoublet
-from peakfit.engine.lineshapes.lorentzian.model import Lorentzian, LorentzianDoublet
-from peakfit.engine.lineshapes.no_apod.model import NoApod, NoApodDoublet
-from peakfit.engine.lineshapes.pvoigt.model import PseudoVoigt, PseudoVoigtDoublet
-from peakfit.engine.lineshapes.sp1.model import SP1, SP1Doublet
-from peakfit.engine.lineshapes.sp2.model import SP2, SP2Doublet
+from peakfit.engine.lineshapes.models import (
+    SP1,
+    SP2,
+    Gaussian,
+    GaussianDoublet,
+    Lorentzian,
+    LorentzianDoublet,
+    NoApod,
+    NoApodDoublet,
+    PseudoVoigt,
+    PseudoVoigtDoublet,
+    SP1Doublet,
+    SP2Doublet,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence

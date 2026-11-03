@@ -9,6 +9,12 @@ if TYPE_CHECKING:
     from peakfit.shared.typing import ComplexArray
 
 
+def make_state(aq: float, apodq1: float, apodq2: float) -> dict[str, complex | float]:
+    """Create kernel state for NoApod (just acquisition time)."""
+    del apodq1, apodq2
+    return {"aq": aq}
+
+
 def kernel(dw: npt.ArrayLike, lw: npt.ArrayLike, state: dict[str, Any]) -> ComplexArray:
     """Compute NoApod complex kernel.
 
@@ -51,4 +57,4 @@ def kernel_with_derivs(
     }
 
 
-__all__ = ["kernel", "kernel_with_derivs"]
+__all__ = ["kernel", "kernel_with_derivs", "make_state"]

@@ -423,3 +423,18 @@ Short records of non‑obvious design choices and trade‑offs.
 - A test prepares the bundled example both ways and finds identical noise, threshold,
   cluster membership, sample coordinates and data. Fit digests, the golden regression
   and a three-pass fit are unchanged.
+
+## 2026-11-03: Lineshape models in one module
+- The six `model.py` modules duplicated each other (SP1/SP2 and Gaussian/Lorentzian
+  differed only in names and kernels) and each re-declared the same parameter specs.
+  The twelve classes now live in `engine.lineshapes.models`, built from the
+  templates and `templates.parameter_specs(lw_default, *extras)`; the kernels stay
+  in their packages, and NoApod's `make_state` moved next to its kernel.
+- The module-level `function`/`function_doublet`/`bounds`/`PARAM_NAMES`/`NAME`
+  were used only by tests. The equivalence tests now evaluate the classes, which
+  also covers the no-derivative path used for display and simulation. Without
+  them `LineshapeContext` carried only the grid, so `param_specs` take the grid and
+  `LineshapeContext`, `require_grid` and `get_apodization_state` are removed.
+- Bit-identical: every built-in shape's specs, values and derivatives (with and
+  without derivatives) match byte for byte before and after; fit digests, the
+  golden regression and a three-pass fit match main. No tolerance was relaxed.

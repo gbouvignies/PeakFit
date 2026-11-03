@@ -1,4 +1,4 @@
-"""Equivalence tests for refactored sinebell lineshapes."""
+"""Lineshape classes agree with direct kernel evaluations, with and without derivatives."""
 
 from typing import TYPE_CHECKING
 
@@ -7,47 +7,39 @@ import numpy.testing as npt
 
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
-from peakfit.engine.lineshapes.gaussian import model as gaussian_model
+from peakfit.engine.lineshapes import models
 from peakfit.engine.lineshapes.gaussian.kernel import kernel as gaussian_kernel
 from peakfit.engine.lineshapes.gaussian.kernel import (
     kernel_with_derivs as gaussian_kernel_with_derivs,
 )
 from peakfit.engine.lineshapes.grid import SpectralGrid
-from peakfit.engine.lineshapes.lorentzian import model as lorentzian_model
 from peakfit.engine.lineshapes.lorentzian.kernel import kernel as lorentzian_kernel
 from peakfit.engine.lineshapes.lorentzian.kernel import (
     kernel_with_derivs as lorentzian_kernel_with_derivs,
 )
-from peakfit.engine.lineshapes.no_apod import model as no_apod_model
 from peakfit.engine.lineshapes.no_apod.kernel import kernel as no_apod_kernel
 from peakfit.engine.lineshapes.no_apod.kernel import (
     kernel_with_derivs as no_apod_kernel_with_derivs,
 )
-from peakfit.engine.lineshapes.no_apod.model import make_state as no_apod_make_state
-from peakfit.engine.lineshapes.pvoigt import model as pvoigt_model
+from peakfit.engine.lineshapes.no_apod.kernel import make_state as no_apod_make_state
 from peakfit.engine.lineshapes.pvoigt.kernel import kernel as pvoigt_kernel
 from peakfit.engine.lineshapes.pvoigt.kernel import (
     kernel_with_derivs as pvoigt_kernel_with_derivs,
 )
-from peakfit.engine.lineshapes.sp1 import model as sp1_model
 from peakfit.engine.lineshapes.sp1.kernel import kernel as sp1_kernel
 from peakfit.engine.lineshapes.sp1.kernel import (
     kernel_with_derivs as sp1_kernel_with_derivs,
 )
 from peakfit.engine.lineshapes.sp1.kernel import make_state as sp1_make_state
-from peakfit.engine.lineshapes.sp2 import model as sp2_model
 from peakfit.engine.lineshapes.sp2.kernel import kernel as sp2_kernel
 from peakfit.engine.lineshapes.sp2.kernel import (
     kernel_with_derivs as sp2_kernel_with_derivs,
 )
 from peakfit.engine.lineshapes.sp2.kernel import make_state as sp2_make_state
 from peakfit.engine.lineshapes.utils import (
-    LineshapeContext,
     apply_phase,
     apply_phase_with_derivs,
     doublet_offsets,
-    get_apodization_state,
-    require_grid,
 )
 from peakfit.engine.types import ClusterParameters
 
@@ -117,23 +109,12 @@ def _reference_singlet_function(
     lw: np.ndarray,
     phase: np.ndarray,
     *,
-    context: LineshapeContext,
+    grid: SpectralGrid,
     kernel: Callable,
-    make_state: Callable,
-    state_key: str,
-    shape_label: str,
+    state: dict,
 ) -> np.ndarray:
-    state = get_apodization_state(
-        context,
-        state_key=state_key,
-        shape=shape_label,
-        make_state=make_state,
-    )
-    grid = require_grid(context, shape=f"{shape_label} singlet")
     dw_hz, sign = grid.compute_offsets(x, cs)
-    z_values = kernel(dw_hz, lw, state)
-    values = apply_phase(z_values, phase)
-    return sign * values
+    return sign * apply_phase(kernel(dw_hz, lw, state), phase)
 
 
 def _reference_doublet_function(
@@ -143,19 +124,10 @@ def _reference_doublet_function(
     j: np.ndarray,
     phase: np.ndarray,
     *,
-    context: LineshapeContext,
+    grid: SpectralGrid,
     kernel: Callable,
-    make_state: Callable,
-    state_key: str,
-    shape_label: str,
+    state: dict,
 ) -> np.ndarray:
-    state = get_apodization_state(
-        context,
-        state_key=state_key,
-        shape=shape_label,
-        make_state=make_state,
-    )
-    grid = require_grid(context, shape=f"{shape_label} doublet")
     dw_p, sign_p, dw_m, sign_m = doublet_offsets(x, cs, j, grid)
     z_values = sign_p * kernel(dw_p, lw, state) + sign_m * kernel(dw_m, lw, state)
     return apply_phase(z_values, phase)
@@ -259,75 +231,45 @@ def _assert_derivs_close(
 
 
 def test_sp1_sp2_singlet_function_equivalence() -> None:
-    grid = _make_grid()
-    context = LineshapeContext(grid=grid)
+    spectra = _make_spectra()
+    grid = SpectralGrid(spectra, 1)
     x = np.arange(grid.spec_params.size, dtype=np.float64)
     cs, lw, _, phase, _ = _make_params()
+    config = FitConfig(fit_phase=[grid.axis_label])
+    params = ClusterParameters(extras={"cs": cs, "lw": lw, "phase": phase})
 
-    expected_sp1 = _reference_singlet_function(
-        x,
-        cs,
-        lw,
-        phase,
-        context=context,
-        kernel=sp1_kernel,
-        make_state=sp1_make_state,
-        state_key="sp1_state",
-        shape_label="SP1",
-    )
-    actual_sp1 = sp1_model.function(x, cs, lw, phase, context=context)
-    _assert_values_close(actual_sp1, expected_sp1)
-
-    expected_sp2 = _reference_singlet_function(
-        x,
-        cs,
-        lw,
-        phase,
-        context=context,
-        kernel=sp2_kernel,
-        make_state=sp2_make_state,
-        state_key="sp2_state",
-        shape_label="SP2",
-    )
-    actual_sp2 = sp2_model.function(x, cs, lw, phase, context=context)
-    _assert_values_close(actual_sp2, expected_sp2)
+    for shape, kernel, make_state in (
+        (models.SP1("P1", cs[0], spectra, 1, config), sp1_kernel, sp1_make_state),
+        (models.SP2("P2", cs[0], spectra, 1, config), sp2_kernel, sp2_make_state),
+    ):
+        state = make_state(
+            grid.spec_params.aq_time, grid.spec_params.apodq1, grid.spec_params.apodq2
+        )
+        expected = _reference_singlet_function(
+            x, cs, lw, phase, grid=grid, kernel=kernel, state=state
+        )
+        _assert_values_close(shape.evaluate_cluster(x, params).values, expected)
 
 
 def test_sp1_sp2_doublet_function_equivalence() -> None:
-    grid = _make_grid()
-    context = LineshapeContext(grid=grid)
+    spectra = _make_spectra()
+    grid = SpectralGrid(spectra, 1)
     x = np.arange(grid.spec_params.size, dtype=np.float64)
     cs, lw, j, phase, _ = _make_params()
+    config = FitConfig(fit_phase=[grid.axis_label])
+    params = ClusterParameters(extras={"cs": cs, "lw": lw, "j": j, "phase": phase})
 
-    expected_sp1 = _reference_doublet_function(
-        x,
-        cs,
-        lw,
-        j,
-        phase,
-        context=context,
-        kernel=sp1_kernel,
-        make_state=sp1_make_state,
-        state_key="sp1_state",
-        shape_label="SP1",
-    )
-    actual_sp1 = sp1_model.function_doublet(x, cs, lw, j, phase, context=context)
-    _assert_values_close(actual_sp1, expected_sp1)
-
-    expected_sp2 = _reference_doublet_function(
-        x,
-        cs,
-        lw,
-        j,
-        phase,
-        context=context,
-        kernel=sp2_kernel,
-        make_state=sp2_make_state,
-        state_key="sp2_state",
-        shape_label="SP2",
-    )
-    actual_sp2 = sp2_model.function_doublet(x, cs, lw, j, phase, context=context)
-    _assert_values_close(actual_sp2, expected_sp2)
+    for shape, kernel, make_state in (
+        (models.SP1Doublet("P1", cs[0], spectra, 1, config), sp1_kernel, sp1_make_state),
+        (models.SP2Doublet("P2", cs[0], spectra, 1, config), sp2_kernel, sp2_make_state),
+    ):
+        state = make_state(
+            grid.spec_params.aq_time, grid.spec_params.apodq1, grid.spec_params.apodq2
+        )
+        expected = _reference_doublet_function(
+            x, cs, lw, j, phase, grid=grid, kernel=kernel, state=state
+        )
+        _assert_values_close(shape.evaluate_cluster(x, params).values, expected)
 
 
 def test_sp1_sp2_singlet_derivatives_equivalence() -> None:
@@ -337,8 +279,8 @@ def test_sp1_sp2_singlet_derivatives_equivalence() -> None:
     cs, lw, _, phase, _ = _make_params()
 
     config = FitConfig(fit_phase=[grid.axis_label])
-    sp1_shape = sp1_model.SP1("P1", cs[0], spectra, 1, config)
-    sp2_shape = sp2_model.SP2("P2", cs[0], spectra, 1, config)
+    sp1_shape = models.SP1("P1", cs[0], spectra, 1, config)
+    sp2_shape = models.SP2("P2", cs[0], spectra, 1, config)
 
     cluster_params = ClusterParameters(extras={"cs": cs, "lw": lw, "phase": phase})
 
@@ -388,8 +330,8 @@ def test_sp1_sp2_doublet_derivatives_equivalence() -> None:
     cs, lw, j, phase, _ = _make_params()
 
     config = FitConfig(fit_phase=[grid.axis_label])
-    sp1_shape = sp1_model.SP1Doublet("P1", cs[0], spectra, 1, config)
-    sp2_shape = sp2_model.SP2Doublet("P2", cs[0], spectra, 1, config)
+    sp1_shape = models.SP1Doublet("P1", cs[0], spectra, 1, config)
+    sp2_shape = models.SP2Doublet("P2", cs[0], spectra, 1, config)
 
     cluster_params = ClusterParameters(extras={"cs": cs, "lw": lw, "j": j, "phase": phase})
 
@@ -435,64 +377,48 @@ def test_sp1_sp2_doublet_derivatives_equivalence() -> None:
 
 
 def test_real_doublet_function_equivalence() -> None:
-    grid = _make_grid()
-    context = LineshapeContext(grid=grid)
+    spectra = _make_spectra()
+    grid = SpectralGrid(spectra, 1)
     x = np.arange(grid.spec_params.size, dtype=np.float64)
     cs, lw, j, _, eta = _make_params()
+    config = FitConfig()
 
-    expected_gauss = _reference_real_doublet_values(
-        x,
-        cs,
-        j,
-        grid=grid,
-        kernel=gaussian_kernel,
-        kernel_args=(lw,),
-    )
-    actual_gauss = gaussian_model.function_doublet(x, cs, lw, j, context=context)
-    _assert_values_close(actual_gauss, expected_gauss)
-
-    expected_lorentz = _reference_real_doublet_values(
-        x,
-        cs,
-        j,
-        grid=grid,
-        kernel=lorentzian_kernel,
-        kernel_args=(lw[None, :],),
-    )
-    actual_lorentz = lorentzian_model.function_doublet(x, cs, lw, j, context=context)
-    _assert_values_close(actual_lorentz, expected_lorentz)
-
-    expected_pvoigt = _reference_real_doublet_values(
-        x,
-        cs,
-        j,
-        grid=grid,
-        kernel=pvoigt_kernel,
-        kernel_args=(lw[None, :], eta),
-    )
-    actual_pvoigt = pvoigt_model.function_doublet(x, cs, lw, eta, j, context=context)
-    _assert_values_close(actual_pvoigt, expected_pvoigt)
+    for shape, extras, kernel, kernel_args in (
+        (models.GaussianDoublet("P1", cs[0], spectra, 1, config), {}, gaussian_kernel, (lw,)),
+        (
+            models.LorentzianDoublet("P2", cs[0], spectra, 1, config),
+            {},
+            lorentzian_kernel,
+            (lw[None, :],),
+        ),
+        (
+            models.PseudoVoigtDoublet("P3", cs[0], spectra, 1, config),
+            {"eta": eta},
+            pvoigt_kernel,
+            (lw[None, :], eta),
+        ),
+    ):
+        params = ClusterParameters(extras={"cs": cs, "lw": lw, "j": j, **extras})
+        expected = _reference_real_doublet_values(
+            x, cs, j, grid=grid, kernel=kernel, kernel_args=kernel_args
+        )
+        _assert_values_close(shape.evaluate_cluster(x, params).values, expected)
 
 
 def test_no_apod_doublet_function_equivalence() -> None:
-    grid = _make_grid()
-    context = LineshapeContext(grid=grid)
+    spectra = _make_spectra()
+    grid = SpectralGrid(spectra, 1)
     x = np.arange(grid.spec_params.size, dtype=np.float64)
     cs, lw, j, phase, _ = _make_params()
-    aq = grid.spec_params.aq_time
-    state = no_apod_make_state(aq, 0.0, 0.0)
+    state = no_apod_make_state(grid.spec_params.aq_time, 0.0, 0.0)
+    shape = models.NoApodDoublet("P1", cs[0], spectra, 1, FitConfig(fit_phase=[grid.axis_label]))
+    params = ClusterParameters(extras={"cs": cs, "lw": lw, "j": j, "phase": phase})
 
     z_values = _reference_real_doublet_values(
-        x,
-        cs,
-        j,
-        grid=grid,
-        kernel=no_apod_kernel,
-        kernel_args=(lw, state),
+        x, cs, j, grid=grid, kernel=no_apod_kernel, kernel_args=(lw, state)
     )
     expected = apply_phase(z_values, phase)
-    actual = no_apod_model.function_doublet(x, cs, lw, j, phase, context=context)
-    _assert_values_close(actual, expected)
+    _assert_values_close(shape.evaluate_cluster(x, params).values, expected)
 
 
 def test_real_doublet_derivatives_equivalence() -> None:
@@ -502,15 +428,15 @@ def test_real_doublet_derivatives_equivalence() -> None:
     cs, lw, j, _, eta = _make_params()
 
     config = FitConfig()
-    gaussian_shape = gaussian_model.GaussianDoublet("P1", cs[0], spectra, 1, config)
-    lorentz_shape = lorentzian_model.LorentzianDoublet(
+    gaussian_shape = models.GaussianDoublet("P1", cs[0], spectra, 1, config)
+    lorentz_shape = models.LorentzianDoublet(
         "P2",
         cs[0],
         spectra,
         1,
         config,
     )
-    pvoigt_shape = pvoigt_model.PseudoVoigtDoublet("P3", cs[0], spectra, 1, config)
+    pvoigt_shape = models.PseudoVoigtDoublet("P3", cs[0], spectra, 1, config)
 
     gaussian_params = ClusterParameters(extras={"cs": cs, "lw": lw, "j": j})
     lorentz_params = ClusterParameters(extras={"cs": cs, "lw": lw, "j": j})
@@ -587,7 +513,7 @@ def test_no_apod_doublet_derivatives_equivalence() -> None:
     state = no_apod_make_state(aq, 0.0, 0.0)
 
     config = FitConfig(fit_phase=[grid.axis_label])
-    no_apod_shape = no_apod_model.NoApodDoublet("P1", cs[0], spectra, 1, config)
+    no_apod_shape = models.NoApodDoublet("P1", cs[0], spectra, 1, config)
     cluster_params = ClusterParameters(extras={"cs": cs, "lw": lw, "j": j, "phase": phase})
 
     result = no_apod_shape.evaluate_cluster(x, cluster_params, compute_derivs=True)

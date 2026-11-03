@@ -31,14 +31,19 @@ import numpy as np
 
 from peakfit.engine.lineshapes.base import ShapeBase
 from peakfit.engine.lineshapes.doublet import doublet_kernel, doublet_kernel_with_derivs
-from peakfit.engine.lineshapes.utils import apply_phase, apply_phase_with_derivs
-from peakfit.engine.types import ClusterParameters, LineshapeResult
+from peakfit.engine.lineshapes.utils import (
+    apply_phase,
+    apply_phase_with_derivs,
+    estimate_cs_bounds_ppm,
+)
+from peakfit.engine.types import ClusterParameters, LineshapeResult, ParamSpec
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from peakfit.engine.domain.config import FitConfig
     from peakfit.engine.domain.spectrum import Spectra
+    from peakfit.engine.lineshapes.grid import SpectralGrid
     from peakfit.shared.typing import ComplexArray, FloatArray
 
     # Type aliases for kernel functions
@@ -49,6 +54,43 @@ if TYPE_CHECKING:
     PhasedKernelWithDerivsFn = Callable[..., tuple[ComplexArray, dict[str, ComplexArray]]]
 
     StateFactory = Callable[[float, float, float], dict[str, complex | float]]
+
+
+# =============================================================================
+# Parameter specifications
+# =============================================================================
+
+# Bounds and defaults of the parameters that follow ``cs`` and ``lw``.
+_EXTRA_SPECS: dict[str, tuple[float, float, float, str]] = {
+    "eta": (0.5, -1.0, 1.0, ""),
+    "j": (5.0, 1.0, 10.0, "Hz"),
+    "phase": (0.0, -15.0, 15.0, "deg"),
+}
+
+
+def parameter_specs(
+    lw_default: float, *extras: str
+) -> Callable[[float, SpectralGrid | None], tuple[ParamSpec, ...]]:
+    """Specs for ``cs``, ``lw`` (starting at ``lw_default`` Hz), then ``extras`` in order.
+
+    ``cs`` may move about one 50 Hz linewidth from its start; ``lw`` spans 0.1-200 Hz.
+    """
+
+    def specs(center: float, grid: SpectralGrid | None = None) -> tuple[ParamSpec, ...]:
+        window = estimate_cs_bounds_ppm(grid)
+        return (
+            ParamSpec(
+                name="cs",
+                default=center,
+                min_val=center - window,
+                max_val=center + window,
+                unit="ppm",
+            ),
+            ParamSpec(name="lw", default=lw_default, min_val=0.1, max_val=200.0, unit="Hz"),
+            *(ParamSpec(name, *_EXTRA_SPECS[name]) for name in extras),
+        )
+
+    return specs
 
 
 # =============================================================================
@@ -333,4 +375,5 @@ __all__ = [
     "PhasedSingletBase",
     "SimpleDoubletBase",
     "SimpleSingletBase",
+    "parameter_specs",
 ]
