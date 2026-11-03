@@ -178,12 +178,19 @@ def test_corrupt_and_unsupported_project_rejected(analysis, tmp_path):
 
 @pytest.mark.parametrize(
     ("damage", "detail"),
-    [("missing", "missing field 'source'"), ("mistyped", "string indices must be integers")],
+    [
+        ("missing", "missing field 'source'"),
+        ("mistyped", "string indices must be integers"),
+        ("not_an_object", "the manifest is not a JSON object"),
+    ],
 )
 def test_damaged_project_names_the_project_and_the_next_step(analysis, tmp_path, damage, detail):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     manifest = json.loads((path / "manifest.json").read_text())
-    manifest["dataset"] = {} if damage == "missing" else "dataset"
+    if damage == "not_an_object":
+        manifest = [manifest]
+    else:
+        manifest["dataset"] = {} if damage == "missing" else "dataset"
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ScientificIntegrityError) as error:
         open_analysis(path)
@@ -192,6 +199,19 @@ def test_damaged_project_names_the_project_and_the_next_step(analysis, tmp_path,
     assert "test.peakfit" in message
     assert detail in message
     assert message.endswith("open the spectrum and peak list as a new analysis.")
+
+
+def test_project_reader_defects_are_not_reported_as_damaged_projects(
+    analysis, tmp_path, monkeypatch
+):
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+
+    def broken(_self):
+        raise AttributeError("reader defect")
+
+    monkeypatch.setattr(project.StoredRun, "load", broken)
+    with pytest.raises(AttributeError, match="reader defect"):
+        open_analysis(path)
 
 
 def test_project_recording_a_removed_config_key_is_rejected_by_version(analysis, tmp_path):

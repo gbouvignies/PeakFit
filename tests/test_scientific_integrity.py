@@ -80,12 +80,18 @@ def _rewrite(path, change):
             archive.writestr(name, payload)
 
 
+def _wrap(container, key):
+    container[key] = [container[key]]
+
+
 @pytest.mark.parametrize(
     ("damage", "detail"),
     [
         ("truncated", "File is not a zip file"),
         ("missing", "missing field 'statistics'"),
-        ("mistyped", "must be a mapping"),
+        ("mistyped", "malformed field"),
+        ("not_a_record", "Malformed cluster record"),
+        ("not_an_array", "Malformed shapes array"),
         ("inconsistent", "Recorded chi-squared disagrees"),
     ],
 )
@@ -98,6 +104,13 @@ def test_damaged_archive_names_the_file_and_the_next_step(tmp_path, damage, deta
         _rewrite(archive, lambda d: d["outcome"].pop("statistics"))
     elif damage == "mistyped":
         _rewrite(archive, lambda d: d["outcome"].update(statistics="none"))
+    elif damage == "not_a_record":
+        # Wrapped, not removed, so every array member stays referenced.
+        _rewrite(archive, lambda d: _wrap(d["outcome"]["clusters"], 0))
+    elif damage == "not_an_array":
+        _rewrite(
+            archive, lambda d: _wrap(d["outcome"]["clusters"][0]["analytical_evaluation"], "shapes")
+        )
     else:
 
         def chi_squared(document):
@@ -112,3 +125,19 @@ def test_damaged_archive_names_the_file_and_the_next_step(tmp_path, damage, deta
     assert "scientific.npz" in message
     assert detail in message
     assert message.endswith("Refit the dataset, or restore an intact copy of the file.")
+
+
+@pytest.mark.parametrize(
+    ("target", "defect"),
+    [("_validate_science", AttributeError), ("freeze_provenance", IndexError)],
+)
+def test_reader_defects_are_not_reported_as_damaged_archives(tmp_path, monkeypatch, target, defect):
+    _, _, _, result = completed_result([], False, True)
+    archive = export_fit_result(result, tmp_path / "results") / "scientific.npz"
+
+    def broken(*_args):
+        raise defect("reader defect")
+
+    monkeypatch.setattr(scientific, target, broken)
+    with pytest.raises(defect, match="reader defect"):
+        scientific.read_scientific(archive)

@@ -36,6 +36,13 @@ from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
 VERSION = "5.0.0"
+_RESULT_ARRAYS = (
+    "shapes",
+    "amplitudes",
+    "amplitude_standard_errors",
+    "amplitude_covariance",
+    "scaled_amplitude_standard_errors",
+)
 MAX_METADATA_BYTES = 16 * 1024**2
 MAX_ARRAY_BYTES = 8 * 1024**3
 _SAMPLE_DIMENSIONS = 2
@@ -142,28 +149,48 @@ def write_scientific(
 def read_scientific(path):
     """Validate bounded untrusted evidence and restore one immutable outcome.
 
-    Any malformed, damaged or other-version archive raises
-    ``ScientificIntegrityError`` naming the file and what to do next.
+    A malformed, damaged or other-version archive raises ``ScientificIntegrityError``
+    naming the file and what to do next, chained to the original error. Besides the
+    reader's own ``ValueError`` checks, only what malformed input raises is caught:
+    a damaged ZIP or float encoding, a missing field (``KeyError``) or a wrongly typed
+    value (``TypeError``). Records and arrays are type-checked before their methods
+    and attributes are used, so ``AttributeError``, ``IndexError`` and anything else
+    can only be a defect and propagate unchanged.
     """
     try:
         return _read_scientific(path)
-    except (
-        BadZipFile,
-        KeyError,
-        TypeError,
-        IndexError,
-        AttributeError,
-        struct.error,
-        ValueError,
-    ) as error:
-        detail = f"missing field {error}" if isinstance(error, KeyError) else str(error)
-        raise ScientificIntegrityError(
-            f"Cannot read scientific archive {format_path(path)}: {detail.rstrip('.')}. "
-            "Refit the dataset, or restore an intact copy of the file."
-        ) from error
+    except (BadZipFile, struct.error, KeyError, TypeError, ValueError) as error:
+        raise _unreadable(path, error) from error
 
 
-def _read_scientific(path):  # noqa: PLR0915
+def _unreadable(path, error):
+    if isinstance(error, KeyError):
+        detail = f"missing field {error}"
+    elif isinstance(error, TypeError):
+        detail = f"malformed field ({error})"
+    else:
+        detail = str(error).rstrip(".")
+    return ScientificIntegrityError(
+        f"Cannot read scientific archive {format_path(path)}: {detail}. "
+        "Refit the dataset, or restore an intact copy of the file."
+    )
+
+
+def _record(value, name):
+    """A decoded JSON object, checked before dict methods are used on it."""
+    if not isinstance(value, dict):
+        raise ValueError(f"Malformed {name} record")
+    return value
+
+
+def _array(value, name):
+    """A decoded array member, checked before array attributes are used on it."""
+    if not isinstance(value, np.ndarray):
+        raise ValueError(f"Malformed {name} array")
+    return value
+
+
+def _read_scientific(path):  # noqa: PLR0912, PLR0915
     with ZipFile(path) as archive:
         members = archive.infolist()
         names = [m.filename for m in members]
@@ -173,7 +200,7 @@ def _read_scientific(path):  # noqa: PLR0915
             raise ValueError("Scientific metadata exceeds the reader limit.")
         if sum(m.file_size for m in members) > MAX_ARRAY_BYTES:
             raise ValueError("Expanded scientific arrays exceed the reader limit.")
-        document = json.loads(archive.read("metadata.json"))
+        document = _record(json.loads(archive.read("metadata.json")), "metadata")
         used = {"metadata.json"}
 
         def decode(value):  # noqa: PLR0911
@@ -184,7 +211,7 @@ def _read_scientific(path):  # noqa: PLR0915
             if set(value) == {"set"}:
                 return frozenset(decode(v) for v in value["set"])
             if set(value) == {"mapping"}:
-                return {k: decode(v) for k, v in value["mapping"].items()}
+                return {k: decode(v) for k, v in _record(value["mapping"], "mapping").items()}
             if set(value) == {"float"}:
                 return struct.unpack(">d", bytes.fromhex(value["float"]))[0]
             if set(value) == {"array", "dtype", "shape"}:
@@ -213,33 +240,40 @@ def _read_scientific(path):  # noqa: PLR0915
     samples = tuple(
         FinalClusterInputs(
             s["cluster_id"],
-            tuple(s["grid_indices"]),
-            s["neighbor_corrections"],
+            tuple(_array(i, "sample coordinate") for i in s["grid_indices"]),
+            _array(s["neighbor_corrections"], "neighbor correction"),
             s["observation_sha256"],
             s["observation_dtype"],
         )
         if evidence == "results"
         else FinalClusterSamples(
-            s["cluster_id"], tuple(s["grid_indices"]), s["data"], s["neighbor_corrections"]
+            s["cluster_id"],
+            tuple(_array(i, "sample coordinate") for i in s["grid_indices"]),
+            _array(s["data"], "sample observation"),
+            _array(s["neighbor_corrections"], "neighbor correction"),
         )
         for s in decoded["samples"]
     )
-    raw = decoded["outcome"]
+    raw = _record(decoded["outcome"], "outcome")
     clusters = []
-    for index, c in enumerate(raw.pop("clusters")):
+    for index, record in enumerate(raw.pop("clusters")):
+        c = _record(record, "cluster")
         c["peak_names"] = tuple(c["peak_names"])
         c["classification"] = FitOutcomeClassification(c["classification"])
         c["final_nonlinear_parameters"] = tuple(
             FinalParameter(**p) for p in c["final_nonlinear_parameters"]
         )
-        p = c["optimizer_provenance"]
-        p["metadata"] = freeze_provenance(p["metadata"])
+        p = _record(c["optimizer_provenance"], "optimizer provenance")
+        p["metadata"] = freeze_provenance(_record(p["metadata"], "provenance metadata"))
         c["optimizer_provenance"] = OptimizerProvenance(**p)
         e = c["analytical_evaluation"]
         if e is not None:
+            e = _record(e, "analytical evaluation")
+            for name in (*_RESULT_ARRAYS, *(("model_values",) if evidence != "results" else ())):
+                _array(e[name], name.replace("_", " "))
             e["statistics"] = AnalyticalFitStatistics(**e["statistics"])
             if evidence == "detailed":
-                sample = samples[index]
+                sample = samples[index] if index < len(samples) else None
                 if not isinstance(sample, FinalClusterSamples):
                     raise ValueError("Missing detailed sample observations.")
                 residual = sample.data - sample.neighbor_corrections - e["model_values"]
@@ -266,9 +300,10 @@ def _read_scientific(path):  # noqa: PLR0915
         final_nonlinear_parameters=tuple(parameters),
         **raw,
     )
+    context = _record(decoded["context"], "context")
     _validate_science(outcome, samples)
-    _validate_context(outcome, samples, decoded["context"])
-    return outcome, samples, decoded["context"]
+    _validate_context(outcome, samples, context)
+    return outcome, samples, context
 
 
 def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
@@ -431,10 +466,10 @@ def _validate_context(outcome, samples, context):  # noqa: PLR0912
     if not context:
         return
     shape = tuple(context["data_shape"])
-    planes = context["plane_values"]
+    planes = _array(context["plane_values"], "plane value")
     if planes.shape != (shape[0],) or not np.all(np.isfinite(planes)):
         raise ValueError("Invalid scientific plane mapping.")
-    source_indices = context["source_plane_indices"]
+    source_indices = _array(context["source_plane_indices"], "source plane index")
     if (
         source_indices.shape != planes.shape
         or source_indices.dtype.kind not in "iu"
@@ -458,13 +493,14 @@ def _validate_context(outcome, samples, context):  # noqa: PLR0912
     coordinate_keys = {"export_state", "coordinate_table"}
     if not coordinate_keys <= context.keys():
         raise ValueError("Missing scientific coordinate/export-state context.")
-    state = context["export_state"]
+    state = _record(context["export_state"], "export state")
     if (
         set(state) != {"scope", "currentness", "adoption_warnings"}
         or state["scope"] not in {"dataset", "cluster"}
         or state["currentness"] not in {"current", "outdated", "unknown", "not_applicable"}
     ):
         raise ValueError("Invalid scientific export-time state.")
+    _record(_record(context["coordinate_table"], "coordinate table")["peaks"], "coordinate peaks")
     validate_coordinate_table(context["coordinate_table"], outcome, context)
     for sample in samples:
         if (

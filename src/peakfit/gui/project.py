@@ -426,7 +426,7 @@ def _validate_run_files(root, entry):
         raise ValueError("Project evidence directories must not be symbolic links.")
     if set(entry["files"]) != {"review.json", "result.npz"}:
         raise ValueError("Invalid project run payload list.")
-    for name, info in entry["files"].items():
+    for name, info in _object(entry["files"], "a run file list").items():
         path = directory / name
         if (
             path.is_symlink()
@@ -469,13 +469,15 @@ def open_analysis(
 ) -> Analysis:
     """Verify retained numerical evidence and the explicitly linked spectrum.
 
-    A manifest or run record with missing or mistyped fields raises
-    ``ScientificIntegrityError`` naming the project and what to do next.
+    A manifest or run record with a missing field (``KeyError``) or a wrongly typed
+    value (``TypeError``) raises ``ScientificIntegrityError`` naming the project and
+    what to do next. JSON objects are checked before dict methods are used on them,
+    so ``AttributeError`` and other exceptions can only be defects and propagate.
     """
     path = path.resolve()
     try:
         return _open_analysis(path, relink=relink, progress=progress, canceled=canceled)
-    except (KeyError, TypeError, IndexError, AttributeError) as error:
+    except (KeyError, TypeError) as error:
         detail = f"missing field {error}" if isinstance(error, KeyError) else str(error)
         raise ScientificIntegrityError(
             f"Cannot open analysis {format_path(path)}: {detail}. The project is damaged; "
@@ -483,8 +485,15 @@ def open_analysis(
         ) from error
 
 
+def _object(value, name):
+    """A decoded JSON object, checked before dict methods are used on it."""
+    if not isinstance(value, dict):
+        raise TypeError(f"{name} is not a JSON object")
+    return value
+
+
 def _open_analysis(path, *, relink, progress, canceled):
-    manifest = _read_json(path / "manifest.json")
+    manifest = _object(_read_json(path / "manifest.json"), "the manifest")
     if manifest.get("schema_version") != VERSION or manifest.get("kind") != "peakfit_analysis":
         raise ValueError(f"Unsupported analysis version: {manifest.get('schema_version')!r}")
     allowed = {
@@ -507,7 +516,8 @@ def _open_analysis(path, *, relink, progress, canceled):
     entries = manifest["runs"]
     if len({r["run_id"] for r in entries}) != len(entries):
         raise ValueError("Invalid retained run list.")
-    if sum(f["bytes"] for r in entries for f in r["files"].values()) > MAX_ARCHIVE_BYTES:
+    files = (_object(r["files"], "a run file list") for r in entries)
+    if sum(f["bytes"] for listed in files for f in listed.values()) > MAX_ARCHIVE_BYTES:
         raise ValueError("Project evidence exceeds the 8 GiB reader limit.")
     # Check every immutable payload, but decode numerical arrays only for the active run.
     for entry in entries:
