@@ -7,7 +7,6 @@ import numpy as np
 from peakfit.engine.domain.param_id import ParameterId
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.lineshapes.grid import SpectralGrid
-from peakfit.engine.lineshapes.utils import LineshapeContext
 from peakfit.engine.types import ClusterParameters, ParamSpec
 
 if TYPE_CHECKING:
@@ -23,7 +22,7 @@ class ShapeBase:
     """Shared helpers for lineshape implementations."""
 
     shape_name: ClassVar[str]
-    param_specs: ClassVar[Callable[[float, LineshapeContext | None], tuple[ParamSpec, ...]]]
+    param_specs: ClassVar[Callable[[float, SpectralGrid | None], tuple[ParamSpec, ...]]]
     phase_param_name: ClassVar[str] = "phase"
 
     def __init__(
@@ -63,13 +62,9 @@ class ShapeBase:
         del params
         return f"# Shape: {self.name} ({self.shape_name})"
 
-    def _param_context_extras(self) -> dict[str, Any]:
-        return {}
-
     def get_parameter_spec(self) -> list[ParamSpec]:
         """Get parameter specs for this shape."""
-        context = LineshapeContext(grid=self._grid, extras=self._param_context_extras())
-        return list(self.param_specs(self.center, context))
+        return list(self.param_specs(self.center, self._grid))
 
     def _parameter_id(self, label: str) -> ParameterId | None:
         if label == self.phase_param_name:

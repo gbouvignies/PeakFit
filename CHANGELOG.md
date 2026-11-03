@@ -75,6 +75,11 @@ Notable user-facing and architecture changes are recorded here.
 - The CLI and GUI prepare a fit through one function, `prepare_clusters` (noise,
   clustering threshold, clusters). A clustering threshold that is not positive and
   finite, for example `--contour -5`, is now rejected before fitting by the CLI too.
+- Consolidated the lineshape models: the twelve shape classes live in
+  `engine.lineshapes.models` with one parameter-spec helper; each lineshape package
+  keeps only its kernel. Removed the test-only module functions (`function`,
+  `function_doublet`, `bounds`, `PARAM_NAMES`) and the unused `LineshapeContext`,
+  `require_grid` and `get_apodization_state`. Numerically bit-identical.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.
