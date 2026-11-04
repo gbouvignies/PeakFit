@@ -23,19 +23,24 @@ if TYPE_CHECKING:
     from peakfit.engine.scientific.completed import CompletedFit
     from peakfit.shared.typing import FloatArray
 
-# Directions of the shape matrix weaker than this, relative to the strongest, leave
-# the amplitudes they involve undetermined. It is the threshold at which the fit
-# itself withholds its amplitude covariance (``factorize_shapes``).
-_WEAK = float(np.sqrt(np.finfo(float).eps))
+_EPS = float(np.finfo(float).eps)
+# Directions of the shape matrix at or below this fraction of the strongest are weak:
+# the fit itself withholds its amplitude covariance there (``factorize_shapes``).
+_WEAK = float(np.sqrt(_EPS))
+# A determined amplitude may owe at most this fraction of its conditional variance
+# to weak directions, which the draws omit: its standard deviation is then
+# understated by at most 1 - sqrt(1 - 1e-4), 0.005%.
+_WEAK_SHARE = 1e-4
 
 
 @dataclass(frozen=True)
 class ConditionalAmplitudes:
     """Every plane's amplitudes given θ: N(mean, scale @ scaleᵀ), independently.
 
-    ``scale`` spans only the well-determined directions of the shapes. A peak that
-    loads on a weak direction is not ``determined``: its amplitude is improper, or
-    not reliably computable, along that direction, so it is never drawn.
+    ``scale`` spans only the strong directions of the shapes. A peak is not
+    ``determined`` when its amplitude is improper (it loads on a null direction) or
+    when weak directions, which cannot be computed reliably, carry a non-negligible
+    share of its variance. Such an amplitude is never drawn.
     """
 
     log_likelihood: float
@@ -54,19 +59,38 @@ class ConditionalAmplitudes:
 def conditional_amplitudes(
     shapes: FloatArray, data: FloatArray, noise: float
 ) -> ConditionalAmplitudes:
-    """The profile log-likelihood and the conditional amplitude distribution at θ."""
+    """The profile log-likelihood and the conditional amplitude distribution at θ.
+
+    The amplitude covariance is σ² Σᵢ vᵢvᵢᵀ / sᵢ² over the right singular vectors vᵢ
+    of the shapes. A peak's amplitude is determined only if:
+
+    - it has no loading above √ε on the null space: the directions below the fit's
+      rank cutoff, and those a reduced SVD omits when there are fewer points than
+      peaks;
+    - weak directions (sᵢ ≤ √ε·s₁) contribute at most ``_WEAK_SHARE`` of its variance.
+      A contribution scales as (vₖᵢ/sᵢ)², so a tiny loading can still dominate.
+    """
     projection = factorize_shapes(shapes)
     mean = projection.solve(data)
     residuals = data - shapes.T @ mean
-    singular = projection.singular_values
+    rank = projection.rank
+    singular = projection.singular_values[:rank]
+    directions = projection.directions
+    # Squared loading on the null space: the rows below the rank cutoff, plus the
+    # complement of every computed row when the SVD has fewer rows than peaks.
+    null = np.sum(directions[rank:] ** 2, axis=0)
+    if directions.shape[0] < shapes.shape[0]:
+        null += np.clip(1.0 - np.sum(directions**2, axis=0), 0.0, None)
+    retained = directions[:rank]
+    variance = (retained / singular[:, None]) ** 2  # (direction, peak) contributions
     weak = singular <= _WEAK * singular[0]
-    loads = np.abs(projection.directions[weak]) > _WEAK
-    strong = projection.directions[~weak]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        weak_share = variance[weak].sum(axis=0) / variance.sum(axis=0)
     return ConditionalAmplitudes(
         log_likelihood=float(-0.5 * np.sum((residuals / noise) ** 2)),
         mean=mean,
-        scale=noise * strong.T / singular[~weak],
-        determined=~np.any(loads, axis=0),
+        scale=noise * retained[~weak].T / singular[~weak],
+        determined=(null <= _EPS) & (weak_share <= _WEAK_SHARE),
     )
 
 

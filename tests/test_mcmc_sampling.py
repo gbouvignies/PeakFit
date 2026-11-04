@@ -7,6 +7,7 @@ import pytest
 from builders import completed_result, peak_pair
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+from peakfit.engine.algorithms.linear_algebra import factorize_shapes
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.scientific.sampling import conditional_amplitudes, sampling_problem
 from peakfit.fit.pipeline import run_pipeline
@@ -186,6 +187,48 @@ def test_v7_nearly_coincident_shapes_are_undetermined_although_full_rank():
     assert eps * 60 * singular[0] < singular[-1] < np.sqrt(eps) * singular[0]
     conditional = conditional_amplitudes(shapes, shapes.T @ np.ones((3, 2)), 0.01)
     assert conditional.determined.tolist() == [False, False, True]
+
+
+def _shapes_from_svd(weak_direction, singular=(1.0, 0.5, 1e-12), points=50):
+    """Shapes Φ = V S Uᵀ with a chosen right singular basis; returns Φ and σ⁻²-free G⁻¹."""
+    rng = np.random.default_rng(3)
+    u, _ = np.linalg.qr(rng.standard_normal((points, 3)))
+    weak = np.asarray(weak_direction, dtype=float)
+    basis, _ = np.linalg.qr(np.column_stack([weak, [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]))
+    v = np.column_stack([basis[:, 1], basis[:, 2], basis[:, 0]])  # weak direction last
+    s = np.asarray(singular)
+    return (v * s) @ u.T, (v / s**2) @ v.T
+
+
+def test_a_tiny_loading_on_a_weak_direction_can_dominate_the_variance():
+    # The weak direction (s/s1 = 1e-12) couples peak 3 with a loading of 1.4e-9, under
+    # √ε: its variance contribution (1.4e-9 / 1e-12)² still dwarfs the rest.
+    shapes, g_inverse = _shapes_from_svd([1.0, -1.0, 2e-9])
+    loading = abs(np.linalg.svd(shapes.T)[2][-1, 2])
+    assert 1e-9 < loading < np.sqrt(np.finfo(float).eps)
+    assert g_inverse[2, 2] > 1e6
+    conditional = conditional_amplitudes(shapes, shapes.T @ np.ones((3, 1)), 0.01)
+    assert conditional.determined.tolist() == [False, False, False]
+    assert np.isnan(conditional.draw(np.random.default_rng(0), 10)).all()
+
+
+def test_an_uncoupled_peak_keeps_its_exact_conditional_distribution():
+    shapes, g_inverse = _shapes_from_svd([1.0, -1.0, 0.0])
+    conditional = conditional_amplitudes(shapes, shapes.T @ np.ones((3, 1)), 0.01)
+    assert conditional.determined.tolist() == [False, False, True]
+    draws = conditional.draw(np.random.default_rng(0), 50_000)[:, 2, 0]
+    np.testing.assert_allclose(draws.std(), 0.01 * np.sqrt(g_inverse[2, 2]), rtol=0.02)
+
+
+def test_more_peaks_than_points_leaves_no_amplitude_determined():
+    # A reduced SVD of a (4 peaks, 3 points) shape matrix has only three rows; the
+    # fourth, exact null direction is accounted for, not missed.
+    shapes = _gaussians([10.0, 20.0, 30.0, 40.0], width=8.0)[:, [15, 25, 35]]
+    assert factorize_shapes(shapes).directions.shape == (3, 4)
+    conditional = conditional_amplitudes(shapes, np.ones((3, 2)), 0.01)
+    assert np.isfinite(conditional.log_likelihood)
+    assert not conditional.determined.any()
+    assert np.isnan(conditional.draw(np.random.default_rng(0), 5)).all()
 
 
 def test_the_cli_analysis_samples_only_the_targeted_cluster(tmp_path, two_clusters):

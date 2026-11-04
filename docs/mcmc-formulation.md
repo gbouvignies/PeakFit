@@ -198,9 +198,17 @@ are distinct, biasing every reported quantity towards separated peaks. Instead:
 
 1. **The θ posterior** is always summarized from every kept sample.
 2. **Withheld per-peak intervals.** A peak's amplitude interval is withheld when, in
-   any kept sample, the peak loads on a weak direction. A weak direction is a right
-   singular vector whose singular value falls under the first or second threshold;
-   the peak loads on it if its component exceeds √ε.
+   any kept sample, its conditional distribution is not computable. Two cases count:
+   - **Null directions.** These are the right singular vectors below the rank
+     cutoff, plus those a reduced SVD omits when the cluster has fewer points than
+     peaks. A loading above √ε on them makes the amplitude improper.
+   - **Weak directions.** These are retained, with s_i ≤ √ε·s₁, but not reliably
+     computable. Their contribution to peak k's variance is σ²·(v_ki / s_i)², so a
+     tiny loading can still dominate. The amplitude is withheld when they carry more
+     than 10⁻⁴ of its variance.
+
+   Draws omit weak directions. For an amplitude that is kept, this understates its
+   standard deviation by at most 0.005%.
    - The report states "amplitude not determined in X% of samples".
    - No interval is computed from the remaining samples.
    - The other peaks' intervals are unaffected.
