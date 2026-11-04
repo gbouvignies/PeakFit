@@ -157,6 +157,8 @@ def test_malformed_scientific_evidence_rejected(tmp_path, corruption):
 @pytest.mark.parametrize(
     ("field", "value", "message"),
     [
+        # 6.0.0 recorded amplitude errors rescaled by √χ²ᵣ (ADR 0001).
+        ("schema_version", "6.0.0", "Unsupported scientific result version"),
         ("schema_version", "2.1.0", "Unsupported scientific result version"),
         ("schema_version", "1.0.0", "Unsupported scientific result version"),
         ("evidence", None, "Unsupported scientific evidence policy"),

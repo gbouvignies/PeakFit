@@ -28,7 +28,6 @@ def _outcome() -> FinalFitOutcome:
         amplitudes=matrix,
         amplitude_standard_errors=vector,
         amplitude_covariance=matrix,
-        scaled_amplitude_standard_errors=vector,
         model_values=matrix,
         raw_residuals=matrix,
         normalized_residuals=vector,
@@ -41,7 +40,6 @@ def _outcome() -> FinalFitOutcome:
             n_fitted_parameters=2,
             degrees_of_freedom=1,
             reduced_chi_squared=10.0,
-            amplitude_uncertainty_scale=1.0,
             aic=0.0,
             bic=0.0,
             log_likelihood=0.0,
@@ -187,11 +185,13 @@ def test_intensities_csv_orders_series_columns_for_reading(tmp_path) -> None:
 
     header = written["intensities"].read_text(encoding="utf-8").splitlines()[0].split(",")
 
-    assert header[:5] == [
+    # χ²ᵣ sits beside the σ-only error it qualifies, as a goodness-of-fit diagnostic.
+    assert header[:6] == [
         "peak_name",
         "z_value",
         "intensity",
         "intensity_err",
+        "reduced_chi_squared",
         "plane_index",
     ]
     assert "cluster_id" in header
