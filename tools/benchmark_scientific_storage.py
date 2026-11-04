@@ -14,6 +14,7 @@ from tempfile import TemporaryDirectory
 from time import perf_counter
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 
+# Optional: the `benchmarks` dependency group, absent from the default environment.
 import h5py
 import numpy as np
 

@@ -131,14 +131,19 @@ def write_record(results_dir: Path, record: MCMCRecord) -> Path:
         "kind": KIND,
         "record": encode_value(record, "record", arrays),
     }
-    partial = directory / f".{path.name}.partial"
+    partial = directory / f".{path.name}.{secrets.token_hex(8)}.partial"
     try:
         write_archive(partial, document, arrays)
         with partial.open("rb") as stream:
             os.fsync(stream.fileno())
-        if path.exists():
-            raise FileExistsError(f"MCMC record {path} already exists.")
-        partial.replace(path)
+        # A hard link publishes the complete file and fails if the name exists, in one
+        # atomic step; a rename would silently replace an existing record.
+        try:
+            os.link(partial, path)
+        except FileExistsError:
+            raise FileExistsError(
+                f"MCMC record {path} already exists; records are never overwritten."
+            ) from None
     finally:
         partial.unlink(missing_ok=True)
     if os.name != "nt":

@@ -4,6 +4,8 @@ import hashlib
 import json
 import shutil
 from dataclasses import replace
+from datetime import UTC, datetime
+from pathlib import Path
 from zipfile import ZipFile
 
 import numpy as np
@@ -13,6 +15,7 @@ from builders import completed_result
 from peakfit.engine.scientific.sampler import FORMULATION, SamplerSettings, regenerate_amplitudes
 from peakfit.engine.scientific.sampling import sampling_problem
 from peakfit.gui.fit_export import export_fit_result
+from peakfit.io import mcmc_record
 from peakfit.io.mcmc_record import latest_record, read_record, write_record
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.scientific import encode_value, read_scientific
@@ -100,6 +103,56 @@ def test_records_are_never_overwritten_and_the_latest_is_found(recorded, tmp_pat
     assert path != analysis.path
     assert sorted((copy / "mcmc").iterdir()) == sorted([copy / "mcmc" / analysis.path.name, path])
     assert latest_record(copy) == path
+
+
+def _colliding(monkeypatch, path):
+    """Make the next record's name ``path``, whatever the clock and random suffix."""
+    created, suffix = path.stem.rsplit("-", 1)
+    token_hex = mcmc_record.secrets.token_hex
+    monkeypatch.setattr(
+        mcmc_record.secrets, "token_hex", lambda n: suffix if n == 4 else token_hex(n)
+    )
+    moment = datetime.strptime(created, "%Y%m%dT%H%M%S%fZ").replace(tzinfo=UTC)
+    return moment.isoformat()
+
+
+def test_a_colliding_record_name_is_refused_and_the_record_kept(recorded, tmp_path, monkeypatch):
+    directory, analysis = recorded
+    copy = tmp_path / "results"
+    shutil.copytree(directory, copy)
+    existing = copy / "mcmc" / analysis.path.name
+    before = existing.read_bytes()
+    created = _colliding(monkeypatch, existing)
+    with pytest.raises(FileExistsError, match="never overwritten"):
+        write_record(copy, replace(analysis.record, created=created, entropy=1))
+    assert existing.read_bytes() == before
+    assert list((copy / "mcmc").iterdir()) == [existing]
+
+
+def test_a_record_created_by_another_writer_before_publication_is_kept(
+    recorded, tmp_path, monkeypatch
+):
+    directory, analysis = recorded
+    copy = tmp_path / "results"
+    shutil.copytree(directory, copy)
+    (copy / "mcmc" / analysis.path.name).unlink()
+    target = copy / "mcmc" / analysis.path.name
+    created = _colliding(monkeypatch, target)
+    write_archive = mcmc_record.write_archive
+
+    exists = Path.exists
+
+    def racing(path, document, arrays):
+        write_archive(path, document, arrays)
+        target.write_bytes(b"another writer's record")
+
+    # The other writer's file appears just after any existence check of the target.
+    monkeypatch.setattr(mcmc_record, "write_archive", racing)
+    monkeypatch.setattr(Path, "exists", lambda p, **k: p != target and exists(p, **k))
+    with pytest.raises(FileExistsError, match="never overwritten"):
+        write_record(copy, replace(analysis.record, created=created))
+    assert target.read_bytes() == b"another writer's record"
+    assert list((copy / "mcmc").iterdir()) == [target]
 
 
 def test_a_record_is_refused_when_its_parent_changed(recorded, tmp_path):

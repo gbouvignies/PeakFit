@@ -102,7 +102,7 @@ tests continue to protect model projection.
 
 ## Measured projection cost
 
-`uv run --with h5py python tools/benchmark_review_projection.py` fits the bundled experimental
+`uv run --group benchmarks python tools/benchmark_review_projection.py` fits the bundled experimental
 dataset with two passes, then times five uncached projections per operation with
 one BLAS thread. [The recorded run](validation/completed-review-benchmark.json)
 on 2026-10-29 used macOS arm64, Python 3.14.5, NumPy 2.4.1, 131 planes of

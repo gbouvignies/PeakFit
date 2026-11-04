@@ -140,8 +140,9 @@ results/
 
 A record uses the archive's encoding (`metadata.json` plus NPY members, the same
 reader limits) with `kind: peakfit_mcmc_record`. It is written to a hidden partial
-file, flushed, renamed into place and the directory flushed; an existing record is
-never replaced. It binds to its parent by the parent's run ID and `scientific.npz`
+file, flushed, published by a hard link and the directory flushed. The link appears
+complete and fails if the name exists, in one atomic step, so an existing record is
+never replaced, even by a concurrent writer; the filesystem must support hard links. It binds to its parent by the parent's run ID and `scientific.npz`
 SHA-256, and stores each cluster's whole chain losslessly with complete summaries
 ([mcmc-formulation.md](mcmc-formulation.md) §8). The reader rejects another version,
 a missing or extra field, a wrongly typed value, arrays inconsistent with the

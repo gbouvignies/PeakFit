@@ -1,6 +1,7 @@
 """Benchmark completed-model review and candidate numerical archive formats.
 
-Run: uv run --with h5py python tools/benchmark_review_projection.py > /tmp/review-benchmark.json
+Run (h5py comes from the optional benchmarks group):
+    uv run --group benchmarks python tools/benchmark_review_projection.py > /tmp/review.json
 Uses a real two-pass fit of the bundled 131-plane dataset, one BLAS thread and
 no projection caches. Archives are temporary experiments, not a new file contract.
 """
@@ -15,6 +16,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import perf_counter
 
+# Optional: the `benchmarks` dependency group, absent from the default environment.
 import h5py
 import numpy as np
 from threadpoolctl import threadpool_limits

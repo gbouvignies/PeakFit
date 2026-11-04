@@ -646,6 +646,9 @@ Short records of non‑obvious design choices and trade‑offs.
 - It binds to its parent by run ID and `scientific.npz` SHA-256, and records the
   spectrum SHA-256 for compact parents. Writing re-hashes the parent and refuses a
   record whose parent changed during sampling.
+- Publication hard-links the flushed partial file to the record's name. Unlike a
+  rename after an existence check, the link fails atomically if the name exists, so
+  a concurrent writer's record is never replaced (tested with a forced collision).
 - The reader is strict: exact field sets, typed scalars, array dtypes and shapes
   consistent with the recorded settings, and spawn keys matching the record's seed.
 - Clean break: the HDF5 chain files (`chains/cluster_*_chains.h5`),
@@ -654,4 +657,5 @@ Short records of non‑obvious design choices and trade‑offs.
   chain files are no longer read; rerun `peakfit mcmc`. The plot report shows the
   recorded status and reasons instead of re-checking the chain, and thinning, which
   no run produced, is gone from the plots. The storage benchmarks that compare
-  HDF5 run with `uv run --with h5py`.
+  HDF5 take it from the optional `benchmarks` dependency group
+  (`uv run --group benchmarks`).
