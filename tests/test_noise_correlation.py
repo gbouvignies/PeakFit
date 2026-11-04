@@ -147,3 +147,40 @@ def test_a_spectrum_without_an_nmrpipe_header_is_not_modelled():
     model = read_noise_model({}, (4, 101))
     assert not model.modelled
     assert model.reason == "no NMRPipe processing header"
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        None,
+        [],
+        [2.0],  # too short for three axes
+        [2.0, "x", 3.0, 4.0],
+        [2.0, float("nan"), 3.0, 4.0],
+        [2.0, 9.0, 3.0, 4.0],  # not an NMRPipe axis code
+        [2.0, 1.5, 3.0, 4.0],
+        2.0,  # not a sequence
+    ],
+)
+def test_a_malformed_axis_order_is_not_modelled(cest_header, order):
+    dic, shape = cest_header
+    model = read_noise_model({**dic, "FDDIMORDER": order}, shape)
+    assert not model.modelled
+    assert model.axes == ()
+    assert "FDDIMORDER" in str(model.reason) or model.reason == "no NMRPipe processing header"
+
+
+@pytest.mark.parametrize(
+    "window",
+    [
+        {"FDF2APODQ1": 0.0, "FDF2APODQ2": 0.0},  # sin(0) everywhere: zero variance
+        {"FDF2APODQ2": 1.6, "FDF2APODQ3": 2.5},  # negative sines to a fractional power
+        {"FDF2APODQ2": 0.4, "FDF2APODQ3": 1e6},  # sin ≤ 0.95, to the 10⁶: underflows to 0
+    ],
+)
+def test_a_window_with_zero_or_non_finite_variance_is_not_modelled(cest_header, window):
+    dic, shape = cest_header
+    with np.errstate(all="raise"):
+        model = read_noise_model({**dic, **window}, shape)
+    assert not model.modelled
+    assert "noise variance" in str(model.reason)
