@@ -81,19 +81,42 @@ lags between its fitting samples. It is the identity between planes, and is neve
 stored: it is regenerated from the descriptor and the recorded fitting samples.
 
 **Verification (C1):** the formula matches Monte Carlo processing of white noise to
-within 0.006 at lags 0–5. This holds for both CEST chains and for zero fill ×2 and ×4
+within 0.007 at lags 0–5. This holds for both CEST chains and for zero fill ×2 and ×4
 without apodization.
 
 ### 2.3 Header fields and consistency
 
-- N is `TDSIZE` and M is `FTSIZE`.
-- NMRPipe rescales `APOD` when a dimension is extracted, so `APOD` × `FTSIZE` / (stored
-  size) must equal `TDSIZE` to within one rounding unit.
-  - On the CEST ¹H axis, `APOD` is 204, and 204 × 2048 / 546 = 765, against a
-    `TDSIZE` of 768.
-  - `APOD` alone would imply ρ₁ = 0.97 instead of 0.66.
-- A missing field, an unsupported window or a failed check means the correlation is
-  not modelled, and the reason is recorded.
+For each transformed spectral axis (`FTFLAG` = 1) with S stored points:
+
+| Quantity | Header field | Required |
+|---|---|---|
+| N, acquired complex points | `TDSIZE` | integer > 0 |
+| M, Fourier-transform size | `FTSIZE` | integer ≥ max(N, S) |
+| Window | `APODCODE` | 0 (none) or 1 (`SP`) |
+| Sine-bell parameters | `APODQ1`, `APODQ2`, `APODQ3` | finite, Q3 > 0, when `APODCODE` = 1 |
+| First-point scale | `C1` + 1 | finite |
+| First-order phase | `P1` | finite |
+| Apodized length | `APOD` | the consistency check below |
+
+**Consistency check:** |`APOD` − N·S/M| < 1.
+- NMRPipe records the apodized length, rescaled by any extraction and stored as a
+  whole number. Without extraction (S = M), `APOD` must equal N exactly.
+- With extraction, rounding down or to the nearest integer both pass.
+  - The CEST ¹H axis has N·S/M = 768 × 546/2048 = 204.75, and `APOD` = 204.
+  - The ¹⁵N axis has S = M and `APOD` = N = 92.
+- A window applied over fewer points than were acquired fails the check. This
+  happens with `SP -size`, for example; that processing reading `APOD` alone would
+  imply ρ₁ = 0.97 instead of 0.66 on the CEST ¹H axis.
+
+**Safe fallback:** any of these leaves the run "not modelled", with the reason
+recorded:
+- a missing or non-finite field, or an unsupported window;
+- a failed check;
+- an untransformed spectral axis;
+- input that is not NMRPipe.
+
+Its errors are then σ-only, as today (§5.5). There is no partial model: if one axis
+fails, the whole run is not modelled.
 
 ### 2.4 Comparison with a real spectrum
 
@@ -130,9 +153,10 @@ R2·aq is the decay over the acquisition time.
 | Zero fill ×4, no apodization | 0.64 | 1.43 · 1.45 · 1.54 |
 | Zero fill ×4, sine-bell² (off 0.5) | 0.90 | 2.06 · 2.17 · 2.42 |
 
-- **Monte Carlo confirms three rows:** 1.535, 1.539 and 1.088.
+- **Monte Carlo confirms three rows:** 1.544, 1.553 and 1.086.
 - **Twofold zero fill without apodization** is only nearly independent. Odd lags keep
-  ρ = 1/N, which adds about 9% for a broad line.
+  ρ = 1/N, so the predicted inflation is small but nonzero: 1.014 · 1.029 · 1.089. C3
+  tests this: Monte Carlo gives 1.022 · 1.035 · 1.093, within 2.5 SE of 0.003.
 - **Apodization with zero filling** is what correlates the points strongly.
 - **2D clusters:** the inflation is roughly the product of the per-axis factors.
 
@@ -179,23 +203,22 @@ R2·aq is the decay over the acquisition time.
 
 ### 5.4 Amplitude identifiability and withholding
 
-- **Determination stays a property of the shapes.** The existing null-direction and
-  weak-direction tests, with the thresholds of `factorize_shapes`, decide whether a
-  peak or a combination of amplitudes is determined. Noise does not change
-  identifiability.
-- **The sandwich for a determined combination w:**
-  - Write Φ = USVᵀ over the retained directions, a = S⁻¹Vᵀw, split into its strong
-    part a_s and weak part a_w (s ≤ √ε·s₁), and Q = UᵀRU.
-  - The variance is σ²aᵀQa. PeakFit publishes the strong part, σ²a_sᵀQ_ss a_s.
-- **One added condition:** a_wᵀQ_ww a_w ≤ 10⁻⁴ · a_sᵀQ_ss a_s, or the combination is
-  withheld.
-  - By Cauchy–Schwarz, the cross term is then at most 1% of the strong part, so the
-    published SD is within about 1% of the full one.
-  - With R = I the cross term vanishes, and the condition reduces to today's rule.
+- **Identifiability stays a property of the shapes,** and the rules do not change.
+  `factorize_shapes` withholds the whole analytical amplitude covariance when the
+  shapes lose numerical rank, or when any direction is weak (s ≤ √ε·s₁).
+- **The sandwich adds no withholding rule.**
+  - Write Φᵀ = USVᵀ for the retained directions. Where the independent covariance
+    σ²VS⁻²Vᵀ is published, every direction is strong, and the sandwich is
+    σ²VS⁻¹(UᵀRU)S⁻¹Vᵀ.
+  - Where it is withheld, so is the sandwich. The two are withheld for exactly the
+    same clusters.
+- **R = I regression.** Then UᵀRU = I, so the sandwich reproduces today's covariance
+  to round-off. The same holds for the nonlinear sandwich. This is the exact
+  regression test of the current σ-only path.
 - **Amplitude correlation:** the review measure "amplitude correlation" uses the
   sandwich covariance where R is modelled.
-- **MCMC withholding and flags** are unchanged, because MCMC keeps the independence
-  model.
+- **MCMC withholding and flags** are unchanged, and keep their per-combination
+  weak-direction rule, because MCMC keeps the independence model.
 
 ### 5.5 Reporting and warnings
 
@@ -210,26 +233,25 @@ R2·aq is the decay over the acquisition time.
 - **Not modelled:** σ-only errors, with "Noise correlation not modelled (reason):
   uncertainties assume independent spectral points and can be too small for
   zero-filled or apodized data."
-- **MCMC, always:**
-  - Every MCMC output says its intervals assume independent noise and are not
-    calibrated for correlated noise. This applies to the terminal, the report page and
-    the record.
-  - "Passed the convergence checks" is never shown without that qualification.
-- **MCMC, when the parent's correlation is modelled:**
-  - The output also gives, for each sampled parameter, the analytical
-    sandwich-to-independence SD ratio at θ̂. This is the local indication of how much
-    too narrow the MCMC intervals are.
-  - It notes that MCMC amplitude intervals can be narrower than the published
-    conditional sandwich errors. That is expected, and not a contradiction.
+- **MCMC:** every MCMC output carries one fixed statement, on the terminal and on the
+  report page:
+  - its intervals use an independent-noise likelihood;
+  - they are not calibrated for correlated noise, even when the convergence checks
+    pass.
+
+  "Passed the convergence checks" is never shown without it. No per-parameter
+  sandwich-to-independence factors are shown. They are local covariance diagnostics,
+  and could be misread as corrections to posterior intervals. The statement is
+  independent of the run, so the MCMC record does not change.
 - **χ²ᵣ:** reported as today. The documentation explains that under correlated noise
-  its expectation is tr((I − H)R)/(n − p), which can be well below 1 (0.54–0.69 in
+  its expectation is tr((I − H)R)/(n − p), which can be well below 1 (0.54–0.65 in
   §8).
 
 ### 5.6 Formats and cost
 
-- **Formats:** scientific archive 8.0.0, fit JSON 7.0.0, analysis project 11.0.0 and
-  MCMC record 1.2.0 (the parent's noise-model status and the per-parameter ratios),
-  plus the CSV column. Earlier files are refused; refit.
+- **Formats:** scientific archive 8.0.0, fit JSON 7.0.0 and analysis project 11.0.0,
+  for the noise-model record, plus the CSV column. The MCMC record is unchanged.
+  Earlier files are refused; refit.
 - **Cost:** O(n²) per cluster once at finalization. R is never stored.
 
 ### 5.7 Documentation
@@ -254,7 +276,7 @@ R2·aq is the decay over the acquisition time.
   - It depends on R⁻¹, whose condition number is 1.8 × 10⁶ even for a 13-point
     window, in directions where the apodization removed nearly all noise.
   - In the committed misfit test (an unapodized model fitted to apodized data), it
-    gained nothing: its position SD was 1.33 × that of least squares, and neither was
+    gained nothing: its position SD was 1.46 × that of least squares, and neither was
     biased.
   - An earlier draft reported large GLS biases under misfit. They are not
     reproduced here and are not relied on.
@@ -270,8 +292,8 @@ R2·aq is the decay over the acquisition time.
 - **Scalar tempering,** exp(k·ℓ_p): a generalized-Bayes update (Bissiri, Holmes and
   Walker 2016). It keeps modes, bounds and exchange detection, and equals sampling
   with σ/√k. But one k cannot match per-parameter inflations. In the grid study (§8)
-  the amplitude was nominal, while position and R2 over-covered at 68% (0.74–0.76,
-  about four SE high). It is not adopted unless C5 shows otherwise.
+  the amplitude under-covered at 68% (0.64), while position and R2 over-covered
+  (0.77, about five SE high). It is not adopted unless C5 shows otherwise.
 - **Empirical scatter as the published error.** It needs genuine replicates. It is the
   validation of C6, not an error model.
 
@@ -281,7 +303,7 @@ R2·aq is the decay over the acquisition time.
 |---|---|---|
 | C1 | ρ against Monte Carlo processing; the inflation table | Done (§2.2, §3) |
 | C2 | Coverage of σ-only and sandwich errors: conditional amplitude, and the joint fit | Done for a 1D single line with the exact processed lineshape. Pairs, 2D clusters and PeakFit's `sp1`, `sp2` and `no_apod` lineshapes are the implementation's tests. |
-| C3 | Twofold zero fill, no apodization: sandwich equals σ-only to within Monte Carlo error | Done |
+| C3 | Twofold zero fill, no apodization: the small predicted inflation (§3), by Monte Carlo. The exact regression test of today's σ-only path is R = I (§5.4), a unit test of the implementation. | Prediction done |
 | C4 | E[χ²] and Var[χ²] against tr((I − H)R) and 2 tr(((I − H)R)²) | Done |
 | C5 | MCMC under correlated noise | Preliminary grid study done (§8). The gate for any change to MCMC, the real sampler on overlapping peaks with individual amplitudes and identifiable sums, is not run. |
 | C6 | Real data with genuine replicates (duplicate planes or a repeated experiment): sandwich errors against the replicate scatter | Not possible with the bundled data |
@@ -308,28 +330,28 @@ coverage SE is 0.015 · 0.007.
 
 | Case | Quantity | σ-only | Sandwich |
 |---|---|---|---|
-| Narrow (R2·aq 1.3) | Conditional amplitude | 1.57 · 0.48 · 0.78 | 0.98 · 0.69 · 0.96 |
-| | Joint: amplitude | 1.58 · 0.48 · 0.79 | 1.00 · 0.68 · 0.95 |
-| | Joint: position | 1.37 · 0.53 · 0.85 | 1.00 · 0.69 · 0.96 |
-| | Joint: R2 | 1.40 · 0.55 · 0.85 | 1.03 · 0.69 · 0.95 |
-| Broad (R2·aq 5.2) | Conditional amplitude | 1.64 · 0.43 · 0.76 | 0.99 · 0.68 · 0.96 |
-| | Joint: amplitude | 1.66 · 0.43 · 0.75 | 1.04 · 0.65 · 0.95 |
-| | Joint: position | 1.64 · 0.45 · 0.76 | 1.02 · 0.67 · 0.94 |
-| | Joint: R2 | 1.60 · 0.48 · 0.79 | 1.04 · 0.68 · 0.94 |
-| Control (×2 zero fill, no apodization) | Conditional amplitude | 0.99 · 0.68 · 0.95 | 0.98 · 0.69 · 0.95 |
-| | Joint: amplitude | 0.97 · 0.68 · 0.96 | 0.96 · 0.69 · 0.96 |
+| Narrow (R2·aq 1.3) | Conditional amplitude | 1.60 · 0.48 · 0.78 | 1.00 · 0.69 · 0.95 |
+| | Joint: amplitude | 1.58 · 0.48 · 0.78 | 1.00 · 0.68 · 0.95 |
+| | Joint: position | 1.38 · 0.54 · 0.84 | 1.00 · 0.69 · 0.94 |
+| | Joint: R2 | 1.36 · 0.55 · 0.86 | 1.00 · 0.69 · 0.95 |
+| Broad (R2·aq 5.2) | Conditional amplitude | 1.65 · 0.46 · 0.78 | 0.99 · 0.70 · 0.95 |
+| | Joint: amplitude | 1.57 · 0.45 · 0.79 | 0.98 · 0.69 · 0.95 |
+| | Joint: position | 1.60 · 0.48 · 0.78 | 1.00 · 0.69 · 0.95 |
+| | Joint: R2 | 1.51 · 0.50 · 0.81 | 0.98 · 0.70 · 0.95 |
+| ×2 zero fill, no apodization | Conditional amplitude | 0.97 · 0.69 · 0.96 | 0.96 · 0.70 · 0.96 |
+| | Joint: amplitude | 1.01 · 0.69 · 0.95 | 1.00 · 0.69 · 0.95 |
 
 **Total against conditional:** the joint-fit amplitude SD is 1.63 (narrow), 1.48
-(broad) and 1.57 (control) × the conditional SD. This is one plane, so θ is fitted
+(broad) and 1.57 (×2 zero fill) × the conditional SD. This is one plane, so θ is fitted
 from the same data as the amplitude.
 
 **χ² (C4):**
 
 | Case | n − p | tr((I − H)R) | Observed mean | Predicted · observed variance | Nominal χ²ᵣ |
 |---|---:|---:|---:|---|---:|
-| Narrow | 10 | 6.70 | 6.94 | 24.2 · 27.5 | 0.69 |
-| Broad | 10 | 5.32 | 5.38 | 16.2 · 15.5 | 0.54 |
-| Control | 10 | 9.97 | 9.82 | 19.9 · 19.2 | 0.98 |
+| Narrow | 10 | 6.70 | 6.47 | 24.2 · 22.7 | 0.65 |
+| Broad | 10 | 5.32 | 5.37 | 16.2 · 15.8 | 0.54 |
+| ×2 zero fill | 10 | 9.97 | 10.05 | 19.9 · 20.4 | 1.01 |
 
 **C5, preliminary.** This is the exact grid posterior of (position, R2), with the
 amplitude drawn conditionally: narrow line, 600 realizations. The coverage SE is 0.019
@@ -337,8 +359,8 @@ amplitude drawn conditionally: narrow line, 600 realizations. The coverage SE is
 
 | Likelihood | Amplitude | Position | R2 |
 |---|---|---|---|
-| Independence (today) | 0.47 · 0.80 | 0.58 · 0.86 | 0.58 · 0.89 |
-| Tempered, k = 0.48 | 0.67 · 0.94 | 0.74 · 0.96 | 0.76 · 0.97 |
+| Independence (today) | 0.46 · 0.80 | 0.61 · 0.86 | 0.62 · 0.88 |
+| Tempered, k = 0.48 | 0.64 · 0.94 | 0.77 · 0.97 | 0.77 · 0.96 |
 
 **The CEST prediction** is not a validation. Under the processing model, the
 conditional sandwich factor for each peak is 2.335 (IQR 2.325–2.344) × σ-only. Whether
@@ -364,6 +386,35 @@ This document does not change σ. Whether to estimate σ per plane or locally, f
 example for t1 noise near intense peaks, needs its own assessment and its own
 validation against replicates. That noise is neither white nor stationary, so it
 would also break §2.1.
+
+## 11. Implementation sequence
+
+The direction was approved on 2026-11-04. Each step is its own pull request, reviewed
+before merging. None changes the least-squares estimates, σ estimation, the χ²ᵣ
+definition or the MCMC sampler, and none adds another noise model.
+
+1. **Noise model.** Read the per-axis processing from the NMRPipe header (§2.3),
+   compute ρ and a cluster's R (§2.2), and return "not modelled", with the reason,
+   whenever a check fails.
+   - Nothing is stored or published.
+   - Tests cover ρ against an exact processing operator, the CEST header, and each
+     fallback.
+2. **Sandwich calculations.** The conditional amplitude and nonlinear-parameter
+   sandwiches (§5.1, §5.3), with the withholding of §5.4.
+   - Tests: R = I reproduces today's errors to round-off, and the sandwich matches a
+     direct formula.
+   - A validation study with PeakFit's own fitting engine must pass before step 3:
+     isolated and overlapping 2D clusters with correlated noise, and the
+     identifiability cases (near-coalescent and duplicated peaks).
+   - Nothing is published yet.
+3. **Publishing.**
+   - The noise-model record and the sandwich errors in the exports.
+   - Format bumps (§5.6), the CSV column, and the CLI and GUI statements.
+   - The MCMC warning (§5.5).
+   - Documentation and ADR 0002.
+
+C5 (with the real sampler) and C6 (with replicates) remain future validation. They are
+not prerequisites for these steps.
 
 ## References
 

@@ -11,8 +11,9 @@ window around the line.
 - **C2:** coverage of σ-only and sandwich errors. It separates the *conditional*
   amplitude error (lineshape held at the truth) from the *total* errors of a joint
   fit of amplitude, position and R2.
-- **C3:** a control: twofold zero fill without apodization leaves the points
-  independent, so the sandwich equals σ-only.
+- **C3:** twofold zero fill without apodization: the small, nonzero inflation it
+  predicts, tested by Monte Carlo. (The exact regression test of today's σ-only path
+  is R = I, in the implementation's unit tests.)
 - **C4:** the χ² expectation and variance under correlated noise.
 - **C5 (preliminary):** coverage of the exact grid posterior under the independence
   likelihood, and under the scalar-tempered likelihood. This is not the C5 gate,
@@ -164,6 +165,27 @@ def c1(rng) -> dict:
         "monte_carlo_rows": checks,
         "full_lag_ess_sum_15N_chain": ess,
     }
+
+
+def c3_prediction(rng, draws: int = 50000) -> dict:
+    """Twofold zero fill without apodization: the small predicted inflation, tested.
+
+    Odd lags keep ρ = 1/N, so the inflation is small but not 1. Monte Carlo of the
+    least-squares amplitude over all points checks the prediction; the SD of an SD
+    ratio estimated from ``draws`` samples is about 1/√(2·draws).
+    """
+    chain = Chain(92, 184, None)
+    r = lag_matrix(chain.rho(), np.arange(chain.m))
+    noise = chain.process(_complex_noise(rng, (draws, chain.n)))
+    rows = {}
+    for decay in (0.3, 1.3, 5.0):
+        phi = chain.process(np.exp(-decay * np.arange(chain.n) / chain.n))
+        amplitude = noise @ phi / (phi @ phi)
+        rows[f"r2aq_{decay}"] = {
+            "predicted": float(np.sqrt(phi @ r @ phi / (phi @ phi))),
+            "monte_carlo": float(amplitude.std() / (noise.std() / np.linalg.norm(phi))),
+        }
+    return {"rows": rows, "monte_carlo_se": float(1 / np.sqrt(2 * draws))}
 
 
 # ---------------------------------------------------------------- the synthetic line
@@ -452,20 +474,22 @@ def main() -> None:
     parser.add_argument("--spectrum", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    rng = np.random.default_rng(20261104)
+    # One independent stream per study, so a change to one leaves the others' numbers.
+    streams = iter(np.random.default_rng(s) for s in np.random.SeedSequence(20261104).spawn(8))
     narrow = Line(SYNTHETIC, 1.3, 64.0)
     broad = Line(SYNTHETIC, 5.2, 64.0)
-    control = Line(Chain(92, 184, None), 1.3, 46.0)
+    zero_fill = Line(Chain(92, 184, None), 1.3, 46.0)
     report = {
-        "C1": c1(rng),
+        "C1": c1(next(streams)),
+        "C3_prediction": c3_prediction(next(streams)),
         "C2_C4": {
-            "narrow line (R2 aq 1.3)": c2_c4(narrow, rng, args.realizations),
-            "broad line (R2 aq 5.2)": c2_c4(broad, rng, args.realizations),
-            "C3 control: zero fill x2, no apodization": c2_c4(control, rng, args.realizations),
+            "narrow line (R2 aq 1.3)": c2_c4(narrow, next(streams), args.realizations),
+            "broad line (R2 aq 5.2)": c2_c4(broad, next(streams), args.realizations),
+            "zero fill x2, no apodization": c2_c4(zero_fill, next(streams), args.realizations),
         },
-        "C5_grid": {"narrow line (R2 aq 1.3)": c5(narrow, rng, 600)},
+        "C5_grid": {"narrow line (R2 aq 1.3)": c5(narrow, next(streams), 600)},
         "GLS_under_misfit": {
-            "narrow line, apodization not modelled": gls_under_misfit(narrow, rng, 600)
+            "narrow line, apodization not modelled": gls_under_misfit(narrow, next(streams), 600)
         },
     }
     if args.results and args.spectrum:
