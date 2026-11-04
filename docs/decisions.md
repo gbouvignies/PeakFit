@@ -528,3 +528,19 @@ Short records of non‑obvious design choices and trade‑offs.
   hash identically before and after on the synthetic two-cluster dataset.
 - Moving presentation text out of `workspace.py` was considered and deferred: a
   large diff with no behaviour gain.
+
+## 2026-11-04: MCMC formulation (D1–D4)
+- MCMC samples the profile likelihood of the nonlinear parameters, justified as the
+  integrated likelihood under the conditional Jeffreys amplitude prior, and draws
+  amplitudes from N(â(θ), σ²(ΦΦᵀ)⁻¹) for each sample. The flat-amplitude-prior
+  marginal is rejected: it depends on the shape normalization, its bias grows
+  with the number of planes, and it rewards collinear shapes. At 50 planes and
+  SNR 5 its 68% coverage was about 0.58, against 0.69 for the profile
+  (`docs/mcmc-formulation.md` §3, `tools/validate_mcmc_formulation.py`).
+- One emcee ensemble, with no R̂ across coupled walkers; convergence by the
+  integrated autocorrelation time (kept length ≥ 50 τ_max).
+- Results are conditional on the recorded noise, frozen corrections and the
+  lineshape model; χ²_red is reported, not used to rescale.
+- The record stores θ chains and log-probabilities losslessly with amplitude
+  summaries; amplitude draws are regenerated from the recorded seed rather than
+  stored.
