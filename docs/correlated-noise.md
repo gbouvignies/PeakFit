@@ -27,8 +27,12 @@ either can change without the other.
    bundled CEST example this reproduces the measured noise autocorrelation.
 3. **Publish sandwich errors.** Compute the covariance of the least-squares estimates
    under σ²R: amplitudes and nonlinear parameters alike. This is exact for the
-   existing estimator in the locally linear regime. It explains 2.34× of the 2.72×
-   shortfall on the CEST example, and gives nominal coverage on synthetic spectra.
+   existing estimator in the locally linear regime, and gives nominal coverage on
+   synthetic spectra.
+   - On the CEST example it raises amplitude errors by 2.34× over σ-only, nearly
+     uniformly across peaks.
+   - Whether that matches the true uncertainty there cannot be tested: the series
+     has no replicates (§7.4).
 4. **Report χ²ᵣ against its correlated-noise expectation,** with effective degrees of
    freedom (§5.3).
 5. **Adjust the MCMC likelihood** with the Chandler–Bate (2007) horizontal adjustment.
@@ -249,7 +253,7 @@ from "conditional on σ" to "conditional on σ and R".
 | C3 | Unapodized ×2 zero fill: errors equal the σ-only ones to round-off |
 | C4 | E[χ²] and its variance match tr((I − H)R) and 2 tr(((I − H)R)²) |
 | C5 | MCMC with the adjusted likelihood: V5 and V6 of the MCMC plan repeated under correlated noise |
-| C6 | The bundled CEST example: sandwich errors against plane-to-plane scatter, recorded in `docs/validation/` |
+| C6 | Real data with replicates (duplicate planes or a repeated experiment): sandwich errors against the replicate scatter, recorded in `docs/validation/`. The bundled CEST series has no replicates, so it cannot serve. |
 
 ## 6. Candidates compared
 
@@ -320,11 +324,18 @@ domain (Bretthorst 1990).
 This means estimating errors from the scatter of intensities in duplicated planes, or
 in flat regions of an intensity profile.
 
-- **Analytical errors:** model-free. It includes every plane-to-plane source of error:
-  correlated noise, plane-dependent σ, t1 noise, and fit variability.
-  - It needs duplicates or flat regions, which not every series has.
-  - It is noisy per peak: a robust SD from 129 successive differences has a relative
-    SE of about 10%. That is most of the CEST per-peak spread (IQR 2.53–3.00).
+- **Analytical errors:** model-free *when the replicates are genuine*. Their scatter
+  then includes every plane-to-plane source of error: correlated noise,
+  plane-dependent σ, t1 noise, and fit variability.
+  - Duplicate planes or repeated experiments qualify. "Flat regions" qualify only if
+    the profile is truly constant there.
+  - Successive offsets of a CEST profile do not qualify: the intensity changes
+    physically between them, so their differences mix that variation with noise in
+    unknown proportion. The 2.72 ratio in
+    [validation/sigma-uncertainties.md](validation/sigma-uncertainties.md) is such a
+    statistic, and is not an error estimate.
+  - Even with genuine replicates it is noisy per peak: a robust SD from about 130
+    differences has a relative SE of about 10%.
   - It cannot separate sources, or give per-plane or per-parameter errors. It says
     nothing about positions or linewidths.
 - **χ²ᵣ and MCMC:** no role.
@@ -418,13 +429,12 @@ local σ.
 There are 166 peaks, fitted with `sp2` × `sp2` by `peakfit fit` at commit 889e09d.
 Error ratios are relative to the σ-only error.
 
-| | Median | IQR |
-|---|---:|---|
-| Empirical plane-to-plane scatter (validation tool) | 2.72 | 2.53–3.00 |
-| Sandwich, R from the processing | 2.335 | 2.325–2.344 |
-| Sandwich, R from the measured autocorrelation | 2.40 | 2.39–2.41 |
-| GLS error | 2.16 | 2.14–2.19 |
-| Empirical / sandwich | 1.18 | 1.08–1.29 |
+| | Median | IQR | Kind |
+|---|---:|---|---|
+| Sandwich, R from the processing | 2.335 | 2.325–2.344 | prediction under the stated noise model |
+| Sandwich, R from the measured autocorrelation | 2.40 | 2.39–2.41 | prediction, R measured |
+| GLS error | 2.16 | 2.14–2.19 | prediction under the stated noise model |
+| Successive-difference spread (validation tool) | 2.72 | 2.53–3.00 | measurement, not an error estimate |
 
 Sandwich inflation of the nonlinear errors:
 
@@ -436,14 +446,16 @@ Sandwich inflation of the nonlinear errors:
 | ¹H linewidth | 1.79 | 1.67–1.91 |
 
 **Reading the tables:**
-- **Most of the shortfall is correlation.** The processing-derived correlation
-  accounts for 2.34× of the 2.72× gap.
-- **The factor is uniform across peaks** (IQR ±0.5%). The per-peak spread of the
-  empirical ratio is mostly its own sampling noise, so the two hardly correlate (0.14
-  in logs).
-- **The remaining 1.18× is not attributed here.** Plane noise is 1.03–1.06 × the
-  global σ, which accounts for part of it. t1 noise or other plane-dependent noise
-  are candidates. All belong to the separate question of §10.
+- **What the sandwich predicts:** under the processing-derived noise model, the
+  least-squares errors on this series are 2.34× the σ-only errors for amplitudes, and
+  1.7–2.3× for nonlinear parameters.
+  - The factor is nearly uniform across peaks (IQR ±0.5%).
+  - Using the measured autocorrelation instead changes it by 3%.
+- **What it does not show:** that 2.34× is the true calibration error here, or that
+  correlated noise explains the 2.72 successive-difference spread.
+  - That spread mixes genuine CEST profile variation with noise (§6.4), so neither
+    the gap between 2.34 and 2.72 nor their ratio is attributable to anything.
+  - Validating the prediction needs replicates (C6), which this series lacks.
 
 ### 7.5 MCMC likelihood
 
@@ -517,9 +529,9 @@ correlation R, so the two are independent decisions.
 
 **What the evidence says about σ:**
 - On the CEST example, per-plane noise is 1.03–1.06 × the global estimate.
-- After correlation, 1.18× of the empirical gap remains unexplained.
-- χ²ᵣ ≈ 2.25 against its correlated-noise expectation points to misfit, or to noise
-  near peaks larger than σ (t1 noise).
+- χ²ᵣ ≈ 2.25 against its correlated-noise expectation points to misfit, to noise
+  near peaks larger than σ (t1 noise), or to other unmodelled contributions. Without
+  replicates, the data do not separate them.
 
 **Whether to estimate σ per plane or locally** belongs to its own assessment:
 - t1 noise is neither white nor stationary, so it would also need a local R;
