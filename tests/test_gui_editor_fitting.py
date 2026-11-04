@@ -224,6 +224,21 @@ def test_one_busy_state_locks_and_releases_every_edit(workspace):
     assert w.settings_button.isVisible()
 
 
+def test_exporting_the_active_run_clears_modified_at_once(
+    workspace, scientific, monkeypatch, tmp_path
+):
+    w = workspace
+    publish(w, scientific[-1])
+    # Adopted coordinates are unexported working peaks.
+    assert w.edits.dirty
+    assert w.modified.text() == "Modified"
+    monkeypatch.setattr(fitting_module, "choose_and_export", lambda *_a, **_k: tmp_path)
+    assert w.fitting.export()
+    # No event-loop turn: the export itself redraws the indicator.
+    assert not w.edits.dirty
+    assert w.modified.text() == ""
+
+
 def test_closing_the_lens_restores_the_pin_button(workspace, scientific):
     w = workspace
     result = scientific[-1]

@@ -520,6 +520,7 @@ class DatasetFitting(QtCore.QObject):
                 # The shared coordinate table contains this exact stable-ID coordinate
                 # tuple. Its successful export also preserves the working peaks.
                 self.workspace.edits.mark_saved()
+                self.workspace._update_actions()
                 self.workspace.changed.emit()
             self.workspace.status.setText(f"Exported retained run to {path}")
         return path is not None
