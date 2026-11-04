@@ -355,9 +355,6 @@ def test_manual_revision_is_monotonic_and_noop_edits_preserve_provenance(dataset
     assert edits.revision == 2  # Exact equality cannot silently recertify a previous fit.
     edits.redo()
     assert edits.revision == 3
-    edits.mark_saved()
-    assert edits.revision == 3
-    assert not edits.dirty
     before = edits.peaks
     with pytest.raises(ValueError, match="unique"):
         edits.replace_all((peak, peak))
@@ -468,8 +465,9 @@ def test_plane_metadata_stays_modified_and_protected_after_peak_export(
             assert tuple(s for s in workspace.dataset.sources if s[0] == "plane_values") == record
             np.testing.assert_array_equal(workspace.dataset.spectra.z_values, values)
             assert window.export_dialog()
-            assert not workspace.edits.dirty
-            assert window.isWindowModified()  # CSV did not preserve the plane mapping.
+            # A peak CSV is not the analysis: the plane mapping stays unsaved.
+            assert window.isWindowModified()
+            assert "Modified" in workspace.modified.text()
             closing = QtGui.QCloseEvent()
             window.closeEvent(closing)
             assert not closing.isAccepted()

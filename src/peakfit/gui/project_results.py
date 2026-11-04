@@ -172,7 +172,8 @@ def run_record(result):
         "execution_seconds": result.execution_seconds,
         "n_optimizer_passes": result.outcome.n_optimizer_passes,
         "n_correction_updates": result.outcome.n_correction_updates,
-        "snapshot": asdict(result.inputs.snapshot),
+        # The spectrum identity is process-local; reopening binds the loaded spectrum.
+        "snapshot": {k: v for k, v in asdict(result.inputs.snapshot).items() if k != "spectrum_id"},
         "identities": [asdict(i) for i in result.inputs.identities],
         "shape_names": result.inputs.shape_names,
         "initial_parameters": initial_parameter_records(result),

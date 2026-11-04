@@ -10,14 +10,10 @@ from typing import TYPE_CHECKING
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editor.numerical import NumericalReview
 from peakfit.gui.failures import failure_message
-from peakfit.gui.peaks import PeakEdits
 from peakfit.gui.project import (
-    Analysis,
-    dataset_header,
     run_id,
     source_link_unchanged,
 )
@@ -37,7 +33,7 @@ class AnalysisActions:
         self._analysis = None
         self._recovered_session = SessionEvidence()
         self._recovering_path = None
-        self._saved_key = None
+        self._saved_state = None
         self._saving = False
         self._after_save = None
         self._analysis_cancel = Event()
@@ -64,22 +60,34 @@ class AnalysisActions:
         )
         self._analysis_actions()
 
-    def _analysis_key(self: EditorWindow):
-        w = self.workspace
-        if w:
-            return (
-                w.peaks,
-                w.edits.revision,
-                w.fitting.configuration.model_dump_json(),
-                w.fitting.result.run_id if w.fitting.result else None,
-                w.dataset.sources,
-                tuple(w.dataset.spectra.z_values),
-                frozenset(w.fitting.protected),
-                tuple(e["run_id"] for e in w.fitting.journal),
-            )
+    def _analysis_state(self: EditorWindow):
+        if self.workspace:
+            return self.workspace.analysis_state()
         if self._analysis:
-            return self._analysis.peaks, self._analysis.configuration, self._analysis.protected
+            return {"kept runs": self._analysis.protected}
         return None
+
+    def unsaved(self: EditorWindow) -> tuple[str, ...]:
+        """What differs from the last saved or opened analysis: the one Modified state."""
+        state = self._analysis_state()
+        if state is None:
+            return ()
+        saved = self._saved_state
+        if saved is None:
+            parts = ["not saved as an analysis"]
+        else:
+            parts = [name for name, value in state.items() if saved.get(name) != value]
+            if len(parts) > 1 and "scientific edits" in parts:
+                parts.remove("scientific edits")  # named by what was edited
+        if self.workspace and self.workspace.pending:
+            parts.append("uncommitted draft")
+        return tuple(parts)
+
+    def _show_modified(self: EditorWindow) -> None:
+        unsaved = self.unsaved()
+        self.setWindowModified(bool(unsaved))
+        if self.workspace:
+            self.workspace.show_modified(unsaved)
 
     def _analysis_actions(self: EditorWindow):
         available = self.workspace is not None or self._analysis is not None
@@ -106,50 +114,13 @@ class AnalysisActions:
 
     def capture_analysis(self: EditorWindow):
         """Capture immutable references and modest navigation state on Qt."""
-        w = self.workspace
-        if w is None:
+        if self.workspace is None:
             return self._analysis
-        c = w.canvas
-        view = {
-            "plane": c.plane,
-            "selected_id": w.selected_id,
-            "pin": [float(c.ppm_x[c.ix]), float(c.ppm_y[c.iy])],
-            "pinned": c.pinned,
-            "pin_peak_id": c.pin_peak_id,
-            "ranges": c.main.getViewBox().viewRange(),
-            "navigator": w.peaks_button.isChecked(),
-            "inspector": w.inspector_button.isChecked(),
-            "splitter": w.splitter.sizes(),
-            "display": {
-                name: getattr(c, name)
-                for name in (
-                    "contour_threshold",
-                    "contour_factor",
-                    "contour_count",
-                    "residual_threshold",
-                    "labels_visible",
-                    "heavy_strokes",
-                )
-            },
-            "trace_limits": c._trace_limits,
-            "mode": next((i for i, b in enumerate(w.mode_buttons) if b.isChecked()), 0),
-        }
-        header = dataset_header(w.dataset)
+        analysis = self.workspace.capture()
+        header = analysis.header
         if self._analysis:
-            header["source"] = self._analysis.header["source"]
-        return Analysis(
-            w.dataset,
-            header,
-            w.peaks,
-            w.fitting.configuration.model_dump_json(),
-            w.edits.revision,
-            tuple(w.fitting.history),
-            view,
-            path=self.analysis_path,
-            journal=tuple(w.fitting.journal),
-            protected=frozenset(w.fitting.protected),
-            active=w.fitting.completion,
-        )
+            header = dict(header, source=self._analysis.header["source"])
+        return replace(analysis, header=header, path=self.analysis_path)
 
     def save_analysis_dialog(self: EditorWindow, *, save_as=False, after=None):
         """Save off Qt; only successful publication marks this exact state saved."""
@@ -173,7 +144,7 @@ class AnalysisActions:
             path = Path(filename)
             if path.suffix != ".peakfit":
                 path = path.with_suffix(".peakfit")
-        self._save_key = self._analysis_key()
+        self._save_state = self._analysis_state()
         self._saving = True
         self._after_save = after
         self._analysis_cancel.clear()
@@ -232,7 +203,7 @@ class AnalysisActions:
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Relink original spectrum")
         if not filename:
             return
-        self._relink_was_modified = self.isWindowModified()
+        self._relink_was_modified = bool(self.unsaved())
         self._busy = True
         self._analysis_cancel.clear()
         self.cancel_load.show()
@@ -283,44 +254,35 @@ class AnalysisActions:
                         reason="Source unavailable or changed. Relink to verify it.",
                     )
                 )
-            self._saved_key = self._save_key
+            self._saved_state = self._save_state
             size = sum(storage.values()) / 1024**2
             self.loading_status.setText(
                 f"Saved {path.name} · {size:.1f} MiB project data · Spectrum linked"
             )
             if self.workspace:
-                self.workspace.fitting.history = list(analysis.runs)
-                self.workspace.fitting.journal = list(analysis.journal)
-                self.workspace.fitting.release_recovery()
+                self.workspace.fitting.adopt_saved(analysis.runs, analysis.journal)
             self._analysis_worker.cleanup_after_work(self._recovered_session.close)
-            if self.workspace and self._analysis_key() == self._saved_key:
-                self.workspace.edits.mark_saved()
-                self.workspace.plane_values_modified = False
-            self.setWindowModified(self._analysis_key() != self._saved_key)
             after, self._after_save = self._after_save, None
             if after:
                 QtCore.QTimer.singleShot(0, after)
         else:
             self.install_analysis(outcome)
             if kind == "relink" and self._relink_was_modified:
-                self._saved_key = None
-                self.setWindowModified(True)
+                self._saved_state = None
         if self.workspace:
             self.workspace.set_inputs_loading(False)
             self.workspace.render_fitting()
         self._work_changed()
         self.open_action.setEnabled(True)
 
-    def install_analysis(self: EditorWindow, analysis):  # noqa: PLR0912, PLR0915
+    def install_analysis(self: EditorWindow, analysis):
         """Publish verified spectra or an explicitly numerical-only workspace."""
         # A capability change keeps the same evidence. Transfer its scratch owner
         # before stopping the old workspace, rather than deleting still-linked history.
-        if self.workspace:
-            owner = self.workspace.fitting._session
-            if owner.path and any(getattr(r, "root", None) == owner.path for r in analysis.runs):
-                self._analysis_worker.cleanup_after_work(self._recovered_session.close)
-                self._recovered_session = owner
-                self.workspace.fitting._session = SessionEvidence()
+        owner = self.workspace.fitting.hand_over_evidence(analysis.runs) if self.workspace else None
+        if owner is not None:
+            self._analysis_worker.cleanup_after_work(self._recovered_session.close)
+            self._recovered_session = owner
         self._analysis = analysis
         self.analysis_path = analysis.path
         if analysis.dataset is not None:
@@ -329,56 +291,8 @@ class AnalysisActions:
             self.analysis_path = analysis.path
             w = self.workspace
             assert w is not None
-            w.edits = PeakEdits(analysis.peaks, revision=analysis.revision)
-            w.fitting.configuration = PeakFitConfig.model_validate_json(analysis.configuration)
-            # Only the active result is resident and needs a process-local identity.
-            completion = analysis.completion
-            if completion:
-                result = completion.result
-                inputs = replace(
-                    result.inputs,
-                    snapshot=replace(result.inputs.snapshot, spectrum_id=id(w.dataset.spectra)),
-                )
-                completion = replace(completion, result=replace(result, inputs=inputs))
-            w.fitting.history = list(analysis.runs)
-            w.fitting.journal = list(analysis.journal)
-            w.fitting.protected = set(analysis.protected)
-            w.fitting.completion = completion
+            w.restore(analysis)
             self._analysis = replace(analysis, active=None)
-            w._refresh()
-            v = analysis.view or {}
-            for name, value in v.get("display", {}).items():
-                if name in {
-                    "contour_threshold",
-                    "contour_factor",
-                    "contour_count",
-                    "residual_threshold",
-                    "labels_visible",
-                    "heavy_strokes",
-                }:
-                    setattr(w.canvas, name, value)
-            if v.get("trace_limits"):
-                w.canvas._trace_limits = {int(k): value for k, value in v["trace_limits"].items()}
-            w.canvas._refresh_labels()
-            w.set_plane(v.get("plane", 0) + 1)
-            if v.get("selected_id") in {p.id for p in w.peaks}:
-                w.select_peak(v["selected_id"])
-            if v.get("pin"):
-                w.canvas.sample(*v["pin"])
-                w.canvas.set_pinned(v.get("pinned", False))
-                w.canvas.pin_peak_id = v.get("pin_peak_id")
-            if v.get("ranges"):
-                x, y = v["ranges"]
-                w.canvas.main.getViewBox().setRange(xRange=x, yRange=y, padding=0)
-            w.peaks_button.setChecked(v.get("navigator", True))
-            w.toggle_navigator()
-            w.inspector_button.setChecked(v.get("inspector", True))
-            w.toggle_inspector()
-            # Sizes from another layout (a different number of columns) are not applied.
-            if len(v.get("splitter") or ()) == w.splitter.count():
-                w.splitter.setSizes(v["splitter"])
-            w.set_mode(v.get("mode", 0))
-            w.render_fitting()
         else:
             self.release_unlinked_recovery(analysis.runs)
             if self.workspace:
@@ -405,9 +319,9 @@ class AnalysisActions:
             self._recovered_session.adopt(analysis.path)
             self.analysis_path = None
             self._recovering_path = None
-        self._saved_key = None if recovering else self._analysis_key()
+        self._saved_state = None if recovering else self._analysis_state()
         self.setWindowTitle(f"{analysis.path.name}[*] — PeakFit")
-        self.setWindowModified(recovering)
+        self._show_modified()
         self.loading_status.setText(
             "Numerical review only · Relink source to restore spectral views"
             if analysis.dataset is None
@@ -460,14 +374,12 @@ class AnalysisActions:
 
     def _keep_evidence(self: EditorWindow, run_id, keep):
         if self.workspace:
-            protected = self.workspace.fitting.protected
-            protected.add(run_id) if keep else protected.discard(run_id)
-            self.workspace.changed.emit()
+            self.workspace.fitting.keep_run(run_id, keep)
         elif self._analysis:
             protected = set(self._analysis.protected)
             protected.add(run_id) if keep else protected.discard(run_id)
             self._analysis = replace(self._analysis, protected=frozenset(protected))
-            self.setWindowModified(True)
+            self._show_modified()
 
 
 class _Progress(QtCore.QObject):

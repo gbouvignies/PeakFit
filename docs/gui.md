@@ -87,12 +87,16 @@ field, Cmd/Ctrl+Z invokes peak Undo; within a draft, ordinary text Undo remains
 available. Undo labels identify the edit.
 
 **File → Export working peaks…** writes canonical PeakFit CSV atomically, using
-round-trip dot-decimal coordinates. Replacement/close offers export for unexported
-peak edits. Importing or replacing plane values marks the session Modified, even
-when no peaks changed. Peak CSV cannot preserve that plane mapping: exporting peaks
-leaves it Modified, and close/replacement requires explicit **Discard session
-changes** or Cancel. Keep the values file and select it again when reopening;
-plane-value imports are session-only and are not undone by peak Undo.
+round-trip dot-decimal coordinates. A peak list is not the analysis: exporting peaks
+or results leaves it **Modified**.
+
+**Modified** has one meaning, shown by the toolbar, the window title and the close
+prompt alike: the analysis differs from the last one saved or opened, or an edit is
+still a draft. The toolbar tooltip names what differs: peaks, fit settings, the
+active run, input files, plane values, kept runs, run history or an uncommitted
+draft. Importing or replacing plane values marks it Modified even when no peaks
+changed; peak Undo does not undo a plane-value import, and peak CSV cannot carry
+the plane mapping. **Save analysis** records it.
 
 Peak imports retain their source fingerprints by stable peak ID. Replace drops
 superseded peak sources from the effective inputs; Append retains sources of all

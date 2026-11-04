@@ -122,9 +122,35 @@ class DatasetFitting(QtCore.QObject):
     def _recovery_path(self):
         return self._session.path
 
-    def release_recovery(self):
-        """Clean scratch files only after Save has rebound history to published evidence."""
+    def restore(self, configuration, completion, runs, journal, protected) -> None:
+        """Adopt an opened analysis's settings, active run and retained evidence."""
+        self.configuration = configuration
+        self.completion = completion
+        self.history = list(runs)
+        self.journal = list(journal)
+        self.protected = set(protected)
+
+    def adopt_saved(self, runs, journal) -> None:
+        """Rebind history to the published evidence, then clean the scratch files."""
+        self.history = list(runs)
+        self.journal = list(journal)
         self._worker.cleanup_after_work(self._session.close)
+
+    def hand_over_evidence(self, runs) -> SessionEvidence | None:
+        """Hand scratch evidence that ``runs`` still link to the caller; keep a fresh owner."""
+        owner = self._session
+        if not owner.path or not any(getattr(r, "root", None) == owner.path for r in runs):
+            return None
+        self._session = SessionEvidence()
+        return owner
+
+    def keep_run(self, run_id: str, keep: bool) -> None:
+        """Protect a run from history eviction, or release it."""
+        if keep:
+            self.protected.add(run_id)
+        else:
+            self.protected.discard(run_id)
+        self.state_changed.emit()
 
     @property
     def busy(self) -> bool:
@@ -515,13 +541,8 @@ class DatasetFitting(QtCore.QObject):
             dataset=self.workspace.dataset,
         )
         if path:
+            # Exporting results never marks the analysis saved.
             self.exported.add(self.result.run_id)
-            if self.completion and self.workspace.peaks == self.completion.working_peaks:
-                # The shared coordinate table contains this exact stable-ID coordinate
-                # tuple. Its successful export also preserves the working peaks.
-                self.workspace.edits.mark_saved()
-                self.workspace._update_actions()
-                self.workspace.changed.emit()
             self.workspace.status.setText(f"Exported retained run to {path}")
         return path is not None
 

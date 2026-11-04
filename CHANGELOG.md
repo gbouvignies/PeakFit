@@ -91,6 +91,14 @@ Notable user-facing and architecture changes are recorded here.
   locks and releases every scientific edit. Fixed the Edit menu's Add peak staying
   disabled after the first fit, and the pin button staying disabled after the lens
   closed.
+- "Modified" has one meaning in the toolbar, the window title and the close prompt:
+  the analysis differs from the last saved or opened one, or a draft is pending. The
+  toolbar tooltip names what differs. **Behaviour change:** exporting peaks (CSV) or
+  fit results no longer clears the toolbar's Modified, since neither saves the
+  analysis (the title and close prompt already said so). Saving and opening go
+  through `EditorWorkspace.capture()`/`restore()` instead of writing workspace
+  internals. Saved runs no longer record the process-local `spectrum_id` in
+  `review.json`; readers already ignored it, so projects open both ways unchanged.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.

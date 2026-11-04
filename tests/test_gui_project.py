@@ -266,7 +266,7 @@ def test_verified_reopen_rebinds_currentness_and_manual_edit_outdates(
     peak = w.peaks[0]
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.0001))
     assert not w.fitting.current
-    window._saved_key = window._analysis_key()
+    window._saved_state = window._analysis_state()
     window.close()
     qapp.processEvents()
 
@@ -379,6 +379,14 @@ def test_reopened_adoption_is_checked_structurally_not_by_warning_text(analysis,
     assert reopened.adopted == completion.adopted
     assert reopened.retained == completion.retained
     assert reopened.working_peaks == completion.working_peaks
+
+
+def test_review_records_no_process_local_spectrum_identity(analysis, tmp_path):
+    path = save_analysis(analysis, tmp_path / "identity.peakfit")
+    review = json.loads(next(path.rglob("review.json")).read_text())
+    # id() of the in-memory spectrum means nothing in another process.
+    assert "spectrum_id" not in review["snapshot"]
+    assert open_analysis(path).completion.result.inputs.snapshot.spectrum_id == 0
 
 
 def test_changed_same_size_same_timestamp_does_not_verify(tmp_path):
@@ -634,12 +642,18 @@ def test_session_evidence_cleanup_and_explicit_recovery(qapp, analysis, tmp_path
     window.install_analysis(open_analysis(recovery))
     assert window.analysis_path is None  # Recovery requires an explicit permanent Save as.
     assert window.isWindowModified()
+    w = window.workspace
+    assert w is not None
+    assert w.modified.toolTip() == "Unsaved: not saved as an analysis"
     destination = tmp_path / "Recovered.peakfit"
     monkeypatch.setattr(
         QtWidgets.QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(destination), "")
     )
     assert window.save_analysis_dialog()
     wait_until(lambda: not window._saving, timeout=15)
+    # Saving clears the one Modified state: title and toolbar together.
+    assert not window.isWindowModified()
+    assert w.modified.text() == ""
     wait_until(lambda: not root.exists())
     window.close()
     qapp.processEvents()
