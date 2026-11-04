@@ -514,3 +514,17 @@ Short records of non‑obvious design choices and trade‑offs.
 - A run kept this way is resident in memory. Repeated spool failures accumulate
   resident runs until Save; this is accepted rather than evicting evidence that
   exists nowhere else.
+
+## 2026-11-04: One model-plane cache and one normalized residual
+- The canvas owned the only model-plane cache; the lens and the unexplained-signal
+  search read it through a private attribute and discarded the planes they computed,
+  so one (run, plane) could be projected up to three times. `fit_display.ModelPlanes`
+  is now owned by the workspace and passed to the canvas and lens; every view stores
+  what it computes, on the GUI thread, and reuses what is there. Bounds are unchanged
+  (eight planes, 128 MiB); reads now refresh recency. Requests issued at the same
+  moment by two views can still both compute; only sequential reuse is promised.
+- `(observed − model) / noise` was written five times; `normalized_residual` is the
+  one definition. Displayed model, residual, trace and unexplained-region arrays
+  hash identically before and after on the synthetic two-cluster dataset.
+- Moving presentation text out of `workspace.py` was considered and deferred: a
+  large diff with no behaviour gain.

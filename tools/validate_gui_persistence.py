@@ -91,7 +91,7 @@ def main():  # noqa: PLR0915
                 "resident_full_runs": len(
                     {id(c) for c in (*fitting.history, fitting.completion) if hasattr(c, "result")}
                 ),
-                "model_cache_bytes": sum(a.nbytes for a in workspace.canvas._model_cache.values()),
+                "model_cache_bytes": workspace.model_planes.nbytes,
                 "contour_cache_bytes": workspace.canvas.cache_bytes,
             }
 

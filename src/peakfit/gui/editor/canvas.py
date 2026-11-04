@@ -16,12 +16,13 @@ import pyqtgraph as pg
 from peakfit.gui import formatting
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editing import PeakMarkers
-from peakfit.gui.fit_display import dataset_model_plane
+from peakfit.gui.fit_display import dataset_model_plane, normalized_residual
 from peakfit.gui.spectrum import contour_geometry, display_position, paths_from_geometry
 from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
+    from peakfit.gui.fit_display import ModelPlanes
     from peakfit.gui.peaks import WorkingPeak
     from peakfit.gui.spectrum import ContourGeometry, Dataset
 
@@ -138,7 +139,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
     draft_changed = QtCore.Signal(bool)
     painted = QtCore.Signal()
 
-    def __init__(self, dataset: Dataset) -> None:  # noqa: PLR0915
+    def __init__(self, dataset: Dataset, model_planes: ModelPlanes) -> None:  # noqa: PLR0915
         super().__init__()
         self.dataset = dataset
         self.spectra = dataset.spectra
@@ -152,7 +153,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.added: frozenset[str] = frozenset()
         self.departed: tuple[WorkingPeak, ...] = ()
         self.residual_threshold = 3.0
-        self._model_cache = OrderedDict()
+        self.model_planes = model_planes
         self._model_cancel = Event()
         self._model = None
         self._expanded_model = False
@@ -619,8 +620,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 return
             assert self.comparison_result is not None
             noise = self.comparison_result.outcome.noise
-            row = (row - self._model.values[self.iy, :]) / noise
-            column = (column - self._model.values[:, self.ix]) / noise
+            row = normalized_residual(row, self._model.values[self.iy, :], noise)
+            column = normalized_residual(column, self._model.values[:, self.ix], noise)
         elif self.comparison_mode == 1 and self._model is not None:
             self.model_x.setData(self.ppm_x, self._model.values[self.iy, :])
             self.model_y.setData(self._model.values[:, self.ix], self.ppm_y)
@@ -819,7 +820,9 @@ class SpectrumCanvas(QtWidgets.QWidget):
             if self._model is None:
                 return
             assert self.comparison_result is not None
-            data = (data - self._model.values) / self.comparison_result.outcome.noise
+            data = normalized_residual(
+                data, self._model.values, self.comparison_result.outcome.noise
+            )
         value = max(
             float(np.max(np.abs(data[self.iy, :]))), float(np.max(np.abs(data[:, self.ix])))
         )
@@ -849,7 +852,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         model or residual is shown; it is empty for the current run.
         """
         if result is not self.comparison_result:
-            self._model_cache.clear()
+            self.model_planes.keep_only(result.run_id if result is not None else None)
             self._expanded_model = False
             self._scale_note = ""
         self.comparison_result = result
@@ -884,7 +887,6 @@ class SpectrumCanvas(QtWidgets.QWidget):
         )
         if not mode:
             key = self._experiment_key()
-        model_key = (run, plane)
         self.contour_pending = True
         self.pending_label.setPos(
             self.main.getViewBox().viewRange()[0][1], self.main.getViewBox().viewRange()[1][0]
@@ -899,7 +901,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.pending_label.show()
         self._worker.cancel("contours")
         self._worker.cancel("model")
-        grid = self._model_cache.get(model_key) if mode else None
+        grid = self.model_planes.get(run, plane) if run is not None else None
         self._model = grid
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
         if key in self._cache and (not mode or grid is not None):
@@ -939,7 +941,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             if mode == _RESIDUAL:
                 assert model is not None
                 assert result is not None
-                residual = (observed - model.values) / result.outcome.noise
+                residual = normalized_residual(observed, model.values, result.outcome.noise)
                 geometry = signed_geometry(residual, axes, residual_levels)
             else:
                 assert model is not None
@@ -986,15 +988,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self.contour_count,
             self.residual_threshold,
         )
-        if model is not None:
-            model_key = (run, self.plane)
-            self._model_cache[model_key] = model
-            self._model_cache.move_to_end(model_key)
-            while (
-                len(self._model_cache) > _CACHE_PLANES
-                or sum(m.nbytes for m in self._model_cache.values()) > 128 * 1024**2
-            ):
-                self._model_cache.popitem(last=False)
+        if model is not None and run is not None:
+            self.model_planes.put(run, self.plane, model)
         self._model = model
         if model is not None and not self._expanded_model:
             maximum = float(np.max(np.abs(model.values))) * 1.05
