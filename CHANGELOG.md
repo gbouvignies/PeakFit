@@ -117,6 +117,21 @@ Notable user-facing and architecture changes are recorded here.
   before sampling, and an evaluation error inside the bounds is raised instead of
   being scored as an impossible sample. Conditional amplitude draws with
   identifiability checks are available for the sampler that follows.
+- `peakfit mcmc` samples with a new driver (`engine.scientific.sampler`) and
+  ensemble diagnostics (`engine.diagnostics.ensemble`, replacing
+  `convergence.py`), per `docs/mcmc-formulation.md` §7:
+  - Each cluster either passed the convergence checks or is provisional, with
+    reasons and no final intervals. The checks are a kept length of at least 50 τ,
+    stationarity of the two halves, stuck walkers, and peaks exchanging identity
+    (which withholds both peaks' intervals).
+  - R̂ across ensemble walkers is no longer reported, in the terminal or in
+    `peakfit plot mcmc`.
+  - Runs are seeded (`--seed`, printed on every run) and reproducible.
+  - Walkers start strictly inside the bounds, and too few walkers is an error.
+  - `--workers` defaults to serial.
+  - Chains are saved whole with their burn-in, which is discarded exactly once.
+  - **Temporarily removed:** amplitude intervals, which were conditional optima
+    and too narrow, until conditional amplitude draws replace them.
 
 ### Removed
 

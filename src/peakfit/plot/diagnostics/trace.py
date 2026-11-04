@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
-    from peakfit.engine.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.engine.diagnostics.metrics import TraceMetrics
     from peakfit.shared.typing import FloatArray
 
@@ -19,16 +18,12 @@ if TYPE_CHECKING:
 _MAX_CHAINS_FOR_LEGEND = 10
 _MAX_LABELED_CHAINS = 3
 
-_RHAT_EXCELLENT_THRESHOLD = 1.01
-_RHAT_ACCEPTABLE_THRESHOLD = 1.05
-
 
 def plot_trace(
     chains: FloatArray,
     parameter_names: list[str],
     burn_in: int = 0,
     metrics: list[TraceMetrics] | None = None,
-    diagnostics: ConvergenceDiagnostics | None = None,
     max_params: int = 20,
     thin: int = 1,
 ) -> Figure:
@@ -45,7 +40,6 @@ def plot_trace(
         parameter_names: List of parameter names
         burn_in: Number of burn-in samples to mark (shown in gray)
         metrics: Pre-computed TraceMetrics (computed if not provided)
-        diagnostics: Optional ConvergenceDiagnostics for R-hat values
         max_params: Maximum number of parameters to plot
         thin: Thinning factor applied to chains (for x-axis scaling)
 
@@ -56,7 +50,7 @@ def plot_trace(
     n_chains, n_samples, n_params = chains.shape
     n_params_plot = min(n_params, max_params, len(parameter_names))
 
-    if metrics is None and diagnostics is None:
+    if metrics is None:
         chains_post_burnin = chains[:, burn_in:, :] if burn_in > 0 else chains
         metrics = compute_all_trace_metrics(chains_post_burnin)
 
@@ -92,9 +86,8 @@ def plot_trace(
         if burn_in > 0:
             ax.axvline(burn_in_steps, color="red", linestyle="--", alpha=0.5, linewidth=1)
 
-        # Add R-hat annotation
-        metric = metrics[i] if metrics is not None and i < len(metrics) else None
-        _add_trace_annotation(ax, param_name, metric, diagnostics, i)
+        metric = metrics[i] if i < len(metrics) else None
+        _add_trace_annotation(ax, param_name, metric)
 
         ax.set_xlabel(f"Iteration (thin={thin})", fontsize=9)
         ax.set_ylabel("Value", fontsize=9)
@@ -188,39 +181,10 @@ def _plot_single_parameter_trace(
         )
 
 
-def _add_trace_annotation(
-    ax: Axes,
-    param_name: str,
-    metric: TraceMetrics | None,
-    diagnostic: ConvergenceDiagnostics | None,
-    idx: int,
-) -> None:
-    """Add title and R-hat/ESS annotation to trace plot."""
+def _add_trace_annotation(ax: Axes, param_name: str, metric: TraceMetrics | None) -> None:
+    """Title a trace with its autocorrelation time and approximate ESS."""
     title = param_name
-    rhat = None
-    ess = None
-
-    if metric is not None:
-        rhat = metric.rhat
-        ess = metric.ess
-    elif diagnostic is not None and idx < len(diagnostic.rhat):
-        rhat = diagnostic.rhat[idx]
-        ess = diagnostic.ess_bulk[idx]
-
-    stats_parts = []
-    if rhat is not None and not np.isnan(rhat):
-        if rhat <= _RHAT_EXCELLENT_THRESHOLD:
-            status = "✓"
-        elif rhat <= _RHAT_ACCEPTABLE_THRESHOLD:
-            status = "⚠"
-        else:
-            status = "✗"
-        stats_parts.append(f"{status} R̂={rhat:.3f}")
-
-    if ess is not None and not np.isnan(ess):
-        stats_parts.append(f"ESS={ess:.0f}")
-
-    if stats_parts:
-        title = f"{param_name} ({', '.join(stats_parts)})"
-
+    if metric is not None and np.isfinite(metric.tau):
+        drift = "" if metric.stationary else ", halves disagree"
+        title = f"{param_name} (τ={metric.tau:.1f}, ESS≈{metric.ess:.0f}{drift})"
     ax.set_title(title, fontsize=10)

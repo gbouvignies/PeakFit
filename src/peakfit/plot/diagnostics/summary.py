@@ -9,7 +9,6 @@ from matplotlib.ticker import MaxNLocator
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from peakfit.engine.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.shared.typing import FloatArray
 
 
@@ -20,7 +19,6 @@ def plot_marginal_distributions(
     n_samples: int,
     thin: int,
     truths: FloatArray | None = None,
-    diagnostics: ConvergenceDiagnostics | None = None,
     max_params_per_page: int = 12,
 ) -> list[Figure]:
     """Create clear 1D marginal distribution plots with full parameter names.
@@ -28,7 +26,6 @@ def plot_marginal_distributions(
     Shows histograms of posterior distributions for each parameter with:
     - Full parameter names (no truncation)
     - Median and 68% credible intervals
-    - R-hat and ESS values if diagnostics provided
     - Best-fit values if provided
 
     Args:
@@ -38,7 +35,6 @@ def plot_marginal_distributions(
         n_samples: Number of stored samples per chain
         thin: Thinning factor
         truths: Optional best-fit values
-        diagnostics: Optional convergence diagnostics
         max_params_per_page: Maximum parameters per page
 
     Returns:
@@ -104,11 +100,6 @@ def plot_marginal_distributions(
 
             # Add statistics text box
             stats_text = f"Median: {median:.6f}\n68% CI: [{ci_16:.6f}, {ci_84:.6f}]"
-            if diagnostics is not None:
-                rhat = diagnostics.rhat[param_idx]
-                ess_bulk = diagnostics.ess_bulk[param_idx]
-                stats_text += f"\nR̂: {rhat:.4f}"
-                stats_text += f"\nESS: {ess_bulk:.0f}"
 
             ax.text(
                 0.98,

@@ -14,10 +14,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.diagnostics.convergence import compute_ess, compute_rhat
-
-_RHAT_CONVERGENCE_THRESHOLD = 1.01
-_STRONG_CORRELATION_THRESHOLD = 0.5
+from peakfit.engine.diagnostics import ensemble
 
 if TYPE_CHECKING:
     from peakfit.shared.typing import FloatArray
@@ -25,19 +22,10 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class TraceMetrics:
-    """Computed metrics for a single parameter's trace.
+    """Summary of one parameter over an ensemble's kept chain.
 
-    Attributes:
-    ----------
-        mean: Mean value of samples
-        std: Standard deviation of samples
-        median: Median value of samples
-        q05: 5th percentile (lower bound of 90% CI)
-        q95: 95th percentile (upper bound of 90% CI)
-        q16: 16th percentile (lower bound of 68% CI / 1 sigma)
-        q84: 84th percentile (upper bound of 68% CI / 1 sigma)
-        ess: Effective sample size
-        rhat: Gelman-Rubin statistic
+    There is no R̂: ensemble walkers are coupled, not independent chains
+    (``docs/mcmc-formulation.md`` §7).
     """
 
     mean: float
@@ -47,8 +35,9 @@ class TraceMetrics:
     q95: float
     q16: float
     q84: float
-    ess: float
-    rhat: float
+    tau: float  # integrated autocorrelation time, in steps
+    ess: float  # approximate: walkers × steps / τ
+    stationary: bool  # the two halves of the chain agree
 
     @property
     def ci_68(self) -> tuple[float, float]:
@@ -74,63 +63,29 @@ class AutocorrelationResult:
     effective_decorrelation_lag: int
 
 
-def compute_trace_metrics(
-    chains: FloatArray,
-    param_index: int,
-) -> TraceMetrics:
-    """Compute summary metrics for a single parameter across all chains.
-
-    Args:
-        chains: Array of shape (n_chains, n_samples, n_params)
-        param_index: Index of parameter to analyze
-
-    Returns:
-    -------
-        TraceMetrics with computed statistics
-    """
-    # Extract parameter samples from all chains
-    samples = chains[:, :, param_index].flatten()
-
-    # Basic statistics
-    mean = float(np.mean(samples))
-    std = float(np.std(samples))
-    median = float(np.median(samples))
-    percentiles = np.atleast_1d(np.percentile(samples, [5, 16, 84, 95]))
-    q05 = float(percentiles[0])
-    q16 = float(percentiles[1])
-    q84 = float(percentiles[2])
-    q95 = float(percentiles[3])
-
-    # Effective sample size & R-hat
-    # Use canonical implementations from convergence module
-    ess = compute_ess(chains[:, :, param_index], method="bulk")
-    rhat = compute_rhat(chains[:, :, param_index])
-
-    return TraceMetrics(
-        mean=mean,
-        std=std,
-        median=median,
-        q05=q05,
-        q95=q95,
-        q16=q16,
-        q84=q84,
-        ess=ess,
-        rhat=rhat,
-    )
-
-
 def compute_all_trace_metrics(chains: FloatArray) -> list[TraceMetrics]:
-    """Compute trace metrics for all parameters.
-
-    Args:
-        chains: Array of shape (n_chains, n_samples, n_params)
-
-    Returns:
-    -------
-        List of TraceMetrics, one per parameter
-    """
-    n_params = chains.shape[2]
-    return [compute_trace_metrics(chains, i) for i in range(n_params)]
+    """Summaries of every parameter of a kept chain of shape (walkers, steps, params)."""
+    chain = np.swapaxes(chains, 0, 1)  # the ensemble diagnostics' (steps, walkers, params)
+    tau, _ = ensemble.autocorrelation_times(chain)
+    ess = ensemble.effective_sample_size(chain, tau)
+    stationary = ensemble.stationary(chain, tau)
+    flat = chain.reshape(-1, chain.shape[2])
+    q05, q16, median, q84, q95 = np.quantile(flat, [0.05, 0.16, 0.5, 0.84, 0.95], axis=0)
+    return [
+        TraceMetrics(
+            mean=float(np.mean(flat[:, j])),
+            std=float(np.std(flat[:, j])),
+            median=float(median[j]),
+            q05=float(q05[j]),
+            q95=float(q95[j]),
+            q16=float(q16[j]),
+            q84=float(q84[j]),
+            tau=float(tau[j]),
+            ess=float(ess[j]),
+            stationary=bool(stationary[j]),
+        )
+        for j in range(flat.shape[1])
+    ]
 
 
 def compute_autocorrelation(

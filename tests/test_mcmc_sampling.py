@@ -9,6 +9,7 @@ from builders import completed_result, peak_pair
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.algorithms.linear_algebra import factorize_shapes
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
+from peakfit.engine.scientific.sampler import SamplerSettings
 from peakfit.engine.scientific.sampling import conditional_amplitudes, sampling_problem
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.gui.fit_export import export_fit_result
@@ -237,12 +238,10 @@ def test_the_cli_analysis_samples_only_the_targeted_cluster(tmp_path, two_cluste
     target = completed.outcome.clusters[1]
     analysis = run_mcmc_analysis(
         directory,
+        SamplerSettings(walkers=20, steps=40, burn_in=10),
         target_peaks=[target.peak_names[0]],
-        n_walkers=20,
-        n_steps=40,
-        burn_in=10,
-        auto_burnin=False,
+        entropy=1,
     )
-    (result,) = analysis.cluster_results
-    assert result.cluster.cluster_id == target.cluster_id
-    assert np.isfinite(result.result.values).all()
+    (posterior,) = analysis.posteriors
+    assert posterior.cluster_id == target.cluster_id
+    assert all(np.isfinite(p.quantiles).all() for p in posterior.diagnosis.parameters)

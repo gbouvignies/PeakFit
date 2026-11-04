@@ -1,38 +1,21 @@
-"""MCMC workflow helpers for post-fit uncertainty estimation.
-
-This module consolidates MCMC analysis and formatting utilities for CLI use.
-"""
+"""Post-fit MCMC uncertainty analysis of a fit's results directory."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from peakfit.engine.algorithms.mcmc import estimate_uncertainties_mcmc
+import numpy as np
+
+from peakfit.engine.scientific.sampler import SamplerSettings, sample_posterior
 from peakfit.engine.scientific.sampling import sampling_problem
 from peakfit.io.readers.results import ResultsLoader
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    import numpy as np
-
-    from peakfit.engine.algorithms.mcmc import UncertaintyResult
-    from peakfit.engine.diagnostics.convergence import ConvergenceDiagnostics
-    from peakfit.engine.domain.cluster import Cluster
-    from peakfit.shared.typing import FloatArray
-
-
-# =============================================================================
-# Constants
-# =============================================================================
-
-_RHAT_CONVERGED_THRESHOLD = 1.05
-_RHAT_EXCELLENT_THRESHOLD = 1.01
-_ESS_EXCELLENT_THRESHOLD = 10_000
-_ESS_GOOD_THRESHOLD = 100
-_ESS_MARGINAL_THRESHOLD = 10
+    from peakfit.engine.scientific.sampler import PosteriorSample, SamplerProgress
 
 
 class PeaksNotFoundError(ValueError):
@@ -44,34 +27,28 @@ class PeaksNotFoundError(ValueError):
 
 
 @dataclass(slots=True, frozen=True)
-class ClusterMCMCResult:
-    """Container for the uncertainty result of a single cluster."""
-
-    cluster: Cluster
-    result: UncertaintyResult
-
-
-@dataclass(slots=True, frozen=True)
 class MCMCAnalysisResult:
-    """Aggregate result for an MCMC uncertainty run."""
+    """Every analyzed cluster's posterior, and the entropy that reproduces the run."""
 
-    cluster_results: list[ClusterMCMCResult]
+    entropy: int
+    posteriors: list[PosteriorSample]
 
 
 def run_mcmc_analysis(
     results_dir: Path,
+    settings: SamplerSettings,
     *,
     target_peaks: list[str] | None = None,
-    n_walkers: int = 32,
-    n_steps: int = 1000,
-    burn_in: int | None = None,
-    auto_burnin: bool = True,
+    entropy: int | None = None,
     workers: int = 1,
-    progress_callback: Callable[[int, int, str, float | None], None] | None = None,
+    progress: Callable[[int, int, SamplerProgress], None] | None = None,
+    canceled: Callable[[], bool] | None = None,
 ) -> MCMCAnalysisResult:
-    """Run MCMC sampling for the results in the given directory.
+    """Sample each targeted cluster's posterior; only those clusters must be usable.
 
-    Only the targeted clusters must be usable; each samples its own posterior.
+    One ``SeedSequence`` (fresh entropy unless given) spawns one stream per cluster,
+    in cluster order. ``progress`` receives the cluster's position, the number of
+    clusters and the sampler's progress.
     """
     completed = ResultsLoader(Path(results_dir)).load_completed()
     peak_set = set(target_peaks or ())
@@ -82,250 +59,30 @@ def run_mcmc_analysis(
     ]
     if target_peaks and not target_ids:
         raise PeaksNotFoundError(target_peaks)
+    seed = np.random.SeedSequence(entropy)
+    posteriors = []
+    for index, (cluster_id, stream) in enumerate(
+        zip(target_ids, seed.spawn(len(target_ids)), strict=True), start=1
+    ):
 
-    results: list[ClusterMCMCResult] = []
-    burn_in_arg = None if auto_burnin else burn_in
+        def report(step: SamplerProgress, index=index) -> None:
+            if progress is not None:
+                progress(index, len(target_ids), step)
 
-    def _progress_callback(i: int, n: int, msg: str, acceptance: float | None) -> None:
-        if progress_callback is not None:
-            progress_callback(i, n, msg, acceptance)
-
-    callback = _progress_callback if progress_callback is not None else None
-    n_clusters = len(target_ids)
-    for i_cluster, cluster_id in enumerate(target_ids, start=1):
-        problem = sampling_problem(completed, cluster_id)
-        if callback is not None:
-            callback(
-                0,
-                n_steps,
-                f"Prepared cluster {i_cluster}/{n_clusters} ({len(problem.cluster.peaks)} peaks, "
-                f"{len(problem.names)} parameters)",
-                None,
-            )
-
-        result = estimate_uncertainties_mcmc(
-            problem,
-            n_walkers=n_walkers,
-            n_steps=n_steps,
-            burn_in=burn_in_arg,
-            workers=workers,
-            progress_callback=callback,
-        )
-        results.append(ClusterMCMCResult(cluster=problem.cluster, result=result))
-
-    return MCMCAnalysisResult(cluster_results=results)
-
-
-# =============================================================================
-# MCMC Formatters
-# =============================================================================
-
-
-@dataclass
-class MCMCParameterSummary:
-    """Summary of a single MCMC parameter result for display."""
-
-    name: str
-    value: float
-    std_error: float
-    ci_68_lower: float
-    ci_68_upper: float
-    ci_95_lower: float
-    ci_95_upper: float
-    rhat: float | None = None
-    ess_bulk: float | None = None
-    ess_tail: float | None = None
-
-    @property
-    def converged(self) -> bool:
-        """Check if parameter has converged based on R-hat."""
-        return self.rhat <= _RHAT_CONVERGED_THRESHOLD if self.rhat is not None else True
-
-    @property
-    def convergence_status(self) -> str:
-        """Get convergence status string."""
-        if self.rhat is None or self.ess_bulk is None:
-            return "unknown"
-        if self.rhat <= _RHAT_EXCELLENT_THRESHOLD:
-            if self.ess_bulk >= _ESS_EXCELLENT_THRESHOLD:
-                return "excellent"
-            if self.ess_bulk >= _ESS_GOOD_THRESHOLD:
-                return "good"
-        if self.rhat <= _RHAT_CONVERGED_THRESHOLD:
-            if self.ess_bulk >= _ESS_GOOD_THRESHOLD:
-                return "acceptable"
-            if self.ess_bulk >= _ESS_MARGINAL_THRESHOLD:
-                return "marginal"
-        return "poor"
-
-
-@dataclass
-class MCMCAmplitudeSummary:
-    """Summary of MCMC amplitude (intensity) results for a single peak."""
-
-    peak_name: str
-    plane_index: int
-    value: float
-    std_error: float
-    ci_68_lower: float
-    ci_68_upper: float
-    ci_95_lower: float
-    ci_95_upper: float
-    z_value: float | None = None
-
-
-@dataclass
-class MCMCClusterSummary:
-    """Summary of MCMC results for a single cluster."""
-
-    peak_names: list[str]
-    parameter_summaries: list[MCMCParameterSummary]
-    correlation_matrix: np.ndarray | None
-    burn_in_used: int | None
-    n_chains: int
-    n_samples: int
-    amplitude_summaries: list[MCMCAmplitudeSummary] = field(default_factory=list)
-
-    @property
-    def cluster_label(self) -> str:
-        """Get formatted cluster label."""
-        return ", ".join(self.peak_names)
-
-
-def _extract_lineshape_summaries(
-    result: Any, diagnostics: ConvergenceDiagnostics | None
-) -> list[MCMCParameterSummary]:
-    """Extract lineshape parameter summaries from MCMC result."""
-    param_summaries = []
-    for i in range(result.n_lineshape_params):
-        name = result.parameter_names[i]
-        val = float(result.values[i])
-        err = float(result.std_errors[i])
-
-        # Confidence Intervals
-        ci_68 = (
-            tuple(result.confidence_intervals_68[i])
-            if result.confidence_intervals_68 is not None
-            else None
-        )
-        ci_95 = (
-            tuple(result.confidence_intervals_95[i])
-            if result.confidence_intervals_95 is not None
-            else None
-        )
-
-        rhat = diagnostics.rhat[i] if diagnostics and i < len(diagnostics.rhat) else None
-        ess_bulk = (
-            diagnostics.ess_bulk[i] if diagnostics and i < len(diagnostics.ess_bulk) else None
-        )
-        ess_tail = (
-            diagnostics.ess_tail[i] if diagnostics and i < len(diagnostics.ess_tail) else None
-        )
-
-        param_summaries.append(
-            MCMCParameterSummary(
-                name=name,
-                value=val,
-                std_error=err,
-                ci_68_lower=ci_68[0] if ci_68 else 0.0,
-                ci_68_upper=ci_68[1] if ci_68 else 0.0,
-                ci_95_lower=ci_95[0] if ci_95 else 0.0,
-                ci_95_upper=ci_95[1] if ci_95 else 0.0,
-                rhat=float(rhat) if rhat is not None else None,
-                ess_bulk=float(ess_bulk) if ess_bulk is not None else None,
-                ess_tail=float(ess_tail) if ess_tail is not None else None,
+        posteriors.append(
+            sample_posterior(
+                sampling_problem(completed, cluster_id),
+                settings,
+                stream,
+                progress=report,
+                canceled=canceled,
+                workers=workers,
             )
         )
-    return param_summaries
-
-
-def _extract_amplitude_summaries(
-    result: Any, peak_names: list[str], z_values: FloatArray | None
-) -> list[MCMCAmplitudeSummary]:
-    """Extract amplitude summaries from MCMC result."""
-    amp_summaries = []
-
-    n_lines = result.n_lineshape_params
-    n_series = result.n_series
-    amp_idx_base = n_lines
-
-    for i_p, p_name in enumerate(peak_names):
-        for i_series in range(n_series):
-            idx = amp_idx_base + i_p * n_series + i_series
-            if idx >= len(result.values):
-                break
-
-            val = float(result.values[idx])
-            err = float(result.std_errors[idx])
-
-            ci_68 = (
-                tuple(result.confidence_intervals_68[idx])
-                if result.confidence_intervals_68 is not None
-                else (0.0, 0.0)
-            )
-            ci_95 = (
-                tuple(result.confidence_intervals_95[idx])
-                if result.confidence_intervals_95 is not None
-                else (0.0, 0.0)
-            )
-
-            z_val = (
-                float(z_values[i_series])
-                if z_values is not None and i_series < len(z_values)
-                else None
-            )
-
-            amp_summaries.append(
-                MCMCAmplitudeSummary(
-                    peak_name=p_name,
-                    plane_index=i_series,
-                    value=val,
-                    std_error=err,
-                    ci_68_lower=float(ci_68[0]),
-                    ci_68_upper=float(ci_68[1]),
-                    ci_95_lower=float(ci_95[0]),
-                    ci_95_upper=float(ci_95[1]),
-                    z_value=z_val,
-                )
-            )
-
-    return amp_summaries
-
-
-def format_mcmc_cluster_result(
-    cluster_result: ClusterMCMCResult,
-    diagnostics: ConvergenceDiagnostics | None = None,
-    z_values: FloatArray | None = None,
-) -> MCMCClusterSummary:
-    """Convert MCMCClusterResult to display-friendly summary."""
-    result = cluster_result.result
-    cluster = cluster_result.cluster
-    peak_names = [p.name for p in cluster.peaks]
-
-    if diagnostics is None and result.mcmc_diagnostics is not None:
-        diagnostics = result.mcmc_diagnostics
-
-    param_summaries = _extract_lineshape_summaries(result, diagnostics)
-    amp_summaries = _extract_amplitude_summaries(result, peak_names, z_values)
-
-    cor_matrix = result.correlation_matrix if result.correlation_matrix is not None else None
-
-    return MCMCClusterSummary(
-        peak_names=peak_names,
-        parameter_summaries=param_summaries,
-        amplitude_summaries=amp_summaries,
-        correlation_matrix=cor_matrix,
-        burn_in_used=result.burn_in_info.get("burn_in", 0) if result.burn_in_info else 0,
-        n_chains=diagnostics.n_chains if diagnostics else 0,
-        n_samples=diagnostics.n_samples if diagnostics else 0,
+    return MCMCAnalysisResult(
+        entropy=int(seed.entropy),  # ty: ignore[invalid-argument-type]
+        posteriors=posteriors,
     )
 
 
-__all__ = [
-    "MCMCAmplitudeSummary",
-    "MCMCClusterSummary",
-    "MCMCParameterSummary",
-    "PeaksNotFoundError",
-    "format_mcmc_cluster_result",
-    "run_mcmc_analysis",
-]
+__all__ = ["MCMCAnalysisResult", "PeaksNotFoundError", "run_mcmc_analysis"]
