@@ -31,7 +31,8 @@ if TYPE_CHECKING:
     from peakfit.engine.scientific.sampling import ConditionalAmplitudes, SamplingProblem
     from peakfit.shared.typing import FloatArray
 
-# Kept θ samples, evenly spaced, at which the amplitude distribution is evaluated.
+# Most kept θ samples, balanced across walkers, at which the amplitude distribution is
+# evaluated.
 AMPLITUDE_SAMPLES = 4000
 # |ρ| at or above which two member amplitudes are not separately determined; the same
 # threshold as the amplitude-correlation highlight.

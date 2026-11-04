@@ -20,7 +20,6 @@ classifiers = [
 dependencies = [
   "contourpy>=1.3",
   "emcee>=3.1.6",
-  "h5py>=3.15.1",
   "matplotlib>=3.10.8",
   "nmrglue>=0.11",
   "numpy>=2.4.0",
@@ -52,12 +51,19 @@ dev = [
   "ruff>=0.8.0",
   "ty>=0.0.11",
 ]
+# Not installed by default: the storage benchmarks' HDF5 comparison only.
+benchmarks = ["h5py>=3.15.1"]
 
 [build-system]
 requires = ["uv_build>=0.5.0,<0.12"]
 build-backend = "uv_build"
 
 # --- Tool Configurations ---
+
+# h5py comes from the optional `benchmarks` group, absent from the default environment.
+[[tool.ty.overrides]]
+include = ["tools/benchmark_review_projection.py", "tools/benchmark_scientific_storage.py"]
+rules = { unresolved-import = "ignore" }
 
 [tool.coverage.report]
 precision = 2

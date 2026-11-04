@@ -601,8 +601,8 @@ Short records of non‑obvious design choices and trade‑offs.
   withheld. On the bundled data, 53N-H and 147N-H (cluster 424) exchange in 59% of
   samples.
 - The CLI shows medians and intervals at the precision of each posterior standard
-  deviation. `peakfit plot mcmc` shows τ and ESS instead of R̂, and applies the
-  chain-only checks.
+  deviation. `peakfit plot mcmc` shows τ and ESS instead of R̂ (since PR 24, as
+  recorded rather than re-checked).
 
 ## 2026-11-04: MCMC amplitude summaries (PR 23b)
 - `engine.scientific.amplitudes.summarize_amplitudes` evaluates the conditional
@@ -634,3 +634,28 @@ Short records of non‑obvious design choices and trade‑offs.
 - `ConditionalAmplitudes` now keeps the singular vectors and judges any combination
   of amplitudes with the same two rules as a single peak. emcee squeezes a one-peak
   blob, so the peak axis is restored by count.
+
+## 2026-11-04: MCMC run records (PR 24)
+- Each `peakfit mcmc` run writes one immutable record,
+  `<fit run>/mcmc/<UTC timestamp>-<random>.npz`, so names sort chronologically and a
+  run never replaces another. `peakfit plot mcmc` reads the latest, or `--record`.
+- The record reuses the scientific archive's encoding and reader limits
+  (`io.mcmc_record`), stores each cluster's whole chain, log-probabilities and
+  identifiability blobs losslessly, and the complete diagnosis and amplitude
+  summaries. Results therefore read back without the parent or its spectrum.
+- It binds to its parent by run ID and `scientific.npz` SHA-256, and records the
+  spectrum SHA-256 for compact parents. Writing re-hashes the parent and refuses a
+  record whose parent changed during sampling.
+- Publication hard-links the flushed partial file to the record's name. Unlike a
+  rename after an existence check, the link fails atomically if the name exists, so
+  a concurrent writer's record is never replaced (tested with a forced collision).
+- The reader is strict: exact field sets, typed scalars, array dtypes and shapes
+  consistent with the recorded settings, and spawn keys matching the record's seed.
+- Clean break: the HDF5 chain files (`chains/cluster_*_chains.h5`),
+  `peakfit mcmc --save-chains/--no-save-chains`, `peakfit plot mcmc --burn-in`,
+  `ResultsLoader.load_mcmc_chains` and the `h5py` dependency are removed. Existing
+  chain files are no longer read; rerun `peakfit mcmc`. The plot report shows the
+  recorded status and reasons instead of re-checking the chain, and thinning, which
+  no run produced, is gone from the plots. The storage benchmarks that compare
+  HDF5 take it from the optional `benchmarks` dependency group
+  (`uv run --group benchmarks`).

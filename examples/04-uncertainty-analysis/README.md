@@ -6,7 +6,7 @@ This example shows how to run `peakfit mcmc` as a first-class CLI step after fit
 
 1. Run `peakfit fit` to create a results directory.
 2. Run `peakfit mcmc <results_dir>` to estimate uncertainties from the saved fit state.
-3. Run `peakfit plot mcmc <results_dir>` to inspect the chains.
+3. Run `peakfit plot mcmc <results_dir>` to plot the recorded run.
 
 ## Quick Start
 
@@ -38,7 +38,7 @@ Run MCMC:
 peakfit mcmc "$LATEST_RUN" --peaks 2N-H --walkers 32 --steps 1000
 ```
 
-Generate diagnostics PDF from saved chains:
+Generate the diagnostics PDF from the latest MCMC record:
 
 ```bash
 peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
@@ -48,4 +48,4 @@ peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 
 - `peakfit mcmc` reads native `scientific.npz`, with a verified source or detailed evidence.
 - Target selection is cluster-based: a requested peak triggers analysis of its full overlap cluster.
-- MCMC diagnostics are printed in the terminal, and chains are saved under `chains/`.
+- MCMC diagnostics are printed in the terminal, and each run is recorded under `mcmc/`.

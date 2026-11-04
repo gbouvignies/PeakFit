@@ -129,19 +129,33 @@ Notable user-facing and architecture changes are recorded here.
   - Runs are seeded (`--seed`, printed on every run) and reproducible.
   - Walkers start strictly inside the bounds, and too few walkers is an error.
   - `--workers` defaults to serial.
-  - Chains are saved whole with their burn-in, which is discarded exactly once.
+  - Burn-in is discarded exactly once.
 - `peakfit mcmc` reports amplitude (intensity) intervals again, now from
   conditional amplitude draws (`engine.scientific.amplitudes`), per
   `docs/mcmc-formulation.md` §5–§6:
   - Moments use the law of total variance, and quantiles come from the draws, over
-    up to 4,000 evenly spaced kept samples. Monte Carlo errors are reported.
+    up to 4,000 kept samples balanced across walkers. Monte Carlo errors are
+    reported.
   - Amplitudes not determined in some samples are withheld.
   - Pairs with |ρ| ≥ 0.9 are flagged and their summed amplitude reported. Their
     positions and linewidths are marked ‡ "not separately resolved".
   - Coverage on one peak and on overlapping pairs is recorded in
     `docs/validation/mcmc-coverage.md`.
+- Each `peakfit mcmc` run is recorded in `<fit run>/mcmc/` as one immutable,
+  atomically written record (`docs/outputs.md`, `docs/mcmc-formulation.md` §8). It
+  is bound to the parent fit by run ID and SHA-256, keeps every cluster's whole
+  chain losslessly with its complete diagnosis and amplitude summaries, and reads
+  back without the fit or its spectrum. Its amplitude draws regenerate bit for bit
+  with the same software. `peakfit plot mcmc` plots the latest record, or
+  `--record`, and shows the recorded status and reasons.
 
 ### Removed
+
+- **Breaking:** removed the HDF5 MCMC chain files (`chains/cluster_*_chains.h5`),
+  `peakfit mcmc --save-chains/--no-save-chains`, `peakfit plot mcmc --burn-in`,
+  `ResultsLoader.load_mcmc_chains` and the `h5py` dependency. Chain files are no
+  longer read: rerun `peakfit mcmc` to obtain a record. Plots no longer take a
+  thinning factor, which no run produced.
 
 - Removed the basin-hopping optimizer, `peakfit fit --optimizer`, the
   `[fitting].optimizer_seed` key and Example 03. VarPro is the only optimizer; its

@@ -1,17 +1,14 @@
 """Generate plot output files from PeakFit results."""
 
 import csv
-import re
 from collections import defaultdict
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 
-from peakfit.engine.diagnostics.metrics import compute_all_trace_metrics
 from peakfit.plot.diagnostics.autocorr import plot_autocorrelation
 from peakfit.plot.diagnostics.corner import plot_correlation_pairs
 from peakfit.plot.diagnostics.summary import plot_marginal_distributions
@@ -27,8 +24,11 @@ from peakfit.shared.reporter import NullReporter, Reporter
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
     from matplotlib.figure import Figure
+
+    from peakfit.io.mcmc_record import MCMCRecord
 
 
 _MAX_PLOTS_TO_SHOW = 10
@@ -224,115 +224,46 @@ def _resolve_intensities_csv(results_dir: Path) -> Path | None:
     return path if path.exists() else None
 
 
-def generate_mcmc_diagnostics(
-    chains_data: list[tuple[Any, list[str], int, int, int]],
-    output_path: Path | None = None,
-    burn_in: int = 0,
-) -> PlotOutput:
-    """Generate MCMC diagnostic plots for all clusters.
+def generate_mcmc_diagnostics(record: MCMCRecord, output_path: Path) -> PlotOutput:
+    """Plot every cluster of an MCMC record: report, traces, marginals, correlations.
 
-    Args:
-        chains_data: List of (chains, param_names, cluster_id, burn_in, thin) tuples
-        output_path: Optional path for output PDF
-        burn_in: Global burn-in override (if > 0)
-
-    Returns:
-        PlotOutput object with stats
+    The report page and the trace titles show the recorded diagnosis. Marginals,
+    correlations and autocorrelations are drawn from the kept chain.
     """
-    if output_path is None:
-        output_path = Path("mcmc_diagnostics.pdf")
-
     total_plots = 0
-
     with PdfPages(output_path) as pdf:
-        for (
-            raw_chains,
-            raw_parameter_names,
-            cluster_id,
-            stored_burn_in,
-            stored_thin,
-        ) in chains_data:
-            chains, parameter_names = _select_mcmc_plot_parameters(raw_chains, raw_parameter_names)
+        for posterior in record.posteriors:
+            cluster_id = posterior.cluster_id
+            names = list(posterior.names)
+            burn_in = posterior.diagnosis.burn_in
+            chains = np.swapaxes(posterior.run.chain, 0, 1)  # (walkers, steps, parameters)
+            kept = chains[:, burn_in:, :]
+            walkers, steps = kept.shape[:2]
+            samples = kept.reshape(-1, kept.shape[2])
 
-            # Use stored burn-in if available and no override provided
-            effective_burn_in = burn_in if burn_in > 0 else stored_burn_in
-
-            # Chains: (n_walkers, n_steps, n_params)
-            chains_post_burnin = (
-                chains[:, effective_burn_in:, :] if effective_burn_in > 0 else chains
-            )
-            samples_flat = chains_post_burnin.reshape(-1, chains_post_burnin.shape[2])
-
-            # Compute Metrics once for all plots
-            metrics = compute_all_trace_metrics(chains_post_burnin)
-
-            fig_report = generate_mcmc_report_page(
-                n_chains=chains.shape[0],
-                n_samples=chains_post_burnin.shape[1],
-                burn_in=effective_burn_in,
-                thin=stored_thin,
-                metrics=metrics,
-                cluster_id=str(cluster_id),
-            )
-            _save_pdf_figure(pdf, fig_report)
-
-            fig_trace = plot_trace(
-                chains,
-                parameter_names,
-                effective_burn_in,
-                metrics=metrics,
-                thin=stored_thin,
-            )
+            _save_pdf_figure(pdf, generate_mcmc_report_page(posterior))
             _save_pdf_figure(
                 pdf,
-                fig_trace,
+                plot_trace(chains, names, posterior.diagnosis.parameters, burn_in),
                 title=f"Cluster {cluster_id}: Trace Plots",
             )
             total_plots += 1
-
-            figs_marginal = plot_marginal_distributions(
-                samples_flat,
-                parameter_names,
-                n_chains=chains.shape[0],
-                n_samples=chains_post_burnin.shape[1],
-                thin=stored_thin,
-            )
             total_plots += _save_pdf_figure_pages(
                 pdf,
-                figs_marginal,
+                plot_marginal_distributions(samples, names, walkers, steps),
                 title_template=f"Cluster {cluster_id}: Marginal Distributions (Page {{page}})",
             )
-
-            figs_corr = plot_correlation_pairs(
-                samples_flat,
-                parameter_names,
-                n_chains=chains.shape[0],
-                n_samples=chains_post_burnin.shape[1],
-                thin=stored_thin,
-            )
             total_plots += _save_pdf_figure_pages(
                 pdf,
-                figs_corr,
+                plot_correlation_pairs(samples, names, walkers, steps),
                 title_template=f"Cluster {cluster_id}: Strong Correlations (Page {{page}})",
             )
-
-            fig_autocorr = plot_autocorrelation(
-                chains_post_burnin,
-                parameter_names,
-                thin=stored_thin,
-            )
-            n_samples_stored = chains_post_burnin.shape[1]
-            total_steps = n_samples_stored * stored_thin
             _save_pdf_figure(
                 pdf,
-                fig_autocorr,
-                title=(
-                    f"Cluster {cluster_id}: Autocorrelation ({chains.shape[0]} chains × "
-                    f"{total_steps} iters)"
-                ),
+                plot_autocorrelation(kept, names),
+                title=f"Cluster {cluster_id}: Autocorrelation ({walkers} walkers × {steps} steps)",
             )
             total_plots += 1
-
     return PlotOutput(output_path, "mcmc_diagnostics", total_plots)
 
 
@@ -354,34 +285,3 @@ def _save_pdf_figure_pages(
     for index, fig in enumerate(figures, start=1):
         _save_pdf_figure(pdf, fig, title_template.format(page=index))
     return len(figures)
-
-
-def _is_amplitude_parameter_name(name: str) -> bool:
-    """Return True for linear amplitude parameter names."""
-    return re.search(r"\.F1\.I\d+$", name) is not None
-
-
-def _select_mcmc_plot_parameters(chains: Any, parameter_names: list[str]) -> tuple[Any, list[str]]:
-    """Select parameters for diagnostics: all nonlinear + first amplitude.
-
-    VARPRO amplitudes are linear parameters and can dominate correlation plots.
-    Keeping at most one amplitude preserves a quick visual check without clutter.
-    """
-    n_params = int(chains.shape[2])
-
-    names = list(parameter_names)
-    if len(names) < n_params:
-        names.extend(f"param_{i}" for i in range(len(names), n_params))
-    elif len(names) > n_params:
-        names = names[:n_params]
-
-    amp_indices = [i for i, name in enumerate(names) if _is_amplitude_parameter_name(name)]
-    nonlinear_indices = [i for i in range(n_params) if i not in amp_indices]
-    selected_indices = nonlinear_indices + (amp_indices[:1] if amp_indices else [])
-
-    if not selected_indices:
-        return chains, names
-
-    selected_chains = chains[:, :, selected_indices]
-    selected_names = [names[i] for i in selected_indices]
-    return selected_chains, selected_names

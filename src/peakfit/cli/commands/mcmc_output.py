@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import h5py
 import numpy as np
 
 from peakfit.engine.diagnostics.ensemble import MIN_TAUS
@@ -12,10 +11,7 @@ from peakfit.ui.console import console
 from peakfit.ui.tables import create_table
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from peakfit.engine.scientific.sampler import PosteriorSample
-    from peakfit.mcmc.analysis import MCMCAnalysisResult
 
 
 _PLANES_SHOWN = 5
@@ -145,25 +141,3 @@ def _display_amplitudes(posterior: PosteriorSample, verbose: bool) -> None:
         )
     if not verbose and any(count > _PLANES_SHOWN for count in shown.values()):
         console.print(f"First {_PLANES_SHOWN} planes per amplitude shown; use --verbose for all.")
-
-
-def save_chains(results_dir: Path, analysis: MCMCAnalysisResult) -> int:
-    """Write each cluster's whole chain, burn-in included, for ``peakfit plot mcmc``."""
-    chains_dir = results_dir / "chains"
-    chains_dir.mkdir(parents=True, exist_ok=True)
-    for posterior in analysis.posteriors:
-        cluster_id = posterior.cluster_id
-        # (walkers, steps, parameters): the layout the plots read.
-        chain = np.swapaxes(posterior.run.chain, 0, 1)
-        burn_in = posterior.diagnosis.burn_in
-        with h5py.File(chains_dir / f"cluster_{cluster_id}_chains.h5", "w") as handle:
-            group = handle.create_group(f"cluster_{cluster_id}")
-            group.create_dataset("chains", data=chain, compression="gzip")
-            group.create_dataset("nonlinear_names", data=np.asarray(posterior.names, dtype="S"))
-            group.attrs["entropy"] = str(posterior.run.entropy)
-            group.attrs["spawn_key"] = np.asarray(posterior.run.spawn_key, dtype=np.int64)
-            burn = group.create_group("burn_in")
-            burn.attrs["thin"] = 1
-            burn.attrs["burn_in"] = burn_in
-            burn.attrs["burn_in_idx"] = burn_in
-    return len(analysis.posteriors)

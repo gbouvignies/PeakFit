@@ -180,6 +180,11 @@ Post-fit sampling used to estimate parameter uncertainty for fitted peak
 clusters. It is not a fitting optimizer. Its formulation is in
 `docs/mcmc-formulation.md`.
 
+**MCMC record**:
+The immutable file one MCMC run writes under its fit's `mcmc/` folder: bound to that
+parent fit, with each cluster's whole chain and complete summaries, readable
+without the parent or its spectrum.
+
 **Profile likelihood**:
 The likelihood of a cluster's nonlinear parameters with the amplitudes at their
 conditional optimum: exp(−½χ²) of the VarPro residual. MCMC samples it; it is the

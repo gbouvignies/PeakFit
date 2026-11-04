@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-from peakfit.engine.diagnostics.metrics import compute_all_trace_metrics
-
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
-    from peakfit.engine.diagnostics.metrics import TraceMetrics
+    from peakfit.engine.scientific.sampler import ParameterSummary
     from peakfit.shared.typing import FloatArray
 
 
@@ -22,10 +22,9 @@ _MAX_LABELED_CHAINS = 3
 def plot_trace(
     chains: FloatArray,
     parameter_names: list[str],
+    parameters: Sequence[ParameterSummary],
     burn_in: int = 0,
-    metrics: list[TraceMetrics] | None = None,
     max_params: int = 20,
-    thin: int = 1,
 ) -> Figure:
     """Create trace plots showing MCMC chain evolution.
 
@@ -38,10 +37,9 @@ def plot_trace(
     Args:
         chains: Array of shape (n_chains, n_samples, n_params)
         parameter_names: List of parameter names
-        burn_in: Number of burn-in samples to mark (shown in gray)
-        metrics: Pre-computed TraceMetrics (computed if not provided)
+        parameters: The recorded summaries, whose τ, ESS and stationarity title traces
+        burn_in: Number of burn-in steps to mark (shown in gray)
         max_params: Maximum number of parameters to plot
-        thin: Thinning factor applied to chains (for x-axis scaling)
 
     Returns:
     -------
@@ -49,10 +47,6 @@ def plot_trace(
     """
     n_chains, n_samples, n_params = chains.shape
     n_params_plot = min(n_params, max_params, len(parameter_names))
-
-    if metrics is None:
-        chains_post_burnin = chains[:, burn_in:, :] if burn_in > 0 else chains
-        metrics = compute_all_trace_metrics(chains_post_burnin)
 
     # Create figure
     n_cols = min(3, n_params_plot)
@@ -71,9 +65,7 @@ def plot_trace(
     color_map = plt.get_cmap("tab10")
     colors = color_map(np.linspace(0, 1, min(n_chains, 10)))
 
-    # X-axis values (scaled by thinning)
-    steps = np.arange(n_samples) * thin
-    burn_in_steps = burn_in * thin
+    steps = np.arange(n_samples)
 
     for i in range(n_params_plot):
         ax = axes[i]
@@ -84,12 +76,11 @@ def plot_trace(
             _plot_single_parameter_trace(ax, chain_data, steps, burn_in, colors, chain_idx)
 
         if burn_in > 0:
-            ax.axvline(burn_in_steps, color="red", linestyle="--", alpha=0.5, linewidth=1)
+            ax.axvline(burn_in, color="red", linestyle="--", alpha=0.5, linewidth=1)
 
-        metric = metrics[i] if i < len(metrics) else None
-        _add_trace_annotation(ax, param_name, metric)
+        _add_trace_annotation(ax, param_name, parameters[i])
 
-        ax.set_xlabel(f"Iteration (thin={thin})", fontsize=9)
+        ax.set_xlabel("Step", fontsize=9)
         ax.set_ylabel("Value", fontsize=9)
         ax.grid(True, alpha=0.3)
         ax.tick_params(labelsize=8)
@@ -103,30 +94,15 @@ def plot_trace(
         axes[i].set_visible(False)
 
     # Add title
-    total_steps = n_samples * thin
-    title_text = f"MCMC Trace Plots: {n_chains} chains × {total_steps} iterations"
-
-    details = []
-    if thin > 1:
-        details.append(f"thinned by {thin} → {n_samples} samples stored")
-    else:
-        details.append(f"{n_samples} samples stored")
-
-    title_text += f" ({', '.join(details)})"
-
+    title_text = f"MCMC Trace Plots: {n_chains} walkers × {n_samples} steps"
     if burn_in > 0:
-        burn_in_steps = burn_in * thin
-        title_text += (
-            f"\nGray region = Burn-in ({burn_in_steps} steps / {burn_in} samples) "
-            "| Red dashed line = Cutoff"
-        )
+        title_text += f"\nGray region = Burn-in ({burn_in} steps) | Red dashed line = Cutoff"
     fig.suptitle(title_text, fontsize=12, fontweight="bold")
 
     # Add interpretation guide
     guide_text = (
-        "Good convergence: chains overlap, no trends or drifts\n"
-        "✓ R̂ ≤ 1.01 excellent | ⚠ 1.01 < R̂ ≤ 1.05 acceptable | "
-        "✗ R̂ > 1.05 poor (BARG: Kruschke 2021)"
+        "Good mixing: walkers overlap, with no trends or drifts after burn-in. "
+        "R̂ is not assessed: ensemble walkers are coupled."
     )
     fig.text(
         0.5,
@@ -181,10 +157,10 @@ def _plot_single_parameter_trace(
         )
 
 
-def _add_trace_annotation(ax: Axes, param_name: str, metric: TraceMetrics | None) -> None:
-    """Title a trace with its autocorrelation time and approximate ESS."""
+def _add_trace_annotation(ax: Axes, param_name: str, metric: ParameterSummary) -> None:
+    """Title a trace with its recorded autocorrelation time and approximate ESS."""
     title = param_name
-    if metric is not None and np.isfinite(metric.tau):
+    if np.isfinite(metric.tau):
         drift = "" if metric.stationary else ", halves disagree"
         title = f"{param_name} (τ={metric.tau:.1f}, ESS≈{metric.ess:.0f}{drift})"
     ax.set_title(title, fontsize=10)

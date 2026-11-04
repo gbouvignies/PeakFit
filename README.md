@@ -127,8 +127,8 @@ peakfit plot mcmc "$LATEST_RUN" --output "$LATEST_RUN/mcmc_diagnostics.pdf"
 ```
 
 `peakfit mcmc` reads `scientific.npz` and verifies the source for compact results;
-detailed evidence can continue without it. Chains go under `chains/` when
-`--save-chains` is enabled. Results without `scientific.npz` must be refit.
+detailed evidence can continue without it. Each run is recorded under `mcmc/`, which
+`peakfit plot mcmc` reads. Results without `scientific.npz` must be refit.
 
 ## Documentation
 
