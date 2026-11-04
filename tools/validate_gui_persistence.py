@@ -215,6 +215,8 @@ def main():  # noqa: PLR0915
         mark_phase("refit")
         assert w.fitting.result is not None
         previous_run = w.fitting.result.run_id
+        # The reopened workspace reveals the setup on its first Fit; run the fit itself.
+        w.fitting.setup_seen = True
         w.fitting.fit()
         wait_until(lambda: not w.fitting.busy, timeout=120)
         assert w.fitting.result is not None
