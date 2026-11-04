@@ -606,14 +606,20 @@ Short records of non‑obvious design choices and trade‑offs.
 
 ## 2026-11-04: MCMC amplitude summaries (PR 23b)
 - `engine.scientific.amplitudes.summarize_amplitudes` evaluates the conditional
-  amplitude distribution at up to 4,000 evenly spaced kept samples (agreed cost
-  bound), with one draw each from the run's amplitude-draw stream. That stream is
+  amplitude distribution at up to 4,000 kept samples (agreed cost bound), with one
+  draw each from the run's amplitude-draw stream.
+  - The samples are balanced: ⌊4,000 / walkers⌋ evenly spaced steps per walker.
+    Spacing indices evenly through the flattened (steps, walkers) chain (16 × 2,000)
+    had given walker 7 no sample and walker 15 one, and sampled each other walker in
+    a single stretch of about 285 steps.
+  - A sum's identifiability is checked at those evaluated samples, a single peak's
+    at every kept sample (blobs), and the reports say which. That stream is
   child 1 of the run's `SeedSequence`, so draws reproduce from the recorded seed.
 - Moments use the law of total variance, and quantiles come from the draws. Monte
   Carlo errors use the smaller of the sample count and the sampler's smallest ESS.
 - A peak undetermined in any kept sample (from the per-sample identifiability
   blobs) is withheld with that fraction. Undetermined peaks group by co-occurrence,
-  and their sum is reported if `ConditionalAmplitudes.determines` accepts it in
+  and their sum is reported if `ConditionalAmplitudes.determines` accepts it at
   every evaluated sample.
 - Determined member amplitudes with |ρ| ≥ 0.9 in a plane are flagged and their
   group's sum reported. Their positions and linewidths stay visible, marked

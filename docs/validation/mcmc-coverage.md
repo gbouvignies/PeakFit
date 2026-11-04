@@ -30,13 +30,13 @@ Coverage of the 68% and 95% intervals. Status is out of 200 runs.
 |---|---|---|---:|---|---|
 | One peak | 200 passed | position | 200 | 0.665 ± 0.033 | 0.955 ± 0.015 |
 | | | linewidth | 200 | 0.635 ± 0.033 | 0.950 ± 0.015 |
-| | | amplitude | 800 | 0.655 ± 0.016 | 0.945 ± 0.008 |
+| | | amplitude | 800 | 0.660 ± 0.016 | 0.941 ± 0.008 |
 | Resolved pair (10 points) | 187 passed, 13 provisional | position | 374 | 0.682 ± 0.024 | 0.952 ± 0.011 |
 | | | linewidth | 374 | 0.687 ± 0.024 | 0.960 ± 0.011 |
-| | | amplitude | 1,496 | 0.674 ± 0.012 | 0.952 ± 0.006 |
+| | | amplitude | 1,496 | 0.678 ± 0.012 | 0.952 ± 0.006 |
 | Partially overlapping pair (4 points) | 186 passed, 14 provisional | position | 372 | 0.710 ± 0.024 | 0.962 ± 0.011 |
 | | | linewidth | 372 | 0.675 ± 0.024 | 0.954 ± 0.011 |
-| | | amplitude | 1,488 | 0.703 ± 0.012 | 0.958 ± 0.006 |
+| | | amplitude | 1,488 | 0.700 ± 0.012 | 0.956 ± 0.006 |
 | Near-coalescent pair (1.5 points) | 1 passed, 199 provisional | flagged rows only | | see below | |
 
 **Near-coalescent pair:**
@@ -53,7 +53,7 @@ Coverage of the 68% and 95% intervals. Status is out of 200 runs.
 
 - **Separated cases:** one peak, and pairs at 10 and 4 points, cover at their nominal
   rates within about two standard errors. The largest deviation is the partially
-  overlapping pair's amplitudes at 68%: 0.703, or +1.9 SE, before allowing for the
+  overlapping pair's amplitudes at 68%: 0.700, or +1.7 SE, before allowing for the
   correlation between planes.
 - **Provisional rate:** about 7% of the pair runs are provisional, mostly because
   2,000 steps leave the kept chain under 50 τ_max. They report no intervals, so

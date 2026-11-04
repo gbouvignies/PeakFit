@@ -146,7 +146,12 @@ uv run python tools/validate_mcmc_formulation.py --output /tmp/mcmc-formulation.
   - To bound the cost, at most 4,000 kept samples, evenly spaced, are evaluated,
     with one draw each. Their Monte Carlo errors use the smaller of that count and
     the sampler's smallest ESS.
-  - Whether a peak is ever undetermined is still judged on every kept sample.
+  - The evaluated samples are balanced across walkers, evenly spaced in time within
+    each walker, so no walker is under-represented.
+  - Whether a single peak is ever undetermined is still judged on every kept sample,
+    which the sampler records. A summed amplitude is judged at the evaluated samples
+    only, and is reported as determined at all of them; judging it everywhere would
+    cost the full evaluation the cap avoids.
 - **Moments:** use the law of total variance. The mean is the average of â(θₖ), and
   the covariance is the mean of the conditional covariances plus the covariance of
   â(θₖ) across samples. This is exact and has a lower Monte Carlo error than moments

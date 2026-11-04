@@ -8,7 +8,7 @@ import pytest
 from builders import completed_result, peak_pair
 
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
-from peakfit.engine.scientific.amplitudes import summarize_amplitudes
+from peakfit.engine.scientific.amplitudes import balanced_samples, summarize_amplitudes
 from peakfit.engine.scientific.sampler import SamplerSettings, sample_posterior
 from peakfit.engine.scientific.sampling import conditional_amplitudes, sampling_problem
 from peakfit.fit.pipeline import run_pipeline
@@ -147,7 +147,7 @@ def test_duplicated_peaks_are_withheld_but_their_sum_is_reported():
     data = shapes.T @ truth
     summaries = summarize_amplitudes(
         cast("SamplingProblem", _Fixed(shapes, data)),
-        np.zeros((500, 1)),
+        np.zeros((500, 1, 1)),
         np.array([0.0, 0.0, 1.0]),
         np.random.SeedSequence(0),
         500.0,
@@ -159,3 +159,42 @@ def test_duplicated_peaks_are_withheld_but_their_sum_is_reported():
         np.testing.assert_allclose(total.mean, truth[:2, total.plane].sum(), rtol=1e-10)
         # The sum's conditional error: σ / ‖φ‖ for the shared shape.
         np.testing.assert_allclose(total.sd, 0.01 / np.linalg.norm(shapes[0]), rtol=1e-6)
+
+
+@dataclass(frozen=True)
+class _Scaled:
+    """One peak whose amplitude is proportional to θ, so each walker's samples differ."""
+
+    shapes: np.ndarray
+    data: np.ndarray
+    cluster: _Cluster = _Cluster((_Peak("A"),))
+
+    def conditional(self, theta):
+        return conditional_amplitudes(self.shapes, self.data * theta[0], 0.01)
+
+
+def test_amplitude_samples_cover_every_walker_and_the_whole_chain():
+    steps, walkers = 2000, 16
+    pairs = balanced_samples(steps, walkers)
+    assert len(pairs) <= 4000
+    counts = np.bincount(pairs[:, 1], minlength=walkers)
+    assert counts.min() == counts.max() == 250
+    for walker in range(walkers):  # each walker spans the whole chain, not a stretch
+        times = pairs[pairs[:, 1] == walker, 0]
+        assert (times.min(), times.max()) == (0, steps - 1)
+    # Walker w holds θ = w + 1 throughout; the amplitude is 2θ. Equal representation of
+    # the walkers gives a mean of 2 × 8.5. Indices spaced evenly through the flattened
+    # (steps, walkers) chain gave walker 7 no sample, walker 15 one, each other walker
+    # one stretch of about 285 steps, and a mean of 2 × 8.0.
+    x = np.arange(60.0)
+    shapes = np.exp(-0.5 * ((x - 30.0) / 3.0) ** 2)[None, :]
+    kept = np.broadcast_to(np.arange(1.0, walkers + 1)[None, :, None], (steps, walkers, 1))
+    summaries = summarize_amplitudes(
+        cast("SamplingProblem", _Scaled(shapes, shapes.T * 2.0)),
+        kept,
+        np.ones(1),
+        np.random.SeedSequence(0),
+        4000.0,
+    )
+    (amplitude,) = summaries.amplitudes
+    np.testing.assert_allclose(amplitude.mean, 2.0 * 8.5, rtol=1e-12)

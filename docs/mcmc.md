@@ -100,7 +100,8 @@ need only the chain (length and drift).
 ## Amplitudes
 
 Amplitude (intensity) intervals include the lineshape uncertainty. They come from
-conditional amplitude draws at up to 4,000 evenly spaced kept samples. The
+conditional amplitude draws at up to 4,000 kept samples, balanced across walkers
+and spread over time. The
 terminal states how many samples were used, and the Monte Carlo errors behind
 them.
 - **Wider or narrower:** they are usually wider than the fit's analytical errors,

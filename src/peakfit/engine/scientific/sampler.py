@@ -495,7 +495,7 @@ def sample_posterior(
         diagnosis=diagnosis,
         exchanges=exchanges(problem, flat),
         determined=determined,
-        amplitudes=summarize_amplitudes(problem, flat, determined, draws, effective),
+        amplitudes=summarize_amplitudes(problem, kept, determined, draws, effective),
     )
 
 

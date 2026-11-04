@@ -1,7 +1,8 @@
 """Amplitude summaries over a sampled posterior.
 
 See ``docs/mcmc-formulation.md`` §5 and §6. For up to ``AMPLITUDE_SAMPLES`` kept θ
-samples, evenly spaced, the conditional amplitude distribution is evaluated:
+samples, balanced across walkers and evenly spaced in time within each walker, the
+conditional amplitude distribution is evaluated:
 
 - Moments use the law of total variance: the mean of the conditional covariances
   plus the covariance of â(θ) across samples.
@@ -12,6 +13,11 @@ samples, evenly spaced, the conditional amplitude distribution is evaluated:
   are flagged as not separately determined.
 - Each such group, and each group of undetermined peaks whose sum is determined, is
   reported as a summed amplitude.
+
+What is checked where: a peak's own identifiability is judged at every kept sample
+(the sampler records it), but a sum's only at the evaluated samples. A reported sum
+is determined at all of those; checking it at every kept sample would cost the full
+evaluation the cap avoids.
 """
 
 from dataclasses import dataclass
@@ -134,6 +140,20 @@ def _sums(group, names, conditionals, means, draws, total, n_eff) -> list[Amplit
     ]
 
 
+def balanced_samples(steps: int, walkers: int, cap: int = AMPLITUDE_SAMPLES) -> np.ndarray:
+    """(step, walker) pairs: every walker equally, evenly spaced in time, at most ``cap``.
+
+    Each walker gets ⌊cap / walkers⌋ steps (all of them if fewer). With more walkers
+    than ``cap``, evenly spaced walkers get one central step each.
+    """
+    if walkers > cap:
+        chosen = np.unique(np.linspace(0, walkers - 1, cap).round().astype(int))
+        return np.column_stack([np.full(chosen.size, steps // 2), chosen])
+    per_walker = min(steps, cap // walkers)
+    times = np.unique(np.linspace(0, steps - 1, per_walker).round().astype(int))
+    return np.array([(t, w) for w in range(walkers) for t in times])
+
+
 def summarize_amplitudes(
     problem: SamplingProblem,
     kept: FloatArray,
@@ -141,17 +161,17 @@ def summarize_amplitudes(
     seed: np.random.SeedSequence,
     effective: float,
 ) -> AmplitudeSummaries:
-    """Summaries from kept θ samples (n, parameters).
+    """Summaries from the kept chain (steps, walkers, parameters).
 
     ``determined`` is each peak's fraction of kept samples with a determined
     amplitude, over every kept sample. ``seed`` is the run's amplitude-draw stream;
     ``effective`` the sampler's smallest effective sample size.
     """
     names = tuple(p.name for p in problem.cluster.peaks)
-    index = np.unique(np.linspace(0, kept.shape[0] - 1, min(kept.shape[0], AMPLITUDE_SAMPLES)))
+    pairs = balanced_samples(kept.shape[0], kept.shape[1])
     rng = np.random.default_rng(seed)
     conditionals: list[ConditionalAmplitudes] = []
-    for theta in kept[index.astype(int)]:
+    for theta in kept[pairs[:, 0], pairs[:, 1]]:
         conditional = problem.conditional(theta)
         if conditional is None:  # kept samples lie inside the support
             raise ValueError("A kept MCMC sample lies outside the parameter bounds.")
@@ -213,5 +233,6 @@ __all__ = [
     "AmplitudeSummaries",
     "AmplitudeSummary",
     "Correlation",
+    "balanced_samples",
     "summarize_amplitudes",
 ]

@@ -138,6 +138,11 @@ def _display_amplitudes(posterior: PosteriorSample, verbose: bool) -> None:
             intervals = tuple(f"{interval} ‡" for interval in intervals)
         table.add_row(" + ".join(a.peaks), str(a.plane), f"{a.mean:.{decimals}f}", *intervals)
     console.print(table)
+    if amplitudes.sums:
+        console.print(
+            f"Sums are checked for identifiability at the {amplitudes.samples} evaluated "
+            "samples; single peaks at every kept sample."
+        )
     if not verbose and any(count > _PLANES_SHOWN for count in shown.values()):
         console.print(f"First {_PLANES_SHOWN} planes per amplitude shown; use --verbose for all.")
 
