@@ -246,7 +246,6 @@ def main():  # noqa: PLR0915
         report["export_s"] = perf_counter() - started
         report["export"] = str(Path("/tmp") / f"dataset-fit-{result.run_id}")
         assert result.run_id in w.fitting.exported
-        assert not w.edits.dirty
     phase[0] = "cancel"
     prior = w.peaks
     click(w.fit_button)
@@ -275,7 +274,6 @@ def main():  # noqa: PLR0915
     with patch.object(QtWidgets.QFileDialog, "getExistingDirectory", return_value="/tmp"):
         w.fitting.export()
         assert w.fitting.result.run_id in w.fitting.exported
-        assert not w.edits.dirty
     heartbeat.stop()
     # Reader round-trip verification belongs to the harness, outside the measured
     # application export path. The canonical writer validates before publication.

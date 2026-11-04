@@ -224,21 +224,6 @@ def test_one_busy_state_locks_and_releases_every_edit(workspace):
     assert w.settings_button.isVisible()
 
 
-def test_exporting_the_active_run_clears_modified_at_once(
-    workspace, scientific, monkeypatch, tmp_path
-):
-    w = workspace
-    publish(w, scientific[-1])
-    # Adopted coordinates are unexported working peaks.
-    assert w.edits.dirty
-    assert w.modified.text() == "Modified"
-    monkeypatch.setattr(fitting_module, "choose_and_export", lambda *_a, **_k: tmp_path)
-    assert w.fitting.export()
-    # No event-loop turn: the export itself redraws the indicator.
-    assert not w.edits.dirty
-    assert w.modified.text() == ""
-
-
 def test_closing_the_lens_restores_the_pin_button(workspace, scientific):
     w = workspace
     result = scientific[-1]
@@ -402,46 +387,52 @@ def test_pending_comparison_keeps_current_experiment(workspace, scientific, monk
     wait_until(lambda: not c.contour_pending)
 
 
-def test_result_export_preserves_adopted_peaks_for_close(
-    workspace, scientific, monkeypatch, tmp_path
-):
-    w = workspace
-    publish(w, scientific[-1])
-    assert w.edits.dirty
-    monkeypatch.setattr(fitting_module, "choose_and_export", lambda *_a, **_k: None)
-    assert not w.fitting.export()
-    assert w.edits.dirty
+@pytest.mark.usefixtures("qapp")
+def test_toolbar_title_and_close_share_one_unsaved_state(scientific, monkeypatch, tmp_path):
+    spectra, peaks, config, _, result = scientific
+    window = EditorWindow()
+    window.install_dataset(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    w = window.workspace
+    assert w is not None
+    w.fitting.setup_seen = True
+
+    def shown():
+        # The toolbar, the window title and the close prompt answer the same question.
+        assert window.isWindowModified() == bool(w.modified.text()) == bool(window.unsaved())
+        return w.modified.toolTip()
+
+    assert shown() == ""
+    w.fitting.configure(config.model_copy(deep=True))
+    assert shown() == "Unsaved: fit settings"
+    publish(w, result)
+    assert shown() == "Unsaved: peaks, fit settings, active run, run history"
+    # Exporting results or peaks never marks the analysis saved.
     monkeypatch.setattr(fitting_module, "choose_and_export", lambda *_a, **_k: tmp_path)
     assert w.fitting.export()
-    assert not w.edits.dirty
-    assert w.fitting.current
-    window = EditorWindow()
-    window.workspace = w
-
-    # Canonical export preserves evidence, while Save analysis preserves the session.
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog, "getSaveFileName", lambda *_: (str(tmp_path / "peaks.csv"), "")
+    )
+    assert window.export_dialog()
+    assert shown() == "Unsaved: peaks, fit settings, active run, run history"
+    w.select_peak(w.peaks[0].id)  # selection is navigation, never an analysis change
+    assert shown() == "Unsaved: peaks, fit settings, active run, run history"
+    w.inspector.name.setText("draft")
+    assert shown().endswith(", uncommitted draft")
     monkeypatch.setattr(QtWidgets.QMessageBox, "exec", lambda _dialog: 0)
     monkeypatch.setattr(
         QtWidgets.QMessageBox,
         "clickedButton",
-        lambda dialog: next(b for b in dialog.buttons() if b.text() == "Cancel"),
+        lambda dialog: next(b for b in dialog.buttons() if b.text() == "Discard changes"),
     )
-    assert not window.protect_edits()
-    # Further manual changes are still unpreserved, including when an old run is exported.
-    peak = w.peaks[0]
-    w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.00001))
-    assert w.edits.dirty
-    assert not w.fitting.current
+    asked = []
+    original = QtWidgets.QMessageBox.addButton
     monkeypatch.setattr(
         QtWidgets.QMessageBox,
-        "question",
-        lambda *_a, **_k: QtWidgets.QMessageBox.StandardButton.Yes,
+        "addButton",
+        lambda dialog, *args: asked.append(args) or original(dialog, *args),
     )
-    assert w.fitting.export()
-    assert w.edits.dirty
-    assert not w.fitting.current
-    w.plane_values_modified = True
-    assert w.has_changes
-    window.workspace = None
+    assert window.protect_edits()
+    assert asked  # the save offer was shown
     window.close()
 
 

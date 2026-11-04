@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_dimension_label, get_shape_names
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
@@ -30,6 +31,7 @@ from peakfit.gui.editor.unexplained import (
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
+from peakfit.gui.project import Analysis, dataset_header
 from peakfit.gui.spectrum import display_position
 
 if TYPE_CHECKING:
@@ -43,6 +45,15 @@ _SIDES = (280, 320)  # default navigator and inspector widths at 1280 px
 _LENS_INSPECTOR = 340  # the inspector widens while the lens is open
 _UNEXPLAINED_ROWS = 8  # regions listed before "and N more"
 _REGION_CONTEXT = 24  # a framed region keeps at least this many points around it
+# Canvas display preferences an analysis records with its view.
+_DISPLAY = (
+    "contour_threshold",
+    "contour_factor",
+    "contour_count",
+    "residual_threshold",
+    "labels_visible",
+    "heavy_strokes",
+)
 
 
 class EditorWorkspace(QtWidgets.QWidget):
@@ -64,7 +75,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         peak_sources = tuple(source for source in dataset.sources if source[0] == "peak_list")
         # Keep origins for undoable IDs, but expose only sources of current peaks.
         self._peak_sources = {peak.id: peak_sources for peak in dataset.peaks}
-        self.plane_values_modified = False
         self.selected_id: str | None = None
         self.rules = HighlightRules()  # review highlight thresholds; display only
         self._reviews: tuple[object, list] = (None, [])
@@ -458,10 +468,115 @@ class EditorWorkspace(QtWidgets.QWidget):
             or self.lens.dragging is not None
         )
 
-    @property
-    def has_changes(self) -> bool:
-        """Whether closing would discard a draft, unexported peaks or session plane metadata."""
-        return self.edits.dirty or self.pending or self.plane_values_modified
+    def analysis_state(self) -> dict[str, object]:
+        """What Save records, by the name the Modified tooltip gives each part."""
+        fitting = self.fitting
+        return {
+            "peaks": self.peaks,
+            "scientific edits": self.edits.revision,
+            "fit settings": fitting.configuration.model_dump_json(),
+            "active run": fitting.result.run_id if fitting.result else None,
+            "input files": self.dataset.sources,
+            "plane values": tuple(self.dataset.spectra.z_values),
+            "kept runs": frozenset(fitting.protected),
+            "run history": tuple(entry["run_id"] for entry in fitting.journal),
+        }
+
+    def show_modified(self, unsaved: tuple[str, ...]) -> None:
+        """Show the window's one Modified state: what differs from the saved analysis."""
+        self.modified.setText("Modified" if unsaved else "")
+        self.modified.setToolTip("Unsaved: " + ", ".join(unsaved) if unsaved else "")
+
+    def capture(self) -> Analysis:
+        """The analysis as Save writes it: committed scientific state and modest view state."""
+        c = self.canvas
+        view = {
+            "plane": c.plane,
+            "selected_id": self.selected_id,
+            "pin": [float(c.ppm_x[c.ix]), float(c.ppm_y[c.iy])],
+            "pinned": c.pinned,
+            "pin_peak_id": c.pin_peak_id,
+            "ranges": c.main.getViewBox().viewRange(),
+            "navigator": self.peaks_button.isChecked(),
+            "inspector": self.inspector_button.isChecked(),
+            "splitter": self.splitter.sizes(),
+            "display": {name: getattr(c, name) for name in _DISPLAY},
+            "trace_limits": c._trace_limits,
+            "mode": next((i for i, b in enumerate(self.mode_buttons) if b.isChecked()), 0),
+        }
+        fitting = self.fitting
+        return Analysis(
+            self.dataset,
+            dataset_header(self.dataset),
+            self.peaks,
+            fitting.configuration.model_dump_json(),
+            self.edits.revision,
+            tuple(fitting.history),
+            view,
+            journal=tuple(fitting.journal),
+            protected=frozenset(fitting.protected),
+            active=fitting.completion,
+        )
+
+    def restore(self, analysis: Analysis) -> None:
+        """Adopt a verified analysis on this workspace's dataset, then its view."""
+        self.edits = PeakEdits(analysis.peaks, revision=analysis.revision)
+        completion = analysis.completion
+        if completion:
+            # Only the active result is resident and needs a process-local identity.
+            result = completion.result
+            snapshot = replace(result.inputs.snapshot, spectrum_id=id(self.dataset.spectra))
+            inputs = replace(result.inputs, snapshot=snapshot)
+            completion = replace(completion, result=replace(result, inputs=inputs))
+        self.fitting.restore(
+            PeakFitConfig.model_validate_json(analysis.configuration),
+            completion,
+            analysis.runs,
+            analysis.journal,
+            analysis.protected,
+        )
+        self._refresh()
+        v = analysis.view or {}
+        c = self.canvas
+        for name, value in v.get("display", {}).items():
+            if name in _DISPLAY:
+                setattr(c, name, value)
+        if v.get("trace_limits"):
+            c._trace_limits = {int(k): value for k, value in v["trace_limits"].items()}
+        c._refresh_labels()
+        self.set_plane(v.get("plane", 0) + 1)
+        if v.get("selected_id") in {p.id for p in self.peaks}:
+            self.select_peak(v["selected_id"])
+        if v.get("pin"):
+            c.sample(*v["pin"])
+            c.set_pinned(v.get("pinned", False))
+            c.pin_peak_id = v.get("pin_peak_id")
+        if v.get("ranges"):
+            x, y = v["ranges"]
+            c.main.getViewBox().setRange(xRange=x, yRange=y, padding=0)
+        self.peaks_button.setChecked(v.get("navigator", True))
+        self.toggle_navigator()
+        self.inspector_button.setChecked(v.get("inspector", True))
+        self.toggle_inspector()
+        # Sizes from another layout (a different number of columns) are not applied.
+        if len(v.get("splitter") or ()) == self.splitter.count():
+            self.splitter.setSizes(v["splitter"])
+        self.set_mode(v.get("mode", 0))
+        self.render_fitting()
+
+    def set_plane_values(self, values, records: tuple[tuple[str, str], ...]) -> None:
+        """Replace the plane mapping: a scientific edit, never navigation."""
+        spectra = self.dataset.spectra.model_copy(update={"z_values": values})
+        sources = tuple(s for s in self.dataset.sources if s[0] != "plane_values") + records
+        self.dataset = replace(
+            self.dataset, spectra=spectra, sources=sources, has_plane_values=True
+        )
+        self.canvas.dataset = self.dataset
+        self.canvas.spectra = spectra
+        self.edits.revision += 1
+        self.render_fitting()
+        self.changed.emit()
+        self.set_plane(self.canvas.plane + 1)
 
     def import_peaks(
         self,
@@ -875,15 +990,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         # While a fit runs its settings cannot change; the run line needs the room.
         self.settings_button.setVisible(not busy)
         self.cancel_fit.setVisible(busy)
-        detail = (
-            "Modified inputs · plane values session-only"
-            if self.plane_values_modified
-            else "Modified peaks"
-            if self.edits.dirty or self.pending
-            else ""
-        )
-        self.modified.setText("Modified" if detail else "")
-        self.modified.setToolTip(detail)
 
     def history(self, redo: bool) -> None:
         """Undo exact records; monotonic scientific revision never recertifies a run."""

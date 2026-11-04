@@ -39,7 +39,6 @@ class PeakEdits:
     def __init__(self, peaks: tuple[WorkingPeak, ...] = (), *, revision: int = 0) -> None:
         self._history = [peaks]
         self._index = 0
-        self._saved = peaks
         self.revision = revision
         self._labels = ["peak edit"]
 
@@ -47,11 +46,6 @@ class PeakEdits:
     def peaks(self) -> tuple[WorkingPeak, ...]:
         """Return the committed working coordinates."""
         return self._history[self._index]
-
-    @property
-    def dirty(self) -> bool:
-        """Whether coordinates or assignments differ from the last saved state."""
-        return self.peaks != self._saved
 
     @property
     def can_undo(self) -> bool:
@@ -66,18 +60,14 @@ class PeakEdits:
     def accept_completion(self, peaks: tuple[WorkingPeak, ...]) -> None:
         """Atomically adopt verified run positions without a manual revision or Undo.
 
-        Keep the last exported peak state, so optimized coordinates still require
-        export. The caller publishes DatasetCompletion in the same event delivery.
+        The caller publishes DatasetCompletion in the same event delivery; the
+        analysis stays Modified until it is saved.
         """
         if tuple(p.id for p in peaks) != tuple(p.id for p in self.peaks):
             raise ValueError("Completion must preserve ordered stable peak identities.")
         self._history = [peaks]
         self._labels = ["peak edit"]
         self._index = 0
-
-    def mark_saved(self) -> None:
-        """Record a successful export without discarding undo history."""
-        self._saved = self.peaks
 
     @property
     def undo_label(self) -> str:

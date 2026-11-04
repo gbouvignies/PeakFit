@@ -18,30 +18,28 @@ from peakfit.gui.spectrum import (
 DATA = Path(__file__).resolve().parents[1] / "examples" / "02-advanced-fitting" / "data"
 
 
-def test_edit_history_keeps_identity_validates_atomically_and_tracks_saved_state() -> None:
+def test_edit_history_keeps_identity_and_validates_atomically() -> None:
     peak = WorkingPeak.new("duplicate", (120.1234567890123, 8.23456789012345))
     other = WorkingPeak.new(peak.name, peak.positions)
     edits = PeakEdits((peak, other))
     with pytest.raises(ValueError, match="finite"):
         edits.update(peak.id, "renamed", (float("nan"), 8.0))
     assert edits.peaks == (peak, other)
-    assert not edits.dirty
     edits.update(peak.id, "renamed", (121.2345678901234, 8.12345678901234))
     assert edits.peaks[0].id == peak.id
     assert edits.peaks[1] == other
-    edits.mark_saved()
+    renamed = edits.peaks
     edits.delete(peak.id)
     edits.undo()
-    assert not edits.dirty
+    assert edits.peaks == renamed
     edits.undo()
     assert edits.peaks == (peak, other)
-    assert edits.dirty
     edits.redo()
-    assert not edits.dirty
+    assert edits.peaks == renamed
     edits.add((122.0, 8.0))
     assert not edits.can_redo
     edits.undo()
-    assert not edits.dirty
+    assert edits.peaks == renamed
 
 
 def test_export_round_trips_unfolded_coordinates_assignments_and_empty_list(tmp_path: Path) -> None:

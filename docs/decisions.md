@@ -469,3 +469,23 @@ Short records of non‑obvious design choices and trade‑offs.
   rather than when a poll happened to observe it.
 - The workspace creates its `DatasetFitting` before its widgets, so the `hasattr`
   construction guards and the `fit_busy` alias are gone.
+
+## 2026-11-04: One Modified state; workspace capture and restore
+- The toolbar's Modified tracked peaks changed since the last *export* (plus plane
+  values), while the window title and close prompt tracked the analysis since the
+  last *save or open*. After a peak or results export the toolbar said clean while
+  closing still offered to save. The design spec already defines Modified as
+  "unsaved analysis" and says exporting results does not mark it saved. Now the
+  window computes one `unsaved()` from `EditorWorkspace.analysis_state()` against the
+  state at the last save or open; the title, the toolbar (with what differs as its
+  tooltip) and the close prompt all read it. `PeakEdits.dirty`/`mark_saved`,
+  `plane_values_modified` and the unused `has_changes` are gone.
+- Persistence and the window wrote about twenty workspace and fitting internals
+  to save, open, rebind saved history, hand over scratch evidence, keep runs and
+  import plane values. They now call `capture()`, `restore(analysis)`,
+  `fitting.adopt_saved`, `fitting.hand_over_evidence`, `fitting.keep_run` and
+  `set_plane_values`.
+- `review.json` stored `id()` of the in-memory spectrum, meaningless in another
+  process and already discarded by the reader (which binds the loaded spectrum).
+  It is no longer written. Old projects still open (the reader never read it) and
+  older readers accept new ones, so the project version stays 9.0.0.

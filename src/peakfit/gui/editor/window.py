@@ -1,7 +1,6 @@
 """Native application shell and validated, asynchronous input replacement."""
 
 import sys
-from dataclasses import replace
 from functools import partial
 from pathlib import Path
 
@@ -394,7 +393,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self.release_unlinked_recovery(analysis.runs if analysis else ())
         self.analysis_path = None
         self._analysis = None
-        self._saved_key = None
+        self._saved_state = None
         previous = self.workspace
         workspace = EditorWorkspace(dataset)
         if previous:
@@ -410,7 +409,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self.setWindowTitle(f"{dataset.path.name}[*] — PeakFit")
         self.apply_appearance(self._appearance)
         self._end_loading()
-        self._saved_key = self._analysis_key()
+        self._saved_state = self._analysis_state()
         self._work_changed()
         self.loading_status.setText(workspace.guidance())
         workspace.guidance_changed.connect(self.loading_status.setText)
@@ -433,9 +432,9 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             workspace.status.show()
 
     def _work_changed(self) -> None:
+        self._show_modified()
         if self.workspace:
             w = self.workspace
-            self.setWindowModified(self._analysis_key() != self._saved_key or w.pending)
             for action in (self.open_action, self.import_action, self.values_action):
                 action.setEnabled(not w.fitting.busy and not self._busy)
             self.fit_action.setEnabled(bool(w.peaks) and not w.fitting.busy)
@@ -512,28 +511,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         workspace = self.workspace
         if workspace is None:
             return
-        values, records = outcome
-        spectra = workspace.dataset.spectra.model_copy(update={"z_values": values})
-        dataset = replace(
-            workspace.dataset,
-            spectra=spectra,
-            sources=tuple(
-                (role, record)
-                for role, record in workspace.dataset.sources
-                if role != "plane_values"
-            )
-            + records,
-            has_plane_values=True,
-        )
-        workspace.dataset = dataset
-        workspace.canvas.dataset = dataset
-        workspace.canvas.spectra = spectra
-        # A plane mapping replacement is a scientific edit, never navigation.
-        workspace.edits.revision += 1
-        workspace.plane_values_modified = True
-        workspace.render_fitting()
-        workspace.changed.emit()
-        workspace.set_plane(workspace.canvas.plane + 1)
+        workspace.set_plane_values(*outcome)
         self.loading_status.setText(
             "Plane values imported in original acquisition order · file units"
         )
@@ -558,16 +536,10 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "Cannot export peaks", str(exc))
             return False
         self._export_path = path
-        workspace.edits.mark_saved()
-        workspace._update_actions()
-        self._work_changed()
+        # A peak list is not the analysis: exporting it never marks the analysis saved.
         self.loading_status.setText(
             f"Exported {len(workspace.peaks)} working peaks to {path}; "
-            + (
-                "plane values remain session-only and modified"
-                if workspace.plane_values_modified
-                else "use Save analysis to preserve the complete workspace"
-            )
+            "use Save analysis to preserve the complete workspace"
         )
         return True
 
@@ -581,9 +553,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
                 "it, then try again.",
             )
             return False
-        if self._analysis_key() == self._saved_key and not (
-            self.workspace and self.workspace.pending
-        ):
+        if not self.unsaved():
             return True
         dialog = QtWidgets.QMessageBox(self)
         dialog.setWindowTitle("Unsaved analysis")

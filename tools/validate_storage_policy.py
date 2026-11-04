@@ -289,7 +289,7 @@ def native_refit(analysis, args, report, timed):
 
     timed("native_adjusted_source_free_refit", execute)
     report["native_current_after_refit"] = workspace.fitting.current
-    window._saved_key = window._analysis_key()
+    window._saved_state = window._analysis_state()
     window.close()
     app.processEvents()
 
