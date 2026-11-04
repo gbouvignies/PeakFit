@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path  # noqa: TC003 - needed at runtime for Typer
 from typing import TYPE_CHECKING, Annotated
 
 import typer
 
-from peakfit.io.readers.results import ResultsLoader
+from peakfit.io.mcmc_record import DIRECTORY, latest_record, read_record
 from peakfit.plot.outputs import (
     PlotOutput,
     generate_cest_plots,
@@ -248,58 +249,65 @@ def plot_cpmg(
 def plot_mcmc(
     results: Annotated[
         Path,
-        typer.Argument(help="Results directory", exists=True, resolve_path=True),
+        typer.Argument(help="Results directory", exists=True, file_okay=False, resolve_path=True),
     ],
+    record: Annotated[
+        Path | None,
+        typer.Option(
+            "--record",
+            help="MCMC record to plot (default: the latest in the results' mcmc/ folder)",
+            exists=True,
+            dir_okay=False,
+            resolve_path=True,
+        ),
+    ] = None,
     output: Annotated[
         Path | None,
         typer.Option("--output", "-o", help="Output PDF", dir_okay=False, resolve_path=True),
     ] = None,
-    burn_in: Annotated[
-        int,
-        typer.Option("--burn-in", "-b", help="Burn-in samples"),
-    ] = 0,
     verbose: Annotated[
         bool,
         typer.Option("--verbose", "-v", help="Verbose output"),
     ] = False,
 ) -> None:
-    """Plot MCMC diagnostic traces and corner plots.
+    """Plot a recorded MCMC run's diagnostics, traces and posterior plots.
+
+    Burn-in, status and reasons are those the run recorded.
 
     Examples:
         peakfit plot mcmc Fits/20240101_120000/
-        peakfit plot mcmc results/ --burn-in 100
+        peakfit plot mcmc results/ --record results/mcmc/20260101T120000000000Z-1a2b3c4d.npz
     """
+    path = record or latest_record(results)
+    if path is None:
+        warning(
+            f"No MCMC record found in [path]{display_path(results / DIRECTORY)}[/path]. "
+            "Run [code]peakfit mcmc[/code] first."
+        )
+        raise typer.Exit(1)
     output_path = output or (results / "mcmc_diagnostics.pdf")
     _configure_plot_ui(
         verbose,
         "Plot MCMC Diagnostics",
         sections=[
-            (
-                "Inputs",
-                {
-                    "Results": display_path(results),
-                    "Burn-in samples": str(burn_in),
-                },
-            ),
+            ("Inputs", {"Results": display_path(results), "Record": display_path(path)}),
             ("Output", {"PDF": display_path(output_path)}),
         ],
     )
 
     try:
-        loader = ResultsLoader(results)
-        chains = loader.load_mcmc_chains()
-
-        if not chains:
-            warning(
-                f"No MCMC chains found in [path]{display_path(results)}[/path]. "
-                "Run [code]peakfit mcmc[/code] first."
-            )
-            raise typer.Exit(1)
-
-        out = generate_mcmc_diagnostics(chains, output_path=output_path, burn_in=burn_in)
+        loaded = read_record(path)
+        archive = results / "scientific.npz"
+        if archive.is_file():
+            with archive.open("rb") as stream:
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            if digest != loaded.parent.sha256:
+                warning(
+                    f"[path]{display_path(path)}[/path] sampled a different fit than "
+                    f"[path]{display_path(archive)}[/path]; its plots describe that fit."
+                )
+        out = generate_mcmc_diagnostics(loaded, output_path)
         _print_plot_success(out, "MCMC diagnostic")
-    except typer.Exit:
-        raise
     except Exception as e:
         show_error_with_details("generating MCMC diagnostics", e)
         raise typer.Exit(1) from e

@@ -28,6 +28,16 @@ if TYPE_CHECKING:
     from peakfit.engine.scientific.sampling import SamplingProblem
     from peakfit.shared.typing import FloatArray
 
+# The version of docs/mcmc-formulation.md this code implements; it changes whenever
+# sampling, diagnosis or summaries change what a run produces (§8).
+FORMULATION = "1.0"
+# Each stream ``run_ensemble`` spawns from a run's SeedSequence, by child index path,
+# and its bit generator.
+STREAMS = {
+    "0/0 walker starts": "PCG64",
+    "0/1 emcee moves": "MT19937",
+    "1 amplitude draws": "PCG64",
+}
 # An automatic burn-in discards this many τ_max.
 BURN_IN_TAUS = 5
 # Reported quantiles: the central 95% and 68% intervals and the median.
@@ -482,10 +492,6 @@ def sample_posterior(
     # emcee squeezes a one-peak blob, so the peak axis is restored by count.
     peaks = len(problem.cluster.peaks)
     determined = run.blobs[diagnosis.burn_in :].reshape(-1, peaks).mean(axis=0)
-    # The amplitude-draw stream is the run's second child sequence (``run_ensemble``).
-    draws = np.random.SeedSequence(run.entropy, spawn_key=(*run.spawn_key, 1))
-    ess = np.array([p.ess for p in diagnosis.parameters])
-    effective = float(np.min(ess)) if np.isfinite(ess).all() else float("nan")
     return PosteriorSample(
         cluster_id=problem.cluster.cluster_id,
         names=problem.names,
@@ -495,13 +501,35 @@ def sample_posterior(
         diagnosis=diagnosis,
         exchanges=exchanges(problem, flat),
         determined=determined,
-        amplitudes=summarize_amplitudes(problem, kept, determined, draws, effective),
+        amplitudes=_amplitudes(problem, run, diagnosis, determined),
     )
+
+
+def _amplitudes(problem, run: EnsembleRun, diagnosis: Diagnosis, determined) -> AmplitudeSummaries:
+    # The amplitude-draw stream is the run's second child sequence (``run_ensemble``).
+    draws = np.random.SeedSequence(run.entropy, spawn_key=(*run.spawn_key, 1))
+    ess = np.array([p.ess for p in diagnosis.parameters])
+    effective = float(np.min(ess)) if np.isfinite(ess).all() else float("nan")
+    kept = run.chain[diagnosis.burn_in :]
+    return summarize_amplitudes(problem, kept, determined, draws, effective)
+
+
+def regenerate_amplitudes(
+    problem: SamplingProblem, posterior: PosteriorSample
+) -> AmplitudeSummaries:
+    """Recompute a recorded posterior's amplitude summaries from its chain and seed (§8).
+
+    ``problem`` is rebuilt from the parent fit and its observations. With the same
+    software versions the result equals the recorded summaries bit for bit.
+    """
+    return _amplitudes(problem, posterior.run, posterior.diagnosis, posterior.determined)
 
 
 __all__ = [
     "BURN_IN_TAUS",
+    "FORMULATION",
     "QUANTILES",
+    "STREAMS",
     "Diagnosis",
     "EnsembleRun",
     "Exchange",
@@ -511,6 +539,7 @@ __all__ = [
     "SamplerProgress",
     "SamplerSettings",
     "diagnose",
+    "regenerate_amplitudes",
     "run_ensemble",
     "sample_posterior",
     "start_positions",

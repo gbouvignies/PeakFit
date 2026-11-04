@@ -22,7 +22,6 @@ _AUTOCORR_EFFECTIVE_LAG_THRESHOLD = 0.1
 def plot_autocorrelation(
     chains: FloatArray,
     parameter_names: list[str],
-    thin: int,
     max_lag: int = 100,
     max_params: int = 20,
 ) -> Figure:
@@ -34,7 +33,6 @@ def plot_autocorrelation(
     Args:
         chains: Array of shape (n_chains, n_samples, n_params)
         parameter_names: List of parameter names
-        thin: Thinning factor
         max_lag: Maximum lag to compute
         max_params: Maximum number of parameters to plot
 
@@ -112,10 +110,8 @@ def plot_autocorrelation(
     for i in range(n_params_plot, len(axes)):
         axes[i].set_visible(False)
 
-    n_samples_stored = n_samples
-    total_steps = n_samples_stored * thin
     fig.suptitle(
-        f"Autocorrelation: {n_chains} chains × {total_steps} iterations (thinned by {thin})",
+        f"Autocorrelation: {n_chains} walkers × {n_samples} steps",
         fontsize=14,
         fontweight="bold",
     )

@@ -242,6 +242,6 @@ def test_the_cli_analysis_samples_only_the_targeted_cluster(tmp_path, two_cluste
         target_peaks=[target.peak_names[0]],
         entropy=1,
     )
-    (posterior,) = analysis.posteriors
+    (posterior,) = analysis.record.posteriors
     assert posterior.cluster_id == target.cluster_id
     assert all(np.isfinite(p.quantiles).all() for p in posterior.diagnosis.parameters)

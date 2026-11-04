@@ -17,7 +17,6 @@ def plot_marginal_distributions(
     parameter_names: list[str],
     n_chains: int,
     n_samples: int,
-    thin: int,
     truths: FloatArray | None = None,
     max_params_per_page: int = 12,
 ) -> list[Figure]:
@@ -32,8 +31,7 @@ def plot_marginal_distributions(
         samples: Array of shape (n_total_samples, n_params)
         parameter_names: List of parameter names (full names)
         n_chains: Number of chains
-        n_samples: Number of stored samples per chain
-        thin: Thinning factor
+        n_samples: Number of kept steps per walker
         truths: Optional best-fit values
         max_params_per_page: Maximum parameters per page
 
@@ -129,11 +127,7 @@ def plot_marginal_distributions(
             axes[i].set_visible(False)
 
         # Add page title
-        total_steps = n_samples * thin
-        page_title = (
-            f"Marginal Distributions: {n_chains} chains × {total_steps} iterations "
-            f"(thinned by {thin})"
-        )
+        page_title = f"Marginal Distributions: {n_chains} walkers × {n_samples} steps"
         if n_pages > 1:
             page_title += f" — Page {page + 1}/{n_pages}"
         fig.suptitle(page_title, fontsize=14, fontweight="bold")

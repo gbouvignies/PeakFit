@@ -40,15 +40,31 @@ samples its own posterior (`engine.scientific.sampling`):
 
 See [storage policy](outputs.md).
 
-MCMC writes chain files under:
+Each run writes one immutable record, published atomically once every cluster has
+been sampled:
 
 ```text
-<run_dir>/chains/cluster_*_chains.h5
+<run_dir>/mcmc/<record id>.npz
 ```
 
-Each file holds the whole chain, burn-in included, with the burn-in length and the
-run's seed. `peakfit plot mcmc` discards the burn-in once and creates a
-diagnostics PDF.
+Record IDs are UTC timestamps, so they sort chronologically; a new run never
+replaces an earlier record. A record holds:
+- **Its parent:** the fit's run ID, the SHA-256 of its `scientific.npz`, the
+  verified spectrum's SHA-256 (or none when the archive retains its observations),
+  the terminal correction revision and σ. A run whose `scientific.npz` changed while
+  it was sampling is not recorded.
+- **Each cluster's run:** the whole chain, burn-in included, with log-probabilities
+  and per-sample amplitude identifiability, all lossless.
+- **Each cluster's results:** the diagnosis, status, reasons, exchanges, and
+  amplitude and summed-amplitude summaries, exactly as the terminal showed them.
+- **What reproduces it:** the seed, the bit generator of each random stream, the
+  formulation version, the amplitude-sample cap, and the PeakFit, NumPy and emcee
+  versions.
+
+Results read back from the record alone, without the fit or its spectrum.
+`peakfit plot mcmc` plots the latest record, or the one given with `--record`, as a
+diagnostics PDF. Its report page shows the recorded status and reasons, and its
+traces mark the recorded burn-in.
 
 ## Runtime Options
 
@@ -63,7 +79,6 @@ diagnostics PDF.
 - `--seed N`: the run's `SeedSequence` entropy. The same seed, inputs and versions
   give identical chains. Every run prints the seed it used.
 - `--workers N`: parallel worker processes. Default: serial; `-1` uses all CPUs.
-- `--save-chains/--no-save-chains`: control whether plot-ready chains are written.
 
 Walkers start inside the bounds around the fitted values, spread by a tenth of the
 fit's standard errors; a draw outside the bounds is drawn again, never clipped.
@@ -94,8 +109,7 @@ A run is provisional when any of these hold:
 
 R̂ is not reported: ensemble walkers are coupled, so R̂ across them means nothing.
 Each parameter shows τ, an approximate effective sample size (walkers × steps / τ)
-and the fraction of samples At bound. The diagnostics PDF applies the checks that
-need only the chain (length and drift).
+and the fraction of samples At bound.
 
 ## Amplitudes
 
@@ -124,6 +138,5 @@ Coverage on one peak and on overlapping pairs is recorded in
 - Start with a successful least-squares fit.
 - Analyze a small peak subset first when exploring.
 - Increase `--steps` before trusting uncertain intervals.
-- Keep `--save-chains` enabled if you want diagnostics plots later.
 - Report walkers, steps, burn-in, the seed, τ, effective sample size and the
-  PeakFit version for scientific work.
+  PeakFit version for scientific work; the record holds them all.

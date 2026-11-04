@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**6.0.0**, fit JSON **5.0.0** and analysis project **9.0.0**.
+**6.0.0**, fit JSON **5.0.0**, analysis project **9.0.0** and MCMC record **1.0.0**.
 
 ## Default scientific export
 
@@ -126,8 +126,26 @@ Readers inspect NPY headers/lengths before allocation, bound metadata to 16 MiB
 and total expanded scientific payloads to 8 GiB, reject duplicate/unreferenced
 members, and validate identities, dimensions, correction revisions and algebra.
 Finite scalar numbers use round-trip precision; nonfinite scalars and array
-values preserve their IEEE representation. Future intensity/MCMC products can use
-an explicit result kind and named arrays without changing fit semantics.
+values preserve their IEEE representation.
+
+## MCMC records
+
+Each `peakfit mcmc` run adds one immutable record to the fit's results directory:
+
+```text
+results/
+  scientific.npz
+  mcmc/20261104T120000123456Z-1a2b3c4d.npz
+```
+
+A record uses the archive's encoding (`metadata.json` plus NPY members, the same
+reader limits) with `kind: peakfit_mcmc_record`. It is written to a hidden partial
+file, flushed, renamed into place and the directory flushed; an existing record is
+never replaced. It binds to its parent by the parent's run ID and `scientific.npz`
+SHA-256, and stores each cluster's whole chain losslessly with complete summaries
+([mcmc-formulation.md](mcmc-formulation.md) §8). The reader rejects another version,
+a missing or extra field, a wrongly typed value, arrays inconsistent with the
+recorded settings, and posteriors not seeded by the record's own seed.
 
 ## Coordinate provenance and adoption
 

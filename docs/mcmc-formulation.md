@@ -294,36 +294,42 @@ a distant one, and no diagnostic below can rule that out. Every report says so.
 
 ## 8. Reproducibility and storage (D4)
 
-Amplitude draws are not stored. They can be regenerated exactly from:
+Each run writes one immutable record, `<fit run>/mcmc/<record id>.npz`
+([outputs.md](outputs.md#mcmc-records)). Amplitude draws are not stored. They can be
+regenerated exactly from:
 
 - **The parent:** run identity and the SHA-256 of its `scientific.npz`, which fix
   the lineshape model, all parameter values (fixed ones included), bounds, frozen
-  corrections, cluster membership, fitting grid and σ;
+  corrections, cluster membership, fitting grid and σ. The record also repeats the
+  terminal correction revision and σ, and refuses to be written if the parent
+  changed while it was sampled;
 - **The observations:** the verified source spectrum (SHA-256), or the retained
   observations of a `--detailed-evidence` export;
-- **The chain:** every kept θ sample, stored losslessly in float64, with the burn-in
-  index;
-- **The random streams:** one `SeedSequence` entropy value. It spawns two children,
-  one for the sampler and one for the amplitude draws, so regeneration does not
-  replay the sampler. The record also stores the bit generator (PCG64) and the
-  draws: one per evaluated θ sample, at most 4,000 evenly spaced kept samples;
-- **The procedure:** a formulation version for this specification, and the PeakFit
-  and NumPy versions.
+- **The chain:** the whole chain, burn-in included, stored losslessly in float64
+  with the burn-in index, the log-probabilities and per-sample identifiability;
+- **The random streams:** one `SeedSequence` entropy value. Cluster *i* (in cluster
+  order) uses `SeedSequence(entropy, spawn_key=(i,))`, which spawns a sampler child
+  (walker starts: PCG64; emcee moves: MT19937) and an amplitude-draw child (PCG64),
+  so regeneration does not replay the sampler. The record stores these bit
+  generators and the selection rule: one draw per evaluated θ sample, at most 4,000
+  kept samples, balanced across walkers and evenly spaced in time within each;
+- **The procedure:** formulation version **1.0** of this specification, which
+  changes whenever sampling, diagnosis or summaries change what a run produces,
+  and the PeakFit, NumPy and emcee versions.
 
-Regeneration is bit-identical with the same software versions. NumPy does not
+Regeneration is bit-identical with the same software versions (V11). NumPy does not
 promise identical Generator streams across versions, so a different version gives
 statistically equivalent draws. Linear-algebra libraries may also differ at
 round-off.
 
-**Summaries do not need the source.** The record stores the θ chain, the
-log-probabilities and complete summaries:
+**Summaries do not need the source.** The record stores, per cluster:
 - θ quantiles and means;
 - per peak and plane, the amplitude mean and standard deviation (§5) and the 2.5,
   16, 50, 84 and 97.5% quantiles from the draws made at sampling time;
 - the summed-amplitude intervals and every §6 and §7 flag;
-- all diagnostics.
+- all diagnostics, the status and its reasons.
 
-These remain available, with the run's status, when the source spectrum is missing.
+These remain available when the source spectrum, or the parent itself, is missing.
 Only new derived quantities, such as ratios to a reference plane that was not
 summarized, need regeneration and therefore the observations.
 
@@ -336,7 +342,7 @@ summarized, need regeneration and therefore the observations.
 | Amplitude summaries whatever the conditioning of the shapes | Per-peak intervals withheld or flagged by the §6 policy, with summed amplitudes reported |
 | `get_autocorr_time(tol=0)` hides an unreliable τ; a burn-in longer than the chain silently keeps the last 10% | τ reliability reported; burn-in validated against the 50 τ rule |
 | NaN correlations replaced by 0 | Undefined correlations reported as undefined |
-| Chains stored in HDF5 after burn-in, with burn-in recorded again | A record bound to its parent run (PR 24, D4); burn-in discarded once |
+| Chains stored in HDF5 after burn-in, with burn-in recorded again | One record per run bound to its parent (PR 24, D4); the whole chain stored, burn-in discarded once when summarizing |
 
 Today's code already samples fitted phases; that fix is among the unreleased changes.
 

@@ -306,7 +306,7 @@ regressions remain in the complete suite.
 
 ```bash
 # Current implementation, fresh process; --candidates includes container comparison.
-uv run python tools/benchmark_scientific_storage.py \
+uv run --with h5py python tools/benchmark_scientific_storage.py \
   --output /tmp/storage.json --candidates
 
 # Native Cocoa GUI, with concurrent process-tree RSS sampling.

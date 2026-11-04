@@ -45,6 +45,8 @@ _RESULT_ARRAYS = (
 MAX_METADATA_BYTES = 16 * 1024**2
 MAX_ARRAY_BYTES = 8 * 1024**3
 _SAMPLE_DIMENSIONS = 2
+# What malformed archive input raises, besides a reader's own ``ValueError`` checks.
+MALFORMED = (BadZipFile, struct.error, KeyError, TypeError, ValueError)
 
 
 def write_scientific(
@@ -58,6 +60,66 @@ def write_scientific(
     _validate_science(outcome, samples)
     _validate_context(outcome, samples, context or {})
     arrays = {}
+
+    def exclude(value, name):
+        """Fields this evidence policy leaves out, or that are derived on read."""
+        if isinstance(value, FinalAnalyticalEvaluation) and name in (
+            {"model_values", "raw_residuals", "normalized_residuals"}
+            if evidence == "results"
+            else {"raw_residuals", "normalized_residuals"}
+            if evidence == "detailed"
+            else set()
+        ):
+            return True
+        if isinstance(value, FinalClusterSamples) and evidence == "results" and name == "data":
+            return True
+        return name == "by_cluster_id" or (
+            isinstance(value, FinalFitOutcome) and name == "final_nonlinear_parameters"
+        )
+
+    def encode(value, name):
+        return encode_value(value, name, arrays, exclude)
+
+    document = {
+        "schema_version": VERSION,
+        "kind": "peakfit_scientific_result",
+        "evidence": evidence,
+        "outcome": encode(outcome, "outcome"),
+        "samples": encode(samples, "samples"),
+        "context": encode(context or {}, "context"),
+    }
+    if evidence == "results":
+        for record, sample in zip(document["samples"], samples, strict=True):
+            if isinstance(sample, FinalClusterSamples):
+                record["observation_sha256"] = hashlib.sha256(sample.data.tobytes()).hexdigest()
+                record["observation_dtype"] = sample.data.dtype.str
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_archive(path, document, arrays, compression)
+    return path
+
+
+def write_archive(path, document, arrays, compression=ZIP_DEFLATED):
+    """Write ``metadata.json`` and one NPY member per array, within the reader limits."""
+    metadata = json.dumps(document, allow_nan=False, separators=(",", ":")).encode()
+    if (
+        len(metadata) > MAX_METADATA_BYTES
+        or sum(a.nbytes for a in arrays.values()) > MAX_ARRAY_BYTES
+    ):
+        raise ValueError("Scientific evidence exceeds the supported reader limits.")
+    with ZipFile(path, "w", compression=compression, compresslevel=1) as archive:
+        archive.writestr("metadata.json", metadata)
+        for name, array in arrays.items():
+            with archive.open(name + ".npy", "w", force_zip64=True) as stream:
+                np.lib.format.write_array(stream, array, allow_pickle=False)
+
+
+def encode_value(value, name, arrays, exclude=lambda _value, _field: False):
+    """JSON-ready metadata for ``value``; numeric arrays go into ``arrays`` by name.
+
+    Dataclasses become field mappings (``exclude(dataclass, field)`` drops a field),
+    sets and mappings are tagged, and a non-finite float is stored bit for bit.
+    """
 
     def encode(value, name):  # noqa: PLR0911
         if isinstance(value, np.ndarray):
@@ -75,26 +137,7 @@ def write_scientific(
             return {
                 f.name: encode(getattr(value, f.name), name + "/" + f.name)
                 for f in fields(value)
-                if not (
-                    isinstance(value, FinalAnalyticalEvaluation)
-                    and f.name
-                    in (
-                        {"model_values", "raw_residuals", "normalized_residuals"}
-                        if evidence == "results"
-                        else {"raw_residuals", "normalized_residuals"}
-                        if evidence == "detailed"
-                        else set()
-                    )
-                )
-                and not (
-                    isinstance(value, FinalClusterSamples)
-                    and evidence == "results"
-                    and f.name == "data"
-                )
-                and f.name != "by_cluster_id"
-                and not (
-                    isinstance(value, FinalFitOutcome) and f.name == "final_nonlinear_parameters"
-                )
+                if not exclude(value, f.name)
             }
         if isinstance(value, (set, frozenset)):
             return {
@@ -116,33 +159,7 @@ def write_scientific(
             return value
         raise TypeError(f"Unsupported scientific metadata: {type(value).__name__}")
 
-    document = {
-        "schema_version": VERSION,
-        "kind": "peakfit_scientific_result",
-        "evidence": evidence,
-        "outcome": encode(outcome, "outcome"),
-        "samples": encode(samples, "samples"),
-        "context": encode(context or {}, "context"),
-    }
-    if evidence == "results":
-        for record, sample in zip(document["samples"], samples, strict=True):
-            if isinstance(sample, FinalClusterSamples):
-                record["observation_sha256"] = hashlib.sha256(sample.data.tobytes()).hexdigest()
-                record["observation_dtype"] = sample.data.dtype.str
-    metadata = json.dumps(document, allow_nan=False, separators=(",", ":")).encode()
-    if (
-        len(metadata) > MAX_METADATA_BYTES
-        or sum(a.nbytes for a in arrays.values()) > MAX_ARRAY_BYTES
-    ):
-        raise ValueError("Scientific evidence exceeds the supported reader limits.")
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with ZipFile(path, "w", compression=compression, compresslevel=1) as archive:
-        archive.writestr("metadata.json", metadata)
-        for name, array in arrays.items():
-            with archive.open(name + ".npy", "w", force_zip64=True) as stream:
-                np.lib.format.write_array(stream, array, allow_pickle=False)
-    return path
+    return encode(value, name)
 
 
 def read_scientific(path):
@@ -158,21 +175,71 @@ def read_scientific(path):
     """
     try:
         return _read_scientific(path)
-    except (BadZipFile, struct.error, KeyError, TypeError, ValueError) as error:
-        raise _unreadable(path, error) from error
+    except MALFORMED as error:
+        raise unreadable(
+            path,
+            error,
+            "scientific archive",
+            "Refit the dataset, or restore an intact copy of the file.",
+        ) from error
 
 
-def _unreadable(path, error):
+def read_metadata(archive):
+    """The bounded ``metadata.json`` object of an archive with unique members."""
+    members = archive.infolist()
+    names = [m.filename for m in members]
+    if len(names) != len(set(names)) or "metadata.json" not in names:
+        raise ValueError("Invalid scientific archive members.")
+    if archive.getinfo("metadata.json").file_size > MAX_METADATA_BYTES:
+        raise ValueError("Scientific metadata exceeds the reader limit.")
+    if sum(m.file_size for m in members) > MAX_ARRAY_BYTES:
+        raise ValueError("Expanded scientific arrays exceed the reader limit.")
+    return _record(json.loads(archive.read("metadata.json")), "metadata")
+
+
+def decode_document(archive, document):
+    """Inverse of ``encode_value`` for a ZIP archive's decoded ``metadata.json``.
+
+    Tagged sets, mappings, floats and arrays are restored; dataclasses stay plain
+    mappings for the caller to rebuild. Each NPY member must be referenced exactly
+    once.
+    """
+    used = {"metadata.json"}
+
+    def decode(value):  # noqa: PLR0911
+        if isinstance(value, list):
+            return [decode(v) for v in value]
+        if not isinstance(value, dict):
+            return value
+        if set(value) == {"set"}:
+            return frozenset(decode(v) for v in value["set"])
+        if set(value) == {"mapping"}:
+            return {k: decode(v) for k, v in _record(value["mapping"], "mapping").items()}
+        if set(value) == {"float"}:
+            return struct.unpack(">d", bytes.fromhex(value["float"]))[0]
+        if set(value) == {"array", "dtype", "shape"}:
+            name = value["array"] + ".npy"
+            if name in used:
+                raise ValueError("Duplicate scientific array reference.")
+            used.add(name)
+            return read_array_member(archive, name, value["dtype"], value["shape"])
+        return {k: decode(v) for k, v in value.items()}
+
+    decoded = decode(document)
+    if used != set(archive.namelist()):
+        raise ValueError("Unreferenced scientific array members.")
+    return decoded
+
+
+def unreadable(path, error, what, remedy):
+    """The integrity error for an unreadable ``what`` file, ending with ``remedy``."""
     if isinstance(error, KeyError):
         detail = f"missing field {error}"
     elif isinstance(error, TypeError):
         detail = f"malformed field ({error})"
     else:
         detail = str(error).rstrip(".")
-    return ScientificIntegrityError(
-        f"Cannot read scientific archive {format_path(path)}: {detail}. "
-        "Refit the dataset, or restore an intact copy of the file."
-    )
+    return ScientificIntegrityError(f"Cannot read {what} {format_path(path)}: {detail}. {remedy}")
 
 
 def _record(value, name):
@@ -189,39 +256,9 @@ def _array(value, name):
     return value
 
 
-def _read_scientific(path):  # noqa: PLR0912, PLR0915
+def _read_scientific(path):
     with ZipFile(path) as archive:
-        members = archive.infolist()
-        names = [m.filename for m in members]
-        if len(names) != len(set(names)) or "metadata.json" not in names:
-            raise ValueError("Invalid scientific archive members.")
-        if archive.getinfo("metadata.json").file_size > MAX_METADATA_BYTES:
-            raise ValueError("Scientific metadata exceeds the reader limit.")
-        if sum(m.file_size for m in members) > MAX_ARRAY_BYTES:
-            raise ValueError("Expanded scientific arrays exceed the reader limit.")
-        document = _record(json.loads(archive.read("metadata.json")), "metadata")
-        used = {"metadata.json"}
-
-        def decode(value):  # noqa: PLR0911
-            if isinstance(value, list):
-                return [decode(v) for v in value]
-            if not isinstance(value, dict):
-                return value
-            if set(value) == {"set"}:
-                return frozenset(decode(v) for v in value["set"])
-            if set(value) == {"mapping"}:
-                return {k: decode(v) for k, v in _record(value["mapping"], "mapping").items()}
-            if set(value) == {"float"}:
-                return struct.unpack(">d", bytes.fromhex(value["float"]))[0]
-            if set(value) == {"array", "dtype", "shape"}:
-                name = value["array"] + ".npy"
-                if name in used:
-                    raise ValueError("Duplicate scientific array reference.")
-                used.add(name)
-                return read_array_member(archive, name, value["dtype"], value["shape"])
-
-            return {k: decode(v) for k, v in value.items()}
-
+        document = read_metadata(archive)
         if (
             document.get("schema_version") != VERSION
             or document.get("kind") != "peakfit_scientific_result"
@@ -233,9 +270,7 @@ def _read_scientific(path):  # noqa: PLR0912, PLR0915
         evidence = document.get("evidence")
         if evidence not in {"results", "detailed", "full"}:
             raise ValueError("Unsupported scientific evidence policy.")
-        decoded = decode(document)
-        if used != set(names):
-            raise ValueError("Unreferenced scientific array members.")
+        decoded = decode_document(archive, document)
     samples = tuple(
         FinalClusterInputs(
             s["cluster_id"],

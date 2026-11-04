@@ -1,6 +1,6 @@
 """Benchmark completed-model review and candidate numerical archive formats.
 
-Run: uv run python tools/benchmark_review_projection.py > /tmp/review-benchmark.json
+Run: uv run --with h5py python tools/benchmark_review_projection.py > /tmp/review-benchmark.json
 Uses a real two-pass fit of the bundled 131-plane dataset, one BLAS thread and
 no projection caches. Archives are temporary experiments, not a new file contract.
 """

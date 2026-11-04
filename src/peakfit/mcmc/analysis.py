@@ -3,19 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.scientific.sampler import SamplerSettings, sample_posterior
+from peakfit.engine.scientific.amplitudes import AMPLITUDE_SAMPLES
+from peakfit.engine.scientific.sampler import (
+    FORMULATION,
+    STREAMS,
+    SamplerSettings,
+    sample_posterior,
+)
 from peakfit.engine.scientific.sampling import sampling_problem
+from peakfit.io.mcmc_record import MCMCRecord, parent_fit, software_versions, write_record
 from peakfit.io.readers.results import ResultsLoader
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from peakfit.engine.scientific.sampler import PosteriorSample, SamplerProgress
+    from peakfit.engine.scientific.sampler import SamplerProgress
 
 
 class PeaksNotFoundError(ValueError):
@@ -28,10 +36,10 @@ class PeaksNotFoundError(ValueError):
 
 @dataclass(slots=True, frozen=True)
 class MCMCAnalysisResult:
-    """Every analyzed cluster's posterior, and the entropy that reproduces the run."""
+    """A completed run's record and where it was published."""
 
-    entropy: int
-    posteriors: list[PosteriorSample]
+    record: MCMCRecord
+    path: Path
 
 
 def run_mcmc_analysis(
@@ -44,13 +52,16 @@ def run_mcmc_analysis(
     progress: Callable[[int, int, SamplerProgress], None] | None = None,
     canceled: Callable[[], bool] | None = None,
 ) -> MCMCAnalysisResult:
-    """Sample each targeted cluster's posterior; only those clusters must be usable.
+    """Sample each targeted cluster's posterior and record the run in ``results_dir``.
 
-    One ``SeedSequence`` (fresh entropy unless given) spawns one stream per cluster,
-    in cluster order. ``progress`` receives the cluster's position, the number of
-    clusters and the sampler's progress.
+    Only the targeted clusters must be usable. One ``SeedSequence`` (fresh entropy
+    unless given) spawns one stream per cluster, in cluster order. ``progress``
+    receives the cluster's position, the number of clusters and the sampler's
+    progress. The record is published only once every cluster has been sampled.
     """
-    completed = ResultsLoader(Path(results_dir)).load_completed()
+    loader = ResultsLoader(Path(results_dir))
+    parent = parent_fit(loader.archive)
+    completed = loader.load_completed()
     peak_set = set(target_peaks or ())
     target_ids = [
         c.cluster_id
@@ -79,10 +90,17 @@ def run_mcmc_analysis(
                 workers=workers,
             )
         )
-    return MCMCAnalysisResult(
+    record = MCMCRecord(
+        created=datetime.now(UTC).isoformat(),
+        parent=parent,
+        formulation=FORMULATION,
         entropy=int(seed.entropy),  # ty: ignore[invalid-argument-type]
-        posteriors=posteriors,
+        streams=dict(STREAMS),
+        amplitude_samples=AMPLITUDE_SAMPLES,
+        software=software_versions(),
+        posteriors=tuple(posteriors),
     )
+    return MCMCAnalysisResult(record, write_record(Path(results_dir), record))
 
 
 __all__ = ["MCMCAnalysisResult", "PeaksNotFoundError", "run_mcmc_analysis"]

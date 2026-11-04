@@ -24,6 +24,7 @@ import pytest
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.lineshapes.gaussian.kernel import kernel as gaussian_kernel
 from peakfit.engine.lineshapes.lorentzian.kernel import kernel as lorentzian_kernel
+from peakfit.io.mcmc_record import latest_record, read_record
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.schemas import OUTPUT_SCHEMA_VERSION, FitSummarySchema
 
@@ -217,7 +218,6 @@ class TestPublicWorkflows:
                 "--no-auto-burnin",
                 "--workers",
                 "1",
-                "--no-save-chains",
             ],
             check=False,
             capture_output=True,
@@ -231,6 +231,35 @@ class TestPublicWorkflows:
             f"mcmc failed for peak {peak_name}.\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
         )
         assert "Sampling complete" in combined_output
+
+        # The run is recorded, bound to its compact parent's spectrum, and plotted.
+        path = latest_record(example_fit_dir)
+        assert path is not None
+        record = read_record(path)
+        info = ResultsLoader(example_fit_dir).load_summary().metadata.input_files
+        assert record.parent.spectrum_sha256 == info["spectrum"]["checksum_sha256"]
+        (posterior,) = record.posteriors
+        assert peak_name in posterior.peak_names
+        output_path = tmp_path / "mcmc_diagnostics.pdf"
+        plotted = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "peakfit",
+                "plot",
+                "mcmc",
+                str(example_fit_dir),
+                "--output",
+                str(output_path),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=_cli_env(tmp_path),
+            timeout=90,
+        )
+        assert plotted.returncode == 0, f"STDOUT: {plotted.stdout}\nSTDERR: {plotted.stderr}"
+        assert output_path.stat().st_size > 0
 
 
 # =============================================================================

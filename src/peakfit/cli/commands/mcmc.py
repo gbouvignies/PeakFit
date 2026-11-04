@@ -10,8 +10,8 @@ from rich.console import Group
 from rich.live import Live
 
 from peakfit.cli.commands.mcmc_output import display_posterior
-from peakfit.cli.commands.mcmc_output import save_chains as save_mcmc_chains
 from peakfit.engine.scientific.sampler import SamplerProgress, SamplerSettings
+from peakfit.io.mcmc_record import DIRECTORY
 from peakfit.mcmc.analysis import run_mcmc_analysis
 from peakfit.ui.branding import show_command_summary
 from peakfit.ui.console import (
@@ -90,13 +90,6 @@ def mcmc_command(
         int | None,
         typer.Option("--seed", help="Entropy of the run's SeedSequence (default: fresh)", min=0),
     ] = None,
-    save_chains: Annotated[
-        bool,
-        typer.Option(
-            "--save-chains/--no-save-chains",
-            help="Save MCMC chains for later 'peakfit plot mcmc'",
-        ),
-    ] = True,
     verbose: Annotated[
         bool,
         typer.Option("--verbose", "-v", help="Show detailed output"),
@@ -105,7 +98,8 @@ def mcmc_command(
     """Run MCMC sampling for uncertainty estimation.
 
     Performs Markov Chain Monte Carlo sampling to estimate parameter
-    uncertainties from an existing fit result.
+    uncertainties from an existing fit result. Each run is recorded in the
+    results directory's mcmc/ folder for 'peakfit plot mcmc'.
 
     Examples:
         peakfit mcmc Fits/20240101_120000/
@@ -135,13 +129,7 @@ def mcmc_command(
                     "Workers": _format_workers(workers),
                 },
             ),
-            (
-                "Output",
-                {
-                    "Save chains": "Yes" if save_chains else "No",
-                    "Chains dir": display_path(results / "chains"),
-                },
-            ),
+            ("Output", {"Record": display_path(results / DIRECTORY)}),
         ],
     )
 
@@ -217,14 +205,8 @@ def mcmc_command(
 
     info("Sampling complete.")
 
-    for posterior in result.posteriors:
+    record = result.record
+    for posterior in record.posteriors:
         display_posterior(posterior, verbose)
-    info(f"Seed {result.entropy}: pass --seed {result.entropy} to reproduce this run.")
-
-    if save_chains:
-        n_saved = save_mcmc_chains(results, result)
-        if n_saved > 0:
-            info(
-                "Saved MCMC chains for "
-                f"{n_saved} cluster(s) in [path]{display_path(results / 'chains')}[/path]"
-            )
+    info(f"Seed {record.entropy}: pass --seed {record.entropy} to reproduce this run.")
+    info(f"Recorded the run in [path]{display_path(result.path)}[/path]")
