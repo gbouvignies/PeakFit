@@ -70,12 +70,12 @@ def workspace(qapp, scientific):
     qapp.processEvents()
 
 
-def publish(workspace, result):
+def publish(workspace, result, *, timeout=10):
     fitting = workspace.fitting
     fitting._submitted_revision = workspace.edits.revision
     fitting.process.state = "completed"
     fitting._finished(0, result)
-    wait_until(lambda: not fitting.busy)
+    wait_until(lambda: not fitting.busy, timeout=timeout)
     assert fitting.result is result, fitting.failure
 
 
@@ -1716,7 +1716,9 @@ def _refit(w):
         prepared, snapshot=replace(prepared.snapshot, source_files=w.dataset.sources)
     )
     result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
-    publish(w, result)
+    # Publishing a real-data run writes its recovery copy in a spawned process;
+    # allow for a contended CI runner, as the project tests do.
+    publish(w, result, timeout=60)
     return result
 
 
