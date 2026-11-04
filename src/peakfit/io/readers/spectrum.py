@@ -149,7 +149,7 @@ def _axis_processing(  # noqa: PLR0911 - one return per check of §2.3
     first, phase = number("C1"), number("P1")
     if first is None or phase is None:
         return "first-point scale (C1) or first-order phase (P1) missing"
-    return AxisProcessing(
+    axis = AxisProcessing(
         acquired=int(acquired),
         transform=int(transform),
         window=window,
@@ -157,6 +157,29 @@ def _axis_processing(  # noqa: PLR0911 - one return per check of §2.3
         phase=phase,
         **shape,
     )
+    with np.errstate(all="ignore"):  # the check below catches any of these
+        variance = float(np.sum(axis.weights() ** 2))
+    if not np.isfinite(variance) or variance <= 0.0:
+        return "the apodization gives a zero or non-finite noise variance"
+    return axis
+
+
+# NMRPipe numbers its axes 1–4 in FDDIMORDER.
+_AXIS_CODES = {1, 2, 3, 4}
+
+
+def _axis_order(dic: dict[str, Any], ndim: int) -> list[int] | None:
+    """The NMRPipe axis code of each data axis, or None if FDDIMORDER is unusable."""
+    order = dic.get("FDDIMORDER")
+    if order is None:
+        return None
+    try:
+        codes = [float(order[ndim - 1 - i]) for i in range(ndim)]
+    except (TypeError, ValueError, IndexError, KeyError):
+        return None
+    if not all(np.isfinite(c) and c == round(c) and int(c) in _AXIS_CODES for c in codes):
+        return None
+    return [int(c) for c in codes]
 
 
 def read_noise_model(dic: dict[str, Any], shape: Sequence[int]) -> NoiseModel:
@@ -167,13 +190,14 @@ def read_noise_model(dic: dict[str, Any], shape: Sequence[int]) -> NoiseModel:
     modelled: there is no partial model.
     """
     ndim = len(shape)
-    order = dic.get("FDDIMORDER")
-    if not dic or order is None or ndim < 2:  # noqa: PLR2004
+    if not dic or "FDDIMORDER" not in dic or ndim < 2:  # noqa: PLR2004
         return not_modelled("no NMRPipe processing header")
+    order = _axis_order(dic, ndim)
+    if order is None:
+        return not_modelled("malformed or incomplete axis order (FDDIMORDER)")
     axes = []
     for i in range(1, ndim):
-        fdf = f"FDF{int(order[ndim - 1 - i])}"
-        axis = _axis_processing(dic, fdf, int(shape[i]))
+        axis = _axis_processing(dic, f"FDF{order[i]}", int(shape[i]))
         if isinstance(axis, str):
             return not_modelled(f"axis {get_dimension_label(i - 1)}: {axis}")
         axes.append(axis)
