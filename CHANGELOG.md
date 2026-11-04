@@ -130,8 +130,16 @@ Notable user-facing and architecture changes are recorded here.
   - Walkers start strictly inside the bounds, and too few walkers is an error.
   - `--workers` defaults to serial.
   - Chains are saved whole with their burn-in, which is discarded exactly once.
-  - **Temporarily removed:** amplitude intervals, which were conditional optima
-    and too narrow, until conditional amplitude draws replace them.
+- `peakfit mcmc` reports amplitude (intensity) intervals again, now from
+  conditional amplitude draws (`engine.scientific.amplitudes`), per
+  `docs/mcmc-formulation.md` §5–§6:
+  - Moments use the law of total variance, and quantiles come from the draws, over
+    up to 4,000 evenly spaced kept samples. Monte Carlo errors are reported.
+  - Amplitudes not determined in some samples are withheld.
+  - Pairs with |ρ| ≥ 0.9 are flagged and their summed amplitude reported. Their
+    positions and linewidths are marked ‡ "not separately resolved".
+  - Coverage on one peak and on overlapping pairs is recorded in
+    `docs/validation/mcmc-coverage.md`.
 
 ### Removed
 

@@ -4,9 +4,7 @@
 a post-fit workflow, not a fitting optimizer.
 
 [`mcmc-formulation.md`](mcmc-formulation.md) specifies what MCMC samples and
-reports. The command samples the nonlinear parameters as specified. Amplitude
-(intensity) intervals are not reported yet: they are being rebuilt from
-conditional amplitude draws.
+reports, and the command follows it.
 
 ## Basic Workflow
 
@@ -98,6 +96,27 @@ R̂ is not reported: ensemble walkers are coupled, so R̂ across them means noth
 Each parameter shows τ, an approximate effective sample size (walkers × steps / τ)
 and the fraction of samples At bound. The diagnostics PDF applies the checks that
 need only the chain (length and drift).
+
+## Amplitudes
+
+Amplitude (intensity) intervals include the lineshape uncertainty. They come from
+conditional amplitude draws at up to 4,000 evenly spaced kept samples. The
+terminal states how many samples were used, and the Monte Carlo errors behind
+them.
+- **Wider or narrower:** they are usually wider than the fit's analytical errors,
+  which hold the lineshapes fixed, but need not be.
+- **Withheld:** a peak whose amplitude is not determined in some samples (shapes
+  that coincide, or are too close to compute reliably) is withheld, with the
+  fraction of samples.
+- **Read the sum:** two amplitudes with posterior |ρ| ≥ 0.9 in a plane are flagged
+  as not separately determined, and their summed amplitude is reported.
+- **Read with care (‡):** those peaks' positions, linewidths and per-peak
+  amplitudes are still shown, marked ‡ as not separately resolved.
+- **Sums of undetermined peaks:** a group of undetermined peaks whose sum is
+  determined, such as duplicated peaks, reports its sum too.
+
+Coverage on one peak and on overlapping pairs is recorded in
+[validation/mcmc-coverage.md](validation/mcmc-coverage.md).
 
 ## Practical Guidance
 

@@ -218,7 +218,7 @@ def mcmc_command(
     info("Sampling complete.")
 
     for posterior in result.posteriors:
-        display_posterior(posterior)
+        display_posterior(posterior, verbose)
     info(f"Seed {result.entropy}: pass --seed {result.entropy} to reproduce this run.")
 
     if save_chains:

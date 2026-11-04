@@ -19,6 +19,7 @@ import numpy as np
 from threadpoolctl import threadpool_limits
 
 from peakfit.engine.diagnostics import ensemble
+from peakfit.engine.scientific.amplitudes import AmplitudeSummaries, summarize_amplitudes
 from peakfit.shared.constants import MCMC_N_STEPS, MCMC_N_WALKERS
 
 if TYPE_CHECKING:
@@ -96,7 +97,7 @@ class EnsembleRun:
     log_probability: FloatArray  # (steps, walkers)
     blobs: np.ndarray | None  # (steps, walkers, ...) as the log-probability returned
     acceptance: FloatArray  # (walkers,)
-    entropy: int  # with ``spawn_key``, the SeedSequence that reproduces the run
+    entropy: int | tuple[int, ...]  # with ``spawn_key``, the SeedSequence that reproduces it
     spawn_key: tuple[int, ...]
 
 
@@ -202,7 +203,11 @@ def run_ensemble(
         log_probability=sampler.get_log_prob(),
         blobs=None if blobs is None else np.asarray(blobs),
         acceptance=np.array(sampler.acceptance_fraction),
-        entropy=int(seed.entropy),  # ty: ignore[invalid-argument-type]
+        entropy=(
+            tuple(int(e) for e in seed.entropy)  # ty: ignore[not-iterable]
+            if isinstance(seed.entropy, (list, tuple, np.ndarray))
+            else int(seed.entropy)  # ty: ignore[invalid-argument-type]
+        ),
         spawn_key=tuple(seed.spawn_key),
     )
 
@@ -352,6 +357,7 @@ class PosteriorSample:
     diagnosis: Diagnosis
     exchanges: tuple[Exchange, ...]
     determined: FloatArray  # (peaks,) fraction of kept samples with a determined amplitude
+    amplitudes: AmplitudeSummaries
 
     @property
     def reasons(self) -> tuple[str, ...]:
@@ -375,6 +381,23 @@ class PosteriorSample:
                 other = e.second if peak == e.first else e.first
                 return f"exchanges identity with {other}"
         return None
+
+    def caution(self, peak: str) -> str | None:
+        """Why a peak's intervals need care although they are reported, or None.
+
+        A peak whose amplitude is strongly correlated with another's (§6) is not
+        separately resolved from it. That alone does not show its position or
+        linewidth to be unidentifiable, so their intervals stay visible with this
+        caution; withholding is reserved for exchanges (``withheld``).
+        """
+        correlated = self.amplitudes.correlated
+        partners = sorted(
+            {c.second for c in correlated if c.first == peak}
+            | {c.first for c in correlated if c.second == peak}
+        )
+        if not partners:
+            return None
+        return f"not separately resolved from {', '.join(partners)} (amplitude |ρ| ≥ 0.9)"
 
 
 def _positions(problem: SamplingProblem) -> dict[str, dict[str, str]]:
@@ -456,7 +479,13 @@ def sample_posterior(
     kept = run.chain[diagnosis.burn_in :]
     flat = kept.reshape(-1, kept.shape[2])
     assert run.blobs is not None
-    determined = run.blobs[diagnosis.burn_in :].reshape(-1, run.blobs.shape[-1]).mean(axis=0)
+    # emcee squeezes a one-peak blob, so the peak axis is restored by count.
+    peaks = len(problem.cluster.peaks)
+    determined = run.blobs[diagnosis.burn_in :].reshape(-1, peaks).mean(axis=0)
+    # The amplitude-draw stream is the run's second child sequence (``run_ensemble``).
+    draws = np.random.SeedSequence(run.entropy, spawn_key=(*run.spawn_key, 1))
+    ess = np.array([p.ess for p in diagnosis.parameters])
+    effective = float(np.min(ess)) if np.isfinite(ess).all() else float("nan")
     return PosteriorSample(
         cluster_id=problem.cluster.cluster_id,
         names=problem.names,
@@ -466,6 +495,7 @@ def sample_posterior(
         diagnosis=diagnosis,
         exchanges=exchanges(problem, flat),
         determined=determined,
+        amplitudes=summarize_amplitudes(problem, flat, determined, draws, effective),
     )
 
 

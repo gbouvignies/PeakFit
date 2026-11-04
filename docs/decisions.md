@@ -603,3 +603,28 @@ Short records of non‑obvious design choices and trade‑offs.
 - The CLI shows medians and intervals at the precision of each posterior standard
   deviation. `peakfit plot mcmc` shows τ and ESS instead of R̂, and applies the
   chain-only checks.
+
+## 2026-11-04: MCMC amplitude summaries (PR 23b)
+- `engine.scientific.amplitudes.summarize_amplitudes` evaluates the conditional
+  amplitude distribution at up to 4,000 evenly spaced kept samples (agreed cost
+  bound), with one draw each from the run's amplitude-draw stream. That stream is
+  child 1 of the run's `SeedSequence`, so draws reproduce from the recorded seed.
+- Moments use the law of total variance, and quantiles come from the draws. Monte
+  Carlo errors use the smaller of the sample count and the sampler's smallest ESS.
+- A peak undetermined in any kept sample (from the per-sample identifiability
+  blobs) is withheld with that fraction. Undetermined peaks group by co-occurrence,
+  and their sum is reported if `ConditionalAmplitudes.determines` accepts it in
+  every evaluated sample.
+- Determined member amplitudes with |ρ| ≥ 0.9 in a plane are flagged and their
+  group's sum reported. Their positions and linewidths stay visible, marked
+  "not separately resolved": strong amplitude correlation alone does not show them
+  unidentifiable. Withholding stays reserved for exchanges and demonstrated
+  identifiability failures.
+- V6 is a recorded study, `tools/validate_mcmc_coverage.py`, rather than a CI test:
+  about seven minutes on eight cores. Separated cases cover at nominal rates. Near
+  coalescence flags all 200 runs, with 199 provisional. The one run that passed
+  explored a single ordering and undercovered; its intervals carry the caution
+  (`docs/validation/mcmc-coverage.md`).
+- `ConditionalAmplitudes` now keeps the singular vectors and judges any combination
+  of amplitudes with the same two rules as a single peak. emcee squeezes a one-peak
+  blob, so the peak axis is restored by count.

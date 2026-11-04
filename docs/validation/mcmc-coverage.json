@@ -1,0 +1,136 @@
+{
+  "noise": 0.05,
+  "realizations": 200,
+  "scenarios": {
+    "one peak": {
+      "status": {
+        "passed": 200
+      },
+      "flags": {},
+      "coverage": {
+        "position": {
+          "n": 200,
+          "coverage_68": 0.665,
+          "coverage_95": 0.955,
+          "binomial_se_68": 0.03298484500494128,
+          "binomial_se_95": 0.015411035007422441
+        },
+        "linewidth": {
+          "n": 200,
+          "coverage_68": 0.635,
+          "coverage_95": 0.95,
+          "binomial_se_68": 0.03298484500494128,
+          "binomial_se_95": 0.015411035007422441
+        },
+        "amplitude": {
+          "n": 800,
+          "coverage_68": 0.655,
+          "coverage_95": 0.945,
+          "binomial_se_68": 0.01649242250247064,
+          "binomial_se_95": 0.007705517503711221
+        }
+      }
+    },
+    "resolved pair (10 points)": {
+      "status": {
+        "passed": 187,
+        "provisional": 13
+      },
+      "flags": {},
+      "coverage": {
+        "position": {
+          "n": 374,
+          "coverage_68": 0.6818181818181818,
+          "coverage_95": 0.9518716577540107,
+          "binomial_se_68": 0.02412090756622109,
+          "binomial_se_95": 0.011269664928185883
+        },
+        "linewidth": {
+          "n": 374,
+          "coverage_68": 0.6871657754010695,
+          "coverage_95": 0.9598930481283422,
+          "binomial_se_68": 0.02412090756622109,
+          "binomial_se_95": 0.011269664928185883
+        },
+        "amplitude": {
+          "n": 1496,
+          "coverage_68": 0.6744652406417112,
+          "coverage_95": 0.9518716577540107,
+          "binomial_se_68": 0.012060453783110546,
+          "binomial_se_95": 0.005634832464092941
+        }
+      }
+    },
+    "partially overlapping pair (4 points)": {
+      "status": {
+        "passed": 186,
+        "provisional": 14
+      },
+      "flags": {},
+      "coverage": {
+        "position": {
+          "n": 372,
+          "coverage_68": 0.7096774193548387,
+          "coverage_95": 0.9623655913978495,
+          "binomial_se_68": 0.024185661797005677,
+          "binomial_se_95": 0.011299919116657904
+        },
+        "linewidth": {
+          "n": 372,
+          "coverage_68": 0.6747311827956989,
+          "coverage_95": 0.9543010752688172,
+          "binomial_se_68": 0.024185661797005677,
+          "binomial_se_95": 0.011299919116657904
+        },
+        "amplitude": {
+          "n": 1488,
+          "coverage_68": 0.7029569892473119,
+          "coverage_95": 0.9576612903225806,
+          "binomial_se_68": 0.012092830898502839,
+          "binomial_se_95": 0.005649959558328952
+        }
+      }
+    },
+    "near-coalescent pair (1.5 points)": {
+      "status": {
+        "provisional": 199,
+        "passed": 1
+      },
+      "flags": {
+        "exchange": 168,
+        "correlated amplitudes": 200,
+        "passed with a caution": 1
+      },
+      "coverage": {
+        "position (flagged)": {
+          "n": 2,
+          "coverage_68": 0.0,
+          "coverage_95": 0.5,
+          "binomial_se_68": 0.3298484500494129,
+          "binomial_se_95": 0.1541103500742244
+        },
+        "linewidth (flagged)": {
+          "n": 2,
+          "coverage_68": 0.0,
+          "coverage_95": 0.5,
+          "binomial_se_68": 0.3298484500494129,
+          "binomial_se_95": 0.1541103500742244
+        },
+        "amplitude (flagged)": {
+          "n": 8,
+          "coverage_68": 0.25,
+          "coverage_95": 0.625,
+          "binomial_se_68": 0.16492422502470644,
+          "binomial_se_95": 0.0770551750371122
+        },
+        "summed amplitude": {
+          "n": 4,
+          "coverage_68": 0.5,
+          "coverage_95": 0.5,
+          "binomial_se_68": 0.23323807579381203,
+          "binomial_se_95": 0.10897247358851683
+        }
+      }
+    }
+  }
+}
