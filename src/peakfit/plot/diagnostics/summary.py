@@ -7,6 +7,8 @@ import numpy as np
 from matplotlib.ticker import MaxNLocator
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from matplotlib.figure import Figure
 
     from peakfit.shared.typing import FloatArray
@@ -17,21 +19,27 @@ def plot_marginal_distributions(
     parameter_names: list[str],
     n_chains: int,
     n_samples: int,
+    *,
+    unreported: Sequence[str | None],
+    cautions: Sequence[str | None],
     truths: FloatArray | None = None,
     max_params_per_page: int = 12,
 ) -> list[Figure]:
     """Create clear 1D marginal distribution plots with full parameter names.
 
-    Shows histograms of posterior distributions for each parameter with:
-    - Full parameter names (no truncation)
-    - Median and 68% credible intervals
-    - Best-fit values if provided
+    Every parameter's histogram is drawn for inspection. Its median and 68% credible
+    interval are marked only when they are a final result: a parameter with an
+    ``unreported`` reason (a provisional run, or a withheld interval) shows that
+    reason instead, so the page never presents it as a result. A ``caution`` is
+    appended to a reported interval, marked ‡ as in the terminal.
 
     Args:
         samples: Array of shape (n_total_samples, n_params)
         parameter_names: List of parameter names (full names)
         n_chains: Number of chains
         n_samples: Number of kept steps per walker
+        unreported: Per parameter, why its interval is not final, or None
+        cautions: Per parameter, why a reported interval needs care, or None
         truths: Optional best-fit values
         max_params_per_page: Maximum parameters per page
 
@@ -62,28 +70,33 @@ def plot_marginal_distributions(
             param_name = parameter_names[param_idx]
             param_samples = samples[:, param_idx]
 
-            # Plot histogram
+            reason = unreported[param_idx]
             ax.hist(
                 param_samples,
                 bins=40,
                 density=True,
                 alpha=0.7,
-                color="steelblue",
+                color="steelblue" if reason is None else "lightgray",
                 edgecolor="black",
                 linewidth=0.5,
             )
 
-            # Calculate statistics
-            median = np.median(param_samples)
-            percentiles = np.atleast_1d(np.percentile(param_samples, [16, 84]))
-            ci_16 = float(percentiles[0])
-            ci_84 = float(percentiles[1])
-
-            # Mark median and credible intervals
-            ax.axvline(median, color="red", linestyle="-", linewidth=2, label="Median", zorder=10)
-            ax.axvline(ci_16, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="68% CI")
-            ax.axvline(ci_84, color="red", linestyle="--", linewidth=1.5, alpha=0.7)
-            ax.axvspan(ci_16, ci_84, alpha=0.15, color="red")
+            if reason is None:
+                median = np.median(param_samples)
+                ci_16, ci_84 = (float(v) for v in np.percentile(param_samples, [16, 84]))
+                ax.axvline(
+                    median, color="red", linestyle="-", linewidth=2, label="Median", zorder=10
+                )
+                ax.axvline(
+                    ci_16, color="red", linestyle="--", linewidth=1.5, alpha=0.7, label="68% CI"
+                )
+                ax.axvline(ci_84, color="red", linestyle="--", linewidth=1.5, alpha=0.7)
+                ax.axvspan(ci_16, ci_84, alpha=0.15, color="red")
+                stats_text = f"Median: {median:.6f}\n68% CI: [{ci_16:.6f}, {ci_84:.6f}]"
+                if cautions[param_idx] is not None:
+                    stats_text += f" ‡\n‡ {cautions[param_idx]}"
+            else:
+                stats_text = f"No final interval\n{reason[0].upper()}{reason[1:]}"
 
             # Mark best-fit if provided
             if truths is not None:
@@ -95,9 +108,6 @@ def plot_marginal_distributions(
                     label="Best-fit",
                     zorder=10,
                 )
-
-            # Add statistics text box
-            stats_text = f"Median: {median:.6f}\n68% CI: [{ci_16:.6f}, {ci_84:.6f}]"
 
             ax.text(
                 0.98,
@@ -119,7 +129,8 @@ def plot_marginal_distributions(
             ax.xaxis.set_major_locator(MaxNLocator(nbins=4))
             plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
 
-            ax.legend(fontsize=8, loc="upper left")
+            if ax.get_legend_handles_labels()[0]:
+                ax.legend(fontsize=8, loc="upper left")
             ax.grid(alpha=0.3, linestyle=":")
 
         # Hide unused subplots

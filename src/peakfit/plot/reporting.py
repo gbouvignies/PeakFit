@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from textwrap import wrap
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
@@ -55,6 +56,9 @@ def generate_mcmc_report_page(posterior: PosteriorSample) -> Figure:
         f"  Max τ: {tau_max:.1f} steps ({MIN_TAUS} τ_max = {MIN_TAUS * tau_max:.0f} steps)",
         f"  Min ESS: {min(ess):.0f} (approximate)" if ess else "  Min ESS: undefined",
         "  R-hat: not assessed (ensemble walkers are coupled)",
+        "",
+        "Noise Convention",
+        *wrap(posterior.noise_convention, 72, initial_indent="  ", subsequent_indent="  "),
         "",
         "Reasons",
         *(f"- {reason}" for reason in posterior.reasons or ["None of the checks failed."]),

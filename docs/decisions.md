@@ -659,3 +659,17 @@ Short records of non‑obvious design choices and trade‑offs.
   no run produced, is gone from the plots. The storage benchmarks that compare
   HDF5 take it from the optional `benchmarks` dependency group
   (`uv run --group benchmarks`).
+
+## 2026-11-04: MCMC acceptance review, S1 and S2 reporting
+- `peakfit plot mcmc` no longer presents an interval the terminal withholds. The
+  marginal pages drew a median and 68% CI for every parameter, including those of a
+  provisional run or exchanged peaks (seen on 53N-H/147N-H). Histograms are still
+  drawn; a non-final parameter shows why instead, and every page of a provisional
+  cluster says so. `PosteriorSample.unreported` is the one rule for terminal and PDF.
+- Each MCMC posterior records its parent cluster's reduced χ², and the terminal and
+  report page show it with the noise convention: MCMC uses the recorded σ, never
+  rescaled; the fit's exported amplitude errors are scaled by √χ²ᵣ above 1. On the
+  bundled 2N-H (χ²ᵣ 2.68), MCMC amplitude SDs were 1.05 × the unscaled conditional
+  error but 0.64 × the exported `intensity_err`, which `mcmc.md` called "usually
+  wider". MCMC record **1.1.0**: 1.0.0 records are refused; rerun `peakfit mcmc`.
+- The uncertainty scaling itself is unchanged, pending a separate decision.

@@ -47,6 +47,7 @@ def display_posterior(posterior: PosteriorSample, verbose: bool = False) -> None
         f"Burn-in {diagnosis.burn_in} steps · kept {kept} steps "
         f"({MIN_TAUS} τ_max = {MIN_TAUS * tau_max:.0f}) · R̂ not assessed (coupled walkers)"
     )
+    console.print(posterior.noise_convention)
 
     table = create_table(show_header=True)
     table.add_column("Parameter", style="key")
@@ -59,19 +60,17 @@ def display_posterior(posterior: PosteriorSample, verbose: bool = False) -> None
     for p in diagnosis.parameters:
         low95, low68, median, high68, high95 = p.quantiles
         decimals = _decimals(p.sd)
-        withheld = posterior.withheld(p.name)
+        unreported = posterior.unreported(p.name)
         caution = posterior.caution(p.name.rsplit(".", 2)[0])
-        if withheld is not None:
-            intervals = (f"withheld: {withheld}",) * 2
-        elif posterior.provisional:
-            intervals = ("provisional",) * 2
+        if unreported is not None:
+            intervals = (unreported,) * 2
         else:
             intervals = (
                 _interval(low68, high68, decimals),
                 _interval(low95, high95, decimals),
             )
-        if caution is not None and withheld is None and not posterior.provisional:
-            intervals = tuple(f"{interval} ‡" for interval in intervals)
+            if caution is not None:
+                intervals = tuple(f"{interval} ‡" for interval in intervals)
         pileup = max(p.at_lower, p.at_upper)
         table.add_row(
             p.name,

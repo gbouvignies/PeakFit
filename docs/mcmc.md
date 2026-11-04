@@ -56,15 +56,19 @@ replaces an earlier record. A record holds:
 - **Each cluster's run:** the whole chain, burn-in included, with log-probabilities
   and per-sample amplitude identifiability, all lossless.
 - **Each cluster's results:** the diagnosis, status, reasons, exchanges, and
-  amplitude and summed-amplitude summaries, exactly as the terminal showed them.
+  amplitude and summed-amplitude summaries, exactly as the terminal showed them,
+  and the parent cluster's reduced χ².
 - **What reproduces it:** the seed, the bit generator of each random stream, the
   formulation version, the amplitude-sample cap, and the PeakFit, NumPy and emcee
   versions.
 
 Results read back from the record alone, without the fit or its spectrum.
 `peakfit plot mcmc` plots the latest record, or the one given with `--record`, as a
-diagnostics PDF. Its report page shows the recorded status and reasons, and its
-traces mark the recorded burn-in.
+diagnostics PDF. Its report page shows the recorded status, reasons and noise
+convention, and its traces mark the recorded burn-in. Every page of a provisional
+cluster says so. The marginal distributions are always drawn for inspection, but a
+median and 68% interval are marked only where the terminal reports an interval; a
+provisional or withheld parameter shows why instead.
 
 ## Runtime Options
 
@@ -118,8 +122,17 @@ conditional amplitude draws at up to 4,000 kept samples, balanced across walkers
 and spread over time. The
 terminal states how many samples were used, and the Monte Carlo errors behind
 them.
-- **Wider or narrower:** they are usually wider than the fit's analytical errors,
-  which hold the lineshapes fixed, but need not be.
+- **Noise:** every MCMC interval is conditional on the recorded noise σ and is never
+  rescaled by the reduced χ² (χ²ᵣ). The terminal and the report page show the
+  parent cluster's χ²ᵣ as a goodness-of-fit diagnostic. A χ²ᵣ well above 1 means the
+  model or σ does not describe the data; the intervals then understate the
+  uncertainty. Noise is also assumed independent between points, which zero filling
+  and apodization break, and χ²ᵣ does not reveal that.
+- **Wider or narrower:** they are usually wider than the fit's *unscaled*
+  analytical amplitude errors (`amplitude_standard_errors`), which hold the
+  lineshapes fixed, but need not be. The exported `intensity_err` is multiplied by
+  √χ²ᵣ when χ²ᵣ exceeds 1 ([outputs.md](outputs.md)), so there it can be wider
+  than the MCMC interval without any contradiction; the terminal states that factor.
 - **Withheld:** a peak whose amplitude is not determined in some samples (shapes
   that coincide, or are too close to compute reliably) is withheld, with the
   fraction of samples.

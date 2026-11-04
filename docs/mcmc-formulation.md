@@ -328,6 +328,7 @@ round-off.
   16, 50, 84 and 97.5% quantiles from the draws made at sampling time;
 - the summed-amplitude intervals and every §6 and §7 flag;
 - all diagnostics, the status and its reasons.
+- the parent cluster's χ²_red, reported alongside (§4).
 
 These remain available when the source spectrum, or the parent itself, is missing.
 Only new derived quantities, such as ratios to a reference plane that was not

@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 KIND = "peakfit_mcmc_record"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 DIRECTORY = "mcmc"
 
 
@@ -325,6 +325,7 @@ def _posterior(value: Any) -> PosteriorSample:
             ),
             sums=_tuple(_amplitude),
         ),
+        reduced_chi_squared=_float,
     )
 
 
@@ -372,6 +373,8 @@ def _validate(record: MCMCRecord) -> None:
             or p.determined.shape != (peaks,)
         ):
             raise ValueError(f"Inconsistent MCMC arrays for cluster {p.cluster_id}")
+        if not (np.isfinite(p.reduced_chi_squared) and p.reduced_chi_squared >= 0):
+            raise ValueError(f"Invalid reduced chi-squared for cluster {p.cluster_id}")
         if not 0 <= diagnosis.burn_in < steps:
             raise ValueError(f"Burn-in outside the chain for cluster {p.cluster_id}")
         if (run.entropy, run.spawn_key) != (record.entropy, (index,)):

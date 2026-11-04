@@ -12,7 +12,14 @@ import numpy as np
 import pytest
 from builders import completed_result
 
-from peakfit.engine.scientific.sampler import FORMULATION, SamplerSettings, regenerate_amplitudes
+from peakfit.cli.commands.mcmc_output import display_posterior
+from peakfit.engine.scientific.amplitudes import Correlation
+from peakfit.engine.scientific.sampler import (
+    FORMULATION,
+    Exchange,
+    SamplerSettings,
+    regenerate_amplitudes,
+)
 from peakfit.engine.scientific.sampling import sampling_problem
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.io import mcmc_record
@@ -20,8 +27,10 @@ from peakfit.io.mcmc_record import latest_record, read_record, write_record
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.scientific import encode_value, read_scientific
 from peakfit.mcmc.analysis import run_mcmc_analysis
+from peakfit.plot import outputs
 from peakfit.plot.outputs import generate_mcmc_diagnostics
 from peakfit.shared.exceptions import ScientificIntegrityError
+from peakfit.ui.console import console
 
 
 @pytest.fixture(scope="module")
@@ -185,6 +194,12 @@ def _posterior(document):
     ("change", "message"),
     [
         (lambda d: d.update(schema_version="0.9.0"), "Unsupported MCMC record version '0.9.0'"),
+        (lambda d: d.update(schema_version="1.0.0"), "Unsupported MCMC record version '1.0.0'"),
+        (lambda d: _posterior(d).pop("reduced_chi_squared"), "Malformed PosteriorSample record"),
+        (
+            lambda d: _posterior(d).update(reduced_chi_squared=-1.0),
+            "Invalid reduced chi-squared",
+        ),
         (lambda d: d["record"].update(extra=1), "Malformed MCMCRecord record"),
         (lambda d: d["record"]["parent"].pop("sha256"), "Malformed ParentFit record"),
         (lambda d: d["record"].update(entropy="2026"), "expected int, got str"),
@@ -221,3 +236,123 @@ def test_the_record_keeps_the_identifiability_blobs_of_each_cluster(recorded):
         assert blobs.shape == expected
         kept = blobs[posterior.diagnosis.burn_in :].reshape(-1, peaks)
         np.testing.assert_array_equal(kept.mean(axis=0), posterior.determined)
+
+
+def test_the_record_keeps_each_parent_clusters_reduced_chi_squared(recorded):
+    directory, analysis = recorded
+    outcome, _, _ = read_scientific(directory / "scientific.npz")
+    record = read_record(analysis.path)
+    by_cluster = {
+        c.cluster_id: c.analytical_evaluation.statistics.reduced_chi_squared
+        for c in outcome.clusters
+        if c.analytical_evaluation is not None
+    }
+    assert {p.cluster_id: p.reduced_chi_squared for p in record.posteriors} == by_cluster
+    # Reported as a diagnostic beside the intervals, with the fit's amplitude-error
+    # convention: scaled by √χ²ᵣ only above 1 (the fixture has one cluster each side).
+    for posterior in record.posteriors:
+        chi2 = posterior.reduced_chi_squared
+        note = posterior.noise_convention
+        assert f"Parent fit χ²ᵣ {chi2:.3g}" in note
+        assert "not rescaled by χ²ᵣ" in note
+        assert ("scaled by √χ²ᵣ = " in note) == (chi2 > 1.0)
+        if chi2 > 1.0:
+            assert f"{np.sqrt(chi2):.3g}" in note
+    assert {p.reduced_chi_squared > 1.0 for p in record.posteriors} == {True, False}
+
+
+def _pages(record, tmp_path, monkeypatch):
+    """Each saved PDF page: its title, and per panel the axes title, texts and labels."""
+    pages = []
+    save = outputs._save_pdf_figure
+
+    def capture(pdf, fig, title=None):
+        panels = {
+            ax.get_title(): (
+                "\n".join(t.get_text() for t in ax.texts),
+                ax.get_legend_handles_labels()[1],
+            )
+            for ax in fig.axes
+            if ax.get_visible()
+        }
+        texts = "\n".join(t.get_text() for t in fig.texts)
+        pages.append((title or "", texts, panels))
+        save(pdf, fig, title)
+
+    monkeypatch.setattr(outputs, "_save_pdf_figure", capture)
+    generate_mcmc_diagnostics(record, tmp_path / "mcmc_diagnostics.pdf")
+    return pages
+
+
+def _marginals(pages):
+    panels = {}
+    for title, _, page in pages:
+        if "Marginal Distributions" in title:
+            panels.update(page)
+    return panels
+
+
+def test_a_provisional_run_plots_no_interval_and_says_so_on_every_page(
+    recorded, tmp_path, monkeypatch
+):
+    _, analysis = recorded
+    record = read_record(analysis.path)
+    assert all(p.provisional for p in record.posteriors)
+    pages = _pages(record, tmp_path, monkeypatch)
+    for title, texts, _ in pages:
+        assert "PROVISIONAL" in (title or texts), title
+    panels = _marginals(pages)
+    assert set(panels) == {name for p in record.posteriors for name in p.names}
+    for text, labels in panels.values():
+        assert text == "No final interval\nProvisional"
+        assert "68% CI" not in labels
+        assert "Median" not in labels
+    report = "\n".join(texts for title, texts, _ in pages if not title)
+    assert "Noise Convention" in report
+    assert "Parent fit χ²ᵣ" in report
+
+
+def test_a_passed_run_plots_intervals_except_withheld_and_marks_cautions(
+    recorded, tmp_path, monkeypatch
+):
+    _, analysis = recorded
+    single, pair = read_record(analysis.path).posteriors
+
+    def passed(posterior, **changes):
+        diagnosis = replace(posterior.diagnosis, reasons=())
+        return replace(posterior, diagnosis=diagnosis, **changes)
+
+    caution = Correlation("p_0", "p_1", 0, -0.95)
+    record = replace(
+        analysis.record,
+        posteriors=(
+            passed(single),
+            passed(pair, amplitudes=replace(pair.amplitudes, correlated=(caution,))),
+        ),
+    )
+    pages = _pages(record, tmp_path, monkeypatch)
+    assert not any("PROVISIONAL" in title for title, _, _ in pages)
+    for name, (text, labels) in _marginals(pages).items():
+        assert text.startswith("Median: "), name
+        assert "68% CI: [" in text
+        assert labels == ["Median", "68% CI"]
+        assert ("‡ not separately resolved" in text) == name.startswith(("p_0.", "p_1."))
+
+    # An exchange withholds both peaks' intervals; the run is then provisional too.
+    exchange = Exchange("p_0", "p_1", "F2", 0.07)
+    record = replace(record, posteriors=(passed(single), passed(pair, exchanges=(exchange,))))
+    panels = _marginals(_pages(record, tmp_path, monkeypatch))
+    assert panels["p_0.F2.cs"][0] == "No final interval\nWithheld: exchanges identity with p_1"
+    assert panels["p_1.F3.lw"][0] == "No final interval\nWithheld: exchanges identity with p_0"
+    assert panels["p_2.F2.cs"][0].startswith("Median: ")
+
+
+def test_the_terminal_reports_status_and_the_noise_convention(recorded):
+    _, analysis = recorded
+    posterior = read_record(analysis.path).posteriors[0]
+    with console.capture() as captured:
+        display_posterior(posterior)
+    text = captured.get()
+    assert "Provisional: no final intervals" in text
+    assert posterior.noise_convention.split(";")[0] in " ".join(text.split())
+    assert "[" not in text.split("Parameter")[1].split("Amplitudes")[0]
