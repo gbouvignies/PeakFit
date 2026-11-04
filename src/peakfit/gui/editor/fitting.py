@@ -10,7 +10,7 @@ from PySide6 import QtCore, QtWidgets
 
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui.background import ViewerComputation
-from peakfit.gui.dataset_fit import DatasetFitResult, dataset_summary
+from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.export_dialog import choose_and_export
 from peakfit.gui.fit_positions import DatasetCompletion, continuation_source, dataset_completion
 from peakfit.gui.fit_process import FitProcess
@@ -72,7 +72,11 @@ def comparison_mismatch(recorded: FitInputSnapshot, working: FitInputSnapshot) -
 
 
 class DatasetFitting(QtCore.QObject):
-    """One active immutable result, one fit and fresh whole-dataset preparation."""
+    """One active immutable result, one fit and fresh whole-dataset preparation.
+
+    ``state_changed`` is emitted on every transition of the job or result state and
+    at no other time; the workspace renders from that state.
+    """
 
     state_changed = QtCore.Signal()
 
@@ -111,13 +115,8 @@ class DatasetFitting(QtCore.QObject):
         self._worker = ViewerComputation(self)
         self._worker.completed.connect(self._prepared)
         self.process = FitProcess(self)
-        self.process.changed.connect(self.update)
+        self.process.changed.connect(self.state_changed)
         self.process.finished.connect(self._finished)
-        self.timer = QtCore.QTimer(self)
-        self.timer.setInterval(200)
-        self.timer.timeout.connect(self.update)
-        self.timer.start()
-        workspace.changed.connect(self.update)
 
     @property
     def _recovery_path(self):
@@ -131,6 +130,18 @@ class DatasetFitting(QtCore.QObject):
     def busy(self) -> bool:
         """Protect scientific edits through preparation, execution and publication."""
         return self._preparing or self.process.busy
+
+    @property
+    def stage(self) -> str:
+        """What the active job is doing, while busy."""
+        if self.process.state == "canceling":
+            return "Canceling and reaping fit process"
+        return self.process.progress if self.process.busy else self.attempt
+
+    @property
+    def elapsed(self) -> float:
+        """Seconds since the active job started."""
+        return perf_counter() - self._started
 
     @property
     def result(self) -> DatasetFitResult | None:
@@ -210,7 +221,7 @@ class DatasetFitting(QtCore.QObject):
             return
         self.configuration = configuration
         self.request_preview()
-        self.update()
+        self.state_changed.emit()
 
     def request_preview(self) -> None:
         """Hide an obsolete preparation and prepare the committed inputs afresh."""
@@ -227,7 +238,7 @@ class DatasetFitting(QtCore.QObject):
         w = self.workspace
         if not w.peaks:
             self.preview_error = "Load or add peaks before fitting the dataset."
-            self.update()
+            self.state_changed.emit()
             return
         spectra, peaks, sources = w.dataset.spectra, w.peaks, w.dataset.sources
         settings = self.configuration.model_copy(deep=True)
@@ -260,7 +271,7 @@ class DatasetFitting(QtCore.QObject):
     def fit(self) -> None:
         """Submit the prepared working inputs; the first Fit may reveal the setup."""
         w = self.workspace
-        if self.busy or getattr(w, "inputs_loading", False) or not w.peaks or not w.commit_fields():
+        if self.busy or w.inputs_loading or not w.peaks or not w.commit_fields():
             return
         if not self.setup_seen or self.blocked:
             w.show_fit_setup()
@@ -286,7 +297,7 @@ class DatasetFitting(QtCore.QObject):
             return replace(value, snapshot=replace(value.snapshot, source_files=sources))
 
         self._worker.submit("fit", self._generation, prepare)
-        self.update()
+        self.state_changed.emit()
 
     def parent_result(self) -> tuple[str | None, DatasetFitResult | str | None]:
         """The active run's parent: (its ID, its result, a reason, or None while loading).
@@ -326,7 +337,7 @@ class DatasetFitting(QtCore.QObject):
             else:
                 parent_id, completion = outcome
                 self._parents[parent_id] = completion.result
-            self.update()
+            self.state_changed.emit()
             return
         if kind == "preview":
             if generation == self._preview_generation:
@@ -334,7 +345,7 @@ class DatasetFitting(QtCore.QObject):
                     self.preview_error = str(outcome)
                 else:
                     self.preview = outcome
-                self.update()
+                self.state_changed.emit()
             return
         if generation != self._generation:
             return
@@ -345,7 +356,7 @@ class DatasetFitting(QtCore.QObject):
         if isinstance(outcome, Exception):
             self.attempt = "Failed during preparation"
             self.failure = str(outcome)
-            self.update()
+            self.state_changed.emit()
             return
         self.start(outcome)
 
@@ -355,7 +366,7 @@ class DatasetFitting(QtCore.QObject):
             prepared.continuation is None or prepared.continuation.run_id != self._source_id
         ):
             self.attempt = "Failed: inputs changed during preparation; fit again"
-            self.update()
+            self.state_changed.emit()
             return
         self._submitted_revision = self.workspace.edits.revision
         self._started = perf_counter()
@@ -365,7 +376,7 @@ class DatasetFitting(QtCore.QObject):
         self._attempt_parent = self.result.run_id if self.result else None
         self._attempt_initial = prepared.snapshot.peaks
         self.process.start(prepared)
-        self.update()
+        self.state_changed.emit()
 
     def cancel(self) -> None:
         """Acknowledge immediately; no canceled work can publish positions or results."""
@@ -377,14 +388,13 @@ class DatasetFitting(QtCore.QObject):
             self._record_attempt("canceled", "Canceled by the scientist")
         self.process.cancel()
         self.attempt = "Canceled · previous result retained"
-        self.update()
+        self.state_changed.emit()
 
     def _finished(self, _generation: int, outcome: object) -> None:
         if self.process.state == "canceled":
             self.attempt = "Canceled · previous result retained"
         elif isinstance(outcome, DatasetFitResult):
             self._preparing = True
-            self.attempt = "Validating completion"
             result = outcome
             current = self.snapshot(result.inputs.snapshot)
             revision = self.workspace.edits.revision
@@ -398,6 +408,9 @@ class DatasetFitting(QtCore.QObject):
                 else None
             )
             protected = frozenset(self.protected)
+            self.attempt = (
+                "Validating completion" if header is None else "Preserving accepted evidence"
+            )
 
             dataset = self.workspace.dataset
             generation = self._generation
@@ -410,7 +423,6 @@ class DatasetFitting(QtCore.QObject):
                 entry = dict(journal_entry(completion), parent_run_id=parent_id)
                 if header is None:
                     return completion, (completion,), (*journal, entry)
-                self.attempt = "Preserving accepted evidence"
                 analysis = Analysis(
                     dataset,
                     header,
@@ -431,14 +443,14 @@ class DatasetFitting(QtCore.QObject):
             self.attempt = "Failed · previous result retained"
             self.failure = str(outcome)
             self._record_attempt("failed", self.failure)
-        self.update()
+        self.state_changed.emit()
 
     def _publish(self, outcome) -> None:
         self._preparing = False
         if isinstance(outcome, Exception):
             self.attempt = "Failed during completion · previous result retained"
             self.failure = str(outcome)
-            self.update()
+            self.state_changed.emit()
             return
         completion, history, journal = outcome
         w = self.workspace
@@ -447,7 +459,7 @@ class DatasetFitting(QtCore.QObject):
             or self.snapshot(completion.result.inputs.snapshot) != completion.result.inputs.snapshot
         ):
             self.attempt = "Failed: scientific inputs changed before publication"
-            self.update()
+            self.state_changed.emit()
             return
         following = w.canvas.pin_peak_id
         # No signal or event-loop yield occurs between installing W and its run.
@@ -469,91 +481,6 @@ class DatasetFitting(QtCore.QObject):
                 w.canvas.pin_peak_id = following
         usable = any(c.usable for c in completion.result.outcome.clusters)
         w.set_mode(1 if usable else 0)
-        self.update()
-
-    def update(self) -> None:
-        """One compact status line; inspection and navigation stay available."""
-        w = self.workspace
-        self.request_preview()
-        busy = self.busy
-        w.canvas.editing_enabled = not busy
-        w.inspector.setEnabled(not busy)
-        w.add_button.setEnabled(not busy)
-        if not busy:
-            w._update_actions()
-        for action in (w.undo_action, w.redo_action, w.add_action, w.delete_action):
-            if busy:
-                action.setEnabled(False)
-        blocked = self.blocked
-        w.fit_button.setEnabled(bool(w.peaks) and not busy and not w.inputs_loading and not blocked)
-        w.fit_button.setToolTip(
-            f"Fit unavailable: {blocked}" if blocked else "Fit the complete dataset (Ctrl+Return)"
-        )
-        w.panel.setup.setEnabled(not busy)
-        # While a fit runs its settings cannot change; the run line needs the room.
-        w.settings_button.setVisible(not busy)
-        w.cancel_fit.setVisible(busy)
-        comparison = self.comparison
-        usable = comparison.result is not None and any(
-            c.usable for c in comparison.result.outcome.clusters
-        )
-        lens = getattr(w, "lens_open", False)
-        for button in w.mode_buttons:
-            button.setEnabled(not lens and (usable or button is w.mode_buttons[0]))
-            button.setToolTip(
-                "The lens shows all three views; return to the spectrum to choose one"
-                if lens
-                else f"Compares with {comparison.label}"
-                if usable and comparison.historical and button is not w.mode_buttons[0]
-                else ""
-                if usable or button is w.mode_buttons[0]
-                else f"Unavailable: {comparison.reason}"
-                if comparison.reason
-                else "Requires a run with usable clusters"
-            )
-        w.pin_button.setEnabled(w.pin_button.isEnabled() and not lens)
-        canvas = w.canvas
-        if canvas.comparison_result is not None and (
-            comparison.result is not canvas.comparison_result
-            or comparison.historical != canvas.historical
-        ):
-            # Withdraw an incompatible model, or relabel the same run as historical.
-            w.set_mode(canvas.comparison_mode if usable else 0)
-            if not usable and comparison.reason:
-                w.status.setText(f"Comparison withdrawn: {comparison.reason}")
-        canvas.set_changes(comparison.added, comparison.departed)
-        if busy:
-            stage = self.process.progress if self.process.busy else self.attempt
-            if self.process.state == "canceling":
-                stage = "Canceling and reaping fit process"
-            text = f"{stage} · {perf_counter() - self._started:.1f} s · Navigation available"
-        elif self.result is not None:
-            # Currentness first: a narrow toolbar elides only the tail.
-            text = (
-                f"Run {self.result.run_id[:8]} · {'Current' if self.current else 'Outdated'} · "
-                + (self.attempt + " · " if self.attempt else "")
-                + dataset_summary(self.result, warnings=False)
-            )
-        else:
-            text = (
-                self.attempt
-                or f"Not fitted · {len(w.peaks)} peaks · {w.dataset.spectra.data.shape[0]} planes"
-            )
-        w.summary.setText(text)
-        flagged = sum(bool(r.warnings) for r in w.reviews()) if not busy else 0
-        w.warnings.setProperty("count", flagged)
-        w.warnings.setToolTip(
-            f"{flagged} clusters with a numerical warning (unusable, not converged, "
-            "uncertainty unreliable or at bound); N in the cluster list moves between them"
-        )
-        w.warnings.setVisible(bool(flagged))
-        w.update_settings_summary()
-        w.summary.setToolTip(
-            text
-            + ("\n" + self.failure if self.failure else "")
-            + "\nClick to open the analysis page at the active run"
-        )
-        w._update_inspector()
         self.state_changed.emit()
 
     def next_warning(self) -> None:
@@ -593,6 +520,7 @@ class DatasetFitting(QtCore.QObject):
                 # The shared coordinate table contains this exact stable-ID coordinate
                 # tuple. Its successful export also preserves the working peaks.
                 self.workspace.edits.mark_saved()
+                self.workspace._update_actions()
                 self.workspace.changed.emit()
             self.workspace.status.setText(f"Exported retained run to {path}")
         return path is not None
@@ -618,7 +546,6 @@ class DatasetFitting(QtCore.QObject):
 
     def stop(self) -> None:
         """Stop workers and invalidate queued deliveries without writing session files."""
-        self.timer.stop()
         self._generation += 1
         self.process.close()
         self._worker.close(finalize=self._session.close)

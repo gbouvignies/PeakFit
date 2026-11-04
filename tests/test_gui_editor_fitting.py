@@ -144,11 +144,11 @@ def test_repeat_actual_process_cancel_failure_and_fresh_masks(workspace):
     seeds = w.peaks
     # Cancellation never publishes partial scientific values.
     w.fitting.fit()
-    assert w.fit_busy
+    assert w.fitting.busy
     w.delete_peaks()
     assert w.peaks == seeds
     w.fitting.cancel()
-    wait_until(lambda: not w.fit_busy)
+    wait_until(lambda: not w.fitting.busy)
     assert w.fitting.result is previous
     assert w.peaks == seeds
     w.fitting.process.state = "failed"
@@ -156,16 +156,107 @@ def test_repeat_actual_process_cancel_failure_and_fresh_masks(workspace):
     assert w.fitting.result is previous
     assert w.fitting.current
     w.fitting.fit()
-    wait_until(lambda: not w.fit_busy, timeout=20)
+    wait_until(lambda: not w.fitting.busy, timeout=20)
     assert w.fitting.current, w.fitting.failure
     assert w.fitting.result.inputs.snapshot.peaks == seeds
     assert w.fitting.result.inputs is not previous.inputs
     for _ in range(20):
         seeds = w.peaks
         w.fitting.fit()
-        wait_until(lambda: not w.fit_busy, timeout=20)
+        wait_until(lambda: not w.fitting.busy, timeout=20)
         assert w.fitting.current, w.fitting.failure
         assert w.fitting.result.inputs.snapshot.peaks == seeds
+
+
+def test_fitting_state_is_rendered_on_transitions_without_polling(workspace):
+    w, fitting = workspace, workspace.fitting
+    wait_until(lambda: fitting.prepared is not None)
+    busy_at_transition = []
+    fitting.state_changed.connect(lambda: busy_at_transition.append(fitting.busy))
+    QtTest.QTest.qWait(500)
+    # Idle: nothing changes, so nothing is emitted and the elapsed-time clock is stopped.
+    assert busy_at_transition == []
+    assert not w._fit_clock.isActive()
+    fitting.fit()
+    assert w._fit_clock.isActive()
+    assert "Navigation available" in w.summary.text()
+    wait_until(lambda: not fitting.busy, timeout=20)
+    assert fitting.current, fitting.failure
+    assert not w._fit_clock.isActive()
+    assert busy_at_transition[0]
+    assert not busy_at_transition[-1]
+    assert w.summary.text().startswith(f"Run {fitting.result.run_id[:8]} · Current")
+    # The new run is the next continuation source; its preparation is the last transition.
+    wait_until(lambda: fitting.prepared is not None)
+    count = len(busy_at_transition)
+    QtTest.QTest.qWait(500)
+    assert len(busy_at_transition) == count
+
+
+def test_one_busy_state_locks_and_releases_every_edit(workspace):
+    w = workspace
+    w.select_peak(w.peaks[0].id)
+    wait_until(lambda: w.fitting.prepared is not None)
+    controls = (
+        w.add_action,
+        w.delete_action,
+        w.add_button,
+        w.fit_button,
+        w.inspector,
+        w.panel.setup,
+    )
+    assert all(control.isEnabled() for control in controls)
+    w.fitting.fit()
+    assert w.fitting.busy
+    assert not any(control.isEnabled() for control in controls)
+    assert not w.canvas.editing_enabled
+    assert not w.lens.editing_enabled
+    assert w.cancel_fit.isVisible()
+    assert not w.settings_button.isVisible()
+    wait_until(lambda: not w.fitting.busy, timeout=20)
+    assert w.fitting.current, w.fitting.failure
+    wait_until(lambda: w.fitting.prepared is not None)
+    # Every control the fit locked is released, including the Edit menu's Add peak.
+    assert all(control.isEnabled() for control in controls)
+    assert w.canvas.editing_enabled
+    assert w.lens.editing_enabled
+    assert not w.cancel_fit.isVisible()
+    assert w.settings_button.isVisible()
+
+
+def test_exporting_the_active_run_clears_modified_at_once(
+    workspace, scientific, monkeypatch, tmp_path
+):
+    w = workspace
+    publish(w, scientific[-1])
+    # Adopted coordinates are unexported working peaks.
+    assert w.edits.dirty
+    assert w.modified.text() == "Modified"
+    monkeypatch.setattr(fitting_module, "choose_and_export", lambda *_a, **_k: tmp_path)
+    assert w.fitting.export()
+    # No event-loop turn: the export itself redraws the indicator.
+    assert not w.edits.dirty
+    assert w.modified.text() == ""
+
+
+def test_closing_the_lens_restores_the_pin_button(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    assert w.pin_button.isEnabled()
+    _open_lens(w, result)
+    assert not w.pin_button.isEnabled()
+    w.close_lens()
+    assert w.pin_button.isEnabled()
+
+
+def test_showing_the_dataset_page_counts_as_seeing_the_setup(workspace):
+    w, fitting = workspace, workspace.fitting
+    w.select_peak(w.peaks[0].id)
+    fitting.setup_seen = False
+    w.select_peak(None)
+    # The dataset page, with the fit setup, is on show: the first Fit runs directly.
+    assert fitting.setup_seen
 
 
 def test_partial_usability_nonconvergence_and_free_pin(workspace, scientific):
@@ -271,7 +362,7 @@ def test_all_unusable_completion_and_invalid_replacement(workspace, scientific):
         result, inputs=replace(result.inputs, identities=result.inputs.identities[:-1])
     )
     w.fitting._finished(0, invalid)
-    wait_until(lambda: not w.fit_busy)
+    wait_until(lambda: not w.fitting.busy)
     assert w.fitting.result is unusable
     assert w.peaks == seeds
     assert "stable-ID mapping" in w.fitting.failure
@@ -536,6 +627,7 @@ def test_profile_follows_only_accepted_selection(workspace, scientific):
     assert not w.edits.can_undo
 
 
+@pytest.mark.usefixtures("qapp")
 def test_profile_keeps_repeated_plane_values_distinct(scientific):
     result = scientific[-1]
     snapshot = result.inputs.snapshot
@@ -588,7 +680,7 @@ def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkey
     w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 1e-5))
     w.fitting._preparing = True
     w.fitting.attempt = "Preparing complete dataset"
-    w.fitting.update()
+    w.render_fitting()
     qapp.processEvents()
 
     def rect(widget):
@@ -602,7 +694,7 @@ def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkey
         assert not any(rect(label).intersects(rect(b)) for b in buttons)
     assert "Preparing complete dataset" in w.summary.displayed_text()
     w.fitting._preparing = False
-    w.fitting.update()
+    w.render_fitting()
     qapp.processEvents()
     buttons = [w.inspector_button, w.peaks_button, w.add_button, w.fit_button, w.settings_button]
     assert all(b.isVisible() and window.rect().contains(rect(b)) for b in buttons)
@@ -1285,7 +1377,7 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
     result = scientific[-1]
     publish(w, result)
     w.select_peak(None)
-    fitting.update()
+    w.render_fitting()
     first = [label.text() for label in w.panel.analysis_page.findChildren(QtWidgets.QLabel)]
     assert "First run: there is no earlier run to compare with." in first
     cluster = next(c for c in result.outcome.clusters if c.usable and c.analytical_evaluation)
@@ -1314,13 +1406,13 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
         for e in fitting.journal
     ]
     w.select_peak(None)
-    fitting.update()
+    w.render_fitting()
     panel = w.panel
     texts = lambda: [label.text() for label in panel.analysis_page.findChildren(QtWidgets.QLabel)]  # noqa: E731
     # The stored parent is read off Qt; the page says so meanwhile.
     assert "Reading run parent00…" in texts()
     wait_until(lambda: fitting._parents.get(parent.run_id) is parent)
-    fitting.update()
+    w.render_fitting()
     assert panel.changes_title.text() == "CHANGES FROM RUN PARENT00"
     assert any("▲ Uncertainty unreliable no longer reported" in t for t in texts())
     assert not any("resolved" in t for t in texts())
@@ -1858,7 +1950,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     w.dataset = w.canvas.dataset = replace(w.dataset, spectra=spectra)
     w.canvas.spectra = spectra
     w.edits.revision += 1
-    w.changed.emit()
+    w.render_fitting()
     reason = f"Run {result.run_id[:8]} was recorded with different plane values"
     assert w.fitting.comparison.reason == reason
     assert c.comparison_mode == 0
@@ -1945,7 +2037,7 @@ def test_preview_is_prepared_again_when_only_the_continuation_source_changes(wor
     other = replace(fitting.completion, result=replace(fitting.completion.result, run_id="other"))
     peaks, settings = w.peaks, fitting.configuration.model_dump_json()
     fitting.completion = other
-    fitting.update()
+    w._refresh()
     assert (w.peaks, fitting.configuration.model_dump_json()) == (peaks, settings)
     assert fitting.prepared is None  # the previous preparation is never reused
     wait_until(lambda: fitting.prepared is not None)

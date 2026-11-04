@@ -284,7 +284,7 @@ def native_refit(analysis, args, report, timed):
 
     def execute():
         QtTest.QTest.mouseClick(workspace.fit_button, QtCore.Qt.MouseButton.LeftButton)
-        wait_until(lambda: not workspace.fit_busy, timeout=240)
+        wait_until(lambda: not workspace.fitting.busy, timeout=240)
         assert workspace.fitting.current, workspace.fitting.failure
 
     timed("native_adjusted_source_free_refit", execute)

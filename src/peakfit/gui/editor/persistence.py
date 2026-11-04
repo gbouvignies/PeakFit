@@ -83,11 +83,11 @@ class AnalysisActions:
 
     def _analysis_actions(self: EditorWindow):
         available = self.workspace is not None or self._analysis is not None
-        busy = self._busy or self._saving or bool(self.workspace and self.workspace.fit_busy)
+        busy = self._busy or self._saving or bool(self.workspace and self.workspace.fitting.busy)
         self.analysis_open.setEnabled(not busy)
         self.recover_action.setEnabled(not busy)
         if self.workspace:
-            self.workspace.inputs_loading = self._busy or self._saving
+            self.workspace.set_inputs_loading(self._busy or self._saving)
         for name in (
             "open_action",
             "import_action",
@@ -153,7 +153,7 @@ class AnalysisActions:
 
     def save_analysis_dialog(self: EditorWindow, *, save_as=False, after=None):
         """Save off Qt; only successful publication marks this exact state saved."""
-        if self._saving or self._busy or (self.workspace and self.workspace.fit_busy):
+        if self._saving or self._busy or (self.workspace and self.workspace.fitting.busy):
             return False
         if self.workspace and not self.workspace.commit_fields():
             return False
@@ -306,9 +306,9 @@ class AnalysisActions:
                 self._saved_key = None
                 self.setWindowModified(True)
         if self.workspace:
-            self.workspace.inputs_loading = False
-            self.workspace.fitting.update()
-        self._analysis_actions()
+            self.workspace.set_inputs_loading(False)
+            self.workspace.render_fitting()
+        self._work_changed()
         self.open_action.setEnabled(True)
 
     def install_analysis(self: EditorWindow, analysis):  # noqa: PLR0912, PLR0915
@@ -378,7 +378,7 @@ class AnalysisActions:
             if len(v.get("splitter") or ()) == w.splitter.count():
                 w.splitter.setSizes(v["splitter"])
             w.set_mode(v.get("mode", 0))
-            w.fitting.update()
+            w.render_fitting()
         else:
             self.release_unlinked_recovery(analysis.runs)
             if self.workspace:

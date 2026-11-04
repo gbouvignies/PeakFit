@@ -56,6 +56,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.inputs_loading = False
         self.dataset = dataset
         self.edits = PeakEdits(dataset.peaks)
+        self.fitting = DatasetFitting(self)
+        # Ticks only while a fit job is busy, to show its elapsed time.
+        self._fit_clock = QtCore.QTimer(self)
+        self._fit_clock.setInterval(200)
+        self._fit_clock.timeout.connect(self._show_run_line)
         peak_sources = tuple(source for source in dataset.sources if source[0] == "peak_list")
         # Keep origins for undoable IDs, but expose only sources of current peaks.
         self._peak_sources = {peak.id: peak_sources for peak in dataset.peaks}
@@ -127,6 +132,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         self.error.hide()
         layout.addWidget(self.error)
+        self._build_actions()
+        # The fit setup shows on the dataset page, with nothing selected.
+        self.panel.analysis_page.installEventFilter(self)
         self.canvas.status_changed.connect(self.status.setText)
         self.canvas.hovered.connect(self.navigator.highlight)
         self.navigator.hovered.connect(lambda identity: self.canvas.hover(identity, from_list=True))
@@ -164,8 +172,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.inspector.name.returnPressed.connect(self._focus_spectral_area)
         self.inspector.deleted.connect(self.delete_peaks)
         self.inspector.fields_changed.connect(self._fields_changed)
-        self._build_actions()
-        self.fitting = DatasetFitting(self)
+        self.fitting.state_changed.connect(self.render_fitting)
         self._refresh()
         self.navigator.setVisible(bool(dataset.peaks))
         self.set_plane(1)
@@ -183,6 +190,7 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _build_toolbar(self, dataset: Dataset) -> QtWidgets.QWidget:  # noqa: PLR0915
         """One row: identity and run, comparison, canvas tools, settings, Fit."""
         self._icons: list[tuple[QtWidgets.QAbstractButton, str]] = []
+        self._settings_text = ""
         toolbar = QtWidgets.QWidget()
         toolbar.setObjectName("toolbar")
         toolbar.setAttribute(QtCore.Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -410,9 +418,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         """Below 1200 px the run line needs the room; tooltips keep the full text."""
         wide = self.width() >= _WIDE_TOOLBAR
         self.title.setMaximumWidth(160 if wide else 120)
-        self.settings_button.setText(
-            getattr(self, "_settings_text", "") if wide else "Fit settings"
-        )
+        self.settings_button.setText(self._settings_text if wide else "Fit settings")
         count = self.warnings.property("count") or 0
         self.warnings.setText(
             f"▲ {count} cluster{'s' if count != 1 else ''} with warnings" if wide else f"▲ {count}"
@@ -421,13 +427,12 @@ class EditorWorkspace(QtWidgets.QWidget):
     def resizeEvent(self, event) -> None:  # noqa: N802
         """Adapt the toolbar to the window width without changing panel choices."""
         super().resizeEvent(event)
-        if hasattr(self, "settings_button"):
-            self._adapt_toolbar()
+        self._adapt_toolbar()
 
-    @property
-    def fit_busy(self) -> bool:
-        """Include input preparation and completion publication in the editing lock."""
-        return hasattr(self, "fitting") and self.fitting.busy
+    def set_inputs_loading(self, loading: bool) -> None:
+        """Hold Fit while a window job replaces or writes the scientific inputs."""
+        self.inputs_loading = loading
+        self._update_actions()
 
     def set_mode(self, mode: int) -> None:
         """One visible choice controls the plane and both aligned slices."""
@@ -514,9 +519,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         placing.activated.connect(self.start_placing)
 
     def _fields_changed(self) -> None:
-        if hasattr(self, "undo_action"):
-            self._update_actions()
-            self.changed.emit()
+        self._update_actions()
+        self.changed.emit()
         if not self.inspector.pending:
             self.error.hide()
 
@@ -569,7 +573,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         peak = next((p for p in self.peaks if p.id == self.selected_id), None)
         if cluster is None:
             cluster = self.panel.cluster_view
-        result = self.fitting.result if hasattr(self, "fitting") else None
+        result = self.fitting.result
         cluster = cluster and bool(result and peak and find_cluster(result, peak.id))
         self.navigator.select(peak)
         self.panel.set_peak(peak, self.canvas.display(peak) if peak else None, cluster=cluster)
@@ -676,13 +680,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         """Change highlight thresholds; no scientific data or run state changes."""
         self.rules = rules
         self.navigator.rules = rules
-        self.fitting.update()
+        self.render_fitting()
 
     def _update_inspector(self) -> None:
         """Follow the accepted selection and active run; never resolves drafts."""
-        fitting = getattr(self, "fitting", None)
-        if fitting is None:
-            return
+        fitting = self.fitting
         spectra = self.dataset.spectra
         result = fitting.result
         reviews = self.reviews()
@@ -694,8 +696,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.setup.show_state(
             fitting.configuration, self._shapes(), fitting.prepared, fitting.blocked
         )
-        if self.selected_id is None and self.panel.isVisible():
-            fitting.setup_seen = True
         plane_values = (
             tuple(float(v) for v in spectra.z_values) if self.dataset.has_plane_values else None
         )
@@ -730,7 +730,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         planes = spectra.data.shape[0]
         if fitting.busy:
-            run = self.summary.text()
+            run = fitting.stage
         elif result is not None:
             flagged = self.warnings.property("count") or 0
             run = (
@@ -774,16 +774,107 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.canvas.set_peaks(self.peaks)
         self.navigator.refresh(self.peaks, self.selected_id)
         self._sync_inspector()
-        self._update_actions()
-        self.fitting.update()
+        self.fitting.request_preview()
+        self.render_fitting()
         self.changed.emit()
 
+    def render_fitting(self) -> None:
+        """Show the fitting state: the lock, comparison, run line and inspector."""
+        fitting = self.fitting
+        if fitting.busy != self._fit_clock.isActive():
+            if fitting.busy:
+                self._fit_clock.start()
+            else:
+                self._fit_clock.stop()
+        self._update_actions()
+        comparison = fitting.comparison
+        usable = comparison.result is not None and any(
+            c.usable for c in comparison.result.outcome.clusters
+        )
+        lens = self.lens_open
+        for button in self.mode_buttons:
+            button.setEnabled(not lens and (usable or button is self.mode_buttons[0]))
+            button.setToolTip(
+                "The lens shows all three views; return to the spectrum to choose one"
+                if lens
+                else f"Compares with {comparison.label}"
+                if usable and comparison.historical and button is not self.mode_buttons[0]
+                else ""
+                if usable or button is self.mode_buttons[0]
+                else f"Unavailable: {comparison.reason}"
+                if comparison.reason
+                else "Requires a run with usable clusters"
+            )
+        self.pin_button.setEnabled(not lens)
+        canvas = self.canvas
+        if canvas.comparison_result is not None and (
+            comparison.result is not canvas.comparison_result
+            or comparison.historical != canvas.historical
+        ):
+            # Withdraw an incompatible model, or relabel the same run as historical.
+            self.set_mode(canvas.comparison_mode if usable else 0)
+            if not usable and comparison.reason:
+                self.status.setText(f"Comparison withdrawn: {comparison.reason}")
+        canvas.set_changes(comparison.added, comparison.departed)
+        self._show_run_line()
+        flagged = sum(bool(r.warnings) for r in self.reviews()) if not fitting.busy else 0
+        self.warnings.setProperty("count", flagged)
+        self.warnings.setToolTip(
+            f"{flagged} clusters with a numerical warning (unusable, not converged, "
+            "uncertainty unreliable or at bound); N in the cluster list moves between them"
+        )
+        self.warnings.setVisible(bool(flagged))
+        self.update_settings_summary()
+        self._update_inspector()
+
+    def _show_run_line(self) -> None:
+        """One compact status line; inspection and navigation stay available."""
+        fitting = self.fitting
+        result = fitting.result
+        if fitting.busy:
+            text = f"{fitting.stage} · {fitting.elapsed:.1f} s · Navigation available"
+        elif result is not None:
+            # Currentness first: a narrow toolbar elides only the tail.
+            text = (
+                f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'} · "
+                + (fitting.attempt + " · " if fitting.attempt else "")
+                + dataset_summary(result, warnings=False)
+            )
+        else:
+            planes = self.dataset.spectra.data.shape[0]
+            text = fitting.attempt or f"Not fitted · {len(self.peaks)} peaks · {planes} planes"
+        self.summary.setText(text)
+        self.summary.setToolTip(
+            text
+            + ("\n" + fitting.failure if fitting.failure else "")
+            + "\nClick to open the analysis page at the active run"
+        )
+
     def _update_actions(self) -> None:
+        """Every scientific edit and Fit follow one busy state: the editing lock."""
+        fitting = self.fitting
+        busy = fitting.busy
+        self.canvas.editing_enabled = not busy
+        self.lens.editing_enabled = not busy
+        self.inspector.setEnabled(not busy)
+        self.panel.setup.setEnabled(not busy)
+        self.add_button.setEnabled(not busy)
+        self.add_action.setEnabled(not busy)
         self.undo_action.setText("Undo " + self.edits.undo_label)
         self.redo_action.setText("Redo " + self.edits.redo_label)
-        self.undo_action.setEnabled(self.edits.can_undo and not self.pending and not self.fit_busy)
-        self.redo_action.setEnabled(self.edits.can_redo and not self.pending and not self.fit_busy)
-        self.delete_action.setEnabled(self.selected_id is not None and not self.fit_busy)
+        self.undo_action.setEnabled(self.edits.can_undo and not self.pending and not busy)
+        self.redo_action.setEnabled(self.edits.can_redo and not self.pending and not busy)
+        self.delete_action.setEnabled(self.selected_id is not None and not busy)
+        blocked = fitting.blocked
+        self.fit_button.setEnabled(
+            bool(self.peaks) and not busy and not self.inputs_loading and not blocked
+        )
+        self.fit_button.setToolTip(
+            f"Fit unavailable: {blocked}" if blocked else "Fit the complete dataset (Ctrl+Return)"
+        )
+        # While a fit runs its settings cannot change; the run line needs the room.
+        self.settings_button.setVisible(not busy)
+        self.cancel_fit.setVisible(busy)
         detail = (
             "Modified inputs · plane values session-only"
             if self.plane_values_modified
@@ -796,7 +887,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def history(self, redo: bool) -> None:
         """Undo exact records; monotonic scientific revision never recertifies a run."""
-        if self.pending or self.fit_busy:
+        if self.pending or self.fitting.busy:
             return
         self.canvas.cancel_gesture()
         if redo:
@@ -807,7 +898,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def start_placing(self) -> None:
         """Arm one precise placement after resolving any complete text group."""
-        if self.fit_busy:
+        if self.fitting.busy:
             return
         if not self.commit_fields():
             self.add_button.setChecked(False)
@@ -823,7 +914,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def place_peak(self, positions) -> None:
         """Store continuous unfolded ppm from a single click, without snapping."""
-        if self.fit_busy:
+        if self.fitting.busy:
             return
         if not self.commit_fields():
             return
@@ -835,7 +926,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def move_peak(self, identity, positions) -> None:
         """One drag release is one complete precision-preserving input change."""
-        if self.fit_busy:
+        if self.fitting.busy:
             return
         if not self.commit_fields():
             self.cancel_gesture()
@@ -847,7 +938,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def delete_peaks(self) -> None:
         """Deletion owns the selected draft; multi-delete is list-only."""
-        if self.fit_busy:
+        if self.fitting.busy:
             return
         identities = {self.selected_id} if self.selected_id else set()
         if self.navigator.list.hasFocus():
@@ -929,7 +1020,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.spectral.setCurrentWidget(self.lens)
             self.panel.cluster_page.lens_button.hide()
         self._sync_inspector(cluster=True)
-        self.fitting.update()
+        self.render_fitting()
         self.lens.setFocus()
         self.guidance_changed.emit(self.guidance())
 
@@ -1086,7 +1177,9 @@ class EditorWorkspace(QtWidgets.QWidget):
             (self.lens if self.lens_open else self.canvas.main).setFocus()
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
-        """A click on the run summary opens the analysis page."""
+        """A click on the run summary opens the analysis page; showing it shows the setup."""
+        if watched is self.panel.analysis_page and event.type() == QtCore.QEvent.Type.Show:
+            self.fitting.setup_seen = True
         if (
             watched is self.summary
             and event.type() == QtCore.QEvent.Type.MouseButtonRelease
@@ -1164,7 +1257,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.cluster_page.lens_button.show()
         if self._sizes_before_lens:
             self.splitter.setSizes(self._sizes_before_lens)
-        self.fitting.update()
+        self.render_fitting()
         self.canvas.main.setFocus()
         self.guidance_changed.emit(self.guidance())
 
@@ -1192,7 +1285,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._lens_ids, self._lens_run = review.ids, result.run_id
         samples = next(s for s in result.completed_fit.samples if s.cluster_id == review.cluster_id)
         canvas = self.canvas
-        self.lens.editing_enabled = not self.fit_busy
         comparison = self.fitting.comparison
         self.lens.show_cluster(
             result,
@@ -1407,6 +1499,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def stop(self) -> None:
         """Stop display computation without blocking window close."""
+        self._fit_clock.stop()
         self.fitting.stop()
         self.canvas.stop()
         self.lens.stop()

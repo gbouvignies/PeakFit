@@ -89,7 +89,7 @@ def main():  # noqa: PLR0915
     started = perf_counter()
     click(w.fit_button)
     phase[0] = "fit"
-    wait_until(lambda: not w.fit_busy, timeout=240)
+    wait_until(lambda: not w.fitting.busy, timeout=240)
     assert w.fitting.current, w.fitting.failure
     report["first_fit_s"] = perf_counter() - started
     result = w.fitting.result
@@ -254,7 +254,7 @@ def main():  # noqa: PLR0915
     started = perf_counter()
     click(w.cancel_fit)
     report["cancel_ack_ms"] = (perf_counter() - started) * 1000
-    wait_until(lambda: not w.fit_busy, timeout=10)
+    wait_until(lambda: not w.fitting.busy, timeout=10)
     report["cancel_reap_ms"] = (perf_counter() - started) * 1000
     assert w.fitting.result is result
     assert w.peaks == prior
@@ -266,7 +266,7 @@ def main():  # noqa: PLR0915
     new_seeds = w.peaks
     started = perf_counter()
     click(w.fit_button)
-    wait_until(lambda: not w.fit_busy, timeout=240)
+    wait_until(lambda: not w.fitting.busy, timeout=240)
     report["refit_s"] = perf_counter() - started
     assert w.fitting.current, w.fitting.failure
     assert w.fitting.result is not None
