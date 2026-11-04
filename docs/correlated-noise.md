@@ -1,8 +1,11 @@
 # Correlated spectral noise
 
-**Status:** specification for a decision, revised 2026-11-04 after review. No code
-follows until it is approved. It builds on
-[ADR 0001](adr/0001-sigma-only-uncertainties.md).
+**Status:** approved specification, implemented in three steps (§11).
+- Steps 1 and 2 (#129, #130) are merged.
+- Step 3, which publishes the errors, is under review.
+
+Decision record: [ADR 0002](adr/0002-processing-derived-sandwich-errors.md), building
+on [ADR 0001](adr/0001-sigma-only-uncertainties.md).
 
 **Evidence:** `tools/validate_correlated_noise.py`, with results in
 [`validation/correlated-noise.json`](validation/correlated-noise.json). The run is
@@ -412,6 +415,12 @@ definition or the MCMC sampler, and none adds another noise model.
    - Format bumps (§5.6), the CSV column, and the CLI and GUI statements.
    - The MCMC warning (§5.5).
    - Documentation and ADR 0002.
+   - The engine validation extends to `sp1` and `no_apod`, and to the published
+     errors themselves.
+   - Near coalescence, unwarned fits can be biased with small local errors
+     ([validation](validation/sandwich-errors.md#near-coalescent-peaks-and-warnings)).
+     This is documented as a limitation; a resolution-based warning is an open
+     decision.
 
 C5 (with the real sampler) and C6 (with replicates) remain future validation. They are
 not prerequisites for these steps.
