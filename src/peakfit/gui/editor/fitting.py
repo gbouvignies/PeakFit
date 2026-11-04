@@ -1,5 +1,6 @@
 """Whole-dataset execution and atomic completion in the existing editor workspace."""
 
+from concurrent.futures import CancelledError
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from time import perf_counter
@@ -12,6 +13,7 @@ from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import DatasetFitResult
 from peakfit.gui.export_dialog import choose_and_export
+from peakfit.gui.failures import WorkerError, failure_message, log_failure
 from peakfit.gui.fit_positions import DatasetCompletion, continuation_source, dataset_completion
 from peakfit.gui.fit_process import FitProcess
 from peakfit.gui.fitting import PreparedDatasetFit, prepare_dataset_fit
@@ -106,6 +108,8 @@ class DatasetFitting(QtCore.QObject):
         self._attempt_parent = None
         self._attempt_initial = ()
         self.exported = set()
+        # Why the accepted run is not in the recovery copy; cleared once it is, or saved.
+        self.recovery_error = ""
         self.attempt = ""
         self.failure = ""
         self._preparing = False
@@ -134,6 +138,7 @@ class DatasetFitting(QtCore.QObject):
         """Rebind history to the published evidence, then clean the scratch files."""
         self.history = list(runs)
         self.journal = list(journal)
+        self.recovery_error = ""
         self._worker.cleanup_after_work(self._session.close)
 
     def hand_over_evidence(self, runs) -> SessionEvidence | None:
@@ -448,7 +453,7 @@ class DatasetFitting(QtCore.QObject):
                 )
                 entry = dict(journal_entry(completion), parent_run_id=parent_id)
                 if header is None:
-                    return completion, (completion,), (*journal, entry)
+                    return completion, (completion,), (*journal, entry), ""
                 analysis = Analysis(
                     dataset,
                     header,
@@ -459,10 +464,19 @@ class DatasetFitting(QtCore.QObject):
                     journal=(*journal, entry),
                     protected=protected,
                 )
-                saved = self._session.preserve(
-                    analysis, canceled=lambda: generation != self._generation
-                )
-                return completion, saved.runs, saved.journal
+                try:
+                    saved = self._session.preserve(
+                        analysis, canceled=lambda: generation != self._generation
+                    )
+                except CancelledError:
+                    raise
+                except Exception as error:
+                    # The run is validated; losing its recovery copy must not lose the
+                    # run. It stays resident until a later copy or Save holds it.
+                    if not isinstance(error, WorkerError):
+                        log_failure("Recovery copy", error)
+                    return completion, analysis.runs, analysis.journal, failure_message(error)
+                return completion, saved.runs, saved.journal, ""
 
             self._worker.submit("publication", self._generation, complete)
         else:
@@ -478,7 +492,7 @@ class DatasetFitting(QtCore.QObject):
             self.failure = str(outcome)
             self.state_changed.emit()
             return
-        completion, history, journal = outcome
+        completion, history, journal, recovery_error = outcome
         w = self.workspace
         if (
             self._submitted_revision != w.edits.revision
@@ -493,6 +507,7 @@ class DatasetFitting(QtCore.QObject):
         self.journal = list(journal)
         self._attempt_id = None
         self.history = list(history)
+        self.recovery_error = recovery_error
         if self._session.path:
             owner = self._session
             keep_ids = {run_id(run) for run in history}

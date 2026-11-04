@@ -461,7 +461,9 @@ entries. **Keep full evidence** protects a full run from pruning. Historical evi
 has a 1 GiB budget, excluding the active and protected runs; their costs appear in
 the manifest and Save status. Only the active complete result stays in memory;
 history loads when selected. Each accepted result has a durable temporary snapshot
-before resident replacement. Save and normal closure clean owned scratch storage.
+before resident replacement. If that snapshot cannot be written (for example, the
+disk is full), the run is still accepted: the run line shows **▲ Not in recovery
+copy**, its tooltip gives the reason, and **Save analysis** keeps the run. Save and normal closure clean owned scratch storage.
 After an interruption, **File → Recover interrupted session…** offers retained POSIX
 session snapshots and requires Save as to a permanent project. Recovery is not a
 saved analysis or an autosave of later edits. On other systems an explicit Open

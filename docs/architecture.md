@@ -324,6 +324,11 @@ Save first rebinds every reference to the published project, then cleans scratch
 storage. A transition to numerical-only review transfers ownership to the window,
 so stopping spectral widgets cannot delete retained numerical history.
 
+A failed spool (disk full, permissions) does not discard a validated run. The run
+is published and journaled as usual and stays resident in history; the run line
+shows **Not in recovery copy** until a later spool or a Save holds it. Cancellation
+during the spool still publishes nothing.
+
 A checkpoint may precede final Qt adoption. Its writer preserves all input-run
 payload leases until adoption, so a late cancellation cannot invalidate disk
 references still held by the old workspace. Adoption retires obsolete leases on

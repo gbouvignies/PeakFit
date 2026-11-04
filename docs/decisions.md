@@ -499,3 +499,18 @@ Short records of non‑obvious design choices and trade‑offs.
 - The closed check and the emit now hold one lock, which `close()` takes to set
   `_closed`. After `close()` returns no emit is running or can start. The wait is
   bounded by posting one queued event; the lane never waits for the GUI thread.
+
+## 2026-11-04: Keep a validated run when its recovery copy fails
+- Publication validated the run, then spooled it to the session's recovery project;
+  any spool error (disk full, permission, a failed child) failed the whole
+  publication and discarded a result that had already passed validation. The spool
+  protects against crashes; failing it should cost that protection, not the run.
+- Now a spool error publishes the run with its journal entry. The run stays
+  resident in history (as on datasets without a spectrum source), and
+  `DatasetFitting.recovery_error` drives a "▲ Not in recovery copy" mark and
+  tooltip until a later spool or a Save holds it. Validation failures and
+  cancellation still publish nothing. Non-child errors are logged with their
+  traceback; child errors were already logged by `run_child`.
+- A run kept this way is resident in memory. Repeated spool failures accumulate
+  resident runs until Save; this is accepted rather than evicting evidence that
+  exists nowhere else.

@@ -99,6 +99,10 @@ Notable user-facing and architecture changes are recorded here.
   through `EditorWorkspace.capture()`/`restore()` instead of writing workspace
   internals. Saved runs no longer record the process-local `spectrum_id` in
   `review.json`; readers already ignored it, so projects open both ways unchanged.
+- A validated fit is no longer discarded when its recovery copy cannot be written
+  (disk full, permissions). The run is accepted and journaled, the run line shows
+  "▲ Not in recovery copy" with the reason, and Save analysis keeps it. Canceling
+  during the copy still publishes nothing.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.
