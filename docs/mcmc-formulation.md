@@ -143,6 +143,15 @@ uv run python tools/validate_mcmc_formulation.py --output /tmp/mcmc-formulation.
 - **Draws:** for each kept θ sample k, draw **a**ₖ,s ~ N(â_s(θₖ), σ² G(θₖ)⁻¹) for
   every plane, using the factorization `factorize_shapes` already provides. Draws
   are made only where §6 allows them.
+  - To bound the cost, at most 4,000 kept samples, evenly spaced, are evaluated,
+    with one draw each. Their Monte Carlo errors use the smaller of that count and
+    the sampler's smallest ESS.
+  - The evaluated samples are balanced across walkers, evenly spaced in time within
+    each walker, so no walker is under-represented.
+  - Whether a single peak is ever undetermined is still judged on every kept sample,
+    which the sampler records. A summed amplitude is judged at the evaluated samples
+    only, and is reported as determined at all of them; judging it everywhere would
+    cost the full evaluation the cap avoids.
 - **Moments:** use the law of total variance. The mean is the average of â(θₖ), and
   the covariance is the mean of the conditional covariances plus the covariance of
   â(θₖ) across samples. This is exact and has a lower Monte Carlo error than moments
@@ -223,6 +232,10 @@ are distinct, biasing every reported quantity towards separated peaks. Instead:
      computed from the same draws.
    - The flag stops wide, anticorrelated per-peak intervals from being read as
      independent measurements.
+   - The peaks' positions and linewidths keep their intervals, with the caution
+     "not separately resolved". A strong amplitude correlation alone does not show
+     them to be unidentifiable. Withholding is reserved for exchanges (§7) and
+     other demonstrated identifiability failures.
 4. **No silent fallback.** No NaN becomes a number, and no singular covariance is
    pseudo-inverted into false precision.
 
@@ -293,7 +306,7 @@ Amplitude draws are not stored. They can be regenerated exactly from:
 - **The random streams:** one `SeedSequence` entropy value. It spawns two children,
   one for the sampler and one for the amplitude draws, so regeneration does not
   replay the sampler. The record also stores the bit generator (PCG64) and the
-  number of draws per θ sample;
+  draws: one per evaluated θ sample, at most 4,000 evenly spaced kept samples;
 - **The procedure:** a formulation version for this specification, and the PeakFit
   and NumPy versions.
 
@@ -340,7 +353,7 @@ in §3 is no substitute for it.
 | V3 | One peak, S = 1: quadrature over A with the Jeffreys prior equals L_p up to a constant across θ, in code; this document's tool already shows it | 22 |
 | V4 | The driver on correlated and truncated Gaussians with known moments: means and standard deviations within Monte Carlo error; identical chains for the same seed; a deliberately too-short run and a drifting target are reported provisional | 23 |
 | V5 | Linear regime: θ covariance ≈ VarPro's `identifiable_covariance`; amplitude covariance ≈ the amplitude block of an independently computed joint inverse Fisher matrix. No interval-width inequality is tested outside this regime (§5). | 23 |
-| V6 | Slow marker, acceptance for overlapping peaks. About 200 synthetic realizations each of one peak and of two peaks at three separations: well resolved, partially overlapping and near-coalescent. Where intervals are reported, 68% and 95% coverage of positions, linewidths, per-peak amplitudes and summed amplitudes stays within binomial bounds. Where they are withheld or flagged (§6, §7), that is checked rather than counted. Near-coalescent cases must produce the flags, not confident per-peak intervals. | 23 |
+| V6 | A recorded study ([validation/mcmc-coverage.md](validation/mcmc-coverage.md), `tools/validate_mcmc_coverage.py`), too slow for CI; acceptance for overlapping peaks. About 200 synthetic realizations each of one peak and of two peaks at three separations: well resolved, partially overlapping and near-coalescent. Where intervals are reported, 68% and 95% coverage of positions, linewidths, per-peak amplitudes and summed amplitudes stays within binomial bounds. Where they are withheld or flagged (§6, §7), that is checked rather than counted. Near-coalescent cases must produce the flags, not confident per-peak intervals. | 23 |
 | V7 | A duplicated peak: per-peak amplitude intervals withheld, the summed amplitude reported, and the θ density finite | 22 |
 | V8 | A parameter near a bound: pile-up reported, and no walker starts on the bound | 22, 23 |
 | V9 | Phase-fitted clusters include their cluster-scoped parameters | 22 |

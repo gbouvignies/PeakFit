@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     from peakfit.mcmc.analysis import MCMCAnalysisResult
 
 
+_PLANES_SHOWN = 5
+
+
 def _decimals(sd: float) -> int:
     """Enough decimals to show the posterior standard deviation to two figures."""
     if not np.isfinite(sd) or sd <= 0:
@@ -29,8 +32,8 @@ def _interval(low: float, high: float, decimals: int) -> str:
     return f"[{low:.{decimals}f}, {high:.{decimals}f}]"
 
 
-def display_posterior(posterior: PosteriorSample) -> None:
-    """Show one cluster's status, diagnostics and parameter intervals."""
+def display_posterior(posterior: PosteriorSample, verbose: bool = False) -> None:
+    """Show one cluster's status, diagnostics, parameter and amplitude intervals."""
     diagnosis = posterior.diagnosis
     console.print(f"\n[subheader]Cluster: {', '.join(posterior.peak_names)}[/subheader]")
     if posterior.provisional:
@@ -61,6 +64,7 @@ def display_posterior(posterior: PosteriorSample) -> None:
         low95, low68, median, high68, high95 = p.quantiles
         decimals = _decimals(p.sd)
         withheld = posterior.withheld(p.name)
+        caution = posterior.caution(p.name.rsplit(".", 2)[0])
         if withheld is not None:
             intervals = (f"withheld: {withheld}",) * 2
         elif posterior.provisional:
@@ -70,6 +74,8 @@ def display_posterior(posterior: PosteriorSample) -> None:
                 _interval(low68, high68, decimals),
                 _interval(low95, high95, decimals),
             )
+        if caution is not None and withheld is None and not posterior.provisional:
+            intervals = tuple(f"{interval} ‡" for interval in intervals)
         pileup = max(p.at_lower, p.at_upper)
         table.add_row(
             p.name,
@@ -80,6 +86,65 @@ def display_posterior(posterior: PosteriorSample) -> None:
             f"{pileup:.1%}" if pileup else "",
         )
     console.print(table)
+    exchanged = {peak for e in posterior.exchanges for peak in (e.first, e.second)}
+    for peak in posterior.peak_names:
+        caution = posterior.caution(peak)
+        if caution is not None and peak not in exchanged:
+            console.print(f"‡ {peak}: {caution}; read its intervals with care")
+    _display_amplitudes(posterior, verbose)
+
+
+def _display_amplitudes(posterior: PosteriorSample, verbose: bool) -> None:
+    amplitudes = posterior.amplitudes
+    exchanged = {peak for e in posterior.exchanges for peak in (e.first, e.second)}
+    for peak, fraction in amplitudes.undetermined:
+        console.print(f"Amplitude of {peak} withheld: not determined in {fraction:.1%} of samples")
+    pairs = sorted({(c.first, c.second) for c in amplitudes.correlated})
+    for first, second in pairs:
+        planes = [c.plane for c in amplitudes.correlated if (c.first, c.second) == (first, second)]
+        console.print(
+            f"Amplitudes of {first} and {second} are not separately determined "
+            f"(|ρ| ≥ 0.9 in {len(planes)} plane(s)); read their sum"
+        )
+    rows = [a for a in amplitudes.amplitudes if a.peaks[0] not in exchanged]
+    rows += list(amplitudes.sums)
+    if not rows:
+        return
+    table = create_table(
+        title=(
+            f"[panel.title]Amplitudes · {amplitudes.samples} samples, Monte Carlo errors "
+            f"from {amplitudes.effective:.0f} effective[/panel.title]"
+        ),
+        show_header=True,
+    )
+    table.add_column("Peak", style="key")
+    table.add_column("Plane", style="value")
+    table.add_column("Mean", style="value")
+    table.add_column("68% interval", style="value")
+    table.add_column("95% interval", style="value")
+    shown: dict[tuple[str, ...], int] = {}
+    for a in rows:
+        shown[a.peaks] = shown.get(a.peaks, 0) + 1
+        if shown[a.peaks] > _PLANES_SHOWN and not verbose:
+            continue
+        decimals = _decimals(a.sd)
+        low95, low68, _, high68, high95 = a.quantiles
+        intervals = (
+            ("provisional",) * 2
+            if posterior.provisional
+            else (_interval(low68, high68, decimals), _interval(low95, high95, decimals))
+        )
+        if len(a.peaks) == 1 and posterior.caution(a.peaks[0]) and not posterior.provisional:
+            intervals = tuple(f"{interval} ‡" for interval in intervals)
+        table.add_row(" + ".join(a.peaks), str(a.plane), f"{a.mean:.{decimals}f}", *intervals)
+    console.print(table)
+    if amplitudes.sums:
+        console.print(
+            f"Sums are checked for identifiability at the {amplitudes.samples} evaluated "
+            "samples; single peaks at every kept sample."
+        )
+    if not verbose and any(count > _PLANES_SHOWN for count in shown.values()):
+        console.print(f"First {_PLANES_SHOWN} planes per amplitude shown; use --verbose for all.")
 
 
 def save_chains(results_dir: Path, analysis: MCMCAnalysisResult) -> int:

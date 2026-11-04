@@ -11,6 +11,7 @@ from scipy import stats
 
 from peakfit.engine.diagnostics import ensemble
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
+from peakfit.engine.scientific.amplitudes import AmplitudeSummaries
 from peakfit.engine.scientific.sampler import (
     LogPosterior,
     PosteriorSample,
@@ -242,6 +243,7 @@ def test_v10_an_exchange_of_two_peaks_is_reported_and_withholds_both(close_pair)
         diagnosis=replace(diagnose(run, ("x",), lower, upper), reasons=()),
         exchanges=(exchange,),
         determined=np.ones(2),
+        amplitudes=AmplitudeSummaries(0, 0.0, (), (), (), ()),
     )
     assert posterior.provisional
     assert posterior.reasons == ("peaks A and B exchange order along F2 in 7.0% of samples",)

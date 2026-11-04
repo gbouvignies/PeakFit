@@ -9,6 +9,7 @@ plane's amplitudes follow N(â(θ), σ² (ΦΦᵀ)⁻¹).
 
 from copy import deepcopy
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -35,62 +36,80 @@ _WEAK_SHARE = 1e-4
 
 @dataclass(frozen=True)
 class ConditionalAmplitudes:
-    """Every plane's amplitudes given θ: N(mean, scale @ scaleᵀ), independently.
+    """Every plane's amplitudes given θ: N(mean, σ² Σᵢ vᵢvᵢᵀ / sᵢ²), independently.
 
-    ``scale`` spans only the strong directions of the shapes. A peak is not
-    ``determined`` when its amplitude is improper (it loads on a null direction) or
-    when weak directions, which cannot be computed reliably, carry a non-negligible
-    share of its variance. Such an amplitude is never drawn.
+    ``directions`` are the right singular vectors vᵢ of the shapes, as rows; the
+    first ``rank`` are retained, with ``singular`` values sᵢ. A combination of
+    amplitudes (one peak's, or a sum over peaks) is determined only if:
+
+    - it has no loading above √ε on the null space: the rows below the fit's rank
+      cutoff, and those a reduced SVD omits when there are fewer points than peaks;
+    - weak directions (sᵢ ≤ √ε·s₁), which cannot be computed reliably, contribute
+      at most ``_WEAK_SHARE`` of its variance. A contribution scales as (w·vᵢ/sᵢ)²,
+      so a tiny loading can still dominate.
+
+    Draws omit weak directions; a determined amplitude is never drawn otherwise.
     """
 
     log_likelihood: float
     mean: FloatArray  # (peaks, planes): â(θ), the minimum-norm solution
-    scale: FloatArray  # (peaks, strong directions): σ V S⁻¹
-    determined: np.ndarray  # (peaks,) bool
+    noise: float
+    singular: FloatArray  # (rank,)
+    directions: FloatArray  # (rows, peaks), rows = min(peaks, points)
 
-    def draw(self, rng: np.random.Generator, n: int) -> FloatArray:
-        """``n`` draws of shape (n, peaks, planes); undetermined peaks are NaN."""
+    def determines(self, weights: FloatArray) -> np.ndarray:
+        """Whether each combination (a row of ``weights`` over peaks) is determined."""
+        w = np.atleast_2d(weights)
+        rank = self.singular.size
+        loads = w @ self.directions.T  # (combinations, rows)
+        squared = np.sum(w**2, axis=1)
+        null = np.sum(loads[:, rank:] ** 2, axis=1)
+        if self.directions.shape[0] < self.directions.shape[1]:
+            null += np.clip(squared - np.sum(loads**2, axis=1), 0.0, None)
+        variance = (loads[:, :rank] / self.singular) ** 2
+        weak = self.singular <= _WEAK * self.singular[0]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            share = variance[:, weak].sum(axis=1) / variance.sum(axis=1)
+        return (null <= _EPS * squared) & (share <= _WEAK_SHARE)
+
+    @cached_property
+    def determined(self) -> np.ndarray:
+        """Whether each peak's own amplitude is determined, (peaks,)."""
+        return self.determines(np.eye(self.mean.shape[0]))
+
+    @cached_property
+    def scale(self) -> FloatArray:
+        """σ V S⁻¹ over the strong directions, (peaks, strong directions)."""
+        rank = self.singular.size
+        strong = self.singular > _WEAK * self.singular[0]
+        return self.noise * self.directions[:rank][strong].T / self.singular[strong]
+
+    def draw(self, rng: np.random.Generator, n: int, *, withhold: bool = True) -> FloatArray:
+        """``n`` draws of shape (n, peaks, planes).
+
+        Undetermined peaks are NaN unless ``withhold`` is False, for callers that
+        combine peaks into a determined combination (``determines``) themselves.
+        """
         z = rng.standard_normal((n, self.scale.shape[1], self.mean.shape[1]))
         draws = self.mean + np.einsum("kd,ndp->nkp", self.scale, z)
-        draws[:, ~self.determined, :] = np.nan
+        if withhold:
+            draws[:, ~self.determined, :] = np.nan
         return draws
 
 
 def conditional_amplitudes(
     shapes: FloatArray, data: FloatArray, noise: float
 ) -> ConditionalAmplitudes:
-    """The profile log-likelihood and the conditional amplitude distribution at θ.
-
-    The amplitude covariance is σ² Σᵢ vᵢvᵢᵀ / sᵢ² over the right singular vectors vᵢ
-    of the shapes. A peak's amplitude is determined only if:
-
-    - it has no loading above √ε on the null space: the directions below the fit's
-      rank cutoff, and those a reduced SVD omits when there are fewer points than
-      peaks;
-    - weak directions (sᵢ ≤ √ε·s₁) contribute at most ``_WEAK_SHARE`` of its variance.
-      A contribution scales as (vₖᵢ/sᵢ)², so a tiny loading can still dominate.
-    """
+    """The profile log-likelihood and the conditional amplitude distribution at θ."""
     projection = factorize_shapes(shapes)
     mean = projection.solve(data)
     residuals = data - shapes.T @ mean
-    rank = projection.rank
-    singular = projection.singular_values[:rank]
-    directions = projection.directions
-    # Squared loading on the null space: the rows below the rank cutoff, plus the
-    # complement of every computed row when the SVD has fewer rows than peaks.
-    null = np.sum(directions[rank:] ** 2, axis=0)
-    if directions.shape[0] < shapes.shape[0]:
-        null += np.clip(1.0 - np.sum(directions**2, axis=0), 0.0, None)
-    retained = directions[:rank]
-    variance = (retained / singular[:, None]) ** 2  # (direction, peak) contributions
-    weak = singular <= _WEAK * singular[0]
-    with np.errstate(invalid="ignore", divide="ignore"):
-        weak_share = variance[weak].sum(axis=0) / variance.sum(axis=0)
     return ConditionalAmplitudes(
         log_likelihood=float(-0.5 * np.sum((residuals / noise) ** 2)),
         mean=mean,
-        scale=noise * retained[~weak].T / singular[~weak],
-        determined=(null <= _EPS) & (weak_share <= _WEAK_SHARE),
+        noise=noise,
+        singular=projection.singular_values[: projection.rank],
+        directions=projection.directions,
     )
 
 
