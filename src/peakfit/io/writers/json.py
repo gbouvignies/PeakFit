@@ -1,4 +1,4 @@
-"""JSON 5.0.0 projection of immutable completed-fit outcomes."""
+"""JSON 6.0.0 projection of immutable completed-fit outcomes."""
 
 from __future__ import annotations
 
@@ -123,9 +123,6 @@ def _serialize_evaluation(evaluation: FinalAnalyticalResult) -> dict[str, Any]:
             [_optional_finite_value(value) for value in row]
             for row in evaluation.amplitude_covariance
         ],
-        "scaled_amplitude_standard_errors": [
-            _optional_finite_value(value) for value in evaluation.scaled_amplitude_standard_errors
-        ],
         "model_values": _json_value(getattr(evaluation, "model_values", None)),
         "raw_residuals": _json_value(getattr(evaluation, "raw_residuals", None)),
         "normalized_residuals": _json_value(getattr(evaluation, "normalized_residuals", None)),
@@ -137,9 +134,6 @@ def _serialize_evaluation(evaluation: FinalAnalyticalResult) -> dict[str, Any]:
             "n_fitted_parameters": evaluation.statistics.n_fitted_parameters,
             "degrees_of_freedom": evaluation.statistics.degrees_of_freedom,
             "reduced_chi_squared": _finite_value(evaluation.statistics.reduced_chi_squared),
-            "amplitude_uncertainty_scale": _finite_value(
-                evaluation.statistics.amplitude_uncertainty_scale
-            ),
             "aic": _finite_value(evaluation.statistics.aic),
             "bic": _finite_value(evaluation.statistics.bic),
             "log_likelihood": _finite_value(evaluation.statistics.log_likelihood),

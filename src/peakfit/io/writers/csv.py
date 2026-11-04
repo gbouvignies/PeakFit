@@ -96,7 +96,7 @@ def write_final_outcome_intensities(
                             unavailable="unavailable",
                         ),
                         "intensity_err": _fmt_final_value(
-                            float(evaluation.scaled_amplitude_standard_errors[peak_index]),
+                            float(evaluation.amplitude_standard_errors[peak_index]),
                             cfg,
                             unavailable="unavailable",
                         ),
@@ -213,6 +213,7 @@ def _intensity_header() -> list[str]:
         "z_value",
         "intensity",
         "intensity_err",
+        "reduced_chi_squared",
         "plane_index",
         "source_plane_index",
     ]

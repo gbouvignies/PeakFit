@@ -68,7 +68,7 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
     summary = loader.load_summary()
     raw = json.loads((path / "summary/fit.json").read_text())
     _outcome, samples, companion = read_scientific(path / "scientific.npz")
-    assert raw["schema_version"] == "5.0.0"
+    assert raw["schema_version"] == "6.0.0"
     assert summary.clusters[0].classification == classification
     assert summary.metadata.timestamp.isoformat() == completed.completed_at
     assert summary.metadata.software_version == completed.software_version
@@ -113,9 +113,6 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
         np.testing.assert_array_equal(
             loaded.amplitude_standard_errors, evaluation.amplitude_standard_errors
         )
-        np.testing.assert_array_equal(
-            loaded.scaled_amplitude_standard_errors, evaluation.scaled_amplitude_standard_errors
-        )
         for row in rows:
             peak_index = cluster.peak_names.index(row["peak_name"])
             plane = int(row["plane_index"])
@@ -123,7 +120,10 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
                 evaluation.amplitudes[peak_index, plane], rel=1e-15
             )
             assert float(row["intensity_err"]) == pytest.approx(
-                evaluation.scaled_amplitude_standard_errors[peak_index], rel=1e-15
+                evaluation.amplitude_standard_errors[peak_index], rel=1e-15
+            )
+            assert float(row["reduced_chi_squared"]) == pytest.approx(
+                evaluation.statistics.reduced_chi_squared, rel=1e-15
             )
         state = continuation_state(loader.load_completed())
         assert set(state.scalar_params) == {p.name for p in cluster.final_nonlinear_parameters}

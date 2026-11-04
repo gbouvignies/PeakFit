@@ -248,16 +248,14 @@ def test_the_record_keeps_each_parent_clusters_reduced_chi_squared(recorded):
         if c.analytical_evaluation is not None
     }
     assert {p.cluster_id: p.reduced_chi_squared for p in record.posteriors} == by_cluster
-    # Reported as a diagnostic beside the intervals, with the fit's amplitude-error
-    # convention: scaled by √χ²ᵣ only above 1 (the fixture has one cluster each side).
+    # Reported as a diagnostic beside the intervals, which share the fit's σ-only
+    # convention (the fixture has one cluster on each side of 1).
     for posterior in record.posteriors:
-        chi2 = posterior.reduced_chi_squared
         note = posterior.noise_convention
-        assert f"Parent fit χ²ᵣ {chi2:.3g}" in note
+        assert f"Parent fit χ²ᵣ {posterior.reduced_chi_squared:.3g}" in note
+        assert "like the fit's analytical errors, use the recorded noise σ" in note
         assert "not rescaled by χ²ᵣ" in note
-        assert ("scaled by √χ²ᵣ = " in note) == (chi2 > 1.0)
-        if chi2 > 1.0:
-            assert f"{np.sqrt(chi2):.3g}" in note
+        assert "√" not in note
     assert {p.reduced_chi_squared > 1.0 for p in record.posteriors} == {True, False}
 
 

@@ -102,6 +102,27 @@ def gaussian_fit() -> GaussianFit:
     )
 
 
+def test_amplitude_errors_use_the_noise_level_alone_whatever_the_reduced_chi_squared(
+    gaussian_fit: GaussianFit,
+) -> None:
+    """σ-only policy: the errors are σ√diag((ΦΦᵀ)⁻¹), never rescaled by χ²ᵣ."""
+    cluster, params = gaussian_fit.cluster, gaussian_fit.params
+    shapes = cluster.evaluate(params)
+    expected = 0.5 * np.sqrt(np.diag(np.linalg.inv(shapes @ shapes.T)))
+    misfit = np.random.default_rng(1).normal(0.0, 3.0, cluster.data.shape)
+    poor = Cluster(37, cluster.peaks, cluster.grid_indices, cluster.data + misfit)
+    good, bad = (evaluate_analytical_model(c, params, noise=0.5) for c in (cluster, poor))
+    assert isinstance(good, AnalyticalModelEvaluation)
+    assert isinstance(bad, AnalyticalModelEvaluation)
+    assert good.statistics.reduced_chi_squared < 1e-20
+    assert bad.statistics.reduced_chi_squared > 10.0
+    for evaluation in (good, bad):
+        np.testing.assert_allclose(evaluation.amplitude_standard_errors, expected, rtol=1e-12)
+        np.testing.assert_allclose(
+            np.sqrt(np.diag(evaluation.amplitude_covariance)), expected, rtol=1e-12
+        )
+
+
 def test_analytical_model_evaluation_solves_a_real_gaussian_cluster(
     gaussian_fit: GaussianFit,
 ) -> None:
@@ -124,11 +145,6 @@ def test_analytical_model_evaluation_solves_a_real_gaussian_cluster(
     assert evaluation.statistics.reduced_chi_squared == pytest.approx(
         0.0,
         abs=1e-24,
-    )
-    assert evaluation.statistics.amplitude_uncertainty_scale == 1.0
-    np.testing.assert_allclose(
-        evaluation.scaled_amplitude_standard_errors,
-        evaluation.amplitude_standard_errors,
     )
     assert np.isfinite(evaluation.statistics.aic)
     assert np.isfinite(evaluation.statistics.bic)

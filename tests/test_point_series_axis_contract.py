@@ -313,7 +313,7 @@ def test_authoritative_analytical_statistics_use_the_series_axis() -> None:
     assert analytical.amplitudes.shape == (len(cluster.peaks), N_SERIES)
 
 
-def test_authoritative_uncertainties_use_the_series_axis_reduced_chi_squared() -> None:
+def test_reduced_chi_squared_counts_series_axis_degrees_of_freedom() -> None:
     cluster, _spectra, params = _axis_reproduction()
     analytical = evaluate_analytical_model(cluster, params, noise=1.0)
     assert isinstance(analytical, AnalyticalModelEvaluation)
@@ -321,7 +321,4 @@ def test_authoritative_uncertainties_use_the_series_axis_reduced_chi_squared() -
     n_fitted_params = len(params.get_vary_names()) + len(cluster.peaks) * N_SERIES
     expected_redchi = EXPECTED_CHI_SQUARED / (n_observations - n_fitted_params)
 
-    np.testing.assert_allclose(
-        analytical.scaled_amplitude_standard_errors,
-        analytical.amplitude_standard_errors * np.sqrt(expected_redchi),
-    )
+    np.testing.assert_allclose(analytical.statistics.reduced_chi_squared, expected_redchi)

@@ -31,7 +31,7 @@ from peakfit.io.scientific import read_scientific, write_scientific
 from peakfit.shared.exceptions import ScientificIntegrityError
 from peakfit.shared.paths import format_path
 
-VERSION = "9.0.0"
+VERSION = "10.0.0"
 MAX_RUNS = 10
 MAX_EVIDENCE_BYTES = 1024**3
 MAX_ARCHIVE_BYTES = 8 * 1024**3

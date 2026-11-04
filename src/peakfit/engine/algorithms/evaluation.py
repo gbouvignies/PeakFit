@@ -41,7 +41,6 @@ class AnalyticalFitStatistics:
     n_fitted_parameters: int
     degrees_of_freedom: int
     reduced_chi_squared: float
-    amplitude_uncertainty_scale: float
     aic: float
     bic: float
     log_likelihood: float
@@ -56,7 +55,6 @@ class AnalyticalModelEvaluation:
     amplitudes: FloatArray
     amplitude_standard_errors: FloatArray
     amplitude_covariance: FloatArray
-    scaled_amplitude_standard_errors: FloatArray
     model_values: FloatArray
     raw_residuals: FloatArray
     normalized_residuals: FloatArray
@@ -144,7 +142,6 @@ def _evaluate_analytical_model(
         noise,
         chi_squared,
     )
-    scaled_amplitude_errors = amplitude_errors * statistics.amplitude_uncertainty_scale
     uncertainty_warning = None
     if not np.all(np.isfinite(amplitude_errors)) or any(
         params[name].vary and not np.isfinite(params[name].stderr) for name in nonlinear_names
@@ -161,7 +158,6 @@ def _evaluate_analytical_model(
         amplitudes=amplitudes,
         amplitude_standard_errors=amplitude_errors,
         amplitude_covariance=covariance,
-        scaled_amplitude_standard_errors=scaled_amplitude_errors,
         model_values=model_values,
         raw_residuals=raw_residuals,
         normalized_residuals=normalized_residuals,
@@ -296,9 +292,6 @@ def _derive_statistics(
         n_observations,
         n_fitted_parameters,
     )
-    amplitude_uncertainty_scale = (
-        float(np.sqrt(reduced_chi_squared)) if reduced_chi_squared > 1.0 else 1.0
-    )
     log_likelihood = float(
         -0.5 * chi_squared
         - n_observations * np.log(noise)
@@ -308,7 +301,6 @@ def _derive_statistics(
     bic = float(-2.0 * log_likelihood + n_fitted_parameters * np.log(n_observations))
     derived_values = (
         reduced_chi_squared,
-        amplitude_uncertainty_scale,
         log_likelihood,
         aic,
         bic,
@@ -323,7 +315,6 @@ def _derive_statistics(
         n_fitted_parameters=n_fitted_parameters,
         degrees_of_freedom=degrees_of_freedom,
         reduced_chi_squared=reduced_chi_squared,
-        amplitude_uncertainty_scale=amplitude_uncertainty_scale,
         aic=aic,
         bic=bic,
         log_likelihood=log_likelihood,

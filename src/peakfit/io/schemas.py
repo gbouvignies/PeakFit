@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
-OUTPUT_SCHEMA_VERSION: Literal["5.0.0"] = "5.0.0"
+OUTPUT_SCHEMA_VERSION: Literal["6.0.0"] = "6.0.0"
 
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 NonNegativeInt = Annotated[StrictInt, Field(ge=0)]
@@ -54,7 +54,6 @@ class AnalyticalStatisticsSchema(_Schema):
     n_fitted_parameters: NonNegativeInt
     degrees_of_freedom: Annotated[int, Field(ge=1)]
     reduced_chi_squared: FiniteFloat
-    amplitude_uncertainty_scale: FiniteFloat
     aic: FiniteFloat
     bic: FiniteFloat
     log_likelihood: FiniteFloat
@@ -68,7 +67,6 @@ class AnalyticalEvaluationSchema(_Schema):
     uncertainty_warning: str | None
     amplitude_standard_errors: list[FiniteFloat | None]
     amplitude_covariance: list[list[FiniteFloat | None]]
-    scaled_amplitude_standard_errors: list[FiniteFloat | None]
     model_values: list[list[FiniteFloat]] | None
     raw_residuals: list[list[FiniteFloat]] | None
     normalized_residuals: list[FiniteFloat] | None
@@ -91,8 +89,6 @@ class AnalyticalEvaluationSchema(_Schema):
             raise ValueError("analytical amplitudes must have a rectangular peak-by-series shape")
         if len(self.amplitude_standard_errors) != n_peaks:
             raise ValueError("amplitude standard errors must match the peak count")
-        if len(self.scaled_amplitude_standard_errors) != n_peaks:
-            raise ValueError("scaled amplitude standard errors must match the peak count")
         if len(self.amplitude_covariance) != n_peaks or any(
             len(row) != n_peaks for row in self.amplitude_covariance
         ):
@@ -188,9 +184,9 @@ class ZAxisSchema(_Schema):
 
 
 class FitSummarySchema(_Schema):
-    """Version 5.0.0 completed-fit JSON document."""
+    """Version 6.0.0 completed-fit JSON document."""
 
-    schema_version: Literal["5.0.0"]
+    schema_version: Literal["6.0.0"]
     metadata: RunMetadataSchema
     terminal_correction_revision: NonNegativeInt
     noise: FiniteFloat

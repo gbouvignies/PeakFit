@@ -19,7 +19,7 @@ _MAX_ISOLATED = 2
 
 @dataclass(frozen=True, slots=True)
 class ProfileSeries:
-    """One peak's recorded amplitudes and scaled analytical standard error."""
+    """One peak's recorded amplitudes and analytical standard error."""
 
     assignment: str
     amplitudes: np.ndarray
@@ -36,7 +36,6 @@ class PeakProfile:
     x: np.ndarray  # recorded plane values, or one-based plane numbers
     plane_values: bool
     reduced_chi_squared: float
-    uncertainty_scale: float
     warning: str | None
 
 
@@ -66,7 +65,7 @@ def peak_profile(
         ProfileSeries(
             names[cluster.peak_names[k]],
             evaluation.amplitudes[k],
-            float(evaluation.scaled_amplitude_standard_errors[k]),
+            float(evaluation.amplitude_standard_errors[k]),
         )
         for k in order
     )
@@ -83,7 +82,6 @@ def peak_profile(
         x,
         recorded,
         evaluation.statistics.reduced_chi_squared,
-        evaluation.statistics.amplitude_uncertainty_scale,
         evaluation.uncertainty_warning,
     )
 
@@ -207,9 +205,10 @@ def framed_range(x: np.ndarray) -> tuple[float, float] | None:
 class ProfilePlot(QtWidgets.QWidget):
     """The selected peak's recorded amplitudes with its cluster members, in the inspector.
 
-    Points are recorded amplitudes, unconnected, with the scaled analytical σ that
-    exports write. The selected peak is drawn first-class; members are lighter on the
-    same scale. Clicking a point opens its plane.
+    Points are recorded amplitudes, unconnected, with the analytical σ that exports
+    write, from the noise level alone; the cluster's χ²ᵣ is shown beside it. The
+    selected peak is drawn first-class; members are lighter on the same scale.
+    Clicking a point opens its plane.
     """
 
     plane_requested = QtCore.Signal(int)
@@ -600,11 +599,7 @@ class ProfilePlot(QtWidgets.QWidget):
         if shown:
             self.plane_line.setValue(float(profile.x[columns[0]]))
         off = bool(self._hidden_text) and columns.size > 0 and not shown
-        scale = (
-            f"scaled by √χ²ᵣ = {profile.uncertainty_scale:.3g}"
-            if profile.uncertainty_scale > 1
-            else "not scaled (χ²ᵣ ≤ 1)"
-        )
+        fit = f" · cluster χ²ᵣ {profile.reduced_chi_squared:.3g}"
         shown = self._normalized
         quantity = (
             f"±1σ propagated to the ratio (first order, full gradient) from analytical σ, "
@@ -612,8 +607,8 @@ class ProfilePlot(QtWidgets.QWidget):
             f" (limit {RELIABILITY_LIMIT:g})"
             + (" · reference amplitude negative" if shown.reference < 0 else "")
             if shown is not None
-            else "±1σ analytical, lineshapes held fixed, " + scale
-        )
+            else "±1σ analytical from the noise level, lineshapes held fixed"
+        ) + fit
         extra = getattr(self, "_normalization_note", "")
         self.note.setText(
             quantity
@@ -625,7 +620,11 @@ class ProfilePlot(QtWidgets.QWidget):
             "Analytical amplitude standard errors computed with the fitted lineshape "
             "parameters held fixed, so their uncertainty and correlations are not "
             "propagated. One σ per peak applies to every plane. They can underestimate "
-            "the uncertainty of overlapping peaks."
+            "the uncertainty of overlapping peaks. They use the noise level alone and are "
+            "never rescaled by χ²ᵣ. χ²ᵣ is a goodness-of-fit diagnostic: well above 1, "
+            "the noise level, the lineshape model or the assumption of independent noise "
+            "does not describe the data, so these error bars need not match the observed "
+            "scatter."
         )
 
     def _clicked(self, _item, points, event) -> None:

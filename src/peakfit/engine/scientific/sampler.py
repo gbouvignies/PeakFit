@@ -397,20 +397,12 @@ class PosteriorSample:
 
     @property
     def noise_convention(self) -> str:
-        """The parent fit's χ²ᵣ, and how MCMC and the fit's amplitude errors use σ.
-
-        MCMC intervals are conditional on the recorded noise σ, never rescaled (§4).
-        The fit's exported amplitude errors are multiplied by √χ²ᵣ when χ²ᵣ exceeds 1,
-        so there the two are on different scales.
-        """
-        chi2 = self.reduced_chi_squared
-        line = (
-            f"Parent fit χ²ᵣ {chi2:.3g} (goodness of fit). MCMC intervals assume the "
-            "recorded noise σ and are not rescaled by χ²ᵣ"
+        """The parent fit's χ²ᵣ, and the noise σ MCMC and the fit's errors share (§4)."""
+        return (
+            f"Parent fit χ²ᵣ {self.reduced_chi_squared:.3g} (goodness of fit). MCMC "
+            "intervals, like the fit's analytical errors, use the recorded noise σ and "
+            "are not rescaled by χ²ᵣ."
         )
-        if chi2 > 1.0:
-            line += f"; the fit's exported amplitude errors are scaled by √χ²ᵣ = {chi2**0.5:.3g}"
-        return line + "."
 
     def unreported(self, name: str) -> str | None:
         """Why a parameter's interval is not a final result, or None when it is."""

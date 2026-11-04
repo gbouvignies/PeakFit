@@ -80,7 +80,6 @@ def _cluster(
             amplitudes=matrix,
             amplitude_standard_errors=vector,
             amplitude_covariance=matrix,
-            scaled_amplitude_standard_errors=vector,
             model_values=matrix,
             raw_residuals=matrix,
             normalized_residuals=vector,
@@ -93,7 +92,6 @@ def _cluster(
                 n_fitted_parameters=2,
                 degrees_of_freedom=1,
                 reduced_chi_squared=float(cluster_id),
-                amplitude_uncertainty_scale=1.0,
                 aic=0.0,
                 bic=0.0,
                 log_likelihood=0.0,
@@ -297,7 +295,6 @@ def test_unavailable_uncertainties_remain_explicit_in_json_and_csv(tmp_path) -> 
         analytical_evaluation=replace(
             cluster.analytical_evaluation,
             amplitude_standard_errors=np.array([np.nan]),
-            scaled_amplitude_standard_errors=np.array([np.nan]),
             amplitude_covariance=np.array([[np.nan]]),
             uncertainty_warning="Unidentifiable group",
         ),
