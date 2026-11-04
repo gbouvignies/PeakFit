@@ -34,13 +34,12 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
-VERSION = "6.0.0"
+VERSION = "7.0.0"
 _RESULT_ARRAYS = (
     "shapes",
     "amplitudes",
     "amplitude_standard_errors",
     "amplitude_covariance",
-    "scaled_amplitude_standard_errors",
 )
 MAX_METADATA_BYTES = 16 * 1024**2
 MAX_ARRAY_BYTES = 8 * 1024**3
@@ -388,7 +387,6 @@ def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
                 or e.amplitudes.shape[0] != k
                 or e.amplitude_standard_errors.shape != (k,)
                 or e.amplitude_covariance.shape != (k, k)
-                or e.scaled_amplitude_standard_errors.shape != (k,)
                 or not np.all(np.isfinite(e.amplitudes))
                 or not np.all(np.isfinite(e.shapes))
             ):
@@ -442,7 +440,6 @@ def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
             "amplitudes": (n_peaks, n_planes),
             "amplitude_standard_errors": (n_peaks,),
             "amplitude_covariance": (n_peaks, n_peaks),
-            "scaled_amplitude_standard_errors": (n_peaks,),
             "model_values": s.data.shape,
             "raw_residuals": s.data.shape,
             "normalized_residuals": (s.data.size,),

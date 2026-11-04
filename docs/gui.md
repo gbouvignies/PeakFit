@@ -326,10 +326,12 @@ Points are the recorded amplitudes, unconnected, against the supplied plane valu
 in acquisition order; repeated values stay separate observations. Without plane
 values, or when the current values differ from those the run recorded, the axis is
 the one-based plane number. Clicking a point opens the plane of the nearest
-point; points sharing that exact value offer a choice. Error bars are the scaled analytical standard errors written
-by **Export results…**: computed with the fitted lineshape parameters held fixed,
-multiplied by √χ²ᵣ when the cluster's χ²ᵣ exceeds 1, one σ per peak for every
-plane. They can underestimate the uncertainty of overlapping peaks; warned
+point; points sharing that exact value offer a choice. Error bars are the analytical standard errors written
+by **Export results…**: from the noise level alone, computed with the fitted
+lineshape parameters held fixed, one σ per peak for every plane, never rescaled by
+χ²ᵣ. The note beside the plot shows the cluster's χ²ᵣ as a goodness-of-fit
+diagnostic ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)).
+ They can underestimate the uncertainty of overlapping peaks; warned
 clusters use hollow markers and dashed bars. When the core reports no finite σ for
 a peak, its amplitudes stay visible without error bars and are labeled
 **σ unavailable**. When at most two observations sit

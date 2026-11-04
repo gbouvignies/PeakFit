@@ -49,7 +49,6 @@ class FinalAnalyticalResult:
     amplitudes: FloatArray
     amplitude_standard_errors: FloatArray
     amplitude_covariance: FloatArray
-    scaled_amplitude_standard_errors: FloatArray
     statistics: AnalyticalFitStatistics
     uncertainty_warning: str | None = None
     # max |recorded optimizer residual| / σ over the statistics.n_observations
@@ -420,7 +419,6 @@ def _freeze_evaluation(evaluation: AnalyticalModelEvaluation) -> FinalAnalytical
         amplitudes=_freeze_array(evaluation.amplitudes),
         amplitude_standard_errors=_freeze_array(evaluation.amplitude_standard_errors),
         amplitude_covariance=_freeze_array(evaluation.amplitude_covariance),
-        scaled_amplitude_standard_errors=_freeze_array(evaluation.scaled_amplitude_standard_errors),
         model_values=_freeze_array(evaluation.model_values),
         raw_residuals=_freeze_array(evaluation.raw_residuals),
         normalized_residuals=_freeze_array(evaluation.normalized_residuals),

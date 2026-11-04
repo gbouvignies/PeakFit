@@ -1,0 +1,114 @@
+{
+  "synthetic": {
+    "single peak, well-behaved": {
+      "realizations": 400,
+      "median_reduced_chi_squared": 0.9966060042406033,
+      "scatter_over_sigma_only_error": 1.0559458579529686,
+      "scatter_over_rescaled_error": 1.041779456325294,
+      "sigma_only_coverage_68_95": [
+        0.6575,
+        0.94
+      ],
+      "rescaled_coverage_68_95": [
+        0.661875,
+        0.943125
+      ],
+      "mcmc_passed_of_sampled": [
+        40,
+        40
+      ],
+      "mcmc_sd_over_sigma_only_error": 1.0401576791207638,
+      "scatter_over_mcmc_sd": 0.9909906394159167
+    },
+    "resolved pair (10 points), well-behaved": {
+      "realizations": 400,
+      "median_reduced_chi_squared": 0.9914695445297106,
+      "scatter_over_sigma_only_error": 1.060648928177125,
+      "scatter_over_rescaled_error": 1.0473946634067914,
+      "sigma_only_coverage_68_95": [
+        0.645,
+        0.92875
+      ],
+      "rescaled_coverage_68_95": [
+        0.65,
+        0.9340625
+      ],
+      "mcmc_passed_of_sampled": [
+        40,
+        40
+      ],
+      "mcmc_sd_over_sigma_only_error": 1.042188146740445,
+      "scatter_over_mcmc_sd": 1.0134894527372593
+    },
+    "single peak, \u03c3 supplied at half its value": {
+      "realizations": 400,
+      "median_reduced_chi_squared": 3.988285359795464,
+      "scatter_over_sigma_only_error": 1.9802634018447323,
+      "scatter_over_rescaled_error": 0.9920549522687181,
+      "sigma_only_coverage_68_95": [
+        0.388125,
+        0.6725
+      ],
+      "rescaled_coverage_68_95": [
+        0.68375,
+        0.944375
+      ]
+    },
+    "single peak, Lorentzian data fitted as Gaussian": {
+      "realizations": 400,
+      "median_reduced_chi_squared": 2.584116037813841,
+      "scatter_over_sigma_only_error": 1.1366233562389583,
+      "scatter_over_rescaled_error": 0.7079653558156243,
+      "sigma_only_coverage_68_95": [
+        0.61125,
+        0.9025
+      ],
+      "rescaled_coverage_68_95": [
+        0.821875,
+        0.989375
+      ],
+      "noise_free_bias_relative_to_truth": -0.10712737126188121,
+      "sigma_only_coverage_95_of_truth": 0.090625,
+      "rescaled_coverage_95_of_truth": 0.2175
+    },
+    "single peak, correlated noise (\u03c1\u2081 = 0.67)": {
+      "realizations": 400,
+      "median_reduced_chi_squared": 0.9774846407308942,
+      "scatter_over_sigma_only_error": 1.6648347167134858,
+      "scatter_over_rescaled_error": 1.6401079182771925,
+      "sigma_only_coverage_68_95": [
+        0.451875,
+        0.76375
+      ],
+      "rescaled_coverage_68_95": [
+        0.458125,
+        0.770625
+      ]
+    }
+  },
+  "real": {
+    "peaks": 166,
+    "reduced_chi_squared_median_iqr": [
+      2.0023965283880094,
+      1.70087877649173,
+      2.4802928230199672
+    ],
+    "fraction_reduced_chi_squared_above_1": 1.0,
+    "scatter_over_sigma_only_error_median_iqr": [
+      2.7202320881908904,
+      2.5299031610455462,
+      2.9976498498594664
+    ],
+    "scatter_over_rescaled_error_median": 1.9475290473892208,
+    "correlation_log_chi2_log_ratio": 0.17867822696843044,
+    "noise_lag1_autocorrelation_per_axis": [
+      0.7716486642039596,
+      0.6075091460812895
+    ],
+    "predicted_error_inflation_from_correlation": 2.370541234040908,
+    "plane_noise_over_global_sigma_range": [
+      1.034039464365249,
+      1.0564167989399442
+    ]
+  }
+}

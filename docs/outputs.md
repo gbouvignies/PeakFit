@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**6.0.0**, fit JSON **5.0.0**, analysis project **9.0.0** and MCMC record **1.1.0**.
+**7.0.0**, fit JSON **6.0.0**, analysis project **10.0.0** and MCMC record **1.1.0**.
 
 ## Default scientific export
 
@@ -202,6 +202,8 @@ excluding source plane 1 from values `[2, 0, 2]` produces retained indices `[0, 
 source indices `[0, 2]` and values `[2, 2]`. Both interfaces pass the actual source
 mapping through the shared writer. Low-level projection calls omitting a mapping
 assume the unexcluded identity mapping. This is an additive CSV column change.
+`reduced_chi_squared`, beside `intensity_err`, is the cluster's goodness-of-fit
+diagnostic; it does not scale the error (see below).
 
 ## Unavailable and unreliable uncertainties
 
@@ -233,14 +235,33 @@ errors are also withheld at an active bound (a finite bound within an absolute
 proof of identifiability. Fixed parameters may retain zero error because they
 were not estimated.
 
-Amplitude errors condition on the fitted nonlinear parameters. They do not
-include uncertainty in positions or linewidths. As before, the exported scaled
-amplitude errors inflate by `sqrt(reduced chi_squared)` when it exceeds one;
-nonlinear errors use the supplied/estimated statistical noise without that
-inflation. Degrees of freedom are `max(1, n_observations - n_fitted_parameters)`,
-which treats every spectral sample as independent (zero-filling correlates them)
-and counts the nominal `n_peaks × n_series` amplitudes rather than the effective
-design rank; reduced chi-squared and that inflation inherit both approximations.
+Amplitude errors condition on the fitted nonlinear parameters: σ√diag((ΦΦᵀ)⁻¹),
+one per peak for every plane. They do not include uncertainty in positions or
+linewidths; MCMC does ([mcmc.md](mcmc.md)).
+
+**One noise convention.** Nonlinear errors, amplitude errors (`intensity_err`,
+`amplitude_standard_errors`) and MCMC intervals all use the supplied or estimated
+statistical noise σ. None is rescaled by the reduced chi-squared. Reduced
+chi-squared is reported beside them, in `clusters.csv`, `intensities.csv`, the JSON
+statistics and the GUI, as a goodness-of-fit diagnostic.
+
+A reduced chi-squared well above 1 means that σ, the lineshape model or the noise
+assumptions do not describe the data. The causes affect the errors differently:
+- σ may be underestimated, or the noise may vary locally (t1 noise near intense
+  peaks, plane-dependent noise). The errors are then too small.
+- The model may be inadequate, leaving systematic residuals. That mainly biases the
+  fitted values; scaling the errors would not represent it.
+- The noise may not be independent between points.
+
+Inspect the residuals before deciding which applies. A reduced chi-squared near 1
+does not validate the errors either. Zero filling and apodization correlate
+neighbouring points: reduced chi-squared stays near 1, yet the errors, computed as
+if every point were independent, are usually too small.
+
+Degrees of freedom are `max(1, n_observations - n_fitted_parameters)`, which treats
+every spectral sample as independent and counts the nominal `n_peaks × n_series`
+amplitudes rather than the effective design rank; reduced chi-squared inherits both
+approximations.
 For nonlinear uncertainty or multimodal fits, compare alternative starts and
 inspect sampling/profile likelihoods; the local errors alone cannot
 certify a scientific assignment. See [the overlap investigation](validation/overlapping-peaks.md).
@@ -309,12 +330,12 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **9.0.0**. Earlier project formats are rejected;
+New projects use schema **10.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
-- Only scientific archive **6.0.0**, fit JSON **5.0.0** and project **9.0.0** are
+- Only scientific archive **7.0.0**, fit JSON **6.0.0** and project **10.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
   version": they record configuration keys (`[auto_peak]`, `fix_positions`,

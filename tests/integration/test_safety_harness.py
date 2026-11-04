@@ -455,7 +455,7 @@ class TestExportProjections:
         json_by_id = {cluster["cluster_id"]: cluster for cluster in payload["clusters"]}
         csv_by_id = clusters.set_index("cluster_id")
         assert set(json_by_id) == set(csv_by_id.index)
-        assert payload["schema_version"] == "5.0.0"
+        assert payload["schema_version"] == "6.0.0"
 
         classifications = Counter(cluster["classification"] for cluster in payload["clusters"])
         for cluster_id, json_cluster in json_by_id.items():

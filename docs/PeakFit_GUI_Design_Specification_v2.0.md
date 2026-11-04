@@ -804,7 +804,8 @@ Normalization is a display transform of recorded amplitudes: it never alters
 authoritative amplitudes, uncertainties, exports, run records or saved scientific
 results. Until a storage decision (§14) the reference choice is session-only.
 
-For a peak with amplitudes A_k and scaled analytical standard errors σ_k:
+For a peak with amplitudes A_k and analytical standard errors σ_k (noise-based, never
+rescaled by χ²ᵣ):
 
 - R = (1/n) Σ_{j∈S} A_j and r_k = A_k / R.
 - Uncertainty uses first-order propagation with the full gradient, so that a

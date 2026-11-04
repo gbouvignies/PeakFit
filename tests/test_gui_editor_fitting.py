@@ -565,7 +565,13 @@ def test_profile_shows_recorded_run_values_and_follows_selection(workspace, scie
     assert evaluation is not None
     selected = profile.series[0]
     np.testing.assert_array_equal(selected.amplitudes, evaluation.amplitudes[1])
-    assert selected.error == evaluation.scaled_amplitude_standard_errors[1]
+    assert selected.error == evaluation.amplitude_standard_errors[1]
+    # σ-only: the bar is the unscaled analytical σ, and χ²ᵣ is shown as a diagnostic.
+    chi2 = evaluation.statistics.reduced_chi_squared
+    assert profile.reduced_chi_squared == chi2
+    assert f"cluster χ²ᵣ {chi2:.3g}" in panel.note.text()
+    assert "scaled" not in panel.note.text()
+    assert "never rescaled by χ²ᵣ" in panel.note.toolTip()
     members = {s.assignment for s in profile.series}
     assert members == {names[n] for n in cluster.peak_names}
     snapshot = result.inputs.snapshot
@@ -718,11 +724,11 @@ def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(qapp, scientif
     evaluation = cluster.analytical_evaluation
     assert evaluation is not None
     # A usable but poorly identifiable cluster can report NaN amplitude errors.
-    errors = evaluation.scaled_amplitude_standard_errors.copy()
+    errors = evaluation.amplitude_standard_errors.copy()
     errors[0] = np.nan
     weak = replace(
         cluster,
-        analytical_evaluation=replace(evaluation, scaled_amplitude_standard_errors=errors),
+        analytical_evaluation=replace(evaluation, amplitude_standard_errors=errors),
     )
     clusters = tuple(weak if c is cluster else c for c in result.outcome.clusters)
     outcome = replace(

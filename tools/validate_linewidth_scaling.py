@@ -103,10 +103,6 @@ def record(cluster, result, initial, noise, seconds, captured):
         "amplitude_standard_errors": [
             float(v) if np.isfinite(v) else None for v in evaluation.amplitude_standard_errors
         ],
-        "scaled_amplitude_standard_errors": [
-            float(v) if np.isfinite(v) else None
-            for v in evaluation.scaled_amplitude_standard_errors
-        ],
         "parameters": {
             name: {
                 "start": initial[name],

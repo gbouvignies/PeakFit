@@ -673,3 +673,18 @@ Short records of non‑obvious design choices and trade‑offs.
   error but 0.64 × the exported `intensity_err`, which `mcmc.md` called "usually
   wider". MCMC record **1.1.0**: 1.0.0 records are refused; rerun `peakfit mcmc`.
 - The uncertainty scaling itself is unchanged, pending a separate decision.
+
+## 2026-11-04: σ-only uncertainties (ADR 0001)
+- Amplitude errors are no longer multiplied by √max(1, χ²ᵣ). Nonlinear errors,
+  amplitude errors and MCMC all use the supplied or estimated σ, and χ²ᵣ is reported
+  as a goodness-of-fit diagnostic, now also in `intensities.csv` and the GUI profile
+  note. The analytical amplitude covariance and errors are computed as before.
+- `scaled_amplitude_standard_errors` and `amplitude_uncertainty_scale` are removed
+  from the engine, archive, JSON and GUI. Scientific archive 7.0.0, fit JSON 6.0.0,
+  analysis project 10.0.0; earlier files are refused. MCMC records stay 1.1.0.
+- Validation (`docs/validation/sigma-uncertainties.md`):
+  - On well-behaved synthetic data, the σ-only errors match the amplitude scatter
+    to 6%, and MCMC to 1%.
+  - On the CEST example, both conventions understate the plane-to-plane scatter
+    (2.7× σ-only, 2× rescaled), mainly through correlated noise that χ²ᵣ does not
+    reveal.
