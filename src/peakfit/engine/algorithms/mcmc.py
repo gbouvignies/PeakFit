@@ -1,13 +1,13 @@
 """Bayesian uncertainty estimation using Affine Invariant MCMC.
 
 This module implements Markov Chain Monte Carlo (MCMC) sampling to estimate
-parameter uncertainties. It uses Variable Projection via QR decomposition
-to analytically solve for linear amplitude parameters at each step, returning
-them as "blobs".
+parameter uncertainties. It samples a cluster's ``SamplingProblem`` (the fit's
+profile likelihood, see docs/mcmc-formulation.md) and records the conditional
+optimum amplitudes at each step as "blobs".
 """
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from multiprocessing import Pool
 from typing import TYPE_CHECKING, Any
 
@@ -15,9 +15,6 @@ import emcee
 import numpy as np
 from threadpoolctl import threadpool_limits
 
-from peakfit.engine.algorithms.linear_algebra import (
-    factorize_shapes,
-)
 from peakfit.engine.diagnostics.convergence import diagnose_convergence
 from peakfit.engine.domain.param_id import PSEUDO_AXIS, ParameterId
 from peakfit.shared.constants import MCMC_N_STEPS, MCMC_N_WALKERS
@@ -26,8 +23,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from peakfit.engine.diagnostics.convergence import ConvergenceDiagnostics
-    from peakfit.engine.domain.cluster import Cluster
-    from peakfit.engine.domain.params_scalar import Parameters
+    from peakfit.engine.scientific.sampling import SamplingProblem
     from peakfit.shared.typing import FloatArray
 
 
@@ -39,10 +35,7 @@ class _MCMCState:
     attributes without using the `global` statement.
     """
 
-    params: Parameters | None = None
-    cluster: Cluster | None = None
-    noise: float = 0.0
-    bounds: list[tuple[float, float]] = field(default_factory=list)
+    problem: SamplingProblem | None = None
 
 
 _mcmc_state = _MCMCState()
@@ -69,83 +62,28 @@ class UncertaintyResult:
     profile_likelihood_ci: FloatArray | None = None
 
 
-def _init_mcmc_worker(
-    params: Parameters,
-    cluster: Cluster,
-    noise: float,
-    bounds: list[tuple[float, float]],
-) -> None:
-    """Initialize globals in worker processes."""
-    _mcmc_state.params = params
-    _mcmc_state.cluster = cluster
-    _mcmc_state.noise = noise
-    _mcmc_state.bounds = bounds
+def _init_mcmc_worker(problem: SamplingProblem) -> None:
+    """Initialize the sampled problem in worker processes."""
+    _mcmc_state.problem = problem
 
 
 def _log_likelihood_blobs(x: FloatArray) -> tuple[float, FloatArray]:
-    """Log-likelihood function returning amplitudes as blobs.
-
-    Uses QR decomposition for stable analytical amplitude solution.
-    """
-    if _mcmc_state.params is None or _mcmc_state.cluster is None:
+    """The profile log-likelihood at θ, with the conditional optimum amplitudes."""
+    problem = _mcmc_state.problem
+    if problem is None:
         return float(-np.inf), np.array([])
-
-    # Determine shapes
-    n_peaks = len(_mcmc_state.cluster.peaks)
-
-    # Cluster data are always (n_points, n_series).
-    data = _mcmc_state.cluster.corrected_data
-    n_series = _mcmc_state.cluster.n_series
-
-    # Bounds check
-    for i, (lb, ub) in enumerate(_mcmc_state.bounds):
-        if not (lb <= x[i] <= ub):
-            # Return NaN blob of correct size
-            blob_size = n_peaks * n_series
-            return float(-np.inf), np.full(blob_size, np.nan)
-
-    # Update parameters
-    # Note: Using copy() here might be expensive inside the loop.
-    # But since we are likely in isolated processes (mp.Pool), we could potentially modify in place
-    # if we guaranteed reset. However, safety first.
-    params_copy = _mcmc_state.params.copy()
-    params_copy.set_vary_values(x)
-
-    try:
-        # 1. Calculate Shapes (n_peaks, n_points)
-        shapes = _mcmc_state.cluster.evaluate(params_copy)
-
-        amplitudes = factorize_shapes(shapes).solve(data)
-        residuals = data - shapes.T @ amplitudes
-
-        # 5. Log-Likelihood
-        # ln L = -0.5 * sum((res/noise)^2)
-        res_norm = residuals.ravel() / _mcmc_state.noise
-        log_prob = float(-0.5 * np.sum(res_norm**2))
-
-        return log_prob, amplitudes.ravel()
-
-    except Exception:
-        blob_size = n_peaks * n_series
+    conditional = problem.conditional(x)
+    if conditional is None:
+        blob_size = len(problem.cluster.peaks) * problem.cluster.n_series
         return float(-np.inf), np.full(blob_size, np.nan)
+    return conditional.log_likelihood, conditional.mean.ravel()
 
 
-def _prepare_mcmc_sampling(
-    params: Parameters, n_walkers: int
-) -> tuple[FloatArray, list[tuple[float, float]], list[str], Parameters]:
-    """Prepare initial positions and bounds for MCMC sampling."""
-    vary_names: list[str] = []
-    params_clean = params.copy()
-
-    for name, p in params.items():
-        if p.vary:
-            vary_names.append(name)
-
-    if not vary_names:
-        raise ValueError("No nonlinear parameters found to vary for MCMC.")
-
-    x0 = np.array([params_clean[n].value for n in vary_names])
-    bounds = [(params_clean[n].min, params_clean[n].max) for n in vary_names]
+def _prepare_mcmc_sampling(problem: SamplingProblem, n_walkers: int) -> FloatArray:
+    """Initial walker positions around the fit's θ̂."""
+    vary_names = list(problem.names)
+    x0 = problem.start
+    bounds = list(zip(problem.lower, problem.upper, strict=True))
     ndim = len(x0)
 
     # Walkers configuration
@@ -154,7 +92,7 @@ def _prepare_mcmc_sampling(
 
     # Initialize walkers
     rng = np.random.default_rng()
-    stderrs = np.array([params_clean[n].stderr for n in vary_names])
+    stderrs = np.array([problem.parameters[n].stderr for n in vary_names])
     values_abs = np.abs(x0)
 
     # Use small perturbation if stderr is missing
@@ -168,7 +106,7 @@ def _prepare_mcmc_sampling(
     for i, (lb, ub) in enumerate(bounds):
         pos[:, i] = np.clip(pos[:, i], lb, ub)
 
-    return pos, bounds, vary_names, params_clean
+    return pos
 
 
 def _run_emcee(
@@ -176,10 +114,7 @@ def _run_emcee(
     n_steps: int,
     workers: int,
     progress_callback: Callable[[int, int, str, float | None], None] | None,
-    params: Parameters,
-    cluster: Cluster,
-    noise: float,
-    bounds: list[tuple[float, float]],
+    problem: SamplingProblem,
 ) -> emcee.EnsembleSampler:
     """Run the emcee sampler."""
     n_walkers, ndim = pos.shape
@@ -197,7 +132,7 @@ def _run_emcee(
             Pool(
                 processes=n_processes,
                 initializer=_init_mcmc_worker,
-                initargs=(params.copy(), cluster, noise, bounds),
+                initargs=(problem,),
             ) as pool,
         ):
             sampler = emcee.EnsembleSampler(
@@ -210,7 +145,7 @@ def _run_emcee(
         # Serial execution
         if progress_callback:
             progress_callback(0, n_steps, "Preparing serial sampler...", None)
-        _init_mcmc_worker(params.copy(), cluster, noise, bounds)
+        _init_mcmc_worker(problem)
         sampler = emcee.EnsembleSampler(n_walkers, ndim, _log_likelihood_blobs, moves=moves)
         if progress_callback:
             progress_callback(0, n_steps, "Running MCMC...", None)
@@ -314,9 +249,7 @@ def _compute_statistics(
 
 
 def estimate_uncertainties_mcmc(
-    params: Parameters,
-    cluster: Cluster,
-    noise: float,
+    problem: SamplingProblem,
     n_walkers: int = MCMC_N_WALKERS,
     n_steps: int = MCMC_N_STEPS,
     burn_in: int | None = None,
@@ -328,7 +261,8 @@ def estimate_uncertainties_mcmc(
         progress_callback(0, n_steps, "Preparing walker initialization...", None)
 
     # 1. Prepare
-    pos, bounds, vary_names, params_clean = _prepare_mcmc_sampling(params, n_walkers)
+    pos = _prepare_mcmc_sampling(problem, n_walkers)
+    vary_names = list(problem.names)
     ndim = len(vary_names)
     if progress_callback:
         progress_callback(
@@ -339,9 +273,7 @@ def estimate_uncertainties_mcmc(
         )
 
     # 2. Run Sampler
-    sampler = _run_emcee(
-        pos, n_steps, workers, progress_callback, params_clean, cluster, noise, bounds
-    )
+    sampler = _run_emcee(pos, n_steps, workers, progress_callback, problem)
 
     # 3. Process Chains
     kept_chains, burn_in_info = _process_mcmc_chains(sampler, burn_in)
@@ -350,6 +282,7 @@ def estimate_uncertainties_mcmc(
     lineshape_names = vary_names
 
     # Consistent with the point-by-series cluster data contract.
+    cluster = problem.cluster
     n_series = cluster.n_series
 
     # Amplitudes are solved, never parameters; they are named <peak>.F1.I<plane_index>.

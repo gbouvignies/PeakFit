@@ -8,7 +8,7 @@ import h5py
 import numpy as np
 
 from peakfit.io.output_metadata import RunMetadata
-from peakfit.io.readers.continuation import continuation_state, load_completed
+from peakfit.io.readers.continuation import load_completed
 from peakfit.io.schemas import FitSummarySchema
 from peakfit.io.scientific import read_scientific
 from peakfit.io.writers.json import _summary_document
@@ -17,7 +17,7 @@ from peakfit.shared.paths import format_path
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from peakfit.engine.domain.state import FittingState
+    from peakfit.engine.scientific.completed import CompletedFit
 
 __all__ = ["ResultsLoader"]
 type MCMCChainRecord = tuple[Any, list[str], int, int, int]
@@ -29,7 +29,7 @@ class ResultsLoader:
     Example:
         >>> loader = ResultsLoader(Path("Fits/20260129_120000"))
         >>> summary = loader.load_summary()
-        >>> state = loader.load_fitting_state()
+        >>> completed = loader.load_completed()
         >>> chains = loader.load_mcmc_chains()
     """
 
@@ -61,9 +61,9 @@ class ResultsLoader:
             )
         )
 
-    def load_fitting_state(self) -> FittingState:
-        """Reconstruct the validated terminal parent for continuation and MCMC."""
-        return continuation_state(load_completed(self.archive))
+    def load_completed(self) -> CompletedFit:
+        """The validated completed fit, with its observations, for continuation and MCMC."""
+        return load_completed(self.archive)
 
     def load_mcmc_chains(self) -> list[MCMCChainRecord]:
         """Load MCMC chains from HDF5 files for all clusters.

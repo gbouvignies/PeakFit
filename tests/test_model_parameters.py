@@ -5,7 +5,6 @@ import pytest
 from builders import peak_pair
 
 from peakfit.engine.domain.params_scalar import Parameters
-from peakfit.mcmc.analysis import _create_cluster_params
 
 
 def _without(params, name):
@@ -41,11 +40,3 @@ def test_an_unfitted_phase_is_absent_from_the_model_not_a_default_value():
     fitted, fitted_params = peak_pair(6.0, lineshape="no_apod", fit_phase=("F2",))
     # A fitted phase at zero is the same model as no phase correction.
     np.testing.assert_array_equal(fitted.evaluate(fitted_params), unfitted.evaluate(params))
-
-
-def test_mcmc_cluster_parameters_keep_the_fitted_phase():
-    cluster, params = peak_pair(6.0, noise=0.01, lineshape="no_apod", fit_phase=("F2",))
-    params["cluster_1.F2.phase"].value = 7.0
-    selected = _create_cluster_params(cluster, params)
-    assert list(selected) == list(params)
-    np.testing.assert_array_equal(cluster.evaluate(selected), cluster.evaluate(params))

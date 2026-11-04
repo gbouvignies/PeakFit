@@ -111,6 +111,12 @@ Notable user-facing and architecture changes are recorded here.
 - The overview, the cluster lens and the unexplained-signal search share one
   bounded cache of total-model planes, so a plane computed by one view is reused by
   the others instead of recomputed. Displayed values are unchanged.
+- `peakfit mcmc` builds each cluster's posterior from the completed fit
+  (`engine.scientific.sampling`, per `docs/mcmc-formulation.md`). Only the analyzed
+  clusters need to be usable, the fit's recorded chi-squared must be reproduced
+  before sampling, and an evaluation error inside the bounds is raised instead of
+  being scored as an impossible sample. Conditional amplitude draws with
+  identifiability checks are available for the sampler that follows.
 
 ### Removed
 

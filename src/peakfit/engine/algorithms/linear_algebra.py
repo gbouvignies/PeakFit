@@ -22,6 +22,7 @@ class ShapeProjection:
     basis: np.ndarray
     pinv: np.ndarray
     singular_values: np.ndarray
+    directions: np.ndarray  # right singular vectors as rows, in peak space
     covariance: np.ndarray
     rank: int
 
@@ -54,7 +55,7 @@ def factorize_shapes(shapes: np.ndarray) -> ShapeProjection:
             covariance = inverse @ inverse.T
     else:
         covariance = np.full((shapes.shape[0], shapes.shape[0]), np.nan)
-    return ShapeProjection(basis, pinv, singular, covariance, rank)
+    return ShapeProjection(basis, pinv, singular, vt, covariance, rank)
 
 
 def calculate_amplitudes(shapes: FloatArray, data: FloatArray) -> FloatArray:
