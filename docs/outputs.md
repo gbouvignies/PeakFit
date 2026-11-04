@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**6.0.0**, fit JSON **5.0.0**, analysis project **9.0.0** and MCMC record **1.0.0**.
+**6.0.0**, fit JSON **5.0.0**, analysis project **9.0.0** and MCMC record **1.1.0**.
 
 ## Default scientific export
 
@@ -144,7 +144,8 @@ file, flushed, published by a hard link and the directory flushed. The link appe
 complete and fails if the name exists, in one atomic step, so an existing record is
 never replaced, even by a concurrent writer; the filesystem must support hard links. It binds to its parent by the parent's run ID and `scientific.npz`
 SHA-256, and stores each cluster's whole chain losslessly with complete summaries
-([mcmc-formulation.md](mcmc-formulation.md) §8). The reader rejects another version,
+and the parent cluster's reduced χ² ([mcmc-formulation.md](mcmc-formulation.md) §8).
+The reader rejects another version,
 a missing or extra field, a wrongly typed value, arrays inconsistent with the
 recorded settings, and posteriors not seeded by the record's own seed.
 

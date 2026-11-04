@@ -368,6 +368,9 @@ class PosteriorSample:
     exchanges: tuple[Exchange, ...]
     determined: FloatArray  # (peaks,) fraction of kept samples with a determined amplitude
     amplitudes: AmplitudeSummaries
+    # The parent fit's reduced χ², a goodness-of-fit diagnostic reported alongside the
+    # intervals; they use the recorded noise σ and are never rescaled by it (§4).
+    reduced_chi_squared: float
 
     @property
     def reasons(self) -> tuple[str, ...]:
@@ -391,6 +394,30 @@ class PosteriorSample:
                 other = e.second if peak == e.first else e.first
                 return f"exchanges identity with {other}"
         return None
+
+    @property
+    def noise_convention(self) -> str:
+        """The parent fit's χ²ᵣ, and how MCMC and the fit's amplitude errors use σ.
+
+        MCMC intervals are conditional on the recorded noise σ, never rescaled (§4).
+        The fit's exported amplitude errors are multiplied by √χ²ᵣ when χ²ᵣ exceeds 1,
+        so there the two are on different scales.
+        """
+        chi2 = self.reduced_chi_squared
+        line = (
+            f"Parent fit χ²ᵣ {chi2:.3g} (goodness of fit). MCMC intervals assume the "
+            "recorded noise σ and are not rescaled by χ²ᵣ"
+        )
+        if chi2 > 1.0:
+            line += f"; the fit's exported amplitude errors are scaled by √χ²ᵣ = {chi2**0.5:.3g}"
+        return line + "."
+
+    def unreported(self, name: str) -> str | None:
+        """Why a parameter's interval is not a final result, or None when it is."""
+        withheld = self.withheld(name)
+        if withheld is not None:
+            return f"withheld: {withheld}"
+        return "provisional" if self.provisional else None
 
     def caution(self, peak: str) -> str | None:
         """Why a peak's intervals need care although they are reported, or None.
@@ -502,6 +529,7 @@ def sample_posterior(
         exchanges=exchanges(problem, flat),
         determined=determined,
         amplitudes=_amplitudes(problem, run, diagnosis, determined),
+        reduced_chi_squared=problem.reduced_chi_squared,
     )
 
 

@@ -129,6 +129,7 @@ class SamplingProblem:
     upper: FloatArray
     noise: float
     data: FloatArray  # the real corrected data the fit used, (points, planes)
+    reduced_chi_squared: float  # the final fit's, reported alongside; never scales σ
 
     @property
     def start(self) -> FloatArray:
@@ -185,6 +186,9 @@ def sampling_problem(completed: CompletedFit, cluster_id: int) -> SamplingProble
     names = tuple(name for name, p in parameters.items() if p.vary)
     if not names:
         raise ValueError(f"Cluster {cluster_id} has no varied nonlinear parameters to sample.")
+    evaluation = outcome.analytical_evaluation
+    if evaluation is None:  # a usable cluster always records one
+        raise ValueError(f"Cluster {cluster_id} has no analytical evaluation; refit it.")
     data = np.asarray(cluster.corrected_data.real, dtype=np.float64)
     data.flags.writeable = False
     problem = SamplingProblem(
@@ -195,17 +199,16 @@ def sampling_problem(completed: CompletedFit, cluster_id: int) -> SamplingProble
         upper=np.array([parameters[name].max for name in names]),
         noise=completed.outcome.noise,
         data=data,
+        reduced_chi_squared=evaluation.statistics.reduced_chi_squared,
     )
-    evaluation = outcome.analytical_evaluation
-    if evaluation is not None:
-        require_close(
-            -2.0 * problem.log_likelihood(problem.start),
-            evaluation.statistics.chi_squared,
-            rtol=1e-10,
-            atol=0.0,
-            message=f"Cluster {cluster_id}: the sampled likelihood does not reproduce the "
-            "fit's recorded chi-squared; MCMC cannot sample this result. Refit the dataset.",
-        )
+    require_close(
+        -2.0 * problem.log_likelihood(problem.start),
+        evaluation.statistics.chi_squared,
+        rtol=1e-10,
+        atol=0.0,
+        message=f"Cluster {cluster_id}: the sampled likelihood does not reproduce the "
+        "fit's recorded chi-squared; MCMC cannot sample this result. Refit the dataset.",
+    )
     return problem
 
 

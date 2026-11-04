@@ -228,7 +228,9 @@ def generate_mcmc_diagnostics(record: MCMCRecord, output_path: Path) -> PlotOutp
     """Plot every cluster of an MCMC record: report, traces, marginals, correlations.
 
     The report page and the trace titles show the recorded diagnosis. Marginals,
-    correlations and autocorrelations are drawn from the kept chain.
+    correlations and autocorrelations are drawn from the kept chain. Every page of a
+    provisional cluster says so, and the marginals mark an interval only where the
+    terminal reports it.
     """
     total_plots = 0
     with PdfPages(output_path) as pdf:
@@ -240,28 +242,38 @@ def generate_mcmc_diagnostics(record: MCMCRecord, output_path: Path) -> PlotOutp
             kept = chains[:, burn_in:, :]
             walkers, steps = kept.shape[:2]
             samples = kept.reshape(-1, kept.shape[2])
+            cluster = f"Cluster {cluster_id}"
+            if posterior.provisional:
+                cluster += " (PROVISIONAL: no final intervals)"
 
             _save_pdf_figure(pdf, generate_mcmc_report_page(posterior))
             _save_pdf_figure(
                 pdf,
                 plot_trace(chains, names, posterior.diagnosis.parameters, burn_in),
-                title=f"Cluster {cluster_id}: Trace Plots",
+                title=f"{cluster}: Trace Plots",
             )
             total_plots += 1
             total_plots += _save_pdf_figure_pages(
                 pdf,
-                plot_marginal_distributions(samples, names, walkers, steps),
-                title_template=f"Cluster {cluster_id}: Marginal Distributions (Page {{page}})",
+                plot_marginal_distributions(
+                    samples,
+                    names,
+                    walkers,
+                    steps,
+                    unreported=[posterior.unreported(name) for name in names],
+                    cautions=[posterior.caution(name.rsplit(".", 2)[0]) for name in names],
+                ),
+                title_template=f"{cluster}: Marginal Distributions (Page {{page}})",
             )
             total_plots += _save_pdf_figure_pages(
                 pdf,
                 plot_correlation_pairs(samples, names, walkers, steps),
-                title_template=f"Cluster {cluster_id}: Strong Correlations (Page {{page}})",
+                title_template=f"{cluster}: Strong Correlations (Page {{page}})",
             )
             _save_pdf_figure(
                 pdf,
                 plot_autocorrelation(kept, names),
-                title=f"Cluster {cluster_id}: Autocorrelation ({walkers} walkers × {steps} steps)",
+                title=f"{cluster}: Autocorrelation ({walkers} walkers × {steps} steps)",
             )
             total_plots += 1
     return PlotOutput(output_path, "mcmc_diagnostics", total_plots)

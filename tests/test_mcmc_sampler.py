@@ -244,8 +244,10 @@ def test_v10_an_exchange_of_two_peaks_is_reported_and_withholds_both(close_pair)
         exchanges=(exchange,),
         determined=np.ones(2),
         amplitudes=AmplitudeSummaries(0, 0.0, (), (), (), ()),
+        reduced_chi_squared=1.0,
     )
     assert posterior.provisional
     assert posterior.reasons == ("peaks A and B exchange order along F2 in 7.0% of samples",)
     assert posterior.withheld("A.F2.lw") == "exchanges identity with B"
     assert posterior.withheld("B.F2.cs") == "exchanges identity with A"
+    assert posterior.unreported("A.F2.cs") == "withheld: exchanges identity with B"
