@@ -5,7 +5,7 @@
 - the sampler and its diagnostics (PR 23);
 - the stored record (PR 24).
 
-Today's `peakfit mcmc` ([mcmc.md](mcmc.md)) predates it, and §8 lists where they
+Today's `peakfit mcmc` ([mcmc.md](mcmc.md)) predates it, and §9 lists where they
 differ.
 
 This document fixes what PeakFit's MCMC samples, what it reports and how that is
@@ -108,6 +108,12 @@ coverage of the central 68% and 95% intervals. Coverage standard errors are 0.01
 - The profile stays within about two standard errors of nominal coverage at both
   levels.
 
+**Scope:** this study supports the choice of formulation for one isolated peak with
+independent amplitudes. It says nothing about coverage for overlapping peaks, where
+near-degenerate shapes (§6), multimodality and label switching (§7) dominate. That
+case is validated separately (V6, §10), and passing it is an acceptance criterion
+for the implementation.
+
 The tool also checks the derivation numerically:
 - On a θ grid, the Jeffreys-weighted amplitude integral divided by L_p is constant
   to a relative spread of 5 × 10⁻¹⁴, and equals the predicted √(2π)·σ.
@@ -131,40 +137,93 @@ uv run python tools/validate_mcmc_formulation.py --output /tmp/mcmc-formulation.
   χ²_red; χ²_red is reported alongside, as for the fit.
 - **Corrections and model:** results are conditional on the frozen neighbour
   corrections and the chosen lineshapes.
-- **Label switching:** if the position bounds of equivalent peaks overlap, peaks can
-  exchange identities between samples. This is detected and warned about, not
-  silently relabelled.
 
 ## 5. Amplitude uncertainties
 
 - **Draws:** for each kept θ sample k, draw **a**ₖ,s ~ N(â_s(θₖ), σ² G(θₖ)⁻¹) for
-  every plane, using the covariance `factorize_shapes` already provides.
+  every plane, using the factorization `factorize_shapes` already provides. Draws
+  are made only where §6 allows them.
 - **Moments:** use the law of total variance. The mean is the average of â(θₖ), and
   the covariance is the mean of the conditional covariances plus the covariance of
   â(θₖ) across samples. This is exact and has a lower Monte Carlo error than moments
   of the draws.
 - **Intervals and ratios:** quantiles and per-sample ratios (for example, a plane's
   amplitude relative to a reference plane) come from the draws.
-- **Labelling:** MCMC amplitude intervals *include lineshape uncertainty*. The
-  published analytical errors are *conditional on the fitted shapes* (see
-  **Amplitude correlation** in the glossary). MCMC widths should therefore not be
-  smaller than the analytical ones.
+- **What the intervals mean:** MCMC amplitude intervals *include lineshape
+  uncertainty*, averaged over the θ posterior. The published analytical errors are
+  *conditional on the fitted shapes*, evaluated at θ̂ only (see **Amplitude
+  correlation** in the glossary).
+- **Comparing the two:** MCMC intervals are usually wider than the analytical
+  errors, but they need not be.
+  - The total variance adds Var_θ(â) to E_θ[σ²G(θ)⁻¹]. That average conditional
+    covariance can be *smaller* than σ²G(θ̂)⁻¹ when posterior mass lies where shapes
+    are better separated or narrower than at θ̂.
+  - In the linear, high-SNR regime the MCMC amplitude covariance approaches the
+    amplitude block of the joint inverse Fisher matrix, which is never smaller than
+    the conditional covariance at θ̂. That inequality is a property of that regime,
+    not a general rule.
+  - A narrower MCMC interval is reported as computed, never flagged as an error or
+    widened.
 
-## 6. Rank deficiency
+## 6. Rank deficiency and near-degeneracy
 
-The θ density stays finite: L_p uses the rank-aware projection, with the same rank
-tolerance as the fit.
+Overlapping peaks are central to PeakFit, so three situations are kept apart. Each
+is judged on the singular values s₁ ≥ … ≥ s_p of the cluster's shape matrix at a
+sampled θ. Both thresholds are the ones `factorize_shapes` already applies to the
+fit.
 
-Where Φ(θ) is rank-deficient, the conditional amplitude distribution is improper
-along its null space. The peaks involved are reported as "amplitude not
-identifiable in X% of samples". Their amplitude summaries use only the identifiable
-samples, and that fraction is stated. Nothing is silently regularized, and no NaN
-becomes a number.
+| Situation | Criterion at a sample θ | Meaning |
+|---|---|---|
+| Numerical rank deficiency | s_j ≤ ε·n·s₁ (n = largest shape-matrix dimension) | Shapes coincide to machine precision. In practice this happens only structurally, for duplicated peaks or constraints that make shapes identical. |
+| Unreliable conditioning | full rank, but s_p ≤ √ε·s₁ | The conditional covariance exists but cannot be computed reliably; the fit already withholds its covariance here. |
+| Practical non-identifiability | well conditioned, but member amplitudes strongly correlated | The data determine a combination of amplitudes (typically their sum) much better than how it splits between peaks. This is a statistical property, not a numerical one. |
+
+**How the likelihood is defined in every case.** L_p(θ) = exp(−½ ‖(I − P(θ)) y‖² /
+σ²), where P(θ) projects onto the numerical span of the shapes. It depends only on
+that span, so it is defined at any rank.
+
+The derivation in §2 holds on any region of θ where the numerical rank r is
+constant, with G restricted to an orthonormal basis of the span and p replaced by
+r. The constant (2πσ²)^(rS/2) then does not depend on θ.
+
+The rank changes only on sets of negligible posterior probability, because the
+first threshold is at machine precision. The one exception is structural
+degeneracy, which holds at every θ, so its rank is constant and the derivation is
+exact. The sampler therefore targets the same L_p as the fit, and nothing is
+regularized.
+
+**Samples are never dropped or reweighted.** Summarizing amplitudes only over
+"identifiable" samples would condition the posterior on θ lying where the peaks
+are distinct, biasing every reported quantity towards separated peaks. Instead:
+
+1. **The θ posterior** is always summarized from every kept sample.
+2. **Withheld per-peak intervals.** A peak's amplitude interval is withheld when, in
+   any kept sample, the peak loads on a weak direction. A weak direction is a right
+   singular vector whose singular value falls under the first or second threshold;
+   the peak loads on it if its component exceeds √ε.
+   - The report states "amplitude not determined in X% of samples".
+   - No interval is computed from the remaining samples.
+   - The other peaks' intervals are unaffected.
+   - When every weak direction is orthogonal to the summed amplitude of the peaks
+     involved, as for duplicated peaks, that sum is reported with its interval.
+3. **Practical non-identifiability.** Per-peak intervals are the correct marginals,
+   so they are reported, but never alone. Any pair of member amplitudes with
+   posterior |ρ| ≥ 0.9 in a plane is flagged "amplitudes not separately determined".
+   - The 0.9 is the same threshold as the amplitude-correlation highlight, and it is
+     a labelled review heuristic.
+   - The summed amplitude of each correlated group is reported with its interval,
+     computed from the same draws.
+   - The flag stops wide, anticorrelated per-peak intervals from being read as
+     independent measurements.
+4. **No silent fallback.** No NaN becomes a number, and no singular covariance is
+   pseudo-inverted into false precision.
 
 ## 7. Diagnostics for an ensemble sampler
 
 The sampler stays emcee's affine-invariant ensemble (Goodman and Weare 2010;
-Foreman-Mackey et al. 2013).
+Foreman-Mackey et al. 2013). Walkers start in a small ball around the fit's
+optimum. A result can therefore describe the mode containing θ̂ well and still miss
+a distant one, and no diagnostic below can rule that out. Every report says so.
 
 - **No R̂ across walkers.** Ensemble walkers are coupled, not independent chains,
   so R̂ computed across them is not meaningful. The report reads "R̂: not assessed"
@@ -172,63 +231,131 @@ Foreman-Mackey et al. 2013).
 - **Autocorrelation:** the integrated autocorrelation time τ of each parameter,
   from `emcee.autocorr.integrated_time` with its default tolerance. If the estimate
   is unreliable, that is reported rather than suppressed.
-- **Convergence:**
-  - The kept length must be at least 50 τ_max.
-  - A shorter run is labelled "chain too short — provisional", and no final
-    intervals are given.
-- **Burn-in:** a recorded multiple of τ_max, or an explicit user value. Either way,
+- **Minimum length:** the kept length must be at least 50 τ_max. This is the
+  minimum for τ, and the error estimates built on it, to be reliable. It does not
+  prove convergence or complete exploration.
+- **Burn-in:** a recorded multiple of τ_max, or an explicit user value. Either way
   it must leave at least 50 τ_max, and it is discarded exactly once. Statistics use
   no thinning.
 - **Effective sample size:** ESS ≈ walkers · N / τ, labelled approximate. The Monte
   Carlo standard errors of means and quantiles are reported with it.
-- **Acceptance:** reported for the whole ensemble and per walker. Stuck walkers are
-  flagged with a labelled heuristic.
+- **Stationarity:** the kept samples are split into first and second halves in
+  time, pooling all walkers. Each parameter's median is compared between halves,
+  and a difference larger than three combined Monte Carlo standard errors fails the
+  check. A drifting ensemble is caught this way without treating walkers as
+  independent chains.
+- **Stuck walkers:** acceptance is reported for the whole ensemble and per walker.
+  A walker accepting under a tenth of the ensemble's median rate is flagged. This
+  is a labelled heuristic.
+- **Multimodality and label switching:**
+  - For each pair of peaks whose position bounds overlap, the report gives the
+    fraction of samples in which their order changes along the axis on which they
+    are best separated at θ̂.
+  - Any exchange withholds both peaks' per-peak position and amplitude intervals,
+    as in §6. The pair's summed amplitude remains available.
+  - Bound pile-up (§4) is reported per parameter.
 - **Correlations:** a correlation that cannot be computed is reported as undefined,
   never as 0.
+- **One status, with reasons.** A run is **provisional** if any of these hold:
+  - the kept length is under 50 τ_max;
+  - τ is unreliable;
+  - the stationarity check fails;
+  - a walker is stuck;
+  - peaks exchange.
+
+  Provisional results list their reasons and give no final intervals. A run that
+  passes is labelled "passed the convergence checks", never "converged".
 - **Large clusters:** the stretch move mixes poorly in high dimensions, which τ
   reveals. Changing samplers is not planned until τ shows a need.
 
-## 8. Changes from today's implementation
+## 8. Reproducibility and storage (D4)
+
+Amplitude draws are not stored. They can be regenerated exactly from:
+
+- **The parent:** run identity and the SHA-256 of its `scientific.npz`, which fix
+  the lineshape model, all parameter values (fixed ones included), bounds, frozen
+  corrections, cluster membership, fitting grid and σ;
+- **The observations:** the verified source spectrum (SHA-256), or the retained
+  observations of a `--detailed-evidence` export;
+- **The chain:** every kept θ sample, stored losslessly in float64, with the burn-in
+  index;
+- **The random streams:** one `SeedSequence` entropy value. It spawns two children,
+  one for the sampler and one for the amplitude draws, so regeneration does not
+  replay the sampler. The record also stores the bit generator (PCG64) and the
+  number of draws per θ sample;
+- **The procedure:** a formulation version for this specification, and the PeakFit
+  and NumPy versions.
+
+Regeneration is bit-identical with the same software versions. NumPy does not
+promise identical Generator streams across versions, so a different version gives
+statistically equivalent draws. Linear-algebra libraries may also differ at
+round-off.
+
+**Summaries do not need the source.** The record stores the θ chain, the
+log-probabilities and complete summaries:
+- θ quantiles and means;
+- per peak and plane, the amplitude mean and standard deviation (§5) and the 2.5,
+  16, 50, 84 and 97.5% quantiles from the draws made at sampling time;
+- the summed-amplitude intervals and every §6 and §7 flag;
+- all diagnostics.
+
+These remain available, with the run's status, when the source spectrum is missing.
+Only new derived quantities, such as ratios to a reference plane that was not
+summarized, need regeneration and therefore the observations.
+
+## 9. Changes from today's implementation
 
 | Today | This specification |
 |---|---|
 | Profile likelihood sampled, but amplitudes are the conditional optimum â(θ), so intensity intervals omit σ²G⁻¹ and are too narrow | Same θ target, now justified by the conditional Jeffreys prior; amplitudes drawn from N(â, σ²G⁻¹) |
-| Split R̂ and summed per-walker ESS across coupled walkers | No R̂ across walkers; ESS from τ; 50 τ rule |
+| Split R̂ and summed per-walker ESS across coupled walkers | No R̂ across walkers; ESS from τ; 50 τ minimum, stationarity, stuck-walker and label-switching checks; a provisional status |
+| Amplitude summaries whatever the conditioning of the shapes | Per-peak intervals withheld or flagged by the §6 policy, with summed amplitudes reported |
 | `get_autocorr_time(tol=0)` hides an unreliable τ; a burn-in longer than the chain silently keeps the last 10% | τ reliability reported; burn-in validated against the 50 τ rule |
 | NaN correlations replaced by 0 | Undefined correlations reported as undefined |
 | Chains stored in HDF5 after burn-in, with burn-in recorded again | A record bound to its parent run (PR 24, D4); burn-in discarded once |
 
 Today's code already samples fitted phases; that fix is among the unreleased changes.
 
-## 9. Validation plan
+## 10. Validation plan
+
+Each implementation PR passes its tests before merging. **V6 is the acceptance
+criterion for trusting MCMC intervals on overlapping peaks.** The single-peak study
+in §3 is no substitute for it.
 
 | Test | What it checks | PR |
 |---|---|---|
 | V1 | log L(θ̂) equals −½χ² as recorded, to rtol 10⁻¹⁰, for a single peak, a phase-fitted cluster and a multi-plane cluster | 22 |
 | V2 | At fixed θ, conditional draws match the closed-form mean and covariance, within a tolerance justified by the number of draws | 22 |
 | V3 | One peak, S = 1: quadrature over A with the Jeffreys prior equals L_p up to a constant across θ, in code; this document's tool already shows it | 22 |
-| V4 | The driver on correlated and truncated Gaussians with known moments: means and standard deviations within Monte Carlo error; identical chains for the same seed | 23 |
-| V5 | Linear regime: θ covariance ≈ VarPro's `identifiable_covariance`; amplitude covariance ≈ an independently computed joint inverse Fisher matrix, and larger than the conditional errors | 23 |
-| V6 | Slow marker: 68% and 95% coverage over about 200 synthetic realizations of one peak and of two overlapping peaks, within binomial bounds | 23 |
-| V7 | A duplicated peak: amplitudes reported as not identifiable, and the θ density still finite | 22 |
+| V4 | The driver on correlated and truncated Gaussians with known moments: means and standard deviations within Monte Carlo error; identical chains for the same seed; a deliberately too-short run and a drifting target are reported provisional | 23 |
+| V5 | Linear regime: θ covariance ≈ VarPro's `identifiable_covariance`; amplitude covariance ≈ the amplitude block of an independently computed joint inverse Fisher matrix. No interval-width inequality is tested outside this regime (§5). | 23 |
+| V6 | Slow marker, acceptance for overlapping peaks. About 200 synthetic realizations each of one peak and of two peaks at three separations: well resolved, partially overlapping and near-coalescent. Where intervals are reported, 68% and 95% coverage of positions, linewidths, per-peak amplitudes and summed amplitudes stays within binomial bounds. Where they are withheld or flagged (§6, §7), that is checked rather than counted. Near-coalescent cases must produce the flags, not confident per-peak intervals. | 23 |
+| V7 | A duplicated peak: per-peak amplitude intervals withheld, the summed amplitude reported, and the θ density finite | 22 |
 | V8 | A parameter near a bound: pile-up reported, and no walker starts on the bound | 22, 23 |
 | V9 | Phase-fitted clusters include their cluster-scoped parameters | 22 |
+| V10 | Two equivalent peaks with overlapping position bounds: the exchange fraction is reported, and both peaks' intervals are withheld | 23 |
+| V11 | Regeneration from a stored record reproduces the draws bit for bit with the same software, and the stored summaries read back without the source spectrum | 24 |
 
-## 10. Decisions
+## 11. Decisions
 
 Merging this specification records these decisions (`decisions.md`, 2026-11-04):
 
-- **D1 Formulation:** the profile likelihood, justified by the conditional
-  Jeffreys prior, with conditional amplitude draws. The flat-prior marginal is
-  rejected for the reasons in §3.
-- **D2 R̂:** one ensemble, with no R̂ across walkers. The alternative was several
-  independent seeded ensembles with rank-normalized R̂ (Vehtari et al. 2021), at
-  several times the cost. It remains possible later without changing the target.
+- **D1 Formulation:** the profile likelihood, justified by the conditional Jeffreys
+  prior, with conditional amplitude draws. The flat-prior marginal is rejected for
+  the reasons in §3. Degenerate and near-degenerate shapes follow §6: samples are
+  never dropped, and per-peak intervals are withheld or flagged, with summed
+  amplitudes reported instead.
+- **D2 Convergence:** one ensemble, with no R̂ across walkers. Fifty τ_max is a
+  minimum reliability criterion, not proof of convergence. The stationarity,
+  stuck-walker and label-switching checks of §7 make a run provisional rather than
+  trustworthy-looking. The alternative was several independent seeded ensembles
+  with rank-normalized R̂ (Vehtari et al. 2021), at several times the cost. It
+  remains possible later without changing the target.
 - **D3 Noise:** results are conditional on the recorded σ, with no χ² rescaling.
-- **D4 Storage:** store θ chains and log-probabilities losslessly, plus amplitude
-  summaries. Amplitude draws are regenerated from the recorded seed when the
-  observations are available. Storing every draw can reach hundreds of MB: for
-  example, 32 walkers × 5,000 steps × 5 peaks × 50 planes ≈ 320 MB in float64.
+- **D4 Storage:** store θ chains and log-probabilities losslessly, plus complete
+  summaries that need no source spectrum. Amplitude draws are regenerated from the
+  inputs listed in §8. Storing every draw can reach hundreds of MB: for example,
+  32 walkers × 5,000 steps × 5 peaks × 50 planes ≈ 320 MB in float64.
 
 ## References
 

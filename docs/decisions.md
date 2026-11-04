@@ -537,10 +537,19 @@ Short records of non‑obvious design choices and trade‑offs.
   with the number of planes, and it rewards collinear shapes. At 50 planes and
   SNR 5 its 68% coverage was about 0.58, against 0.69 for the profile
   (`docs/mcmc-formulation.md` §3, `tools/validate_mcmc_formulation.py`).
-- One emcee ensemble, with no R̂ across coupled walkers; convergence by the
-  integrated autocorrelation time (kept length ≥ 50 τ_max).
+- Degenerate and near-degenerate shapes: samples are never dropped (that would bias
+  the posterior towards separated peaks). Per-peak amplitude intervals are withheld
+  where a peak loads on a numerically weak direction, and flagged where member
+  amplitudes are strongly correlated; summed amplitudes are reported instead.
+  MCMC intervals are not required to be wider than the analytical ones.
+- One emcee ensemble, with no R̂ across coupled walkers. A kept length of at least
+  50 τ_max is a minimum, not proof of convergence. Stationarity, stuck-walker and
+  label-switching checks make a run provisional instead of trustworthy-looking.
 - Results are conditional on the recorded noise, frozen corrections and the
   lineshape model; χ²_red is reported, not used to rescale.
-- The record stores θ chains and log-probabilities losslessly with amplitude
-  summaries; amplitude draws are regenerated from the recorded seed rather than
-  stored.
+- The record stores θ chains and log-probabilities losslessly with complete
+  summaries that need no source spectrum. Amplitude draws are regenerated from the
+  parent run, the observations, the chain, a recorded `SeedSequence` and the
+  software versions, rather than stored.
+- The single-peak coverage study supports the formulation only; coverage on
+  overlapping peaks (V6) is an acceptance criterion for the implementation.
