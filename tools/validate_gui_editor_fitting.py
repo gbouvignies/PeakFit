@@ -6,6 +6,7 @@ import json
 import platform
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from threading import Event
 from time import perf_counter
 from typing import Any
@@ -15,6 +16,7 @@ import numpy as np
 from PySide6 import QtCore, QtTest, QtWidgets
 from validate_gui_editor import percentiles, rss_mib, settle, wait_until
 
+from peakfit.gui import export_dialog
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.fit_display import dataset_model_plane
 from peakfit.gui.spectrum import read_dataset
@@ -29,7 +31,33 @@ def click(widget):
     QtTest.QTest.mouseClick(widget, QtCore.Qt.MouseButton.LeftButton)
 
 
-def main():  # noqa: PLR0915
+def choose_directory(directory):
+    """Answer the export dialog with a parent directory and its configured evidence default."""
+    return patch.object(
+        export_dialog,
+        "_choose_export_directory",
+        lambda _parent, include_evidence=False, **_kwargs: (str(directory), include_evidence),
+    )
+
+
+def discard_changes():
+    """Answer the unsaved-analysis prompt with Discard changes."""
+    return patch.multiple(
+        QtWidgets.QMessageBox,
+        exec=lambda _dialog: 0,
+        clickedButton=lambda dialog: next(
+            b for b in dialog.buttons() if b.text() == "Discard changes"
+        ),
+    )
+
+
+def main():
+    """Export into a temporary parent directory that outlives the reader check."""
+    with TemporaryDirectory(prefix="peakfit-gui-validation-") as exports:
+        run(Path(exports))
+
+
+def run(exports):  # noqa: PLR0915
     """Use real data and numerical outcomes, with no replayed fit fixture."""
     OUTPUT.mkdir(parents=True, exist_ok=True)
     app = QtWidgets.QApplication([])
@@ -240,11 +268,11 @@ def main():  # noqa: PLR0915
     report["rss_mib"].append(rss_mib())
     settle(50)
     phase[0] = "export"
-    with patch.object(QtWidgets.QFileDialog, "getExistingDirectory", return_value="/tmp"):
+    with choose_directory(exports):
         started = perf_counter()
         w.fitting.export()
         report["export_s"] = perf_counter() - started
-        report["export"] = str(Path("/tmp") / f"dataset-fit-{result.run_id}")
+        report["export"] = f"dataset-fit-{result.run_id}"
         assert result.run_id in w.fitting.exported
     phase[0] = "cancel"
     prior = w.peaks
@@ -261,7 +289,9 @@ def main():  # noqa: PLR0915
     selected = w.peaks[0]
     w.move_peak(selected.id, (selected.positions[0], selected.positions[1] + 0.00001))
     assert not w.fitting.current
-    assert c.comparison_mode == 0
+    # The Outdated run stays compared, explicitly labelled as historical evidence.
+    assert w.fitting.comparison.historical
+    assert c.comparison_result is result
     new_seeds = w.peaks
     started = perf_counter()
     click(w.fit_button)
@@ -271,13 +301,13 @@ def main():  # noqa: PLR0915
     assert w.fitting.result is not None
     assert w.fitting.result.inputs.snapshot.peaks == new_seeds
     phase[0] = "export_refit"
-    with patch.object(QtWidgets.QFileDialog, "getExistingDirectory", return_value="/tmp"):
+    with choose_directory(exports):
         w.fitting.export()
         assert w.fitting.result.run_id in w.fitting.exported
     heartbeat.stop()
     # Reader round-trip verification belongs to the harness, outside the measured
     # application export path. The canonical writer validates before publication.
-    summary = ResultsLoader(Path(report["export"])).load_summary()
+    summary = ResultsLoader(exports / report["export"]).load_summary()
     for loaded, original in zip(summary.clusters, result.outcome.clusters, strict=True):
         assert loaded.cluster_id == original.cluster_id
         if original.analytical_evaluation is not None:
@@ -290,8 +320,9 @@ def main():  # noqa: PLR0915
         for name in sorted({p for p, v in beats})
     }
     (OUTPUT / "measurements.json").write_text(json.dumps(report, indent=2) + "\n")
-    assert window.protect_edits()
-    window.close()
+    with discard_changes():
+        assert window.protect_edits()
+        window.close()
     assert not window.isVisible()
     print(  # noqa: T201
         json.dumps(
