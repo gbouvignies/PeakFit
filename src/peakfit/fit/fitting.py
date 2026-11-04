@@ -164,6 +164,7 @@ def run_fit(
 
     if reporter:
         reporter.info(f"Fitting {len(data.clusters)} clusters with {n_workers} workers.")
+        reporter.info(data.noise_model.description)
 
     # Emit progress start event with total steps
     if progress_callback:
