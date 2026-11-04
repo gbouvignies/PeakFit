@@ -102,6 +102,8 @@ Notable user-facing and architecture changes are recorded here.
 - `peakfit mcmc` now samples a cluster's fitted phase. It previously dropped the
   cluster-shared phase parameter and silently evaluated the likelihood at zero phase,
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.
+- Fixed a crash when a view closed while its background lane was delivering a
+  result: closing a lane now waits for a delivery already emitting.
 
 ### Removed
 

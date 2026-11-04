@@ -489,3 +489,13 @@ Short records of non‑obvious design choices and trade‑offs.
   process and already discarded by the reader (which binds the loaded spectrum).
   It is no longer written. Old projects still open (the reader never read it) and
   older readers accept new ones, so the project version stays 9.0.0.
+
+## 2026-11-04: Close waits for an emitting delivery
+- CI segfaulted twice in `ViewerComputation._deliver` while a test fixture deleted
+  the workspace. A worker thread checked `_closed`, then emitted on the lane while
+  the GUI thread closed it and deleted its owner; emitting on a QObject being
+  destroyed is undefined. `suppress(RuntimeError)` only catches a wrapper already
+  known to be deleted.
+- The closed check and the emit now hold one lock, which `close()` takes to set
+  `_closed`. After `close()` returns no emit is running or can start. The wait is
+  bounded by posting one queued event; the lane never waits for the GUI thread.
