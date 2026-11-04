@@ -9,13 +9,9 @@ import typer
 from rich.console import Group
 from rich.live import Live
 
-from peakfit.cli.commands.mcmc_output import (
-    display_cluster_result,
-    extract_acceptance,
-)
-from peakfit.cli.commands.mcmc_output import (
-    save_chains as save_mcmc_chains,
-)
+from peakfit.cli.commands.mcmc_output import display_posterior
+from peakfit.cli.commands.mcmc_output import save_chains as save_mcmc_chains
+from peakfit.engine.scientific.sampler import SamplerProgress, SamplerSettings
 from peakfit.mcmc.analysis import run_mcmc_analysis
 from peakfit.ui.branding import show_command_summary
 from peakfit.ui.console import (
@@ -86,8 +82,14 @@ def mcmc_command(
     ] = True,
     workers: Annotated[
         int,
-        typer.Option("--workers", help="Parallel workers (-1 = all CPUs)"),
-    ] = -1,
+        typer.Option(
+            "--workers", help="Parallel worker processes (default: serial; -1 = all CPUs)"
+        ),
+    ] = 1,
+    seed: Annotated[
+        int | None,
+        typer.Option("--seed", help="Entropy of the run's SeedSequence (default: fresh)", min=0),
+    ] = None,
     save_chains: Annotated[
         bool,
         typer.Option(
@@ -161,38 +163,28 @@ def mcmc_command(
     result = None
 
     with Live(dashboard, console=console, refresh_per_second=10, transient=True) as live:
-        latest_acceptance: float | None = None
 
-        def on_progress(step: int, total: int, desc: str, acceptance: float | None) -> None:
-            progress.update(task_id, completed=step, total=total, description=desc)
-
-            nonlocal latest_acceptance
-            if step == 0:
-                latest_acceptance = None
-            if acceptance is None:
-                acceptance = extract_acceptance(desc)
-            if acceptance is not None:
-                latest_acceptance = acceptance
-
-            if latest_acceptance is not None:
-                acc_fmt = f"{latest_acceptance:.1%}"
-                acc_style = (
-                    "metric.good"
-                    if _ACCEPTANCE_GOOD[0] <= latest_acceptance <= _ACCEPTANCE_GOOD[1]
-                    else "metric.warn"
-                    if _ACCEPTANCE_BAD[0] <= latest_acceptance <= _ACCEPTANCE_BAD[1]
-                    else "metric.bad"
-                )
-            else:
-                acc_fmt = "..."
-                acc_style = "neutral"
-
+        def on_progress(index: int, total: int, step: SamplerProgress) -> None:
+            progress.update(
+                task_id,
+                completed=step.step,
+                total=step.steps,
+                description=f"Cluster {index}/{total}",
+            )
+            acceptance = step.acceptance
+            acc_style = (
+                "metric.good"
+                if _ACCEPTANCE_GOOD[0] <= acceptance <= _ACCEPTANCE_GOOD[1]
+                else "metric.warn"
+                if _ACCEPTANCE_BAD[0] <= acceptance <= _ACCEPTANCE_BAD[1]
+                else "metric.bad"
+            )
             live.update(
                 Group(
                     create_live_metrics_table(
                         {
-                            "Step": (f"{step}/{total}", "neutral"),
-                            "Acceptance": (acc_fmt, acc_style),
+                            "Step": (f"{step.step}/{step.steps}", "neutral"),
+                            "Acceptance": (f"{acceptance:.1%}", acc_style),
                         }
                     ),
                     progress,
@@ -201,14 +193,16 @@ def mcmc_command(
 
         try:
             result = run_mcmc_analysis(
-                results_dir=results,
+                results,
+                SamplerSettings(
+                    walkers=walkers,
+                    steps=steps,
+                    burn_in=None if auto_burnin else (burn_in or 0),
+                ),
                 target_peaks=peaks,
-                n_walkers=walkers,
-                n_steps=steps,
-                burn_in=burn_in,
-                auto_burnin=auto_burnin,
+                entropy=seed,
                 workers=workers,
-                progress_callback=on_progress,
+                progress=on_progress,
             )
         except Exception as e:
             run_error = e
@@ -223,9 +217,9 @@ def mcmc_command(
 
     info("Sampling complete.")
 
-    # Display results
-    for cluster_res in result.cluster_results:
-        display_cluster_result(cluster_res, verbose)
+    for posterior in result.posteriors:
+        display_posterior(posterior)
+    info(f"Seed {result.entropy}: pass --seed {result.entropy} to reproduce this run.")
 
     if save_chains:
         n_saved = save_mcmc_chains(results, result)

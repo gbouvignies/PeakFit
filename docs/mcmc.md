@@ -3,10 +3,10 @@
 `peakfit mcmc` estimates parameter uncertainty from an existing fit result. It is
 a post-fit workflow, not a fitting optimizer.
 
-[`mcmc-formulation.md`](mcmc-formulation.md) specifies what MCMC will sample and
-report. This page describes the current command, which predates that
-specification: its amplitude intervals leave out the conditional amplitude
-uncertainty, and its R-hat across ensemble walkers is not meaningful (see §9 there).
+[`mcmc-formulation.md`](mcmc-formulation.md) specifies what MCMC samples and
+reports. The command samples the nonlinear parameters as specified. Amplitude
+(intensity) intervals are not reported yet: they are being rebuilt from
+conditional amplitude draws.
 
 ## Basic Workflow
 
@@ -48,16 +48,27 @@ MCMC writes chain files under:
 <run_dir>/chains/cluster_*_chains.h5
 ```
 
-`peakfit plot mcmc` reads those chain files and creates a diagnostics PDF.
+Each file holds the whole chain, burn-in included, with the burn-in length and the
+run's seed. `peakfit plot mcmc` discards the burn-in once and creates a
+diagnostics PDF.
 
 ## Runtime Options
 
-- `--walkers N`: number of MCMC walkers. Default: `32`.
+- `--walkers N`: number of MCMC walkers. Default: `32`. A cluster needs at least
+  twice as many walkers as it has sampled parameters; fewer is an error, not
+  silently raised.
 - `--steps N`: samples per walker. Default: `1000`.
-- `--burn-in N`: manual burn-in. Supplying this disables auto burn-in.
-- `--auto-burnin/--no-auto-burnin`: enable or disable automatic burn-in selection.
-- `--workers N`: parallel workers; `-1` uses all CPUs.
+- `--burn-in N`: manual burn-in. Supplying this disables auto burn-in. It must
+  leave the chain long enough for the checks below.
+- `--auto-burnin/--no-auto-burnin`: automatic burn-in is 5 τ_max of the whole
+  chain.
+- `--seed N`: the run's `SeedSequence` entropy. The same seed, inputs and versions
+  give identical chains. Every run prints the seed it used.
+- `--workers N`: parallel worker processes. Default: serial; `-1` uses all CPUs.
 - `--save-chains/--no-save-chains`: control whether plot-ready chains are written.
+
+Walkers start inside the bounds around the fitted values, spread by a tenth of the
+fit's standard errors; a draw outside the bounds is drawn again, never clipped.
 
 Use small runs for feasibility checks and longer runs for final analysis:
 
@@ -68,15 +79,25 @@ peakfit mcmc "$LATEST_RUN" --walkers 64 --steps 5000
 
 ## Diagnostics
 
-Check the terminal summary and diagnostics PDF before trusting MCMC intervals.
+Each cluster either **passed the convergence checks** or is **provisional**.
+- **Provisional:** the terminal lists the reasons and gives no final intervals.
+- **Passed:** a run is never called "converged". Walkers start near the fitted
+  values, so a distant mode would not be found.
 
-- `R-hat <= 1.01`: strong convergence signal.
-- `R-hat <= 1.05`: often usable, but inspect trace plots.
-- `R-hat > 1.05`: increase steps, inspect bounds, or reconsider the model.
-- Low effective sample size means intervals are unstable; increase `--steps`.
-- Separated or drifting trace plots mean chains have not mixed.
-- Strong corner-plot correlations are common for overlapping peaks, but boundary
-  pileups usually indicate overly tight constraints or non-identifiability.
+A run is provisional when any of these hold:
+- **Too short:** the kept chain is shorter than 50 integrated autocorrelation times
+  (τ), or τ is undefined. Increase `--steps`.
+- **Drift:** the medians of the kept chain's two halves disagree beyond their Monte
+  Carlo error. Increase `--steps` or the burn-in.
+- **Stuck walkers:** a walker accepts under a tenth of the ensemble's median rate.
+- **Exchanged peaks:** two peaks with overlapping position bounds exchange order in
+  some samples. Both peaks' intervals are withheld; their identities are not
+  determined by the data.
+
+R̂ is not reported: ensemble walkers are coupled, so R̂ across them means nothing.
+Each parameter shows τ, an approximate effective sample size (walkers × steps / τ)
+and the fraction of samples At bound. The diagnostics PDF applies the checks that
+need only the chain (length and drift).
 
 ## Practical Guidance
 
@@ -84,5 +105,5 @@ Check the terminal summary and diagnostics PDF before trusting MCMC intervals.
 - Analyze a small peak subset first when exploring.
 - Increase `--steps` before trusting uncertain intervals.
 - Keep `--save-chains` enabled if you want diagnostics plots later.
-- Report walkers, steps, burn-in method, R-hat, effective sample size, and the
+- Report walkers, steps, burn-in, the seed, τ, effective sample size and the
   PeakFit version for scientific work.

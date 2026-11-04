@@ -577,3 +577,29 @@ Short records of non‑obvious design choices and trade‑offs.
 - The existing emcee driver now samples this problem. Its amplitude blobs are still
   â(θ), and walker start, diagnostics and storage are unchanged until PR 23–24. It
   no longer turns evaluation exceptions inside the bounds into −∞.
+
+## 2026-11-04: Sampler driver and ensemble diagnostics (MCMC PR 23a)
+- PR 23 is split: 23a is the driver and diagnostics, 23b the amplitude summaries
+  (§5–§6) with V5 and V6.
+- `engine.scientific.sampler.run_ensemble` takes a picklable log-posterior and one
+  `SeedSequence`. The sequence spawns a sampler stream, which seeds the starts and
+  emcee's moves, and a reserved amplitude-draw stream. A multi-cluster run spawns
+  one sequence per cluster. Cancellation is checked and typed progress reported
+  every step. `--workers` stays opt-in; pool workers receive the log-posterior once
+  through the pool initializer, so steps don't pickle the problem.
+- Starts are N(θ̂, (0.1·σ_fit)²), with 10⁻³ of the bound span when a standard error
+  is missing. They are redrawn until strictly inside the bounds with a finite
+  posterior, never clipped. Fewer than 2 × dimensions walkers is an error.
+- Automatic burn-in is 5 τ_max of the whole chain, discarded once. The kept chain
+  needs ≥ 50 τ_max (emcee's `tol=50`).
+- Stationarity compares the medians of the kept chain's halves. The Monte Carlo
+  error is estimated from the second half: estimated from the first half, it
+  included the drift and let a chain falling from 10⁴ to 0 pass. On a stationary
+  target it raised no false alarm in 40 seeded runs.
+- Peaks with overlapping position bounds that change order along their
+  best-separated axis are reported, and both peaks' per-peak intervals are
+  withheld. On the bundled data, 53N-H and 147N-H (cluster 424) exchange in 59% of
+  samples.
+- The CLI shows medians and intervals at the precision of each posterior standard
+  deviation. `peakfit plot mcmc` shows τ and ESS instead of R̂, and applies the
+  chain-only checks.

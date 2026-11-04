@@ -250,8 +250,11 @@ a distant one, and no diagnostic below can rule that out. Every report says so.
 - **Stationarity:** the kept samples are split into first and second halves in
   time, pooling all walkers. Each parameter's median is compared between halves,
   and a difference larger than three combined Monte Carlo standard errors fails the
-  check. A drifting ensemble is caught this way without treating walkers as
-  independent chains.
+  check.
+  - The error comes from the second half. The first half's own spread would include
+    any drift, and so hide it.
+  - A drifting ensemble is caught this way without treating walkers as independent
+    chains.
 - **Stuck walkers:** acceptance is reported for the whole ensemble and per walker.
   A walker accepting under a tenth of the ensemble's median rate is flagged. This
   is a labelled heuristic.

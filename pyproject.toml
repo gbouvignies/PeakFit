@@ -115,7 +115,6 @@ ignore_imports = [
   "peakfit.engine.types -> peakfit.engine.domain.params_scalar",
   "peakfit.engine.domain.params_scalar -> peakfit.engine.domain.peaks",
   "peakfit.engine.lineshapes.utils -> peakfit.engine.lineshapes.grid",
-  "peakfit.engine.algorithms.mcmc -> peakfit.engine.scientific.sampling",
   "peakfit.gui.editor.persistence -> peakfit.gui.editor.window",
   "peakfit.gui.editor.fitting -> peakfit.gui.editor.workspace",
 ]

@@ -296,7 +296,6 @@ def generate_mcmc_diagnostics(
                 n_chains=chains.shape[0],
                 n_samples=chains_post_burnin.shape[1],
                 thin=stored_thin,
-                diagnostics=None,
             )
             total_plots += _save_pdf_figure_pages(
                 pdf,
