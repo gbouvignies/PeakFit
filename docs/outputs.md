@@ -255,8 +255,11 @@ assumptions do not describe the data. The causes affect the errors differently:
 
 Inspect the residuals before deciding which applies. A reduced chi-squared near 1
 does not validate the errors either. Zero filling and apodization correlate
-neighbouring points: reduced chi-squared stays near 1, yet the errors, computed as
-if every point were independent, are usually too small.
+neighbouring points, which leaves reduced chi-squared near 1, while errors computed
+as if every point were independent can be too small. In a synthetic test with
+lag-1 correlation 0.67, they were 1.66× too small
+([validation](validation/sigma-uncertainties.md)). The size of the effect depends
+on the noise covariance and on the lineshapes.
 
 Degrees of freedom are `max(1, n_observations - n_fitted_parameters)`, which treats
 every spectral sample as independent and counts the nominal `n_peaks × n_series`

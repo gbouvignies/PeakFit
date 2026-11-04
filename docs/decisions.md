@@ -685,6 +685,8 @@ Short records of non‑obvious design choices and trade‑offs.
 - Validation (`docs/validation/sigma-uncertainties.md`):
   - On well-behaved synthetic data, the σ-only errors match the amplitude scatter
     to 6%, and MCMC to 1%.
-  - On the CEST example, both conventions understate the plane-to-plane scatter
-    (2.7× σ-only, 2× rescaled), mainly through correlated noise that χ²ᵣ does not
-    reveal.
+  - On the CEST example, the change shrinks every error by exactly √χ²ᵣ (a median
+    of 1/1.41). The successive-plane differences there contain genuine CEST
+    profile variation and no replicates exist, so they calibrate neither
+    convention. Correlated noise is a measured property of the spectrum, but its
+    effect on these amplitude errors is untested.

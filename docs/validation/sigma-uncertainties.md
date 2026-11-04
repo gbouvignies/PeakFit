@@ -48,46 +48,74 @@ They are no longer multiplied by √max(1, χ²ᵣ). Intensities themselves are 
 
 ## Real spectra
 
-The bundled CEST example (`examples/04-uncertainty-analysis`) has 166 peaks, all with
-χ²ᵣ > 1 (median 2.00, IQR 1.70–2.48). Its intensities are identical under both
-conventions. Each `intensity_err` shrinks by √χ²ᵣ: a median of 1/1.41, and at most
-1/3.09.
+The bundled CEST example (`examples/04-uncertainty-analysis`) has 166 peaks, fitted
+over 131 planes: one unsaturated reference and 130 saturation offsets in 25 Hz steps,
+none repeated.
 
-**Empirical check:** each peak's plane-to-plane scatter is a robust SD of successive
-differences over the 130 saturation planes (25 Hz steps), divided by √2. It is
-independent of the fit's error model.
+### Direct effect of the change (exact)
 
-| | median | IQR |
-|---|---:|---|
-| scatter / σ-only error | 2.72 | 2.53–3.00 |
-| scatter / former rescaled error | 1.95 | |
+- Intensities are identical under both conventions.
+- Every peak has χ²ᵣ > 1 (median 2.00, IQR 1.70–2.48), so every `intensity_err`
+  shrinks by exactly √χ²ᵣ: a median of 1/1.41, and at most 1/3.09.
 
-**The shortfall does not track χ²ᵣ.** The correlation of log χ²ᵣ with log(scatter /
-error) is only 0.18. The rescaling therefore did not correct it; it reduced it by a
-factor unrelated to its cause.
+### Measurements, and what each rests on
 
-**Most of it is correlated noise:**
-- The spectrum's noise is strongly correlated between neighbouring points. Lag-1
-  autocorrelation is 0.77 along ¹⁵N (92 → 256 points, sine bell) and 0.61 along ¹H
-  (768 → 2,048 points, sine bell).
-- Treating points as independent then understates amplitude errors by about 2.4×.
-- σ is close: each plane's own noise is 1.03–1.06 × the global estimate.
-- The median χ²ᵣ of about 2 therefore mostly reflects lineshape misfit, and the
-  former √χ²ᵣ partly offset the correlated-noise shortfall by coincidence.
+| Quantity | Value | Assumptions |
+|---|---|---|
+| Each plane's noise SD / the global σ | 1.03–1.06 | Points with \|x\| < 3σ only, corrected for that truncation as if the noise were Gaussian. |
+| Lag-1 noise autocorrelation, ¹⁵N · ¹H | 0.77 · 0.61 | The same points. Truncation, and signal leaking below the cut, bias it somewhat. Processing: ¹⁵N 92 → 256 points and ¹H 768 → 2,048 points, both sine bell. |
+| Robust SD of successive-plane differences / σ-only error | median 2.72 (IQR 2.53–3.00) | The SD is divided by √2 and taken over the saturation planes. See below for what it contains. |
+| The same / former rescaled error | median 1.95 | As above. |
+| Correlation of log χ²ᵣ with log of that ratio | 0.18 | As above. |
+
+### What these measurements do not establish
+
+- **The successive-difference scatter is not an estimate of amplitude uncertainty.**
+  - Successive planes are different saturation offsets, at which the CEST intensity
+    is expected to change. Their differences therefore contain genuine profile
+    variation as well as noise, in unknown proportion.
+  - A robust statistic limits the effect of a few planes inside the dips, but not of
+    gradual changes.
+  - The 2.72 and 1.95 ratios are thus not a calibration of either convention.
+  - Their weak correlation with χ²ᵣ does not show what χ²ᵣ reflects here.
+- **A correlation-only prediction is an approximation, not a measurement.**
+  - The integrated autocorrelations predict a factor of about 2.4
+    (`integrated_autocorrelation_inflation_approximation` in the JSON). That figure treats
+    each lineshape as broad relative to the correlation length, and the noise as
+    stationary and separable.
+  - The variance of a fitted amplitude actually depends on the noise covariance
+    projected through the cluster's lineshape matrix, (ΦΦᵀ)⁻¹ΦRΦᵀ(ΦΦᵀ)⁻¹.
+  - The prediction's closeness to 2.72 is not evidence that correlated noise
+    explains that ratio.
+- **The cause of χ²ᵣ ≈ 2 is not identified.** σ measures close to each plane's own
+  noise, and correlated noise alone does not raise χ²ᵣ. Lineshape misfit is
+  therefore plausible, but non-Gaussian artifacts or other causes are not excluded.
+
+**What would validate the calibration:**
+- independent replicates, which this series lacks: duplicate planes or a repeated
+  experiment;
+- the projected-covariance calculation, checked on synthetic spectra processed with
+  the same zero filling and apodization.
+
+Neither is part of this change. A draft assessment of correlated noise is on branch
+`correlated-noise-assessment`, awaiting its own review.
 
 ## Reading
 
-- **Well-behaved data:** σ-only errors are correct, and MCMC adds the lineshape
-  uncertainty they omit.
-- **What χ²ᵣ means:** it is a goodness-of-fit diagnostic, not an error correction. A
-  large value can mean underestimated or locally varying σ, model misfit or
-  correlated noise. Only the first is fixed by a larger error.
-- **Zero-filled, apodized spectra:** a χ²ᵣ near 1 does not validate the errors.
-  On this CEST series, both conventions understate the plane-to-plane scatter: by
-  about 2.7× (σ-only) or 2× (former).
-  - For downstream fits that need realistic errors, estimate them from the data
-    themselves, such as duplicate planes or the scatter of a flat baseline.
-  - Modelling correlated noise in PeakFit is a separate scientific question.
+- **Well-behaved synthetic data:** σ-only errors match the observed scatter to 6%,
+  and MCMC adds the lineshape uncertainty they omit.
+- **What χ²ᵣ means:** it is a goodness-of-fit diagnostic, not an error correction.
+  - In the synthetic tests, a large value arose from an underestimated σ and from
+    misfit, and correlated noise left it near 1.
+  - Only an underestimated σ is fixed by a larger error.
+- **This CEST series:** the change lowers every `intensity_err` by √χ²ᵣ, exactly.
+  - This study does not establish how either convention compares with the true
+    uncertainty of these amplitudes.
+  - The synthetic correlated-noise case shows the mechanism by which independent-point
+    errors can be too small without any rise in χ²ᵣ (1.66× there). Its size for this
+    spectrum is untested.
+  - Downstream fits that need calibrated errors should estimate them from replicate
+    data.
 
 Reproduce, with `RUN` a fit of the bundled example:
 

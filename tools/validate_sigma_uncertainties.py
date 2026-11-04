@@ -11,11 +11,16 @@ realizations is compared with the reported error. The cases are:
 - Lorentzian data fitted as Gaussian;
 - correlated noise with the correct marginal σ.
 
-**Real (optional):** for a fitted CEST-like series, the plane-to-plane scatter of
-each peak's intensities is compared with ``intensity_err``. The scatter is a robust
-SD of successive differences over the saturation planes, divided by √2. The
-spectrum's noise autocorrelation predicts the error inflation that correlated
-points cause.
+**Real (optional):** for a fitted CEST-like series, it reports measurements, not a
+calibration:
+- the exact change in ``intensity_err``;
+- each peak's robust SD of successive-plane differences, divided by √2, relative to
+  ``intensity_err``. Successive saturation offsets differ physically, so this mixes
+  genuine profile variation with noise and is not an amplitude uncertainty;
+- the noise level per plane and its lag autocorrelation along each axis;
+- an approximate error inflation from the integrated autocorrelations. It assumes
+  broad lineshapes and stationary, separable noise, and does not project the
+  covariance through the lineshape matrix.
 
     uv run python tools/validate_sigma_uncertainties.py --output /tmp/sigma.json
     uv run python tools/validate_sigma_uncertainties.py --results RUN --spectrum FT2
@@ -209,7 +214,7 @@ def _noise_autocorrelation(data: np.ndarray, sigma: float, axis: int, lags: int 
 
 
 def real(results: Path, spectrum: Path) -> dict:
-    """Plane-to-plane scatter of a fitted series against ``intensity_err``."""
+    """Measurements on a fitted series; see the module docstring for their limits."""
     import nmrglue as ng  # noqa: PLC0415
 
     from peakfit.engine.algorithms.noise import estimate_noise  # noqa: PLC0415
@@ -225,11 +230,11 @@ def real(results: Path, spectrum: Path) -> dict:
             continue
         intensities = np.array([float(r["intensity"]) for r in rows])[1:]  # saturation planes
         steps = np.diff(intensities)
-        scatter = 1.4826 * np.median(np.abs(steps - np.median(steps))) / np.sqrt(2)
+        spread = 1.4826 * np.median(np.abs(steps - np.median(steps))) / np.sqrt(2)
         c = float(rows[0]["reduced_chi_squared"])
         chi2.append(c)
-        sigma_only.append(scatter / error)
-        rescaled.append(scatter / (error * np.sqrt(max(1.0, c))))
+        sigma_only.append(spread / error)
+        rescaled.append(spread / (error * np.sqrt(max(1.0, c))))
     chi2_array, ratio = np.array(chi2), np.array(sigma_only)
     _, data = ng.pipe.read(str(spectrum))
     sigma = float(estimate_noise(data))
@@ -240,13 +245,15 @@ def real(results: Path, spectrum: Path) -> dict:
         "peaks": len(ratio),
         "reduced_chi_squared_median_iqr": np.percentile(chi2_array, [50, 25, 75]).tolist(),
         "fraction_reduced_chi_squared_above_1": float(np.mean(chi2_array > 1.0)),
-        "scatter_over_sigma_only_error_median_iqr": np.percentile(ratio, [50, 25, 75]).tolist(),
-        "scatter_over_rescaled_error_median": float(np.median(rescaled)),
+        "successive_difference_sd_over_sigma_only_error_median_iqr": np.percentile(
+            ratio, [50, 25, 75]
+        ).tolist(),
+        "successive_difference_sd_over_rescaled_error_median": float(np.median(rescaled)),
         "correlation_log_chi2_log_ratio": float(
             np.corrcoef(np.log(chi2_array), np.log(ratio))[0, 1]
         ),
         "noise_lag1_autocorrelation_per_axis": [float(curve[1]) for curve in along],
-        "predicted_error_inflation_from_correlation": float(np.sqrt(np.prod(factors))),
+        "integrated_autocorrelation_inflation_approximation": float(np.sqrt(np.prod(factors))),
         "plane_noise_over_global_sigma_range": [min(planes), max(planes)],
     }
 

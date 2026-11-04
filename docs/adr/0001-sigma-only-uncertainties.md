@@ -32,13 +32,14 @@ navigator, profile and review, and in MCMC output.
   - under lineshape misfit, it overstated the scatter by 41% without representing
     the bias;
   - under correlated noise, it never responded.
-- **The real case the inflation might have served is not served by it.** On the
-  bundled CEST series, the errors understate the plane-to-plane scatter mainly
-  because zero filling and apodization correlate neighbouring points.
-  - That shortfall is about 2.7× with σ-only errors and was about 2× with the
-    inflation.
-  - It is unrelated to χ²ᵣ: the correlation is 0.18.
-  - Its remedy is a noise model, not a χ²ᵣ factor.
+- **Correlated noise is invisible to χ²ᵣ.** Zero filling and apodization correlate
+  neighbouring points. In the synthetic test this left χ²ᵣ near 1 while the errors
+  were too small, so a χ²ᵣ factor cannot address it.
+
+The decision rests on consistency and on these synthetic results. The real-data
+measurements do not calibrate either convention. On the bundled CEST series, the
+successive-plane differences mix genuine profile variation with noise, and no
+replicates are available. They show only the exact size of the change.
 
 Evidence: [validation/sigma-uncertainties.md](../validation/sigma-uncertainties.md).
 
@@ -46,13 +47,16 @@ Evidence: [validation/sigma-uncertainties.md](../validation/sigma-uncertainties.
 
 - **Smaller errors.** `intensity_err` and the GUI error bars are smaller by √χ²ᵣ
   wherever χ²ᵣ > 1. On the CEST example, every peak's error shrinks: by a median of
-  1/1.41, and up to 1/3.1.
+  1/1.41, and up to 1/3.1. Whether the former or the new values are closer to these
+  amplitudes' true uncertainty is not established.
 - **Normalized ratios.** Their propagated σ shrinks too, so more references pass the
   σ_R/|R| ≤ 0.1 reliability limit.
 - **Breaking formats.** Scientific archive 7.0.0, fit JSON 6.0.0, analysis project
   10.0.0. Earlier files are refused; refit, or re-export from a refit. Projects embed
   an archive and record the fit statistics, hence their bump. MCMC records (1.1.0)
   are unchanged: MCMC already used σ alone.
-- **Correlated noise remains.** On zero-filled spectra, σ-only errors understate the
-  actual scatter. Modelling the noise covariance, or estimating noise locally, is a
-  separate decision.
+- **Correlated noise remains.** On zero-filled spectra, independent-point errors can
+  be too small, as the synthetic test shows. The size of the effect on real spectra
+  needs the noise covariance projected through the lineshapes, checked against
+  independent replicates; it is untested here. Modelling the noise covariance, or
+  estimating noise locally, is a separate decision.

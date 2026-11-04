@@ -94,18 +94,18 @@
       2.4802928230199672
     ],
     "fraction_reduced_chi_squared_above_1": 1.0,
-    "scatter_over_sigma_only_error_median_iqr": [
+    "successive_difference_sd_over_sigma_only_error_median_iqr": [
       2.7202320881908904,
       2.5299031610455462,
       2.9976498498594664
     ],
-    "scatter_over_rescaled_error_median": 1.9475290473892208,
+    "successive_difference_sd_over_rescaled_error_median": 1.9475290473892208,
     "correlation_log_chi2_log_ratio": 0.17867822696843044,
     "noise_lag1_autocorrelation_per_axis": [
       0.7716486642039596,
       0.6075091460812895
     ],
-    "predicted_error_inflation_from_correlation": 2.370541234040908,
+    "integrated_autocorrelation_inflation_approximation": 2.370541234040908,
     "plane_noise_over_global_sigma_range": [
       1.034039464365249,
       1.0564167989399442
