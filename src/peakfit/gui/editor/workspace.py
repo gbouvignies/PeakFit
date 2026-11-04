@@ -858,6 +858,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             run = "Not fitted yet. Fit uses every working peak across all planes."
         if fitting.failure:
             run += f"\n{fitting.attempt}: {fitting.failure}"
+        if fitting.recovery_error:
+            run += "\n▲ " + _recovery_note(fitting.recovery_error)
         self.panel.show_analysis(
             self.dataset.path.stem,
             f"{len(self.peaks)} working peaks · {planes} planes · {x} × {y}",
@@ -952,6 +954,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             # Currentness first: a narrow toolbar elides only the tail.
             text = (
                 f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'} · "
+                + ("▲ Not in recovery copy · " if fitting.recovery_error else "")
                 + (fitting.attempt + " · " if fitting.attempt else "")
                 + dataset_summary(result, warnings=False)
             )
@@ -962,6 +965,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.summary.setToolTip(
             text
             + ("\n" + fitting.failure if fitting.failure else "")
+            + ("\n" + _recovery_note(fitting.recovery_error) if fitting.recovery_error else "")
             + "\nClick to open the analysis page at the active run"
         )
 
@@ -1611,6 +1615,14 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.lens.stop()
         self._unexplained_cancel.set()
         self._unexplained_worker.close()
+
+
+def _recovery_note(error: str) -> str:
+    """Why the accepted run would not survive a crash, and what keeps it."""
+    return (
+        f"The recovery copy of this run could not be written ({error}). "
+        "Save the analysis to keep it if PeakFit closes unexpectedly."
+    )
 
 
 def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple]:

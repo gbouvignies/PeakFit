@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import shutil
+from concurrent.futures import CancelledError
 from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
@@ -675,6 +676,93 @@ def test_typed_scientific_archive_has_no_json_arrays(analysis, tmp_path):
         outcome.final_nonlinear_parameters
         == analysis.completion.result.outcome.final_nonlinear_parameters
     )
+
+
+def _completed_fit(window, analysis):
+    """Deliver one real completed fit of the installed dataset to the fitting workflow."""
+    w = window.workspace
+    f = w.fitting
+    f.configuration = PeakFitConfig.model_validate_json(analysis.configuration)
+    prepared = prepare_dataset_fit(w.dataset.spectra, w.peaks, f.configuration)
+    prepared = replace(
+        prepared, snapshot=replace(prepared.snapshot, source_files=w.dataset.sources)
+    )
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    f._submitted_revision = w.edits.revision
+    f.process.state = "completed"
+    f._finished(0, result)
+    return result
+
+
+def _discard_on_close(monkeypatch):
+    monkeypatch.setattr(QtWidgets.QMessageBox, "exec", lambda _dialog: 0)
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox,
+        "clickedButton",
+        lambda dialog: next(b for b in dialog.buttons() if b.text() == "Discard changes"),
+    )
+
+
+def test_a_run_whose_recovery_copy_fails_is_kept_until_saved(qapp, analysis, tmp_path, monkeypatch):
+    window = EditorWindow()
+    window.install_dataset(analysis.dataset)
+    w = window.workspace
+    assert w is not None
+    f = w.fitting
+
+    def disk_full(*_args, **_kwargs):
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr(f._session, "preserve", disk_full)
+    _discard_on_close(monkeypatch)
+    result = _completed_fit(window, analysis)
+    wait_until(lambda: not f.busy, timeout=15)
+    # The validated run is published and recorded; only its crash copy is missing.
+    assert f.result is result, f.failure
+    assert f.current
+    assert f.history[-1] is f.completion
+    assert f.journal[-1]["run_id"] == result.run_id
+    assert f.journal[-1]["status"] == "completed"
+    assert "▲ Not in recovery copy" in w.summary.text()
+    assert "No space left on device" in w.summary.toolTip()
+    assert window.isWindowModified()
+    destination = tmp_path / "Kept.peakfit"
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog, "getSaveFileName", lambda *_a, **_k: (str(destination), "")
+    )
+    assert window.save_analysis_dialog()
+    wait_until(lambda: not window._saving, timeout=20)
+    # Save holds the run, so the warning goes.
+    assert not f.recovery_error
+    assert "recovery copy" not in w.summary.text()
+    assert open_analysis(destination, canceled=lambda: True).completion.result.run_id == (
+        result.run_id
+    )
+    window.close()
+    qapp.processEvents()
+
+
+def test_a_fit_canceled_while_its_recovery_copy_is_written_is_not_published(
+    qapp, analysis, monkeypatch
+):
+    window = EditorWindow()
+    window.install_dataset(analysis.dataset)
+    w = window.workspace
+    assert w is not None
+    f = w.fitting
+
+    def canceled(*_args, **_kwargs):
+        raise CancelledError("Recovery copy canceled")
+
+    monkeypatch.setattr(f._session, "preserve", canceled)
+    _discard_on_close(monkeypatch)
+    _completed_fit(window, analysis)
+    wait_until(lambda: not f.busy, timeout=15)
+    assert f.result is None
+    assert not f.recovery_error
+    assert f.attempt == "Failed during completion · previous result retained"
+    window.close()
+    qapp.processEvents()
 
 
 def test_repeated_fits_beyond_history_limit_have_one_resident_result_and_cleanup_on_close(
