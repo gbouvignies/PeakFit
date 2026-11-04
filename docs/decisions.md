@@ -528,3 +528,28 @@ Short records of non‑obvious design choices and trade‑offs.
   hash identically before and after on the synthetic two-cluster dataset.
 - Moving presentation text out of `workspace.py` was considered and deferred: a
   large diff with no behaviour gain.
+
+## 2026-11-04: MCMC formulation (D1–D4)
+- MCMC samples the profile likelihood of the nonlinear parameters, justified as the
+  integrated likelihood under the conditional Jeffreys amplitude prior, and draws
+  amplitudes from N(â(θ), σ²(ΦΦᵀ)⁻¹) for each sample. The flat-amplitude-prior
+  marginal is rejected: it depends on the shape normalization, its bias grows
+  with the number of planes, and it rewards collinear shapes. At 50 planes and
+  SNR 5 its 68% coverage was about 0.58, against 0.69 for the profile
+  (`docs/mcmc-formulation.md` §3, `tools/validate_mcmc_formulation.py`).
+- Degenerate and near-degenerate shapes: samples are never dropped (that would bias
+  the posterior towards separated peaks). Per-peak amplitude intervals are withheld
+  where a peak loads on a numerically weak direction, and flagged where member
+  amplitudes are strongly correlated; summed amplitudes are reported instead.
+  MCMC intervals are not required to be wider than the analytical ones.
+- One emcee ensemble, with no R̂ across coupled walkers. A kept length of at least
+  50 τ_max is a minimum, not proof of convergence. Stationarity, stuck-walker and
+  label-switching checks make a run provisional instead of trustworthy-looking.
+- Results are conditional on the recorded noise, frozen corrections and the
+  lineshape model; χ²_red is reported, not used to rescale.
+- The record stores θ chains and log-probabilities losslessly with complete
+  summaries that need no source spectrum. Amplitude draws are regenerated from the
+  parent run, the observations, the chain, a recorded `SeedSequence` and the
+  software versions, rather than stored.
+- The single-peak coverage study supports the formulation only; coverage on
+  overlapping peaks (V6) is an acceptance criterion for the implementation.

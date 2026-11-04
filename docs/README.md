@@ -13,6 +13,8 @@ Start with the root [`README.md`](../README.md) and the ready-to-run
   constraints and `[[fitting.steps]]`.
 - [`optimizers.md`](optimizers.md) - the VarPro optimizer and runtime controls.
 - [`mcmc.md`](mcmc.md) - MCMC uncertainty workflow.
+- [`mcmc-formulation.md`](mcmc-formulation.md) - what MCMC samples and reports, and
+  how that is validated.
 
 ## GUI v2 design baseline
 

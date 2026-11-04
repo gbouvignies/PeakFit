@@ -177,4 +177,15 @@ panels of one peak cluster with its profiles and parameters.
 
 **MCMC uncertainty analysis**:
 Post-fit sampling used to estimate parameter uncertainty for fitted peak
-clusters. It is not a fitting optimizer.
+clusters. It is not a fitting optimizer. Its formulation is in
+`docs/mcmc-formulation.md`.
+
+**Profile likelihood**:
+The likelihood of a cluster's nonlinear parameters with the amplitudes at their
+conditional optimum: exp(−½χ²) of the VarPro residual. MCMC samples it; it is the
+integrated likelihood under the conditional Jeffreys amplitude prior.
+
+**Conditional amplitude draw**:
+An amplitude sample drawn, for one sample of the nonlinear parameters, from the
+amplitudes' Gaussian distribution given those parameters. MCMC amplitude intervals
+come from these draws and so include lineshape uncertainty.

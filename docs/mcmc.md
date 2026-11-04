@@ -3,6 +3,11 @@
 `peakfit mcmc` estimates parameter uncertainty from an existing fit result. It is
 a post-fit workflow, not a fitting optimizer.
 
+[`mcmc-formulation.md`](mcmc-formulation.md) specifies what MCMC will sample and
+report. This page describes the current command, which predates that
+specification: its amplitude intervals leave out the conditional amplitude
+uncertainty, and its R-hat across ensemble walkers is not meaningful (see §9 there).
+
 ## Basic Workflow
 
 ```bash
