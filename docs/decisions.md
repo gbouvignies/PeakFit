@@ -690,3 +690,15 @@ Short records of non‑obvious design choices and trade‑offs.
     profile variation and no replicates exist, so they calibrate neither
     convention. Correlated noise is a measured property of the spectrum, but its
     effect on these amplitude errors is untested.
+
+## 2026-11-04: Processing-derived noise model (correlated noise, step 1)
+- `engine.algorithms.noise_correlation` computes each axis's noise correlation from
+  its recorded processing, and a cluster's separable R. `io.readers.spectrum.read_noise_model`
+  reads it from an NMRPipe header (`docs/correlated-noise.md` §2.3).
+  - Supported: `SP` or no apodization, first-point scale, zero fill and first-order
+    phase.
+  - Consistency check: |`APOD` − `TDSIZE`·S/`FTSIZE`| < 1.
+  - Anything else gives "not modelled", with the reason. There is no partial or
+    measured fallback.
+- Not wired in: nothing is stored or published until the sandwich errors are
+  validated (step 2) and published (step 3).
