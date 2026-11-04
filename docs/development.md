@@ -131,7 +131,8 @@ The desktop application keeps the Qt event loop free of scientific and disk work
   validation (`gui.spectrum.read_dataset`), contour geometry and model-plane
   projection run in a `ViewerComputation` lane: one serial background worker per
   owner, with latest-pending requests and revision checks so stale deliveries are
-  dropped.
+  dropped. `close()` waits for a delivery already emitting and no delivery starts
+  after it, so an owner may be deleted as soon as its lanes are closed.
 - Fits and analysis save, open and source verification each run in one disposable
   spawned process through `gui.child_process.run_child`: a `ready` handshake, the
   encoded payload, progress messages, then one result or error record, with the

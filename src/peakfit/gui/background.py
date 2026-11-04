@@ -2,6 +2,7 @@
 
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from contextlib import suppress
+from threading import Lock
 from typing import TYPE_CHECKING
 
 from PySide6 import QtCore
@@ -16,7 +17,9 @@ class ViewerComputation(QtCore.QObject):
     """Keep numerical work off Qt, without a queue of obsolete slider requests.
 
     Calls and result delivery happen on the GUI thread. Worker callbacks only
-    emit a queued signal; they never touch widgets or create Qt graphics.
+    emit a queued signal; they never touch widgets or create Qt graphics. Closing
+    waits for an emit already in progress, so the owner may be deleted once
+    ``close`` returns.
     """
 
     completed = QtCore.Signal(str, int, object)
@@ -24,6 +27,8 @@ class ViewerComputation(QtCore.QObject):
 
     def __init__(self, parent: QtCore.QObject) -> None:
         super().__init__(parent)
+        # Makes the closed check and the emit atomic with respect to close().
+        self._delivery = Lock()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="peakfit-preview")
         self._pending: dict[str, tuple[int, Callable[[], object]]] = {}
         self._busy = False
@@ -59,8 +64,10 @@ class ViewerComputation(QtCore.QObject):
             if not isinstance(error, (CancelledError, WorkerError)):
                 log_failure(f"Background {kind} job", error)
             outcome = error.with_traceback(None)
-        if not getattr(self, "_closed", True):
-            # The owning window can be destroyed between the check and emit.
+        with self._delivery:
+            if self._closed:
+                return
+            # The wrapper may already be gone at interpreter shutdown.
             with suppress(RuntimeError):
                 self._ready.emit(kind, revision, outcome)
 
@@ -77,10 +84,15 @@ class ViewerComputation(QtCore.QObject):
 
     @QtCore.Slot()
     def close(self, finalize=None) -> None:
-        """Do not wait for numerical work while closing a Qt window."""
+        """Do not wait for numerical work while closing a Qt window.
+
+        Only an emit already in progress is waited for (it just posts an event), so
+        no delivery reaches this object or its owner after ``close`` returns.
+        """
         if self._closed:
             return
-        self._closed = True
+        with self._delivery:
+            self._closed = True
         getattr(self, "_pending", {}).clear()
         executor = getattr(self, "_executor", None)
         if executor is not None:
