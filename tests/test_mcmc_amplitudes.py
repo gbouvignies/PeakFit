@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from builders import completed_result, peak_pair
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.scientific.amplitudes import balanced_samples, summarize_amplitudes
 from peakfit.engine.scientific.sampler import SamplerSettings, sample_posterior
@@ -95,7 +96,9 @@ def test_amplitude_draws_are_reproducible_from_the_seed(isolated):
 def test_strongly_correlated_amplitudes_are_flagged_and_summed(separation, flagged):
     cluster, params = peak_pair(separation, noise=0.05)
     config = PeakFitConfig(fitting=FitConfig(lineshape="gaussian"))
-    completed = run_pipeline(config, [cluster], 0.05, params).completed_fit
+    completed = run_pipeline(
+        config, [cluster], 0.05, params, noise_model=not_modelled("synthetic spectrum")
+    ).completed_fit
     posterior = sample_posterior(
         sampling_problem(completed, 1),
         SamplerSettings(walkers=16, steps=2000),

@@ -75,6 +75,7 @@ def restore_result(run, outcome, retained_samples):
         identities,
         tuple(run["shape_names"]),
         outcome.noise,
+        outcome.noise_model,  # as recorded; reopening never re-derives it
         snapshot.contour_level,
         tuple(clusters),
         initial,

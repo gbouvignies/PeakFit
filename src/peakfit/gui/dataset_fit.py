@@ -73,6 +73,7 @@ def compute_dataset_fit(
             prepared.clusters,
             prepared.noise,
             prepared.parameters,
+            noise_model=prepared.noise_model,
         ):
             if isinstance(item, PipelineResult):
                 return DatasetFitAttempt(

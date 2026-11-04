@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from builders import completed_result, two_cluster_dataset, write_as_cli
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.fit import pipeline
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
@@ -70,6 +71,7 @@ def _completed_case(mode, monkeypatch):
         prepared.clusters,
         prepared.noise,
         prepared.parameters,
+        noise_model=not_modelled("synthetic spectrum"),
     )
     result = finish_dataset_fit(prepared, DatasetFitAttempt(completed.completed_fit, (), 1.0))
     completion = dataset_completion(

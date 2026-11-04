@@ -1,10 +1,11 @@
-"""JSON 6.0.0 projection of immutable completed-fit outcomes."""
+"""JSON 7.0.0 projection of immutable completed-fit outcomes."""
 
 from __future__ import annotations
 
 import json
 import math
 from collections.abc import Mapping
+from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -56,6 +57,11 @@ def _summary_document(
         "metadata": _serialize_metadata(metadata),
         "terminal_correction_revision": outcome.terminal_correction_revision,
         "noise": _finite_value(outcome.noise),
+        "noise_model": {
+            "modelled": outcome.noise_model.modelled,
+            "reason": outcome.noise_model.reason,
+            "axes": [asdict(axis) for axis in outcome.noise_model.axes],
+        },
         "final_nonlinear_parameters": [
             _serialize_parameter(parameter) for parameter in outcome.final_nonlinear_parameters
         ],

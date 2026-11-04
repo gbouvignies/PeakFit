@@ -30,6 +30,7 @@ from peakfit.engine.algorithms.evaluation import (
     AnalyticalModelEvaluation,
     evaluate_analytical_model,
 )
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.algorithms.varpro import VarProOptimizer, fit_cluster
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import PeakFitConfig
@@ -84,7 +85,9 @@ def solve(cluster, params, noise, scaling, obs):
 
 def record(cluster, result, initial, noise, seconds, captured):
     """Reuse PR #59 actual-model, conditioning and finite-difference diagnostics."""
-    evaluation = evaluate_analytical_model(cluster, result.params, noise)
+    evaluation = evaluate_analytical_model(
+        cluster, result.params, noise, noise_model=not_modelled("synthetic spectrum")
+    )
     assert isinstance(evaluation, AnalyticalModelEvaluation)
     peak_names = [peak.name for peak in cluster.peaks]
     row = {

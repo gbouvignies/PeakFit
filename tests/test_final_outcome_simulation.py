@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from peakfit.engine.algorithms.evaluation import classify_optimizer_result
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.params_scalar import Parameters
@@ -138,7 +139,14 @@ def _fixture(
         clusters.append(cluster)
         peaks.append(peak)
         results.append(result)
-        evaluations.append(classify_optimizer_result(cluster=cluster, result=result, noise=1.0))
+        evaluations.append(
+            classify_optimizer_result(
+                cluster=cluster,
+                result=result,
+                noise=1.0,
+                noise_model=not_modelled("synthetic spectrum"),
+            )
+        )
 
     params = Parameters.from_peaks(peaks, fixed=False)
     state = FittingState(
@@ -162,6 +170,7 @@ def _fixture(
             evaluations=evaluations,
             correction_snapshot=correction_snapshot,
             n_optimizer_passes=1,
+            noise_model=not_modelled("synthetic spectrum"),
         )
     )
     return SimulationFixture(

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from peakfit.engine.algorithms.linear_algebra import calculate_amplitudes_with_uncertainty
+from peakfit.engine.algorithms.noise_correlation import modelled_correlation
 from peakfit.engine.results import (
     compute_chi_squared,
     compute_degrees_of_freedom,
@@ -16,6 +17,7 @@ from peakfit.engine.results import (
 )
 
 if TYPE_CHECKING:
+    from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.params_scalar import Parameters
     from peakfit.engine.results import FitResult
@@ -96,10 +98,17 @@ def evaluate_analytical_model(
     cluster: Cluster,
     params: Parameters,
     noise: float,
+    noise_model: NoiseModel,
 ) -> AnalyticalEvaluationResult:
-    """Solve amplitudes and derive the model and residuals from the same state."""
+    """Solve amplitudes and derive the model and residuals from the same state.
+
+    Amplitude errors are the sandwich under the noise model's correlation when it is
+    modelled, and assume independent points otherwise; nothing else depends on it.
+    """
     try:
-        return _evaluate_analytical_model(cluster, params, noise)
+        return _evaluate_analytical_model(
+            cluster, params, noise, modelled_correlation(noise_model, cluster.grid_indices)
+        )
     except _InvalidEvaluationError as error:
         return _analytical_failure(cluster, str(error))
 
@@ -108,6 +117,7 @@ def _evaluate_analytical_model(
     cluster: Cluster,
     params: Parameters,
     noise: float,
+    correlation: FloatArray | None,
 ) -> AnalyticalModelEvaluation:
     nonlinear_names = cluster.parameter_names(params)
     nonfinite_names = [name for name in nonlinear_names if not np.isfinite(params[name].value)]
@@ -125,6 +135,7 @@ def _evaluate_analytical_model(
         shapes,
         data,
         noise,
+        correlation,
     )
     model_values, raw_residuals, normalized_residuals = _evaluate_model(
         cluster,
@@ -208,12 +219,14 @@ def _solve_amplitudes(
     shapes: FloatArray,
     data: FloatArray,
     noise: float,
+    correlation: FloatArray | None,
 ) -> tuple[FloatArray, FloatArray, FloatArray]:
     try:
         amplitudes, amplitude_errors, covariance = calculate_amplitudes_with_uncertainty(
             shapes,
             data,
             noise,
+            correlation,
         )
     except (ValueError, np.linalg.LinAlgError) as error:
         raise _InvalidEvaluationError(
@@ -347,13 +360,14 @@ def classify_optimizer_result(
     cluster: Cluster,
     result: FitResult,
     noise: float,
+    noise_model: NoiseModel,
 ) -> FitEvaluation:
     """Classify optimizer convergence independently from numerical usability."""
     unusable_reason = _optimizer_result_failure_reason(cluster, result)
     if unusable_reason is not None:
         return _unusable_fit_evaluation(cluster.cluster_id, unusable_reason)
 
-    analytical = evaluate_analytical_model(cluster, result.params, noise)
+    analytical = evaluate_analytical_model(cluster, result.params, noise, noise_model)
     if isinstance(analytical, AnalyticalEvaluationFailure):
         return _unusable_fit_evaluation(result.cluster_id, analytical.reason)
 

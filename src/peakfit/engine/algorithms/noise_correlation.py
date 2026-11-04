@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
+from peakfit.engine.domain.spectrum import get_dimension_label
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -67,6 +69,23 @@ class NoiseModel:
         """Whether every spectral axis has a recorded, supported processing."""
         return self.reason is None
 
+    @property
+    def description(self) -> str:
+        """One sentence for every report: what the published errors assume."""
+        if not self.modelled:
+            return (
+                f"Noise correlation not modelled ({self.reason}): uncertainties assume "
+                "independent spectral points and can be too small for zero-filled or "
+                "apodized data."
+            )
+        axes = "; ".join(
+            f"{get_dimension_label(i)}: "
+            f"{'sine bell' if a.window == 'sine_bell' else 'no apodization'}, "
+            f"{a.acquired} → {a.transform} points"
+            for i, a in enumerate(self.axes)
+        )
+        return f"Noise correlation modelled from the recorded processing ({axes})."
+
 
 def not_modelled(reason: str) -> NoiseModel:
     """A noise model that falls back to independent points, recording why."""
@@ -92,4 +111,15 @@ def cluster_correlation(model: NoiseModel, grid_indices: Sequence[IntArray]) -> 
     return correlation
 
 
-__all__ = ["AxisProcessing", "NoiseModel", "cluster_correlation", "not_modelled"]
+def modelled_correlation(model: NoiseModel, grid_indices: Sequence[IntArray]) -> FloatArray | None:
+    """R for a cluster when the correlation is modelled; None means independent points."""
+    return cluster_correlation(model, grid_indices) if model.modelled else None
+
+
+__all__ = [
+    "AxisProcessing",
+    "NoiseModel",
+    "cluster_correlation",
+    "modelled_correlation",
+    "not_modelled",
+]

@@ -8,6 +8,7 @@ import numpy as np
 
 from peakfit.cli.commands.fit import _format_review_clusters
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.scientific.final_outcome import (
     FinalAnalyticalEvaluation,
     FinalClusterOutcome,
@@ -48,6 +49,7 @@ def _outcome(
             log_likelihood=None,
             function_evaluations=None,
         ),
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
 

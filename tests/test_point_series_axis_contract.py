@@ -13,6 +13,7 @@ from peakfit.engine.algorithms.evaluation import (
     AnalyticalModelEvaluation,
     evaluate_analytical_model,
 )
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.peaks import Peak
@@ -288,7 +289,9 @@ def test_fit_result_uses_all_observations_and_one_amplitude_per_series() -> None
 
 def test_authoritative_analytical_statistics_use_the_series_axis() -> None:
     cluster, _spectra, params = _axis_reproduction()
-    analytical = evaluate_analytical_model(cluster, params, noise=1.0)
+    analytical = evaluate_analytical_model(
+        cluster, params, noise=1.0, noise_model=not_modelled("synthetic spectrum")
+    )
     assert isinstance(analytical, AnalyticalModelEvaluation)
     statistics = analytical.statistics
 
@@ -315,7 +318,9 @@ def test_authoritative_analytical_statistics_use_the_series_axis() -> None:
 
 def test_reduced_chi_squared_counts_series_axis_degrees_of_freedom() -> None:
     cluster, _spectra, params = _axis_reproduction()
-    analytical = evaluate_analytical_model(cluster, params, noise=1.0)
+    analytical = evaluate_analytical_model(
+        cluster, params, noise=1.0, noise_model=not_modelled("synthetic spectrum")
+    )
     assert isinstance(analytical, AnalyticalModelEvaluation)
     n_observations = N_POINTS * N_SERIES
     n_fitted_params = len(params.get_vary_names()) + len(cluster.peaks) * N_SERIES

@@ -45,14 +45,17 @@ from peakfit.engine.algorithms.linear_algebra import (
     correlated_amplitude_covariance,
     factorize_shapes,
 )
-from peakfit.engine.algorithms.noise_correlation import AxisProcessing, cluster_correlation
+from peakfit.engine.algorithms.noise_correlation import (
+    AxisProcessing,
+    cluster_correlation,
+)
 from peakfit.engine.algorithms.varpro import (
     VarProOptimizer,
     _calculate_errors,
     identifiable_covariance,
 )
 from peakfit.engine.domain.cluster import Cluster
-from peakfit.engine.domain.config import FitConfig, PeakFitConfig
+from peakfit.engine.domain.config import FitConfig, LineshapeName, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import Spectra, SpectralParameters
@@ -124,30 +127,49 @@ class Axis:
         return real / np.sqrt(np.sum(p.weights() ** 2))
 
 
-NITROGEN = Axis(AxisProcessing(32, 128, "sine_bell", 0.4, 0.98, 2.0, phase=180.0), 1500.0, 81.0)
-PROTON = Axis(AxisProcessing(64, 256, "sine_bell", 0.3, 0.98, 2.0, first_point=0.5), 4000.0, 800.0)
+def _chain(power: float | None) -> tuple[Axis, Axis]:
+    """¹⁵N and ¹H processed with a sine bell to ``power``, or without apodization."""
+    if power is None:
+        return (
+            Axis(AxisProcessing(32, 128, "none", phase=180.0), 1500.0, 81.0),
+            Axis(AxisProcessing(64, 256, "none", first_point=0.5), 4000.0, 800.0),
+        )
+    return (
+        Axis(AxisProcessing(32, 128, "sine_bell", 0.4, 0.98, power, phase=180.0), 1500.0, 81.0),
+        Axis(
+            AxisProcessing(64, 256, "sine_bell", 0.3, 0.98, power, first_point=0.5), 4000.0, 800.0
+        ),
+    )
+
+
+SP2, SP1, NO_APOD = _chain(2.0), _chain(1.0), _chain(None)
 WHITE = (
     Axis(AxisProcessing(128, 128, "none"), 1500.0, 81.0),
     Axis(AxisProcessing(256, 256, "none"), 4000.0, 800.0),
 )
-# Separation in (¹⁵N, ¹H) points (None: a single peak), and the axes whose processing
-# the header records and the noise follows. The signal always uses the sine-bell
-# calibration of NITROGEN and PROTON with ``sp2`` lineshapes, so only the noise
-# differs in the white control.
-CASES = {
-    "isolated peak": (None, (NITROGEN, PROTON)),
-    "overlapping pair": ((2.0, 2.0), (NITROGEN, PROTON)),
-    "near-coalescent pair": ((0.4, 0.4), (NITROGEN, PROTON)),
-    "duplicated peak": ((0.0, 0.0), (NITROGEN, PROTON)),
-    "white-noise control (R = I)": ((2.0, 2.0), WHITE),
+# Each case: separation in (¹⁵N, ¹H) points (None: a single peak), the lineshape, the
+# processing of the signal (and of PeakFit's lineshape), and the processing the header
+# records and the noise follows. Only the white control differs between the two.
+CASES: dict[
+    str, tuple[tuple[float, float] | None, LineshapeName, tuple[Axis, Axis], tuple[Axis, Axis]]
+] = {
+    "isolated peak": (None, "sp2", SP2, SP2),
+    "overlapping pair": ((2.0, 2.0), "sp2", SP2, SP2),
+    "isolated peak, sp1": (None, "sp1", SP1, SP1),
+    "overlapping pair, sp1": ((2.0, 2.0), "sp1", SP1, SP1),
+    "isolated peak, no_apod": (None, "no_apod", NO_APOD, NO_APOD),
+    "overlapping pair, no_apod": ((2.0, 2.0), "no_apod", NO_APOD, NO_APOD),
+    "near-coalescent pair": ((0.4, 0.4), "sp2", SP2, SP2),
+    "duplicated peak": ((0.0, 0.0), "sp2", SP2, SP2),
+    "white-noise control (R = I)": ((2.0, 2.0), "sp2", SP2, WHITE),
 }
+CALIBRATED = [case for case in CASES if case.startswith(("isolated", "overlapping"))]
 
 
 def build(case: str, rng: np.random.Generator | None):
     """The spectrum, cluster, true parameters and amplitudes of one realization."""
-    separation, (first, second) = CASES[case]
+    separation, lineshape, signal, (first, second) = CASES[case]
     dic = {"FDDIMORDER": [2.0, 1.0, 3.0, 4.0], **first.header("FDF1"), **second.header("FDF2")}
-    signal = (NITROGEN, PROTON)
     pseudo = SpectralParameters(
         size=PLANES, sw=1.0, obs=1.0, car=0.0, aq_time=1.0, apocode=0, apodq1=0, apodq2=0,
         apodq3=0, p180=False, direct=False, ft=False,
@@ -170,7 +192,8 @@ def build(case: str, rng: np.random.Generator | None):
             float(spectra.spectral_params[0].pts2ppm(centre[0] + d1)),
             float(spectra.spectral_params[1].pts2ppm(centre[1] + d2)),
         ]
-        shapes = create_shapes(spectra, FitConfig(lineshape="sp2"), name, position, ["sp2"] * 2)
+        config = FitConfig(lineshape=lineshape)
+        shapes = create_shapes(spectra, config, name, position, [lineshape] * 2)
         peak = Peak(name, np.array(position), shapes)
         peak.set_cluster_id(1)
         peaks.append(peak)
@@ -195,15 +218,17 @@ def build(case: str, rng: np.random.Generator | None):
 
 
 def realization(case: str, index: int) -> dict:
-    """Fit one realization; return σ-only and sandwich errors and the estimates."""
+    """Fit one realization as PeakFit publishes it; return its errors and estimates."""
     rng = np.random.default_rng([20261104, index, list(CASES).index(case)])
     spectra, cluster, truth, amplitudes = build(case, rng)
     model = read_noise_model(spectra.dic, spectra.data.shape)
     if not model.modelled:
         raise ValueError(model.reason)
     correlation = cluster_correlation(model, cluster.grid_indices)
-    config = PeakFitConfig(fitting=FitConfig(lineshape="sp2"))
-    completed = run_pipeline(config, [cluster], SIGMA, truth.copy()).completed_fit
+    config = PeakFitConfig(fitting=FitConfig(lineshape=CASES[case][1]))
+    completed = run_pipeline(
+        config, [cluster], SIGMA, truth.copy(), noise_model=model
+    ).completed_fit
     outcome = completed.outcome.cluster(1)
     if not outcome.usable or outcome.analytical_evaluation is None:
         return {"usable": False}
@@ -224,13 +249,32 @@ def realization(case: str, index: int) -> dict:
     # The fit's own amplitude covariance at θ̂, for the withholding comparison.
     at_fit = factorize_shapes(problem.cluster.evaluate(problem.parameters))
     evaluation = outcome.analytical_evaluation
+    published_amplitude = SIGMA * np.sqrt(
+        np.diag(correlated_amplitude_covariance(at_fit, correlation))
+    )
+    covariance = evaluation.amplitude_covariance
+    with np.errstate(invalid="ignore", divide="ignore"):
+        sd = np.sqrt(np.diag(covariance))
+        rho = covariance / np.outer(sd, sd)
+    off_diagonal = rho[~np.eye(len(sd), dtype=bool)]
     return {
         "usable": True,
         "names": list(problem.names),
         "estimates": x.tolist(),
         "truth": [truth[n].value for n in problem.names],
-        "published_matches_sigma_only": bool(
-            np.allclose(published, independent, rtol=1e-10, equal_nan=True)
+        # PeakFit publishes the sandwich: nonlinear errors and conditional amplitudes.
+        "published_matches_sandwich": bool(
+            np.allclose(published, sandwich, rtol=1e-10, equal_nan=True)
+            and np.allclose(
+                evaluation.amplitude_standard_errors,
+                published_amplitude,
+                rtol=1e-10,
+                equal_nan=True,
+            )
+        ),
+        "warned": evaluation.uncertainty_warning is not None,
+        "max_abs_amplitude_correlation": (
+            float(np.max(np.abs(off_diagonal))) if off_diagonal.size else 0.0
         ),
         "independent_se": independent.tolist(),
         "sandwich_se": sandwich.tolist(),
@@ -281,7 +325,8 @@ def summarize(case: str, rows: list[dict]) -> dict:
     out: dict = {
         "realizations": len(rows),
         "usable": len(usable),
-        "published_matches_sigma_only": all(r["published_matches_sigma_only"] for r in usable),
+        "published_matches_sandwich": all(r["published_matches_sandwich"] for r in usable),
+        "warned": sum(r["warned"] for r in usable),
     }
     for kind in ("cs", "lw"):
         columns = [j for j, n in enumerate(names) if n.endswith(f".{kind}")]
@@ -326,6 +371,21 @@ def summarize(case: str, rows: list[dict]) -> dict:
             sum(np.sum(r["nonlinear_withheld"][1]) for r in usable)
         ),
     }
+    # Positions of unwarned realizations, by the largest amplitude |ρ| at the fit:
+    # what a reader sees presented without a caution.
+    rho = np.array([r["max_abs_amplitude_correlation"] for r in usable])
+    warned = np.array([r["warned"] for r in usable])
+    positions = [j for j, n in enumerate(names) if n.endswith(".cs")]
+    for label, keep in (
+        ("unwarned", ~warned),
+        ("unwarned_rho_below_0.9", ~warned & (rho < 0.9)),  # noqa: PLR2004
+        ("unwarned_rho_at_least_0.9", ~warned & (rho >= 0.9)),  # noqa: PLR2004
+    ):
+        if keep.any():
+            out[f"positions_{label}"] = _stats(
+                (estimates - truth)[keep][:, positions], sandwich[keep][:, positions]
+            ) | {"realizations": int(keep.sum())}
+    out["max_abs_amplitude_correlation_median"] = float(np.median(rho))
     if case.startswith("white"):
         ratio = sandwich / independent
         finite = np.isfinite(ratio)
@@ -342,9 +402,10 @@ def verdict(report: dict) -> dict:
         withholding = s["withholding"]
         result = {
             "withholding_identical": withholding["amplitude_mismatches"] == 0
-            and withholding["covariance_mismatches"] == 0
+            and withholding["covariance_mismatches"] == 0,
+            "published_is_the_sandwich": s["published_matches_sandwich"],
         }
-        if case in ("isolated peak", "overlapping pair"):
+        if case in CALIBRATED:
             for quantity in ("cs", "lw", "conditional_amplitude"):
                 stats = s[quantity]["sandwich"]
                 n = stats["n"]
@@ -367,18 +428,23 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--realizations", type=int, default=400)
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--cases", nargs="*", choices=list(CASES), default=list(CASES))
+    parser.add_argument(
+        "--first-index", type=int, default=0, help="seed index of the first realization"
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    counts = {
-        case: args.realizations if case in ("isolated peak", "overlapping pair") else 150
-        for case in CASES
-    }
-    jobs = [(case, i) for case in CASES for i in range(counts[case])]
+    counts = {case: args.realizations if case in CALIBRATED else 150 for case in args.cases}
+    jobs = [
+        (case, i)
+        for case in args.cases
+        for i in range(args.first_index, args.first_index + counts[case])
+    ]
     with ProcessPoolExecutor(args.workers, mp_context=get_context("spawn")) as pool:
         rows = list(pool.map(realization, *zip(*jobs, strict=True), chunksize=4))
     report = {
         case: summarize(case, [r for (c, _), r in zip(jobs, rows, strict=True) if c == case])
-        for case in CASES
+        for case in args.cases
     }
     result = {"cases": report, "verdict": verdict(report)}
     text = json.dumps(result, indent=2)

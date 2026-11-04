@@ -717,3 +717,28 @@ Short records of non‑obvious design choices and trade‑offs.
   - conditional amplitudes calibrated even near coalescence, where the nonlinear
     sandwich under-covers.
 - Not wired in: nothing is published until step 3.
+
+## 2026-11-05: Published sandwich errors (correlated noise, step 3; ADR 0002)
+- **The noise model travels with σ.** The CLI and GUI read it from the spectrum
+  header, `run_pipeline` requires it, and `FinalFitOutcome` records it.
+  - Nonlinear and conditional amplitude errors are the sandwich where it is
+    modelled.
+  - Fitted values, σ, reduced χ² and the MCMC sampler are unchanged.
+  - Every test and tool states its noise model explicitly; none defaults to "not
+    modelled".
+- **Formats.** Scientific archive 8.0.0, fit JSON 7.0.0 and analysis project 11.0.0
+  record the noise model; the reader refuses an inconsistent one. A
+  `noise_correlation` column goes in `parameters.csv` and `intensities.csv`.
+  Projects restore the recorded model without re-deriving it.
+- **Statements.** The CLI pre-fit summary, the report, the GUI inspector and the
+  profile note state the noise model. MCMC always states its independent-noise,
+  uncalibrated status; its record is unchanged.
+- **Validation** (`docs/validation/sandwich-errors.md`):
+  - published = sandwich in every realization;
+  - calibrated for `sp1`, `sp2` and `no_apod`;
+  - one recorded `sp1` failure (0.88) was replicated as a fluctuation.
+- **Near coalescence.** 87 of 150 fits carry no warning and cover their positions
+  0.65 · 0.82, through bias; amplitude correlation does not identify them. This is
+  documented as a limitation, and a resolution-based warning is left open.
+- **Golden reference.** Regenerated: fitted values, classifications, warnings and
+  χ² are bit-identical; only the errors changed.

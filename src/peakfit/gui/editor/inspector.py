@@ -170,6 +170,7 @@ def _provenance(cluster: FinalClusterOutcome, result: DatasetFitResult) -> str:
             f"Function evaluations: {provenance.function_evaluations}",
             f"Correction revision: {cluster.correction_revision}",
             f"Statistical noise: {formatting.intensity(result.outcome.noise)} a.u.",
+            result.outcome.noise_model.description,
             f"Run {result.run_id}",
             f"Completed {result.completed_at} · PeakFit {result.software_version}",
         ]

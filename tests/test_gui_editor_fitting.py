@@ -572,6 +572,10 @@ def test_profile_shows_recorded_run_values_and_follows_selection(workspace, scie
     assert f"cluster χ²ᵣ {chi2:.3g}" in panel.note.text()
     assert "scaled" not in panel.note.text()
     assert "never rescaled by χ²ᵣ" in panel.note.toolTip()
+    # The synthetic dataset has no NMRPipe header: its errors say so.
+    assert result.outcome.noise_model.reason == "no NMRPipe processing header"
+    assert "noise correlation not modelled" in panel.note.text()
+    assert result.outcome.noise_model.description in panel.note.toolTip()
     members = {s.assignment for s in profile.series}
     assert members == {names[n] for n in cluster.peak_names}
     snapshot = result.inputs.snapshot

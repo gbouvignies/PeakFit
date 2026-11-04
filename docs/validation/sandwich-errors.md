@@ -1,96 +1,124 @@
 # Sandwich errors with PeakFit's fitting engine
 
-Validation date: 2026-11-04. This is the gate of step 2 in
-[correlated-noise.md](../correlated-noise.md) §11: it must pass before sandwich errors
-are published. It uses `tools/validate_sandwich_errors.py`, with results in
-[`sandwich-errors.json`](sandwich-errors.json).
+Validation dates: 2026-11-04 (step 2) and 2026-11-05 (step 3, the published errors).
+This study is the gate of [correlated-noise.md](../correlated-noise.md) §11, and the
+evidence for [ADR 0002](../adr/0002-processing-derived-sandwich-errors.md). Tool:
+`tools/validate_sandwich_errors.py`. Results: [`sandwich-errors.json`](sandwich-errors.json),
+plus [`sandwich-errors-sp1-replication.json`](sandwich-errors-sp1-replication.json).
 
 ## Set-up
 
-- **Clusters:** 2D pseudo-3D clusters over four planes, drawn with PeakFit's own `sp2`
-  lineshapes in both dimensions. Peak heights are 0.5–1 and σ = 0.02.
-- **Noise:** from the exact, separable processing operators an NMRPipe header
-  describes:
-  - ¹⁵N: 32 → 128 points, sine bell² (off 0.4), P1 180°;
-  - ¹H: 64 → 256 points, sine bell² (off 0.3), first point 0.5.
-- **Correlation:** `read_noise_model` reads that header, and `cluster_correlation`
-  gives R over each 11 × 13 fitting window.
-- **Fits:** each realization is fitted by `run_pipeline`, starting at the truth.
-- **Nonlinear errors:** σ-only errors (identical to those published in every
-  realization) and sandwich errors, both with the bound-crossing rule.
-- **Conditional amplitude errors:** amplitudes solved at the true lineshape, so the
-  comparison is of the conditional error itself.
+- **Clusters:** 2D pseudo-3D clusters over four planes, drawn with PeakFit's own
+  lineshapes. Peak heights are 0.5–1 and σ = 0.02.
+- **Processing:** one chain per lineshape. Signal and noise go through the same chain,
+  and each chain's NMRPipe header records it:
+
+  | Lineshape | ¹⁵N | ¹H |
+  |---|---|---|
+  | `sp2` | 32 → 128 points, sine bell² (off 0.4), P1 180° | 64 → 256 points, sine bell² (off 0.3), first point 0.5 |
+  | `sp1` | as `sp2`, sine bell to the power 1 | as `sp2`, power 1 |
+  | `no_apod` | zero fill ×4, no window | zero fill ×4, no window |
+
+- **Noise:** from the exact, separable processing operators.
+- **Fits:** each realization is fitted by `run_pipeline` with the noise model that
+  `read_noise_model` reads from the header, starting at the truth. Its *published*
+  errors are compared:
+  - nonlinear SEs, and conditional amplitude errors with amplitudes solved at the
+    true lineshape;
+  - against independent-point (σ-only) errors computed for the same fit.
+- **White-noise control:** an `sp2` signal with unprocessed white noise, whose header
+  models R = I.
 
 **Pass criteria, fixed in advance:**
-- For the isolated and overlapping cases, sandwich coverage within 3 binomial SE of
-  68% and 95%, and scatter / SD within 0.9–1.1 for every quantity.
+- For the isolated and overlapping cases of each lineshape, sandwich coverage within
+  3 binomial SE of 68% and 95%, and scatter / SD within 0.9–1.1 for every quantity.
 - Identical covariance withholding in every case.
+- Published errors equal to the sandwich.
 - R = I reproduces σ-only to 10⁻¹⁰.
 
 ## Results
 
 Scatter / median stated SD is given per quantity (range over the parameters, or
-over the peaks and planes); coverage is pooled through z.
+over the peaks and planes); coverage is pooled through z. Each case has 400
+realizations.
 
-| Case (realizations) | Quantity | σ-only scatter/SD · 68% · 95% | Sandwich scatter/SD · 68% · 95% |
+| Case | Quantity | σ-only scatter/SD · 68% · 95% | Published (sandwich) scatter/SD · 68% · 95% |
 |---|---|---|---|
-| Isolated peak (400) | positions | 2.86–3.56 · 0.25 · 0.45 | 1.01–1.08 · 0.65 · 0.95 |
+| Isolated, `sp2` | positions | 2.86–3.56 · 0.25 · 0.45 | 1.01–1.08 · 0.65 · 0.95 |
 | | linewidths | 2.80–3.01 · 0.27 · 0.48 | 1.02–1.04 · 0.65 · 0.95 |
 | | conditional amplitudes | 3.40–3.53 · 0.22 · 0.43 | 0.97–1.01 · 0.69 · 0.96 |
-| Overlapping pair, 2 points apart in each dimension (400) | positions | 2.43–2.57 · 0.30 · 0.56 | 1.00–1.03 · 0.67 · 0.95 |
-| | linewidths | 2.41–2.86 · 0.30 · 0.54 | 0.94–1.02 · 0.68 · 0.95 |
+| Overlapping, `sp2` | positions | 2.43–2.57 · 0.30 · 0.56 | 1.00–1.03 · 0.67 · 0.95 |
+| | linewidths | 2.40–2.86 · 0.30 · 0.54 | 0.94–1.02 · 0.68 · 0.95 |
 | | conditional amplitudes | 3.09–3.53 · 0.24 · 0.44 | 0.92–1.05 · 0.67 · 0.95 |
-| Near-coalescent pair, 0.4 points apart (150) | positions | 3.24–5.94 · 0.24 · 0.44 | 1.22–2.28 · 0.55 · 0.76 |
-| | linewidths | 3.91–6.06 · 0.30 · 0.62 | 1.41–2.19 · 0.77 · 0.98 |
-| | conditional amplitudes | 2.85–3.11 · 0.26 · 0.49 | 0.91–0.99 · 0.71 · 0.96 |
-| White-noise control, R = I (150) | all | identical | identical, to 1.3 × 10⁻¹⁵ |
+| Isolated, `sp1` | positions | 2.44–2.45 · 0.29 · 0.55 | **0.88**–1.00 · 0.69 · 0.97 |
+| | linewidths | 2.41–2.71 · 0.28 · 0.56 | 0.96–1.04 · 0.68 · 0.95 |
+| | conditional amplitudes | 2.84–2.96 · 0.26 · 0.49 | 0.95–0.99 · 0.69 · 0.96 |
+| Overlapping, `sp1` | positions | 2.05–2.09 · 0.36 · 0.65 | 0.97–0.98 · 0.69 · 0.95 |
+| | linewidths | 2.13–2.45 · 0.33 · 0.61 | 0.91–0.99 · 0.71 · 0.95 |
+| | conditional amplitudes | 2.83–2.98 · 0.28 · 0.49 | 0.98–1.03 · 0.67 · 0.95 |
+| Isolated, `no_apod` | positions | 1.93–2.06 · 0.40 · 0.69 | 0.99–1.00 · 0.70 · 0.95 |
+| | linewidths | 1.97–2.00 · 0.38 · 0.68 | 0.98–0.99 · 0.69 · 0.96 |
+| | conditional amplitudes | 2.06–2.18 · 0.36 · 0.64 | 1.00–1.05 · 0.66 · 0.94 |
+| Overlapping, `no_apod` | positions | 1.77–2.02 · 0.40 · 0.68 | 0.92–1.04 · 0.67 · 0.94 |
+| | linewidths | 1.95–2.03 · 0.39 · 0.68 | 0.98–1.02 · 0.69 · 0.95 |
+| | conditional amplitudes | 2.02–2.18 · 0.36 · 0.64 | 0.98–1.06 · 0.67 · 0.95 |
+| White control, R = I (150) | all | identical | identical, to 1.1 × 10⁻¹⁵ |
 
-**Withholding:**
-- The covariance gate was identical under both conventions in every realization of
-  every case. For duplicated peaks, both withheld the nonlinear covariance in 133 of
-  150 realizations, and the amplitude covariance in 132.
-- The bound-crossing rule applies to the published SE. The larger sandwich SE
-  crosses a bound more often: in the near-coalescent case, 98 parameter errors were
-  withheld against 51.
+**Publication and withholding:**
+- In every realization of every case, the published errors were the sandwich.
+- The covariance gate withheld exactly the same realizations under both conventions.
+  For duplicated peaks that was the nonlinear covariance in 134 of 150 realizations,
+  and the amplitude covariance in 133.
+- The bound-crossing rule acts on the published SE, so the larger sandwich SE crosses
+  a bound more often: near coalescence, 112 parameter errors were withheld against
+  69.
 
-**Verdict:** every pre-registered criterion passes.
+**Verdict:** every pre-registered criterion passes except one, in the recorded run.
+"Isolated, `sp1`", ¹⁵N position: scatter / SD was 0.88, below 0.9, with coverage
+0.69 · 0.97.
+- An independent replication with fresh seeds (realizations 400–1,999) gave
+  1.009 and 1.013 (± 0.018) for the two positions. Every criterion passed there.
+- The recorded value is therefore a sampling fluctuation. With about 18 such checks
+  at 400 realizations, the 0.9 bound lies only 2.9 SE from 1.
 
-## Reading
+The recorded failure is kept, not rerun away. The replication reproduces with:
 
-- **Separated and overlapping peaks:** sandwich errors are calibrated for positions,
-  linewidths and conditional amplitudes. σ-only errors understate the scatter
-  2.4–3.6-fold with this processing.
-- **Near-coalescent peaks:**
-  - Conditional amplitude errors stay calibrated.
-  - The nonlinear sandwich under-covers (positions 0.55 · 0.76), because the
-    linearization it rests on fails there. It is better than σ-only (0.24 · 0.44),
-    but not calibrated.
-  - The total spread of the fitted amplitudes is about 10³ × the conditional SD, as
-    the two amplitudes trade off. Conditional errors say nothing about total
-    uncertainty in this regime.
-- **Total against conditional:** with a 2D lineshape fitted over four planes, the
-  jointly fitted amplitudes scatter 1.4 × (isolated) and 2.5 × (overlapping) the
-  conditional sandwich SD. That is the lineshape uncertainty conditional errors
-  exclude by definition.
+```bash
+uv run python tools/validate_sandwich_errors.py --cases "isolated peak, sp1" --first-index 400 --realizations 1600 --output /tmp/sp1.json
+```
 
-## Corrections made before the verdict
+## Near-coalescent peaks and warnings
 
-The first run reported two criteria as failing. Both were errors in the tool's
-measurements; the criteria themselves were unchanged:
-- **Positions:** scatter / SD pooled ¹⁵N and ¹H positions, whose ppm scales differ
-  about eightfold. It is now computed for each parameter. Per parameter it was
-  1.01–1.08 in that first run too, with no outliers (largest |z| 3.2).
-- **Withholding:** the first run compared per-parameter NaNs, which include the
-  bound-crossing rule. That rule is meant to act on the published, larger SE. The
-  criterion concerns the covariance gate, which is now compared directly; bound-rule
-  counts are reported separately.
+The pair is 0.4 points apart (150 realizations, `sp2`). Conditional amplitude errors
+stay calibrated (0.94–1.10 · 0.68 · 0.95). The nonlinear errors do not.
+
+| Realizations | n | Positions: scatter/SD · 68% · 95% |
+|---|---:|---|
+| All | 150 | 1.30–1.54 · 0.53 · 0.74 |
+| With the uncertainty warning | 63 | (warned: errors withheld or flagged) |
+| Without it | 87 | 1.08–1.36 · 0.65 · 0.82 |
+| … with amplitude \|ρ\| < 0.9 | 37 | 1.55–3.33 · 0.37 · 0.67 |
+| … with amplitude \|ρ\| ≥ 0.9 | 50 | 0.56–0.73 · 0.85 · 0.94 |
+
+- **The badly covered fits are biased, not miscalibrated.**
+  - The fit separates the peaks by more than they are: the median fitted separation
+    is 1.9× the true one.
+  - The separated shapes overlap less, so amplitude |ρ| drops and the local errors
+    shrink around the biased solution.
+  - No error formula can repair that.
+- **Amplitude correlation is no warning criterion here.** Flagging |ρ| ≥ 0.9 would
+  catch the 50 unwarned fits that actually over-cover, and miss the 37 that
+  under-cover.
+- **What the documentation now says:** errors for peaks closer than their linewidths
+  are unreliable whether warned or not ([outputs.md](../outputs.md)). Whether to
+  add a warning based on resolution, the fitted separation relative to the
+  linewidth, is an open decision.
 
 ## Scope
 
-- 2D `sp2` clusters on synthetic spectra with the stated processing. Other
-  apodizations are not modelled (§2.3).
-- The fits start at the truth, so this tests local errors and does not search for
-  other optima.
+- Synthetic 2D clusters with the stated processing. Other apodizations are not
+  modelled.
+- The fits start at the truth, so other optima are not searched.
 - Real-data calibration needs replicates (C6), and MCMC is unchanged.
 
 ```bash

@@ -253,7 +253,8 @@ def test_the_record_keeps_each_parent_clusters_reduced_chi_squared(recorded):
     for posterior in record.posteriors:
         note = posterior.noise_convention
         assert f"Parent fit χ²ᵣ {posterior.reduced_chi_squared:.3g}" in note
-        assert "like the fit's analytical errors, use the recorded noise σ" in note
+        assert "independent-noise likelihood" in note
+        assert "not calibrated for correlated noise, even when the convergence" in note
         assert "not rescaled by χ²ᵣ" in note
         assert "√" not in note
     assert {p.reduced_chi_squared > 1.0 for p in record.posteriors} == {True, False}

@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification, classify_optimizer_result
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import (
     FitConfig,
@@ -200,7 +201,12 @@ def _final_outcome_for_json(
         noise=1.0,
     )
     evaluations = [
-        classify_optimizer_result(cluster=cluster, result=result, noise=1.0)
+        classify_optimizer_result(
+            cluster=cluster,
+            result=result,
+            noise=1.0,
+            noise_model=not_modelled("synthetic spectrum"),
+        )
         for cluster, result in zip(fit.clusters, results, strict=True)
     ]
     outcome = finalize_fit(
@@ -215,6 +221,7 @@ def _final_outcome_for_json(
                 ),
             ),
             n_optimizer_passes=1,
+            noise_model=not_modelled("synthetic spectrum"),
         )
     )
     return outcome, fit.spectra, results
@@ -267,7 +274,12 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
         noise=1.0,
     )
     evaluations = [
-        classify_optimizer_result(cluster=cluster, result=terminal, noise=1.0)
+        classify_optimizer_result(
+            cluster=cluster,
+            result=terminal,
+            noise=1.0,
+            noise_model=not_modelled("synthetic spectrum"),
+        )
         for cluster, terminal in zip(fit.clusters, terminal_results, strict=True)
     ]
     pipeline_result = PipelineCompletion(
@@ -281,6 +293,7 @@ def competing_truth(tmp_path: Path) -> CompetingTruth:
             ),
         ),
         n_optimizer_passes=1,
+        noise_model=not_modelled("synthetic spectrum"),
     )
     outcome = finalize_fit(pipeline_result)
     assert pipeline_result.correction_snapshot is not None
@@ -413,7 +426,7 @@ def test_future_contract_persistence_uses_terminal_classification_and_provenance
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     clusters_by_id = {int(cluster["cluster_id"]): cluster for cluster in payload["clusters"]}
 
-    assert payload["schema_version"] == "6.0.0"
+    assert payload["schema_version"] == "7.0.0"
     assert "statistics" in payload
     assert "global_statistics" not in payload
     assert clusters_by_id[11]["classification"] == "converged"
@@ -436,7 +449,7 @@ def test_json_projects_all_converged_outcomes_in_final_identity_order(tmp_path: 
 
     payload = _write_final_outcome_json(outcome, spectra, tmp_path / "fit.json")
 
-    assert payload["schema_version"] == "6.0.0"
+    assert payload["schema_version"] == "7.0.0"
     assert [cluster["cluster_id"] for cluster in payload["clusters"]] == [11, 37, 91]  # type: ignore[index]
     assert all(cluster["classification"] == "converged" for cluster in payload["clusters"])  # type: ignore[index]
     assert all(cluster["analytical_evaluation"] is not None for cluster in payload["clusters"])  # type: ignore[index]
@@ -522,7 +535,7 @@ def test_json_summary_round_trips_classifications_and_distinguishes_absent_evalu
             ),
             "unusable outcomes must not contain an analytical evaluation",
         ),
-        (lambda payload: payload.update(schema_version="3.0.0"), "3.0.0.*6.0.0"),
+        (lambda payload: payload.update(schema_version="3.0.0"), "3.0.0.*7.0.0"),
     ],
 )
 def test_json_schema_rejects_malformed_identity_order_and_outcome_combinations(
@@ -575,6 +588,7 @@ def _run_with_executor(
         data_noise=1.0,
         base_params=fit.params,
         executor=executor,
+        noise_model=not_modelled("synthetic spectrum"),
     )
     return result, completion_order, correction_snapshots
 
@@ -624,6 +638,7 @@ def test_cluster_identity_rejects_duplicate_input_identifiers() -> None:
             data_noise=1.0,
             base_params=fit.params,
             executor=executor,
+            noise_model=not_modelled("synthetic spectrum"),
         )
 
 
@@ -640,6 +655,7 @@ def test_cluster_identity_rejects_missing_optimizer_results() -> None:
             data_noise=1.0,
             base_params=fit.params,
             executor=executor,
+            noise_model=not_modelled("synthetic spectrum"),
         )
 
 
@@ -660,6 +676,7 @@ def test_cluster_identity_rejects_duplicate_optimizer_results() -> None:
             data_noise=1.0,
             base_params=fit.params,
             executor=executor,
+            noise_model=not_modelled("synthetic spectrum"),
         )
 
 
@@ -681,6 +698,7 @@ def test_cluster_identity_rejects_unexpected_optimizer_results() -> None:
             data_noise=1.0,
             base_params=fit.params,
             executor=executor,
+            noise_model=not_modelled("synthetic spectrum"),
         )
 
 
@@ -700,6 +718,7 @@ def test_results_with_other_optimizer_provenance_are_rejected(optimizer_kind) ->
             data_noise=1.0,
             base_params=fit.params,
             executor=executor,
+            noise_model=not_modelled("synthetic spectrum"),
         )
 
 
@@ -723,6 +742,7 @@ def test_cluster_identity_preserves_returned_nonconverged_result() -> None:
         data_noise=1.0,
         base_params=fit.params,
         executor=executor,
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
     outcome = result.completed_fit.outcome.cluster(37)
@@ -744,6 +764,7 @@ def test_cluster_identity_optimizer_exception_aborts_run() -> None:
             data_noise=1.0,
             base_params=fit.params,
             executor=executor,
+            noise_model=not_modelled("synthetic spectrum"),
         )
 
 
@@ -816,6 +837,7 @@ def test_numerical_usability_controls_parameter_merging_and_corrections() -> Non
             data_noise=1.0,
             base_params=fit.params,
             executor=executor,
+            noise_model=not_modelled("synthetic spectrum"),
         )
         parameter_name, original_value, rejected_value = unusable_parameter[0]
         return result, parameter_name, original_value, rejected_value
@@ -911,6 +933,7 @@ def test_correction_snapshots_are_isolated_from_later_mutation() -> None:
         data_noise=1.0,
         base_params=fit.params,
         executor=executor,
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
     final_corrections = {
@@ -955,6 +978,7 @@ def test_pipeline_rejects_a_stale_result_correction_revision() -> None:
             data_noise=1.0,
             base_params=fit.params,
             executor=executor,
+            noise_model=not_modelled("synthetic spectrum"),
         )
 
 
@@ -980,6 +1004,7 @@ def test_usable_nonconverged_results_contribute_to_the_next_correction() -> None
             data_noise=1.0,
             base_params=fit.params,
             executor=executor,
+            noise_model=not_modelled("synthetic spectrum"),
         )
         return next_pass_corrections[0]
 

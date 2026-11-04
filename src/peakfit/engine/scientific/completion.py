@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
     from peakfit.engine.algorithms.evaluation import FitEvaluation
+    from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.state import FittingState
     from peakfit.engine.results import FitResult
@@ -44,6 +45,8 @@ class PipelineCompletion:
 
     state: FittingState
     results: list[FitResult]
+    # The noise correlation the published errors assume; keyword-only, never defaulted.
+    noise_model: NoiseModel = field(kw_only=True)
     evaluations: list[FitEvaluation] = field(default_factory=list)
     correction_snapshot: CorrectionSnapshot | None = None
     n_optimizer_passes: int = 0

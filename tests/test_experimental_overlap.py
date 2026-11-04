@@ -9,6 +9,7 @@ from peakfit.engine.algorithms.evaluation import (
     AnalyticalModelEvaluation,
     evaluate_analytical_model,
 )
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.algorithms.varpro import fit_cluster
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
@@ -34,7 +35,12 @@ def test_experimental_default_keeps_real_objective_and_flags_unreliable_errors(
     assert cluster.data.shape == (n_points, 131)
     assert len(cluster.peaks) == n_peaks
     result = fit_cluster(Parameters.from_peaks(cluster.peaks), cluster, experimental_data.noise)
-    evaluation = evaluate_analytical_model(cluster, result.params, experimental_data.noise)
+    evaluation = evaluate_analytical_model(
+        cluster,
+        result.params,
+        experimental_data.noise,
+        noise_model=not_modelled("synthetic spectrum"),
+    )
     assert isinstance(evaluation, AnalyticalModelEvaluation)
     np.testing.assert_allclose(result.residual, evaluation.normalized_residuals, atol=1e-8)
     assert evaluation.uncertainty_warning is not None
@@ -60,6 +66,11 @@ def test_historical_settings_reproduce_released_local_solution(
             parameter.max = parameter.value + (parameter.max - parameter.value) / 2
     result = fit_cluster(params, cluster, experimental_data.noise)
     assert result.params[f"{name}.F2.cs"].value == pytest.approx(expected_shift, abs=3e-5)
-    evaluation = evaluate_analytical_model(cluster, result.params, experimental_data.noise)
+    evaluation = evaluate_analytical_model(
+        cluster,
+        result.params,
+        experimental_data.noise,
+        noise_model=not_modelled("synthetic spectrum"),
+    )
     assert isinstance(evaluation, AnalyticalModelEvaluation)
     assert evaluation.uncertainty_warning is None

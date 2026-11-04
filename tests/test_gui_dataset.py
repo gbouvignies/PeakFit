@@ -14,6 +14,7 @@ from gui_helpers import wait_until
 from PySide6 import QtCore
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.scientific.simulation import project_final_outcome
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.gui.child_process import encode
@@ -55,6 +56,7 @@ def test_pipeline_parity_immutable_transfer_and_total_projection(tmp_path):
         direct.clusters,
         direct.noise,
         direct.parameters,
+        noise_model=not_modelled("synthetic spectrum"),
     )
     progress = []
     attempt = compute_dataset_fit(deepcopy(prepared), progress.append)

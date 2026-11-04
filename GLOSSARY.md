@@ -164,7 +164,33 @@ or run state.
 
 **Amplitude correlation**:
 The correlation between cluster members' amplitudes derived from the recorded
-amplitude covariance. It is conditional on the fitted lineshape parameters.
+amplitude covariance. It is conditional on the fitted lineshape parameters, and
+follows the sandwich covariance where the noise correlation is modelled.
+
+**Noise correlation**:
+The correlation R between the noise of neighbouring spectral points that
+apodization, zero filling and the Fourier transform create from white
+time-domain noise. Cov = σ²R: σ is the noise level, and R has a unit diagonal.
+
+**Noise model**:
+A run's record of the noise correlation its published errors assume: either
+"modelled", from the processing its NMRPipe header records, or "not modelled",
+with the reason, in which case the errors assume independent points. It changes
+errors only, never fitted values.
+
+**Sandwich error**:
+A standard error from the covariance of the least-squares estimates under
+correlated noise, (JᵀJ)⁻¹JᵀRJ(JᵀJ)⁻¹ scaled by σ². It is first order: exact in the
+locally linear regime.
+
+**Conditional amplitude error**:
+An amplitude's standard error with the fitted lineshape parameters held fixed:
+the published `intensity_err`.
+
+**Total amplitude uncertainty**:
+An amplitude's uncertainty including the variability of the lineshape
+parameters. PeakFit does not publish it analytically; MCMC estimates it under an
+independent-noise likelihood.
 
 **Reference-normalized profile**:
 A display of an intensity profile divided by the mean amplitude of explicitly

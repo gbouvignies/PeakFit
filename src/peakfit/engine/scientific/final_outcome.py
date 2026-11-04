@@ -20,6 +20,7 @@ from peakfit.engine.results import compute_reduced_chi_squared
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
+    from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.params_scalar import Parameter, Parameters
     from peakfit.engine.results import FitResult
@@ -129,6 +130,9 @@ class FinalFitOutcome:
     final_nonlinear_parameters: tuple[FinalParameter, ...]
     terminal_correction_revision: int
     noise: float
+    # The noise correlation the published errors assume: modelled from the recorded
+    # processing, or not modelled (independent points) with the reason.
+    noise_model: NoiseModel
     n_optimizer_passes: int
     n_correction_updates: int
     overall_converged: bool
@@ -223,6 +227,7 @@ def finalize_fit(pipeline_completion: PipelineCompletion) -> FinalFitOutcome:
         ),
         terminal_correction_revision=snapshot.revision,
         noise=noise,
+        noise_model=pipeline_completion.noise_model,
         n_optimizer_passes=pipeline_completion.n_optimizer_passes,
         n_correction_updates=pipeline_completion.n_correction_updates,
         overall_converged=all(

@@ -19,6 +19,7 @@ from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 import numpy as np
 
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
+from peakfit.engine.algorithms.noise_correlation import AxisProcessing, NoiseModel
 from peakfit.engine.scientific.completed import FinalClusterInputs, FinalClusterSamples
 from peakfit.engine.scientific.coordinates import validate_coordinate_table
 from peakfit.engine.scientific.final_outcome import (
@@ -34,7 +35,7 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
-VERSION = "7.0.0"
+VERSION = "8.0.0"
 _RESULT_ARRAYS = (
     "shapes",
     "amplitudes",
@@ -327,6 +328,7 @@ def _read_scientific(path):
     if len({p.name for p in parameters}) != len(parameters):
         raise ValueError("Duplicate scientific parameter identity.")
     raw["statistics"] = FinalFitStatistics(**raw["statistics"])
+    raw["noise_model"] = _noise_model(raw["noise_model"])
     outcome = FinalFitOutcome(
         clusters=tuple(clusters),
         final_nonlinear_parameters=tuple(parameters),
@@ -338,10 +340,43 @@ def _read_scientific(path):
     return outcome, samples, context
 
 
+def _noise_model(record):
+    """The recorded noise correlation: per-axis processing, or why it is not modelled."""
+    record = _record(record, "noise model")
+    if set(record) != {"axes", "reason"}:
+        raise ValueError("Malformed noise model.")
+    axes = tuple(AxisProcessing(**_record(a, "noise-model axis")) for a in record["axes"])
+    return NoiseModel(axes=axes, reason=record["reason"])
+
+
+def _validate_noise_model(model, samples):
+    """Modelled exactly when it has axes, one per spectral coordinate of every sample."""
+    if not isinstance(model, NoiseModel):
+        raise ValueError("Missing noise model.")
+    if model.modelled != bool(model.axes) or (
+        not model.modelled and not (isinstance(model.reason, str) and model.reason)
+    ):
+        raise ValueError("A noise model is modelled with axes, or not modelled with a reason.")
+    for axis in model.axes:
+        if (
+            axis.window not in {"none", "sine_bell"}
+            or axis.acquired < 1
+            or axis.transform < axis.acquired
+            or not all(
+                np.isfinite(v)
+                for v in (axis.offset, axis.end, axis.power, axis.first_point, axis.phase)
+            )
+        ):
+            raise ValueError("Invalid noise-model axis processing.")
+    if model.modelled and any(len(s.grid_indices) != len(model.axes) for s in samples):
+        raise ValueError("The noise model and the sample coordinates disagree.")
+
+
 def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
     """Check identities, dimensions and terminal algebra without a numerical solve."""
     if not np.isfinite(outcome.noise) or outcome.noise <= 0:
         raise ValueError("Recorded statistical noise must be positive and finite.")
+    _validate_noise_model(outcome.noise_model, samples)
     if tuple(s.cluster_id for s in samples) != tuple(c.cluster_id for c in outcome.clusters):
         raise ValueError("Retained sample cluster identities disagree with the outcome.")
     parameters = tuple(

@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from peakfit.engine.algorithms.noise_correlation import modelled_correlation
 from peakfit.engine.algorithms.varpro import fit_cluster
 from peakfit.engine.results import FitResult
 
 if TYPE_CHECKING:
+    from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.config import VarProConfig
     from peakfit.engine.domain.params_scalar import Parameters
@@ -19,8 +21,13 @@ def fit_varpro(
     cluster: Cluster,
     noise: float,
     config: VarProConfig,
+    noise_model: NoiseModel,
 ) -> FitResult:
-    """Optimize one cluster's nonlinear parameters by Variable Projection."""
+    """Optimize one cluster's nonlinear parameters by Variable Projection.
+
+    The errors are the sandwich under the noise model's correlation when it is
+    modelled, and assume independent points otherwise.
+    """
     start_time = perf_counter()
     result = fit_cluster(
         params,
@@ -31,6 +38,7 @@ def fit_varpro(
         xtol=config.xtol,
         gtol=config.gtol,
         verbose=config.verbose,
+        correlation=modelled_correlation(noise_model, cluster.grid_indices),
     )
 
     residual = np.array([result.residual]) if np.shape(result.residual) == () else result.residual

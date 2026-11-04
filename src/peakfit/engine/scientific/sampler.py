@@ -397,11 +397,17 @@ class PosteriorSample:
 
     @property
     def noise_convention(self) -> str:
-        """The parent fit's χ²ᵣ, and the noise σ MCMC and the fit's errors share (§4)."""
+        """The noise model MCMC samples under, and the parent fit's χ²ᵣ (§4).
+
+        MCMC keeps the independent-noise likelihood even when the fit's published
+        errors model the processed noise correlation (``docs/correlated-noise.md``
+        §5.5). The statement does not depend on the run, so it is never omitted.
+        """
         return (
-            f"Parent fit χ²ᵣ {self.reduced_chi_squared:.3g} (goodness of fit). MCMC "
-            "intervals, like the fit's analytical errors, use the recorded noise σ and "
-            "are not rescaled by χ²ᵣ."
+            "MCMC intervals use an independent-noise likelihood with the recorded "
+            "noise σ, not rescaled by χ²ᵣ; they are not calibrated for correlated "
+            "noise, even when the convergence checks pass. "
+            f"Parent fit χ²ᵣ {self.reduced_chi_squared:.3g} (goodness of fit)."
         )
 
     def unreported(self, name: str) -> str | None:

@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import numpy as np
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig, LineshapeName, PeakFitConfig
 from peakfit.engine.domain.fit_steps import FitStep
@@ -122,6 +123,7 @@ def completed_result(formats, save_simulated, detailed=False):
         prepared.clusters,
         prepared.noise,
         prepared.parameters,
+        noise_model=not_modelled("synthetic spectrum"),
     )
     gui = finish_dataset_fit(prepared, DatasetFitAttempt(pipeline.completed_fit, (), 1.0))
     return spectra, config, pipeline, gui
