@@ -36,6 +36,8 @@ _START_SPREAD = 0.1
 # Redraws allowed for one walker's start before giving up.
 _START_ATTEMPTS = 1000
 _NAME_PARTS = 3
+# Fewest kept steps that can be summarized and split into halves.
+_MIN_KEPT = 4
 
 
 @dataclass(frozen=True)
@@ -244,18 +246,33 @@ def diagnose(
 ) -> Diagnosis:
     """Discard burn-in once, then summarize and check the kept chain.
 
-    Without ``burn_in`` it is ``BURN_IN_TAUS`` × τ_max of the whole chain.
+    Without ``burn_in`` it is ``BURN_IN_TAUS`` × τ_max of the whole chain. When that
+    leaves too little chain (a poorly mixing run), the second half is summarized
+    and the run is provisional, saying why. An explicit ``burn_in`` that leaves too
+    little chain is an error.
     """
     steps = run.chain.shape[0]
+    longest = steps - _MIN_KEPT
+    too_short = None
     if burn_in is None:
         with np.errstate(invalid="ignore", divide="ignore"):
             whole = emcee.autocorr.integrated_time(run.chain, tol=0)
         finite = whole[np.isfinite(whole)]
         burn_in = ceil(BURN_IN_TAUS * float(np.max(finite))) if finite.size else 0
-    if not 0 <= burn_in <= steps - 4:
+        if burn_in > longest:
+            too_short = (
+                f"the chain ({steps} steps) is shorter than its automatic burn-in "
+                f"({BURN_IN_TAUS} τ_max = {burn_in} steps); only its second half is "
+                "summarized, as an indication"
+            )
+            burn_in = steps // 2
+    elif not 0 <= burn_in <= longest:
         raise ValueError(
-            f"A burn-in of {burn_in} steps leaves fewer than 4 of the {steps} steps; run longer."
+            f"A burn-in of {burn_in} steps leaves fewer than {_MIN_KEPT} of the {steps} "
+            "steps; run longer."
         )
+    if burn_in > longest:
+        raise ValueError(f"A chain of {steps} steps is too short to summarize; run longer.")
     kept = run.chain[burn_in:]
     tau, reliable = ensemble.autocorrelation_times(kept)
     ess = ensemble.effective_sample_size(kept, tau)
@@ -284,7 +301,7 @@ def diagnose(
         )
         for j, name in enumerate(names)
     )
-    reasons = []
+    reasons = [too_short] if too_short else []
     undefined = [name for name, t in zip(names, tau, strict=True) if not np.isfinite(t)]
     if undefined:
         reasons.append(f"τ is undefined for {', '.join(undefined)}")

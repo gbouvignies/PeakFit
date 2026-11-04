@@ -3,6 +3,7 @@
 from concurrent.futures import CancelledError
 from dataclasses import replace
 
+import emcee
 import numpy as np
 import pytest
 from builders import peak_pair
@@ -11,6 +12,7 @@ from scipy import stats
 from peakfit.engine.diagnostics import ensemble
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.scientific.sampler import (
+    LogPosterior,
     PosteriorSample,
     SamplerSettings,
     diagnose,
@@ -107,6 +109,52 @@ def test_a_burn_in_that_leaves_no_chain_is_refused():
     run, lower, upper = _run(_gaussian(np.eye(1)), [0.0], walkers=8, steps=50)
     with pytest.raises(ValueError, match="run longer"):
         diagnose(run, ("x",), lower, upper, burn_in=48)
+
+
+def test_an_automatic_burn_in_longer_than_the_chain_is_provisional(monkeypatch):
+    # emcee's windowed estimator keeps 5 τ below the chain length in practice, so the
+    # whole-chain estimate is pinned to a poorly mixing value: τ as long as the chain.
+    run, lower, upper = _run(_gaussian(np.eye(1)), [0.0], walkers=8, steps=40)
+    estimate = emcee.autocorr.integrated_time
+
+    def whole_chain_tau(chain, tol=50):
+        if tol == 0:
+            return np.full(chain.shape[2], float(chain.shape[0]))
+        return estimate(chain, tol=tol)
+
+    monkeypatch.setattr(emcee.autocorr, "integrated_time", whole_chain_tau)
+    diagnosis = diagnose(run, ("x",), lower, upper)
+    assert diagnosis.burn_in == 20  # the second half, summarized only as an indication
+    assert diagnosis.reasons[0] == (
+        "the chain (40 steps) is shorter than its automatic burn-in (5 τ_max = 200 "
+        "steps); only its second half is summarized, as an indication"
+    )
+    # An explicit burn-in that leaves too little chain is still the user's error.
+    with pytest.raises(ValueError, match="run longer"):
+        diagnose(run, ("x",), lower, upper, burn_in=38)
+
+
+def test_serial_and_pooled_runs_give_identical_chains(close_pair):
+    log_posterior = LogPosterior(close_pair)
+    scale = np.full(close_pair.start.size, 1e-3)
+
+    def run(workers):
+        return run_ensemble(
+            log_posterior,
+            close_pair.start,
+            scale,
+            close_pair.lower,
+            close_pair.upper,
+            walkers=8,
+            steps=30,
+            seed=np.random.SeedSequence(11),
+            workers=workers,
+        )
+
+    serial, pooled = run(1), run(2)
+    np.testing.assert_array_equal(serial.chain, pooled.chain)
+    np.testing.assert_array_equal(serial.log_probability, pooled.log_probability)
+    np.testing.assert_array_equal(serial.blobs, pooled.blobs)
 
 
 def test_too_few_walkers_are_refused_not_silently_raised():
