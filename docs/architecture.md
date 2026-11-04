@@ -273,8 +273,9 @@ handoff independently of widgets. Reproduction and measured limits are in
 
 ### External-source analysis persistence
 
-`engine.scientific` owns immutable published results, sample identities and pure
-model projection. `io.scientific` owns bounded typed-array serialization;
+`engine.scientific` owns immutable published results, sample identities, pure
+model projection and the posterior MCMC samples (`sampling`, built from a
+`CompletedFit`). `io.scientific` owns bounded typed-array serialization;
 `io.readers.continuation` restores the recorded geometry/likelihood inputs for
 both interfaces and MCMC. `gui.project_results` only adds editor metadata and
 validates the automatic working-coordinate transition. `gui.project` owns atomic

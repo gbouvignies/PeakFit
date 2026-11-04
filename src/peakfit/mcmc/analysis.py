@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from peakfit.engine.algorithms.mcmc import estimate_uncertainties_mcmc
-from peakfit.engine.domain.params_scalar import Parameters
+from peakfit.engine.scientific.sampling import sampling_problem
 from peakfit.io.readers.results import ResultsLoader
 
 if TYPE_CHECKING:
@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from peakfit.engine.algorithms.mcmc import UncertaintyResult
     from peakfit.engine.diagnostics.convergence import ConvergenceDiagnostics
     from peakfit.engine.domain.cluster import Cluster
-    from peakfit.engine.domain.peaks import Peak
     from peakfit.shared.typing import FloatArray
 
 
@@ -56,10 +55,6 @@ class ClusterMCMCResult:
 class MCMCAnalysisResult:
     """Aggregate result for an MCMC uncertainty run."""
 
-    clusters: list[Cluster]
-    params: Parameters
-    noise: float
-    peaks: list[Peak]
     cluster_results: list[ClusterMCMCResult]
 
 
@@ -74,13 +69,18 @@ def run_mcmc_analysis(
     workers: int = 1,
     progress_callback: Callable[[int, int, str, float | None], None] | None = None,
 ) -> MCMCAnalysisResult:
-    """Run MCMC sampling for the results in the given directory."""
-    state = ResultsLoader(Path(results_dir)).load_fitting_state()
-    if state.noise is None:
-        raise ValueError("The fit records no noise level; refit before running MCMC.")
-    noise = state.noise
-    target_clusters = _filter_clusters(state.clusters, target_peaks)
-    if target_peaks and not target_clusters:
+    """Run MCMC sampling for the results in the given directory.
+
+    Only the targeted clusters must be usable; each samples its own posterior.
+    """
+    completed = ResultsLoader(Path(results_dir)).load_completed()
+    peak_set = set(target_peaks or ())
+    target_ids = [
+        c.cluster_id
+        for c in completed.outcome.clusters
+        if not peak_set or peak_set.intersection(c.peak_names)
+    ]
+    if target_peaks and not target_ids:
         raise PeaksNotFoundError(target_peaks)
 
     results: list[ClusterMCMCResult] = []
@@ -91,60 +91,29 @@ def run_mcmc_analysis(
             progress_callback(i, n, msg, acceptance)
 
     callback = _progress_callback if progress_callback is not None else None
-    n_clusters = len(target_clusters)
-    for i_cluster, cluster in enumerate(target_clusters, start=1):
+    n_clusters = len(target_ids)
+    for i_cluster, cluster_id in enumerate(target_ids, start=1):
+        problem = sampling_problem(completed, cluster_id)
         if callback is not None:
             callback(
                 0,
                 n_steps,
-                f"Preparing cluster {i_cluster}/{n_clusters} ({len(cluster.peaks)} peaks)...",
-                None,
-            )
-
-        cluster_params = _create_cluster_params(cluster, state.scalar_params)
-        if callback is not None:
-            callback(
-                0,
-                n_steps,
-                f"Prepared {len(cluster_params)} parameters for cluster {i_cluster}/{n_clusters}",
+                f"Prepared cluster {i_cluster}/{n_clusters} ({len(problem.cluster.peaks)} peaks, "
+                f"{len(problem.names)} parameters)",
                 None,
             )
 
         result = estimate_uncertainties_mcmc(
-            cluster_params,
-            cluster,
-            noise,
+            problem,
             n_walkers=n_walkers,
             n_steps=n_steps,
             burn_in=burn_in_arg,
             workers=workers,
             progress_callback=callback,
         )
-        results.append(ClusterMCMCResult(cluster=cluster, result=result))
+        results.append(ClusterMCMCResult(cluster=problem.cluster, result=result))
 
-    return MCMCAnalysisResult(
-        clusters=target_clusters,
-        params=state.scalar_params,
-        noise=noise,
-        peaks=state.peaks,
-        cluster_results=results,
-    )
-
-
-def _filter_clusters(clusters: list[Cluster], peaks: list[str] | None) -> list[Cluster]:
-    if not peaks:
-        return list(clusters)
-    peak_set = set(peaks)
-    return [cluster for cluster in clusters if any(p.name in peak_set for p in cluster.peaks)]
-
-
-def _create_cluster_params(cluster: Cluster, params_all: Parameters) -> Parameters:
-    """Copy the cluster's parameters, including cluster-shared ones such as phase."""
-    cluster_params = Parameters()
-    for name in cluster.parameter_names(params_all):
-        cluster_params[name] = params_all[name].model_copy(deep=False)
-
-    return cluster_params
+    return MCMCAnalysisResult(cluster_results=results)
 
 
 # =============================================================================

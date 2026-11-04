@@ -33,9 +33,14 @@ MCMC reads:
   `--detailed-evidence` exports. The original peak/plane text files are unnecessary
   for native continuation.
 
-Results without `scientific.npz` are not read; refit them. MCMC starts sampling
-the parent likelihood; it does not resume a chain or RNG state. See
-[storage policy](outputs.md).
+Results without `scientific.npz` are not read; refit them. Each analyzed cluster
+samples its own posterior (`engine.scientific.sampling`):
+- Only the analyzed clusters must be usable.
+- Before sampling, the likelihood at the fitted values must reproduce the recorded
+  chi-squared to a relative 10⁻¹⁰, or the cluster is refused.
+- MCMC does not resume a chain or RNG state.
+
+See [storage policy](outputs.md).
 
 MCMC writes chain files under:
 

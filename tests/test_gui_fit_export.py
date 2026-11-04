@@ -16,6 +16,7 @@ from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.spectrum import verified_source_files
+from peakfit.io.readers.continuation import continuation_state
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.scientific import read_scientific
 
@@ -124,7 +125,7 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
             assert float(row["intensity_err"]) == pytest.approx(
                 evaluation.scaled_amplitude_standard_errors[peak_index], rel=1e-15
             )
-        state = loader.load_fitting_state()
+        state = continuation_state(loader.load_completed())
         assert set(state.scalar_params) == {p.name for p in cluster.final_nonlinear_parameters}
     before = (path / "summary/fit.json").read_bytes()
     with pytest.raises(FileExistsError):

@@ -553,3 +553,27 @@ Short records of non‑obvious design choices and trade‑offs.
   software versions, rather than stored.
 - The single-peak coverage study supports the formulation only; coverage on
   overlapping peaks (V6) is an acceptance criterion for the implementation.
+
+## 2026-11-04: The sampled posterior (MCMC PR 22)
+- `engine.scientific.sampling.sampling_problem(completed, cluster_id)` builds one
+  cluster's posterior from the `CompletedFit`: the fit's geometry, observations and
+  frozen corrections, and the cluster's final parameters (phases included). The
+  likelihood uses `Cluster.evaluate` and `factorize_shapes`, the functions VarPro
+  uses, without the Jacobian work. Building it recomputes χ² at θ̂ and requires the
+  recorded value to a relative 10⁻¹⁰.
+- `conditional_amplitudes` returns the profile log-likelihood and N(â, σ²G⁻¹)
+  from the same factorization. A peak is not determined, and its draws are NaN,
+  when either condition holds:
+  - it loads above √ε on the null space (below the rank cutoff, or omitted by a
+    reduced SVD when there are fewer points than peaks);
+  - weak directions (s ≤ √ε·s₁, where the fit withholds its covariance) carry more
+    than 10⁻⁴ of its conditional variance.
+
+  A loading test alone is not enough: a direction with s/s₁ = 10⁻¹² and a loading of
+  10⁻⁹ contributes about 10⁶ times the variance of a strong one. Draws omit weak
+  directions, understating a kept amplitude's standard deviation by at most
+  0.005%. No invariant prevents a cluster from having fewer points than peaks, so
+  that case is handled rather than assumed away.
+- The existing emcee driver now samples this problem. Its amplitude blobs are still
+  â(θ), and walker start, diagnostics and storage are unchanged until PR 23–24. It
+  no longer turns evaluation exceptions inside the bounds into −∞.

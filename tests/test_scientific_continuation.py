@@ -7,12 +7,11 @@ import numpy as np
 import pytest
 from builders import completed_result, two_cluster_dataset
 
-from peakfit.engine.algorithms.mcmc import _init_mcmc_worker, _log_likelihood_blobs
+from peakfit.engine.scientific.sampling import sampling_problem
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.io.readers.continuation import continuation_state, load_completed, restore_completed
 from peakfit.io.readers.results import ResultsLoader
 from peakfit.io.scientific import read_scientific
-from peakfit.mcmc.analysis import _create_cluster_params
 from peakfit.shared.exceptions import ScientificIntegrityError
 
 
@@ -30,22 +29,24 @@ def test_native_terminal_problem_and_parent_likelihood(tmp_path, detailed):
         np.testing.assert_array_equal(old.corrections, new.corrections)
         np.testing.assert_array_equal(old.corrected_data, new.corrected_data)
         assert [p.name for p in old.peaks] == [p.name for p in new.peaks]
-        parent_params = _create_cluster_params(old, pipeline.continuation_state.scalar_params)
-        native_params = _create_cluster_params(new, state.scalar_params)
-        bounds = [(p.min, p.max) for p in parent_params.values() if p.vary]
-        _init_mcmc_worker(parent_params, old, state.noise, bounds)
-        expected_logp, expected_blob = _log_likelihood_blobs(parent_params.get_vary_values())
-        _init_mcmc_worker(native_params, new, state.noise, bounds)
-        actual_logp, actual_blob = _log_likelihood_blobs(native_params.get_vary_values())
-        assert np.isfinite(actual_logp)
-        assert actual_logp == expected_logp
-        np.testing.assert_array_equal(actual_blob, expected_blob)
+        # The parent's sampled posterior and the reopened one are the same problem.
+        parent = sampling_problem(pipeline.completed_fit, new.cluster_id)
+        native = sampling_problem(reconstructed, new.cluster_id)
+        assert native.names == parent.names
+        np.testing.assert_array_equal(native.start, parent.start)
+        expected = parent.conditional(parent.start)
+        actual = native.conditional(native.start)
+        assert expected is not None
+        assert actual is not None
+        assert np.isfinite(actual.log_likelihood)
+        assert actual.log_likelihood == expected.log_likelihood
+        np.testing.assert_array_equal(actual.mean, expected.mean)
     assert [(p.name, p.value, p.min, p.max, p.vary) for p in state.scalar_params.values()] == [
         (p.name, p.value, p.min, p.max, p.vary) for p in result.outcome.final_nonlinear_parameters
     ]
     if detailed:
         native = load_completed(directory / "scientific.npz")
-        loaded = ResultsLoader(directory).load_fitting_state()
+        loaded = continuation_state(ResultsLoader(directory).load_completed())
         assert (
             native.outcome.terminal_correction_revision
             == result.outcome.terminal_correction_revision
@@ -72,7 +73,7 @@ def test_archive_recording_a_removed_config_key_is_rejected_by_version(
     _, _, _, result = completed_result([], False, True)
     directory = export_fit_result(result, tmp_path / "results")
     archive = directory / "scientific.npz"
-    state = ResultsLoader(directory).load_fitting_state()
+    state = continuation_state(ResultsLoader(directory).load_completed())
     assert state.noise is not None
     assert [p.name for p in state.scalar_params.values()] == [
         p.name for p in result.outcome.final_nonlinear_parameters
@@ -89,7 +90,7 @@ def test_archive_recording_a_removed_config_key_is_rejected_by_version(
         for name, payload in members.items():
             target.writestr(name, payload)
     with pytest.raises(ValueError, match="Unsupported scientific result version"):
-        ResultsLoader(directory).load_fitting_state()
+        ResultsLoader(directory).load_completed()
 
 
 def test_reconstruction_refuses_changed_evaluator_reference(tmp_path):
