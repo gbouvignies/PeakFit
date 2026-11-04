@@ -40,12 +40,13 @@ from peakfit.gui.editor.canvas import (
     signed_geometry,
 )
 from peakfit.gui.editor.labels import ElidedLabel
-from peakfit.gui.fit_display import dataset_model_plane
+from peakfit.gui.fit_display import dataset_model_plane, normalized_residual
 from peakfit.gui.spectrum import display_position, paths_from_geometry
 from peakfit.gui.theme import FONT_CAPTION, color
 
 if TYPE_CHECKING:
     from peakfit.gui.dataset_fit import DatasetFitResult
+    from peakfit.gui.fit_display import ModelPlanes
     from peakfit.gui.peaks import WorkingPeak
     from peakfit.gui.spectrum import Dataset
 
@@ -63,9 +64,10 @@ class ClusterLens(QtWidgets.QWidget):
     placed = QtCore.Signal(object)  # (y, x) ppm of a placement click
     draft_changed = QtCore.Signal(bool)
 
-    def __init__(self, dataset: Dataset) -> None:  # noqa: PLR0915
+    def __init__(self, dataset: Dataset, model_planes: ModelPlanes) -> None:  # noqa: PLR0915
         super().__init__()
         self.setObjectName("lens")
+        self.model_planes = model_planes
         # Match the overview's minimum: a stacked spectral area takes its largest page's.
         self.setMinimumSize(400, 300)
         self.spectra = dataset.spectra
@@ -263,7 +265,6 @@ class ClusterLens(QtWidgets.QWidget):
         plane: int,
         levels: tuple[float, float, int, float],
         grid_indices: tuple[np.ndarray, ...],
-        model_cache=None,
         label: str = "",
         withdrawn: str = "",
         added: frozenset[str] = frozenset(),
@@ -298,7 +299,7 @@ class ClusterLens(QtWidgets.QWidget):
         key = (result.run_id, current, label, withdrawn, plane, levels)
         if key != self._key:
             self._key = key
-            self._request(model_cache)
+            self._request()
         self._place_markers()
 
     def frame(self, grid_indices: tuple[np.ndarray, ...]) -> None:
@@ -368,7 +369,7 @@ class ClusterLens(QtWidgets.QWidget):
 
     # Computation ----------------------------------------------------------------
 
-    def _request(self, model_cache) -> None:
+    def _request(self) -> None:
         self._revision += 1
         self._cancel.set()
         self._cancel = Event()
@@ -389,7 +390,7 @@ class ClusterLens(QtWidgets.QWidget):
         residual_levels = residual_threshold / 3 * _RESIDUAL_LEVELS
         observed = self.spectra.data[plane]
         axes = [axis.model_copy(deep=True) for axis in self.spectra.spectral_params]
-        cached = model_cache.get((result.run_id, plane)) if model_cache is not None else None
+        cached = self.model_planes.get(result.run_id, plane) if comparable else None
 
         def compute():
             experiment = signed_geometry(observed, axes, levels)
@@ -398,9 +399,11 @@ class ClusterLens(QtWidgets.QWidget):
             model = cached or dataset_model_plane(result, axes, plane, cancel=cancel)
             if cancel.is_set():
                 raise RuntimeError("superseded")
-            residual = (observed - model.values) / result.outcome.noise
+            residual = normalized_residual(observed, model.values, result.outcome.noise)
             return {
                 "experiment": experiment,
+                # A plane computed here is shared with the overview and residual search.
+                "computed": None if cached else (result.run_id, plane, model),
                 "model": model.values,
                 "overlay": signed_geometry(model.values, axes, levels),
                 "residual": residual,
@@ -419,6 +422,8 @@ class ClusterLens(QtWidgets.QWidget):
             return
         data = cast("dict[str, Any]", outcome)
         self._data = data
+        if data.get("computed"):
+            self.model_planes.put(*data["computed"])
         experiment = paths_from_geometry(data["experiment"])
         self._add(0, "measured", experiment)
         if data["model"] is None:

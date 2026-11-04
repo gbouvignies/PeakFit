@@ -28,7 +28,7 @@ from peakfit.gui.editor.unexplained import (
     nearest_peak,
     unexplained_regions,
 )
-from peakfit.gui.fit_display import dataset_model_plane
+from peakfit.gui.fit_display import ModelPlanes, dataset_model_plane, normalized_residual
 from peakfit.gui.icons import icon
 from peakfit.gui.peaks import PeakEdits
 from peakfit.gui.project import Analysis, dataset_header
@@ -90,7 +90,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._unexplained_cancel = Event()
         self._unexplained_worker = ViewerComputation(self)
         self._unexplained_worker.completed.connect(self._unexplained_ready)
-        self.canvas = SpectrumCanvas(dataset)
+        # One cache of total-model planes for the overview, lens and residual search.
+        self.model_planes = ModelPlanes()
+        self.canvas = SpectrumCanvas(dataset, self.model_planes)
         decimals = (self.canvas.decimals_x, self.canvas.decimals_y)
         self.navigator = Navigator(
             self.canvas.axis_title(self.canvas.x_axis),
@@ -105,7 +107,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.splitter.setHandleWidth(1)
         self.splitter.addWidget(self.navigator)
         # The spectral area shows the overview canvas or, while open, the cluster lens.
-        self.lens = ClusterLens(dataset)
+        self.lens = ClusterLens(dataset, self.model_planes)
         self.spectral = QtWidgets.QStackedWidget()
         self.spectral.addWidget(self.canvas)
         self.spectral.addWidget(self.lens)
@@ -1149,7 +1151,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         assert result is not None
         observed = self.dataset.spectra.data[plane]
         axes = [axis.model_copy(deep=True) for axis in self.dataset.spectra.spectral_params]
-        cached = self.canvas._model_cache.get((result.run_id, plane))
+        cached = self.model_planes.get(result.run_id, plane)
         peaks = self._native_peaks()
 
         self._unexplained_cancel.set()
@@ -1157,8 +1159,9 @@ class EditorWorkspace(QtWidgets.QWidget):
 
         def compute():
             model = cached or dataset_model_plane(result, axes, plane, cancel=cancel)
-            residual = (observed - model.values) / result.outcome.noise
-            return unexplained_regions(residual, threshold, peaks)
+            residual = normalized_residual(observed, model.values, result.outcome.noise)
+            computed = None if cached else (result.run_id, plane, model)
+            return unexplained_regions(residual, threshold, peaks), computed
 
         self._unexplained = (key, "pending")
         self._unexplained_revision += 1
@@ -1180,10 +1183,11 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _unexplained_ready(self, _kind: str, revision: int, outcome: object) -> None:
         if revision != self._unexplained_revision:
             return
-        self._unexplained = (
-            self._unexplained[0],
-            cast("list[UnexplainedRegion] | Exception", outcome),
-        )
+        if not isinstance(outcome, Exception):
+            outcome, computed = cast("tuple[list[UnexplainedRegion], tuple | None]", outcome)
+            if computed is not None:
+                self.model_planes.put(*computed)
+        self._unexplained = (self._unexplained[0], outcome)
         self._show_unexplained()
         self.panel.reveal_unexplained()
 
@@ -1415,7 +1419,6 @@ class EditorWorkspace(QtWidgets.QWidget):
                 canvas.residual_threshold,
             ),
             grid_indices=samples.grid_indices,
-            model_cache=canvas._model_cache,
         )
 
     def _context_cluster(self, reviews, by_id):

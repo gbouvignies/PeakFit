@@ -263,8 +263,8 @@ def run(exports):  # noqa: PLR0915
     wait_until(lambda: not c.contour_pending, timeout=60)
     report["rapid_40_plane_ms"] = (perf_counter() - started) * 1000
     assert c.plane == 39
-    assert (result.run_id, 39) in c._model_cache
-    report["cache_bytes"] = c.cache_bytes + sum(m.nbytes for m in c._model_cache.values())
+    assert (result.run_id, 39) in c.model_planes.retained()
+    report["cache_bytes"] = c.cache_bytes + c.model_planes.nbytes
     report["rss_mib"].append(rss_mib())
     settle(50)
     phase[0] = "export"

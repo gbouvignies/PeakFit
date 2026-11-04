@@ -230,9 +230,12 @@ The canvas uses the existing `dataset_model_plane` projector: every usable clust
 contributes at every native point. Completed corrected optimizer residuals remain
 immutable. Overlay and signed residual geometry share that native plane; hover
 extracts only a native row/column and never launches projection. Run/plane identity
-and monotonically increasing request revisions reject stale deliveries. Model
-planes have a separate 128 MiB/eight-entry bound; contour geometry remains bounded
-to 32 MiB/eight entries. Experimental/Overlay share a locked intensity scale;
+and monotonically increasing request revisions reject stale deliveries. One
+workspace-owned `fit_display.ModelPlanes` cache, keyed by run and plane and bounded
+to 128 MiB/eight planes, serves the overview, the cluster lens and the unexplained
+signal search: whichever view computes a plane stores it, and the others reuse it.
+Every residual view is `fit_display.normalized_residual` (measured − model, over
+σ_stat). Contour geometry remains bounded to 32 MiB/eight entries. Experimental/Overlay share a locked intensity scale;
 Residual has a separately retained signed scale.
 
 One full accepted scientific result stays resident. Completion validation runs in

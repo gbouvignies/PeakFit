@@ -14,7 +14,9 @@ from gui_helpers import wait_until
 from PySide6 import QtCore, QtTest, QtWidgets
 
 import peakfit.gui.editor.canvas as canvas_module
+import peakfit.gui.editor.lens as lens_module
 import peakfit.gui.editor.review as review_module
+import peakfit.gui.editor.workspace as workspace_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.gui import formatting
@@ -489,7 +491,7 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
     c._contours_ready("model", obsolete, (current_model, []))
     assert c._model is None
     wait_until(lambda: not c.contour_pending)
-    assert all(key[0] == "replacement" for key in c._model_cache)
+    assert all(key[0] == "replacement" for key in c.model_planes.retained())
     residual = (c.spectra.data[2] - c._model.values) / result.outcome.noise
     np.testing.assert_array_equal(c.curve_x.getData()[1], residual[c.iy])
 
@@ -1579,6 +1581,36 @@ def _unexplained_links(w):
         if (row := layout.itemAt(index).layout()) is not None
         and isinstance(widget := row.itemAt(0).widget(), QtWidgets.QPushButton)
     ]
+
+
+def test_views_compute_each_model_plane_once(workspace, scientific, monkeypatch):
+    w, c = workspace, workspace.canvas
+    result = scientific[-1]
+    computed = []
+
+    def counted(run, axes, plane, *, cancel):
+        computed.append(plane)
+        return dataset_model_plane(run, axes, plane, cancel=cancel)
+
+    for module in (canvas_module, lens_module, workspace_module):
+        monkeypatch.setattr(module, "dataset_model_plane", counted)
+    publish(w, result)  # the overview's Overlay computes plane 1
+    wait_until(lambda: not c.contour_pending)
+    assert computed == [0]
+    # The residual search computes plane 3 while the overview shows only the experiment.
+    w.set_mode(0)
+    w.set_plane(3)
+    wait_until(lambda: not c.contour_pending)
+    w.select_peak(None)
+    w.find_unexplained()
+    wait_until(lambda: w._unexplained[1] != "pending")
+    assert computed == [0, 2]
+    # The overview and the lens reuse it: the same immutable plane, not a recomputation.
+    w.set_mode(2)
+    wait_until(lambda: not c.contour_pending)
+    assert c._model is w.model_planes.get(result.run_id, 2)
+    _open_lens(w, result)
+    assert computed == [0, 2]
 
 
 def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # noqa: PLR0915

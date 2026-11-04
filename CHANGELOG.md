@@ -108,6 +108,9 @@ Notable user-facing and architecture changes are recorded here.
   so runs fitted with `--phx`/`--phy` sampled a different model than the fit.
 - Fixed a crash when a view closed while its background lane was delivering a
   result: closing a lane now waits for a delivery already emitting.
+- The overview, the cluster lens and the unexplained-signal search share one
+  bounded cache of total-model planes, so a plane computed by one view is reused by
+  the others instead of recomputed. Displayed values are unchanged.
 
 ### Removed
 
