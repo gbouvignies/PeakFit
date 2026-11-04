@@ -702,3 +702,18 @@ Short records of non‑obvious design choices and trade‑offs.
     measured fallback.
 - Not wired in: nothing is stored or published until the sandwich errors are
   validated (step 2) and published (step 3).
+
+## 2026-11-04: Sandwich covariances (correlated noise, step 2)
+- `linear_algebra.correlated_amplitude_covariance` gives the conditional amplitude
+  sandwich G⁻¹ΦRΦᵀG⁻¹ from the existing factorization, which now keeps its left
+  singular vectors.
+- `varpro.identifiable_covariance(jacobian, correlation)` gives the nonlinear
+  sandwich J⁺(R ⊗ I)J⁺ᵀ through the same SVD gate. Both are withheld exactly where
+  today's covariances are, and R = I reproduces them to round-off.
+- Validated with PeakFit's own fitting engine (`docs/validation/sandwich-errors.md`):
+  - calibrated for isolated and overlapping 2D clusters, where σ-only understates
+    the scatter 2.4–3.6-fold;
+  - identical withholding in every case;
+  - conditional amplitudes calibrated even near coalescence, where the nonlinear
+    sandwich under-covers.
+- Not wired in: nothing is published until step 3.

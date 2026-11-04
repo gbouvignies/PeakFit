@@ -25,6 +25,7 @@ class ShapeProjection:
     directions: np.ndarray  # right singular vectors as rows, in peak space
     covariance: np.ndarray
     rank: int
+    left: np.ndarray  # left singular vectors as columns, in point space
 
     def solve(self, data: np.ndarray) -> np.ndarray:
         """Return the minimum-norm amplitudes for this model space."""
@@ -55,7 +56,24 @@ def factorize_shapes(shapes: np.ndarray) -> ShapeProjection:
             covariance = inverse @ inverse.T
     else:
         covariance = np.full((shapes.shape[0], shapes.shape[0]), np.nan)
-    return ShapeProjection(basis, pinv, singular, vt, covariance, rank)
+    return ShapeProjection(basis, pinv, singular, vt, covariance, rank, q @ u)
+
+
+def correlated_amplitude_covariance(
+    projection: ShapeProjection, correlation: np.ndarray
+) -> np.ndarray:
+    """Conditional amplitude covariance per unit σ² under noise correlation R.
+
+    The least-squares amplitudes' sandwich G⁻¹ΦRΦᵀG⁻¹ = VS⁻¹(UᵀRU)S⁻¹Vᵀ, with
+    Φᵀ = USVᵀ (``docs/correlated-noise.md`` §5.1, §5.4). It is withheld exactly where
+    ``projection.covariance`` is, and equals it when R = I.
+    """
+    n_peaks = projection.covariance.shape[0]
+    if not np.all(np.isfinite(projection.covariance)):
+        return np.full((n_peaks, n_peaks), np.nan)
+    inverse = projection.directions.T / projection.singular_values
+    left = projection.left
+    return inverse @ (left.T @ correlation @ left) @ inverse.T
 
 
 def calculate_amplitudes(shapes: FloatArray, data: FloatArray) -> FloatArray:

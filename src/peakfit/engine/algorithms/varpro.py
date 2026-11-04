@@ -221,10 +221,16 @@ class VarProOptimizer:
         return cast("FloatArray", j_final / self.noise)
 
 
-def _calculate_errors(optimizer: VarProOptimizer, x: FloatArray) -> FloatArray:
-    """Calculate nonlinear parameter standard errors."""
+def _calculate_errors(
+    optimizer: VarProOptimizer, x: FloatArray, correlation: FloatArray | None = None
+) -> FloatArray:
+    """Calculate nonlinear parameter standard errors.
+
+    With ``correlation``, the noise correlation R between the cluster's points, they
+    are the sandwich errors of ``identifiable_covariance``.
+    """
     jacobian = optimizer.compute_jacobian(x)
-    stderrs = np.sqrt(np.diag(identifiable_covariance(jacobian)))
+    stderrs = np.sqrt(np.diag(identifiable_covariance(jacobian, correlation)))
     lower, upper = optimizer.params_template.get_vary_bounds()
     # Symmetric local errors are not meaningful at a constrained optimum.
     active = (np.isfinite(lower) & np.isclose(x, lower, rtol=0, atol=1e-7)) | (
@@ -234,13 +240,21 @@ def _calculate_errors(optimizer: VarProOptimizer, x: FloatArray) -> FloatArray:
     return stderrs
 
 
-def identifiable_covariance(jacobian: np.ndarray) -> np.ndarray:
+def identifiable_covariance(
+    jacobian: np.ndarray, correlation: np.ndarray | None = None
+) -> np.ndarray:
     """Noise-based local covariance; withhold the joint result near rank loss.
 
     Column scaling removes parameter-unit effects before the rank/conditioning
     check. No normal equations and no covariance pseudoinverse are used. The
     sqrt(epsilon) cutoff avoids publishing a covariance that loses all useful
     precision when the information matrix squares the condition number.
+
+    ``jacobian`` is the noise-scaled VarPro Jacobian, rows ordered (point, plane) with
+    the plane fastest. Given the noise correlation R between points (the same for
+    every plane), the result is the least-squares sandwich J⁺(R ⊗ I)J⁺ᵀ
+    (``docs/correlated-noise.md`` §5.3). It is withheld exactly where the
+    independent covariance is, and equals it when R = I.
     """
     n_params = jacobian.shape[1]
     unavailable = np.full((n_params, n_params), np.nan)
@@ -248,13 +262,18 @@ def identifiable_covariance(jacobian: np.ndarray) -> np.ndarray:
     if jacobian.shape[0] < n_params or not np.all(np.isfinite(scales) & (scales > 0)):
         return unavailable
     try:
-        _, singular, vt = np.linalg.svd(jacobian / scales, full_matrices=False)
+        u, singular, vt = np.linalg.svd(jacobian / scales, full_matrices=False)
     except np.linalg.LinAlgError:
         return unavailable
     if singular[-1] <= np.sqrt(np.finfo(float).eps) * singular[0]:
         return unavailable
     inverse = (vt.T / singular) / scales[:, None]
-    return inverse @ inverse.T
+    if correlation is None:
+        return inverse @ inverse.T
+    n_points = correlation.shape[0]
+    by_point = u.reshape(n_points, jacobian.shape[0] // n_points, n_params)
+    middle = np.einsum("asi,ab,bsj->ij", by_point, correlation, by_point, optimize=True)
+    return inverse @ middle @ inverse.T
 
 
 def fit_cluster(
