@@ -242,11 +242,11 @@ def realization(case: str, index: int) -> dict:
     problem = sampling_problem(completed, 1)
     optimizer = VarProOptimizer(problem.cluster, list(problem.names), problem.parameters, SIGMA)
     x = problem.start
-    independent = _calculate_errors(optimizer, x)
+    independent = _calculate_errors(optimizer, x, None)
     sandwich = _calculate_errors(optimizer, x, correlation)
     jacobian = optimizer.compute_jacobian(x)
     covariance_withheld = [
-        bool(np.isnan(identifiable_covariance(jacobian)).any()),
+        bool(np.isnan(identifiable_covariance(jacobian, None)).any()),
         bool(np.isnan(identifiable_covariance(jacobian, correlation)).any()),
     ]
     published = np.array([problem.parameters[n].stderr for n in problem.names])

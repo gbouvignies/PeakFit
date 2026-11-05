@@ -331,7 +331,7 @@ by **Export results…**: computed with the fitted lineshape parameters held fix
 one σ per peak for every plane, never rescaled by χ²ᵣ. Where the run models the
 processed noise correlation they are the sandwich errors; otherwise they assume
 independent points. The note beside the plot says which, with the cluster's χ²ᵣ
-as a goodness-of-fit diagnostic, and its tooltip gives the noise model in full
+as a normalized residual diagnostic, and its tooltip gives the noise model in full
 ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)). The
 inspector's provenance states it once for the run.
  They can underestimate the uncertainty of overlapping peaks; warned

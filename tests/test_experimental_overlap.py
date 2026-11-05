@@ -34,7 +34,9 @@ def test_experimental_default_keeps_real_objective_and_flags_unreliable_errors(
     cluster = next(c for c in experimental_data.clusters if c.cluster_id == cluster_id)
     assert cluster.data.shape == (n_points, 131)
     assert len(cluster.peaks) == n_peaks
-    result = fit_cluster(Parameters.from_peaks(cluster.peaks), cluster, experimental_data.noise)
+    result = fit_cluster(
+        Parameters.from_peaks(cluster.peaks), cluster, experimental_data.noise, correlation=None
+    )
     evaluation = evaluate_analytical_model(
         cluster,
         result.params,
@@ -73,7 +75,7 @@ def test_historical_settings_reach_their_local_solution(
         else:
             parameter.min = parameter.value - (parameter.value - parameter.min) / 2
             parameter.max = parameter.value + (parameter.max - parameter.value) / 2
-    result = fit_cluster(params, cluster, experimental_data.noise)
+    result = fit_cluster(params, cluster, experimental_data.noise, correlation=None)
     assert result.params[f"{name}.F2.cs"].value == pytest.approx(expected_shift, abs=3e-5)
     evaluation = evaluate_analytical_model(
         cluster,

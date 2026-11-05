@@ -88,14 +88,14 @@ def calculate_amplitudes_with_uncertainty(
     shapes: FloatArray,
     data: FloatArray,
     noise: float,
-    correlation: FloatArray | None = None,
+    correlation: FloatArray | None,
 ) -> tuple[FloatArray, FloatArray, FloatArray]:
     """Solve amplitudes with noise-based, conditional standard errors.
 
     These errors condition on the nonlinear parameters. They do not include
     uncertainty in fitted positions or linewidths. With ``correlation``, the noise
     correlation R between the points, the covariance is the sandwich
-    σ²G⁻¹ΦRΦᵀG⁻¹; without it, σ²G⁻¹.
+    σ²G⁻¹ΦRΦᵀG⁻¹; with None, the points are independent and it is σ²G⁻¹.
     """
     if not np.all(np.isfinite(shapes)) or not np.all(np.isfinite(data)):
         return _nan_amplitude_solution(shapes, data)

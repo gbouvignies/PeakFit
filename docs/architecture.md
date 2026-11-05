@@ -353,9 +353,9 @@ Ten full runs and protected evidence remain on disk; older entries retain exact
 coordinates, fitted tables/errors/bounds, submitted parameters/settings and concise
 diagnostics/statistics, explicitly without sample/profile capabilities. The 1 GiB
 historical budget excludes active/protected evidence. New writes use project
-schema 13.0.0, always referencing external sources; earlier project formats are
+schema 14.0.0, always referencing external sources; earlier project formats are
 explicitly rejected.
-The scientific archive is at 10.0.0; its recorded configuration changes as
+The scientific archive is at 11.0.0; its recorded configuration changes as
 configuration keys are removed (see [outputs](outputs.md)). Explicit JSON remains a derived
 optional scientific export, shared by both interfaces. See
 [external-project validation](validation/external-projects.md) for measured sizes,

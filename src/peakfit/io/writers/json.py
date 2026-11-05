@@ -1,4 +1,4 @@
-"""JSON 8.0.0 projection of immutable completed-fit outcomes."""
+"""JSON 9.0.0 projection of immutable completed-fit outcomes."""
 
 from __future__ import annotations
 
@@ -140,9 +140,6 @@ def _serialize_evaluation(evaluation: FinalAnalyticalResult) -> dict[str, Any]:
             "n_fitted_parameters": evaluation.statistics.n_fitted_parameters,
             "degrees_of_freedom": evaluation.statistics.degrees_of_freedom,
             "reduced_chi_squared": _finite_value(evaluation.statistics.reduced_chi_squared),
-            "aic": _finite_value(evaluation.statistics.aic),
-            "bic": _finite_value(evaluation.statistics.bic),
-            "log_likelihood": _finite_value(evaluation.statistics.log_likelihood),
         },
     }
 
@@ -173,9 +170,6 @@ def _serialize_final_statistics(statistics: FinalFitStatistics) -> dict[str, Any
         "n_observations": statistics.n_observations,
         "n_fitted_parameters": statistics.n_fitted_parameters,
         "degrees_of_freedom": statistics.degrees_of_freedom,
-        "aic": _optional_finite_value(statistics.aic),
-        "bic": _optional_finite_value(statistics.bic),
-        "log_likelihood": _optional_finite_value(statistics.log_likelihood),
         "function_evaluations": statistics.function_evaluations,
     }
 

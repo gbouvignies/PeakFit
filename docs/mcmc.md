@@ -129,7 +129,8 @@ them.
   - The fit's analytical errors do model that correlation where the run's noise
     model is "modelled" ([correlated-noise.md](correlated-noise.md)).
   - The terminal and the report page state this every time, with the parent
-    cluster's χ²ᵣ as a goodness-of-fit diagnostic.
+    cluster's χ²ᵣ as a normalized residual diagnostic
+    ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)).
 - **Wider or narrower:** MCMC intervals include the lineshape uncertainty that the
   fit's conditional errors (`intensity_err`) exclude, but not the noise correlation.
   On processed data they can therefore be narrower than the published errors. That

@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**10.0.0**, fit JSON **8.0.0**, analysis project **13.0.0** and MCMC record **1.1.0**.
+**11.0.0**, fit JSON **9.0.0**, analysis project **14.0.0** and MCMC record **1.1.0**.
 
 ## Default scientific export
 
@@ -202,7 +202,7 @@ excluding source plane 1 from values `[2, 0, 2]` produces retained indices `[0, 
 source indices `[0, 2]` and values `[2, 2]`. Both interfaces pass the actual source
 mapping through the shared writer. Low-level projection calls omitting a mapping
 assume the unexcluded identity mapping. This is an additive CSV column change.
-`reduced_chi_squared`, beside `intensity_err`, is the cluster's goodness-of-fit
+`reduced_chi_squared`, beside `intensity_err`, is the cluster's normalized residual
 diagnostic; it does not scale the error (see below). `noise_correlation`, in
 `intensities.csv` and `parameters.csv`, is "modelled" when the errors account for
 the processed noise correlation and "not modelled" when they assume independent
@@ -295,7 +295,16 @@ at the fit.
 statistical noise σ (with its correlation, where modelled, for the analytical
 errors). None is rescaled by the reduced chi-squared. Reduced
 chi-squared is reported beside them, in `clusters.csv`, `intensities.csv`, the JSON
-statistics and the GUI, as a goodness-of-fit diagnostic.
+statistics and the GUI, as a normalized residual diagnostic.
+
+**What reduced chi-squared is.** It is Σr²/(σ²·dof), computed from the residuals as
+fitted, not whitened by the noise correlation. It measures misfit relative to the
+noise level and serves as a heuristic review flag: the fit review, the CLI and the
+terminal summary mark clusters above `HIGH_REDUCED_CHI_SQUARED` (5.0). It is not
+a calibrated chi-squared goodness-of-fit test. Under correlated noise its
+distribution is not χ²(dof)/dof, so no p-value or acceptance threshold follows from
+it. Even with independent points it would only be approximate (see degrees of
+freedom below).
 
 A reduced chi-squared well above 1 means that σ, the lineshape model or the noise
 assumptions do not describe the data. The causes affect the errors differently:
@@ -385,12 +394,12 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **13.0.0**. Earlier project formats are rejected;
+New projects use schema **14.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
-- Only scientific archive **10.0.0**, fit JSON **8.0.0** and project **13.0.0** are
+- Only scientific archive **11.0.0**, fit JSON **9.0.0** and project **14.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
   version": they record configuration keys (`[auto_peak]`, `fix_positions`,

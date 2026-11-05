@@ -222,7 +222,7 @@ class VarProOptimizer:
 
 
 def _calculate_errors(
-    optimizer: VarProOptimizer, x: FloatArray, correlation: FloatArray | None = None
+    optimizer: VarProOptimizer, x: FloatArray, correlation: FloatArray | None
 ) -> FloatArray:
     """Calculate nonlinear parameter standard errors.
 
@@ -240,9 +240,7 @@ def _calculate_errors(
     return stderrs
 
 
-def identifiable_covariance(
-    jacobian: np.ndarray, correlation: np.ndarray | None = None
-) -> np.ndarray:
+def identifiable_covariance(jacobian: np.ndarray, correlation: np.ndarray | None) -> np.ndarray:
     """Noise-based local covariance; withhold the joint result near rank loss.
 
     Column scaling removes parameter-unit effects before the rank/conditioning
@@ -280,18 +278,19 @@ def fit_cluster(
     params: Parameters,
     cluster: Cluster,
     noise: float,
+    *,
+    correlation: FloatArray | None,
     max_nfev: int = 1000,
     ftol: float = 1e-8,
     xtol: float = 1e-8,
     gtol: float = 1e-8,
     verbose: int = 0,
-    correlation: FloatArray | None = None,
 ) -> FitResult:
     """Fit a single cluster using the Trust Region Reflective algorithm and VarPro.
 
     ``correlation`` is the noise correlation R between the cluster's points. It does
-    not change the fit, only the published errors (the sandwich); without it the
-    points are independent.
+    not change the fit, only the published errors (the sandwich); None means
+    independent points.
     """
     if noise <= 0:
         raise ValueError(f"Noise must be positive, got {noise}")

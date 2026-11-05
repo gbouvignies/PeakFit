@@ -11,7 +11,7 @@ import typer
 from peakfit.cli.commands.fit_setup import build_fit_config, resolve_output_dir
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.config import LineshapeName  # noqa: TC001 - Typer evaluates annotations.
-from peakfit.engine.results import FitResult
+from peakfit.engine.results import HIGH_REDUCED_CHI_SQUARED, FitResult
 from peakfit.fit.fitting import (
     ClusterReview,
     FitRun,
@@ -340,7 +340,6 @@ def _run_interactive_fit(
 
 
 # Threshold for formatting high chi-squared
-_HIGH_REDCHI = 5.0
 _MAX_PEAK_LABELS = 3
 
 
@@ -384,7 +383,7 @@ def _format_review_clusters(reviews: list[ClusterReview]) -> list[dict[str, Any]
                 "chi_sq": review.redchi,
                 "chi_sq_color": (
                     "metric.bad"
-                    if review.redchi is not None and review.redchi > _HIGH_REDCHI
+                    if review.redchi is not None and review.redchi > HIGH_REDUCED_CHI_SQUARED
                     else "metric.warn"
                 ),
                 "details": details,

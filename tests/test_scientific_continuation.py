@@ -115,6 +115,25 @@ def test_archive_recording_the_previous_acquisition_time_is_rejected_by_version(
         ResultsLoader(directory).load_completed()
 
 
+def test_archive_recording_information_criteria_is_rejected_by_version(tmp_path):
+    # Archive 10.0.0 recorded AIC, BIC and the independent-noise log-likelihood, which
+    # are not published any more: version rejection comes before the statistics.
+    _, _, _, result = completed_result([], False, True)
+    directory = export_fit_result(result, tmp_path / "results")
+    archive = directory / "scientific.npz"
+    with ZipFile(archive) as source:
+        members = {name: source.read(name) for name in source.namelist()}
+    document = json.loads(members["metadata.json"])
+    document["outcome"]["statistics"]["aic"] = 0.0
+    document["schema_version"] = "10.0.0"
+    members["metadata.json"] = json.dumps(document).encode()
+    with ZipFile(archive, "w") as target:
+        for name, payload in members.items():
+            target.writestr(name, payload)
+    with pytest.raises(ValueError, match=r"Unsupported scientific result version '10\.0\.0'"):
+        ResultsLoader(directory).load_completed()
+
+
 def test_reconstruction_refuses_changed_evaluator_reference(tmp_path):
     spectra, _, _, result = completed_result([], False)
     directory = export_fit_result(result, tmp_path / "results")

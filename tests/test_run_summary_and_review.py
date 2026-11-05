@@ -44,9 +44,6 @@ def _outcome(
             n_observations=0,
             n_fitted_parameters=0,
             degrees_of_freedom=1,
-            aic=None,
-            bic=None,
-            log_likelihood=None,
             function_evaluations=None,
         ),
         noise_model=not_modelled("synthetic spectrum"),
@@ -96,9 +93,6 @@ def _evaluation(cluster_id: int, redchi: float) -> FinalAnalyticalEvaluation:
         n_fitted_parameters=1,
         degrees_of_freedom=1,
         reduced_chi_squared=redchi,
-        aic=0.0,
-        bic=0.0,
-        log_likelihood=0.0,
     )
     return FinalAnalyticalEvaluation(
         cluster_id=cluster_id,

@@ -22,6 +22,11 @@ def compute_degrees_of_freedom(n_data: int, n_params: int) -> int:
     return max(1, n_data - n_params)
 
 
+# Above this reduced chi-squared a cluster is reported as poorly fitted (a review flag;
+# it never rescales an error).
+HIGH_REDUCED_CHI_SQUARED = 5.0
+
+
 def compute_reduced_chi_squared(
     chi_squared: float,
     n_data: int,

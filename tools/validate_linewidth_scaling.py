@@ -79,7 +79,7 @@ def solve(cluster, params, noise, scaling, obs):
 
     started = time.perf_counter()
     with patch("scipy.optimize.least_squares", least_squares):
-        result = fit_cluster(params, cluster, noise)
+        result = fit_cluster(params, cluster, noise, correlation=None)
     return result, time.perf_counter() - started, captured
 
 
