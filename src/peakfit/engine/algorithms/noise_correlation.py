@@ -46,7 +46,7 @@ class AxisProcessing:
     filter_delay: float = 0.0
 
     def __post_init__(self) -> None:
-        """Refuse processing that no header could record."""
+        """Refuse processing outside the supported noise-model domain."""
         values = (
             self.offset,
             self.end,

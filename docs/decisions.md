@@ -861,15 +861,20 @@ Short records of non‑obvious design choices and trade‑offs.
 
 ## 2026-11-05: Review cleanup
 - **No information criteria.** AIC, BIC and the log-likelihood are no longer
-  computed or published, per cluster or per run. They assumed independent noise,
-  which the processing-derived correlation contradicts (correlated-noise.md §4).
-  Nothing in PeakFit used them, and no document described them. Reduced χ² stays
-  as the goodness-of-fit diagnostic.
+  computed or published, per cluster or per run. The removed values were computed
+  from an independent-Gaussian likelihood, which the processing-derived correlation
+  contradicts (correlated-noise.md §4). AIC and BIC are not themselves invalid for
+  correlated observations; they would need the correlated likelihood, and nothing in
+  PeakFit used them or documented them.
+- **Reduced χ² unchanged.** Its calculation and the review threshold stay as they
+  were. It is computed from unwhitened residuals, so under correlated noise it is a
+  normalized residual diagnostic and heuristic review flag, not a calibrated
+  chi-squared test ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)).
 - **Formats.** Scientific archive 11.0.0, fit JSON 9.0.0 and analysis project
   14.0.0; earlier files are refused by version: refit. The MCMC sampler's own
   likelihood is unaffected.
 - **The noise model enforces its own rules.** `AxisProcessing` and `NoiseModel`
-  refuse what no header could record:
+  refuse anything outside the supported noise-model domain:
   - a model with both axes and a reason, or neither;
   - an FT size below the acquired size;
   - an unknown window, a non-positive power, or a non-finite value.
