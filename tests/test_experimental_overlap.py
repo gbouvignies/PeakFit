@@ -25,28 +25,48 @@ def experimental_data():
     )
 
 
-@pytest.mark.parametrize(
-    ("cluster_id", "n_points", "n_peaks"), [(269, 90, 3), (360, 106, 4), (424, 67, 2)]
-)
-def test_experimental_default_keeps_real_objective_and_flags_unreliable_errors(
-    experimental_data, cluster_id, n_points, n_peaks
-):
-    cluster = next(c for c in experimental_data.clusters if c.cluster_id == cluster_id)
-    assert cluster.data.shape == (n_points, 131)
-    assert len(cluster.peaks) == n_peaks
-    result = fit_cluster(
-        Parameters.from_peaks(cluster.peaks), cluster, experimental_data.noise, correlation=None
-    )
+def _fit_from(cluster, noise, linewidth=None):
+    """Fit one cluster from its default starts, or with every width starting at ``linewidth``."""
+    params = Parameters.from_peaks(cluster.peaks)
+    if linewidth is not None:
+        for parameter in params.values():
+            if parameter.name.endswith(".lw"):
+                parameter.value = linewidth
+    result = fit_cluster(params, cluster, noise, correlation=None)
     evaluation = evaluate_analytical_model(
-        cluster,
-        result.params,
-        experimental_data.noise,
-        noise_model=not_modelled("synthetic spectrum"),
+        cluster, result.params, noise, noise_model=not_modelled("synthetic spectrum")
     )
     assert isinstance(evaluation, AnalyticalModelEvaluation)
     np.testing.assert_allclose(result.residual, evaluation.normalized_residuals, atol=1e-8)
+    return result, evaluation
+
+
+@pytest.mark.parametrize(
+    ("cluster_id", "n_points", "n_peaks"), [(269, 90, 3), (360, 106, 4), (424, 67, 2)]
+)
+def test_a_broad_start_collapses_keeps_real_objective_and_flags_unreliable_errors(
+    experimental_data, cluster_id, n_points, n_peaks
+):
+    # 20 Hz was the default start until #135.
+    cluster = next(c for c in experimental_data.clusters if c.cluster_id == cluster_id)
+    assert cluster.data.shape == (n_points, 131)
+    assert len(cluster.peaks) == n_peaks
+    result, evaluation = _fit_from(cluster, experimental_data.noise, linewidth=20.0)
     assert evaluation.uncertainty_warning is not None
     assert any(not np.isfinite(p.stderr) for p in result.params.values() if p.vary)
+
+
+@pytest.mark.parametrize("cluster_id", [269, 360, 424])
+def test_the_default_start_reaches_well_conditioned_solutions(experimental_data, cluster_id):
+    # docs/validation/linewidth-start.md. For 269 and 360 the resolved solution also
+    # has the lower chi-squared; for 424 (53N-H/147N-H) the collapsed limit is lower.
+    cluster = next(c for c in experimental_data.clusters if c.cluster_id == cluster_id)
+    result, evaluation = _fit_from(cluster, experimental_data.noise)
+    assert evaluation.uncertainty_warning is None
+    assert all(np.isfinite(p.stderr) for p in result.params.values() if p.vary)
+    _, broad = _fit_from(cluster, experimental_data.noise, linewidth=20.0)
+    lower = evaluation.statistics.chi_squared < broad.statistics.chi_squared
+    assert lower is (cluster_id != 424)
 
 
 # The local solutions the historical settings reach. The released values (119.8016505,

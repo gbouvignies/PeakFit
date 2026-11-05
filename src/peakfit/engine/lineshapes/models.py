@@ -126,7 +126,7 @@ class SP1(PhasedSingletBase):
     """SP1 singlet lineshape with sine-bell apodization."""
 
     shape_name: ClassVar[str] = "sp1"
-    param_specs = staticmethod(parameter_specs(20.0, "phase"))
+    param_specs = staticmethod(parameter_specs(2.0, "phase"))
     kernel: ClassVar = staticmethod(sp1.kernel)
     kernel_with_derivs: ClassVar = staticmethod(sp1.kernel_with_derivs)
     make_state: ClassVar = staticmethod(sp1.make_state)
@@ -136,7 +136,7 @@ class SP1Doublet(PhasedDoubletBase):
     """SP1 doublet lineshape with sine-bell apodization."""
 
     shape_name: ClassVar[str] = "sp1_doublet"
-    param_specs = staticmethod(parameter_specs(20.0, "j", "phase"))
+    param_specs = staticmethod(parameter_specs(2.0, "j", "phase"))
     kernel: ClassVar = staticmethod(sp1.kernel)
     kernel_with_derivs: ClassVar = staticmethod(sp1.kernel_with_derivs)
     make_state: ClassVar = staticmethod(sp1.make_state)
@@ -146,7 +146,7 @@ class SP2(PhasedSingletBase):
     """SP2 singlet lineshape with squared sine-bell apodization."""
 
     shape_name: ClassVar[str] = "sp2"
-    param_specs = staticmethod(parameter_specs(20.0, "phase"))
+    param_specs = staticmethod(parameter_specs(2.0, "phase"))
     kernel: ClassVar = staticmethod(sp2.kernel)
     kernel_with_derivs: ClassVar = staticmethod(sp2.kernel_with_derivs)
     make_state: ClassVar = staticmethod(sp2.make_state)
@@ -156,7 +156,7 @@ class SP2Doublet(PhasedDoubletBase):
     """SP2 doublet lineshape with squared sine-bell apodization."""
 
     shape_name: ClassVar[str] = "sp2_doublet"
-    param_specs = staticmethod(parameter_specs(20.0, "j", "phase"))
+    param_specs = staticmethod(parameter_specs(2.0, "j", "phase"))
     kernel: ClassVar = staticmethod(sp2.kernel)
     kernel_with_derivs: ClassVar = staticmethod(sp2.kernel_with_derivs)
     make_state: ClassVar = staticmethod(sp2.make_state)
@@ -166,7 +166,7 @@ class NoApod(PhasedSingletBase):
     """NoApod singlet lineshape (no apodization, exponential decay)."""
 
     shape_name: ClassVar[str] = "no_apod"
-    param_specs = staticmethod(parameter_specs(20.0, "phase"))
+    param_specs = staticmethod(parameter_specs(2.0, "phase"))
     kernel: ClassVar = staticmethod(no_apod.kernel)
     kernel_with_derivs: ClassVar = staticmethod(no_apod.kernel_with_derivs)
     make_state: ClassVar = staticmethod(no_apod.make_state)
@@ -176,7 +176,7 @@ class NoApodDoublet(PhasedDoubletBase):
     """NoApod doublet lineshape (no apodization, exponential decay)."""
 
     shape_name: ClassVar[str] = "no_apod_doublet"
-    param_specs = staticmethod(parameter_specs(20.0, "j", "phase"))
+    param_specs = staticmethod(parameter_specs(2.0, "j", "phase"))
     kernel: ClassVar = staticmethod(no_apod.kernel)
     kernel_with_derivs: ClassVar = staticmethod(no_apod.kernel_with_derivs)
     make_state: ClassVar = staticmethod(no_apod.make_state)
