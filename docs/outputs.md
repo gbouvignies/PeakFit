@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**8.0.0**, fit JSON **7.0.0**, analysis project **11.0.0** and MCMC record **1.1.0**.
+**9.0.0**, fit JSON **8.0.0**, analysis project **12.0.0** and MCMC record **1.1.0**.
 
 ## Default scientific export
 
@@ -247,15 +247,24 @@ estimates that ([mcmc.md](mcmc.md)), under its own independent-noise likelihood.
 neighbouring points ([correlated-noise.md](correlated-noise.md)).
 - **When it is modelled:** each fit derives that correlation, R, from the processing
   its NMRPipe header records.
-  - A sine bell or no apodization, first-point scale, zero fill and first-order
-    phase; the header must also pass a consistency check.
+  - A sine bell or no apodization, first-point scale, zero fill, the Bruker
+    digital-filter correction when FT applied it, and first-order phase; the header
+    must also pass a consistency check.
   - Nonlinear and amplitude errors are then the least-squares sandwich, for example
     σ√diag(G⁻¹ΦRΦᵀG⁻¹) for amplitudes.
   - It is exact under the processing assumptions, not necessarily for the actual
     spectrum.
 - **Otherwise:** the run records "not modelled" with the reason, and the errors
   assume independent points: σ√diag((ΦΦᵀ)⁻¹) for amplitudes. That covers any other
-  apodization, an incomplete or inconsistent header, and input that is not NMRPipe.
+  apodization, composite or digital-filter-adjusted windows (`SP -elb`, `-glb`,
+  `-df`), an incomplete or inconsistent header, and input that is not NMRPipe.
+- **Not visible in the header:** linear prediction, NUSZF extrapolation, NUS
+  reconstruction, earlier windows and solvent filters leave a header that looks like
+  ordinary processing, so the run is recorded as "modelled". A modelled noise
+  correlation is then not a calibrated uncertainty: in synthetic tests with LP and
+  with NMRPipe's IST, parameter scatter exceeded the published errors 1.5–6.6-fold
+  ([correlated-noise.md §2.5](correlated-noise.md#25-what-the-final-header-cannot-show)).
+  SMILE and other reconstruction methods were not tested.
 - **What the noise model changes:** only the published errors. Fitted values, σ and
   reduced chi-squared are the same either way.
 - **Where it is stated:** the scientific archive and fit JSON record the noise model.
@@ -264,16 +273,16 @@ neighbouring points ([correlated-noise.md](correlated-noise.md)).
 - **Validation:** with PeakFit's own fitting engine, the sandwich errors are
   calibrated for isolated and overlapping 2D peaks with `sp1`, `sp2` and `no_apod`
   lineshapes ([validation](validation/sandwich-errors.md)). Independent-point errors
-  understated the scatter 1.8–3.6-fold there.
+  understated the scatter 1.8–3.4-fold there.
 
 **Strongly overlapping or near-coalescent peaks: local errors can be unreliable
 without a warning.** All these errors are local, and rest on linearizing the model
 at the fit.
 - Where peaks overlap strongly, the fit can separate them by more than they are,
   and then report smaller errors around that biased solution.
-- In the validation, a pair 0.4 points apart, 63 of 150 fits carried the uncertainty
-  warning. The other 87 did not, and their positions were covered only 0.65 · 0.82
-  (68% · 95%), at worst 0.37 · 0.67. Neither the existing warnings nor amplitude
+- In the validation, a pair 0.4 points apart, 69 of 150 fits carried the uncertainty
+  warning. The other 81 did not, and their positions were covered only 0.65 · 0.82
+  (68% · 95%), at worst 0.38 · 0.66. Neither the existing warnings nor amplitude
   correlation identify those fits.
 - This is not a property of overlap as such: the overlapping pairs of the
   validation were calibrated. No separation or linewidth boundary between the two
@@ -376,12 +385,12 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **11.0.0**. Earlier project formats are rejected;
+New projects use schema **12.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
-- Only scientific archive **8.0.0**, fit JSON **7.0.0** and project **11.0.0** are
+- Only scientific archive **9.0.0**, fit JSON **8.0.0** and project **12.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
   version": they record configuration keys (`[auto_peak]`, `fix_positions`,

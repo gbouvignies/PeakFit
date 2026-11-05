@@ -745,3 +745,58 @@ Short records of non‑obvious design choices and trade‑offs.
   showing it useful before any threshold is set.
 - **Golden reference.** Regenerated: fitted values, classifications, warnings and
   χ² are bit-identical; only the errors changed.
+
+## 2026-11-05: NMRPipe phase sign, digital filter and header limits (correlated noise)
+- **First-order phase sign.** The noise correlation applied `P1` with the opposite
+  sign to NMRPipe, which stores frequency in decreasing order. It is now
+  ρ(k) = Re[C(k) e^{−iφk/M}]/C(0), verified against spectra NMRPipe 13.0 processed.
+  - The earlier convention overstated amplitude errors by up to 5% on axes with `P1`
+    180 and 9% with `P1` 360.
+  - The validation tools emulated NMRPipe with the same mirrored sign for both noise
+    and model, so their calibration evidence stands; they now use NMRPipe's sign and
+    were rerun.
+- **Bruker digital filter.** When FT corrects the filter delay (`FDDMXFLAG` 1, the
+  default for Bruker data converted with `-decim`), NMRPipe applies an extra
+  first-order phase of −360°·`FDDMXVAL` on the direct axis. Ignoring it understated
+  errors by 10–38% on the tested chains.
+  - It is recorded as `AxisProcessing.filter_delay`.
+  - `FDDMXFLAG` 0 means FT did not apply it; any other state is not modelled.
+- **Recorded window terms the model lacks** (`SP -elb`, `-glb`, `-goff`, `-df`) leave
+  the run not modelled, with the reason.
+- **Regression fixtures.** NMRPipe-processed impulse responses in `tests/data/nmrpipe`
+  (`tools/make_nmrpipe_noise_fixtures.py`) give NMRPipe's exact noise covariance. The
+  model matches it to 5 × 10⁻⁵.
+- **What the header cannot show.** These leave a header indistinguishable from
+  ordinary processing, so no header check is added:
+  - linear prediction (`TDSIZE` and `APOD` give the extended length);
+  - earlier windows, and `SP -size`, `-start` and `-one`;
+  - digital-filter correction during conversion;
+  - solvent filters;
+  - NUSZF extrapolation and NUS reconstruction.
+
+  [correlated-noise.md §2.5](correlated-noise.md#25-what-the-final-header-cannot-show)
+  records their measured effect.
+- **Noise correlation is not calibrated uncertainty.** With LP and NMRPipe's IST
+  (default settings, plane by plane), parameter scatter exceeded the published errors
+  1.5–6.6-fold in synthetic series. The extrapolation and reconstruction also changed
+  fitted ¹⁵N linewidths:
+  - LP: unbiased for isolated peaks at high SNR; +24% to +192% at low SNR or in
+    overlap.
+  - IST extrapolation: narrower lines, −27% to −51% without noise.
+  - IST reconstruction of 50% Poisson-gap NUS: broader lines, +158% to +190% without
+    noise.
+
+  Peak areas, and relative amplitudes of isolated peaks across planes, were
+  preserved. SMILE was not tested: its plugin failed on the test machine. These
+  results apply to the tested conditions only. A user-declared reconstruction mode
+  is a separate decision.
+- **Formats.** Scientific archive 9.0.0, fit JSON 8.0.0 and analysis project 12.0.0
+  record the filter delay; earlier files are refused.
+- **Validation and golden reference.** The sandwich study was rerun.
+  - Two of 18 calibration checks fail in the recorded run, each by a hair: `sp1`
+    isolated ¹H position, scatter/SD 0.88; `sp1` overlapping linewidth, 68%
+    coverage 0.716 against a limit of 0.715.
+  - Independent replications pass both.
+  - In the golden reference, fitted values, classifications, warnings and χ² are
+    bit-identical. Amplitude errors fall 0.4–2.5% (median 1.8%) and parameter errors
+    move −2.1% to +2.5%, from the ¹⁵N axis's `P1` 180.
