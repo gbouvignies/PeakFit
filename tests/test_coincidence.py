@@ -3,6 +3,10 @@
 Bundled cases and controls are those of docs/validation/repeat-fit-collapse.md:
 three near-collinear pairs on the real CEST data, an exact duplicate assignment,
 and a real opposite-sign peak injected 0.5 and 0.25 linewidth from 136N-H.
+
+The bundled pairs collapse only from broad linewidth starts (#135,
+docs/validation/linewidth-start.md), so these tests pin the former 20 Hz start to
+exercise diagnosis, retention and restart on real collapses.
 """
 
 from copy import deepcopy
@@ -28,6 +32,7 @@ from peakfit.io.scientific import read_scientific
 
 DATA = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
 PAIRS = {("36N-H", "93N-H"), ("5N-H", "76N-H"), ("53N-H", "147N-H")}
+BROAD_START = 20.0  # Hz, the former default linewidth start
 
 
 # The diagnostic ------------------------------------------------------------------
@@ -96,9 +101,17 @@ def test_clusters_with_more_peaks_report_each_collinear_pair():
 # The bundled data and its controls ---------------------------------------------------
 
 
-def _fit(spectra, peaks, settings, completion=None):
+def _fit(spectra, peaks, settings, completion=None, start=BROAD_START):
+    """Fit, starting every peak that does not continue a run at linewidth ``start``."""
     source = continuation_source(completion) if completion is not None else None
     prepared = prepare_dataset_fit(spectra, tuple(peaks), settings, source)
+    if start is not None:
+        assert prepared.continuation is not None
+        initialized = set(prepared.continuation.initialized)
+        for identity in prepared.identities:
+            if identity.working_id in initialized:
+                for axis in ("F2", "F3"):
+                    prepared.parameters[f"{identity.engine_name}.{axis}.lw"].value = start
     result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
     return dataset_completion(
         result, result.inputs.snapshot, submitted_revision=0, manual_revision=0
@@ -173,8 +186,7 @@ def test_retained_peaks_restart_from_defaults_and_unedited_refits_settle(bundled
         f"not adopted by run {run}: near-collinear fitted shapes with 147N-H"
     )
     assert len(continuation.continued) == len(dataset.peaks) - 6
-    # Every retained pair re-collapses in place from defaults and stays retained.
-    # For 5N-H/76N-H that is a known optimizer limitation (#135; see the xfail below).
+    # From the same broad start, every retained pair re-collapses in place.
     for pair in (("53N-H", "147N-H"), ("36N-H", "93N-H"), ("5N-H", "76N-H")):
         before = _cluster(first, *pair).analytical_evaluation.statistics.reduced_chi_squared
         after = _cluster(second, *pair).analytical_evaluation.statistics.reduced_chi_squared
@@ -199,19 +211,18 @@ def test_retained_peaks_restart_from_defaults_and_unedited_refits_settle(bundled
 
 
 @pytest.mark.slow
-@pytest.mark.xfail(
-    strict=True,
-    reason="#135: the default restart lands in the collapsed minimum (chi2 18454) "
-    "although a resolved one (18045) exists under the same model",
-)
-def test_default_restart_reaches_the_resolved_5n_76n_minimum(bundled):
-    _dataset, _settings, first, second, _third = bundled
-    five = _cluster(second, "5N-H", "76N-H").analytical_evaluation
-    assert five.uncertainty_warning is None
-    assert (
-        five.statistics.chi_squared
-        < _cluster(first, "5N-H", "76N-H").analytical_evaluation.statistics.chi_squared
-    )
+def test_the_default_start_resolves_the_pairs_a_broad_start_collapses(bundled):
+    # #135: from 20 Hz, 5N-H/76N-H and 36N-H/93N-H stop collapsed although resolved
+    # minima of lower chi-squared exist; the default start reaches them.
+    dataset, settings, broad, _second, _third = bundled
+    default = _fit(dataset.spectra, dataset.peaks, settings, start=None)
+    assert default.retained == ()
+    for pair in (("5N-H", "76N-H"), ("36N-H", "93N-H")):
+        resolved = _cluster(default, *pair).analytical_evaluation
+        collapsed = _cluster(broad, *pair).analytical_evaluation
+        assert resolved.uncertainty_warning is None
+        assert collapsed.uncertainty_warning is not None
+        assert resolved.statistics.chi_squared < collapsed.statistics.chi_squared
 
 
 @pytest.mark.slow

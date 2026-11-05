@@ -60,4 +60,5 @@ The current bare CLI defaults to **two passes** (`--refine 2`), while
 `PeakFitConfig()` and the bundled example TOML specify one. State pass counts
 explicitly when comparing historical runs. v0.10.5's `--refine 1` meant two
 passes. Historical SP2 linewidth starts were `r2 = 20 s^-1`, equivalent to
-`lw = 20/pi ≈ 6.366 Hz`; current SP2 defaults start at `lw = 20 Hz`.
+`lw = 20/pi ≈ 6.366 Hz`. sp1, sp2 and no_apod start at `lw = 2 Hz` since #135
+(20 Hz before); see [the linewidth start](validation/linewidth-start.md).

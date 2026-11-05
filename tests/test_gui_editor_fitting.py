@@ -19,6 +19,7 @@ import peakfit.gui.editor.review as review_module
 import peakfit.gui.editor.workspace as workspace_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
+from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
@@ -2091,11 +2092,15 @@ def test_preview_is_prepared_again_when_only_the_continuation_source_changes(wor
 @pytest.fixture
 def bundled_workspace(qapp):
     """The editor on the bundled CEST data, whose near-collinear pairs reproduce on
-    every platform tested (an exact synthetic duplicate does not)."""
+    every platform tested (an exact synthetic duplicate does not). They collapse only
+    from broad linewidth starts, so the configuration starts every width at 20 Hz."""
     data = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
     dataset = read_dataset(data / "pseudo3d.ft2", data / "pseudo3d.list", data / "b1_offsets.txt")
     widget = EditorWorkspace(dataset)
-    widget.fitting.configuration = PeakFitConfig(fitting=FitConfig(refine_iterations=2))
+    widget.fitting.configuration = PeakFitConfig(
+        fitting=FitConfig(refine_iterations=2),
+        parameters=ParameterConfig.model_validate({"defaults": {"*.*.lw": {"value": 20.0}}}),
+    )
     widget.fitting.setup_seen = True
     widget.resize(1280, 750)
     widget.show()

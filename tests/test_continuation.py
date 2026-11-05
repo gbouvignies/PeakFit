@@ -22,9 +22,16 @@ from peakfit.gui.spectrum import read_dataset
 DATA = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
 
 
-def _fit(spectra, peaks, settings, completion=None):
+def _fit(spectra, peaks, settings, completion=None, linewidth=None):
+    """Fit; ``linewidth`` (Hz) overrides the start of every peak that does not continue."""
     source = continuation_source(completion) if completion is not None else None
     prepared = prepare_dataset_fit(spectra, tuple(peaks), settings, source)
+    if linewidth is not None:
+        initialized = set(_provenance(prepared).initialized)
+        for identity in prepared.identities:
+            if identity.working_id in initialized:
+                for axis in ("F2", "F3"):
+                    prepared.parameters[f"{identity.engine_name}.{axis}.lw"].value = linewidth
     result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
     return dataset_completion(
         result, result.inputs.snapshot, submitted_revision=0, manual_revision=0
@@ -98,9 +105,12 @@ def test_unedited_refit_continues_every_adopted_peak_of_the_bundled_run(bundled)
 
 @pytest.mark.slow
 def test_positions_only_refit_is_the_collapse_continuation_prevents(bundled):
-    """The defect itself: adopted positions with default widths collapse the pair."""
+    """The defect itself: adopted positions with broad widths collapse the pair.
+
+    20 Hz was the default start when the defect was found (#135 lowered it).
+    """
     dataset, settings, first = bundled
-    second = _fit(dataset.spectra, first.working_peaks, settings)
+    second = _fit(dataset.spectra, first.working_peaks, settings, linewidth=20.0)
     pair = _by_members(second.result)[("102N-H", "52N-H")].analytical_evaluation
     assert pair.uncertainty_warning is not None
     assert pair.statistics.reduced_chi_squared == pytest.approx(2.3156, abs=1e-4)  # was 2.3154

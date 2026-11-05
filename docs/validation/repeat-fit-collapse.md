@@ -1,5 +1,8 @@
 # Repeat-fit collapse of resolved overlapping peaks
 
+> The default linewidth start became 2 Hz in #135, and the bundled pairs no longer
+> collapse from it: [linewidth-start.md](linewidth-start.md).
+
 Investigation: 2026-11-02, base `2113c39` (main through #87). Python 3.14.5,
 NumPy 2.4.1, SciPy 1.17.0. Read-only: no production code, default, tolerance or
 schema changes. This extends [overlapping peaks](overlapping-peaks.md),

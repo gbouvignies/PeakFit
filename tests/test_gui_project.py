@@ -19,6 +19,7 @@ from gui_helpers import wait_until
 from PySide6 import QtCore, QtWidgets
 
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
+from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.fit import pipeline
 from peakfit.gui import fitting, project, spectrum
 from peakfit.gui.background import ViewerComputation
@@ -1281,12 +1282,16 @@ def test_reopened_continuation_provenance_and_refit_are_identical(
 def collinear():
     """A first fit of the bundled data, whose three near-collinear pairs are retained.
 
-    These pairs collapse on every platform tested. An exact duplicate on the small
+    These pairs collapse on every platform tested, from broad linewidth starts, so
+    the configuration starts every width at 20 Hz. An exact duplicate on the small
     synthetic dataset does not: from an identical start, whether it collapses or
     separates differs between platforms, so it cannot anchor a test.
     """
     dataset = read_dataset(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
-    config = PeakFitConfig(fitting=FitConfig(refine_iterations=2))
+    config = PeakFitConfig(
+        fitting=FitConfig(refine_iterations=2),
+        parameters=ParameterConfig.model_validate({"defaults": {"*.*.lw": {"value": 20.0}}}),
+    )
     prepared = prepare_dataset_fit(dataset.spectra, dataset.peaks, config)
     prepared = replace(prepared, snapshot=replace(prepared.snapshot, source_files=dataset.sources))
     result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))

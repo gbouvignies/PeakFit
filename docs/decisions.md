@@ -886,3 +886,25 @@ Short records of non‑obvious design choices and trade‑offs.
   `correlation` argument, so every caller says `None` or passes R.
 - **One review threshold.** `engine.results.HIGH_REDUCED_CHI_SQUARED` replaces three
   copies of 5.0 (fit review, CLI and terminal summary).
+
+## 2026-11-05: Default linewidth start of 2 Hz (#135)
+- **Change.** sp1, sp2, no_apod and their doublets start every linewidth at 2 Hz
+  instead of 20 Hz. Configured starts and continued runs take precedence as before.
+  Gaussian, Lorentzian and pseudo-Voigt keep 25 Hz.
+- **Why.** A start broader than the true lines makes overlapping shapes nearly
+  identical from the first step, and the fit can stop in the collapsed limit. On the
+  bundled data this caused 5N-H/76N-H and 36N-H/93N-H to collapse although resolved
+  minima of lower χ² exist. On synthetic pairs with known truth, 20 Hz failed in
+  16 of 108 cases and starts of 1–5 Hz in none, including on 60 Hz lines, with fewer
+  function evaluations ([validation/linewidth-start.md](validation/linewidth-start.md)).
+- **Consequence.** 53N-H/147N-H also resolves. Its χ² is 20% above the collapsed
+  limit, which fits better only through diverging amplitudes. It loses the
+  uncertainty warning; its misfit shows in χ²ᵣ and the residuals.
+- **Not chosen.** A retry or several starts for difficult clusters, with the lower χ²
+  kept: a second optimizer path and a selection rule, while the default stayed wrong
+  everywhere else. A start scaled to the acquisition time, or the median width of
+  isolated peaks: more machinery, with no advantage measured over a fixed narrow
+  value.
+- **Golden reference** regenerated: only the three formerly warned clusters change.
+  The collapse-retention tests pin the former 20 Hz start, which still collapses
+  the bundled pairs.

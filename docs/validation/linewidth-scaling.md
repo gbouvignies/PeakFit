@@ -1,5 +1,7 @@
 # Intrinsic linewidth initialization and VarPro scaling
 
+> The default start became 2 Hz in #135: [linewidth-start.md](linewidth-start.md).
+
 Investigation: 2026-10-28, after merged PR #59 (`aa4e2b0`). Python 3.14.5,
 NumPy 2.4.1, SciPy 1.17.0; one BLAS thread. No production code, default,
 constraint, objective, or runtime dependency changes.

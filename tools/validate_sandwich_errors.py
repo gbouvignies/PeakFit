@@ -68,6 +68,7 @@ PLANES = 4
 SIGMA = 0.02
 HEIGHTS = np.array([[1.0, 0.8, 0.6, 0.9], [0.7, 0.9, 1.0, 0.5]])  # peak heights per plane
 HALF_WINDOW = (5, 6)  # ¹⁵N, ¹H points either side of the cluster centre
+LINEWIDTH = 20.0  # true linewidth of every line, Hz
 Z95 = 1.96
 
 
@@ -209,6 +210,9 @@ def build(case: str, rng: np.random.Generator | None):
     ]
     grid = [index.ravel() for index in np.meshgrid(*rows, indexing="ij")]
     params = Parameters.from_peaks(peaks)
+    for name in params.get_vary_names():
+        if name.endswith(".lw"):
+            params[name].value = LINEWIDTH
     empty = Cluster(1, peaks, grid, np.zeros((grid[0].size, PLANES)))
     shapes = empty.evaluate(params)
     # PeakFit's shapes are not height-normalized: scale each amplitude to its height.
