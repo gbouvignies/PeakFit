@@ -130,3 +130,23 @@ def test_a_header_with_no_signal_under_the_window_is_refused():
     with pytest.raises(ValueError, match="no acquired signal under the window"):
         read_spectral_parameters({**dic, "FDF2P1": -360.0 * 40}, data)
     assert math.isfinite(_axis("sp2_t0").aq_time)
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"FDDMXFLAG": -1.0}, "FDDMXFLAG -1 not recognised"),
+        ({"FDDMXVAL": float("nan")}, "unreadable digital-filter correction"),
+    ],
+)
+def test_ambiguous_digital_filter_metadata_is_refused(changes, message):
+    dic, data = ng.pipe.read(str(FIXTURES / "sp2_digital_filter.ft"))
+    with pytest.raises(ValueError, match=message):
+        read_spectral_parameters({**dic, **changes}, data)
+
+
+def test_a_header_without_the_digital_filter_state_is_refused():
+    dic, data = ng.pipe.read(str(FIXTURES / "sp2_t0.ft"))
+    header = {k: v for k, v in dic.items() if k != "FDDMXFLAG"}
+    with pytest.raises(ValueError, match="not recorded"):
+        read_spectral_parameters(header, data)

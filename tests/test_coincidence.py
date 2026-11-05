@@ -174,10 +174,7 @@ def test_retained_peaks_restart_from_defaults_and_unedited_refits_settle(bundled
     )
     assert len(continuation.continued) == len(dataset.peaks) - 6
     # Every retained pair re-collapses in place from defaults and stays retained.
-    # 5N-H/76N-H is optimizer-path dependent: with the window over the acquired signal
-    # (docs/lineshapes.md) a resolved fit still has lower chi-squared (18045 against
-    # 18454 from the earlier resolved values), but the restart from defaults no longer
-    # reaches it, so it stays retained like the identifiability cases.
+    # For 5N-H/76N-H that is a known optimizer limitation (#135; see the xfail below).
     for pair in (("53N-H", "147N-H"), ("36N-H", "93N-H"), ("5N-H", "76N-H")):
         before = _cluster(first, *pair).analytical_evaluation.statistics.reduced_chi_squared
         after = _cluster(second, *pair).analytical_evaluation.statistics.reduced_chi_squared
@@ -199,6 +196,22 @@ def test_retained_peaks_restart_from_defaults_and_unedited_refits_settle(bundled
             previous.uncertainty_warning
         )
     assert dict(third.retained).keys() == dict(second.retained).keys()
+
+
+@pytest.mark.slow
+@pytest.mark.xfail(
+    strict=True,
+    reason="#135: the default restart lands in the collapsed minimum (chi2 18454) "
+    "although a resolved one (18045) exists under the same model",
+)
+def test_default_restart_reaches_the_resolved_5n_76n_minimum(bundled):
+    _dataset, _settings, first, second, _third = bundled
+    five = _cluster(second, "5N-H", "76N-H").analytical_evaluation
+    assert five.uncertainty_warning is None
+    assert (
+        five.statistics.chi_squared
+        < _cluster(first, "5N-H", "76N-H").analytical_evaluation.statistics.chi_squared
+    )
 
 
 @pytest.mark.slow

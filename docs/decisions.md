@@ -832,7 +832,8 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Real-data reference values changed.**
   - `test_coincidence`: the 5N-H/76N-H pair now re-collapses from default starts like
     the other retained pairs. A resolved fit still has lower χ² (18045 against
-    18454); the change is optimizer-path dependent.
+    18454), so this is a known optimizer limitation. It is recorded as a strict
+    `xfail` and tracked in #135.
   - `test_experimental_overlap`: the released local solutions reached with
     historical settings move by +0.96, −0.02 and +0.09 Hz in ¹⁵N. Cluster 269, which
     holds the 36N-H/93N-H identifiability pair, now carries the uncertainty warning
@@ -840,5 +841,18 @@ Short records of non‑obvious design choices and trade‑offs.
   - `test_continuation`: the 102N-H/52N-H pair's reduced χ² is 1.5440 instead of
     1.5296. Its qualitative behaviour is unchanged: resolved when continued,
     collapsed when only positions are carried.
-- **Not handled:** first-point scaling inconsistent with the sampling delay, which
-  adds a constant offset. It is documented, not detected.
+- **Formats.** Scientific archive 10.0.0 and analysis project 13.0.0. Both record the
+  derived spectral parameters, which continuation and project reopening compare with
+  the spectrum as read now. Under the new rule, earlier files failed that comparison
+  as an apparent calibration change, so they are now refused by version: refit.
+  - Fit JSON (8.0.0) records no spectral parameters and stays valid.
+  - MCMC records (1.1.0) are bound to their parent archive, which is refused.
+- **Digital-filter metadata.** Missing, unreadable or unrecognised `FDDMXVAL` or
+  `FDDMXFLAG` is refused when reading the spectrum, never taken as "no correction".
+- **Not checked: first-point scaling against the sampling delay.** A mismatch
+  m = (`C1` + 1) − ½ − d adds a constant offset whose linewidth bias grows as m/N.
+  It is documented with measurements in [lineshapes.md](lineshapes.md), not
+  diagnosed:
+  - the offset depends on the true delay, which the header does not record;
+  - m computed from `P1` is wrong whenever `P1` includes manual phasing;
+  - any warning would need an arbitrary threshold.

@@ -42,12 +42,30 @@ For example:
 
 ## When this is exact
 
-- **First-point scaling must match the sampling delay:** ½ + d, so ½ when the first
-  sample is at t = 0 and 1 for half-dwell. Any other scaling adds a constant offset to
-  the spectrum that no lineshape parameter absorbs. For example, an unscaled first
-  point sampled at t = 0 overstates `sp2` linewidths by about 30% at 64 points.
-- **`P1` must be the sampling delay.** A small manual adjustment barely changes aq,
-  because it shifts d by `P1`/360 of a dwell.
+Two assumptions remain, because the header records the processing but not the
+acquisition timing:
+
+- **`P1` is the sampling delay, with no other phase correction.** NMRPipe records
+  the total first-order phase, including any manual phasing. A manual adjustment
+  shifts aq by its value/360 of a dwell, which barely matters, but it means `P1`
+  does not identify the acquisition timing uniquely.
+- **The first point was scaled by ½ + d** (`C1` + 1): ½ when the first sample is at
+  t = 0, 1 for half-dwell. Otherwise the spectrum gains a constant offset of
+  m = (`C1` + 1) − ½ − d first points, which no lineshape parameter absorbs. Its
+  linewidth bias grows as m/N, with a factor that depends on each line's decay. For
+  `sp2`:
+
+  | m | N = 32 | N = 64 | N = 256 | N = 1024 |
+  |---|---|---|---|---|
+  | ±0.5 (×1 at t = 0, or ×½ with half-dwell) | ±22–87% | ±11–42% | ±3–10% | ±0.7–2.6% |
+  | ±0.03 (a few degrees of manual `P1`) | ±1–5% | ±0.6–2.6% | ≤ 0.6% | ≤ 0.2% |
+
+  The range spans R2·aq from 3 to 0.3; narrower lines are affected more.
+
+PeakFit does not check this consistency. The offset depends on the true delay, which
+the header does not record, so m computed from `P1` can be wrong whenever `P1`
+includes manual phasing. Any warning would also need a threshold the evidence does
+not fix. Use the standard conventions, or check short indirect axes by hand.
 - **The processed signal must be the acquired decay.** After linear prediction or
   NUS reconstruction, `TDSIZE` and `APOD` give the extended size. The lineshape then
   holds only if the extension reproduces the true decay; see

@@ -54,10 +54,13 @@ def _signal_window(
 
     So the signal spans (N − 1 + d − g)·dw under the window, from u₀ = (g − d − APODDF)
     to u₁ = (N − 1 − APODDF) in units of N − 1, with dw from the full spectral width.
-    This matches NMRPipe-processed signals when the first point is scaled by ½ + d,
-    the usual convention (docs/lineshapes.md). Without a window the established
+    Assumptions (docs/lineshapes.md): P1 is the sampling delay, with no further phase
+    correction; the first point was scaled by ½ + d, as in the two standard
+    conventions (t = 0 with ×½, half-dwell with ×1). Neither is checked, because the
+    acquisition timing itself is not recorded. Without a window the established
     aq = N·dw is kept, less the digital-filter delay. Other windows use the recorded
-    APOD/SW; their lineshapes do not use it.
+    APOD/SW; their lineshapes do not use it. Ambiguous digital-filter metadata is
+    refused.
     """
     q1, q2 = float(dic.get(f"{fdf}APODQ1", 0.0)), float(dic.get(f"{fdf}APODQ2", 0.0))
     apod_time = float(dic.get(f"{fdf}APOD", 0.0)) / max(sw, 1e-6)
@@ -70,7 +73,9 @@ def _signal_window(
         return apod_time, q1, q2
     dwell = size / (sw * transform)  # one acquired point: 1/(full spectral width)
     filtered = _filter_delay(dic) if fdf == f"FDF{_DIRECT_AXIS}" else 0.0
-    filtered = filtered if isinstance(filtered, float) else 0.0
+    if isinstance(filtered, str):  # ambiguous provenance is never "no correction"
+        msg = f"{fdf}: {filtered}; the lineshape's acquisition time depends on it."
+        raise ValueError(msg)
     if code == 0.0:
         return (acquired - filtered) * dwell, q1, q2
     delay = float(dic.get(f"{fdf}P1", 0.0)) / 360.0
