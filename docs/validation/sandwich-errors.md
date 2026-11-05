@@ -113,12 +113,11 @@ stay calibrated (0.94–1.10 · 0.68 · 0.95). The nonlinear errors do not.
   can have unreliable local errors even when no warning fires
   ([outputs.md](../outputs.md)). The calibrated overlapping cases above show this
   is not true of overlap as such, and no boundary between the regimes is claimed.
-- **No resolution-based warning yet.** A threshold on the fitted separation relative
-  to the linewidth could miss fits that separate the peaks artificially, and flag
-  well-resolved 2D pairs. Any such flag must first be shown useful in a separate
-  study: candidate measures across separations, linewidths, amplitudes, SNRs and
-  2D geometries, judged on false positives and missed biased or under-covering
-  fits. It would be an advisory review flag, separate from covariance withholding.
+- **No resolution-based warning.** The [resolution-flag study](resolution-flag.md)
+  tested eight candidate measures across separations, linewidths, amplitudes,
+  SNRs, lineshapes, starts and 2D geometries. None flags biased or under-covering
+  fits without also flagging many calibrated ones, and the fits each leaves
+  unflagged still under-cover.
 
 ## Scope
 

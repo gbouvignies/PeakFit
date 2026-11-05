@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import re
 import sys
 import zlib
 from concurrent.futures import ProcessPoolExecutor
@@ -550,8 +551,18 @@ ORACLES = {  # not available to a user: the truth, to test resolution itself
 }
 
 
-def _table(document: dict) -> dict:
-    """Per-fit arrays for usable fits, and per-configuration calibration labels."""
+def _swap(names: list[str]) -> list[int]:
+    """The index of each parameter with peaks A and B exchanged."""
+    return [names.index(n.replace("A.", "#").replace("B.", "A.").replace("#", "B.")) for n in names]
+
+
+def _table(document: dict, label_invariant: bool = False) -> dict:
+    """Per-fit arrays for usable fits, and per-configuration calibration labels.
+
+    ``label_invariant`` (post hoc, not pre-registered) compares each fit with the
+    truth under whichever labelling of the two peaks fits it better (the smaller
+    sum of squared published z), so a start that swapped the peaks is not a miss.
+    """
     configs = {c["name"]: c for c in document["configs"]}
     rows = [r for r in document["fits"] if r["usable"]]
     out: dict = {
@@ -562,7 +573,13 @@ def _table(document: dict) -> dict:
     z_pub, z_true = [], []
     for r in rows:
         positions = [j for j, n in enumerate(r["names"]) if n.endswith(".cs")]
-        error = np.abs(np.array(r["estimates"]) - np.array(r["truth"]))[positions]
+        se = np.array(r["published_se"], dtype=float)
+        truth = np.array(r["truth"])
+        error = np.abs(np.array(r["estimates"]) - truth)[positions]
+        if label_invariant:
+            swapped = np.abs(np.array(r["estimates"]) - truth[_swap(r["names"])])[positions]
+            if np.nansum((swapped / se[positions]) ** 2) < np.nansum((error / se[positions]) ** 2):
+                error = swapped
         z_pub.append(error / np.array(r["published_se"], dtype=float)[positions])
         z_true.append(error / np.array(r["true_se"], dtype=float)[positions])
     out["z_published"] = np.array(z_pub)
@@ -656,9 +673,9 @@ def _after_flagging(fits: dict, cells: dict, flagged: np.ndarray, keep: np.ndarr
             continue
         judged += 1
         if not result["calibrated"]:
-            failing.append([name, result["coverage_68_95"], result["unwarned"]])
+            failing.append([name, *result["coverage_68_95"], result["unwarned"]])
         if result["coverage_68_95"][1] < GROSS_95:
-            gross.append([name, result["coverage_68_95"], result["unwarned"]])
+            gross.append([name, *result["coverage_68_95"], result["unwarned"]])
         if cell["calibrated"] is False:
             pooled.append(fits["z_published"][mask])
     previously = _coverage(np.concatenate(pooled)) if pooled else None
@@ -729,11 +746,9 @@ def _breakdown(table: dict) -> dict:
     return out
 
 
-def analyze(args: argparse.Namespace) -> None:
-    """Evaluate every measure against the pre-registered criteria."""
-    with gzip.open(args.fits, "rt") as handle:
-        document = json.load(handle)
-    table = _table(document)
+def evaluate(document: dict, label_invariant: bool) -> dict:
+    """Every measure against the pre-registered criteria, under one labelling."""
+    table = _table(document, label_invariant)
     fits, cells = table["fits"], table["cells"]
     dev = fits["index"] % 2 == 0
     test = ~dev
@@ -752,6 +767,16 @@ def analyze(args: argparse.Namespace) -> None:
         # Context, not a candidate: flag every fit of a miscalibrated configuration.
         # Problematic fits in calibrated configurations are beyond any such flag.
         "configuration_oracle_test": _rates(fits, fits["calibrated"] == False, test),  # noqa: E712
+        "unwarned_problematic_by_configuration": {
+            label: int(
+                np.sum(~fits["warned"] & fits["problematic"] & (fits["calibrated"] == value))
+            )
+            for label, value in (
+                ("calibrated", True),
+                ("miscalibrated", False),
+                ("not judged", None),
+            )
+        },
         "breakdown": _breakdown(table),
         "apodized_widths_points": document["apodized_widths_points"],
         "measures": {},
@@ -775,7 +800,9 @@ def analyze(args: argparse.Namespace) -> None:
             n_fp = t["calibrated_fits"]
             entry["verdict"] = {
                 "sensitivity_at_least_0.8": t["sensitivity"] >= 0.8,
-                "false_positive_at_most_0.05": fp <= TARGET_FP + 3 * np.sqrt(0.05 * 0.95 / n_fp),
+                "false_positive_at_most_0.05": bool(
+                    fp <= TARGET_FP + 3 * np.sqrt(0.05 * 0.95 / n_fp)
+                ),
                 "no_gross_under_coverage_after_flagging": not after["grossly_under_covering"],
                 "previously_miscalibrated_now_calibrated": bool(
                     after["pooled_over_previously_miscalibrated"]
@@ -784,20 +811,110 @@ def analyze(args: argparse.Namespace) -> None:
             }
             entry["verdict"]["passes"] = all(entry["verdict"].values())
         report["measures"][name] = entry
-    report["cells"] = cells
-    text = json.dumps(report, indent=1, default=float)
+    columns = [k for k in next(iter(cells.values())) if k != "coverage_68_95"]
+    report["cells"] = {
+        "columns": ["configuration", "coverage_68", "coverage_95", *columns],
+        "rows": [
+            [name, *(cell["coverage_68_95"] or [None, None]), *(cell[k] for k in columns)]
+            for name, cell in cells.items()
+        ],
+    }
+    return report
+
+
+def _rounded(value):
+    """Floats to four significant figures, for a reviewable results file."""
+    if isinstance(value, dict):
+        return {k: _rounded(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_rounded(v) for v in value]
+    if isinstance(value, float | np.floating):
+        return float(f"{float(value):.4g}") if np.isfinite(value) else None
+    if isinstance(value, np.integer | np.bool_):
+        return value.item()
+    return value
+
+
+def analyze(args: argparse.Namespace) -> None:
+    """The pre-registered analysis, and the post-hoc label-invariant one."""
+    with gzip.open(args.fits, "rt") as handle:
+        document = json.load(handle)
+    report = {
+        "pre_registered": evaluate(document, label_invariant=False),
+        "label_invariant_post_hoc": evaluate(document, label_invariant=True),
+    }
+    text = json.dumps(_rounded(report), indent=1)
+    # Lists of numbers or names on one line each, for a compact, reviewable file.
+    text = re.sub(
+        r"\[\s+([^\[\]{}]*?)\s+\]", lambda m: "[" + re.sub(r",\s+", ", ", m.group(1)) + "]", text
+    )
     if args.output:
         args.output.write_text(text + "\n")
-    summary = {
-        name: {
-            "threshold": m["threshold_from_development_half"],
-            "auc": round(m["roc_all"]["auc"], 3),
-            "test": {k: v for k, v in m.get("test", {}).items() if "fits" not in k},
-            "passes": m.get("verdict", {}).get("passes"),
-        }
-        for name, m in report["measures"].items()
-    }
-    print(json.dumps(summary, indent=1, default=float))
+    for label, part in report.items():
+        print(label)
+        for name, m in part["measures"].items():
+            verdict = m.get("verdict", {})
+            print(f"  {name}: AUC {m['roc_all']['auc']:.3f}, passes {verdict.get('passes')}")
+
+
+def explore(args: argparse.Namespace) -> None:
+    """Exploratory views, not pre-registered: regimes and operating curves."""
+    with gzip.open(args.fits, "rt") as handle:
+        document = json.load(handle)
+    for label_invariant in (False, True):
+        table = _table(document, label_invariant)
+        fits, cells, configs = table["fits"], table["cells"], table["configs"]
+        unwarned, everything = ~fits["warned"], np.ones(len(fits["warned"]), dtype=bool)
+        print(f"\n## label invariant: {label_invariant}")
+        print("separation | per σ = 0.01, 0.03, 0.1: miscalibrated/judged cells,")
+        print("           | problematic/unwarned fits, warned share")
+        for d in (0.0, 0.1, 0.2, 0.3, 0.45, 0.6, 0.8, 1.0, 1.5):
+            row = []
+            for sigma in (0.01, 0.03, 0.1):
+                names = [
+                    n
+                    for n, c in configs.items()
+                    if c["points"] is None and c["separation"] == d and c["sigma"] == sigma
+                ]
+                bad = sum(cells[n]["calibrated"] is False for n in names)
+                judged = sum(cells[n]["calibrated"] is not None for n in names)
+                mask = np.isin(fits["config"], names)
+                problematic = np.sum(mask & unwarned & fits["problematic"])
+                row.append(
+                    f"{bad}/{judged} | {problematic}/{np.sum(mask & unwarned)} | "
+                    f"{np.mean(fits['warned'][mask]):.2f}"
+                )
+            print(f"{d:<5}", "    ".join(row))
+        for name, grid in (
+            ("separation significance", (1, 2, 3, 4, 6, 8, 12, 16)),
+            ("profile nonlinearity", (0.1, 0.2, 0.4, 0.8, 1.6)),
+            ("fitted separation / apodized width", (0.2, 0.3, 0.45, 0.6, 0.8)),
+        ):
+            large = MEASURES[name][1]
+            print(f"{name}: threshold | FP | sensitivity | flagged | gross/judged | pooled")
+            for threshold in grid:
+                flagged = _flags(fits[name], threshold, large)
+                rates = _rates(fits, flagged, everything)
+                after = _after_flagging(fits, cells, flagged, everything)
+                pooled = after["pooled_over_previously_miscalibrated"]
+                print(
+                    f"  {threshold:<5} {rates['false_positive_calibrated']:.3f} "
+                    f"{rates['sensitivity']:.3f} {rates['flagged_unwarned']:.3f} "
+                    f"{len(after['grossly_under_covering'])}/{after['configurations_judged']} "
+                    f"{pooled and [round(c, 3) for c in pooled['coverage_68_95']]}"
+                )
+        separated = unwarned & fits["problematic"] & (fits["fitted_separation_ratio"] > 0)
+        print(
+            "problematic fits, fitted/true separation (10, 25, 50, 75, 90%):",
+            np.nanquantile(fits["fitted_separation_ratio"][separated], [0.1, 0.25, 0.5, 0.75, 0.9])
+            .round(2)
+            .tolist(),
+        )
+        problematic = unwarned & fits["problematic"]
+        print(
+            "problematic fits with separation significance ≥ 10:",
+            round(float(np.mean(fits["separation significance"][problematic] >= 10)), 3),
+        )
 
 
 def main() -> None:
@@ -814,6 +931,9 @@ def main() -> None:
     study.add_argument("fits", type=Path)
     study.add_argument("--output", type=Path)
     study.set_defaults(func=analyze)
+    views = commands.add_parser("explore", help="exploratory views, not pre-registered")
+    views.add_argument("fits", type=Path)
+    views.set_defaults(func=explore)
     args = parser.parse_args()
     args.func(args)
 
