@@ -151,6 +151,7 @@ def _rewrite(source: Path, target: Path, change) -> Path:
         lambda m: m.update(axes=[]),  # neither axes nor a reason
         lambda m: m["axes"][0].update(window="exponential"),
         lambda m: m["axes"][0].update(extra=1.0),
+        lambda m: m["axes"][0].pop("filter_delay"),  # no default for recorded provenance
         lambda m: m.pop("axes"),
     ],
 )

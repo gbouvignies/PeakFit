@@ -345,8 +345,16 @@ def _noise_model(record):
     record = _record(record, "noise model")
     if set(record) != {"axes", "reason"}:
         raise ValueError("Malformed noise model.")
-    axes = tuple(AxisProcessing(**_record(a, "noise-model axis")) for a in record["axes"])
+    axes = tuple(_axis_processing(a) for a in record["axes"])
     return NoiseModel(axes=axes, reason=record["reason"])
+
+
+def _axis_processing(record):
+    """One axis's recorded processing: every field, with none left to its default."""
+    record = _record(record, "noise-model axis")
+    if set(record) != {f.name for f in fields(AxisProcessing)}:
+        raise ValueError("Incomplete or unknown noise-model axis processing.")
+    return AxisProcessing(**record)
 
 
 def _validate_noise_model(model, samples):

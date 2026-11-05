@@ -118,19 +118,21 @@ def _filter_delay(dic: dict[str, Any]) -> float | str:
     """The Bruker digital-filter delay NMRPipe corrected during the direct-axis FT.
 
     After the transform, FDDMXFLAG is 1 exactly when the correction was applied and 0
-    when it was not (FT -nodmx); FDDMXVAL is the delay in points.
+    when it was not (FT -nodmx); FDDMXVAL is the delay in points. Every NMRPipe header
+    carries both fields, so a missing, malformed or unrecognised one is ambiguous
+    provenance, never "no correction".
     """
+    if "FDDMXVAL" not in dic or "FDDMXFLAG" not in dic:
+        return "digital-filter correction (FDDMXVAL, FDDMXFLAG) not recorded"
     try:
-        delay, flag = float(dic.get("FDDMXVAL", 0.0)), float(dic.get("FDDMXFLAG", 0.0))
+        delay, flag = float(dic["FDDMXVAL"]), float(dic["FDDMXFLAG"])
     except (TypeError, ValueError):
         return "unreadable digital-filter correction (FDDMXVAL, FDDMXFLAG)"
     if not (np.isfinite(delay) and np.isfinite(flag)):
         return "unreadable digital-filter correction (FDDMXVAL, FDDMXFLAG)"
-    if delay == 0.0 or flag == 0.0:
-        return 0.0
-    if flag == 1.0:
-        return delay
-    return f"digital-filter correction state FDDMXFLAG {flag:g} not recognised"
+    if flag not in {0.0, 1.0}:
+        return f"digital-filter correction state FDDMXFLAG {flag:g} not recognised"
+    return delay if flag == 1.0 else 0.0
 
 
 def _axis_processing(  # noqa: PLR0911, PLR0912 - one return per check of §2.3

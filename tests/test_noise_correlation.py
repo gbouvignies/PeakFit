@@ -244,11 +244,34 @@ def test_the_digital_filter_delay_is_recorded_only_when_ft_applied_it():
     assert np.abs(ignored - _exact_correlation(responses)).max() > 0.2
 
 
-def test_an_unrecognised_digital_filter_state_is_not_modelled():
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"FDDMXFLAG": -1.0}, "FDDMXFLAG -1 not recognised"),
+        ({"FDDMXFLAG": 0.5}, "FDDMXFLAG 0.5 not recognised"),
+        # An invalid flag is refused even when no delay is recorded.
+        ({"FDDMXVAL": 0.0, "FDDMXFLAG": 2.0}, "FDDMXFLAG 2 not recognised"),
+        ({"FDDMXVAL": float("nan")}, "unreadable digital-filter correction"),
+        ({"FDDMXFLAG": "on"}, "unreadable digital-filter correction"),
+        ({"FDDMXVAL": None}, "unreadable digital-filter correction"),
+    ],
+)
+def test_an_ambiguous_digital_filter_state_is_not_modelled(changes, message):
     dic, responses = _nmrpipe("digital_filter")
-    model = read_noise_model({**dic, "FDDMXFLAG": -1.0}, responses.shape)
+    model = read_noise_model({**dic, **changes}, responses.shape)
     assert not model.modelled
-    assert "FDDMXFLAG -1" in str(model.reason)
+    assert model.axes == ()
+    assert message in str(model.reason)
+
+
+@pytest.mark.parametrize("missing", ["FDDMXVAL", "FDDMXFLAG"])
+def test_an_unrecorded_digital_filter_state_is_not_modelled(cest_header, missing):
+    dic, shape = cest_header
+    assert (dic["FDDMXVAL"], dic["FDDMXFLAG"]) == (0.0, 0.0)
+    header = {key: value for key, value in dic.items() if key != missing}
+    model = read_noise_model(header, shape)
+    assert not model.modelled
+    assert "digital-filter correction (FDDMXVAL, FDDMXFLAG) not recorded" in str(model.reason)
 
 
 def test_the_digital_filter_applies_to_the_direct_axis_only(cest_header):
