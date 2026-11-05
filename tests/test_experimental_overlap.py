@@ -47,12 +47,21 @@ def test_experimental_default_keeps_real_objective_and_flags_unreliable_errors(
     assert any(not np.isfinite(p.stderr) for p in result.params.values() if p.vary)
 
 
+# The local solutions the historical settings reach. The released values (119.8016505,
+# 117.7007364, 115.3649824) were fitted with aq = APOD/SW; with the window over the
+# acquired signal (docs/lineshapes.md) they move by +0.96, -0.02 and +0.09 Hz, and
+# cluster 269, which holds the 36N-H/93N-H identifiability pair, now carries the
+# uncertainty warning from either start.
 @pytest.mark.parametrize(
-    ("cluster_id", "name", "expected_shift"),
-    [(269, "36N-H", 119.8016505), (360, "5N-H", 117.7007364), (424, "53N-H", 115.3649824)],
+    ("cluster_id", "name", "expected_shift", "warned"),
+    [
+        (269, "36N-H", 119.8135054, True),
+        (360, "5N-H", 117.7004604, False),
+        (424, "53N-H", 115.3660666, False),
+    ],
 )
-def test_historical_settings_reproduce_released_local_solution(
-    experimental_data, cluster_id, name, expected_shift
+def test_historical_settings_reach_their_local_solution(
+    experimental_data, cluster_id, name, expected_shift, warned
 ):
     cluster = next(c for c in experimental_data.clusters if c.cluster_id == cluster_id)
     params = Parameters.from_peaks(cluster.peaks)
@@ -73,4 +82,4 @@ def test_historical_settings_reproduce_released_local_solution(
         noise_model=not_modelled("synthetic spectrum"),
     )
     assert isinstance(evaluation, AnalyticalModelEvaluation)
-    assert evaluation.uncertainty_warning is None
+    assert (evaluation.uncertainty_warning is not None) is warned

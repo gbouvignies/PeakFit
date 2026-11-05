@@ -92,7 +92,8 @@ def test_unedited_refit_continues_every_adopted_peak_of_the_bundled_run(bundled)
         ), members
     pair = after[("102N-H", "52N-H")].analytical_evaluation
     assert pair.uncertainty_warning is None
-    assert pair.statistics.reduced_chi_squared == pytest.approx(1.5296, abs=1e-4)
+    # 1.5296 with aq = APOD/SW, before the window over the acquired signal.
+    assert pair.statistics.reduced_chi_squared == pytest.approx(1.5440, abs=1e-4)
 
 
 @pytest.mark.slow
@@ -102,7 +103,7 @@ def test_positions_only_refit_is_the_collapse_continuation_prevents(bundled):
     second = _fit(dataset.spectra, first.working_peaks, settings)
     pair = _by_members(second.result)[("102N-H", "52N-H")].analytical_evaluation
     assert pair.uncertainty_warning is not None
-    assert pair.statistics.reduced_chi_squared == pytest.approx(2.3154, abs=1e-4)
+    assert pair.statistics.reduced_chi_squared == pytest.approx(2.3156, abs=1e-4)  # was 2.3154
 
 
 def test_identical_prepared_inputs_give_identical_outcomes(synthetic):
