@@ -1,4 +1,4 @@
-"""JSON 7.0.0 projection of immutable completed-fit outcomes."""
+"""JSON 8.0.0 projection of immutable completed-fit outcomes."""
 
 from __future__ import annotations
 

@@ -35,7 +35,7 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
-VERSION = "8.0.0"
+VERSION = "9.0.0"
 _RESULT_ARRAYS = (
     "shapes",
     "amplitudes",
@@ -364,7 +364,14 @@ def _validate_noise_model(model, samples):
             or axis.transform < axis.acquired
             or not all(
                 np.isfinite(v)
-                for v in (axis.offset, axis.end, axis.power, axis.first_point, axis.phase)
+                for v in (
+                    axis.offset,
+                    axis.end,
+                    axis.power,
+                    axis.first_point,
+                    axis.phase,
+                    axis.filter_delay,
+                )
             )
         ):
             raise ValueError("Invalid noise-model axis processing.")

@@ -4,7 +4,12 @@ See ``docs/correlated-noise.md`` §2. Thermal noise is white and circular comple
 the time domain. Apodization, zero filling, the Fourier transform and the first-order
 phase correlate the real points of each processed axis, with lag correlation
 
-    ρ(k) = Re[C(k) e^{iφ₁k/M}] / C(0),  C(k) = Σ_t w_t² e^{−2πikt/M}.
+    ρ(k) = Re[C(k) e^{−iφk/M}] / C(0),  C(k) = Σ_t w_t² e^{−2πikt/M},
+
+where φ = P1 − 360°·g is the first-order phase NMRPipe applied, including the
+Bruker digital-filter delay g it corrects during the Fourier transform. The sign is
+NMRPipe's: it stores frequency in decreasing order, and the formula matches spectra
+it processed (``tests/data/nmrpipe``).
 
 Axes are processed independently, so a cluster's correlation R is the elementwise
 product of each axis's ρ at the lags between its fitting samples. It is exact under
@@ -36,6 +41,9 @@ class AxisProcessing:
     power: float = 1.0
     first_point: float = 1.0  # scale applied to the first time-domain point
     phase: float = 0.0  # first-order phase P1, degrees
+    # Bruker digital-filter group delay (FDDMXVAL) NMRPipe corrected during the
+    # Fourier transform, in points; 0 when no correction was applied.
+    filter_delay: float = 0.0
 
     def weights(self) -> FloatArray:
         """The apodization over the acquired points, first point scaled."""
@@ -53,7 +61,8 @@ class AxisProcessing:
         w2 = self.weights() ** 2
         lags = np.arange(self.transform)
         spectrum = np.fft.fft(w2, n=self.transform)  # C(k) = Σ_t w_t² e^{−2πikt/M}
-        rotated = spectrum * np.exp(1j * np.deg2rad(self.phase) * lags / self.transform)
+        phase = np.deg2rad(self.phase - 360.0 * self.filter_delay)
+        rotated = spectrum * np.exp(-1j * phase * lags / self.transform)
         return np.real(rotated) / np.real(spectrum[0])
 
 
@@ -82,6 +91,7 @@ class NoiseModel:
             f"{get_dimension_label(i)}: "
             f"{'sine bell' if a.window == 'sine_bell' else 'no apodization'}, "
             f"{a.acquired} → {a.transform} points"
+            + (f", digital filter {a.filter_delay:g} points" if a.filter_delay else "")
             for i, a in enumerate(self.axes)
         )
         return f"Noise correlation modelled from the recorded processing ({axes})."

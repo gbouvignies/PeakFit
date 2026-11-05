@@ -121,7 +121,8 @@ class Axis:
         p = self.processing
         lags = np.arange(p.transform)[rows]
         fourier = np.exp(-2j * np.pi * np.outer(lags, np.arange(p.acquired)) / p.transform)
-        phase = np.exp(1j * np.deg2rad(p.phase) * lags / p.transform)
+        # NMRPipe's sign: its P1 ramp over stored points is e^{−iφk/M} in index k.
+        phase = np.exp(-1j * np.deg2rad(p.phase) * lags / p.transform)
         operator = phase[:, None] * fourier * p.weights()[None, :]
         real = np.hstack([operator.real, -operator.imag])
         return real / np.sqrt(np.sum(p.weights() ** 2))
