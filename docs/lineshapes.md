@@ -85,6 +85,13 @@ not fix. Use the standard conventions, or check short indirect axes by hand.
 Other windows (`APODCODE` other than 0 or 1) are fitted with the Gaussian,
 Lorentzian or pseudo-Voigt lineshapes, which do not use aq.
 
+## Starting linewidth
+
+LW starts at 2 Hz unless the configuration or a continued run sets it. A start
+broader than the true lines lets overlapping peaks collapse onto one position; a
+narrow one costs nothing for broad lines
+([validation/linewidth-start.md](validation/linewidth-start.md)).
+
 ## Validation
 
 NMRPipe-processed noiseless signals of known linewidth, position and amplitude,
