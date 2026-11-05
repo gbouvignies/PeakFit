@@ -800,3 +800,61 @@ Short records of non‑obvious design choices and trade‑offs.
   - In the golden reference, fitted values, classifications, warnings and χ² are
     bit-identical. Amplitude errors fall 0.4–2.5% (median 1.8%) and parameter errors
     move −2.1% to +2.5%, from the ¹⁵N axis's `P1` 180.
+
+## 2026-11-05: sp1/sp2 acquisition time from the acquired signal
+- **Defect.** The `sp1`, `sp2` and `no_apod` lineshapes integrate the signal under
+  the window over 0 ≤ t ≤ aq, with aq = `APOD`/`SW` and the recorded window.
+  NMRPipe evaluates the sine bell on samples j = 0 … N − 1, which the signal reaches
+  at (j − g + d)·dw:
+  - d = `P1`/360, the sampling delay;
+  - g, the Bruker digital-filter delay that FT corrects after the window.
+
+  Linewidths were overstated at short acquisitions: +4% to +41% for 64-point `sp2`
+  axes sampled from t = 0, and 5–83% on 512–1024-point Bruker direct axes. Half-dwell
+  axes were overstated too, at short lengths, in PeakFit's cluster-sized fits.
+- **Rule** ([lineshapes.md](lineshapes.md)):
+  - `sp1` and `sp2` use aq = (N − 1 + d − g)·dw, with the window's span over the
+    signal. They use `TDSIZE`, the full spectral width (so extraction no longer uses
+    the rounded `APOD`), `P1`, `FDDMXVAL`/`FDDMXFLAG` and `APODDF`.
+  - `no_apod` keeps N·dw, less g.
+  - The kernels are unchanged, and there is no new lineshape family.
+  - The convention follows the sampling delay `P1` records, not a `P1` ≈ 180
+    threshold, so a small manual `P1` changes aq by `P1`/360 of a dwell.
+- **Evidence** ([validation/acquisition-time.md](validation/acquisition-time.md)):
+  NMRPipe-processed noiseless signals, fitted by PeakFit.
+  - Exact for t = 0 (first point ×½) and half-dwell (×1): within 0.6% at 64 points,
+    and 0.3% on indirect axes at 32.
+  - First-order for other delays.
+  - Positions and relative amplitudes are unchanged.
+  - GB3 real data: the gross dependence of linewidth on acquisition length disappears.
+- **Golden reference** regenerated. The CEST example is Varian data (`var2pipe`), with
+  no digital-filter correction; Bruker handling is validated by the Bruker fixtures
+  and GB3. Linewidths +0.3% median, amplitudes of unwarned
+  clusters +0.3–0.8%, positions ≤ 0.49 SE, classifications and warnings unchanged.
+- **Real-data reference values changed.**
+  - `test_coincidence`: the 5N-H/76N-H pair now re-collapses from default starts like
+    the other retained pairs. A resolved fit still has lower χ² (18045 against
+    18454), so this is a known optimizer limitation. It is recorded as a strict
+    `xfail` and tracked in #135.
+  - `test_experimental_overlap`: the released local solutions reached with
+    historical settings move by +0.96, −0.02 and +0.09 Hz in ¹⁵N. Cluster 269, which
+    holds the 36N-H/93N-H identifiability pair, now carries the uncertainty warning
+    from either start.
+  - `test_continuation`: the 102N-H/52N-H pair's reduced χ² is 1.5440 instead of
+    1.5296. Its qualitative behaviour is unchanged: resolved when continued,
+    collapsed when only positions are carried.
+- **Formats.** Scientific archive 10.0.0 and analysis project 13.0.0. Both record the
+  derived spectral parameters, which continuation and project reopening compare with
+  the spectrum as read now. Under the new rule, earlier files failed that comparison
+  as an apparent calibration change, so they are now refused by version: refit.
+  - Fit JSON (8.0.0) records no spectral parameters and stays valid.
+  - MCMC records (1.1.0) are bound to their parent archive, which is refused.
+- **Digital-filter metadata.** Missing, unreadable or unrecognised `FDDMXVAL` or
+  `FDDMXFLAG` is refused when reading the spectrum, never taken as "no correction".
+- **Not checked: first-point scaling against the sampling delay.** A mismatch
+  m = (`C1` + 1) − ½ − d adds a constant offset whose linewidth bias grows as m/N.
+  It is documented with measurements in [lineshapes.md](lineshapes.md), not
+  diagnosed:
+  - the offset depends on the true delay, which the header does not record;
+  - m computed from `P1` is wrong whenever `P1` includes manual phasing;
+  - any warning would need an arbitrary threshold.

@@ -15,6 +15,8 @@ Start with the root [`README.md`](../README.md) and the ready-to-run
 - [`mcmc.md`](mcmc.md) - MCMC uncertainty workflow.
 - [`mcmc-formulation.md`](mcmc-formulation.md) - what MCMC samples and reports, and
   how that is validated.
+- [`lineshapes.md`](lineshapes.md) - the apodized `sp1`, `sp2` and `no_apod`
+  lineshapes and the acquisition time they use.
 - [`correlated-noise.md`](correlated-noise.md) - specification for noise correlated
   by zero filling and apodization, and its staged implementation.
 

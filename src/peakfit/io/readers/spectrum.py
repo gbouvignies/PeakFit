@@ -40,6 +40,58 @@ def _positive_int(value: Any) -> int | None:
     return parsed if parsed > 0 else None
 
 
+def _signal_window(
+    dic: dict[str, Any], fdf: str, size: int, sw: float
+) -> tuple[float, float, float]:
+    """Acquisition time, and the window's start and end, over the acquired signal.
+
+    The sp1, sp2 and no_apod lineshapes integrate e^{−(R+iΔω)t} under the window over
+    0 ≤ t ≤ aq. NMRPipe evaluates the sine bell sin(π(Q1 + (Q2 − Q1)·j/(N − 1))) on
+    sample j, while the signal reaches sample j at time (j − g + d)·dw:
+    - d = P1/360, the sampling delay the first-order phase removes (½ for half-dwell);
+    - g, the Bruker digital-filter delay FT corrected after the window was applied;
+    - the window itself starts APODDF points late after SP -df.
+
+    So the signal spans (N − 1 + d − g)·dw under the window, from u₀ = (g − d − APODDF)
+    to u₁ = (N − 1 − APODDF) in units of N − 1, with dw from the full spectral width.
+    Assumptions (docs/lineshapes.md): P1 is the sampling delay, with no further phase
+    correction; the first point was scaled by ½ + d, as in the two standard
+    conventions (t = 0 with ×½, half-dwell with ×1). Neither is checked, because the
+    acquisition timing itself is not recorded. Without a window the established
+    aq = N·dw is kept, less the digital-filter delay. Other windows use the recorded
+    APOD/SW; their lineshapes do not use it. Ambiguous digital-filter metadata is
+    refused.
+    """
+    q1, q2 = float(dic.get(f"{fdf}APODQ1", 0.0)), float(dic.get(f"{fdf}APODQ2", 0.0))
+    apod_time = float(dic.get(f"{fdf}APOD", 0.0)) / max(sw, 1e-6)
+    acquired, transform = (
+        _positive_int(dic.get(f"{fdf}TDSIZE")),
+        _positive_int(dic.get(f"{fdf}FTSIZE")),
+    )
+    code = dic.get(f"{fdf}APODCODE", 0.0)
+    if acquired is None or transform is None or acquired < 2 or code not in {0.0, 1.0}:  # noqa: PLR2004
+        return apod_time, q1, q2
+    dwell = size / (sw * transform)  # one acquired point: 1/(full spectral width)
+    filtered = _filter_delay(dic) if fdf == f"FDF{_DIRECT_AXIS}" else 0.0
+    if isinstance(filtered, str):  # ambiguous provenance is never "no correction"
+        msg = f"{fdf}: {filtered}; the lineshape's acquisition time depends on it."
+        raise ValueError(msg)
+    if code == 0.0:
+        return (acquired - filtered) * dwell, q1, q2
+    delay = float(dic.get(f"{fdf}P1", 0.0)) / 360.0
+    shift = float(dic.get(f"{fdf}APODDF", 0.0))
+    span = acquired - 1 + delay - filtered
+    if not span > 0:
+        msg = (
+            f"{fdf}: TDSIZE {acquired}, P1 {360 * delay:g} and digital-filter delay "
+            f"{filtered:g} leave no acquired signal under the window; check the header."
+        )
+        raise ValueError(msg)
+    start = (filtered - delay - shift) / (acquired - 1)
+    end = (acquired - 1 - shift) / (acquired - 1)
+    return span * dwell, q1 + (q2 - q1) * start, q1 + (q2 - q1) * end
+
+
 def read_spectral_parameters(dic: dict[str, Any], data: NDArray[Any]) -> list[Any]:
     """Read spectral parameters from an NMRPipe dictionary."""
     spec_params: list[SpectralParameters] = []
@@ -50,6 +102,8 @@ def read_spectral_parameters(dic: dict[str, Any], data: NDArray[Any]) -> list[An
         is_direct = i == data.ndim - 1
         ft = dic.get(f"{fdf}FTFLAG", 0.0) == 1.0
 
+        apodq1 = dic.get(f"{fdf}APODQ1", 0.0)
+        apodq2 = dic.get(f"{fdf}APODQ2", 0.0)
         if i == 0:
             dim_label = PSEUDO_AXIS
             nucleus = None
@@ -70,7 +124,7 @@ def read_spectral_parameters(dic: dict[str, Any], data: NDArray[Any]) -> list[An
                 orig = dic.get(f"{fdf}ORIG", 0.0)
                 obs = dic.get(f"{fdf}OBS", 1.0)
                 car = orig + sw / 2.0 - sw / size
-                aq_time = dic.get(f"{fdf}APOD", 0.0) / max(sw, 1e-6)
+                aq_time, apodq1, apodq2 = _signal_window(dic, fdf, size, sw)
                 p180 = P1_MIN <= abs(dic.get(f"{fdf}P1", 0.0)) <= P1_MAX
             else:
                 sw = obs = car = aq_time = 1.0
@@ -84,8 +138,8 @@ def read_spectral_parameters(dic: dict[str, Any], data: NDArray[Any]) -> list[An
                 car=car,
                 aq_time=aq_time,
                 apocode=dic.get(f"{fdf}APODCODE", 0.0),
-                apodq1=dic.get(f"{fdf}APODQ1", 0.0),
-                apodq2=dic.get(f"{fdf}APODQ2", 0.0),
+                apodq1=apodq1,
+                apodq2=apodq2,
                 apodq3=dic.get(f"{fdf}APODQ3", 0.0),
                 p180=p180,
                 direct=is_direct,

@@ -94,6 +94,27 @@ def test_archive_recording_a_removed_config_key_is_rejected_by_version(
         ResultsLoader(directory).load_completed()
 
 
+def test_archive_recording_the_previous_acquisition_time_is_rejected_by_version(tmp_path):
+    # Archive 9.0.0 recorded spectral parameters with aq = APOD/SW; the reader now
+    # derives the window over the acquired signal (docs/lineshapes.md), so the record
+    # is refused by version rather than by a calibration mismatch.
+    _, _, _, result = completed_result([], False, True)
+    directory = export_fit_result(result, tmp_path / "results")
+    archive = directory / "scientific.npz"
+    with ZipFile(archive) as source:
+        members = {name: source.read(name) for name in source.namelist()}
+    document = json.loads(members["metadata.json"])
+    for axis in document["context"]["mapping"]["spectral_parameters"]:
+        axis["mapping"]["aq_time"] *= 1.01
+    document["schema_version"] = "9.0.0"
+    members["metadata.json"] = json.dumps(document).encode()
+    with ZipFile(archive, "w") as target:
+        for name, payload in members.items():
+            target.writestr(name, payload)
+    with pytest.raises(ValueError, match=r"Unsupported scientific result version '9\.0\.0'"):
+        ResultsLoader(directory).load_completed()
+
+
 def test_reconstruction_refuses_changed_evaluator_reference(tmp_path):
     spectra, _, _, result = completed_result([], False)
     directory = export_fit_result(result, tmp_path / "results")

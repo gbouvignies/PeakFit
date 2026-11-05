@@ -1399,8 +1399,13 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
     )
     completion = replace(fitting.completion, result=parent)
 
+    started, released = Event(), Event()
+
     class Stored(StoredRun):
         def load(self):
+            # Hold the background read until the transient state has been checked.
+            started.set()
+            released.wait()
             return completion
 
     fitting.history = [Stored(Path(), {"run_id": parent.run_id}), *fitting.history]
@@ -1408,12 +1413,16 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
         {**e, "parent_run_id": parent.run_id} if e.get("run_id") == result.run_id else e
         for e in fitting.journal
     ]
-    w.select_peak(None)
-    w.render_fitting()
     panel = w.panel
     texts = lambda: [label.text() for label in panel.analysis_page.findChildren(QtWidgets.QLabel)]  # noqa: E731
-    # The stored parent is read off Qt; the page says so meanwhile.
-    assert "Reading run parent00…" in texts()
+    try:
+        w.select_peak(None)
+        w.render_fitting()
+        wait_until(started.is_set)
+        # The stored parent is read off Qt; the page says so meanwhile.
+        assert "Reading run parent00…" in texts()
+    finally:
+        released.set()
     wait_until(lambda: fitting._parents.get(parent.run_id) is parent)
     w.render_fitting()
     assert panel.changes_title.text() == "CHANGES FROM RUN PARENT00"
