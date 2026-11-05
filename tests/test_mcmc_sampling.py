@@ -8,6 +8,7 @@ from builders import completed_result, peak_pair
 
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.algorithms.linear_algebra import factorize_shapes
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.scientific.sampler import SamplerSettings
 from peakfit.engine.scientific.sampling import conditional_amplitudes, sampling_problem
@@ -28,7 +29,9 @@ def phased():
     """A two-peak cluster whose fit varied a cluster-scoped phase."""
     cluster, params = peak_pair(6.0, noise=0.01, lineshape="no_apod", fit_phase=("F2",))
     config = PeakFitConfig(fitting=FitConfig(lineshape="no_apod", fit_phase=["F2"]))
-    return run_pipeline(config, [cluster], 0.01, params).completed_fit
+    return run_pipeline(
+        config, [cluster], 0.01, params, noise_model=not_modelled("synthetic spectrum")
+    ).completed_fit
 
 
 def _problems(two_clusters, phased):

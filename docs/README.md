@@ -16,7 +16,7 @@ Start with the root [`README.md`](../README.md) and the ready-to-run
 - [`mcmc-formulation.md`](mcmc-formulation.md) - what MCMC samples and reports, and
   how that is validated.
 - [`correlated-noise.md`](correlated-noise.md) - specification for noise correlated
-  by zero filling and apodization; decisions settled, implementation not approved.
+  by zero filling and apodization, and its staged implementation.
 
 ## GUI v2 design baseline
 

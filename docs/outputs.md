@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**7.0.0**, fit JSON **6.0.0**, analysis project **10.0.0** and MCMC record **1.1.0**.
+**8.0.0**, fit JSON **7.0.0**, analysis project **11.0.0** and MCMC record **1.1.0**.
 
 ## Default scientific export
 
@@ -203,7 +203,10 @@ source indices `[0, 2]` and values `[2, 2]`. Both interfaces pass the actual sou
 mapping through the shared writer. Low-level projection calls omitting a mapping
 assume the unexcluded identity mapping. This is an additive CSV column change.
 `reduced_chi_squared`, beside `intensity_err`, is the cluster's goodness-of-fit
-diagnostic; it does not scale the error (see below).
+diagnostic; it does not scale the error (see below). `noise_correlation`, in
+`intensities.csv` and `parameters.csv`, is "modelled" when the errors account for
+the processed noise correlation and "not modelled" when they assume independent
+points (see below).
 
 ## Unavailable and unreliable uncertainties
 
@@ -235,13 +238,53 @@ errors are also withheld at an active bound (a finite bound within an absolute
 proof of identifiability. Fixed parameters may retain zero error because they
 were not estimated.
 
-Amplitude errors condition on the fitted nonlinear parameters: σ√diag((ΦΦᵀ)⁻¹),
-one per peak for every plane. They do not include uncertainty in positions or
-linewidths; MCMC does ([mcmc.md](mcmc.md)).
+Amplitude errors condition on the fitted nonlinear parameters, one per peak for every
+plane: they are *conditional* amplitude errors. They do not include uncertainty in
+positions or linewidths, which the *total* amplitude uncertainty would; MCMC
+estimates that ([mcmc.md](mcmc.md)), under its own independent-noise likelihood.
+
+**Correlated noise.** Zero filling and apodization correlate the noise of
+neighbouring points ([correlated-noise.md](correlated-noise.md)).
+- **When it is modelled:** each fit derives that correlation, R, from the processing
+  its NMRPipe header records.
+  - A sine bell or no apodization, first-point scale, zero fill and first-order
+    phase; the header must also pass a consistency check.
+  - Nonlinear and amplitude errors are then the least-squares sandwich, for example
+    σ√diag(G⁻¹ΦRΦᵀG⁻¹) for amplitudes.
+  - It is exact under the processing assumptions, not necessarily for the actual
+    spectrum.
+- **Otherwise:** the run records "not modelled" with the reason, and the errors
+  assume independent points: σ√diag((ΦΦᵀ)⁻¹) for amplitudes. That covers any other
+  apodization, an incomplete or inconsistent header, and input that is not NMRPipe.
+- **What the noise model changes:** only the published errors. Fitted values, σ and
+  reduced chi-squared are the same either way.
+- **Where it is stated:** the scientific archive and fit JSON record the noise model.
+  The CLI, the Markdown report, the GUI inspector and the profile note state it, and
+  so does the CSV column above.
+- **Validation:** with PeakFit's own fitting engine, the sandwich errors are
+  calibrated for isolated and overlapping 2D peaks with `sp1`, `sp2` and `no_apod`
+  lineshapes ([validation](validation/sandwich-errors.md)). Independent-point errors
+  understated the scatter 1.8–3.6-fold there.
+
+**Strongly overlapping or near-coalescent peaks: local errors can be unreliable
+without a warning.** All these errors are local, and rest on linearizing the model
+at the fit.
+- Where peaks overlap strongly, the fit can separate them by more than they are,
+  and then report smaller errors around that biased solution.
+- In the validation, a pair 0.4 points apart, 63 of 150 fits carried the uncertainty
+  warning. The other 87 did not, and their positions were covered only 0.65 · 0.82
+  (68% · 95%), at worst 0.37 · 0.67. Neither the existing warnings nor amplitude
+  correlation identify those fits.
+- This is not a property of overlap as such: the overlapping pairs of the
+  validation were calibrated. No separation or linewidth boundary between the two
+  regimes has been established.
+- For strongly overlapping peaks, do not take an absent warning as evidence that
+  the errors are reliable; compare alternative starts or a profile likelihood.
 
 **One noise convention.** Nonlinear errors, amplitude errors (`intensity_err`,
 `amplitude_standard_errors`) and MCMC intervals all use the supplied or estimated
-statistical noise σ. None is rescaled by the reduced chi-squared. Reduced
+statistical noise σ (with its correlation, where modelled, for the analytical
+errors). None is rescaled by the reduced chi-squared. Reduced
 chi-squared is reported beside them, in `clusters.csv`, `intensities.csv`, the JSON
 statistics and the GUI, as a goodness-of-fit diagnostic.
 
@@ -254,12 +297,12 @@ assumptions do not describe the data. The causes affect the errors differently:
 - The noise may not be independent between points.
 
 Inspect the residuals before deciding which applies. A reduced chi-squared near 1
-does not validate the errors either. Zero filling and apodization correlate
-neighbouring points, which leaves reduced chi-squared near 1, while errors computed
-as if every point were independent can be too small. In a synthetic test with
-lag-1 correlation 0.67, they were 1.66× too small
-([validation](validation/sigma-uncertainties.md)). The size of the effect depends
-on the noise covariance and on the lineshapes.
+does not validate the errors either.
+- Correlated noise leaves it near 1, or lowers it: its expectation becomes
+  tr((I − H)R)/(n − p). Its definition is unchanged.
+- Where the correlation is not modelled, independent-point errors can be too small.
+  In a synthetic test with lag-1 correlation 0.67, they were 1.66× too small
+  ([validation](validation/sigma-uncertainties.md)).
 
 Degrees of freedom are `max(1, n_observations - n_fitted_parameters)`, which treats
 every spectral sample as independent and counts the nominal `n_peaks × n_series`
@@ -333,12 +376,12 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **10.0.0**. Earlier project formats are rejected;
+New projects use schema **11.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
-- Only scientific archive **7.0.0**, fit JSON **6.0.0** and project **10.0.0** are
+- Only scientific archive **8.0.0**, fit JSON **7.0.0** and project **11.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
   version": they record configuration keys (`[auto_peak]`, `fix_positions`,

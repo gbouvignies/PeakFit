@@ -26,7 +26,7 @@ from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart
 from peakfit.io.output_metadata import capture_output_metadata
 from peakfit.io.readers.peaks import read_list
-from peakfit.io.readers.spectrum import read_spectra
+from peakfit.io.readers.spectrum import read_noise_model, read_spectra
 from peakfit.io.writers.config import WriterConfig
 from peakfit.shared.paths import format_path
 
@@ -74,6 +74,7 @@ def load_data(
         peaks=peaks,
         noise=noise_val,
         noise_source=noise_source,
+        noise_model=read_noise_model(spectra.dic, spectra.data.shape),
         shape_names=shape_names,
         contour_level=contour,
         clusters=clusters,
@@ -163,6 +164,7 @@ def run_fit(
 
     if reporter:
         reporter.info(f"Fitting {len(data.clusters)} clusters with {n_workers} workers.")
+        reporter.info(data.noise_model.description)
 
     # Emit progress start event with total steps
     if progress_callback:
@@ -207,6 +209,7 @@ def _iter_pipeline(
                 data.clusters,
                 data.noise,
                 params,
+                noise_model=data.noise_model,
                 executor=pool.imap_unordered,
             )
     else:
@@ -215,6 +218,7 @@ def _iter_pipeline(
             data.clusters,
             data.noise,
             params,
+            noise_model=data.noise_model,
             executor=None,
         )
 

@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from peakfit.engine.algorithms.evaluation import classify_optimizer_result
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.params_scalar import Parameters
@@ -109,7 +110,14 @@ def completed():
         )
         clusters.append(cluster)
         results.append(result)
-        evaluations.append(classify_optimizer_result(cluster=cluster, result=result, noise=0.25))
+        evaluations.append(
+            classify_optimizer_result(
+                cluster=cluster,
+                result=result,
+                noise=0.25,
+                noise_model=not_modelled("synthetic spectrum"),
+            )
+        )
     state = FittingState(
         clusters=clusters,
         scalar_params=params,
@@ -124,6 +132,7 @@ def completed():
             correction,
             8,
             7,
+            noise_model=not_modelled("synthetic spectrum"),
         )
     )
     return result, spectra, grid, centers

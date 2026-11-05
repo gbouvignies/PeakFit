@@ -122,14 +122,18 @@ conditional amplitude draws at up to 4,000 kept samples, balanced across walkers
 and spread over time. The
 terminal states how many samples were used, and the Monte Carlo errors behind
 them.
-- **Noise:** like the fit's analytical errors, every MCMC interval is conditional on
-  the recorded noise σ and is never rescaled by the reduced χ² (χ²ᵣ). The terminal
-  and the report page show the parent cluster's χ²ᵣ as a goodness-of-fit
-  diagnostic. A χ²ᵣ well above 1 can mean an underestimated or locally varying σ, an
-  inadequate model or correlated noise, and these affect the intervals differently
-  ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)).
-- **Wider or narrower:** they are usually wider than the fit's analytical amplitude
-  errors (`intensity_err`), which hold the lineshapes fixed, but need not be.
+- **Noise:** every MCMC interval uses an independent-noise likelihood with the
+  recorded σ, never rescaled by the reduced χ² (χ²ᵣ).
+  - The intervals are not calibrated for the noise correlation that zero filling and
+    apodization create, even when the convergence checks pass.
+  - The fit's analytical errors do model that correlation where the run's noise
+    model is "modelled" ([correlated-noise.md](correlated-noise.md)).
+  - The terminal and the report page state this every time, with the parent
+    cluster's χ²ᵣ as a goodness-of-fit diagnostic.
+- **Wider or narrower:** MCMC intervals include the lineshape uncertainty that the
+  fit's conditional errors (`intensity_err`) exclude, but not the noise correlation.
+  On processed data they can therefore be narrower than the published errors. That
+  is expected, not a contradiction.
 - **Withheld:** a peak whose amplitude is not determined in some samples (shapes
   that coincide, or are too close to compute reliably) is withheld, with the
   fraction of samples.

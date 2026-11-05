@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from builders import completed_result, two_cluster_dataset
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.scientific.sampling import sampling_problem
 from peakfit.gui.fit_export import export_fit_result
 from peakfit.io.readers.continuation import continuation_state, load_completed, restore_completed
@@ -136,6 +137,7 @@ def test_compact_continuation_verifies_source_and_exact_excluded_plane_identity(
         prepared.clusters,
         prepared.noise,
         prepared.parameters,
+        noise_model=not_modelled("synthetic spectrum"),
     )
     result = finish_dataset_fit(prepared, DatasetFitAttempt(pipeline.completed_fit, (), 1.0))
     directory = export_fit_result(result, tmp_path / "results")

@@ -40,6 +40,7 @@ def write_final_outcome_parameters(
             "parameter_name": parameter.name,
             "value": _fmt_final_value(parameter.value, cfg, unavailable="unavailable"),
             "std_error": _fmt_final_value(parameter.standard_error, cfg, unavailable="unavailable"),
+            "noise_correlation": _noise_correlation(outcome),
             "is_fixed": not parameter.vary,
             "unit": parameter.unit,
             "min_bound": _fmt_optional(parameter.min, cfg, allow_infinite=False),
@@ -100,6 +101,7 @@ def write_final_outcome_intensities(
                             cfg,
                             unavailable="unavailable",
                         ),
+                        "noise_correlation": _noise_correlation(outcome),
                         "plane_index": plane_index,
                         "source_plane_index": int(indices[plane_index]),
                     }
@@ -198,7 +200,7 @@ def write_final_outcome_shifts(
 
 
 def _parameter_header(rows: list[dict[str, Any]]) -> list[str]:
-    header = ["peak_name", "parameter_name", "value", "std_error", "is_fixed"]
+    header = ["peak_name", "parameter_name", "value", "std_error", "noise_correlation", "is_fixed"]
     header.extend(
         column
         for column in ("unit", "min_bound", "max_bound")
@@ -214,10 +216,16 @@ def _intensity_header() -> list[str]:
         "intensity",
         "intensity_err",
         "reduced_chi_squared",
+        "noise_correlation",
         "plane_index",
         "source_plane_index",
     ]
     return header + _outcome_columns()
+
+
+def _noise_correlation(outcome: FinalFitOutcome) -> str:
+    """Whether the errors model the processed noise correlation (correlated-noise §5.5)."""
+    return "modelled" if outcome.noise_model.modelled else "not modelled"
 
 
 def _outcome_columns() -> list[str]:

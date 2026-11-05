@@ -9,6 +9,7 @@ import pytest
 from builders import peak_pair
 from scipy import stats
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.diagnostics import ensemble
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.scientific.amplitudes import AmplitudeSummaries
@@ -220,7 +221,9 @@ def test_undefined_correlations_stay_undefined():
 def close_pair():
     cluster, params = peak_pair(2.0, noise=0.05)
     config = PeakFitConfig(fitting=FitConfig(lineshape="gaussian"))
-    completed = run_pipeline(config, [cluster], 0.05, params).completed_fit
+    completed = run_pipeline(
+        config, [cluster], 0.05, params, noise_model=not_modelled("synthetic spectrum")
+    ).completed_fit
     return sampling_problem(completed, 1)
 
 

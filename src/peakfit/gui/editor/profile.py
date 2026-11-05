@@ -12,6 +12,7 @@ from peakfit.gui import formatting
 from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
 
 if TYPE_CHECKING:
+    from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.gui.dataset_fit import DatasetFitResult
 
 _MAX_ISOLATED = 2
@@ -37,6 +38,7 @@ class PeakProfile:
     plane_values: bool
     reduced_chi_squared: float
     warning: str | None
+    noise_model: NoiseModel  # the noise correlation the error bars assume
 
 
 def peak_profile(
@@ -83,6 +85,7 @@ def peak_profile(
         recorded,
         evaluation.statistics.reduced_chi_squared,
         evaluation.uncertainty_warning,
+        result.outcome.noise_model,
     )
 
 
@@ -607,7 +610,12 @@ class ProfilePlot(QtWidgets.QWidget):
             f" (limit {RELIABILITY_LIMIT:g})"
             + (" · reference amplitude negative" if shown.reference < 0 else "")
             if shown is not None
-            else "±1σ analytical from the noise level, lineshapes held fixed"
+            else "±1σ conditional analytical error, lineshapes held fixed, "
+            + (
+                "noise correlation modelled"
+                if profile.noise_model.modelled
+                else "noise correlation not modelled"
+            )
         ) + fit
         extra = getattr(self, "_normalization_note", "")
         self.note.setText(
@@ -620,11 +628,11 @@ class ProfilePlot(QtWidgets.QWidget):
             "Analytical amplitude standard errors computed with the fitted lineshape "
             "parameters held fixed, so their uncertainty and correlations are not "
             "propagated. One σ per peak applies to every plane. They can underestimate "
-            "the uncertainty of overlapping peaks. They use the noise level alone and are "
-            "never rescaled by χ²ᵣ. χ²ᵣ is a goodness-of-fit diagnostic: well above 1, "
-            "the noise level, the lineshape model or the assumption of independent noise "
-            "does not describe the data, so these error bars need not match the observed "
-            "scatter."
+            "the uncertainty of overlapping peaks. They are never rescaled by χ²ᵣ. "
+            + profile.noise_model.description
+            + " χ²ᵣ is a goodness-of-fit diagnostic: well above 1, the noise level, the "
+            "lineshape model or the noise assumptions do not describe the data, so these "
+            "error bars need not match the observed scatter."
         )
 
     def _clicked(self, _item, points, event) -> None:

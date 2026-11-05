@@ -285,8 +285,14 @@ def fit_cluster(
     xtol: float = 1e-8,
     gtol: float = 1e-8,
     verbose: int = 0,
+    correlation: FloatArray | None = None,
 ) -> FitResult:
-    """Fit a single cluster using the Trust Region Reflective algorithm and VarPro."""
+    """Fit a single cluster using the Trust Region Reflective algorithm and VarPro.
+
+    ``correlation`` is the noise correlation R between the cluster's points. It does
+    not change the fit, only the published errors (the sandwich); without it the
+    points are independent.
+    """
     if noise <= 0:
         raise ValueError(f"Noise must be positive, got {noise}")
     if not cluster.peaks:
@@ -331,7 +337,7 @@ def fit_cluster(
     # Ensure the final state is computed at the clipped solution.
     optimizer.compute_residuals(result.x)
 
-    params.set_errors(_calculate_errors(optimizer, result.x))
+    params.set_errors(_calculate_errors(optimizer, result.x, correlation))
 
     return FitResult(
         cluster_id=cluster.cluster_id,

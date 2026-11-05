@@ -17,6 +17,7 @@ from peakfit.engine.algorithms.evaluation import (
 from peakfit.engine.algorithms.linear_algebra import (
     calculate_amplitudes_with_uncertainty,
 )
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig, VarProConfig
 from peakfit.engine.domain.param_id import PSEUDO_AXIS, ParameterId
@@ -111,7 +112,12 @@ def test_amplitude_errors_use_the_noise_level_alone_whatever_the_reduced_chi_squ
     expected = 0.5 * np.sqrt(np.diag(np.linalg.inv(shapes @ shapes.T)))
     misfit = np.random.default_rng(1).normal(0.0, 3.0, cluster.data.shape)
     poor = Cluster(37, cluster.peaks, cluster.grid_indices, cluster.data + misfit)
-    good, bad = (evaluate_analytical_model(c, params, noise=0.5) for c in (cluster, poor))
+    good, bad = (
+        evaluate_analytical_model(
+            c, params, noise=0.5, noise_model=not_modelled("synthetic spectrum")
+        )
+        for c in (cluster, poor)
+    )
     assert isinstance(good, AnalyticalModelEvaluation)
     assert isinstance(bad, AnalyticalModelEvaluation)
     assert good.statistics.reduced_chi_squared < 1e-20
@@ -130,6 +136,7 @@ def test_analytical_model_evaluation_solves_a_real_gaussian_cluster(
         gaussian_fit.cluster,
         gaussian_fit.params,
         noise=1.0,
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
     assert isinstance(evaluation, AnalyticalModelEvaluation)
@@ -172,6 +179,7 @@ def test_numerical_usability_is_independent_of_optimizer_convergence(
         gaussian_fit.cluster,
         gaussian_fit.params,
         noise=1.0,
+        noise_model=not_modelled("synthetic spectrum"),
     )
     assert isinstance(analytical, AnalyticalModelEvaluation)
     result = FitResult(
@@ -188,6 +196,7 @@ def test_numerical_usability_is_independent_of_optimizer_convergence(
         cluster=gaussian_fit.cluster,
         result=result,
         noise=1.0,
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
     assert evaluated.classification is expected_classification
@@ -216,6 +225,7 @@ def test_numerical_usability_rejects_nonfinite_nonlinear_parameters(
         cluster=gaussian_fit.cluster,
         result=result,
         noise=1.0,
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
     assert evaluated.classification is FitOutcomeClassification.UNUSABLE
@@ -237,7 +247,9 @@ def test_analytical_model_evaluation_rejects_nonfinite_amplitudes(
         data=np.full((2, 1), 1e308, dtype=np.float64),
     )
 
-    evaluation = evaluate_analytical_model(cluster, params, noise=1.0)
+    evaluation = evaluate_analytical_model(
+        cluster, params, noise=1.0, noise_model=not_modelled("synthetic spectrum")
+    )
 
     assert isinstance(evaluation, AnalyticalEvaluationFailure)
     assert evaluation.reason == "non-finite analytical amplitudes"
@@ -274,7 +286,12 @@ def test_evaluator_keeps_nonfinite_covariance_as_uncertainty_failure(
         ),
     )
 
-    evaluation = evaluate_analytical_model(gaussian_fit.cluster, gaussian_fit.params, noise=1.0)
+    evaluation = evaluate_analytical_model(
+        gaussian_fit.cluster,
+        gaussian_fit.params,
+        noise=1.0,
+        noise_model=not_modelled("synthetic spectrum"),
+    )
 
     assert isinstance(evaluation, AnalyticalEvaluationFailure)
     assert evaluation.reason == "non-finite amplitude uncertainty inputs"
@@ -338,6 +355,7 @@ def test_numerical_usability_rejects_nonfinite_optimizer_numerics(
         gaussian_fit.cluster,
         gaussian_fit.params,
         noise=1.0,
+        noise_model=not_modelled("synthetic spectrum"),
     )
     assert isinstance(analytical, AnalyticalModelEvaluation)
     residual = analytical.normalized_residuals.copy()
@@ -359,6 +377,7 @@ def test_numerical_usability_rejects_nonfinite_optimizer_numerics(
         cluster=gaussian_fit.cluster,
         result=result,
         noise=1.0,
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
     assert evaluated.classification is FitOutcomeClassification.UNUSABLE
@@ -399,6 +418,7 @@ def test_numerical_usability_rejects_incompatible_optimizer_result(
         cluster=gaussian_fit.cluster,
         result=result,
         noise=1.0,
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
     assert evaluated.classification is FitOutcomeClassification.UNUSABLE
@@ -417,7 +437,9 @@ def test_analytical_model_evaluation_rejects_incompatible_design_shape(
     cluster.data = cluster.data[:-1]
     cluster.corrections = np.zeros_like(cluster.data)
 
-    evaluation = evaluate_analytical_model(cluster, gaussian_fit.params, noise=1.0)
+    evaluation = evaluate_analytical_model(
+        cluster, gaussian_fit.params, noise=1.0, noise_model=not_modelled("synthetic spectrum")
+    )
 
     assert isinstance(evaluation, AnalyticalEvaluationFailure)
     assert evaluation.reason == ("lineshape values shape mismatch: expected (1, 8), got (1, 9)")
@@ -432,6 +454,7 @@ def test_analytical_model_evaluation_reports_lineshape_failure(
         gaussian_fit.cluster,
         gaussian_fit.params,
         noise=1.0,
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
     assert isinstance(evaluation, AnalyticalEvaluationFailure)
@@ -455,7 +478,9 @@ def test_analytical_model_evaluation_ignores_stale_injected_amplitudes(
             computed=True,
         )
 
-    evaluation = evaluate_analytical_model(gaussian_fit.cluster, params, noise=1.0)
+    evaluation = evaluate_analytical_model(
+        gaussian_fit.cluster, params, noise=1.0, noise_model=not_modelled("synthetic spectrum")
+    )
 
     assert isinstance(evaluation, AnalyticalModelEvaluation)
     np.testing.assert_allclose(evaluation.amplitudes, gaussian_fit.expected_amplitudes)
@@ -471,7 +496,9 @@ def test_analytical_model_evaluation_preserves_rank_deficient_fallback(
         data=gaussian_fit.cluster.data[:, :1],
     )
 
-    evaluation = evaluate_analytical_model(cluster, gaussian_fit.params, noise=1.0)
+    evaluation = evaluate_analytical_model(
+        cluster, gaussian_fit.params, noise=1.0, noise_model=not_modelled("synthetic spectrum")
+    )
 
     assert isinstance(evaluation, AnalyticalModelEvaluation)
     assert np.isfinite(evaluation.amplitudes).all()
@@ -486,12 +513,14 @@ def test_shared_evaluation_matches_optimizer_terminal_residual(gaussian_fit: Gau
         gaussian_fit.cluster,
         noise=1.0,
         config=VarProConfig(max_nfev=25),
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
     evaluated = classify_optimizer_result(
         cluster=gaussian_fit.cluster,
         result=result,
         noise=1.0,
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
     assert evaluated.usable

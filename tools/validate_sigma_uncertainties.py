@@ -42,6 +42,8 @@ from pathlib import Path
 
 import numpy as np
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 import validate_mcmc_coverage as coverage
@@ -106,7 +108,13 @@ def _cluster(case: str, rng: np.random.Generator | None):
 
 def _fit(cluster, params, case):
     config = PeakFitConfig(fitting=FitConfig(lineshape="gaussian"))
-    return run_pipeline(config, [cluster], SIGMA * CASES[case][2], params).completed_fit
+    return run_pipeline(
+        config,
+        [cluster],
+        SIGMA * CASES[case][2],
+        params,
+        noise_model=not_modelled("synthetic spectrum"),
+    ).completed_fit
 
 
 def realization(case: str, index: int, sample: bool) -> dict | None:

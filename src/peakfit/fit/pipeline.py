@@ -27,6 +27,7 @@ from peakfit.fit.run_models import CorrectionUpdate, PassStart
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Sequence
 
+    from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.results import FitResult
 
@@ -49,6 +50,7 @@ class ClusterFitTask:
     params: Parameters
     noise: float
     config: VarProConfig
+    noise_model: NoiseModel
 
     def __post_init__(self) -> None:
         """Reject disagreement between the task key and cluster payload."""
@@ -72,6 +74,7 @@ def fit_single_cluster_task(
         task.cluster,
         task.noise,
         task.config,
+        task.noise_model,
     )
     if result.cluster_id != task.cluster_id:
         msg = (
@@ -104,6 +107,7 @@ def run_pipeline(
     data_noise: float,
     base_params: Parameters,
     *,
+    noise_model: NoiseModel,
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,
 ) -> PipelineResult:
     """Execute fitting steps and return the final pipeline result."""
@@ -113,6 +117,7 @@ def run_pipeline(
         clusters,
         data_noise,
         base_params,
+        noise_model=noise_model,
         executor=executor,
     ):
         if isinstance(item, PipelineResult):
@@ -130,9 +135,15 @@ def run_pipeline_iter(
     data_noise: float,
     base_params: Parameters,
     *,
+    noise_model: NoiseModel,
     executor: Callable[[Callable[..., Any], list[Any]], Iterable[Any]] | None = None,
 ) -> Iterator[Any]:
-    """Yield fit progress items and finally a PipelineResult."""
+    """Yield fit progress items and finally a PipelineResult.
+
+    ``noise_model`` is the spectrum's noise correlation (``read_noise_model``). It
+    changes only the published errors: the sandwich where it is modelled, the
+    independent-point errors where it is not.
+    """
     cluster_ids = _validate_cluster_ids(clusters)
     # The run owns its clusters and starts uncorrected, so pass 1 is truly revision 0
     # and the caller's clusters never carry this run's corrections into another run.
@@ -169,6 +180,7 @@ def run_pipeline_iter(
             current_params=final_params,
             step=step,
             data_noise=data_noise,
+            noise_model=noise_model,
             optimizer_config=optimizer_config,
         )
         task_clusters_by_id = {task.cluster_id: task.cluster for task in tasks}
@@ -188,6 +200,7 @@ def run_pipeline_iter(
                 cluster=task_clusters_by_id[result.cluster_id],
                 result=result,
                 noise=data_noise,
+                noise_model=noise_model,
             )
             for result in current_fit_results
         ]
@@ -229,6 +242,7 @@ def run_pipeline_iter(
         results=current_fit_results,
         evaluations=current_evaluations,
         correction_snapshot=terminal_snapshot,
+        noise_model=noise_model,
         n_optimizer_passes=len(passes),
         n_correction_updates=correction_updates,
     )
@@ -307,6 +321,7 @@ def _prepare_cluster_tasks(
     current_params: Parameters,
     step: FitStep,
     data_noise: float,
+    noise_model: NoiseModel,
     optimizer_config: VarProConfig,
 ) -> list[ClusterFitTask]:
     """Prepare task arguments for cluster fitting."""
@@ -324,6 +339,7 @@ def _prepare_cluster_tasks(
                 params=cluster_params,
                 noise=data_noise,
                 config=optimizer_config,
+                noise_model=noise_model,
             )
         )
     return tasks

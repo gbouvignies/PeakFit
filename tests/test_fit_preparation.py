@@ -9,6 +9,7 @@ import pytest
 
 from peakfit.engine.algorithms.clustering import create_clusters, prepare_clusters
 from peakfit.engine.algorithms.noise import estimate_noise, prepare_noise_level
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConstraint, PeakConstraints
 from peakfit.engine.domain.fit_steps import FitStep
@@ -69,6 +70,7 @@ def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) 
                     prepared.noise,
                     Parameters.from_peaks(cluster.peaks),
                     executor=capture,
+                    noise_model=not_modelled("synthetic spectrum"),
                 )
             )
         task: ClusterFitTask = submitted[0]
@@ -137,6 +139,7 @@ def test_preparation_matches_submitted_parameters_and_continuation(monkeypatch) 
         [cluster],
         prepared.noise,
         Parameters.from_peaks(cluster.peaks),
+        noise_model=not_modelled("synthetic spectrum"),
     )
     while len(captured) < 2:
         next(items)

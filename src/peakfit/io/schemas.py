@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
-OUTPUT_SCHEMA_VERSION: Literal["6.0.0"] = "6.0.0"
+OUTPUT_SCHEMA_VERSION: Literal["7.0.0"] = "7.0.0"
 
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 NonNegativeInt = Annotated[StrictInt, Field(ge=0)]
@@ -183,13 +183,42 @@ class ZAxisSchema(_Schema):
     values: list[FiniteFloat]
 
 
-class FitSummarySchema(_Schema):
-    """Version 6.0.0 completed-fit JSON document."""
+class NoiseAxisSchema(_Schema):
+    """One axis's recorded processing, from which its noise correlation follows."""
 
-    schema_version: Literal["6.0.0"]
+    acquired: Annotated[int, Field(ge=1)]
+    transform: Annotated[int, Field(ge=1)]
+    window: Literal["none", "sine_bell"]
+    offset: FiniteFloat
+    end: FiniteFloat
+    power: FiniteFloat
+    first_point: FiniteFloat
+    phase: FiniteFloat
+
+
+class NoiseModelSchema(_Schema):
+    """The noise correlation the published errors assume, or why it is not modelled."""
+
+    modelled: bool
+    reason: str | None
+    axes: list[NoiseAxisSchema]
+
+    @model_validator(mode="after")
+    def modelled_with_axes(self) -> NoiseModelSchema:
+        """Modelled exactly when there are axes; otherwise a reason is required."""
+        if self.modelled != bool(self.axes) or self.modelled == bool(self.reason):
+            raise ValueError("a noise model is modelled with axes, or not modelled with a reason")
+        return self
+
+
+class FitSummarySchema(_Schema):
+    """Version 7.0.0 completed-fit JSON document."""
+
+    schema_version: Literal["7.0.0"]
     metadata: RunMetadataSchema
     terminal_correction_revision: NonNegativeInt
     noise: FiniteFloat
+    noise_model: NoiseModelSchema
     final_nonlinear_parameters: list[FinalParameterSchema]
     clusters: list[FinalClusterOutcomeSchema]
     statistics: FinalFitStatisticsSchema

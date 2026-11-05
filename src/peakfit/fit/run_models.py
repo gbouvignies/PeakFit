@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+    from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.peaks import Peak
     from peakfit.engine.domain.spectrum import Spectra
@@ -26,6 +27,7 @@ class LoadedData:
     peaks: list[Peak]
     noise: float
     noise_source: str
+    noise_model: NoiseModel  # the processing-derived noise correlation, or why not
     shape_names: list[str]
     contour_level: float
     clusters: list[Cluster]

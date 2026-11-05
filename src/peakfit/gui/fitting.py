@@ -15,10 +15,12 @@ from peakfit.engine.domain.peaks import Peak
 from peakfit.engine.domain.spectrum import get_shape_names
 from peakfit.engine.lineshapes.create import create_shapes
 from peakfit.fit.pipeline import prepare_cluster_parameters
+from peakfit.io.readers.spectrum import read_noise_model
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.engine.domain.cluster import Cluster
     from peakfit.engine.domain.spectrum import Spectra
     from peakfit.gui.peaks import WorkingPeak
@@ -99,6 +101,7 @@ class PreparedDatasetFit:
     identities: tuple[PeakIdentity, ...]
     shape_names: tuple[str, ...]
     noise: float
+    noise_model: NoiseModel  # the processing-derived noise correlation, or why not
     contour_level: float
     clusters: tuple[Cluster, ...]
     parameters: Parameters
@@ -175,6 +178,7 @@ def prepare_dataset_fit(
         identities,
         tuple(shape_names),
         noise,
+        read_noise_model(spectra.dic, spectra.data.shape),
         float(threshold),
         tuple(clusters),
         parameters,

@@ -21,6 +21,7 @@ import h5py
 import numpy as np
 from threadpoolctl import threadpool_limits
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.scientific.simulation import project_final_outcome
@@ -101,6 +102,7 @@ def main():
             data.clusters,
             data.noise,
             Parameters.from_peaks(data.peaks),
+            noise_model=not_modelled("synthetic spectrum"),
         )
         fit_seconds = perf_counter() - started
         outcome, snapshot = pipeline.completed_fit.outcome, pipeline.completed_fit.model_snapshot

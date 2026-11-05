@@ -19,6 +19,7 @@ from zipfile import ZipFile
 import numpy as np
 from threadpoolctl import threadpool_limits
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.fit.fitting import write_fit_run_outputs
 from peakfit.fit.pipeline import run_pipeline
@@ -91,6 +92,7 @@ def main():  # noqa: PLR0915
                 prepared.clusters,
                 prepared.noise,
                 prepared.parameters,
+                noise_model=not_modelled("synthetic spectrum"),
             ),
         )
         result = finish_dataset_fit(
@@ -214,6 +216,7 @@ def main():  # noqa: PLR0915
                             again.clusters,
                             again.noise,
                             again.parameters,
+                            noise_model=not_modelled("synthetic spectrum"),
                         ),
                     )
                 report["source_free_adjust_refit"] = True

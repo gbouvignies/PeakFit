@@ -3,7 +3,8 @@
     "isolated peak": {
       "realizations": 400,
       "usable": 400,
-      "published_matches_sigma_only": true,
+      "published_matches_sandwich": true,
+      "warned": 0,
       "cs": {
         "sigma_only": {
           "n": 800,
@@ -88,12 +89,38 @@
         "amplitude_mismatches": 0,
         "bound_rule_withheld_sigma_only": 0,
         "bound_rule_withheld_sandwich": 0
-      }
+      },
+      "positions_unwarned": {
+        "n": 800,
+        "scatter_over_sd_per_quantity": [
+          1.0101691419325385,
+          1.0767673207190442
+        ],
+        "coverage_68_95": [
+          0.65,
+          0.9475
+        ],
+        "realizations": 400
+      },
+      "positions_unwarned_rho_below_0.9": {
+        "n": 800,
+        "scatter_over_sd_per_quantity": [
+          1.0101691419325385,
+          1.0767673207190442
+        ],
+        "coverage_68_95": [
+          0.65,
+          0.9475
+        ],
+        "realizations": 400
+      },
+      "max_abs_amplitude_correlation_median": 0.0
     },
     "overlapping pair": {
       "realizations": 400,
       "usable": 400,
-      "published_matches_sigma_only": true,
+      "published_matches_sandwich": true,
+      "warned": 0,
       "cs": {
         "sigma_only": {
           "n": 1600,
@@ -194,292 +221,119 @@
         "amplitude_mismatches": 0,
         "bound_rule_withheld_sigma_only": 0,
         "bound_rule_withheld_sandwich": 0
-      }
+      },
+      "positions_unwarned": {
+        "n": 1600,
+        "scatter_over_sd_per_quantity": [
+          1.0046734475385002,
+          1.0327522455460045,
+          1.0305452527474208,
+          1.002503834809428
+        ],
+        "coverage_68_95": [
+          0.66625,
+          0.949375
+        ],
+        "realizations": 400
+      },
+      "positions_unwarned_rho_below_0.9": {
+        "n": 1600,
+        "scatter_over_sd_per_quantity": [
+          1.0046734475385002,
+          1.0327522455460045,
+          1.0305452527474208,
+          1.002503834809428
+        ],
+        "coverage_68_95": [
+          0.66625,
+          0.949375
+        ],
+        "realizations": 400
+      },
+      "max_abs_amplitude_correlation_median": 0.3475425003125328
     },
-    "near-coalescent pair": {
-      "realizations": 150,
-      "usable": 150,
-      "published_matches_sigma_only": true,
+    "isolated peak, sp1": {
+      "realizations": 400,
+      "usable": 400,
+      "published_matches_sandwich": true,
+      "warned": 0,
       "cs": {
         "sigma_only": {
-          "n": 590,
+          "n": 800,
           "scatter_over_sd_per_quantity": [
-            5.293307470280354,
-            5.941824924288897,
-            3.2417040878740053,
-            3.4497221392591957
+            2.4481869065743616,
+            2.4361744785924557
           ],
           "coverage_68_95": [
-            0.23559322033898306,
-            0.43898305084745765
+            0.29125,
+            0.5525
           ]
         },
         "sandwich": {
-          "n": 590,
+          "n": 800,
           "scatter_over_sd_per_quantity": [
-            1.997135793691571,
-            2.278383462304351,
-            1.2206262404558423,
-            1.296939242498665
+            0.9982846315639481,
+            0.8807074890744571
           ],
           "coverage_68_95": [
-            0.5457627118644067,
-            0.7610169491525424
+            0.6925,
+            0.97375
           ]
         }
       },
       "lw": {
         "sigma_only": {
-          "n": 559,
+          "n": 800,
           "scatter_over_sd_per_quantity": [
-            5.395151428136274,
-            6.054652365062329,
-            4.625311731396703,
-            3.9053491545500045
+            2.40568931676765,
+            2.7104840293774597
           ],
           "coverage_68_95": [
-            0.3005366726296959,
-            0.6153846153846154
+            0.28125,
+            0.5575
           ]
         },
         "sandwich": {
-          "n": 512,
+          "n": 800,
           "scatter_over_sd_per_quantity": [
-            2.0050617935963495,
-            2.18840270419849,
-            1.7065132605915376,
-            1.4047901628559403
+            0.9648316654019058,
+            1.0356909877682707
           ],
           "coverage_68_95": [
-            0.76953125,
-            0.9765625
+            0.6775,
+            0.95375
           ]
         }
       },
       "conditional_amplitude": {
         "sigma_only": {
-          "n": 1200,
+          "n": 1600,
           "scatter_over_sd_per_quantity": [
-            2.853265227507144,
-            2.8978299678458073,
-            2.9955149332592135,
-            3.1085487448693607,
-            2.9292447236987473,
-            2.9368403793160116,
-            3.0917307562368914,
-            3.08328893196453
+            2.8426333841613216,
+            2.916252665987647,
+            2.9275279100148044,
+            2.9626548438493376
           ],
           "coverage_68_95": [
-            0.2608333333333333,
-            0.48583333333333334
+            0.260625,
+            0.486875
           ]
         },
         "sandwich": {
-          "n": 1200,
+          "n": 1600,
           "scatter_over_sd_per_quantity": [
-            0.9077463499574548,
-            0.9219243099974918,
-            0.9530020976300184,
-            0.9889630131879931,
-            0.9319186945662289,
-            0.9343351992064685,
-            0.9836124878854128,
-            0.9809267806134977
+            0.9492488022312566,
+            0.973832702316347,
+            0.9775978772232766,
+            0.9893279160155724
           ],
           "coverage_68_95": [
-            0.7125,
-            0.9616666666666667
+            0.690625,
+            0.96
           ]
         }
       },
-      "total_over_conditional_amplitude_sd": 1181.5755563466812,
-      "withholding": {
-        "covariance_withheld": 0,
-        "covariance_mismatches": 0,
-        "amplitude_covariance_withheld": 0,
-        "amplitude_mismatches": 0,
-        "bound_rule_withheld_sigma_only": 51,
-        "bound_rule_withheld_sandwich": 98
-      }
-    },
-    "duplicated peak": {
-      "realizations": 150,
-      "usable": 150,
-      "published_matches_sigma_only": true,
-      "cs": {
-        "sigma_only": {
-          "n": 63,
-          "scatter_over_sd_per_quantity": [
-            21.69111917858602,
-            11.912902036479357,
-            8.818008077565585,
-            8.944411522080173
-          ],
-          "coverage_68_95": [
-            0.38095238095238093,
-            0.5396825396825397
-          ]
-        },
-        "sandwich": {
-          "n": 61,
-          "scatter_over_sd_per_quantity": [
-            9.219280643730443,
-            4.768174530883337,
-            3.7036282193410663,
-            3.870261158802593
-          ],
-          "coverage_68_95": [
-            0.6885245901639344,
-            0.8852459016393442
-          ]
-        }
-      },
-      "lw": {
-        "sigma_only": {
-          "n": 55,
-          "scatter_over_sd_per_quantity": [
-            15.122088950804484,
-            24.441006600439774,
-            7.790735914737297,
-            3.944687243466475
-          ],
-          "coverage_68_95": [
-            0.2545454545454545,
-            0.5636363636363636
-          ]
-        },
-        "sandwich": {
-          "n": 49,
-          "scatter_over_sd_per_quantity": [
-            6.668630438920068,
-            14.24598358678373,
-            5.9676142276252016,
-            3.3541999604982657
-          ],
-          "coverage_68_95": [
-            0.5714285714285714,
-            0.9795918367346939
-          ]
-        }
-      },
-      "conditional_amplitude": {
-        "sigma_only": {
-          "n": 0,
-          "scatter_over_sd_per_quantity": [],
-          "coverage_68_95": null
-        },
-        "sandwich": {
-          "n": 0,
-          "scatter_over_sd_per_quantity": [],
-          "coverage_68_95": null
-        }
-      },
-      "withholding": {
-        "covariance_withheld": 133,
-        "covariance_mismatches": 0,
-        "amplitude_covariance_withheld": 132,
-        "amplitude_mismatches": 0,
-        "bound_rule_withheld_sigma_only": 1082,
-        "bound_rule_withheld_sandwich": 1090
-      }
-    },
-    "white-noise control (R = I)": {
-      "realizations": 150,
-      "usable": 150,
-      "published_matches_sigma_only": true,
-      "cs": {
-        "sigma_only": {
-          "n": 600,
-          "scatter_over_sd_per_quantity": [
-            0.9807312466949265,
-            1.050457835158317,
-            1.0498307935451958,
-            1.0053214120054654
-          ],
-          "coverage_68_95": [
-            0.6583333333333333,
-            0.9383333333333334
-          ]
-        },
-        "sandwich": {
-          "n": 600,
-          "scatter_over_sd_per_quantity": [
-            0.9807312466949265,
-            1.050457835158317,
-            1.0498307935451965,
-            1.0053214120054654
-          ],
-          "coverage_68_95": [
-            0.6583333333333333,
-            0.9383333333333334
-          ]
-        }
-      },
-      "lw": {
-        "sigma_only": {
-          "n": 600,
-          "scatter_over_sd_per_quantity": [
-            1.034267575032188,
-            1.1599095452387207,
-            1.0598457181088226,
-            1.0270630292308416
-          ],
-          "coverage_68_95": [
-            0.6466666666666666,
-            0.9266666666666666
-          ]
-        },
-        "sandwich": {
-          "n": 600,
-          "scatter_over_sd_per_quantity": [
-            1.0342675750321881,
-            1.1599095452387205,
-            1.0598457181088223,
-            1.0270630292308414
-          ],
-          "coverage_68_95": [
-            0.6466666666666666,
-            0.9266666666666666
-          ]
-        }
-      },
-      "conditional_amplitude": {
-        "sigma_only": {
-          "n": 1200,
-          "scatter_over_sd_per_quantity": [
-            1.0294722618135994,
-            0.9649184909159921,
-            0.92755331929189,
-            0.9813195895832449,
-            0.9267440948290417,
-            0.9842470780228202,
-            1.0426692631363763,
-            1.0249571232004813
-          ],
-          "coverage_68_95": [
-            0.6983333333333334,
-            0.9483333333333334
-          ]
-        },
-        "sandwich": {
-          "n": 1200,
-          "scatter_over_sd_per_quantity": [
-            1.0294722618135994,
-            0.964918490915992,
-            0.9275533192918899,
-            0.9813195895832448,
-            0.9267440948290414,
-            0.9842470780228196,
-            1.0426692631363759,
-            1.0249571232004808
-          ],
-          "coverage_68_95": [
-            0.6983333333333334,
-            0.9483333333333334
-          ]
-        }
-      },
-      "total_over_conditional_amplitude_sd": 3.393097007560667,
+      "total_over_conditional_amplitude_sd": 1.3551423460343348,
       "withholding": {
         "covariance_withheld": 0,
         "covariance_mismatches": 0,
@@ -488,30 +342,845 @@
         "bound_rule_withheld_sigma_only": 0,
         "bound_rule_withheld_sandwich": 0
       },
-      "max_relative_difference_sandwich_vs_sigma_only": 1.3322676295501878e-15
+      "positions_unwarned": {
+        "n": 800,
+        "scatter_over_sd_per_quantity": [
+          0.9982846315639481,
+          0.8807074890744571
+        ],
+        "coverage_68_95": [
+          0.6925,
+          0.97375
+        ],
+        "realizations": 400
+      },
+      "positions_unwarned_rho_below_0.9": {
+        "n": 800,
+        "scatter_over_sd_per_quantity": [
+          0.9982846315639481,
+          0.8807074890744571
+        ],
+        "coverage_68_95": [
+          0.6925,
+          0.97375
+        ],
+        "realizations": 400
+      },
+      "max_abs_amplitude_correlation_median": 0.0
+    },
+    "overlapping pair, sp1": {
+      "realizations": 400,
+      "usable": 400,
+      "published_matches_sandwich": true,
+      "warned": 0,
+      "cs": {
+        "sigma_only": {
+          "n": 1600,
+          "scatter_over_sd_per_quantity": [
+            2.0869458658290103,
+            2.0498800454532446,
+            2.071578458975204,
+            2.087804057925532
+          ],
+          "coverage_68_95": [
+            0.358125,
+            0.65
+          ]
+        },
+        "sandwich": {
+          "n": 1600,
+          "scatter_over_sd_per_quantity": [
+            0.9805750042255901,
+            0.9689755185729283,
+            0.9738309473654767,
+            0.9848701495819616
+          ],
+          "coverage_68_95": [
+            0.693125,
+            0.95375
+          ]
+        }
+      },
+      "lw": {
+        "sigma_only": {
+          "n": 1600,
+          "scatter_over_sd_per_quantity": [
+            2.1483602249956357,
+            2.444737266802979,
+            2.1334567272505485,
+            2.449800944011719
+          ],
+          "coverage_68_95": [
+            0.325,
+            0.605625
+          ]
+        },
+        "sandwich": {
+          "n": 1600,
+          "scatter_over_sd_per_quantity": [
+            0.9167598635198481,
+            0.9842479630174326,
+            0.90849821496097,
+            0.9856045796174825
+          ],
+          "coverage_68_95": [
+            0.71125,
+            0.955
+          ]
+        }
+      },
+      "conditional_amplitude": {
+        "sigma_only": {
+          "n": 3200,
+          "scatter_over_sd_per_quantity": [
+            2.9639963592100727,
+            2.9483260072249164,
+            2.8331165429855543,
+            2.9610104164165283,
+            2.95917228301368,
+            2.9796364942119657,
+            2.862776904487,
+            2.9713554597446827
+          ],
+          "coverage_68_95": [
+            0.27625,
+            0.49125
+          ]
+        },
+        "sandwich": {
+          "n": 3200,
+          "scatter_over_sd_per_quantity": [
+            1.0275995355844165,
+            1.022166719726747,
+            0.9822242982121506,
+            1.0265643273533425,
+            1.0259270576666781,
+            1.033021875397515,
+            0.9925073653992762,
+            1.0301508910434702
+          ],
+          "coverage_68_95": [
+            0.67125,
+            0.9484375
+          ]
+        }
+      },
+      "total_over_conditional_amplitude_sd": 2.150430279294606,
+      "withholding": {
+        "covariance_withheld": 0,
+        "covariance_mismatches": 0,
+        "amplitude_covariance_withheld": 0,
+        "amplitude_mismatches": 0,
+        "bound_rule_withheld_sigma_only": 0,
+        "bound_rule_withheld_sandwich": 0
+      },
+      "positions_unwarned": {
+        "n": 1600,
+        "scatter_over_sd_per_quantity": [
+          0.9805750042255901,
+          0.9689755185729283,
+          0.9738309473654767,
+          0.9848701495819616
+        ],
+        "coverage_68_95": [
+          0.693125,
+          0.95375
+        ],
+        "realizations": 400
+      },
+      "positions_unwarned_rho_below_0.9": {
+        "n": 1600,
+        "scatter_over_sd_per_quantity": [
+          0.9805750042255901,
+          0.9689755185729283,
+          0.9738309473654767,
+          0.9848701495819616
+        ],
+        "coverage_68_95": [
+          0.693125,
+          0.95375
+        ],
+        "realizations": 400
+      },
+      "max_abs_amplitude_correlation_median": 0.2656073056016622
+    },
+    "isolated peak, no_apod": {
+      "realizations": 400,
+      "usable": 400,
+      "published_matches_sandwich": true,
+      "warned": 0,
+      "cs": {
+        "sigma_only": {
+          "n": 800,
+          "scatter_over_sd_per_quantity": [
+            1.9314983547186657,
+            2.055108046056573
+          ],
+          "coverage_68_95": [
+            0.4,
+            0.6875
+          ]
+        },
+        "sandwich": {
+          "n": 800,
+          "scatter_over_sd_per_quantity": [
+            0.9885459650557581,
+            1.0031924523555382
+          ],
+          "coverage_68_95": [
+            0.6975,
+            0.95
+          ]
+        }
+      },
+      "lw": {
+        "sigma_only": {
+          "n": 800,
+          "scatter_over_sd_per_quantity": [
+            1.9977895148519624,
+            1.9728067380384837
+          ],
+          "coverage_68_95": [
+            0.38375,
+            0.67625
+          ]
+        },
+        "sandwich": {
+          "n": 800,
+          "scatter_over_sd_per_quantity": [
+            0.9901579033883008,
+            0.9784520311916762
+          ],
+          "coverage_68_95": [
+            0.69125,
+            0.95625
+          ]
+        }
+      },
+      "conditional_amplitude": {
+        "sigma_only": {
+          "n": 1600,
+          "scatter_over_sd_per_quantity": [
+            2.1762711700152497,
+            2.1318838354179928,
+            2.072071995222584,
+            2.0599809455220717
+          ],
+          "coverage_68_95": [
+            0.35875,
+            0.635625
+          ]
+        },
+        "sandwich": {
+          "n": 1600,
+          "scatter_over_sd_per_quantity": [
+            1.0540580171640654,
+            1.0325593976273948,
+            1.0035900529299393,
+            0.9977338581467017
+          ],
+          "coverage_68_95": [
+            0.66,
+            0.94375
+          ]
+        }
+      },
+      "total_over_conditional_amplitude_sd": 1.3846120203606334,
+      "withholding": {
+        "covariance_withheld": 0,
+        "covariance_mismatches": 0,
+        "amplitude_covariance_withheld": 0,
+        "amplitude_mismatches": 0,
+        "bound_rule_withheld_sigma_only": 0,
+        "bound_rule_withheld_sandwich": 0
+      },
+      "positions_unwarned": {
+        "n": 800,
+        "scatter_over_sd_per_quantity": [
+          0.9885459650557581,
+          1.0031924523555382
+        ],
+        "coverage_68_95": [
+          0.6975,
+          0.95
+        ],
+        "realizations": 400
+      },
+      "positions_unwarned_rho_below_0.9": {
+        "n": 800,
+        "scatter_over_sd_per_quantity": [
+          0.9885459650557581,
+          1.0031924523555382
+        ],
+        "coverage_68_95": [
+          0.6975,
+          0.95
+        ],
+        "realizations": 400
+      },
+      "max_abs_amplitude_correlation_median": 0.0
+    },
+    "overlapping pair, no_apod": {
+      "realizations": 400,
+      "usable": 400,
+      "published_matches_sandwich": true,
+      "warned": 0,
+      "cs": {
+        "sigma_only": {
+          "n": 1600,
+          "scatter_over_sd_per_quantity": [
+            1.7733114678237738,
+            2.0216578045351006,
+            1.9160796202033226,
+            2.0075550861533995
+          ],
+          "coverage_68_95": [
+            0.398125,
+            0.67875
+          ]
+        },
+        "sandwich": {
+          "n": 1600,
+          "scatter_over_sd_per_quantity": [
+            0.9214524859876446,
+            1.038925233281599,
+            0.9960687063890166,
+            1.0308738967284043
+          ],
+          "coverage_68_95": [
+            0.674375,
+            0.94375
+          ]
+        }
+      },
+      "lw": {
+        "sigma_only": {
+          "n": 1600,
+          "scatter_over_sd_per_quantity": [
+            1.9525580829848455,
+            1.9534548093163622,
+            2.0348472483066553,
+            2.0244772592844744
+          ],
+          "coverage_68_95": [
+            0.391875,
+            0.6775
+          ]
+        },
+        "sandwich": {
+          "n": 1600,
+          "scatter_over_sd_per_quantity": [
+            0.9825069228093409,
+            0.9813932025643094,
+            1.0240235663287816,
+            1.016034998344823
+          ],
+          "coverage_68_95": [
+            0.68625,
+            0.9475
+          ]
+        }
+      },
+      "conditional_amplitude": {
+        "sigma_only": {
+          "n": 3200,
+          "scatter_over_sd_per_quantity": [
+            2.1261180751930397,
+            2.1156358939222524,
+            2.181244050873374,
+            2.0920619508647857,
+            2.1135232213068056,
+            2.0726812269382515,
+            2.0173928454293018,
+            2.133175975502027
+          ],
+          "coverage_68_95": [
+            0.3646875,
+            0.64125
+          ]
+        },
+        "sandwich": {
+          "n": 3200,
+          "scatter_over_sd_per_quantity": [
+            1.035054717914007,
+            1.029951694095646,
+            1.0618916099348616,
+            1.018475228481547,
+            1.0289231850097493,
+            1.0090401411405368,
+            0.9821241853456207,
+            1.0384907044185299
+          ],
+          "coverage_68_95": [
+            0.6671875,
+            0.94625
+          ]
+        }
+      },
+      "total_over_conditional_amplitude_sd": 1.9261306649117522,
+      "withholding": {
+        "covariance_withheld": 0,
+        "covariance_mismatches": 0,
+        "amplitude_covariance_withheld": 0,
+        "amplitude_mismatches": 0,
+        "bound_rule_withheld_sigma_only": 0,
+        "bound_rule_withheld_sandwich": 0
+      },
+      "positions_unwarned": {
+        "n": 1600,
+        "scatter_over_sd_per_quantity": [
+          0.9214524859876446,
+          1.038925233281599,
+          0.9960687063890166,
+          1.0308738967284043
+        ],
+        "coverage_68_95": [
+          0.674375,
+          0.94375
+        ],
+        "realizations": 400
+      },
+      "positions_unwarned_rho_below_0.9": {
+        "n": 1600,
+        "scatter_over_sd_per_quantity": [
+          0.9214524859876446,
+          1.038925233281599,
+          0.9960687063890166,
+          1.0308738967284043
+        ],
+        "coverage_68_95": [
+          0.674375,
+          0.94375
+        ],
+        "realizations": 400
+      },
+      "max_abs_amplitude_correlation_median": 0.17479371460193516
+    },
+    "near-coalescent pair": {
+      "realizations": 150,
+      "usable": 150,
+      "published_matches_sandwich": true,
+      "warned": 63,
+      "cs": {
+        "sigma_only": {
+          "n": 578,
+          "scatter_over_sd_per_quantity": [
+            3.3389221163719927,
+            4.517347439435232,
+            3.856711489466912,
+            3.993434984868055
+          ],
+          "coverage_68_95": [
+            0.20761245674740483,
+            0.41695501730103807
+          ]
+        },
+        "sandwich": {
+          "n": 575,
+          "scatter_over_sd_per_quantity": [
+            1.3012582285718333,
+            1.5436783012351587,
+            1.4640130979964852,
+            1.5242567955434996
+          ],
+          "coverage_68_95": [
+            0.5304347826086957,
+            0.7443478260869565
+          ]
+        }
+      },
+      "lw": {
+        "sigma_only": {
+          "n": 553,
+          "scatter_over_sd_per_quantity": [
+            4.143804435535349,
+            4.620470621060978,
+            8.806737858824976,
+            5.189551158705734
+          ],
+          "coverage_68_95": [
+            0.298372513562387,
+            0.6238698010849909
+          ]
+        },
+        "sandwich": {
+          "n": 513,
+          "scatter_over_sd_per_quantity": [
+            1.8968907196433622,
+            1.6828695038407917,
+            3.5547859844158576,
+            1.8318808299095306
+          ],
+          "coverage_68_95": [
+            0.8167641325536062,
+            0.9922027290448343
+          ]
+        }
+      },
+      "conditional_amplitude": {
+        "sigma_only": {
+          "n": 1200,
+          "scatter_over_sd_per_quantity": [
+            3.4537795428555085,
+            3.2704432225746753,
+            3.014716856727671,
+            2.9645775916553987,
+            3.4127967740832923,
+            3.2903080986880004,
+            3.003502736870204,
+            3.058093227158099
+          ],
+          "coverage_68_95": [
+            0.245,
+            0.4608333333333333
+          ]
+        },
+        "sandwich": {
+          "n": 1200,
+          "scatter_over_sd_per_quantity": [
+            1.0987957738243472,
+            1.0404686074799276,
+            0.9591110551053399,
+            0.943159599061182,
+            1.0857573929526778,
+            1.0467884786963806,
+            0.9555433614081457,
+            0.9729109435815418
+          ],
+          "coverage_68_95": [
+            0.6758333333333333,
+            0.9491666666666667
+          ]
+        }
+      },
+      "total_over_conditional_amplitude_sd": 3829.551504815331,
+      "withholding": {
+        "covariance_withheld": 2,
+        "covariance_mismatches": 0,
+        "amplitude_covariance_withheld": 0,
+        "amplitude_mismatches": 0,
+        "bound_rule_withheld_sigma_only": 69,
+        "bound_rule_withheld_sandwich": 112
+      },
+      "positions_unwarned": {
+        "n": 348,
+        "scatter_over_sd_per_quantity": [
+          1.084512335861256,
+          1.247265333323036,
+          1.2526412124924442,
+          1.3628127297372037
+        ],
+        "coverage_68_95": [
+          0.6494252873563219,
+          0.8247126436781609
+        ],
+        "realizations": 87
+      },
+      "positions_unwarned_rho_below_0.9": {
+        "n": 148,
+        "scatter_over_sd_per_quantity": [
+          3.3305290042418383,
+          2.8021650926672605,
+          1.666813882123542,
+          1.5488475128110752
+        ],
+        "coverage_68_95": [
+          0.3716216216216216,
+          0.668918918918919
+        ],
+        "realizations": 37
+      },
+      "positions_unwarned_rho_at_least_0.9": {
+        "n": 200,
+        "scatter_over_sd_per_quantity": [
+          0.5869425917497266,
+          0.6326817238812188,
+          0.560743166813738,
+          0.7289538543293094
+        ],
+        "coverage_68_95": [
+          0.855,
+          0.94
+        ],
+        "realizations": 50
+      },
+      "max_abs_amplitude_correlation_median": 0.8944057919952282
+    },
+    "duplicated peak": {
+      "realizations": 150,
+      "usable": 150,
+      "published_matches_sandwich": true,
+      "warned": 150,
+      "cs": {
+        "sigma_only": {
+          "n": 55,
+          "scatter_over_sd_per_quantity": [
+            20.001419928303918,
+            6.453938664157361,
+            15.284166066820784,
+            4.372698140237464
+          ],
+          "coverage_68_95": [
+            0.4,
+            0.6181818181818182
+          ]
+        },
+        "sandwich": {
+          "n": 50,
+          "scatter_over_sd_per_quantity": [
+            6.591140423207273,
+            3.046888565239648,
+            4.928136563926818,
+            3.696557483973728
+          ],
+          "coverage_68_95": [
+            0.74,
+            0.92
+          ]
+        }
+      },
+      "lw": {
+        "sigma_only": {
+          "n": 50,
+          "scatter_over_sd_per_quantity": [
+            13.170206065286578,
+            3.0692936743730987,
+            9.452883023863745,
+            6.97499832306574
+          ],
+          "coverage_68_95": [
+            0.36,
+            0.6
+          ]
+        },
+        "sandwich": {
+          "n": 40,
+          "scatter_over_sd_per_quantity": [
+            10.967199251673444,
+            1.0482419819867719,
+            26.216142867197966,
+            7.038456642773033
+          ],
+          "coverage_68_95": [
+            0.65,
+            0.975
+          ]
+        }
+      },
+      "conditional_amplitude": {
+        "sigma_only": {
+          "n": 0,
+          "scatter_over_sd_per_quantity": [],
+          "coverage_68_95": null
+        },
+        "sandwich": {
+          "n": 0,
+          "scatter_over_sd_per_quantity": [],
+          "coverage_68_95": null
+        }
+      },
+      "withholding": {
+        "covariance_withheld": 134,
+        "covariance_mismatches": 0,
+        "amplitude_covariance_withheld": 133,
+        "amplitude_mismatches": 0,
+        "bound_rule_withheld_sigma_only": 1095,
+        "bound_rule_withheld_sandwich": 1110
+      },
+      "max_abs_amplitude_correlation_median": NaN
+    },
+    "white-noise control (R = I)": {
+      "realizations": 150,
+      "usable": 150,
+      "published_matches_sandwich": true,
+      "warned": 0,
+      "cs": {
+        "sigma_only": {
+          "n": 600,
+          "scatter_over_sd_per_quantity": [
+            1.0202442227217527,
+            1.0798314458840559,
+            1.0024765193318868,
+            0.9996043329599824
+          ],
+          "coverage_68_95": [
+            0.6933333333333334,
+            0.925
+          ]
+        },
+        "sandwich": {
+          "n": 600,
+          "scatter_over_sd_per_quantity": [
+            1.0202442227217527,
+            1.0798314458840554,
+            1.002476519331887,
+            0.999604332959982
+          ],
+          "coverage_68_95": [
+            0.6933333333333334,
+            0.925
+          ]
+        }
+      },
+      "lw": {
+        "sigma_only": {
+          "n": 600,
+          "scatter_over_sd_per_quantity": [
+            1.011452891292897,
+            0.9971013097824586,
+            0.9029704586990462,
+            1.0138895007201267
+          ],
+          "coverage_68_95": [
+            0.7,
+            0.955
+          ]
+        },
+        "sandwich": {
+          "n": 600,
+          "scatter_over_sd_per_quantity": [
+            1.0114528912928977,
+            0.9971013097824586,
+            0.902970458699046,
+            1.0138895007201265
+          ],
+          "coverage_68_95": [
+            0.7,
+            0.955
+          ]
+        }
+      },
+      "conditional_amplitude": {
+        "sigma_only": {
+          "n": 1200,
+          "scatter_over_sd_per_quantity": [
+            1.0349649780701782,
+            0.9690626697767422,
+            0.8667591531167984,
+            1.0710619563471013,
+            0.9879705118548749,
+            0.9723385577685039,
+            1.013016204012089,
+            0.8465359548823425
+          ],
+          "coverage_68_95": [
+            0.6975,
+            0.9566666666666667
+          ]
+        },
+        "sandwich": {
+          "n": 1200,
+          "scatter_over_sd_per_quantity": [
+            1.0349649780701782,
+            0.969062669776742,
+            0.8667591531167983,
+            1.071061956347101,
+            0.9879705118548745,
+            0.9723385577685034,
+            1.0130162040120885,
+            0.846535954882342
+          ],
+          "coverage_68_95": [
+            0.6975,
+            0.9566666666666667
+          ]
+        }
+      },
+      "total_over_conditional_amplitude_sd": 3.2491065405717663,
+      "withholding": {
+        "covariance_withheld": 0,
+        "covariance_mismatches": 0,
+        "amplitude_covariance_withheld": 0,
+        "amplitude_mismatches": 0,
+        "bound_rule_withheld_sigma_only": 0,
+        "bound_rule_withheld_sandwich": 0
+      },
+      "positions_unwarned": {
+        "n": 600,
+        "scatter_over_sd_per_quantity": [
+          1.0202442227217527,
+          1.0798314458840554,
+          1.002476519331887,
+          0.999604332959982
+        ],
+        "coverage_68_95": [
+          0.6933333333333334,
+          0.925
+        ],
+        "realizations": 150
+      },
+      "positions_unwarned_rho_below_0.9": {
+        "n": 600,
+        "scatter_over_sd_per_quantity": [
+          1.0202442227217527,
+          1.0798314458840554,
+          1.002476519331887,
+          0.999604332959982
+        ],
+        "coverage_68_95": [
+          0.6933333333333334,
+          0.925
+        ],
+        "realizations": 150
+      },
+      "max_abs_amplitude_correlation_median": 0.4289805372656459,
+      "max_relative_difference_sandwich_vs_sigma_only": 1.1102230246251565e-15
     }
   },
   "verdict": {
     "isolated peak": {
       "withholding_identical": true,
+      "published_is_the_sandwich": true,
       "cs": true,
       "lw": true,
       "conditional_amplitude": true
     },
     "overlapping pair": {
       "withholding_identical": true,
+      "published_is_the_sandwich": true,
+      "cs": true,
+      "lw": true,
+      "conditional_amplitude": true
+    },
+    "isolated peak, sp1": {
+      "withholding_identical": true,
+      "published_is_the_sandwich": true,
+      "cs": false,
+      "lw": true,
+      "conditional_amplitude": true
+    },
+    "overlapping pair, sp1": {
+      "withholding_identical": true,
+      "published_is_the_sandwich": true,
+      "cs": true,
+      "lw": true,
+      "conditional_amplitude": true
+    },
+    "isolated peak, no_apod": {
+      "withholding_identical": true,
+      "published_is_the_sandwich": true,
+      "cs": true,
+      "lw": true,
+      "conditional_amplitude": true
+    },
+    "overlapping pair, no_apod": {
+      "withholding_identical": true,
+      "published_is_the_sandwich": true,
       "cs": true,
       "lw": true,
       "conditional_amplitude": true
     },
     "near-coalescent pair": {
-      "withholding_identical": true
+      "withholding_identical": true,
+      "published_is_the_sandwich": true
     },
     "duplicated peak": {
-      "withholding_identical": true
+      "withholding_identical": true,
+      "published_is_the_sandwich": true
     },
     "white-noise control (R = I)": {
       "withholding_identical": true,
+      "published_is_the_sandwich": true,
       "sandwich_equals_sigma_only": true
     }
   }

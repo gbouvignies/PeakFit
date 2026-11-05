@@ -19,6 +19,7 @@ from peakfit.engine.algorithms.noise_correlation import (
     AxisProcessing,
     NoiseModel,
     cluster_correlation,
+    not_modelled,
 )
 from peakfit.engine.algorithms.varpro import (
     VarProOptimizer,
@@ -80,7 +81,9 @@ def fitted(tool):
     """An overlapping 2D pair with processed noise, fitted by PeakFit's pipeline."""
     spectra, cluster, truth, _ = tool.build("overlapping pair", np.random.default_rng(7))
     config = PeakFitConfig(fitting=FitConfig(lineshape="sp2"))
-    completed = run_pipeline(config, [cluster], tool.SIGMA, truth.copy()).completed_fit
+    completed = run_pipeline(
+        config, [cluster], tool.SIGMA, truth.copy(), noise_model=not_modelled("synthetic spectrum")
+    ).completed_fit
     problem = sampling_problem(completed, 1)
     optimizer = VarProOptimizer(
         problem.cluster, list(problem.names), problem.parameters, tool.SIGMA

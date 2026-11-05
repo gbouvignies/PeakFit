@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 import shutil
 from concurrent.futures import CancelledError
 from copy import deepcopy
@@ -117,7 +118,14 @@ def test_lossless_numerical_round_trip_no_optimization(analysis, tmp_path, monke
             a.analytical_evaluation.amplitude_covariance,
             b.analytical_evaluation.amplitude_covariance,
         )
+        np.testing.assert_array_equal(
+            a.analytical_evaluation.amplitude_standard_errors,
+            b.analytical_evaluation.amplitude_standard_errors,
+        )
         assert b.sample_evaluation is None
+    # The published errors' noise model reopens as recorded, never re-derived.
+    assert new.outcome.noise_model == old.outcome.noise_model
+    assert new.inputs.noise_model == old.outcome.noise_model
     verify_model(new)
     assert loaded.completion.working_peaks != new.inputs.snapshot.peaks
     assert all(
@@ -252,14 +260,22 @@ def test_project_recording_a_removed_config_key_is_rejected_by_version(
         open_analysis(path)
 
 
-def test_a_project_with_rescaled_amplitude_errors_is_rejected_by_version(analysis, tmp_path):
-    # 9.0.0 embedded archives and run statistics with errors rescaled by √χ²ᵣ (ADR 0001).
+@pytest.mark.parametrize(
+    "version",
+    [
+        "9.0.0",  # amplitude errors rescaled by √χ²ᵣ (ADR 0001)
+        "10.0.0",  # no noise-correlation record (ADR 0002)
+    ],
+)
+def test_a_project_from_an_earlier_error_convention_is_rejected_by_version(
+    analysis, tmp_path, version
+):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     manifest = json.loads((path / "manifest.json").read_text())
-    assert manifest["schema_version"] == "10.0.0"
-    manifest["schema_version"] = "9.0.0"
+    assert manifest["schema_version"] == "11.0.0"
+    manifest["schema_version"] = version
     (path / "manifest.json").write_text(json.dumps(manifest))
-    with pytest.raises(ValueError, match=r"Unsupported analysis version: '9\.0\.0'"):
+    with pytest.raises(ValueError, match=f"Unsupported analysis version: '{re.escape(version)}'"):
         open_analysis(path)
 
 

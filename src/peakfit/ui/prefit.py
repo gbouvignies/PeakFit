@@ -109,6 +109,10 @@ def show_prefit_check(
                     "Spectrum": f"{spectrum_path.name} ({n_series} spectra, {shape_type})",
                     "Peak list": peaklist_label,
                     "Noise": f"{noise_val:.2e} ({_format_noise_source(noise_source)})",
+                    # The fit's errors depend on it; headless runs print it as a line.
+                    "Noise correlation": loaded_data.noise_model.description.removeprefix(
+                        "Noise correlation "
+                    ),
                 },
             ),
             ("Output", {"Directory": rel_output}),

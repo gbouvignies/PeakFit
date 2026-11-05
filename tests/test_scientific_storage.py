@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from builders import completed_result, two_cluster_dataset, write_as_cli
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
@@ -209,6 +210,7 @@ def test_repeated_plane_values_retain_source_columns_after_exclusion(tmp_path):
         prepared.clusters,
         prepared.noise,
         prepared.parameters,
+        noise_model=not_modelled("synthetic spectrum"),
     )
     gui = finish_dataset_fit(prepared, DatasetFitAttempt(pipeline.completed_fit, (), 1.0))
     path = export_fit_result(gui, tmp_path / "selected")

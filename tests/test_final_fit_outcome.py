@@ -13,6 +13,7 @@ from peakfit.engine.algorithms.evaluation import (
     FitOutcomeClassification,
     classify_optimizer_result,
 )
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig
 from peakfit.engine.domain.params_scalar import Parameters
@@ -107,6 +108,7 @@ def _completion_fixture(
                 n_amplitude_params=cluster.n_amplitude_params,
             ),
             noise=1.0,
+            noise_model=not_modelled("synthetic spectrum"),
         )
         assert preliminary.analytical is not None
         residual = preliminary.analytical.normalized_residuals.copy()
@@ -128,7 +130,12 @@ def _completion_fixture(
             optimizer_kind="varpro",
             noise=1.0,
         )
-        evaluation = classify_optimizer_result(cluster=cluster, result=result, noise=1.0)
+        evaluation = classify_optimizer_result(
+            cluster=cluster,
+            result=result,
+            noise=1.0,
+            noise_model=not_modelled("synthetic spectrum"),
+        )
         clusters.append(cluster)
         peaks.append(peak)
         results.append(result)
@@ -154,6 +161,7 @@ def _completion_fixture(
             correction_snapshot=snapshot,
             n_optimizer_passes=3,
             n_correction_updates=2,
+            noise_model=not_modelled("synthetic spectrum"),
         ),
         clusters=tuple(clusters),
     )

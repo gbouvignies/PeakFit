@@ -3,6 +3,7 @@
 import numpy as np
 from builders import two_cluster_dataset
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.params_scalar import Parameter, Parameters
 from peakfit.engine.results import FitResult
 from peakfit.fit.pipeline import PipelineResult, run_pipeline, run_pipeline_iter
@@ -15,6 +16,7 @@ def _run(config, prepared):
         prepared.clusters,
         prepared.noise,
         prepared.parameters,
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
 
@@ -67,7 +69,11 @@ def test_the_pipeline_reports_passes_and_correction_updates_as_typed_events():
     events = [
         item
         for item in run_pipeline_iter(
-            config, prepared.clusters, prepared.noise, prepared.parameters
+            config,
+            prepared.clusters,
+            prepared.noise,
+            prepared.parameters,
+            noise_model=not_modelled("synthetic spectrum"),
         )
         if not isinstance(item, (FitResult, PipelineResult))
     ]

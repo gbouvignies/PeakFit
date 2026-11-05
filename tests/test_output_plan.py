@@ -3,6 +3,7 @@ from types import MappingProxyType
 import numpy as np
 
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.scientific.final_outcome import (
     FinalAnalyticalEvaluation,
     FinalClusterOutcome,
@@ -95,6 +96,7 @@ def _outcome() -> FinalFitOutcome:
             log_likelihood=0.0,
             function_evaluations=7,
         ),
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
 
@@ -167,11 +169,13 @@ def test_parameters_csv_keeps_only_table_relevant_columns(tmp_path) -> None:
 
     header = written["parameters"].read_text(encoding="utf-8").splitlines()[0].split(",")
 
-    assert header[:5] == [
+    # The noise-correlation status sits beside the error it qualifies.
+    assert header[:6] == [
         "peak_name",
         "parameter_name",
         "value",
         "std_error",
+        "noise_correlation",
         "is_fixed",
     ]
     assert "cluster_id" in header
@@ -186,12 +190,13 @@ def test_intensities_csv_orders_series_columns_for_reading(tmp_path) -> None:
     header = written["intensities"].read_text(encoding="utf-8").splitlines()[0].split(",")
 
     # χ²ᵣ sits beside the σ-only error it qualifies, as a goodness-of-fit diagnostic.
-    assert header[:6] == [
+    assert header[:7] == [
         "peak_name",
         "z_value",
         "intensity",
         "intensity_err",
         "reduced_chi_squared",
+        "noise_correlation",
         "plane_index",
     ]
     assert "cluster_id" in header

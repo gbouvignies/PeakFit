@@ -13,6 +13,7 @@ import pytest
 from pydantic import ValidationError
 
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.scientific.final_outcome import (
     FinalAnalyticalEvaluation,
     FinalClusterOutcome,
@@ -60,6 +61,7 @@ def _outcome(
             log_likelihood=None,
             function_evaluations=20,
         ),
+        noise_model=not_modelled("synthetic spectrum"),
     )
 
 

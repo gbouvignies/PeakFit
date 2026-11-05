@@ -27,6 +27,7 @@ from pathlib import Path
 
 import numpy as np
 
+from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
@@ -105,7 +106,9 @@ def realization(scenario: str, index: int) -> dict:
     rng = np.random.default_rng([20261104, index, list(SCENARIOS).index(scenario)])
     cluster, params, truth, amplitudes = _cluster(SCENARIOS[scenario], rng)
     config = PeakFitConfig(fitting=FitConfig(lineshape="gaussian"))
-    completed = run_pipeline(config, [cluster], NOISE, params).completed_fit
+    completed = run_pipeline(
+        config, [cluster], NOISE, params, noise_model=not_modelled("synthetic spectrum")
+    ).completed_fit
     if not completed.outcome.cluster(1).usable:
         return {"status": "unusable fit", "flags": [], "covered": {}}
     posterior = sample_posterior(

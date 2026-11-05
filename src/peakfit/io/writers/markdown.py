@@ -39,6 +39,7 @@ def write_final_outcome_report(
         f"- Unusable: {summary.n_unusable}",
         f"- Usable clusters: {summary.n_usable}",
         f"- Reduced chi2 population: {summary.redchi_population_size}",
+        f"- {outcome.noise_model.description}",
     ]
     if summary.n_usable:
         summary_lines.extend(
