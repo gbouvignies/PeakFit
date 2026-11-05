@@ -266,17 +266,20 @@ neighbouring points ([correlated-noise.md](correlated-noise.md)).
   lineshapes ([validation](validation/sandwich-errors.md)). Independent-point errors
   understated the scatter 1.8–3.6-fold there.
 
-**Near-coalescent peaks: local errors are not calibrated.** All these errors are
-local, and rest on linearizing the model at the fit.
-- When peaks lie much closer than their linewidths, the fit can separate them by
-  more than they are, and then reports smaller errors around that biased solution.
-- In the validation, 63 of 150 near-coalescent fits carried the uncertainty warning.
-  The other 87 did not, and their positions were covered only 0.65 · 0.82 (68% ·
-  95%), at worst 0.37 · 0.67.
-- No local quantity, amplitude correlation included, separates those fits from good
-  ones.
-- Treat errors for peaks closer than their linewidths as unreliable whether or not
-  they are warned, and compare alternative starts or a profile likelihood.
+**Strongly overlapping or near-coalescent peaks: local errors can be unreliable
+without a warning.** All these errors are local, and rest on linearizing the model
+at the fit.
+- Where peaks overlap strongly, the fit can separate them by more than they are,
+  and then report smaller errors around that biased solution.
+- In the validation, a pair 0.4 points apart, 63 of 150 fits carried the uncertainty
+  warning. The other 87 did not, and their positions were covered only 0.65 · 0.82
+  (68% · 95%), at worst 0.37 · 0.67. Neither the existing warnings nor amplitude
+  correlation identify those fits.
+- This is not a property of overlap as such: the overlapping pairs of the
+  validation were calibrated. No separation or linewidth boundary between the two
+  regimes has been established.
+- For strongly overlapping peaks, do not take an absent warning as evidence that
+  the errors are reliable; compare alternative starts or a profile likelihood.
 
 **One noise convention.** Nonlinear errors, amplitude errors (`intensity_err`,
 `amplitude_standard_errors`) and MCMC intervals all use the supplied or estimated

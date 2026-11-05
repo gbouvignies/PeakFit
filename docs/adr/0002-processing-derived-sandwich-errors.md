@@ -57,10 +57,12 @@ compatibility reader.
   `noise_correlation`. Earlier files are refused; refit. The MCMC record is
   unchanged (1.1.0).
 - **Remaining limits:**
-  - The errors are local. Near coalescence the fit can separate peaks by more than
-    they are, with smaller errors around that biased solution. Unwarned
-    near-coalescent fits covered their positions only 0.65 · 0.82, and no local
-    quantity identifies them.
+  - The errors are local. For strongly overlapping or near-coalescent peaks the fit
+    can separate them by more than they are, with smaller errors around that
+    biased solution. Unwarned fits of a pair 0.4 points apart covered their
+    positions only 0.65 · 0.82; neither the existing warnings nor amplitude
+    correlation identify them. A resolution-based advisory flag is a separate
+    investigation, with no threshold until one is shown useful.
   - The model describes the recorded processing, not t1 noise or other unrecorded
     effects.
   - Calibration on real spectra needs replicates (validation C6). MCMC calibration

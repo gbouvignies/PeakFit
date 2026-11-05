@@ -109,10 +109,16 @@ stay calibrated (0.94–1.10 · 0.68 · 0.95). The nonlinear errors do not.
 - **Amplitude correlation is no warning criterion here.** Flagging |ρ| ≥ 0.9 would
   catch the 50 unwarned fits that actually over-cover, and miss the 37 that
   under-cover.
-- **What the documentation now says:** errors for peaks closer than their linewidths
-  are unreliable whether warned or not ([outputs.md](../outputs.md)). Whether to
-  add a warning based on resolution, the fitted separation relative to the
-  linewidth, is an open decision.
+- **What the documentation says:** strongly overlapping or near-coalescent peaks
+  can have unreliable local errors even when no warning fires
+  ([outputs.md](../outputs.md)). The calibrated overlapping cases above show this
+  is not true of overlap as such, and no boundary between the regimes is claimed.
+- **No resolution-based warning yet.** A threshold on the fitted separation relative
+  to the linewidth could miss fits that separate the peaks artificially, and flag
+  well-resolved 2D pairs. Any such flag must first be shown useful in a separate
+  study: candidate measures across separations, linewidths, amplitudes, SNRs and
+  2D geometries, judged on false positives and missed biased or under-covering
+  fits. It would be an advisory review flag, separate from covariance withholding.
 
 ## Scope
 

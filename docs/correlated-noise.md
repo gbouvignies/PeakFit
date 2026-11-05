@@ -417,10 +417,11 @@ definition or the MCMC sampler, and none adds another noise model.
    - Documentation and ADR 0002.
    - The engine validation extends to `sp1` and `no_apod`, and to the published
      errors themselves.
-   - Near coalescence, unwarned fits can be biased with small local errors
+   - Strongly overlapping or near-coalescent fits can be biased with small local
+     errors and no warning
      ([validation](validation/sandwich-errors.md#near-coalescent-peaks-and-warnings)).
-     This is documented as a limitation; a resolution-based warning is an open
-     decision.
+     This is documented as a limitation. A resolution-based advisory flag is a
+     separate investigation, with no threshold until one is shown useful.
 
 C5 (with the real sampler) and C6 (with replicates) remain future validation. They are
 not prerequisites for these steps.

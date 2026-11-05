@@ -739,6 +739,9 @@ Short records of non‑obvious design choices and trade‑offs.
   - one recorded `sp1` failure (0.88) was replicated as a fluctuation.
 - **Near coalescence.** 87 of 150 fits carry no warning and cover their positions
   0.65 · 0.82, through bias; amplitude correlation does not identify them. This is
-  documented as a limitation, and a resolution-based warning is left open.
+  documented as a limitation of strongly overlapping or near-coalescent peaks, not
+  of overlap as such, with no boundary claimed. No resolution-based warning: an
+  advisory review flag, separate from covariance withholding, needs its own study
+  showing it useful before any threshold is set.
 - **Golden reference.** Regenerated: fitted values, classifications, warnings and
   χ² are bit-identical; only the errors changed.
