@@ -183,21 +183,26 @@ one of its four positions by more than 3 SE with probability between 0.27% (the
 positions perfectly correlated) and 1.08% (independent). The excess over the upper
 bound is therefore a lower bound on the systematic failures.
 
-Test half, configurations labelled on the development half:
+Test half, configurations labelled on the development half. Each cell gives
+unwarned fits · problematic · expected by chance · systematic, at least. The
+label-invariant column is post hoc: there, a fit whose start swapped the peaks is
+compared under the better labelling, and it labels the configurations differently.
 
-| Configurations | Unwarned fits | Problematic | Expected by chance | Systematic, at least |
-|---|---:|---:|---:|---:|
-| Calibrated | 15,870 | 683 | 43–171 | 512 |
-| Miscalibrated | 1,544 | 446 | 4–17 | 429 |
-| Not judged (fewer than 20 unwarned fits) | 2,915 | 802 | 8–31 | 771 |
-| All | 20,329 | 1,931 | 55–219 | 1,712 |
+| Configurations | Pre-registered labels | Label-invariant (post hoc) |
+|---|---|---|
+| Calibrated | 15,870 · 683 · 43–171 · 512 | 17,012 · 554 · 46–183 · 371 |
+| Miscalibrated | 1,544 · 446 · 4–17 · 429 | 402 · 111 · 1–4 · 107 |
+| Not judged (fewer than 20 unwarned fits) | 2,915 · 802 · 8–31 · 771 | 2,915 · 591 · 8–31 · 560 |
+| All | 20,329 · 1,931 · 55–219 · 1,712 | 20,329 · 1,256 · 55–219 · 1,038 |
 
 - **The direct baseline matches the chance rate.** At one width or more and
   σ ≤ 0.03, 68 of 5,555 test fits (1.2%) are problematic, close to the 1.08% of
   independent positions. At σ = 0.1 it is 57 of 1,481 (3.8%): the tails are heavier
   at low signal-to-noise, even where 68% and 95% coverage hold.
-- **At least 88% of problematic fits are systematic** (1,712 of 1,931). Most of them
-  lie outside the configurations labelled miscalibrated.
+- **At least 88% of problematic fits are systematic** (1,712 of 1,931). 1,028 of
+  them are label swaps (see the mechanisms below). Without the swaps, at least 83%
+  are still systematic (1,038 of 1,256).
+- Most systematic failures lie outside the configurations labelled miscalibrated.
 
 By mechanism, in this order (test half):
 
@@ -345,10 +350,14 @@ resolution-based advisory diagnostic could be useful.
 - **Certification is not.** A fit without the flag is not thereby reliable:
   - the unflagged fits of miscalibrated configurations still under-cover;
   - a fifth of the problematic fits have a significance of 10 or more.
-- **The absence of a warning is not proof of reliable uncertainties.** At least
-  1,712 of the 1,931 problematic test fits are systematic failures, not chance
-  outliers. Most lie outside the configurations labelled miscalibrated: 683 in
-  configurations whose 68% and 95% coverage pass.
+- **The absence of a warning is not proof of reliable uncertainties.**
+  - Under the pre-registered labels, at least 1,712 of the 1,931 problematic test
+    fits are systematic failures, not chance outliers.
+  - 1,028 of the 1,931 are label swaps: a wrong assignment of name to position,
+    which matters to a user but is not an uncertainty failure.
+  - Without them (label-invariant, post hoc), at least 1,038 of 1,256 problematic
+    fits (83%) are still systematic. 371 of those are in configurations whose 68%
+    and 95% coverage pass.
 - **Interpretation:** resolution identifies the regime and part of the risk, not
   the fit. Knowing the true resolution does no better than estimating it.
 - **Not tested:** diagnostics that use more than the local fit, such as posterior
