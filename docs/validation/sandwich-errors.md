@@ -115,9 +115,10 @@ stay calibrated (0.94–1.10 · 0.68 · 0.95). The nonlinear errors do not.
   is not true of overlap as such, and no boundary between the regimes is claimed.
 - **No resolution-based warning.** The [resolution-flag study](resolution-flag.md)
   tested eight candidate measures across separations, linewidths, amplitudes,
-  SNRs, lineshapes, starts and 2D geometries. None flags biased or under-covering
-  fits without also flagging many calibrated ones, and the fits each leaves
-  unflagged still under-cover.
+  SNRs, lineshapes, starts and 2D geometries. None met its pre-registered criteria
+  for an advisory review flag. Separation significance discriminates risk well,
+  but the fits it leaves unflagged still under-cover, so it cannot certify
+  reliability.
 
 ## Scope
 

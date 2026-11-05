@@ -504,6 +504,9 @@ MISS = 3.0  # a problematic fit: a published position interval missed by > 3 SE
 MIN_FITS = 20  # fewest unwarned fits for a configuration's calibration to be judged
 TARGET_FP = 0.05  # false-positive budget when the threshold is chosen
 GROSS_95 = 0.85  # after flagging, no configuration's unflagged fits may cover < 0.85
+# P(max |z| > 3) over a fit's four positions under exact calibration: 0.27% if they
+# were perfectly correlated, 1 - (1 - 0.0027)^4 = 1.08% if independent.
+CHANCE_3SE = (0.0027, 1 - (1 - 0.0027) ** 4)
 
 
 def _nonlinearity(profile: dict) -> float:
@@ -570,18 +573,21 @@ def _table(document: dict, label_invariant: bool = False) -> dict:
         "index": np.array([r["index"] for r in rows]),
         "warned": np.array([r["warned"] for r in rows]),
     }
-    z_pub, z_true = [], []
+    z_pub, z_true, swapped_better = [], [], []
     for r in rows:
         positions = [j for j, n in enumerate(r["names"]) if n.endswith(".cs")]
         se = np.array(r["published_se"], dtype=float)
         truth = np.array(r["truth"])
         error = np.abs(np.array(r["estimates"]) - truth)[positions]
-        if label_invariant:
-            swapped = np.abs(np.array(r["estimates"]) - truth[_swap(r["names"])])[positions]
-            if np.nansum((swapped / se[positions]) ** 2) < np.nansum((error / se[positions]) ** 2):
-                error = swapped
+        swapped = np.abs(np.array(r["estimates"]) - truth[_swap(r["names"])])[positions]
+        better = np.nansum((swapped / se[positions]) ** 2) < np.nansum((error / se[positions]) ** 2)
+        swapped_better.append(bool(better))
+        if label_invariant and better:
+            error = swapped
         z_pub.append(error / np.array(r["published_se"], dtype=float)[positions])
         z_true.append(error / np.array(r["true_se"], dtype=float)[positions])
+    # A swap is a failure only under the original labels; otherwise it was relabelled.
+    out["swapped"] = np.array(swapped_better) & (not label_invariant)
     out["z_published"] = np.array(z_pub)
     out["z_true"] = np.array(z_true)
     with np.errstate(invalid="ignore"):
@@ -591,12 +597,18 @@ def _table(document: dict, label_invariant: bool = False) -> dict:
         getter = field if callable(field) else (lambda r, f=field: r[f])
         out[name] = np.array([getter(r) for r in rows], dtype=float)
     out["fitted_separation_ratio"] = np.array([r["fitted_separation_ratio"] for r in rows])
+    # Configuration labels come from the development half alone, so that every rate
+    # on the test half is held out. The all-realization coverage is descriptive only.
+    development = out["index"] % 2 == 0
     calibrated, cells = {}, {}
     for name in configs:
         keep = (out["config"] == name) & ~out["warned"]
-        cell = _coverage(out["z_published"][keep])
+        described = _coverage(out["z_published"][keep])
+        cell = _coverage(out["z_published"][keep & development])
         total = int(np.sum(out["config"] == name))
         cell |= {
+            "coverage_68_95_all_realizations": described["coverage_68_95"],
+            "calibrated_all_realizations": described["calibrated"],
             "fits": sum(r["config"] == name for r in document["fits"]),
             "usable": total,
             "warned": int(np.sum((out["config"] == name) & out["warned"])),
@@ -654,6 +666,7 @@ def _rates(fits: dict, flagged: np.ndarray, keep: np.ndarray) -> dict:
         "sensitivity": share(problematic),
         "sensitivity_biased": share(unwarned & fits["biased"]),
         "false_positive_calibrated": share(calibrated),
+        "false_positive_calibrated_unproblematic": share(calibrated & ~fits["problematic"]),
         "false_positive_not_problematic": share(clean),
         "false_positive_resolved_calibrated": share(resolved),
         "flagged_unwarned": share(unwarned),
@@ -703,25 +716,70 @@ def _choose(values, large, fits, keep) -> float | None:
     return best
 
 
+def _auc(positive: np.ndarray, negative: np.ndarray) -> float:
+    """P(a positive scores above a negative), ties counted half: the Mann-Whitney AUC."""
+    ordered = np.sort(negative)
+    below = np.searchsorted(ordered, positive, side="left")
+    ties = np.searchsorted(ordered, positive, side="right") - below
+    return float(np.mean(below + 0.5 * ties) / negative.size)
+
+
 def _roc(values, large, fits, keep) -> dict:
-    """Sensitivity at fixed false-positive rates, and the AUC, on ``keep``."""
+    """Binary ROC on ``keep``, with disjoint groups of unwarned fits.
+
+    Positives are problematic fits. Negatives are unproblematic fits of configurations
+    calibrated on the development half; the AUC against every unproblematic fit is
+    also given. Missing values rank as least suspicious.
+    """
     unwarned = keep & ~fits["warned"]
-    positive = values[unwarned & fits["problematic"]]
-    negative = values[unwarned & (fits["calibrated"] == True)]  # noqa: E712
-    if not large:
-        positive, negative = -positive, -negative
-    positive = np.nan_to_num(positive, nan=-np.inf, posinf=np.inf)
-    negative = np.nan_to_num(negative, nan=-np.inf, posinf=np.inf)
-    out = {}
+    score = np.nan_to_num(values if large else -values, nan=-np.inf, posinf=np.inf)
+    positive = score[unwarned & fits["problematic"]]
+    clean = unwarned & ~fits["problematic"]
+    negative = score[clean & (fits["calibrated"] == True)]  # noqa: E712
+    out = {"positives": int(positive.size), "negatives": int(negative.size)}
     for fp in (0.01, 0.05, 0.1, 0.2):
         threshold = np.quantile(negative, 1 - fp)
         out[f"sensitivity_at_fp_{fp:g}"] = float(np.mean(positive > threshold))
-    ranks = np.searchsorted(np.sort(negative), positive, side="left") + 0.5 * (
-        np.searchsorted(np.sort(negative), positive, side="right")
-        - np.searchsorted(np.sort(negative), positive, side="left")
-    )
-    out["auc"] = float(np.mean(ranks) / negative.size)
+    out["auc"] = _auc(positive, negative)
+    out["auc_against_every_unproblematic_fit"] = _auc(positive, score[clean])
     return out
+
+
+def _outliers(fits: dict, keep: np.ndarray) -> dict:
+    """Problematic fits split into expected 3-SE outliers and systematic failures.
+
+    By configuration label: the 3-SE misses exact calibration would give (bounds
+    from ``CHANCE_3SE``), and the excess over the upper bound, a lower bound on the
+    systematic failures. Then every problematic fit by mechanism, in this order:
+    coincident truth, swapped labels, fitted separation over 1.5x or under 2/3 of
+    the true one, and the rest.
+    """
+    unwarned = keep & ~fits["warned"]
+    groups = {}
+    for label, value in (("calibrated", True), ("miscalibrated", False), ("not judged", None)):
+        mask = unwarned & (fits["calibrated"] == value)
+        n, observed = int(mask.sum()), int(np.sum(mask & fits["problematic"]))
+        low, high = (n * p for p in CHANCE_3SE)
+        groups[label] = {
+            "unwarned": n,
+            "problematic": observed,
+            "expected_by_chance": [round(low, 1), round(high, 1)],
+            "systematic_at_least": max(0, round(observed - high)),
+        }
+    problematic = unwarned & fits["problematic"]
+    ratio = fits["fitted_separation_ratio"]
+    remaining = problematic.copy()
+    mechanisms = {}
+    for label, mask in (
+        ("coincident truth", ~np.isfinite(ratio)),
+        ("swapped labels", fits["swapped"]),
+        ("over-separated (> 1.5x)", ratio > 1.5),
+        ("under-separated (< 2/3)", ratio < 2 / 3),
+        ("separation within 2/3-1.5x", np.ones_like(problematic)),
+    ):
+        mechanisms[label] = int(np.sum(remaining & mask))
+        remaining &= ~mask
+    return {"by_configuration": groups, "by_mechanism": mechanisms}
 
 
 def _breakdown(table: dict) -> dict:
@@ -752,7 +810,6 @@ def evaluate(document: dict, label_invariant: bool) -> dict:
     fits, cells = table["fits"], table["cells"]
     dev = fits["index"] % 2 == 0
     test = ~dev
-    everything = np.ones_like(dev)
     no_flag = np.zeros_like(dev)
     report: dict = {
         "fits": len(document["fits"]),
@@ -761,22 +818,21 @@ def evaluate(document: dict, label_invariant: bool) -> dict:
         "unwarned_problematic": int((~fits["warned"] & fits["problematic"]).sum()),
         "unwarned_biased": int((~fits["warned"] & fits["biased"]).sum()),
         "configurations": len(cells),
+        "configuration_labels": "development half",
         "configurations_calibrated": sum(c["calibrated"] is True for c in cells.values()),
         "configurations_miscalibrated": sum(c["calibrated"] is False for c in cells.values()),
+        "configurations_calibrated_all_realizations": sum(
+            c["calibrated_all_realizations"] is True for c in cells.values()
+        ),
+        "configurations_miscalibrated_all_realizations": sum(
+            c["calibrated_all_realizations"] is False for c in cells.values()
+        ),
         "without_a_flag": _after_flagging(fits, cells, no_flag, test),
-        # Context, not a candidate: flag every fit of a miscalibrated configuration.
-        # Problematic fits in calibrated configurations are beyond any such flag.
-        "configuration_oracle_test": _rates(fits, fits["calibrated"] == False, test),  # noqa: E712
-        "unwarned_problematic_by_configuration": {
-            label: int(
-                np.sum(~fits["warned"] & fits["problematic"] & (fits["calibrated"] == value))
-            )
-            for label, value in (
-                ("calibrated", True),
-                ("miscalibrated", False),
-                ("not judged", None),
-            )
-        },
+        # Context, not a candidate: flag every fit of a configuration labelled
+        # miscalibrated. It bounds flagging whole configurations, not what a per-fit
+        # diagnostic could reach.
+        "whole_configuration_flag_test": _rates(fits, fits["calibrated"] == False, test),  # noqa: E712
+        "problematic_test": _outliers(fits, test),
         "breakdown": _breakdown(table),
         "apodized_widths_points": document["apodized_widths_points"],
         "measures": {},
@@ -786,7 +842,7 @@ def evaluate(document: dict, label_invariant: bool) -> dict:
         threshold = _choose(values, large, fits, dev)
         entry: dict = {
             "flags_when": "at or above" if large else "at or below",
-            "roc_all": _roc(values, large, fits, everything),
+            "roc_test": _roc(values, large, fits, test),
             "threshold_from_development_half": threshold,
         }
         if threshold is not None:
@@ -854,7 +910,7 @@ def analyze(args: argparse.Namespace) -> None:
         print(label)
         for name, m in part["measures"].items():
             verdict = m.get("verdict", {})
-            print(f"  {name}: AUC {m['roc_all']['auc']:.3f}, passes {verdict.get('passes')}")
+            print(f"  {name}: AUC {m['roc_test']['auc']:.3f}, passes {verdict.get('passes')}")
 
 
 def explore(args: argparse.Namespace) -> None:
@@ -864,10 +920,10 @@ def explore(args: argparse.Namespace) -> None:
     for label_invariant in (False, True):
         table = _table(document, label_invariant)
         fits, cells, configs = table["fits"], table["cells"], table["configs"]
-        unwarned, everything = ~fits["warned"], np.ones(len(fits["warned"]), dtype=bool)
+        unwarned, test = ~fits["warned"], fits["index"] % 2 == 1
         print(f"\n## label invariant: {label_invariant}")
-        print("separation | per σ = 0.01, 0.03, 0.1: miscalibrated/judged cells,")
-        print("           | problematic/unwarned fits, warned share")
+        print("All realizations, descriptive. separation | per σ = 0.01, 0.03, 0.1:")
+        print("miscalibrated/judged cells | problematic/unwarned fits | warned share")
         for d in (0.0, 0.1, 0.2, 0.3, 0.45, 0.6, 0.8, 1.0, 1.5):
             row = []
             for sigma in (0.01, 0.03, 0.1):
@@ -876,8 +932,8 @@ def explore(args: argparse.Namespace) -> None:
                     for n, c in configs.items()
                     if c["points"] is None and c["separation"] == d and c["sigma"] == sigma
                 ]
-                bad = sum(cells[n]["calibrated"] is False for n in names)
-                judged = sum(cells[n]["calibrated"] is not None for n in names)
+                bad = sum(cells[n]["calibrated_all_realizations"] is False for n in names)
+                judged = sum(cells[n]["calibrated_all_realizations"] is not None for n in names)
                 mask = np.isin(fits["config"], names)
                 problematic = np.sum(mask & unwarned & fits["problematic"])
                 row.append(
@@ -891,11 +947,11 @@ def explore(args: argparse.Namespace) -> None:
             ("fitted separation / apodized width", (0.2, 0.3, 0.45, 0.6, 0.8)),
         ):
             large = MEASURES[name][1]
-            print(f"{name}: threshold | FP | sensitivity | flagged | gross/judged | pooled")
+            print(f"{name}, test half: threshold | FP | sensitivity | flagged | gross | pooled")
             for threshold in grid:
                 flagged = _flags(fits[name], threshold, large)
-                rates = _rates(fits, flagged, everything)
-                after = _after_flagging(fits, cells, flagged, everything)
+                rates = _rates(fits, flagged, test)
+                after = _after_flagging(fits, cells, flagged, test)
                 pooled = after["pooled_over_previously_miscalibrated"]
                 print(
                     f"  {threshold:<5} {rates['false_positive_calibrated']:.3f} "
