@@ -31,6 +31,7 @@ TOLERANCE = {
     "sp1_half_dwell": 0.10,
     "sp2_digital_filter": 0.02,
     "sp2_digital_filter_df": 0.02,
+    "sp2_digital_filter_converted": 0.01,
     "no_apod_digital_filter": 0.05,
     "sp2_indirect_t0": 0.01,
     "sp2_indirect_half_dwell": 0.01,
@@ -104,6 +105,9 @@ def _axis(name: str):
         ("sp2_digital_filter", (511 - GROUP_DELAY) / 8000, 0.4 + 0.58 * GROUP_DELAY / 511, 0.98),
         # SP -df shifts the window by g instead, so its end is cut at the last point.
         ("sp2_digital_filter_df", (511 - GROUP_DELAY) / 8000, 0.4, 0.98 - 0.58 * GROUP_DELAY / 511),
+        # Filter corrected at conversion (bruk2pipe -DMX): the header records no delay and
+        # TDSIZE (443 of 512) already excludes it, so nothing is subtracted twice.
+        ("sp2_digital_filter_converted", 442 / 8000, 0.4, 0.98),
         # Without a window: the established N dwells, less the filter delay.
         ("no_apod_digital_filter", (512 - GROUP_DELAY) / 8000, 0.0, 0.0),
     ],

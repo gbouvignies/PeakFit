@@ -169,6 +169,40 @@
    }
   ]
  },
+ "sp2_digital_filter_converted": {
+  "axes": [
+   "H"
+  ],
+  "peaks": [
+   {
+    "ppm": [
+     2.2
+    ],
+    "lw_hz": [
+     6.366197723675814
+    ],
+    "amplitude": 1.0
+   },
+   {
+    "ppm": [
+     5.325
+    ],
+    "lw_hz": [
+     12.732395447351628
+    ],
+    "amplitude": 0.7
+   },
+   {
+    "ppm": [
+     7.825
+    ],
+    "lw_hz": [
+     25.464790894703256
+    ],
+    "amplitude": 0.5
+   }
+  ]
+ },
  "sp2_indirect_t0": {
   "axes": [
    "N",

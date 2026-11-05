@@ -51,7 +51,7 @@ def _filtered(peaks, n, sw, planes=2, oversample=32):
     return np.array([delayed * 0.5**z for z in range(planes)])
 
 
-def _series(name, rows, sw, env, cwd, *, bruker=False):
+def _series(name, rows, sw, env, cwd, *, bruker=False, mode="-AMX"):
     """A pseudo-2D FID: one plane per row, converted by bin2pipe or bruk2pipe."""
     planes, n = rows.shape
     axes = (
@@ -64,7 +64,7 @@ def _series(name, rows, sw, env, cwd, *, bruker=False):
         raw[:, 0::2], raw[:, 1::2] = np.round(scale * rows.real), np.round(scale * rows.imag)
         (cwd / f"{name}.ser").write_bytes(raw.tobytes())
         command = (
-            f"bruk2pipe -in {name}.ser -AMX -decim 1600 -dspfvs 20 -grpdly {GROUP_DELAY} "
+            f"bruk2pipe -in {name}.ser {mode} -decim 1600 -dspfvs 20 -grpdly {GROUP_DELAY} "
             f"-bad 0.0 -noswap {axes} -out {name}.fid -ov"
         )
     else:
@@ -144,6 +144,13 @@ def _fixtures(env, cwd):
         _series(name, rows, 8000.0, env, cwd, bruker=True)
         path = _process(name, [window, "ZF -size 2048", "FT -auto", "PS -p0 0 -p1 0 -di"], env, cwd)
         record(name, path, one_axis(PEAKS_1H), ["H"])
+
+    # Digital filter corrected during conversion: the header records no delay, and
+    # TDSIZE already excludes the filter points.
+    _series("sp2_digital_filter_converted", rows, 8000.0, env, cwd, bruker=True, mode="-DMX")
+    chain = [f"{SP2} -c 0.5", "ZF -size 2048", "FT -auto", "PS -p0 0 -p1 0 -di"]
+    path = _process("sp2_digital_filter_converted", chain, env, cwd)
+    record("sp2_digital_filter_converted", path, one_axis(PEAKS_1H), ["H"])
 
     for name, delay, c, phase in (
         ("sp2_indirect_t0", 0.0, 0.5, "PS -p0 0 -p1 0 -di"),

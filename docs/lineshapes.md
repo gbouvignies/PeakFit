@@ -19,7 +19,15 @@ j = 0 … N − 1. The signal reaches sample j at time (j − g + d)·dw, where:
   first sample is at t = 0, ½ for a half-dwell delay;
 - **g** is the Bruker digital-filter delay (`FDDMXVAL`) when the Fourier transform
   corrected it (`FDDMXFLAG` 1, direct axis). NMRPipe applies the window before that
-  correction, so the first g points of the window precede the signal.
+  correction, so the first g points of the window precede the signal. When the delay
+  is corrected during conversion (`bruk2pipe -DMX`), the header records no delay
+  (`FDDMXVAL` 0) and `TDSIZE` already excludes the filter points, so g = 0 and nothing
+  is subtracted twice. With the first point ×½ this is the t = 0 convention, validated
+  to 0.3%.
+
+  The noise-correlation model is a separate matter: conversion-time correction leaves
+  the noise of the first points non-uniform, which no header records
+  ([correlated-noise.md §2.5](correlated-noise.md#25-what-the-final-header-cannot-show)).
 
 `SP -df` instead shifts the window itself by `APODDF` points.
 
@@ -45,10 +53,12 @@ For example:
 Two assumptions remain, because the header records the processing but not the
 acquisition timing:
 
-- **`P1` is the sampling delay, with no other phase correction.** NMRPipe records
-  the total first-order phase, including any manual phasing. A manual adjustment
-  shifts aq by its value/360 of a dwell, which barely matters, but it means `P1`
-  does not identify the acquisition timing uniquely.
+- **`P1` is read as the sampling delay.** The final `P1` is the total first-order
+  phase NMRPipe applied, so it is a pure acquisition delay only when no manual
+  phasing was added. For the two standard conventions (`P1` 0 and 180) a manual
+  adjustment shifts aq by its value/360 of a dwell, which barely matters. `P1` does
+  not identify the acquisition timing uniquely, and other timing conventions are not
+  a design target.
 - **The first point was scaled by ½ + d** (`C1` + 1): ½ when the first sample is at
   t = 0, 1 for half-dwell. Otherwise the spectrum gains a constant offset of
   m = (`C1` + 1) − ½ − d first points, which no lineshape parameter absorbs. Its

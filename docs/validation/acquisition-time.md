@@ -56,6 +56,14 @@ Linewidth error (%), for the three lines from narrowest to broadest:
 | | no window | 512 | +29, +5.1, +0.5 | +4.2, +0.5, +0.4 |
 | | | 1024 | +2.0, +0.2, +0.3 | +0.2, +0.1, +0.3 |
 
+**Digital filter corrected during conversion** (`bruk2pipe -DMX`). The header
+records no delay (`FDDMXVAL` 0, `FDDMXFLAG` 0), and `TDSIZE` already excludes the
+filter points (512 → 443, 1024 → 955). The reader therefore uses g = 0, with
+aq = (`TDSIZE` − 1)·dw. With the first point ×½, `sp2` linewidths are within 0.3%
+and relative amplitudes within 0.2% at both lengths; this is the regression fixture
+`sp2_digital_filter_converted`. With the first point ×1, they are biased +2% to +5%,
+as the t = 0 convention predicts.
+
 Indirect axis, two peaks (¹⁵N, then ¹H linewidth error, %):
 
 | Case | N₁ | Recorded | Signal |
