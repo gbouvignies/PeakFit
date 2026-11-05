@@ -76,15 +76,17 @@ class Chain:
         """Apodize, zero fill, Fourier transform, phase and keep the real part."""
         x = np.zeros((*fid.shape[:-1], self.m), complex)
         x[..., : self.n] = fid * self.window
-        phase = np.exp(1j * np.deg2rad(self.p1) * np.arange(self.m) / self.m)
+        # NMRPipe stores frequency in decreasing order: its P1 ramp over stored points
+        # is e^{−iφ₁k/M} in the transform index k (tests/data/nmrpipe).
+        phase = np.exp(-1j * np.deg2rad(self.p1) * np.arange(self.m) / self.m)
         return np.real(np.fft.fft(x, axis=-1) * phase)
 
     def rho(self) -> np.ndarray:
-        """Noise autocorrelation at every lag 0…M−1: Re[C(k)e^{iφ₁k/M}] / C(0)."""
+        """Noise autocorrelation at every lag 0…M−1: Re[C(k)e^{−iφ₁k/M}] / C(0)."""
         w2 = self.window**2
         k = np.arange(self.m)[:, None]
         c = (w2 * np.exp(-2j * np.pi * k * np.arange(self.n) / self.m)).sum(axis=1)
-        return np.real(c * np.exp(1j * np.deg2rad(self.p1) * k[:, 0] / self.m)) / c[0].real
+        return np.real(c * np.exp(-1j * np.deg2rad(self.p1) * k[:, 0] / self.m)) / c[0].real
 
     def noise_sd(self, s: float = 1.0) -> float:
         """SD of a processed real point for FID noise of SD ``s`` per component."""

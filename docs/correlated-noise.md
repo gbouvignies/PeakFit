@@ -1,8 +1,8 @@
 # Correlated spectral noise
 
-**Status:** approved specification, implemented in three steps (§11).
-- Steps 1 and 2 (#129, #130) are merged.
-- Step 3, which publishes the errors, is under review.
+**Status:** approved specification, implemented in three steps (§11, #129–#131).
+The first-order phase convention and the Bruker digital-filter correction were
+later checked against spectra NMRPipe processed (§2.2, §2.3).
 
 Decision record: [ADR 0002](adr/0002-processing-derived-sandwich-errors.md), building
 on [ADR 0001](adr/0001-sigma-only-uncertainties.md).
@@ -28,8 +28,9 @@ These were settled on 2026-11-04.
 2. **Correlation from the recorded processing only.** It is exact under the
    assumptions of §2.1, but not necessarily a description of the actual spectrum's
    noise.
-   - Processing the model does not cover, and inconsistent headers, give σ-only
-     errors with a recorded warning, "noise correlation not modelled".
+   - Processing the model does not cover, where the header records it, and
+     inconsistent headers give σ-only errors with a recorded warning, "noise
+     correlation not modelled". Some processing leaves no trace in the header (§2.5).
    - There is no fallback that measures the correlation from the spectrum.
 3. **Sandwich errors.** Where the correlation is modelled, the published analytical
    errors are the covariance of the least-squares estimates under σ²R (§5).
@@ -57,7 +58,8 @@ The correlation is exact when all of these hold:
   - a sine-bell apodization (`SP`: `APODQ1`–`APODQ3`) or none;
   - first-point scaling `C1 + 1`;
   - zero filling to `FTSIZE`;
-  - a Fourier transform and the first-order phase `P1`;
+  - a Fourier transform, with the Bruker digital-filter correction when FT applied
+    it, and the first-order phase `P1`;
   - keeping the real part;
 - axes are processed independently, so R is separable.
 
@@ -67,25 +69,41 @@ It does not cover:
   correction, or other window functions;
 - input that is not NMRPipe.
 
+Several of these leave no trace in the final header (§2.5), so a run can be recorded
+as "modelled" although its processing is outside the model.
+
 Extraction does not matter, because the noise is stationary along each axis.
 
 ### 2.2 Correlation
 
 For an axis with N acquired complex points, window w_t (first point scaled), FT size M
-and first-order phase φ₁, the noise correlation of the real points at lag k is
+and first-order phase φ, the noise correlation of the real points at lag k is
 
-  ρ(k) = Re[C(k) e^{iφ₁k/M}] / C(0),  C(k) = Σ_t w_t² e^{−2πikt/M}.
+  ρ(k) = Re[C(k) e^{−iφk/M}] / C(0),  C(k) = Σ_t w_t² e^{−2πikt/M},
+
+with φ = `P1` − 360°·g. Here g is the Bruker digital-filter delay in points
+(`FDDMXVAL`) when the Fourier transform corrected it, and 0 otherwise; NMRPipe applies
+that correction as an extra first-order phase on the direct axis.
 
 This follows from E[X_k X_l*] = 2s²C(k − l) and the zero pseudo-covariance of circular
-noise.
+noise. The sign of φ is NMRPipe's: it stores frequency in decreasing order, so its
+phase ramp over the stored points has the opposite sign in the transform index.
 
 For a cluster, R is the elementwise product, over spectral axes, of ρ evaluated at the
 lags between its fitting samples. It is the identity between planes, and is never
 stored: it is regenerated from the descriptor and the recorded fitting samples.
 
-**Verification (C1):** the formula matches Monte Carlo processing of white noise to
-within 0.007 at lags 0–5. This holds for both CEST chains and for zero fill ×2 and ×4
-without apodization.
+**Verification:**
+- **C1:** the formula matches Monte Carlo processing of white noise to within 0.007
+  at lags 0–5, for both CEST chains and for zero fill ×2 and ×4 without apodization.
+- **NMRPipe:** it matches the exact covariance of impulse responses processed by
+  NMRPipe 13.0 to 5 × 10⁻⁵: a half-dwell indirect axis (`P1` 180) and a Bruker direct
+  axis with and without the digital-filter correction, with extraction. These are
+  the regression fixtures in `tests/data/nmrpipe`, made by
+  `tools/make_nmrpipe_noise_fixtures.py`.
+- An earlier implementation applied `P1` with the opposite sign. NMRPipe-processed
+  white noise showed it: for `P1` 180 the mirrored correlation overstated amplitude
+  errors by up to 5%, and by 9% for `P1` 360.
 
 ### 2.3 Header fields and consistency
 
@@ -100,6 +118,8 @@ For each transformed spectral axis (`FTFLAG` = 1) with S stored points:
 | First-point scale | `C1` + 1 | finite |
 | First-order phase | `P1` | finite |
 | Apodized length | `APOD` | the consistency check below |
+| Digital-filter delay, direct axis (F2) only | `FDDMXVAL`, `FDDMXFLAG` | flag 1: FT corrected the delay; 0: it did not |
+| Composite or adjusted window | `LB`, `GB`, `GOFF`, `APODDF` | all 0 |
 
 **Consistency check:** |`APOD` − N·S/M| < 1.
 - NMRPipe records the apodized length, rescaled by any extraction and stored as a
@@ -107,13 +127,21 @@ For each transformed spectral axis (`FTFLAG` = 1) with S stored points:
 - With extraction, rounding down or to the nearest integer both pass.
   - The CEST ¹H axis has N·S/M = 768 × 546/2048 = 204.75, and `APOD` = 204.
   - The ¹⁵N axis has S = M and `APOD` = N = 92.
-- A window applied over fewer points than were acquired fails the check. This
-  happens with `SP -size`, for example; that processing reading `APOD` alone would
-  imply ρ₁ = 0.97 instead of 0.66 on the CEST ¹H axis.
+- The check confirms that `TDSIZE`, `APOD` and the extraction agree. It does not
+  detect a window shorter than the acquisition: NMRPipe keeps `APOD` = `TDSIZE` after
+  `SP -size` (§2.5).
+
+**Digital filter:** after the transform, `FDDMXFLAG` is 1 exactly when FT applied the
+correction (the default for Bruker data converted with `-decim`, `-dspfvs` and
+`-grpdly`) and 0 after `FT -nodmx`. NMRPipe 13.0 showed this for every combination of
+conversion and FT options tested. The correction applies to the direct axis only.
 
 **Safe fallback:** any of these leaves the run "not modelled", with the reason
 recorded:
 - a missing or non-finite field, or an unsupported window;
+- a composite exponential or Gaussian window (`SP -elb`, `-glb`, `-goff`), or a window
+  adjusted for the digital filter (`SP -df`);
+- an `FDDMXFLAG` other than 0 or 1;
 - a failed check;
 - an untransformed spectral axis;
 - input that is not NMRPipe.
@@ -128,18 +156,54 @@ autocorrelation is compared with one measured on noise-only points (|x| < 3σ):
 
 | Lag | ¹⁵N predicted | ¹⁵N measured | ¹H predicted | ¹H measured |
 |---:|---:|---:|---:|---:|
-| 1 | 0.764 | 0.772 | 0.656 | 0.608 |
-| 2 | 0.295 | 0.392 | 0.043 | 0.079 |
-| 3 | −0.015 | 0.048 | −0.233 | −0.155 |
-| 4 | −0.071 | −0.118 | −0.162 | −0.103 |
+| 1 | 0.751 | 0.772 | 0.656 | 0.608 |
+| 2 | 0.263 | 0.392 | 0.043 | 0.079 |
+| 3 | −0.050 | 0.048 | −0.233 | −0.155 |
+| 4 | −0.096 | −0.118 | −0.162 | −0.103 |
 
-- Lag 1 agrees closely along ¹⁵N, and to within 0.05 along ¹H. Differences of up to
-  0.10 remain at higher lags.
+- Lag 1 agrees to within 0.03 along ¹⁵N and 0.05 along ¹H. Differences of up to
+  0.13 remain at higher lags.
 - These differences are far larger than the measurement's sampling error. Since C1
-  rules out the formula, they come from the measurement or from the spectrum.
+  and the NMRPipe fixtures rule out the formula, they come from the measurement or
+  from the spectrum.
   Candidates are residual signal in the mask, the effect of truncation on the mask,
   and noise sources outside §2.1.
 - They are not established, and PeakFit does not use the measured curve.
+
+### 2.5 What the final header cannot show
+
+The model can only be as complete as the header. NMRPipe 13.0 was run on complex
+white noise, and on synthetic pseudo-3D series that PeakFit then fitted; the processed
+results were compared with the model. The operations below leave a final header that
+passes every check of §2.3, so the run is recorded as "modelled":
+
+| Processing | What the final header shows | Measured consequence |
+|---|---|---|
+| Linear prediction (`LP`) | `TDSIZE` and `APOD` give the extended length, as if acquired | Correlation under-predicted; amplitude SD understated 4–7% for noise alone |
+| An earlier window (`EM` then `SP`, `SP` then `SP`) | the last window only | Amplitude SD understated 6–16% |
+| `SP -size`, `-start`, `-one` | identical to a full-length window | Amplitude SD understated up to 16% (`-size`) or overstated up to 72% (`-start`) |
+| Digital-filter correction during conversion (`bruk2pipe -DMX`) | a shorter `TDSIZE`; `FDDMXVAL` 0 | Up to 13% understated |
+| Solvent filter (`SOL`) | byte-identical to no filter | Calibrated beyond about 200 points from the carrier; near it, understated up to 24% or overstated 11% |
+| NUSZF extrapolation or NUS reconstruction by IST | as uniform acquisition at the extended or full size | Correlation and noise level depend on the data (below) |
+
+**A modelled noise correlation is not a calibrated uncertainty.** The model describes
+how linear processing correlates white noise. Extrapolation and reconstruction are
+not that: LP coefficients and IST thresholds depend on the data, and the noise near
+a peak differs from the noise elsewhere. In the fitted synthetic series (8 peaks,
+SNR about 2–200, 6–12 realizations per method), the parameter scatter exceeded the
+published errors by:
+- 1.5–2.3× for LP on isolated peaks at high SNR, and up to 6.6× for an overlapping
+  pair;
+- 1.5–3× for NUSZF + IST extrapolation;
+- up to 2.8× for 50% Poisson-gap NUS reconstructed by IST.
+
+Conventional processing of the same data stayed calibrated. These measurements are
+specific to the conditions tested: NMRPipe's IST with its default settings,
+reconstructed plane by plane, and `LP -fb -ord 8`. SMILE and other reconstruction
+methods were not tested, and their uncertainties may behave differently.
+
+Reconstruction can also change the lineshape the fit assumes, which is a separate
+question from the noise model; see [decisions.md](decisions.md).
 
 ## 3. Size of the effect
 
@@ -252,9 +316,9 @@ R2·aq is the decay over the acquisition time.
 
 ### 5.6 Formats and cost
 
-- **Formats:** scientific archive 8.0.0, fit JSON 7.0.0 and analysis project 11.0.0,
-  for the noise-model record, plus the CSV column. The MCMC record is unchanged.
-  Earlier files are refused; refit.
+- **Formats:** scientific archive 9.0.0, fit JSON 8.0.0 and analysis project 12.0.0,
+  for the noise-model record (including each axis's digital-filter delay), plus the
+  CSV column. The MCMC record is unchanged. Earlier files are refused; refit.
 - **Cost:** O(n²) per cluster once at finalization. R is never stored.
 
 ### 5.7 Documentation
@@ -366,7 +430,7 @@ amplitude drawn conditionally: narrow line, 600 realizations. The coverage SE is
 | Tempered, k = 0.48 | 0.64 · 0.94 | 0.77 · 0.97 | 0.77 · 0.96 |
 
 **The CEST prediction** is not a validation. Under the processing model, the
-conditional sandwich factor for each peak is 2.335 (IQR 2.325–2.344) × σ-only. Whether
+conditional sandwich factor for each peak is 2.294 (IQR 2.286–2.301) × σ-only. Whether
 it matches the true uncertainty is untested (C6).
 
 ## 9. Limitations
@@ -374,6 +438,9 @@ it matches the true uncertainty is untested (C6).
 - **The processing model only.** Real noise may include t1 noise, instabilities or
   processing outside §2.1. The CEST comparison shows unexplained differences at
   higher lags, and no real-data validation is available.
+- **Processing the header does not record** (§2.5). Linear prediction, NUSZF
+  extrapolation, NUS reconstruction, earlier windows and solvent filters can leave a
+  run "modelled" whose published errors are not calibrated.
 - **Synthetic scope:** 1D, single lines, the exact lineshape, one plane. Overlapping
   pairs and 2D clusters are untested.
 - **First order.** The sandwich is exact only in the locally linear regime.

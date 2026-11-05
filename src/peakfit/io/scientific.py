@@ -35,7 +35,7 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
-VERSION = "8.0.0"
+VERSION = "9.0.0"
 _RESULT_ARRAYS = (
     "shapes",
     "amplitudes",
@@ -345,8 +345,16 @@ def _noise_model(record):
     record = _record(record, "noise model")
     if set(record) != {"axes", "reason"}:
         raise ValueError("Malformed noise model.")
-    axes = tuple(AxisProcessing(**_record(a, "noise-model axis")) for a in record["axes"])
+    axes = tuple(_axis_processing(a) for a in record["axes"])
     return NoiseModel(axes=axes, reason=record["reason"])
+
+
+def _axis_processing(record):
+    """One axis's recorded processing: every field, with none left to its default."""
+    record = _record(record, "noise-model axis")
+    if set(record) != {f.name for f in fields(AxisProcessing)}:
+        raise ValueError("Incomplete or unknown noise-model axis processing.")
+    return AxisProcessing(**record)
 
 
 def _validate_noise_model(model, samples):
@@ -364,7 +372,14 @@ def _validate_noise_model(model, samples):
             or axis.transform < axis.acquired
             or not all(
                 np.isfinite(v)
-                for v in (axis.offset, axis.end, axis.power, axis.first_point, axis.phase)
+                for v in (
+                    axis.offset,
+                    axis.end,
+                    axis.power,
+                    axis.first_point,
+                    axis.phase,
+                    axis.filter_delay,
+                )
             )
         ):
             raise ValueError("Invalid noise-model axis processing.")

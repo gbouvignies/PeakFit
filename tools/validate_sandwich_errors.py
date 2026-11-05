@@ -121,7 +121,8 @@ class Axis:
         p = self.processing
         lags = np.arange(p.transform)[rows]
         fourier = np.exp(-2j * np.pi * np.outer(lags, np.arange(p.acquired)) / p.transform)
-        phase = np.exp(1j * np.deg2rad(p.phase) * lags / p.transform)
+        # NMRPipe's sign: its P1 ramp over stored points is e^{−iφk/M} in index k.
+        phase = np.exp(-1j * np.deg2rad(p.phase) * lags / p.transform)
         operator = phase[:, None] * fourier * p.weights()[None, :]
         real = np.hstack([operator.real, -operator.imag])
         return real / np.sqrt(np.sum(p.weights() ** 2))
@@ -169,7 +170,13 @@ CALIBRATED = [case for case in CASES if case.startswith(("isolated", "overlappin
 def build(case: str, rng: np.random.Generator | None):
     """The spectrum, cluster, true parameters and amplitudes of one realization."""
     separation, lineshape, signal, (first, second) = CASES[case]
-    dic = {"FDDIMORDER": [2.0, 1.0, 3.0, 4.0], **first.header("FDF1"), **second.header("FDF2")}
+    dic = {
+        "FDDIMORDER": [2.0, 1.0, 3.0, 4.0],
+        "FDDMXVAL": 0.0,  # NMRPipe headers always record the digital-filter state
+        "FDDMXFLAG": 0.0,
+        **first.header("FDF1"),
+        **second.header("FDF2"),
+    }
     pseudo = SpectralParameters(
         size=PLANES, sw=1.0, obs=1.0, car=0.0, aq_time=1.0, apocode=0, apodq1=0, apodq2=0,
         apodq3=0, p180=False, direct=False, ft=False,

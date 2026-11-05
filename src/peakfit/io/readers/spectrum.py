@@ -102,9 +102,40 @@ def read_spectral_parameters(dic: dict[str, Any], data: NDArray[Any]) -> list[An
 
 # NMRPipe APODCODE values the noise model supports: none, and the sine bell (SP).
 _WINDOWS: dict[int, Literal["none", "sine_bell"]] = {0: "none", 1: "sine_bell"}
+# Window terms NMRPipe records when applied, which the noise model does not include:
+# the composite exponential and Gaussian of SP -elb/-glb/-goff, and the SP -df offset.
+_UNSUPPORTED_TERMS = {
+    "LB": "composite exponential window (LB)",
+    "GB": "composite Gaussian window (GB)",
+    "GOFF": "composite Gaussian window (GOFF)",
+    "APODDF": "window adjusted for the digital filter (SP -df, APODDF)",
+}
+# NMRPipe's axis code of the directly detected dimension.
+_DIRECT_AXIS = 2
 
 
-def _axis_processing(  # noqa: PLR0911 - one return per check of §2.3
+def _filter_delay(dic: dict[str, Any]) -> float | str:
+    """The Bruker digital-filter delay NMRPipe corrected during the direct-axis FT.
+
+    After the transform, FDDMXFLAG is 1 exactly when the correction was applied and 0
+    when it was not (FT -nodmx); FDDMXVAL is the delay in points. Every NMRPipe header
+    carries both fields, so a missing, malformed or unrecognised one is ambiguous
+    provenance, never "no correction".
+    """
+    if "FDDMXVAL" not in dic or "FDDMXFLAG" not in dic:
+        return "digital-filter correction (FDDMXVAL, FDDMXFLAG) not recorded"
+    try:
+        delay, flag = float(dic["FDDMXVAL"]), float(dic["FDDMXFLAG"])
+    except (TypeError, ValueError):
+        return "unreadable digital-filter correction (FDDMXVAL, FDDMXFLAG)"
+    if not (np.isfinite(delay) and np.isfinite(flag)):
+        return "unreadable digital-filter correction (FDDMXVAL, FDDMXFLAG)"
+    if flag not in {0.0, 1.0}:
+        return f"digital-filter correction state FDDMXFLAG {flag:g} not recognised"
+    return delay if flag == 1.0 else 0.0
+
+
+def _axis_processing(  # noqa: PLR0911, PLR0912 - one return per check of §2.3
     dic: dict[str, Any], fdf: str, stored: int
 ) -> AxisProcessing | str:
     """One axis's processing, or why it cannot be modelled (docs/correlated-noise.md §2.3).
@@ -146,15 +177,25 @@ def _axis_processing(  # noqa: PLR0911 - one return per check of §2.3
         if q1 is None or q2 is None or q3 is None or q3 <= 0:
             return "sine-bell parameters (APODQ1-3) missing or invalid"
         shape = {"offset": q1, "end": q2, "power": q3}
+    for key, term in _UNSUPPORTED_TERMS.items():
+        value = number(key)
+        if value is None and dic.get(f"{fdf}{key}") is not None:
+            return f"unreadable {term}"
+        if value:
+            return f"unsupported {term}"
     first, phase = number("C1"), number("P1")
     if first is None or phase is None:
         return "first-point scale (C1) or first-order phase (P1) missing"
+    delay = _filter_delay(dic) if fdf == f"FDF{_DIRECT_AXIS}" else 0.0
+    if isinstance(delay, str):
+        return delay
     axis = AxisProcessing(
         acquired=int(acquired),
         transform=int(transform),
         window=window,
         first_point=first + 1.0,
         phase=phase,
+        filter_delay=delay,
         **shape,
     )
     with np.errstate(all="ignore"):  # the check below catches any of these

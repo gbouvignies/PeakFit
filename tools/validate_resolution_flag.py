@@ -127,7 +127,13 @@ def sweep() -> list[Config]:
 def spectra_for(lineshape: str) -> Spectra:
     """An empty pseudo-3D spectrum whose header records the lineshape's processing."""
     first, second = CHAINS[lineshape]
-    dic = {"FDDIMORDER": [2.0, 1.0, 3.0, 4.0], **first.header("FDF1"), **second.header("FDF2")}
+    dic = {
+        "FDDIMORDER": [2.0, 1.0, 3.0, 4.0],
+        "FDDMXVAL": 0.0,  # NMRPipe headers always record the digital-filter state
+        "FDDMXFLAG": 0.0,
+        **first.header("FDF1"),
+        **second.header("FDF2"),
+    }
     pseudo = SpectralParameters(
         size=PLANES, sw=1.0, obs=1.0, car=0.0, aq_time=1.0, apocode=0, apodq1=0, apodq2=0,
         apodq3=0, p180=False, direct=False, ft=False,

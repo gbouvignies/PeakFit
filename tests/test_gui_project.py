@@ -272,7 +272,7 @@ def test_a_project_from_an_earlier_error_convention_is_rejected_by_version(
 ):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     manifest = json.loads((path / "manifest.json").read_text())
-    assert manifest["schema_version"] == "11.0.0"
+    assert manifest["schema_version"] == "12.0.0"
     manifest["schema_version"] = version
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match=f"Unsupported analysis version: '{re.escape(version)}'"):
