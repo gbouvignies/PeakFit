@@ -41,9 +41,6 @@ def _outcome() -> FinalFitOutcome:
             n_fitted_parameters=2,
             degrees_of_freedom=1,
             reduced_chi_squared=10.0,
-            aic=0.0,
-            bic=0.0,
-            log_likelihood=0.0,
         ),
     )
     cluster = FinalClusterOutcome(
@@ -91,9 +88,6 @@ def _outcome() -> FinalFitOutcome:
             n_observations=1,
             n_fitted_parameters=2,
             degrees_of_freedom=1,
-            aic=0.0,
-            bic=0.0,
-            log_likelihood=0.0,
             function_evaluations=7,
         ),
         noise_model=not_modelled("synthetic spectrum"),

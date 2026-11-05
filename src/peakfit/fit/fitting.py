@@ -21,6 +21,7 @@ from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
+from peakfit.engine.results import HIGH_REDUCED_CHI_SQUARED
 from peakfit.fit.export import write_completed_outputs
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 from peakfit.fit.run_models import ClusterReview, FitRun, LoadedData, ProgressStart
@@ -81,9 +82,6 @@ def load_data(
     )
 
 
-HIGH_REDCHI = 5.0
-
-
 def find_review_clusters(fit_outcome: FinalFitOutcome) -> list[ClusterReview]:
     """Project review rows from ordered final cluster outcomes."""
     reviews: list[ClusterReview] = []
@@ -98,7 +96,10 @@ def find_review_clusters(fit_outcome: FinalFitOutcome) -> list[ClusterReview]:
         non_converged = outcome.classification is not FitOutcomeClassification.CONVERGED
         uncertain = evaluation is not None and evaluation.uncertainty_warning is not None
         needs_review = (
-            non_converged or uncertain or (redchi is not None and redchi > HIGH_REDCHI) or at_bounds
+            non_converged
+            or uncertain
+            or (redchi is not None and redchi > HIGH_REDUCED_CHI_SQUARED)
+            or at_bounds
         )
 
         if not needs_review:
@@ -110,7 +111,7 @@ def find_review_clusters(fit_outcome: FinalFitOutcome) -> list[ClusterReview]:
             reason = "not_converged"
         elif uncertain:
             reason = "uncertainty"
-        elif redchi is not None and redchi > HIGH_REDCHI:
+        elif redchi is not None and redchi > HIGH_REDUCED_CHI_SQUARED:
             reason = "high_chi"
         else:
             reason = "at_bounds"

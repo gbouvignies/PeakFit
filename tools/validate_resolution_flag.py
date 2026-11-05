@@ -358,7 +358,7 @@ def realization(config: Config, index: int) -> dict:  # noqa: PLR0915
     published = np.array([problem.parameters[n].stderr for n in names], dtype=float)
     jacobian = optimizer.compute_jacobian(x)
     sandwich = identifiable_covariance(jacobian, correlation)
-    white = identifiable_covariance(jacobian)
+    white = identifiable_covariance(jacobian, None)
     chi2 = float(np.sum(optimizer.compute_residuals(x) ** 2))
     scales = np.linalg.norm(jacobian, axis=0)
     singular = np.linalg.svd(jacobian / scales, compute_uv=False)

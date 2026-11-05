@@ -153,9 +153,6 @@ def test_analytical_model_evaluation_solves_a_real_gaussian_cluster(
         0.0,
         abs=1e-24,
     )
-    assert np.isfinite(evaluation.statistics.aic)
-    assert np.isfinite(evaluation.statistics.bic)
-    assert np.isfinite(evaluation.statistics.log_likelihood)
 
 
 @pytest.mark.parametrize(
@@ -265,6 +262,7 @@ def test_amplitude_solver_skips_covariance_after_nonfinite_amplitudes() -> None:
             shapes,
             data,
             noise=1.0,
+            correlation=None,
         )
 
     assert not np.isfinite(amplitudes).all()
@@ -307,6 +305,7 @@ def test_amplitude_solver_preserves_nonfinite_covariance_for_finite_amplitudes()
             shapes,
             data,
             noise=1.0,
+            correlation=None,
         )
 
     assert np.isfinite(amplitudes).all()
@@ -322,6 +321,7 @@ def test_amplitude_calculations_preserve_ordinary_finite_results() -> None:
         shapes,
         data,
         noise=2.0,
+        correlation=None,
     )
 
     np.testing.assert_allclose(amplitudes, [[2.0, 3.0], [3.0, 4.0]])
@@ -334,7 +334,9 @@ def test_amplitude_covariance_suppresses_floating_point_overflow_warning() -> No
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", RuntimeWarning)
-        _, _, covariance = calculate_amplitudes_with_uncertainty(shapes, np.ones((1, 1)), noise=1.0)
+        _, _, covariance = calculate_amplitudes_with_uncertainty(
+            shapes, np.ones((1, 1)), noise=1.0, correlation=None
+        )
 
     assert not np.isfinite(covariance).all()
 

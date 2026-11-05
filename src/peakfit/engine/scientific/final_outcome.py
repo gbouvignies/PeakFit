@@ -116,9 +116,6 @@ class FinalFitStatistics:
     n_observations: int
     n_fitted_parameters: int
     degrees_of_freedom: int
-    aic: float | None
-    bic: float | None
-    log_likelihood: float | None
     function_evaluations: int | None
 
 
@@ -486,15 +483,6 @@ def _global_statistics(outcomes: Sequence[FinalClusterOutcome]) -> FinalFitStati
     total_observations = sum(statistic.n_observations for statistic in statistics)
     total_parameters = sum(statistic.n_fitted_parameters for statistic in statistics)
     degrees_of_freedom = max(1, total_observations - total_parameters)
-    log_likelihood = (
-        float(sum(statistic.log_likelihood for statistic in statistics)) if statistics else None
-    )
-    aic = -2.0 * log_likelihood + 2.0 * total_parameters if log_likelihood is not None else None
-    bic = (
-        -2.0 * log_likelihood + total_parameters * float(np.log(total_observations))
-        if log_likelihood is not None and total_observations > 0
-        else None
-    )
     evaluations = [outcome.optimizer_provenance.function_evaluations for outcome in usable]
     return FinalFitStatistics(
         chi_squared=total_chi_squared,
@@ -506,9 +494,6 @@ def _global_statistics(outcomes: Sequence[FinalClusterOutcome]) -> FinalFitStati
         n_observations=total_observations,
         n_fitted_parameters=total_parameters,
         degrees_of_freedom=degrees_of_freedom,
-        aic=aic,
-        bic=bic,
-        log_likelihood=log_likelihood,
         function_evaluations=(
             sum(evaluation for evaluation in evaluations if evaluation is not None)
             if evaluations and all(evaluation is not None for evaluation in evaluations)

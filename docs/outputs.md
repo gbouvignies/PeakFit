@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**10.0.0**, fit JSON **8.0.0**, analysis project **13.0.0** and MCMC record **1.1.0**.
+**11.0.0**, fit JSON **9.0.0**, analysis project **14.0.0** and MCMC record **1.1.0**.
 
 ## Default scientific export
 
@@ -385,12 +385,12 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **13.0.0**. Earlier project formats are rejected;
+New projects use schema **14.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
-- Only scientific archive **10.0.0**, fit JSON **8.0.0** and project **13.0.0** are
+- Only scientific archive **11.0.0**, fit JSON **9.0.0** and project **14.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
   version": they record configuration keys (`[auto_peak]`, `fix_positions`,

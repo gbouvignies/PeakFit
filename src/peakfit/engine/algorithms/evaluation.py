@@ -43,9 +43,6 @@ class AnalyticalFitStatistics:
     n_fitted_parameters: int
     degrees_of_freedom: int
     reduced_chi_squared: float
-    aic: float
-    bic: float
-    log_likelihood: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,7 +147,6 @@ def _evaluate_analytical_model(
         cluster,
         params,
         nonlinear_names,
-        noise,
         chi_squared,
     )
     uncertainty_warning = None
@@ -289,7 +285,6 @@ def _derive_statistics(
     cluster: Cluster,
     params: Parameters,
     nonlinear_names: list[str],
-    noise: float,
     chi_squared: float,
 ) -> AnalyticalFitStatistics:
     n_observations = cluster.n_observations
@@ -305,20 +300,7 @@ def _derive_statistics(
         n_observations,
         n_fitted_parameters,
     )
-    log_likelihood = float(
-        -0.5 * chi_squared
-        - n_observations * np.log(noise)
-        - 0.5 * n_observations * np.log(2.0 * np.pi)
-    )
-    aic = float(-2.0 * log_likelihood + 2.0 * n_fitted_parameters)
-    bic = float(-2.0 * log_likelihood + n_fitted_parameters * np.log(n_observations))
-    derived_values = (
-        reduced_chi_squared,
-        log_likelihood,
-        aic,
-        bic,
-    )
-    if not all(np.isfinite(value) for value in derived_values):
+    if not np.isfinite(reduced_chi_squared):
         raise _InvalidEvaluationError("non-finite derived statistics")
     return AnalyticalFitStatistics(
         chi_squared=chi_squared,
@@ -328,9 +310,6 @@ def _derive_statistics(
         n_fitted_parameters=n_fitted_parameters,
         degrees_of_freedom=degrees_of_freedom,
         reduced_chi_squared=reduced_chi_squared,
-        aic=aic,
-        bic=bic,
-        log_likelihood=log_likelihood,
     )
 
 

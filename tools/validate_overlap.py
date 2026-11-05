@@ -45,7 +45,7 @@ def solve(cluster, params, noise, use_lmfit):
     from peakfit.engine.algorithms.varpro import fit_cluster
 
     if not use_lmfit:
-        return fit_cluster(params, cluster, noise)
+        return fit_cluster(params, cluster, noise, correlation=None)
     lmfit = importlib.import_module("lmfit")
 
     from peakfit.engine.results import FitResult

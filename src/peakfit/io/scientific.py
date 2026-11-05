@@ -35,7 +35,7 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
-VERSION = "10.0.0"
+VERSION = "11.0.0"
 _RESULT_ARRAYS = (
     "shapes",
     "amplitudes",
@@ -358,31 +358,9 @@ def _axis_processing(record):
 
 
 def _validate_noise_model(model, samples):
-    """Modelled exactly when it has axes, one per spectral coordinate of every sample."""
+    """One axis per spectral coordinate of every sample; NoiseModel checks the rest."""
     if not isinstance(model, NoiseModel):
         raise ValueError("Missing noise model.")
-    if model.modelled != bool(model.axes) or (
-        not model.modelled and not (isinstance(model.reason, str) and model.reason)
-    ):
-        raise ValueError("A noise model is modelled with axes, or not modelled with a reason.")
-    for axis in model.axes:
-        if (
-            axis.window not in {"none", "sine_bell"}
-            or axis.acquired < 1
-            or axis.transform < axis.acquired
-            or not all(
-                np.isfinite(v)
-                for v in (
-                    axis.offset,
-                    axis.end,
-                    axis.power,
-                    axis.first_point,
-                    axis.phase,
-                    axis.filter_delay,
-                )
-            )
-        ):
-            raise ValueError("Invalid noise-model axis processing.")
     if model.modelled and any(len(s.grid_indices) != len(model.axes) for s in samples):
         raise ValueError("The noise model and the sample coordinates disagree.")
 

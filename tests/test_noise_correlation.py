@@ -296,3 +296,20 @@ def test_recorded_window_terms_the_model_lacks_are_not_modelled(name, term):
     model = read_noise_model(dic, responses.shape)
     assert not model.modelled
     assert model.reason == f"axis F2: unsupported {term}"
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        NoiseModel,  # neither axes nor a reason
+        lambda: NoiseModel(axes=(AxisProcessing(8, 32, "none"),), reason="both"),
+        lambda: AxisProcessing(32, 16, "none"),  # FT size below the acquired size
+        lambda: AxisProcessing(0, 16, "none"),
+        lambda: AxisProcessing(8, 32, "exponential"),  # ty: ignore[invalid-argument-type]
+        lambda: AxisProcessing(8, 32, "sine_bell", power=0.0),
+        lambda: AxisProcessing(8, 32, "none", phase=float("nan")),
+    ],
+)
+def test_a_noise_model_no_header_could_record_cannot_be_built(build):
+    with pytest.raises(ValueError, match=r"noise model|axis processing"):
+        build()

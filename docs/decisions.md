@@ -858,3 +858,26 @@ Short records of non‑obvious design choices and trade‑offs.
   - the offset depends on the true delay, which the header does not record;
   - m computed from `P1` is wrong whenever `P1` includes manual phasing;
   - any warning would need an arbitrary threshold.
+
+## 2026-11-05: Review cleanup
+- **No information criteria.** AIC, BIC and the log-likelihood are no longer
+  computed or published, per cluster or per run. They assumed independent noise,
+  which the processing-derived correlation contradicts (correlated-noise.md §4).
+  Nothing in PeakFit used them, and no document described them. Reduced χ² stays
+  as the goodness-of-fit diagnostic.
+- **Formats.** Scientific archive 11.0.0, fit JSON 9.0.0 and analysis project
+  14.0.0; earlier files are refused by version: refit. The MCMC sampler's own
+  likelihood is unaffected.
+- **The noise model enforces its own rules.** `AxisProcessing` and `NoiseModel`
+  refuse what no header could record:
+  - a model with both axes and a reason, or neither;
+  - an FT size below the acquired size;
+  - an unknown window, a non-positive power, or a non-finite value.
+
+  The archive validator keeps only the check that needs the samples: one axis per
+  spectral coordinate.
+- **No silent "independent points".** `fit_cluster`, `identifiable_covariance`,
+  `_calculate_errors` and `calculate_amplitudes_with_uncertainty` require their
+  `correlation` argument, so every caller says `None` or passes R.
+- **One review threshold.** `engine.results.HIGH_REDUCED_CHI_SQUARED` replaces three
+  copies of 5.0 (fit review, CLI and terminal summary).

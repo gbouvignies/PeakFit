@@ -58,7 +58,7 @@ def test_experimental_solver_recovers_identifiable_truth_and_restores_scipy(inve
 
 def test_common_intensity_noise_and_column_scaling_preserve_physical_model(investigation):
     cluster, truth = peak_pair(6.0, noise=0.01)
-    result = fit_cluster(truth.copy(deep=True), cluster, 0.01)
+    result = fit_cluster(truth.copy(deep=True), cluster, 0.01, correlation=None)
     probe = investigation.normalization_probe(cluster, result.params, 0.01)
     assert probe["residual_relative_gap"] < 1e-12
     assert probe["jacobian_relative_gap"] < 1e-12

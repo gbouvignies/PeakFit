@@ -55,7 +55,7 @@ def test_r_equal_i_reproduces_todays_amplitude_covariance():
     sandwich = correlated_amplitude_covariance(projection, np.eye(40))
     np.testing.assert_allclose(sandwich, projection.covariance, rtol=1e-12, atol=0)
     _, errors, _ = calculate_amplitudes_with_uncertainty(
-        _shapes(40, [15.0, 21.0, 27.0]), np.zeros((40, 2)), 0.3
+        _shapes(40, [15.0, 21.0, 27.0]), np.zeros((40, 2)), 0.3, None
     )
     np.testing.assert_allclose(0.3 * np.sqrt(np.diag(sandwich)), errors, rtol=1e-12)
 
@@ -98,7 +98,9 @@ def test_r_equal_i_reproduces_todays_nonlinear_errors(fitted):
     jacobian = optimizer.compute_jacobian(problem.start)
     identity = np.eye(correlation.shape[0])
     np.testing.assert_allclose(
-        identifiable_covariance(jacobian, identity), identifiable_covariance(jacobian), rtol=1e-10
+        identifiable_covariance(jacobian, identity),
+        identifiable_covariance(jacobian, None),
+        rtol=1e-10,
     )
     published = np.array([problem.parameters[n].stderr for n in problem.names])
     np.testing.assert_allclose(
@@ -117,7 +119,7 @@ def test_the_nonlinear_sandwich_is_j_plus_r_kron_i_j_plus_t(fitted):
     # The processed noise makes every nonlinear error larger here.
     assert np.all(
         np.diag(identifiable_covariance(jacobian, correlation))
-        > np.diag(identifiable_covariance(jacobian))
+        > np.diag(identifiable_covariance(jacobian, None))
     )
 
 
@@ -126,5 +128,5 @@ def test_the_nonlinear_sandwich_is_withheld_exactly_where_todays_is(fitted):
     jacobian = optimizer.compute_jacobian(problem.start)
     collinear = jacobian.copy()
     collinear[:, 1] = collinear[:, 0]
-    assert np.isnan(identifiable_covariance(collinear)).all()
+    assert np.isnan(identifiable_covariance(collinear, None)).all()
     assert np.isnan(identifiable_covariance(collinear, correlation)).all()

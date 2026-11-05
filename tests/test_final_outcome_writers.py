@@ -56,9 +56,6 @@ def _outcome(
             n_observations=6,
             n_fitted_parameters=3,
             degrees_of_freedom=3,
-            aic=None,
-            bic=None,
-            log_likelihood=None,
             function_evaluations=20,
         ),
         noise_model=not_modelled("synthetic spectrum"),
@@ -94,9 +91,6 @@ def _cluster(
                 n_fitted_parameters=2,
                 degrees_of_freedom=1,
                 reduced_chi_squared=float(cluster_id),
-                aic=0.0,
-                bic=0.0,
-                log_likelihood=0.0,
             ),
         )
         if usable

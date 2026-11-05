@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
-OUTPUT_SCHEMA_VERSION: Literal["8.0.0"] = "8.0.0"
+OUTPUT_SCHEMA_VERSION: Literal["9.0.0"] = "9.0.0"
 
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 NonNegativeInt = Annotated[StrictInt, Field(ge=0)]
@@ -54,9 +54,6 @@ class AnalyticalStatisticsSchema(_Schema):
     n_fitted_parameters: NonNegativeInt
     degrees_of_freedom: Annotated[int, Field(ge=1)]
     reduced_chi_squared: FiniteFloat
-    aic: FiniteFloat
-    bic: FiniteFloat
-    log_likelihood: FiniteFloat
 
 
 class AnalyticalEvaluationSchema(_Schema):
@@ -171,9 +168,6 @@ class FinalFitStatisticsSchema(_Schema):
     n_observations: NonNegativeInt
     n_fitted_parameters: NonNegativeInt
     degrees_of_freedom: Annotated[int, Field(ge=1)]
-    aic: FiniteFloat | None
-    bic: FiniteFloat | None
-    log_likelihood: FiniteFloat | None
     function_evaluations: NonNegativeInt | None
 
 
@@ -213,9 +207,9 @@ class NoiseModelSchema(_Schema):
 
 
 class FitSummarySchema(_Schema):
-    """Version 8.0.0 completed-fit JSON document."""
+    """Version 9.0.0 completed-fit JSON document."""
 
-    schema_version: Literal["8.0.0"]
+    schema_version: Literal["9.0.0"]
     metadata: RunMetadataSchema
     terminal_correction_revision: NonNegativeInt
     noise: FiniteFloat

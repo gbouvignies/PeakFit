@@ -29,6 +29,7 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
+from peakfit.engine.results import HIGH_REDUCED_CHI_SQUARED
 from peakfit.ui.console import console, display_path, icon
 
 if TYPE_CHECKING:
@@ -37,7 +38,6 @@ if TYPE_CHECKING:
 
 _DEFAULT_MAX_PEAKS_DISPLAY = 3
 _MAX_WARNINGS_SHOWN = 2
-_HIGH_REDUCED_CHI2_WARNING_THRESHOLD = 5.0
 _SECONDS_PER_MINUTE = 60.0
 _SECONDS_PER_HOUR = 3600.0
 _SECONDS_PER_DAY = 86400.0
@@ -286,7 +286,7 @@ class FitProgressTracker:
             if is_first_time:
                 self.stats["fail"] += 1
         else:
-            has_warnings = bool(warnings) or chisqr > _HIGH_REDUCED_CHI2_WARNING_THRESHOLD
+            has_warnings = bool(warnings) or chisqr > HIGH_REDUCED_CHI_SQUARED
             if has_warnings:
                 if is_first_time:
                     self.stats["warn"] += 1
@@ -313,7 +313,7 @@ class FitProgressTracker:
 
         if (
             success
-            and chisqr > _HIGH_REDUCED_CHI2_WARNING_THRESHOLD
+            and chisqr > HIGH_REDUCED_CHI_SQUARED
             and "High Red. χ²" not in str(all_warnings)
         ):
             all_warnings.insert(0, f"High Red. χ²={chisqr:.1f}")

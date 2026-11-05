@@ -45,6 +45,26 @@ class AxisProcessing:
     # Fourier transform, in points; 0 when no correction was applied.
     filter_delay: float = 0.0
 
+    def __post_init__(self) -> None:
+        """Refuse processing that no header could record."""
+        values = (
+            self.offset,
+            self.end,
+            self.power,
+            self.first_point,
+            self.phase,
+            self.filter_delay,
+        )
+        if (
+            self.window not in {"none", "sine_bell"}
+            or self.acquired < 1
+            or self.transform < self.acquired
+            or not all(np.isfinite(v) for v in values)
+            or self.power <= 0
+        ):
+            msg = f"Invalid axis processing: {self}"
+            raise ValueError(msg)
+
     def weights(self) -> FloatArray:
         """The apodization over the acquired points, first point scaled."""
         if self.window == "sine_bell":
@@ -72,6 +92,14 @@ class NoiseModel:
 
     axes: tuple[AxisProcessing, ...] = ()  # spectral axes in data order; empty if not
     reason: str | None = None  # why the correlation is not modelled
+
+    def __post_init__(self) -> None:
+        """Modelled with axes, or not modelled with a reason: never both, never neither."""
+        if bool(self.axes) == bool(self.reason) or not all(
+            isinstance(a, AxisProcessing) for a in self.axes
+        ):
+            msg = "A noise model is modelled with axes, or not modelled with a reason."
+            raise ValueError(msg)
 
     @property
     def modelled(self) -> bool:

@@ -36,7 +36,7 @@ def test_duplicate_shapes_cannot_fit_a_nonexistent_direction() -> None:
 def test_duplicate_amplitude_uncertainties_are_unavailable() -> None:
     shapes = np.ones((2, 5))
     amplitudes, errors, covariance = calculate_amplitudes_with_uncertainty(
-        shapes, np.ones((5, 2)), 1.0
+        shapes, np.ones((5, 2)), 1.0, None
     )
     np.testing.assert_allclose(shapes.T @ amplitudes, 1.0)
     assert np.isnan(errors).all()
@@ -87,7 +87,7 @@ def test_identifiable_overlapping_profiles_recover_truth(separation) -> None:
     params = truth.copy(deep=True)
     for name, parameter in params.items():
         parameter.value += 0.0002 if name.endswith(".cs") else 0.5
-    result = fit_cluster(params, cluster, noise=0.01)
+    result = fit_cluster(params, cluster, noise=0.01, correlation=None)
     assert result.success
     for name in truth:
         assert result.params[name].value == pytest.approx(truth[name].value, abs=2e-6)
@@ -98,11 +98,11 @@ def test_identifiable_overlapping_profiles_recover_truth(separation) -> None:
 def test_rank_loss_has_no_trustworthy_joint_nonlinear_covariance() -> None:
     cluster, params = peak_pair(0.0)
     optimizer = _optimizer(cluster, params)
-    errors = _calculate_errors(optimizer, params.get_vary_values())
+    errors = _calculate_errors(optimizer, params.get_vary_values(), None)
     assert np.isnan(errors).all()
     assert optimizer._shapes is not None
     _, amplitude_errors, _ = calculate_amplitudes_with_uncertainty(
-        optimizer._shapes, cluster.corrected_data, noise=1.0
+        optimizer._shapes, cluster.corrected_data, noise=1.0, correlation=None
     )
     assert np.isnan(amplitude_errors).all()
 
@@ -110,23 +110,23 @@ def test_rank_loss_has_no_trustworthy_joint_nonlinear_covariance() -> None:
 @pytest.mark.parametrize("epsilon", [0.0, 1e-12])
 def test_covariance_withholds_unidentifiable_directions(epsilon) -> None:
     jacobian = np.array([[1.0, 1.0], [0.0, epsilon], [0.0, 0.0]])
-    assert np.isnan(identifiable_covariance(jacobian)).all()
+    assert np.isnan(identifiable_covariance(jacobian, None)).all()
 
 
 def test_covariance_respects_parameter_units_and_known_noise() -> None:
     jacobian = np.array([[1.0, 0.0], [0.0, 2.0], [1.0, 1.0]])
     scales = np.array([1e-9, 1e9])
     expected = np.linalg.inv(jacobian.T @ jacobian)
-    np.testing.assert_allclose(identifiable_covariance(jacobian), expected)
+    np.testing.assert_allclose(identifiable_covariance(jacobian, None), expected)
     np.testing.assert_allclose(
-        identifiable_covariance(jacobian * scales) * scales[:, None] * scales[None, :],
+        identifiable_covariance(jacobian * scales, None) * scales[:, None] * scales[None, :],
         expected,
     )
     cluster, params = peak_pair(6.0)
     small = _optimizer(cluster, params.copy(deep=True), 0.01)
     large = _optimizer(cluster, params.copy(deep=True), 0.02)
-    errors = _calculate_errors(small, params.get_vary_values())
-    doubled = _calculate_errors(large, params.get_vary_values())
+    errors = _calculate_errors(small, params.get_vary_values(), None)
+    doubled = _calculate_errors(large, params.get_vary_values(), None)
     np.testing.assert_allclose(doubled, 2 * errors)
 
 
@@ -135,7 +135,7 @@ def test_active_bound_uncertainty_is_unavailable() -> None:
     name = params.get_vary_names()[0]
     params[name].min = params[name].value
     optimizer = _optimizer(cluster, params, 0.01)
-    errors = _calculate_errors(optimizer, params.get_vary_values())
+    errors = _calculate_errors(optimizer, params.get_vary_values(), None)
     assert np.isnan(errors[0])
 
 
@@ -157,7 +157,7 @@ def test_noisy_identifiable_synthetic_positions_have_calibrated_local_errors() -
     for seed in range(20):
         cluster, truth = peak_pair(6.0)
         cluster.data += np.random.default_rng(seed).normal(scale=0.005, size=cluster.data.shape)
-        result = fit_cluster(truth.copy(deep=True), cluster, 0.005)
+        result = fit_cluster(truth.copy(deep=True), cluster, 0.005, correlation=None)
         for name in truth:
             if name.endswith(".cs"):
                 error = result.params[name].stderr
