@@ -119,7 +119,8 @@ def test_the_window_spans_the_acquired_signal(name, aq, q1, q2):
 
 
 def test_an_extracted_axis_uses_the_acquired_size_and_full_spectral_width():
-    # The CEST ¹H axis: 768 acquired points, FT size 2048, 546 points kept, APOD 204
+    # The CEST example (Varian, var2pipe; no digital filter).
+    # Its ¹H axis: 768 acquired points, FT size 2048, 546 points kept, APOD 204
     # (the rounded 204.75); its dwell is that of the full spectral width.
     dic, data = ng.pipe.read(str(CEST))
     proton = read_spectral_parameters(dic, data)[-1]

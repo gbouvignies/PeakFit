@@ -827,7 +827,9 @@ Short records of non‑obvious design choices and trade‑offs.
   - First-order for other delays.
   - Positions and relative amplitudes are unchanged.
   - GB3 real data: the gross dependence of linewidth on acquisition length disappears.
-- **Golden reference** regenerated. Linewidths +0.3% median, amplitudes of unwarned
+- **Golden reference** regenerated. The CEST example is Varian data (`var2pipe`), with
+  no digital-filter correction; Bruker handling is validated by the Bruker fixtures
+  and GB3. Linewidths +0.3% median, amplitudes of unwarned
   clusters +0.3–0.8%, positions ≤ 0.49 SE, classifications and warnings unchanged.
 - **Real-data reference values changed.**
   - `test_coincidence`: the 5N-H/76N-H pair now re-collapses from default starts like

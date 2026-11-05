@@ -275,6 +275,8 @@ def test_an_unrecorded_digital_filter_state_is_not_modelled(cest_header, missing
 
 
 def test_the_digital_filter_applies_to_the_direct_axis_only(cest_header):
+    # The CEST example is Varian data (var2pipe) with no digital filter; the fields are
+    # injected here only to test which axis the reader assigns the delay to.
     dic, shape = cest_header
     model = read_noise_model({**dic, "FDDMXVAL": 68.0, "FDDMXFLAG": 1.0}, shape)
     nitrogen, proton = model.axes

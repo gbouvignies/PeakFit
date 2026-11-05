@@ -125,7 +125,14 @@ supporting evidence; the synthetic cases above are decisive.
 
 ## Golden reference (CEST example)
 
-The ¹⁵N axis is half-dwell, N 92; the ¹H axis is extracted, N 768.
+The CEST example was acquired on a Varian spectrometer and converted with `var2pipe`.
+It carries no digital-filter correction (`FDDMXVAL` 0, `FDDMXFLAG` 0).
+- **What it shows:** experimental evidence for the correction on Varian-derived
+  spectra, through the two standard conventions: a half-dwell ¹⁵N axis (`P1` 180,
+  first point ×1, N 92) and an extracted ¹H axis sampled from t = 0 (`P1` 0, first
+  point ×½, N 768).
+- **What it does not show:** anything about Bruker digital-filter handling. That
+  rests on the NMRPipe/Bruker fixtures above, and on the GB3 Bruker demo.
 - Classifications and warnings are unchanged in all 121 clusters.
 - Linewidths change by +0.35% median (¹⁵N, −0.08% to +1.08%) and +0.30% (¹H, −0.40%
   to +2.37%).
