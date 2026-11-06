@@ -9,7 +9,7 @@ belong in [architecture](architecture.md), [outputs](outputs.md), and
 ## Scientific and interaction principles
 
 The 2D spectrum remains central, between a left navigator and a right inspector,
-with its row trace above and column trace to its right
+with its row slice above and column slice to its right
 ([specification §2](PeakFit_GUI_Design_Specification_v2.0.md#2-permanent-workspace)).
 Background preparation, fitting, and result delivery never open, close or resize
 panels. Navigation, crosshairs, plane identity, and visible ppm ranges survive
@@ -26,7 +26,8 @@ numerical warnings, review measures and labeled heuristics, with sorting and
 filters but no composite quality score
 ([specification §8](PeakFit_GUI_Design_Specification_v2.0.md#review-numerical-warnings-measures-and-heuristics)).
 Selecting a cluster highlights its members and recorded fitting region without
-silently changing comparison scope; the Cluster lens is an explicit action.
+silently changing comparison scope; cluster focus, which reframes the same view on
+one cluster, is an explicit action.
 
 Details expose parameters with units, bounds and uncertainty availability,
 recorded fitting diagnostics, signed amplitudes across planes, and provenance.

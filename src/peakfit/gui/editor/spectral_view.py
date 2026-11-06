@@ -1461,10 +1461,18 @@ class SpectralView(QtWidgets.QWidget):
         self.sizes_changed.emit()
 
     def reset_size(self, which: str) -> None:
-        """Restore one slice's default size."""
-        self.sizes = replace(self.sizes, **{which: getattr(SliceSizes(), which)})
+        """Restore one slice's default size, within the divider's limits."""
+        default = getattr(SliceSizes(), which)
+        self.sizes = drag(
+            self.sizes, which, default, self.view.width(), self.view.height(), self.extents
+        )
         self._relayout()
         self.sizes_changed.emit()
+
+    def reset_sizes(self) -> None:
+        """Restore both slices' default sizes."""
+        for which in ("row", "column"):
+            self.reset_size(which)
 
     def _drag_divider(self, which: str, delta: float | None, *, finished: bool) -> None:
         if delta is None:

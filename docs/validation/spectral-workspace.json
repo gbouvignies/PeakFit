@@ -1,0 +1,131 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "qt_platform": "cocoa",
+  "dpr": 2.0,
+  "fit_s": 5.814111166999282,
+  "run": "198e39c9",
+  "input_method": "deterministic scene deliveries; 16 ms timer; exposed Qt paint",
+  "layouts": [
+    {
+      "window": [
+        1160,
+        720
+      ],
+      "enlarged": false,
+      "navigator": true,
+      "inspector": true,
+      "lanes": true,
+      "plot": [
+        360,
+        364
+      ],
+      "plot_minimum": true,
+      "alignment_px": {
+        "row": 0.0,
+        "row_lane": 0.0,
+        "column": 0.0,
+        "column_lane": 0.0,
+        "row_ppm": 0.0,
+        "column_ppm": 0.0
+      }
+    },
+    {
+      "window": [
+        1280,
+        800
+      ],
+      "enlarged": false,
+      "navigator": true,
+      "inspector": true,
+      "lanes": true,
+      "plot": [
+        430,
+        424
+      ],
+      "plot_minimum": true,
+      "alignment_px": {
+        "row": 0.0,
+        "row_lane": 0.0,
+        "column": 0.0,
+        "column_lane": 0.0,
+        "row_ppm": 0.0,
+        "column_ppm": 0.0
+      }
+    },
+    {
+      "window": [
+        1440,
+        900
+      ],
+      "enlarged": false,
+      "navigator": true,
+      "inspector": true,
+      "lanes": true,
+      "plot": [
+        590,
+        524
+      ],
+      "plot_minimum": true,
+      "alignment_px": {
+        "row": 0.0,
+        "row_lane": 0.0,
+        "column": 0.0,
+        "column_lane": 0.0,
+        "row_ppm": 0.0,
+        "column_ppm": 0.0
+      }
+    }
+  ],
+  "scale": {
+    "full_view": [
+      -1311843.91875,
+      2736701.54375
+    ],
+    "zero_included": true,
+    "hover_stable": true,
+    "planes_stable": true,
+    "zoomed": [
+      -1183283.684375,
+      2259639.246875
+    ],
+    "zoom_follows_region": true
+  },
+  "hover_overlay_lanes": {
+    "p50_ms": 4.351062500063563,
+    "p95_ms": 6.145377099983306,
+    "p99_ms": 6.517897249050293,
+    "max_ms": 8.156583000527462,
+    "events": 500,
+    "painted": 500
+  },
+  "hover_target_p95_ms": 8.0,
+  "transitions": {
+    "residual_hides_lanes_keeps_preference": true,
+    "mode_keeps_view_sample_selection": true,
+    "focus_members": [
+      "53N-H",
+      "147N-H"
+    ],
+    "focus_frame": [
+      [
+        8.289949890395745,
+        8.410555993495096
+      ],
+      [
+        114.78098303881404,
+        116.04080714982194
+      ]
+    ],
+    "focus_open_ms": 78.40050000049814,
+    "focus_restores_overview_exactly": true
+  },
+  "persistence": {
+    "slices_restored": true,
+    "focus_slices": {
+      "row": 150,
+      "column": 130,
+      "lanes": true
+    }
+  },
+  "passed": true
+}

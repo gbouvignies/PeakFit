@@ -45,9 +45,11 @@ shows actual axes, dimensions and example assignments before replacement. Cancel
 or failed validation retains the current dataset. Loading can be canceled while
 its private file read finishes.
 
-The spectrum's top and right traces are native row/column cross-sections. Move
-over the plot to preview them. The **Pin traces** tool, Space on the canvas, or a click on
-blank spectrum freezes the sample. Selecting a peak pins once; later blank clicks
+The **row slice** above the 2D plot and the **column slice** to its right are native
+row/column cross-sections: lines through the native samples, with no markers and
+no values between samples. Each shares its frequency axis exactly with the 2D plot.
+Move over the plot to preview them. The **Pin traces** tool, Space on the canvas, or
+a click on blank spectrum freezes the sample. Selecting a peak pins once; later blank clicks
 and arrow-key sample steps retain selection. Resume preview without losing the
 selected peak or its coordinate draft. Plane controls preserve acquisition order,
 including repeated or unordered plane values. Missing values are labeled honestly;
@@ -56,7 +58,12 @@ metadata.
 
 The workspace has three columns: the **navigator** on the left, the spectrum in
 the centre and the **inspector** on the right. Toolbar buttons at either end hide
-or show the side columns; their widths are adjustable. The navigator's **Peaks**
+or show the side columns; their widths are adjustable. PeakFit never enlarges the
+window: a side panel opens by taking room from the spectrum (residual lanes, then
+slices, down to their minimums) and then from the other side panel. When even the
+minimums do not fit, it stays closed and a message says what makes room. A new or
+reopened analysis keeps the spectrum, then the inspector, then the navigator.
+1160×720 holds both side panels with slices and residual lanes. The navigator's **Peaks**
 tab lists working peaks with search; after a fit its **Clusters** tab lists the
 active run's clusters. The inspector shows the selected peak (position editor,
 amplitude profile, fitted values and cluster review) or, with nothing selected,
@@ -218,11 +225,26 @@ at native coordinates and both aligned slices. Selection never isolates the mode
 **Residual** shows `(native experiment − total usable model) / σ_stat`, including
 model tails outside fitting masks. Default signed contours are ±3, ±5, ±8, ±13 and
 ±21 σ_stat; Display can scale these levels by changing the first residual contour.
-Absence of contours means below the visible threshold. The horizontal
-and vertical residual traces share a locked ±8 σ_stat range. Experimental/Overlay
-share their original intensity range. **Display → Fit current traces** changes gain
-explicitly and retains it through hover and plane navigation; clipping is labeled.
-A newly accepted model can expand the intensity scale once, with an explicit notice.
+Absence of contours means below the visible threshold.
+
+In Experimental and Overlay, both slices share one **region intensity scale**: from
+min(0, lowest) to max(0, highest) of the data over the visible 2D region and every
+plane, padded by 5 % of the span, so zero is always included and positive and
+negative signals keep their own extents. It stays fixed while you hover, pin or
+change plane, and is recomputed only after a deliberate view change (zoom, pan,
+Full spectrum, a framed region or cluster). Overlay draws the total model at the
+same native samples (dashed). Optional **residual lanes** under each slice show
+`(D − M) / σ_stat` on one shared ±N σ_stat scale (±8 by default), set separately
+from the intensity scale. In **Residual** the slices themselves show the residual
+on that scale and the lanes hide; your lane choice returns with Overlay. The wheel
+over a slice sets a **manual** scale, labelled “manual”, which persists through
+hover, planes and zoom until a double-click on the slice, **Slice intensities from
+the view**, a new dataset or focusing another cluster; the wheel over a lane sets the lane scale. A caption above the
+row slice gives the scale with its units and counts clipped samples, ▲ for data and
+△ for the model; the corner readout gives exact values at the sample. Drag the
+divider between a slice and the plot to resize it (below 48 px it collapses; drag
+it back to reopen), double-click a divider for the default size. **View → Slices**
+offers all of these from the menu and keyboard.
 
 Model planes compute asynchronously. Old-plane model/residual graphics disappear
 immediately. While Overlay or Residual is pending, the 2D view shows the current
@@ -264,48 +286,39 @@ all members; a parameter table of every member's recorded values at display
 precision (± σ on hover, recorded bounds in amber); the recorded amplitude
 correlation matrix in member numbers, shaded by |ρ|, or why it is unavailable or
 not applicable; the cluster's warnings, measures and highlights; and provenance.
-**Enter** or a double-click on a cluster row, or **Open lens** on the cluster page,
-opens the **Cluster lens** in place of the spectrum: three linked panels show the
-cluster region as **Experimental**, **Overlay** and **Whole-spectrum residual**
-(the overview's display contour levels, model and `(D − M) / σ_stat`), sharing
-zoom, pan, plane and markers, with the selected member's crosshair. Below them, the
-row through the selected member shows measured data with the total model (dashed)
-and the whole-spectrum residual in σ with a ±3 σ band. The lens opens framed on the
-recorded fitting-sample extent plus a margin, follows the selected peak's cluster
-and the plane strip, and widens the inspector to 340 px on the cluster page. When
-the run is Outdated, Overlay and Residual keep its model as historical evidence,
-titled with the run (“Overlay · Run 5d7b4768 · historical”), with ◇ on working
-peaks that model does not contain and × at the recorded position of each model
-peak moved or deleted since. A key above the panels names the marks on show (◇, ×,
-and □ for a fitted position not adopted), as the overview legend does. The
-comparison selector is unavailable in the lens;
-**‹ Spectrum**, or **Escape** from the lens, the cluster list or the inspector,
-returns to the overview with its viewport, mode and panel widths unchanged. In an
-inspector field with a draft, the first Escape discards the draft and the next one
-leaves the lens. **Display** sets the experimental and model contour levels and the
-first residual contour together; both apply to the overview and the lens at once.
-The status bar shows the lens's own guidance while it is open. Clicking a marker in a lens panel selects that peak.
-**Full spectrum** (Cmd/Ctrl+0) reframes the lens on its cluster; pinning traces is
-an overview tool.
+**Enter** or a double-click on a cluster row, **Focus cluster** on the cluster page,
+or **View → Focus cluster** (Cmd/Ctrl+Shift+F) puts the selected peak's recorded
+cluster in **focus**: the same spectral view, reframed in place on the displayed
+member positions ± max(3 × fitted FWHM, 8 native samples), at most a quarter of the
+spectral width and within the spectrum, with residual lanes on. The frame does not
+depend on the optimizer's fitting samples; **Fitting region** in the focus bar tints
+them, together with the setup's toggle. The bar names the cluster and its run
+(“run 5d7b4768 · Outdated · model and residual are historical”), and every mode,
+mark, legend, pin and display setting works as in the overview, since it is the
+same view. **‹ Spectrum** or **Escape** (from the spectrum, the cluster list or the
+inspector) returns to the overview exactly as it was: viewport, slice sizes and
+scales, mode, fitting-region display and sample. Leaving focus never reverts an
+edit or a fit. In an inspector field with a draft, or during a drag or placement,
+the first Escape cancels that and the next one leaves focus. **Full spectrum**
+(Cmd/Ctrl+0) reframes the cluster while in focus. Focus keeps its own slice sizes
+from one focus to the next; Save records the overview it returns to.
 
-Corrections happen in the lens with the overview's edits and the same Undo/Redo.
-Dragging the selected marker in any panel shows a ghost at the proposed position
-and “Draft · release to commit · Escape cancels” while the committed marker and the
-accepted comparison stay as they were; releasing commits one undoable move in
-unfolded ppm, so a folded peak keeps its aliased display. **A** (or the add tool)
-places a peak at the next click in any panel. Enter on its name in the inspector
-returns the keyboard to the lens, so **A** places the next one at once (coordinate
-fields keep focus). **Escape** cancels a drag or a
-placement before it leaves the lens. Each commit makes the run Outdated. A peak the
-run has not fitted, such as one just added, keeps the lens on the cluster in view;
-selected from elsewhere, it opens the cluster with the nearest member. **Fit**
-refits the whole dataset with the lens open, and the lens follows the selected peak
-by its stable ID, keeping the zoom when the members are unchanged. When the
-members changed, a line under the header says how: “Regrouped by run … · was … ·
-joined by …”, peaks not in the run, and links to the clusters former members are
-now fitted in; a peak added since says which peaks it is now fitted with, with a
-link back to the cluster that was on show. A canceled or failed fit keeps every
-working edit and the lens.
+Corrections happen in focus with the overview's edits and the same Undo/Redo:
+dragging the selected marker shows a ghost at the proposed position while the
+committed marker and the accepted comparison stay as they were; releasing commits
+one undoable move in unfolded ppm, so a folded peak keeps its aliased display.
+**A** (or the add tool) places a peak at the next click; Enter on its name in the
+inspector returns the keyboard to the spectrum, so **A** places the next one at once
+(coordinate fields keep focus). Each commit makes the run Outdated. A peak the run
+has not fitted, such as one just added, keeps focus on its cluster while it lies in
+the cluster's frame; otherwise focus moves to the cluster with the nearest member.
+**Fit** refits the whole dataset in focus, and focus follows the selected peak by
+its stable ID, keeping the zoom when the members are unchanged. When the members
+changed, a line under the bar says how: “Regrouped by run … · was … · joined by
+…”, peaks not in the run, and links to the clusters former members are now fitted
+in; a peak added since says which peaks it is now fitted with, with a link back to
+the cluster that was on show. A canceled or failed fit keeps every working edit and
+focus.
 On a peak page, **Review cluster of N ›** opens its cluster page; selecting a peak
 on the spectrum or in the Peaks list opens its peak page. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the
@@ -404,7 +417,7 @@ the spectrum, ◇ marks a working peak the model does not contain, and × the
 model's recorded position of a peak moved or deleted since, with a dotted line to
 the peak. The cluster and peak pages still report that run's statistics as
 “Recorded by an outdated run”. The historical comparison is withdrawn, with the
-reason in the mode tooltips, the lens and the unexplained list, when the spectrum,
+reason in the mode tooltips and the unexplained list, when the spectrum,
 axes, plane selection or plane values differ from those the run recorded; the
 overview then returns to Experimental. Undo alone cannot recertify a run.
 Refit to establish a new Current result. An all-unusable run remains inspectable
@@ -446,13 +459,15 @@ measured data is blue (negative plum, dashed), the model amber (negative dotted)
 and the residual vermilion/teal, as named in the in-plot legend. Peak markers
 keep a plot-coloured halo so they stay visible over contours; the selected and
 hovered peaks are labelled with their assignment only, and resting on a marker
-shows its exact unfolded (and displayed alias) coordinates in a tooltip. Trace axes show a common power of ten (for example ×10⁶). Trace amplitude limits are common, signed and locked across hover and
-planes. **Fit current traces** explicitly changes gain once; a clipped trace is
-identified in the sampled-value status. The **Full spectrum** tool changes only frequency
-ranges. Appearance follows System or explicit Light/Dark under View.
+shows its exact unfolded (and displayed alias) coordinates in a tooltip. The slice
+scales follow the rules under Overlay above. The **Full spectrum** tool changes only
+frequency ranges. Appearance follows System or explicit Light/Dark under View.
 
 Keyboard access includes Cmd/Ctrl+O, Cmd/Ctrl+F, Cmd/Ctrl+Z/Shift+Z,
 Cmd/Ctrl+0, Ctrl+Page Up/Down, native list arrows/Enter and canvas arrows/Space/A.
+Cmd/Ctrl+Shift+F focuses the selected peak's cluster and Escape returns; under
+**View → Slices**, Cmd/Ctrl+Alt+arrows resize the slices, Cmd/Ctrl+Alt+=/− scale
+their intensities and Cmd/Ctrl+Shift+L shows or hides the residual lanes.
 View also provides exact sample coordinates and frequency ranges. Help lists the
 shortcuts. Delete and Space in text fields retain their ordinary text behavior.
 

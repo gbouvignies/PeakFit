@@ -1222,7 +1222,7 @@ class EditorWorkspace(QtWidgets.QWidget):
                 (
                     s
                     for s in (self.focus_sizes, replace(self.focus_sizes, lanes=False))
-                    if self._room_for(s)
+                    if self._room_for(s, bar=True)
                 ),
                 None,
             )
@@ -1243,12 +1243,20 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.canvas.view.setFocus()
         self.guidance_changed.emit(self.guidance())
 
-    def _room_for(self, sizes: SliceSizes) -> bool:
-        """Whether focus with these sizes and its bar fits; side panels give the width it needs."""
+    def set_lanes(self, visible: bool) -> None:
+        """Show or hide the residual lanes where they fit, never enlarging the window."""
+        sizes = replace(self.canvas.sizes, lanes=visible)
+        if visible and not self._room_for(sizes, bar=self.focus_open):
+            self.decline("No room for residual lanes: enlarge the window or hide a side panel.")
+            return
+        self.canvas.set_lanes(visible)
+
+    def _room_for(self, sizes: SliceSizes, *, bar: bool) -> bool:
+        """Whether the view with these sizes (and the focus bar) fits; side panels give width."""
         if not self.isVisible():
             return True
         width, height = self.canvas.minimum(sizes)
-        height += self.focus_bar.sizeHint().height()
+        height += self.focus_bar.sizeHint().height() if bar else 0
         shown = [not p.isHidden() for p in self._sides()]
         room = self.panel_room(*shown, spectral=width)
         if room is None or height > self.spectral.height():
@@ -1416,7 +1424,7 @@ class EditorWorkspace(QtWidgets.QWidget):
     def guidance(self) -> str:
         """The status-bar hint for what the spectral area currently allows."""
         if self.focus_open:
-            return "Focus · drag selected peak · A adds a peak · Esc returns to the spectrum"
+            return "Focus · drag selected peak · A adds a peak · Esc returns"
         return "Drag a selected peak to move it · Space pins traces"
 
     def _focus_spectral_area(self) -> None:

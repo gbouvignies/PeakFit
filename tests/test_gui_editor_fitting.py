@@ -11,7 +11,7 @@ import pyqtgraph as pg
 import pytest
 from builders import two_cluster_dataset
 from gui_helpers import wait_until
-from PySide6 import QtCore, QtTest, QtWidgets
+from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
 import peakfit.gui.editor.review as review_module
 import peakfit.gui.editor.spectral_view as canvas_module
@@ -793,6 +793,50 @@ def test_side_panels_open_only_where_they_fit_and_never_enlarge_the_window(
     qapp.processEvents()
     assert not w.navigator.isHidden()
     assert w.error.isHidden()
+    window.close()
+    window.deleteLater()
+
+
+@pytest.mark.usefixtures("settings")
+def test_slices_and_focus_have_menu_and_keyboard_alternatives(qapp, scientific, monkeypatch):
+    spectra, peaks, config, _, result = scientific
+    window = EditorWindow()
+    monkeypatch.setattr(window, "protect_edits", lambda **_: True)
+    window.resize(1280, 800)
+    window.show()
+    window.install_dataset(Dataset(Path("menus.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    w = window.workspace
+    assert w is not None
+    w.fitting.configuration = config.model_copy(deep=True)
+    qapp.processEvents()
+    publish(w, result)
+    c = w.canvas
+    actions = {a.text(): a for a in window.findChildren(QtGui.QAction)}
+    assert actions["Residual lanes"].shortcut().toString() == "Ctrl+Shift+L"
+    actions["Residual lanes"].trigger()
+    assert c.sizes.lanes
+    row, column = c.sizes.row, c.sizes.column
+    actions["Taller row slice"].trigger()
+    actions["Narrower column slice"].trigger()
+    assert (c.sizes.row, c.sizes.column) == (row + 24, column - 24)
+    actions["Default slice sizes"].trigger()
+    assert (c.sizes.row, c.sizes.column) == (row, column)
+    actions["Magnify slice intensities"].trigger()
+    assert c.manual_scale is not None
+    actions["Slice intensities from the view"].trigger()
+    assert c.manual_scale is None
+    actions["Reduce residual lanes"].trigger()
+    assert c.lane_sigma > canvas_module.LANE_SIGMA
+    actions["Default residual lanes"].trigger()
+    assert c.lane_sigma == canvas_module.LANE_SIGMA
+    # Focus from the menu on the selected peak's cluster, and back.
+    w.select_peak(w.peaks[0].id)
+    view = c.box.viewRange()
+    actions["Focus cluster"].trigger()
+    assert w.focus_open
+    actions["Return to spectrum"].trigger()
+    assert not w.focus_open
+    assert c.box.viewRange() == view
     window.close()
     window.deleteLater()
 
