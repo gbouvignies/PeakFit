@@ -4,13 +4,21 @@ Both runs are read as recorded; nothing is refitted. Peaks are matched by stable
 working ID. The comparison is descriptive: it reports how the fit, the warnings
 and the clustering changed, and the largest position differences, without
 judging whether the optimizer moved peaks too much.
+
+Recorded measures (χ²ᵣ, |r|max, |ρ|) of a cluster are compared only when both runs
+define them identically: the same members, the same fitting samples, the same σ_stat
+and noise model, and the same number of varied parameters. Otherwise they describe
+different problems, and the change says why they are not compared. A lower χ²ᵣ is
+never presented as a better fit.
 """
 
 import math
 from dataclasses import dataclass
-from statistics import median
 from typing import TYPE_CHECKING
 
+import numpy as np
+
+from peakfit.engine.diagnostics.identifiability import Cause, amplitude_identifiability
 from peakfit.engine.domain.spectrum import get_dimension_label
 
 if TYPE_CHECKING:
@@ -19,6 +27,15 @@ if TYPE_CHECKING:
     from peakfit.gui.editor.review import ClusterReview
 
 DISPLACEMENTS = 5  # largest position differences listed
+
+
+@dataclass(frozen=True, slots=True)
+class Measures:
+    """One cluster's recorded review measures in one run."""
+
+    chi2: float
+    largest_residual: float  # in σ
+    correlation: float  # largest |ρ|; NaN for one peak or when unavailable
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +52,20 @@ class ClusterChange:
     regrouped_from: tuple[str, ...]  # empty when the members are exactly the same
     before: tuple[str, ...]  # "▲ Uncertainty unreliable", "◇ Linewidth outlier", …
     now: tuple[str, ...]
+    edited: tuple[str, ...] = ()  # assignments moved or added since the parent run
+    measures: tuple[Measures, Measures] | None = None  # before, after; when comparable
+    not_compared: str = ""  # why the recorded measures are not compared
+    new: bool = False  # every member was added since the parent run: nothing before
+
+    @property
+    def gained(self) -> tuple[str, ...]:
+        """Numerical warnings reported now and not before."""
+        return tuple(m for m in self.now if m.startswith("▲") and m not in self.before)
+
+    @property
+    def lost(self) -> tuple[str, ...]:
+        """Numerical warnings no longer reported (not a resolution when regrouped)."""
+        return tuple(m for m in self.before if m.startswith("▲") and m not in self.now)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,19 +86,99 @@ class RunChanges:
     parent_id: str
     clusters: tuple[int, int]  # before, after
     warned: tuple[int, int]  # clusters with numerical warnings, before and after
-    median_chi2: tuple[float, float]  # over clusters with a recorded χ²ᵣ
     regrouped: int  # active clusters whose members were grouped differently before
-    changes: tuple[ClusterChange, ...]  # warnings first, then highlights, then regroupings
+    changes: tuple[ClusterChange, ...]  # new or lost warnings, edits, highlights, regroupings
     displacements: tuple[Displacement, ...]  # largest relative to linewidth first
     added: int  # peaks in this run only
     removed: int  # peaks in the parent run only
     uncompared: int  # common peaks unusable in either run: no fitted position to compare
 
 
-def _marks(review: ClusterReview) -> tuple[str, ...]:
-    warnings = sorted({f"▲ {w.kind}" for w in review.warnings})
+_DECOMPOSITION = {
+    Cause.NULL_SPACE: "▲ Amplitudes not identifiable",
+    Cause.NEAR_COLLINEAR: "▲ Near-collinear shapes",
+    Cause.ILL_CONDITIONED: "▲ Ill-conditioned shapes",
+}
+
+
+def _marks(result: DatasetFitResult, review: ClusterReview) -> tuple[str, ...]:
+    """Engine warnings, the amplitude decomposition's status, then highlights."""
+    warnings = {f"▲ {w.kind}" for w in review.warnings}
+    cluster = result.outcome.by_cluster_id.get(review.cluster_id)
+    evaluation = cluster.analytical_evaluation if cluster is not None else None
+    if cluster is not None and cluster.usable and evaluation is not None:
+        members = amplitude_identifiability(evaluation.shapes, evaluation.amplitudes)
+        warnings |= {_DECOMPOSITION[m.cause] for m in members if m.cause in _DECOMPOSITION}
     highlights = sorted({f"◇ {h.kind}" for h in review.highlights})
-    return (*warnings, *highlights)
+    return (*sorted(warnings), *highlights)
+
+
+def _sorted_points(indices) -> np.ndarray:
+    """Sampled grid points as rows, in a canonical order."""
+    points = np.column_stack([np.asarray(axis) for axis in indices])
+    return points[np.lexsort(points.T[::-1])] if points.size else points
+
+
+def _comparison(
+    active: DatasetFitResult,
+    review: ClusterReview,
+    parent: DatasetFitResult,
+    source: ClusterReview,
+) -> tuple[tuple[Measures, Measures] | None, str]:
+    """The recorded measures of both runs when they share one definition, or why not."""
+    if set(review.ids) != set(source.ids):
+        return None, "members changed"
+    before = parent.outcome.by_cluster_id.get(source.cluster_id)
+    after = active.outcome.by_cluster_id.get(review.cluster_id)
+    if (
+        before is None
+        or after is None
+        or not (before.usable and after.usable)
+        or before.analytical_evaluation is None
+        or after.analytical_evaluation is None
+    ):
+        return None, "no recorded evaluation in one run"
+    old = before.analytical_evaluation.statistics
+    new = after.analytical_evaluation.statistics
+    points = [
+        _sorted_points(
+            next(s for s in r.completed_fit.samples if s.cluster_id == c.cluster_id).grid_indices
+        )
+        for r, c in ((parent, source), (active, review))
+    ]
+    # The definition must match in this order; the first difference is reported.
+    checks = (
+        (
+            points[0].shape != points[1].shape or not np.array_equal(points[0], points[1]),
+            f"fitting samples changed ({len(points[0]):,} → {len(points[1]):,} per plane)",
+        ),
+        (parent.outcome.noise != active.outcome.noise, "σ_stat changed"),
+        (parent.outcome.noise_model != active.outcome.noise_model, "noise model changed"),
+        (
+            (old.n_nonlinear_parameters, old.n_fitted_parameters)
+            != (new.n_nonlinear_parameters, new.n_fitted_parameters),
+            f"varied parameters changed ({old.n_fitted_parameters} → {new.n_fitted_parameters})",
+        ),
+    )
+    why = next((text for differs, text in checks if differs), "")
+    if why:
+        return None, why
+    return (
+        Measures(source.chi2, source.largest_residual, source.correlation),
+        Measures(review.chi2, review.largest_residual, review.correlation),
+    ), ""
+
+
+def _edited(active: DatasetFitResult, parent: DatasetFitResult) -> set[str]:
+    """Working IDs moved or added since the parent run, as the active run recorded them."""
+    continuation = active.inputs.continuation
+    if continuation is None or continuation.run_id != parent.run_id:
+        return set()
+    return {
+        identity
+        for identity, reason in continuation.reasons
+        if reason.startswith(("moved since run", "added since run"))
+    }
 
 
 def _label(review: ClusterReview) -> str:
@@ -75,11 +186,6 @@ def _label(review: ClusterReview) -> str:
     if not names:
         return "–"
     return names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "")
-
-
-def _median_chi2(reviews: list[ClusterReview]) -> float:
-    values = [r.chi2 for r in reviews if math.isfinite(r.chi2)]
-    return median(values) if values else math.nan
 
 
 def _fitted(result: DatasetFitResult, axes: int) -> dict[str, list[tuple[float, float]]]:
@@ -110,17 +216,24 @@ def compare_runs(
 ) -> RunChanges:
     """Compare two recorded runs; ``axes`` and ``titles`` follow peak-position order."""
     home = {identity: review for review in parent_reviews for identity in review.ids}
+    edited = _edited(active, parent)
     changes, regrouped = [], 0
     for review in active_reviews:
         sources = list({id(home[i]): home[i] for i in review.ids if i in home}.values())
         if not sources:
-            continue  # only peaks new to this run
+            # Only peaks new to this run: its current marks, with nothing to compare.
+            changes.append(
+                ClusterChange(review.ids, review.names, (), (), _marks(active, review), new=True)
+            )
+            continue
         same = len(sources) == 1 and set(sources[0].ids) == set(review.ids)
-        before = tuple(dict.fromkeys(m for source in sources for m in _marks(source)))
-        now = _marks(review)
-        if same and set(before) == set(now):
+        before = tuple(dict.fromkeys(m for source in sources for m in _marks(parent, source)))
+        now = _marks(active, review)
+        touched = tuple(n for i, n in zip(review.ids, review.names, strict=True) if i in edited)
+        if same and set(before) == set(now) and not touched:
             continue
         regrouped += not same
+        measures, why = _comparison(active, review, parent, sources[0])
         changes.append(
             ClusterChange(
                 review.ids,
@@ -128,12 +241,17 @@ def compare_runs(
                 () if same else tuple(_label(source) for source in sources),
                 before,
                 now,
+                touched,
+                measures,
+                why,
             )
         )
-    # Warnings first, then highlights, then pure regroupings.
+    # New numerical warnings first, then lost ones, then edits, highlights, regroupings.
     changes.sort(
         key=lambda c: (
-            not any(m.startswith("▲") for m in (*c.before, *c.now)),
+            not c.gained,
+            not c.lost,
+            not (c.edited or c.new),
             not (c.before or c.now),
         )
     )
@@ -170,7 +288,6 @@ def compare_runs(
             sum(bool(r.warnings) for r in parent_reviews),
             sum(bool(r.warnings) for r in active_reviews),
         ),
-        (_median_chi2(parent_reviews), _median_chi2(active_reviews)),
         regrouped,
         tuple(changes),
         tuple(displacements[:DISPLACEMENTS]),
