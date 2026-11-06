@@ -201,33 +201,37 @@ class Navigator(QtWidgets.QWidget):
         filter_row.addWidget(self.filter)
         layout.addLayout(filter_row)
         self.tree = QtWidgets.QTreeWidget()
-        self.tree.setColumnCount(5)
-        self.tree.setHeaderLabels(["", "Cluster", "χ²ᵣ", "|r|max", "|ρ|"])
+        self.tree.setColumnCount(6)
+        self.tree.setHeaderLabels(["", "Cluster", "n", "χ²ᵣ", "|r|max", "|ρ|"])
+        # Typical names show in full; a long one elides in the middle, whole in its tooltip.
+        self.tree.setTextElideMode(QtCore.Qt.TextElideMode.ElideMiddle)
         self.tree.setRootIsDecorated(False)
         self.tree.setUniformRowHeights(True)
         self.tree.setSortingEnabled(True)
         self.tree.setMouseTracking(True)
         self.tree.setAccessibleName(
-            "Clusters of the active run; warning or highlight, members, reduced chi-squared, "
+            "Clusters of the active run; warning or highlight, first member, member count, "
+            "reduced chi-squared, "
             "largest recorded residual, largest amplitude correlation"
         )
         header = self.tree.header()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        for column, width in ((0, 24), (2, 48), (3, 52), (4, 42)):
+        for column, width in ((0, 24), (2, 26), (3, 48), (4, 52), (5, 42)):
             header.setSectionResizeMode(column, QtWidgets.QHeaderView.ResizeMode.Fixed)
             self.tree.setColumnWidth(column, width)
-        for column in (2, 3, 4):
+        for column in (2, 3, 4, 5):
             self.tree.headerItem().setTextAlignment(
                 column, QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
             )
         self.tree.headerItem().setToolTip(0, "▲ numerical warning · ◇ highlight")
-        self.tree.headerItem().setToolTip(2, "Reduced χ² on corrected fitting samples")
+        self.tree.headerItem().setToolTip(2, "Members fitted together")
+        self.tree.headerItem().setToolTip(3, "Reduced χ² on corrected fitting samples")
         self.tree.headerItem().setToolTip(
-            3, "Largest |recorded residual| on the cluster's fitting samples, in σ"
+            4, "Largest |recorded residual| on the cluster's fitting samples, in σ"
         )
         self.tree.headerItem().setToolTip(
-            4, "Largest |amplitude correlation| between members, conditional on lineshapes"
+            5, "Largest |amplitude correlation| between members, conditional on lineshapes"
         )
         self.tree.currentItemChanged.connect(self._cluster_changed)
         self.tree.itemDoubleClicked.connect(lambda item, _column: self._focus_cluster(item))
@@ -313,7 +317,7 @@ class Navigator(QtWidgets.QWidget):
                     self._add_cluster(review)
                 self.tree.setSortingEnabled(True)
                 if first:
-                    self.tree.sortByColumn(2, QtCore.Qt.SortOrder.DescendingOrder)
+                    self.tree.sortByColumn(3, QtCore.Qt.SortOrder.DescendingOrder)
         self.tab_buttons[_CLUSTERS].setEnabled(result is not None)
         if result is None:
             self.tab_buttons[_CLUSTERS].setText("Clusters")
@@ -412,27 +416,27 @@ class Navigator(QtWidgets.QWidget):
     def _add_cluster(self, review: ClusterReview) -> None:
         item = _ClusterItem()
         names = review.names
-        label = names[0] + (f"  +{len(names) - 1}" if len(names) > 1 else "")
         warned = bool(review.warnings)
         item.setText(0, "▲" if warned else "◇" if review.highlights else "")
         tips = [f"▲ {w.kind}" for w in review.warnings] + [f"◇ {h.rule}" for h in review.highlights]
         item.setToolTip(0, "\n".join(tips) or "No numerical warning or highlight")
         item.setForeground(0, QtGui.QBrush(self._warning if warned else self._subdued))
-        item.setText(1, label)
+        item.setText(1, names[0] if names else "")
         item.setToolTip(1, " · ".join(names))
+        item.setText(2, str(len(names)))
         chi2, largest, rho = review.chi2, review.largest_residual, review.correlation
-        item.setText(2, f"{chi2:.2f}" if math.isfinite(chi2) else "–")
-        item.setText(3, f"{largest:.1f}" if math.isfinite(largest) else "–")
-        item.setText(4, "–" if review.single else f"{rho:.2f}" if math.isfinite(rho) else "n/a")
+        item.setText(3, f"{chi2:.2f}" if math.isfinite(chi2) else "–")
+        item.setText(4, f"{largest:.1f}" if math.isfinite(largest) else "–")
+        item.setText(5, "–" if review.single else f"{rho:.2f}" if math.isfinite(rho) else "n/a")
         if not review.single and not math.isfinite(rho):
-            item.setToolTip(4, "Amplitude covariance unavailable for this cluster")
-        for column in (2, 3, 4):
+            item.setToolTip(5, "Amplitude covariance unavailable for this cluster")
+        for column in (2, 3, 4, 5):
             item.setTextAlignment(
                 column, QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
             )
         item.setData(0, _SORT, f"{2 if warned else 1 if review.highlights else 0}")
         item.setData(1, _SORT, " ".join(names))
-        for column, value in ((2, chi2), (3, largest), (4, rho)):
+        for column, value in ((2, float(len(names))), (3, chi2), (4, largest), (5, rho)):
             item.setData(column, _SORT, value if math.isfinite(value) else -1.0)
         item.setData(0, _ID, review)
         item.setData(1, _ID, review.ids[0] if review.ids else None)

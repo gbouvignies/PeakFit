@@ -109,7 +109,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         super().__init__()
         self.setWindowTitle("PeakFit")
         self.resize(1280, 800)
-        self.setMinimumSize(1040, 720)
+        # No fixed minimum: the visible parts' minimums, which never exceed the window.
         self.workspace: EditorWorkspace | None = None
         self._sample_status: QtWidgets.QLabel | None = None
         self._revision = 0
@@ -420,6 +420,8 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
                 "coordinates disambiguate them."
             )
             workspace.error.show()
+        # Before the first layout, so the new columns never enlarge the window.
+        workspace.fit_panels(self.width())
 
     def adopt_status(self, workspace: EditorWorkspace | None) -> None:
         """Show the workspace's sampled values in the status bar, beside job messages."""

@@ -664,7 +664,7 @@ def test_profile_keeps_repeated_plane_values_distinct(scientific):
 
 
 @pytest.mark.usefixtures("settings")
-def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkeypatch):
+def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkeypatch):  # noqa: PLR0915
     spectra, peaks, config, _, result = scientific
     window = EditorWindow()
     monkeypatch.setattr(window, "protect_edits", lambda **_: True)
@@ -716,10 +716,113 @@ def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkey
     assert "Uncertainty unreliable" in _review_text(w)
     assert w.panel.profile.isVisible()
     assert window.rect().contains(rect(w.panel.profile.plot))
-    # Three columns never squeeze the spectrum below its minimum.
+    # The window is never enlarged: the navigator gave way, the spectrum kept its minimum.
+    assert window.width() == 1040
+    assert w.navigator.isHidden()
+    assert not w.peaks_button.isChecked()
+    assert "The peak list is hidden to fit the window; widen it to show it again." in (
+        w.error.text()
+    )
     plot = w.canvas.arrangement.main
     assert plot[2] >= MAIN_MIN[0]
     assert plot[3] >= MAIN_MIN[1]
+    window.close()
+    window.deleteLater()
+
+
+def _resize(qapp, window, width: int, height: int) -> None:
+    """Resize once Qt has lowered the window's minimum after a panel was hidden."""
+    for _ in range(3):
+        qapp.processEvents()
+        window.resize(width, height)
+    qapp.processEvents()
+    assert window.size() == QtCore.QSize(width, height)
+
+
+@pytest.mark.usefixtures("settings")
+def test_side_panels_open_only_where_they_fit_and_never_enlarge_the_window(
+    qapp, scientific, monkeypatch
+):
+    spectra, peaks, config, _, result = scientific
+    window = EditorWindow()
+    monkeypatch.setattr(window, "protect_edits", lambda **_: True)
+    window.resize(1160, 720)  # the reference: both side panels and slices with lanes
+    window.show()
+    window.install_dataset(Dataset(Path("reference.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    w = window.workspace
+    assert w is not None
+    w.fitting.configuration = config.model_copy(deep=True)
+    qapp.processEvents()
+    publish(w, result)
+    w.open_focus(w.peaks[0].id)
+    qapp.processEvents()
+    assert not w.navigator.isHidden()
+    assert not w.panel.isHidden()
+    assert w.canvas.arrangement.sizes.lanes
+    assert w.canvas.arrangement.main[2] >= MAIN_MIN[0]
+    assert w.canvas.arrangement.main[3] >= MAIN_MIN[1]
+    assert window.size() == QtCore.QSize(1160, 720)
+    w.close_focus()
+
+    # Space for the navigator comes from the spectrum's slack, then the inspector.
+    w.peaks_button.click()
+    assert w.navigator.isHidden()
+    inspector = w.panel.minimumWidth() + 180
+    w.splitter.setSizes([0, w.splitter.width() - inspector, inspector])
+    qapp.processEvents()
+    w.peaks_button.click()
+    qapp.processEvents()
+    assert not w.navigator.isHidden()
+    _navigator, spectral, inspector = w.splitter.sizes()
+    assert spectral >= w.canvas.minimum()[0]
+    assert w.panel.minimumWidth() <= inspector
+    assert window.width() == 1160
+
+    # With no room even at every minimum, opening is declined and says why.
+    w.peaks_button.click()  # hide, so the window may narrow
+    _resize(qapp, window, 980, 720)
+    w.peaks_button.click()
+    qapp.processEvents()
+    assert w.navigator.isHidden()
+    assert not w.peaks_button.isChecked()
+    assert w.error.text() == "No room for the peak list: widen the window or hide the inspector."
+    assert window.width() == 980
+    # Hiding the inspector makes room.
+    w.inspector_button.click()
+    w.peaks_button.click()
+    qapp.processEvents()
+    assert not w.navigator.isHidden()
+    assert w.error.isHidden()
+    window.close()
+    window.deleteLater()
+
+
+@pytest.mark.usefixtures("settings")
+def test_a_saved_layout_restores_the_inspector_before_the_navigator(qapp, scientific, monkeypatch):
+    spectra, peaks, _, _, _ = scientific
+    window = EditorWindow()
+    monkeypatch.setattr(window, "protect_edits", lambda **_: True)
+    monkeypatch.setattr(workspace_module, "dataset_header", lambda _dataset: {})
+    window.resize(1280, 760)
+    window.show()
+    window.install_dataset(Dataset(Path("layout.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    w = window.workspace
+    assert w is not None
+    qapp.processEvents()
+    saved = w.capture()
+    # Same window: the exact panel widths come back.
+    sizes = w.splitter.sizes()
+    w.restore(saved)
+    qapp.processEvents()
+    assert w.splitter.sizes() == sizes
+    # A narrower window keeps the spectral area and the inspector; the navigator gives way.
+    w.peaks_button.click()  # hidden, so the window may narrow
+    _resize(qapp, window, 1000, 760)
+    w.restore(saved)
+    qapp.processEvents()
+    assert not w.panel.isHidden()
+    assert w.navigator.isHidden()
+    assert window.width() == 1000
     window.close()
     window.deleteLater()
 
@@ -779,7 +882,15 @@ def test_navigator_clusters_and_inspector_show_recorded_values(workspace, scient
     row = w.navigator._clusters[member]
     evaluation = cluster.analytical_evaluation
     assert evaluation is not None
-    assert row.text(2) == f"{evaluation.statistics.reduced_chi_squared:.2f}"
+    assert row.text(3) == f"{evaluation.statistics.reduced_chi_squared:.2f}"
+    # The first member's name in full, a member count, and every name in the tooltip;
+    # a name too long for the column elides in the middle.
+    names = {p.id: p.name for p in w.peaks}
+    members = [names[identities[n]] for n in cluster.peak_names]
+    assert row.text(1) == members[0]
+    assert row.text(2) == str(len(members))
+    assert row.toolTip(1) == " · ".join(members)
+    assert tree.textElideMode() == QtCore.Qt.TextElideMode.ElideMiddle
     # Choosing a cluster row selects one of its members, never another peak.
     tree.setCurrentItem(row)
     assert w.selected_id in {identities[n] for n in cluster.peak_names}

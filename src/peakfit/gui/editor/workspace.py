@@ -122,6 +122,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         # the slice sizes focus uses (residual lanes on), kept between focuses.
         self._overview: dict | None = None
         self.focus_sizes = SliceSizes(lanes=True)
+        self._lanes_given_way = False
         # The focused cluster by stable peak IDs, the run it came from, the members
         # it was framed on, and the peaks a regrouping notice is about.
         self._focus_ids: tuple[str, ...] = ()
@@ -133,6 +134,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         for index, stretch in enumerate((0, 1, 0)):
             self.splitter.setStretchFactor(index, stretch)
         self.splitter.setSizes([_SIDES[0], 1280 - sum(_SIDES), _SIDES[1]])
+        # Side-panel widths the user chose, kept while a panel is hidden.
+        self._side_widths = list(_SIDES)
+        self.splitter.splitterMoved.connect(self._remember_widths)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -567,13 +571,17 @@ class EditorWorkspace(QtWidgets.QWidget):
         if v.get("focus_slices"):
             f = v["focus_slices"]
             self.focus_sizes = SliceSizes(int(f["row"]), int(f["column"]), bool(f["lanes"]))
-        self.peaks_button.setChecked(v.get("navigator", True))
+        # Restored by priority: the spectral area, then the inspector, then the
+        # navigator, each only where it fits the window as it is.
+        saved = list(v.get("splitter") or [])
+        if len(saved) == self.splitter.count():
+            self._side_widths = [int(saved[0]) or _SIDES[0], int(saved[2]) or _SIDES[1]]
+        self.peaks_button.setChecked(False)
         self.toggle_navigator()
         self.inspector_button.setChecked(v.get("inspector", True))
         self.toggle_inspector()
-        # Sizes from another layout (a different number of columns) are not applied.
-        if len(v.get("splitter") or ()) == self.splitter.count():
-            self.splitter.setSizes(v["splitter"])
+        self.peaks_button.setChecked(v.get("navigator", True))
+        self.toggle_navigator()
         self.set_mode(v.get("mode", 0))
         self.render_fitting()
 
@@ -1066,7 +1074,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def toggle_navigator(self) -> None:
         """Hide or show the navigator; panel choices never change on resize."""
-        self.navigator.setVisible(self.peaks_button.isChecked())
+        self._show_side(0, self.peaks_button.isChecked())
 
     def toggle_inspector(self) -> None:
         """Resolve a draft on explicit hide, since the editor lives in the inspector."""
@@ -1074,13 +1082,99 @@ class EditorWorkspace(QtWidgets.QWidget):
         if not visible and not self.commit_fields():
             self.inspector_button.setChecked(True)
             return
-        self.panel.setVisible(visible)
+        self._show_side(1, visible)
+
+    def _remember_widths(self) -> None:
+        sizes = self.splitter.sizes()
+        for index, (panel, size) in enumerate(zip(self._sides(), sizes[::2], strict=True)):
+            if not panel.isHidden() and size:
+                self._side_widths[index] = size
+
+    def _sides(self) -> tuple[QtWidgets.QWidget, QtWidgets.QWidget]:
+        return self.navigator, self.panel
+
+    def _show_side(self, index: int, visible: bool) -> None:
+        """Show a side panel only where it fits; PeakFit never enlarges the window."""
+        panel = self._sides()[index]
+        if visible != panel.isHidden():
+            return
+        if not visible:
+            self._remember_widths()
+            panel.hide()
+            return
+        shown = [not p.isHidden() or p is panel for p in self._sides()]
+        sizes = self.panel_room(*shown, first=1 - index)
+        if sizes is None:
+            (self.peaks_button, self.inspector_button)[index].setChecked(False)
+            name = ("peak list", "inspector")[index]
+            other = ("inspector", "peak list")[index]
+            self.decline(f"No room for the {name}: widen the window or hide the {other}.")
+            return
+        self.error.hide()
+        panel.show()
+        self.splitter.setSizes(sizes)
+
+    def fit_panels(self, width: int) -> None:
+        """Hide side panels a window this wide cannot hold: the navigator goes first."""
+        need = self.canvas.minimum()[0]
+        handle = self.splitter.handleWidth()
+        hidden = []
+        for panel, button, name in (
+            (self.navigator, self.peaks_button, "peak list"),
+            (self.panel, self.inspector_button, "inspector"),
+        ):
+            shown = [p for p in self._sides() if not p.isHidden()]
+            if panel in shown and need + sum(p.minimumWidth() + handle for p in shown) > width:
+                panel.hide()
+                button.setChecked(False)
+                hidden.append(name)
+        if hidden:
+            one = len(hidden) == 1
+            self.decline(
+                f"The {' and '.join(hidden)} {'is' if one else 'are'} hidden to fit the window; "
+                f"widen it to show {'it' if one else 'them'} again.",
+                keep=True,
+            )
+
+    def panel_room(
+        self, navigator: bool, inspector: bool, *, first: int = 0, spectral: int | None = None
+    ) -> list[int] | None:
+        """Splitter sizes for these side panels and the spectral minimum, or None.
+
+        The spectral area's minimum already has lanes, then slices, compressed to
+        theirs; when space is still short, side panel ``first`` (0 navigator,
+        1 inspector) shrinks to its minimum, then the other. ``spectral`` is a
+        different spectral minimum width to plan for.
+        """
+        shown = (navigator, inspector)
+        sides = [w if show else 0 for w, show in zip(self._side_widths, shown, strict=True)]
+        if not self.isVisible():  # nothing laid out yet: the window decides
+            return [sides[0], 0, sides[1]]
+        width = self.splitter.width() - self.splitter.handleWidth() * sum(shown)
+        need = spectral if spectral is not None else self.canvas.minimum()[0]
+        floors = [
+            p.minimumWidth() if show else 0 for p, show in zip(self._sides(), shown, strict=True)
+        ]
+        if sum(floors) + need > width:
+            return None
+        short = need - (width - sum(sides))
+        for k in (first, 1 - first):
+            cut = max(0, min(short, sides[k] - floors[k]))
+            sides[k] -= cut
+            short -= cut
+        return [sides[0], width - sides[0] - sides[1], sides[1]]
+
+    def decline(self, message: str, *, keep: bool = False) -> None:
+        """Say why a layout action did not happen and what makes room for it."""
+        shown = self.error.text() if keep and not self.error.isHidden() else ""
+        self.error.setText(f"{shown}\n{message}" if shown else message)
+        self.error.show()
 
     def focus_editor(self) -> None:
         """Explicit editing opens the inspector without changing selection."""
         self.inspector_button.setChecked(True)
         self.toggle_inspector()
-        if self.selected_id:
+        if self.selected_id and self.panel.isVisible():
             self.inspector.x_field.setFocus()
             self.inspector.x_field.selectAll()
 
@@ -1123,16 +1217,45 @@ class EditorWorkspace(QtWidgets.QWidget):
         if result is None or not self.selected_id or find_cluster(result, self.selected_id) is None:
             return
         if not self.focus_open:
+            # Lanes give way first when the window is short; then focus is declined.
+            sizes = next(
+                (
+                    s
+                    for s in (self.focus_sizes, replace(self.focus_sizes, lanes=False))
+                    if self._room_for(s)
+                ),
+                None,
+            )
+            if sizes is None:
+                self.decline(
+                    "No room to focus the cluster: enlarge the window or hide a side panel."
+                )
+                return
             self.cancel_gesture()
             self._overview = overview
             self.focus_open = True
-            self.canvas.set_sizes(self.focus_sizes)
+            self._lanes_given_way = sizes.lanes != self.focus_sizes.lanes
+            self.canvas.set_sizes(sizes)
             self.focus_bar.show()
             self.panel.cluster_page.focus_button.hide()
         self._sync_inspector(cluster=True)
         self.render_fitting()
         self.canvas.view.setFocus()
         self.guidance_changed.emit(self.guidance())
+
+    def _room_for(self, sizes: SliceSizes) -> bool:
+        """Whether focus with these sizes and its bar fits; side panels give the width it needs."""
+        if not self.isVisible():
+            return True
+        width, height = self.canvas.minimum(sizes)
+        height += self.focus_bar.sizeHint().height()
+        shown = [not p.isHidden() for p in self._sides()]
+        room = self.panel_room(*shown, spectral=width)
+        if room is None or height > self.spectral.height():
+            return False
+        if room[1] > self.splitter.sizes()[1]:
+            self.splitter.setSizes(room)
+        return True
 
     def _view_state(self) -> dict:
         """What returning from focus restores: viewport, slices, mode, regions, sample."""
@@ -1370,7 +1493,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             return
         self.cancel_gesture()
         c, saved = self.canvas, self._overview or self._view_state()
-        self.focus_sizes = c.sizes
+        # Lanes that gave way to a short window stay the preference for the next focus.
+        self.focus_sizes = replace(c.sizes, lanes=c.sizes.lanes or self._lanes_given_way)
         self.focus_open = False
         self._overview = None
         self._focus_ids, self._focus_run, self._frame_key = (), None, None

@@ -1357,11 +1357,16 @@ class SpectralView(QtWidgets.QWidget):
         """Residual mode hides the lanes; the user's preference is kept for Overlay."""
         return replace(self.sizes, lanes=self.sizes.lanes and self.comparison_mode != _RESIDUAL)
 
+    def minimum(self, sizes: SliceSizes | None = None) -> tuple[int, int]:
+        """The view's minimum: the 2D plot's, with visible slices and lanes at theirs."""
+        if sizes is None:
+            sizes = self._effective_sizes()
+        return minimum_size(sizes, self.extents)
+
     def _relayout(self) -> None:
         """Place every plot from the pure layout; shared extents align by construction."""
         sizes = self._effective_sizes()
-        # The 2D plot's minimum, with visible slices and lanes at theirs, is the view's.
-        self.setMinimumSize(*minimum_size(sizes, self.extents))
+        self.setMinimumSize(*self.minimum())
         geometry = layout(self.view.width(), self.view.height(), sizes, self.extents)
         self.arrangement = geometry
         for item, rect in (
