@@ -116,7 +116,7 @@ def main():  # noqa: PLR0915
             settle()
             name = f"editor-{width}-{theme.lower()}.webp"
             assert window.grab().save(str(args.output / name), "WEBP", 95)
-            rect = canvas.main.getViewBox().sceneBoundingRect()
+            rect = canvas.box.sceneBoundingRect()
             records["captures"].append(
                 {
                     "file": name,
@@ -185,7 +185,7 @@ def main():  # noqa: PLR0915
             x, y = float(canvas.ppm_x[ix]), float(canvas.ppm_y[iy])
             expected_sample[0] = (ix, iy)
             pending[0] = perf_counter()
-            canvas._pointer_moved(canvas.main.getViewBox().mapViewToScene(QtCore.QPointF(x, y)))
+            canvas._pointer_moved(canvas.box.mapViewToScene(QtCore.QPointF(x, y)))
             count[0] += 1
 
         timer.setTimerType(QtCore.Qt.TimerType.PreciseTimer)

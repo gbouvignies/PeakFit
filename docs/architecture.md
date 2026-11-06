@@ -143,12 +143,17 @@ remain distinct. See [the scientific overlap validation](validation/overlapping-
 peak-axis mapping) or a saved `.peakfit` analysis.
 
 The workspace has concrete responsibilities: `gui.spectrum.read_dataset` validates
-one complete reader handoff off Qt; `editor.canvas` owns retained signed geometry,
-native slices and gestures; `editor.navigator` owns the flat assignment list and the
+one complete reader handoff off Qt; `editor.spectral_view` is the one spectral view:
+retained signed geometry, gestures, and the native row/column slices with residual
+lanes, all placed in one scene by the pure `editor.spectral_geometry.layout`, so each
+slice shares its frequency extent with the 2D plot by construction (`editor.slices`
+holds the slices' numerics: native indices, the region intensity range, clipping
+and the focus frame); `editor.navigator` owns the flat assignment list and the
 active run's cluster table; `editor.inspector` owns the precise whole-group editor and
 shows the selected peak's recorded profile, parameters and cluster review read from
 `FinalFitOutcome` (`editor.profile` draws the profile; `editor.cluster_page` shows one recorded cluster;
-`editor.lens` draws the Cluster lens (three linked panels and the member's row);
+`editor.focus` is the bar shown while a cluster is in focus (focus reframes the
+spectral view in place; the workspace keeps the overview's view state to restore);
 `editor.changes` compares the active run with its parent run, without Qt;
 `editor.review` derives each
 cluster's numerical warnings, measures and display-only highlights from the recorded outcome, without Qt); `editor.workspace` commits
@@ -167,8 +172,12 @@ curves and sampled-value text. It never extracts contours or rebuilds all marker
 One Qt-turn coalescer installs the latest pointer request. Plane changes remove
 old-plane geometry immediately and use the existing serial worker with revision
 checks. Numerical geometry is bounded to eight planes/32 MiB; only two sign paths
-are resident in the Qt scene. Theme changes restyle those paths. Dataset-wide trace
-limits are computed once during loading, independently of display navigation.
+are resident in the Qt scene. Theme changes restyle those paths. Slice and lane
+curves are persistent items updated in place on hover. The slices' region intensity
+scale is computed from the data of the visible region over all planes, only when a
+zoom, pan or framing is committed (a 200 ms rest), never on hover or plane change.
+`Dataset.trace_limit` is still computed at load and written to a project's dataset
+header, but nothing displays it.
 
 `PeakEdits` holds immutable stable-ID/unfolded-coordinate records, named undo
 history and a monotonic manual revision. Committed changes, Undo and Redo advance
@@ -232,11 +241,12 @@ immutable. Overlay and signed residual geometry share that native plane; hover
 extracts only a native row/column and never launches projection. Run/plane identity
 and monotonically increasing request revisions reject stale deliveries. One
 workspace-owned `fit_display.ModelPlanes` cache, keyed by run and plane and bounded
-to 128 MiB/eight planes, serves the overview, the cluster lens and the unexplained
-signal search: whichever view computes a plane stores it, and the others reuse it.
+to 128 MiB/eight planes, serves the spectral view (in or out of focus) and the
+unexplained signal search: whichever view computes a plane stores it, and the others reuse it.
 Every residual view is `fit_display.normalized_residual` (measured − model, over
-σ_stat). Contour geometry remains bounded to 32 MiB/eight entries. Experimental/Overlay share a locked intensity scale;
-Residual has a separately retained signed scale.
+σ_stat). Contour geometry remains bounded to 32 MiB/eight entries. Experimental/Overlay
+slices share the region intensity scale; residual lanes, and the slices in Residual,
+share a ±N σ_stat scale.
 
 One full accepted scientific result stays resident. Completion validation runs in
 a worker and is published atomically after accepted evidence is durable.

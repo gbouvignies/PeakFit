@@ -56,8 +56,8 @@ Short records of non‑obvious design choices and trade‑offs.
 - Keep PySide6/Qt Widgets/PyQtGraph. The weaknesses found in a design review were
   information design and visual craft; invest in an owned presentation layer
   (tokens, proxy style, icons, plot chrome) rather than a framework change.
-- Three columns: cluster navigator, spectrum, inspector. A Cluster lens gives
-  side-by-side judgment of one cluster. No lower analysis panel.
+- Three columns: cluster navigator, spectrum, inspector. No lower analysis panel.
+  (The Cluster lens chosen here was replaced by cluster focus on 2026-11-06.)
 - Review separates numerical warnings, review measures and labeled heuristics; no
   composite quality score.
 - Fit settings are an integrated setup with an exact clustering preview, always
@@ -117,11 +117,12 @@ Short records of non‑obvious design choices and trade‑offs.
 - An Outdated run's list is its historical residual, labelled with the run; see
   "An Outdated run stays a labelled historical comparison" below.
 
-## 2026-11-02: The lens keeps its region for peaks the run has not fitted
+## 2026-11-02: Focus keeps its cluster for peaks the run has not fitted
 - A peak just added belongs to no recorded cluster. Following only the selected
-  peak's cluster would close the lens at the moment of the correction, so a
-  selected unfitted peak keeps the lens on the cluster in view; selected from
-  elsewhere, it opens the cluster with its nearest member in native samples.
+  peak's cluster would leave focus at the moment of the correction, so a selected
+  unfitted peak keeps focus on its cluster while it lies in that cluster's frame
+  (the frame, not the viewport, since selecting scrolls the one view to the peak);
+  elsewhere, focus moves to the cluster with its nearest member in native samples.
 - After a refit the regrouping line compares the followed peak's previous and new
   clusters by stable ID. A newly added peak has no previous cluster, so the line
   says which peaks it is now fitted with instead of reporting the context cluster's
@@ -131,7 +132,7 @@ Short records of non‑obvious design choices and trade‑offs.
 
 ## 2026-11-02: An Outdated run stays a labelled historical comparison
 - Scientists make several corrections before refitting. Withdrawing Overlay,
-  Residual, the lens panels and the unexplained list at the first commit removed
+  Residual and the unexplained list at the first commit removed
   the residual that guides the next correction, so the Outdated run's immutable
   model stays on show, labelled “Run 5d7b4768 · historical” wherever it appears.
   Current/Outdated is unchanged and Undo never recertifies a run.
@@ -942,3 +943,35 @@ Short records of non‑obvious design choices and trade‑offs.
   cluster's χ²ᵣ fell from 3.00 to 2.53 while its fitting samples grew from 67 to 68
   per plane and the pair collapsed. The two values describe different problems, and
   the lower one accompanies an unreliable decomposition.
+
+## 2026-11-06: One spectral view with native slices; cluster focus replaces the lens
+- **Slices.** The row and column slices are lines through native samples with no
+  markers; Overlay draws the cached total-model plane at the same samples. Nothing
+  is evaluated off the sampling grid, so the slice shows what was fitted.
+- **Scale.** Both slices share the region intensity scale: min(0, D) to max(0, D)
+  over the visible 2D region and every plane, padded 5 % of the span. Asymmetric,
+  because a symmetric ±max|D| range halves the room of one-signed spectra; zero
+  included so sign is never ambiguous; all planes so the scale holds while
+  stepping planes; recomputed only on a deliberate view change so hover never
+  rescales. Not tied to fitting masks, which are optimizer bookkeeping. A manual
+  wheel scale persists until reset, a new dataset or an unrelated focused cluster.
+- **Residual.** Residual lanes share one ±N σ_stat scale, set separately from the
+  intensity scale. In Residual mode the slices themselves show the residual and the
+  lanes hide, keeping the lane preference for Overlay.
+- **Annotations.** A zero baseline, one compact scale caption with units and
+  clipping counts (data ▲ and model △ separately), exact values in the corner
+  readout. The 2D ppm axes stay quantitative; slices carry no intensity tick axis.
+- **Focus.** The three-panel lens is replaced by cluster focus: the same view
+  reframed in place on displayed members ± max(3 × fitted FWHM, 8 samples), capped
+  at a quarter of the spectral width and clipped to the spectrum. One view means
+  one set of gestures, marks, modes and settings; the lens duplicated them and its
+  separate plots could not share the overview's slices. Leaving focus restores the
+  overview's view state exactly and never reverts edits or fits.
+- **Window.** PeakFit never enlarges the window. Its minimum is the visible parts'
+  minimums; space is taken from residual lanes (24 px), slices (72 px), then the
+  other side panel; otherwise the action is declined with a message. Layouts
+  restore spectral area, inspector, navigator in that order. 1160×720 is the
+  validated reference with both side panels, slices and lanes.
+- **Removed.** “Fit current traces” and the per-view trace gain. The stored
+  `trace_limit` in project dataset headers is now unused; its removal is a
+  separate storage cleanup.

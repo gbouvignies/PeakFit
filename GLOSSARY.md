@@ -208,9 +208,24 @@ A display of an intensity profile divided by the mean amplitude of explicitly
 chosen reference planes, with propagated uncertainty. It never replaces the
 recorded amplitudes.
 
-**Cluster lens**:
-The GUI view that juxtaposes experimental, overlay and whole-spectrum residual
-panels of one peak cluster with its profiles and parameters.
+**Cluster focus**:
+The spectral view reframed in place on one recorded peak cluster: its displayed
+members ± max(3 fitted FWHM, 8 native samples), with residual lanes. Leaving it
+restores the overview's view exactly and never reverts edits or fits.
+
+**Native slice**:
+The row or column of one plane through the sample, drawn as a line through its
+native samples, with the total model at the same samples. It shares its frequency
+axis with the 2D plot.
+
+**Region intensity scale**:
+The shared intensity range of both slices: min(0, lowest) to max(0, highest) of the
+data over the visible 2D region and every plane, padded by 5 % of the span. It
+changes only on a deliberate view change; a manual scale replaces it until reset.
+
+**Residual lane**:
+A strip under a native slice showing the whole-spectrum residual
+`(D − M) / σ_stat` at the same samples, on one shared ±N σ_stat scale.
 
 **MCMC uncertainty analysis**:
 Post-fit sampling used to estimate parameter uncertainty for fitted peak

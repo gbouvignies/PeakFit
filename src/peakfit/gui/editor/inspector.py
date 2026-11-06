@@ -204,7 +204,7 @@ class Inspector(QtWidgets.QScrollArea):
     cluster_requested = QtCore.Signal()
     change_chosen = QtCore.Signal(str, bool)  # working ID, open its cluster page
     member_chosen = QtCore.Signal(str)
-    lens_requested = QtCore.Signal()
+    focus_requested = QtCore.Signal()
     unexplained_requested = QtCore.Signal()
     region_chosen = QtCore.Signal(int)  # index in the unexplained-signal list
 
@@ -320,7 +320,7 @@ class Inspector(QtWidgets.QScrollArea):
             ]
         )
         self.cluster_page.member_chosen.connect(self.member_chosen)
-        self.cluster_page.lens_requested.connect(self.lens_requested)
+        self.cluster_page.focus_requested.connect(self.focus_requested)
         layout.addWidget(self.cluster_page)
         # Analysis page
         self.analysis_page = QtWidgets.QWidget()

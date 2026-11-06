@@ -8,6 +8,7 @@ import pytest
 from gui_helpers import wait_until
 from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
+from peakfit.gui.editor import slices
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.peaks import PeakEdits, WorkingPeak, export_peaks
@@ -41,13 +42,18 @@ def test_native_arrays_plane_order_alignment_and_resize(workspace, qapp):
     canvas = workspace.canvas
     assert not canvas.spectra.data.flags.writeable
     assert not canvas.spectra.z_values.flags.writeable
-    initial_range = canvas.trace_limit
     workspace.select_peak(workspace.peaks[3].id)
     for width, height in ((1280, 750), (1440, 850), (1040, 670)):
         workspace.resize(width, height)
         qapp.processEvents()
-        canvas.main.getViewBox().setRange(xRange=(7.5, 9), yRange=(115, 125), padding=0)
+        canvas.set_ranges((7.5, 9), (115, 125))
         qapp.processEvents()
+        # The region rule: asymmetric bounds over the visible region and every plane.
+        rows = slices.index_range(canvas.y_axis, (115, 125))
+        columns = slices.index_range(canvas.x_axis, (7.5, 9))
+        bounds = slices.intensity_range(canvas.spectra.data, rows, columns)
+        assert canvas.slice_bounds() == bounds
+        assert bounds[0] < 0 < bounds[1]
         for plane in (1, 60, 131):
             workspace.set_plane(plane)
             ix, iy = canvas.ix, canvas.iy
@@ -57,30 +63,18 @@ def test_native_arrays_plane_order_alignment_and_resize(workspace, qapp):
             np.testing.assert_array_equal(
                 canvas.curve_y.getData()[0], canvas.spectra.data[plane - 1, :, ix]
             )
-            assert canvas.trace_limit == initial_range
-            np.testing.assert_allclose(
-                canvas.top.getViewBox().viewRange()[1], [-initial_range, initial_range]
-            )
-            np.testing.assert_allclose(
-                canvas.right.getViewBox().viewRange()[0], [-initial_range, initial_range]
-            )
-        main = canvas.main.getViewBox()
-        top = canvas.top.getViewBox()
-        right = canvas.right.getViewBox()
+            # Locked across planes: the scale changes only with a deliberate view change.
+            assert canvas.slice_bounds() == bounds
+            np.testing.assert_allclose(canvas.row_box.viewRange()[1], bounds)
+            np.testing.assert_allclose(canvas.column_box.viewRange()[0], bounds)
         for x, y in ((7.75, 118), (8.5, 122)):
-            mp = canvas.main.mapToGlobal(
-                canvas.main.mapFromScene(main.mapViewToScene(QtCore.QPointF(x, y)))
-            )
-            tp = canvas.top.mapToGlobal(
-                canvas.top.mapFromScene(top.mapViewToScene(QtCore.QPointF(x, 0)))
-            )
-            rp = canvas.right.mapToGlobal(
-                canvas.right.mapFromScene(right.mapViewToScene(QtCore.QPointF(0, y)))
-            )
-            assert abs(mp.x() - tp.x()) <= 1
-            assert abs(mp.y() - rp.y()) <= 1
-    assert canvas.main.getViewBox().state["xInverted"]
-    assert canvas.main.getViewBox().state["yInverted"]
+            main = canvas.box.mapViewToScene(QtCore.QPointF(x, y))
+            row = canvas.row_box.mapViewToScene(QtCore.QPointF(x, 0))
+            column = canvas.column_box.mapViewToScene(QtCore.QPointF(0, y))
+            assert abs(main.x() - row.x()) <= 0.5
+            assert abs(main.y() - column.y()) <= 0.5
+    assert canvas.box.state["xInverted"]
+    assert canvas.box.state["yInverted"]
 
 
 def test_hover_preview_pinning_and_draft_are_independent(workspace):
@@ -203,11 +197,11 @@ def test_free_placement_delete_and_exact_export_roundtrip(workspace, tmp_path):
 
 def test_keyboard_sample_text_and_hidden_panels(workspace, qapp):
     workspace.select_peak(workspace.peaks[0].id)
-    workspace.canvas.main.setFocus()
+    workspace.canvas.view.setFocus()
     ix = workspace.canvas.ix
-    QtTest.QTest.keyClick(workspace.canvas.main, QtCore.Qt.Key.Key_Right)
+    QtTest.QTest.keyClick(workspace.canvas.view, QtCore.Qt.Key.Key_Right)
     assert workspace.canvas.ix == ix + 1
-    QtTest.QTest.keyClick(workspace.canvas.main, QtCore.Qt.Key.Key_Space)
+    QtTest.QTest.keyClick(workspace.canvas.view, QtCore.Qt.Key.Key_Space)
     assert not workspace.canvas.pinned
     assert workspace.selected_id == workspace.peaks[0].id
     workspace.inspector.name.setFocus()
@@ -241,14 +235,15 @@ def test_keyboard_sample_text_and_hidden_panels(workspace, qapp):
 def test_preview_does_no_contour_or_marker_work_and_cache_is_bounded(workspace):
     canvas = workspace.canvas
     jobs, markers = canvas.contour_jobs, canvas.marker_rebuilds
-    limit = canvas.trace_limit
+    bounds = canvas.slice_bounds()
     for i in range(500):
         canvas.sample(
             float(canvas.ppm_x[i % len(canvas.ppm_x)]), float(canvas.ppm_y[i % len(canvas.ppm_y)])
         )
     assert canvas.contour_jobs == jobs
     assert canvas.marker_rebuilds == markers
-    assert canvas.trace_limit == limit
+    # Hover never rescales the slices.
+    assert canvas.slice_bounds() == bounds
     for plane in range(1, 13):
         workspace.set_plane(plane)
         wait_until(lambda: not canvas.contour_pending)
@@ -271,9 +266,10 @@ def test_theme_preserves_science_and_geometry(qapp, dataset):
     assert workspace is not None
     wait_until(lambda: not workspace.canvas.contour_pending)
     workspace.select_peak(dataset.peaks[3].id)
-    workspace.canvas.main.getViewBox().setRange(xRange=(7.5, 9), yRange=(115, 120), padding=0)
+    workspace.canvas.set_ranges((7.5, 9), (115, 120))
     qapp.processEvents()
-    before = workspace.canvas.main.getViewBox().viewRange()
+    before = workspace.canvas.box.viewRange()
+    bounds = workspace.canvas.slice_bounds()
     paths = [list(layer.levels) for layer in workspace.canvas.paths]
     jobs = workspace.canvas.contour_jobs
     for appearance in ("Dark", "Light", "Dark", "System"):
@@ -281,7 +277,8 @@ def test_theme_preserves_science_and_geometry(qapp, dataset):
         qapp.processEvents()
         assert workspace.edits.revision == 0
         assert workspace.selected_id == dataset.peaks[3].id
-        assert workspace.canvas.main.getViewBox().viewRange() == before
+        assert workspace.canvas.box.viewRange() == before
+        assert workspace.canvas.slice_bounds() == bounds
         assert [list(layer.levels) for layer in workspace.canvas.paths] == paths
         assert workspace.canvas.contour_jobs == jobs
     window.close()
@@ -382,13 +379,13 @@ def test_real_qt_marker_drag_cancel_and_blank_pan(workspace, qapp):
     canvas = workspace.canvas
     peak = workspace.peaks[3]
     workspace.select_peak(peak.id)
-    view = canvas.main.getViewBox()
+    view = canvas.box
     x, y = canvas.display(peak)
     view.setRange(xRange=(x - 0.4, x + 0.4), yRange=(y - 2, y + 2), padding=0)
     qapp.processEvents()
-    start = canvas.main.mapFromScene(view.mapViewToScene(QtCore.QPointF(x, y)))
+    start = canvas.view.mapFromScene(view.mapViewToScene(QtCore.QPointF(x, y)))
     end = start + QtCore.QPoint(25, 15)
-    viewport = canvas.main.viewport()
+    viewport = canvas.view.viewport()
     QtTest.QTest.mouseMove(viewport, start)
     QtTest.QTest.qWait(30)
     qapp.processEvents()
@@ -405,13 +402,14 @@ def test_real_qt_marker_drag_cancel_and_blank_pan(workspace, qapp):
     qapp.processEvents()
     assert canvas._drag_peak == peak
     assert workspace.peaks[3] == peak
-    QtTest.QTest.keyClick(canvas.main, QtCore.Qt.Key.Key_Escape)
+    QtTest.QTest.keyClick(canvas.view, QtCore.Qt.Key.Key_Escape)
     QtTest.QTest.mouseRelease(viewport, QtCore.Qt.MouseButton.LeftButton, pos=end)
     assert workspace.peaks[3] == peak
     assert workspace.edits.revision == 0
     # A background pan changes only ranges; no release pin or peak history.
     canvas.set_pinned(False)
-    start = QtCore.QPoint(viewport.width() - 50, viewport.height() - 90)
+    plot = canvas.box.sceneBoundingRect()  # inside the 2D plot, away from markers
+    start = canvas.view.mapFromScene(QtCore.QPointF(plot.right() - 50, plot.bottom() - 40))
     end = start - QtCore.QPoint(30, 30)
     QtTest.QTest.mouseMove(viewport, start)
     QtTest.QTest.qWait(30)

@@ -11,11 +11,10 @@ import pyqtgraph as pg
 import pytest
 from builders import two_cluster_dataset
 from gui_helpers import wait_until
-from PySide6 import QtCore, QtTest, QtWidgets
+from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
-import peakfit.gui.editor.canvas as canvas_module
-import peakfit.gui.editor.lens as lens_module
 import peakfit.gui.editor.review as review_module
+import peakfit.gui.editor.spectral_view as canvas_module
 import peakfit.gui.editor.workspace as workspace_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.diagnostics.identifiability import AmplitudeStatus, Cause, MemberAmplitude
@@ -24,6 +23,7 @@ from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
+from peakfit.gui.editor import slices
 from peakfit.gui.editor.profile import (
     Normalized,
     PeakProfile,
@@ -34,6 +34,7 @@ from peakfit.gui.editor.profile import (
     peak_profile,
 )
 from peakfit.gui.editor.setup import DEFAULT_SOURCE
+from peakfit.gui.editor.spectral_geometry import MAIN_MIN
 from peakfit.gui.editor.unexplained import nearest_peak, unexplained_regions
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
@@ -86,7 +87,7 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     result = scientific[-1]
     w.select_peak(w.peaks[0].id)
     following = c.pin_peak_id
-    ranges = c.main.getViewBox().viewRange()
+    ranges = c.box.viewRange()
     seeds = w.peaks
     publish(w, result)
     assert w.fitting.current
@@ -95,7 +96,7 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     assert not w.edits.can_undo
     assert c.pin_peak_id == following
     assert c.selected_id == following
-    np.testing.assert_allclose(c.main.getViewBox().viewRange(), ranges)
+    np.testing.assert_allclose(c.box.viewRange(), ranges)
     assert c.comparison_mode == 1
     wait_until(lambda: not c.contour_pending)
     authoritative = dataset_model_plane(result, c.spectra.spectral_params, c.plane, cancel=Event())
@@ -106,11 +107,11 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     np.testing.assert_array_equal(c.curve_x.getData()[1], residual[c.iy, :])
     np.testing.assert_array_equal(c.curve_y.getData()[0], residual[:, c.ix])
     jobs = c.contour_jobs
-    limit = c.trace_limit
+    bounds = c.slice_bounds()
     for _ in range(500):
         c.sample(float(c.ppm_x[12]), float(c.ppm_y[13]))
     assert c.contour_jobs == jobs
-    assert c.trace_limit == limit
+    assert c.slice_bounds() == bounds
     # A draft never invalidates accepted science; one commit does, including Undo.
     w.inspector.x_field.setText("8.123456789")
     assert w.fitting.current
@@ -214,7 +215,6 @@ def test_one_busy_state_locks_and_releases_every_edit(workspace):
     assert w.fitting.busy
     assert not any(control.isEnabled() for control in controls)
     assert not w.canvas.editing_enabled
-    assert not w.lens.editing_enabled
     assert w.cancel_fit.isVisible()
     assert not w.settings_button.isVisible()
     wait_until(lambda: not w.fitting.busy, timeout=20)
@@ -223,19 +223,18 @@ def test_one_busy_state_locks_and_releases_every_edit(workspace):
     # Every control the fit locked is released, including the Edit menu's Add peak.
     assert all(control.isEnabled() for control in controls)
     assert w.canvas.editing_enabled
-    assert w.lens.editing_enabled
     assert not w.cancel_fit.isVisible()
     assert w.settings_button.isVisible()
 
 
-def test_closing_the_lens_restores_the_pin_button(workspace, scientific):
+def test_pinning_stays_available_in_focus_and_after_it(workspace, scientific):
     w = workspace
     result = scientific[-1]
     publish(w, result)
     assert w.pin_button.isEnabled()
-    _open_lens(w, result)
-    assert not w.pin_button.isEnabled()
-    w.close_lens()
+    _open_focus(w, result)
+    assert w.pin_button.isEnabled()
+    w.close_focus()
     assert w.pin_button.isEnabled()
 
 
@@ -665,7 +664,7 @@ def test_profile_keeps_repeated_plane_values_distinct(scientific):
 
 
 @pytest.mark.usefixtures("settings")
-def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkeypatch):
+def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkeypatch):  # noqa: PLR0915
     spectra, peaks, config, _, result = scientific
     window = EditorWindow()
     monkeypatch.setattr(window, "protect_edits", lambda **_: True)
@@ -717,9 +716,202 @@ def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkey
     assert "Uncertainty unreliable" in _review_text(w)
     assert w.panel.profile.isVisible()
     assert window.rect().contains(rect(w.panel.profile.plot))
-    # Three columns never squeeze the spectrum below its minimum.
-    assert w.canvas.main.width() >= w.canvas.main.minimumWidth()
-    assert w.canvas.main.height() >= w.canvas.main.minimumHeight()
+    # The window is never enlarged: the navigator gave way, the spectrum kept its minimum.
+    assert window.width() == 1040
+    assert w.navigator.isHidden()
+    assert not w.peaks_button.isChecked()
+    assert "The peak list is hidden to fit the window; widen it to show it again." in (
+        w.error.text()
+    )
+    plot = w.canvas.arrangement.main
+    assert plot[2] >= MAIN_MIN[0]
+    assert plot[3] >= MAIN_MIN[1]
+    window.close()
+    window.deleteLater()
+
+
+def _resize(qapp, window, width: int, height: int) -> None:
+    """Resize once Qt has lowered the window's minimum after a panel was hidden."""
+    for _ in range(3):
+        qapp.processEvents()
+        window.resize(width, height)
+    qapp.processEvents()
+    assert window.size() == QtCore.QSize(width, height)
+
+
+@pytest.mark.usefixtures("settings")
+def test_side_panels_open_only_where_they_fit_and_never_enlarge_the_window(
+    qapp, scientific, monkeypatch
+):
+    spectra, peaks, config, _, result = scientific
+    window = EditorWindow()
+    monkeypatch.setattr(window, "protect_edits", lambda **_: True)
+    window.resize(1160, 720)  # the reference: both side panels and slices with lanes
+    window.show()
+    window.install_dataset(Dataset(Path("reference.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    w = window.workspace
+    assert w is not None
+    w.fitting.configuration = config.model_copy(deep=True)
+    qapp.processEvents()
+    publish(w, result)
+    w.open_focus(w.peaks[0].id)
+    qapp.processEvents()
+    assert not w.navigator.isHidden()
+    assert not w.panel.isHidden()
+    assert w.canvas.arrangement.sizes.lanes
+    assert w.canvas.arrangement.main[2] >= MAIN_MIN[0]
+    assert w.canvas.arrangement.main[3] >= MAIN_MIN[1]
+    assert window.size() == QtCore.QSize(1160, 720)
+    w.close_focus()
+
+    # Space for the navigator comes from the spectrum's slack, then the inspector.
+    w.peaks_button.click()
+    assert w.navigator.isHidden()
+    inspector = w.panel.minimumWidth() + 180
+    w.splitter.setSizes([0, w.splitter.width() - inspector, inspector])
+    qapp.processEvents()
+    w.peaks_button.click()
+    qapp.processEvents()
+    assert not w.navigator.isHidden()
+    _navigator, spectral, inspector = w.splitter.sizes()
+    assert spectral >= w.canvas.minimum()[0]
+    assert w.panel.minimumWidth() <= inspector
+    assert window.width() == 1160
+
+    # With no room even at every minimum, opening is declined and says why.
+    w.peaks_button.click()  # hide, so the window may narrow
+    _resize(qapp, window, 980, 720)
+    w.peaks_button.click()
+    qapp.processEvents()
+    assert w.navigator.isHidden()
+    assert not w.peaks_button.isChecked()
+    assert w.error.text() == "No room for the peak list: widen the window or hide the inspector."
+    assert window.width() == 980
+    # Hiding the inspector makes room.
+    w.inspector_button.click()
+    w.peaks_button.click()
+    qapp.processEvents()
+    assert not w.navigator.isHidden()
+    assert w.error.isHidden()
+    window.close()
+    window.deleteLater()
+
+
+@pytest.mark.usefixtures("settings")
+def test_slices_and_focus_have_menu_and_keyboard_alternatives(qapp, scientific, monkeypatch):
+    spectra, peaks, config, _, result = scientific
+    window = EditorWindow()
+    monkeypatch.setattr(window, "protect_edits", lambda **_: True)
+    window.resize(1280, 800)
+    window.show()
+    window.install_dataset(Dataset(Path("menus.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    w = window.workspace
+    assert w is not None
+    w.fitting.configuration = config.model_copy(deep=True)
+    qapp.processEvents()
+    publish(w, result)
+    c = w.canvas
+    actions = {a.text(): a for a in window.findChildren(QtGui.QAction)}
+    assert actions["Residual lanes"].shortcut().toString() == "Ctrl+Shift+L"
+    actions["Residual lanes"].trigger()
+    assert c.sizes.lanes
+    row, column = c.sizes.row, c.sizes.column
+    actions["Taller row slice"].trigger()
+    actions["Narrower column slice"].trigger()
+    assert (c.sizes.row, c.sizes.column) == (row + 24, column - 24)
+    actions["Default slice sizes"].trigger()
+    assert (c.sizes.row, c.sizes.column) == (row, column)
+    actions["Magnify slice intensities"].trigger()
+    assert c.manual_scale is not None
+    actions["Slice intensities from the view"].trigger()
+    assert c.manual_scale is None
+    actions["Reduce residual lanes"].trigger()
+    assert c.lane_sigma > canvas_module.LANE_SIGMA
+    actions["Default residual lanes"].trigger()
+    assert c.lane_sigma == canvas_module.LANE_SIGMA
+    # Focus from the menu on the selected peak's cluster, and back.
+    w.select_peak(w.peaks[0].id)
+    view = c.box.viewRange()
+    actions["Focus cluster"].trigger()
+    assert w.focus_open
+    actions["Return to spectrum"].trigger()
+    assert not w.focus_open
+    assert c.box.viewRange() == view
+    window.close()
+    window.deleteLater()
+
+
+@pytest.mark.usefixtures("settings")
+def test_overlay_after_residual_never_enlarges_a_narrowed_window(qapp, scientific, monkeypatch):
+    spectra, peaks, config, _, result = scientific
+    window = EditorWindow()
+    monkeypatch.setattr(window, "protect_edits", lambda **_: True)
+    window.resize(1160, 720)
+    window.show()
+    window.install_dataset(Dataset(Path("lanes.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    w = window.workspace
+    assert w is not None
+    w.fitting.configuration = config.model_copy(deep=True)
+    qapp.processEvents()
+    publish(w, result)
+    c = w.canvas
+    w.set_lanes(True)
+    w.set_mode(2)  # Residual hides the lanes, lowering the view's minimum
+    floor = w.canvas.minimum()[0] + sum(p.minimumWidth() + 1 for p in (w.navigator, w.panel))
+    _resize(qapp, window, floor + 4, 720)  # narrower than Overlay with lanes needs
+    assert not w.navigator.isHidden()
+    assert not w.panel.isHidden()
+    w.set_mode(1)
+    for _ in range(3):  # let Qt apply any new minimum to the window
+        qapp.processEvents()
+        layout = window.layout()
+        assert layout is not None
+        layout.activate()
+    assert c.comparison_mode == 1
+    assert window.size() == QtCore.QSize(floor + 4, 720)
+    assert c.arrangement.main[2] >= MAIN_MIN[0]
+    assert c.arrangement.main[3] >= MAIN_MIN[1]
+    assert c.sizes.lanes  # the preference is kept
+    assert not c.row_lane.isVisible()  # the lanes gave way to the window
+    assert "Residual lanes are hidden to fit the window" in w.error.text()
+    # Modes always switch; once the window is wide enough the lanes return.
+    w.set_mode(2)
+    w.set_mode(0)
+    assert c.comparison_mode == 0
+    _resize(qapp, window, 1280, 800)
+    w.set_mode(1)
+    qapp.processEvents()
+    assert c.row_lane.isVisible()
+    window.close()
+    window.deleteLater()
+
+
+@pytest.mark.usefixtures("settings")
+def test_a_saved_layout_restores_the_inspector_before_the_navigator(qapp, scientific, monkeypatch):
+    spectra, peaks, _, _, _ = scientific
+    window = EditorWindow()
+    monkeypatch.setattr(window, "protect_edits", lambda **_: True)
+    monkeypatch.setattr(workspace_module, "dataset_header", lambda _dataset: {})
+    window.resize(1280, 760)
+    window.show()
+    window.install_dataset(Dataset(Path("layout.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    w = window.workspace
+    assert w is not None
+    qapp.processEvents()
+    saved = w.capture()
+    # Same window: the exact panel widths come back.
+    sizes = w.splitter.sizes()
+    w.restore(saved)
+    qapp.processEvents()
+    assert w.splitter.sizes() == sizes
+    # A narrower window keeps the spectral area and the inspector; the navigator gives way.
+    w.peaks_button.click()  # hidden, so the window may narrow
+    _resize(qapp, window, 1000, 760)
+    w.restore(saved)
+    qapp.processEvents()
+    assert not w.panel.isHidden()
+    assert w.navigator.isHidden()
+    assert window.width() == 1000
     window.close()
     window.deleteLater()
 
@@ -779,7 +971,15 @@ def test_navigator_clusters_and_inspector_show_recorded_values(workspace, scient
     row = w.navigator._clusters[member]
     evaluation = cluster.analytical_evaluation
     assert evaluation is not None
-    assert row.text(2) == f"{evaluation.statistics.reduced_chi_squared:.2f}"
+    assert row.text(3) == f"{evaluation.statistics.reduced_chi_squared:.2f}"
+    # The first member's name in full, a member count, and every name in the tooltip;
+    # a name too long for the column elides in the middle.
+    names = {p.id: p.name for p in w.peaks}
+    members = [names[identities[n]] for n in cluster.peak_names]
+    assert row.text(1) == members[0]
+    assert row.text(2) == str(len(members))
+    assert row.toolTip(1) == " · ".join(members)
+    assert tree.textElideMode() == QtCore.Qt.TextElideMode.ElideMiddle
     # Choosing a cluster row selects one of its members, never another peak.
     tree.setCurrentItem(row)
     assert w.selected_id in {identities[n] for n in cluster.peak_names}
@@ -830,7 +1030,7 @@ def test_selected_cluster_members_are_marked_without_changing_view_or_scope(work
     members = {identities[n] for n in cluster.peak_names}
     selected = identities[cluster.peak_names[0]]
     w.select_peak(selected)
-    ranges, mode = c.main.getViewBox().viewRange(), c.comparison_mode
+    ranges, mode = c.box.viewRange(), c.comparison_mode
     model, jobs = c.comparison_result, c.contour_jobs
     # Choosing the cluster row keeps the selected member and marks the others.
     w.navigator.tree.setCurrentItem(w.navigator._clusters[selected])
@@ -844,7 +1044,7 @@ def test_selected_cluster_members_are_marked_without_changing_view_or_scope(work
     }
     assert marked == others
     # Highlighting changes neither the viewport, the comparison nor contour work.
-    assert c.main.getViewBox().viewRange() == ranges
+    assert c.box.viewRange() == ranges
     assert (c.comparison_mode, c.comparison_result, c.contour_jobs) == (mode, model, jobs)
     # A peak outside the run has no recorded cluster to mark.
     w.place_peak(w.peaks[0].positions)
@@ -933,7 +1133,7 @@ def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, sci
     cluster = next(cl for cl in prepared.clusters if len(cl.peaks) > 1)
     ids = {i.engine_name: i.working_id for i in prepared.identities}
     w.select_peak(ids[cluster.peaks[0].name])
-    view, mode, jobs = c.main.getViewBox().viewRange(), c.comparison_mode, c.contour_jobs
+    view, mode, jobs = c.box.viewRange(), c.comparison_mode, c.contour_jobs
     w._update_inspector()
     # One tinted cell per sampled point, exactly; the selected cluster is stronger.
     samples = sum(len(cl.grid_indices[0]) for cl in prepared.clusters)
@@ -947,7 +1147,7 @@ def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, sci
     assert centre.y() == pytest.approx(c.ppm_y[row])
     assert c.region_image.zValue() < 0  # behind the contours
     assert (c.comparison_mode, c.contour_jobs) == (mode, jobs)
-    assert view == c.main.getViewBox().viewRange()
+    assert view == c.box.viewRange()
     # After a fit the recorded regions replace the preview, with the run named.
     result = scientific[-1]
     publish(w, result)
@@ -1399,7 +1599,7 @@ def test_cluster_row_opens_the_cluster_page_with_recorded_values(workspace, scie
     # The shared profile sits on the cluster page; the view never moved.
     assert panel.profile_block.parent() is not None
     assert panel.cluster_page.isAncestorOf(panel.profile_block)
-    view = c.main.getViewBox().viewRange()
+    view = c.box.viewRange()
     # A member link opens that peak's page; the peak page links back to its cluster.
     target = review.ids[-1]
     links[-1].click()  # assignments may repeat; links follow member order
@@ -1412,7 +1612,7 @@ def test_cluster_row_opens_the_cluster_page_with_recorded_values(workspace, scie
     panel.cluster_link.click()
     assert panel.cluster_view
     assert w.selected_id == target
-    assert c.main.getViewBox().viewRange() == view
+    assert c.box.viewRange() == view
     # Selecting on the canvas or in the Peaks list returns to the peak page.
     w.select_peak(members[0].working_id)
     assert not panel.cluster_view
@@ -1543,7 +1743,7 @@ def test_peak_page_shows_where_the_run_started(workspace, scientific):
     assert expected in labels
 
 
-def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scientific):  # noqa: PLR0915
+def test_cluster_focus_frames_compares_and_returns_exactly(workspace, scientific):  # noqa: PLR0915
     w, c = workspace, workspace.canvas
     result = scientific[-1]
     publish(w, result)
@@ -1552,80 +1752,99 @@ def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scient
     member = identities[cluster.peak_names[0]]
     nav = w.navigator
     nav.tree.setCurrentItem(nav._clusters[member])
-    view, mode, sizes = c.main.getViewBox().viewRange(), c.comparison_mode, w.splitter.sizes()
+    c.scale_intensity(120)  # an overview manual scale, kept aside while in focus
+    view, mode, sizes = c.box.viewRange(), c.comparison_mode, w.splitter.sizes()
+    shown, sample = c.slice_state(), (c.ix, c.iy, c.pinned, c.pin_peak_id)
     nav.tree.setFocus()
     QtTest.QTest.keyClick(nav.tree, QtCore.Qt.Key.Key_Return)
-    lens = w.lens
-    assert w.lens_open
-    assert w.spectral.currentWidget() is lens
+    assert w.focus_open
+    assert w.focus_bar.isVisibleTo(w)
+    assert w.focus_bar.title.text().startswith("Focus · ")
     assert w.panel.cluster_view
-    assert not w.panel.cluster_page.lens_button.isVisible()
-    assert not any(button.isEnabled() for button in w.mode_buttons)
-    wait_until(lambda: not lens.pending)
-    # Default framing covers every recorded fitting sample of the cluster.
-    samples = next(s for s in result.completed_fit.samples if s.cluster_id == cluster.cluster_id)
-    (x_low, x_high), (y_low, y_high) = lens.panels[0].getViewBox().viewRange()
-    rows, columns = samples.grid_indices
-    assert x_low <= lens.ppm_x[columns].min()
-    assert lens.ppm_x[columns].max() <= x_high
-    assert y_low <= lens.ppm_y[rows].min()
-    assert lens.ppm_y[rows].max() <= y_high
+    assert not w.panel.cluster_page.focus_button.isVisibleTo(w)
+    # The one spectral view, reframed in place: every mode stays available.
+    assert all(button.isEnabled() for button in w.mode_buttons)
+    assert c.sizes.lanes  # focus shows the residual lanes
+    assert c.manual_scale is None  # a new cluster takes the region rule
+    # Default framing: displayed members ± max(3 fitted FWHM, 8 samples), not the masks.
+    members = [p for p in w.peaks if p.id in w._focus_ids]
+    assert {p.id for p in members} == {identities[n] for n in cluster.peak_names}
+    widths = w._fitted_widths()
+    assert all(np.isfinite(widths[p.id]).all() for p in members)
+    x_range, y_range = slices.focus_ranges(
+        [p.positions for p in members], [widths[p.id] for p in members], (c.y_axis, c.x_axis)
+    )
+    (x_low, x_high), (y_low, y_high) = c.box.viewRange()
+    assert (x_low, x_high) == pytest.approx(sorted(x_range))
+    assert (y_low, y_high) == pytest.approx(sorted(y_range))
+    for p in members:
+        x, y = c.display(p)
+        assert x_low < x < x_high
+        assert y_low < y < y_high
+    # The fitting region is a separate toggle, shared with the setup's.
+    w.focus_bar.regions.click()
+    assert c.regions_visible
+    assert w.panel.setup.regions.isChecked()
     # The residual is the whole-spectrum residual of the overview: (D − M) / σ_stat.
+    w.set_mode(2)
+    wait_until(lambda: not c.contour_pending)
     axes = [axis.model_copy(deep=True) for axis in c.spectra.spectral_params]
     model = dataset_model_plane(result, axes, c.plane, cancel=Event())
     expected = (c.spectra.data[c.plane] - model.values) / result.outcome.noise
-    np.testing.assert_allclose(lens._data["residual"], expected)
-    assert lens.layers[1]
-    assert lens.layers[2]
-    # Full spectrum (Ctrl+0) reframes the lens; the hidden overview never moves.
-    framed = lens.panels[0].getViewBox().viewRange()
-    lens.panels[0].getViewBox().setRange(xRange=(x_low, (x_low + x_high) / 2), padding=0)
+    np.testing.assert_allclose(c.curve_x.getData()[1], expected[c.iy, :])
+    # Full spectrum (Ctrl+0) reframes the cluster while in focus.
+    framed = c.box.viewRange()
+    c.set_ranges((x_low, (x_low + x_high) / 2), (y_low, y_high))
     w.full_view()
-    assert lens.panels[0].getViewBox().viewRange() == framed
-    assert c.main.getViewBox().viewRange() == view
-    # The lens follows the plane.
+    np.testing.assert_allclose(c.box.viewRange(), framed)
+    # Focus follows the plane.
     w.set_plane(2)
-    wait_until(lambda: not lens.pending)
-    assert lens.plane == 1
+    wait_until(lambda: not c.contour_pending)
+    assert c.plane == 1
     # A committed edit makes the run Outdated: its model stays, labelled historical.
     peak = next(p for p in w.peaks if p.id == member)
-    w.move_peak(peak.id, (peak.positions[0], peak.positions[1] + 0.001))
-    wait_until(lambda: not lens.pending)
+    edited = (peak.positions[0], peak.positions[1] + 0.001)
+    w.move_peak(peak.id, edited)
+    wait_until(lambda: not c.contour_pending)
     tag = f"Run {result.run_id[:8]} · historical"
-    assert [label.text() for label in lens.captions] == [
-        "Experimental",
-        f"Overlay · {tag}",
-        f"Whole-spectrum residual · {tag}",
-    ]
-    assert "Outdated · model and residual are historical" in lens.note.text()
-    assert lens.layers[1]
-    assert lens.unavailable[1].toPlainText() == ""
-    # Escape returns with the overview viewport, mode and panel widths unchanged.
-    lens.setFocus()
-    QtTest.QTest.keyClick(lens, QtCore.Qt.Key.Key_Escape)
-    assert not w.lens_open
-    assert w.spectral.currentWidget() is c
-    assert c.main.getViewBox().viewRange() == view
-    assert c.comparison_mode in {0, mode}
+    assert "Outdated · model and residual are historical" in w.focus_bar.note.text()
+    assert tag in c.legend.text()
+    assert w.focus_open
+    # Escape returns to the overview exactly: viewport, mode, slices, scale, sample,
+    # regions and panel widths; the edit made in focus stays.
+    c.view.setFocus()
+    QtTest.QTest.keyClick(c.view, QtCore.Qt.Key.Key_Escape)
+    assert not w.focus_open
+    assert not w.focus_bar.isVisibleTo(w)
+    assert w.panel.cluster_page.focus_button.isVisibleTo(w)
+    assert c.box.viewRange() == view
+    assert c.comparison_mode == mode
+    assert c.slice_state() == shown
+    assert (c.ix, c.iy, c.pinned, c.pin_peak_id) == sample
+    assert not c.regions_visible
     assert w.splitter.sizes() == sizes
+    assert next(p for p in w.peaks if p.id == member).positions == edited
+    assert not w.fitting.current
 
 
-def _open_lens(w, result):
+def _open_focus(w, result):
     cluster = next(cl for cl in result.outcome.clusters if cl.usable and len(cl.peak_names) > 1)
     identities = {i.engine_name: i.working_id for i in result.inputs.identities}
-    w.open_lens(identities[cluster.peak_names[0]])
-    wait_until(lambda: not w.lens.pending)
+    w.open_focus(identities[cluster.peak_names[0]])
+    wait_until(lambda: not w.canvas.contour_pending)
     return cluster
 
 
-def test_display_settings_refresh_the_lens_without_touching_results(
+def test_display_settings_apply_in_focus_without_touching_results(
     workspace, scientific, monkeypatch
 ):
     w, c = workspace, workspace.canvas
     result = scientific[-1]
     publish(w, result)
-    _open_lens(w, result)
-    view, residual_layers = c.main.getViewBox().viewRange(), w.lens.layers[2][0]
+    view = c.box.viewRange()
+    _open_focus(w, result)
+    w.set_mode(2)
+    wait_until(lambda: not c.contour_pending)
     chosen = {"First contour": c.contour_threshold * 2, "First residual contour": 5.0}
 
     def accept(dialog):
@@ -1634,38 +1853,40 @@ def test_display_settings_refresh_the_lens_without_touching_results(
                 field.setValue(chosen[field.accessibleName()])
         return QtWidgets.QDialog.DialogCode.Accepted
 
+    jobs = c.contour_jobs
     monkeypatch.setattr(QtWidgets.QDialog, "exec", accept)
     w.display_dialog()
-    # Both contour sets apply to the lens at once, whatever the overview mode.
-    assert w.lens.levels[0] == chosen["First contour"]
-    assert w.lens.levels[3] == chosen["First residual contour"]
-    wait_until(lambda: not w.lens.pending)
-    assert w.lens.layers[2][0] is not residual_layers
-    # Display only: same run, still Current; the hidden overview did not move.
+    # Both contour sets apply at once, whatever the mode; the focused view redraws.
+    assert c.contour_threshold == chosen["First contour"]
+    assert c.residual_threshold == chosen["First residual contour"]
+    wait_until(lambda: not c.contour_pending)
+    assert c.contour_jobs > jobs
+    # Display only: same run, still Current; focus and its frame stay.
     assert w.fitting.result is result
     assert w.fitting.current
-    assert c.main.getViewBox().viewRange() == view
+    assert w.focus_open
+    w.close_focus()
+    assert c.box.viewRange() == view
 
 
-def test_escape_leaves_the_lens_from_any_column_but_discards_a_draft_first(workspace, scientific):
+def test_escape_leaves_focus_from_any_column_but_discards_a_draft_first(workspace, scientific):
     w = workspace
     result = scientific[-1]
     publish(w, result)
     window_guidance = []
     w.guidance_changed.connect(window_guidance.append)
-    _open_lens(w, result)
-    assert window_guidance[-1].startswith("Lens ·")
+    _open_focus(w, result)
+    assert window_guidance[-1].startswith("Focus ·")
     assert "drag selected peak" in w.guidance()
-    assert "pins" not in w.guidance()  # pinning stays an overview tool
     # From the cluster list.
     w.navigator.tree.setFocus()
     QtTest.QTest.keyClick(w.navigator.tree, QtCore.Qt.Key.Key_Escape)
-    assert not w.lens_open
+    assert not w.focus_open
     assert window_guidance[-1] == "Drag a selected peak to move it · Space pins traces"
-    # From the inspector: a draft is discarded first, then Escape leaves the lens.
-    _open_lens(w, result)
-    w.select_peak(w.selected_id)  # a member link: the peak page, with the lens still open
-    assert w.lens_open
+    # From the inspector: a draft is discarded first, then Escape leaves focus.
+    _open_focus(w, result)
+    w.select_peak(w.selected_id)  # a member link: the peak page, still in focus
+    assert w.focus_open
     assert w.panel.peak_page.isVisible()
     field = w.inspector.x_field
     assert field.isVisible()
@@ -1674,9 +1895,9 @@ def test_escape_leaves_the_lens_from_any_column_but_discards_a_draft_first(works
     assert w.inspector.pending
     QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
     assert not w.inspector.pending
-    assert w.lens_open
+    assert w.focus_open
     QtTest.QTest.keyClick(field, QtCore.Qt.Key.Key_Escape)
-    assert not w.lens_open
+    assert not w.focus_open
 
 
 def _unexplained_links(w):
@@ -1698,7 +1919,7 @@ def test_views_compute_each_model_plane_once(workspace, scientific, monkeypatch)
         computed.append(plane)
         return dataset_model_plane(run, axes, plane, cancel=cancel)
 
-    for module in (canvas_module, lens_module, workspace_module):
+    for module in (canvas_module, workspace_module):
         monkeypatch.setattr(module, "dataset_model_plane", counted)
     publish(w, result)  # the overview's Overlay computes plane 1
     wait_until(lambda: not c.contour_pending)
@@ -1711,11 +1932,11 @@ def test_views_compute_each_model_plane_once(workspace, scientific, monkeypatch)
     w.find_unexplained()
     wait_until(lambda: w._unexplained[1] != "pending")
     assert computed == [0, 2]
-    # The overview and the lens reuse it: the same immutable plane, not a recomputation.
+    # The view reuses it, in focus too: the same immutable plane, not a recomputation.
     w.set_mode(2)
     wait_until(lambda: not c.contour_pending)
     assert c._model is w.model_planes.get(result.run_id, 2)
-    _open_lens(w, result)
+    _open_focus(w, result)
     assert computed == [0, 2]
 
 
@@ -1783,7 +2004,7 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     )
     # Choosing a region frames it and samples through its extreme; nothing is edited.
     links[0].click()
-    (x_low, x_high), (y_low, y_high) = c.main.getViewBox().viewRange()
+    (x_low, x_high), (y_low, y_high) = c.box.viewRange()
     for low, high, ppm, (start, stop) in (
         (x_low, x_high, c.ppm_x, first.columns),
         (y_low, y_high, c.ppm_y, first.rows),
@@ -1808,9 +2029,9 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     )
 
 
-def _view_point(plot, x: float, y: float) -> QtCore.QPoint:
-    scene = plot.getViewBox().mapViewToScene(QtCore.QPointF(x, y))
-    return plot.mapFromScene(scene)
+def _view_point(c, x: float, y: float) -> QtCore.QPoint:
+    """Viewport pixel of a ppm position in the spectral view's 2D plot."""
+    return c.view.mapFromScene(c.box.mapViewToScene(QtCore.QPointF(x, y)))
 
 
 def _refit(w):
@@ -1828,159 +2049,157 @@ def _refit(w):
     return result
 
 
-def test_correct_and_refit_in_the_lens(workspace, scientific):  # noqa: PLR0915
-    w = workspace
+def test_correct_and_refit_in_focus(workspace, scientific):  # noqa: PLR0915
+    w, c = workspace, workspace.canvas
     result = scientific[-1]
     publish(w, result)
-    lens = w.lens
-    w.open_lens("1")
-    wait_until(lambda: not lens.pending)
-    pair = lens.ids
+    w.open_focus("1")
+    wait_until(lambda: not c.contour_pending)
+    pair = w._focus_ids
     assert set(pair) == {"0", "1"}
     before = {p.id: p.positions for p in w.peaks}
     revision = w.edits.revision
 
-    # A drag in any panel is a draft: ghost at the proposal, accepted model kept.
-    lens._drag(0.01, 0.02, False)
+    # A drag is a draft: ghost at the proposal, accepted model and markers kept.
+    c._move_peak(0.01, 0.02, False)
     assert w.pending
-    assert lens.draft.text().startswith("Draft")
-    x, y = lens.ghosts[1].getData()
+    x, y = c.ghost.getData()
     assert (x[0], y[0]) == pytest.approx((before["1"][1] + 0.01, before["1"][0] + 0.02))
-    assert lens.markers[1].getData()[0].tolist() == [
-        display_position(lens.x_axis, p.positions[1]) for p in w.peaks
+    assert c.markers.getData()[0].tolist() == [
+        display_position(c.x_axis, p.positions[1]) for p in w.peaks
     ]
-    assert lens.current
-    assert lens._data["model"] is not None
+    assert w.fitting.current
+    assert c._model is not None
     assert w.edits.revision == revision
-    lens._drag(0.01, 0.02, True)
+    c._move_peak(0.01, 0.02, True)
     moved = next(p for p in w.peaks if p.id == "1").positions
     assert moved == (before["1"][0] + 0.02, before["1"][1] + 0.01)  # exact, unsnapped
     assert w.edits.revision == revision + 1
     assert not w.fitting.current
-    assert lens.ghosts[1].getData()[0].size == 0
-    assert w.lens_open
-    assert lens.ids == pair
+    assert c.ghost.getData()[0].size == 0
+    assert w.focus_open
+    assert w._focus_ids == pair
 
     # The folded peak moves in unfolded ppm; its marker stays at the aliased position.
     w.select_peak("0", cluster=True)
-    lens._drag(-0.005, 0.01, True)
+    c._move_peak(-0.005, 0.01, True)
     folded = next(p for p in w.peaks if p.id == "0").positions
     assert folded == (before["0"][0] + 0.01, before["0"][1] - 0.005)
-    marker_y = lens.markers[0].getData()[1][[p.id for p in w.peaks].index("0")]
-    assert marker_y == display_position(lens.y_axis, folded[0])
+    marker_y = c.markers.getData()[1][[p.id for p in w.peaks].index("0")]
+    assert marker_y == display_position(c.y_axis, folded[0])
     assert marker_y != folded[0]
 
-    # Undo and Redo are the workspace's; the lens stays on its cluster.
+    # Undo and Redo are the workspace's; focus stays on its cluster.
     w.history(False)
     assert next(p for p in w.peaks if p.id == "0").positions == before["0"]
     w.history(True)
     assert next(p for p in w.peaks if p.id == "0").positions == folded
-    assert w.lens_open
-    assert lens.ids == pair
+    assert w.focus_open
+    assert w._focus_ids == pair
 
-    # Placement: A arms it, Escape cancels it without leaving the lens.
-    lens.setFocus()
-    QtTest.QTest.keyClick(lens, QtCore.Qt.Key.Key_A)
-    assert lens.placing
-    QtTest.QTest.keyClick(lens, QtCore.Qt.Key.Key_Escape)
-    assert not lens.placing
-    assert w.lens_open
-    # A click in the residual panel adds a peak at its exact position.
+    # Placement: A arms it, Escape cancels it without leaving focus.
+    c.view.setFocus()
+    QtTest.QTest.keyClick(c.view, QtCore.Qt.Key.Key_A)
+    assert c.placing
+    QtTest.QTest.keyClick(c.view, QtCore.Qt.Key.Key_Escape)
+    assert not c.placing
+    assert w.focus_open
+    # A click in the focused plot adds a peak at its exact position.
     count = len(w.peaks)
     w.start_placing()
-    (x0, x1), (y0, y1) = lens.panels[2].getViewBox().viewRange()
-    target = ((x0 + x1) / 2, (y0 + y1) / 2)
-    point = _view_point(lens.panels[2], *target)
-    QtTest.QTest.mouseClick(lens.panels[2].viewport(), QtCore.Qt.MouseButton.LeftButton, pos=point)
+    (x0, x1), (y0, y1) = c.box.viewRange()
+    point = _view_point(c, (x0 + x1) / 2, (y0 + y1) / 2)
+    QtTest.QTest.mouseClick(c.view.viewport(), QtCore.Qt.MouseButton.LeftButton, pos=point)
     assert len(w.peaks) == count + 1
     added = w.peaks[-1]
     assert w.selected_id == added.id
-    clicked = lens.panels[2].getViewBox().mapSceneToView(lens.panels[2].mapToScene(point))
+    clicked = c.box.mapSceneToView(c.view.mapToScene(point))
     assert added.positions == (clicked.y(), clicked.x())
-    # The new peak is not in the run, yet the lens keeps its cluster and says so.
-    assert w.lens_open
-    assert lens.ids == pair
-    assert f"{added.name} is not in this cluster of the run" in lens.note.text()
-    assert not lens.placing
-    # Undoing the addition keeps the lens too.
+    # The new peak is not in the run, yet focus keeps its cluster and says so.
+    assert w.focus_open
+    assert w._focus_ids == pair
+    assert f"{added.name} is not in this cluster of the run" in w.focus_bar.note.text()
+    assert not c.placing
+    # Undoing the addition keeps focus too.
     w.history(False)
     assert len(w.peaks) == count
-    assert w.lens_open
-    assert lens.ids == pair
+    assert w.focus_open
+    assert w._focus_ids == pair
 
-    # A failed or canceled fit keeps the edits and the lens.
+    # A failed or canceled fit keeps the edits and focus.
     edited = w.peaks
     w.fitting._finished(0, RuntimeError("worker died"))
     assert w.fitting.failure == "worker died"
     w.fitting.cancel()
     assert w.peaks == edited
-    assert w.lens_open
-    assert lens.ids == pair
+    assert w.focus_open
+    assert w._focus_ids == pair
 
     # Move peak 1 next to the remote peak: the refit splits the pair and merges 1.
     w.select_peak("1", cluster=True)
     remote = next(p for p in w.peaks if p.id == "remote").positions
     current = next(p for p in w.peaks if p.id == "1").positions
-    lens._drag(remote[1] - current[1] + 0.02, remote[0] - current[0] + 0.03, True)
+    c._move_peak(remote[1] - current[1] + 0.02, remote[0] - current[0] + 0.03, True)
     refit = _refit(w)
-    wait_until(lambda: not lens.pending)
+    wait_until(lambda: not c.contour_pending)
     identities = {i.engine_name: i.working_id for i in refit.inputs.identities}
     now = next(
-        tuple(identities[n] for n in c.peak_names)
-        for c in refit.outcome.clusters
-        if "1" in {identities[n] for n in c.peak_names}
+        tuple(identities[n] for n in cl.peak_names)
+        for cl in refit.outcome.clusters
+        if "1" in {identities[n] for n in cl.peak_names}
     )
     assert set(now) == {"1", "remote"}
-    assert w.lens_open
-    assert lens.ids == now
-    assert lens.current
-    text = lens.membership_plain
+    assert w.focus_open
+    assert w._focus_ids == now
+    assert w.fitting.current
+    bar = w.focus_bar
+    text = bar.membership_plain
     assert text.startswith(f"Regrouped by run {refit.run_id[:8]} · was Duplicate +1")
     assert "joined by Duplicate" in text
     assert text.endswith("now fitted in other clusters: Duplicate ›")
-    assert '<a href="0">Duplicate ›</a>' in lens.membership.text()
+    assert '<a href="0">Duplicate ›</a>' in bar.membership.text()
     # The link opens the cluster the previous member is now fitted in.
-    lens.membership.linkActivated.emit("0")
+    bar.membership.linkActivated.emit("0")
     assert w.selected_id == "0"
-    assert "0" in lens.ids
-    assert lens.membership.isVisible()
+    assert "0" in w._focus_ids
+    assert bar.membership.isVisibleTo(w)
+    # Leaving focus reverts nothing: the refit and its edits stay.
+    w.close_focus()
+    assert w.fitting.result is refit
+    assert next(p for p in w.peaks if p.id == "1").positions != before["1"]
 
 
-def test_an_added_peak_keeps_lens_context_and_is_followed_after_refit(workspace, scientific):
-    w = workspace
+def test_an_added_peak_keeps_focus_context_and_is_followed_after_refit(workspace, scientific):
+    w, c = workspace, workspace.canvas
     publish(w, scientific[-1])
-    lens = w.lens
-    w.open_lens("remote")
-    wait_until(lambda: not lens.pending)
-    assert lens.ids == ("remote",)
-    # Placed in view: the lens keeps the cluster it shows.
+    w.open_focus("remote")
+    wait_until(lambda: not c.contour_pending)
+    assert w._focus_ids == ("remote",)
+    # Placed inside the cluster's frame: focus keeps the cluster it shows.
     remote = next(p for p in w.peaks if p.id == "remote").positions
     w.start_placing()
     w.place_peak((remote[0] + 0.02, remote[1] + 0.02))
     added = w.peaks[-1]
     assert w.selected_id == added.id
-    assert lens.ids == ("remote",)
-    # Out of view, an unfitted peak shows the cluster with its nearest member.
+    assert w._focus_ids == ("remote",)
+    # Outside it, an unfitted peak shows the cluster with its nearest member.
     one = next(p for p in w.peaks if p.id == "1")
-    lens.panels[0].getViewBox().setRange(
-        xRange=(remote[1] - 0.001, remote[1] + 0.001),
-        yRange=(remote[0] - 0.001, remote[0] + 0.001),
-        padding=0,
-    )
     far = w.edits.add((one.positions[0] + 0.001, one.positions[1] + 0.001))
     w._refresh()
     w.select_peak(far.id, cluster=True)
-    assert set(lens.ids) == {"0", "1"}
-    assert w.lens_open
+    assert set(w._focus_ids) == {"0", "1"}
+    assert w.focus_open
     # Remove it again; refit with the first added peak selected.
     w.history(False)
     w.select_peak(added.id, cluster=True)
-    assert lens.ids == ("remote",)
+    assert w._focus_ids == ("remote",)
     refit = _refit(w)
-    wait_until(lambda: not lens.pending)
+    wait_until(lambda: not c.contour_pending)
     # It joined the remote peak's cluster: a merge, said without a link back.
-    assert set(lens.ids) == {"remote", added.id}
-    assert lens.membership_plain == f"Run {refit.run_id[:8]} fits {added.name} with Duplicate"
+    assert set(w._focus_ids) == {"remote", added.id}
+    assert (
+        w.focus_bar.membership_plain == f"Run {refit.run_id[:8]} fits {added.name} with Duplicate"
+    )
 
 
 def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientific):  # noqa: PLR0915
@@ -2035,21 +2254,18 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     w.set_mode(1)
     assert "model · " + tag in c.legend.text()
 
-    # The lens compares with the same historical model and marks the same peaks.
-    w.open_lens("1")
-    lens = w.lens
-    wait_until(lambda: not lens.pending)
-    np.testing.assert_allclose(lens._data["residual"], residual)
-    assert lens.captions[2].text() == f"Whole-spectrum residual · {tag}"
-    assert lens.trace_caption.text().startswith(f"{tag} model · Row through")
-    assert lens.added_marks[0].getData()[0].size == 0
-    assert lens.added_marks[1].getData()[0].size == 1
-    assert lens.recorded_marks[2].getData()[0].size == 1
-    # The lens names its marks as the overview legend does.
-    assert lens.key.isVisibleTo(lens)
-    assert "not in this model" in lens.key.text()
-    assert "position in this model" in lens.key.text()
-    w.close_lens()
+    # Focus compares with the same historical model and marks the same peaks.
+    w.set_mode(2)
+    w.open_focus("1")
+    wait_until(lambda: not c.contour_pending)
+    np.testing.assert_array_equal(c._model.values, model.values)
+    assert "model and residual are historical" in w.focus_bar.note.text()
+    assert c.added_marks.getData()[0].size == 1
+    assert c.recorded_marks.getData()[0].size == 1
+    assert tag in c.legend.text()
+    assert "not in this model" in c.legend.text()
+    assert "position in this model" in c.legend.text()
+    w.close_focus()
 
     # The unexplained list keeps the run's residual; distances follow working peaks.
     w.select_peak(None)
@@ -2089,11 +2305,12 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     assert not w.mode_buttons[2].isEnabled()
     assert w.mode_buttons[2].toolTip() == f"Unavailable: {reason}"
     assert w.panel.unexplained_title.text() == f"Unavailable: {reason}"
-    w.open_lens("1")
-    wait_until(lambda: not lens.pending)
-    assert lens.unavailable[2].toPlainText() == f"Unavailable: {reason}"
-    assert not lens.layers[2]
-    assert lens.captions[2].text() == "Whole-spectrum residual"
+    # Focus shows the experiment only, and the modes still say why.
+    w.open_focus("1")
+    assert w.focus_open
+    assert c.comparison_mode == 0
+    assert c.comparison_result is None
+    assert w.mode_buttons[2].toolTip() == f"Unavailable: {reason}"
 
 
 def test_run_summary_opens_the_review_which_leads_the_analysis_page_after_a_fit(
@@ -2130,8 +2347,8 @@ def test_run_summary_opens_the_review_which_leads_the_analysis_page_after_a_fit(
 def test_enter_on_a_name_returns_focus_so_a_places_the_next_peak(workspace, scientific):
     w = workspace
     publish(w, scientific[-1])
-    w.open_lens("1")
-    wait_until(lambda: not w.lens.pending)
+    w.open_focus("1")
+    wait_until(lambda: not w.canvas.contour_pending)
     w.start_placing()
     remote = next(p for p in w.peaks if p.id == "remote").positions
     w.place_peak((remote[0] + 0.02, remote[1] + 0.02))
@@ -2143,9 +2360,9 @@ def test_enter_on_a_name_returns_focus_so_a_places_the_next_peak(workspace, scie
     assert w.peaks[-1].name == "U1"
     focus = QtWidgets.QApplication.focusWidget()
     assert focus is not None
-    assert focus is w.lens or w.lens.isAncestorOf(focus)
+    assert focus is w.canvas.view or w.canvas.view.isAncestorOf(focus)
     QtTest.QTest.keyClick(focus, QtCore.Qt.Key.Key_A)
-    assert w.lens.placing
+    assert w.canvas.placing
     # A coordinate field keeps focus after Enter, showing the exact committed value.
     w.cancel_gesture()
     field = w.inspector.x_field
@@ -2219,7 +2436,6 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
     # A small model-coloured □, distinct from the ◇ of a peak absent from a historical model.
     assert w.canvas.unadopted.opts["symbol"] == "s"
     assert w.canvas.added_marks.opts["symbol"] == "d"
-    assert all(m.opts["symbol"] == "s" for m in w.lens.unadopted)
     # The peak page states it, and the review lists the pair as a measure.
     w.select_peak(ids["53N-H"])
     labels = [label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel)]
@@ -2241,9 +2457,9 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
     run = completion.result.run_id[:8]
     assert reasons[moved.id] == f"moved since run {run}"
     assert reasons[ids["53N-H"]].startswith(f"not adopted by run {run}: near-collinear")
-    # The lens on the pair keys its □ marks, as the overview legend does.
-    w.open_lens(ids["53N-H"])
-    wait_until(lambda: not w.lens.pending, timeout=60)
-    assert w.lens.unadopted[1].getData()[0].size == len(retained)
-    assert "□" in w.lens.key.text()
-    assert "fitted position, not adopted" in w.lens.key.text()
+    # Focus on the pair keeps its □ marks and their key.
+    w.open_focus(ids["53N-H"])
+    wait_until(lambda: not w.canvas.contour_pending, timeout=60)
+    assert w.focus_open
+    assert len(w.canvas.unadopted.data) == len(retained)
+    assert "fitted position, not adopted" in w.canvas.legend.text()

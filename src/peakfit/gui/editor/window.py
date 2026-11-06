@@ -109,7 +109,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         super().__init__()
         self.setWindowTitle("PeakFit")
         self.resize(1280, 800)
-        self.setMinimumSize(1040, 720)
+        # No fixed minimum: the visible parts' minimums, which never exceed the window.
         self.workspace: EditorWorkspace | None = None
         self._sample_status: QtWidgets.QLabel | None = None
         self._revision = 0
@@ -225,6 +225,18 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         )
         self._action(view, "Go to sampled coordinates…", self.sample_dialog)
         self._action(view, "Spectrum ranges…", self.ranges_dialog)
+        view.addSeparator()
+        self._action(
+            view,
+            "Focus cluster",
+            lambda: self.workspace and self.workspace.open_focus(),
+            "Ctrl+Shift+F",
+        )
+        self._action(
+            view, "Return to spectrum", lambda: self.workspace and self.workspace.close_focus()
+        )
+        self._build_slice_menu(view.addMenu("Slices"))
+        view.addSeparator()
         appearance = view.addMenu("Appearance")
         self.appearance_group = QtGui.QActionGroup(self)
         for name in ("System", "Light", "Dark"):
@@ -420,6 +432,8 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
                 "coordinates disambiguate them."
             )
             workspace.error.show()
+        # Before the first layout, so the new columns never enlarge the window.
+        workspace.fit_panels(self.width())
 
     def adopt_status(self, workspace: EditorWorkspace | None) -> None:
         """Show the workspace's sampled values in the status bar, beside job messages."""
@@ -625,7 +639,8 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         """Expose viewport ranges for keyboard-only zoom and pan."""
         if not self.workspace:
             return
-        view = self.workspace.canvas.main.getViewBox()
+        canvas = self.workspace.canvas
+        view = canvas.box
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle("Spectrum ranges")
         form = QtWidgets.QFormLayout(dialog)
@@ -658,7 +673,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             except ValueError:
                 error.setText("Enter finite minimum < maximum for each axis.")
                 return
-            view.setRange(xRange=values[:2], yRange=values[2:], padding=0)
+            canvas.set_ranges(values[:2], values[2:])
             dialog.accept()
 
         buttons.accepted.connect(accept)
@@ -666,17 +681,58 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         form.addRow(buttons)
         dialog.exec()
 
+    def _build_slice_menu(self, menu: QtWidgets.QMenu) -> None:
+        """Menu and keyboard alternatives to the slice dividers and wheel scales."""
+
+        def canvas(method: str, *args):
+            return lambda: self.workspace and getattr(self.workspace.canvas, method)(*args)
+
+        self.lanes_action = menu.addAction("Residual lanes")
+        self.lanes_action.setCheckable(True)
+        self.lanes_action.setShortcut("Ctrl+Shift+L")
+        self.lanes_action.triggered.connect(
+            lambda checked: self.workspace and self.workspace.set_lanes(checked)
+        )
+        menu.aboutToShow.connect(self._sync_slice_menu)
+        menu.addSeparator()
+        step = 24
+        for title, which, change, key in (
+            ("Taller row slice", "row", step, "Ctrl+Alt+Down"),
+            ("Shorter row slice", "row", -step, "Ctrl+Alt+Up"),
+            ("Wider column slice", "column", step, "Ctrl+Alt+Left"),
+            ("Narrower column slice", "column", -step, "Ctrl+Alt+Right"),
+        ):
+            self._action(menu, title, canvas("resize_slice", which, change), key)
+        self._action(menu, "Default slice sizes", canvas("reset_sizes"))
+        menu.addSeparator()
+        self._action(menu, "Magnify slice intensities", canvas("scale_intensity", 1), "Ctrl+Alt+=")
+        self._action(menu, "Reduce slice intensities", canvas("scale_intensity", -1), "Ctrl+Alt+-")
+        self._action(menu, "Slice intensities from the view", canvas("scale_intensity", None))
+        self._action(menu, "Magnify residual lanes", canvas("scale_lanes", 1))
+        self._action(menu, "Reduce residual lanes", canvas("scale_lanes", -1))
+        self._action(menu, "Default residual lanes", canvas("scale_lanes", None))
+
+    def _sync_slice_menu(self) -> None:
+        if self.workspace:
+            with QtCore.QSignalBlocker(self.lanes_action):
+                self.lanes_action.setChecked(self.workspace.canvas.sizes.lanes)
+
     def shortcuts(self) -> None:
         """Keep essential gestures discoverable through a normal Help command."""
         QtWidgets.QMessageBox.information(
             self,
             "Keyboard shortcuts",
             "Open: Cmd/Ctrl+O · Search: Cmd/Ctrl+F\nUndo: Cmd/Ctrl+Z · Redo: Cmd/Ctrl+Shift+Z\n"
-            "Full spectrum: Cmd/Ctrl+0 · Plane: Ctrl+Page Up/Down\n\n"
+            "Full spectrum: Cmd/Ctrl+0 · Plane: Ctrl+Page Up/Down\n"
+            "Focus cluster: Cmd/Ctrl+Shift+F or Enter in the cluster list · Escape returns\n"
+            "Slices: Cmd/Ctrl+Alt+arrows resize · Cmd/Ctrl+Alt+=/− scale · "
+            "Cmd/Ctrl+Shift+L residual lanes\n\n"
             "Canvas: Space pin/unpin · A add peak · arrows step native sample\n"
             "Canvas/list: Delete selected peak(s) · Enter/double-click edits\n"
             "Fields: Enter commits whole group · Escape discards · Tab retains draft\n\n"
             "Select then drag a marker to move. Drag blank space to pan; wheel zooms.\n"
+            "Drag a slice divider to resize; wheel over a slice or lane scales it, "
+            "double-click resets.\n"
             "View provides exact sample and frequency-range fields. File exports working peaks.",
         )
 

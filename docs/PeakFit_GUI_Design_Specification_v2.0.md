@@ -15,7 +15,7 @@ vertical slices. **Date:** 29 October 2026.
 verified external spectral sources, explicit evidence retention and capability-checked
 reopening. Compact refinement and automatic fitted-position adoption remain in force.
 **Design revision 2.1 (31 October 2026):** three-column review workspace
-(navigator · spectrum · inspector), Cluster lens, separate numerical warnings,
+(navigator · spectrum · inspector), cluster focus, separate numerical warnings,
 review measures and heuristics, integrated fit setup with clustering preview,
 optional reference-normalized profiles and a revised visual system. Sections 1–3,
 5–10 and 12–14 change; scientific state, persistence and MCMC contracts do not.
@@ -82,24 +82,32 @@ sits beyond it.
 | --- | --- |
 | Toolbar | One row: analysis name and Modified state; run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the fit setup (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin traces, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
 | Navigator (left) | **Clusters / Peaks** tabs, search, a filter menu with counts and sortable rows (§8). Before a fit only Peaks exists; rows show assignment and display-precision coordinates. |
-| Spectral area | Dominant 2D spectrum, row trace directly above, column trace directly to its right; their frequency axes align exactly with the 2D viewport. In the Cluster lens this area shows the lens (§3). |
+| Spectral area | One spectral view: the dominant 2D spectrum, the row slice directly above and the column slice directly to its right, each sharing its frequency axis exactly with the 2D plot, with optional residual lanes. Cluster focus reframes this same view in place (§3). |
 | Inspector (right) | Contextual pages chosen by selection (below). |
 | Plane strip | Previous/next, exact one-based plane field with count, slider by plane index, plane value with its optional display label (§5). Chosen reference planes are marked on the slider. A 2D dataset shows “Single plane”. No embedded profile plot. |
 | Status line | Preview/Pinned, sampled coordinates, raw intensity or residual with units, short contextual gesture hint. Long failures remain available in run details, not a disappearing toast. |
 
-The upper trace is a row at the sampled vertical coordinate; the right trace is a
-column at the sampled horizontal coordinate. Neither is a projection or sum.
-Traces show measured data and, while a current model exists, the total model in
-common units; Residual shows residual traces. Plot labels use the loaded
-axis/nucleus names, not hard-coded H/N/F2/F3.
+The upper slice is a row at the sampled vertical coordinate; the right slice is a
+column at the sampled horizontal coordinate. Neither is a projection or sum. Slices
+are lines through the native samples, without markers or values between samples:
+measured data and, in Overlay, the total model at the same samples in common units.
+Residual lanes under each slice show the whole-spectrum residual; in Residual the
+slices show it and the lanes hide. Dividers between slice and plot resize each
+slice independently (collapse below 48 px). Scales are in §8. Plot labels use the
+loaded axis/nucleus names, not hard-coded H/N/F2/F3.
 
 Both side panels are splitter panes with remembered widths (an application
 preference) and can be hidden completely with a toolbar toggle and shortcut.
 Default widths at 1280×800: navigator 256–280 px, inspector 300–320 px. Resizing
 never changes the user's panel choices; selection never opens a hidden panel, and
-background work never opens, closes or resizes one. Target minimum window 1040×720
-with at least 500×320 px of 2D plot; below that, hiding a panel is the remedy, not
-smaller text.
+background work never opens, closes or resizes one. PeakFit never enlarges the
+window: its minimum is the sum of the visible parts' minimums (2D plot 360×300,
+slices 72 px, lanes 24 px, navigator 260 px, inspector 300 px). Opening a side
+panel, lanes or focus takes space from lanes, then slices, then the other side
+panel; when the minimums still do not fit, the action is declined with a message
+naming the remedy. A saved layout restores spectral area, inspector, navigator in
+that order. 1160×720 is the validated reference with both side panels, slices and
+lanes; below it, hiding a panel is the remedy, not smaller text.
 
 ### Inspector pages
 
@@ -118,8 +126,6 @@ The inspector shows one page, chosen by selection and never by hover:
   numerical warnings, review measures and heuristics (§8),
   amplitude profiles of all members, parameter table and amplitude-correlation
   matrix.
-- **Lens:** in the Cluster lens the inspector widens to about 340 px and shows the
-  cluster page with every member's parameters side by side.
 
 The profile plot is at least 280×170 px at 1280×800. A page scrolls as a whole;
 there are no nested scroll areas. Provenance (optimizer, termination message,
@@ -133,8 +139,8 @@ validation; errors identify the file, row/axis and remedy.
 
 Use ordinary splitters and layouts. Do not add detachable docks, a ribbon,
 per-plot toolbars, an extensible panel framework or freely arranged layouts. Wide
-future views (MCMC traces, run history) use the lens area or a separate explicit
-window, never a permanent lower panel.
+future views (MCMC traces, run history) use a separate explicit window, never a
+permanent lower panel.
 
 ## 3. Representative application states
 
@@ -164,57 +170,53 @@ inspection pin stays fixed. The total model includes every usable cluster. The
 navigator switches to Clusters with warnings, measures, heuristics, sorting and
 filters (§8). Selecting a cluster marks its other members with light rings and,
 when fitting regions are shown, emphasizes its recorded region (§7); it neither
-isolates its model nor changes the viewport. **Frame cluster**
+isolates its model nor changes the viewport. **Focus cluster**
 is an explicit action.
 The mockup shows the overview after the user switched to Experimental.
 
-### C. Cluster lens: judge one cluster
+### C. Cluster focus: judge one cluster
 
-![Cluster lens on 53N-H and 147N-H: experimental, overlay and whole-spectrum residual panels with raw signed profiles and amplitude correlation](images/gui-v2.1-cluster-lens.webp)
-
-Enter or double-click on a Clusters row, or **Open lens** in the inspector or
-context menu, replaces the spectral area with the lens; Escape (when no draft,
-gesture or dialog is active) or **‹ Spectrum** returns with the overview viewport
-unchanged. Three linked panels show the cluster region as **Experimental**,
-**Overlay** and **Whole-spectrum residual**, sharing zoom, crosshair, plane and
-markers. Below them, the row trace through the selected member shows measured
-data, total model and whole-spectrum residual in σ_stat with a ±3 σ band. The
-default region is the recorded fitting-sample extent plus a margin; zoom and pan
-are free. The comparison selector does not apply inside the lens; leaving restores
-the previous mode. The plane strip and profile points change plane in the lens.
+Enter or double-click on a Clusters row, **Focus cluster** on the cluster page, or
+View → Focus cluster reframes the spectral view in place on the selected peak's
+recorded cluster. The default frame is the displayed member positions ± max(3 ×
+fitted FWHM, 8 native samples) per axis (samples only when a linewidth is
+unavailable), at most a quarter of the spectral width and clipped to the spectrum;
+it is independent of the optimizer's fitting samples, which **Fitting region**
+shows separately. Focus shows residual lanes by default and keeps its own slice
+sizes between focuses. Modes, marks, legend, pin, plane and display settings are
+those of the one view. A bar above it names the cluster and its run with **‹
+Spectrum**. Escape (when no draft, gesture or dialog is active) or ‹ Spectrum
+restores the overview's viewport, slice sizes and scales, mode, region display and
+sample exactly; leaving never reverts edits or fits. Full spectrum reframes the
+cluster while in focus.
 
 ### D. Correct and refit
 
-Drafts and commits follow §4–§5 in the overview and in every lens panel. An
+Drafts and commits follow §4–§5, in the overview and in focus alike. An
 uncommitted draft keeps the accepted comparison visible and labeled. A commit
 makes the run Outdated; its model and residual stay on show as **historical
 evidence** (§8), so several corrections can follow one residual before the next
-fit. **Fit** refits the whole dataset; the lens stays
-open on the cluster identified by its members' stable IDs. If membership changed,
-the lens says so and offers the new cluster containing the selected peak.
+fit. **Fit** refits the whole dataset; focus stays on the cluster identified by its
+members' stable IDs. If membership changed, the focus bar says so and offers the
+new cluster containing the selected peak.
 
-- **Edits.** The lens proposes and the workspace commits through the same
-  undoable peak edits as the overview: a drag of the selected marker in any panel
-  (ghost marker, “Draft” in the lens header, continuous unfolded ppm), and one-shot
-  placement (**A**). Escape cancels a gesture before it leaves the lens.
-- **Context.** A selected peak that the run did not fit keeps the lens on its
-  cluster while the peak is in view, so adding a peak never loses the region;
-  selected from elsewhere, it opens the cluster with its nearest member (native
+- **Edits.** The same undoable peak edits as the overview: a drag of the selected
+  marker (ghost marker, continuous unfolded ppm), and one-shot placement (**A**).
+  Escape cancels a gesture or draft before it leaves focus.
+- **Context.** A selected peak that the run did not fit keeps focus on its cluster
+  while the peak lies in the cluster's frame, so adding a peak never loses the
+  region; elsewhere, focus moves to the cluster with its nearest member (native
   samples).
-- **After Fit.** The lens follows the selected peak's stable ID and keeps the zoom
-  when the members are unchanged. When they changed, the header says “Regrouped by
+- **After Fit.** Focus follows the selected peak's stable ID and keeps the zoom
+  when the members are unchanged. When they changed, the bar says “Regrouped by
   run … · was … · joined by …”, names peaks not in the run, and links to the
   clusters that former members are now fitted in (a split). A peak added since the
   previous run says which peaks it is now fitted with, with a link back to the
-  cluster that was on show. The line stays until the lens moves to an unrelated
+  cluster that was on show. The line stays until focus moves to an unrelated
   cluster, closes or the next fit completes.
-- **Historical comparison.** After a commit the overlay and residual panel titles
-  and the row caption name the run (“Whole-spectrum residual · Run 5d7b4768 ·
-  historical”), and the header says “model and residual are historical”. Those
-  panels mark working peaks the model does not contain with ◇, and the model's
-  recorded positions of peaks moved or deleted since with ×, joined by a dotted
-  line to where a peak now is.
-- **Cancel or failure** keeps the previous run, every working edit and the lens.
+- **Historical comparison.** As in the overview (§8); the bar adds “model and
+  residual are historical”.
+- **Cancel or failure** keeps the previous run, every working edit and focus.
 
 At 1280×800 with both side panels open, the 2D plot is at least about 560×480 px.
 At 1440×900 and above, extra space goes to the spectrum. Large fonts may require
@@ -281,7 +283,7 @@ current evidence ([repeat-fit collapse](validation/repeat-fit-collapse.md)), not
 a physical boundary. Fitted values, warnings and classifications are unchanged.
 The peak page says “Fitted position not adopted: near-collinear fitted shapes
 with …”, the review lists the pair as a measure with 1 − |cos| and the amplitude
-cancellation, and the spectrum and lens mark each recorded fitted position not
+cancellation, and the spectrum marks each recorded fitted position not
 adopted with a small □ in the model colour. The run is Current: working markers deliberately stay where they
 were. Retained peaks start the next fit from defaults; moving one makes it an
 ordinary edited peak. Runs recorded before this rule keep their recorded adoption.
@@ -376,7 +378,7 @@ losing the sole result. Closing unsaved work retains the normal save guard.
 | Add peak / canvas A | One-shot placement cursor; next click places a working peak with a unique placeholder name and selects it. Escape cancels without history. No automatic peak picking. |
 | Delete/Backspace in canvas/list | Delete selected peak, one undo entry, no routine confirmation; text fields keep normal text deletion. Multi-selection for deletion is list-only with native modifier keys and a visible count. |
 | Double-click marker, or Enter on a Peaks row | Focus the coordinate editor, revealing the inspector explicitly if hidden. |
-| Enter or double-click on a Clusters row | Open the Cluster lens on that cluster; Escape returns to the overview. |
+| Enter or double-click on a Clusters row | Focus that cluster; Escape returns to the overview exactly as it was. |
 
 Picking uses a consistent logical-pixel tolerance across hover, click and drag,
 tested at multiple device pixel ratios. Coincident peaks present one small anchored
@@ -450,7 +452,7 @@ canvas arrows move the pinned sample one point; explicit axis/range fields in
 View support navigation without a pointing device. Escape acts on the current
 draft/gesture/dialog, never silently cancels a numerical job.
 
-In the navigator, arrows move, Enter opens the lens on a Clusters row (§5 table)
+In the navigator, arrows move, Enter focuses a Clusters row's cluster (§5 table)
 and N / Shift+N move to the next/previous row matching the active filters. With
 the canvas focused, E / O / R choose Experimental / Overlay / Residual, [ and ]
 change plane, A adds a peak and Space pins. Single-letter keys never act inside
@@ -497,7 +499,7 @@ make an outdated run current; recording it is a deferred storage decision (§14)
 ## 7. Fit setup, execution and acceptance
 
 **Fit dataset always fits the whole working dataset**, independent of selection,
-viewport, lens and display mode. Scientific settings are always visible and
+viewport, focus and display mode. Scientific settings are always visible and
 explicit; a modal confirmation dialog does not gate fitting.
 
 **Fit setup.** Before the first fit the inspector's Analysis page is the fit setup
@@ -574,14 +576,14 @@ explained. Default Overlay only when there is an evaluable model.
 
 ## 8. Comparison and scientific review
 
-One selector controls **all spectral views** outside the Cluster lens (§3), including
+One selector controls **all spectral views**, in focus or not (§3), including
 crosshair-intensity profiles:
 
 | Mode | 2D and aligned 1D behavior |
 | --- | --- |
 | Experimental | Signed original data; no fitted contribution. |
-| Overlay (default after fit) | Experimental plus sum of every usable accepted cluster, common contour levels and common trace units/scales. Selection never changes this sum. |
-| Residual | Native experimental data minus that same total model, displayed as `(D − M) / σ_stat`. Signed residual contours by default in 2D and residual samples/traces in both slices. Crosshair profiles use the same difference and units. |
+| Overlay (default after fit) | Experimental plus sum of every usable accepted cluster, common contour levels, and the model in both slices at the same native samples and scale. Selection never changes this sum. |
+| Residual | Native experimental data minus that same total model, displayed as `(D − M) / σ_stat`. Signed residual contours by default in 2D and the residual in both slices, on the ±N σ_stat lane scale. Crosshair profiles use the same difference and units. |
 
 Layers and signs are encoded twice, by hue and by stroke, with the fixed scientific
 palette of §12: measured positive as a graded blue ramp (solid), measured negative
@@ -607,7 +609,7 @@ geometry interpolates crossings, not observations. Missing samples stay absent.
 
 ### Historical comparison after an edit
 
-An Outdated run keeps Overlay, Residual, the lens panels and the unexplained-signal
+An Outdated run keeps Overlay, Residual and the unexplained-signal
 list available as **historical** comparisons: the immutable recorded model of that
 run, against the same measured planes. Nothing is refitted and Current/Outdated is
 unchanged.
@@ -615,7 +617,7 @@ unchanged.
 - **Labelled everywhere.** Every view of that model names the recorded run: the
   in-plot legend and pending label (“model · Run 5d7b4768 · historical”), the status
   bar sample text (“σ_stat residual · residual of Run 5d7b4768 · historical”), the
-  mode-button tooltips, the lens panel titles and row caption, and the unexplained
+  mode-button tooltips, the focus bar, and the unexplained
   list title.
 - **What changed since.** Compared with the run's adopted working peaks by stable
   ID, a working peak the run did not fit is marked ◇ (“not in this model”); a
@@ -625,37 +627,32 @@ unchanged.
   spectral axes, source plane indices, plane values, and spectrum identity, shape
   and source files. Otherwise the comparison is withdrawn with the reason
   (“Unavailable: Run 5d7b4768 was recorded with different plane values”) in the
-  mode tooltips, the lens panels and the unexplained list, and the overview returns
+  mode tooltips and the unexplained list, and the overview returns
   to Experimental.
 - **No borrowed statistics.** Cluster and peak pages keep saying “Recorded by an
   outdated run”; fitting statistics stay the run's and are not presented as
   measurements of the working model.
 
-### Stable signed 1D scale
+### Slice scales
 
-Use a symmetric signed range `[-S,+S]`, a visible zero and labeled values/units.
-Measured and calculated traces use the **same range**, as do the horizontal and
-vertical amplitude axes; no independent normalization. Before fit use original
-intensity units; after fit keep those units unless σ_stat display is explicitly
-selected and labeled. Converting units converts S without changing visual gain.
+Both slices share one **region intensity scale**: from min(0, lowest) to max(0,
+highest) of the measured data over the visible 2D region and every plane, padded by
+5 % of the span. It is asymmetric so one-signed spectra use the whole height, and
+always includes a visible zero. Measured and model share it; no independent
+normalization. It holds through hover, list navigation and plane changes and is
+recomputed only on a deliberate view change (zoom, pan, Full spectrum, framing),
+from the visible region, never from fitting masks. The wheel over a slice sets a
+**manual** scale, labelled as such, that persists through hover, planes and zoom
+until a double-click or reset, a new dataset, or focus on an unrelated cluster.
+Residual lanes, and the slices in Residual, share one ±N σ_stat scale (±8 by
+default) set independently by the wheel over a lane.
 
-At load, obtain a rounded-up dataset-wide maximum absolute experimental intensity
-off Qt and set S with a modest margin. When a new accepted model first exceeds
-that range, expand once to accommodate it, with a visible scale update; never shrink
-on completion. Keep S fixed through continuous hover, list navigation, pan/zoom and
-plane changes. A user can explicitly **Fit current traces** or enter S through
-Display/context menu to inspect weak peaks; this resets the range once, then locks
-it again. Model/observed extrema are considered together. No per-pointer or per-plane
-rescaling. Residual has a separate persistent range, initially ±8 σ_stat, also locked.
-
-Clipped positive/negative samples receive edge indicators and exact values on
-inspection; no silent clipping or automatic pumping. Preserve each mode's range
-when switching away and back. Slice updates extract only native row/column data;
-full-plane/dataset extrema are not rescanned on hover. Native residual values and
-accepted projection remain unchanged. Exact fitting masks remain optional/off by
-default and are not residual support. Model tails remain visible without silent cutoffs.
-
-
+Annotations are minimal: a zero baseline, one caption with the scale, its units and
+clipping counts, and exact values in a corner readout; the 2D ppm axes and profile
+axes stay quantitative. Clipped samples are marked at the edge, data (filled) and
+model (hollow) distinctly; no silent clipping. Slice updates extract only native
+row/column data; extrema are not rescanned on hover. Model tails remain visible
+without silent cutoffs.
 
 ### Two residuals, never mixed
 
@@ -664,8 +661,8 @@ The **recorded optimizer residual** is
 fitting samples, normalized by statistical noise, exactly as stored in the outcome.
 χ²ᵣ and the largest recorded residual come from it. The **whole-spectrum residual**
 is `(D − Σ usable M) / σ_stat` at every native point, including outside fitting
-masks; the Residual view, the lens residual panel, residual traces and the
-unexplained-signal list use it. They can differ on fitted samples because terminal
+masks; the Residual view, residual lanes and slices and the unexplained-signal list
+use it. They can differ on fitted samples because terminal
 corrections need not equal final neighbor models. Every display names which one it
 shows; neither is derived from the other, and no statistic comes from the display
 raster. No local-fit residual is presented as a total-model residual.
@@ -750,10 +747,11 @@ Only the latest valid request is installed. The mode, zoom and pin survive work.
 
 ## 9. Refinement and amplitude profiles
 
-Find a cluster in the navigator → open the lens → judge experimental, overlay and
-whole-spectrum residual side by side with profiles, parameters and correlations →
+Find a cluster in the navigator → focus it → judge experimental, overlay and
+whole-spectrum residual in the slices and lanes, with profiles, parameters and
+correlations →
 edit a draft while accepted evidence remains visible → commit → **Fit** → review the
-new run in the same lens. The inspector labels **Working for next fit** and
+new run in the same focus. The inspector labels **Working for next fit** and
 **Accepted · run N**; typed values are never presented as fitted. Changing a model
 rebuilds its applicable working fields with a preview of removed settings;
 incompatible bounds are errors rather than silently adjusted guesses. Each run shows
@@ -850,7 +848,7 @@ replaces nothing automatically.
 
 ## 10. MCMC uncertainty workflow
 
-From a usable current result, **Uncertainty…** opens in the Cluster lens. Default scope
+From a usable current result, **Uncertainty…** opens on the focused cluster. Default scope
 is the selected peak's whole overlap cluster; no selection requires an explicit
 choice of cluster(s) or All fitted clusters. Display all included members. Sampling
 is post-fit analysis of a named parent run, not a replacement optimizer or a way
@@ -1098,7 +1096,7 @@ fixtures with signed overlap, aliases, unusable clusters and repeated plane valu
 | --- | --- |
 | UX-1 | A scientist can open real data, locate an assignment, pin/unpin slices, edit/Undo, fit, inspect residuals, refine, sample, save, reopen and export using visible commands and short help. A moderated walkthrough requires no instruction on hidden gestures; any missed action becomes a concrete design issue before release. |
 | UX-2 | Hover never selects or overwrites a draft; selection/list/marker agree; pin survives unrelated hover; canceled drags leave no history; a completed drag/group edit adds exactly one entry. Test real pointer/keyboard input as well as Qt events. |
-| UX-3 | Before-fit (with fit setup and clustering preview), overview, lens and refinement layouts remain readable at 1280×800 and near 1440×900 in both appearances with both side panels open; minimum-window operation remains possible with panels hidden. No clipped numbers or units, nested scroll areas, obscured Cancel, panel opening on delivery or lost viewport. |
+| UX-3 | Before-fit (with fit setup and clustering preview), overview, focus and refinement layouts remain readable at 1280×800 and near 1440×900 in both appearances with both side panels open, and at 1160×720 with slices and lanes; below that, operation remains possible with panels hidden and PeakFit never enlarges the window. No clipped numbers or units, nested scroll areas, obscured Cancel, panel opening on delivery or lost viewport. |
 | UX-4 | Keyboard can perform selection, exact coordinate and sample navigation, editing/cancel/Undo, fit/cancel, save and review. Screen-reader names/state and focus order are checked on both platforms; disabled actions explain why. |
 | SCI-1 | Native row/column/plane values match source arrays exactly; cross-section frequency alignment error ≤1 logical pixel after resize/zoom. Repeated plane values retain distinct source indices. Alias round-trips and unchanged coordinate edits preserve original float64 values. |
 | SCI-2 | Overlay/model values match the authoritative completed projector within an explicitly tested numerical tolerance; signs, all usable contributions and mask-independent tails survive every mode. No view performs an amplitude solve. Display controls leave prepared scientific inputs byte/value-equivalent. |
@@ -1154,12 +1152,12 @@ framework or prototype monolith transplant.
    measures, heuristics and filters; inspector pages with profiles and parameters;
    plane strip with optional label; fit setup with clustering preview; run-to-run
    changes; reference-normalized profiles. Gates SCI-7/8/9, UX-5/7.
-6. **Cluster lens and diagnosis.** Lens, unexplained-signal list and the complete
+6. **Cluster focus and diagnosis.** Focus, unexplained-signal list and the complete
    correction loop with whole-dataset refit, verified on overlaps, changing
    membership and previous-run evidence.
 7. **Sample → diagnose → save/export uncertainty.** Validate executable sampling
    requests from live and reopened results, integrate cancellable sampling and
-   genuine diagnostics/intervals in the lens and inspector. Extend project round-trip
+   genuine diagnostics/intervals in focus and the inspector. Extend project round-trip
    tests to chains and uncertainty provenance. Gate SCI-5.
 8. **Release acceptance.** Run the complete scientist walkthrough, native macOS and
    Linux matrix, large-font/resize/theme checks, persistence failures and declared

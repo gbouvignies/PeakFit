@@ -1,9 +1,15 @@
-"""Retained signed contours, aligned native slices and independent inspection gestures."""
+"""The spectral view: signed contours, aligned native slices and inspection gestures.
+
+One graphics scene holds the 2D plot, its row and column slices, the optional
+residual lanes and their dividers, placed by ``spectral_geometry.layout``. Slices show
+experimental and model values at native samples; hover only updates their data.
+"""
 
 import html
 from collections import OrderedDict
 from concurrent.futures import CancelledError
 from dataclasses import replace
+from functools import partial
 from threading import Event
 from typing import TYPE_CHECKING, cast
 
@@ -16,6 +22,14 @@ import pyqtgraph as pg
 from peakfit.gui import formatting
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.editing import PeakMarkers
+from peakfit.gui.editor import slices
+from peakfit.gui.editor.spectral_geometry import (
+    Extents,
+    SliceSizes,
+    drag,
+    layout,
+    minimum_size,
+)
 from peakfit.gui.fit_display import dataset_model_plane, normalized_residual
 from peakfit.gui.spectrum import contour_geometry, display_position, paths_from_geometry
 from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
@@ -33,6 +47,10 @@ _RESIDUAL = 2
 _RESIDUAL_LEVELS = np.asarray([3.0, 5.0, 8.0, 13.0, 21.0])
 _FRAME_MARGIN = 0.35  # a framed extent gains this fraction on each side
 _FRAME_POINTS = 6  # and at least this many points on each side
+LANE_SIGMA = 8.0  # default residual lane range, ±σ_stat
+_SCALE_STEP = 1.25  # one wheel step of a manual slice or lane scale
+_COMMIT_MS = 200  # a zoom or pan is committed once the wheel or drag rests
+_READOUT_MIN = (40, 30)  # the corner readout needs at least this much room
 REGION_ALPHA = 0.08  # every fitting region, behind the contours
 SELECTED_REGION_ALPHA = 0.16  # the selected peak's cluster
 
@@ -126,10 +144,101 @@ class InspectionMarkers(PeakMarkers):
         ]
 
 
-class SpectrumCanvas(QtWidgets.QWidget):
+class _SceneView(pg.GraphicsView):
+    """The one graphics view; its scene coordinates are its pixels."""
+
+    resized = QtCore.Signal()
+
+    def resizeEvent(self, ev):  # noqa: N802
+        """Lay the plots out again for the new size."""
+        super().resizeEvent(ev)
+        self.resized.emit()
+
+
+class SliceBox(pg.ViewBox):
+    """A slice or lane: no pan or zoom; the wheel rescales (the view handles double-clicks)."""
+
+    def __init__(self, on_scale) -> None:
+        super().__init__(enableMenu=False, defaultPadding=0)
+        self.setMouseEnabled(x=False, y=False)
+        self.on_scale = on_scale
+
+    def wheelEvent(self, ev, axis=None) -> None:  # noqa: N802, ARG002
+        """Wheel up narrows the shown range; down widens it."""
+        self.on_scale(ev.delta())
+        ev.accept()
+
+
+class Divider(QtWidgets.QGraphicsRectItem):
+    """A visible drag handle between the 2D plot and one slice."""
+
+    def __init__(self, *, vertical: bool, on_drag, tip: str) -> None:
+        super().__init__()
+        self.vertical, self.on_drag = vertical, on_drag
+        self.color, self.hot_color, self.hot = "#c9d0d8", "#2f5da8", False
+        self.setAcceptHoverEvents(True)
+        self.setCursor(
+            QtCore.Qt.CursorShape.SplitHCursor if vertical else QtCore.Qt.CursorShape.SplitVCursor
+        )
+        self.setToolTip(tip)
+        self.setPen(QtGui.QPen(QtCore.Qt.PenStyle.NoPen))
+        self.setZValue(60)
+        self._anchor = QtCore.QPointF()
+
+    def paint(self, painter, _option, widget=None) -> None:  # noqa: ARG002
+        """A line with three grip dots, stronger under the pointer."""
+        rect = self.rect()
+        pen = QtGui.QPen(QtGui.QColor(self.hot_color if self.hot else self.color), 1)
+        painter.setPen(pen)
+        painter.setBrush(QtGui.QColor(self.hot_color if self.hot else self.color))
+        center = rect.center()
+        if self.vertical:
+            painter.drawLine(
+                QtCore.QPointF(center.x(), rect.top()), QtCore.QPointF(center.x(), rect.bottom())
+            )
+            dots = [QtCore.QPointF(center.x(), center.y() + k) for k in (-6, 0, 6)]
+        else:
+            painter.drawLine(
+                QtCore.QPointF(rect.left(), center.y()), QtCore.QPointF(rect.right(), center.y())
+            )
+            dots = [QtCore.QPointF(center.x() + k, center.y()) for k in (-6, 0, 6)]
+        for dot in dots:
+            painter.drawEllipse(dot, 1.4, 1.4)
+
+    def hoverEnterEvent(self, _event) -> None:  # noqa: N802
+        """Show that the line can be dragged."""
+        self.hot = True
+        self.update()
+
+    def hoverLeaveEvent(self, _event) -> None:  # noqa: N802
+        """Return to the quiet line."""
+        self.hot = False
+        self.update()
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        """Anchor the drag: size = size at press + total displacement."""
+        self._anchor = event.scenePos()
+        self.on_drag(None, finished=False)
+        event.accept()
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        """Follow the pointer."""
+        delta = event.scenePos() - self._anchor
+        self.on_drag(delta.x() if self.vertical else delta.y(), finished=False)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        """Commit the size."""
+        delta = event.scenePos() - self._anchor
+        self.on_drag(delta.x() if self.vertical else delta.y(), finished=True)
+        event.accept()
+
+
+class SpectralView(QtWidgets.QWidget):
     """Display observations only; scientific edits are proposals to the owning workspace."""
 
     selected = QtCore.Signal(str)
+    sizes_changed = QtCore.Signal()
+    scale_changed = QtCore.Signal()
     hovered = QtCore.Signal(object)
     moved = QtCore.Signal(str, object)
     placed = QtCore.Signal(object)
@@ -156,9 +265,14 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.model_planes = model_planes
         self._model_cancel = Event()
         self._model = None
-        self._expanded_model = False
-        self._scale_note = ""
-        self._trace_limits = {0: dataset.trace_limit, 2: 8.0}
+        # Slice display: user sizes, residual lanes and the intensity scale.
+        self.sizes = SliceSizes()
+        self.lane_sigma = LANE_SIGMA
+        self.lanes_fit = True  # False while the window has no room for the lanes
+        self.manual_scale: tuple[float, float] | None = None
+        self.region_scale: tuple[float, float] = (-1.0, 1.0)
+        self.clips: dict[str, tuple[int, int]] = {}
+        self._drag_origin = 0
         self.editing_enabled = True
         self.plane = 0
         self.iy, self.ix = (size // 2 for size in self.spectra.data.shape[1:])
@@ -173,7 +287,6 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self._drag_peak: WorkingPeak | None = None
         self._drag_pin = None
         self._draft_position = None
-        self.trace_limit = dataset.trace_limit
         self.contour_threshold = dataset.noise * 5
         self.contour_factor = 1.6
         self.contour_count = 10
@@ -204,57 +317,136 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.theme: Theme = LIGHT
         self.decimals_x = formatting.ppm_decimals(self.x_axis)
         self.decimals_y = formatting.ppm_decimals(self.y_axis)
-        grid = QtWidgets.QGridLayout(self)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(0)
-        self.top = self._plot()
-        self.main = self._plot()
-        self.right = self._plot()
-        self.main.setViewportUpdateMode(
+        outer = QtWidgets.QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        # One scene: the 2D plot, its slices, lanes and dividers are placed by
+        # spectral_geometry.layout, so shared extents are equal by construction.
+        self.view = _SceneView()
+        self.view.resized.connect(self._relayout)
+        self.view.setViewportUpdateMode(
             QtWidgets.QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate
         )
-        self.main.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
-        self.main.viewport().installEventFilter(self)
-        self.main.installEventFilter(self)
-        self.setFocusProxy(self.main)
-        self.main.setAccessibleName(
-            "2D spectrum; Space pins slices; A places peak; arrows step sample"
+        self.view.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+        self.view.viewport().installEventFilter(self)
+        self.view.installEventFilter(self)
+        self.setFocusProxy(self.view)
+        self.view.setAccessibleName(
+            "2D spectrum with native slices; Space pins slices; A places peak; arrows step sample"
         )
-        self.top.setAccessibleName("Horizontal native cross-section; raw intensity")
-        self.right.setAccessibleName("Vertical native cross-section; raw intensity")
-        self.top.setFixedHeight(96)
-        self.right.setFixedWidth(104)
-        grid.addWidget(self.top, 0, 0)
-        grid.addWidget(self.main, 1, 0)
-        grid.addWidget(self.right, 1, 1)
-        grid.setRowStretch(1, 1)
-        grid.setColumnStretch(0, 1)
-        self.main.setMinimumSize(400, 300)
-        for plot in (self.main, self.top):
-            plot.getAxis("left").setWidth(58)
-            plot.getViewBox().invertX(True)
-        for plot in (self.main, self.right):
-            plot.getAxis("bottom").setHeight(38)
-            plot.getViewBox().invertY(True)
-        self.top.hideAxis("bottom")
-        self.right.hideAxis("left")
-        self.top.setXLink(self.main)
-        self.right.setYLink(self.main)
-        self.top.setMouseEnabled(x=False, y=False)
-        self.right.setMouseEnabled(x=False, y=False)
-        self.curve_x = self.top.plot(antialias=True)
-        self.curve_y = self.right.plot(antialias=True)
-        self.model_x = self.top.plot(antialias=True)
-        self.model_y = self.right.plot(antialias=True)
+        outer.addWidget(self.view)
+        scene = cast("pg.GraphicsScene", self.view.scene())
+        font = QtGui.QFont(QtWidgets.QApplication.font())
+        font.setPixelSize(FONT_CAPTION)
+        metrics = QtGui.QFontMetrics(font)
+        self.extents = Extents(
+            left=metrics.horizontalAdvance("000.0") + metrics.height() + 18,
+            bottom=2 * metrics.height() + 14,
+        )
+        self.box = pg.ViewBox(enableMenu=False, defaultPadding=0)
+        self.box.invertX(True)
+        self.box.invertY(True)
+        self.row_box = SliceBox(self.scale_intensity)
+        self.row_lane = SliceBox(self.scale_lanes)
+        self.column_box = SliceBox(self.scale_intensity)
+        self.column_lane = SliceBox(self.scale_lanes)
+        # Slices share the plot's ppm direction (high on the left and top) and its range.
+        for box in (self.row_box, self.row_lane):
+            box.invertX(True)
+            box.setXLink(self.box)
+        for box in (self.column_box, self.column_lane):
+            box.invertY(True)
+            box.setYLink(self.box)
+        for box in (self.box, self.row_box, self.row_lane, self.column_box, self.column_lane):
+            scene.addItem(box)
+        self.bottom_axis = pg.AxisItem("bottom")
+        self.left_axis = pg.AxisItem("left")
+        for axis in (self.bottom_axis, self.left_axis):
+            axis.linkToView(self.box)
+            axis.setStyle(
+                maxTickLevel=0,
+                tickLength=-4,
+                tickFont=font,
+                tickTextOffset=4,
+                autoExpandTextSpace=False,
+                autoReduceTextSpace=False,
+            )
+            axis.enableAutoSIPrefix(False)
+            scene.addItem(axis)
+        self.left_axis.setWidth(self.extents.left)
+        self.bottom_axis.setHeight(self.extents.bottom)
+        x_name, y_name = (
+            formatting.nucleus(a.nucleus, a.label) for a in (self.x_axis, self.y_axis)
+        )
+        self.row_divider = Divider(
+            vertical=False,
+            on_drag=partial(self._drag_divider, "row"),
+            tip=f"Drag to resize the {x_name} slice; drag to the edge to collapse it. "
+            "Double-click resets its size.",
+        )
+        self.column_divider = Divider(
+            vertical=True,
+            on_drag=partial(self._drag_divider, "column"),
+            tip=f"Drag to resize the {y_name} slice; drag to the edge to collapse it. "
+            "Double-click resets its size.",
+        )
+        for divider in (self.row_divider, self.column_divider):
+            scene.addItem(divider)
+        # Experimental and model values at native samples, joined by lines; no markers.
+        self.curve_x, self.model_x = pg.PlotDataItem(), pg.PlotDataItem()
+        self.curve_y, self.model_y = pg.PlotDataItem(), pg.PlotDataItem()
+        self.lane_x, self.lane_y = pg.PlotDataItem(), pg.PlotDataItem()
         self.zero_x = pg.InfiniteLine(angle=0, pos=0)
         self.zero_y = pg.InfiniteLine(angle=90, pos=0)
-        self.top.addItem(self.zero_x)
-        self.right.addItem(self.zero_y)
+        self.lane_zero_x = pg.InfiniteLine(angle=0, pos=0)
+        self.lane_zero_y = pg.InfiniteLine(angle=90, pos=0)
+        self.clip_x, self.model_clip_x, self.lane_clip_x = (pg.ScatterPlotItem() for _ in range(3))
+        self.clip_y, self.model_clip_y, self.lane_clip_y = (pg.ScatterPlotItem() for _ in range(3))
+        for box, items in (
+            (
+                self.row_box,
+                (self.zero_x, self.curve_x, self.model_x, self.clip_x, self.model_clip_x),
+            ),
+            (
+                self.column_box,
+                (self.zero_y, self.curve_y, self.model_y, self.clip_y, self.model_clip_y),
+            ),
+            (self.row_lane, (self.lane_zero_x, self.lane_x, self.lane_clip_x)),
+            (self.column_lane, (self.lane_zero_y, self.lane_y, self.lane_clip_y)),
+        ):
+            for item in items:
+                box.addItem(item, ignoreBounds=True)
+        # One compact intensity indication per slice: a bar from the lower to the upper
+        # bound in the gutter, with a zero tick and its signs; the magnitude is in the caption.
+        self.scale_bars = (QtWidgets.QGraphicsPathItem(), QtWidgets.QGraphicsPathItem())
+        self.scale_signs = tuple(QtWidgets.QGraphicsSimpleTextItem() for _ in range(4))
+        for item in (*self.scale_bars, *self.scale_signs):
+            item.setZValue(50)
+            scene.addItem(item)
+        for sign in self.scale_signs:
+            sign.setFont(font)
+        self.caption = QtWidgets.QLabel(self.view)
+        self.caption.setObjectName("caption")
+        self.caption.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.caption.setAccessibleName("Slice scale")
+        self.readout = QtWidgets.QLabel(self.view)
+        self.readout.setObjectName("caption")
+        self.readout.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.readout.setAlignment(
+            QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft
+        )
+        self.readout.setWordWrap(True)
+        self.readout.setAccessibleName("Values at the crosshair")
+        self._commit = QtCore.QTimer(self)
+        self._commit.setSingleShot(True)
+        self._commit.setInterval(_COMMIT_MS)
+        self._commit.timeout.connect(self._range_committed)
+        self.box.sigRangeChangedManually.connect(lambda *_: self._commit.start())
+        self.box.sigRangeChanged.connect(lambda *_: self._place_scale_bars())
         self.cross_x = pg.InfiniteLine(angle=90, movable=False)
         self.cross_y = pg.InfiniteLine(angle=0, movable=False)
         for line in (self.cross_x, self.cross_y):
             line.setZValue(10)
-            self.main.getPlotItem().addItem(line, ignoreBounds=True)
+            self.box.addItem(line, ignoreBounds=True)
             line.sigDragged.connect(self._crosshair_dragged)
         # A plot-coloured cross under each marker keeps it legible over contours.
         self.marker_halo = self._scatter("+", 8, 19)
@@ -264,7 +456,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.markers.setZValue(20)
         self.markers.sigClicked.connect(self._marker_clicked)
         self.markers.moved.connect(self._move_peak)
-        self.main.addItem(self.markers)
+        self.box.addItem(self.markers)
         self.ring = self._scatter("o", 18, 30)
         # Other members of the selected peak's recorded cluster: lighter rings that
         # mark the unit of review while the selected peak stays the unit of editing.
@@ -282,7 +474,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         cell.translate(x0, y0)
         cell.scale(float(self.x_axis.pts2ppm(0.5)) - x0, float(self.y_axis.pts2ppm(0.5)) - y0)
         self.region_image.setTransform(cell)
-        self.main.getPlotItem().addItem(self.region_image, ignoreBounds=True)
+        self.box.addItem(self.region_image, ignoreBounds=True)
         self.region_image.setVisible(False)
         self.regions_visible = False
         self.region_key = None
@@ -297,7 +489,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.recorded_marks = self._scatter("x", 9, 18)
         self.recorded_links = pg.PlotDataItem(connect="pairs")
         self.recorded_links.setZValue(18)
-        self.main.getPlotItem().addItem(self.recorded_links, ignoreBounds=True)
+        self.box.addItem(self.recorded_links, ignoreBounds=True)
         self.halo = self._scatter("o", 15, 31)
         self.ghost = self._scatter("+", 10, 32)
         self.hover_label = self._label(35, (-0.08, 1.15))
@@ -306,15 +498,13 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self.pending_label = pg.TextItem("Preparing contours…", anchor=(0, 0))
         self.pending_label.setZValue(40)
         self.pending_label.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
-        self.main.getPlotItem().addItem(self.pending_label, ignoreBounds=True)
-        self.legend = QtWidgets.QLabel(self.main)
+        self.box.addItem(self.pending_label, ignoreBounds=True)
+        self.legend = QtWidgets.QLabel(self.view)
         self.legend.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.legend.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.legend.setAccessibleName("Contour legend")
-        scene = cast("pg.GraphicsScene", self.main.scene())
         scene.sigMouseMoved.connect(self._pointer_moved)
         scene.sigMouseClicked.connect(self._blank_click)
-        self._set_trace_limit(self.trace_limit)
         self.apply_theme(LIGHT)
         self.full_spectrum()
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
@@ -325,36 +515,18 @@ class SpectrumCanvas(QtWidgets.QWidget):
         """Use loaded names rather than assume a particular pair of nuclei."""
         return f"{formatting.nucleus(axis.nucleus, axis.label)} · {axis.label}"
 
-    @staticmethod
-    def _plot() -> pg.PlotWidget:
-        plot = pg.PlotWidget()
-        plot.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
-        plot.hideButtons()
-        plot.setMenuEnabled(False)
-        plot.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
-        plot.getViewBox().setDefaultPadding(0)
-        plot.getPlotItem().layout.setContentsMargins(0, 0, 0, 0)
-        plot.getPlotItem().layout.setSpacing(0)
-        font = QtGui.QFont(QtWidgets.QApplication.font())
-        font.setPixelSize(FONT_CAPTION)
-        for name in ("left", "bottom"):
-            axis = plot.getAxis(name)
-            axis.setStyle(maxTickLevel=0, tickLength=-4, tickFont=font, tickTextOffset=4)
-            axis.enableAutoSIPrefix(False)
-        return plot
-
     def _scatter(self, symbol, size, z):
         item = pg.ScatterPlotItem(symbol=symbol, size=size, brush=None)
         item.setZValue(z)
         item.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
-        self.main.addItem(item)
+        self.box.addItem(item)
         return item
 
     def _label(self, z: float, anchor: tuple[float, float]) -> pg.TextItem:
         label = pg.TextItem(anchor=anchor)
         label.setZValue(z)
         label.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
-        self.main.getPlotItem().addItem(label, ignoreBounds=True)
+        self.box.addItem(label, ignoreBounds=True)
         return label
 
     def _marker_tip(self, *, x: float, y: float, data: str) -> str:
@@ -377,13 +549,8 @@ class SpectrumCanvas(QtWidgets.QWidget):
             f"{formatting.number(x, self.decimals_x)}, {formatting.number(y, self.decimals_y)} ppm"
         )
 
-    def resizeEvent(self, event) -> None:  # noqa: N802
-        """Keep the legend in the plot's top-right corner."""
-        super().resizeEvent(event)
-        self._place_legend()
-
     def _place_legend(self) -> None:
-        rect = self.main.getViewBox().sceneBoundingRect()
+        rect = self.box.sceneBoundingRect()
         # One line when it fits; otherwise keys wrap within the plot, never past it.
         limit = max(120, int(rect.width()) - 16)
         self.legend.setWordWrap(False)
@@ -394,7 +561,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self.legend.setWordWrap(True)
             self.legend.setFixedWidth(limit)
             self.legend.resize(limit, self.legend.heightForWidth(limit))
-        corner = self.main.mapFromScene(rect.topRight())
+        corner = self.view.mapFromScene(rect.topRight())
         self.legend.move(max(0, corner.x() - self.legend.width() - 8), corner.y() + 6)
 
     def display(self, peak: WorkingPeak) -> tuple[float, float]:
@@ -430,7 +597,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self.sample(x, y)
             self.set_pinned(True)
             self.pin_peak_id = peak.id
-            view = self.main.getViewBox()
+            view = self.box
             ranges = view.viewRange()
             shifted = []
             for value, (low, high) in zip((x, y), ranges, strict=True):
@@ -563,7 +730,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             self.sample(*self.display(self._by_id[peak_id]))
 
     def _hits(self, scene_position) -> list[WorkingPeak]:
-        view = self.main.getViewBox()
+        view = self.box
         candidates = []
         for peak in self.peaks:
             point = view.mapViewToScene(QtCore.QPointF(*self.display(peak)))
@@ -583,7 +750,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         point, self._pointer = self._pointer, None
         if point is None or self._drag_peak is not None:
             return
-        view = self.main.getViewBox()
+        view = self.box
         if not view.sceneBoundingRect().contains(point):
             self.hover(None)
             return
@@ -604,40 +771,9 @@ class SpectrumCanvas(QtWidgets.QWidget):
         ):
             with QtCore.QSignalBlocker(line):
                 line.setValue(float(value))
-        data = self.spectra.data[self.plane]
-        row, column = data[self.iy, :], data[:, self.ix]
-        self.model_x.clear()
-        self.model_y.clear()
-        if self.comparison_mode == _RESIDUAL:
-            if self._model is None:
-                self.curve_x.clear()
-                self.curve_y.clear()
-                self.status_changed.emit(
-                    "Residual pending · calculating total model"
-                    + (f" of {self.comparison_label}" if self.comparison_label else "")
-                    + " for this plane"
-                )
-                return
-            assert self.comparison_result is not None
-            noise = self.comparison_result.outcome.noise
-            row = normalized_residual(row, self._model.values[self.iy, :], noise)
-            column = normalized_residual(column, self._model.values[:, self.ix], noise)
-        elif self.comparison_mode == 1 and self._model is not None:
-            self.model_x.setData(self.ppm_x, self._model.values[self.iy, :])
-            self.model_y.setData(self._model.values[:, self.ix], self.ppm_y)
-        self.curve_x.setData(self.ppm_x, row)
-        self.curve_y.setData(column, self.ppm_y)
-        raw = float(row[self.ix])
-        clip = max(float(np.max(np.abs(row))), float(np.max(np.abs(column))))
-        if self.comparison_mode == 1 and self._model is not None:
-            clip = max(
-                clip,
-                float(np.max(np.abs(self._model.values[self.iy, :]))),
-                float(np.max(np.abs(self._model.values[:, self.ix]))),
-            )
-        self._emit_status(raw, clip > self.trace_limit)
+        self._draw_slices()
 
-    def _emit_status(self, raw: float, clipped: bool) -> None:
+    def _emit_status(self, raw: float) -> None:
         text = (
             f"{'Draft' if self._drag_peak else 'Pinned' if self.pinned else 'Preview'} · "
             f"{self.axis_title(self.x_axis)} "
@@ -652,11 +788,9 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 if self.comparison_label and self.comparison_mode
                 else ""
             )
-            + (" · ▲ Trace clipped: use Display → Fit current traces" if clipped else "")
-            + self._scale_note
         )
         self.status_changed.emit(text)
-        self.main.setAccessibleDescription(text)
+        self.view.setAccessibleDescription(text)
 
     def set_pinned(self, pinned: bool) -> None:
         """Pin the inspection sample independently of a selected assignment."""
@@ -684,7 +818,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         if self._pointer_dragged:
             event.accept()
             return
-        view = self.main.getViewBox()
+        view = self.box
         if (
             event.button() != QtCore.Qt.MouseButton.LeftButton
             or not view.sceneBoundingRect().contains(event.scenePos())
@@ -723,7 +857,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             action.triggered.connect(
                 lambda _checked=False, identity=peak.id: self.selected.emit(identity)
             )
-        menu.popup(self.main.viewport().mapToGlobal(self.main.mapFromScene(scene_position)))
+        menu.popup(self.view.viewport().mapToGlobal(self.view.mapFromScene(scene_position)))
         self._chooser = menu
 
     def _move_peak(self, dx: float, dy: float, finished: bool) -> None:
@@ -759,7 +893,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         """One-shot placement owns the next click, including an existing marker."""
         self.placing = placing
         self.markers.placing = placing
-        self.main.viewport().setCursor(
+        self.view.viewport().setCursor(
             QtCore.Qt.CursorShape.CrossCursor if placing else QtCore.Qt.CursorShape.ArrowCursor
         )
 
@@ -780,63 +914,28 @@ class SpectrumCanvas(QtWidgets.QWidget):
 
     def full_spectrum(self) -> None:
         """Reset only frequency ranges, keeping plane, selection and sample."""
-        self.main.getViewBox().setRange(
+        self.box.setRange(
             xRange=(float(min(self.ppm_x)), float(max(self.ppm_x))),
             yRange=(float(min(self.ppm_y)), float(max(self.ppm_y))),
             padding=0,
         )
+        self._range_committed()
 
     def frame(self, rows: tuple[int, int], columns: tuple[int, int], points: int) -> None:
         """Frame an inclusive sample extent with a margin, keeping plane and mode."""
         x_range, y_range = framed_ranges(rows, columns, self.ppm_y, self.ppm_x, points)
-        self.main.getViewBox().setRange(xRange=x_range, yRange=y_range, padding=0)
+        self.set_ranges(x_range, y_range)
+
+    def set_ranges(self, x_range, y_range) -> None:
+        """Show these ppm ranges as a deliberate view change: the region scale follows."""
+        self.box.setRange(xRange=x_range, yRange=y_range, padding=0)
+        self._range_committed()
 
     def set_plane(self, plane: int) -> None:
         """Use original acquisition index, retaining view and sampled row/column."""
         self._model = None
         self.plane = int(np.clip(plane, 0, self.spectra.data.shape[0] - 1))
         self.request_contours()
-
-    def _set_trace_limit(self, value: float) -> None:
-        self.trace_limit = value
-        self.top.getViewBox().setYRange(-value, value, padding=0)
-        self.right.getViewBox().setXRange(-value, value, padding=0)
-        self._label_traces()
-
-    def _label_traces(self) -> None:
-        """Signed trace axes share one locked range, labelled with a common power of ten."""
-        power = formatting.exponent(self.trace_limit)
-        unit = "σ" if self.comparison_mode == _RESIDUAL else "a.u."
-        title = f"×10{formatting.superscript(str(power))} {unit}" if power else unit
-        style = {"color": getattr(self, "theme", LIGHT).faint, "font-size": f"{FONT_CAPTION}px"}
-        for axis in (self.top.getAxis("left"), self.right.getAxis("bottom")):
-            axis.setScale(10.0**-power)
-            axis.setLabel(title, **style)
-
-    def fit_current_traces(self) -> None:
-        """Explicit gain change, then keep a common signed scale locked again."""
-        data = self.spectra.data[self.plane]
-        if self.comparison_mode == _RESIDUAL:
-            if self._model is None:
-                return
-            assert self.comparison_result is not None
-            data = normalized_residual(
-                data, self._model.values, self.comparison_result.outcome.noise
-            )
-        value = max(
-            float(np.max(np.abs(data[self.iy, :]))), float(np.max(np.abs(data[:, self.ix])))
-        )
-        if self.comparison_mode == 1 and self._model is not None:
-            value = max(
-                value,
-                float(np.max(np.abs(self._model.values[self.iy, :]))),
-                float(np.max(np.abs(self._model.values[:, self.ix]))),
-            )
-        self._trace_limits[2 if self.comparison_mode == _RESIDUAL else 0] = max(
-            value * 1.05, np.finfo(float).tiny
-        )
-        self._set_trace_limit(self._trace_limits[2 if self.comparison_mode == _RESIDUAL else 0])
-        self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
 
     @property
     def historical(self) -> bool:
@@ -853,13 +952,12 @@ class SpectrumCanvas(QtWidgets.QWidget):
         """
         if result is not self.comparison_result:
             self.model_planes.keep_only(result.run_id if result is not None else None)
-            self._expanded_model = False
-            self._scale_note = ""
         self.comparison_result = result
         self.comparison_mode = mode if result is not None else 0
         self.comparison_label = label if result is not None else ""
         self._place_changes()
-        self._set_trace_limit(self._trace_limits[2 if self.comparison_mode == _RESIDUAL else 0])
+        # Residual mode hides the lanes (the slices show residuals) and keeps the preference.
+        self._relayout()
         self._style_traces()
         self._update_legend()
         self.request_contours()
@@ -871,7 +969,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         self._model_cancel = Event()
         cancel = self._model_cancel
         for item in self.paths:
-            self.main.removeItem(item)
+            self.box.removeItem(item)
         self.paths.clear()
         self._model = None
         result, mode, plane = self.comparison_result, self.comparison_mode, self.plane
@@ -888,9 +986,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
         if not mode:
             key = self._experiment_key()
         self.contour_pending = True
-        self.pending_label.setPos(
-            self.main.getViewBox().viewRange()[0][1], self.main.getViewBox().viewRange()[1][0]
-        )
+        self.pending_label.setPos(self.box.viewRange()[0][1], self.box.viewRange()[1][0])
         mode_name = "Residual" if mode == _RESIDUAL else "Overlay"
         self.pending_label.setText(
             f"Experimental spectrum · {mode_name} pending"
@@ -991,14 +1087,6 @@ class SpectrumCanvas(QtWidgets.QWidget):
         if model is not None and run is not None:
             self.model_planes.put(run, self.plane, model)
         self._model = model
-        if model is not None and not self._expanded_model:
-            maximum = float(np.max(np.abs(model.values))) * 1.05
-            if maximum > self._trace_limits[0]:
-                self._trace_limits[0] = maximum
-                self._expanded_model = True
-                self._scale_note = " · Trace scale expanded for accepted model"
-                if self.comparison_mode != _RESIDUAL:
-                    self._set_trace_limit(maximum)
         self._cache_geometry(key, geometry)
         self._install_contours(geometry)
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
@@ -1018,7 +1106,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
 
     def _install_contours(self, geometry, *, pending=False, experimental=False) -> None:
         for item in self.paths:
-            self.main.removeItem(item)
+            self.box.removeItem(item)
         self.paths.clear()
         self._displaying_experiment = experimental
         paths = paths_from_geometry(geometry)
@@ -1031,7 +1119,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             layers = [("measured", paths)]
         for role, levels in layers:
             item = ContourLayer(role, levels)
-            self.main.addItem(item)
+            self.box.addItem(item)
             self.paths.append(item)
         self._style_contours()
         self.pending_label.setVisible(pending)
@@ -1074,6 +1162,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
             layer.set_pens(pens)
 
     def _style_traces(self) -> None:
+        """Experimental solid, model dashed, residual in its own hue; clips by fill."""
         t = self.theme
         residual = self.comparison_mode == _RESIDUAL
         measured = pg.mkPen(color(t.text if residual else t.measured), width=1.3)
@@ -1082,6 +1171,14 @@ class SpectrumCanvas(QtWidgets.QWidget):
             curve.setPen(measured)
         for curve in (self.model_x, self.model_y):
             curve.setPen(model)
+        for curve in (self.lane_x, self.lane_y):
+            curve.setPen(pg.mkPen(color(t.residual_positive), width=1.1))
+        for clip in (self.clip_x, self.clip_y, self.lane_clip_x, self.lane_clip_y):
+            clip.setPen(None)
+            clip.setBrush(pg.mkBrush(t.error))
+        for clip in (self.model_clip_x, self.model_clip_y):
+            clip.setPen(pg.mkPen(t.model, width=1.4))
+            clip.setBrush(None)
 
     def _update_legend(self) -> None:
         """Name each visible layer with its stroke, so no encoding needs memorizing."""
@@ -1135,18 +1232,24 @@ class SpectrumCanvas(QtWidgets.QWidget):
         surface.setColor(QtGui.QPalette.ColorRole.Window, QtGui.QColor(t.plot))
         self.setPalette(surface)
         self.setAutoFillBackground(True)
-        for plot in (self.top, self.main, self.right):
-            plot.setBackground(t.plot)
-            for name in ("left", "bottom"):
-                axis = plot.getAxis(name)
-                axis.setPen(pg.mkPen(t.divider))
-                axis.setTextPen(pg.mkPen(t.secondary))
+        self.view.setBackground(t.plot)
+        for axis in (self.bottom_axis, self.left_axis):
+            axis.setPen(pg.mkPen(t.divider))
+            axis.setTextPen(pg.mkPen(t.secondary))
         style = {"color": t.secondary, "font-size": f"{FONT_CAPTION + 1}px"}
-        self.main.setLabel("bottom", f"{self.axis_title(self.x_axis)}  (ppm)", **style)
-        self.main.setLabel("left", f"{self.axis_title(self.y_axis)}  (ppm)", **style)
-        self._label_traces()
-        for line in (self.zero_x, self.zero_y):
+        for axis, spectral in ((self.bottom_axis, self.x_axis), (self.left_axis, self.y_axis)):
+            axis.labelStyle = style
+            axis.setLabel(f"{self.axis_title(spectral)}  (ppm)")
+        for line in (self.zero_x, self.zero_y, self.lane_zero_x, self.lane_zero_y):
             line.setPen(pg.mkPen(t.divider))
+        for divider in (self.row_divider, self.column_divider):
+            divider.color, divider.hot_color = t.border, t.accent
+            divider.update()
+        bar = pg.mkPen(t.secondary, width=1)
+        for item in self.scale_bars:
+            item.setPen(bar)
+        for sign in self.scale_signs:
+            sign.setBrush(QtGui.QColor(t.secondary))
         self._style_traces()
         self.marker_halo.setPen(pg.mkPen(color(t.plot, 0.9), width=2.6))
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
@@ -1184,7 +1287,7 @@ class SpectrumCanvas(QtWidgets.QWidget):
 
     def _refresh_labels(self) -> None:
         for label in self._labels:
-            self.main.removeItem(label)
+            self.box.removeItem(label)
         self._labels.clear()
         if self.labels_visible:
             for peak in self.peaks:
@@ -1192,12 +1295,12 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 label.setPos(*self.display(peak))
                 label.setZValue(25)
                 label.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
-                self.main.getPlotItem().addItem(label, ignoreBounds=True)
+                self.box.addItem(label, ignoreBounds=True)
                 self._labels.append(label)
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
         """Canvas-only navigation never consumes a text field's Space/Delete keys."""
-        if watched is self.main.viewport() and isinstance(event, QtGui.QMouseEvent):
+        if watched is self.view.viewport() and isinstance(event, QtGui.QMouseEvent):
             if event.type() == QtCore.QEvent.Type.MouseButtonPress:
                 self._press_position = event.position()
                 self._pointer_dragged = False
@@ -1210,14 +1313,13 @@ class SpectrumCanvas(QtWidgets.QWidget):
             ):
                 # A throttled scene move must never turn a physical pan into a pin.
                 self._pointer_dragged = True
-        if event.type() == QtCore.QEvent.Type.Paint and watched is self.main.viewport():
+        if event.type() == QtCore.QEvent.Type.Paint and watched is self.view.viewport():
             # Paint-completion measurements use a queued callback after paintEvent.
             self._paint_timer.start(0)
         if event.type() == QtCore.QEvent.Type.Leave:
             self.hover(None)
         if event.type() == QtCore.QEvent.Type.MouseButtonDblClick:
-            self.edit_requested.emit()
-            return True
+            return self._double_click(self.view.mapToScene(event.position().toPoint()))
         if event.type() == QtCore.QEvent.Type.KeyPress:
             key = event.key()
             if key == QtCore.Qt.Key.Key_Space:
@@ -1238,8 +1340,394 @@ class SpectrumCanvas(QtWidgets.QWidget):
                 return True
         return super().eventFilter(watched, event)
 
+    def _double_click(self, point: QtCore.QPointF) -> bool:
+        """The 2D plot edits; a slice, lane or divider returns to its default."""
+        for item, action in (
+            (self.row_divider, lambda: self.reset_size("row")),
+            (self.column_divider, lambda: self.reset_size("column")),
+            (self.box, self.edit_requested.emit),
+            (self.row_box, lambda: self.scale_intensity(None)),
+            (self.column_box, lambda: self.scale_intensity(None)),
+            (self.row_lane, lambda: self.scale_lanes(None)),
+            (self.column_lane, lambda: self.scale_lanes(None)),
+        ):
+            if item.isVisible() and item.sceneBoundingRect().contains(point):
+                action()
+                return True
+        return False
+
+    # ----------------------------------------------------------------- slices
+    def _effective_sizes(self) -> SliceSizes:
+        """Residual mode, or a window without room, hides the lanes; the preference stays."""
+        shown = self.sizes.lanes and self.comparison_mode != _RESIDUAL and self.lanes_fit
+        return replace(self.sizes, lanes=shown)
+
+    def minimum(self, sizes: SliceSizes | None = None) -> tuple[int, int]:
+        """The view's minimum: the 2D plot's, with visible slices and lanes at theirs."""
+        if sizes is None:
+            sizes = self._effective_sizes()
+        return minimum_size(sizes, self.extents)
+
+    def _relayout(self) -> None:
+        """Place every plot from the pure layout; shared extents align by construction."""
+        sizes = self._effective_sizes()
+        self.setMinimumSize(*self.minimum())
+        geometry = layout(self.view.width(), self.view.height(), sizes, self.extents)
+        self.arrangement = geometry
+        for item, rect in (
+            (self.box, geometry.main),
+            (self.row_box, geometry.row),
+            (self.row_lane, geometry.row_lane),
+            (self.column_box, geometry.column),
+            (self.column_lane, geometry.column_lane),
+        ):
+            item.setVisible(rect is not None)
+            if rect is not None:
+                item.setGeometry(QtCore.QRectF(*rect))
+        x, y, w, h = geometry.main
+        self.left_axis.setGeometry(QtCore.QRectF(0, y, self.extents.left, h))
+        self.bottom_axis.setGeometry(QtCore.QRectF(x, y + h, w, self.extents.bottom))
+        self.row_divider.setRect(QtCore.QRectF(*geometry.row_divider))
+        self.column_divider.setRect(QtCore.QRectF(*geometry.column_divider))
+        hx, hy, hw, hh = geometry.header
+        self.caption.setGeometry(int(hx), int(hy) + 3, int(hw), int(hh))
+        cx, cy, cw, ch = geometry.corner
+        self.readout.setGeometry(
+            int(cx) + 6, int(cy) + 4, max(0, int(cw) - 10), max(0, int(ch) - 6)
+        )
+        self.readout.setVisible(cw > _READOUT_MIN[0] and ch > _READOUT_MIN[1])
+        self._place_legend()
+        self._apply_bounds()
+
+    def slice_bounds(self) -> tuple[float, float]:
+        """The shown intensity range: manual when set, otherwise the region rule."""
+        return self.manual_scale or self.region_scale
+
+    def _shown_bounds(self) -> tuple[float, float]:
+        if self.comparison_mode == _RESIDUAL:
+            return -self.lane_sigma, self.lane_sigma
+        return self.slice_bounds()
+
+    def _apply_bounds(self) -> None:
+        """Set slice and lane ranges; never called on hover."""
+        low, high = self._shown_bounds()
+        self.row_box.setYRange(low, high, padding=0)
+        self.column_box.setXRange(low, high, padding=0)
+        self.row_lane.setYRange(-self.lane_sigma, self.lane_sigma, padding=0)
+        self.column_lane.setXRange(-self.lane_sigma, self.lane_sigma, padding=0)
+        self._place_scale_bars()
+        self._draw_slices()
+
+    def _range_committed(self) -> None:
+        """A deliberate view change: the region scale follows; a manual one stays."""
+        rows = slices.index_range(self.y_axis, self.box.viewRange()[1])
+        columns = slices.index_range(self.x_axis, self.box.viewRange()[0])
+        self.region_scale = slices.intensity_range(self.spectra.data, rows, columns)
+        self._apply_bounds()
+
+    def scale_intensity(self, delta: float | None) -> None:
+        """Wheel over a slice: a manual range about zero; None returns to the region rule."""
+        if delta is None:
+            self.manual_scale = None
+        else:
+            factor = 1 / _SCALE_STEP if delta > 0 else _SCALE_STEP
+            low, high = self.slice_bounds()
+            self.manual_scale = (low * factor, high * factor)
+        self._apply_bounds()
+        self.scale_changed.emit()
+
+    def scale_lanes(self, delta: float | None) -> None:
+        """Wheel over a lane: the shared ±N σ_stat range; None restores the default."""
+        if delta is None:
+            self.lane_sigma = LANE_SIGMA
+        else:
+            self.lane_sigma *= 1 / _SCALE_STEP if delta > 0 else _SCALE_STEP
+        self._apply_bounds()
+        self.scale_changed.emit()
+
+    def set_lanes(self, visible: bool) -> None:
+        """Show or hide the residual lanes (a preference kept across modes)."""
+        self.sizes = replace(self.sizes, lanes=visible)
+        self._relayout()
+        self.sizes_changed.emit()
+
+    def set_sizes(self, sizes: SliceSizes) -> None:
+        """Adopt saved or framing-specific slice sizes."""
+        self.sizes = sizes
+        self._relayout()
+
+    def resize_slice(self, which: str, step: int) -> None:
+        """Keyboard and menu resizing, with the divider's limits."""
+        current = getattr(self.arrangement.sizes, which)
+        self.sizes = drag(
+            self.sizes, which, current + step, self.view.width(), self.view.height(), self.extents
+        )
+        self._relayout()
+        self.sizes_changed.emit()
+
+    def reset_size(self, which: str) -> None:
+        """Restore one slice's default size, within the divider's limits."""
+        default = getattr(SliceSizes(), which)
+        self.sizes = drag(
+            self.sizes, which, default, self.view.width(), self.view.height(), self.extents
+        )
+        self._relayout()
+        self.sizes_changed.emit()
+
+    def reset_sizes(self) -> None:
+        """Restore both slices' default sizes."""
+        for which in ("row", "column"):
+            self.reset_size(which)
+
+    def _drag_divider(self, which: str, delta: float | None, *, finished: bool) -> None:
+        if delta is None:
+            self._drag_origin = getattr(self.arrangement.sizes, which)
+            return
+        value = self._drag_origin + (delta if which == "row" else -delta)
+        self.sizes = drag(
+            self.sizes, which, value, self.view.width(), self.view.height(), self.extents
+        )
+        self._relayout()
+        if finished:
+            self.sizes_changed.emit()
+
+    def _draw_slices(self) -> None:
+        """Native row and column at the crosshair; only data changes on hover."""
+        data = self.spectra.data[self.plane]
+        row, column = data[self.iy, :], data[:, self.ix]
+        model = self._model.values if self._model is not None and self.comparison_mode else None
+        noise = self.comparison_result.outcome.noise if self.comparison_result else 1.0
+        model_row = model[self.iy, :] if model is not None else None
+        model_column = model[:, self.ix] if model is not None else None
+        lanes = self.comparison_mode == 1 and model is not None and self._effective_sizes().lanes
+        if self.comparison_mode == _RESIDUAL:
+            if model_row is None or model_column is None:
+                for item in (self.curve_x, self.curve_y, self.model_x, self.model_y):
+                    item.setData([], [])
+                for item in (self.clip_x, self.clip_y, self.model_clip_x, self.model_clip_y):
+                    item.setData([], [])
+                self.status_changed.emit(
+                    "Residual pending · calculating total model"
+                    + (f" of {self.comparison_label}" if self.comparison_label else "")
+                    + " for this plane"
+                )
+                self._update_readout(None, None)
+                return
+            row = slices.residual(row, model_row, noise)
+            column = slices.residual(column, model_column, noise)
+            model_row = model_column = None
+        bounds = self._shown_bounds()
+        self.clips = {
+            "row": self._set_slice(
+                self.curve_x,
+                self.model_x,
+                self.clip_x,
+                self.model_clip_x,
+                row,
+                model_row,
+                bounds,
+                vertical=False,
+            ),
+            "column": self._set_slice(
+                self.curve_y,
+                self.model_y,
+                self.clip_y,
+                self.model_clip_y,
+                column,
+                model_column,
+                bounds,
+                vertical=True,
+            ),
+        }
+        lane = (-self.lane_sigma, self.lane_sigma)
+        if lanes and model is not None:
+            self._set_lane(
+                self.lane_x,
+                self.lane_clip_x,
+                slices.residual(data[self.iy, :], model[self.iy, :], noise),
+                lane,
+                vertical=False,
+            )
+            self._set_lane(
+                self.lane_y,
+                self.lane_clip_y,
+                slices.residual(data[:, self.ix], model[:, self.ix], noise),
+                lane,
+                vertical=True,
+            )
+        else:
+            for item in (self.lane_x, self.lane_y, self.lane_clip_x, self.lane_clip_y):
+                item.setData([], [])
+        raw = float(row[self.ix])
+        self._emit_status(raw)
+        value = float(data[self.iy, self.ix])
+        fitted = float(model[self.iy, self.ix]) if model is not None else None
+        self._update_readout(value, fitted)
+        self._update_caption()
+
+    def _set_slice(
+        self, curve, model_curve, clip, model_clip, values, model_values, bounds, *, vertical
+    ):
+        """One slice: lines through native samples, clipped samples marked at the edge."""
+        axis = self.ppm_y if vertical else self.ppm_x
+        low, high = bounds
+        inset = 0.015 * (high - low)
+
+        def edge(points):
+            return np.where(points > high, high - inset, low + inset)
+
+        def place(item, points):
+            return item.setData(points, axis) if vertical else item.setData(axis, points)
+
+        place(curve, values)
+        out = slices.clipped(values, low, high)
+        marks = (edge(values[out]), axis[out])
+        clip.setData(
+            *(marks if vertical else marks[::-1]), symbol="t" if not vertical else "t2", size=8
+        )
+        if model_values is None:
+            model_curve.setData([], [])
+            model_clip.setData([], [])
+            return int(out.size), 0
+        place(model_curve, model_values)
+        missed = slices.clipped(model_values, low, high)
+        marks = (edge(model_values[missed]), axis[missed])
+        model_clip.setData(
+            *(marks if vertical else marks[::-1]), symbol="t" if not vertical else "t2", size=8
+        )
+        return int(out.size), int(missed.size)
+
+    def _set_lane(self, curve, clip, values, bounds, *, vertical) -> None:
+        axis = self.ppm_y if vertical else self.ppm_x
+        low, high = bounds
+        if vertical:
+            curve.setData(values, axis)
+        else:
+            curve.setData(axis, values)
+        out = slices.clipped(values, low, high)
+        edge = np.where(values[out] > high, high * 0.95, low * 0.95)
+        marks = (edge, axis[out]) if vertical else (axis[out], edge)
+        clip.setData(*marks, symbol="t" if not vertical else "t2", size=7)
+
+    def _place_scale_bars(self) -> None:
+        """Bars from the lower to the upper bound, with a zero tick and their signs."""
+        geometry = getattr(self, "arrangement", None)
+        if geometry is None:
+            return
+        low, high = self._shown_bounds()
+        row_bar, column_bar = self.scale_bars
+        plus_row, minus_row, minus_column, plus_column = self.scale_signs
+        path = QtGui.QPainterPath()
+        visible = geometry.row is not None
+        if visible:
+            x = geometry.row[0] - 9
+            top = self.row_box.mapViewToScene(QtCore.QPointF(0, high)).y()
+            bottom = self.row_box.mapViewToScene(QtCore.QPointF(0, low)).y()
+            zero = self.row_box.mapViewToScene(QtCore.QPointF(0, 0)).y()
+            path.moveTo(x, top)
+            path.lineTo(x, bottom)
+            path.moveTo(x - 4, zero)
+            path.lineTo(x + 4, zero)
+            plus_row.setText("+")
+            plus_row.setPos(x - 16, top - 2)
+            minus_row.setText("−" if low < 0 else "")
+            minus_row.setPos(x - 16, bottom - 14)
+        row_bar.setPath(path)
+        for item in (plus_row, minus_row):
+            item.setVisible(visible)
+        path = QtGui.QPainterPath()
+        visible = geometry.column is not None
+        if visible:
+            _cx, cy, _cw, ch = geometry.column
+            y = cy + ch + 9
+            left = self.column_box.mapViewToScene(QtCore.QPointF(low, 0)).x()
+            right = self.column_box.mapViewToScene(QtCore.QPointF(high, 0)).x()
+            zero = self.column_box.mapViewToScene(QtCore.QPointF(0, 0)).x()
+            path.moveTo(left, y)
+            path.lineTo(right, y)
+            path.moveTo(zero, y - 4)
+            path.lineTo(zero, y + 4)
+            minus_column.setText("−" if low < 0 else "")
+            minus_column.setPos(left - 2, y + 2)
+            plus_column.setText("+")
+            plus_column.setPos(right - 8, y + 2)
+        column_bar.setPath(path)
+        for item in (plus_column, minus_column):
+            item.setVisible(visible)
+
+    def _update_caption(self) -> None:
+        """One compact scale statement for both slices, the lanes and any clipping."""
+        t = self.theme
+        if self.comparison_mode == _RESIDUAL:
+            text = f"Slices: residual ±{self.lane_sigma:.3g} σ_stat"
+        else:
+            low, high = self.slice_bounds()
+            power = formatting.exponent(max(abs(low), abs(high)))
+            factor = 10.0**-power
+            unit = f"×10{formatting.superscript(str(power))} a.u." if power else "a.u."
+            source = "manual" if self.manual_scale else "view, all planes"
+            text = (
+                f"Slices {formatting.number(low * factor, 2)} … "
+                f"{formatting.number(high * factor, 2)} {unit} ({source})"
+            )
+            if self._effective_sizes().lanes:
+                text += f" · lanes ±{self.lane_sigma:.3g} σ"
+        data = sum(d for d, _m in self.clips.values())
+        model = sum(m for _d, m in self.clips.values())
+        if data:
+            text += f' · <span style="color:{t.error}">▲ {data} clipped</span>'
+        if model:
+            text += f' · <span style="color:{t.model}">△ {model} model clipped</span>'
+        self.caption.setText(text)
+        self.caption.setToolTip(
+            "Both slices share this range: the lowest and highest experimental intensity "
+            "in the visible region over all planes, with zero included"
+            if not self.manual_scale and self.comparison_mode != _RESIDUAL
+            else "Wheel over a slice to change its range; double-click to reset it"
+        )
+
+    def _update_readout(self, value: float | None, fitted: float | None) -> None:
+        """Exact values at the crosshair; the slices themselves carry no numbers."""
+        lines = [
+            f"<b>{formatting.number(self.ppm_x[self.ix], self.decimals_x)} · "
+            f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)} ppm</b>"
+        ]
+        if value is not None:
+            lines.append(f"I {formatting.intensity(value)} a.u.")
+        if self.comparison_mode and fitted is None:
+            lines.append("model pending")
+        elif fitted is not None and value is not None:
+            noise = self.comparison_result.outcome.noise if self.comparison_result else 1.0
+            lines.append(f"model {formatting.intensity(fitted)}")
+            lines.append(f"residual {(value - fitted) / noise:+.1f} σ")
+        self.readout.setText("<br>".join(lines))
+
+    def slice_state(self) -> dict[str, object]:
+        """Saved view state of the slices."""
+        return {
+            "row": self.sizes.row,
+            "column": self.sizes.column,
+            "lanes": self.sizes.lanes,
+            "lane_sigma": self.lane_sigma,
+            "scale": list(self.manual_scale) if self.manual_scale else None,
+        }
+
+    def restore_slice_state(self, state: dict) -> None:
+        """Adopt saved slice sizes, lanes and scale."""
+        self.sizes = replace(
+            self.sizes,
+            row=int(state.get("row", self.sizes.row)),
+            column=int(state.get("column", self.sizes.column)),
+            lanes=bool(state.get("lanes", self.sizes.lanes)),
+        )
+        self.lane_sigma = float(state.get("lane_sigma", LANE_SIGMA))
+        scale = state.get("scale")
+        self.manual_scale = (float(scale[0]), float(scale[1])) if scale else None
+        self._relayout()
+
     def stop(self) -> None:
         """Discard stale deliveries without waiting on a worker in the UI thread."""
+        self._commit.stop()
         self._revision += 1
         self._model_cancel.set()
         self._preview_timer.stop()
