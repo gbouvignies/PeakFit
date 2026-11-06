@@ -1241,6 +1241,52 @@ def _withheld(series, status, cause, **extra):
     return replace(series, identifiability=member)
 
 
+def test_a_withheld_selected_peak_says_normalization_was_not_applied(qapp, scientific):
+    result = scientific[-1]
+    cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
+    peak = next(
+        i.working_id for i in result.inputs.identities if i.engine_name == cluster.peak_names[0]
+    )
+    shown = peak_profile(result, peak, None)
+    assert isinstance(shown, PeakProfile)
+    selected, partner = shown.series[0], shown.series[1]
+    drawable = _withheld(partner, AmplitudeStatus.IDENTIFIABLE, Cause.NONE)
+    unreliable = _withheld(
+        selected, AmplitudeStatus.NOT_ESTABLISHED, Cause.NEAR_COLLINEAR, partners=(1,)
+    )
+    reference = (int(shown.source_planes[0]),)
+    panel = ProfilePlot()
+    panel.show()
+    panel.show_profile(replace(shown, series=(unreliable, drawable)), 0)
+    panel.set_reference(reference)
+    qapp.processEvents()
+    # The partner is drawn raw; the requested ratio is named as not applied, and why.
+    assert panel._normalized is None
+    assert panel.reference == reference
+    assert panel.mode.text() == "÷ plane 1 · not applied"
+    assert panel.fallback.isVisible()
+    assert "withheld as unreliable" in panel.fallback.text()
+    assert f"individual amplitudes of {selected.assignment} are not established" in (
+        panel.fallback.text()
+    )
+    _x, y = _selected_points(panel).getData()
+    np.testing.assert_array_equal(y, drawable.amplitudes)
+    # A selected amplitude in the null space makes the ratio undefined, not unreliable.
+    undetermined = _withheld(selected, AmplitudeStatus.UNIDENTIFIABLE, Cause.NULL_SPACE)
+    panel.show_profile(replace(shown, series=(undetermined, drawable)), 0)
+    assert "is undefined" in panel.fallback.text()
+    assert "are not identifiable" in panel.fallback.text()
+    assert "data do not determine the individual amplitude decomposition" in (panel.withheld.text())
+    # With nothing drawn, no raw values are claimed.
+    panel.show_profile(replace(shown, series=(unreliable,)), 0)
+    assert not panel.fallback.isVisible()
+    # The reference is kept: a determined selected peak is normalized again.
+    panel.show_profile(replace(shown, series=(selected, drawable)), 0)
+    assert panel._normalized is not None
+    assert not panel.fallback.isVisible()
+    panel.close()
+
+
 def test_unestablished_members_are_withheld_from_the_profile_and_its_axes(qapp, scientific):
     result = scientific[-1]
     cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
@@ -1271,7 +1317,8 @@ def test_unestablished_members_are_withheld_from_the_profile_and_its_axes(qapp, 
     assert panel.withheld.isVisible()
     assert f"{inflated.assignment}: reliability not established: near-collinear" in text
     assert "not identifiable" not in text
-    assert "total model remains valid" in text
+    assert "total fitted model remains available for comparison" in text
+    assert "decomposition is unreliable" in text
     assert panel.legend.text().count("●") == len(profile.series) - 1
     # The recorded values stay reachable, unchanged.
     assert panel.diagnostics_toggle.isVisible()

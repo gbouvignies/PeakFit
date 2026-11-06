@@ -258,9 +258,16 @@ def withheld_text(profile: PeakProfile) -> str:
             parts.append(f"{s.assignment}: {withheld_reason(s)}")
             stated.add(id(s))
     parts = "; ".join(parts)
+    # The total model stays evaluable; that says nothing about its decomposition.
+    decomposition = (
+        "the data do not determine the individual amplitude decomposition"
+        if any(s.identifiability.cause is Cause.NULL_SPACE for s in hidden)
+        else "the individual amplitude decomposition is unreliable"
+    )
     return (
-        f"Individual amplitude profile not shown. {parts}. The cluster's total model "
-        "remains valid; recorded values are under Numerical diagnostics."
+        f"Individual amplitude profile not shown. {parts}. The total fitted model remains "
+        f"available for comparison, but {decomposition}. Recorded values are under "
+        "Numerical diagnostics."
     )
 
 
@@ -460,10 +467,18 @@ class ProfilePlot(QtWidgets.QWidget):
             for index, s in enumerate(profile.series)
             if s.identifiability.determined
         ]
-        if not (
-            self.normalized and self.reference and profile.series[0].identifiability.determined
-        ):
+        if not (self.normalized and self.reference):
             return raw, [], None
+        selected = profile.series[0]
+        if not selected.identifiability.determined:
+            # Nothing is normalized; with members still drawn, say so (raw values shown).
+            if not raw:
+                return raw, [], None
+            null = selected.identifiability.cause is Cause.NULL_SPACE
+            reason = f"the individual amplitudes of {selected.assignment} are " + (
+                "not identifiable" if null else "not established"
+            )
+            return raw, [], Unavailable(reason, undefined=null)
         columns = np.flatnonzero(np.isin(profile.source_planes, self.reference))
         if columns.size != len(self.reference):
             return raw, [], Unavailable("a reference plane is not in this run", undefined=True)

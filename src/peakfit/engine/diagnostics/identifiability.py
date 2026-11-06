@@ -20,6 +20,11 @@ is *not established*: it projects onto an ill-conditioned direction, its shape i
 near-collinear with another member's (:data:`COLLINEARITY_LIMIT`, the rule that already
 withholds fitted-position adoption), or its analytical σ is unavailable. Full numerical
 rank never yields unidentifiable.
+
+Scope: this concerns the linear amplitudes *conditional on the recorded fitted
+lineshapes* (positions and linewidths held at their fitted values), as the analytical
+standard errors are. It does not establish identifiability when the nonlinear
+lineshape parameters are allowed to vary.
 """
 
 from dataclasses import dataclass

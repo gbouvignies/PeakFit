@@ -19,6 +19,11 @@ recorded amplitudes, and its conventions:
 | Non-zero projection of eᵢ | above ε·max(m, n) | the rank cutoff's relative tolerance |
 | Near-collinear shapes | 1 − \|cos\| ≤ 10⁻⁴ | the existing position-adoption rule |
 
+The classification is conditional on the recorded fitted lineshapes, like the
+analytical standard errors: it concerns the linear amplitudes with positions and
+linewidths held at their fitted values, and does not establish identifiability when
+those nonlinear parameters vary.
+
 A member with a null-space component is **not identifiable**. One projecting onto an
 ill-conditioned direction, near-collinear with another member, or without a finite
 σ is **not established**; only the last is still drawn (without an error bar).

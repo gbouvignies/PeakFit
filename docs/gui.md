@@ -338,7 +338,9 @@ inspector's provenance states it once for the run.
 
 Each member's amplitude is classified from the run's recorded shapes, with the
 factorization and numerical conventions that produced the amplitudes and no
-threshold of its own:
+threshold of its own. Like the error bars, the classification is conditional on the
+fitted lineshapes; it does not establish identifiability when positions and
+linewidths are allowed to vary:
 
 - **Not identifiable**: the fitted shapes are linearly dependent and this member's
   amplitude lies partly in their null space, so the data cannot determine it. Other
@@ -350,8 +352,10 @@ threshold of its own:
   the amplitudes are drawn without one and labeled **σ not available**.
 
 Members that are not identifiable or not established are not drawn and do not set
-the axes. The profile says which class applies and why, notes that the cluster's
-total model remains valid, and lists the recorded values under **Numerical
+the axes. The profile says which class applies and why, notes that the total fitted
+model remains available for comparison although the individual decomposition is
+unreliable (or, for a null-space amplitude, not determined by the data), and lists
+the recorded values under **Numerical
 diagnostics**; exports are unchanged. No combined amplitude is shown. On the
 bundled data, the collapsed pairs a 20 Hz linewidth start produces are not
 established, never not identifiable: they keep full numerical rank

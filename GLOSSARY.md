@@ -101,7 +101,9 @@ coefficient vector has no component in the null space of the shape matrix, under
 the numerical rank of the factorization that solved the amplitudes. A member can be
 identifiable inside a rank-deficient cluster. An identifiable amplitude whose value
 depends on an ill-conditioned direction, or whose shape is near-collinear with
-another member's, is *not established* rather than unidentifiable.
+another member's, is *not established* rather than unidentifiable. The property is
+conditional on the recorded fitted lineshapes; it does not establish identifiability
+when nonlinear lineshape parameters vary.
 _Avoid_: calling a near-collinear or ill-conditioned amplitude "unidentifiable"
 
 **Continued start**:

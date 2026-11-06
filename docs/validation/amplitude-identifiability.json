@@ -44,7 +44,7 @@
       "null_projection": 0.0,
       "weak_projection": 0.0,
       "partners": [],
-      "dissimilarity": NaN
+      "dissimilarity": null
      },
      {
       "peak": "93N-H",
@@ -94,7 +94,7 @@
       "null_projection": 0.0,
       "weak_projection": 0.0,
       "partners": [],
-      "dissimilarity": NaN
+      "dissimilarity": null
      },
      {
       "peak": "76N-H",
@@ -114,7 +114,7 @@
       "null_projection": 0.0,
       "weak_projection": 0.0,
       "partners": [],
-      "dissimilarity": NaN
+      "dissimilarity": null
      }
     ]
    },

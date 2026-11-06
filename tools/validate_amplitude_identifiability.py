@@ -47,6 +47,11 @@ def fit(spectra, peaks, settings, completion=None, start=None):
     )
 
 
+def number(value: float) -> float | None:
+    """A finite value, or None (JSON null) when the quantity is unavailable."""
+    return float(value) if np.isfinite(value) else None
+
+
 def classify(completion):
     """Status counts over every usable member, and details of clusters not fully identifiable."""
     names = {i.engine_name: i.assignment for i in completion.result.inputs.identities}
@@ -65,7 +70,7 @@ def classify(completion):
                 {
                     "members": [names[n] for n in cluster.peak_names],
                     "rank": members[0].rank,
-                    "condition_smin_over_s0": members[0].condition,
+                    "condition_smin_over_s0": number(members[0].condition),
                     "amplitude_sigma_finite": [
                         bool(np.isfinite(v)) for v in evaluation.amplitude_standard_errors
                     ],
@@ -75,10 +80,10 @@ def classify(completion):
                             "peak": names[n],
                             "status": m.status.value,
                             "cause": m.cause.value,
-                            "null_projection": m.null_projection,
-                            "weak_projection": m.weak_projection,
+                            "null_projection": number(m.null_projection),
+                            "weak_projection": number(m.weak_projection),
                             "partners": [names[cluster.peak_names[j]] for j in m.partners],
-                            "dissimilarity": m.dissimilarity,
+                            "dissimilarity": number(m.dissimilarity),
                         }
                         for n, m in zip(cluster.peak_names, members, strict=True)
                     ],
@@ -102,7 +107,8 @@ def main():
         for p in default.working_peaks
     )
     report["moved_147N-H_refit"] = classify(fit(dataset.spectra, moved, settings, default))
-    OUTPUT.write_text(json.dumps(report, indent=1) + "\n")
+    # Strict JSON: unavailable quantities are null, never NaN.
+    OUTPUT.write_text(json.dumps(report, indent=1, allow_nan=False) + "\n")
     for name, part in report.items():
         print(name, part["counts"], [c["members"] for c in part["not_fully_identifiable"]])  # noqa: T201
 

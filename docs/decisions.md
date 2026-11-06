@@ -926,7 +926,8 @@ Short records of non‑obvious design choices and trade‑offs.
   its conventions: null space below the rank cutoff ε·max(m, n)·s₀, ill-conditioned
   directions s ≤ √ε·s₀, and ε·max(m, n) as the numerical zero for a unit vector's
   projection; near-collinearity is the existing 1 − |cos| ≤ 10⁻⁴ rule. No new
-  threshold.
+  threshold. The classification is conditional on the fitted lineshapes and says
+  nothing about identifiability when nonlinear parameters vary.
 - **Not chosen.** Withholding every member whenever the joint covariance is
   withheld: it would call determined amplitudes unidentifiable. A summed amplitude
   for degenerate pairs: not shown until its identifiability is validated.
