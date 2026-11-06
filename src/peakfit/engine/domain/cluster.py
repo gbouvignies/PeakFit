@@ -128,6 +128,20 @@ class Cluster:
         )
 
     @staticmethod
+    def evaluate_peak_axes(
+        peaks: Sequence[Peak], params: Parameters, axis_grids: Sequence[np.ndarray]
+    ) -> list[np.ndarray]:
+        """Per-dimension shapes, (points on that axis, n_peaks) each.
+
+        ``evaluate_peaks`` at a grid point is the product of these factors at its
+        coordinates, so on a full grid the shapes are their outer products.
+        """
+        return [
+            _evaluate_single_dimension(d, peaks, params, np.asarray(grid), None, False)[0]
+            for d, grid in enumerate(axis_grids)
+        ]
+
+    @staticmethod
     def evaluate_peaks(
         peaks: Sequence[Peak],
         params: Parameters,

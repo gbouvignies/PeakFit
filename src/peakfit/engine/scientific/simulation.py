@@ -92,7 +92,7 @@ def simulate_final_outcome(
     return model.T.reshape((output_data.shape[0], *grid_shape)).astype(float)
 
 
-def project_final_outcome(  # noqa: PLR0912
+def project_final_outcome(
     outcome: FinalFitOutcome,
     snapshot: FinalModelSnapshot,
     positions: Sequence[np.ndarray],
@@ -128,14 +128,7 @@ def project_final_outcome(  # noqa: PLR0912
     if {c.n_grid_dimensions for c in snapshot.clusters} != {len(coordinates)}:
         raise ValueError("Projection coordinate dimension mismatch")
     n_series = snapshot.clusters[0].n_series
-    selected = np.arange(n_series) if planes is None else np.asarray(planes)
-    if (
-        selected.ndim != 1
-        or not selected.size
-        or selected.dtype.kind not in "iu"
-        or (np.any(selected < 0) or np.any(selected >= n_series))
-    ):
-        raise ValueError("Projection planes must be valid original plane indices")
+    selected = _selected_planes(planes, n_series)
     if cluster_id is not None and cluster_id not in outcome.by_cluster_id:
         raise ValueError(f"Unknown projection cluster_id {cluster_id}")
     parameters = _parameters_from_outcome(outcome.final_nonlinear_parameters)
@@ -170,6 +163,59 @@ def project_final_outcome(  # noqa: PLR0912
                     f"Invalid projected lineshapes for cluster_id {cluster.cluster_id}"
                 )
             model[start:end] += shapes.T @ amplitudes
+        usable_count += 1
+    if not usable_count:
+        return None
+    if not np.all(np.isfinite(model)):
+        raise ValueError("Non-finite completed model projection")
+    return model
+
+
+def project_final_grid(
+    outcome: FinalFitOutcome,
+    snapshot: FinalModelSnapshot,
+    grid_shape: Sequence[int],
+    *,
+    planes: Sequence[int] | None = None,
+    canceled: Callable[[], bool] | None = None,
+) -> FloatArray | None:
+    """Evaluate completed contributions at every point of the native grid.
+
+    The same model as ``project_final_outcome`` at the grid's integer coordinates,
+    computed from per-axis shapes: each peak shape is the product of its
+    per-dimension shapes, so the model of a plane is the sum over peaks of the
+    amplitude times the outer product of those factors. No cutoffs. Returns
+    (requested planes, *grid_shape); ``None`` when no cluster is usable.
+    Cancellation is checked between clusters and raises ``CancelledError``.
+    """
+    _validate_snapshot(outcome, snapshot)
+    shape = tuple(int(n) for n in grid_shape)
+    if {c.n_grid_dimensions for c in snapshot.clusters} != {len(shape)} or min(shape) <= 0:
+        raise ValueError("Projection grid shape must give one positive size per dimension")
+    n_series = snapshot.clusters[0].n_series
+    selected = _selected_planes(planes, n_series)
+    parameters = _parameters_from_outcome(outcome.final_nonlinear_parameters)
+    grids = [np.arange(n, dtype=float) for n in shape]
+    # Peaks p, planes a, one letter per spectral dimension.
+    dims = "ijklmn"[: len(shape)]
+    subscripts = ",".join(["pa", *(f"{d}p" for d in dims)]) + f"->a{dims}"
+    model = np.zeros((selected.size, *shape), dtype=float)
+    usable_count = 0
+    for cluster in snapshot.clusters:
+        if canceled is not None and canceled():
+            raise CancelledError
+        terminal = outcome.cluster(cluster.cluster_id)
+        if not terminal.usable:
+            continue
+        evaluation = _validate_usable_projection(terminal, cluster, n_series)
+        factors = Cluster.evaluate_peak_axes(cluster.peaks, parameters, grids)
+        if any(
+            f.shape != (n, len(cluster.peaks)) or not np.all(np.isfinite(f))
+            for f, n in zip(factors, shape, strict=True)
+        ):
+            raise ValueError(f"Invalid projected lineshapes for cluster_id {cluster.cluster_id}")
+        amplitudes = evaluation.amplitudes[:, selected]
+        model += np.einsum(subscripts, amplitudes, *factors, optimize=True)
         usable_count += 1
     if not usable_count:
         return None
@@ -329,6 +375,18 @@ def _full_grid_positions(
     if not positions or any(position.shape != (n_points,) for position in positions):
         raise ValueError("Full-grid indices must contain one flat coordinate per output point")
     return n_series, grid_shape, positions
+
+
+def _selected_planes(planes: Sequence[int] | None, n_series: int) -> np.ndarray:
+    selected = np.arange(n_series) if planes is None else np.asarray(planes)
+    if (
+        selected.ndim != 1
+        or not selected.size
+        or selected.dtype.kind not in "iu"
+        or (np.any(selected < 0) or np.any(selected >= n_series))
+    ):
+        raise ValueError("Projection planes must be valid original plane indices")
+    return selected
 
 
 def _validate_usable_projection(
