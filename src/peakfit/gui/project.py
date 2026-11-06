@@ -130,7 +130,6 @@ def dataset_header(dataset):
         "planes": spectra.z_values.tolist(),
         "source_plane_indices": spectra.source_plane_indices,
         "has_plane_values": dataset.has_plane_values,
-        "trace_limit": dataset.trace_limit,
         "noise": dataset.noise,
     }
 

@@ -975,3 +975,6 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Removed.** “Fit current traces” and the per-view trace gain. The stored
   `trace_limit` in project dataset headers is now unused; its removal is a
   separate storage cleanup.
+
+## 2026-11-06: `trace_limit` removed from datasets and project headers
+- `Dataset.trace_limit` and the `"trace_limit"` dataset-header key are removed; slices use the region intensity scale computed from the visible data. Breaking: new projects no longer write the key and `Dataset(...)` loses that argument; older projects still open (the reader never read the key) and keep it in their carried-over header until re-imported.

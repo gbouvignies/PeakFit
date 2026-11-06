@@ -30,7 +30,7 @@ def scientific():
 
 def _workspace(qapp, scientific):
     spectra, peaks, config, _ = scientific
-    dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 5.0, 0.01)
+    dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01)
     widget = EditorWorkspace(dataset)
     widget.fitting.configuration = config.model_copy(deep=True)
     widget.fitting.setup_seen = True

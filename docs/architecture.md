@@ -176,8 +176,6 @@ are resident in the Qt scene. Theme changes restyle those paths. Slice and lane
 curves are persistent items updated in place on hover. The slices' region intensity
 scale is computed from the data of the visible region over all planes, only when a
 zoom, pan or framing is committed (a 200 ms rest), never on hover or plane change.
-`Dataset.trace_limit` is still computed at load and written to a project's dataset
-header, but nothing displays it.
 
 `PeakEdits` holds immutable stable-ID/unfolded-coordinate records, named undo
 history and a monotonic manual revision. Committed changes, Undo and Redo advance
