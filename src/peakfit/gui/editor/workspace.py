@@ -465,7 +465,21 @@ class EditorWorkspace(QtWidgets.QWidget):
             mode = 0
         for index, button in enumerate(self.mode_buttons):
             button.setChecked(index == mode)
+        self._fit_lanes(mode)
         self.canvas.set_comparison(result, mode, label=comparison.label)
+
+    def _fit_lanes(self, mode: int) -> None:
+        """Lanes the mode would show give way when the window has no room; never enlarge it."""
+        c = self.canvas
+        fits = (
+            mode == _RESIDUAL or not c.sizes.lanes or self._room_for(c.sizes, bar=self.focus_open)
+        )
+        if not fits and c.lanes_fit:
+            self.decline(
+                "Residual lanes are hidden to fit the window; widen it or hide a side panel "
+                "to show them again."
+            )
+        c.lanes_fit = fits
 
     @property
     def peaks(self):
@@ -1249,6 +1263,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         if visible and not self._room_for(sizes, bar=self.focus_open):
             self.decline("No room for residual lanes: enlarge the window or hide a side panel.")
             return
+        self.canvas.lanes_fit = True
         self.canvas.set_lanes(visible)
 
     def _room_for(self, sizes: SliceSizes, *, bar: bool) -> bool:

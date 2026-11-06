@@ -268,6 +268,7 @@ class SpectralView(QtWidgets.QWidget):
         # Slice display: user sizes, residual lanes and the intensity scale.
         self.sizes = SliceSizes()
         self.lane_sigma = LANE_SIGMA
+        self.lanes_fit = True  # False while the window has no room for the lanes
         self.manual_scale: tuple[float, float] | None = None
         self.region_scale: tuple[float, float] = (-1.0, 1.0)
         self.clips: dict[str, tuple[int, int]] = {}
@@ -1357,8 +1358,9 @@ class SpectralView(QtWidgets.QWidget):
 
     # ----------------------------------------------------------------- slices
     def _effective_sizes(self) -> SliceSizes:
-        """Residual mode hides the lanes; the user's preference is kept for Overlay."""
-        return replace(self.sizes, lanes=self.sizes.lanes and self.comparison_mode != _RESIDUAL)
+        """Residual mode, or a window without room, hides the lanes; the preference stays."""
+        shown = self.sizes.lanes and self.comparison_mode != _RESIDUAL and self.lanes_fit
+        return replace(self.sizes, lanes=shown)
 
     def minimum(self, sizes: SliceSizes | None = None) -> tuple[int, int]:
         """The view's minimum: the 2D plot's, with visible slices and lanes at theirs."""
@@ -1675,7 +1677,7 @@ class SpectralView(QtWidgets.QWidget):
         if data:
             text += f' · <span style="color:{t.error}">▲ {data} clipped</span>'
         if model:
-            text += f' · <span style="color:{t.model}">△ model clipped</span>'
+            text += f' · <span style="color:{t.model}">△ {model} model clipped</span>'
         self.caption.setText(text)
         self.caption.setToolTip(
             "Both slices share this range: the lowest and highest experimental intensity "

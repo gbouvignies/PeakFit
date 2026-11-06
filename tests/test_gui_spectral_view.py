@@ -143,8 +143,9 @@ def test_clipped_data_and_model_are_counted_separately(fitted):
     data, model = c.clips["row"]
     assert data > 0
     assert model > 0
-    assert "clipped" in c.caption.text()
-    assert "model clipped" in c.caption.text()
+    # The caption counts both slices.
+    assert f"▲ {sum(d for d, _m in c.clips.values())} clipped" in c.caption.text()
+    assert f"△ {sum(m for _d, m in c.clips.values())} model clipped" in c.caption.text()
     assert len(c.clip_x.data) == data
 
 

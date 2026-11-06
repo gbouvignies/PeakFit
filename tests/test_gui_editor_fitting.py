@@ -842,6 +842,51 @@ def test_slices_and_focus_have_menu_and_keyboard_alternatives(qapp, scientific, 
 
 
 @pytest.mark.usefixtures("settings")
+def test_overlay_after_residual_never_enlarges_a_narrowed_window(qapp, scientific, monkeypatch):
+    spectra, peaks, config, _, result = scientific
+    window = EditorWindow()
+    monkeypatch.setattr(window, "protect_edits", lambda **_: True)
+    window.resize(1160, 720)
+    window.show()
+    window.install_dataset(Dataset(Path("lanes.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    w = window.workspace
+    assert w is not None
+    w.fitting.configuration = config.model_copy(deep=True)
+    qapp.processEvents()
+    publish(w, result)
+    c = w.canvas
+    w.set_lanes(True)
+    w.set_mode(2)  # Residual hides the lanes, lowering the view's minimum
+    floor = w.canvas.minimum()[0] + sum(p.minimumWidth() + 1 for p in (w.navigator, w.panel))
+    _resize(qapp, window, floor + 4, 720)  # narrower than Overlay with lanes needs
+    assert not w.navigator.isHidden()
+    assert not w.panel.isHidden()
+    w.set_mode(1)
+    for _ in range(3):  # let Qt apply any new minimum to the window
+        qapp.processEvents()
+        layout = window.layout()
+        assert layout is not None
+        layout.activate()
+    assert c.comparison_mode == 1
+    assert window.size() == QtCore.QSize(floor + 4, 720)
+    assert c.arrangement.main[2] >= MAIN_MIN[0]
+    assert c.arrangement.main[3] >= MAIN_MIN[1]
+    assert c.sizes.lanes  # the preference is kept
+    assert not c.row_lane.isVisible()  # the lanes gave way to the window
+    assert "Residual lanes are hidden to fit the window" in w.error.text()
+    # Modes always switch; once the window is wide enough the lanes return.
+    w.set_mode(2)
+    w.set_mode(0)
+    assert c.comparison_mode == 0
+    _resize(qapp, window, 1280, 800)
+    w.set_mode(1)
+    qapp.processEvents()
+    assert c.row_lane.isVisible()
+    window.close()
+    window.deleteLater()
+
+
+@pytest.mark.usefixtures("settings")
 def test_a_saved_layout_restores_the_inspector_before_the_navigator(qapp, scientific, monkeypatch):
     spectra, peaks, _, _, _ = scientific
     window = EditorWindow()

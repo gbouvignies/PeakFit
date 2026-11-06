@@ -61,7 +61,10 @@ the centre and the **inspector** on the right. Toolbar buttons at either end hid
 or show the side columns; their widths are adjustable. PeakFit never enlarges the
 window: a side panel opens by taking room from the spectrum (residual lanes, then
 slices, down to their minimums) and then from the other side panel. When even the
-minimums do not fit, it stays closed and a message says what makes room. A new or
+minimums do not fit, it stays closed and a message says what makes room. Returning
+from Residual to a mode with residual lanes, in a window narrowed meanwhile, hides
+the lanes with a message instead; your lane choice is kept and the lanes return once
+there is room. A new or
 reopened analysis keeps the spectrum, then the inspector, then the navigator.
 1160×720 holds both side panels with slices and residual lanes. The navigator's **Peaks**
 tab lists working peaks with search; after a fit its **Clusters** tab lists the
