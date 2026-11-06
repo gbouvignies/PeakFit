@@ -36,7 +36,7 @@ pytestmark = pytest.mark.gui
 @pytest.fixture
 def dataset_workspace(qapp):
     spectra, peaks, config, prepared = two_cluster_dataset()
-    workspace = EditorWorkspace(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    workspace = EditorWorkspace(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
     workspace.resize(1280, 800)
     workspace.show()
     qapp.processEvents()

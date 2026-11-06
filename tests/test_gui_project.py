@@ -79,7 +79,7 @@ def analysis(evidence, tmp_path):
     snapshot = replace(completion.result.inputs.snapshot, source_files=sources)
     result = replace(completion.result, inputs=replace(completion.result.inputs, snapshot=snapshot))
     completion = replace(completion, result=result)
-    dataset = Dataset(source, spectra, completion.working_peaks, sources, True, 5.0, 0.01)
+    dataset = Dataset(source, spectra, completion.working_peaks, sources, True, 0.01)
     return Analysis(
         dataset,
         dataset_header(dataset),

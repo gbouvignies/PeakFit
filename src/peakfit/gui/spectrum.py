@@ -182,7 +182,6 @@ class Dataset:
     peaks: tuple[WorkingPeak, ...]
     sources: tuple[tuple[str, str], ...]
     has_plane_values: bool
-    trace_limit: float
     noise: float
 
 
@@ -217,14 +216,13 @@ def read_dataset(
             if axis.delta == 0 or axis.obs <= 0 or axis.sw <= 0:
                 raise ValueError(f"{axis.label}: invalid spectral calibration. Check the header.")
         imported = read_assignments(peaks, spectra, swap=swap_peak_axes) if peaks else ()
-        largest = float(np.max(np.abs(spectra.data)))
-        trace_limit = max(largest * 1.05, 1.0)
         noise = float(estimate_noise(spectra.data[0]))
         if not np.isfinite(noise) or noise <= 0:
+            largest = float(np.max(np.abs(spectra.data)))
             noise = max(largest / 100, np.finfo(float).tiny)
         spectra.data.flags.writeable = False
         spectra.z_values.flags.writeable = False
-    return Dataset(path, spectra, imported, fingerprints, values is not None, trace_limit, noise)
+    return Dataset(path, spectra, imported, fingerprints, values is not None, noise)
 
 
 def read_assignments(

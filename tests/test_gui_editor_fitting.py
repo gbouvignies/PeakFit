@@ -58,7 +58,7 @@ def scientific():
 @pytest.fixture
 def workspace(qapp, scientific):
     spectra, peaks, config, _, _ = scientific
-    dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 5.0, 0.01)
+    dataset = Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01)
     widget = EditorWorkspace(dataset)
     widget.fitting.configuration = config.model_copy(deep=True)
     widget.fitting.setup_seen = True
@@ -394,7 +394,7 @@ def test_pending_comparison_keeps_current_experiment(workspace, scientific, monk
 def test_toolbar_title_and_close_share_one_unsaved_state(scientific, monkeypatch, tmp_path):
     spectra, peaks, config, _, result = scientific
     window = EditorWindow()
-    window.install_dataset(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    window.install_dataset(Dataset(Path("synthetic.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
     w.fitting.setup_seen = True
@@ -671,7 +671,7 @@ def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkey
     window.resize(1040, 720)
     window.show()
     name = "a-deliberately-long-dataset-name-for-the-compact-header-" * 2 + ".ft2"
-    window.install_dataset(Dataset(Path(name), spectra, peaks, (), True, 5.0, 0.01))
+    window.install_dataset(Dataset(Path(name), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
     w.fitting.configuration = config.model_copy(deep=True)
@@ -748,7 +748,7 @@ def test_side_panels_open_only_where_they_fit_and_never_enlarge_the_window(
     monkeypatch.setattr(window, "protect_edits", lambda **_: True)
     window.resize(1160, 720)  # the reference: both side panels and slices with lanes
     window.show()
-    window.install_dataset(Dataset(Path("reference.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    window.install_dataset(Dataset(Path("reference.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
     w.fitting.configuration = config.model_copy(deep=True)
@@ -804,7 +804,7 @@ def test_slices_and_focus_have_menu_and_keyboard_alternatives(qapp, scientific, 
     monkeypatch.setattr(window, "protect_edits", lambda **_: True)
     window.resize(1280, 800)
     window.show()
-    window.install_dataset(Dataset(Path("menus.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    window.install_dataset(Dataset(Path("menus.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
     w.fitting.configuration = config.model_copy(deep=True)
@@ -848,7 +848,7 @@ def test_overlay_after_residual_never_enlarges_a_narrowed_window(qapp, scientifi
     monkeypatch.setattr(window, "protect_edits", lambda **_: True)
     window.resize(1160, 720)
     window.show()
-    window.install_dataset(Dataset(Path("lanes.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    window.install_dataset(Dataset(Path("lanes.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
     w.fitting.configuration = config.model_copy(deep=True)
@@ -894,7 +894,7 @@ def test_a_saved_layout_restores_the_inspector_before_the_navigator(qapp, scient
     monkeypatch.setattr(workspace_module, "dataset_header", lambda _dataset: {})
     window.resize(1280, 760)
     window.show()
-    window.install_dataset(Dataset(Path("layout.ft2"), spectra, peaks, (), True, 5.0, 0.01))
+    window.install_dataset(Dataset(Path("layout.ft2"), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
     qapp.processEvents()
