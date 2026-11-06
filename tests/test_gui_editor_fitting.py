@@ -386,8 +386,10 @@ def test_pending_comparison_keeps_current_experiment(workspace, scientific, monk
         assert [layer.role for layer in c.paths] == ["measured"], (
             "Current-plane experimental contours must remain visible"
         )
-        assert "Experimental" in c.pending_label.toPlainText()
-        assert ("Residual" if mode == 2 else "Overlay") in c.pending_label.toPlainText()
+        # The label says what is on show and what is still coming.
+        assert c.pending_label.toPlainText() == (
+            f"Experimental contours · {'residual' if mode == 2 else 'model'} pending"
+        )
         if mode == 2:
             assert c.curve_x.getData()[1] is None
     finally:
@@ -472,8 +474,10 @@ def test_pending_latest_plane_and_run_reject_stale_delivery(workspace, scientifi
         assert c.curve_x.getData()[1] is None
         obsolete = c._revision
         w.set_plane(3)
-        # The fallback must never be carried across acquisition indices.
-        assert not c.paths
+        # Nothing is carried across acquisition indices: whatever shows is plane 3's
+        # (its measured contours may already be prepared), and no model yet.
+        assert all(layer.key[2] == 2 for layer in c.paths)
+        assert [layer.role for layer in c.paths] in ([], ["measured"])
         assert c._model is None
     finally:
         release.set()

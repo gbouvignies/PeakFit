@@ -50,6 +50,7 @@ _FRAME_POINTS = 6  # and at least this many points on each side
 LANE_SIGMA = 8.0  # default residual lane range, ±σ_stat
 _SCALE_STEP = 1.25  # one wheel step of a manual slice or lane scale
 _COMMIT_MS = 200  # a zoom or pan is committed once the wheel or drag rests
+_PENDING_SHOW_MS = 200  # a wait shorter than this needs no label; it would only flash
 _READOUT_MIN = (40, 30)  # the corner readout needs at least this much room
 REGION_ALPHA = 0.08  # every fitting region, behind the contours
 SELECTED_REGION_ALPHA = 0.16  # the selected peak's cluster
@@ -83,9 +84,10 @@ class ContourLayer(QtWidgets.QGraphicsItem):
     its own pen so low levels can be lighter, without one scene item per level.
     """
 
-    def __init__(self, role: str, paths: list[QtGui.QPainterPath]) -> None:
+    def __init__(self, role: str, paths: list[QtGui.QPainterPath], key: tuple = ()) -> None:
         super().__init__()
         self.role = role
+        self.key = key  # what these contours are of: (run, mode, plane, levels…)
         self.levels = paths
         self._pens: list[QtGui.QPen] = []
         rect = QtCore.QRectF()
@@ -294,6 +296,7 @@ class SpectralView(QtWidgets.QWidget):
         self.labels_visible = False
         self._labels: list[pg.TextItem] = []
         self._revision = 0
+        self._last_plane = 0
         self._cache: OrderedDict[tuple, ContourGeometry] = OrderedDict()
         self.cache_bytes = 0
         self.contour_jobs = 0
@@ -494,11 +497,20 @@ class SpectralView(QtWidgets.QWidget):
         self.ghost = self._scatter("+", 10, 32)
         self.hover_label = self._label(35, (-0.08, 1.15))
         self.selection_label = self._label(34, (-0.12, 1.05))
-        self.paths: list[ContourLayer] = []
+        # Measured contours of one plane, and the model or residual contours drawn
+        # with them; each kept until something of its own kind replaces it.
+        self.experiment_layers: list[ContourLayer] = []
+        self.model_layers: list[ContourLayer] = []
         self.pending_label = pg.TextItem("Preparing contours…", anchor=(0, 0))
         self.pending_label.setZValue(40)
         self.pending_label.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
         self.box.addItem(self.pending_label, ignoreBounds=True)
+        self._pending_show = QtCore.QTimer(self)
+        self._pending_show.setSingleShot(True)
+        self._pending_show.setInterval(_PENDING_SHOW_MS)
+        self._pending_show.timeout.connect(
+            lambda: self.pending_label.setVisible(bool(self.pending_label.toPlainText()))
+        )
         self.legend = QtWidgets.QLabel(self.view)
         self.legend.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.legend.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -973,141 +985,162 @@ class SpectralView(QtWidgets.QWidget):
         self._update_legend()
         self.request_contours()
 
-    def request_contours(self) -> None:  # noqa: PLR0915
-        """Coalesce complete-plane projection and geometry; hover only reads arrays."""
+    @property
+    def paths(self) -> list[ContourLayer]:
+        """Every contour layer on show, measured first."""
+        return [
+            layer for layer in (*self.experiment_layers, *self.model_layers) if layer.isVisible()
+        ]
+
+    def _model_key(self) -> tuple:
+        result, mode = self.comparison_result, self.comparison_mode
+        return (
+            result.run_id if result is not None and mode else None,
+            mode,
+            self.plane,
+            self.contour_threshold,
+            self.contour_factor,
+            self.contour_count,
+            self.residual_threshold,
+        )
+
+    def _levels(self) -> np.ndarray:
+        return self.contour_threshold * self.contour_factor ** np.arange(self.contour_count)
+
+    def request_contours(self) -> None:
+        """Show this plane's measured contours at once when known; model contours follow.
+
+        Measured contours are replaced only by those of the plane now shown, never
+        carried to another plane; model and residual contours of an earlier request
+        go at once and return only for this plane, run and mode. Hover only reads
+        arrays.
+        """
         self._revision += 1
         self._model_cancel.set()
         self._model_cancel = Event()
         cancel = self._model_cancel
-        for item in self.paths:
-            self.box.removeItem(item)
-        self.paths.clear()
-        self._model = None
-        result, mode, plane = self.comparison_result, self.comparison_mode, self.plane
-        run = result.run_id if result is not None and mode else None
-        key = (
-            run,
-            mode,
-            plane,
-            self.contour_threshold,
-            self.contour_factor,
-            self.contour_count,
-            self.residual_threshold,
-        )
-        if not mode:
-            key = self._experiment_key()
-        self.contour_pending = True
-        self.pending_label.setPos(self.box.viewRange()[0][1], self.box.viewRange()[1][0])
-        mode_name = "Residual" if mode == _RESIDUAL else "Overlay"
-        self.pending_label.setText(
-            f"Experimental spectrum · {mode_name} pending"
-            + (f" · {self.comparison_label}" if self.comparison_label else "")
-            if mode
-            else "Preparing experimental contours…"
-        )
-        self.pending_label.show()
         self._worker.cancel("contours")
         self._worker.cancel("model")
+        self._set_layers("model", [], ())
+        result, mode, plane = self.comparison_result, self.comparison_mode, self.plane
+        run = result.run_id if result is not None and mode else None
         grid = self.model_planes.get(run, plane) if run is not None else None
-        self._model = grid
+        # The slices show a model only together with its contours.
+        self._model = None
+        experiment_key = self._experiment_key()
+        experiment = self._cache_get(experiment_key)
+        if experiment is not None:
+            self._show_experiment(experiment_key, experiment)
+        elif not self.experiment_layers or self.experiment_layers[0].key != experiment_key:
+            self._set_layers("experiment", [], ())
+        model_key = self._model_key()
+        model_geometry = self._cache_get(model_key) if mode and grid is not None else None
+        if model_geometry is not None:
+            self._model = grid
+            self._show_model(model_key, model_geometry)
+        self._update_pending()
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
-        if key in self._cache and (not mode or grid is not None):
-            geometry = self._cache.pop(key)
-            self._cache[key] = geometry
-            self._install_contours(geometry, experimental=not mode)
-            return
         observed = self.spectra.data[plane]
         axes = [axis.model_copy(deep=True) for axis in self.spectra.spectral_params]
-        levels = self.contour_threshold * self.contour_factor ** np.arange(self.contour_count)
-        self.contour_jobs += 1
-        experiment_key = self._experiment_key()
-        experiment = [self._cache.get(experiment_key)]
-        if experiment[0] is not None:
-            self._cache.move_to_end(experiment_key)
-            self._install_contours(experiment[0], pending=bool(mode), experimental=True)
-        else:
+        levels = self._levels()
+        if experiment is None:
+            self.contour_jobs += 1
 
             def prepare_experiment():
-                if cancel.is_set():
-                    raise CancelledError
-                experiment[0] = signed_geometry(observed, axes, levels)
-                return experiment[0]
+                return experiment_key, signed_geometry(observed, axes, levels)
 
             self._worker.submit("contours", self._revision, prepare_experiment)
-        if not mode:
+        # Before the model: the next step's measured contours must not wait behind it.
+        self._prefetch(axes, levels)
+        if mode and model_geometry is None:
+            self.contour_jobs += 1
+            residual_levels = self.residual_threshold / 3 * _RESIDUAL_LEVELS
+
+            def calculate():
+                assert result is not None
+                model = grid or dataset_model_plane(result, axes, plane, cancel=cancel)
+                if cancel.is_set():
+                    raise CancelledError
+                if mode == _RESIDUAL:
+                    residual = normalized_residual(observed, model.values, result.outcome.noise)
+                    return model, signed_geometry(residual, axes, residual_levels)
+                return model, signed_geometry(model.values, axes, levels)
+
+            self._worker.submit("model", self._revision, calculate)
+
+    def _prefetch(self, axes, levels) -> None:
+        """Prepare the next plane's measured contours, in the direction of travel."""
+        step = 1 if self.plane >= self._last_plane else -1
+        self._last_plane = self.plane
+        plane = self.plane + step
+        key = self._experiment_key(plane)
+        if not 0 <= plane < self.spectra.data.shape[0] or key in self._cache:
             return
-        residual_levels = self.residual_threshold / 3 * _RESIDUAL_LEVELS
+        wanted = [(key, self.spectra.data[plane])]
 
-        def calculate():
-            model = grid
-            if mode:
-                assert result is not None
-                model = model or dataset_model_plane(result, axes, plane, cancel=cancel)
-            if cancel.is_set():
-                raise CancelledError
-            if mode == _RESIDUAL:
-                assert model is not None
-                assert result is not None
-                residual = normalized_residual(observed, model.values, result.outcome.noise)
-                geometry = signed_geometry(residual, axes, residual_levels)
-            else:
-                assert model is not None
-                assert experiment[0] is not None
-                geometry = experiment[0] + signed_geometry(model.values, axes, levels)
-            return model, geometry
+        def prepare():
+            return [(key, signed_geometry(data, axes, levels)) for key, data in wanted]
 
-        self._worker.submit("model", self._revision, calculate)
+        self._worker.submit("prefetch", self._revision, prepare)
 
-    def _experiment_key(self) -> tuple:
+    def _experiment_key(self, plane: int | None = None) -> tuple:
         return (
             None,
             0,
-            self.plane,
+            self.plane if plane is None else plane,
             self.contour_threshold,
             self.contour_factor,
             self.contour_count,
             0,
         )
 
+    def _cache_get(self, key):
+        geometry = self._cache.get(key)
+        if geometry is not None:
+            self._cache.move_to_end(key)
+        return geometry
+
     def _contours_ready(self, kind, revision, outcome) -> None:
-        if revision != self._revision:
-            return
         if isinstance(outcome, Exception):
-            self.pending_label.setText(f"Comparison unavailable: {outcome}")
-            self.contour_pending = False
+            if revision == self._revision and kind != "prefetch":
+                self.pending_label.setText(f"Comparison unavailable: {outcome}")
+                self.pending_label.show()
+                self.contour_pending = False
+            return
+        if kind == "prefetch":
+            for key, geometry in outcome:
+                self._cache_geometry(key, geometry)
             return
         if kind == "contours":
-            self._cache_geometry(self._experiment_key(), outcome)
-            self._install_contours(outcome, pending=bool(self.comparison_mode), experimental=True)
+            # Valid for its own plane whenever it arrives; shown only if still wanted.
+            key, geometry = outcome
+            self._cache_geometry(key, geometry)
+            if key == self._experiment_key() and (
+                not self.experiment_layers or self.experiment_layers[0].key != key
+            ):
+                self._show_experiment(key, geometry)
+                self._update_pending()
+            return
+        if revision != self._revision:
             return
         model, geometry = outcome
-        run = (
-            self.comparison_result.run_id
-            if self.comparison_result and self.comparison_mode
-            else None
-        )
-        key = (
-            run,
-            self.comparison_mode,
-            self.plane,
-            self.contour_threshold,
-            self.contour_factor,
-            self.contour_count,
-            self.residual_threshold,
-        )
-        if model is not None and run is not None:
-            self.model_planes.put(run, self.plane, model)
+        key = self._model_key()
+        if key[0] is not None:
+            self.model_planes.put(key[0], self.plane, model)
         self._model = model
         self._cache_geometry(key, geometry)
-        self._install_contours(geometry)
+        self._show_model(key, geometry)
+        self._update_pending()
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
 
     def _cache_geometry(self, key, geometry) -> None:
         previous = self._cache.pop(key, ())
         self.cache_bytes -= sum(p.nbytes + c.nbytes for p, c in previous)
         size = sum(p.nbytes + c.nbytes for p, c in geometry)
+        # At most _CACHE_PLANES planes: a plane's measured and model contours count once.
         while self._cache and (
-            self.cache_bytes + size > _CACHE_BYTES or len(self._cache) >= _CACHE_PLANES
+            self.cache_bytes + size > _CACHE_BYTES
+            or len({k[2] for k in self._cache} | {key[2]}) > _CACHE_PLANES
         ):
             _, evicted = self._cache.popitem(last=False)
             self.cache_bytes -= sum(p.nbytes + c.nbytes for p, c in evicted)
@@ -1115,26 +1148,54 @@ class SpectralView(QtWidgets.QWidget):
             self._cache[key] = geometry
             self.cache_bytes += size
 
-    def _install_contours(self, geometry, *, pending=False, experimental=False) -> None:
-        for item in self.paths:
+    def _set_layers(self, kind: str, layers: list[tuple[str, list]], key: tuple) -> None:
+        """Replace one kind of contour layer in a single step, so nothing blinks."""
+        current = self.experiment_layers if kind == "experiment" else self.model_layers
+        for item in current:
             self.box.removeItem(item)
-        self.paths.clear()
-        self._displaying_experiment = experimental
-        paths = paths_from_geometry(geometry)
-        if self.comparison_mode == _RESIDUAL and not experimental:
-            layers = [("residual", paths)]
-        elif len(paths) == 4 * self.contour_count:
-            half = 2 * self.contour_count
-            layers = [("measured", paths[:half]), ("model", paths[half:])]
-        else:
-            layers = [("measured", paths)]
-        for role, levels in layers:
-            item = ContourLayer(role, levels)
+        current.clear()
+        for role, paths in layers:
+            item = ContourLayer(role, paths, key)
             self.box.addItem(item)
-            self.paths.append(item)
+            current.append(item)
+
+    def _show_experiment(self, key: tuple, geometry) -> None:
+        if self.experiment_layers and self.experiment_layers[0].key == key:
+            return
+        self._set_layers("experiment", [("measured", paths_from_geometry(geometry))], key)
         self._style_contours()
-        self.pending_label.setVisible(pending)
-        self.contour_pending = pending
+
+    def _show_model(self, key: tuple, geometry) -> None:
+        role = "residual" if self.comparison_mode == _RESIDUAL else "model"
+        self._set_layers("model", [(role, paths_from_geometry(geometry))], key)
+        self._style_contours()
+
+    def _update_pending(self) -> None:
+        """Say what is still coming for this plane; the residual hides measured contours."""
+        mode = self.comparison_mode
+        model = bool(self.model_layers)
+        experiment = bool(self.experiment_layers)
+        for layer in self.experiment_layers:
+            # Residual mode shows measured contours only while its residual is pending.
+            layer.setVisible(mode != _RESIDUAL or not model)
+        self._displaying_experiment = experiment and not model
+        needs_experiment = mode != _RESIDUAL or not model
+        self.contour_pending = (needs_experiment and not experiment) or bool(mode and not model)
+        historical = f" · {self.comparison_label}" if self.comparison_label else ""
+        if needs_experiment and not experiment:
+            text = "Preparing contours…"
+        elif mode and not model:
+            what = "residual" if mode == _RESIDUAL else "model"
+            text = f"Experimental contours · {what} pending{historical}"
+        else:
+            text = ""
+        self.pending_label.setPos(self.box.viewRange()[0][1], self.box.viewRange()[1][0])
+        self.pending_label.setText(text)
+        if not text:
+            self._pending_show.stop()
+            self.pending_label.hide()
+        elif not self.pending_label.isVisible() and not self._pending_show.isActive():
+            self._pending_show.start()  # shown only if the wait lasts
 
     def _style_contours(self) -> None:
         """Hue and stroke encode layer and sign; lightness grades the levels."""
@@ -1145,8 +1206,8 @@ class SpectralView(QtWidgets.QWidget):
             QtCore.Qt.PenStyle.DashLine,
             QtCore.Qt.PenStyle.DotLine,
         )
-        overlay = any(layer.role == "model" for layer in self.paths)
-        for layer in self.paths:
+        overlay = any(layer.role == "model" for layer in self.model_layers)
+        for layer in (*self.experiment_layers, *self.model_layers):
             count = len(layer.levels) // 2
             if layer.role == "residual":
                 pens = _level_pens(
@@ -1739,6 +1800,7 @@ class SpectralView(QtWidgets.QWidget):
     def stop(self) -> None:
         """Discard stale deliveries without waiting on a worker in the UI thread."""
         self._commit.stop()
+        self._pending_show.stop()
         self._revision += 1
         self._model_cancel.set()
         self._preview_timer.stop()
