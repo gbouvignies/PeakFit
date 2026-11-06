@@ -1652,6 +1652,11 @@ def _measures(change: ClusterChange) -> str:
 
 def _change_lines(change: ClusterChange) -> list[str]:
     """Marks first (warnings that appeared or no longer appear), then edits and measures."""
+    if change.new:
+        return [
+            "New cluster: " + ", ".join(change.names),
+            *(f"{m} reported" for m in change.now),
+        ]
     if change.regrouped_from:
         lines = [f"Regrouped from {', '.join(change.regrouped_from)}"]
         if change.now:

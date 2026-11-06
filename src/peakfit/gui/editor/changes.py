@@ -55,6 +55,7 @@ class ClusterChange:
     edited: tuple[str, ...] = ()  # assignments moved or added since the parent run
     measures: tuple[Measures, Measures] | None = None  # before, after; when comparable
     not_compared: str = ""  # why the recorded measures are not compared
+    new: bool = False  # every member was added since the parent run: nothing before
 
     @property
     def gained(self) -> tuple[str, ...]:
@@ -220,7 +221,11 @@ def compare_runs(
     for review in active_reviews:
         sources = list({id(home[i]): home[i] for i in review.ids if i in home}.values())
         if not sources:
-            continue  # only peaks new to this run
+            # Only peaks new to this run: its current marks, with nothing to compare.
+            changes.append(
+                ClusterChange(review.ids, review.names, (), (), _marks(active, review), new=True)
+            )
+            continue
         same = len(sources) == 1 and set(sources[0].ids) == set(review.ids)
         before = tuple(dict.fromkeys(m for source in sources for m in _marks(parent, source)))
         now = _marks(active, review)
@@ -246,7 +251,7 @@ def compare_runs(
         key=lambda c: (
             not c.gained,
             not c.lost,
-            not c.edited,
+            not (c.edited or c.new),
             not (c.before or c.now),
         )
     )

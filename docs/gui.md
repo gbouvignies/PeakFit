@@ -169,6 +169,9 @@ Peaks are matched by stable ID, so renamed peaks still compare.
   members, a mark is “now reported” or “no longer reported”. A regrouped cluster
   names the clusters it came from and lists its marks “Now” and “Before
   regrouping”; a mark that disappeared with regrouping is not presented as resolved.
+  A cluster made only of peaks added since the parent run is listed as a new
+  cluster with its members and current marks, never as a regrouping, and without
+  before → after values.
 - **Measures** (χ²ᵣ, |r|max, |ρ|) before → after appear only when both runs define
   them identically: the same members, the same fitting samples, σ_stat and noise
   model, and the same number of varied parameters. Otherwise the line names the

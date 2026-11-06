@@ -287,6 +287,34 @@ def test_new_warnings_lead_and_are_drawn_as_warnings(run):
     assert [e[5] for e in links] == [True, False, False]
 
 
+def test_a_cluster_of_only_new_peaks_is_listed_as_new_with_its_warnings(run):
+    spectra, result = run
+    active = [
+        _review(["a"], cluster_id=902),
+        _review(["z"], ["Not converged"], cluster_id=904),
+    ]
+    parent = [_review(["a"], ["At bound"], cluster_id=902)]
+    changes = _compare(spectra, result, result, active, parent)
+    # The new warned cluster leads, ahead of a warning no longer reported.
+    new, lost = changes.changes
+    assert new.names == ("Z",)
+    assert (new.new, new.before, new.now, new.regrouped_from) == (
+        True,
+        (),
+        ("▲ Not converged",),
+        (),
+    )
+    assert new.gained == ("▲ Not converged",)
+    assert (new.measures, new.not_compared) == (None, "")
+    assert lost.names == ("A",)
+    assert changes.regrouped == 0
+    links = [e for e in _change_entries(changes, {}) if e[0] == "link"]
+    assert links[0][1:3] == ("Z", "New cluster: Z\n▲ Not converged reported")
+    assert links[0][5]  # drawn as a warning
+    assert "Regrouped" not in links[0][2]
+    assert "Measures" not in links[0][2]
+
+
 DATA = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
 
 
