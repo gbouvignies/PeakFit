@@ -93,6 +93,11 @@ combined contributions from the verified final snapshot and retained amplitudes.
 The existing full-grid simulation delegates to this same path. Shape evaluation
 is chunked; callers bound their output region. No optimization, amplitude solve,
 or parameter-default preparation takes place during visualization.
+`project_final_grid` gives the same model on a whole native grid from per-axis
+shapes: a peak's shape is the product of its per-dimension shapes, so each plane
+is a sum of amplitude-weighted outer products (`Cluster.evaluate_peak_axes`). The
+GUI's model planes use it; agreement with the pointwise path is tested to 10⁻¹²
+of the largest model value on every plane.
 
 `engine.scientific.completed.CompletedFit` is the one carrier of a completed fit: the
 outcome, the model snapshot (evaluable geometry only; noise, revision and values
@@ -233,8 +238,8 @@ selected-peak pin once, retaining a free inspection pin. `test_gui_editor_fittin
 completion, invalid publication, selected/free pins, rapid stale plane requests,
 native total-model slices, draft/currentness behavior and repeated refits.
 
-The canvas uses the existing `dataset_model_plane` projector: every usable cluster
-contributes at every native point. Completed corrected optimizer residuals remain
+The spectral view uses `dataset_model_plane` (per-axis `project_final_grid`): every
+usable cluster contributes at every native point. Completed corrected optimizer residuals remain
 immutable. Overlay and signed residual geometry share that native plane; hover
 extracts only a native row/column and never launches projection. Run/plane identity
 and monotonically increasing request revisions reject stale deliveries. One

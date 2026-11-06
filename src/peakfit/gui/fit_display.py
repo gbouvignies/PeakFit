@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from threadpoolctl import ThreadpoolController
 
-from peakfit.engine.scientific.simulation import project_final_outcome
+from peakfit.engine.scientific.simulation import project_final_grid
 
 if TYPE_CHECKING:
     from threading import Event
@@ -97,17 +97,16 @@ def dataset_model_plane(
 ) -> ModelPlane:
     """Evaluate every usable final contribution at every native point, without cutoffs."""
     ny, nx = (axis.size for axis in axes)
-    iy, ix = np.indices((ny, nx))
     with _BLAS.limit(limits=1):
-        values = project_final_outcome(
+        values = project_final_grid(
             result.outcome,
             result.completed_fit.model_snapshot,
-            [iy.ravel(), ix.ravel()],
+            (ny, nx),
             planes=[plane],
             canceled=cancel.is_set,
         )
     if values is None:
         raise ValueError("This run has no usable model contributions.")
-    values = values[:, 0].reshape(ny, nx)
+    values = values[0]
     values.flags.writeable = False
     return ModelPlane(np.arange(ny), np.arange(nx), values, False)

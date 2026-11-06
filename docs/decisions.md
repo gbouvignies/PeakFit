@@ -978,3 +978,18 @@ Short records of non‑obvious design choices and trade‑offs.
 
 ## 2026-11-06: `trace_limit` removed from datasets and project headers
 - `Dataset.trace_limit` and the `"trace_limit"` dataset-header key are removed; slices use the region intensity scale computed from the visible data. Breaking: new projects no longer write the key and `Dataset(...)` loses that argument; older projects still open (the reader never read the key) and keep it in their carried-over header until re-imported.
+
+## 2026-11-06: Model planes from per-axis shapes
+- **Change.** The GUI evaluates a model plane with `project_final_grid`: per-axis
+  shapes once per cluster, then amplitude-weighted outer products, instead of
+  evaluating every peak at all 139 776 grid points.
+- **Why.** On the bundled data a first visit to a plane in Overlay took 1.3 s,
+  97 % of it model evaluation (1.26 s; contours 2–4 ms), so stepping planes stalled
+  at every new plane. It now takes 52 ms p50 (59 ms p95) to paint; per-axis shapes
+  take about 9 ms per run and a plane 0.14 ms.
+- **Same model.** A peak shape is defined as the product of its per-dimension
+  shapes (`Cluster.evaluate_peaks`), so only the summation order changes. Tests
+  require agreement within 10⁻¹² of the largest model value on every plane, for
+  Gaussian, Lorentzian and pseudo-Voigt shapes with a folded peak, and for the
+  bundled SP2 data (observed 1.2×10⁻¹⁵). The pointwise `project_final_outcome`
+  and the CLI's full-grid simulation are unchanged, so no output file changes.
