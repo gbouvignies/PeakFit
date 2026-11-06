@@ -2463,3 +2463,91 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
     assert w.focus_open
     assert len(w.canvas.unadopted.data) == len(retained)
     assert "fitted position, not adopted" in w.canvas.legend.text()
+
+
+def test_qualifiers_stay_beside_values_and_explanations_open_in_place(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    member = identities[cluster.peak_names[0]]
+    w.select_peak(member)
+    panel = w.panel
+    profile = panel.profile
+    note = profile.note.text()
+    # Conditional σ and the noise treatment are separate, visible qualifiers; χ²ᵣ is
+    # beside them as a diagnostic.
+    assert "±1σ conditional on fixed lineshapes" in note
+    assert "noise correlation not modelled" in note
+    assert "(fit diagnostic)" in note
+    # The full explanation opens in place, by keyboard, not only as a tooltip.
+    toggle = profile.about_toggle
+    assert toggle.isVisible()
+    assert not profile.about.isVisible()
+    toggle.setFocus()
+    QtTest.QTest.keyClick(toggle, QtCore.Qt.Key.Key_Space)
+    assert profile.about.isVisible()
+    assert "never rescaled by χ²ᵣ" in profile.about.text()
+    assert "held fixed" in profile.about.text()
+    # Measures: the reference maximum says what it assumes and is not a threshold.
+    texts = [label.text() for label in panel.peak_page.findChildren(QtWidgets.QLabel)]
+    assert any("independent Gaussian samples" in t and t.startswith("rough guide") for t in texts)
+    assert "not a significance threshold" in panel.about.text()
+    assert "correlated" in panel.about.text()
+    # The measures' explanation keeps its state across selections and pages.
+    panel.about_toggle.click()
+    assert panel.about.isVisible()
+    w.select_peak(identities[cluster.peak_names[1]])
+    assert panel.about.isVisible()
+    w.select_peak(member, cluster=True)
+    assert panel.cluster_page.about.isVisible()
+    # The profile's explanation stays open too (the profile fills once on show).
+    assert profile.about_toggle.isChecked()
+    assert not profile.about.isHidden()
+    assert "see About these measures" in panel.cluster_page.matrix_note.text()
+    # Editing instructions moved to the fields; the unfolded qualifier stays.
+    w.select_peak(member)
+    assert panel.editor.details.text().endswith("Unfolded ppm")
+    assert "Escape discards" in panel.editor.x_field.toolTip()
+    # The unexplained-signal list is framed as a diagnostic, never peak picking.
+    w.select_peak(None)
+    labels = [label.text() for label in panel.analysis_page.findChildren(QtWidgets.QLabel)]
+    assert any(t.startswith("Diagnostic only") and "never proposes peaks" in t for t in labels)
+
+
+def test_the_error_bar_explanation_describes_the_quantity_on_show(qapp, scientific):
+    result = scientific[-1]
+    shown = peak_profile(result, result.inputs.identities[0].working_id, None)
+    assert isinstance(shown, PeakProfile)
+    panel = ProfilePlot()
+    panel.resize(320, 260)
+    panel.show()
+    panel.show_profile(shown, 0)
+    qapp.processEvents()
+    common = ("held fixed", "never rescaled by χ²ᵣ", shown.noise_model.description)
+
+    def explanation():
+        text = panel.about.text()
+        assert all(part in text for part in common)
+        return text
+
+    # Raw: the recorded σ, one per peak, the same on every plane.
+    assert "the same on every plane" in explanation()
+    assert "ratio" not in explanation()
+    # One reference plane: the ratio's propagated σ, varying by plane; reference exact.
+    first, second = (int(p) for p in shown.source_planes[:2])
+    panel.set_reference((first,))
+    text = explanation()
+    assert "ratio A_k / R" in text
+    assert "differ from plane to plane" in text
+    assert "single reference plane its ratio is exactly 1 and has no error bar" in text
+    assert "the same on every plane" not in text
+    # Several reference planes: each has a propagated error of its own.
+    panel.set_reference((first, second))
+    assert "its own ratio has a propagated error" in explanation()
+    assert "exactly 1" not in explanation()
+    # Back to raw amplitudes.
+    panel.set_normalized(False)
+    assert "the same on every plane" in explanation()
+    panel.close()

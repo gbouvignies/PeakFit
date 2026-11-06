@@ -47,6 +47,9 @@ class AnalysisActions:
         self.analysis_save = self._action(
             menu, "Save analysis", self.save_analysis_dialog, QtGui.QKeySequence.StandardKey.Save
         )
+        keeps = "Keeps working state and the latest ten runs; spectra stay external."
+        self.analysis_save.setStatusTip(keeps)
+        self.analysis_save.setToolTip(keeps)
         self.analysis_save_as = self._action(
             menu,
             "Save analysis as…",

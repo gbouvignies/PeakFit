@@ -13,7 +13,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
-from peakfit.gui.editor.labels import clear_layout, review_item, text_label
+from peakfit.gui.editor.labels import about, clear_layout, review_item, text_label
 from peakfit.gui.editor.review import correlation_matrix
 
 if TYPE_CHECKING:
@@ -29,6 +29,33 @@ def _section(layout: QtWidgets.QVBoxLayout, text: str) -> QtWidgets.QLabel:
     layout.addSpacing(themes.SPACE_S)
     layout.addWidget(label)
     return label
+
+
+ABOUT_MEASURES = (
+    "χ²ᵣ and the recorded residuals are relative to the statistical noise estimate "
+    "σ_stat, over the cluster's fitting samples. χ²ᵣ well above 1 means the noise "
+    "level, the lineshape model or the noise assumptions do not describe the data. "
+    "The largest recorded residual is set beside √(2 ln N), the typical largest of N "
+    "independent standard Gaussian values, which grows slowly with N. When the noise "
+    "is correlated, as after apodization, neighbouring samples are not independent: "
+    "the comparison is a rough guide, not a significance threshold. Amplitude "
+    "correlations ρ are recorded once for all planes and are conditional on the fitted "
+    "lineshape parameters; |ρ| near 1 means the data do not determine how the signal "
+    "splits between those members."
+)
+
+
+def samples_caption(samples: int) -> str:
+    """What χ²ᵣ is computed over."""
+    return f"{samples:,} fitting samples".replace(",", " ")
+
+
+def maximum_caption(samples: int) -> str:
+    """The reference for the largest residual, with what it assumes."""
+    return (
+        f"rough guide ≈ {math.sqrt(2 * math.log(samples)):.1f} σ for {samples:,} "
+        "independent Gaussian samples"
+    ).replace(",", " ")
 
 
 class ClusterPage(QtWidgets.QWidget):
@@ -83,6 +110,8 @@ class ClusterPage(QtWidgets.QWidget):
         self.review = QtWidgets.QVBoxLayout()
         self.review.setSpacing(2)
         layout.addLayout(self.review)
+        self.about_toggle, self.about = about(layout, "About these measures")
+        self.about.setText(ABOUT_MEASURES)
         self.provenance_toggle = QtWidgets.QToolButton()
         self.provenance_toggle.setObjectName("text")
         self.provenance_toggle.setText("Provenance")
@@ -207,10 +236,11 @@ class ClusterPage(QtWidgets.QWidget):
         self.parameters.setColumnStretch(len(columns) + 1, 1)
         units = sorted({p.unit for p in values.values()})
         self.parameters_note.setText(
-            "Recorded values; δ in ppm, LW in Hz"
+            "Recorded · δ in ppm, LW in Hz"
             + (f" ({', '.join(units)})" if set(units) - {"ppm", "Hz"} else "")
-            + ". Hover a value for ± σ; amber marks a recorded bound."
+            + (" · amber: at a recorded bound" if bounded else "")
         )
+        self.parameters_note.setToolTip("Hover a value for its recorded ± σ")
 
     def _fill_matrix(
         self, review: ClusterReview, cluster: FinalClusterOutcome, engine_names: tuple[str, ...]
@@ -256,9 +286,8 @@ class ClusterPage(QtWidgets.QWidget):
                 self.matrix.addWidget(cell, i + 1, j + 1)
         self.matrix.setColumnStretch(size + 1, 1)
         self.matrix_note.setText(
-            "Recorded amplitude correlations, one matrix for all planes, conditional on the "
-            "fitted lineshape parameters. |ρ| near 1 means the decomposition between those "
-            "members is not determined by the data."
+            "Recorded for all planes · conditional on the fitted lineshapes · "
+            "see About these measures"
         )
 
     def _fill_review(self, review: ClusterReview) -> None:
@@ -280,7 +309,7 @@ class ClusterPage(QtWidgets.QWidget):
                 "Measures",
                 "·",
                 f"χ²ᵣ {review.chi2:.3g}",
-                f"{samples:,} fitting samples · relative to the noise estimate".replace(",", " "),
+                samples_caption(samples),
             )
             if math.isfinite(review.largest_residual) and samples > 1:
                 review_item(
@@ -288,8 +317,7 @@ class ClusterPage(QtWidgets.QWidget):
                     "",
                     "·",
                     f"Largest recorded residual {review.largest_residual:.1f} σ",
-                    f"typical maximum for {samples:,} Gaussian samples ≈ "
-                    f"{math.sqrt(2 * math.log(samples)):.1f} σ".replace(",", " "),
+                    maximum_caption(samples),
                 )
         names = dict(zip(review.ids, review.names, strict=True))
         for pair in review.collinear:
