@@ -421,3 +421,17 @@ def test_the_pending_label_waits_before_appearing_and_says_what_is_coming(fitted
         release.set()
     wait_until(lambda: not c.contour_pending)
     assert not c.pending_label.isVisible()
+
+
+def test_measured_contours_take_their_own_pens_when_the_model_goes(fitted):
+    c = fitted.canvas
+    wait_until(lambda: not c.contour_pending)
+    measured = c.experiment_layers[0]
+    under_model = measured._pens[0].widthF()
+    fitted.set_mode(0)
+    # Same layer, restyled: under a model measured strokes widen; alone they do not.
+    assert c.experiment_layers[0] is measured
+    assert measured._pens[0].widthF() == pytest.approx(under_model / 1.5)
+    fitted.set_mode(1)
+    wait_until(lambda: not c.contour_pending)
+    assert measured._pens[0].widthF() == pytest.approx(under_model)

@@ -1022,6 +1022,7 @@ class SpectralView(QtWidgets.QWidget):
         self._worker.cancel("contours")
         self._worker.cancel("model")
         self._set_layers("model", [], ())
+        self._style_contours()  # measured contours alone again: their own pens
         result, mode, plane = self.comparison_result, self.comparison_mode, self.plane
         run = result.run_id if result is not None and mode else None
         grid = self.model_planes.get(run, plane) if run is not None else None
