@@ -220,3 +220,24 @@ def test_slice_sizes_lanes_and_scales_are_saved_and_restored(fitted, qapp, scien
         other.stop()
         other.close()
         other.deleteLater()
+
+
+def test_focus_keeps_its_own_slice_sizes_and_save_records_the_overview(fitted, monkeypatch):
+    monkeypatch.setattr(workspace_module, "dataset_header", lambda _dataset: {})
+    c = fitted.canvas
+    overview, ranges = c.sizes, c.box.viewRange()
+    fitted.open_focus(fitted.peaks[0].id)
+    assert fitted.focus_open
+    assert c.sizes.lanes
+    c.resize_slice("row", 24)
+    focused = c.sizes
+    # Saved while in focus: the overview it returns to, and the focus sizes.
+    saved = fitted.capture().view
+    assert saved["ranges"] == ranges
+    assert saved["slices"]["lanes"] == overview.lanes
+    assert saved["focus_slices"]["row"] == focused.row
+    fitted.close_focus()
+    assert c.sizes == overview
+    assert c.box.viewRange() == ranges
+    fitted.open_focus(fitted.peaks[0].id)
+    assert c.sizes == focused

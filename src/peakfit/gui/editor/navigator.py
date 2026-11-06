@@ -88,7 +88,7 @@ class Navigator(QtWidgets.QWidget):
 
     selected = QtCore.Signal(str)
     cluster_chosen = QtCore.Signal(str)  # a member of the chosen cluster
-    lens_requested = QtCore.Signal(str)  # a member of the cluster to open in the lens
+    focus_requested = QtCore.Signal(str)  # a member of the cluster to focus
     hovered = QtCore.Signal(object)
     edit_requested = QtCore.Signal()
     next_warning = QtCore.Signal()
@@ -230,7 +230,7 @@ class Navigator(QtWidgets.QWidget):
             4, "Largest |amplitude correlation| between members, conditional on lineshapes"
         )
         self.tree.currentItemChanged.connect(self._cluster_changed)
-        self.tree.itemDoubleClicked.connect(lambda item, _column: self._open_lens(item))
+        self.tree.itemDoubleClicked.connect(lambda item, _column: self._focus_cluster(item))
         self.tree.itemEntered.connect(lambda item, _column: self.hovered.emit(item.data(1, _ID)))
         self.tree.viewport().installEventFilter(self)
         layout.addWidget(self.tree, 1)
@@ -506,13 +506,13 @@ class Navigator(QtWidgets.QWidget):
         if target:
             self.cluster_chosen.emit(target)
 
-    def _open_lens(self, item) -> None:
+    def _focus_cluster(self, item) -> None:
         if item is None:
             return
         members = item.data(2, _ID) or []
         target = self._selected if self._selected in members else item.data(1, _ID)
         if target:
-            self.lens_requested.emit(target)
+            self.focus_requested.emit(target)
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
         """Clear row hover on leave; Enter explicitly opens precise editing."""
@@ -534,6 +534,6 @@ class Navigator(QtWidgets.QWidget):
                 self.next_warning.emit()
                 return True
             if event.key() in (QtCore.Qt.Key.Key_Return, QtCore.Qt.Key.Key_Enter):
-                self._open_lens(self.tree.currentItem())
+                self._focus_cluster(self.tree.currentItem())
                 return True
         return super().eventFilter(watched, event)

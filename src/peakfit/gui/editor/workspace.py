@@ -14,14 +14,16 @@ from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import dataset_summary
+from peakfit.gui.editor import slices
 from peakfit.gui.editor.changes import ClusterChange, RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting
+from peakfit.gui.editor.focus import FocusBar
 from peakfit.gui.editor.inspector import Inspector, find_cluster
 from peakfit.gui.editor.labels import ElidedLabel
-from peakfit.gui.editor.lens import ClusterLens
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
+from peakfit.gui.editor.spectral_geometry import SliceSizes
 from peakfit.gui.editor.spectral_view import SpectralView
 from peakfit.gui.editor.unexplained import (
     DEFAULT_THRESHOLD,
@@ -43,7 +45,6 @@ if TYPE_CHECKING:
 _RESIDUAL = 2
 _WIDE_TOOLBAR = 1200
 _SIDES = (280, 320)  # default navigator and inspector widths at 1280 px
-_LENS_INSPECTOR = 340  # the inspector widens while the lens is open
 _UNEXPLAINED_ROWS = 8  # regions listed before "and N more"
 _REGION_CONTEXT = 24  # a framed region keeps at least this many points around it
 # Canvas display preferences an analysis records with its view.
@@ -91,7 +92,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._unexplained_cancel = Event()
         self._unexplained_worker = ViewerComputation(self)
         self._unexplained_worker.completed.connect(self._unexplained_ready)
-        # One cache of total-model planes for the overview, lens and residual search.
+        # One cache of total-model planes for the spectral view and residual search.
         self.model_planes = ModelPlanes()
         self.canvas = SpectralView(dataset, self.model_planes)
         decimals = (self.canvas.decimals_x, self.canvas.decimals_y)
@@ -107,17 +108,25 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.splitter.setChildrenCollapsible(False)
         self.splitter.setHandleWidth(1)
         self.splitter.addWidget(self.navigator)
-        # The spectral area shows the overview canvas or, while open, the cluster lens.
-        self.lens = ClusterLens(dataset, self.model_planes)
-        self.spectral = QtWidgets.QStackedWidget()
-        self.spectral.addWidget(self.canvas)
-        self.spectral.addWidget(self.lens)
-        self.lens_open = False
-        self._sizes_before_lens: list[int] = []
-        # The lens cluster by stable peak IDs, the run it came from, and the peaks a
-        # regrouping notice is about.
-        self._lens_ids: tuple[str, ...] = ()
-        self._lens_run: str | None = None
+        # Cluster focus reframes the one spectral view in place, below its bar.
+        self.focus_bar = FocusBar()
+        self.focus_bar.hide()
+        self.spectral = QtWidgets.QWidget()
+        column = QtWidgets.QVBoxLayout(self.spectral)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(0)
+        column.addWidget(self.focus_bar)
+        column.addWidget(self.canvas, 1)
+        self.focus_open = False
+        # The overview as it was when focus opened, restored exactly on return, and
+        # the slice sizes focus uses (residual lanes on), kept between focuses.
+        self._overview: dict | None = None
+        self.focus_sizes = SliceSizes(lanes=True)
+        # The focused cluster by stable peak IDs, the run it came from, the members
+        # it was framed on, and the peaks a regrouping notice is about.
+        self._focus_ids: tuple[str, ...] = ()
+        self._focus_run: str | None = None
+        self._frame_key: tuple[str, ...] | None = None
         self._membership_ids: frozenset[str] = frozenset()
         self.splitter.addWidget(self.spectral)
         self.splitter.addWidget(self.panel)
@@ -155,15 +164,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.navigator.cluster_chosen.connect(lambda i: self.select_peak(i, cluster=True))
         self.panel.cluster_requested.connect(self.open_cluster)
         self.panel.member_chosen.connect(self.select_peak)
-        self.panel.lens_requested.connect(self.open_lens)
-        self.navigator.lens_requested.connect(self.open_lens)
-        self.lens.close_requested.connect(self.close_lens)
-        self.lens.escape_pressed.connect(self._lens_escape)
-        self.lens.selected.connect(lambda i: self.select_peak(i, cluster=True))
-        self.lens.moved.connect(self.move_peak)
-        self.lens.placed.connect(self.place_peak)
-        self.lens.draft_changed.connect(self._drag_draft)
-        self.lens.resolve_edit = self.commit_fields
+        self.panel.focus_requested.connect(self.open_focus)
+        self.navigator.focus_requested.connect(self.open_focus)
+        self.focus_bar.close_requested.connect(self.close_focus)
+        self.focus_bar.selected.connect(lambda i: self.select_peak(i, cluster=True))
+        regions = self.panel.setup.regions
+        self.focus_bar.regions.toggled.connect(regions.setChecked)
+        regions.toggled.connect(self.focus_bar.regions.setChecked)
         self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c))
         self.panel.unexplained_requested.connect(self.find_unexplained)
         self.panel.region_chosen.connect(self.frame_region)
@@ -179,7 +186,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.navigator.edit_requested.connect(self.focus_editor)
         self.canvas.edit_requested.connect(self.focus_editor)
         self.inspector.commit_requested.connect(self.commit_fields)
-        # Enter on a name hands the keyboard back to the spectrum or lens, so A can
+        # Enter on a name hands the keyboard back to the spectrum, so A can
         # place the next peak at once. Coordinate fields keep focus and show the
         # exact committed value.
         self.inspector.name.returnPressed.connect(self._focus_spectral_area)
@@ -334,7 +341,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         for button, name in self._icons:
             button.setIcon(icon(name, theme))
         self.canvas.apply_theme(theme)
-        self.lens.apply_theme(theme)
         self.navigator.apply_theme(theme)
         self.panel.apply_theme(theme)
         self._update_inspector()
@@ -465,11 +471,7 @@ class EditorWorkspace(QtWidgets.QWidget):
     @property
     def pending(self) -> bool:
         """Uncommitted editor or pointer draft."""
-        return (
-            self.inspector.pending
-            or self.canvas._drag_peak is not None
-            or self.lens.dragging is not None
-        )
+        return self.inspector.pending or self.canvas._drag_peak is not None
 
     def analysis_state(self) -> dict[str, object]:
         """What Save records, by the name the Modified tooltip gives each part."""
@@ -493,19 +495,24 @@ class EditorWorkspace(QtWidgets.QWidget):
     def capture(self) -> Analysis:
         """The analysis as Save writes it: committed scientific state and modest view state."""
         c = self.canvas
+        # In focus, Save records the overview it returns to.
+        overview = self._overview or self._view_state()
+        ix, iy, pinned, following = overview["sample"]
+        focus = self.canvas.sizes if self.focus_open else self.focus_sizes
         view = {
             "plane": c.plane,
             "selected_id": self.selected_id,
-            "pin": [float(c.ppm_x[c.ix]), float(c.ppm_y[c.iy])],
-            "pinned": c.pinned,
-            "pin_peak_id": c.pin_peak_id,
-            "ranges": c.box.viewRange(),
+            "pin": [float(c.ppm_x[ix]), float(c.ppm_y[iy])],
+            "pinned": pinned,
+            "pin_peak_id": following,
+            "ranges": overview["ranges"],
             "navigator": self.peaks_button.isChecked(),
             "inspector": self.inspector_button.isChecked(),
             "splitter": self.splitter.sizes(),
             "display": {name: getattr(c, name) for name in _DISPLAY},
-            "slices": c.slice_state(),
-            "mode": next((i for i, b in enumerate(self.mode_buttons) if b.isChecked()), 0),
+            "slices": overview["slices"],
+            "focus_slices": {"row": focus.row, "column": focus.column, "lanes": focus.lanes},
+            "mode": overview["mode"],
         }
         fitting = self.fitting
         return Analysis(
@@ -557,6 +564,9 @@ class EditorWorkspace(QtWidgets.QWidget):
             c.set_ranges(x, y)
         if v.get("slices"):
             c.restore_slice_state(v["slices"])
+        if v.get("focus_slices"):
+            f = v["focus_slices"]
+            self.focus_sizes = SliceSizes(int(f["row"]), int(f["column"]), bool(f["lanes"]))
         self.peaks_button.setChecked(v.get("navigator", True))
         self.toggle_navigator()
         self.inspector_button.setChecked(v.get("inspector", True))
@@ -628,13 +638,10 @@ class EditorWorkspace(QtWidgets.QWidget):
                 shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), widget)
                 shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
                 shortcut.activated.connect(callback)
-        for key, callback in (("A", self.start_placing), ("Escape", self.cancel_gesture)):
+        for key, callback in (("A", self.start_placing), ("Escape", self._escape)):
             shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.canvas.view)
             shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
             shortcut.activated.connect(callback)
-        placing = QtGui.QShortcut(QtGui.QKeySequence("A"), self.lens)
-        placing.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        placing.activated.connect(self.start_placing)
 
     def _fields_changed(self) -> None:
         self._update_actions()
@@ -808,8 +815,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         reviews = self.reviews()
         self.navigator.set_result(result, reviews, current=bool(fitting.current))
         self.canvas.set_cluster(self._cluster_members(result))
-        if self.lens_open:
-            self._update_lens()
+        if self.focus_open:
+            self._update_focus()
         self.canvas.set_regions(*self._fitting_regions())
         self.panel.setup.show_state(
             fitting.configuration, self._shapes(), fitting.prepared, fitting.blocked
@@ -832,7 +839,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         unadopted = self._unadopted()
         self.canvas.set_unadopted(unadopted)
-        self.lens.set_unadopted(unadopted)
         self.panel.show_cluster_result(
             result,
             review,
@@ -911,13 +917,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         usable = comparison.result is not None and any(
             c.usable for c in comparison.result.outcome.clusters
         )
-        lens = self.lens_open
         for button in self.mode_buttons:
-            button.setEnabled(not lens and (usable or button is self.mode_buttons[0]))
+            button.setEnabled(usable or button is self.mode_buttons[0])
             button.setToolTip(
-                "The lens shows all three views; return to the spectrum to choose one"
-                if lens
-                else f"Compares with {comparison.label}"
+                f"Compares with {comparison.label}"
                 if usable and comparison.historical and button is not self.mode_buttons[0]
                 else ""
                 if usable or button is self.mode_buttons[0]
@@ -925,7 +928,6 @@ class EditorWorkspace(QtWidgets.QWidget):
                 if comparison.reason
                 else "Requires a run with usable clusters"
             )
-        self.pin_button.setEnabled(not lens)
         canvas = self.canvas
         if canvas.comparison_result is not None and (
             comparison.result is not canvas.comparison_result
@@ -977,7 +979,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         fitting = self.fitting
         busy = fitting.busy
         self.canvas.editing_enabled = not busy
-        self.lens.editing_enabled = not busy
         self.inspector.setEnabled(not busy)
         self.panel.setup.setEnabled(not busy)
         self.add_button.setEnabled(not busy)
@@ -1017,12 +1018,8 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.add_button.setChecked(False)
             return
         self.add_button.setChecked(True)
-        if self.lens_open:
-            self.lens.set_placing(True)
-            self.lens.setFocus()
-        else:
-            self.canvas.set_placing(True)
-            self.canvas.view.setFocus()
+        self.canvas.set_placing(True)
+        self.canvas.view.setFocus()
         self.status.setText("Place peak · click exact ppm position · Escape cancels")
 
     def place_peak(self, positions) -> None:
@@ -1065,7 +1062,6 @@ class EditorWorkspace(QtWidgets.QWidget):
     def cancel_gesture(self) -> None:
         """Escape on the canvas cancels its current gesture, never numerical work."""
         self.canvas.cancel_gesture()
-        self.lens.cancel_gesture()
         self.add_button.setChecked(False)
 
     def toggle_navigator(self) -> None:
@@ -1110,11 +1106,15 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.set_plane(plane - 1)
         if self.selected_id is None:
             self._show_unexplained()
-        if self.lens_open:
-            self._update_lens()
 
-    def open_lens(self, identity: str | None = None) -> None:
-        """Replace the spectral area with the lens on the selected peak's recorded cluster."""
+    def open_focus(self, identity: str | None = None) -> None:
+        """Frame the selected peak's recorded cluster in the spectral view, in place.
+
+        The overview's viewport, slices, mode, regions and sample are kept aside and
+        come back exactly on return; edits and fits made in focus stay.
+        """
+        # Kept before the selection moves the overview to show the chosen peak.
+        overview = self._overview or self._view_state()
         if identity is not None:
             self.select_peak(identity, cluster=True)
         elif not self.commit_fields():
@@ -1122,20 +1122,29 @@ class EditorWorkspace(QtWidgets.QWidget):
         result = self.fitting.result
         if result is None or not self.selected_id or find_cluster(result, self.selected_id) is None:
             return
-        if not self.lens_open:
-            self.lens_open = True
-            self._sizes_before_lens = self.splitter.sizes()
-            sizes = list(self._sizes_before_lens)
-            if sizes[2] < _LENS_INSPECTOR:  # the inspector widens for members side by side
-                sizes[1] -= _LENS_INSPECTOR - sizes[2]
-                sizes[2] = _LENS_INSPECTOR
-                self.splitter.setSizes(sizes)
-            self.spectral.setCurrentWidget(self.lens)
-            self.panel.cluster_page.lens_button.hide()
+        if not self.focus_open:
+            self.cancel_gesture()
+            self._overview = overview
+            self.focus_open = True
+            self.canvas.set_sizes(self.focus_sizes)
+            self.focus_bar.show()
+            self.panel.cluster_page.focus_button.hide()
         self._sync_inspector(cluster=True)
         self.render_fitting()
-        self.lens.setFocus()
+        self.canvas.view.setFocus()
         self.guidance_changed.emit(self.guidance())
+
+    def _view_state(self) -> dict:
+        """What returning from focus restores: viewport, slices, mode, regions, sample."""
+        c = self.canvas
+        return {
+            "ranges": c.box.viewRange(),
+            "sizes": c.sizes,
+            "slices": c.slice_state(),
+            "mode": next((i for i, b in enumerate(self.mode_buttons) if b.isChecked()), 0),
+            "regions": c.regions_visible,
+            "sample": (c.ix, c.iy, c.pinned, c.pin_peak_id),
+        }
 
     def _unexplained_key(self):
         result = self.fitting.comparison.result
@@ -1283,13 +1292,13 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def guidance(self) -> str:
         """The status-bar hint for what the spectral area currently allows."""
-        if self.lens_open:
-            return "Lens · drag selected peak · A adds a peak · Esc exits"
+        if self.focus_open:
+            return "Focus · drag selected peak · A adds a peak · Esc returns to the spectrum"
         return "Drag a selected peak to move it · Space pins traces"
 
     def _focus_spectral_area(self) -> None:
         if not self.inspector.pending:
-            (self.lens if self.lens_open else self.canvas.view).setFocus()
+            self.canvas.view.setFocus()
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
         """A click on the run summary opens the analysis page; showing it shows the setup."""
@@ -1305,17 +1314,12 @@ class EditorWorkspace(QtWidgets.QWidget):
         return super().eventFilter(watched, event)
 
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:  # noqa: N802
-        """Escape leaves the lens from any column unless a draft or gesture is active."""
-        if event.key() == QtCore.Qt.Key.Key_Escape and self.lens.placing:
-            self.cancel_gesture()
-            return
+        """Escape leaves focus from any column unless a draft or gesture is active."""
         if (
             event.key() == QtCore.Qt.Key.Key_Escape
-            and self.lens_open
-            and not self.pending
             and QtWidgets.QApplication.activeModalWidget() is None
         ):
-            self.close_lens()
+            self._escape()
             return
         super().keyPressEvent(event)
 
@@ -1345,43 +1349,56 @@ class EditorWorkspace(QtWidgets.QWidget):
                 points.append((display_position(x_axis, x), display_position(y_axis, y)))
         return points
 
-    def _lens_escape(self) -> None:
-        """Escape in the lens cancels a gesture first, then returns to the spectrum."""
-        if self.lens.placing or self.lens.dragging is not None:
+    def _escape(self) -> None:
+        """Escape cancels a gesture or draft first; otherwise it leaves focus."""
+        c = self.canvas
+        if c.placing or c._drag_peak is not None:
             self.cancel_gesture()
-        else:
-            self.close_lens()
+        elif self.focus_open and not self.pending:
+            self.close_focus()
 
     def full_view(self) -> None:
-        """Full spectrum in the overview; the cluster's default region in the lens."""
-        if self.lens_open:
-            self.lens.reframe()
+        """Full spectrum in the overview; the cluster's default frame in focus."""
+        if self.focus_open:
+            self._frame_focus()
         else:
             self.canvas.full_spectrum()
 
-    def close_lens(self) -> None:
-        """Return to the overview with its viewport, mode and panel widths unchanged."""
-        if not self.lens_open:
+    def close_focus(self) -> None:
+        """Return to the overview exactly as it was; edits and fits made in focus stay."""
+        if not self.focus_open:
             return
         self.cancel_gesture()
-        self.lens_open = False
-        self._lens_ids, self._lens_run = (), None
+        c, saved = self.canvas, self._overview or self._view_state()
+        self.focus_sizes = c.sizes
+        self.focus_open = False
+        self._overview = None
+        self._focus_ids, self._focus_run, self._frame_key = (), None, None
         self._membership_ids = frozenset()
-        self.lens.set_membership("", [])
-        self.spectral.setCurrentWidget(self.canvas)
-        self.panel.cluster_page.lens_button.show()
-        if self._sizes_before_lens:
-            self.splitter.setSizes(self._sizes_before_lens)
+        self.focus_bar.set_membership("", [])
+        self.focus_bar.hide()
+        self.panel.cluster_page.focus_button.show()
+        self.panel.setup.regions.setChecked(saved["regions"])
+        self.set_mode(saved["mode"])
         self.render_fitting()
-        self.canvas.view.setFocus()
+        c.set_sizes(saved["sizes"])
+        c.restore_slice_state(saved["slices"])
+        c.set_ranges(*saved["ranges"])
+        # The sample too, even when the selection changed in focus: it is view state.
+        ix, iy, pinned, following = saved["sample"]
+        c.sample(float(c.ppm_x[ix]), float(c.ppm_y[iy]))
+        c.set_pinned(pinned)
+        c.pin_peak_id = following
+        c.view.setFocus()
         self.guidance_changed.emit(self.guidance())
 
-    def _update_lens(self) -> None:
-        """Keep the lens on a recorded cluster by stable peak IDs, plane and display levels.
+    def _update_focus(self) -> None:
+        """Keep focus on a recorded cluster by stable peak IDs.
 
-        The lens follows the selected peak's cluster. A selected peak that the run
-        did not fit (one just added) keeps the lens on its cluster; after a refit,
-        the lens follows the same peak and says how the cluster was regrouped.
+        Focus follows the selected peak's cluster. A selected peak that the run did
+        not fit (one just added) keeps focus on its cluster; after a refit, focus
+        follows the same peak and says how the cluster was regrouped. A refit of the
+        same members keeps the scientist's zoom; another cluster is framed afresh.
         """
         result = self.fitting.result
         reviews = self.reviews() if result is not None else []
@@ -1390,62 +1407,93 @@ class EditorWorkspace(QtWidgets.QWidget):
         if review is None:
             review = self._context_cluster(reviews, by_id)
         if result is None or review is None:
-            self.close_lens()
+            self.close_focus()
             return
-        if self._lens_run is not None and result.run_id != self._lens_run:
+        if self._focus_run is not None and result.run_id != self._focus_run:
             self._show_membership(review, by_id, result.run_id)
         elif self._membership_ids and self._membership_ids.isdisjoint(review.ids):
             self._membership_ids = frozenset()
-            self.lens.set_membership("", [])
-        self._lens_ids, self._lens_run = review.ids, result.run_id
-        samples = next(s for s in result.completed_fit.samples if s.cluster_id == review.cluster_id)
-        canvas = self.canvas
+            self.focus_bar.set_membership("", [])
+        self._focus_ids, self._focus_run = review.ids, result.run_id
+        selected = self.selected_id
+        outside = next(
+            (p.name for p in self.peaks if p.id == selected and selected not in review.ids), None
+        )
         comparison = self.fitting.comparison
-        self.lens.show_cluster(
-            result,
+        self.focus_bar.show_cluster(
+            review.names,
+            result.run_id,
             current=bool(self.fitting.current),
-            label=comparison.label,
-            withdrawn=comparison.reason,
-            added=comparison.added,
-            departed=comparison.departed,
-            ids=review.ids,
-            names=review.names,
-            selected=self.selected_id,
-            peaks=self.peaks,
-            plane=canvas.plane,
-            levels=(
-                canvas.contour_threshold,
-                canvas.contour_factor,
-                canvas.contour_count,
-                canvas.residual_threshold,
-            ),
-            grid_indices=samples.grid_indices,
+            historical=comparison.historical,
+            outside=outside,
+        )
+        if review.ids != self._frame_key:
+            if self._frame_key is None or set(review.ids).isdisjoint(self._frame_key):
+                self.canvas.scale_intensity(None)  # an unrelated cluster: the region rule
+            self._frame_key = review.ids
+            self._frame_focus()
+
+    def _frame_focus(self) -> None:
+        """Frame the focused members: the default view of focus."""
+        frame = self._focus_frame(self._frame_key or ())
+        if frame is not None:
+            self.canvas.set_ranges(*frame)
+
+    def _focus_frame(self, ids: tuple[str, ...]):
+        """(x, y) ppm ranges of members by displayed positions and fitted linewidths."""
+        members = [p for p in self.peaks if p.id in ids]
+        if not members:
+            return None
+        widths = self._fitted_widths()
+        axes = (self.canvas.y_axis, self.canvas.x_axis)
+        nan = (math.nan, math.nan)
+        return slices.focus_ranges(
+            [p.positions for p in members], [widths.get(p.id, nan) for p in members], axes
         )
 
-    def _context_cluster(self, reviews, by_id):
-        """The lens cluster for a selection the run did not fit (a peak just added).
+    def _fitted_widths(self) -> dict[str, tuple[float, float]]:
+        """Fitted FWHM (y, x) in ppm by working peak ID, from the active run."""
+        result = self.fitting.result
+        if result is None:
+            return {}
+        values = {
+            p.name: float(p.value)
+            for cluster in result.outcome.clusters
+            if cluster.usable
+            for p in cluster.final_nonlinear_parameters
+        }
+        axes = (self.canvas.y_axis, self.canvas.x_axis)
+        widths = {}
+        for identity in result.inputs.identities:
+            hz = [values.get(f"{identity.engine_name}.{get_dimension_label(k)}.lw") for k in (0, 1)]
+            widths[identity.working_id] = tuple(
+                abs(w) / axis.obs if w is not None and axis.obs else math.nan
+                for w, axis in zip(hz, axes, strict=True)
+            )
+        return widths
 
-        The lens keeps its cluster while that peak is in view, so adding a peak
+    def _context_cluster(self, reviews, by_id):
+        """The focused cluster for a selection the run did not fit (a peak just added).
+
+        Focus keeps its cluster while that peak is inside the cluster's frame, so adding a peak
         keeps its context; otherwise it shows the cluster with the nearest member.
         """
         peak = next((p for p in self.peaks if p.id == self.selected_id), None)
-        current = next((r for r in reviews if r.ids == self._lens_ids), None)
+        current = next((r for r in reviews if r.ids == self._focus_ids), None)
         if peak is None or not reviews:
-            if current is None and self._lens_ids:
-                # A deleted selection: keep most of the lens members together.
-                counts = Counter(by_id[i].cluster_id for i in self._lens_ids if i in by_id)
+            if current is None and self._focus_ids:
+                # A deleted selection: keep most of the focused members together.
+                counts = Counter(by_id[i].cluster_id for i in self._focus_ids if i in by_id)
                 if counts:
                     chosen = counts.most_common(1)[0][0]
                     return next(r for r in reviews if r.cluster_id == chosen)
             return current
         x, y = self.canvas.display(peak)
-        (x0, x1), (y0, y1) = self.lens.panels[0].getViewBox().viewRange()
-        if (
-            current is not None
-            and min(x0, x1) <= x <= max(x0, x1)
-            and min(y0, y1) <= y <= max(y0, y1)
-        ):
-            return current
+        frame = self._focus_frame(current.ids) if current is not None else None
+        if frame is not None:
+            (x0, x1), (y0, y1) = frame
+            if min(x0, x1) <= x <= max(x0, x1) and min(y0, y1) <= y <= max(y0, y1):
+                return current
         axes = (self.canvas.x_axis, self.canvas.y_axis)
         points = {
             p.id: tuple(
@@ -1472,7 +1520,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         """
         names = {peak.id: peak.name for peak in self.peaks}
         followed = self.selected_id
-        before = self._lens_ids
+        before = self._focus_ids
         if followed is not None and followed not in before and followed in review.ids:
             others = [names.get(i, i[:6]) for i in review.ids if i != followed]
             text = f"Run {run_id[:8]} fits {names.get(followed, followed[:6])} " + (
@@ -1480,13 +1528,13 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
             links = [] if set(before) & set(review.ids) else [(names.get(before[0], ""), before[0])]
             self._membership_ids = frozenset(review.ids) | frozenset(before)
-            self.lens.set_membership(text + (" · previously shown:" if links else ""), links)
+            self.focus_bar.set_membership(text + (" · previously shown:" if links else ""), links)
             return
         joined = [i for i in review.ids if i not in before]
         left = [i for i in before if i not in review.ids]
         if not joined and not left:
             self._membership_ids = frozenset()
-            self.lens.set_membership("", [])
+            self.focus_bar.set_membership("", [])
             return
         previous = [names.get(i, i[:6]) for i in before]
         label = previous[0] + (f" +{len(previous) - 1}" if len(previous) > 1 else "")
@@ -1500,15 +1548,16 @@ class EditorWorkspace(QtWidgets.QWidget):
         if elsewhere:
             parts.append("now fitted in other clusters:")
         self._membership_ids = frozenset(before) | frozenset(review.ids)
-        self.lens.set_membership(" · ".join(parts), [(names.get(i, i[:6]), i) for i in elsewhere])
+        self.focus_bar.set_membership(
+            " · ".join(parts), [(names.get(i, i[:6]), i) for i in elsewhere]
+        )
 
     def display_dialog(self) -> None:  # noqa: PLR0915
         """Display choices do not change scientific inputs or edit history."""
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle("Spectrum display")
         form = QtWidgets.QFormLayout(dialog)
-        # Both contour sets are always offered: the lens draws experiment, model and
-        # residual at once, and the overview may switch modes after the dialog.
+        # Both contour sets are always offered: the view may switch modes after the dialog.
         threshold = QtWidgets.QDoubleSpinBox()
         threshold.setRange(0.01, 1e12)
         threshold.setDecimals(4)
@@ -1567,8 +1616,6 @@ class EditorWorkspace(QtWidgets.QWidget):
             self._show_unexplained()
             self.canvas._refresh_labels()
             self.set_mode(self.canvas.comparison_mode)
-            if self.lens_open:
-                self._update_lens()
             chosen = chosen_rules()
             if chosen != self.rules:
                 self.set_rules(chosen)
@@ -1613,7 +1660,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._fit_clock.stop()
         self.fitting.stop()
         self.canvas.stop()
-        self.lens.stop()
         self._unexplained_cancel.set()
         self._unexplained_worker.close()
 
