@@ -11,6 +11,7 @@ from gui_helpers import wait_until
 from PySide6 import QtCore, QtGui, QtTest
 
 import peakfit.gui.editor.workspace as workspace_module
+from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import slices
 from peakfit.gui.editor.spectral_geometry import SLICE_COLLAPSE, SliceSizes
@@ -294,3 +295,40 @@ def test_a_wheel_zoom_commits_the_region_scale_of_the_new_view(fitted, qapp):
     rows = slices.index_range(c.y_axis, c.box.viewRange()[1])
     columns = slices.index_range(c.x_axis, c.box.viewRange()[0])
     assert c.slice_bounds() == slices.intensity_range(c.spectra.data, rows, columns)
+
+
+def test_the_readout_carries_the_sample_in_the_caption_scale_and_the_status_bar_stays_quiet(
+    fitted, qapp
+):
+    c = fitted.canvas
+    status = []
+    c.status_changed.connect(status.append)
+    c.sample(float(c.ppm_x[5]), float(c.ppm_y[6]))
+    # One number style: the readout uses the caption's power of ten.
+    power = formatting.exponent(max(abs(v) for v in c.slice_bounds()))
+    value = float(c.spectra.data[c.plane, c.iy, c.ix])
+    expected = f"{value * 10.0**-power:.6g}"
+    assert f"I {expected}" in c.readout.text()
+    assert "e+" not in c.readout.text()
+    assert status[-1] == ""  # the readout shows it; the status bar does not repeat it
+    assert "a.u." in c.view.accessibleDescription()
+    # Without room for the readout, the status bar carries the sample instead.
+    c.set_sizes(SliceSizes(row=150, column=0))
+    qapp.processEvents()
+    assert not c.readout.isVisible()
+    c.sample(float(c.ppm_x[7]), float(c.ppm_y[6]))
+    assert "ppm" in status[-1]
+
+
+def test_run_identity_is_not_repeated_where_the_toolbar_already_names_it(fitted):
+    run = fitted.fitting.result.run_id[:8]
+    assert run in fitted.summary.text()
+    assert run not in fitted.panel.status.text()
+    assert run.upper() not in fitted.panel.fitted_title.text()
+    fitted.open_focus(fitted.peaks[0].id)
+    bar = fitted.focus_bar
+    assert run not in bar.note.text()
+    assert bar.note.text() == ""  # nothing differs from the toolbar for a current run
+    # The run stays one hover away on the always-visible title.
+    assert bar.title.isVisible()
+    assert bar.title.toolTip() == f"Run {run} · Current"

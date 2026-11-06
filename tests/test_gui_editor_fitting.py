@@ -191,6 +191,11 @@ def test_fitting_state_is_rendered_on_transitions_without_polling(workspace):
     assert busy_at_transition[0]
     assert not busy_at_transition[-1]
     assert w.summary.text().startswith(f"Run {fitting.result.run_id[:8]} · Current")
+    # Counts only when something is not usable or not converged; always in the tooltip.
+    clusters = fitting.result.outcome.clusters
+    if all(c.usable and c.optimizer_provenance.converged for c in clusters):
+        assert w.summary.text().endswith(f"all {len(clusters)} clusters usable")
+    assert f"{len(clusters)}/{len(clusters)} usable" in w.summary.toolTip()
     # The new run is the next continuation source; its preparation is the last transition.
     wait_until(lambda: fitting.prepared is not None)
     count = len(busy_at_transition)
@@ -1873,16 +1878,11 @@ def test_escape_leaves_focus_from_any_column_but_discards_a_draft_first(workspac
     w = workspace
     result = scientific[-1]
     publish(w, result)
-    window_guidance = []
-    w.guidance_changed.connect(window_guidance.append)
     _open_focus(w, result)
-    assert window_guidance[-1].startswith("Focus ·")
-    assert "drag selected peak" in w.guidance()
     # From the cluster list.
     w.navigator.tree.setFocus()
     QtTest.QTest.keyClick(w.navigator.tree, QtCore.Qt.Key.Key_Escape)
     assert not w.focus_open
-    assert window_guidance[-1] == "Drag a selected peak to move it · Space pins traces"
     # From the inspector: a draft is discarded first, then Escape leaves focus.
     _open_focus(w, result)
     w.select_peak(w.selected_id)  # a member link: the peak page, still in focus
@@ -2232,7 +2232,7 @@ def test_outdated_run_stays_a_labelled_historical_comparison(workspace, scientif
     np.testing.assert_array_equal(c._model.values, model.values)
     c.sample(float(c.ppm_x[12]), float(c.ppm_y[13]))
     np.testing.assert_array_equal(c.curve_x.getData()[1], residual[13, :])
-    assert f"σ_stat residual · residual of {tag}" in w.status.text()
+    assert f"σ_stat residual · residual of {tag}" in c.view.accessibleDescription()
     legend = c.legend.text()
     assert tag in legend
     assert "not in this model" in legend

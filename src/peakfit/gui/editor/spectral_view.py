@@ -780,8 +780,11 @@ class SpectralView(QtWidgets.QWidget):
             f"{formatting.number(self.ppm_x[self.ix], self.decimals_x)}, "
             f"{self.axis_title(self.y_axis)} "
             f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)} ppm · "
-            f"{formatting.intensity(raw)} "
-            f"{'σ_stat residual' if self.comparison_mode == _RESIDUAL else 'a.u.'}"
+            + (
+                f"{formatting.intensity(raw)} σ_stat residual"
+                if self.comparison_mode == _RESIDUAL
+                else f"{self._intensity(raw)} a.u."
+            )
             + (
                 f" · {'residual' if self.comparison_mode == _RESIDUAL else 'model'} of "
                 f"{self.comparison_label}"
@@ -789,8 +792,16 @@ class SpectralView(QtWidgets.QWidget):
                 else ""
             )
         )
-        self.status_changed.emit(text)
+        # The corner readout shows the sample; the status bar only when it has no room.
+        self.status_changed.emit("" if self.readout.isVisible() else text)
         self.view.setAccessibleDescription(text)
+
+    def _intensity(self, value: float) -> str:
+        """An intensity in the slice caption's power of ten, so both read alike."""
+        low, high = self.slice_bounds()
+        power = formatting.exponent(max(abs(low), abs(high)) or 1.0)
+        number = f"{value * 10.0**-power:.6g}"
+        return f"{number} ×10{formatting.superscript(str(power))}" if power else number
 
     def set_pinned(self, pinned: bool) -> None:
         """Pin the inspection sample independently of a selected assignment."""
@@ -1693,12 +1704,12 @@ class SpectralView(QtWidgets.QWidget):
             f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)} ppm</b>"
         ]
         if value is not None:
-            lines.append(f"I {formatting.intensity(value)} a.u.")
+            lines.append(f"I {self._intensity(value)} a.u.")
         if self.comparison_mode and fitted is None:
             lines.append("model pending")
         elif fitted is not None and value is not None:
             noise = self.comparison_result.outcome.noise if self.comparison_result else 1.0
-            lines.append(f"model {formatting.intensity(fitted)}")
+            lines.append(f"model {self._intensity(fitted)}")
             lines.append(f"residual {(value - fitted) / noise:+.1f} σ")
         self.readout.setText("<br>".join(lines))
 

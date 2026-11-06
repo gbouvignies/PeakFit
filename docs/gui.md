@@ -120,7 +120,10 @@ The **fit setup** is part of the inspector's analysis page, shown whenever nothi
 is selected. Before the first fit it leads the page; once a run exists, the run
 review leads (active run, changes from the previous run, warning navigation and
 unexplained signal) and the setup follows it. A click on the toolbar run summary,
-or **Analysis ▸ Active run**, opens the page at the review; the settings chip, or
+or **Analysis ▸ Active run**, opens the page at the review. The summary names the
+run and whether it is Current; it gives cluster counts only when some cluster is
+unusable or not converged (always in its tooltip), and the run is named there
+only, with “Outdated” repeated where an outdated run's values are shown; the settings chip, or
 **Analysis ▸ Fit setup**, opens it at the setup. It edits the working settings directly: lineshape model (each axis's
 resolved model with its source: NMRPipe apodization, the pseudo-Voigt default,
 shown as a caution, when no apodization is recognized, or explicit), clustering threshold as a factor of the statistical
@@ -244,7 +247,9 @@ over a slice sets a **manual** scale, labelled “manual”, which persists thro
 hover, planes and zoom until a double-click on the slice, **Slice intensities from
 the view**, a new dataset or focusing another cluster; the wheel over a lane sets the lane scale. A caption above the
 row slice gives the scale with its units and counts clipped samples, ▲ for data and
-△ for the model; the corner readout gives exact values at the sample. Drag the
+△ for the model; the corner readout gives the values at the sample in the caption's
+power of ten (the status bar repeats them only when a collapsed column slice leaves
+no room for the readout). Drag the
 divider between a slice and the plot to resize it (below 48 px it collapses; drag
 it back to reopen), double-click a divider for the default size. **View → Slices**
 offers all of these from the menu and keyboard.
@@ -415,7 +420,7 @@ reference choice is kept, so the next well-determined peak is normalized again.
 Drafts retain the accepted comparison. A committed manual scientific change marks
 the run **Outdated**; Overlay and Residual stay selectable and keep showing that
 run's model as **historical** evidence, named “Run 5d7b4768 · historical” in the
-legend, the pending label, the status bar sample text and the mode tooltips. On
+legend, the pending label and the mode tooltips. On
 the spectrum, ◇ marks a working peak the model does not contain, and × the
 model's recorded position of a peak moved or deleted since, with a dotted line to
 the peak. The cluster and peak pages still report that run's statistics as

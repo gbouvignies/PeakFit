@@ -72,11 +72,15 @@ class FocusBar(QtWidgets.QWidget):
         """Name the cluster, its run and whether the selection is outside it."""
         cluster = names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "") if names else ""
         self.title.setText(f"Focus · {cluster}")
-        self.note.setText(
-            f"run {run_id[:8]} · {'Current' if current else 'Outdated'}"
-            + (" · model and residual are historical" if historical and not current else "")
-            + (f" · {outside} is not in this cluster of the run" if outside else "")
+        # The always-visible title carries the run; the note may be empty.
+        self.title.setToolTip(f"Run {run_id[:8]} · {'Current' if current else 'Outdated'}")
+        # The run's identity is in the toolbar; the bar adds only what differs.
+        parts = (
+            "" if current else "Outdated",
+            "model and residual are historical" if historical and not current else "",
+            f"{outside} is not in this cluster of the run" if outside else "",
         )
+        self.note.setText(" · ".join(part for part in parts if part))
 
     def set_membership(self, text: str, links: list[tuple[str, str]]) -> None:
         """Say how a refit regrouped the cluster; links open where members went."""
