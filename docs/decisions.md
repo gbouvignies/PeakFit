@@ -908,3 +908,26 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Golden reference** regenerated: only the three formerly warned clusters change.
   The collapse-retention tests pin the former 20 Hz start, which still collapses
   the bundled pairs.
+
+## 2026-11-06: Per-member amplitude identifiability (S1)
+- **Change.** The amplitude profile classifies each member as identifiable, not
+  established, or not identifiable, and draws only amplitudes the data determine.
+  It withholds the others with a statement of which class applies, keeps the
+  recorded values under Numerical diagnostics, and shows no combined amplitude.
+  Hollow markers, dashed bars and the cluster-level normalization rule keyed on the
+  uncertainty warning are removed.
+- **Why.** The cluster-level uncertainty warning mixes active bounds, missing
+  nonlinear σ and decomposition problems. A rank-deficient cluster can still
+  determine some members, and an ill-conditioned or near-collinear one is not
+  thereby unidentifiable. On the bundled data the real collapsed pairs keep full
+  rank (s_min/s₀ ≈ 10⁻⁴) and finite σ; drawing their ±6×10¹² amplitudes dominated
+  the axes ([validation/amplitude-identifiability.md](validation/amplitude-identifiability.md)).
+- **Rule.** `engine/diagnostics/identifiability.py` reuses `factorize_shapes` and
+  its conventions: null space below the rank cutoff ε·max(m, n)·s₀, ill-conditioned
+  directions s ≤ √ε·s₀, and ε·max(m, n) as the numerical zero for a unit vector's
+  projection; near-collinearity is the existing 1 − |cos| ≤ 10⁻⁴ rule. No new
+  threshold. The classification is conditional on the fitted lineshapes and says
+  nothing about identifiability when nonlinear parameters vary.
+- **Not chosen.** Withholding every member whenever the joint covariance is
+  withheld: it would call determined amplitudes unidentifiable. A summed amplitude
+  for degenerate pairs: not shown until its identifiability is validated.

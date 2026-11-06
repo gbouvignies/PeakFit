@@ -17,6 +17,11 @@ import numpy as np
 import pytest
 
 from peakfit.engine.diagnostics.coincidence import COLLINEARITY_LIMIT, collinear_pairs
+from peakfit.engine.diagnostics.identifiability import (
+    AmplitudeStatus,
+    Cause,
+    amplitude_identifiability,
+)
 from peakfit.engine.domain.cluster import Cluster
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.params_scalar import Parameters
@@ -290,3 +295,26 @@ def test_controls_flag_only_near_collinear_decompositions(bundled):
     assert working["neg"] == neg
     assert working[ids["136N-H"]].positions == seed.positions
     assert len(completion.working_peaks) == len(dataset.peaks) + 1
+
+
+@pytest.mark.slow
+def test_collapsed_pairs_are_not_established_but_never_unidentifiable(bundled):
+    # The real collapses keep full numerical rank (s_min/s₀ ~ 10⁻⁴ ≫ √ε) and finite
+    # amplitude σ: calling them mathematically unidentifiable would be false.
+    _dataset, _settings, broad, _second, _third = bundled
+    names = {i.engine_name: i.assignment for i in broad.result.inputs.identities}
+    for pair in PAIRS:
+        cluster = _cluster(broad, *pair)
+        evaluation = cluster.analytical_evaluation
+        members = amplitude_identifiability(
+            evaluation.shapes, evaluation.amplitudes, evaluation.amplitude_standard_errors
+        )
+        assert members[0].rank == len(cluster.peak_names)
+        for name, member in zip(cluster.peak_names, members, strict=True):
+            if names[name] in pair:
+                assert (member.status, member.cause) == (
+                    AmplitudeStatus.NOT_ESTABLISHED,
+                    Cause.NEAR_COLLINEAR,
+                )
+            else:
+                assert member.status is AmplitudeStatus.IDENTIFIABLE

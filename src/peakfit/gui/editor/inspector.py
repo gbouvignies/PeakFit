@@ -19,7 +19,7 @@ from peakfit.gui import theme as themes
 from peakfit.gui.editing import PeakInspector
 from peakfit.gui.editor.cluster_page import ClusterPage
 from peakfit.gui.editor.labels import clear_layout as _clear
-from peakfit.gui.editor.labels import review_item
+from peakfit.gui.editor.labels import disclosure, review_item
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
 from peakfit.gui.editor.review import correlation_matrix
@@ -262,7 +262,7 @@ class Inspector(QtWidgets.QScrollArea):
         grid.addWidget(self.draft, 5, 0, 1, 2)
         self.editor.fields_changed.connect(self._draft_changed)
         peak.addWidget(self.editor)
-        self.starts_toggle = self._disclosure("Starting values and bounds")
+        self.starts_toggle = disclosure("Starting values and bounds")
         self.starts_toggle.toggled.connect(lambda shown: self.starts.setVisible(shown))
         peak.addWidget(self.starts_toggle, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
         self.starts = QtWidgets.QWidget()
@@ -303,7 +303,7 @@ class Inspector(QtWidgets.QScrollArea):
         self.review = QtWidgets.QVBoxLayout()
         self.review.setSpacing(2)
         peak.addLayout(self.review)
-        self.provenance_toggle = self._disclosure("Provenance")
+        self.provenance_toggle = disclosure("Provenance")
         self.provenance_toggle.toggled.connect(lambda shown: self.provenance.setVisible(shown))
         self.provenance = _label("", "caption", wrap=True)
         self.provenance.hide()
@@ -392,22 +392,6 @@ class Inspector(QtWidgets.QScrollArea):
         self.cluster_page.theme = theme
         self.profile.apply_theme(theme)
         self._key = None
-
-    @staticmethod
-    def _disclosure(text: str) -> QtWidgets.QToolButton:
-        """A collapsed-by-default section toggle with a turning arrow."""
-        button = QtWidgets.QToolButton()
-        button.setObjectName("text")
-        button.setText(text)
-        button.setCheckable(True)
-        button.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        button.setArrowType(QtCore.Qt.ArrowType.RightArrow)
-        button.toggled.connect(
-            lambda shown: button.setArrowType(
-                QtCore.Qt.ArrowType.DownArrow if shown else QtCore.Qt.ArrowType.RightArrow
-            )
-        )
-        return button
 
     def show_starts(self, rows: list[tuple[str, str, str, str]] | None, note: str) -> None:
         """The next fit's starting value, range and freedom per parameter (read-only)."""
@@ -585,20 +569,6 @@ class Inspector(QtWidgets.QScrollArea):
                 wrap=True,
             )
             self.fitted.addWidget(kept, self.fitted.rowCount(), 0, 1, 3)
-        partners = [
-            pair.second if pair.first == peak.id else pair.first
-            for pair in (review.collinear if review else ())
-            if peak.id in (pair.first, pair.second)
-        ]
-        if partners:
-            names = dict(zip(review.ids, review.names, strict=True)) if review else {}
-            caution = (
-                "Near-collinear fitted shapes with "
-                + ", ".join(names.get(p, p) for p in partners)
-                + ": this peak's amplitudes are poorly constrained individually."
-            )
-            reason = self.profile_reason.text()
-            self.profile_reason.setText(f"{reason}\n{caution}" if reason else caution)
         self._fill_review(engine, cluster, result, review)
         self.provenance.setText(_provenance(cluster, result))
 
