@@ -326,5 +326,9 @@ def test_run_identity_is_not_repeated_where_the_toolbar_already_names_it(fitted)
     assert run not in fitted.panel.status.text()
     assert run.upper() not in fitted.panel.fitted_title.text()
     fitted.open_focus(fitted.peaks[0].id)
-    assert run not in fitted.focus_bar.note.text()
-    assert fitted.focus_bar.note.toolTip() == f"Run {run}"
+    bar = fitted.focus_bar
+    assert run not in bar.note.text()
+    assert bar.note.text() == ""  # nothing differs from the toolbar for a current run
+    # The run stays one hover away on the always-visible title.
+    assert bar.title.isVisible()
+    assert bar.title.toolTip() == f"Run {run} · Current"
