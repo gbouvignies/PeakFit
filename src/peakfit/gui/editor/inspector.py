@@ -576,7 +576,7 @@ class Inspector(QtWidgets.QScrollArea):
         """Show run-to-run changes as a list of entries.
 
         Entries are ("line", text), ("heading", text), ("note", text) or
-        ("link", text, detail, working ID, opens a cluster page).
+        ("link", text, detail, working ID, opens a cluster page[, warning]).
         """
         key = (title, tuple(entries))
         if key == self._changes_key:
@@ -588,7 +588,7 @@ class Inspector(QtWidgets.QScrollArea):
         for entry in entries:
             kind = entry[0]
             if kind == "link":
-                _kind, text, detail, identity, cluster = entry
+                _kind, text, detail, identity, cluster, *flag = entry
                 row = QtWidgets.QHBoxLayout()
                 row.setSpacing(themes.SPACE_S)
                 link = QtWidgets.QPushButton(text)
@@ -599,7 +599,8 @@ class Inspector(QtWidgets.QScrollArea):
                     lambda _checked=False, i=identity, c=cluster: self.change_chosen.emit(i, c)
                 )
                 row.addWidget(link, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-                row.addWidget(_label(detail, "caption", wrap=True), 1)
+                style = "warning" if flag and flag[0] else "caption"
+                row.addWidget(_label(detail, style, wrap=True), 1)
                 self.changes.addLayout(row)
             elif kind == "heading":
                 self.changes.addSpacing(4)

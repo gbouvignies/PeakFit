@@ -1,5 +1,6 @@
 """Three columns: navigator, spectrum and inspector, around one editing workflow."""
 
+import math
 from collections import Counter
 from dataclasses import replace
 from threading import Event
@@ -14,7 +15,7 @@ from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import dataset_summary
 from peakfit.gui.editor.canvas import SpectrumCanvas
-from peakfit.gui.editor.changes import RunChanges, compare_runs
+from peakfit.gui.editor.changes import ClusterChange, RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.inspector import Inspector, find_cluster
 from peakfit.gui.editor.labels import ElidedLabel
@@ -1628,39 +1629,75 @@ def _recovery_note(error: str) -> str:
     )
 
 
-def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple]:
-    """Compact page entries answering: fit, warnings, clustering, largest differences."""
-    (chi_before, chi_after), (warned_before, warned_after) = changes.median_chi2, changes.warned
-    before, after = changes.clusters
-    clustering = f"Clusters {before} → {after}"
-    if changes.regrouped:
-        clustering += f" · {changes.regrouped} regrouped"
-    if changes.added or changes.removed:
-        clustering += f" · peaks +{changes.added} −{changes.removed}"
-    # One short line per question: fit, warnings, clustering.
-    entries: list[tuple] = [
-        ("line", f"Median χ²ᵣ {chi_before:.2f} → {chi_after:.2f}"),
-        ("line", f"Clusters with ▲ warnings {warned_before} → {warned_after}"),
-        ("line", clustering),
+def _measures(change: ClusterChange) -> str:
+    """Recorded measures before → after, or why they are not compared."""
+    if change.measures is None:
+        # A regrouping already says the members changed.
+        if change.regrouped_from or not change.not_compared:
+            return ""
+        return f"Measures not compared: {change.not_compared}"
+    before, after = change.measures
+
+    def rho(value: float) -> str:
+        return f"{value:.2f}" if math.isfinite(value) else "–"
+
+    parts = [
+        f"χ²ᵣ {before.chi2:.2f} → {after.chi2:.2f}",
+        f"|r|max {before.largest_residual:.1f} → {after.largest_residual:.1f} σ",
     ]
+    if math.isfinite(before.correlation) or math.isfinite(after.correlation):
+        parts.append(f"|ρ| {rho(before.correlation)} → {rho(after.correlation)}")
+    return " · ".join(parts)
+
+
+def _change_lines(change: ClusterChange) -> list[str]:
+    """Marks first (warnings that appeared or no longer appear), then edits and measures."""
+    if change.regrouped_from:
+        lines = [f"Regrouped from {', '.join(change.regrouped_from)}"]
+        if change.now:
+            lines.append("Now " + ", ".join(change.now))
+        if change.before:
+            lines.append("Before regrouping " + ", ".join(change.before))
+    else:
+        lines = [f"{m} now reported" for m in change.now if m not in change.before]
+        lines += [f"{m} no longer reported" for m in change.before if m not in change.now]
+    if change.edited:
+        lines.append("Edited: " + ", ".join(change.edited))
+    measures = _measures(change)
+    return [*lines, measures] if measures else lines
+
+
+def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple]:
+    """Compact page entries: changed clusters first, then the whole run, then positions."""
+    entries: list[tuple] = []
     limit = 6
+    compared = False
     if changes.changes:
         entries.append(("heading", "Clusters"))
     for change in changes.changes[:limit]:
         names = change.names
         label = names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "")
-        if change.regrouped_from:
-            lines = [f"Regrouped from {', '.join(change.regrouped_from)}"]
-            if change.now:
-                lines.append("Now " + ", ".join(change.now))
-            if change.before:
-                lines.append("Before regrouping " + ", ".join(change.before))
-        else:
-            lines = [f"{m} now reported" for m in change.now if m not in change.before]
-            lines += [f"{m} no longer reported" for m in change.before if m not in change.now]
-        entries.append(("link", label, "\n".join(lines), change.ids[0], True))
+        lines = _change_lines(change)
+        compared |= change.measures is not None
+        # A newly reported numerical warning is drawn in the warning style.
+        entries.append(("link", label, "\n".join(lines), change.ids[0], True, bool(change.gained)))
     if len(changes.changes) > limit:
         entries.append(("note", f"and {len(changes.changes) - limit} more"))
+    if compared:
+        entries.append(
+            ("note", "Recorded values; a lower χ²ᵣ is not by itself evidence of a better fit.")
+        )
+    (warned_before, warned_after), (before, after) = changes.warned, changes.clusters
+    clustering = f"Clusters {before} → {after}"
+    if changes.regrouped:
+        clustering += f" · {changes.regrouped} regrouped"
+    if changes.added or changes.removed:
+        clustering += f" · peaks +{changes.added} −{changes.removed}"
+    entries += [
+        ("heading", "Whole run"),
+        ("line", f"Clusters with ▲ engine warnings {warned_before} → {warned_after}"),
+        ("line", clustering),
+    ]
     if changes.displacements:
         entries.append(("heading", "Largest position differences"))
         for move in changes.displacements:

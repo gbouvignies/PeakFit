@@ -159,16 +159,24 @@ After a refit, the analysis page summarizes **Changes from run …**, the run it
 refitted from, read from both recorded runs without refitting or judging either.
 Peaks are matched by stable ID, so renamed peaks still compare.
 
-- **Fit:** median χ²ᵣ before → after and clusters with numerical warnings before →
-  after. χ²ᵣ is descriptive; it also changes when clustering changes the fitting
-  samples.
-- **Clustering:** clusters before → after, how many were regrouped, and peaks added
-  or removed.
-- **Clusters:** each cluster whose warnings or highlights changed, or whose members
-  were grouped differently, warnings first. With the same members, a mark is
-  “now reported” or “no longer reported”. A regrouped cluster names the clusters it
-  came from and lists its marks “Now” and “Before regrouping”; a mark that
-  disappeared with regrouping is not presented as resolved.
+- **Clusters** first: each cluster whose numerical warnings or highlights changed,
+  that contains a peak moved or added since the parent run (“Edited: …”), or whose
+  members were grouped differently. Clusters with newly reported warnings lead and
+  are drawn in the warning style, then those whose warnings are no longer
+  reported, then edited ones, then highlights and regroupings. Warnings include the
+  decomposition marks of the amplitude profile: **▲ Near-collinear shapes**,
+  **▲ Ill-conditioned shapes** and **▲ Amplitudes not identifiable**. With the same
+  members, a mark is “now reported” or “no longer reported”. A regrouped cluster
+  names the clusters it came from and lists its marks “Now” and “Before
+  regrouping”; a mark that disappeared with regrouping is not presented as resolved.
+- **Measures** (χ²ᵣ, |r|max, |ρ|) before → after appear only when both runs define
+  them identically: the same members, the same fitting samples, σ_stat and noise
+  model, and the same number of varied parameters. Otherwise the line names the
+  first difference, for example “Measures not compared: fitting samples changed
+  (67 → 68 per plane)”. A lower χ²ᵣ is never presented as a better fit.
+- **Whole run:** clusters with engine warnings before → after, and clusters before →
+  after with regroupings and peaks added or removed. No run-level χ²ᵣ is shown: a
+  median over clusters whose fitting samples differ is not a comparison.
 - **Largest position differences:** the five largest, as Δ in ppm and in fitted
   linewidths on the axis that moved most. They are neutral information, not a
   measure of fit quality; there is no threshold.

@@ -931,3 +931,14 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Not chosen.** Withholding every member whenever the joint covariance is
   withheld: it would call determined amplitudes unidentifiable. A summed amplitude
   for degenerate pairs: not shown until its identifiability is validated.
+
+## 2026-11-06: Comparable change summary after a refit (S2)
+- **Change.** "Changes from run …" lists changed clusters first, with new and lost
+  numerical warnings (including the decomposition marks of S1) leading, then edited
+  clusters. Recorded χ²ᵣ, |r|max and |ρ| appear before → after only when both runs
+  share members, fitting samples, σ_stat, noise model and varied-parameter count;
+  otherwise the first difference is named. The run-level median χ²ᵣ is removed.
+- **Why.** In the bundled degenerate refit (147N-H moved, refit), the 53N-H/147N-H
+  cluster's χ²ᵣ fell from 3.00 to 2.53 while its fitting samples grew from 67 to 68
+  per plane and the pair collapsed. The two values describe different problems, and
+  the lower one accompanies an unreliable decomposition.
