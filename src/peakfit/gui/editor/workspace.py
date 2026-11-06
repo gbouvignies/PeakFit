@@ -894,9 +894,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.dataset.path.stem,
             f"{len(self.peaks)} working peaks · {planes} planes · {x} × {y}",
             run,
-            "Select a peak or cluster to see its position, profile, fitted values and "
-            "review. Save analysis keeps working state and the latest ten runs; "
-            "spectra stay external.",
+            "Select a peak or cluster for its values and review.",
             fitted=result is not None,
         )
         if self.selected_id is None:
@@ -1358,9 +1356,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         fitting, plane = self.fitting, self.canvas.plane
         k = formatting.number(self.unexplained_threshold, 1).removesuffix(".0")
         note = (
-            f"Connected regions of the whole-spectrum residual beyond ±{k} σ_stat. "
-            "Signal may be left unmodelled on purpose; this list never proposes peaks "
-            "or flags clusters."
+            f"Diagnostic only: connected regions of the whole-spectrum residual beyond "
+            f"±{k} σ_stat. It never proposes peaks or flags clusters; signal may be left "
+            "unmodelled on purpose."
         )
         button = f"Find on plane {plane + 1}"
         key = self._unexplained_key()

@@ -336,9 +336,12 @@ the analysis page, moves in list order to the next cluster with a numerical
 warning that the current filter shows; it never selects a hidden row. The
 inspector's **Cluster review** keeps three families apart: numerical warnings
 (with the engine's own text), highlights (with their rule), and measures: χ²ᵣ with its sample count, the largest recorded
-residual against the maximum expected from Gaussian noise for that many samples,
-and the selected peak's strongest amplitude correlation, conditional on the
-fitted lineshapes. Recorded optimizer statistics refer to corrected fitting
+residual beside √(2 ln N), the typical largest of N independent Gaussian values
+(a rough guide, not a threshold: correlated noise makes neighbouring samples
+dependent), and the selected peak's strongest amplitude correlation, conditional on
+the fitted lineshapes. Warnings and highlights that apply to the cluster stay in
+view; **About these measures** opens the general explanation in place, and stays
+open across selections. Recorded optimizer statistics refer to corrected fitting
 samples and are not recomputed from the displayed whole-spectrum residual.
 **Provenance** discloses the optimizer, termination message, correction revision
 and run identity. **Fitted** lists the peak's recorded parameters with σ and
@@ -363,7 +366,8 @@ by **Export results…**: computed with the fitted lineshape parameters held fix
 one σ per peak for every plane, never rescaled by χ²ᵣ. Where the run models the
 processed noise correlation they are the sandwich errors; otherwise they assume
 independent points. The note beside the plot says which, with the cluster's χ²ᵣ
-as a normalized residual diagnostic, and its tooltip gives the noise model in full
+as a fit diagnostic, and any points off scale on a line of their own; **About these
+error bars** below it gives the noise model in full
 ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)). The
 inspector's provenance states it once for the run.
  They can underestimate the uncertainty of overlapping peaks.

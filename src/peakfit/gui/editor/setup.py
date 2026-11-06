@@ -151,8 +151,7 @@ class FitSetup(QtWidgets.QWidget):
         layout.addWidget(self.regions)
         layout.addWidget(
             text_label(
-                "Clustering uses statistical noise from all planes; display contour "
-                "settings never change clusters, samples or starts.",
+                "Display contours never change clusters, samples or starts.",
                 "caption",
                 wrap=True,
             )

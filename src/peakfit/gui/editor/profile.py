@@ -15,7 +15,7 @@ from peakfit.engine.diagnostics.identifiability import (
     amplitude_identifiability,
 )
 from peakfit.gui import formatting
-from peakfit.gui.editor.labels import disclosure
+from peakfit.gui.editor.labels import about, disclosure
 from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
 
 if TYPE_CHECKING:
@@ -372,6 +372,7 @@ class ProfilePlot(QtWidgets.QWidget):
         notes.addWidget(self.note)
         notes.addLayout(self._chips())
         layout.addLayout(notes)
+        self.about_toggle, self.about = about(layout, "About these error bars")
         # Members whose individual amplitudes are withheld, and why; then the numbers.
         self.withheld = QtWidgets.QLabel()
         self.withheld.setObjectName("warning")
@@ -528,8 +529,9 @@ class ProfilePlot(QtWidgets.QWidget):
         colors = self._colors()
         drawn = bool(rows)
         # With nothing drawn, the error-model note, legend and chips would describe no plot.
-        for widget in (self.plot, self.legend, self.note, self.mode):
+        for widget in (self.plot, self.legend, self.note, self.mode, self.about_toggle):
             widget.setVisible(drawn)
+        self.about.setVisible(drawn and self.about_toggle.isChecked())
         for index, values, errors, in_reference in reversed(rows):
             value = colors[index % len(colors)]
             selected = index == 0
@@ -761,29 +763,37 @@ class ProfilePlot(QtWidgets.QWidget):
         if shown:
             self.plane_line.setValue(float(profile.x[columns[0]]))
         off = bool(self._hidden_text) and columns.size > 0 and not shown
-        fit = f" · cluster χ²ᵣ {profile.reduced_chi_squared:.3g}"
+        # Beside the error bars as a diagnostic, never applied to them (see About).
+        fit = f" · cluster χ²ᵣ {profile.reduced_chi_squared:.3g} (fit diagnostic)"
+        noise = (
+            " · noise correlation modelled"
+            if profile.noise_model.modelled
+            else " · noise correlation not modelled"
+        )
         shown = self._normalized
         quantity = (
-            f"±1σ propagated to the ratio (first order, full gradient) from analytical σ, "
-            f"lineshapes held fixed; σ_R/|R| = {shown.reference_error / abs(shown.reference):.3f}"
-            f" (limit {RELIABILITY_LIMIT:g})"
-            + (" · reference amplitude negative" if shown.reference < 0 else "")
-            if shown is not None
-            else "±1σ conditional analytical error, lineshapes held fixed, "
-            + (
-                "noise correlation modelled"
-                if profile.noise_model.modelled
-                else "noise correlation not modelled"
+            (
+                "±1σ of the ratio (first order, full gradient) from conditional σ, "
+                f"fixed lineshapes{noise} · σ_R/|R| = "
+                f"{shown.reference_error / abs(shown.reference):.3f} (limit {RELIABILITY_LIMIT:g})"
+                + (" · reference amplitude negative" if shown.reference < 0 else "")
             )
+            if shown is not None
+            else f"±1σ conditional on fixed lineshapes{noise}"
         ) + fit
         extra = getattr(self, "_normalization_note", "")
+        # What the bars are on one line; what is unusual about the data on the next.
+        states = [
+            part
+            for part in (self._hidden_text, "current plane is off scale" if off else "")
+            if part
+        ]
         self.note.setText(
             quantity
             + (f" · {extra}" if extra else "")
-            + (f" · {self._hidden_text}" if self._hidden_text else "")
-            + (" · current plane is off scale" if off else "")
+            + ("\n" + " · ".join(states) if states else "")
         )
-        self.note.setToolTip(
+        explanation = (
             "Analytical amplitude standard errors computed with the fitted lineshape "
             "parameters held fixed, so their uncertainty and correlations are not "
             "propagated. One σ per peak applies to every plane. They can underestimate "
@@ -793,6 +803,8 @@ class ProfilePlot(QtWidgets.QWidget):
             "lineshape model or the noise assumptions do not describe the data, so these "
             "error bars need not match the observed scatter."
         )
+        self.note.setToolTip(explanation)
+        self.about.setText(explanation)
 
     def _clicked(self, _item, points, event) -> None:
         profile = self._profile

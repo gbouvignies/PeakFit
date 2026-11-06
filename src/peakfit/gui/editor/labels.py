@@ -98,6 +98,25 @@ def clear_layout(layout: QtWidgets.QLayout) -> None:
             nested.deleteLater()
 
 
+def about(
+    layout: QtWidgets.QBoxLayout, title: str
+) -> tuple[QtWidgets.QToolButton, QtWidgets.QLabel]:
+    """An "About …" disclosure and its explanation, added to ``layout``, collapsed at first.
+
+    Both widgets live as long as the page, so an opened explanation stays open across
+    selections. The toggle takes keyboard focus (Tab, then Space).
+    """
+    button = disclosure(title)
+    button.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+    button.setAccessibleName(title)
+    body = text_label("", "caption", wrap=True)
+    body.hide()
+    button.toggled.connect(body.setVisible)
+    layout.addWidget(button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+    layout.addWidget(body)
+    return button, body
+
+
 def disclosure(text: str) -> QtWidgets.QToolButton:
     """A collapsed-by-default section toggle with a turning arrow."""
     button = QtWidgets.QToolButton()

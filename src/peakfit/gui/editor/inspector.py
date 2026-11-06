@@ -17,9 +17,14 @@ from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editing import PeakInspector
-from peakfit.gui.editor.cluster_page import ClusterPage
+from peakfit.gui.editor.cluster_page import (
+    ABOUT_MEASURES,
+    ClusterPage,
+    maximum_caption,
+    samples_caption,
+)
+from peakfit.gui.editor.labels import about, disclosure, review_item
 from peakfit.gui.editor.labels import clear_layout as _clear
-from peakfit.gui.editor.labels import disclosure, review_item
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
 from peakfit.gui.editor.review import correlation_matrix
@@ -71,7 +76,9 @@ class PreciseInspector(PeakInspector):
             )
             else ""
         )
-        self.details.setText(alias + "Unfolded ppm · Enter commits · Escape discards")
+        self.details.setText(alias + "Unfolded ppm")
+        for field in (self.name, self.x_field, self.y_field):
+            field.setToolTip("Enter commits the whole group · Escape discards")
         self.fields_changed.emit()
 
     @property
@@ -308,6 +315,8 @@ class Inspector(QtWidgets.QScrollArea):
         self.review = QtWidgets.QVBoxLayout()
         self.review.setSpacing(2)
         peak.addLayout(self.review)
+        self.about_toggle, self.about = about(peak, "About these measures")
+        self.about.setText(ABOUT_MEASURES)
         self.provenance_toggle = disclosure("Provenance")
         self.provenance_toggle.toggled.connect(lambda shown: self.provenance.setVisible(shown))
         self.provenance = _label("", "caption", wrap=True)
@@ -324,6 +333,11 @@ class Inspector(QtWidgets.QScrollArea):
                 (get_dimension_label(0), self._axes[y_axis.label], decimals_y),
             ]
         )
+        for one, other in (
+            (self.about_toggle, self.cluster_page.about_toggle),
+            (self.cluster_page.about_toggle, self.about_toggle),
+        ):
+            one.toggled.connect(other.setChecked)
         self.cluster_page.member_chosen.connect(self.member_chosen)
         self.cluster_page.focus_requested.connect(self.focus_requested)
         layout.addWidget(self.cluster_page)
@@ -530,6 +544,8 @@ class Inspector(QtWidgets.QScrollArea):
             widget.setVisible(found is not None)
         self.provenance_toggle.setVisible(found is not None)
         self.provenance.setVisible(found is not None and self.provenance_toggle.isChecked())
+        self.about_toggle.setVisible(found is not None)
+        self.about.setVisible(found is not None and self.about_toggle.isChecked())
         _clear(self.fitted)
         _clear(self.review)
         if result is None or found is None:
@@ -811,15 +827,14 @@ class Inspector(QtWidgets.QScrollArea):
             "Measures",
             "·",
             f"χ²ᵣ {review.chi2:.3g}",
-            f"{samples:,} fitting samples · relative to the noise estimate".replace(",", " "),
+            samples_caption(samples),
         )
         if math.isfinite(review.largest_residual) and samples > 1:
             self._item(
                 "",
                 "·",
                 f"Largest recorded residual {review.largest_residual:.1f} σ",
-                f"typical maximum for {samples:,} Gaussian samples ≈ "
-                f"{math.sqrt(2 * math.log(samples)):.1f} σ".replace(",", " "),
+                maximum_caption(samples),
             )
         names = {i.engine_name: i.assignment for i in result.inputs.identities}
         matrix = correlation_matrix(cluster)
