@@ -192,7 +192,8 @@ def project_final_grid(
     shape = tuple(int(n) for n in grid_shape)
     if {c.n_grid_dimensions for c in snapshot.clusters} != {len(shape)} or min(shape) <= 0:
         raise ValueError("Projection grid shape must give one positive size per dimension")
-    selected = _selected_planes(planes, snapshot.clusters[0].n_series)
+    n_series = snapshot.clusters[0].n_series
+    selected = _selected_planes(planes, n_series)
     parameters = _parameters_from_outcome(outcome.final_nonlinear_parameters)
     grids = [np.arange(n, dtype=float) for n in shape]
     # Peaks p, planes a, one letter per spectral dimension.
@@ -206,7 +207,7 @@ def project_final_grid(
         terminal = outcome.cluster(cluster.cluster_id)
         if not terminal.usable:
             continue
-        evaluation = _validate_usable_projection(terminal, cluster, cluster.n_series)
+        evaluation = _validate_usable_projection(terminal, cluster, n_series)
         factors = Cluster.evaluate_peak_axes(cluster.peaks, parameters, grids)
         if any(
             f.shape != (n, len(cluster.peaks)) or not np.all(np.isfinite(f))

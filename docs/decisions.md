@@ -980,16 +980,23 @@ Short records of non‑obvious design choices and trade‑offs.
 - `Dataset.trace_limit` and the `"trace_limit"` dataset-header key are removed; slices use the region intensity scale computed from the visible data. Breaking: new projects no longer write the key and `Dataset(...)` loses that argument; older projects still open (the reader never read the key) and keep it in their carried-over header until re-imported.
 
 ## 2026-11-06: Model planes from per-axis shapes
-- **Change.** The GUI evaluates a model plane with `project_final_grid`: per-axis
-  shapes once per cluster, then amplitude-weighted outer products, instead of
-  evaluating every peak at all 139 776 grid points.
+- **Change.** The GUI evaluates a model plane with `project_final_grid`: for each
+  cluster, its per-axis shapes, then amplitude-weighted outer products, instead of
+  evaluating every peak at all 139 776 grid points. The per-axis shapes are
+  recomputed for every plane requested; nothing is cached beyond the existing
+  model-plane cache.
 - **Why.** On the bundled data a first visit to a plane in Overlay took 1.3 s,
   97 % of it model evaluation (1.26 s; contours 2–4 ms), so stepping planes stalled
-  at every new plane. It now takes 52 ms p50 (59 ms p95) to paint; per-axis shapes
-  take about 9 ms per run and a plane 0.14 ms.
+  at every new plane. It now takes 52 ms p50 (59 ms p95) to paint, of which the
+  model plane is about 10 ms (per-axis shapes about 9 ms, outer products 0.14 ms).
 - **Same model.** A peak shape is defined as the product of its per-dimension
   shapes (`Cluster.evaluate_peaks`), so only the summation order changes. Tests
   require agreement within 10⁻¹² of the largest model value on every plane, for
   Gaussian, Lorentzian and pseudo-Voigt shapes with a folded peak, and for the
-  bundled SP2 data (observed 1.2×10⁻¹⁵). The pointwise `project_final_outcome`
+  bundled SP2 data (observed 1.2×10⁻¹⁵). The worst case for a change of summation
+  order, strongly cancelling amplitudes, is tested on the degenerate 53N-H/147N-H
+  refit (amplitudes about ±9×10¹² cancelling to a model of 2×10⁶): max |Δ|
+  3.9×10⁻⁷ a.u., i.e. 3.3×10⁻¹¹ σ_stat and 1.5×10⁻¹³ of the largest model value,
+  within the same criterion. Clusters must agree on the number of fitted planes,
+  as in the pointwise path. The pointwise `project_final_outcome`
   and the CLI's full-grid simulation are unchanged, so no output file changes.

@@ -96,6 +96,7 @@ or parameter-default preparation takes place during visualization.
 `project_final_grid` gives the same model on a whole native grid from per-axis
 shapes: a peak's shape is the product of its per-dimension shapes, so each plane
 is a sum of amplitude-weighted outer products (`Cluster.evaluate_peak_axes`). The
+per-axis shapes are evaluated on each call, for the planes requested. The
 GUI's model planes use it; agreement with the pointwise path is tested to 10⁻¹²
 of the largest model value on every plane.
 
