@@ -12,6 +12,7 @@ from PySide6 import QtCore, QtGui, QtTest
 
 import peakfit.gui.editor.workspace as workspace_module
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
+from peakfit.gui.editor import slices
 from peakfit.gui.editor.spectral_geometry import SLICE_COLLAPSE, SliceSizes
 from peakfit.gui.editor.spectral_view import LANE_SIGMA
 from peakfit.gui.editor.workspace import EditorWorkspace
@@ -241,3 +242,54 @@ def test_focus_keeps_its_own_slice_sizes_and_save_records_the_overview(fitted, m
     assert c.box.viewRange() == ranges
     fitted.open_focus(fitted.peaks[0].id)
     assert c.sizes == focused
+
+
+def _at(c, item):
+    return c.view.mapFromScene(item.sceneBoundingRect().center())
+
+
+def test_double_clicks_reset_scales_and_sizes_with_real_events(fitted, qapp):
+    c = fitted.canvas
+    c.set_lanes(True)
+    qapp.processEvents()
+    viewport = c.view.viewport()
+    c.scale_intensity(120)
+    c.scale_lanes(120)
+    QtTest.QTest.mouseDClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=_at(c, c.row_box))
+    qapp.processEvents()
+    assert c.manual_scale is None
+    QtTest.QTest.mouseDClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=_at(c, c.row_lane))
+    qapp.processEvents()
+    assert c.lane_sigma == LANE_SIGMA
+    c.set_sizes(SliceSizes(row=200, column=130, lanes=True))
+    qapp.processEvents()
+    QtTest.QTest.mouseDClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=_at(c, c.row_divider))
+    qapp.processEvents()
+    assert c.sizes.row == SliceSizes().row
+
+
+def test_a_wheel_zoom_commits_the_region_scale_of_the_new_view(fitted, qapp):
+    c = fitted.canvas
+    viewport = c.view.viewport()
+    before = c.box.viewRange()
+    point = _at(c, c.box)
+    for _ in range(8):
+        QtTest.QTest.qWait(10)
+        qapp.sendEvent(
+            viewport,
+            QtGui.QWheelEvent(
+                QtCore.QPointF(point),
+                QtCore.QPointF(viewport.mapToGlobal(point)),
+                QtCore.QPoint(),
+                QtCore.QPoint(0, 120),
+                QtCore.Qt.MouseButton.NoButton,
+                QtCore.Qt.KeyboardModifier.NoModifier,
+                QtCore.Qt.ScrollPhase.NoScrollPhase,
+                False,
+            ),
+        )
+    assert c.box.viewRange() != before
+    wait_until(lambda: not c._commit.isActive())
+    rows = slices.index_range(c.y_axis, c.box.viewRange()[1])
+    columns = slices.index_range(c.x_axis, c.box.viewRange()[0])
+    assert c.slice_bounds() == slices.intensity_range(c.spectra.data, rows, columns)

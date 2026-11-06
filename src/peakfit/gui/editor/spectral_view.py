@@ -156,7 +156,7 @@ class _SceneView(pg.GraphicsView):
 
 
 class SliceBox(pg.ViewBox):
-    """A slice or lane: no pan or zoom; the wheel rescales and double-click resets."""
+    """A slice or lane: no pan or zoom; the wheel rescales (the view handles double-clicks)."""
 
     def __init__(self, on_scale) -> None:
         super().__init__(enableMenu=False, defaultPadding=0)
@@ -168,18 +168,13 @@ class SliceBox(pg.ViewBox):
         self.on_scale(ev.delta())
         ev.accept()
 
-    def mouseDoubleClickEvent(self, ev) -> None:  # noqa: N802
-        """Return to the automatic range."""
-        self.on_scale(None)
-        ev.accept()
-
 
 class Divider(QtWidgets.QGraphicsRectItem):
     """A visible drag handle between the 2D plot and one slice."""
 
-    def __init__(self, *, vertical: bool, on_drag, on_reset, tip: str) -> None:
+    def __init__(self, *, vertical: bool, on_drag, tip: str) -> None:
         super().__init__()
-        self.vertical, self.on_drag, self.on_reset = vertical, on_drag, on_reset
+        self.vertical, self.on_drag = vertical, on_drag
         self.color, self.hot_color, self.hot = "#c9d0d8", "#2f5da8", False
         self.setAcceptHoverEvents(True)
         self.setCursor(
@@ -235,11 +230,6 @@ class Divider(QtWidgets.QGraphicsRectItem):
         """Commit the size."""
         delta = event.scenePos() - self._anchor
         self.on_drag(delta.x() if self.vertical else delta.y(), finished=True)
-        event.accept()
-
-    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802
-        """Restore the default size."""
-        self.on_reset()
         event.accept()
 
 
@@ -389,14 +379,12 @@ class SpectralView(QtWidgets.QWidget):
         self.row_divider = Divider(
             vertical=False,
             on_drag=partial(self._drag_divider, "row"),
-            on_reset=partial(self.reset_size, "row"),
             tip=f"Drag to resize the {x_name} slice; drag to the edge to collapse it. "
             "Double-click resets its size.",
         )
         self.column_divider = Divider(
             vertical=True,
             on_drag=partial(self._drag_divider, "column"),
-            on_reset=partial(self.reset_size, "column"),
             tip=f"Drag to resize the {y_name} slice; drag to the edge to collapse it. "
             "Double-click resets its size.",
         )
@@ -1330,8 +1318,7 @@ class SpectralView(QtWidgets.QWidget):
         if event.type() == QtCore.QEvent.Type.Leave:
             self.hover(None)
         if event.type() == QtCore.QEvent.Type.MouseButtonDblClick:
-            self.edit_requested.emit()
-            return True
+            return self._double_click(self.view.mapToScene(event.position().toPoint()))
         if event.type() == QtCore.QEvent.Type.KeyPress:
             key = event.key()
             if key == QtCore.Qt.Key.Key_Space:
@@ -1351,6 +1338,22 @@ class SpectralView(QtWidgets.QWidget):
                 self.set_pinned(True)
                 return True
         return super().eventFilter(watched, event)
+
+    def _double_click(self, point: QtCore.QPointF) -> bool:
+        """The 2D plot edits; a slice, lane or divider returns to its default."""
+        for item, action in (
+            (self.row_divider, lambda: self.reset_size("row")),
+            (self.column_divider, lambda: self.reset_size("column")),
+            (self.box, self.edit_requested.emit),
+            (self.row_box, lambda: self.scale_intensity(None)),
+            (self.column_box, lambda: self.scale_intensity(None)),
+            (self.row_lane, lambda: self.scale_lanes(None)),
+            (self.column_lane, lambda: self.scale_lanes(None)),
+        ):
+            if item.isVisible() and item.sceneBoundingRect().contains(point):
+                action()
+                return True
+        return False
 
     # ----------------------------------------------------------------- slices
     def _effective_sizes(self) -> SliceSizes:
