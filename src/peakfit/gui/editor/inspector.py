@@ -146,11 +146,16 @@ class PreciseInspector(PeakInspector):
 
 
 def _run_text(result: DatasetFitResult | None, *, current: bool, busy: bool) -> str:
+    """What the toolbar's run identity does not already say: Outdated, a fit running."""
     if result is None:
         return ""
-    return f"run {result.run_id[:8]} · {'Current' if current else 'Outdated'}" + (
-        " · new fit running" if busy else ""
+    return " · ".join(
+        part for part in ("" if current else "Outdated", "new fit running" if busy else "") if part
     )
+
+
+def _with_run(state: str, run: str) -> str:
+    return f"{state} · {run}" if run else state
 
 
 def _state(cluster: FinalClusterOutcome) -> str:
@@ -532,7 +537,7 @@ class Inspector(QtWidgets.QScrollArea):
             self.status.setText(
                 "Not fitted yet"
                 if result is None
-                else f"Not part of {run}: added or renamed after that fit"
+                else f"Not part of run {result.run_id[:8]}: added or renamed after that fit"
             )
             self.profile.show_profile(None, plane)
             self.profile.hide()
@@ -542,11 +547,10 @@ class Inspector(QtWidgets.QScrollArea):
         members = len(cluster.peak_names)
         self.kind.setText(f"PEAK · CLUSTER OF {members}" if members > 1 else "PEAK")
         self.status.setText(
-            f"{_state(cluster)} · {run}"
+            _with_run(_state(cluster), run)
             + ("\n□ Fitted position not adopted · working position kept" if retained else "")
         )
         self._show_profile(result, peak.id, plane_values, plane, current=current)
-        self.fitted_title.setText(f"FITTED · RUN {result.run_id[:8].upper()}")
         self._fill_parameters(engine, cluster)
         start = next((p for p in result.inputs.snapshot.peaks if p.id == peak.id), None)
         if start is not None:
@@ -711,7 +715,9 @@ class Inspector(QtWidgets.QScrollArea):
         count = len(names)
         self.kind.setText(f"CLUSTER · {count} PEAK{'S' if count != 1 else ''}")
         self.title.setText(names[0] + (f"  +{count - 1}" if count > 1 else ""))
-        self.status.setText(f"{_state(cluster)} · {_run_text(result, current=current, busy=busy)}")
+        self.status.setText(
+            _with_run(_state(cluster), _run_text(result, current=current, busy=busy))
+        )
         self._show_profile(result, peak.id, plane_values, plane, current=current)
         engines = {i.working_id: i.engine_name for i in result.inputs.identities}
         self.cluster_page.show_cluster(

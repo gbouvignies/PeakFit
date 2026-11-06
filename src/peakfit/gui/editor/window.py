@@ -423,8 +423,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         self._end_loading()
         self._saved_state = self._analysis_state()
         self._work_changed()
-        self.loading_status.setText(workspace.guidance())
-        workspace.guidance_changed.connect(self.loading_status.setText)
+        self.loading_status.clear()
         duplicates = len({p.name for p in dataset.peaks}) != len(dataset.peaks)
         if duplicates:
             workspace.error.setText(

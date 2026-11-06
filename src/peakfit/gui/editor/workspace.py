@@ -62,7 +62,6 @@ class EditorWorkspace(QtWidgets.QWidget):
     """Own committed scientific edits; navigation and drafts never change revision."""
 
     changed = QtCore.Signal()
-    guidance_changed = QtCore.Signal(str)
 
     def __init__(self, dataset: Dataset) -> None:  # noqa: PLR0915
         super().__init__()
@@ -979,11 +978,18 @@ class EditorWorkspace(QtWidgets.QWidget):
             text = f"{fitting.stage} · {fitting.elapsed:.1f} s · Navigation available"
         elif result is not None:
             # Currentness first: a narrow toolbar elides only the tail.
+            clusters = result.outcome.clusters
+            # All usable and converged needs no counts; anything else spells them out.
+            complete = all(c.usable and c.optimizer_provenance.converged for c in clusters)
             text = (
                 f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'} · "
                 + ("▲ Not in recovery copy · " if fitting.recovery_error else "")
                 + (fitting.attempt + " · " if fitting.attempt else "")
-                + dataset_summary(result, warnings=False)
+                + (
+                    f"all {len(clusters)} clusters usable"
+                    if complete
+                    else dataset_summary(result, warnings=False)
+                )
             )
         else:
             planes = self.dataset.spectra.data.shape[0]
@@ -991,6 +997,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.summary.setText(text)
         self.summary.setToolTip(
             text
+            + ("\n" + dataset_summary(result, warnings=False) if result is not None else "")
             + ("\n" + fitting.failure if fitting.failure else "")
             + ("\n" + _recovery_note(fitting.recovery_error) if fitting.recovery_error else "")
             + "\nClick to open the analysis page at the active run"
@@ -1255,7 +1262,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._sync_inspector(cluster=True)
         self.render_fitting()
         self.canvas.view.setFocus()
-        self.guidance_changed.emit(self.guidance())
 
     def set_lanes(self, visible: bool) -> None:
         """Show or hide the residual lanes where they fit, never enlarging the window."""
@@ -1436,12 +1442,6 @@ class EditorWorkspace(QtWidgets.QWidget):
             float(self.canvas.ppm_x[region.column]), float(self.canvas.ppm_y[region.row])
         )
 
-    def guidance(self) -> str:
-        """The status-bar hint for what the spectral area currently allows."""
-        if self.focus_open:
-            return "Focus · drag selected peak · A adds a peak · Esc returns"
-        return "Drag a selected peak to move it · Space pins traces"
-
     def _focus_spectral_area(self) -> None:
         if not self.inspector.pending:
             self.canvas.view.setFocus()
@@ -1537,7 +1537,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         c.set_pinned(pinned)
         c.pin_peak_id = following
         c.view.setFocus()
-        self.guidance_changed.emit(self.guidance())
 
     def _update_focus(self) -> None:
         """Keep focus on a recorded cluster by stable peak IDs.
