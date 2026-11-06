@@ -793,11 +793,31 @@ class ProfilePlot(QtWidgets.QWidget):
             + (f" · {extra}" if extra else "")
             + ("\n" + " · ".join(states) if states else "")
         )
+        # Say what the bars on show are: raw amplitude σ, or the ratio's propagated σ.
+        if shown is None:
+            quantity_text = (
+                "Error bars are the recorded analytical standard errors of the amplitudes: "
+                "one σ per peak, the same on every plane."
+            )
+        else:
+            quantity_text = (
+                "Error bars are the first-order (full-gradient) standard errors of the "
+                "ratio A_k / R, where R is the mean amplitude of the reference planes, "
+                "propagated from the analytical amplitude standard errors with amplitudes "
+                "of different planes treated as uncorrelated. They differ from plane to "
+                "plane. "
+                + (
+                    "With a single reference plane its ratio is exactly 1 and has no error bar."
+                    if shown.exact
+                    else "Each reference plane enters R, so its own ratio has a propagated "
+                    "error too."
+                )
+            )
         explanation = (
-            "Analytical amplitude standard errors computed with the fitted lineshape "
+            quantity_text + " The amplitude standard errors are computed with the fitted lineshape "
             "parameters held fixed, so their uncertainty and correlations are not "
-            "propagated. One σ per peak applies to every plane. They can underestimate "
-            "the uncertainty of overlapping peaks. They are never rescaled by χ²ᵣ. "
+            "propagated; they can underestimate the uncertainty of overlapping peaks. "
+            "They are never rescaled by χ²ᵣ. "
             + profile.noise_model.description
             + " χ²ᵣ is a goodness-of-fit diagnostic: well above 1, the noise level, the "
             "lineshape model or the noise assumptions do not describe the data, so these "

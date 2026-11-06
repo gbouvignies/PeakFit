@@ -2514,3 +2514,40 @@ def test_qualifiers_stay_beside_values_and_explanations_open_in_place(workspace,
     w.select_peak(None)
     labels = [label.text() for label in panel.analysis_page.findChildren(QtWidgets.QLabel)]
     assert any(t.startswith("Diagnostic only") and "never proposes peaks" in t for t in labels)
+
+
+def test_the_error_bar_explanation_describes_the_quantity_on_show(qapp, scientific):
+    result = scientific[-1]
+    shown = peak_profile(result, result.inputs.identities[0].working_id, None)
+    assert isinstance(shown, PeakProfile)
+    panel = ProfilePlot()
+    panel.resize(320, 260)
+    panel.show()
+    panel.show_profile(shown, 0)
+    qapp.processEvents()
+    common = ("held fixed", "never rescaled by χ²ᵣ", shown.noise_model.description)
+
+    def explanation():
+        text = panel.about.text()
+        assert all(part in text for part in common)
+        return text
+
+    # Raw: the recorded σ, one per peak, the same on every plane.
+    assert "the same on every plane" in explanation()
+    assert "ratio" not in explanation()
+    # One reference plane: the ratio's propagated σ, varying by plane; reference exact.
+    first, second = (int(p) for p in shown.source_planes[:2])
+    panel.set_reference((first,))
+    text = explanation()
+    assert "ratio A_k / R" in text
+    assert "differ from plane to plane" in text
+    assert "single reference plane its ratio is exactly 1 and has no error bar" in text
+    assert "the same on every plane" not in text
+    # Several reference planes: each has a propagated error of its own.
+    panel.set_reference((first, second))
+    assert "its own ratio has a propagated error" in explanation()
+    assert "exactly 1" not in explanation()
+    # Back to raw amplitudes.
+    panel.set_normalized(False)
+    assert "the same on every plane" in explanation()
+    panel.close()
