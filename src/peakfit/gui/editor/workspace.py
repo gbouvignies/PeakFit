@@ -14,7 +14,6 @@ from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import dataset_summary
-from peakfit.gui.editor.canvas import SpectrumCanvas
 from peakfit.gui.editor.changes import ClusterChange, RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.inspector import Inspector, find_cluster
@@ -23,6 +22,7 @@ from peakfit.gui.editor.lens import ClusterLens
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
+from peakfit.gui.editor.spectral_view import SpectralView
 from peakfit.gui.editor.unexplained import (
     DEFAULT_THRESHOLD,
     UnexplainedRegion,
@@ -93,7 +93,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._unexplained_worker.completed.connect(self._unexplained_ready)
         # One cache of total-model planes for the overview, lens and residual search.
         self.model_planes = ModelPlanes()
-        self.canvas = SpectrumCanvas(dataset, self.model_planes)
+        self.canvas = SpectralView(dataset, self.model_planes)
         decimals = (self.canvas.decimals_x, self.canvas.decimals_y)
         self.navigator = Navigator(
             self.canvas.axis_title(self.canvas.x_axis),
@@ -499,12 +499,12 @@ class EditorWorkspace(QtWidgets.QWidget):
             "pin": [float(c.ppm_x[c.ix]), float(c.ppm_y[c.iy])],
             "pinned": c.pinned,
             "pin_peak_id": c.pin_peak_id,
-            "ranges": c.main.getViewBox().viewRange(),
+            "ranges": c.box.viewRange(),
             "navigator": self.peaks_button.isChecked(),
             "inspector": self.inspector_button.isChecked(),
             "splitter": self.splitter.sizes(),
             "display": {name: getattr(c, name) for name in _DISPLAY},
-            "trace_limits": c._trace_limits,
+            "slices": c.slice_state(),
             "mode": next((i for i, b in enumerate(self.mode_buttons) if b.isChecked()), 0),
         }
         fitting = self.fitting
@@ -544,8 +544,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         for name, value in v.get("display", {}).items():
             if name in _DISPLAY:
                 setattr(c, name, value)
-        if v.get("trace_limits"):
-            c._trace_limits = {int(k): value for k, value in v["trace_limits"].items()}
         c._refresh_labels()
         self.set_plane(v.get("plane", 0) + 1)
         if v.get("selected_id") in {p.id for p in self.peaks}:
@@ -556,7 +554,9 @@ class EditorWorkspace(QtWidgets.QWidget):
             c.pin_peak_id = v.get("pin_peak_id")
         if v.get("ranges"):
             x, y = v["ranges"]
-            c.main.getViewBox().setRange(xRange=x, yRange=y, padding=0)
+            c.set_ranges(x, y)
+        if v.get("slices"):
+            c.restore_slice_state(v["slices"])
         self.peaks_button.setChecked(v.get("navigator", True))
         self.toggle_navigator()
         self.inspector_button.setChecked(v.get("inspector", True))
@@ -623,13 +623,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         ]
         for action in self.actions_for_menu:
             self.addAction(action)
-        for widget in (self.canvas.main, self.navigator.list):
+        for widget in (self.canvas.view, self.navigator.list):
             for key, callback in (("Delete", self.delete_peaks), ("Backspace", self.delete_peaks)):
                 shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), widget)
                 shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
                 shortcut.activated.connect(callback)
         for key, callback in (("A", self.start_placing), ("Escape", self.cancel_gesture)):
-            shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.canvas.main)
+            shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.canvas.view)
             shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
             shortcut.activated.connect(callback)
         placing = QtGui.QShortcut(QtGui.QKeySequence("A"), self.lens)
@@ -1022,7 +1022,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             self.lens.setFocus()
         else:
             self.canvas.set_placing(True)
-            self.canvas.main.setFocus()
+            self.canvas.view.setFocus()
         self.status.setText("Place peak · click exact ppm position · Escape cancels")
 
     def place_peak(self, positions) -> None:
@@ -1289,7 +1289,7 @@ class EditorWorkspace(QtWidgets.QWidget):
 
     def _focus_spectral_area(self) -> None:
         if not self.inspector.pending:
-            (self.lens if self.lens_open else self.canvas.main).setFocus()
+            (self.lens if self.lens_open else self.canvas.view).setFocus()
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802
         """A click on the run summary opens the analysis page; showing it shows the setup."""
@@ -1373,7 +1373,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         if self._sizes_before_lens:
             self.splitter.setSizes(self._sizes_before_lens)
         self.render_fitting()
-        self.canvas.main.setFocus()
+        self.canvas.view.setFocus()
         self.guidance_changed.emit(self.guidance())
 
     def _update_lens(self) -> None:
@@ -1538,8 +1538,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         labels.setChecked(self.canvas.labels_visible)
         heavy = QtWidgets.QCheckBox("Heavier contours")
         heavy.setChecked(self.canvas.heavy_strokes)
-        fit = QtWidgets.QPushButton("Fit current traces")
-        fit.clicked.connect(self.canvas.fit_current_traces)
         for title, field in (
             ("First contour / a.u.", threshold),
             ("Level factor", factor),
@@ -1548,7 +1546,6 @@ class EditorWorkspace(QtWidgets.QWidget):
             ("Unexplained signal beyond ± / σ_stat", unexplained),
             ("", labels),
             ("", heavy),
-            ("Signed trace scale", fit),
         ):
             form.addRow(title, field)
         chosen_rules = self._highlight_fields(form)

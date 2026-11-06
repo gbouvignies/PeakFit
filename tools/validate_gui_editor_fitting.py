@@ -103,7 +103,7 @@ def run(exports):  # noqa: PLR0915
     chosen = next(p for p in w.peaks if p.name == "5N-H")
     w.select_peak(chosen.id)
     w.set_plane(60)
-    view = c.main.getViewBox().viewRange()
+    view = c.box.viewRange()
     seeds = w.peaks
     w.show_fit_setup()
     wait_until(lambda: w.fitting.prepared is not None, timeout=60)
@@ -129,7 +129,7 @@ def run(exports):  # noqa: PLR0915
     assert c.comparison_mode == 1
     assert c.selected_id == chosen.id
     assert c.pin_peak_id == chosen.id
-    np.testing.assert_allclose(c.main.getViewBox().viewRange(), view)
+    np.testing.assert_allclose(c.box.viewRange(), view)
     report["summary"] = w.summary.text()
     report["positions_changed"] = sum(
         p.positions != q.positions for p, q in zip(seeds, w.peaks, strict=True)
@@ -168,7 +168,7 @@ def run(exports):  # noqa: PLR0915
                     f"{size[0]}-{theme.lower()}-{'overlay' if mode == 1 else 'residual'}.webp"
                 )
                 window.grab().save(str(OUTPUT / filename), "WEBP", 95)
-                rect = c.main.getViewBox().sceneBoundingRect()
+                rect = c.box.sceneBoundingRect()
                 report["captures"].append(
                     {"file": filename, "plot_rect": [rect.width(), rect.height()]}
                 )
@@ -209,9 +209,7 @@ def run(exports):  # noqa: PLR0915
         iy = 1 + count[0] * 13 % (len(c.ppm_y) - 2)
         pending[0] = perf_counter()
         c._pointer_moved(
-            c.main.getViewBox().mapViewToScene(
-                QtCore.QPointF(float(c.ppm_x[ix]), float(c.ppm_y[iy]))
-            )
+            c.box.mapViewToScene(QtCore.QPointF(float(c.ppm_x[ix]), float(c.ppm_y[iy])))
         )
         count[0] += 1
 

@@ -30,16 +30,16 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.background import ViewerComputation
-from peakfit.gui.editor.canvas import (
+from peakfit.gui.editor.labels import ElidedLabel
+from peakfit.gui.editor.spectral_view import (
     _RESIDUAL_LEVELS,
     ContourLayer,
     InspectionMarkers,
-    SpectrumCanvas,
+    SpectralView,
     _level_pens,
     framed_ranges,
     signed_geometry,
 )
-from peakfit.gui.editor.labels import ElidedLabel
 from peakfit.gui.fit_display import dataset_model_plane, normalized_residual
 from peakfit.gui.spectrum import display_position, paths_from_geometry
 from peakfit.gui.theme import FONT_CAPTION, color
@@ -52,6 +52,25 @@ if TYPE_CHECKING:
 
 _BAND = 3.0  # σ band around the residual trace
 _TITLES = ("Experimental", "Overlay", "Whole-spectrum residual")
+
+
+def _plot() -> pg.PlotWidget:
+    """One borderless plot with caption-sized ticks."""
+    plot = pg.PlotWidget()
+    plot.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+    plot.hideButtons()
+    plot.setMenuEnabled(False)
+    plot.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
+    plot.getViewBox().setDefaultPadding(0)
+    plot.getPlotItem().layout.setContentsMargins(0, 0, 0, 0)
+    plot.getPlotItem().layout.setSpacing(0)
+    font = QtGui.QFont(QtWidgets.QApplication.font())
+    font.setPixelSize(FONT_CAPTION)
+    for name in ("left", "bottom"):
+        axis = plot.getAxis(name)
+        axis.setStyle(maxTickLevel=0, tickLength=-4, tickFont=font, tickTextOffset=4)
+        axis.enableAutoSIPrefix(False)
+    return plot
 
 
 class ClusterLens(QtWidgets.QWidget):
@@ -140,7 +159,7 @@ class ClusterLens(QtWidgets.QWidget):
             label = QtWidgets.QLabel(caption)
             label.setObjectName("section")
             column.addWidget(label)
-            plot = SpectrumCanvas._plot()
+            plot = _plot()
             plot.getViewBox().invertX(True)
             plot.getViewBox().invertY(True)
             plot.getAxis("left").setWidth(48)
@@ -195,8 +214,8 @@ class ClusterLens(QtWidgets.QWidget):
             self.crosses.append(cross)
             self.unavailable.append(text)
         layout.addLayout(panels, 1)
-        self.trace = SpectrumCanvas._plot()
-        self.residual_trace = SpectrumCanvas._plot()
+        self.trace = _plot()
+        self.residual_trace = _plot()
         for plot, height in ((self.trace, 92), (self.residual_trace, 72)):
             plot.setFixedHeight(height)
             plot.getViewBox().invertX(True)
@@ -330,8 +349,8 @@ class ClusterLens(QtWidgets.QWidget):
                 axis.setPen(pg.mkPen(t.divider))
                 axis.setTextPen(pg.mkPen(t.secondary))
         for plot in self.panels:
-            plot.setLabel("bottom", f"{SpectrumCanvas.axis_title(self.x_axis)} (ppm)", **style)
-        self.panels[0].setLabel("left", f"{SpectrumCanvas.axis_title(self.y_axis)} (ppm)", **style)
+            plot.setLabel("bottom", f"{SpectralView.axis_title(self.x_axis)} (ppm)", **style)
+        self.panels[0].setLabel("left", f"{SpectralView.axis_title(self.y_axis)} (ppm)", **style)
         self.residual_trace.setLabel("left", "σ", **style)
         for added, recorded, links in zip(
             self.added_marks, self.recorded_marks, self.recorded_links, strict=True

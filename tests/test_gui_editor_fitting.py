@@ -13,9 +13,9 @@ from builders import two_cluster_dataset
 from gui_helpers import wait_until
 from PySide6 import QtCore, QtTest, QtWidgets
 
-import peakfit.gui.editor.canvas as canvas_module
 import peakfit.gui.editor.lens as lens_module
 import peakfit.gui.editor.review as review_module
+import peakfit.gui.editor.spectral_view as canvas_module
 import peakfit.gui.editor.workspace as workspace_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.diagnostics.identifiability import AmplitudeStatus, Cause, MemberAmplitude
@@ -34,6 +34,7 @@ from peakfit.gui.editor.profile import (
     peak_profile,
 )
 from peakfit.gui.editor.setup import DEFAULT_SOURCE
+from peakfit.gui.editor.spectral_geometry import MAIN_MIN
 from peakfit.gui.editor.unexplained import nearest_peak, unexplained_regions
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
@@ -86,7 +87,7 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     result = scientific[-1]
     w.select_peak(w.peaks[0].id)
     following = c.pin_peak_id
-    ranges = c.main.getViewBox().viewRange()
+    ranges = c.box.viewRange()
     seeds = w.peaks
     publish(w, result)
     assert w.fitting.current
@@ -95,7 +96,7 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     assert not w.edits.can_undo
     assert c.pin_peak_id == following
     assert c.selected_id == following
-    np.testing.assert_allclose(c.main.getViewBox().viewRange(), ranges)
+    np.testing.assert_allclose(c.box.viewRange(), ranges)
     assert c.comparison_mode == 1
     wait_until(lambda: not c.contour_pending)
     authoritative = dataset_model_plane(result, c.spectra.spectral_params, c.plane, cancel=Event())
@@ -106,11 +107,11 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     np.testing.assert_array_equal(c.curve_x.getData()[1], residual[c.iy, :])
     np.testing.assert_array_equal(c.curve_y.getData()[0], residual[:, c.ix])
     jobs = c.contour_jobs
-    limit = c.trace_limit
+    bounds = c.slice_bounds()
     for _ in range(500):
         c.sample(float(c.ppm_x[12]), float(c.ppm_y[13]))
     assert c.contour_jobs == jobs
-    assert c.trace_limit == limit
+    assert c.slice_bounds() == bounds
     # A draft never invalidates accepted science; one commit does, including Undo.
     w.inspector.x_field.setText("8.123456789")
     assert w.fitting.current
@@ -718,8 +719,9 @@ def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkey
     assert w.panel.profile.isVisible()
     assert window.rect().contains(rect(w.panel.profile.plot))
     # Three columns never squeeze the spectrum below its minimum.
-    assert w.canvas.main.width() >= w.canvas.main.minimumWidth()
-    assert w.canvas.main.height() >= w.canvas.main.minimumHeight()
+    plot = w.canvas.arrangement.main
+    assert plot[2] >= MAIN_MIN[0]
+    assert plot[3] >= MAIN_MIN[1]
     window.close()
     window.deleteLater()
 
@@ -830,7 +832,7 @@ def test_selected_cluster_members_are_marked_without_changing_view_or_scope(work
     members = {identities[n] for n in cluster.peak_names}
     selected = identities[cluster.peak_names[0]]
     w.select_peak(selected)
-    ranges, mode = c.main.getViewBox().viewRange(), c.comparison_mode
+    ranges, mode = c.box.viewRange(), c.comparison_mode
     model, jobs = c.comparison_result, c.contour_jobs
     # Choosing the cluster row keeps the selected member and marks the others.
     w.navigator.tree.setCurrentItem(w.navigator._clusters[selected])
@@ -844,7 +846,7 @@ def test_selected_cluster_members_are_marked_without_changing_view_or_scope(work
     }
     assert marked == others
     # Highlighting changes neither the viewport, the comparison nor contour work.
-    assert c.main.getViewBox().viewRange() == ranges
+    assert c.box.viewRange() == ranges
     assert (c.comparison_mode, c.comparison_result, c.contour_jobs) == (mode, model, jobs)
     # A peak outside the run has no recorded cluster to mark.
     w.place_peak(w.peaks[0].positions)
@@ -933,7 +935,7 @@ def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, sci
     cluster = next(cl for cl in prepared.clusters if len(cl.peaks) > 1)
     ids = {i.engine_name: i.working_id for i in prepared.identities}
     w.select_peak(ids[cluster.peaks[0].name])
-    view, mode, jobs = c.main.getViewBox().viewRange(), c.comparison_mode, c.contour_jobs
+    view, mode, jobs = c.box.viewRange(), c.comparison_mode, c.contour_jobs
     w._update_inspector()
     # One tinted cell per sampled point, exactly; the selected cluster is stronger.
     samples = sum(len(cl.grid_indices[0]) for cl in prepared.clusters)
@@ -947,7 +949,7 @@ def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, sci
     assert centre.y() == pytest.approx(c.ppm_y[row])
     assert c.region_image.zValue() < 0  # behind the contours
     assert (c.comparison_mode, c.contour_jobs) == (mode, jobs)
-    assert view == c.main.getViewBox().viewRange()
+    assert view == c.box.viewRange()
     # After a fit the recorded regions replace the preview, with the run named.
     result = scientific[-1]
     publish(w, result)
@@ -1399,7 +1401,7 @@ def test_cluster_row_opens_the_cluster_page_with_recorded_values(workspace, scie
     # The shared profile sits on the cluster page; the view never moved.
     assert panel.profile_block.parent() is not None
     assert panel.cluster_page.isAncestorOf(panel.profile_block)
-    view = c.main.getViewBox().viewRange()
+    view = c.box.viewRange()
     # A member link opens that peak's page; the peak page links back to its cluster.
     target = review.ids[-1]
     links[-1].click()  # assignments may repeat; links follow member order
@@ -1412,7 +1414,7 @@ def test_cluster_row_opens_the_cluster_page_with_recorded_values(workspace, scie
     panel.cluster_link.click()
     assert panel.cluster_view
     assert w.selected_id == target
-    assert c.main.getViewBox().viewRange() == view
+    assert c.box.viewRange() == view
     # Selecting on the canvas or in the Peaks list returns to the peak page.
     w.select_peak(members[0].working_id)
     assert not panel.cluster_view
@@ -1552,7 +1554,7 @@ def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scient
     member = identities[cluster.peak_names[0]]
     nav = w.navigator
     nav.tree.setCurrentItem(nav._clusters[member])
-    view, mode, sizes = c.main.getViewBox().viewRange(), c.comparison_mode, w.splitter.sizes()
+    view, mode, sizes = c.box.viewRange(), c.comparison_mode, w.splitter.sizes()
     nav.tree.setFocus()
     QtTest.QTest.keyClick(nav.tree, QtCore.Qt.Key.Key_Return)
     lens = w.lens
@@ -1582,7 +1584,7 @@ def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scient
     lens.panels[0].getViewBox().setRange(xRange=(x_low, (x_low + x_high) / 2), padding=0)
     w.full_view()
     assert lens.panels[0].getViewBox().viewRange() == framed
-    assert c.main.getViewBox().viewRange() == view
+    assert c.box.viewRange() == view
     # The lens follows the plane.
     w.set_plane(2)
     wait_until(lambda: not lens.pending)
@@ -1605,7 +1607,7 @@ def test_cluster_lens_opens_frames_compares_and_closes_cleanly(workspace, scient
     QtTest.QTest.keyClick(lens, QtCore.Qt.Key.Key_Escape)
     assert not w.lens_open
     assert w.spectral.currentWidget() is c
-    assert c.main.getViewBox().viewRange() == view
+    assert c.box.viewRange() == view
     assert c.comparison_mode in {0, mode}
     assert w.splitter.sizes() == sizes
 
@@ -1625,7 +1627,7 @@ def test_display_settings_refresh_the_lens_without_touching_results(
     result = scientific[-1]
     publish(w, result)
     _open_lens(w, result)
-    view, residual_layers = c.main.getViewBox().viewRange(), w.lens.layers[2][0]
+    view, residual_layers = c.box.viewRange(), w.lens.layers[2][0]
     chosen = {"First contour": c.contour_threshold * 2, "First residual contour": 5.0}
 
     def accept(dialog):
@@ -1644,7 +1646,7 @@ def test_display_settings_refresh_the_lens_without_touching_results(
     # Display only: same run, still Current; the hidden overview did not move.
     assert w.fitting.result is result
     assert w.fitting.current
-    assert c.main.getViewBox().viewRange() == view
+    assert c.box.viewRange() == view
 
 
 def test_escape_leaves_the_lens_from_any_column_but_discards_a_draft_first(workspace, scientific):
@@ -1783,7 +1785,7 @@ def test_unexplained_signal_is_listed_on_request_and_frames_without_editing(  # 
     )
     # Choosing a region frames it and samples through its extreme; nothing is edited.
     links[0].click()
-    (x_low, x_high), (y_low, y_high) = c.main.getViewBox().viewRange()
+    (x_low, x_high), (y_low, y_high) = c.box.viewRange()
     for low, high, ppm, (start, stop) in (
         (x_low, x_high, c.ppm_x, first.columns),
         (y_low, y_high, c.ppm_y, first.rows),

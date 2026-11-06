@@ -625,7 +625,8 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         """Expose viewport ranges for keyboard-only zoom and pan."""
         if not self.workspace:
             return
-        view = self.workspace.canvas.main.getViewBox()
+        canvas = self.workspace.canvas
+        view = canvas.box
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle("Spectrum ranges")
         form = QtWidgets.QFormLayout(dialog)
@@ -658,7 +659,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             except ValueError:
                 error.setText("Enter finite minimum < maximum for each axis.")
                 return
-            view.setRange(xRange=values[:2], yRange=values[2:], padding=0)
+            canvas.set_ranges(values[:2], values[2:])
             dialog.accept()
 
         buttons.accepted.connect(accept)
