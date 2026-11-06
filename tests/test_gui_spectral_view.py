@@ -3,6 +3,7 @@
 import json
 from copy import deepcopy
 from pathlib import Path
+from threading import Event
 
 import numpy as np
 import pytest
@@ -10,6 +11,7 @@ from builders import two_cluster_dataset
 from gui_helpers import wait_until
 from PySide6 import QtCore, QtGui, QtTest
 
+import peakfit.gui.editor.spectral_view as view_module
 import peakfit.gui.editor.workspace as workspace_module
 from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
@@ -332,3 +334,211 @@ def test_run_identity_is_not_repeated_where_the_toolbar_already_names_it(fitted)
     # The run stays one hover away on the always-visible title.
     assert bar.title.isVisible()
     assert bar.title.toolTip() == f"Run {run} · Current"
+
+
+def _shown_planes(c):
+    """The plane every visible contour layer belongs to."""
+    return {layer.key[2] for layer in c.paths}
+
+
+def test_plane_steps_swap_measured_contours_without_a_gap_or_a_stale_layer(fitted):
+    c = fitted.canvas
+    assert c.comparison_mode == 1
+    wait_until(lambda: not c.contour_pending)
+    # The neighbouring plane's measured contours are prepared after the current ones.
+    wait_until(lambda: c._experiment_key(c.plane + 1) in c._cache)
+    fitted.set_plane(c.plane + 2)  # one-based: the next plane
+    # Shown at once, in the same step that removed the previous plane's layers.
+    assert [layer.role for layer in c.paths] == ["measured"]
+    assert _shown_planes(c) == {c.plane}
+    assert c._model is None or c.model_layers
+    assert c.pending_label.toPlainText() in ("", "Experimental contours · model pending")
+    wait_until(lambda: not c.contour_pending)
+    assert [layer.role for layer in c.paths] == ["measured", "model"]
+    assert _shown_planes(c) == {c.plane}
+    assert not c.pending_label.isVisible()
+
+
+def test_late_deliveries_never_show_on_another_plane(fitted):
+    c = fitted.canvas
+    wait_until(lambda: not c.contour_pending)
+    old_plane, old_revision = c.plane, c._revision
+    old_key = c._experiment_key()
+    old_geometry = c._cache[old_key]
+    old_model = c._model
+    fitted.set_plane(old_plane + 2)
+    # A model computed for the previous request is dropped; measured contours of the
+    # previous plane are kept in the cache but not shown here.
+    c._contours_ready("model", old_revision, (old_model, old_geometry))
+    c._contours_ready("contours", c._revision, (old_key, old_geometry))
+    assert _shown_planes(c) <= {c.plane}
+    assert all(layer.role != "model" or layer.key[2] == c.plane for layer in c.paths)
+    assert old_key in c._cache
+    wait_until(lambda: not c.contour_pending)
+    assert _shown_planes(c) == {c.plane}
+
+
+def test_residual_and_mode_changes_keep_the_measured_contours_of_the_plane(fitted):
+    c = fitted.canvas
+    wait_until(lambda: not c.contour_pending)
+    measured = c.experiment_layers[0]
+    # Changing mode keeps the measured layer itself: nothing is redrawn or blinks.
+    for mode in (2, 0, 1, 2):
+        fitted.set_mode(mode)
+        assert c.experiment_layers[0] is measured
+    wait_until(lambda: not c.contour_pending)
+    # Residual shows only the residual once it is in.
+    assert [layer.role for layer in c.paths] == ["residual"]
+    fitted.set_plane(c.plane + 2)
+    # A new plane in Residual: its measured contours until its residual is ready.
+    assert all(layer.key[2] == c.plane for layer in c.paths)
+    if c.contour_pending:
+        assert c.pending_label.toPlainText().startswith("Experimental contours · residual")
+    wait_until(lambda: not c.contour_pending)
+    assert [layer.role for layer in c.paths] == ["residual"]
+    assert _shown_planes(c) == {c.plane}
+
+
+def test_the_pending_label_waits_before_appearing_and_says_what_is_coming(fitted, monkeypatch):
+    c = fitted.canvas
+    wait_until(lambda: not c.contour_pending)
+    release = Event()
+    project = view_module.dataset_model_plane
+
+    def held(*args, **kwargs):
+        assert release.wait(5)
+        return project(*args, **kwargs)
+
+    monkeypatch.setattr(view_module, "dataset_model_plane", held)
+    try:
+        fitted.set_plane(c.plane + 2)
+        # Said at once (and to assistive technology), shown only if the wait lasts.
+        assert c.pending_label.toPlainText() == "Experimental contours · model pending"
+        assert not c.pending_label.isVisible()
+        wait_until(c.pending_label.isVisible, timeout=2)
+        assert [layer.role for layer in c.paths] == ["measured"]
+    finally:
+        release.set()
+    wait_until(lambda: not c.contour_pending)
+    assert not c.pending_label.isVisible()
+
+
+def test_measured_contours_take_their_own_pens_when_the_model_goes(fitted):
+    c = fitted.canvas
+    wait_until(lambda: not c.contour_pending)
+    measured = c.experiment_layers[0]
+    under_model = measured._pens[0].widthF()
+    fitted.set_mode(0)
+    # Same layer, restyled: under a model measured strokes widen; alone they do not.
+    assert c.experiment_layers[0] is measured
+    assert measured._pens[0].widthF() == pytest.approx(under_model / 1.5)
+    fitted.set_mode(1)
+    wait_until(lambda: not c.contour_pending)
+    assert measured._pens[0].widthF() == pytest.approx(under_model)
+
+
+def _evict(c, key):
+    geometry = c._cache.pop(key)
+    c.cache_bytes -= sum(p.nbytes + q.nbytes for p, q in geometry)
+
+
+def _hold_measured(monkeypatch, c):
+    """Block measured-contour geometry (of spectrum data) until released."""
+    release, entered = Event(), Event()
+    original = view_module.signed_geometry
+
+    def held(data, axes, levels):
+        if np.shares_memory(data, c.spectra.data):
+            entered.set()
+            assert release.wait(5)
+        return original(data, axes, levels)
+
+    monkeypatch.setattr(view_module, "signed_geometry", held)
+    return release, entered
+
+
+def _overlay_complete_or_measured_only(c):
+    """Overlay shows measured contours alone, or measured with model, never model alone."""
+    roles = [layer.role for layer in c.paths]
+    assert roles in ([], ["measured"], ["measured", "model"]), roles
+    assert all(layer.key[2] == c.plane for layer in c.paths)
+    assert (c._model is not None) == ("model" in roles)
+
+
+def _leave_and_evict(fitted, c):
+    """Settle on plane 0, step to plane 1, and evict plane 0's measured geometry."""
+    fitted.set_plane(1)
+    wait_until(lambda: not c.contour_pending)
+    model_key = c._model_key()
+    fitted.set_plane(2)
+    wait_until(lambda: not c.contour_pending)
+    _evict(c, c._experiment_key(0))
+    return model_key
+
+
+def test_a_cached_model_waits_for_its_planes_measured_contours(fitted, monkeypatch):
+    c = fitted.canvas
+    model_key = _leave_and_evict(fitted, c)
+    # Back on plane 0: its model geometry and model plane are cached, its measured
+    # geometry is not, and computing it is held.
+    assert model_key in c._cache
+    release, entered = _hold_measured(monkeypatch, c)
+    try:
+        fitted.set_plane(1)
+        wait_until(entered.is_set)
+        _overlay_complete_or_measured_only(c)
+        assert c.paths == []
+        assert c._model is None
+        assert c.pending_label.toPlainText() == "Preparing contours…"
+    finally:
+        release.set()
+    wait_until(lambda: not c.contour_pending)
+    assert [layer.role for layer in c.paths] == ["measured", "model"]
+    assert _shown_planes(c) == {0}
+    assert c._model is not None
+
+
+def test_a_model_arriving_before_measured_contours_is_held(fitted, monkeypatch):
+    c = fitted.canvas
+    model_key = _leave_and_evict(fitted, c)
+    geometry = c._cache.pop(model_key)  # nothing cached for plane 0: both computed
+    c.cache_bytes -= sum(a.nbytes + b.nbytes for a, b in geometry)
+    model = c.model_planes.get(model_key[0], 0)
+    release, entered = _hold_measured(monkeypatch, c)
+    try:
+        fitted.set_plane(1)
+        wait_until(entered.is_set)
+        # The model for this very request arrives first (as a failed or slow
+        # measured job would allow): it is held, not shown alone.
+        c._contours_ready("model", c._revision, (model, geometry))
+        _overlay_complete_or_measured_only(c)
+        assert c.paths == []
+        assert c._model is None
+    finally:
+        release.set()
+    wait_until(lambda: not c.contour_pending)
+    assert [layer.role for layer in c.paths] == ["measured", "model"]
+    assert _shown_planes(c) == {0}
+    assert c._model is not None
+
+
+def test_a_missed_prefetch_on_reversal_shows_nothing_stale_or_partial(fitted, monkeypatch):
+    c = fitted.canvas
+    fitted.set_plane(2)  # the middle plane; the next one, forward, gets prepared
+    wait_until(lambda: not c.contour_pending)
+    wait_until(lambda: c._experiment_key(2) in c._cache)
+    behind = c._experiment_key(0)
+    if behind in c._cache:
+        _evict(c, behind)
+    release, entered = _hold_measured(monkeypatch, c)
+    try:
+        fitted.set_plane(1)  # reverse: plane 0 has no prepared measured contours
+        wait_until(entered.is_set)
+        _overlay_complete_or_measured_only(c)
+        assert c.paths == []
+        assert c.pending_label.toPlainText() == "Preparing contours…"
+    finally:
+        release.set()
+    wait_until(lambda: not c.contour_pending)
+    assert [layer.role for layer in c.paths] == ["measured", "model"]
+    assert _shown_planes(c) == {0}

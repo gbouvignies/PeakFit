@@ -50,7 +50,8 @@ class ViewerComputation(QtCore.QObject):
     def _start_next(self) -> None:
         if self._busy or self._closed or not self._pending:
             return
-        priority = {"contours": 0, "fit": 1, "slices": 2, "model": 3}
+        # Cheap geometry the display waits on runs before an expensive model.
+        priority = {"contours": 0, "fit": 1, "slices": 2, "prefetch": 3, "model": 4}
         kind = min(self._pending, key=lambda key: priority.get(key, 4))
         revision, operation = self._pending.pop(kind)
         self._busy = True
