@@ -95,6 +95,15 @@ Two peaks whose recorded fitted shapes over a cluster's fitting samples satisfy
 individual amplitudes and the positions that produced them are poorly
 constrained; it says nothing about how many resonances are present.
 
+**Identifiable amplitude**:
+A member's per-plane amplitude that the recorded fitted shapes determine: its unit
+coefficient vector has no component in the null space of the shape matrix, under
+the numerical rank of the factorization that solved the amplitudes. A member can be
+identifiable inside a rank-deficient cluster. An identifiable amplitude whose value
+depends on an ill-conditioned direction, or whose shape is near-collinear with
+another member's, is *not established* rather than unidentifiable.
+_Avoid_: calling a near-collinear or ill-conditioned amplitude "unidentifiable"
+
 **Continued start**:
 A peak's starting nonlinear values taken from the active run's fitted state,
 because its working position is still the one that run adopted. Other peaks start

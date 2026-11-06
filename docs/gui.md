@@ -151,8 +151,8 @@ fitting samples), their fitted positions are not adopted: their markers stay at
 the working positions, a small □ in the model colour marks each recorded fitted
 position, and the peak page
 says “Fitted position not adopted: near-collinear fitted shapes with …”. The
-recorded fit is kept as it is; their individual amplitudes are poorly constrained,
-which the profile notes. The next fit starts them from the configured defaults;
+recorded fit is kept as it is, and the amplitude profile withholds their
+individual amplitudes as not established (below). The next fit starts them from the configured defaults;
 moving either peak makes it an ordinary edited peak.
 
 After a refit, the analysis page summarizes **Changes from run …**, the run it was
@@ -334,10 +334,28 @@ independent points. The note beside the plot says which, with the cluster's χ²
 as a normalized residual diagnostic, and its tooltip gives the noise model in full
 ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)). The
 inspector's provenance states it once for the run.
- They can underestimate the uncertainty of overlapping peaks; warned
-clusters use hollow markers and dashed bars. When the core reports no finite σ for
-a peak, its amplitudes stay visible without error bars and are labeled
-**σ unavailable**. When at most two observations sit
+ They can underestimate the uncertainty of overlapping peaks.
+
+Each member's amplitude is classified from the run's recorded shapes, with the
+factorization and numerical conventions that produced the amplitudes and no
+threshold of its own:
+
+- **Not identifiable**: the fitted shapes are linearly dependent and this member's
+  amplitude lies partly in their null space, so the data cannot determine it. Other
+  members of the same cluster can still be identifiable.
+- **Reliability not established**: the amplitude is mathematically determined but
+  depends on an ill-conditioned direction (where the joint covariance is withheld),
+  or its shape is near-collinear with another member's.
+- **Identifiable**: drawn with its error bar. When the core reports no finite σ,
+  the amplitudes are drawn without one and labeled **σ not available**.
+
+Members that are not identifiable or not established are not drawn and do not set
+the axes. The profile says which class applies and why, notes that the cluster's
+total model remains valid, and lists the recorded values under **Numerical
+diagnostics**; exports are unchanged. No combined amplitude is shown. On the
+bundled data, the collapsed pairs a 20 Hz linewidth start produces are not
+established, never not identifiable: they keep full numerical rank
+([validation](validation/amplitude-identifiability.md)). When at most two observations sit
 beyond a gap wider than half the span, such as a distant reference plane, the
 plot frames the remaining range and labels the off-scale points; **Show all
 points** shows them. Outdated runs stay visible and labeled; peaks added after a
@@ -358,10 +376,9 @@ directly under the plot (“▲ Showing raw amplitudes …”); the quantity chi
 “÷ plane 1 · not applied” and the axis names what is plotted. A ratio is
 **undefined** when the reference mean is zero or not finite, when σ is
 unavailable, or when a reference plane is not in the run. It is **withheld as
-unreliable**, although computable, when σ_R/|R| exceeds 0.1 or when the engine
-marks the cluster's uncertainties unreliable: a degenerate decomposition can
-inflate amplitudes and σ by one arbitrary scale that the ratio would cancel,
-giving precise-looking values for amplitudes the data do not determine. The
+unreliable**, although computable, when σ_R/|R| exceeds 0.1. A member whose
+individual amplitudes are withheld is never normalized: a ratio would cancel the
+arbitrary scale of a degenerate split and look well determined. The
 reference choice is kept, so the next well-determined peak is normalized again.
 
 Drafts retain the accepted comparison. A committed manual scientific change marks

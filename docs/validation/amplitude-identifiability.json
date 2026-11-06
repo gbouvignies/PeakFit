@@ -1,0 +1,205 @@
+{
+ "default_start": {
+  "counts": {
+   "identifiable": 166
+  },
+  "not_fully_identifiable": []
+ },
+ "broad_20Hz_start": {
+  "counts": {
+   "identifiable": 160,
+   "not established": 6
+  },
+  "not_fully_identifiable": [
+   {
+    "members": [
+     "36N-H",
+     "75N-H",
+     "93N-H"
+    ],
+    "rank": 3,
+    "condition_smin_over_s0": 0.00046705565688898116,
+    "amplitude_sigma_finite": [
+     true,
+     true,
+     true
+    ],
+    "uncertainty_warning": true,
+    "status": [
+     {
+      "peak": "36N-H",
+      "status": "not established",
+      "cause": "near-collinear",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [
+       "93N-H"
+      ],
+      "dissimilarity": 4.3652783864974907e-07
+     },
+     {
+      "peak": "75N-H",
+      "status": "identifiable",
+      "cause": "none",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [],
+      "dissimilarity": NaN
+     },
+     {
+      "peak": "93N-H",
+      "status": "not established",
+      "cause": "near-collinear",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [
+       "36N-H"
+      ],
+      "dissimilarity": 4.3652783864974907e-07
+     }
+    ]
+   },
+   {
+    "members": [
+     "5N-H",
+     "10N-H",
+     "76N-H",
+     "105N-H"
+    ],
+    "rank": 4,
+    "condition_smin_over_s0": 0.0002821157049897548,
+    "amplitude_sigma_finite": [
+     true,
+     true,
+     true,
+     true
+    ],
+    "uncertainty_warning": true,
+    "status": [
+     {
+      "peak": "5N-H",
+      "status": "not established",
+      "cause": "near-collinear",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [
+       "76N-H"
+      ],
+      "dissimilarity": 3.735749249784281e-07
+     },
+     {
+      "peak": "10N-H",
+      "status": "identifiable",
+      "cause": "none",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [],
+      "dissimilarity": NaN
+     },
+     {
+      "peak": "76N-H",
+      "status": "not established",
+      "cause": "near-collinear",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [
+       "5N-H"
+      ],
+      "dissimilarity": 3.735749249784281e-07
+     },
+     {
+      "peak": "105N-H",
+      "status": "identifiable",
+      "cause": "none",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [],
+      "dissimilarity": NaN
+     }
+    ]
+   },
+   {
+    "members": [
+     "53N-H",
+     "147N-H"
+    ],
+    "rank": 2,
+    "condition_smin_over_s0": 0.00012836844923608273,
+    "amplitude_sigma_finite": [
+     true,
+     true
+    ],
+    "uncertainty_warning": true,
+    "status": [
+     {
+      "peak": "53N-H",
+      "status": "not established",
+      "cause": "near-collinear",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [
+       "147N-H"
+      ],
+      "dissimilarity": 3.2956918097546156e-08
+     },
+     {
+      "peak": "147N-H",
+      "status": "not established",
+      "cause": "near-collinear",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [
+       "53N-H"
+      ],
+      "dissimilarity": 3.2956918097546156e-08
+     }
+    ]
+   }
+  ]
+ },
+ "moved_147N-H_refit": {
+  "counts": {
+   "identifiable": 164,
+   "not established": 2
+  },
+  "not_fully_identifiable": [
+   {
+    "members": [
+     "53N-H",
+     "147N-H"
+    ],
+    "rank": 2,
+    "condition_smin_over_s0": 0.00011514280696430856,
+    "amplitude_sigma_finite": [
+     true,
+     true
+    ],
+    "uncertainty_warning": true,
+    "status": [
+     {
+      "peak": "53N-H",
+      "status": "not established",
+      "cause": "near-collinear",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [
+       "147N-H"
+      ],
+      "dissimilarity": 2.6515732418894008e-08
+     },
+     {
+      "peak": "147N-H",
+      "status": "not established",
+      "cause": "near-collinear",
+      "null_projection": 0.0,
+      "weak_projection": 0.0,
+      "partners": [
+       "53N-H"
+      ],
+      "dissimilarity": 2.6515732418894008e-08
+     }
+    ]
+   }
+  ]
+ }
+}
