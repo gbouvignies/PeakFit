@@ -435,3 +435,110 @@ def test_measured_contours_take_their_own_pens_when_the_model_goes(fitted):
     fitted.set_mode(1)
     wait_until(lambda: not c.contour_pending)
     assert measured._pens[0].widthF() == pytest.approx(under_model)
+
+
+def _evict(c, key):
+    geometry = c._cache.pop(key)
+    c.cache_bytes -= sum(p.nbytes + q.nbytes for p, q in geometry)
+
+
+def _hold_measured(monkeypatch, c):
+    """Block measured-contour geometry (of spectrum data) until released."""
+    release, entered = Event(), Event()
+    original = view_module.signed_geometry
+
+    def held(data, axes, levels):
+        if np.shares_memory(data, c.spectra.data):
+            entered.set()
+            assert release.wait(5)
+        return original(data, axes, levels)
+
+    monkeypatch.setattr(view_module, "signed_geometry", held)
+    return release, entered
+
+
+def _overlay_complete_or_measured_only(c):
+    """Overlay shows measured contours alone, or measured with model, never model alone."""
+    roles = [layer.role for layer in c.paths]
+    assert roles in ([], ["measured"], ["measured", "model"]), roles
+    assert all(layer.key[2] == c.plane for layer in c.paths)
+    assert (c._model is not None) == ("model" in roles)
+
+
+def _leave_and_evict(fitted, c):
+    """Settle on plane 0, step to plane 1, and evict plane 0's measured geometry."""
+    fitted.set_plane(1)
+    wait_until(lambda: not c.contour_pending)
+    model_key = c._model_key()
+    fitted.set_plane(2)
+    wait_until(lambda: not c.contour_pending)
+    _evict(c, c._experiment_key(0))
+    return model_key
+
+
+def test_a_cached_model_waits_for_its_planes_measured_contours(fitted, monkeypatch):
+    c = fitted.canvas
+    model_key = _leave_and_evict(fitted, c)
+    # Back on plane 0: its model geometry and model plane are cached, its measured
+    # geometry is not, and computing it is held.
+    assert model_key in c._cache
+    release, entered = _hold_measured(monkeypatch, c)
+    try:
+        fitted.set_plane(1)
+        wait_until(entered.is_set)
+        _overlay_complete_or_measured_only(c)
+        assert c.paths == []
+        assert c._model is None
+        assert c.pending_label.toPlainText() == "Preparing contours…"
+    finally:
+        release.set()
+    wait_until(lambda: not c.contour_pending)
+    assert [layer.role for layer in c.paths] == ["measured", "model"]
+    assert _shown_planes(c) == {0}
+    assert c._model is not None
+
+
+def test_a_model_arriving_before_measured_contours_is_held(fitted, monkeypatch):
+    c = fitted.canvas
+    model_key = _leave_and_evict(fitted, c)
+    geometry = c._cache.pop(model_key)  # nothing cached for plane 0: both computed
+    c.cache_bytes -= sum(a.nbytes + b.nbytes for a, b in geometry)
+    model = c.model_planes.get(model_key[0], 0)
+    release, entered = _hold_measured(monkeypatch, c)
+    try:
+        fitted.set_plane(1)
+        wait_until(entered.is_set)
+        # The model for this very request arrives first (as a failed or slow
+        # measured job would allow): it is held, not shown alone.
+        c._contours_ready("model", c._revision, (model, geometry))
+        _overlay_complete_or_measured_only(c)
+        assert c.paths == []
+        assert c._model is None
+    finally:
+        release.set()
+    wait_until(lambda: not c.contour_pending)
+    assert [layer.role for layer in c.paths] == ["measured", "model"]
+    assert _shown_planes(c) == {0}
+    assert c._model is not None
+
+
+def test_a_missed_prefetch_on_reversal_shows_nothing_stale_or_partial(fitted, monkeypatch):
+    c = fitted.canvas
+    fitted.set_plane(2)  # the middle plane; the next one, forward, gets prepared
+    wait_until(lambda: not c.contour_pending)
+    wait_until(lambda: c._experiment_key(2) in c._cache)
+    behind = c._experiment_key(0)
+    if behind in c._cache:
+        _evict(c, behind)
+    release, entered = _hold_measured(monkeypatch, c)
+    try:
+        fitted.set_plane(1)  # reverse: plane 0 has no prepared measured contours
+        wait_until(entered.is_set)
+        _overlay_complete_or_measured_only(c)
+        assert c.paths == []
+        assert c.pending_label.toPlainText() == "Preparing contours…"
+    finally:
+        release.set()
+    wait_until(lambda: not c.contour_pending)
+    assert [layer.role for layer in c.paths] == ["measured", "model"]
+    assert _shown_planes(c) == {0}

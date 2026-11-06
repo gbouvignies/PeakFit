@@ -501,6 +501,8 @@ class SpectralView(QtWidgets.QWidget):
         # with them; each kept until something of its own kind replaces it.
         self.experiment_layers: list[ContourLayer] = []
         self.model_layers: list[ContourLayer] = []
+        # A model that arrived before its plane's measured contours: (key, geometry, model).
+        self._held_model: tuple | None = None
         self.pending_label = pg.TextItem("Preparing contours…", anchor=(0, 0))
         self.pending_label.setZValue(40)
         self.pending_label.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
@@ -1022,6 +1024,7 @@ class SpectralView(QtWidgets.QWidget):
         self._worker.cancel("contours")
         self._worker.cancel("model")
         self._set_layers("model", [], ())
+        self._held_model = None
         self._style_contours()  # measured contours alone again: their own pens
         result, mode, plane = self.comparison_result, self.comparison_mode, self.plane
         run = result.run_id if result is not None and mode else None
@@ -1037,8 +1040,7 @@ class SpectralView(QtWidgets.QWidget):
         model_key = self._model_key()
         model_geometry = self._cache_get(model_key) if mode and grid is not None else None
         if model_geometry is not None:
-            self._model = grid
-            self._show_model(model_key, model_geometry)
+            self._offer_model(model_key, model_geometry, grid)
         self._update_pending()
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
         observed = self.spectra.data[plane]
@@ -1120,6 +1122,10 @@ class SpectralView(QtWidgets.QWidget):
                 not self.experiment_layers or self.experiment_layers[0].key != key
             ):
                 self._show_experiment(key, geometry)
+                held, self._held_model = self._held_model, None
+                if held is not None and held[0] == self._model_key():
+                    self._offer_model(*held)
+                    self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
                 self._update_pending()
             return
         if revision != self._revision:
@@ -1128,9 +1134,8 @@ class SpectralView(QtWidgets.QWidget):
         key = self._model_key()
         if key[0] is not None:
             self.model_planes.put(key[0], self.plane, model)
-        self._model = model
         self._cache_geometry(key, geometry)
-        self._show_model(key, geometry)
+        self._offer_model(key, geometry, model)
         self._update_pending()
         self.sample(float(self.ppm_x[self.ix]), float(self.ppm_y[self.iy]))
 
@@ -1165,6 +1170,21 @@ class SpectralView(QtWidgets.QWidget):
             return
         self._set_layers("experiment", [("measured", paths_from_geometry(geometry))], key)
         self._style_contours()
+
+    def _offer_model(self, key: tuple, geometry, model) -> None:
+        """Show a model now, or hold it until its plane's measured contours are on show.
+
+        Overlay compares measured and model contours of one plane: a model alone
+        would read as that comparison. The residual stands on its own.
+        """
+        measured = bool(self.experiment_layers) and (
+            self.experiment_layers[0].key == self._experiment_key()
+        )
+        if self.comparison_mode != _RESIDUAL and not measured:
+            self._held_model = (key, geometry, model)
+            return
+        self._model = model
+        self._show_model(key, geometry)
 
     def _show_model(self, key: tuple, geometry) -> None:
         role = "residual" if self.comparison_mode == _RESIDUAL else "model"
