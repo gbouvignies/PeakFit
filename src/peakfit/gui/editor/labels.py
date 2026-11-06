@@ -96,3 +96,19 @@ def clear_layout(layout: QtWidgets.QLayout) -> None:
         elif nested is not None:
             clear_layout(nested)
             nested.deleteLater()
+
+
+def disclosure(text: str) -> QtWidgets.QToolButton:
+    """A collapsed-by-default section toggle with a turning arrow."""
+    button = QtWidgets.QToolButton()
+    button.setObjectName("text")
+    button.setText(text)
+    button.setCheckable(True)
+    button.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+    button.setArrowType(QtCore.Qt.ArrowType.RightArrow)
+    button.toggled.connect(
+        lambda shown: button.setArrowType(
+            QtCore.Qt.ArrowType.DownArrow if shown else QtCore.Qt.ArrowType.RightArrow
+        )
+    )
+    return button

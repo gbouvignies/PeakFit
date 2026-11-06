@@ -18,6 +18,7 @@ import peakfit.gui.editor.lens as lens_module
 import peakfit.gui.editor.review as review_module
 import peakfit.gui.editor.workspace as workspace_module
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+from peakfit.engine.diagnostics.identifiability import AmplitudeStatus, Cause, MemberAmplitude
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.gui import formatting
@@ -756,8 +757,10 @@ def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(qapp, scientif
     bars = [i for i in panel.plot.getPlotItem().items if isinstance(i, pg.ErrorBarItem)]
     assert len(bars) == len(weak.peak_names) - 1
     assert np.all(np.isfinite(panel.plot.getViewBox().viewRange()))
-    assert "σ unavailable" in panel.legend.text()
-    assert "σ unavailable" in panel.legend.text()
+    assert "σ not available" in panel.legend.text()
+    # The value is determined, so it is drawn; only its error bar is missing.
+    assert not panel.withheld.isVisible()
+    assert "not established (uncertainty unavailable)" in panel.diagnostics.text()
     panel.close()
 
 
@@ -1232,34 +1235,70 @@ def test_invalid_reference_planes_are_rejected(text):
         parse_planes(text, 5)
 
 
-def test_normalization_is_unavailable_when_uncertainties_are_unreliable(qapp, scientific):
+def _withheld(series, status, cause, **extra):
+    """The series with a synthetic classification, as the engine would record it."""
+    member = MemberAmplitude(status, cause, 0.0, 0.0, 2, 2, 1e-4, **extra)
+    return replace(series, identifiability=member)
+
+
+def test_unestablished_members_are_withheld_from_the_profile_and_its_axes(qapp, scientific):
     result = scientific[-1]
-    shown = peak_profile(result, result.inputs.identities[0].working_id, None)
-    assert isinstance(shown, PeakProfile)
-    # Inflated amplitudes and σ by one arbitrary scale, as in a degenerate pair.
-    selected = shown.series[0]
-    inflated = replace(
-        shown,
-        series=(
-            replace(selected, amplitudes=selected.amplitudes * 1e3, error=selected.error * 1e3),
-        ),
-        warning="Unreliable local uncertainties",
+    cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
+    peak = next(
+        i.working_id for i in result.inputs.identities if i.engine_name == cluster.peak_names[0]
     )
+    shown = peak_profile(result, peak, None)
+    assert isinstance(shown, PeakProfile)
+    selected, member = shown.series[0], shown.series[1]
+    # The member's recorded amplitudes are inflated, as in a degenerate split.
+    inflated = _withheld(
+        replace(member, amplitudes=member.amplitudes * 1e3, partners=(selected.assignment,)),
+        AmplitudeStatus.NOT_ESTABLISHED,
+        Cause.NEAR_COLLINEAR,
+        partners=(0,),
+        dissimilarity=3.3e-8,
+    )
+    profile = replace(shown, series=(selected, inflated, *shown.series[2:]))
     panel = ProfilePlot()
     panel.show()
-    panel.show_profile(inflated, 0)
-    panel.set_reference((int(shown.source_planes[0]),))
+    panel.show_profile(profile, 0)
     qapp.processEvents()
-    assert panel._normalized is None
-    assert "withheld as unreliable" in panel.fallback.text()
-    assert "uncertainties unreliable" in panel.fallback.text()
-    assert "uncertainties unreliable" not in panel.note.text()
-    _x, y = _selected_points(panel).getData()
-    np.testing.assert_array_equal(y, inflated.series[0].amplitudes)
-    # The reference stays: a well-determined profile normalizes again at once.
-    panel.show_profile(shown, 0)
+    drawn = [i for i in panel.plot.getPlotItem().items if isinstance(i, pg.ScatterPlotItem)]
+    assert len(drawn) == len(profile.series) - 1
+    _low, high = panel.plot.getViewBox().viewRange()[1]
+    assert high < np.max(np.abs(inflated.amplitudes)) / 10
+    text = panel.withheld.text()
+    assert panel.withheld.isVisible()
+    assert f"{inflated.assignment}: reliability not established: near-collinear" in text
+    assert "not identifiable" not in text
+    assert "total model remains valid" in text
+    assert panel.legend.text().count("●") == len(profile.series) - 1
+    # The recorded values stay reachable, unchanged.
+    assert panel.diagnostics_toggle.isVisible()
+    assert not panel.diagnostics.isVisible()
+    panel.diagnostics_toggle.setChecked(True)
+    assert panel.diagnostics.isVisible()
+    assert "recorded amplitudes" in panel.diagnostics.text()
+    mantissa = f"{float(np.max(inflated.amplitudes)):.2e}".split("e")[0].replace("-", "−")
+    assert f"to {mantissa}×10" in panel.diagnostics.text()
+    # A withheld member is never normalized; the selected peak still is.
+    panel.set_reference((int(profile.source_planes[0]),))
     assert panel._normalized is not None
-    assert not panel.fallback.isVisible()
+    # A mathematically unidentifiable member is named as such.
+    unidentifiable = _withheld(member, AmplitudeStatus.UNIDENTIFIABLE, Cause.NULL_SPACE)
+    panel.show_profile(replace(shown, series=(selected, unidentifiable)), 0)
+    assert f"{member.assignment}: not identifiable: the fitted shapes are linearly dependent" in (
+        panel.withheld.text()
+    )
+    # A withheld selected peak with no other member leaves only the explanation.
+    alone = _withheld(selected, AmplitudeStatus.NOT_ESTABLISHED, Cause.ILL_CONDITIONED)
+    panel.show_profile(replace(shown, series=(alone,)), 0)
+    assert not panel.plot.isVisible()
+    assert not panel.note.isVisible()
+    assert not panel.mode.isVisible()
+    assert not panel.show_all.isVisible()
+    assert "ill-conditioned fitted shapes" in panel.withheld.text()
+    panel.close()
     assert panel.mode.text() == f"÷ plane {int(shown.source_planes[0]) + 1}"
 
 
@@ -2141,7 +2180,9 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
     assert any(text.startswith(kept) for text in labels)
     assert "Near-collinear fitted shapes: 53N-H / 147N-H" in labels
     assert "□ Fitted position not adopted · working position kept" in w.panel.status.text()
-    assert "amplitudes are poorly constrained individually" in w.panel.profile_reason.text()
+    withheld = w.panel.profile.withheld.text()
+    assert "53N-H and 147N-H: reliability not established: near-collinear" in withheld
+    assert "not identifiable" not in withheld
     # Moving one restores ordinary initialization; its partner stays retained.
     moved = next(p for p in w.peaks if p.id == ids["147N-H"])
     w.move_peak(moved.id, (moved.positions[0] + 0.002, moved.positions[1]))

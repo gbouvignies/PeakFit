@@ -8,7 +8,14 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.diagnostics.identifiability import (
+    AmplitudeStatus,
+    Cause,
+    MemberAmplitude,
+    amplitude_identifiability,
+)
 from peakfit.gui import formatting
+from peakfit.gui.editor.labels import disclosure
 from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
 
 if TYPE_CHECKING:
@@ -20,11 +27,13 @@ _MAX_ISOLATED = 2
 
 @dataclass(frozen=True, slots=True)
 class ProfileSeries:
-    """One peak's recorded amplitudes and analytical standard error."""
+    """One peak's recorded amplitudes, analytical standard error and identifiability."""
 
     assignment: str
     amplitudes: np.ndarray
     error: float
+    identifiability: MemberAmplitude
+    partners: tuple[str, ...] = ()  # assignments of near-collinear members
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,7 +46,6 @@ class PeakProfile:
     x: np.ndarray  # recorded plane values, or one-based plane numbers
     plane_values: bool
     reduced_chi_squared: float
-    warning: str | None
     noise_model: NoiseModel  # the noise correlation the error bars assume
 
 
@@ -59,6 +67,9 @@ def peak_profile(
     if not cluster.usable or evaluation is None:
         return cluster.unusable_reason or "No analytical evaluation for this cluster"
     names = {i.engine_name: i.assignment for i in result.inputs.identities}
+    members = amplitude_identifiability(
+        evaluation.shapes, evaluation.amplitudes, evaluation.amplitude_standard_errors
+    )
     order = sorted(
         range(len(cluster.peak_names)),
         key=lambda k: cluster.peak_names[k] != identity.engine_name,
@@ -68,6 +79,8 @@ def peak_profile(
             names[cluster.peak_names[k]],
             evaluation.amplitudes[k],
             float(evaluation.amplitude_standard_errors[k]),
+            members[k],
+            tuple(names[cluster.peak_names[j]] for j in members[k].partners),
         )
         for k in order
     )
@@ -84,7 +97,6 @@ def peak_profile(
         x,
         recorded,
         evaluation.statistics.reduced_chi_squared,
-        evaluation.uncertainty_warning,
         result.outcome.noise_model,
     )
 
@@ -178,6 +190,107 @@ def parse_planes(text: str, count: int) -> tuple[int, ...]:
     return tuple(sorted(planes))
 
 
+def _scientific(value: float, digits: int = 2) -> str:
+    """A small or large diagnostic number as 3.3×10⁻⁸; zero stays 0."""
+    if not np.isfinite(value):
+        return "–"
+    if value == 0:
+        return "0"
+    mantissa, power = f"{value:.{digits - 1}e}".split("e")
+    exponent = int(power)
+    sign = mantissa.replace("-", "−")
+    return sign if exponent == 0 else f"{sign}×10{formatting.superscript(str(exponent))}"
+
+
+def withheld_reason(series: ProfileSeries) -> str:
+    """Why one member's amplitudes are not shown, naming which class applies."""
+    m = series.identifiability
+    if m.cause is Cause.NULL_SPACE:
+        return (
+            "not identifiable: the fitted shapes are linearly dependent (numerical rank "
+            f"{m.rank} of {m.peaks}) and this amplitude lies partly in their null space"
+        )
+    if m.cause is Cause.NEAR_COLLINEAR:
+        return (
+            "reliability not established: near-collinear fitted shapes with "
+            f"{', '.join(series.partners)} (1 − |cos| = {_scientific(m.dissimilarity)})"
+        )
+    if m.cause is Cause.ILL_CONDITIONED:
+        return (
+            "reliability not established: ill-conditioned fitted shapes (smallest to "
+            f"largest singular value {_scientific(m.condition)})"
+        )
+    if m.cause is Cause.INVALID_SHAPE:
+        return "reliability not established: the fitted shape cannot be assessed"
+    return ""
+
+
+def withheld_text(profile: PeakProfile) -> str:
+    """The statement that replaces withheld individual profiles; empty when none."""
+    hidden = [s for s in profile.series if not s.identifiability.determined]
+    if not hidden:
+        return ""
+    parts, stated = [], set()
+    for s in hidden:
+        if id(s) in stated:
+            continue
+        group = [
+            t
+            for t in hidden
+            if t.identifiability.cause is Cause.NEAR_COLLINEAR
+            and (t is s or t.assignment in s.partners)
+        ]
+        names = {t.assignment for t in group}
+        if (
+            s.identifiability.cause is Cause.NEAR_COLLINEAR
+            and len(group) > 1
+            and all(set(t.partners) <= names for t in group)
+        ):
+            # Mutual partners share one reason: state it once for the pair.
+            closest = min(t.identifiability.dissimilarity for t in group)
+            parts.append(
+                " and ".join(t.assignment for t in group)
+                + ": reliability not established: near-collinear fitted shapes "
+                + f"(1 − |cos| = {_scientific(closest)})"
+            )
+            stated.update(id(t) for t in group)
+        else:
+            parts.append(f"{s.assignment}: {withheld_reason(s)}")
+            stated.add(id(s))
+    parts = "; ".join(parts)
+    return (
+        f"Individual amplitude profile not shown. {parts}. The cluster's total model "
+        "remains valid; recorded values are under Numerical diagnostics."
+    )
+
+
+def diagnostics_text(profile: PeakProfile) -> str:
+    """Recorded values and the numbers behind every member that is not identifiable."""
+    lines = []
+    for s in profile.series:
+        m = s.identifiability
+        if m.status is AmplitudeStatus.IDENTIFIABLE:
+            continue
+        low, high = float(np.min(s.amplitudes)), float(np.max(s.amplitudes))
+        sigma = f"σ {_scientific(s.error, 3)}" if np.isfinite(s.error) else "σ not available"
+        lines += [
+            f"{s.assignment} · {m.status.value} ({m.cause.value})",
+            f"  recorded amplitudes {_scientific(low, 3)} to {_scientific(high, 3)} · {sigma}",
+            f"  rank {m.rank} of {m.peaks} · smallest/largest singular value "
+            f"{_scientific(m.condition)} · null-space projection "
+            f"{_scientific(m.null_projection)} · ill-conditioned projection "
+            f"{_scientific(m.weak_projection)}"
+            + (
+                f" · 1 − |cos| to {', '.join(s.partners)} {_scientific(m.dissimilarity)}"
+                if s.partners
+                else ""
+            ),
+        ]
+    if lines:
+        lines.append("Recorded values are unchanged; Export results writes them.")
+    return "\n".join(lines)
+
+
 def _sigma(error: float) -> str:
     """Name an unavailable standard error instead of formatting NaN as a value."""
     return f"σ = {error:.3g}" if np.isfinite(error) else "σ unavailable"
@@ -216,7 +329,7 @@ class ProfilePlot(QtWidgets.QWidget):
 
     plane_requested = QtCore.Signal(int)
 
-    def __init__(self) -> None:
+    def __init__(self) -> None:  # noqa: PLR0915
         super().__init__()
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -252,6 +365,24 @@ class ProfilePlot(QtWidgets.QWidget):
         notes.addWidget(self.note)
         notes.addLayout(self._chips())
         layout.addLayout(notes)
+        # Members whose individual amplitudes are withheld, and why; then the numbers.
+        self.withheld = QtWidgets.QLabel()
+        self.withheld.setObjectName("warning")
+        self.withheld.setWordWrap(True)
+        self.withheld.hide()
+        layout.addWidget(self.withheld)
+        self.diagnostics_toggle = disclosure("Numerical diagnostics")
+        self.diagnostics_toggle.hide()
+        layout.addWidget(self.diagnostics_toggle, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.diagnostics = QtWidgets.QLabel()
+        self.diagnostics.setObjectName("caption")
+        self.diagnostics.setWordWrap(True)
+        self.diagnostics.setTextInteractionFlags(
+            QtCore.Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self.diagnostics.hide()
+        self.diagnostics_toggle.toggled.connect(self.diagnostics.setVisible)
+        layout.addWidget(self.diagnostics)
         self.reference: tuple[int, ...] = ()  # zero-based source planes; session only
         self._normalized: Normalized | None = None
         self.normalized = False
@@ -318,6 +449,7 @@ class ProfilePlot(QtWidgets.QWidget):
         members whose normalization is unavailable, and why the selected peak's is
         unavailable (then every row is raw).
         """
+        # Only amplitudes the data determine are drawn; withheld members are explained.
         raw = [
             (
                 index,
@@ -326,19 +458,19 @@ class ProfilePlot(QtWidgets.QWidget):
                 None,
             )
             for index, s in enumerate(profile.series)
+            if s.identifiability.determined
         ]
-        if not (self.normalized and self.reference):
+        if not (
+            self.normalized and self.reference and profile.series[0].identifiability.determined
+        ):
             return raw, [], None
-        if profile.warning is not None:
-            # A degenerate decomposition can have amplitudes and σ inflated by the
-            # same arbitrary scale; the ratio would cancel it and look well determined.
-            reason = "the engine marks this cluster's uncertainties unreliable"
-            return raw, [], Unavailable(reason, undefined=False)
         columns = np.flatnonzero(np.isin(profile.source_planes, self.reference))
         if columns.size != len(self.reference):
             return raw, [], Unavailable("a reference plane is not in this run", undefined=True)
         rows, unavailable = [], []
         for index, series in enumerate(profile.series):
+            if not series.identifiability.determined:
+                continue
             shown = normalize(
                 series.amplitudes, np.full(series.amplitudes.size, series.error), columns
             )
@@ -356,11 +488,20 @@ class ProfilePlot(QtWidgets.QWidget):
         profile = self._profile
         self.plot.clear()
         self._normalized = None
+        withheld = withheld_text(profile) if profile is not None else ""
+        self.withheld.setText(withheld)
+        self.withheld.setVisible(bool(withheld))
+        diagnostics = diagnostics_text(profile) if profile is not None else ""
+        self.diagnostics.setText(diagnostics)
+        self.diagnostics_toggle.setVisible(bool(diagnostics))
+        self.diagnostics.setVisible(bool(diagnostics) and self.diagnostics_toggle.isChecked())
         if profile is None:
             return
         x = profile.x
         frame = framed_range(x)
-        self.show_all.setVisible(frame is not None)
+        self.show_all.setVisible(
+            frame is not None and any(s.identifiability.determined for s in profile.series)
+        )
         if self.show_all.isChecked():
             frame = None
         visible = (
@@ -369,9 +510,11 @@ class ProfilePlot(QtWidgets.QWidget):
         self._visible = visible
         rows, unavailable, reason = self._rows(profile)
         normalized = self._normalized is not None
-        warned = profile.warning is not None
         colors = self._colors()
-        style = QtCore.Qt.PenStyle.DashLine if warned else QtCore.Qt.PenStyle.SolidLine
+        drawn = bool(rows)
+        # With nothing drawn, the error-model note, legend and chips would describe no plot.
+        for widget in (self.plot, self.legend, self.note, self.mode):
+            widget.setVisible(drawn)
         for index, values, errors, in_reference in reversed(rows):
             value = colors[index % len(colors)]
             selected = index == 0
@@ -383,7 +526,7 @@ class ProfilePlot(QtWidgets.QWidget):
                         y=values,
                         height=2 * errors,
                         beam=0,
-                        pen=pg.mkPen(color(value, alpha * 0.7), width=1, style=style),
+                        pen=pg.mkPen(color(value, alpha * 0.7), width=1),
                     )
                 )
             symbols = (
@@ -398,7 +541,7 @@ class ProfilePlot(QtWidgets.QWidget):
                 symbol=symbols,
                 size=6 if selected else 4,
                 pen=pg.mkPen(color(value, alpha), width=1.2),
-                brush=None if warned else pg.mkBrush(color(value, alpha)),
+                brush=pg.mkBrush(color(value, alpha)),
             )
             points.sigClicked.connect(self._clicked)
             self.plot.addItem(points)
@@ -435,12 +578,12 @@ class ProfilePlot(QtWidgets.QWidget):
         self.plot.setLabel(
             "bottom", "Plane value" if profile.plane_values else "Plane number", **style_text
         )
-        marker = "○" if warned else "●"
+        marker = "●"
         shown = {index for index, *_ in rows}
         entries = [
             f'<span style="color:{colors[i % len(colors)]}">{marker}</span>&nbsp;'
             + (f"<b>{escape(s.assignment)}</b>" if i == 0 else escape(s.assignment))
-            + ("" if np.isfinite(s.error) else " · σ unavailable")
+            + ("" if np.isfinite(s.error) else " · σ not available")
             for i, s in enumerate(profile.series)
             if i in shown
         ] + (["◆&nbsp;reference"] if normalized else [])
@@ -483,6 +626,7 @@ class ProfilePlot(QtWidgets.QWidget):
                     f"(plane {profile.source_planes[j] + 1})"
                     for j in hidden
                     for s in profile.series
+                    if s.identifiability.determined
                 )
             )
         self._place_plane_marker()
