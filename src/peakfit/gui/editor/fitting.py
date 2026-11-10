@@ -529,7 +529,7 @@ class DatasetFitting(QtCore.QObject):
         w = self.workspace
         target = w.navigator.next_warned(w.selected_id)
         if target is not None:
-            w.select_peak(target, cluster=True)
+            w.select_peak(target, cluster=True, center=True)
         elif any(r.warnings for r in w.reviews()):
             w.status.setText("No cluster with a numerical warning is shown by the current filter")
 

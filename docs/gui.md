@@ -51,7 +51,10 @@ no values between samples. Each shares its frequency axis exactly with the 2D pl
 Move over the plot to preview them. The **Pin traces** tool, Space on the canvas, or
 a click on blank spectrum freezes the sample. Selecting a peak pins once; later blank clicks
 and arrow-key sample steps retain selection. Resume preview without losing the
-selected peak or its coordinate draft. Plane controls preserve acquisition order,
+selected peak or its coordinate draft. Choosing a peak in the Peaks list, a cluster
+row, a change summary or warning navigation centres it at the current zoom; a click
+on the spectrum or a member link on a cluster page leaves the view where it is, and
+cluster focus keeps its frame. Plane controls preserve acquisition order,
 including repeated or unordered plane values. Missing values are labeled honestly;
 imported values use the file's units, since a plain values file provides no unit
 metadata.

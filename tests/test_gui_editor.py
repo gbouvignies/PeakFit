@@ -8,6 +8,7 @@ import pytest
 from gui_helpers import wait_until
 from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 
+from peakfit.gui import theme as themes
 from peakfit.gui.editor import slices
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
@@ -573,3 +574,40 @@ def test_hover_label_is_the_assignment_and_tooltip_keeps_coordinates(workspace):
     assert tip.startswith(peak.name)
     assert "Unfolded" in tip
     assert workspace.edits.revision == 0
+
+
+def test_peak_names_paint_no_box_over_the_contours(workspace):
+    canvas = workspace.canvas
+    workspace.select_peak(workspace.peaks[0].id)
+    canvas.hover(workspace.peaks[1].id)
+    for theme in (themes.DARK, themes.LIGHT):
+        canvas.apply_theme(theme)
+        # Neither a named nor an emptied label paints a fill or border behind its text.
+        for text in ("name", ""):
+            for label in (canvas.hover_label, canvas.selection_label):
+                label.setText(text)
+                assert label.fill.style() == QtCore.Qt.BrushStyle.NoBrush
+                assert label.border.style() == QtCore.Qt.PenStyle.NoPen
+
+
+def test_list_selection_centres_the_peak_and_a_spectrum_click_does_not(workspace, qapp):
+    canvas = workspace.canvas
+    near, far = (next(p for p in workspace.peaks if p.name == name) for name in ("53N-H", "2N-H"))
+    canvas.set_ranges((8.0, 8.6), (115, 118))
+    qapp.processEvents()
+    (x0, x1), (y0, y1) = canvas.box.viewRange()
+    workspace.navigator.list.setCurrentItem(workspace.navigator._items[far.id])
+    qapp.processEvents()
+    assert workspace.selected_id == far.id
+    (a0, a1), (b0, b1) = canvas.box.viewRange()
+    x, y = canvas.display(far)
+    np.testing.assert_allclose(((a0 + a1) / 2, (b0 + b1) / 2), (x, y))
+    np.testing.assert_allclose((a1 - a0, b1 - b0), (x1 - x0, y1 - y0))  # zoom kept
+    # A click selects a peak already under the pointer: the view stays put.
+    canvas.set_ranges((8.0, 8.6), (115, 118))
+    qapp.processEvents()
+    before = canvas.box.viewRange()
+    canvas.selected.emit(near.id)
+    qapp.processEvents()
+    assert workspace.selected_id == near.id
+    np.testing.assert_allclose(canvas.box.viewRange(), before)

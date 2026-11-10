@@ -600,8 +600,13 @@ class SpectralView(QtWidgets.QWidget):
         self._selection_ring()
         self.hover(None)
 
-    def select(self, peak_id: str | None) -> None:
-        """Selection pins once; following hover never changes it."""
+    def select(self, peak_id: str | None, *, center: bool = False) -> None:
+        """Selection pins once; following hover never changes it.
+
+        ``center`` puts the peak in the middle of the view at the current zoom, for
+        a selection made away from the spectrum (a list, a link). Otherwise the
+        view moves only as far as needed to keep the peak inside it.
+        """
         self.selected_id = peak_id
         self.markers.selected_id = peak_id
         self._selection_ring()
@@ -615,8 +620,11 @@ class SpectralView(QtWidgets.QWidget):
             ranges = view.viewRange()
             shifted = []
             for value, (low, high) in zip((x, y), ranges, strict=True):
-                margin = (high - low) * 0.05
-                delta = min(value - low - margin, 0) + max(value - high + margin, 0)
+                if center:
+                    delta = value - (low + high) / 2
+                else:
+                    margin = (high - low) * 0.05
+                    delta = min(value - low - margin, 0) + max(value - high + margin, 0)
                 shifted.append((low + delta, high + delta))
             view.setRange(xRange=shifted[0], yRange=shifted[1], padding=0)
 
@@ -1358,9 +1366,9 @@ class SpectralView(QtWidgets.QWidget):
         self.recorded_links.setPen(
             pg.mkPen(color(t.secondary, 0.8), width=1, style=QtCore.Qt.PenStyle.DotLine)
         )
-        fill = pg.mkBrush(color(t.plot, 0.86))
+        # No fill: a filled box hides the contours under a name, and an empty
+        # label would still paint its padding as a narrow box.
         for label, value in ((self.hover_label, t.text), (self.selection_label, t.accent)):
-            label.fill = fill
             label.setColor(value)
         font = QtGui.QFont(QtWidgets.QApplication.font())
         font.setPixelSize(FONT_CAPTION + 1)

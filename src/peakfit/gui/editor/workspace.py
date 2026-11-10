@@ -163,10 +163,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.canvas.status_changed.connect(self.status.setText)
         self.canvas.hovered.connect(self.navigator.highlight)
         self.navigator.hovered.connect(lambda identity: self.canvas.hover(identity, from_list=True))
-        self.navigator.selected.connect(self.select_peak)
-        self.navigator.cluster_chosen.connect(lambda i: self.select_peak(i, cluster=True))
+        # Selections made off the spectrum centre the peak; a click on it does not.
+        self.navigator.selected.connect(lambda i: self.select_peak(i, center=True))
+        self.navigator.cluster_chosen.connect(
+            lambda i: self.select_peak(i, cluster=True, center=True)
+        )
         self.panel.cluster_requested.connect(self.open_cluster)
-        self.panel.member_chosen.connect(self.select_peak)
+        self.panel.member_chosen.connect(self.select_peak)  # neighbours: the view stays
         self.panel.focus_requested.connect(self.open_focus)
         self.navigator.focus_requested.connect(self.open_focus)
         self.focus_bar.close_requested.connect(self.close_focus)
@@ -174,7 +177,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         regions = self.panel.setup.regions
         self.focus_bar.regions.toggled.connect(regions.setChecked)
         regions.toggled.connect(self.focus_bar.regions.setChecked)
-        self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c))
+        self.panel.change_chosen.connect(lambda i, c: self.select_peak(i, cluster=c, center=True))
         self.panel.unexplained_requested.connect(self.find_unexplained)
         self.panel.region_chosen.connect(self.frame_region)
         self.navigator.next_warning.connect(lambda: self.fitting.next_warning())
@@ -692,11 +695,14 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._refresh()
         return True
 
-    def select_peak(self, identity: str | None, *, cluster: bool = False) -> None:
+    def select_peak(
+        self, identity: str | None, *, cluster: bool = False, center: bool = False
+    ) -> None:
         """Resolve drafts before changing the one stable inspector identity.
 
         ``cluster`` opens the inspector on the peak's recorded cluster rather than
         the peak itself; the selected peak stays the unit of editing either way.
+        ``center`` centres the view on the peak, for selections made off the spectrum.
         """
         if not self.commit_fields():
             # Restore list identity without overwriting the invalid visible draft.
@@ -706,7 +712,8 @@ class EditorWorkspace(QtWidgets.QWidget):
                     self.navigator.list.setCurrentItem(item)
             return
         self.selected_id = identity
-        self.canvas.select(identity)
+        # In focus the cluster frame owns the view.
+        self.canvas.select(identity, center=center and not self.focus_open)
         self._sync_inspector(cluster=cluster)
         self._update_actions()
 
