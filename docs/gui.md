@@ -353,12 +353,15 @@ view; **About these measures** opens the general explanation in place, and stays
 open across selections. Recorded optimizer statistics refer to corrected fitting
 samples and are not recomputed from the displayed whole-spectrum residual.
 **Provenance** discloses the optimizer, termination message, correction revision
-and run identity. **Fitted** lists the peak's recorded parameters with σ and
-units; parameters at a recorded bound are marked. **Starting values and bounds**
-(collapsed) shows the selected peak's parameters as the next fit would submit
-them: start, range, unit and whether each is varied or fixed, from the current
-preparation of the working position and fit setup. They are read-only; while
-preparation runs or fails the section says so rather than showing old values.
+and run identity. **Fitted** is a table of the peak's recorded parameters, one line
+each: positions then linewidths, the horizontal axis first, with unit, value and σ
+(“fixed” for a fixed parameter); parameters at a recorded bound are marked.
+**Starting values and bounds** (collapsed) is the same kind of table for the next
+fit: start, lower and upper bound per parameter (“fixed” in place of the bounds),
+from the current preparation of the working position and fit setup. It stays
+separate from Fitted because it describes a different run. The values are
+read-only; while preparation runs or fails the section says so rather than
+showing old values.
 
 The inspector's **Amplitude profile** shows the selected peak's signed fitted
 amplitudes across planes, with the other members of its cluster lighter on the

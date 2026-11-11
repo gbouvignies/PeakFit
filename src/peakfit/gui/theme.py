@@ -220,6 +220,9 @@ QToolButton:hover:enabled {{ background: {t.hover}; }}
 QToolButton:checked {{ background: {t.selection}; }}
 QToolButton:focus {{ border-color: {t.accent}; }}
 QToolButton#text {{ padding: 3px 8px; }}
+/* A disclosure's arrow shows it is open; no selection fill. */
+QToolButton#text:checked {{ background: transparent; }}
+QToolButton#text:checked:hover:enabled {{ background: {t.hover}; }}
 QPushButton#link {{ border: 0; background: transparent; color: {t.accent}; padding: 1px 0;
   min-height: 0; text-align: left; }}
 QPushButton#link:hover {{ text-decoration: underline; }}

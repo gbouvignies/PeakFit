@@ -1006,7 +1006,13 @@ def test_navigator_clusters_and_inspector_show_recorded_values(workspace, scient
         if p.name.startswith(cluster.peak_names[1] + ".")
     )
     value, sigma = formatting.with_sigma(parameter.value, parameter.standard_error)
-    assert f"{value} ± {sigma}" in _review_text(w)
+    fitted = w.panel.fitted
+    cells = [
+        [fitted.itemAtPosition(row, column).widget().text() for column in (2, 3)]
+        for row in range(1, fitted.rowCount())
+        if fitted.itemAtPosition(row, 3) is not None
+    ]
+    assert [value, sigma] in cells
     assert w.edits.revision == 0
 
 
@@ -1326,11 +1332,21 @@ def test_starting_values_show_the_next_fit_inputs(workspace):
         p for p in prepared.parameters.values() if p.param_id and p.param_id.peak_name == engine
     ]
     grid = w.panel.start_grid
-    shown = [grid.itemAtPosition(2 * row, 1).widget().text() for row in range(len(expected))]
-    assert len(shown) == len(expected)
-    # Rows follow display order (horizontal axis first); compare independently of order.
-    values = sorted(float(text.replace("−", "-")) for text in shown)
-    assert values == pytest.approx(sorted(p.value for p in expected), rel=1e-3, abs=1e-3)
+
+    def text(row: int, column: int) -> str:
+        return grid.itemAtPosition(row, column).widget().text()
+
+    # One line per parameter under Start, Lower and Upper; positions before widths.
+    assert [text(0, column) for column in (2, 3, 4)] == ["Start", "Lower", "Upper"]
+    rows = range(1, len(expected) + 1)
+    assert [text(row, 0).split()[0] for row in rows] == ["δ", "δ", "LW", "LW"]
+
+    def number(row: int, column: int) -> float:
+        return float(text(row, column).replace("−", "-"))
+
+    shown = sorted((number(r, 2), number(r, 3), number(r, 4)) for r in rows)
+    recorded = sorted((p.value, p.min, p.max) for p in expected)
+    np.testing.assert_allclose(shown, recorded, rtol=1e-3, atol=1e-2)
     assert "next fit" in w.panel.starts_note.text()
     # Without a current preparation the section says why instead of showing stale values.
     invalid = fitting.configuration.model_copy(deep=True)
