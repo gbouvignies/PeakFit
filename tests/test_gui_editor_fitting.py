@@ -685,6 +685,9 @@ def test_compact_header_and_inspector_at_minimum_window(qapp, scientific, monkey
     window.install_dataset(Dataset(Path(name), spectra, peaks, (), True, 0.01))
     w = window.workspace
     assert w is not None
+    # The toolbar names the application; the window title names the dataset.
+    assert w.title.text() == "PeakFit"
+    assert name in window.windowTitle()
     w.fitting.configuration = config.model_copy(deep=True)
     w.fitting.setup_seen = True
     qapp.processEvents()
