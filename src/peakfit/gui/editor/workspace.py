@@ -412,7 +412,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             elif name == "pvoigt":
                 source = DEFAULT_SOURCE
             else:
-                source = "from NMRPipe apodization"
+                source = "from apodization"
             title = formatting.nucleus(axis.nucleus, axis.label)
             rows.append((title, lineshape_text(name), source))
         return rows
@@ -882,16 +882,15 @@ class EditorWorkspace(QtWidgets.QWidget):
                 + (f"\n▲ {flagged} clusters with numerical warnings" if flagged else "")
             )
         else:
-            run = "Not fitted yet. Fit uses every working peak across all planes."
+            run = ""  # the toolbar already says Not fitted
         if fitting.failure:
             run += f"\n{fitting.attempt}: {fitting.failure}"
         if fitting.recovery_error:
             run += "\n▲ " + _recovery_note(fitting.recovery_error)
         self.panel.show_analysis(
             self.dataset.path.stem,
-            f"{len(self.peaks)} working peaks · {planes} planes · {x} × {y}",
+            f"{len(self.peaks)} peaks · {planes} planes · {x} × {y}",
             run,
-            "Select a peak or cluster for its values and review.",
             fitted=result is not None,
         )
         if self.selected_id is None:
@@ -987,15 +986,14 @@ class EditorWorkspace(QtWidgets.QWidget):
                 )
             )
         else:
-            planes = self.dataset.spectra.data.shape[0]
-            text = fitting.attempt or f"Not fitted · {len(self.peaks)} peaks · {planes} planes"
+            text = fitting.attempt or "Not fitted"
         self.summary.setText(text)
         self.summary.setToolTip(
             text
             + ("\n" + dataset_summary(result, warnings=False) if result is not None else "")
             + ("\n" + fitting.failure if fitting.failure else "")
             + ("\n" + _recovery_note(fitting.recovery_error) if fitting.recovery_error else "")
-            + "\nClick to open the analysis page at the active run"
+            + ("\nClick to open the analysis page at the active run" if result is not None else "")
         )
 
     def _update_actions(self) -> None:

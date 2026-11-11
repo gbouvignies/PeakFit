@@ -131,13 +131,17 @@ or **Analysis ▸ Active run**, opens the page at the review. The summary names 
 run and whether it is Current; it gives cluster counts only when some cluster is
 unusable or not converged (always in its tooltip), and the run is named there
 only, with “Outdated” repeated where an outdated run's values are shown; the settings chip, or
-**Analysis ▸ Fit setup**, opens it at the setup. It edits the working settings directly: lineshape model (each axis's
-resolved model with its source: NMRPipe apodization, the pseudo-Voigt default,
-shown as a caution, when no apodization is recognized, or explicit), clustering threshold as a factor of the statistical
-noise with its absolute intensity, optimizer passes (default **two**, with the
-neighbor correction update between passes; an imported step schedule replaces
-the field) and, under **Advanced**, iteration limit and tolerance. Statistical
-noise is shown with its source. A committed setting change marks an existing run
+**Analysis ▸ Fit setup**, opens it at the setup. It edits the working settings directly: lineshape model (the
+resolved model per axis on one line, horizontal axis first, with a shared source
+such as “from apodization”; each axis's source is in the tooltip, and the
+pseudo-Voigt default used when no apodization is recognized is a caution),
+clustering threshold as a factor of the statistical noise with its absolute
+intensity, optimizer passes (default **two**, with the neighbor correction update
+between passes; an imported step schedule replaces the field) and, under
+**Advanced**, iteration limit and tolerance. Statistical noise shows its value;
+an explicit value says so, and the estimate's method is in the tooltip. Values
+use ×10ⁿ, never e+ notation. Before the first fit the toolbar says **Not
+fitted** and the page has no run section. A committed setting change marks an existing run
 Outdated; settings are not part of peak Undo.
 
 After every committed change to peaks or settings the setup prepares the exact

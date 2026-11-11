@@ -483,10 +483,13 @@ class Navigator(QtWidgets.QWidget):
             item.setHidden(query not in (item.text() + " " + identity).casefold())
         visible = sum(not item.isHidden() for item in self._items.values())
         multiple = len(self.list.selectedItems())
-        self.count.setText(
-            f"{visible} of {len(self._items)} peaks"
-            + (f" · {multiple} selected" if multiple > 1 else "")
-        )
+        # Only a filter or a multiple selection has something to count; the tab
+        # already gives the total.
+        parts = [f"{visible} of {len(self._items)} peaks"] if visible < len(self._items) else []
+        if multiple > 1:
+            parts.append(f"{multiple} selected")
+        self.count.setText(" · ".join(parts))
+        self.count.setVisible(bool(parts))
         item = self._items.get(self._selected or "")
         self.reveal.setVisible(item is not None and item.isHidden())
 

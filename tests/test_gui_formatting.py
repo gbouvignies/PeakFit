@@ -45,3 +45,11 @@ def test_display_numbers_use_typographic_minus():
     assert formatting.number(-0.5, 2) == "−0.50"
     assert formatting.intensity(-12000.0) == "−12000"
     assert formatting.number(math.inf, 2) == "–"
+
+
+def test_scaled_values_never_use_e_notation():
+    assert formatting.scaled(11923.4) == "1.192 ×10⁴"
+    assert formatting.scaled(59612.0) == "5.961 ×10⁴"
+    assert formatting.scaled(-2.5e-5) == "−2.5 ×10⁻⁵"
+    assert formatting.scaled(123.456) == "123.5"
+    assert formatting.scaled(math.nan) == "–"

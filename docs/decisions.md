@@ -1033,3 +1033,16 @@ Short records of non‑obvious design choices and trade‑offs.
   PERF-1's 16.7 ms; readable lineshapes are worth it.
 - **Breaking.** A manual slice scale saved by an earlier project is ignored (the
   view opens at gain 1).
+
+## 2026-11-11: Values stay on screen; explanations go to tooltips
+- **Rule.** A screen shows values and states once. Explanations of fixed rules
+  move to a tooltip or an “About …” disclosure; counts already shown elsewhere
+  are not repeated.
+- **Loaded screen.** The toolbar says “Not fitted” (counts are in the Peaks tab,
+  the plane field and the Analysis page); the Analysis page has no run section
+  before a fit and no “Select a peak …” hint; the lineshape note is one line;
+  the noise method, the passes note and the fitting-region note are tooltips; the
+  navigator footer appears only for a filter or a multiple selection. Noise and
+  clustering level use ×10ⁿ instead of e+ notation.
+- **Why.** The loaded screen repeated the peak count four times and spent most of
+  the inspector on captions, so the values and the Fit button were hard to find.

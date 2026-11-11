@@ -504,9 +504,10 @@ viewport, focus and display mode. Scientific settings are always visible and
 explicit; a modal confirmation dialog does not gate fitting.
 
 **Fit setup.** Before the first fit the inspector's Analysis page is the fit setup
-and is shown by default: resolved lineshape per axis with its source (for example
-“SP2 · from NMRPipe apodization” or “explicit”); statistical noise with value and
-method; clustering threshold as a noise factor and as absolute intensity; optimizer
+and is shown by default: resolved lineshape per axis on one line with its source
+(for example “H SP2 · N SP2 · from apodization”; per-axis sources in the tooltip);
+statistical noise with its value (its method in the tooltip unless explicit);
+clustering threshold as a noise factor and as absolute intensity; optimizer
 passes (default two, cross-talk updates only between passes, as in the current GUI;
 CLI defaults are unaffected). **Advanced** discloses solver, iteration limit,
 tolerance and an imported multi-step schedule, which replaces the pass field rather
