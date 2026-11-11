@@ -1068,3 +1068,17 @@ Short records of non‑obvious design choices and trade‑offs.
   with the same spacing; disclosures are text triangles in small type on the left
   edge; captions wrap only between phrases; empty labels leave no gap. The peak
   editor is a plain widget, not an untitled group box with its own margins.
+
+## 2026-11-12: Cluster page: one line per member
+- **Change.** Members and the parameter table are one table: number, a link to the
+  member's page, then its recorded values; the units sit under it without the
+  “Recorded” prefix. Two members show one ρ row with “conditional on lineshapes”
+  under it, like the peak page; three or more keep the matrix with the same short
+  caption, the rest in its tooltip. A single-peak cluster has no correlation
+  section instead of “Not applicable”. Provenance is a text disclosure on the left
+  edge, and sections use the inspector's shared spacing.
+- **Why.** Members, parameters and matrix were three lists keyed by the same
+  numbers, so reading a member's values meant matching numbers across sections; a
+  2×2 matrix shows one value four times. Names keep their natural width rather than
+  the shared label column, because the parameter columns need the room in a 310 px
+  inspector.

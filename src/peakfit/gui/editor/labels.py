@@ -4,6 +4,8 @@ from html import escape
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.gui.theme import SPACE_M
+
 # The inspector's label column: forms, tables and review rows share this left edge
 # for their values.
 LABEL_WIDTH = 104
@@ -28,6 +30,14 @@ def label_rows(grid: QtWidgets.QGridLayout, rows: list[Row]) -> None:
         if detail:
             grid.addWidget(text_label(detail, "caption", wrap=True), line, 1)
             line += 1
+
+
+def section(layout: QtWidgets.QBoxLayout, text: str) -> QtWidgets.QLabel:
+    """A section title; every section starts with the same gap above it."""
+    label = text_label(text.upper(), "section")
+    layout.addSpacing(SPACE_M)
+    layout.addWidget(label)
+    return label
 
 
 def phrases(*lines: tuple[str, ...]) -> str:
