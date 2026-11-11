@@ -13,7 +13,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.engine.domain.config import LineshapeName
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
-from peakfit.gui.editor.labels import text_label
+from peakfit.gui.editor.labels import disclosure, text_label
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.config import PeakFitConfig
@@ -97,12 +97,7 @@ class FitSetup(QtWidgets.QWidget):
             for widget in widgets:
                 cell.addWidget(widget)
             form.addLayout(cell, row, 1)
-        self.advanced_toggle = QtWidgets.QToolButton()
-        self.advanced_toggle.setObjectName("text")
-        self.advanced_toggle.setText("Advanced")
-        self.advanced_toggle.setCheckable(True)
-        self.advanced_toggle.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.advanced_toggle.setArrowType(QtCore.Qt.ArrowType.RightArrow)
+        self.advanced_toggle = disclosure("Advanced")
         self.advanced_toggle.toggled.connect(self._toggle_advanced)
         layout.addWidget(self.advanced_toggle, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
         self.advanced = QtWidgets.QWidget()
@@ -154,9 +149,6 @@ class FitSetup(QtWidgets.QWidget):
 
     def _toggle_advanced(self, shown: bool) -> None:
         self.advanced.setVisible(shown)
-        self.advanced_toggle.setArrowType(
-            QtCore.Qt.ArrowType.DownArrow if shown else QtCore.Qt.ArrowType.RightArrow
-        )
 
     def show_state(
         self,

@@ -20,10 +20,9 @@ from peakfit.gui.editing import PeakInspector
 from peakfit.gui.editor.cluster_page import (
     ABOUT_MEASURES,
     ClusterPage,
-    maximum_caption,
-    samples_caption,
+    review_rows,
 )
-from peakfit.gui.editor.labels import about, disclosure, review_item
+from peakfit.gui.editor.labels import LABEL_WIDTH, about, disclosure, label_rows, show_text
 from peakfit.gui.editor.labels import clear_layout as _clear
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
@@ -48,7 +47,6 @@ class PreciseInspector(PeakInspector):
         """Populate a new committed group without feeding formatted values into science."""
         self._peak = peak
         self._baseline = {}
-        self.setTitle("")
         for field in (self.name, self.x_field, self.y_field, self.delete):
             field.setEnabled(peak is not None)
         dx, dy = self.decimals
@@ -67,7 +65,7 @@ class PreciseInspector(PeakInspector):
                 field.setText(text)
             self._baseline[field] = text
         alias = (
-            f"Displayed alias: {displayed[0]:.{dx}f}, {displayed[1]:.{dy}f} ppm\n"
+            f"Unfolded ppm · displayed alias {displayed[0]:.{dx}f}, {displayed[1]:.{dy}f} ppm"
             if peak
             and displayed
             and any(
@@ -76,9 +74,14 @@ class PreciseInspector(PeakInspector):
             )
             else ""
         )
-        self.details.setText(alias + "Unfolded ppm")
+        # The unfolded qualifier matters only when the spectrum shows an alias elsewhere;
+        # otherwise it is in the fields' tooltip.
+        self.details.setText(alias)
+        self.details.setVisible(bool(alias))
         for field in (self.name, self.x_field, self.y_field):
             field.setToolTip("Enter commits the whole group · Escape discards")
+        for field in (self.x_field, self.y_field):
+            field.setToolTip("Unfolded ppm · Enter commits the whole group · Escape discards")
         self.fields_changed.emit()
 
     @property
@@ -202,23 +205,24 @@ def parameter_table(
     headers: tuple[str, ...],
     rows: list[tuple[str, str, list[Cell], bool]],
 ) -> None:
-    """One line per parameter: name, unit, then right-aligned values under headers.
+    """One line per parameter: name and unit in the label column, then values.
 
     ``rows`` holds (name, unit, cells, at a bound). The starts and the fitted values
-    share this layout so the two read alike.
+    share this layout, and the label column is the inspector's, so values line up
+    with the form and the review above and below.
     """
-    for column, header in enumerate(headers, start=2):
+    grid.setColumnMinimumWidth(0, LABEL_WIDTH)
+    for column, header in enumerate(headers, start=1):
         title = _label(header, "caption")
         title.setAlignment(_RIGHT)
         grid.addWidget(title, 0, column)
-        grid.setColumnStretch(column, 1)
+        grid.setColumnStretch(column, 1 if column == 1 else 0)
     for row, (name, unit, cells, bounded) in enumerate(rows, start=1):
-        title = _label(name, "warning" if bounded else "muted")
+        title = _label(f"{name} {unit}", "warning" if bounded else "muted")
         if bounded:
             title.setToolTip("At a recorded bound")
         grid.addWidget(title, row, 0)
-        grid.addWidget(_label(unit, "caption"), row, 1)
-        column = 2
+        column = 1
         for text, style, span in cells:
             cell = _label(text, style)
             cell.setAlignment(_RIGHT)
@@ -309,18 +313,19 @@ class Inspector(QtWidgets.QScrollArea):
         self.editor = PreciseInspector(x_title, y_title)
         self.editor.decimals = decimals
         self.editor.details.setObjectName("caption")
-        self.editor.setFlat(True)
         grid = self.editor.layout()
         assert isinstance(grid, QtWidgets.QGridLayout)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(themes.SPACE_S)
         grid.setVerticalSpacing(6)
+        grid.setColumnMinimumWidth(0, LABEL_WIDTH)  # the inspector's shared label column
         # Same validated group-commit component, composed vertically in the inspector.
         grid.removeWidget(self.editor.delete)
         grid.addWidget(self.editor.delete, 4, 0, 1, 2, QtCore.Qt.AlignmentFlag.AlignLeft)
         self.editor.delete.setObjectName("chip")
         self.editor.details.setMinimumWidth(0)
         self.draft = _label("", "warning")
+        self.draft.hide()
         grid.addWidget(self.draft, 5, 0, 1, 2)
         self.editor.fields_changed.connect(self._draft_changed)
         peak.addWidget(self.editor)
@@ -351,6 +356,7 @@ class Inspector(QtWidgets.QScrollArea):
         self.profile.plane_requested.connect(self.plane_requested)
         block.addWidget(self.profile)
         self.profile_reason = _label("", "muted", wrap=True)
+        self.profile_reason.hide()
         block.addWidget(self.profile_reason)
         self.peak_profile_slot = QtWidgets.QVBoxLayout()
         self.peak_profile_slot.setContentsMargins(0, 0, 0, 0)
@@ -362,8 +368,9 @@ class Inspector(QtWidgets.QScrollArea):
         self.fitted.setVerticalSpacing(3)
         peak.addLayout(self.fitted)
         self.review_title = self._section(peak, "Cluster review")
-        self.review = QtWidgets.QVBoxLayout()
-        self.review.setSpacing(2)
+        self.review = QtWidgets.QGridLayout()
+        self.review.setHorizontalSpacing(themes.SPACE_S)
+        self.review.setVerticalSpacing(3)
         peak.addLayout(self.review)
         self.about_toggle, self.about = about(peak, "About these measures")
         self.about.setText(ABOUT_MEASURES)
@@ -371,7 +378,6 @@ class Inspector(QtWidgets.QScrollArea):
         self.provenance_toggle.toggled.connect(lambda shown: self.provenance.setVisible(shown))
         self.provenance = _label("", "caption", wrap=True)
         self.provenance.hide()
-        peak.addSpacing(themes.SPACE_XS)
         peak.addWidget(self.provenance_toggle, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
         peak.addWidget(self.provenance)
         layout.addWidget(self.peak_page)
@@ -449,7 +455,7 @@ class Inspector(QtWidgets.QScrollArea):
     @staticmethod
     def _section(layout: QtWidgets.QVBoxLayout, text: str) -> QtWidgets.QLabel:
         label = _label(text.upper(), "section")
-        layout.addSpacing(themes.SPACE_S)
+        layout.addSpacing(themes.SPACE_M)  # every section starts the same way
         layout.addWidget(label)
         return label
 
@@ -490,7 +496,9 @@ class Inspector(QtWidgets.QScrollArea):
         )
 
     def _draft_changed(self) -> None:
-        self.draft.setText("Draft · Enter commits · Escape discards" if self.editor.pending else "")
+        show_text(
+            self.draft, "Draft · Enter commits · Escape discards" if self.editor.pending else ""
+        )
 
     def set_peak(
         self,
@@ -598,7 +606,7 @@ class Inspector(QtWidgets.QScrollArea):
         run = _run_text(result, current=current, busy=busy)
         self.cluster_link.setVisible(found is not None and len(found[1].peak_names) > 1)
         if found is not None:
-            self.cluster_link.setText(f"Review cluster of {len(found[1].peak_names)} ›")
+            self.cluster_link.setText("Review cluster ›")  # the header gives its size
         for widget in (self.profile_title, self.fitted_title, self.review_title):
             widget.setVisible(found is not None)
         self.provenance_toggle.setVisible(found is not None)
@@ -609,14 +617,16 @@ class Inspector(QtWidgets.QScrollArea):
         _clear(self.review)
         if result is None or found is None:
             self.kind.setText("PEAK")
+            # Before any fit the toolbar already says Not fitted.
             self.status.setText(
-                "Not fitted yet"
+                ""
                 if result is None
                 else f"Not part of run {result.run_id[:8]}: added or renamed after that fit"
             )
+            self.status.setVisible(result is not None)
             self.profile.show_profile(None, plane)
             self.profile.hide()
-            self.profile_reason.setText("")
+            show_text(self.profile_reason, "")
             return
         engine, cluster = found
         members = len(cluster.peak_names)
@@ -814,11 +824,11 @@ class Inspector(QtWidgets.QScrollArea):
         if isinstance(profile, str):
             self.profile.show_profile(None, plane)
             self.profile.hide()
-            self.profile_reason.setText(profile)
+            show_text(self.profile_reason, profile)
         else:
             self.profile.show()
             self.profile.show_profile(profile, plane)
-            self.profile_reason.setText("" if current else "Recorded by an outdated run.")
+            show_text(self.profile_reason, "" if current else "Recorded by an outdated run.")
 
     def _fill_parameters(self, engine: str, cluster: FinalClusterOutcome) -> None:
         if cluster.analytical_evaluation is None:
@@ -852,9 +862,6 @@ class Inspector(QtWidgets.QScrollArea):
             )
         parameter_table(self.fitted, ("Value", "± σ"), rows)
 
-    def _item(self, family: str, glyph: str, text: str, detail: str = "", *, warn=False) -> None:
-        review_item(self.review, family, glyph, text, detail, warn=warn)
-
     def _fill_review(
         self,
         engine: str,
@@ -862,60 +869,42 @@ class Inspector(QtWidgets.QScrollArea):
         result: DatasetFitResult,
         review: ClusterReview | None,
     ) -> None:
-        """Three separate families: numerical warnings, measures and highlights."""
-        warnings = review.warnings if review is not None else ()
-        for index, warning in enumerate(warnings):
-            self._item(
-                "Numerical warnings" if index == 0 else "",
-                "▲",
-                warning.kind,
-                warning.detail,
-                warn=True,
+        """The cluster's flags and measures as label rows, with this peak's correlation."""
+        if review is None or cluster.analytical_evaluation is None:
+            warned = review.warnings if review is not None else ()
+            label_rows(
+                self.review,
+                [
+                    ("Warnings" if i == 0 else "", f"▲ {w.kind}", "warning", w.detail, "")
+                    for i, w in enumerate(warned)
+                ]
+                or [("Warnings", "none", "", "", "No numerical warnings recorded")],
             )
-        if not warnings:
-            self._item("Numerical warnings", "–", "None recorded")
-        evaluation = cluster.analytical_evaluation
-        if evaluation is None or review is None:
             return
-        samples = review.samples
-        self._item(
-            "Measures",
-            "·",
-            f"χ²ᵣ {review.chi2:.3g}",
-            samples_caption(samples),
-        )
-        if math.isfinite(review.largest_residual) and samples > 1:
-            self._item(
-                "",
-                "·",
-                f"Largest recorded residual {review.largest_residual:.1f} σ",
-                maximum_caption(samples),
-            )
         names = {i.engine_name: i.assignment for i in result.inputs.identities}
         matrix = correlation_matrix(cluster)
         if len(cluster.peak_names) == 1:
-            self._item("", "·", "Amplitude correlation not applicable", "single-peak cluster")
+            correlation = ("ρ", "not applicable", "", "", "Single-peak cluster")
         elif matrix is None:
-            self._item("", "·", "Amplitude correlation unavailable", "covariance not recorded")
+            correlation = ("ρ", "unavailable", "", "", "Covariance not recorded")
         else:
             index = cluster.peak_names.index(engine)
             row = matrix[index].copy()
             row[index] = 0.0
             partner = int(np.nanargmax(np.abs(row)))
-            self._item(
+            other = names.get(cluster.peak_names[partner], cluster.peak_names[partner])
+            correlation = (
+                f"ρ {other}",
+                formatting.number(float(row[partner]), 2),
                 "",
-                "·",
-                f"Amplitude correlation ρ {formatting.number(float(row[partner]), 2)}"
-                f" with {names.get(cluster.peak_names[partner], cluster.peak_names[partner])}",
-                "conditional on the fitted lineshapes",
+                "conditional on lineshapes",
+                "Strongest amplitude correlation with another member, conditional on "
+                "the fitted lineshapes",
             )
         assignments = dict(zip(review.ids, review.names, strict=True))
         selected = self._peak.id if self._peak else None
-        for pair in review.collinear:
-            if selected in (pair.first, pair.second):
-                self._item("", "·", *pair.describe(assignments))
-        for index, highlight in enumerate(review.highlights):
-            prefix = f"{assignments[highlight.peak]}: " if highlight.peak in assignments else ""
-            self._item("Highlights" if index == 0 else "", "◇", prefix + highlight.rule)
-        if not review.highlights:
-            self._item("Highlights", "–", "None at the current thresholds")
+        mine = [p for p in review.collinear if selected in (p.first, p.second)]
+        label_rows(
+            self.review,
+            review_rows(review, assignments, collinear=mine, correlation=correlation),
+        )

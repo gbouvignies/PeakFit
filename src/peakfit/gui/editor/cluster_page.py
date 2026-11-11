@@ -13,7 +13,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
-from peakfit.gui.editor.labels import about, clear_layout, review_item, text_label
+from peakfit.gui.editor.labels import Row, about, clear_layout, label_rows, text_label
 from peakfit.gui.editor.review import correlation_matrix
 
 if TYPE_CHECKING:
@@ -47,15 +47,59 @@ ABOUT_MEASURES = (
 
 def samples_caption(samples: int) -> str:
     """What χ²ᵣ is computed over."""
-    return f"{samples:,} fitting samples".replace(",", " ")
+    return f"Over {samples:,} fitting samples".replace(",", " ")
+
+
+def maximum_guide(samples: int) -> float:
+    """The largest |residual| expected from that many independent Gaussian samples."""
+    return math.sqrt(2 * math.log(samples))
 
 
 def maximum_caption(samples: int) -> str:
     """The reference for the largest residual, with what it assumes."""
     return (
-        f"rough guide ≈ {math.sqrt(2 * math.log(samples)):.1f} σ for {samples:,} "
-        "independent Gaussian samples"
+        f"Largest recorded residual on the fitting samples. Rough guide ≈ "
+        f"{maximum_guide(samples):.1f} σ for {samples:,} independent Gaussian samples; "
+        "not a significance threshold"
     ).replace(",", " ")
+
+
+def review_rows(
+    review: ClusterReview,
+    names: dict[str, str],
+    *,
+    collinear=None,
+    correlation: Row | None = None,
+) -> list[Row]:
+    """The review as label rows: flags first (warnings, highlights), then measures.
+
+    Peak and cluster pages share it; the peak page adds its strongest correlation
+    and keeps only the near-collinear pairs it belongs to.
+    """
+    rows: list[Row] = []
+    for index, warning in enumerate(review.warnings):
+        label = "Warnings" if index == 0 else ""
+        rows.append((label, f"▲ {warning.kind}", "warning", warning.detail, ""))
+    if not review.warnings:
+        rows.append(("Warnings", "none", "", "", "No numerical warnings recorded"))
+    for index, highlight in enumerate(review.highlights):
+        prefix = f"{names[highlight.peak]}: " if highlight.peak in names else ""
+        rows.append(("Highlights" if index == 0 else "", f"◇ {prefix}{highlight.rule}", "", "", ""))
+    if not review.highlights:
+        rows.append(("Highlights", "none", "", "", "None at the current highlight thresholds"))
+    if math.isfinite(review.chi2):
+        samples = review.samples
+        rows.append(("χ²ᵣ", f"{review.chi2:.3g}", "", "", samples_caption(samples)))
+        if math.isfinite(review.largest_residual) and samples > 1:
+            text = f"{review.largest_residual:.1f} σ (guide {maximum_guide(samples):.1f} σ)"
+            rows.append(("Max residual", text, "", "", maximum_caption(samples)))
+    if correlation is not None:
+        rows.append(correlation)
+    for pair in review.collinear if collinear is None else collinear:
+        text, detail = pair.describe(names)
+        shapes = text.removeprefix("Near-collinear fitted shapes: ")
+        rows.append(("Collinear", shapes, "", detail, "Near-collinear fitted shapes"))
+    return rows
 
 
 class ClusterPage(QtWidgets.QWidget):
@@ -107,8 +151,9 @@ class ClusterPage(QtWidgets.QWidget):
         self.matrix_note = text_label("", "caption", wrap=True)
         layout.addWidget(self.matrix_note)
         _section(layout, "Review")
-        self.review = QtWidgets.QVBoxLayout()
-        self.review.setSpacing(2)
+        self.review = QtWidgets.QGridLayout()
+        self.review.setHorizontalSpacing(themes.SPACE_S)
+        self.review.setVerticalSpacing(3)
         layout.addLayout(self.review)
         self.about_toggle, self.about = about(layout, "About these measures")
         self.about.setText(ABOUT_MEASURES)
@@ -291,41 +336,5 @@ class ClusterPage(QtWidgets.QWidget):
         )
 
     def _fill_review(self, review: ClusterReview) -> None:
-        for index, warning in enumerate(review.warnings):
-            review_item(
-                self.review,
-                "Numerical warnings" if index == 0 else "",
-                "▲",
-                warning.kind,
-                warning.detail,
-                warn=True,
-            )
-        if not review.warnings:
-            review_item(self.review, "Numerical warnings", "–", "None recorded")
-        if math.isfinite(review.chi2):
-            samples = review.samples
-            review_item(
-                self.review,
-                "Measures",
-                "·",
-                f"χ²ᵣ {review.chi2:.3g}",
-                samples_caption(samples),
-            )
-            if math.isfinite(review.largest_residual) and samples > 1:
-                review_item(
-                    self.review,
-                    "",
-                    "·",
-                    f"Largest recorded residual {review.largest_residual:.1f} σ",
-                    maximum_caption(samples),
-                )
         names = dict(zip(review.ids, review.names, strict=True))
-        for pair in review.collinear:
-            review_item(self.review, "", "·", *pair.describe(names))
-        for index, highlight in enumerate(review.highlights):
-            prefix = f"{names[highlight.peak]}: " if highlight.peak in names else ""
-            review_item(
-                self.review, "Highlights" if index == 0 else "", "◇", prefix + highlight.rule
-            )
-        if not review.highlights:
-            review_item(self.review, "Highlights", "–", "None at the current thresholds")
+        label_rows(self.review, review_rows(review, names))

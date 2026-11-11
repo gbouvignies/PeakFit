@@ -1046,3 +1046,25 @@ Short records of non‑obvious design choices and trade‑offs.
   clustering level use ×10ⁿ instead of e+ notation.
 - **Why.** The loaded screen repeated the peak count four times and spent most of
   the inspector on captions, so the values and the Fit button were hard to find.
+
+## 2026-11-11: Peak page: short qualifiers stay, explanations go to tooltips
+- **Change.** Applies the 2026-11-11 text rule to the selected peak, partly revising
+  T3 (#144): a qualifier that changes what a number means stays beside it in a few
+  words, and its explanation moves to a tooltip or About. The profile note reads
+  “±1σ conditional on lineshapes · noise correlation modelled” (χ²ᵣ is with the
+  measures; off-scale points are listed by plane). Measures read “χ²ᵣ 3” (sample
+  count in the tooltip), “Largest residual 7.5 σ · guide ≈ 4.3 σ” and “ρ −0.77
+  with 147N-H, conditional on lineshapes”. Empty review families take one line.
+  “Unfolded ppm” is shown only beside a displayed alias. “Review cluster ›” no
+  longer repeats the size in the header; the status line is gone before a fit;
+  the cluster list shows its run line only when Outdated and its footer only for
+  a filter or warnings. Off-scale tooltips use ×10ⁿ.
+- **Why.** The fitted peak page spent four lines on the profile note and one
+  caption per measure, so the values were hard to find; the qualifiers that
+  matter scientifically still sit next to the numbers they qualify.
+- **Layout.** One grammar for the inspector: every line on one left edge; forms,
+  the Fitted and starts tables and the review share one label column (review rows
+  replace the bulleted list, on the peak and cluster pages alike); sections start
+  with the same spacing; disclosures are text triangles in small type on the left
+  edge; captions wrap only between phrases; empty labels leave no gap. The peak
+  editor is a plain widget, not an untitled group box with its own margins.

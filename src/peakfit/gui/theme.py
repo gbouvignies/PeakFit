@@ -219,10 +219,10 @@ QToolButton {{ border: 1px solid transparent; border-radius: 5px; padding: 3px;
 QToolButton:hover:enabled {{ background: {t.hover}; }}
 QToolButton:checked {{ background: {t.selection}; }}
 QToolButton:focus {{ border-color: {t.accent}; }}
-QToolButton#text {{ padding: 3px 8px; }}
-/* A disclosure's arrow shows it is open; no selection fill. */
-QToolButton#text:checked {{ background: transparent; }}
-QToolButton#text:checked:hover:enabled {{ background: {t.hover}; }}
+/* A disclosure: a quiet line on the content's left edge; its arrow shows it is open. */
+QToolButton#text {{ padding: 1px 2px 1px 0; font-size: {FONT_SMALL}px; }}
+QToolButton#text:checked, QToolButton#text:hover:enabled {{ background: transparent; }}
+QToolButton#text:hover:enabled {{ color: {t.text}; }}
 QPushButton#link {{ border: 0; background: transparent; color: {t.accent}; padding: 1px 0;
   min-height: 0; text-align: left; }}
 QPushButton#link:hover {{ text-decoration: underline; }}

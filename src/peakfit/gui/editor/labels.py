@@ -1,6 +1,50 @@
 """Plain-text labels: selectable styled text, and one that elides without losing its text."""
 
+from html import escape
+
 from PySide6 import QtCore, QtGui, QtWidgets
+
+# The inspector's label column: forms, tables and review rows share this left edge
+# for their values.
+LABEL_WIDTH = 104
+
+# One review row: muted label, value, label style of the value, caption under the
+# value, tooltip on the value.
+type Row = tuple[str, str, str, str, str]
+
+
+def label_rows(grid: QtWidgets.QGridLayout, rows: list[Row]) -> None:
+    """Muted labels in the shared column, values beside them, captions underneath."""
+    grid.setColumnMinimumWidth(0, LABEL_WIDTH)
+    grid.setColumnStretch(1, 1)
+    line = 0
+    for label, value, style, detail, tip in rows:
+        title = text_label(label, "muted")
+        grid.addWidget(title, line, 0, QtCore.Qt.AlignmentFlag.AlignTop)
+        shown = text_label(value, style, wrap=True)
+        shown.setToolTip(tip)
+        grid.addWidget(shown, line, 1)
+        line += 1
+        if detail:
+            grid.addWidget(text_label(detail, "caption", wrap=True), line, 1)
+            line += 1
+
+
+def phrases(*lines: tuple[str, ...]) -> str:
+    """Rich text that wraps only between phrases: each line's parts joined by " · "."""
+    return "<br>".join(
+        " · ".join(
+            f'<span style="white-space:nowrap">{escape(part)}</span>' for part in parts if part
+        )
+        for parts in lines
+        if any(parts)
+    )
+
+
+def show_text(label: QtWidgets.QLabel, text: str) -> None:
+    """Set a label's text and hide it when empty, so it leaves no gap."""
+    label.setText(text)
+    label.setVisible(bool(text))
 
 
 class ElidedLabel(QtWidgets.QLabel):
@@ -53,33 +97,6 @@ def text_label(text: str = "", name: str = "", *, wrap: bool = False) -> QtWidge
     return label
 
 
-def review_item(
-    layout: QtWidgets.QVBoxLayout,
-    family: str,
-    glyph: str,
-    text: str,
-    detail: str = "",
-    *,
-    warn: bool = False,
-) -> None:
-    """One review line: an optional family heading, a glyph, text and a caption."""
-    if family:
-        layout.addSpacing(4)
-        layout.addWidget(text_label(family, "caption"))
-    row = QtWidgets.QHBoxLayout()
-    row.setSpacing(6)
-    mark = text_label(glyph, "warning" if warn else "caption")
-    mark.setFixedWidth(12)
-    row.addWidget(mark, 0, QtCore.Qt.AlignmentFlag.AlignTop)
-    body = QtWidgets.QVBoxLayout()
-    body.setSpacing(0)
-    body.addWidget(text_label(text, "warning" if warn else "", wrap=True))
-    if detail:
-        body.addWidget(text_label(detail, "caption", wrap=True))
-    row.addLayout(body, 1)
-    layout.addLayout(row)
-
-
 def clear_layout(layout: QtWidgets.QLayout) -> None:
     """Remove every widget and nested row layout from a section."""
     while layout.count():
@@ -118,16 +135,15 @@ def about(
 
 
 def disclosure(text: str) -> QtWidgets.QToolButton:
-    """A collapsed-by-default section toggle with a turning arrow."""
+    """A collapsed-by-default section toggle: a turning triangle, then the title.
+
+    The triangle is text, not a style-drawn arrow, so the toggle starts on the
+    content's left edge like every other line.
+    """
     button = QtWidgets.QToolButton()
     button.setObjectName("text")
-    button.setText(text)
     button.setCheckable(True)
-    button.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-    button.setArrowType(QtCore.Qt.ArrowType.RightArrow)
-    button.toggled.connect(
-        lambda shown: button.setArrowType(
-            QtCore.Qt.ArrowType.DownArrow if shown else QtCore.Qt.ArrowType.RightArrow
-        )
-    )
+    button.setAccessibleName(text)
+    button.setText(f"▸  {text}")
+    button.toggled.connect(lambda shown: button.setText(f"{'▾' if shown else '▸'}  {text}"))
     return button
