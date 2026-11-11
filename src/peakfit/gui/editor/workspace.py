@@ -229,9 +229,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.peaks_button.setChecked(bool(dataset.peaks))
         self.peaks_button.clicked.connect(self.toggle_navigator)
         bar.addWidget(self.peaks_button)
-        self.title = ElidedLabel(dataset.path.stem)
+        # The application, not the dataset: the window title names the dataset.
+        self.title = QtWidgets.QLabel("PeakFit")
         self.title.setObjectName("title")
-        self.title.setMaximumWidth(160)
         bar.addWidget(self.title)
         self.modified = QtWidgets.QLabel()
         self.modified.setObjectName("muted")
@@ -442,7 +442,6 @@ class EditorWorkspace(QtWidgets.QWidget):
     def _adapt_toolbar(self) -> None:
         """Below 1200 px the run line needs the room; tooltips keep the full text."""
         wide = self.width() >= _WIDE_TOOLBAR
-        self.title.setMaximumWidth(160 if wide else 120)
         self.settings_button.setText(self._settings_text if wide else "Fit settings")
         count = self.warnings.property("count") or 0
         self.warnings.setText(

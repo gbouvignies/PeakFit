@@ -64,7 +64,8 @@ metadata.
 
 The workspace has three columns: the **navigator** on the left, the spectrum in
 the centre and the **inspector** on the right. Toolbar buttons at either end hide
-or show the side columns; their widths are adjustable. PeakFit never enlarges the
+or show the side columns; their widths are adjustable. The toolbar starts with
+PeakFit; the window title names the dataset. PeakFit never enlarges the
 window: a side panel opens by taking room from the spectrum (residual lanes, then
 slices, down to their minimums) and then from the other side panel. When even the
 minimums do not fit, it stays closed and a message says what makes room. Returning

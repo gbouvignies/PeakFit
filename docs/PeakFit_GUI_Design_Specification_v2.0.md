@@ -80,7 +80,7 @@ sits beyond it.
 
 | Area | Permanent responsibility |
 | --- | --- |
-| Toolbar | One row: analysis name and Modified state; run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the fit setup (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin traces, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
+| Toolbar | One row: PeakFit and the Modified state (the window title names the dataset); run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the fit setup (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin traces, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
 | Navigator (left) | **Clusters / Peaks** tabs, search, a filter menu with counts and sortable rows (§8). Before a fit only Peaks exists; rows show assignment and display-precision coordinates. |
 | Spectral area | One spectral view: the dominant 2D spectrum, the row slice directly above and the column slice directly to its right, each sharing its frequency axis exactly with the 2D plot, with optional residual lanes. Cluster focus reframes this same view in place (§3). |
 | Inspector (right) | Contextual pages chosen by selection (below). |
