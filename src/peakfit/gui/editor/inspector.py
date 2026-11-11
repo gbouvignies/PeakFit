@@ -438,8 +438,6 @@ class Inspector(QtWidgets.QScrollArea):
         self._reveal = False
         self.verticalScrollBar().rangeChanged.connect(self._scroll_to_unexplained)
         self.verticalScrollBar().actionTriggered.connect(self._stop_reveal)
-        self.analysis_note = _label("", "caption", wrap=True)
-        self._analysis_layout.addWidget(self.analysis_note)
         layout.addWidget(self.analysis_page)
         layout.addStretch(1)
         self._peak: WorkingPeak | None = None
@@ -537,13 +535,12 @@ class Inspector(QtWidgets.QScrollArea):
         """Move the profile's plane marker only."""
         self.profile.set_plane(plane)
 
-    def show_analysis(
-        self, title: str, summary: str, run: str, note: str, *, fitted: bool = False
-    ) -> None:
+    def show_analysis(self, title: str, summary: str, run: str, *, fitted: bool = False) -> None:
         """No selection: the fit setup and what the active run recorded.
 
         Before the first fit the setup leads; afterwards the run review does,
-        with the setup below it.
+        with the setup below it. With no run and nothing to report, the run section
+        is hidden: the toolbar already says Not fitted.
         """
         if self._peak is not None:
             return
@@ -556,13 +553,13 @@ class Inspector(QtWidgets.QScrollArea):
         self.kind.setText("ANALYSIS")
         self.title.setText(title)
         self.status.setText(summary)
-        key = ("analysis", run, note)
+        self.review_block.setVisible(fitted or bool(run))
+        key = ("analysis", run)
         if key == self._key:
             return
         self._key = key
         self.run_text.setText(run)
         self.next_button.setVisible("warning" in run)
-        self.analysis_note.setText(note)
 
     def show_result(
         self,

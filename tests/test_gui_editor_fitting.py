@@ -1188,6 +1188,36 @@ def test_fitting_regions_are_exact_hidden_by_default_and_labelled(workspace, sci
     assert "fitting regions" not in c.legend.text()
 
 
+def test_the_loaded_screen_says_each_thing_once(workspace):
+    w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
+    wait_until(lambda: fitting.prepared is not None)
+    w.select_peak(None)
+    w._update_inspector()
+    # The toolbar states the run; the counts live in the tab, plane field and page.
+    assert w.summary.text() == "Not fitted"
+    assert not w.panel.review_block.isVisibleTo(w)  # no run section before a fit
+    assert w.panel.status.text().startswith(f"{len(w.peaks)} peaks · ")
+    # The total is in the Peaks tab; the footer counts only a filter.
+    nav = w.navigator
+    assert nav.count.isHidden()
+    nav.search.setText("remote")  # matches one peak's ID in this fixture
+    assert not nav.count.isHidden()
+    assert nav.count.text().endswith(f"of {len(w.peaks)} peaks")
+    nav.search.setText("")
+    # Setup values stay; their explanations are tooltips, numbers never use e+.
+    assert "\n" not in setup.shapes.text()
+    assert setup.shapes.toolTip()
+    assert "e+" not in setup.noise.text() + setup.level.text()
+    # Only an explicit noise level is worth a caption; the estimate is the default.
+    explicit = bool(fitting.configuration.noise_level)
+    assert setup.noise_source.isHidden() is not explicit
+    assert setup.noise.toolTip() == (
+        "Explicit value from the fit settings" if explicit else "Estimated from all planes"
+    )
+    assert setup.passes.toolTip()
+    assert setup.regions.toolTip()
+
+
 def test_default_lineshape_fallback_is_a_caution_not_a_block(workspace):
     w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
     wait_until(lambda: fitting.prepared is not None)

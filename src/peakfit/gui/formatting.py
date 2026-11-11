@@ -54,6 +54,15 @@ def with_sigma(value: float, sigma: float) -> tuple[str, str]:
     return number(value, decimals), number(sigma, decimals)
 
 
+def scaled(value: float, digits: int = 4) -> str:
+    """A value to ``digits`` significant figures, with ×10ⁿ in place of e+ notation."""
+    if not math.isfinite(value):
+        return "–"
+    power = exponent(abs(value))
+    text = f"{value * 10.0**-power:.{digits}g}".replace("-", "−")
+    return f"{text} ×10{superscript(str(power))}" if power else text
+
+
 def exponent(limit: float) -> int:
     """Power of ten for an axis whose values would otherwise need `2e+06` notation."""
     if not math.isfinite(limit) or limit <= 0:

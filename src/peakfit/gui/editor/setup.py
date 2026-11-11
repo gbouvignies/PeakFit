@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, cast, get_args
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.engine.domain.config import LineshapeName
+from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.editor.labels import text_label
 
@@ -80,13 +81,13 @@ class FitSetup(QtWidgets.QWidget):
         self.passes.setAccessibleName("Optimizer passes")
         self.passes.setKeyboardTracking(False)
         self.passes.valueChanged.connect(self._edited)
+        self.passes.setToolTip("Cross-talk between clusters is updated between passes")
         self.schedule = text_label("", "", wrap=True)
-        self.passes_note = text_label("cross-talk updated between passes", "caption", wrap=True)
         rows = (
             ("Lineshapes", (self.lineshape, self.shapes, self.shape_caution)),
             ("Statistical noise", (self.noise, self.noise_source)),
             ("Clustering", (self.threshold, self.level)),
-            ("Passes", (self.passes, self.schedule, self.passes_note)),
+            ("Passes", (self.passes, self.schedule)),
         )
         for row, (name, widgets) in enumerate(rows):
             title = text_label(name, "muted")
@@ -147,15 +148,9 @@ class FitSetup(QtWidgets.QWidget):
         layout.addWidget(self.preparation)
         layout.addWidget(self.blocked)
         self.regions = QtWidgets.QCheckBox("Show sampled fitting regions")
+        self.regions.setToolTip("Display contours never change clusters, samples or starts")
         self.regions.toggled.connect(self.regions_toggled)
         layout.addWidget(self.regions)
-        layout.addWidget(
-            text_label(
-                "Display contours never change clusters, samples or starts.",
-                "caption",
-                wrap=True,
-            )
-        )
 
     def _toggle_advanced(self, shown: bool) -> None:
         self.advanced.setVisible(shown)
@@ -192,7 +187,14 @@ class FitSetup(QtWidgets.QWidget):
                 self.threshold.setValue(configuration.clustering.contour_factor)
         if not self.tolerance.hasFocus():
             self.tolerance.setText(f"{fitting.tolerance:g}")
+        # One line, horizontal axis first; each axis's source is in the tooltip.
+        sources = {source for _axis, _shape, source in shapes}
+        common = next(iter(sources)) if len(sources) == 1 else ""
         self.shapes.setText(
+            " · ".join(f"{axis} {shape}" for axis, shape, _source in reversed(shapes))
+            + (f" · {common}" if common and common != DEFAULT_SOURCE else "")
+        )
+        self.shapes.setToolTip(
             "\n".join(f"{axis}: {shape} · {source}" for axis, shape, source in shapes)
         )
         defaulted = [axis for axis, _shape, source in shapes if source == DEFAULT_SOURCE]
@@ -205,16 +207,16 @@ class FitSetup(QtWidgets.QWidget):
         self.shape_caution.setVisible(bool(defaulted))
         steps = fitting.steps
         self.passes.setVisible(not steps)
-        self.passes_note.setVisible(not steps)
         self.schedule.setVisible(bool(steps))
         self.schedule.setText(f"{len(steps)}-step schedule (imported)")
         explicit = configuration.clustering.contour_level
         if preview is not None:
-            self.noise.setText(f"{preview.noise:.4g}")
+            self.noise.setText(formatting.scaled(preview.noise))
+            level = formatting.scaled(preview.contour_level)
             self.level.setText(
-                f"explicit level {preview.contour_level:.4g}; editing the factor replaces it"
+                f"explicit level {level}; editing the factor replaces it"
                 if explicit is not None
-                else f"= {preview.contour_level:.4g} intensity"
+                else f"= {level}"
             )
             samples = sum(len(cluster.grid_indices[0]) for cluster in preview.clusters)
             self.preparation.setText(
@@ -226,8 +228,13 @@ class FitSetup(QtWidgets.QWidget):
             self.noise.setText("–")
             self.level.setText("")
             self.preparation.setText("" if error else "Preparing…")
-        self.noise_source.setText(
-            "explicit value" if configuration.noise_level else "estimated from all planes"
+        # The usual case goes in the tooltip; an explicit value is worth saying.
+        self.noise_source.setText("explicit value" if configuration.noise_level else "")
+        self.noise_source.setVisible(bool(configuration.noise_level))
+        self.noise.setToolTip(
+            "Explicit value from the fit settings"
+            if configuration.noise_level
+            else "Estimated from all planes"
         )
         self.blocked.setText(f"Fit unavailable: {error}" if error else "")
         self.blocked.setVisible(bool(error))
