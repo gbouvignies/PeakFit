@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from peakfit.gui.peaks import WorkingPeak
 
 
-class PeakInspector(QtWidgets.QGroupBox):
+class PeakInspector(QtWidgets.QWidget):
     """Edit one complete assignment without rounding unchanged coordinates."""
 
     commit_requested = QtCore.Signal()
@@ -20,7 +20,7 @@ class PeakInspector(QtWidgets.QGroupBox):
     fields_changed = QtCore.Signal()
 
     def __init__(self, x_title: str, y_title: str) -> None:
-        super().__init__("Peak editing — select a marker")
+        super().__init__()
         layout = QtWidgets.QGridLayout(self)
         layout.setContentsMargins(8, 4, 8, 4)
         self.name = QtWidgets.QLineEdit()
@@ -67,7 +67,6 @@ class PeakInspector(QtWidgets.QGroupBox):
         controls = (self.name, self.x_field, self.y_field, self.delete)
         for control in controls:
             control.setEnabled(peak is not None)
-        self.setTitle("Selected peak" if peak else "Peak editing — select a marker")
         for field, value in zip(
             (self.name, self.x_field, self.y_field),
             (peak.name, repr(peak.positions[1]), repr(peak.positions[0])) if peak else ("", "", ""),

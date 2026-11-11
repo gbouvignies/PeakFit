@@ -15,7 +15,7 @@ from peakfit.engine.diagnostics.identifiability import (
     amplitude_identifiability,
 )
 from peakfit.gui import formatting
-from peakfit.gui.editor.labels import about, disclosure
+from peakfit.gui.editor.labels import about, disclosure, phrases
 from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
 
 if TYPE_CHECKING:
@@ -300,7 +300,7 @@ def diagnostics_text(profile: PeakProfile) -> str:
 
 def _sigma(error: float) -> str:
     """Name an unavailable standard error instead of formatting NaN as a value."""
-    return f"σ = {error:.3g}" if np.isfinite(error) else "σ unavailable"
+    return f"σ = {formatting.scaled(error, 3)}" if np.isfinite(error) else "σ unavailable"
 
 
 def framed_range(x: np.ndarray) -> tuple[float, float] | None:
@@ -368,6 +368,7 @@ class ProfilePlot(QtWidgets.QWidget):
         notes.setSpacing(4)
         self.note = QtWidgets.QLabel()
         self.note.setObjectName("caption")
+        self.note.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.note.setWordWrap(True)
         notes.addWidget(self.note)
         notes.addLayout(self._chips())
@@ -629,17 +630,16 @@ class ProfilePlot(QtWidgets.QWidget):
         hidden = np.flatnonzero(~visible)
         self._hidden_text = ""
         if hidden.size:
+            planes = ", ".join(str(profile.source_planes[j] + 1) for j in hidden)
             self._hidden_text = (
-                f"{hidden.size} {'point' if hidden.size == 1 else 'points'} off scale: "
-                + ", ".join(
-                    f"{formatting.intensity(float(x[j]))} (plane {profile.source_planes[j] + 1})"
-                    for j in hidden
-                )
+                f"{hidden.size} {'point' if hidden.size == 1 else 'points'} off scale "
+                f"(plane{'s' if hidden.size > 1 else ''} {planes})"
             )
             self.show_all.setToolTip(
                 "Off-scale observations: "
                 + "; ".join(
-                    f"{s.assignment} {s.amplitudes[j]:.4g} ({_sigma(s.error)}) at {x[j]:g} "
+                    f"{s.assignment} {formatting.scaled(s.amplitudes[j])} ({_sigma(s.error)}) "
+                    f"at {formatting.intensity(float(x[j]))} "
                     f"(plane {profile.source_planes[j] + 1})"
                     for j in hidden
                     for s in profile.series
@@ -763,36 +763,27 @@ class ProfilePlot(QtWidgets.QWidget):
         if shown:
             self.plane_line.setValue(float(profile.x[columns[0]]))
         off = bool(self._hidden_text) and columns.size > 0 and not shown
-        # Beside the error bars as a diagnostic, never applied to them (see About).
-        fit = f" · cluster χ²ᵣ {profile.reduced_chi_squared:.3g} (fit diagnostic)"
-        noise = (
-            " · noise correlation modelled"
-            if profile.noise_model.modelled
-            else " · noise correlation not modelled"
-        )
+        # The qualifiers that change what a bar means, in a few words (About has the
+        # full explanation); what is unusual about the data on the next line. χ²ᵣ is
+        # with the cluster's measures.
+        noise = "modelled" if profile.noise_model.modelled else "not modelled"
         shown = self._normalized
         quantity = (
-            (
-                "±1σ of the ratio (first order, full gradient) from conditional σ, "
-                f"fixed lineshapes{noise} · σ_R/|R| = "
-                f"{shown.reference_error / abs(shown.reference):.3f} (limit {RELIABILITY_LIMIT:g})"
-                + (" · reference amplitude negative" if shown.reference < 0 else "")
-            )
+            f"±1σ of the ratio, conditional on lineshapes · noise correlation {noise} · "
+            f"σ_R/|R| = {shown.reference_error / abs(shown.reference):.3f} "
+            f"(limit {RELIABILITY_LIMIT:g})"
+            + (" · reference amplitude negative" if shown.reference < 0 else "")
             if shown is not None
-            else f"±1σ conditional on fixed lineshapes{noise}"
-        ) + fit
+            else f"±1σ conditional on lineshapes · noise correlation {noise}"
+        )
         extra = getattr(self, "_normalization_note", "")
-        # What the bars are on one line; what is unusual about the data on the next.
         states = [
             part
             for part in (self._hidden_text, "current plane is off scale" if off else "")
             if part
         ]
-        self.note.setText(
-            quantity
-            + (f" · {extra}" if extra else "")
-            + ("\n" + " · ".join(states) if states else "")
-        )
+        # Wraps only between phrases, so no qualifier is split across lines.
+        self.note.setText(phrases((*quantity.split(" · "), extra), tuple(states)))
         # Say what the bars on show are: raw amplitude σ, or the ratio's propagated σ.
         if shown is None:
             quantity_text = (

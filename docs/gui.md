@@ -340,7 +340,7 @@ changed, a line under the bar says how: “Regrouped by run … · was … · jo
 in; a peak added since says which peaks it is now fitted with, with a link back to
 the cluster that was on show. A canceled or failed fit keeps every working edit and
 focus.
-On a peak page, **Review cluster of N ›** opens its cluster page; selecting a peak
+On a peak page, **Review cluster ›** opens its cluster page (the page header gives its size); selecting a peak
 on the spectrum or in the Peaks list opens its peak page. Whenever the selected peak belongs to the active run, the other members
 of its recorded cluster carry a thin accent ring on the spectrum, while the
 selected peak keeps its stronger ring and label; this never changes the viewport,
@@ -348,11 +348,20 @@ comparison mode or the total-model scope. **N** in the cluster list, or **Select
 the analysis page, moves in list order to the next cluster with a numerical
 warning that the current filter shows; it never selects a hidden row. The
 inspector's **Cluster review** keeps three families apart: numerical warnings
-(with the engine's own text), highlights (with their rule), and measures: χ²ᵣ with its sample count, the largest recorded
-residual beside √(2 ln N), the typical largest of N independent Gaussian values
-(a rough guide, not a threshold: correlated noise makes neighbouring samples
-dependent), and the selected peak's strongest amplitude correlation, conditional on
-the fitted lineshapes. Warnings and highlights that apply to the cluster stay in
+(with the engine's own text), highlights (with their rule), and measures, as label
+rows: **Warnings** and **Highlights** (“none” when empty), **χ²ᵣ** (its sample count
+in the tooltip), **Max residual** with its guide √(2 ln N), the typical largest of
+N independent Gaussian values (a rough guide, not a threshold: correlated noise
+makes neighbouring samples dependent), and **ρ** with the member the selected peak
+correlates with most, captioned “conditional on lineshapes”. Near-collinear pairs
+the peak belongs to appear as **Collinear**. The cluster page uses the same rows.
+Every inspector line starts on one left edge; forms, tables and review rows share
+one label column, and disclosures (▸ About …, Provenance) are quiet lines at the
+end of their section. The cluster list's footer appears only for a filter
+or numerical warnings, and its run line only when the run is Outdated: the
+toolbar names the run. A peak page before any fit has no status line; the
+positions' “Unfolded ppm” qualifier is a tooltip unless the spectrum shows the
+peak at a displayed alias, which is then given beside it. Warnings and highlights that apply to the cluster stay in
 view; **About these measures** opens the general explanation in place, and stays
 open across selections. Recorded optimizer statistics refer to corrected fitting
 samples and are not recomputed from the displayed whole-spectrum residual.
@@ -381,8 +390,9 @@ point; points sharing that exact value offer a choice. Error bars are the condit
 by **Export results…**: computed with the fitted lineshape parameters held fixed,
 one σ per peak for every plane, never rescaled by χ²ᵣ. Where the run models the
 processed noise correlation they are the sandwich errors; otherwise they assume
-independent points. The note beside the plot says which, with the cluster's χ²ᵣ
-as a fit diagnostic, and any points off scale on a line of their own; **About these
+independent points. The note beside the plot says so in a few words (“±1σ
+conditional on lineshapes · noise correlation modelled”), with any points off
+scale, by plane, on a line of their own; χ²ᵣ is with the cluster's measures; **About these
 error bars** below it gives the noise model in full
 ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)). The
 inspector's provenance states it once for the run.

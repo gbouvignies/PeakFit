@@ -324,9 +324,9 @@ class Navigator(QtWidgets.QWidget):
             self.show_page(_PEAKS)
             return
         self.tab_buttons[_CLUSTERS].setText(f"Clusters  {len(reviews)}")
-        self.run_label.setText(
-            f"Run {result.run_id[:8]} · {'Current' if current else 'Outdated: refit to update'}"
-        )
+        # The toolbar names the run; the list says only when its clusters are outdated.
+        self.run_label.setText("" if current else "Outdated run: refit to update")
+        self.run_label.setVisible(not current)
         self._fill_filter()
         self._mark_selected()
         if first:
@@ -393,8 +393,12 @@ class Navigator(QtWidgets.QWidget):
             shown += visible
         total = self.tree.topLevelItemCount()
         warned = sum(bool(r.warnings) for r in self._reviews)
-        prefix = f"{shown} of {total} clusters" if shown != total else f"{total} clusters"
-        self.cluster_count.setText(f"{prefix} · ▲ {warned} · N: next ▲")
+        # The tab gives the total: count only a filter and any warnings.
+        parts = [f"{shown} of {total} clusters"] if shown != total else []
+        if warned:
+            parts.append(f"▲ {warned} · N: next ▲")
+        self.cluster_count.setText(" · ".join(parts))
+        self.cluster_count.setVisible(bool(parts))
         self.cluster_count.setToolTip(
             f"{warned} clusters with a numerical warning; N in the list selects the next one"
         )

@@ -537,6 +537,19 @@ def _warned(result):
     return replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
 
 
+def _review_cell(grid, label: str) -> QtWidgets.QLabel:
+    """The value beside a label in a review grid."""
+    for row in range(grid.rowCount()):
+        item = grid.itemAtPosition(row, 0)
+        if item is not None and item.widget().text() == label:
+            return grid.itemAtPosition(row, 1).widget()
+    raise KeyError(label)
+
+
+def _review_row(grid, label: str) -> str:
+    return _review_cell(grid, label).text()
+
+
 def _review_text(w) -> str:
     page = w.panel.cluster_page if w.panel.cluster_view else w.panel.peak_page
     return " ".join(label.text() for label in page.findChildren(QtWidgets.QLabel))
@@ -578,10 +591,10 @@ def test_profile_shows_recorded_run_values_and_follows_selection(workspace, scie
     selected = profile.series[0]
     np.testing.assert_array_equal(selected.amplitudes, evaluation.amplitudes[1])
     assert selected.error == evaluation.amplitude_standard_errors[1]
-    # σ-only: the bar is the unscaled analytical σ, and χ²ᵣ is shown as a diagnostic.
+    # σ-only: the bar is the unscaled analytical σ; χ²ᵣ is a measure, not a bar scale.
     chi2 = evaluation.statistics.reduced_chi_squared
     assert profile.reduced_chi_squared == chi2
-    assert f"cluster χ²ᵣ {chi2:.3g}" in panel.note.text()
+    assert "±1σ conditional on lineshapes" in panel.note.text()
     assert "scaled" not in panel.note.text()
     assert "never rescaled by χ²ᵣ" in panel.note.toolTip()
     # The synthetic dataset has no NMRPipe header: its errors say so.
@@ -1008,9 +1021,9 @@ def test_navigator_clusters_and_inspector_show_recorded_values(workspace, scient
     value, sigma = formatting.with_sigma(parameter.value, parameter.standard_error)
     fitted = w.panel.fitted
     cells = [
-        [fitted.itemAtPosition(row, column).widget().text() for column in (2, 3)]
+        [fitted.itemAtPosition(row, column).widget().text() for column in (1, 2)]
         for row in range(1, fitted.rowCount())
-        if fitted.itemAtPosition(row, 3) is not None
+        if fitted.itemAtPosition(row, 2) is not None
     ]
     assert [value, sigma] in cells
     assert w.edits.revision == 0
@@ -1218,6 +1231,39 @@ def test_the_loaded_screen_says_each_thing_once(workspace):
     assert setup.regions.toolTip()
 
 
+def test_the_peak_page_says_each_thing_once(workspace, scientific):
+    w = workspace
+    panel, nav = w.panel, w.navigator
+    peak = w.peaks[0]
+    w.select_peak(peak.id)
+    # Before a fit the toolbar already says Not fitted; the page does not repeat it.
+    assert panel.status.isHidden()
+    assert "Unfolded ppm" in panel.editor.x_field.toolTip()
+    result = scientific[-1]
+    publish(w, result)
+    w.select_peak(peak.id)
+    # The toolbar names the current run; the cluster list says only when it is outdated.
+    assert nav.run_label.isHidden()
+    warned = sum(bool(r.warnings) for r in nav._reviews)
+    assert nav.cluster_count.isHidden() is (warned == 0)
+    # The review is label rows sharing the inspector's label column.
+    if not warned:
+        assert _review_row(w.panel.review, "Warnings") == "none"
+    assert _review_row(w.panel.review, "χ²ᵣ")
+    # Off-scale observations never use e+ notation.
+    assert "e+" not in panel.profile.show_all.toolTip()
+    # One left edge for every line, one value column for the form and the review.
+    QtWidgets.QApplication.processEvents()
+
+    def left(widget) -> int:
+        return widget.mapTo(panel, QtCore.QPoint(0, 0)).x()
+
+    edge = left(panel.kind)
+    for toggle in (panel.starts_toggle, panel.profile.about_toggle, panel.provenance_toggle):
+        assert abs(left(toggle) - edge) <= 1
+    assert left(_review_cell(panel.review, "χ²ᵣ")) == left(panel.editor.x_field)
+
+
 def test_default_lineshape_fallback_is_a_caution_not_a_block(workspace):
     w, fitting, setup = workspace, workspace.fitting, workspace.panel.setup
     wait_until(lambda: fitting.prepared is not None)
@@ -1331,8 +1377,11 @@ def test_highlight_thresholds_filter_clusters_without_touching_the_run(workspace
     assert len(visible) == highlighted
     assert all(item.text(0) in {"◇", "▲"} for item in visible)
     total = len(reviews)
-    expected = f"{total} clusters" if highlighted == total else f"{highlighted} of {total} clusters"
-    assert navigator.cluster_count.text().startswith(expected)
+    # The Clusters tab gives the total; the footer counts only a filter.
+    if highlighted < total:
+        assert navigator.cluster_count.text().startswith(f"{highlighted} of {total} clusters")
+    else:
+        assert "of" not in navigator.cluster_count.text()
     warned = sum(bool(r.warnings) for r in reviews)
     navigator.filter.setCurrentIndex(options.index(f"Any warning ({warned})"))
     if warned < total:
@@ -1346,7 +1395,7 @@ def test_highlight_thresholds_filter_clusters_without_touching_the_run(workspace
     w.select_peak(review.ids[0])
     text = _review_text(w)
     assert "Highlights" in text
-    assert "Numerical warnings" in text
+    assert "Warnings" in text
     assert review.highlights[0].rule in text
 
 
@@ -1367,14 +1416,14 @@ def test_starting_values_show_the_next_fit_inputs(workspace):
         return grid.itemAtPosition(row, column).widget().text()
 
     # One line per parameter under Start, Lower and Upper; positions before widths.
-    assert [text(0, column) for column in (2, 3, 4)] == ["Start", "Lower", "Upper"]
+    assert [text(0, column) for column in (1, 2, 3)] == ["Start", "Lower", "Upper"]
     rows = range(1, len(expected) + 1)
     assert [text(row, 0).split()[0] for row in rows] == ["δ", "δ", "LW", "LW"]
 
     def number(row: int, column: int) -> float:
         return float(text(row, column).replace("−", "-"))
 
-    shown = sorted((number(r, 2), number(r, 3), number(r, 4)) for r in rows)
+    shown = sorted((number(r, 1), number(r, 2), number(r, 3)) for r in rows)
     recorded = sorted((p.value, p.min, p.max) for p in expected)
     np.testing.assert_allclose(shown, recorded, rtol=1e-3, atol=1e-2)
     assert "next fit" in w.panel.starts_note.text()
@@ -1447,7 +1496,8 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(qapp, sci
     assert panel.mode.text() == f"÷ plane {reference + 1}"
     assert f"A / A_ref (plane {reference + 1})" in panel.plot.getAxis("left").labelText
     assert "reference" in panel.legend.text()
-    assert "full gradient" in panel.note.text()
+    assert "±1σ of the ratio, conditional on lineshapes" in panel.note.text()
+    assert "full-gradient" in panel.note.toolTip()
     # The reference set persists across selections; recorded amplitudes never change.
     panel.show_profile(shown, 0)
     assert panel.normalized
@@ -1668,7 +1718,8 @@ def test_cluster_row_opens_the_cluster_page_with_recorded_values(workspace, scie
     assert panel.peak_page.isVisible()
     assert panel.peak_page.isAncestorOf(panel.profile_block)
     assert panel.cluster_link.isVisible()
-    assert panel.cluster_link.text() == f"Review cluster of {len(members)} ›"
+    assert panel.cluster_link.text() == "Review cluster ›"
+    assert panel.kind.text() == f"PEAK · CLUSTER OF {len(members)}"  # the size, said once
     panel.cluster_link.click()
     assert panel.cluster_view
     assert w.selected_id == target
@@ -2496,7 +2547,7 @@ def test_near_collinear_peaks_keep_working_positions_and_say_why(bundled_workspa
     labels = [label.text() for label in w.panel.peak_page.findChildren(QtWidgets.QLabel)]
     kept = "Fitted position not adopted: near-collinear fitted shapes with 147N-H"
     assert any(text.startswith(kept) for text in labels)
-    assert "Near-collinear fitted shapes: 53N-H / 147N-H" in labels
+    assert _review_row(w.panel.review, "Collinear") == "53N-H / 147N-H"
     assert "□ Fitted position not adopted · working position kept" in w.panel.status.text()
     withheld = w.panel.profile.withheld.text()
     assert "53N-H and 147N-H: reliability not established: near-collinear" in withheld
@@ -2531,11 +2582,11 @@ def test_qualifiers_stay_beside_values_and_explanations_open_in_place(workspace,
     panel = w.panel
     profile = panel.profile
     note = profile.note.text()
-    # Conditional σ and the noise treatment are separate, visible qualifiers; χ²ᵣ is
-    # beside them as a diagnostic.
-    assert "±1σ conditional on fixed lineshapes" in note
+    # Conditional σ and the noise treatment stay visible as short qualifiers; χ²ᵣ is
+    # one of the cluster's measures.
+    assert "±1σ conditional on lineshapes" in note
     assert "noise correlation not modelled" in note
-    assert "(fit diagnostic)" in note
+    assert "χ²ᵣ" not in note
     # The full explanation opens in place, by keyboard, not only as a tooltip.
     toggle = profile.about_toggle
     assert toggle.isVisible()
@@ -2546,8 +2597,16 @@ def test_qualifiers_stay_beside_values_and_explanations_open_in_place(workspace,
     assert "never rescaled by χ²ᵣ" in profile.about.text()
     assert "held fixed" in profile.about.text()
     # Measures: the reference maximum says what it assumes and is not a threshold.
-    texts = [label.text() for label in panel.peak_page.findChildren(QtWidgets.QLabel)]
-    assert any("independent Gaussian samples" in t and t.startswith("rough guide") for t in texts)
+    residual = _review_cell(panel.review, "Max residual")
+    assert "(guide " in residual.text()
+    assert "independent Gaussian samples" in residual.toolTip()
+    # The correlation keeps its qualifier on screen, just under the value.
+    row = next(
+        r
+        for r in range(panel.review.rowCount())
+        if (item := panel.review.itemAtPosition(r, 0)) and item.widget().text().startswith("ρ ")
+    )
+    assert panel.review.itemAtPosition(row + 1, 1).widget().text() == "conditional on lineshapes"
     assert "not a significance threshold" in panel.about.text()
     assert "correlated" in panel.about.text()
     # The measures' explanation keeps its state across selections and pages.
@@ -2561,9 +2620,11 @@ def test_qualifiers_stay_beside_values_and_explanations_open_in_place(workspace,
     assert profile.about_toggle.isChecked()
     assert not profile.about.isHidden()
     assert "see About these measures" in panel.cluster_page.matrix_note.text()
-    # Editing instructions moved to the fields; the unfolded qualifier stays.
+    # Editing instructions are in the fields; the unfolded qualifier is shown beside a
+    # displayed alias, where it changes what the numbers mean, and is otherwise a tooltip.
     w.select_peak(member)
-    assert panel.editor.details.text().endswith("Unfolded ppm")
+    assert panel.editor.details.text().startswith("Unfolded ppm · displayed alias")
+    assert "Unfolded ppm" in panel.editor.x_field.toolTip()
     assert "Escape discards" in panel.editor.x_field.toolTip()
     # The unexplained-signal list is framed as a diagnostic, never peak picking.
     w.select_peak(None)
