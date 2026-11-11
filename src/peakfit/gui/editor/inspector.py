@@ -19,10 +19,18 @@ from peakfit.gui import theme as themes
 from peakfit.gui.editing import PeakInspector
 from peakfit.gui.editor.cluster_page import (
     ABOUT_MEASURES,
+    CORRELATION_QUALIFIER,
     ClusterPage,
     review_rows,
 )
-from peakfit.gui.editor.labels import LABEL_WIDTH, about, disclosure, label_rows, show_text
+from peakfit.gui.editor.labels import (
+    LABEL_WIDTH,
+    about,
+    disclosure,
+    label_rows,
+    section,
+    show_text,
+)
 from peakfit.gui.editor.labels import clear_layout as _clear
 from peakfit.gui.editor.labels import text_label as _label
 from peakfit.gui.editor.profile import ProfilePlot, peak_profile
@@ -351,7 +359,7 @@ class Inspector(QtWidgets.QScrollArea):
         block = QtWidgets.QVBoxLayout(self.profile_block)
         block.setContentsMargins(0, 0, 0, 0)
         block.setSpacing(themes.SPACE_S)
-        self.profile_title = self._section(block, "Amplitude profile")
+        self.profile_title = section(block, "Amplitude profile")
         self.profile = ProfilePlot()
         self.profile.plane_requested.connect(self.plane_requested)
         block.addWidget(self.profile)
@@ -362,12 +370,12 @@ class Inspector(QtWidgets.QScrollArea):
         self.peak_profile_slot.setContentsMargins(0, 0, 0, 0)
         self.peak_profile_slot.addWidget(self.profile_block)
         peak.addLayout(self.peak_profile_slot)
-        self.fitted_title = self._section(peak, "Fitted")
+        self.fitted_title = section(peak, "Fitted")
         self.fitted = QtWidgets.QGridLayout()
         self.fitted.setHorizontalSpacing(themes.SPACE_S)
         self.fitted.setVerticalSpacing(3)
         peak.addLayout(self.fitted)
-        self.review_title = self._section(peak, "Cluster review")
+        self.review_title = section(peak, "Cluster review")
         self.review = QtWidgets.QGridLayout()
         self.review.setHorizontalSpacing(themes.SPACE_S)
         self.review.setVerticalSpacing(3)
@@ -408,7 +416,7 @@ class Inspector(QtWidgets.QScrollArea):
         setup = QtWidgets.QVBoxLayout(self.setup_block)
         setup.setContentsMargins(0, 0, 0, 0)
         setup.setSpacing(themes.SPACE_S)
-        self.setup_section = self._section(setup, "Fit setup")
+        self.setup_section = section(setup, "Fit setup")
         self.setup = FitSetup()
         setup.addWidget(self.setup)
         self.review_block = QtWidgets.QWidget()
@@ -417,7 +425,7 @@ class Inspector(QtWidgets.QScrollArea):
         analysis = QtWidgets.QVBoxLayout(self.review_block)
         analysis.setContentsMargins(0, 0, 0, 0)
         analysis.setSpacing(themes.SPACE_S)
-        self._section(analysis, "Active run")
+        section(analysis, "Active run")
         self.run_text = _label("", "", wrap=True)
         analysis.addWidget(self.run_text)
         self.changes_title = _label("", "caption")
@@ -429,7 +437,7 @@ class Inspector(QtWidgets.QScrollArea):
         self.next_button = QtWidgets.QPushButton("Select next cluster with a warning")
         self.next_button.clicked.connect(self.next_warning)
         analysis.addWidget(self.next_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
-        self.unexplained_section = self._section(analysis, "Signal not explained on this plane")
+        self.unexplained_section = section(analysis, "Signal not explained on this plane")
         self.unexplained_button = QtWidgets.QPushButton()
         self.unexplained_button.clicked.connect(self.unexplained_requested)
         analysis.addWidget(self.unexplained_button, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
@@ -451,13 +459,6 @@ class Inspector(QtWidgets.QScrollArea):
         self._key = None
         self.theme = themes.LIGHT
         self.set_peak(None, None)
-
-    @staticmethod
-    def _section(layout: QtWidgets.QVBoxLayout, text: str) -> QtWidgets.QLabel:
-        label = _label(text.upper(), "section")
-        layout.addSpacing(themes.SPACE_M)  # every section starts the same way
-        layout.addWidget(label)
-        return label
 
     def apply_theme(self, theme: themes.Theme) -> None:
         """Retint the profile; labels follow the stylesheet."""
@@ -897,7 +898,7 @@ class Inspector(QtWidgets.QScrollArea):
                 f"ρ {other}",
                 formatting.number(float(row[partner]), 2),
                 "",
-                "conditional on lineshapes",
+                CORRELATION_QUALIFIER,
                 "Strongest amplitude correlation with another member, conditional on "
                 "the fitted lineshapes",
             )

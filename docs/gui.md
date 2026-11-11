@@ -302,11 +302,13 @@ members (keeping the selected peak when it belongs to the cluster), so the clust
 is the unit of review while a peak stays the unit of editing. Under its header, a
 compact amber line names the cluster's numerical warnings (“▲ Uncertainty
 unreliable · see Review”); their explanations stay in Review. The cluster page
-lists the numbered members, each a link to its peak page; the amplitude profile of
-all members; a parameter table of every member's recorded values at display
-precision (± σ on hover, recorded bounds in amber); the recorded amplitude
-correlation matrix in member numbers, shaded by |ρ|, or why it is unavailable or
-not applicable; the cluster's warnings, measures and highlights; and provenance.
+lists the members one line each: its number, a link to its peak page and its
+recorded values at display precision (± σ on hover, recorded bounds in amber,
+units under the table); then the amplitude profile of all members; the recorded
+amplitude correlation, “conditional on lineshapes” (a single ρ row for two
+members, a matrix in member numbers shaded by |ρ| for more, why it is
+unavailable when the covariance was not recorded, and no section for a single
+peak); the cluster's review rows; and provenance.
 **Enter** or a double-click on a cluster row, **Focus cluster** on the cluster page,
 or **View → Focus cluster** (Cmd/Ctrl+Shift+F) puts the selected peak's recorded
 cluster in **focus**: the same spectral view, reframed in place on the displayed

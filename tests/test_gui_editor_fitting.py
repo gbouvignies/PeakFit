@@ -1663,6 +1663,21 @@ def _page_labels(page) -> list[str]:
     return [label.text() for label in page.findChildren(QtWidgets.QLabel) if label.isVisible()]
 
 
+def _assert_correlations(grid, matrix, order: list[int]) -> None:
+    """The page shows the recorded correlations in member order."""
+    shown = [
+        [formatting.number(round(float(matrix[a, b]), 2) + 0.0, 2) for b in order] for a in order
+    ]
+    if len(order) == 2:  # one value: a ρ row with its qualifier underneath
+        assert _review_cell(grid, "ρ").text() == shown[0][1]
+        assert grid.itemAtPosition(1, 1).widget().text() == "conditional on lineshapes"
+        return
+    for i in range(len(order)):
+        for j in range(len(order)):
+            text = grid.itemAtPosition(i + 1, j + 1).widget().text()
+            assert text == ("1" if i == j else shown[i][j])
+
+
 def test_cluster_row_opens_the_cluster_page_with_recorded_values(workspace, scientific):
     w, c = workspace, workspace.canvas
     result = scientific[-1]
@@ -1691,12 +1706,7 @@ def test_cluster_row_opens_the_cluster_page_with_recorded_values(workspace, scie
     assert matrix is not None
     engines = {i.working_id: i.engine_name for i in result.inputs.identities}
     order = [cluster.peak_names.index(engines[m]) for m in review.ids]
-    grid = panel.cluster_page.matrix
-    for i, a in enumerate(order):
-        for j, b in enumerate(order):
-            text = grid.itemAtPosition(i + 1, j + 1).widget().text()
-            expected = "1" if i == j else formatting.number(round(float(matrix[a, b]), 2) + 0.0, 2)
-            assert text == expected
+    _assert_correlations(panel.cluster_page.matrix, matrix, order)
     # Parameter cells are the recorded values at display precision, σ in the tooltip.
     parameter = next(p for p in cluster.final_nonlinear_parameters if p.name.endswith(".lw"))
     cells = [
@@ -1751,7 +1761,39 @@ def test_cluster_page_explains_missing_correlations(workspace, scientific):
     )
     if single is not None:
         w.select_peak(identities[single.peak_names[0]], cluster=True)
-        assert "Not applicable: a single-peak cluster." in _page_labels(w.panel.cluster_page)
+        # Nothing to correlate: the section is not shown at all.
+        assert w.panel.cluster_page.correlation_title.isHidden()
+        assert w.panel.cluster_page.matrix_note.isHidden()
+
+
+def test_the_cluster_page_lists_each_member_once(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    cluster = next(cl for cl in result.outcome.clusters if cl.usable and len(cl.peak_names) > 1)
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    w.select_peak(identities[cluster.peak_names[0]], cluster=True)
+    page = w.panel.cluster_page
+    review = next(r for r in w.reviews() if r.cluster_id == cluster.cluster_id)
+    grid = page.members
+    # One line per member: its number, a link to its page, then its recorded values.
+    for row, name in enumerate(review.names, 1):
+        assert grid.itemAtPosition(row, 0).widget().text() == str(row)
+        link = grid.itemAtPosition(row, 1).layout().itemAt(0).widget()
+        assert link.text() == name
+        assert grid.itemAtPosition(row, 2).widget().toolTip().count("±") == 1
+    sections = sorted(t for t in _page_labels(page) if t.isupper())
+    assert sections == ["AMPLITUDE CORRELATION", "MEMBERS", "REVIEW"]  # no Parameters
+    assert page.members_note.text() == "δ in ppm · LW in Hz"
+    # Provenance opens like every other disclosure, from the same left edge.
+    assert page.provenance_toggle.text() == "▸  Provenance"
+    left = page.about_toggle.mapTo(page, QtCore.QPoint(0, 0)).x()
+    assert page.provenance_toggle.mapTo(page, QtCore.QPoint(0, 0)).x() == left
+    page.provenance_toggle.click()
+    assert page.provenance.isVisible()
+    assert page.provenance_toggle.text() == "▾  Provenance"
+    # The table never pushes the inspector wider than its viewport.
+    assert w.panel.widget().width() <= w.panel.viewport().width()
 
 
 def test_cluster_page_names_numerical_warnings_at_the_top(workspace, scientific):
@@ -2619,7 +2661,7 @@ def test_qualifiers_stay_beside_values_and_explanations_open_in_place(workspace,
     # The profile's explanation stays open too (the profile fills once on show).
     assert profile.about_toggle.isChecked()
     assert not profile.about.isHidden()
-    assert "see About these measures" in panel.cluster_page.matrix_note.text()
+    assert "see About these measures" in panel.cluster_page.matrix_note.toolTip()
     # Editing instructions are in the fields; the unfolded qualifier is shown beside a
     # displayed alias, where it changes what the numbers mean, and is otherwise a tooltip.
     w.select_peak(member)

@@ -122,10 +122,10 @@ The inspector shows one page, chosen by selection and never by hover:
   values of the active run with value, σ and unit, labeled by run; the review items
   of its cluster; and the amplitude profile with the other cluster members.
 - **Cluster** (chosen in the cluster list or with N; a peak page links to it, and
-  each member links back; the selected peak stays the unit of editing): members,
-  numerical warnings, review measures and heuristics (§8),
-  amplitude profiles of all members, parameter table and amplitude-correlation
-  matrix.
+  each member links back; the selected peak stays the unit of editing): members
+  with their recorded parameters, one line each; numerical warnings, review
+  measures and heuristics (§8); amplitude profiles of all members; and amplitude
+  correlation (one ρ for two members, a matrix for more, none for a single peak).
 
 The profile plot is at least 280×170 px at 1280×800. A page scrolls as a whole;
 there are no nested scroll areas. Provenance (optimizer, termination message,
