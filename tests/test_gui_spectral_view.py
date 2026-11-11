@@ -102,40 +102,59 @@ def test_residual_mode_shows_residuals_in_the_slices_and_keeps_the_lane_preferen
     assert c.box.viewRange() == ranges
 
 
-def test_a_manual_scale_survives_hover_planes_and_zoom_until_reset(fitted):
+def _own_ranges(c):
+    """Each slice's rule: its visible samples over every plane, zero included."""
+    rows = slices.index_range(c.y_axis, c.box.viewRange()[1])
+    columns = slices.index_range(c.x_axis, c.box.viewRange()[0])
+    extremes = slices.plane_extremes(c.spectra.data)
+    return (
+        slices.intensity_range(extremes, (c.iy, c.iy), columns),
+        slices.intensity_range(extremes, rows, (c.ix, c.ix)),
+    )
+
+
+def test_the_gain_survives_hover_planes_and_zoom_until_reset(fitted):
     c = fitted.canvas
-    region = c.slice_bounds()
-    c.scale_intensity(120)  # wheel up: a narrower manual range
-    manual = c.slice_bounds()
-    assert manual != region
-    assert c.manual_scale == manual
-    assert "manual" in c.caption.text()
+    assert c.caption.text() == ""  # nothing to say at the default scale
+    c.scale_intensity(120)  # wheel up: magnify both slices
+    assert c.gain == pytest.approx(1.25)
+    assert "Slices ×1.25" in c.caption.text()
     c.sample(float(c.ppm_x[3]), float(c.ppm_y[4]))
     fitted.set_plane(2)
     (x0, x1), (y0, y1) = c.box.viewRange()
     c.set_ranges((x0, (x0 + x1) / 2), (y0, (y0 + y1) / 2))
-    assert c.slice_bounds() == manual
+    assert c.gain == pytest.approx(1.25)
+    expected = [np.divide(bounds, 1.25) for bounds in _own_ranges(c)]
+    np.testing.assert_allclose(c.slice_bounds(), expected)
     # Lanes scale on their own.
     c.scale_lanes(-120)
     assert c.lane_sigma == pytest.approx(LANE_SIGMA * 1.25)
-    assert c.slice_bounds() == manual
+    assert c.gain == pytest.approx(1.25)
     c.scale_intensity(None)
-    assert c.manual_scale is None
-    assert "manual" not in c.caption.text()
+    assert c.gain == 1
+    assert "Slices ×" not in c.caption.text()
 
 
-def test_the_region_scale_follows_deliberate_view_changes_only(fitted):
+def test_each_slice_scales_to_its_own_visible_samples_over_all_planes(fitted):
     c = fitted.canvas
-    before = c.slice_bounds()
-    c.sample(float(c.ppm_x[1]), float(c.ppm_y[1]))
-    fitted.select_peak(fitted.peaks[1].id)  # may shift the view to keep it visible
-    assert c.slice_bounds() == before
+    c.sample(*c.display(fitted.peaks[0]))
+    through_peak = c.slice_bounds()
+    assert through_peak == _own_ranges(c)
+    np.testing.assert_allclose(c.row_box.viewRange()[1], through_peak[0])
+    np.testing.assert_allclose(c.column_box.viewRange()[0], through_peak[1])
+    # Planes keep the range, so amplitudes compare from plane to plane.
+    fitted.set_plane(2)
+    assert c.slice_bounds() == through_peak
+    # Hover follows the row and column shown: baseline gets its own, smaller range.
+    c.sample(float(c.ppm_x[0]), float(c.ppm_y[0]))
+    assert c.slice_bounds() == _own_ranges(c)
+    assert c.slice_bounds()[0][1] < through_peak[0][1]
+    # So does a deliberate view change.
     (x0, x1), (y0, y1) = c.box.viewRange()
     c.set_ranges((x0, x0 + (x1 - x0) / 8), (y0, y0 + (y1 - y0) / 8))
-    low, high = c.slice_bounds()
-    assert low <= 0 <= high
-    c.full_spectrum()
-    assert c.slice_bounds() == before
+    assert c.slice_bounds() == _own_ranges(c)
+    for low, high in c.slice_bounds():
+        assert low <= 0 <= high
 
 
 def test_clipped_data_and_model_are_counted_separately(fitted):
@@ -261,7 +280,7 @@ def test_double_clicks_reset_scales_and_sizes_with_real_events(fitted, qapp):
     c.scale_lanes(120)
     QtTest.QTest.mouseDClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=_at(c, c.row_box))
     qapp.processEvents()
-    assert c.manual_scale is None
+    assert c.gain == 1
     QtTest.QTest.mouseDClick(viewport, QtCore.Qt.MouseButton.LeftButton, pos=_at(c, c.row_lane))
     qapp.processEvents()
     assert c.lane_sigma == LANE_SIGMA
@@ -272,7 +291,7 @@ def test_double_clicks_reset_scales_and_sizes_with_real_events(fitted, qapp):
     assert c.sizes.row == SliceSizes().row
 
 
-def test_a_wheel_zoom_commits_the_region_scale_of_the_new_view(fitted, qapp):
+def test_a_wheel_zoom_rescales_the_slices_to_the_new_view(fitted, qapp):
     c = fitted.canvas
     viewport = c.view.viewport()
     before = c.box.viewRange()
@@ -294,21 +313,18 @@ def test_a_wheel_zoom_commits_the_region_scale_of_the_new_view(fitted, qapp):
         )
     assert c.box.viewRange() != before
     wait_until(lambda: not c._commit.isActive())
-    rows = slices.index_range(c.y_axis, c.box.viewRange()[1])
-    columns = slices.index_range(c.x_axis, c.box.viewRange()[0])
-    assert c.slice_bounds() == slices.intensity_range(c.spectra.data, rows, columns)
+    assert c.slice_bounds() == _own_ranges(c)
 
 
-def test_the_readout_carries_the_sample_in_the_caption_scale_and_the_status_bar_stays_quiet(
-    fitted, qapp
-):
+def test_the_readout_shares_one_power_of_ten_and_the_status_bar_stays_quiet(fitted, qapp):
     c = fitted.canvas
     status = []
     c.status_changed.connect(status.append)
     c.sample(float(c.ppm_x[5]), float(c.ppm_y[6]))
-    # One number style: the readout uses the caption's power of ten.
-    power = formatting.exponent(max(abs(v) for v in c.slice_bounds()))
+    # One number style: intensity and model share the larger one's power of ten.
     value = float(c.spectra.data[c.plane, c.iy, c.ix])
+    model = float(c._model.values[c.iy, c.ix]) if c._model is not None else 0.0
+    power = formatting.exponent(max(abs(value), abs(model)))
     expected = f"{value * 10.0**-power:.6g}"
     assert f"I {expected}" in c.readout.text()
     assert "e+" not in c.readout.text()

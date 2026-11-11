@@ -636,23 +636,24 @@ unchanged.
 
 ### Slice scales
 
-Both slices share one **region intensity scale**: from min(0, lowest) to max(0,
-highest) of the measured data over the visible 2D region and every plane, padded by
-5 % of the span. It is asymmetric so one-signed spectra use the whole height, and
-always includes a visible zero. Measured and model share it; no independent
-normalization. It holds through hover, list navigation and plane changes and is
-recomputed only on a deliberate view change (zoom, pan, Full spectrum, framing),
-from the visible region, never from fitting masks. The wheel over a slice sets a
-**manual** scale, labelled as such, that persists through hover, planes and zoom
-until a double-click or reset, a new dataset, or focus on an unrelated cluster.
+Each slice has its own **intensity range**: from min(0, lowest) to max(0, highest)
+of the measured data at its visible samples over every plane, padded by 5 % of the
+span. It is asymmetric so one-signed spectra use the whole height, and always
+includes a visible zero. Within a slice, measured and model share it; no
+independent normalization. It follows what the slice shows (the sampled row or
+column, zoom, pan, framing), never fitting masks, and holds through plane changes
+so amplitudes compare across planes. The wheel over a slice sets a **gain** on both
+slices that persists through hover, planes and zoom until a double-click or reset,
+a new dataset, or focus on an unrelated cluster.
 Residual lanes, and the slices in Residual, share one ±N σ_stat scale (±8 by
 default) set independently by the wheel over a lane.
 
-Annotations are minimal: a zero baseline, one caption with the scale, its units and
-clipping counts, and exact values in a corner readout; the 2D ppm axes and profile
-axes stay quantitative. Clipped samples are marked at the edge, data (filled) and
-model (hollow) distinctly; no silent clipping. Slice updates extract only native
-row/column data; extrema are not rescanned on hover. Model tails remain visible
+Annotations are minimal: a zero baseline, no intensity axis, a caption only for the
+residual or lane scale, a gain or clipping counts, and exact values in a corner
+readout; the 2D ppm axes and profile axes stay quantitative. Clipped samples are
+marked at the edge, data (filled) and model (hollow) distinctly; no silent
+clipping. Slice updates extract only the native row/column and its strip over the
+planes. Model tails remain visible
 without silent cutoffs.
 
 ### Two residuals, never mixed
@@ -1105,7 +1106,7 @@ fixtures with signed overlap, aliases, unusable clusters and repeated plane valu
 | SCI-4 | Drafts, including invalid text, preserve current comparison/mode/scale; Escape removes only the draft. Every committed manual scientific edit invalidates comparison. Undo alone never recertifies. Accepted arrays/parameters remain unchanged; cancellation publishes no partial outcome. |
 | SCI-6 | Successful completion atomically adopts every usable valid fitted position by stable ID, preserves exact submitted seeds and result, and stays Current through the recorded completion transition. Mixed unusability retains prior position pairs with warnings. Test aliases, duplicate assignments, non-convergence, uncertainty warnings, malformed mappings, crash/cancel and no-op shifts. Next fit prepares fresh masks/clusters from optimized seeds. |
 | UX-5 | Twenty place/fit/adjust/refit cycles require no Apply/transfer, settings dialog or third-run save prompt; routine fits run the visible working settings. History remains navigable with explicit evidence levels and bounded memory/payload retention. |
-| UX-6 | Hover ≥500 samples across strong/weak peaks, several planes and both signs: amplitude limits remain unchanged, measured/calculated axes agree, mode-specific scales restore exactly and clipping is explicit. |
+| UX-6 | Hover ≥500 samples across strong/weak peaks, several planes and both signs: each slice's range follows its own samples and holds across planes, measured/calculated axes agree, mode-specific scales restore exactly and clipping is explicit. |
 | SCI-5 | Sampling uses the selected cluster's exact validated parent problem; cancellation, incomplete chains, unavailable intervals and diagnostic assumptions are visible. Analytical and MCMC uncertainty labels/exports retain their actual meanings. |
 | SAVE-1 | Save → close → reopen preserves working values, exact review arrays, run-derived currentness, exact initial versus optimized coordinates, original plane identity and retained chains without refitting. Verify model reconstruction by evaluation separately from numerical-only reopening. Corrupt/missing inputs, disk-full, interrupted save and version mismatch have explicit tested outcomes. |
 | SAVE-2 | First Save, routine Save and Save as contain no original full spectra, full calculated spectra or persistent display caches. Two independently saved projects reference the same verified dataset without copying or modifying it; Save as rebases usable relative paths and preserves fingerprints. Resolved plane metadata and working peaks reopen without their import files. |

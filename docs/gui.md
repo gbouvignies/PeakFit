@@ -239,23 +239,25 @@ model tails outside fitting masks. Default signed contours are ±3, ±5, ±8, ±
 ±21 σ_stat; Display can scale these levels by changing the first residual contour.
 Absence of contours means below the visible threshold.
 
-In Experimental and Overlay, both slices share one **region intensity scale**: from
-min(0, lowest) to max(0, highest) of the data over the visible 2D region and every
-plane, padded by 5 % of the span, so zero is always included and positive and
-negative signals keep their own extents. It stays fixed while you hover, pin or
-change plane, and is recomputed only after a deliberate view change (zoom, pan,
-Full spectrum, a framed region or cluster). Overlay draws the total model at the
+In Experimental and Overlay, each slice has its own intensity range: from
+min(0, lowest) to max(0, highest) of its visible samples over every plane, padded
+by 5 % of the span, so zero is always included and positive and negative signals
+keep their own extents. The range follows what the slice shows (a new row or
+column under the crosshair, zoom, pan, a framed region or cluster) and stays fixed
+while you change plane, so amplitudes compare from plane to plane. The slices have
+no intensity axis. Overlay draws the total model at the
 same native samples (dashed). Optional **residual lanes** under each slice show
 `(D − M) / σ_stat` on one shared ±N σ_stat scale (±8 by default), set separately
 from the intensity scale. In **Residual** the slices themselves show the residual
 on that scale and the lanes hide; your lane choice returns with Overlay. The wheel
-over a slice sets a **manual** scale, labelled “manual”, which persists through
-hover, planes and zoom until a double-click on the slice, **Slice intensities from
-the view**, a new dataset or focusing another cluster; the wheel over a lane sets the lane scale. A caption above the
-row slice gives the scale with its units and counts clipped samples, ▲ for data and
-△ for the model; the corner readout gives the values at the sample in the caption's
-power of ten (the status bar repeats them only when a collapsed column slice leaves
-no room for the readout). Drag the
+over a slice magnifies both slices (a **gain**, shown as “Slices ×1.25”), which
+persists through hover, planes and zoom until a double-click on the slice,
+**Default slice intensities**, a new dataset or focusing another cluster; the wheel
+over a lane sets the lane scale. A caption above the row slice appears only when
+there is something to say: the residual or lane scale, the gain, and counts of
+clipped samples, ▲ for data and △ for the model. The corner readout gives the exact
+values at the sample, intensity and model in one power of ten (the status bar
+repeats them only when a collapsed column slice leaves no room for the readout). Drag the
 divider between a slice and the plot to resize it (below 48 px it collapses; drag
 it back to reopen), double-click a divider for the default size. **View → Slices**
 offers all of these from the menu and keyboard.

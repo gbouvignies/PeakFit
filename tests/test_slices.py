@@ -13,6 +13,7 @@ from peakfit.gui.editor.slices import (
     index_range,
     intensity_range,
     native_index,
+    plane_extremes,
     residual,
 )
 from peakfit.gui.spectrum import display_position, read_dataset
@@ -41,20 +42,20 @@ def test_a_folded_negative_peak_slices_at_its_displayed_row(dataset):
 def test_intensity_range_is_asymmetric_and_includes_zero():
     data = np.zeros((3, 4, 4))
     data[1, 1, 1] = 10.0
-    assert intensity_range(data, (0, 3), (0, 3)) == pytest.approx((-0.5, 10.5))
+    assert intensity_range(plane_extremes(data), (0, 3), (0, 3)) == pytest.approx((-0.5, 10.5))
     data[2, 2, 2] = -2.0
-    assert intensity_range(data, (0, 3), (0, 3)) == pytest.approx((-2.6, 10.6))
+    assert intensity_range(plane_extremes(data), (0, 3), (0, 3)) == pytest.approx((-2.6, 10.6))
     negative = -np.abs(data)
-    low, high = intensity_range(negative, (0, 3), (0, 3))
+    low, high = intensity_range(plane_extremes(negative), (0, 3), (0, 3))
     assert high > 0 > low
-    assert intensity_range(np.zeros((2, 2, 2)), (0, 1), (0, 1)) == (-1.0, 1.0)
+    assert intensity_range(plane_extremes(np.zeros((2, 2, 2))), (0, 1), (0, 1)) == (-1.0, 1.0)
 
 
 def test_intensity_range_covers_every_plane_of_the_region_only():
     data = np.zeros((2, 6, 6))
     data[1, 0, 0] = 100.0  # outside the region
     data[0, 3, 3] = 5.0  # inside, on another plane
-    assert intensity_range(data, (2, 4), (2, 4))[1] == pytest.approx(5.25)
+    assert intensity_range(plane_extremes(data), (2, 4), (2, 4))[1] == pytest.approx(5.25)
 
 
 def test_index_range_and_clipping(dataset):

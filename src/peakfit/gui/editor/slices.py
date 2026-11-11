@@ -36,18 +36,26 @@ def index_range(axis: SpectralParameters, ppm_range: Sequence[float]) -> tuple[i
     return first, last
 
 
+def plane_extremes(data: np.ndarray) -> np.ndarray:
+    """Each sample's lowest and highest intensity over the planes: (2, row, column).
+
+    Computed once per dataset so a slice range costs one row or column, not every
+    plane. ``data`` is (plane, row, column) and finite, as loading requires.
+    """
+    return np.stack((data.min(axis=0), data.max(axis=0)))
+
+
 def intensity_range(
-    data: np.ndarray, rows: tuple[int, int], columns: tuple[int, int]
+    extremes: np.ndarray, rows: tuple[int, int], columns: tuple[int, int]
 ) -> tuple[float, float]:
     """Asymmetric bounds over a region and every plane, always including zero.
 
     The lower bound is min(0, min D) and the upper max(0, max D), each padded by
-    ``RANGE_PAD`` of the span. ``data`` is (plane, row, column).
+    ``RANGE_PAD`` of the span. ``extremes`` comes from :func:`plane_extremes`.
     """
-    region = data[:, rows[0] : rows[1] + 1, columns[0] : columns[1] + 1]
-    finite = region[np.isfinite(region)]
-    low = min(0.0, float(finite.min())) if finite.size else 0.0
-    high = max(0.0, float(finite.max())) if finite.size else 0.0
+    region = extremes[:, rows[0] : rows[1] + 1, columns[0] : columns[1] + 1]
+    low = min(0.0, float(region[0].min()))
+    high = max(0.0, float(region[1].max()))
     span = high - low
     if span == 0:
         return -1.0, 1.0

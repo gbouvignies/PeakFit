@@ -55,12 +55,14 @@ def test_native_arrays_plane_order_alignment_and_resize(workspace, qapp):
         qapp.processEvents()
         canvas.set_ranges((7.5, 9), (115, 125))
         qapp.processEvents()
-        # The region rule: asymmetric bounds over the visible region and every plane.
+        # Each slice: asymmetric bounds over its own visible samples and every plane.
         rows = slices.index_range(canvas.y_axis, (115, 125))
         columns = slices.index_range(canvas.x_axis, (7.5, 9))
-        bounds = slices.intensity_range(canvas.spectra.data, rows, columns)
-        assert canvas.slice_bounds() == bounds
-        assert bounds[0] < 0 < bounds[1]
+        data = slices.plane_extremes(canvas.spectra.data)
+        row = slices.intensity_range(data, (canvas.iy, canvas.iy), columns)
+        column = slices.intensity_range(data, rows, (canvas.ix, canvas.ix))
+        assert canvas.slice_bounds() == (row, column)
+        assert row[0] <= 0 <= row[1]
         for plane in (1, 60, 131):
             workspace.set_plane(plane)
             ix, iy = canvas.ix, canvas.iy
@@ -70,10 +72,10 @@ def test_native_arrays_plane_order_alignment_and_resize(workspace, qapp):
             np.testing.assert_array_equal(
                 canvas.curve_y.getData()[0], canvas.spectra.data[plane - 1, :, ix]
             )
-            # Locked across planes: the scale changes only with a deliberate view change.
-            assert canvas.slice_bounds() == bounds
-            np.testing.assert_allclose(canvas.row_box.viewRange()[1], bounds)
-            np.testing.assert_allclose(canvas.column_box.viewRange()[0], bounds)
+            # Kept across planes, so amplitudes compare from plane to plane.
+            assert canvas.slice_bounds() == (row, column)
+            np.testing.assert_allclose(canvas.row_box.viewRange()[1], row)
+            np.testing.assert_allclose(canvas.column_box.viewRange()[0], column)
         for x, y in ((7.75, 118), (8.5, 122)):
             main = canvas.box.mapViewToScene(QtCore.QPointF(x, y))
             row = canvas.row_box.mapViewToScene(QtCore.QPointF(x, 0))
@@ -242,15 +244,16 @@ def test_keyboard_sample_text_and_hidden_panels(workspace, qapp):
 def test_preview_does_no_contour_or_marker_work_and_cache_is_bounded(workspace):
     canvas = workspace.canvas
     jobs, markers = canvas.contour_jobs, canvas.marker_rebuilds
-    bounds = canvas.slice_bounds()
     for i in range(500):
         canvas.sample(
             float(canvas.ppm_x[i % len(canvas.ppm_x)]), float(canvas.ppm_y[i % len(canvas.ppm_y)])
         )
     assert canvas.contour_jobs == jobs
     assert canvas.marker_rebuilds == markers
-    # Hover never rescales the slices.
-    assert canvas.slice_bounds() == bounds
+    # Hover rescales each slice to the row and column it now shows.
+    row, column = canvas.slice_bounds()
+    np.testing.assert_allclose(canvas.row_box.viewRange()[1], row)
+    np.testing.assert_allclose(canvas.column_box.viewRange()[0], column)
     for plane in range(1, 13):
         workspace.set_plane(plane)
         wait_until(lambda: not canvas.contour_pending)

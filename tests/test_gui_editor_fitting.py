@@ -107,11 +107,13 @@ def test_atomic_completion_comparison_draft_edit_and_export(workspace, scientifi
     np.testing.assert_array_equal(c.curve_x.getData()[1], residual[c.iy, :])
     np.testing.assert_array_equal(c.curve_y.getData()[0], residual[:, c.ix])
     jobs = c.contour_jobs
-    bounds = c.slice_bounds()
     for _ in range(500):
         c.sample(float(c.ppm_x[12]), float(c.ppm_y[13]))
     assert c.contour_jobs == jobs
-    assert c.slice_bounds() == bounds
+    # Residual slices keep the lane scale wherever the crosshair goes.
+    lane = [-canvas_module.LANE_SIGMA, canvas_module.LANE_SIGMA]
+    np.testing.assert_allclose(c.row_box.viewRange()[1], lane)
+    np.testing.assert_allclose(c.column_box.viewRange()[0], lane)
     # A draft never invalidates accepted science; one commit does, including Undo.
     w.inspector.x_field.setText("8.123456789")
     assert w.fitting.current
@@ -831,9 +833,9 @@ def test_slices_and_focus_have_menu_and_keyboard_alternatives(qapp, scientific, 
     actions["Default slice sizes"].trigger()
     assert (c.sizes.row, c.sizes.column) == (row, column)
     actions["Magnify slice intensities"].trigger()
-    assert c.manual_scale is not None
-    actions["Slice intensities from the view"].trigger()
-    assert c.manual_scale is None
+    assert c.gain > 1
+    actions["Default slice intensities"].trigger()
+    assert c.gain == 1
     actions["Reduce residual lanes"].trigger()
     assert c.lane_sigma > canvas_module.LANE_SIGMA
     actions["Default residual lanes"].trigger()
@@ -1761,7 +1763,7 @@ def test_cluster_focus_frames_compares_and_returns_exactly(workspace, scientific
     member = identities[cluster.peak_names[0]]
     nav = w.navigator
     nav.tree.setCurrentItem(nav._clusters[member])
-    c.scale_intensity(120)  # an overview manual scale, kept aside while in focus
+    c.scale_intensity(120)  # an overview gain, kept aside while in focus
     view, mode, sizes = c.box.viewRange(), c.comparison_mode, w.splitter.sizes()
     shown, sample = c.slice_state(), (c.ix, c.iy, c.pinned, c.pin_peak_id)
     nav.tree.setFocus()
@@ -1774,7 +1776,7 @@ def test_cluster_focus_frames_compares_and_returns_exactly(workspace, scientific
     # The one spectral view, reframed in place: every mode stays available.
     assert all(button.isEnabled() for button in w.mode_buttons)
     assert c.sizes.lanes  # focus shows the residual lanes
-    assert c.manual_scale is None  # a new cluster takes the region rule
+    assert c.gain == 1  # a new cluster starts unmagnified
     # Default framing: displayed members ± max(3 fitted FWHM, 8 samples), not the masks.
     members = [p for p in w.peaks if p.id in w._focus_ids]
     assert {p.id for p in members} == {identities[n] for n in cluster.peak_names}

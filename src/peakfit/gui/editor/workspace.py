@@ -1580,7 +1580,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         if review.ids != self._frame_key:
             if self._frame_key is None or set(review.ids).isdisjoint(self._frame_key):
-                self.canvas.scale_intensity(None)  # an unrelated cluster: the region rule
+                self.canvas.scale_intensity(None)  # an unrelated cluster: gain 1
             self._frame_key = review.ids
             self._frame_focus()
 

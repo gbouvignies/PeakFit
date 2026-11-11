@@ -1,9 +1,9 @@
 {
-  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
   "qt_platform": "cocoa",
   "dpr": 2.0,
-  "fit_s": 5.814111166999282,
-  "run": "198e39c9",
+  "fit_s": 5.473971915998845,
+  "run": "13722a76",
   "input_method": "deterministic scene deliveries; 16 ms timer; exposed Qt paint",
   "layouts": [
     {
@@ -77,28 +77,49 @@
     }
   ],
   "scale": {
-    "full_view": [
-      -1311843.91875,
-      2736701.54375
+    "through_peak": [
+      [
+        -217921.46015625,
+        2164047.56953125
+      ],
+      [
+        -163096.06699218752,
+        2161436.8365234374
+      ]
+    ],
+    "elsewhere": [
+      [
+        -95755.548828125,
+        691736.728515625
+      ],
+      [
+        -62450.3759765625,
+        61408.7861328125
+      ]
+    ],
+    "zoomed": [
+      [
+        -217921.46015625,
+        2164047.56953125
+      ],
+      [
+        -163096.06699218752,
+        2161436.8365234374
+      ]
     ],
     "zero_included": true,
-    "hover_stable": true,
-    "planes_stable": true,
-    "zoomed": [
-      -1183283.684375,
-      2259639.246875
-    ],
-    "zoom_follows_region": true
+    "follows_each_slice": true,
+    "planes_stable": true
   },
   "hover_overlay_lanes": {
-    "p50_ms": 4.351062500063563,
-    "p95_ms": 6.145377099983306,
-    "p99_ms": 6.517897249050293,
-    "max_ms": 8.156583000527462,
+    "p50_ms": 8.33954200061271,
+    "p95_ms": 9.19656314435997,
+    "p99_ms": 9.585119586990913,
+    "max_ms": 12.128417001804337,
     "events": 500,
     "painted": 500
   },
-  "hover_target_p95_ms": 8.0,
+  "hover_target_p95_ms": 10.0,
   "transitions": {
     "residual_hides_lanes_keeps_preference": true,
     "mode_keeps_view_sample_selection": true,
@@ -116,7 +137,7 @@
         116.04080714982194
       ]
     ],
-    "focus_open_ms": 78.40050000049814,
+    "focus_open_ms": 64.71175000478979,
     "focus_restores_overview_exactly": true
   },
   "persistence": {
