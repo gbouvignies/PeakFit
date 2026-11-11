@@ -38,12 +38,15 @@ and the window stays open so you can choose **Open dataset…** or **Open analys
 
 Use **Open dataset…** for 2D/pseudo-3D NMRPipe spectra, optionally with a peak list
 and plane-values file. Choose the peak-axis order explicitly from your file's
-metadata. The reader's first/second coordinates map to the two spectral axes;
-`indirect-direct` places the first coordinate vertically and the second
-horizontally. No mapping is inferred from assignment names. A validated preview
-shows actual axes, dimensions and example assignments before replacement. Cancel
-or failed validation retains the current dataset. Loading can be canceled while
-its private file read finishes.
+metadata: **Indirect, then direct** (`indirect-direct`) places the first coordinate
+vertically and the second horizontally; **Direct, then indirect** swaps them. No
+mapping is inferred from assignment names. A valid dataset opens directly. When
+more than half of the peaks lie outside the direct (horizontal) axis window with
+the chosen mapping, PeakFit says how many, and how many the other mapping would
+leave outside, and asks before opening (or importing peaks); it never picks the
+mapping. Indirect positions outside the window are not counted, since they can be
+folded peaks. Cancel or failed validation retains the current dataset. Loading can
+be canceled while its private file read finishes.
 
 The **row slice** above the 2D plot and the **column slice** to its right are native
 row/column cross-sections: lines through the native samples, with no markers and

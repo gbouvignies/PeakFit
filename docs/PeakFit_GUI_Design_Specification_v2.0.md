@@ -470,14 +470,15 @@ The empty window offers **Open dataset…** and **Open analysis…**, with a sho
 recent list. Opening a dataset accepts an optional peak list and plane-values file
 in the same compact form, while allowing later import. Initial supported spectra
 are the existing 2D/pseudo-3D NMRPipe inputs; do not claim arbitrary nD import.
-Readers remain the authority for supported peak formats. A preview shows shape,
-axis names/units, plane count and sample assignments before replacement commits.
+Readers remain the authority for supported peak formats. A valid dataset opens
+without a confirmation step: the spectrum with its peaks is the preview.
 
 Validate dimensions, axis metadata, finite coordinates, plane-value count and row
 parsing off the GUI thread. Explain unsupported formats, incomplete files and
 ambiguous axis mappings before publishing a workspace. When peak axis order is
-not established by file metadata, require an explicit mapping with preview; never
-guess from the field names alone. A failed import leaves the existing analysis
+not established by file metadata, require an explicit mapping; never guess from
+the field names alone. When most peaks fall outside the direct axis window with the
+chosen mapping, say so with counts for both mappings and ask before opening. A failed import leaves the existing analysis
 intact. Large imports show cancellable progress; do not publish half-loaded data.
 
 No peak list means inspection and manual placement are available, with Fit disabled

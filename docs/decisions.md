@@ -1000,3 +1000,14 @@ Short records of non‑obvious design choices and trade‑offs.
   within the same criterion. Clusters must agree on the number of fitted planes,
   as in the pointwise path. The pointwise `project_final_outcome`
   and the CLI's full-grid simulation are unchanged, so no output file changes.
+
+## 2026-11-11: A dataset opens without a confirmation; a suspicious mapping is checked
+- **Change.** The "Open validated dataset" box is removed. It repeated the chosen
+  files with 8-decimal ppm ranges and six peak names, so it could not show whether
+  the peak-axis mapping was wrong. Instead, `gui.spectrum.mapping_warning` counts
+  the peaks outside the direct axis window; when more than half are, opening or
+  importing peaks asks first, with the count for each mapping.
+- **Why.** A swapped mapping is the one mistake to catch at this step, and on the
+  bundled data it puts 166 of 166 peaks outside the direct (H) window against 0 for the
+  right mapping. The indirect axis is not counted because folded peaks lie outside
+  it legitimately. The check reports and never chooses; opening anyway stays possible.

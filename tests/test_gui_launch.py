@@ -37,15 +37,18 @@ def started(qapp, monkeypatch):
     monkeypatch.setattr(
         QtWidgets.QMessageBox, "warning", lambda *args, **_kwargs: warnings.append(args[1:])
     )
+    # The peak-axis mapping check is answered "Open anyway" and recorded.
+    asked = []
+    monkeypatch.setattr(QtWidgets.QMessageBox, "exec", lambda dialog: asked.append(dialog.text()))
     monkeypatch.setattr(
         QtWidgets.QMessageBox,
-        "question",
-        lambda *_args, **_kwargs: QtWidgets.QMessageBox.StandardButton.Open,
+        "clickedButton",
+        lambda dialog: next(b for b in dialog.buttons() if b.text() == "Open anyway"),
     )
 
     def run(*args, **kwargs):
         launch(*args, **kwargs)
-        return windows[0], warnings
+        return windows[0], warnings + asked
 
     yield run
     for window in windows:
@@ -66,7 +69,8 @@ def test_dataset_with_peaks_values_and_mapping(started, swap) -> None:
     peaks = DATA / "pseudo3d.list"
     values = DATA / "b1_offsets.txt"
     window, warnings = started(DATA / "pseudo3d.ft2", peaks, values, swap_peak_axes=swap)
-    assert warnings == []
+    # Only the swapped mapping, which puts every peak outside the ¹H window, asks first.
+    assert warnings == (["Most peaks lie outside the spectrum"] if swap else [])
     assert window.workspace is not None
     expected = read_dataset(DATA / "pseudo3d.ft2", peaks, values, swap_peak_axes=swap)
     assert [p.positions for p in window.workspace.peaks] == [p.positions for p in expected.peaks]

@@ -14,6 +14,7 @@ from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.peaks import export_peaks
 from peakfit.gui.spectrum import (
     Dataset,
+    mapping_warning,
     read_assignments,
     read_dataset,
     validate_plane_values,
@@ -52,20 +53,13 @@ class OpenDatasetDialog(QtWidgets.QDialog):
             form.addRow(label, row)
         self.mapping = QtWidgets.QComboBox()
         self.mapping.setAccessibleName("Peak column to spectral axis mapping")
-        self.mapping.addItems(
-            [
-                "Choose peak-axis mapping…",
-                "First coordinate → vertical / indirect; second → horizontal / direct",
-                "First coordinate → horizontal / direct; second → vertical / indirect",
-            ]
+        # The same two orders as the CLI's --peak-axis-order; none is preselected.
+        self.mapping.addItems(["Choose…", "Indirect, then direct", "Direct, then indirect"])
+        self.mapping.setToolTip(
+            "The order of the peak list's coordinates: indirect is the vertical axis, "
+            "direct the horizontal one"
         )
         form.addRow("Peak axes", self.mapping)
-        self.message = QtWidgets.QLabel(
-            "NMRPipe 2D / pseudo-3D · existing PeakFit peak formats\n"
-            "Confirm axis order from your peak-list metadata. Values retain acquisition order."
-        )
-        self.message.setWordWrap(True)
-        form.addRow(self.message)
         self.error = QtWidgets.QLabel()
         self.error.setObjectName("error")
         form.addRow(self.error)
@@ -95,6 +89,11 @@ class OpenDatasetDialog(QtWidgets.QDialog):
             self.error.setText("Choose the peak-axis mapping before loading. No axes are guessed.")
         else:
             self.accept()
+
+    @property
+    def swap(self) -> bool:
+        """Whether the peak list gives the direct coordinate first."""
+        return self.mapping.currentIndex() == 2  # noqa: PLR2004
 
     def path(self, role: str) -> Path | None:
         """Return a chosen optional path without inventing missing companions."""
@@ -286,7 +285,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
                 path,
                 dialog.path("Peak list"),
                 dialog.path("Plane values"),
-                swap=dialog.mapping.currentText().startswith("First coordinate → horizontal"),
+                swap=dialog.swap,
             )
 
     def load(
@@ -363,42 +362,27 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             self._accept_values(outcome)
             return
         assert isinstance(outcome, Dataset)
-        if not self.confirm_dataset(outcome) or not self.protect_edits(
-            after=lambda: self.install_dataset(outcome)
+        if not self.check_mapping(outcome.peaks, outcome.spectra, "Open anyway") or (
+            not self.protect_edits(after=lambda: self.install_dataset(outcome))
         ):
             self.loading_status.setText("Dataset replacement canceled")
             return
         self.install_dataset(outcome)
 
-    def confirm_dataset(self, dataset: Dataset) -> bool:
-        """Review real dimensions/axis metadata/assignments before replacement."""
-        axes = "\n".join(
-            f"{axis.nucleus or axis.label} ({axis.label}): {axis.size} points, "
-            f"{axis.pts2ppm(0):.8f} → {axis.pts2ppm(axis.size - 1):.8f} ppm"
-            for axis in dataset.spectra.spectral_params
-        )
-        names = (
-            ", ".join(p.name for p in dataset.peaks[:6])
-            or "No peak list; inspect or add peaks manually"
-        )
-        return (
-            QtWidgets.QMessageBox.question(
-                self,
-                "Open validated dataset",
-                f"{dataset.path.name}\n"
-                f"{dataset.spectra.data.shape[0]} planes in acquisition order\n{axes}\n\n"
-                f"{len(dataset.peaks)} peaks · {names}\n\n"
-                + (
-                    "Plane values: file order and file units"
-                    if dataset.has_plane_values
-                    else "No plane values"
-                ),
-                QtWidgets.QMessageBox.StandardButton.Open
-                | QtWidgets.QMessageBox.StandardButton.Cancel,
-                QtWidgets.QMessageBox.StandardButton.Open,
-            )
-            == QtWidgets.QMessageBox.StandardButton.Open
-        )
+    def check_mapping(self, peaks, spectra, proceed: str) -> bool:
+        """Ask only when most peaks fall outside the direct axis with the chosen mapping."""
+        warning = mapping_warning(peaks, spectra)
+        if warning is None:
+            return True
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+        dialog.setWindowTitle("Check the peak-axis mapping")
+        dialog.setText("Most peaks lie outside the spectrum")
+        dialog.setInformativeText(warning)
+        accept = dialog.addButton(proceed, QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+        dialog.setDefaultButton(dialog.addButton(QtWidgets.QMessageBox.StandardButton.Cancel))
+        dialog.exec()
+        return dialog.clickedButton() is accept
 
     def install_dataset(self, dataset: Dataset, *, analysis=None) -> None:
         """Publish one complete handoff; no half-loaded arrays or assignments."""
@@ -467,7 +451,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         path = dialog.path("Peak list")
         assert path is not None
         spectra = self.workspace.dataset.spectra
-        swap = dialog.mapping.currentText().startswith("First coordinate → horizontal")
+        swap = dialog.swap
 
         def read():
             with verified_source_files({"peak_list": path}) as records:
@@ -482,6 +466,9 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         if workspace is None or not workspace.commit_fields():
             return
         peaks, records = outcome
+        if not self.check_mapping(peaks, workspace.dataset.spectra, "Continue"):
+            self.loading_status.setText("Peak import canceled")
+            return
         dialog = QtWidgets.QMessageBox(self)
         dialog.setWindowTitle("Import validated peaks")
         dialog.setText(

@@ -1,5 +1,6 @@
 """Scientific and interaction protection for the production open/inspect/edit slice."""
 
+from dataclasses import replace
 from pathlib import Path
 from threading import Event
 
@@ -13,7 +14,12 @@ from peakfit.gui.editor import slices
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.peaks import PeakEdits, WorkingPeak, export_peaks
-from peakfit.gui.spectrum import display_position, read_assignments, read_dataset
+from peakfit.gui.spectrum import (
+    display_position,
+    mapping_warning,
+    read_assignments,
+    read_dataset,
+)
 
 DATA = Path(__file__).resolve().parents[1] / "examples/02-advanced-fitting/data"
 pytestmark = pytest.mark.gui
@@ -330,7 +336,6 @@ def test_async_cancel_failure_and_atomic_replacement(qapp, dataset, monkeypatch)
     assert window.workspace is previous
     assert errors
     assert "invalid.ft2" in str(errors)
-    monkeypatch.setattr(window, "confirm_dataset", lambda _: True)
     window.load(dataset.path)
     wait_until(lambda: window.workspace is not previous)
     assert window.workspace is not None
@@ -451,7 +456,6 @@ def test_plane_metadata_stays_modified_and_protected_after_peak_export(
     monkeypatch.setattr(
         QtWidgets.QFileDialog, "getSaveFileName", lambda *_: (str(tmp_path / "peaks.csv"), "")
     )
-    monkeypatch.setattr(window, "confirm_dataset", lambda _: True)
     try:
         qapp.processEvents()
         for number in (1, 2):
@@ -611,3 +615,39 @@ def test_list_selection_centres_the_peak_and_a_spectrum_click_does_not(workspace
     qapp.processEvents()
     assert workspace.selected_id == near.id
     np.testing.assert_allclose(canvas.box.viewRange(), before)
+
+
+def test_mapping_warning_reports_peaks_outside_the_direct_window(dataset):
+    peaks, spectra = dataset.peaks, dataset.spectra
+    assert mapping_warning(peaks, spectra) is None
+    swapped = tuple(replace(p, positions=p.positions[::-1]) for p in peaks)
+    warning = mapping_warning(swapped, spectra)
+    assert warning is not None
+    assert f"{len(peaks)} of {len(peaks)} peaks lie outside the H window" in warning
+    assert "the other mapping leaves 0 outside" in warning
+    # Indirect positions outside the window may be folded peaks: never a warning.
+    folded = tuple(replace(p, positions=(p.positions[0] + 40.0, p.positions[1])) for p in peaks)
+    assert mapping_warning(folded, spectra) is None
+    assert mapping_warning((), spectra) is None
+
+
+def test_open_asks_only_when_the_mapping_puts_peaks_outside(qapp, monkeypatch):  # noqa: ARG001
+    asked = []
+    monkeypatch.setattr(QtWidgets.QMessageBox, "exec", lambda dialog: asked.append(dialog.text()))
+    window = EditorWindow()
+    try:
+        files = (DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
+        window.load(*files, swap=True)
+        wait_until(lambda: not window._busy)
+        # Canceling the warning (no button clicked) keeps the window as it was.
+        assert asked == ["Most peaks lie outside the spectrum"]
+        assert window.workspace is None
+        assert window.loading_status.text() == "Dataset replacement canceled"
+        window.load(*files)
+        wait_until(lambda: window.workspace is not None)
+        assert len(asked) == 1  # the right mapping opens without any question
+        workspace = window.workspace
+        assert workspace is not None
+        assert len(workspace.peaks) == 166
+    finally:
+        window.close()
