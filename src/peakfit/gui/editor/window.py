@@ -693,7 +693,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         menu.addSeparator()
         self._action(menu, "Magnify slice intensities", canvas("scale_intensity", 1), "Ctrl+Alt+=")
         self._action(menu, "Reduce slice intensities", canvas("scale_intensity", -1), "Ctrl+Alt+-")
-        self._action(menu, "Slice intensities from the view", canvas("scale_intensity", None))
+        self._action(menu, "Default slice intensities", canvas("scale_intensity", None))
         self._action(menu, "Magnify residual lanes", canvas("scale_lanes", 1))
         self._action(menu, "Reduce residual lanes", canvas("scale_lanes", -1))
         self._action(menu, "Default residual lanes", canvas("scale_lanes", None))

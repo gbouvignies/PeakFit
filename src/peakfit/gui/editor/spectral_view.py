@@ -271,8 +271,8 @@ class SpectralView(QtWidgets.QWidget):
         self.sizes = SliceSizes()
         self.lane_sigma = LANE_SIGMA
         self.lanes_fit = True  # False while the window has no room for the lanes
-        self.manual_scale: tuple[float, float] | None = None
-        self.region_scale: tuple[float, float] = (-1.0, 1.0)
+        self.gain = 1.0  # the wheel's magnification of both slices' own ranges
+        self.extremes = slices.plane_extremes(self.spectra.data)
         self.clips: dict[str, tuple[int, int]] = {}
         self._drag_origin = 0
         self.editing_enabled = True
@@ -418,15 +418,11 @@ class SpectralView(QtWidgets.QWidget):
         ):
             for item in items:
                 box.addItem(item, ignoreBounds=True)
-        # One compact intensity indication per slice: a bar from the lower to the upper
-        # bound in the gutter, with a zero tick and its signs; the magnitude is in the caption.
-        self.scale_bars = (QtWidgets.QGraphicsPathItem(), QtWidgets.QGraphicsPathItem())
-        self.scale_signs = tuple(QtWidgets.QGraphicsSimpleTextItem() for _ in range(4))
-        for item in (*self.scale_bars, *self.scale_signs):
-            item.setZValue(50)
-            scene.addItem(item)
-        for sign in self.scale_signs:
-            sign.setFont(font)
+        for box in (self.row_box, self.column_box):
+            box.setToolTip(
+                "Scaled to this slice's visible samples over all planes, with zero included. "
+                "Wheel to magnify; double-click to reset."
+            )
         self.caption = QtWidgets.QLabel(self.view)
         self.caption.setObjectName("caption")
         self.caption.setTextFormat(QtCore.Qt.TextFormat.RichText)
@@ -444,7 +440,6 @@ class SpectralView(QtWidgets.QWidget):
         self._commit.setInterval(_COMMIT_MS)
         self._commit.timeout.connect(self._range_committed)
         self.box.sigRangeChangedManually.connect(lambda *_: self._commit.start())
-        self.box.sigRangeChanged.connect(lambda *_: self._place_scale_bars())
         self.cross_x = pg.InfiniteLine(angle=90, movable=False)
         self.cross_y = pg.InfiniteLine(angle=0, movable=False)
         for line in (self.cross_x, self.cross_y):
@@ -805,7 +800,7 @@ class SpectralView(QtWidgets.QWidget):
             + (
                 f"{formatting.intensity(raw)} σ_stat residual"
                 if self.comparison_mode == _RESIDUAL
-                else f"{self._intensity(raw)} a.u."
+                else f"{self._intensity(raw, formatting.exponent(abs(raw) or 1.0))} a.u."
             )
             + (
                 f" · {'residual' if self.comparison_mode == _RESIDUAL else 'model'} of "
@@ -818,10 +813,9 @@ class SpectralView(QtWidgets.QWidget):
         self.status_changed.emit("" if self.readout.isVisible() else text)
         self.view.setAccessibleDescription(text)
 
-    def _intensity(self, value: float) -> str:
-        """An intensity in the slice caption's power of ten, so both read alike."""
-        low, high = self.slice_bounds()
-        power = formatting.exponent(max(abs(low), abs(high)) or 1.0)
+    @staticmethod
+    def _intensity(value: float, power: int) -> str:
+        """An intensity in a given power of ten, so values read side by side align."""
         number = f"{value * 10.0**-power:.6g}"
         return f"{number} ×10{formatting.superscript(str(power))}" if power else number
 
@@ -1346,11 +1340,6 @@ class SpectralView(QtWidgets.QWidget):
         for divider in (self.row_divider, self.column_divider):
             divider.color, divider.hot_color = t.border, t.accent
             divider.update()
-        bar = pg.mkPen(t.secondary, width=1)
-        for item in self.scale_bars:
-            item.setPen(bar)
-        for sign in self.scale_signs:
-            sign.setBrush(QtGui.QColor(t.secondary))
         self._style_traces()
         self.marker_halo.setPen(pg.mkPen(color(t.plot, 0.9), width=2.6))
         self.markers.setPen(pg.mkPen(color(t.text, 0.72), width=1.0))
@@ -1500,40 +1489,37 @@ class SpectralView(QtWidgets.QWidget):
         self._place_legend()
         self._apply_bounds()
 
-    def slice_bounds(self) -> tuple[float, float]:
-        """The shown intensity range: manual when set, otherwise the region rule."""
-        return self.manual_scale or self.region_scale
+    def slice_bounds(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        """(row, column) intensity ranges: each slice's visible samples over every plane.
 
-    def _shown_bounds(self) -> tuple[float, float]:
-        if self.comparison_mode == _RESIDUAL:
-            return -self.lane_sigma, self.lane_sigma
-        return self.slice_bounds()
+        Each range includes zero and is divided by the wheel's gain. Plane changes
+        keep it; hover and view changes follow what the slice shows.
+        """
+        rows = slices.index_range(self.y_axis, self.box.viewRange()[1])
+        columns = slices.index_range(self.x_axis, self.box.viewRange()[0])
+        ranges = (
+            slices.intensity_range(self.extremes, (self.iy, self.iy), columns),
+            slices.intensity_range(self.extremes, rows, (self.ix, self.ix)),
+        )
+        row, column = ((low / self.gain, high / self.gain) for low, high in ranges)
+        return row, column
 
     def _apply_bounds(self) -> None:
-        """Set slice and lane ranges; never called on hover."""
-        low, high = self._shown_bounds()
-        self.row_box.setYRange(low, high, padding=0)
-        self.column_box.setXRange(low, high, padding=0)
+        """Set the lane ranges and redraw the slices with their own ranges."""
         self.row_lane.setYRange(-self.lane_sigma, self.lane_sigma, padding=0)
         self.column_lane.setXRange(-self.lane_sigma, self.lane_sigma, padding=0)
-        self._place_scale_bars()
         self._draw_slices()
 
     def _range_committed(self) -> None:
-        """A deliberate view change: the region scale follows; a manual one stays."""
-        rows = slices.index_range(self.y_axis, self.box.viewRange()[1])
-        columns = slices.index_range(self.x_axis, self.box.viewRange()[0])
-        self.region_scale = slices.intensity_range(self.spectra.data, rows, columns)
+        """A deliberate view change: the slices rescale to the samples now visible."""
         self._apply_bounds()
 
     def scale_intensity(self, delta: float | None) -> None:
-        """Wheel over a slice: a manual range about zero; None returns to the region rule."""
+        """Wheel over a slice: magnify or reduce both slices; None returns to gain 1."""
         if delta is None:
-            self.manual_scale = None
+            self.gain = 1.0
         else:
-            factor = 1 / _SCALE_STEP if delta > 0 else _SCALE_STEP
-            low, high = self.slice_bounds()
-            self.manual_scale = (low * factor, high * factor)
+            self.gain *= _SCALE_STEP if delta > 0 else 1 / _SCALE_STEP
         self._apply_bounds()
         self.scale_changed.emit()
 
@@ -1617,7 +1603,12 @@ class SpectralView(QtWidgets.QWidget):
             row = slices.residual(row, model_row, noise)
             column = slices.residual(column, model_column, noise)
             model_row = model_column = None
-        bounds = self._shown_bounds()
+        if self.comparison_mode == _RESIDUAL:
+            row_bounds = column_bounds = (-self.lane_sigma, self.lane_sigma)
+        else:
+            row_bounds, column_bounds = self.slice_bounds()
+        self.row_box.setYRange(*row_bounds, padding=0)
+        self.column_box.setXRange(*column_bounds, padding=0)
         self.clips = {
             "row": self._set_slice(
                 self.curve_x,
@@ -1626,7 +1617,7 @@ class SpectralView(QtWidgets.QWidget):
                 self.model_clip_x,
                 row,
                 model_row,
-                bounds,
+                row_bounds,
                 vertical=False,
             ),
             "column": self._set_slice(
@@ -1636,7 +1627,7 @@ class SpectralView(QtWidgets.QWidget):
                 self.model_clip_y,
                 column,
                 model_column,
-                bounds,
+                column_bounds,
                 vertical=True,
             ),
         }
@@ -1710,82 +1701,25 @@ class SpectralView(QtWidgets.QWidget):
         marks = (edge, axis[out]) if vertical else (axis[out], edge)
         clip.setData(*marks, symbol="t" if not vertical else "t2", size=7)
 
-    def _place_scale_bars(self) -> None:
-        """Bars from the lower to the upper bound, with a zero tick and their signs."""
-        geometry = getattr(self, "arrangement", None)
-        if geometry is None:
-            return
-        low, high = self._shown_bounds()
-        row_bar, column_bar = self.scale_bars
-        plus_row, minus_row, minus_column, plus_column = self.scale_signs
-        path = QtGui.QPainterPath()
-        visible = geometry.row is not None
-        if visible:
-            x = geometry.row[0] - 9
-            top = self.row_box.mapViewToScene(QtCore.QPointF(0, high)).y()
-            bottom = self.row_box.mapViewToScene(QtCore.QPointF(0, low)).y()
-            zero = self.row_box.mapViewToScene(QtCore.QPointF(0, 0)).y()
-            path.moveTo(x, top)
-            path.lineTo(x, bottom)
-            path.moveTo(x - 4, zero)
-            path.lineTo(x + 4, zero)
-            plus_row.setText("+")
-            plus_row.setPos(x - 16, top - 2)
-            minus_row.setText("−" if low < 0 else "")
-            minus_row.setPos(x - 16, bottom - 14)
-        row_bar.setPath(path)
-        for item in (plus_row, minus_row):
-            item.setVisible(visible)
-        path = QtGui.QPainterPath()
-        visible = geometry.column is not None
-        if visible:
-            _cx, cy, _cw, ch = geometry.column
-            y = cy + ch + 9
-            left = self.column_box.mapViewToScene(QtCore.QPointF(low, 0)).x()
-            right = self.column_box.mapViewToScene(QtCore.QPointF(high, 0)).x()
-            zero = self.column_box.mapViewToScene(QtCore.QPointF(0, 0)).x()
-            path.moveTo(left, y)
-            path.lineTo(right, y)
-            path.moveTo(zero, y - 4)
-            path.lineTo(zero, y + 4)
-            minus_column.setText("−" if low < 0 else "")
-            minus_column.setPos(left - 2, y + 2)
-            plus_column.setText("+")
-            plus_column.setPos(right - 8, y + 2)
-        column_bar.setPath(path)
-        for item in (plus_column, minus_column):
-            item.setVisible(visible)
-
     def _update_caption(self) -> None:
-        """One compact scale statement for both slices, the lanes and any clipping."""
+        """Say only what departs from the default: residual or lane scale, gain, clipping."""
         t = self.theme
+        parts = []
         if self.comparison_mode == _RESIDUAL:
-            text = f"Slices: residual ±{self.lane_sigma:.3g} σ_stat"
+            parts.append(f"Slices: residual ±{self.lane_sigma:.3g} σ_stat")
         else:
-            low, high = self.slice_bounds()
-            power = formatting.exponent(max(abs(low), abs(high)))
-            factor = 10.0**-power
-            unit = f"×10{formatting.superscript(str(power))} a.u." if power else "a.u."
-            source = "manual" if self.manual_scale else "view, all planes"
-            text = (
-                f"Slices {formatting.number(low * factor, 2)} … "
-                f"{formatting.number(high * factor, 2)} {unit} ({source})"
-            )
+            if self.gain != 1:
+                parts.append(f"Slices ×{self.gain:.3g}")
             if self._effective_sizes().lanes:
-                text += f" · lanes ±{self.lane_sigma:.3g} σ"
+                parts.append(f"Lanes ±{self.lane_sigma:.3g} σ_stat")
         data = sum(d for d, _m in self.clips.values())
         model = sum(m for _d, m in self.clips.values())
         if data:
-            text += f' · <span style="color:{t.error}">▲ {data} clipped</span>'
+            parts.append(f'<span style="color:{t.error}">▲ {data} clipped</span>')
         if model:
-            text += f' · <span style="color:{t.model}">△ {model} model clipped</span>'
-        self.caption.setText(text)
-        self.caption.setToolTip(
-            "Both slices share this range: the lowest and highest experimental intensity "
-            "in the visible region over all planes, with zero included"
-            if not self.manual_scale and self.comparison_mode != _RESIDUAL
-            else "Wheel over a slice to change its range; double-click to reset it"
-        )
+            parts.append(f'<span style="color:{t.model}">△ {model} model clipped</span>')
+        self.caption.setText(" · ".join(parts))
+        self.caption.setToolTip("Wheel over a slice or lane to rescale it; double-click to reset")
 
     def _update_readout(self, value: float | None, fitted: float | None) -> None:
         """Exact values at the crosshair; the slices themselves carry no numbers."""
@@ -1793,13 +1727,14 @@ class SpectralView(QtWidgets.QWidget):
             f"<b>{formatting.number(self.ppm_x[self.ix], self.decimals_x)} · "
             f"{formatting.number(self.ppm_y[self.iy], self.decimals_y)} ppm</b>"
         ]
+        power = formatting.exponent(max(abs(value or 0.0), abs(fitted or 0.0)) or 1.0)
         if value is not None:
-            lines.append(f"I {self._intensity(value)} a.u.")
+            lines.append(f"I {self._intensity(value, power)} a.u.")
         if self.comparison_mode and fitted is None:
             lines.append("model pending")
         elif fitted is not None and value is not None:
             noise = self.comparison_result.outcome.noise if self.comparison_result else 1.0
-            lines.append(f"model {self._intensity(fitted)}")
+            lines.append(f"model {self._intensity(fitted, power)}")
             lines.append(f"residual {(value - fitted) / noise:+.1f} σ")
         self.readout.setText("<br>".join(lines))
 
@@ -1810,7 +1745,7 @@ class SpectralView(QtWidgets.QWidget):
             "column": self.sizes.column,
             "lanes": self.sizes.lanes,
             "lane_sigma": self.lane_sigma,
-            "scale": list(self.manual_scale) if self.manual_scale else None,
+            "gain": self.gain,
         }
 
     def restore_slice_state(self, state: dict) -> None:
@@ -1822,8 +1757,7 @@ class SpectralView(QtWidgets.QWidget):
             lanes=bool(state.get("lanes", self.sizes.lanes)),
         )
         self.lane_sigma = float(state.get("lane_sigma", LANE_SIGMA))
-        scale = state.get("scale")
-        self.manual_scale = (float(scale[0]), float(scale[1])) if scale else None
+        self.gain = float(state.get("gain", 1.0))
         self._relayout()
 
     def stop(self) -> None:

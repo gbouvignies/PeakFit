@@ -2,8 +2,8 @@
 
 Run with ``uv run python tools/validate_gui_spectral.py`` on an exposed native
 window. It fits the bundled pseudo-3D dataset with the GUI's own Fit, then checks
-on that run: slice/plot alignment at the reference window sizes, the region
-intensity scale through hover, planes and zoom, hover delivery-to-paint latency
+on that run: slice/plot alignment at the reference window sizes, each slice's own
+intensity range through hover, planes and zoom, hover delivery-to-paint latency
 with residual lanes in Overlay, mode and focus transitions, and saved view state.
 Inputs are deterministic scene deliveries, not OS pointer synthesis; a separate
 native walkthrough with a real mouse checks gestures. Captures, when requested,
@@ -32,7 +32,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "docs/validation/spectral-workspace.json"
 _EVENTS = 500
 _SIZES = ((1160, 720), (1280, 800), (1440, 900))
-_HOVER_P95_MS = 8.0
+_HOVER_P95_MS = 10.0  # each slice rescales on hover (decisions, 2026-11-11); PERF-1 allows 16.7
 
 
 def alignment(canvas) -> dict[str, float]:
@@ -90,7 +90,7 @@ def hover(canvas) -> dict[str, Any]:
         count[0] += 1
 
     canvas.painted.connect(painted)
-    jobs, bounds = canvas.contour_jobs, canvas.slice_bounds()
+    jobs = canvas.contour_jobs
     timer = QtCore.QTimer()
     timer.setTimerType(QtCore.Qt.TimerType.PreciseTimer)
     timer.setInterval(16)
@@ -99,7 +99,6 @@ def hover(canvas) -> dict[str, Any]:
     wait_until(lambda: count[0] >= _EVENTS and pending[0] is None, timeout=30)
     canvas.painted.disconnect(painted)
     assert canvas.contour_jobs == jobs, "hover launched contour work"
-    assert canvas.slice_bounds() == bounds, "hover changed the slice scale"
     return {**percentiles(latencies), "events": count[0], "painted": len(latencies)}
 
 
@@ -164,29 +163,42 @@ def main() -> None:  # noqa: PLR0915
     window.resize(*_SIZES[1])
     settle(100)
 
-    # The region scale: fixed through hover and planes, recomputed on a view change.
+    # Each slice's range: its visible samples over every plane; planes keep it.
+    extremes = slices.plane_extremes(c.spectra.data)
+
+    def own():
+        rows = slices.index_range(c.y_axis, c.box.viewRange()[1])
+        columns = slices.index_range(c.x_axis, c.box.viewRange()[0])
+        return (
+            slices.intensity_range(extremes, (c.iy, c.iy), columns),
+            slices.intensity_range(extremes, rows, (c.ix, c.ix)),
+        )
+
     c.full_spectrum()
-    region = c.slice_bounds()
+    x, y = c.display(peak)
+    c.sample(x, y)
+    through_peak = c.slice_bounds()
+    follows = [through_peak == own()]
     for ix, iy in ((10, 20), (200, 40), (500, 100)):
         c.sample(float(c.ppm_x[ix % c.ppm_x.size]), float(c.ppm_y[iy % c.ppm_y.size]))
-    hover_stable = c.slice_bounds() == region
+        follows.append(c.slice_bounds() == own())
+    elsewhere = c.slice_bounds()
+    c.sample(x, y)
     planes = []
     for plane in (1, 60, 131):
         w.set_plane(plane)
         wait_until(lambda: not c.contour_pending)
-        planes.append(c.slice_bounds() == region)
-    x, y = c.display(peak)
+        planes.append(c.slice_bounds() == through_peak)
     c.set_ranges((x - 0.3, x + 0.3), (y - 3, y + 3))
-    rows = slices.index_range(c.y_axis, c.box.viewRange()[1])
-    columns = slices.index_range(c.x_axis, c.box.viewRange()[0])
     zoomed = c.slice_bounds()
+    follows.append(zoomed == own())
     record["scale"] = {
-        "full_view": list(region),
-        "zero_included": region[0] <= 0 <= region[1],
-        "hover_stable": hover_stable,
+        "through_peak": [list(b) for b in through_peak],
+        "elsewhere": [list(b) for b in elsewhere],
+        "zoomed": [list(b) for b in zoomed],
+        "zero_included": all(lo <= 0 <= hi for lo, hi in (*through_peak, *elsewhere, *zoomed)),
+        "follows_each_slice": all(follows),
         "planes_stable": all(planes),
-        "zoomed": list(zoomed),
-        "zoom_follows_region": zoomed == slices.intensity_range(c.spectra.data, rows, columns),
     }
     w.set_plane(1)
     wait_until(lambda: not c.contour_pending)
@@ -249,9 +261,8 @@ def main() -> None:  # noqa: PLR0915
         all(v <= 0.5 for item in layouts for v in item["alignment_px"].values()),
         layouts[0]["navigator"] and layouts[0]["inspector"] and layouts[0]["lanes"],
         record["scale"]["zero_included"],
-        record["scale"]["hover_stable"],
+        record["scale"]["follows_each_slice"],
         record["scale"]["planes_stable"],
-        record["scale"]["zoom_follows_region"],
         record["hover_overlay_lanes"]["p95_ms"] <= _HOVER_P95_MS,
         residual_hides_lanes,
         mode_kept,

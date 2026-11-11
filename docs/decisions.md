@@ -948,7 +948,7 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Slices.** The row and column slices are lines through native samples with no
   markers; Overlay draws the cached total-model plane at the same samples. Nothing
   is evaluated off the sampling grid, so the slice shows what was fitted.
-- **Scale.** Both slices share the region intensity scale: min(0, D) to max(0, D)
+- **Scale.** (Replaced on 2026-11-11 by a range per slice.) Both slices share the region intensity scale: min(0, D) to max(0, D)
   over the visible 2D region and every plane, padded 5 % of the span. Asymmetric,
   because a symmetric ±max|D| range halves the room of one-signed spectra; zero
   included so sign is never ambiguous; all planes so the scale holds while
@@ -958,7 +958,7 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Residual.** Residual lanes share one ±N σ_stat scale, set separately from the
   intensity scale. In Residual mode the slices themselves show the residual and the
   lanes hide, keeping the lane preference for Overlay.
-- **Annotations.** A zero baseline, one compact scale caption with units and
+- **Annotations.** (Caption and scale bars removed on 2026-11-11.) A zero baseline, one compact scale caption with units and
   clipping counts (data ▲ and model △ separately), exact values in the corner
   readout. The 2D ppm axes stay quantitative; slices carry no intensity tick axis.
 - **Focus.** The three-panel lens is replaced by cluster focus: the same view
@@ -1011,3 +1011,25 @@ Short records of non‑obvious design choices and trade‑offs.
   bundled data it puts 166 of 166 peaks outside the direct (H) window against 0 for the
   right mapping. The indirect axis is not counted because folded peaks lie outside
   it legitimately. The check reports and never chooses; opening anyway stays possible.
+
+## 2026-11-11: Each slice scales to its own samples; no intensity scale marks
+- **Change.** Each 1D slice takes its own range: min(0, D) to max(0, D) of its
+  visible samples over every plane, padded 5 %. It follows the row or column shown
+  and the view, and holds across planes. The wheel sets a gain on both slices
+  instead of a manual range. The scale bars with their +/− signs are gone, and the
+  caption above the row slice appears only for a residual or lane scale, a gain or
+  clipping. The readout shows intensity and model in one power of ten. The menu
+  item is now **Default slice intensities**; saved views store `gain` instead of
+  `scale`.
+- **Why.** The shared region scale, set by the strongest peak in view, flattened
+  every weaker row or column into the baseline, so the slices rarely showed a
+  usable lineshape. A slice is read for shape and fit quality; exact values are in
+  the readout. Keeping all planes in the range preserves the amplitude change from
+  plane to plane, and zero stays included so sign is never ambiguous. Without a
+  shared scale the bars carried no number and only added clutter.
+- **Cost.** Rescaling each slice on hover redraws it whole: on the bundled dataset,
+  hover delivery-to-paint p95 rose from 5.8 to 9.2 ms (macOS, 2× DPR). The
+  validation target moves from 8 to 10 ms, still within one 60 Hz frame and
+  PERF-1's 16.7 ms; readable lineshapes are worth it.
+- **Breaking.** A manual slice scale saved by an earlier project is ignored (the
+  view opens at gain 1).
