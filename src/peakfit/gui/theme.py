@@ -251,9 +251,10 @@ QSplitter::handle {{ background: {t.divider}; }}
 QSplitter::handle:horizontal {{ width: 1px; }}
 QSplitter::handle:vertical {{ height: 1px; }}
 
+QSlider:horizontal {{ min-height: 20px; }}
 QSlider::groove:horizontal {{ height: 4px; border-radius: 2px; background: {t.divider}; }}
 QSlider::sub-page:horizontal {{ height: 4px; border-radius: 2px; background: {t.accent}; }}
-QSlider::handle:horizontal {{ width: 14px; height: 14px; margin: -6px 0; border-radius: 8px;
+QSlider::handle:horizontal {{ width: 14px; height: 14px; margin: -7px 0; border-radius: 9px;
     background: {t.plot}; border: 2px solid {t.accent}; }}
 
 QScrollBar:vertical {{ width: 10px; background: transparent; margin: 0; }}

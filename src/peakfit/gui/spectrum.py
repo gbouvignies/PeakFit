@@ -15,6 +15,7 @@ import numpy as np
 
 from peakfit.engine.algorithms.noise import estimate_noise
 from peakfit.engine.domain.config import FitConfig
+from peakfit.gui.formatting import nucleus
 from peakfit.gui.peaks import WorkingPeak
 from peakfit.io.readers.peaks import read_list
 from peakfit.io.readers.spectrum import read_spectra
@@ -131,6 +132,33 @@ def display_position(axis: SpectralParameters, ppm: float) -> float:
     if not axis.direct:
         point %= axis.size
     return float(axis.pts2ppm(point))
+
+
+def mapping_warning(peaks: tuple[WorkingPeak, ...], spectra: Spectra) -> str | None:
+    """Say so when most peaks fall outside the direct axis's window with this mapping.
+
+    Only the direct axis is checked: indirect positions outside the window can be
+    genuinely folded peaks. The warning reports counts for both mappings and never
+    chooses one.
+    """
+    axes = spectra.spectral_params
+    direct = next((i for i, axis in enumerate(axes) if axis.direct), None)
+    if not peaks or direct is None or len(axes) != _SPECTRAL_DIMENSIONS:
+        return None
+    axis = axes[direct]
+    low, high = sorted((float(axis.pts2ppm(0)), float(axis.pts2ppm(axis.size - 1))))
+    outside = sum(not low <= p.positions[direct] <= high for p in peaks)
+    if 2 * outside <= len(peaks):
+        return None
+    swapped = sum(not low <= p.positions[1 - direct] <= high for p in peaks)
+    name = nucleus(axis.nucleus, axis.label)
+    text = (
+        f"{outside} of {len(peaks)} peaks lie outside the {name} window "
+        f"({low:.2f}–{high:.2f} ppm) with this peak-axis mapping"
+    )
+    if swapped < outside:
+        text += f"; the other mapping leaves {swapped} outside"
+    return text + "."
 
 
 type ContourGeometry = list[tuple[np.ndarray, np.ndarray]]
