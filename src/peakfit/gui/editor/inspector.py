@@ -189,6 +189,56 @@ def _provenance(cluster: FinalClusterOutcome, result: DatasetFitResult) -> str:
     )
 
 
+_RIGHT = QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
+
+# One table cell: text, label style and the number of value columns it spans.
+type Cell = tuple[str, str, int]
+# The next fit's parameter: name, unit, start, lower, upper (formatted) and varied.
+type StartRow = tuple[str, str, str, str, str, bool]
+
+
+def parameter_table(
+    grid: QtWidgets.QGridLayout,
+    headers: tuple[str, ...],
+    rows: list[tuple[str, str, list[Cell], bool]],
+) -> None:
+    """One line per parameter: name, unit, then right-aligned values under headers.
+
+    ``rows`` holds (name, unit, cells, at a bound). The starts and the fitted values
+    share this layout so the two read alike.
+    """
+    for column, header in enumerate(headers, start=2):
+        title = _label(header, "caption")
+        title.setAlignment(_RIGHT)
+        grid.addWidget(title, 0, column)
+        grid.setColumnStretch(column, 1)
+    for row, (name, unit, cells, bounded) in enumerate(rows, start=1):
+        title = _label(name, "warning" if bounded else "muted")
+        if bounded:
+            title.setToolTip("At a recorded bound")
+        grid.addWidget(title, row, 0)
+        grid.addWidget(_label(unit, "caption"), row, 1)
+        column = 2
+        for text, style, span in cells:
+            cell = _label(text, style)
+            cell.setAlignment(_RIGHT)
+            grid.addWidget(cell, row, column, 1, span)
+            column += span
+
+
+def parameter_order(axes: list[str]):
+    """Positions before widths, the horizontal axis first within each."""
+
+    def key(dimension: str, kind: str) -> tuple[int, int]:
+        kinds = list(_KINDS)
+        return (
+            kinds.index(kind) if kind in kinds else len(kinds),
+            axes.index(dimension) if dimension in axes else len(axes),
+        )
+
+    return key
+
+
 def _dimension_and_kind(name: str) -> tuple[str, str]:
     """`p_20.F2.cs` → (`F2`, `cs`); names without both parts keep what they have."""
     parts = name.split(".")
@@ -412,22 +462,34 @@ class Inspector(QtWidgets.QScrollArea):
         self.profile.apply_theme(theme)
         self._key = None
 
-    def show_starts(self, rows: list[tuple[str, str, str, str]] | None, note: str) -> None:
-        """The next fit's starting value, range and freedom per parameter (read-only)."""
+    def show_starts(self, rows: list[StartRow] | None, note: str) -> None:
+        """The next fit's start and bounds per parameter (read-only).
+
+        ``rows`` holds (name, unit, start, lower, upper, varied), already formatted.
+        """
         key = (tuple(rows) if rows is not None else None, note)
         if key == self._starts_key:
             return
         self._starts_key = key
         self.starts_note.setText(note)
         _clear(self.start_grid)
-        for row, (name, start, detail, unit) in enumerate(rows or ()):
-            value = _label(start)
-            value.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
-            self.start_grid.addWidget(_label(name, "muted"), 2 * row, 0)
-            self.start_grid.addWidget(value, 2 * row, 1)
-            self.start_grid.addWidget(_label(unit, "caption"), 2 * row, 2)
-            self.start_grid.addWidget(_label(detail, "caption"), 2 * row + 1, 1, 1, 2)
-        self.start_grid.setColumnStretch(1, 1)
+        if not rows:
+            return
+        parameter_table(
+            self.start_grid,
+            ("Start", "Lower", "Upper"),
+            [
+                (
+                    name,
+                    unit,
+                    [(start, "", 1), (lower, "", 1), (upper, "", 1)]
+                    if varied
+                    else [(start, "", 1), ("fixed", "caption", 2)],
+                    False,
+                )
+                for name, unit, start, lower, upper, varied in rows
+            ],
+        )
 
     def _draft_changed(self) -> None:
         self.draft.setText("Draft · Enter commits · Escape discards" if self.editor.pending else "")
@@ -579,7 +641,7 @@ class Inspector(QtWidgets.QScrollArea):
                 "caption",
                 wrap=True,
             )
-            self.fitted.addWidget(started, self.fitted.rowCount(), 0, 1, 3)
+            self.fitted.addWidget(started, self.fitted.rowCount(), 0, 1, -1)
         if retained:
             # Working and recorded fitted positions differ on purpose: say so here.
             kept = _label(
@@ -588,7 +650,7 @@ class Inspector(QtWidgets.QScrollArea):
                 "warning",
                 wrap=True,
             )
-            self.fitted.addWidget(kept, self.fitted.rowCount(), 0, 1, 3)
+            self.fitted.addWidget(kept, self.fitted.rowCount(), 0, 1, -1)
         self._fill_review(engine, cluster, result, review)
         self.provenance.setText(_provenance(cluster, result))
 
@@ -768,34 +830,30 @@ class Inspector(QtWidgets.QScrollArea):
                 0,
                 0,
                 1,
-                3,
+                -1,
             )
             return
         parameters = [p for p in cluster.final_nonlinear_parameters if p.name.startswith(engine)]
-
-        def order(parameter) -> tuple[int, str]:
+        order = parameter_order(self._axis_order)
+        rows = []
+        for parameter in sorted(parameters, key=lambda p: order(*_dimension_and_kind(p.name))):
             dim, kind = _dimension_and_kind(parameter.name)
-            axis = self._axis_order.index(dim) if dim in self._axis_order else 9
-            return axis, kind
-
-        for row, parameter in enumerate(sorted(parameters, key=order)):
-            dim, kind = _dimension_and_kind(parameter.name)
-            name = f"{_KINDS.get(kind, kind)} {self._axes.get(dim, dim)}"
             value, sigma = formatting.with_sigma(parameter.value, parameter.standard_error)
-            bounded = at_bound(parameter)
-            text = value if not parameter.vary else f"{value} ± {sigma}"
-            if sigma == "σ unavailable" and parameter.vary:
-                text = f"{value} · σ unavailable"
-            cell = _label(text)
-            cell.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
-            unit = _label(parameter.unit + (" · fixed" if not parameter.vary else ""), "caption")
-            title = _label(name, "warning" if bounded else "muted")
-            if bounded:
-                title.setToolTip("At a recorded bound")
-            self.fitted.addWidget(title, row, 0)
-            self.fitted.addWidget(cell, row, 1)
-            self.fitted.addWidget(unit, row, 2)
-        self.fitted.setColumnStretch(1, 1)
+            if not parameter.vary:
+                error: Cell = ("fixed", "caption", 1)
+            elif sigma == "σ unavailable":
+                error = ("unavailable", "caption", 1)
+            else:
+                error = (sigma, "", 1)
+            rows.append(
+                (
+                    f"{_KINDS.get(kind, kind)} {self._axes.get(dim, dim)}",
+                    parameter.unit,
+                    [(value, "", 1), error],
+                    at_bound(parameter),
+                )
+            )
+        parameter_table(self.fitted, ("Value", "± σ"), rows)
 
     def _item(self, family: str, glyph: str, text: str, detail: str = "", *, warn=False) -> None:
         review_item(self.review, family, glyph, text, detail, warn=warn)

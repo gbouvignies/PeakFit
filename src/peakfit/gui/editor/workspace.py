@@ -18,7 +18,7 @@ from peakfit.gui.editor import slices
 from peakfit.gui.editor.changes import ClusterChange, RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.focus import FocusBar
-from peakfit.gui.editor.inspector import Inspector, find_cluster
+from peakfit.gui.editor.inspector import Inspector, StartRow, find_cluster, parameter_order
 from peakfit.gui.editor.labels import ElidedLabel
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.review import HighlightRules, review_clusters
@@ -752,7 +752,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             self._reviews = (key, reviews)
         return self._reviews[1]
 
-    def _starting_values(self) -> tuple[list[tuple[str, str, str, str]] | None, str]:
+    def _starting_values(self) -> tuple[list[StartRow] | None, str]:
         """The selected peak's parameters as the current preparation would submit them."""
         fitting = self.fitting
         prepared = fitting.prepared
@@ -768,20 +768,16 @@ class EditorWorkspace(QtWidgets.QWidget):
             )
             for index, a in enumerate(self.dataset.spectra.spectral_params)
         }
-        rows = []
-        # Horizontal (direct) axis first, as in Fitted; then position before width.
-        order = list(reversed(axes))
-        kinds = ["cs", "lw"]
+        rows: list[StartRow] = []
+        # As in Fitted: positions before widths, the horizontal (direct) axis first.
+        order = parameter_order(list(reversed(axes)))
         parameters = sorted(
             (
                 p
                 for p in prepared.parameters.values()
                 if p.param_id is not None and p.param_id.peak_name == engine
             ),
-            key=lambda p: (
-                order.index(p.param_id.axis) if p.param_id.axis in order else len(order),
-                kinds.index(p.param_id.label) if p.param_id.label in kinds else len(kinds),
-            ),
+            key=lambda p: order(p.param_id.axis or "", p.param_id.label),
         )
         for parameter in parameters:
             identifier = parameter.param_id
@@ -789,16 +785,11 @@ class EditorWorkspace(QtWidgets.QWidget):
             title, decimals = axes.get(identifier.axis or "", (identifier.axis or "", 4))
             kind = {"cs": "δ", "lw": "LW"}.get(identifier.label, identifier.label)
             places = decimals if parameter.unit == "ppm" else 2
-            low, high = (formatting.number(v, places) for v in (parameter.min, parameter.max))
-            freedom = "varied" if parameter.vary else "fixed"
-            rows.append(
-                (
-                    f"{kind} {title}",
-                    formatting.number(parameter.value, places),
-                    f"range {low} – {high} · {freedom}",
-                    parameter.unit,
-                )
+            start, low, high = (
+                formatting.number(v, places)
+                for v in (parameter.value, parameter.min, parameter.max)
             )
+            rows.append((f"{kind} {title}", parameter.unit, start, low, high, parameter.vary))
         return rows, "For the next fit, from the working position and fit setup."
 
     def _run_changes(self) -> tuple[str, list[tuple]]:
