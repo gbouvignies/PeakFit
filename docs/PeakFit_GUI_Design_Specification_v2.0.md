@@ -82,7 +82,7 @@ sits beyond it.
 | --- | --- |
 | Toolbar | One row: PeakFit and the Modified state (the window title names the dataset); run chip (run number, Current/Outdated, duration) that opens the run record; fit-settings summary that opens the fit setup (§7); joined **Experimental / Overlay / Residual** selector; canvas tools (Select, Add peak, Pin traces, Full spectrum, Display); numerical-warning summary; primary **Fit** button, with Cancel and progress while a job runs. Tools are icon buttons whose tooltips name their shortcut. File/Edit/View/Analysis/Help commands live in normal menus. |
 | Navigator (left) | **Clusters / Peaks** tabs, search, a filter menu with counts and sortable rows (§8). Before a fit only Peaks exists; rows show assignment and display-precision coordinates. |
-| Spectral area | One spectral view: the dominant 2D spectrum, the row slice directly above and the column slice directly to its right, each sharing its frequency axis exactly with the 2D plot, with optional residual lanes. Cluster focus reframes this same view in place (§3). |
+| Spectral area | One spectral view: the dominant 2D spectrum, the row slice directly above and the column slice directly to its right, each sharing its frequency axis exactly with the 2D plot, with optional residual lanes. Cluster focus reframes this same view in place (§3). After a fit, the **Profiles** toggle in the toolbar can show the Profiles view here instead (below). |
 | Inspector (right) | Contextual pages chosen by selection (below). |
 | Plane strip | Previous/next, exact one-based plane field with count, slider by plane index, plane value with its optional display label (§5). Chosen reference planes are marked on the slider. A 2D dataset shows “Single plane”. No embedded profile plot. |
 | Status line | Preview/Pinned, sampled coordinates, raw intensity or residual with units, short contextual gesture hint. Long failures remain available in run details, not a disappearing toast. |
@@ -140,7 +140,12 @@ validation; errors identify the file, row/axis and remedy.
 Use ordinary splitters and layouts. Do not add detachable docks, a ribbon,
 per-plot toolbars, an extensible panel framework or freely arranged layouts. Wide
 future views (MCMC traces, run history) use a separate explicit window, never a
-permanent lower panel.
+permanent lower panel. The one exception is the **Profiles view** (revision
+12 November 2026): profile review shares the navigator's order and the selection
+with the spectrum, so it replaces the spectral area rather than opening a window.
+It shows one tile per recorded cluster, every member's signed amplitudes on one
+vertical scale with zero visible, in the navigator's sort and filter; choosing a
+tile selects its cluster, activating it opens the cluster in focus.
 
 ## 3. Representative application states
 

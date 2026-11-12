@@ -386,6 +386,23 @@ separate from Fitted because it describes a different run. The values are
 read-only; while preparation runs or fails the section says so rather than
 showing old values.
 
+**Profiles** (the toolbar's Profiles toggle, or Cmd/Ctrl+2; toggle off or Cmd/Ctrl+1 returns) shows
+the active run's profiles in the centre, one tile per cluster, in the cluster list's
+order and filter: sort or filter the list and the tiles follow. Each tile overlays
+every member's recorded signed amplitudes on one vertical scale that includes zero,
+so a dip shared between correlated members, opposite signs or a large/small split
+show at a glance; members keep the cluster page's colours and order, named under the
+plot. The header gives the cluster's mark, first member and size, and its χ²ᵣ,
+|r|max and |ρ|. A member whose amplitude is not identifiable or not established is
+not drawn, and the tile says so. The plot frames the same range as the inspector's
+profile (a distant reference plane is left out) and a dashed line marks the current
+plane. Choosing a tile selects its cluster, as a cluster row does; double-click or
+Enter opens it in focus on the spectrum. Comparison and canvas tools step aside
+while Profiles shows; the plane strip, selection and inspector stay. Tiles show
+no error bars: the inspector's profile carries them. After an edit the caption
+says the tiles are that run's historical values; before a fit Profiles is
+unavailable.
+
 The inspector's **Amplitude profile** shows the selected peak's signed fitted
 amplitudes across planes, with the other members of its cluster lighter on the
 same vertical scale. It follows the accepted selection only: an invalid draft that

@@ -161,6 +161,8 @@ and the focus frame); `editor.navigator` owns the flat assignment list and the
 active run's cluster table; `editor.inspector` owns the precise whole-group editor and
 shows the selected peak's recorded profile, parameters and cluster review read from
 `FinalFitOutcome` (`editor.profile` draws the profile; `editor.cluster_page` shows one recorded cluster;
+`editor.profiles_view` is the Profiles view, one painted tile per recorded cluster in
+the navigator's order, which the workspace shows in the centre in place of the spectrum;
 `editor.focus` is the bar shown while a cluster is in focus (focus reframes the
 spectral view in place; the workspace keeps the overview's view state to restore);
 `editor.changes` compares the active run with its parent run, without Qt;

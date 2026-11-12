@@ -92,6 +92,7 @@ class Navigator(QtWidgets.QWidget):
     hovered = QtCore.Signal(object)
     edit_requested = QtCore.Signal()
     next_warning = QtCore.Signal()
+    order_changed = QtCore.Signal()  # cluster sort or filter changed
 
     def __init__(self, x_title: str, y_title: str, decimals: tuple[int, int] = (4, 3)) -> None:
         super().__init__()
@@ -232,6 +233,9 @@ class Navigator(QtWidgets.QWidget):
         )
         self.tree.headerItem().setToolTip(
             5, "Largest |amplitude correlation| between members, conditional on lineshapes"
+        )
+        self.tree.header().sortIndicatorChanged.connect(
+            lambda *_: self.order_changed.emit(), QtCore.Qt.ConnectionType.QueuedConnection
         )
         self.tree.currentItemChanged.connect(self._cluster_changed)
         self.tree.itemDoubleClicked.connect(lambda item, _column: self._focus_cluster(item))
@@ -402,6 +406,21 @@ class Navigator(QtWidgets.QWidget):
         self.cluster_count.setToolTip(
             f"{warned} clusters with a numerical warning; N in the list selects the next one"
         )
+        self.order_changed.emit()
+
+    def shown_reviews(self) -> list[ClusterReview]:
+        """The clusters the list shows, in its current sort order."""
+        return [
+            item.data(0, _ID)
+            for index in range(self.tree.topLevelItemCount())
+            if (item := self.tree.topLevelItem(index)) is not None and not item.isHidden()
+        ]
+
+    def filter_text(self) -> str:
+        """The chosen cluster filter, without its count, or "" for all clusters."""
+        if self.filter.currentData() is None:
+            return ""
+        return self.filter.currentText().strip().rsplit(" (", 1)[0]
 
     def next_warned(self, selected: str | None) -> str | None:
         """First member of the next shown cluster with a numerical warning, in list order."""

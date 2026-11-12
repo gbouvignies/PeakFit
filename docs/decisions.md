@@ -1110,3 +1110,18 @@ Short records of non‑obvious design choices and trade‑offs.
   at the edges; one implementation, tested against Monte Carlo, removes the
   disagreement and the R2eff error. A test pinned the wrong R2eff σ and was
   corrected with this explanation.
+
+## 2026-11-12: A Profiles view in the centre, one tile per cluster
+- **Change.** After a fit, the **Profiles** toolbar toggle switches the centre between the
+  spectral view and a grid of cluster tiles: all members' signed amplitudes on one
+  vertical scale with zero visible, in the navigator's order and filter, sharing the
+  selection and plane. Activating a tile opens its cluster in focus.
+- **Why.** Intensity profiles are the analysis's product, yet only one cluster's
+  could be seen at a time. Profile quality is judged per cluster: a dip shared by
+  correlated members, opposite signs and large/small splits are visible only with
+  members on one scale, so tiles are clusters, not peaks. A separate window (spec
+  §2) would lose the shared order and selection; the centre switch keeps the three
+  columns. Tiles carry no error bars (unreadable at tile size; the inspector keeps
+  them) and the view choice is not saved with the analysis (no storage change). The
+  switch is one icon toggle beside the comparison selector, not a labelled
+  two-button selector, so the run line keeps its room at the minimum window.

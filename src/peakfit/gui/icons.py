@@ -21,6 +21,11 @@ _SHAPES = {
         '<path d="M3 6h9M15.5 6H17M3 14h2.5M9 14h8"/>'
         '<circle cx="13.7" cy="6" r="1.8"/><circle cx="7.2" cy="14" r="1.8"/>'
     ),
+    "profiles": (
+        '<rect x="2.5" y="3" width="6.5" height="6" rx="1"/><rect x="11" y="3" width="6.5" '
+        'height="6" rx="1"/><rect x="2.5" y="11" width="6.5" height="6" rx="1"/>'
+        '<rect x="11" y="11" width="6.5" height="6" rx="1"/>'
+    ),
     "chevron-left": '<path d="M12 4.5L6.5 10l5.5 5.5"/>',
     "chevron-right": '<path d="M8 4.5l5.5 5.5L8 15.5"/>',
 }
