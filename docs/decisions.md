@@ -1112,7 +1112,7 @@ Short records of non‑obvious design choices and trade‑offs.
   corrected with this explanation.
 
 ## 2026-11-12: A Profiles view in the centre, one tile per cluster
-- **Change.** After a fit, **Spectrum / Profiles** switches the centre between the
+- **Change.** After a fit, the **Profiles** toolbar toggle switches the centre between the
   spectral view and a grid of cluster tiles: all members' signed amplitudes on one
   vertical scale with zero visible, in the navigator's order and filter, sharing the
   selection and plane. Activating a tile opens its cluster in focus.
@@ -1122,4 +1122,6 @@ Short records of non‑obvious design choices and trade‑offs.
   members on one scale, so tiles are clusters, not peaks. A separate window (spec
   §2) would lose the shared order and selection; the centre switch keeps the three
   columns. Tiles carry no error bars (unreadable at tile size; the inspector keeps
-  them) and the view choice is not saved with the analysis (no storage change).
+  them) and the view choice is not saved with the analysis (no storage change). The
+  switch is one icon toggle beside the comparison selector, not a labelled
+  two-button selector, so the run line keeps its room at the minimum window.

@@ -386,7 +386,7 @@ separate from Fitted because it describes a different run. The values are
 read-only; while preparation runs or fails the section says so rather than
 showing old values.
 
-**Profiles** (toolbar **Spectrum / Profiles**, Cmd/Ctrl+2; Cmd/Ctrl+1 returns) shows
+**Profiles** (the toolbar's Profiles toggle, or Cmd/Ctrl+2; toggle off or Cmd/Ctrl+1 returns) shows
 the active run's profiles in the centre, one tile per cluster, in the cluster list's
 order and filter: sort or filter the list and the tiles follow. Each tile overlays
 every member's recorded signed amplitudes on one vertical scale that includes zero,

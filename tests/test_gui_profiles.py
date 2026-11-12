@@ -65,7 +65,7 @@ def test_tiles_hold_every_member_in_cluster_order(scientific):
 
 def test_profiles_follow_the_run_navigator_order_and_selection(workspace, scientific):
     w = workspace
-    profiles = w.view_buttons[1]
+    profiles = w.profiles_button
     assert not profiles.isEnabled()
     w.show_view(profiles=True)
     assert not w.profiles_shown  # nothing to show before a fit
@@ -123,6 +123,7 @@ def test_activating_a_tile_opens_its_cluster_in_focus(workspace, scientific):
     assert w.focus_open
     assert w.selected_id in ids
     assert all(tool.isVisible() for tool in w._spectrum_tools)
+    assert not w.profiles_button.isChecked()
 
 
 def test_an_edit_labels_the_tiles_historical(workspace, scientific):

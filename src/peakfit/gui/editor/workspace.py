@@ -260,24 +260,13 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.warnings.setObjectName("warning")
         self.warnings.hide()
         bar.addWidget(self.warnings)
-        views = QtWidgets.QHBoxLayout()
-        views.setSpacing(0)
-        self.view_buttons = []
-        for index, name in enumerate(("Spectrum", "Profiles")):
-            button = QtWidgets.QPushButton(name)
-            button.setAccessibleName(name)
-            button.setToolTip(("Spectrum (Ctrl+1)", "Profiles: available after a fit")[index])
-            button.setIconSize(QtCore.QSize(16, 16))
-            self._icons.append((button, name.lower()))
-            button.setObjectName("segment")
-            button.setProperty("edge", ("first", "last")[index])
-            button.setCheckable(True)
-            button.setChecked(index == 0)
-            button.setEnabled(index == 0)
-            button.clicked.connect(lambda _checked=False, i=index: self.show_view(profiles=i == 1))
-            self.view_buttons.append(button)
-            views.addWidget(button)
-        bar.addLayout(views)
+        # One toggle: the centre shows the spectrum, or every cluster's profiles.
+        self.profiles_button = self._tool(
+            "profiles", "Profiles: available after a fit", checkable=True
+        )
+        self.profiles_button.setEnabled(False)
+        self.profiles_button.clicked.connect(lambda on: self.show_view(profiles=on))
+        bar.addWidget(self.profiles_button)
         bar.addSpacing(themes.SPACE_XS)
         segment = QtWidgets.QHBoxLayout()
         segment.setSpacing(0)
@@ -477,9 +466,6 @@ class EditorWorkspace(QtWidgets.QWidget):
         """Below 1200 px the run line needs the room; tooltips keep the full text."""
         wide = self.width() >= _WIDE_TOOLBAR
         self.settings_button.setText(self._settings_text if wide else "Fit settings")
-        # The view selector keeps its icons; its names step aside in a narrow toolbar.
-        for button in self.view_buttons:
-            button.setText(button.accessibleName() if wide else "")
         count = self.warnings.property("count") or 0
         self.warnings.setText(
             f"▲ {count} cluster{'s' if count != 1 else ''} with warnings" if wide else f"▲ {count}"
@@ -995,10 +981,9 @@ class EditorWorkspace(QtWidgets.QWidget):
             "uncertainty unreliable or at bound); N in the cluster list moves between them"
         )
         self.warnings.setVisible(bool(flagged))
-        profiles = self.view_buttons[1]
-        profiles.setEnabled(fitting.result is not None)
-        profiles.setToolTip(
-            "Amplitude profiles of every cluster (Ctrl+2)"
+        self.profiles_button.setEnabled(fitting.result is not None)
+        self.profiles_button.setToolTip(
+            "Profiles: every cluster's amplitude profiles (Ctrl+2; Ctrl+1 for the spectrum)"
             if fitting.result is not None
             else "Profiles: available after a fit"
         )
@@ -1016,12 +1001,10 @@ class EditorWorkspace(QtWidgets.QWidget):
     def show_view(self, *, profiles: bool) -> None:
         """Show the spectrum or every cluster's profiles; selection and plane are shared."""
         profiles = profiles and self.fitting.result is not None
+        self.profiles_button.setChecked(profiles)
         if profiles == self.profiles_shown:
-            self.view_buttons[int(profiles)].setChecked(True)
             return
         self.center.setCurrentWidget(self.profiles if profiles else self.spectral)
-        for index, button in enumerate(self.view_buttons):
-            button.setChecked(index == int(profiles))
         for tool in self._spectrum_tools:
             tool.setVisible(not profiles)
         if profiles:
