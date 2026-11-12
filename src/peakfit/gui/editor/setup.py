@@ -13,7 +13,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from peakfit.engine.domain.config import LineshapeName
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
-from peakfit.gui.editor.labels import disclosure, text_label
+from peakfit.gui.editor.labels import LABEL_WIDTH, disclosure, text_label
 
 if TYPE_CHECKING:
     from peakfit.engine.domain.config import PeakFitConfig
@@ -55,7 +55,8 @@ class FitSetup(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(themes.SPACE_S)
         form = QtWidgets.QGridLayout()
-        form.setHorizontalSpacing(themes.SPACE_M)
+        form.setHorizontalSpacing(themes.SPACE_S)
+        form.setColumnMinimumWidth(0, LABEL_WIDTH)  # the inspector's label column
         form.setVerticalSpacing(6)
         form.setColumnStretch(1, 1)
         layout.addLayout(form)
@@ -103,7 +104,8 @@ class FitSetup(QtWidgets.QWidget):
         self.advanced = QtWidgets.QWidget()
         advanced = QtWidgets.QGridLayout(self.advanced)
         advanced.setContentsMargins(0, 0, 0, 0)
-        advanced.setHorizontalSpacing(themes.SPACE_M)
+        advanced.setHorizontalSpacing(themes.SPACE_S)
+        advanced.setColumnMinimumWidth(0, LABEL_WIDTH)  # the inspector's label column
         advanced.setVerticalSpacing(6)
         advanced.setColumnStretch(1, 1)
         self.max_iterations = QtWidgets.QSpinBox()

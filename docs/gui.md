@@ -126,7 +126,11 @@ for undoable IDs, rather than appearing as active scientific provenance.
 The **fit setup** is part of the inspector's analysis page, shown whenever nothing
 is selected. Before the first fit it leads the page; once a run exists, the run
 review leads (active run, changes from the previous run, warning navigation and
-unexplained signal) and the setup follows it. A click on the toolbar run summary,
+unexplained signal) and the setup follows it. The active run reads as label rows:
+Run (short ID and Current or Outdated, the full ID in the tooltip), Model, Converged
+and Usable as counts of clusters, Fitted (date, time in UTC and duration), and
+Warnings when any cluster has one; a failure or a recovery problem adds a row in the
+warning style. The setup's values share that column. A click on the toolbar run summary,
 or **Analysis ▸ Active run**, opens the page at the review. The summary names the
 run and whether it is Current; it gives cluster counts only when some cluster is
 unusable or not converged (always in its tooltip), and the run is named there
@@ -179,8 +183,8 @@ recorded fit is kept as it is, and the amplitude profile withholds their
 individual amplitudes as not established (below). The next fit starts them from the configured defaults;
 moving either peak makes it an ordinary edited peak.
 
-After a refit, the analysis page summarizes **Changes from run …**, the run it was
-refitted from, read from both recorded runs without refitting or judging either.
+After a refit, the analysis page summarizes **Changes from parent run**, the run it was
+refitted from (named in its first row, **Parent run**), read from both recorded runs without refitting or judging either.
 Peaks are matched by stable ID, so renamed peaks still compare.
 
 - **Clusters** first: each cluster whose numerical warnings or highlights changed,
@@ -201,12 +205,15 @@ Peaks are matched by stable ID, so renamed peaks still compare.
   model, and the same number of varied parameters. Otherwise the line names the
   first difference, for example “Measures not compared: fitting samples changed
   (67 → 68 per plane)”. A lower χ²ᵣ is never presented as a better fit.
-- **Whole run:** clusters with engine warnings before → after, and clusters before →
-  after with regroupings and peaks added or removed. No run-level χ²ᵣ is shown: a
+- **Whole run**, as rows: **Clusters** before → after with regroupings and peaks
+  added or removed, and **With ▲ warnings** (clusters with engine warnings); a count
+  that did not change reads “121, unchanged”. No run-level χ²ᵣ is shown: a
   median over clusters whose fitting samples differ is not a comparison.
 - **Largest position differences:** the five largest, as Δ in ppm and in fitted
   linewidths on the axis that moved most. They are neutral information, not a
-  measure of fit quality; there is no threshold.
+  measure of fit quality (said in the heading's tooltip); there is no threshold.
+  Differences that round to zero at display precision are not listed; when all
+  do, one row reads “Positions: unchanged at display precision”.
 
 Each name opens its cluster or peak; at most six clusters are listed with a count of
 the rest. A stored parent run is read off Qt; one whose evidence is no longer
@@ -224,9 +231,10 @@ places the slices through its extreme, keeping the plane, the comparison mode an
 selection. A list belongs to one plane, run and threshold: another plane needs
 another request. For an Outdated run the list is that run's historical residual,
 titled “· Run 5d7b4768 · historical”; distances are to the current working peaks
-and follow each edit, and a nearest peak added since the run is marked ◇. The list is descriptive. It never
-adds or proposes peaks and never flags clusters; a signal may be left unmodelled
-on purpose.
+and follow each edit, and a nearest peak added since the run is marked ◇. The list is descriptive,
+captioned “Diagnostic only · residual beyond ±5 σ_stat”; the tooltip adds that it never
+adds or proposes peaks and never flags clusters, and that a signal may be left
+unmodelled on purpose.
 
 Successful completion automatically adopts each usable valid fitted coordinate
 pair by stable peak ID. Usable non-converged fits and uncertainty warnings retain

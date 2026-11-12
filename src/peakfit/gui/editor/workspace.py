@@ -19,7 +19,7 @@ from peakfit.gui.editor.changes import ClusterChange, RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.focus import FocusBar
 from peakfit.gui.editor.inspector import Inspector, StartRow, find_cluster, parameter_order
-from peakfit.gui.editor.labels import ElidedLabel
+from peakfit.gui.editor.labels import ElidedLabel, Row
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
@@ -801,7 +801,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             return "", []
         if parent_id is None:
             return "", [("note", "First run: there is no earlier run to compare with.")]
-        title = f"CHANGES FROM RUN {parent_id[:8].upper()}"
+        title = parent_id[:8]
         if parent is None:
             return title, [("note", f"Reading run {parent_id[:8]}…")]
         if isinstance(parent, str):
@@ -871,27 +871,26 @@ class EditorWorkspace(QtWidgets.QWidget):
             formatting.nucleus(a.nucleus, a.label) for a in (self.canvas.x_axis, self.canvas.y_axis)
         )
         planes = spectra.data.shape[0]
+        flagged = 0
+        rows: list[Row] = []
         if fitting.busy:
-            run = fitting.stage
+            rows.append(("Fit", fitting.stage, "", "", ""))
         elif result is not None:
             flagged = self.warnings.property("count") or 0
-            run = (
-                f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'}\n"
-                f"{dataset_summary(result, warnings=False)}\n"
-                f"Fitted in {result.execution_seconds:.1f} s · {result.completed_at[:19]} UTC"
-                + (f"\n▲ {flagged} clusters with numerical warnings" if flagged else "")
-            )
-        else:
-            run = ""  # the toolbar already says Not fitted
+            rows += _run_rows(result, current=bool(fitting.current), warned=flagged)
+        # With no run the rows stay empty: the toolbar already says Not fitted.
         if fitting.failure:
-            run += f"\n{fitting.attempt}: {fitting.failure}"
+            rows.append((fitting.attempt, fitting.failure, "warning", "", ""))
         if fitting.recovery_error:
-            run += "\n▲ " + _recovery_note(fitting.recovery_error)
+            rows.append(
+                ("Recovery", "▲ " + _recovery_note(fitting.recovery_error), "warning", "", "")
+            )
         self.panel.show_analysis(
             self.dataset.path.stem,
             f"{len(self.peaks)} peaks · {planes} planes · {x} × {y}",
-            run,
+            rows,
             fitted=result is not None,
+            warned=bool(flagged),
         )
         if self.selected_id is None:
             self.panel.show_changes(*self._run_changes())
@@ -1350,10 +1349,10 @@ class EditorWorkspace(QtWidgets.QWidget):
         """Fill the analysis page's list for the current plane, run and threshold."""
         fitting, plane = self.fitting, self.canvas.plane
         k = formatting.number(self.unexplained_threshold, 1).removesuffix(".0")
-        note = (
-            f"Diagnostic only: connected regions of the whole-spectrum residual beyond "
-            f"±{k} σ_stat. It never proposes peaks or flags clusters; signal may be left "
-            "unmodelled on purpose."
+        note = f"Diagnostic only · residual beyond ±{k} σ_stat"
+        self.panel.unexplained_note.setToolTip(
+            f"Connected regions of the whole-spectrum residual beyond ±{k} σ_stat. It never "
+            "proposes peaks or flags clusters; signal may be left unmodelled on purpose."
         )
         button = f"Find on plane {plane + 1}"
         key = self._unexplained_key()
@@ -1803,6 +1802,41 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._unexplained_worker.close()
 
 
+def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
+    """The active run as label rows: identity, completeness, then when it ran."""
+    clusters = result.outcome.clusters
+    total = len(clusters)
+    usable = sum(cluster.usable for cluster in clusters)
+    converged = sum(cluster.optimizer_provenance.converged for cluster in clusters)
+    model = "Complete" if usable == total else "Incomplete" if usable else "No usable model"
+    stamp = result.completed_at[:19]
+    rows: list[Row] = [
+        (
+            "Run",
+            f"{result.run_id[:8]} · {'Current' if current else 'Outdated'}",
+            "",
+            "",
+            result.run_id,
+        ),
+        ("Model", model, "" if usable == total else "warning", "", ""),
+        ("Converged", f"{converged} / {total}", "", "", "Clusters whose optimizer converged"),
+        ("Usable", f"{usable} / {total}", "", "", "Clusters with a usable recorded result"),
+        (
+            "Fitted",
+            # Non-breaking spaces: the line wraps only at the dot.
+            f"{stamp[:16].replace('T', NBSP)}{NBSP}UTC · {result.execution_seconds:.1f}{NBSP}s",
+            "",
+            "",
+            f"Completed {stamp.replace('T', ' ')} UTC in {result.execution_seconds:.1f} s",
+        ),
+    ]
+    if warned:
+        rows.append(
+            ("Warnings", f"▲ {warned} clusters", "warning", "", "Clusters with numerical warnings")
+        )
+    return rows
+
+
 def _recovery_note(error: str) -> str:
     """Why the accepted run would not survive a crash, and what keeps it."""
     return (
@@ -1854,13 +1888,26 @@ def _change_lines(change: ClusterChange) -> list[str]:
     return [*lines, measures] if measures else lines
 
 
+NBSP = "\u00a0"
+POSITIONS_TIP = "Differences between fitted positions; not a measure of fit quality"
+
+
+def _before_after(before: int, after: int) -> str:
+    """A count across two runs, said once when it did not change."""
+    return f"{after}, unchanged" if before == after else f"{before} → {after}"
+
+
 def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple]:
-    """Compact page entries: changed clusters first, then the whole run, then positions."""
+    """Compact page entries: changed clusters first, then the whole run, then positions.
+
+    Entries are ("row", label, value, tooltip), ("heading", text[, tooltip]),
+    ("note", text) or ("link", text, detail, working ID, opens a cluster page[, warning]).
+    """
     entries: list[tuple] = []
     limit = 6
     compared = False
     if changes.changes:
-        entries.append(("heading", "Clusters"))
+        entries.append(("heading", "Changed clusters"))
     for change in changes.changes[:limit]:
         names = change.names
         label = names[0] + (f" +{len(names) - 1}" if len(names) > 1 else "")
@@ -1875,32 +1922,41 @@ def _change_entries(changes: RunChanges, decimals: dict[str, int]) -> list[tuple
             ("note", "Recorded values; a lower χ²ᵣ is not by itself evidence of a better fit.")
         )
     (warned_before, warned_after), (before, after) = changes.warned, changes.clusters
-    clustering = f"Clusters {before} → {after}"
+    clustering = _before_after(before, after)
     if changes.regrouped:
         clustering += f" · {changes.regrouped} regrouped"
     if changes.added or changes.removed:
         clustering += f" · peaks +{changes.added} −{changes.removed}"
     entries += [
-        ("heading", "Whole run"),
-        ("line", f"Clusters with ▲ engine warnings {warned_before} → {warned_after}"),
-        ("line", clustering),
+        ("row", "Clusters", clustering, ""),
+        (
+            "row",
+            "With ▲ warnings",
+            _before_after(warned_before, warned_after),
+            "Clusters with engine warnings",
+        ),
     ]
-    if changes.displacements:
-        entries.append(("heading", "Largest position differences"))
-        for move in changes.displacements:
-            delta = formatting.number(move.delta, decimals.get(move.axis, 4) + 1)
-            entries.append(
-                (
-                    "link",
-                    move.name,
-                    f"δ {move.axis} {delta} ppm · {move.linewidths:.2f} LW",
-                    move.working_id,
-                    False,
-                )
+    moves = [
+        (move, formatting.number(round(move.delta, places) + 0.0, places))
+        for move in changes.displacements
+        for places in (decimals.get(move.axis, 4) + 1,)
+    ]
+    # Differences that round to zero at display precision are not listed one by one.
+    moves = [(move, delta) for move, delta in moves if float(delta.replace("−", "-")) != 0]
+    if moves:
+        entries.append(("heading", "Largest position differences", POSITIONS_TIP))
+        entries += [
+            (
+                "link",
+                move.name,
+                f"δ {move.axis} {delta} ppm · {move.linewidths:.2f} LW",
+                move.working_id,
+                False,
             )
-        entries.append(
-            ("note", "Differences between fitted positions; not a measure of fit quality.")
-        )
+            for move, delta in moves
+        ]
+    elif changes.displacements:
+        entries.append(("row", "Positions", "unchanged at display precision", POSITIONS_TIP))
     if changes.uncompared:
         entries.append(
             ("note", f"{changes.uncompared} peaks not compared: unusable in either run.")
