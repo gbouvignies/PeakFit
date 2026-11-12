@@ -203,6 +203,19 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
         view = self.menuBar().addMenu("&View")
         self._action(
             view,
+            "Spectrum",
+            lambda: self.workspace and self.workspace.show_view(profiles=False),
+            "Ctrl+1",
+        )
+        self._action(
+            view,
+            "Profiles",
+            lambda: self.workspace and self.workspace.show_view(profiles=True),
+            "Ctrl+2",
+        )
+        view.addSeparator()
+        self._action(
+            view,
             "Full spectrum",
             lambda: self.workspace and self.workspace.full_view(),
             "Ctrl+0",
@@ -709,6 +722,7 @@ class EditorWindow(AnalysisActions, QtWidgets.QMainWindow):
             self,
             "Keyboard shortcuts",
             "Open: Cmd/Ctrl+O · Search: Cmd/Ctrl+F\nUndo: Cmd/Ctrl+Z · Redo: Cmd/Ctrl+Shift+Z\n"
+            "Spectrum: Cmd/Ctrl+1 · Profiles: Cmd/Ctrl+2 (Enter on a tile focuses its cluster)\n"
             "Full spectrum: Cmd/Ctrl+0 · Plane: Ctrl+Page Up/Down\n"
             "Focus cluster: Cmd/Ctrl+Shift+F or Enter in the cluster list · Escape returns\n"
             "Slices: Cmd/Ctrl+Alt+arrows resize · Cmd/Ctrl+Alt+=/− scale · "

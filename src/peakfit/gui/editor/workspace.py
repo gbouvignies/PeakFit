@@ -21,6 +21,7 @@ from peakfit.gui.editor.focus import FocusBar
 from peakfit.gui.editor.inspector import Inspector, StartRow, parameter_order
 from peakfit.gui.editor.labels import ElidedLabel, Row
 from peakfit.gui.editor.navigator import Navigator
+from peakfit.gui.editor.profiles_view import ProfilesView, Tile, cluster_tiles
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.setup import DEFAULT_SOURCE, lineshape_text
 from peakfit.gui.editor.spectral_geometry import SliceSizes
@@ -128,7 +129,14 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._focus_run: str | None = None
         self._frame_key: tuple[str, ...] | None = None
         self._membership_ids: frozenset[str] = frozenset()
-        self.splitter.addWidget(self.spectral)
+        # The centre shows the spectrum or every cluster's profiles; both share the
+        # navigator's order and the selection.
+        self.profiles = ProfilesView()
+        self._tiles: tuple[object, dict[int, Tile]] = (None, {})
+        self.center = QtWidgets.QStackedWidget()
+        self.center.addWidget(self.spectral)
+        self.center.addWidget(self.profiles)
+        self.splitter.addWidget(self.center)
         self.splitter.addWidget(self.panel)
         for index, stretch in enumerate((0, 1, 0)):
             self.splitter.setStretchFactor(index, stretch)
@@ -172,6 +180,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.panel.member_chosen.connect(self.select_peak)  # neighbours: the view stays
         self.panel.focus_requested.connect(self.open_focus)
         self.navigator.focus_requested.connect(self.open_focus)
+        self.navigator.order_changed.connect(self._show_profiles)
+        self.profiles.cluster_chosen.connect(
+            lambda i: self.select_peak(i, cluster=True, center=True)
+        )
+        self.profiles.focus_requested.connect(self.open_focus)
         self.focus_bar.close_requested.connect(self.close_focus)
         self.focus_bar.selected.connect(lambda i: self.select_peak(i, cluster=True))
         regions = self.panel.setup.regions
@@ -247,6 +260,25 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.warnings.setObjectName("warning")
         self.warnings.hide()
         bar.addWidget(self.warnings)
+        views = QtWidgets.QHBoxLayout()
+        views.setSpacing(0)
+        self.view_buttons = []
+        for index, name in enumerate(("Spectrum", "Profiles")):
+            button = QtWidgets.QPushButton(name)
+            button.setAccessibleName(name)
+            button.setToolTip(("Spectrum (Ctrl+1)", "Profiles: available after a fit")[index])
+            button.setIconSize(QtCore.QSize(16, 16))
+            self._icons.append((button, name.lower()))
+            button.setObjectName("segment")
+            button.setProperty("edge", ("first", "last")[index])
+            button.setCheckable(True)
+            button.setChecked(index == 0)
+            button.setEnabled(index == 0)
+            button.clicked.connect(lambda _checked=False, i=index: self.show_view(profiles=i == 1))
+            self.view_buttons.append(button)
+            views.addWidget(button)
+        bar.addLayout(views)
+        bar.addSpacing(themes.SPACE_XS)
         segment = QtWidgets.QHBoxLayout()
         segment.setSpacing(0)
         self.mode_buttons = []
@@ -275,6 +307,8 @@ class EditorWorkspace(QtWidgets.QWidget):
         display.clicked.connect(self.display_dialog)
         for button in (self.add_button, self.pin_button, full, display):
             bar.addWidget(button)
+        # Comparison and canvas tools act on the spectrum only.
+        self._spectrum_tools = (*self.mode_buttons, self.add_button, self.pin_button, full, display)
         bar.addSpacing(themes.SPACE_XS)
         self.settings_button = QtWidgets.QPushButton()
         self.settings_button.setObjectName("chip")
@@ -347,6 +381,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         for button, name in self._icons:
             button.setIcon(icon(name, theme))
         self.canvas.apply_theme(theme)
+        self.profiles.apply_theme(theme)
         self.navigator.apply_theme(theme)
         self.panel.apply_theme(theme)
         self._update_inspector()
@@ -442,6 +477,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         """Below 1200 px the run line needs the room; tooltips keep the full text."""
         wide = self.width() >= _WIDE_TOOLBAR
         self.settings_button.setText(self._settings_text if wide else "Fit settings")
+        # The view selector keeps its icons; its names step aside in a narrow toolbar.
+        for button in self.view_buttons:
+            button.setText(button.accessibleName() if wide else "")
         count = self.warnings.property("count") or 0
         self.warnings.setText(
             f"▲ {count} cluster{'s' if count != 1 else ''} with warnings" if wide else f"▲ {count}"
@@ -727,6 +765,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         result = self.fitting.result
         cluster = cluster and bool(result and peak and result.index.find(peak.id))
         self.navigator.select(peak)
+        self.profiles.select(self.selected_id)
         self.panel.set_peak(peak, self.canvas.display(peak) if peak else None, cluster=cluster)
         self._update_inspector()
 
@@ -956,8 +995,68 @@ class EditorWorkspace(QtWidgets.QWidget):
             "uncertainty unreliable or at bound); N in the cluster list moves between them"
         )
         self.warnings.setVisible(bool(flagged))
+        profiles = self.view_buttons[1]
+        profiles.setEnabled(fitting.result is not None)
+        profiles.setToolTip(
+            "Amplitude profiles of every cluster (Ctrl+2)"
+            if fitting.result is not None
+            else "Profiles: available after a fit"
+        )
+        if fitting.result is None and self.profiles_shown:
+            self.show_view(profiles=False)
         self.update_settings_summary()
         self._update_inspector()
+        self._show_profiles()
+
+    @property
+    def profiles_shown(self) -> bool:
+        """Whether the centre shows the Profiles view rather than the spectrum."""
+        return self.center.currentWidget() is self.profiles
+
+    def show_view(self, *, profiles: bool) -> None:
+        """Show the spectrum or every cluster's profiles; selection and plane are shared."""
+        profiles = profiles and self.fitting.result is not None
+        if profiles == self.profiles_shown:
+            self.view_buttons[int(profiles)].setChecked(True)
+            return
+        self.center.setCurrentWidget(self.profiles if profiles else self.spectral)
+        for index, button in enumerate(self.view_buttons):
+            button.setChecked(index == int(profiles))
+        for tool in self._spectrum_tools:
+            tool.setVisible(not profiles)
+        if profiles:
+            self._show_profiles()
+            self.profiles.list.setFocus()
+        else:
+            self._focus_spectral_area()
+
+    def _show_profiles(self) -> None:
+        """Tiles of the clusters the navigator shows, in its order; built once per run."""
+        result = self.fitting.result
+        if not self.profiles_shown or result is None:
+            return
+        spectra = self.dataset.spectra
+        plane_values = (
+            tuple(float(v) for v in spectra.z_values) if self.dataset.has_plane_values else None
+        )
+        key = (result.run_id, plane_values, self.rules)
+        if key != self._tiles[0]:
+            self._tiles = (key, cluster_tiles(result, self.reviews(), plane_values))
+        built = self._tiles[1]
+        shown = self.navigator.shown_reviews()
+        tiles = [built[r.cluster_id] for r in shown if r.cluster_id in built]
+        chosen = self.navigator.filter_text()
+        count = (
+            f"{len(tiles)} of {len(built)} clusters · {chosen}"
+            if chosen
+            else f"{len(built)} clusters"
+        )
+        historical = "" if self.fitting.current else f" · Run {result.run_id[:8]} · historical"
+        self.profiles.set_tiles(
+            tiles,
+            f"{count}{historical} · in the cluster list's order · double-click to focus",
+            f"No cluster matches “{chosen}”." if chosen else "No clusters in this run.",
+        )
 
     def _show_run_line(self) -> None:
         """One compact status line; inspection and navigation stay available."""
@@ -1207,6 +1306,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             else ""
         )
         self.panel.set_plane(plane - 1)
+        self.profiles.set_plane(plane - 1)
         if self.selected_id is None:
             self._show_unexplained()
 
@@ -1216,6 +1316,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         The overview's viewport, slices, mode, regions and sample are kept aside and
         come back exactly on return; edits and fits made in focus stay.
         """
+        self.show_view(profiles=False)
         # Kept before the selection moves the overview to show the chosen peak.
         overview = self._overview or self._view_state()
         if identity is not None:
