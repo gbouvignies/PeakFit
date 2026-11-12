@@ -25,6 +25,8 @@ from peakfit.gui.editor.labels import about, disclosure, phrases
 from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.gui.dataset_fit import DatasetFitResult
 
@@ -259,6 +261,111 @@ def framed_range(x: np.ndarray) -> tuple[float, float] | None:
     return None
 
 
+def reference_text(reference: tuple[int, ...]) -> str:
+    """Name a reference set (zero-based source planes) by one-based plane number."""
+    planes = [p + 1 for p in reference]
+    if len(planes) == 1:
+        return f"plane {planes[0]}"
+    return "planes " + ", ".join(str(p) for p in planes) + ", mean"
+
+
+def isolated_hint(profile: PeakProfile | None) -> str:
+    """Point out planes isolated from the rest; never choose them."""
+    if profile is None:
+        return ""
+    frame = framed_range(profile.x)
+    if frame is None:
+        return ""
+    isolated = [j for j in range(profile.x.size) if not frame[0] <= profile.x[j] <= frame[1]]
+    planes = ", ".join(
+        f"plane {profile.source_planes[j] + 1}"
+        + (f" (value {formatting.intensity(float(profile.x[j]))})" if profile.plane_values else "")
+        for j in isolated
+    )
+    return f"Isolated from the other planes: {planes}."
+
+
+def quantity_menu(
+    parent: QtWidgets.QWidget,
+    anchor: QtWidgets.QWidget,
+    reference: tuple[int, ...],
+    normalized: bool,
+    set_normalized: Callable[[bool], None],
+    choose: Callable[[], None],
+) -> QtWidgets.QMenu:
+    """Raw amplitudes, ratios to the chosen reference, or choose the reference."""
+    menu = QtWidgets.QMenu(parent)
+    raw = menu.addAction("Raw amplitudes")
+    raw.setCheckable(True)
+    raw.setChecked(not normalized)
+    raw.triggered.connect(lambda: set_normalized(False))
+    if reference:
+        ratio = menu.addAction(f"Normalized to {reference_text(reference)}")
+        ratio.setCheckable(True)
+        ratio.setChecked(normalized)
+        ratio.triggered.connect(lambda: set_normalized(True))
+    menu.addSeparator()
+    menu.addAction("Choose reference planes…").triggered.connect(choose)
+    menu.popup(anchor.mapToGlobal(QtCore.QPoint(0, anchor.height())))
+    return menu
+
+
+def ask_reference(
+    parent: QtWidgets.QWidget,
+    profile: PeakProfile | None,
+    reference: tuple[int, ...],
+    accept: Callable[[tuple[int, ...]], None],
+) -> QtWidgets.QDialog:
+    """Ask for reference planes by one-based source plane number; never by value."""
+    count = int(profile.source_planes.max()) + 1 if profile is not None else 0
+    dialog = QtWidgets.QDialog(parent)
+    dialog.setWindowTitle("Normalize to reference")
+    layout = QtWidgets.QVBoxLayout(dialog)
+    layout.addWidget(
+        QtWidgets.QLabel("Reference planes by plane number, for example 1 or 1-3, 131:")
+    )
+    field = QtWidgets.QLineEdit(", ".join(str(p + 1) for p in reference))
+    field.setAccessibleName("Reference plane numbers")
+    layout.addWidget(field)
+    hint = QtWidgets.QLabel(isolated_hint(profile))
+    hint.setObjectName("caption")
+    hint.setWordWrap(True)
+    hint.setVisible(bool(hint.text()))
+    layout.addWidget(hint)
+    note = QtWidgets.QLabel(
+        "A / A_ref with R the mean reference amplitude of each peak. Display only: "
+        "recorded amplitudes, uncertainties and exports are unchanged. Unavailable "
+        f"when σ_R/|R| exceeds {RELIABILITY_LIMIT:g}."
+    )
+    note.setObjectName("caption")
+    note.setWordWrap(True)
+    layout.addWidget(note)
+    error = QtWidgets.QLabel()
+    error.setObjectName("error")
+    error.hide()
+    layout.addWidget(error)
+    buttons = QtWidgets.QDialogButtonBox(
+        QtWidgets.QDialogButtonBox.StandardButton.Ok
+        | QtWidgets.QDialogButtonBox.StandardButton.Cancel
+    )
+    layout.addWidget(buttons)
+
+    def done() -> None:
+        try:
+            planes = parse_planes(field.text(), count)
+        except ValueError as exc:
+            error.setText(str(exc))
+            error.show()
+            return
+        dialog.accept()
+        accept(tuple(p - 1 for p in planes))
+
+    buttons.accepted.connect(done)
+    buttons.rejected.connect(dialog.reject)
+    dialog.open()
+    return dialog
+
+
 class ProfilePlot(QtWidgets.QWidget):
     """The selected peak's recorded amplitudes with its cluster members, in the inspector.
 
@@ -269,6 +376,7 @@ class ProfilePlot(QtWidgets.QWidget):
     """
 
     plane_requested = QtCore.Signal(int)
+    quantity_changed = QtCore.Signal()  # the user chose raw amplitudes or a reference
 
     def __init__(self) -> None:  # noqa: PLR0915
         super().__init__()
@@ -584,31 +692,28 @@ class ProfilePlot(QtWidgets.QWidget):
 
     def reference_text(self) -> str:
         """Name the reference set by one-based source plane number."""
-        planes = [p + 1 for p in self.reference]
-        if len(planes) == 1:
-            return f"plane {planes[0]}"
-        return "planes " + ", ".join(str(p) for p in planes) + ", mean"
+        return reference_text(self.reference)
 
     def _mode_menu(self) -> None:
-        menu = QtWidgets.QMenu(self)
-        raw = menu.addAction("Raw amplitudes")
-        raw.setCheckable(True)
-        raw.setChecked(not self.normalized)
-        raw.triggered.connect(lambda: self.set_normalized(False))
-        if self.reference:
-            ratio = menu.addAction(f"Normalized to {self.reference_text()}")
-            ratio.setCheckable(True)
-            ratio.setChecked(self.normalized)
-            ratio.triggered.connect(lambda: self.set_normalized(True))
-        menu.addSeparator()
-        menu.addAction("Choose reference planes…").triggered.connect(self.choose_reference)
-        menu.popup(self.mode.mapToGlobal(QtCore.QPoint(0, self.mode.height())))
-        self._menu = menu
+        self._menu = quantity_menu(
+            self,
+            self.mode,
+            self.reference,
+            self.normalized,
+            self.set_normalized,
+            self.choose_reference,
+        )
+
+    def show_quantity(self, reference: tuple[int, ...], normalized: bool) -> None:
+        """Adopt the session's profile quantity, chosen here or in the Profiles view."""
+        self.reference = reference
+        self.normalized = normalized and bool(reference)
+        self._draw()
 
     def set_normalized(self, normalized: bool) -> None:
         """Switch the display quantity; recorded amplitudes never change."""
-        self.normalized = normalized and bool(self.reference)
-        self._draw()
+        self.show_quantity(self.reference, normalized)
+        self.quantity_changed.emit()
 
     def set_reference(self, planes: tuple[int, ...]) -> None:
         """Adopt an explicit reference set (zero-based source planes) and show ratios."""
@@ -617,74 +722,7 @@ class ProfilePlot(QtWidgets.QWidget):
 
     def choose_reference(self) -> None:
         """Ask for reference planes by one-based source plane number; never by value."""
-        profile = self._profile
-        count = int(profile.source_planes.max()) + 1 if profile is not None else 0
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle("Normalize to reference")
-        layout = QtWidgets.QVBoxLayout(dialog)
-        layout.addWidget(
-            QtWidgets.QLabel("Reference planes by plane number, for example 1 or 1-3, 131:")
-        )
-        field = QtWidgets.QLineEdit(", ".join(str(p + 1) for p in self.reference))
-        field.setAccessibleName("Reference plane numbers")
-        layout.addWidget(field)
-        hint = QtWidgets.QLabel(self._isolated_hint())
-        hint.setObjectName("caption")
-        hint.setWordWrap(True)
-        hint.setVisible(bool(hint.text()))
-        layout.addWidget(hint)
-        note = QtWidgets.QLabel(
-            "A / A_ref with R the mean reference amplitude of each peak. Display only: "
-            "recorded amplitudes, uncertainties and exports are unchanged. Unavailable "
-            f"when σ_R/|R| exceeds {RELIABILITY_LIMIT:g}."
-        )
-        note.setObjectName("caption")
-        note.setWordWrap(True)
-        layout.addWidget(note)
-        error = QtWidgets.QLabel()
-        error.setObjectName("error")
-        error.hide()
-        layout.addWidget(error)
-        buttons = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.StandardButton.Ok
-            | QtWidgets.QDialogButtonBox.StandardButton.Cancel
-        )
-        layout.addWidget(buttons)
-
-        def accept() -> None:
-            try:
-                planes = parse_planes(field.text(), count)
-            except ValueError as exc:
-                error.setText(str(exc))
-                error.show()
-                return
-            dialog.accept()
-            self.set_reference(tuple(p - 1 for p in planes))
-
-        buttons.accepted.connect(accept)
-        buttons.rejected.connect(dialog.reject)
-        dialog.open()
-        self._dialog = dialog
-
-    def _isolated_hint(self) -> str:
-        """Point out planes isolated from the rest; never choose them."""
-        profile = self._profile
-        if profile is None:
-            return ""
-        frame = framed_range(profile.x)
-        if frame is None:
-            return ""
-        isolated = [j for j in range(profile.x.size) if not frame[0] <= profile.x[j] <= frame[1]]
-        planes = ", ".join(
-            f"plane {profile.source_planes[j] + 1}"
-            + (
-                f" (value {formatting.intensity(float(profile.x[j]))})"
-                if profile.plane_values
-                else ""
-            )
-            for j in isolated
-        )
-        return f"Isolated from the other planes: {planes}."
+        self._dialog = ask_reference(self, self._profile, self.reference, self.set_reference)
 
     def _place_plane_marker(self) -> None:
         profile = self._profile
