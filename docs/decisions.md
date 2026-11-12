@@ -1097,3 +1097,16 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Why.** The run block repeated the toolbar in a paragraph that wrapped
   mid-phrase; “0 → 0” and five “−0.0000 ppm” lines after an unchanged refit said
   nothing at length.
+
+## 2026-11-12: One profile transform for GUI and CLI; correct R2eff errors
+- **Change.** Reference ratios and R2eff live in `engine.scientific.profiles`; the
+  GUI amplitude profile and `peakfit plot cest|cpmg` both use them. CPMG R2eff
+  errors are σ_r / (r·T): the CLI omitted the 1/r of d(−ln r)/dr and understated
+  σ by the factor r (×0.3 on a plane attenuated to 30 %). CLI plots now keep an
+  unavailable amplitude error unavailable instead of reading it as 0, report a
+  ratio of an exactly zero intensity with its own σ instead of 0, and skip, with
+  the reason, a peak whose reference fails the GUI's σ_R/|R| ≤ 0.1 limit.
+- **Why.** The two front ends computed the same quantity separately and disagreed
+  at the edges; one implementation, tested against Monte Carlo, removes the
+  disagreement and the R2eff error. A test pinned the wrong R2eff σ and was
+  corrected with this explanation.

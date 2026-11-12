@@ -20,16 +20,15 @@ from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.diagnostics.identifiability import AmplitudeStatus, Cause, MemberAmplitude
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConfig
+from peakfit.engine.scientific.profiles import Normalized, normalize
 from peakfit.gui import formatting
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor import fitting as fitting_module
 from peakfit.gui.editor import slices
 from peakfit.gui.editor.profile import (
-    Normalized,
     PeakProfile,
     ProfilePlot,
     framed_range,
-    normalize,
     parse_planes,
     peak_profile,
 )

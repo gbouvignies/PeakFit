@@ -302,11 +302,11 @@ class NumericalReview(QtWidgets.QWidget):
             )
         )
         self.peak.clear()
-        names = {i.engine_name: i.assignment for i in r.inputs.identities}
+        by_engine = r.index.by_engine
         for c in r.outcome.clusters:
             if c.analytical_evaluation:
                 for index, name in enumerate(c.peak_names):
-                    self.peak.addItem(names[name], (c.cluster_id, index))
+                    self.peak.addItem(by_engine[name].assignment, (c.cluster_id, index))
         self.show_profile()
 
     def show_profile(self):

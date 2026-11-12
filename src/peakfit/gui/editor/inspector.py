@@ -258,19 +258,6 @@ def _dimension_and_kind(name: str) -> tuple[str, str]:
     return (parts[1] if len(parts) > 1 else "", parts[-1] if len(parts) > 2 else "")  # noqa: PLR2004
 
 
-def find_cluster(
-    result: DatasetFitResult, working_id: str
-) -> tuple[str, FinalClusterOutcome] | None:
-    """The engine name of a working peak and the recorded cluster that fitted it."""
-    identity = next((i for i in result.inputs.identities if i.working_id == working_id), None)
-    if identity is None:
-        return None
-    cluster = next(
-        (c for c in result.outcome.clusters if identity.engine_name in c.peak_names), None
-    )
-    return (identity.engine_name, cluster) if cluster is not None else None
-
-
 class Inspector(QtWidgets.QScrollArea):
     """One scrolling page chosen by selection: the selected peak, or the analysis."""
 
@@ -615,7 +602,7 @@ class Inspector(QtWidgets.QScrollArea):
             self.profile.set_plane(plane)
             return
         self._key = key
-        found = find_cluster(result, peak.id) if result is not None else None
+        found = result.index.find(peak.id) if result is not None else None
         run = _run_text(result, current=current, busy=busy)
         self.cluster_link.setVisible(found is not None and len(found[1].peak_names) > 1)
         if found is not None:
@@ -821,7 +808,7 @@ class Inspector(QtWidgets.QScrollArea):
             self.profile.set_plane(plane)
             return
         self._key = key
-        found = find_cluster(result, peak.id) if result is not None else None
+        found = result.index.find(peak.id) if result is not None else None
         if result is None or found is None or review is None:
             self.kind.setText("CLUSTER")
             self.title.setText(peak.name)
@@ -836,9 +823,9 @@ class Inspector(QtWidgets.QScrollArea):
             _with_run(_state(cluster), _run_text(result, current=current, busy=busy))
         )
         self._show_profile(result, peak.id, plane_values, plane, current=current)
-        engines = {i.working_id: i.engine_name for i in result.inputs.identities}
+        by_working = result.index.by_working
         self.cluster_page.show_cluster(
-            review, cluster, tuple(engines[i] for i in review.ids), peak.id
+            review, cluster, tuple(by_working[i].engine_name for i in review.ids), peak.id
         )
         self.cluster_page.provenance.setText(_provenance(cluster, result))
 
@@ -913,7 +900,7 @@ class Inspector(QtWidgets.QScrollArea):
                 or [("Warnings", "none", "", "", "No numerical warnings recorded")],
             )
             return
-        names = {i.engine_name: i.assignment for i in result.inputs.identities}
+        by_engine = result.index.by_engine
         matrix = correlation_matrix(cluster)
         if len(cluster.peak_names) == 1:
             correlation = ("ρ", "not applicable", "", "", "Single-peak cluster")
@@ -924,7 +911,8 @@ class Inspector(QtWidgets.QScrollArea):
             row = matrix[index].copy()
             row[index] = 0.0
             partner = int(np.nanargmax(np.abs(row)))
-            other = names.get(cluster.peak_names[partner], cluster.peak_names[partner])
+            name = cluster.peak_names[partner]
+            other = by_engine[name].assignment if name in by_engine else name
             correlation = (
                 f"ρ {other}",
                 formatting.number(float(row[partner]), 2),

@@ -29,7 +29,9 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
   fit setup runs it off Qt after every committed change. `gui.dataset_fit` runs `run_pipeline_iter` with the reviewed
   configuration, including cross-cluster updates, and binds its `CompletedFit` to
   the original input snapshot; it does not implement another fitting scheduler.
-  The GUI defaults to two passes; CLI defaults are unchanged.
+  The GUI defaults to two passes; CLI defaults are unchanged. A run's
+  `DatasetFitResult.index` (`RunIndex`, built once per run) is the only lookup from
+  stable working IDs to engine names, recorded clusters and fitted parameters.
   `gui.fit_process.FitProcess` runs one fit in a disposable spawned child and
   receives completed values off Qt. A private trusted-child pickle transport
   preserves mapping proxies and read-only NumPy buffers; it is not a saved-run
@@ -40,7 +42,8 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 - `src/peakfit/ui/` - Rich terminal helpers used by the current CLI.
 - `src/peakfit/fit/` - validation, data loading, fitting workflow, result assembly, and output coordination.
 - `src/peakfit/mcmc/` - uncertainty sampling, diagnostics, and MCMC-facing workflows.
-- `src/peakfit/plot/` - PDF profile and MCMC diagnostic plots.
+- `src/peakfit/plot/` - PDF profile and MCMC diagnostic plots. Reference ratios
+  and R2eff come from `engine.scientific.profiles`, which the GUI profile uses too.
 - `src/peakfit/io/` - parsing, serialization, and file-format handling.
 - `src/peakfit/engine/` - domain models, numerical algorithms, lineshapes, and fitting math.
 - `src/peakfit/shared/` - small cross-cutting helpers.

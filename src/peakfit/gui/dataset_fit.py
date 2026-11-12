@@ -1,8 +1,11 @@
 """Whole-dataset execution using the existing pipeline and completed-fit contracts."""
 
+from __future__ import annotations
+
 import warnings
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import cached_property
 from importlib.metadata import version
 from time import perf_counter
 from typing import TYPE_CHECKING
@@ -16,11 +19,15 @@ from peakfit.engine.results import FitResult
 from peakfit.fit.pipeline import PipelineResult, run_pipeline_iter
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable, Mapping
 
     from peakfit.engine.scientific.completed import CompletedFit
-    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
-    from peakfit.gui.fitting import PreparedDatasetFit
+    from peakfit.engine.scientific.final_outcome import (
+        FinalClusterOutcome,
+        FinalFitOutcome,
+        FinalParameter,
+    )
+    from peakfit.gui.fitting import PeakIdentity, PreparedDatasetFit
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,7 +39,56 @@ class DatasetFitAttempt:
     execution_seconds: float
 
 
+def parameter_name(engine_name: str, axis: str, kind: str) -> str:
+    """The engine's name of a peak's nonlinear parameter, e.g. ``p_20.F2.cs``."""
+    return f"{engine_name}.{axis}.{kind}"
+
+
 @dataclass(frozen=True, slots=True)
+class RunIndex:
+    """One run's peaks by stable working ID and engine name, with their clusters and values."""
+
+    by_working: Mapping[str, PeakIdentity]
+    by_engine: Mapping[str, PeakIdentity]
+    cluster_of: Mapping[str, FinalClusterOutcome]  # keyed by engine name
+    parameters: Mapping[str, FinalParameter]  # every recorded nonlinear parameter, by name
+
+    @classmethod
+    def build(cls, result: DatasetFitResult) -> RunIndex:
+        """Index the run's recorded identities, clusters and final parameters once."""
+        identities = result.inputs.identities
+        clusters = result.outcome.clusters
+        return cls(
+            {i.working_id: i for i in identities},
+            {i.engine_name: i for i in identities},
+            {name: c for c in clusters for name in c.peak_names},
+            {p.name: p for c in clusters for p in c.final_nonlinear_parameters},
+        )
+
+    def find(self, working_id: str) -> tuple[str, FinalClusterOutcome] | None:
+        """The engine name of a working peak and the recorded cluster that fitted it."""
+        identity = self.by_working.get(working_id)
+        if identity is None:
+            return None
+        cluster = self.cluster_of.get(identity.engine_name)
+        return (identity.engine_name, cluster) if cluster is not None else None
+
+    def working_ids(self, engine_names: Iterable[str]) -> tuple[str, ...]:
+        """Working IDs of the given engine peaks, skipping names the run did not submit."""
+        return tuple(self.by_engine[n].working_id for n in engine_names if n in self.by_engine)
+
+    def fitted(
+        self, engine_name: str, axis: str, kind: str, *, usable: bool = False
+    ) -> FinalParameter | None:
+        """A recorded parameter, or None; ``usable`` excludes unusable clusters' values."""
+        if usable:
+            cluster = self.cluster_of.get(engine_name)
+            if cluster is None or not cluster.usable:
+                return None
+        return self.parameters.get(parameter_name(engine_name, axis, kind))
+
+
+@dataclass(frozen=True)
 class DatasetFitResult:
     """A completed run bound to the exact reviewed inputs and source-plane order."""
 
@@ -48,6 +104,11 @@ class DatasetFitResult:
     def outcome(self) -> FinalFitOutcome:
         """The single authority for completed values and optimizer diagnostics."""
         return self.completed_fit.outcome
+
+    @cached_property
+    def index(self) -> RunIndex:
+        """Identities, clusters and fitted values, built once for every view to share."""
+        return RunIndex.build(self)
 
 
 def compute_dataset_fit(

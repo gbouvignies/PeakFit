@@ -190,19 +190,19 @@ def _label(review: ClusterReview) -> str:
 
 def _fitted(result: DatasetFitResult, axes: int) -> dict[str, list[tuple[float, float]]]:
     """Fitted (position ppm, linewidth Hz) per spectral axis for peaks of usable clusters."""
-    values = {
-        p.name: float(p.value)
-        for cluster in result.outcome.clusters
-        if cluster.usable
-        for p in cluster.final_nonlinear_parameters
-    }
-    labels = [get_dimension_label(index) for index in range(axes)]
+    index = result.index
+    labels = [get_dimension_label(i) for i in range(axes)]
     fitted = {}
     for identity in result.inputs.identities:
-        engine = identity.engine_name
-        names = [(f"{engine}.{a}.cs", f"{engine}.{a}.lw") for a in labels]
-        if all(cs in values and lw in values for cs, lw in names):
-            fitted[identity.working_id] = [(values[cs], values[lw]) for cs, lw in names]
+        row = []
+        for a in labels:
+            cs = index.fitted(identity.engine_name, a, "cs", usable=True)
+            lw = index.fitted(identity.engine_name, a, "lw", usable=True)
+            if cs is None or lw is None:
+                break
+            row.append((float(cs.value), float(lw.value)))
+        else:
+            fitted[identity.working_id] = row
     return fitted
 
 
@@ -255,10 +255,9 @@ def compare_runs(
             not (c.before or c.now),
         )
     )
-    names = {i.working_id: i.assignment for i in active.inputs.identities}
+    now, old = active.index.by_working, parent.index.by_working
     now_fit, old_fit = _fitted(active, len(axes)), _fitted(parent, len(axes))
-    now_ids = {i.working_id for i in active.inputs.identities}
-    old_ids = {i.working_id for i in parent.inputs.identities}
+    now_ids, old_ids = now.keys(), old.keys()
     displacements, uncompared = [], 0
     for identity in sorted(now_ids & old_ids):
         current, previous = now_fit.get(identity), old_fit.get(identity)
@@ -268,7 +267,7 @@ def compare_runs(
         moves = [
             Displacement(
                 identity,
-                names[identity],
+                now[identity].assignment,
                 title,
                 cs - old_cs,
                 abs(cs - old_cs) * float(axis.obs) / lw if lw > 0 else math.inf,

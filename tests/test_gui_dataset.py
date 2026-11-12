@@ -187,3 +187,38 @@ def test_summary_separates_termination_from_usability_and_no_model():
     )
     unusable = replace(result, completed_fit=replace(result.completed_fit, outcome=outcome))
     assert "No usable model" in dataset_summary(unusable)
+
+
+def test_run_index_maps_working_ids_to_clusters_and_recorded_values():
+    _spectra, _peaks, _config, prepared = two_cluster_dataset()
+    result = finish_dataset_fit(prepared, compute_dataset_fit(deepcopy(prepared)))
+    index = result.index
+    assert index is result.index  # built once per run
+    for identity in result.inputs.identities:
+        engine, cluster = index.find(identity.working_id)
+        assert engine == identity.engine_name
+        assert engine in cluster.peak_names
+        assert index.working_ids(cluster.peak_names)  # every member maps back
+        position = index.fitted(engine, "F2", "cs")
+        assert position is not None
+        assert position.name == f"{engine}.F2.cs"
+    assert index.find("not-a-peak") is None
+    assert index.working_ids(["unknown"]) == ()
+    # Excluding unusable clusters is explicit, never implied.
+    first = result.outcome.clusters[0]
+    unusable = replace(
+        result,
+        completed_fit=replace(
+            result.completed_fit,
+            outcome=replace(
+                result.outcome,
+                clusters=(
+                    replace(first, classification=FitOutcomeClassification.UNUSABLE),
+                    *result.outcome.clusters[1:],
+                ),
+            ),
+        ),
+    )
+    name = first.peak_names[0]
+    assert unusable.index.fitted(name, "F2", "cs") is not None
+    assert unusable.index.fitted(name, "F2", "cs", usable=True) is None

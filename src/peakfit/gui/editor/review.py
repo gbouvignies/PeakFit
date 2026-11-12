@@ -152,7 +152,7 @@ def review_clusters(
     ``axes`` are the spectral axes in peak-position order and ``titles`` their
     display names (for example "¹H"). Parameters name axes by the engine rule.
     """
-    identities = {i.engine_name: i for i in result.inputs.identities}
+    identities = result.index.by_engine
     order = [get_dimension_label(index) for index in range(len(axes))]
     names_of = dict(zip(order, titles, strict=True))
     fitted = {c.cluster_id: _parameters(c) for c in result.outcome.clusters}

@@ -6,6 +6,8 @@ from typing import Any
 
 import numpy as np
 
+from peakfit.engine.scientific import profiles
+
 _CEST_AUTO_REF_OFFSET_THRESHOLD = 10000.0
 _CEST_AUTO_REF_FALLBACK_POINTS = 2
 
@@ -16,40 +18,44 @@ def prepare_intensity_data(points: list[tuple[float, float, float]]) -> Any:
     return np.array(points, dtype=dtype)
 
 
-def prepare_cest_data(
-    points: list[tuple[float, float, float]], ref_points: list[int]
-) -> Any | None:
-    """Normalize CEST intensities against explicit or inferred references."""
+def prepare_cest_data(points: list[tuple[float, float, float]], ref_points: list[int]) -> Any | str:
+    """Normalize CEST intensities to their reference points, or say why not.
+
+    Ratios and their σ come from ``engine.scientific.profiles.normalize``, the
+    same propagation and reliability limit as the desktop profile display.
+    """
     offset = np.array([p[0] for p in points], dtype=float)
     intensity = np.array([p[1] for p in points], dtype=float)
     error = np.array([p[2] for p in points], dtype=float)
 
     ref_mask = _cest_reference_mask(offset, ref_points)
     if not np.any(ref_mask) or np.all(ref_mask):
-        return None
+        return "no reference points apart from the profile"
+    shown = profiles.normalize(intensity, error, np.flatnonzero(ref_mask))
+    if isinstance(shown, profiles.Unavailable):
+        return shown.reason
 
-    intensity_ref = float(np.mean(intensity[ref_mask]))
-    if not np.isfinite(intensity_ref) or intensity_ref == 0:
-        return None
-
-    ref_error = _mean_error(error[ref_mask])
-    data_mask = ~ref_mask
-    normalized = intensity[data_mask] / intensity_ref
-    normalized_error = _ratio_error(
-        numerator=intensity[data_mask],
-        numerator_error=error[data_mask],
-        denominator=intensity_ref,
-        denominator_error=ref_error,
-    )
-
+    data_mask = ~shown.in_reference
     dtype = [("offset", "f8"), ("intensity", "f8"), ("error", "f8")]
     return np.array(
-        list(zip(offset[data_mask], normalized, normalized_error, strict=True)), dtype=dtype
+        list(
+            zip(
+                offset[data_mask],
+                shown.values[data_mask],
+                shown.errors[data_mask],
+                strict=True,
+            )
+        ),
+        dtype=dtype,
     )
 
 
-def prepare_cpmg_data(points: list[tuple[float, float, float]], time_t2: float) -> Any | None:
-    """Convert CPMG intensities to R2eff with deterministic error propagation."""
+def prepare_cpmg_data(points: list[tuple[float, float, float]], time_t2: float) -> Any | str:
+    """Convert CPMG intensities to R2eff with first-order σ, or say why not.
+
+    The reference is the mean of the planes without refocusing (ncyc = 0), or the
+    first plane when there is none.
+    """
     ncyc = np.array([p[0] for p in points], dtype=float)
     intensity = np.array([p[1] for p in points], dtype=float)
     error = np.array([p[2] for p in points], dtype=float)
@@ -57,31 +63,18 @@ def prepare_cpmg_data(points: list[tuple[float, float, float]], time_t2: float) 
     ref_mask = ncyc == 0
     if not np.any(ref_mask):
         ref_mask[0] = True
+    shown = profiles.normalize(intensity, error, np.flatnonzero(ref_mask))
+    if isinstance(shown, profiles.Unavailable):
+        return shown.reason
 
-    intensity_ref = float(np.mean(intensity[ref_mask]))
-    if not np.isfinite(intensity_ref) or intensity_ref == 0:
-        return None
-
-    ref_error = _mean_error(error[ref_mask])
-    ratio = intensity / intensity_ref
-    data_mask = (~ref_mask) & np.isfinite(ratio) & (ratio > 0)
+    data_mask = ~shown.in_reference & np.isfinite(shown.values) & (shown.values > 0)
     if not np.any(data_mask):
-        return None
+        return "no positive intensity ratio to convert"
 
     nu_cpmg = np.where(ncyc[data_mask] > 0, ncyc[data_mask] / time_t2, 0.5 / time_t2)
-    r2eff = -np.log(ratio[data_mask]) / time_t2
-    r2eff_error = (
-        _ratio_error(
-            numerator=intensity[data_mask],
-            numerator_error=error[data_mask],
-            denominator=intensity_ref,
-            denominator_error=ref_error,
-        )
-        / time_t2
-    )
-
+    rates, rate_errors = profiles.r2eff(shown.values[data_mask], shown.errors[data_mask], time_t2)
     dtype = [("nu_cpmg", "f8"), ("r2eff", "f8"), ("error", "f8")]
-    return np.array(list(zip(nu_cpmg, r2eff, r2eff_error, strict=True)), dtype=dtype)
+    return np.array(list(zip(nu_cpmg, rates, rate_errors, strict=True)), dtype=dtype)
 
 
 def _cest_reference_mask(offset: np.ndarray, ref_points: list[int]) -> np.ndarray:
@@ -107,32 +100,6 @@ def _cest_reference_mask(offset: np.ndarray, ref_points: list[int]) -> np.ndarra
         if 0 <= idx < len(offset):
             ref_mask[idx] = True
     return ref_mask
-
-
-def _mean_error(errors: np.ndarray) -> float:
-    """Standard error of a mean from independent point errors."""
-    if len(errors) == 0:
-        return 0.0
-    return float(np.sqrt(np.sum(np.square(errors))) / len(errors))
-
-
-def _ratio_error(
-    *,
-    numerator: np.ndarray,
-    numerator_error: np.ndarray,
-    denominator: float,
-    denominator_error: float,
-) -> np.ndarray:
-    """Propagate uncertainty for numerator / denominator."""
-    relative_num = np.divide(
-        numerator_error,
-        np.abs(numerator),
-        out=np.zeros_like(numerator_error, dtype=float),
-        where=numerator != 0,
-    )
-    relative_den = abs(denominator_error / denominator) if denominator != 0 else 0.0
-    ratio = numerator / denominator
-    return np.abs(ratio) * np.sqrt(np.square(relative_num) + relative_den**2)
 
 
 __all__ = [
