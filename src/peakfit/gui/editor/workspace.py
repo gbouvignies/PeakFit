@@ -185,6 +185,13 @@ class EditorWorkspace(QtWidgets.QWidget):
             lambda i: self.select_peak(i, cluster=True, center=True)
         )
         self.profiles.focus_requested.connect(self.open_focus)
+        # One profile quantity for the session: chosen in the inspector or over the tiles.
+        self.profiles.quantity_changed.connect(self.set_profile_quantity)
+        self.panel.profile.quantity_changed.connect(
+            lambda: self.set_profile_quantity(
+                self.panel.profile.reference, self.panel.profile.normalized
+            )
+        )
         self.focus_bar.close_requested.connect(self.close_focus)
         self.focus_bar.selected.connect(lambda i: self.select_peak(i, cluster=True))
         regions = self.panel.setup.regions
@@ -993,6 +1000,11 @@ class EditorWorkspace(QtWidgets.QWidget):
         self._update_inspector()
         self._show_profiles()
 
+    def set_profile_quantity(self, reference: tuple[int, ...], normalized: bool) -> None:
+        """Raw amplitudes or ratios to reference planes, for the inspector and every tile."""
+        self.panel.profile.show_quantity(reference, normalized)
+        self.profiles.set_quantity(reference, normalized)
+
     @property
     def profiles_shown(self) -> bool:
         """Whether the centre shows the Profiles view rather than the spectrum."""
@@ -1035,6 +1047,11 @@ class EditorWorkspace(QtWidgets.QWidget):
             else f"{len(built)} clusters"
         )
         historical = "" if self.fitting.current else f" · Run {result.run_id[:8]} · historical"
+        self.profiles.title = (
+            f"{self.dataset.path.stem} · Run {result.run_id[:8]}"
+            + ("" if self.fitting.current else " (outdated)")
+            + (f" · {chosen}" if chosen else "")
+        )
         self.profiles.set_tiles(
             tiles,
             f"{count}{historical} · in the cluster list's order · double-click to focus",

@@ -1,15 +1,18 @@
 """The Profiles view: every cluster's profiles, in the navigator's order, sharing selection."""
 
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
+import numpy as np
 import pytest
 from builders import two_cluster_dataset
 from gui_helpers import wait_until
 from PySide6 import QtCore, QtTest
 
+from peakfit.engine.scientific.profiles import Normalized, normalize
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
-from peakfit.gui.editor.profiles_view import cluster_tiles
+from peakfit.gui.editor.profiles_view import cluster_tiles, shown_rows
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.workspace import EditorWorkspace
 from peakfit.gui.spectrum import Dataset
@@ -136,3 +139,66 @@ def test_an_edit_labels_the_tiles_historical(workspace, scientific):
     w.move_peak(peak.id, tuple(p + 0.001 for p in peak.positions))
     assert not w.fitting.current
     assert f"Run {result.run_id[:8]} · historical" in w.profiles.caption.text()
+
+
+def _tile(scientific, members):
+    result = scientific[-1]
+    axes = list(scientific[0].spectral_params)
+    reviews = review_clusters(result, axes, ["¹H", "¹⁵N"][: len(axes)], HighlightRules())
+    tiles = cluster_tiles(result, reviews, None)
+    return next(t for t in tiles.values() if len(t.review.ids) == members)
+
+
+def test_tiles_show_ratios_or_say_why_not(scientific):
+    profile = _tile(scientific, 2).profile
+    assert profile is not None
+    raw = shown_rows(profile, (0,), normalized=False)
+    assert not raw.ratio
+    assert [i for i, _ in raw.rows] == [0, 1]
+    ratio = shown_rows(profile, (0,), normalized=True)
+    assert ratio.ratio
+    for (index, values), series in zip(ratio.rows, profile.series, strict=True):
+        expected = normalize(series.amplitudes, np.full(values.size, series.error), np.array([0]))
+        assert isinstance(expected, Normalized)
+        np.testing.assert_array_equal(values, expected.values)
+        assert index in (0, 1)
+    # A member whose reference is not distinguishable from its σ is left out and named.
+    weak = replace(profile.series[1], error=abs(float(profile.series[1].amplitudes[0])))
+    mixed = shown_rows(replace(profile, series=(profile.series[0], weak)), (0,), normalized=True)
+    assert mixed.ratio
+    assert [i for i, _ in mixed.rows] == [0]
+    assert any(n.startswith(f"Not normalized: {weak.assignment}") for n in mixed.notes)
+    # With no member normalizable, raw amplitudes are drawn and the tile says why.
+    both = replace(profile, series=(replace(profile.series[0], error=weak.error * 100), weak))
+    fallback = shown_rows(both, (0,), normalized=True)
+    assert not fallback.ratio
+    assert any(n.startswith("Raw:") for n in fallback.notes)
+    missing = shown_rows(profile, (10_000,), normalized=True)
+    assert not missing.ratio
+    assert "Raw: a reference plane is not in this run" in missing.notes
+
+
+def test_one_reference_choice_serves_the_inspector_and_the_tiles(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    w.show_view(profiles=True)
+    w.panel.profile.set_reference((0,))
+    assert w.profiles.reference == (0,)
+    assert w.profiles.normalized
+    assert w.profiles.mode.text() == "÷ plane 1"
+    w.profiles.quantity_changed.emit((0,), False)
+    assert not w.panel.profile.normalized
+    assert w.panel.profile.reference == (0,)
+    assert w.profiles.mode.text() == "Raw amplitudes"
+
+
+def test_exporting_writes_every_shown_tile_to_a_pdf(workspace, scientific, tmp_path):
+    w = workspace
+    publish(w, scientific[-1])
+    w.show_view(profiles=True)
+    target = tmp_path / "profiles.pdf"
+    w.profiles.export_figure(str(target))
+    data = target.read_bytes()
+    assert data.startswith(b"%PDF")
+    assert list(tmp_path.iterdir()) == [target]  # no partial file left beside it
+    assert "Exported 2 tiles on 1 page to profiles.pdf" in w.profiles.caption.text()

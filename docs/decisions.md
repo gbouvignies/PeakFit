@@ -1125,3 +1125,16 @@ Short records of non‑obvious design choices and trade‑offs.
   them) and the view choice is not saved with the analysis (no storage change). The
   switch is one icon toggle beside the comparison selector, not a labelled
   two-button selector, so the run line keeps its room at the minimum window.
+
+## 2026-11-12: One profile quantity for the inspector and the tiles; PDF figures
+- **Change.** The reference-plane choice lives in the workspace and drives the
+  inspector's profile and every Profiles tile; either place can change it. Tiles in
+  ratio mode use the shared `normalize` rule per member, draw only normalized
+  members, and fall back to raw amplitudes with a stated reason when none can be
+  normalized. **Export PDF…** paints the shown tiles with the on-screen painter
+  into A4 landscape pages, in the light appearance, without selection or the
+  current-plane mark, and replaces the destination only once complete.
+- **Why.** Two reference choices would let the inspector and the grid show
+  different quantities for the same cluster. Raw and ratio values never share one
+  scale. One painter for screen and paper keeps the figure identical to what was
+  reviewed; matplotlib PDFs (`peakfit plot`) remain the CLI's publication path.

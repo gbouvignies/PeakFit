@@ -399,7 +399,14 @@ profile (a distant reference plane is left out) and a dashed line marks the curr
 plane. Choosing a tile selects its cluster, as a cluster row does; double-click or
 Enter opens it in focus on the spectrum. Comparison and canvas tools step aside
 while Profiles shows; the plane strip, selection and inspector stay. Tiles show
-no error bars: the inspector's profile carries them. After an edit the caption
+no error bars: the inspector's profile carries them. The quantity chip over the tiles
+is the inspector's: raw amplitudes or ratios to the chosen reference planes, one
+choice for the session, made in either place. In ratios a dotted line marks 1; a
+member whose ratio is unavailable is left out and named under its tile, and a tile
+with no member to normalize keeps raw amplitudes and says why, as the inspector's
+profile does. **Export PDF…** writes the tiles shown, in their order, to A4
+landscape pages (twelve per page) titled with the dataset, run, quantity and filter;
+it is a figure of recorded values, written only when complete. After an edit the caption
 says the tiles are that run's historical values; before a fit Profiles is
 unavailable.
 
