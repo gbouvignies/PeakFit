@@ -114,8 +114,12 @@ peakfit plot cpmg "$LATEST_RUN" --time-t2 0.04 --output "$LATEST_RUN/cpmg_profil
 ```
 
 CEST and CPMG plots are generated from `tables/intensities.csv`. CEST preserves
-signed normalized intensities. CPMG computes `R2eff` from `log(I/I0)`, so only
-points with a positive intensity ratio can contribute to the transformed profile.
+signed normalized intensities. CPMG computes `R2eff = −ln(I/I0)/T` with
+σ = σ(I/I0) / ((I/I0)·T), so only points with a positive intensity ratio can
+contribute to the transformed profile. Ratios use the desktop profile's
+propagation: a peak whose amplitude errors are unavailable, or whose reference is
+not distinguishable from its uncertainty (σ_R/|R| > 0.1), is skipped with the
+reason rather than plotted with misleading error bars.
 
 ## MCMC
 

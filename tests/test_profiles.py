@@ -1,9 +1,15 @@
-"""Reference-normalized amplitude profiles: a display transform with exact special cases."""
+"""Derived profiles: reference ratios and R2eff, shared by the GUI and CLI plots."""
 
 import numpy as np
 import pytest
 
-from peakfit.gui.editor.profile import RELIABILITY_LIMIT, Normalized, Unavailable, normalize
+from peakfit.engine.scientific.profiles import (
+    RELIABILITY_LIMIT,
+    Normalized,
+    Unavailable,
+    normalize,
+    r2eff,
+)
 
 
 def _normalized(*args, **kwargs) -> Normalized:
@@ -84,3 +90,17 @@ def test_negative_reference_keeps_signs_and_never_alters_recorded_amplitudes():
     assert shown.reference == -4.0
     np.testing.assert_array_equal(shown.values, [1.0, 0.5, -0.25])
     np.testing.assert_array_equal(amplitudes, original)
+
+
+def test_r2eff_error_carries_the_logarithm_derivative():
+    # σ(−ln r / T) = σ_r / (|r| T): the 1/r factor matters most for strongly
+    # attenuated planes, where omitting it underestimated σ by the factor r.
+    rng = np.random.default_rng(11)
+    amplitudes = np.array([100.0, 80.0, 30.0])
+    errors = np.array([1.0, 1.0, 1.0])
+    shown = _normalized(amplitudes, errors, np.array([0]))
+    rates, sigma = r2eff(shown.values[1:], shown.errors[1:], 0.04)
+    np.testing.assert_allclose(rates, -np.log([0.8, 0.3]) / 0.04)
+    draws = amplitudes + rng.standard_normal((400_000, 3)) * errors
+    sampled = -np.log(draws[:, 1:] / draws[:, :1]) / 0.04
+    np.testing.assert_allclose(sigma, sampled.std(axis=0), rtol=0.02)

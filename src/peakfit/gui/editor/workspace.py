@@ -18,7 +18,7 @@ from peakfit.gui.editor import slices
 from peakfit.gui.editor.changes import ClusterChange, RunChanges, compare_runs
 from peakfit.gui.editor.fitting import DatasetFitting
 from peakfit.gui.editor.focus import FocusBar
-from peakfit.gui.editor.inspector import Inspector, StartRow, find_cluster, parameter_order
+from peakfit.gui.editor.inspector import Inspector, StartRow, parameter_order
 from peakfit.gui.editor.labels import ElidedLabel, Row
 from peakfit.gui.editor.navigator import Navigator
 from peakfit.gui.editor.review import HighlightRules, review_clusters
@@ -422,10 +422,9 @@ class EditorWorkspace(QtWidgets.QWidget):
         fitting = self.fitting
         result = fitting.result
         if result is not None and fitting.current:
-            ids = {i.engine_name: i.working_id for i in result.inputs.identities}
             members = {c.cluster_id: c.peak_names for c in result.outcome.clusters}
             regions = tuple(
-                (s.grid_indices, tuple(ids[n] for n in members[s.cluster_id] if n in ids))
+                (s.grid_indices, result.index.working_ids(members[s.cluster_id]))
                 for s in result.completed_fit.samples
             )
             return ("run", result.run_id), regions, f"recorded in run {result.run_id[:8]}"
@@ -726,18 +725,15 @@ class EditorWorkspace(QtWidgets.QWidget):
         if cluster is None:
             cluster = self.panel.cluster_view
         result = self.fitting.result
-        cluster = cluster and bool(result and peak and find_cluster(result, peak.id))
+        cluster = cluster and bool(result and peak and result.index.find(peak.id))
         self.navigator.select(peak)
         self.panel.set_peak(peak, self.canvas.display(peak) if peak else None, cluster=cluster)
         self._update_inspector()
 
     def _cluster_members(self, result) -> tuple[str, ...]:
         """Working IDs that the active run fitted together with the selected peak."""
-        found = find_cluster(result, self.selected_id) if result and self.selected_id else None
-        if found is None:
-            return ()
-        ids = {i.engine_name: i.working_id for i in result.inputs.identities}
-        return tuple(ids[name] for name in found[1].peak_names if name in ids)
+        found = result.index.find(self.selected_id) if result and self.selected_id else None
+        return result.index.working_ids(found[1].peak_names) if found else ()
 
     def reviews(self) -> list:
         """The active run's cluster review at the current highlight thresholds."""
@@ -1227,7 +1223,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         elif not self.commit_fields():
             return
         result = self.fitting.result
-        if result is None or not self.selected_id or find_cluster(result, self.selected_id) is None:
+        if result is None or not self.selected_id or result.index.find(self.selected_id) is None:
             return
         if not self.focus_open:
             # Lanes give way first when the window is short; then focus is declined.
@@ -1472,19 +1468,18 @@ class EditorWorkspace(QtWidgets.QWidget):
             return []
         reasons = dict(completion.retained)
         result = completion.result
-        engine = {i.working_id: i.engine_name for i in result.inputs.identities}
-        values = {
-            p.name: p.value for c in result.outcome.clusters for p in c.final_nonlinear_parameters
-        }
+        index = result.index
         x_axis, y_axis = self.canvas.x_axis, self.canvas.y_axis
         x_label, y_label = get_dimension_label(1), get_dimension_label(0)
         points = []
         for identity, reason in reasons.items():
-            name = engine.get(identity)
-            x = values.get(f"{name}.{x_label}.cs")
-            y = values.get(f"{name}.{y_label}.cs")
-            if reason.startswith("near-collinear") and x is not None and y is not None:
-                points.append((display_position(x_axis, x), display_position(y_axis, y)))
+            peak = index.by_working.get(identity)
+            x = peak and index.fitted(peak.engine_name, x_label, "cs")
+            y = peak and index.fitted(peak.engine_name, y_label, "cs")
+            if reason.startswith("near-collinear") and x and y:
+                points.append(
+                    (display_position(x_axis, x.value), display_position(y_axis, y.value))
+                )
         return points
 
     def _escape(self) -> None:
@@ -1594,18 +1589,16 @@ class EditorWorkspace(QtWidgets.QWidget):
         result = self.fitting.result
         if result is None:
             return {}
-        values = {
-            p.name: float(p.value)
-            for cluster in result.outcome.clusters
-            if cluster.usable
-            for p in cluster.final_nonlinear_parameters
-        }
+        index = result.index
         axes = (self.canvas.y_axis, self.canvas.x_axis)
         widths = {}
         for identity in result.inputs.identities:
-            hz = [values.get(f"{identity.engine_name}.{get_dimension_label(k)}.lw") for k in (0, 1)]
+            hz = [
+                index.fitted(identity.engine_name, get_dimension_label(k), "lw", usable=True)
+                for k in (0, 1)
+            ]
             widths[identity.working_id] = tuple(
-                abs(w) / axis.obs if w is not None and axis.obs else math.nan
+                abs(float(w.value)) / axis.obs if w is not None and axis.obs else math.nan
                 for w, axis in zip(hz, axes, strict=True)
             )
         return widths

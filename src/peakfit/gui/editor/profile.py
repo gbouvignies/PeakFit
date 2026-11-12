@@ -14,6 +14,12 @@ from peakfit.engine.diagnostics.identifiability import (
     MemberAmplitude,
     amplitude_identifiability,
 )
+from peakfit.engine.scientific.profiles import (
+    RELIABILITY_LIMIT,
+    Normalized,
+    Unavailable,
+    normalize,
+)
 from peakfit.gui import formatting
 from peakfit.gui.editor.labels import about, disclosure, phrases
 from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
@@ -57,30 +63,28 @@ def peak_profile(
     Plane values are used only when supplied and identical to those the run
     recorded; otherwise columns are labeled by one-based source plane number.
     """
-    identity = next((i for i in result.inputs.identities if i.working_id == working_id), None)
-    cluster = identity and next(
-        (c for c in result.outcome.clusters if identity.engine_name in c.peak_names), None
-    )
-    if identity is None or cluster is None:
+    found = result.index.find(working_id)
+    if found is None:
         return f"Not part of run {result.run_id[:8]}"
+    engine_name, cluster = found
     evaluation = cluster.analytical_evaluation
     if not cluster.usable or evaluation is None:
         return cluster.unusable_reason or "No analytical evaluation for this cluster"
-    names = {i.engine_name: i.assignment for i in result.inputs.identities}
+    by_engine = result.index.by_engine
     members = amplitude_identifiability(
         evaluation.shapes, evaluation.amplitudes, evaluation.amplitude_standard_errors
     )
     order = sorted(
         range(len(cluster.peak_names)),
-        key=lambda k: cluster.peak_names[k] != identity.engine_name,
+        key=lambda k: cluster.peak_names[k] != engine_name,
     )
     series = tuple(
         ProfileSeries(
-            names[cluster.peak_names[k]],
+            by_engine[cluster.peak_names[k]].assignment,
             evaluation.amplitudes[k],
             float(evaluation.amplitude_standard_errors[k]),
             members[k],
-            tuple(names[cluster.peak_names[j]] for j in members[k].partners),
+            tuple(by_engine[cluster.peak_names[j]].assignment for j in members[k].partners),
         )
         for k in order
     )
@@ -99,76 +103,6 @@ def peak_profile(
         evaluation.statistics.reduced_chi_squared,
         result.outcome.noise_model,
     )
-
-
-RELIABILITY_LIMIT = 0.1  # largest σ_R/|R| for which first-order propagation is used
-
-
-@dataclass(frozen=True, slots=True)
-class Normalized:
-    """Display-only ratios r_k = A_k / R to a reference mean, with propagated σ."""
-
-    values: np.ndarray
-    errors: np.ndarray  # first-order σ(r_k); zero for an exact reference point
-    reference: float  # R
-    reference_error: float  # σ_R
-    in_reference: np.ndarray  # columns belonging to S
-    exact: bool  # one reference plane: its ratio is exactly 1, with no error bar
-
-
-@dataclass(frozen=True, slots=True)
-class Unavailable:
-    """Why no ratio is shown: undefined (cannot be computed) or unreliable (withheld)."""
-
-    reason: str
-    undefined: bool  # False: computable, but not trustworthy enough to show
-
-
-def normalize(
-    amplitudes: np.ndarray,
-    errors: np.ndarray,
-    reference: np.ndarray,
-    limit: float = RELIABILITY_LIMIT,
-) -> Normalized | Unavailable:
-    """Normalize one peak's amplitudes to the mean of its reference columns S.
-
-    Uses first-order propagation with the full gradient (specification §9):
-    ∂r_k/∂A_k = 1/R − [k∈S]·A_k/(nR²) and ∂r_k/∂A_j = −A_k/(nR²) for j∈S, j≠k.
-    Amplitudes of different planes are treated as uncorrelated, as the recorded
-    analytical uncertainties (lineshapes held fixed) imply. Returns why instead
-    when the ratio is undefined, or computable but not reliable enough to show.
-    """
-    amplitudes = np.asarray(amplitudes, dtype=float)
-    errors = np.asarray(errors, dtype=float)
-    columns = np.asarray(reference, dtype=int)
-    n = columns.size
-    if n == 0:
-        return Unavailable("no reference plane chosen", undefined=True)
-    if not np.all(np.isfinite(errors)):
-        return Unavailable("σ unavailable for this peak", undefined=True)
-    mean = float(np.mean(amplitudes[columns]))
-    if not np.isfinite(mean) or mean == 0:
-        return Unavailable("reference amplitude is zero or not finite", undefined=True)
-    sigma_r = float(np.sqrt(np.sum(errors[columns] ** 2)) / n)
-    ratio = sigma_r / abs(mean)
-    if ratio > limit:
-        return Unavailable(
-            f"reference not distinguishable from its uncertainty: σ_R/|R| = {ratio:.2f}",
-            undefined=False,
-        )
-    values = amplitudes / mean
-    in_reference = np.zeros(amplitudes.size, dtype=bool)
-    in_reference[columns] = True
-    coupling = amplitudes / (n * mean**2)  # |∂r_k/∂A_j| for j in S, j ≠ k
-    reference_variance = float(np.sum(errors[columns] ** 2))
-    own = 1 / mean - in_reference * coupling  # ∂r_k/∂A_k
-    others = reference_variance - in_reference * errors**2  # Σ σ_j² over S without k
-    variance = own**2 * errors**2 + coupling**2 * others
-    exact = n == 1
-    if exact:
-        values[columns] = 1.0
-        variance[columns] = 0.0
-    return Normalized(values, np.sqrt(variance), mean, sigma_r, in_reference, exact)
 
 
 def parse_planes(text: str, count: int) -> tuple[int, ...]:

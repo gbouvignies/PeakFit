@@ -13,6 +13,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
+from peakfit.gui.dataset_fit import parameter_name
 from peakfit.gui.editor.labels import (
     Row,
     about,
@@ -265,7 +266,7 @@ class ClusterPage(QtWidgets.QWidget):
             grid.addWidget(heading, 0, column)
         for row, engine in enumerate(engine_names, 1):
             for column, (axis, kind, _title, decimals) in enumerate(columns, 2):
-                parameter = values.get(f"{engine}.{axis}.{kind}")
+                parameter = values.get(parameter_name(engine, axis, kind))
                 if parameter is None:
                     continue
                 places = decimals if parameter.unit == "ppm" else 1 if parameter.unit == "Hz" else 3

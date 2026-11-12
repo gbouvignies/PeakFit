@@ -141,14 +141,15 @@ def continuation_source(completion: DatasetCompletion) -> ContinuationSource:
     have no values here and start from the configured defaults.
     """
     result = completion.result
-    working = {i.engine_name: i.working_id for i in result.inputs.identities}
+    by_engine = result.index.by_engine
     values: dict[str, dict[str, float]] = {}
     for cluster in result.outcome.clusters:
         if not cluster.usable:
             continue
         for parameter in cluster.final_nonlinear_parameters:
             engine, _, suffix = parameter.name.partition(".")
-            identity = working.get(engine)
+            peak = by_engine.get(engine)
+            identity = peak.working_id if peak else None
             if identity in completion.adopted and math.isfinite(parameter.value):
                 values.setdefault(identity, {})[suffix] = float(parameter.value)
     snapshot = result.inputs.snapshot

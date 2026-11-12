@@ -85,7 +85,7 @@ def generate_cest_plots(
 
     ref_points = reference_indices or [-1]
 
-    def _prepare_data(points: list[tuple[float, float, float]]) -> Any | None:
+    def _prepare_data(points: list[tuple[float, float, float]]) -> Any | str:
         return prepare_cest_data(points, ref_points)
 
     return _generate_paginated_plots(
@@ -113,7 +113,7 @@ def generate_cpmg_plots(
     if output_path is None:
         output_path = results_dir / "cpmg_profiles.pdf"
 
-    def _prepare_data(points: list[tuple[float, float, float]]) -> Any | None:
+    def _prepare_data(points: list[tuple[float, float, float]]) -> Any | str:
         return prepare_cpmg_data(points, time_t2)
 
     return _generate_paginated_plots(
@@ -131,7 +131,7 @@ def _generate_paginated_plots(
     results_dir: Path,
     output_path: Path,
     plot_type: str,
-    prepare_data_fn: Callable[[list[tuple[float, float, float]]], Any | None],
+    prepare_data_fn: Callable[[list[tuple[float, float, float]]], Any | str],
     make_figure_fn: Callable[[str, Any], Figure],
     show: bool = False,
     reporter: Reporter | None = None,
@@ -151,7 +151,8 @@ def _generate_paginated_plots(
                 points.sort(key=lambda p: p[0])
 
                 data = prepare_data_fn(points)
-                if data is None:
+                if isinstance(data, str):
+                    reporter.warning(f"Skipped {peak}: {data}")
                     continue
 
                 fig = make_figure_fn(peak, data)
@@ -196,9 +197,8 @@ def _load_peak_data_from_intensities_csv(
             z_value = _parse_float(row.get("z_value"), default=np.nan)
             x_val = z_value if np.isfinite(z_value) else plane_index
 
-            std_error = _parse_float(row.get("intensity_err"), default=0.0)
-            if not np.isfinite(std_error):
-                std_error = 0.0
+            # An unavailable error stays NaN: no error bar, and no ratio is derived.
+            std_error = _parse_float(row.get("intensity_err"), default=np.nan)
 
             peak_data[peak_name].append((float(x_val), float(intensity), float(std_error)))
 
