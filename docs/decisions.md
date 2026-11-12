@@ -1082,3 +1082,18 @@ Short records of non‑obvious design choices and trade‑offs.
   2×2 matrix shows one value four times. Names keep their natural width rather than
   the shared label column, because the parameter columns need the room in a 310 px
   inspector.
+
+## 2026-11-12: Analysis page: the run and its changes as label rows
+- **Change.** The active run is label rows (Run, Model, Converged, Usable, Fitted,
+  Warnings) instead of one wrapped paragraph; Fitted reads “2026-11-12 01:56 UTC ·
+  3.0 s” instead of an ISO stamp. “Changes from parent run” is a section like the
+  others, with the parent's ID in a **Parent run** row instead of an uppercased title
+  (“E48D0167”). The whole-run counts are rows, and a count that did not change reads
+  “121, unchanged” instead of “121 → 121”. Position differences round before
+  formatting, so none reads “−0.0000”; when all round to zero, one row says so. The
+  positions caveat and the unexplained-signal explanation move to tooltips; the
+  short qualifier “Diagnostic only” stays. The fit setup's values use the
+  inspector's label column.
+- **Why.** The run block repeated the toolbar in a paragraph that wrapped
+  mid-phrase; “0 → 0” and five “−0.0000 ppm” lines after an unchanged refit said
+  nothing at length.

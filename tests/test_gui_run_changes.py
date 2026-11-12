@@ -145,11 +145,25 @@ def test_fit_and_clustering_summary(run):
     assert changes.clusters == (3, 2)
     assert changes.warned == (0, 1)
     entries = _change_entries(changes, {})
-    lines = [e[1] for e in entries if e[0] == "line"]
+    rows = [(e[1], e[2]) for e in entries if e[0] == "row"]
     # No run-level χ²ᵣ: a median over clusters with different samples is not comparable.
-    assert lines == ["Clusters with ▲ engine warnings 0 → 1", "Clusters 3 → 2 · 1 regrouped"]
-    headings = [e[1] for e in entries if e[0] == "heading"]
-    assert headings.index("Clusters") < headings.index("Whole run")
+    assert rows == [("Clusters", "3 → 2 · 1 regrouped"), ("With ▲ warnings", "0 → 1")]
+    # Changed clusters lead; the whole-run rows follow them.
+    kinds = [e[0] for e in entries]
+    assert kinds.index("heading") < kinds.index("row")
+
+
+def test_unchanged_counts_and_positions_are_said_once(run):
+    spectra, result = run
+    changes = _compare(spectra, result, result)
+    entries = _change_entries(changes, {})
+    rows = {e[1]: e[2] for e in entries if e[0] == "row"}
+    assert rows["With ▲ warnings"] == "0, unchanged"
+    assert rows["Clusters"].endswith(", unchanged")
+    # The same run twice: no position differs at display precision, and none reads −0.
+    assert not [e for e in entries if e[0] == "link" and "0.0" in e[2]]
+    if changes.displacements:
+        assert rows["Positions"] == "unchanged at display precision"
 
 
 def test_peaks_only_in_one_run_and_unusable_peaks_are_counted_not_compared(run):

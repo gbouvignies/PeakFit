@@ -1815,6 +1815,28 @@ def test_cluster_page_names_numerical_warnings_at_the_top(workspace, scientific)
         assert not page.warnings.isVisible()
 
 
+def test_the_active_run_reads_as_label_rows(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    w.select_peak(None)
+    panel = w.panel
+    total = len(result.outcome.clusters)
+    usable = sum(c.usable for c in result.outcome.clusters)
+    assert _review_row(panel.run_rows, "Run") == f"{result.run_id[:8]} · Current"
+    assert _review_cell(panel.run_rows, "Run").toolTip() == result.run_id
+    assert _review_row(panel.run_rows, "Usable") == f"{usable} / {total}"
+    fitted = _review_row(panel.run_rows, "Fitted")
+    assert fitted.startswith(result.completed_at[:10] + "\u00a0")  # a date and time, not ISO
+    assert fitted.count(" ") == 2  # ordinary spaces only around the dot, where it wraps
+    # The run section and the fit setup put their values in one column.
+    QtWidgets.QApplication.processEvents()  # lay out the new rows
+    x = lambda widget: widget.mapTo(panel.analysis_page, QtCore.QPoint(0, 0)).x()  # noqa: E731
+    assert x(_review_cell(panel.run_rows, "Run")) == x(panel.setup.passes)
+    # No parent run: no changes section.
+    assert panel.changes_title.isHidden()
+
+
 def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
     w, fitting = workspace, workspace.fitting
     result = scientific[-1]
@@ -1865,7 +1887,8 @@ def test_analysis_page_lists_changes_from_the_parent_run(workspace, scientific):
         released.set()
     wait_until(lambda: fitting._parents.get(parent.run_id) is parent)
     w.render_fitting()
-    assert panel.changes_title.text() == "CHANGES FROM RUN PARENT00"
+    assert panel.changes_title.text() == "CHANGES FROM PARENT RUN"
+    assert "parent00" in texts()  # the run ID keeps its case, as a row
     assert any("▲ Uncertainty unreliable no longer reported" in t for t in texts())
     assert not any("resolved" in t for t in texts())
     links = [
@@ -2670,8 +2693,8 @@ def test_qualifiers_stay_beside_values_and_explanations_open_in_place(workspace,
     assert "Escape discards" in panel.editor.x_field.toolTip()
     # The unexplained-signal list is framed as a diagnostic, never peak picking.
     w.select_peak(None)
-    labels = [label.text() for label in panel.analysis_page.findChildren(QtWidgets.QLabel)]
-    assert any(t.startswith("Diagnostic only") and "never proposes peaks" in t for t in labels)
+    assert panel.unexplained_note.text().startswith("Diagnostic only")
+    assert "never proposes peaks" in panel.unexplained_note.toolTip()
 
 
 def test_the_error_bar_explanation_describes_the_quantity_on_show(qapp, scientific):

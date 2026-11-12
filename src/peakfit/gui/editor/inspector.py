@@ -25,6 +25,7 @@ from peakfit.gui.editor.cluster_page import (
 )
 from peakfit.gui.editor.labels import (
     LABEL_WIDTH,
+    Row,
     about,
     disclosure,
     label_rows,
@@ -426,10 +427,12 @@ class Inspector(QtWidgets.QScrollArea):
         analysis.setContentsMargins(0, 0, 0, 0)
         analysis.setSpacing(themes.SPACE_S)
         section(analysis, "Active run")
-        self.run_text = _label("", "", wrap=True)
-        analysis.addWidget(self.run_text)
-        self.changes_title = _label("", "caption")
-        analysis.addWidget(self.changes_title)
+        self.run_rows = QtWidgets.QGridLayout()
+        self.run_rows.setHorizontalSpacing(themes.SPACE_S)
+        self.run_rows.setVerticalSpacing(3)
+        analysis.addLayout(self.run_rows)
+        self.changes_title = section(analysis, "Changes from parent run")
+        self.changes_title.hide()
         self.changes = QtWidgets.QVBoxLayout()
         self.changes.setSpacing(2)
         analysis.addLayout(self.changes)
@@ -544,7 +547,15 @@ class Inspector(QtWidgets.QScrollArea):
         """Move the profile's plane marker only."""
         self.profile.set_plane(plane)
 
-    def show_analysis(self, title: str, summary: str, run: str, *, fitted: bool = False) -> None:
+    def show_analysis(
+        self,
+        title: str,
+        summary: str,
+        run: list[Row],
+        *,
+        fitted: bool = False,
+        warned: bool = False,
+    ) -> None:
         """No selection: the fit setup and what the active run recorded.
 
         Before the first fit the setup leads; afterwards the run review does,
@@ -563,12 +574,13 @@ class Inspector(QtWidgets.QScrollArea):
         self.title.setText(title)
         self.status.setText(summary)
         self.review_block.setVisible(fitted or bool(run))
-        key = ("analysis", run)
+        key = ("analysis", tuple(run), warned)
         if key == self._key:
             return
         self._key = key
-        self.run_text.setText(run)
-        self.next_button.setVisible("warning" in run)
+        _clear(self.run_rows)
+        label_rows(self.run_rows, run)
+        self.next_button.setVisible(warned)
 
     def show_result(
         self,
@@ -662,21 +674,37 @@ class Inspector(QtWidgets.QScrollArea):
         self._fill_review(engine, cluster, result, review)
         self.provenance.setText(_provenance(cluster, result))
 
-    def show_changes(self, title: str, entries: list[tuple]) -> None:
-        """Show run-to-run changes as a list of entries.
+    def show_changes(self, parent: str, entries: list[tuple]) -> None:
+        """Show run-to-run changes; ``parent`` is the parent run's short ID, or "".
 
-        Entries are ("line", text), ("heading", text), ("note", text) or
-        ("link", text, detail, working ID, opens a cluster page[, warning]).
+        Entries are ("row", label, value, tooltip), ("heading", text[, tooltip]),
+        ("note", text) or ("link", text, detail, working ID, opens a cluster
+        page[, warning]). Consecutive rows share one label grid.
         """
-        key = (title, tuple(entries))
+        key = (parent, tuple(entries))
         if key == self._changes_key:
             return
         self._changes_key = key
-        self.changes_title.setText(title)
-        self.changes_title.setVisible(bool(title))
+        self.changes_title.setVisible(bool(parent))
         _clear(self.changes)
+        rows: list[Row] = [("Parent run", parent, "", "", "")] if parent else []
+
+        def flush() -> None:
+            if rows:
+                grid = QtWidgets.QGridLayout()
+                grid.setHorizontalSpacing(themes.SPACE_S)
+                grid.setVerticalSpacing(3)
+                label_rows(grid, rows)
+                self.changes.addLayout(grid)
+                rows.clear()
+
         for entry in entries:
             kind = entry[0]
+            if kind == "row":
+                _kind, label, value, tip = entry
+                rows.append((label, value, "", "", tip))
+                continue
+            flush()
             if kind == "link":
                 _kind, text, detail, identity, cluster, *flag = entry
                 row = QtWidgets.QHBoxLayout()
@@ -693,12 +721,15 @@ class Inspector(QtWidgets.QScrollArea):
                 row.addWidget(_label(detail, style, wrap=True), 1)
                 self.changes.addLayout(row)
             elif kind == "heading":
-                self.changes.addSpacing(4)
-                self.changes.addWidget(_label(entry[1], "muted"))
+                self.changes.addSpacing(themes.SPACE_XS)
+                heading = _label(entry[1], "muted")
+                heading.setToolTip(entry[2] if len(entry) > 2 else "")  # noqa: PLR2004
+                self.changes.addWidget(heading)
             else:
                 self.changes.addWidget(
                     _label(entry[1], "" if kind == "line" else "caption", wrap=True)
                 )
+        flush()
 
     def show_unexplained(
         self, button: str, enabled: bool, title: str, rows: list[tuple[str, str]], note: str
