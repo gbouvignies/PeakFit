@@ -226,6 +226,7 @@ def fit_command(
                 },
                 clusters_to_review=clusters_to_review,
                 output_dir=display_path(result.output_dir),
+                noise_warning=result.outcome.noise_model.power_warning,
             )
 
         with console.status("[info]Writing results...[/info]", spinner="dots"):

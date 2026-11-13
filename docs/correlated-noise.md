@@ -170,14 +170,15 @@ autocorrelation is compared with one measured on points with |x| < 3σ:
     drops at t ≈ 46–48 of the 92 points the header records as acquired: about 47
     acquired points were extended by LP, which the header cannot show (§2.5).
 - PeakFit does not use a measured curve. The noise-power profile is a diagnostic of
-  unrecorded processing, not a replacement for R.
+  unrecorded processing, not a replacement for R: the noise-power check (§2.6) warns.
 
 ### 2.5 What the final header cannot show
 
 The model can only be as complete as the header. NMRPipe 13.0 was run on complex
 white noise, and on synthetic pseudo-3D series that PeakFit then fitted; the processed
 results were compared with the model. The operations below leave a final header that
-passes every check of §2.3, so the run is recorded as "modelled":
+passes every check of §2.3, so the run is recorded as "modelled". The noise-power
+check (§2.6) detects LP, earlier windows and `SP -size` from the noise, and warns:
 
 | Processing | What the final header shows | Measured consequence |
 |---|---|---|
@@ -206,6 +207,61 @@ methods were not tested, and their uncertainties may behave differently.
 
 Reconstruction can also change the lineshape the fit assumes, which is a separate
 question from the noise model; see [decisions.md](decisions.md).
+
+### 2.6 The noise-power check
+
+The spectrum's own noise can show processing its header does not record
+(`engine.algorithms.noise_power.check_noise_power`). It is a warning only: it never
+changes the noise model, a fitted value or an error.
+
+**Measurement.** For each modelled axis:
+- **Noise-only lines:** every line along the axis, over all planes, whose points all
+  lie within 4.5 robust σ (σ = 1.4826 × the median absolute deviation of the
+  spectrum).
+- **Measured power:** their mean periodogram. Along a processed axis it is the
+  time-domain noise power, blurred by any extraction. The zero-frequency ordinate,
+  which holds baseline offsets, is left out.
+- **Predicted power:** E|X_f|² ∝ Σ_{|k|<S} (1 − |k|/S) ρ(|k|) e^{−2πifk/S} over the
+  S stored points, exact for the recorded processing (§2.2).
+- **Late power:** the ordinates that hold the last 20% of the predicted power are
+  the late FID. The late power is (measured late / measured early) / (predicted late /
+  predicted early), 1 when the processing is as recorded. LP, an earlier window and
+  `SP -size` all leave less noise in the late FID than the recorded window predicts.
+- **Spread:** the standard error of ln(late power) between 8 contiguous groups of
+  lines.
+
+**Verdict, recorded per axis with the numbers:**
+- *mismatch:* |ln late power| > ln(1/0.9) and > 3 spreads;
+- *consistent:* within that limit, with a spread below a third of it;
+- *inconclusive:* anything else, including fewer than 32 noise-only lines. It never
+  warns.
+
+**Acquired-length estimate.** After a mismatch, the check finds the N₀ whose noise
+truncated after N₀ of the N recorded points best matches the measured periodogram
+(total variation). It reports N₀ only when that match is within 5% of the noise
+power, so that truncation explains the whole profile, as after LP.
+
+**Evidence (T5).** The fixtures are made by `tools/make_nmrpipe_noise_fixtures.py`
+with NMRPipe 13.0. Random combinations of the impulse responses are exactly
+NMRPipe-processed white noise (2,000 lines); the LP fixtures are 512 rows of white
+noise processed one by one.
+
+| Case | Lines | Late power | Verdict |
+|---|---:|---:|---|
+| `sine_bell_p1_180`, `digital_filter`, `digital_filter_off` | 2,000 | 0.996 · 1.002 · 0.992 | consistent |
+| 64 points, no LP (control) | 512 | 1.021 | consistent |
+| 32 points, `LP -fb -ord 16` to 64 | 492 | 0.77 | mismatch, N₀ ≈ 38 |
+| `EM -lb 100`, then the recorded `SP` | 2,000 | 0.54 | mismatch, no N₀ |
+| `SP -size 16` over 32 points | 2,000 | 0.065 | mismatch, no N₀ |
+| CEST example, ¹⁵N | 25,849 | 0.54 | mismatch, N₀ = 48 of 92 |
+| CEST example, ¹H | 3,147 | 1.013 | consistent |
+
+- **The limit sits between the evidence:** correctly recorded processing stays
+  within 1.03 of 1, and the weakest detected case, LP on pure noise, is at 0.77.
+  The example's ¹H axis (1.013) shows the systematic offset of a real spectrum.
+- **One plane of the example** still detects the ¹⁵N mismatch; its 15 noise-only ¹H
+  rows are inconclusive.
+- **Cost:** 0.3 s on the example, when a fit is prepared, off the GUI thread.
 
 ## 3. Size of the effect
 

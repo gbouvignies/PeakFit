@@ -40,6 +40,11 @@ def write_final_outcome_report(
         f"- Usable clusters: {summary.n_usable}",
         f"- Reduced chi2 population: {summary.redchi_population_size}",
         f"- {outcome.noise_model.description}",
+        *(
+            [f"- **Warning.** {outcome.noise_model.power_warning}"]
+            if outcome.noise_model.power_warning
+            else []
+        ),
     ]
     if summary.n_usable:
         summary_lines.extend(

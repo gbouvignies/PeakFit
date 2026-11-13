@@ -288,6 +288,14 @@ neighbouring points ([correlated-noise.md](correlated-noise.md)).
   with NMRPipe's IST, parameter scatter exceeded the published errors 1.5–6.6-fold
   ([correlated-noise.md §2.5](correlated-noise.md#25-what-the-final-header-cannot-show)).
   SMILE and other reconstruction methods were not tested.
+- **Noise-power check:** each run compares, per axis, the time-domain noise power of
+  the spectrum's noise-only lines with the recorded processing's prediction
+  ([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). A
+  mismatch, as from LP, an earlier window or `SP -size`, is a warning only: it
+  changes no value and no error. The archive and the project record each axis's
+  verdict, late power, spread, number of lines and any acquired-length estimate
+  (`outcome.noise_model.power_check`); the Markdown report, the CLI and the GUI run
+  line state the warning. The fit JSON and the CSV tables do not carry it.
 - **What the noise model changes:** only the published errors. Fitted values, σ and
   reduced chi-squared are the same either way.
 - **Where it is stated:** the scientific archive and fit JSON record the noise model.

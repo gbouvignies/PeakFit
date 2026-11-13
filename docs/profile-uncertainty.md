@@ -4,7 +4,9 @@
 Implementation in progress: the covariance factors of §3.1 are computed in the
 engine (`engine.algorithms.covariance_factors`, validated by T1) and stored by archive
 12.0.0 and project 15.0.0; the marginal σ is published as `intensity_err_marginal`
-and in the GUI inspector. `intensity_err` is still the conditional σ.
+and in the GUI inspector. Ratios and R2eff (GUI ratio mode, `peakfit plot cest|cpmg`)
+propagate each peak's covariance between planes through `profiles.normalize` (§4).
+`intensity_err` is still the conditional σ.
 
 **Builds on:** [correlated-noise.md](correlated-noise.md) and
 [ADR 0002](adr/0002-processing-derived-sandwich-errors.md).

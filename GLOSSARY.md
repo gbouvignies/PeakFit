@@ -189,6 +189,17 @@ A run's record of the noise correlation its published errors assume: either
 with the reason, in which case the errors assume independent points. It changes
 errors only, never fitted values.
 
+**Noise-power check**:
+A run's per-axis comparison of the time-domain noise power of the spectrum's
+noise-only lines with the power the recorded processing predicts. A mismatch
+reveals processing the header does not record, such as linear prediction or an
+earlier window. It is recorded with the noise model as a warning only: it changes
+no value and no error.
+
+**Late power**:
+The noise-power check's measure: the noise power of the late FID relative to the
+early FID, measured over predicted; 1 when the processing is as recorded.
+
 **Sandwich error**:
 A standard error from the covariance of the least-squares estimates under
 correlated noise, (JᵀJ)⁻¹JᵀRJ(JᵀJ)⁻¹ scaled by σ². It is first order: exact in the

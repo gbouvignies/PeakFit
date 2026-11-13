@@ -113,6 +113,11 @@ def show_prefit_check(
                     "Noise correlation": loaded_data.noise_model.description.removeprefix(
                         "Noise correlation "
                     ),
+                    **(
+                        {"Noise check": f"[warning]{warning}[/warning]"}
+                        if (warning := loaded_data.noise_model.power_warning)
+                        else {}
+                    ),
                 },
             ),
             ("Output", {"Directory": rel_output}),
