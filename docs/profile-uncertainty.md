@@ -384,6 +384,10 @@ In the pairs, the partner peak decays at 0.2 instead of 1.0.
 
 - **The conditional sandwich σ that OLS publishes today is calibrated for relative
   intensities on real data.** Correcting R for LP moves the median from 1.06 to 1.01.
+- **Tool (T4):** `peakfit replicates <run>` applies this method to any published CEST
+  run, read from `scientific.npz` without refitting, against the published profile σ
+  (`engine.scientific.replicates`). On the bundled example, observed / stated is 1.07
+  (0.89–1.28) over 164 peaks; two peaks with a non-positive baseline are skipped.
 - **Caveats:**
   - Common-mode errors are invisible by construction. They are also irrelevant
     downstream (§3.2).
