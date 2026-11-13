@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.algorithms.noise_correlation import NoisePowerStatus
 from peakfit.engine.domain.config import PeakFitConfig
 from peakfit.engine.domain.spectrum import get_dimension_label, get_shape_names
 from peakfit.gui import formatting
@@ -1972,7 +1973,7 @@ def _noise_check(model: NoiseModel) -> str:
     axes = [
         get_dimension_label(i)
         for i, check in enumerate(model.power_check)
-        if check.status == "mismatch"
+        if check.status is NoisePowerStatus.MISMATCH
     ]
     return f"▲ Noise check ({', '.join(axes)}) · " if axes else ""
 

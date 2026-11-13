@@ -20,6 +20,7 @@ from peakfit.engine.algorithms.linear_algebra import (
 from peakfit.engine.algorithms.noise_correlation import (
     AxisNoisePower,
     AxisProcessing,
+    NoisePowerStatus,
     cluster_correlation,
     not_modelled,
 )
@@ -249,8 +250,8 @@ def test_the_report_carries_the_noise_power_warning_and_errors_stay_as_published
 ):
     completed, model = modelled
     checks = (
-        AxisNoisePower("mismatch", 900, 0.6, 0.01, None),
-        *(AxisNoisePower("consistent", 900, 1.0, 0.01) for _ in model.axes[1:]),
+        AxisNoisePower(NoisePowerStatus.MISMATCH, 900, 0.6, 0.01, None),
+        *(AxisNoisePower(NoisePowerStatus.CONSISTENT, 900, 1.0, 0.01) for _ in model.axes[1:]),
     )
     checked = replace(model, power_check=checks)
     outcome = replace(completed.outcome, noise_model=checked)
@@ -273,7 +274,7 @@ def test_the_report_carries_the_noise_power_warning_and_errors_stay_as_published
 
 def test_a_noise_power_mismatch_changes_no_fitted_value_or_error(tool, modelled):
     completed, model = modelled
-    checks = tuple(AxisNoisePower("mismatch", 900, 0.6, 0.01, 8) for _ in model.axes)
+    checks = tuple(AxisNoisePower(NoisePowerStatus.MISMATCH, 900, 0.6, 0.01, 8) for _ in model.axes)
     flagged, _ = _fit(tool, "overlapping pair", replace(model, power_check=checks))
     a, b = completed.outcome, flagged.outcome
     assert b.noise_model.power_warning is not None

@@ -22,7 +22,12 @@ from peakfit.engine.algorithms.covariance_factors import (
     profile_standard_errors,
 )
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
-from peakfit.engine.algorithms.noise_correlation import AxisNoisePower, AxisProcessing, NoiseModel
+from peakfit.engine.algorithms.noise_correlation import (
+    AxisNoisePower,
+    AxisProcessing,
+    NoiseModel,
+    NoisePowerStatus,
+)
 from peakfit.engine.diagnostics.identifiability import AmplitudeStatus, Cause, MemberAmplitude
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConfig
@@ -2823,8 +2828,8 @@ def test_the_run_status_reports_a_noise_power_mismatch(workspace, scientific):
     checked = NoiseModel(
         axes=axes,
         power_check=(
-            AxisNoisePower("mismatch", 900, 0.6, 0.01, 9),
-            AxisNoisePower("consistent", 900, 1.0, 0.01),
+            AxisNoisePower(NoisePowerStatus.MISMATCH, 900, 0.6, 0.01, 9),
+            AxisNoisePower(NoisePowerStatus.CONSISTENT, 900, 1.0, 0.01),
         ),
     )
     warned = replace(

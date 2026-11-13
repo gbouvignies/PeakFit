@@ -25,7 +25,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from peakfit.engine.algorithms.noise_correlation import AxisNoisePower, AxisProcessing, NoiseModel
+from peakfit.engine.algorithms.noise_correlation import (
+    AxisNoisePower,
+    AxisProcessing,
+    NoiseModel,
+    NoisePowerStatus,
+)
 
 if TYPE_CHECKING:
     from peakfit.shared.typing import FloatArray
@@ -75,7 +80,7 @@ def _noise_only_lines(data: np.ndarray, axis: int, sigma: float) -> np.ndarray:
 
 def _check_axis(axis: AxisProcessing, lines: np.ndarray) -> AxisNoisePower:
     if len(lines) < GROUPS * MIN_LINES_PER_GROUP:
-        return AxisNoisePower("inconclusive", len(lines))
+        return AxisNoisePower(NoisePowerStatus.INCONCLUSIVE, len(lines))
     stored = lines.shape[1]
     predicted = _periodogram(axis, stored)
     measured = np.stack([_measured(group) for group in np.array_split(lines, GROUPS)])
@@ -86,14 +91,16 @@ def _check_axis(axis: AxisProcessing, lines: np.ndarray) -> AxisNoisePower:
     spread = float(np.std(logs, ddof=1) / np.sqrt(GROUPS))
     limit = -np.log(LIMIT)
     if not (np.isfinite(ratio) and ratio > 0 and np.isfinite(spread)):
-        return AxisNoisePower("inconclusive", len(lines), _finite(ratio), _finite(spread))
+        return AxisNoisePower(
+            NoisePowerStatus.INCONCLUSIVE, len(lines), _finite(ratio), _finite(spread)
+        )
     deviation = abs(float(np.log(ratio)))
     if deviation > limit and deviation > SIGNIFICANCE * spread:
         estimate = _acquired_estimate(axis, stored, total)
-        return AxisNoisePower("mismatch", len(lines), ratio, spread, estimate)
+        return AxisNoisePower(NoisePowerStatus.MISMATCH, len(lines), ratio, spread, estimate)
     if deviation <= limit and spread <= limit / SIGNIFICANCE:
-        return AxisNoisePower("consistent", len(lines), ratio, spread)
-    return AxisNoisePower("inconclusive", len(lines), ratio, spread)
+        return AxisNoisePower(NoisePowerStatus.CONSISTENT, len(lines), ratio, spread)
+    return AxisNoisePower(NoisePowerStatus.INCONCLUSIVE, len(lines), ratio, spread)
 
 
 def _measured(lines: np.ndarray) -> np.ndarray:

@@ -7,6 +7,7 @@ never refits, re-solves amplitudes or recomputes statistics.
 """
 
 import math
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -259,6 +260,16 @@ def _dimension_and_kind(name: str) -> tuple[str, str]:
     return (parts[1] if len(parts) > 1 else "", parts[-1] if len(parts) > 2 else "")  # noqa: PLR2004
 
 
+@dataclass(frozen=True, slots=True)
+class _AmplitudeRow:
+    """The peak's amplitude row: its labels and what they show, plane by plane."""
+
+    cells: tuple[QtWidgets.QLabel, QtWidgets.QLabel, QtWidgets.QLabel]  # title, value, σ
+    planes: np.ndarray  # source plane of each amplitude column
+    amplitudes: np.ndarray
+    marginal: np.ndarray  # marginal σ of each amplitude
+
+
 class Inspector(QtWidgets.QScrollArea):
     """One scrolling page chosen by selection: the selected peak, or the analysis."""
 
@@ -446,11 +457,7 @@ class Inspector(QtWidgets.QScrollArea):
         layout.addWidget(self.analysis_page)
         layout.addStretch(1)
         self._peak: WorkingPeak | None = None
-        # The peak's amplitude row: its labels, the source plane of each amplitude
-        # column, the amplitudes and their marginal σ.
-        self._amplitude: (
-            tuple[tuple[QtWidgets.QLabel, ...], np.ndarray, np.ndarray, np.ndarray] | None
-        ) = None
+        self._amplitude: _AmplitudeRow | None = None
         self.cluster_view = False
         self._key = None
         self.theme = themes.LIGHT
@@ -876,7 +883,7 @@ class Inspector(QtWidgets.QScrollArea):
             value, sigma = formatting.with_sigma(parameter.value, parameter.standard_error)
             if not parameter.vary:
                 error: Cell = ("fixed", "caption", 1)
-            elif sigma == "σ unavailable":
+            elif not formatting.sigma_available(parameter.standard_error):
                 error = ("unavailable", "caption", 1)
             else:
                 error = (sigma, "", 1)
@@ -918,24 +925,26 @@ class Inspector(QtWidgets.QScrollArea):
         self.fitted.addWidget(caption, row + 1, 0, 1, -1)
         for cell in cells:
             cell.setToolTip(meaning)
-        self._amplitude = (cells, planes, evaluation.amplitudes[index], marginal[index])
+        self._amplitude = _AmplitudeRow(
+            cells, planes, evaluation.amplitudes[index], marginal[index]
+        )
         self._show_amplitude(plane)
 
     def _show_amplitude(self, plane: int) -> None:
         if self._amplitude is None:
             return
-        (title, value, error), planes, amplitudes, marginal = self._amplitude
+        row = self._amplitude
+        title, value, error = row.cells
         title.setText(f"Amplitude plane {plane + 1}")
-        columns = np.flatnonzero(planes == plane)
+        columns = np.flatnonzero(row.planes == plane)
         if not columns.size:
             value.setText("plane not fitted")
             error.setText("")
             return
-        shown, sigma = formatting.with_sigma(
-            float(amplitudes[columns[0]]), float(marginal[columns[0]])
-        )
+        marginal = float(row.marginal[columns[0]])
+        shown, sigma = formatting.with_sigma(float(row.amplitudes[columns[0]]), marginal)
         value.setText(shown)
-        error.setText("unavailable" if sigma == "σ unavailable" else sigma)
+        error.setText(sigma if formatting.sigma_available(marginal) else "unavailable")
 
     def _fill_review(
         self,

@@ -16,6 +16,7 @@ from peakfit.engine.algorithms.noise_correlation import (
     AxisNoisePower,
     AxisProcessing,
     NoiseModel,
+    NoisePowerStatus,
     not_modelled,
 )
 from peakfit.fit.pipeline import run_pipeline
@@ -370,8 +371,8 @@ def _checked_noise_model(samples):
         for _ in samples[0].grid_indices
     )
     check = (
-        AxisNoisePower("mismatch", 2_000, 0.54, 0.005, 9),
-        *(AxisNoisePower("inconclusive", 15) for _ in axes[1:]),
+        AxisNoisePower(NoisePowerStatus.MISMATCH, 2_000, 0.54, 0.005, 9),
+        *(AxisNoisePower(NoisePowerStatus.INCONCLUSIVE, 15) for _ in axes[1:]),
     )
     return NoiseModel(axes=axes, power_check=check)
 

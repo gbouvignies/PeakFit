@@ -24,6 +24,7 @@ from peakfit.engine.algorithms.noise_correlation import (
     AxisNoisePower,
     AxisProcessing,
     NoiseModel,
+    NoisePowerStatus,
 )
 from peakfit.engine.scientific.completed import FinalClusterInputs, FinalClusterSamples
 from peakfit.engine.scientific.coordinates import validate_coordinate_table
@@ -394,13 +395,11 @@ def _noise_model(record):
 def _axis_noise_power(record):
     """One axis's recorded noise-power check, as recorded: it is never re-measured."""
     record = _record(record, "noise-power check")
-    if set(record) != {f.name for f in fields(AxisNoisePower)} or record["status"] not in {
-        "consistent",
-        "mismatch",
-        "inconclusive",
-    }:
+    statuses = {s.value: s for s in NoisePowerStatus}
+    if set(record) != {f.name for f in fields(AxisNoisePower)} or record["status"] not in statuses:
         raise ValueError("Malformed noise-power check.")
-    return AxisNoisePower(**record)
+    measured = {name: value for name, value in record.items() if name != "status"}
+    return AxisNoisePower(statuses[record["status"]], **measured)
 
 
 def _axis_processing(record):

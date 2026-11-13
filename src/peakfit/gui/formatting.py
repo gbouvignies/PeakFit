@@ -46,9 +46,14 @@ def intensity(value: float) -> str:
     return f"{value:.6g}".replace("-", "−")
 
 
+def sigma_available(sigma: float) -> bool:
+    """Whether a standard error is a σ to show: finite and positive."""
+    return math.isfinite(sigma) and sigma > 0
+
+
 def with_sigma(value: float, sigma: float) -> tuple[str, str]:
     """Value and σ to the same decimal position, σ to two significant figures."""
-    if not math.isfinite(sigma) or sigma <= 0:
+    if not sigma_available(sigma):
         return number(value, 4), "σ unavailable"
     decimals = max(0, 1 - math.floor(math.log10(sigma)))
     return number(value, decimals), number(sigma, decimals)

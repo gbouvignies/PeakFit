@@ -285,5 +285,8 @@ def test_cli_and_gui_record_the_same_noise_power_check() -> None:
     dataset = read_dataset(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
     gui = prepare_dataset_fit(dataset.spectra, dataset.peaks, config)
     assert cli.noise_model.power_check == gui.noise_model.power_check
-    assert [check.status for check in cli.noise_model.power_check] == ["mismatch", "consistent"]
+    assert [check.status.value for check in cli.noise_model.power_check] == [
+        "mismatch",
+        "consistent",
+    ]
     assert cli.noise_model.power_warning is not None

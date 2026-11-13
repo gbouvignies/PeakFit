@@ -17,6 +17,7 @@ these assumptions, not necessarily a description of the actual spectrum's noise.
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
@@ -91,6 +92,14 @@ class AxisProcessing:
         return np.real(rotated) / np.real(spectrum[0])
 
 
+class NoisePowerStatus(Enum):
+    """What one axis's noise-power check found; the values are those archives record."""
+
+    CONSISTENT = "consistent"
+    MISMATCH = "mismatch"  # the warning: the noise contradicts the recorded processing
+    INCONCLUSIVE = "inconclusive"  # too few noise-only lines, or too much spread
+
+
 @dataclass(frozen=True)
 class AxisNoisePower:
     """One axis's noise-power check: the measured noise against the recorded processing.
@@ -102,7 +111,7 @@ class AxisNoisePower:
     that alone explains a mismatch, as after linear prediction.
     """
 
-    status: Literal["consistent", "mismatch", "inconclusive"]
+    status: NoisePowerStatus
     lines: int  # noise-only lines measured
     late_power: float | None = None  # None when too few lines to measure
     spread: float | None = None
@@ -176,7 +185,7 @@ class NoiseModel:
                 ),
             )
             for i, (axis, check) in enumerate(zip(self.axes, self.power_check, strict=True))
-            if check.status == "mismatch"
+            if check.status is NoisePowerStatus.MISMATCH
         ]
         if not found:
             return None
@@ -224,6 +233,7 @@ __all__ = [
     "AxisNoisePower",
     "AxisProcessing",
     "NoiseModel",
+    "NoisePowerStatus",
     "cluster_correlation",
     "modelled_correlation",
     "not_modelled",
