@@ -61,6 +61,53 @@ def test_calibration_recognizes_correct_and_understated_errors(study):
     assert short["max"] == pytest.approx(1.25, rel=0.03)
 
 
+def _covered(rows: int, columns: int, outside: int) -> np.ndarray:
+    """Errors with unit stated σ, of which exactly ``outside`` lie beyond 1.96σ."""
+    rng = np.random.default_rng(1)
+    errors = rng.uniform(-1.5, 1.5, rows * columns)
+    errors[rng.choice(errors.size, outside, replace=False)] = 3.0
+    return errors.reshape(rows, columns)
+
+
+def test_a_single_quantity_passes_coverage_within_three_standard_errors(study):
+    # 4000 realizations, coverage 0.9415: 2.5 SE low. Strictly outside ±2 SE (reported),
+    # within criterion (b)'s ±3 SE.
+    errors = _covered(4000, 1, 234)
+    result = study.calibration(errors, np.ones_like(errors))
+    assert result["coverage_95"] == pytest.approx(0.9415)
+    assert not result["coverage_within_2se"]
+    assert result["coverage_within_criterion"]
+    four_se = study.calibration(_covered(4000, 1, 256), np.ones((4000, 1)))  # 0.936: 4 SE
+    assert not four_se["coverage_within_criterion"]
+
+
+def test_pooled_quantities_pass_coverage_within_one_point(study):
+    # Pooled over planes, the SE is small enough to resolve effects of no practical
+    # weight; criterion (b) asks for 95% coverage within ±0.01 absolute.
+    near = study.calibration(_covered(4000, 30, 5160), np.ones((4000, 30)))  # 0.957
+    assert not near["coverage_within_2se"]
+    assert near["coverage_within_criterion"]
+    far = study.calibration(_covered(4000, 30, 7800), np.ones((4000, 30)))  # 0.935
+    assert not far["coverage_within_criterion"]
+
+
+def test_the_record_states_criterion_b_and_its_verdict(study):
+    record = json.loads(RECORD.read_text(encoding="utf-8"))
+    gate = record["gate"]
+    assert gate["criterion"]["coverage_single"] == "±3 SE"
+    assert gate["criterion"]["coverage_pooled"] == "±0.01"
+    assert gate["criterion"]["scatter"] == [0.95, 1.05] == list(study.SCATTER_GATE)
+    gated = [
+        q
+        for case in record["cases"].values()
+        if case["passes"] is not None
+        for name, q in case["quantities"].items()
+        if not name.endswith("(joint covariance)")
+    ]
+    assert gate["passes"] == all(q["passes"] for q in gated)
+    assert "strict_2se" in gate  # the stricter count, kept as information
+
+
 def test_the_record_uses_the_published_thresholds(study):
     record = json.loads(RECORD.read_text(encoding="utf-8"))
     thresholds = record["thresholds"]

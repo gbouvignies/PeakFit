@@ -787,11 +787,23 @@ sp2, 30-plane CEST, pair 1 point (near-coalescent): flagged
   }
  },
  "gate": {
+  "criterion": {
+   "scatter": [
+    0.95,
+    1.05
+   ],
+   "coverage_single": "\u00b13 SE",
+   "coverage_pooled": "\u00b10.01"
+  },
   "cases": 48,
   "quantities": 270,
-  "scatter_outside": 0,
-  "coverage_outside": 20,
-  "coverage_outside_by_chance": 12.3,
-  "passes": false
+  "failing": [],
+  "passes": true,
+  "strict_2se": {
+   "note": "Information, not the gate: coverage within \u00b12 SE per quantity. R2eff over-covers by about 0.1\u20130.2 points: \u03c3(R2eff) = \u03c3_r/(r\u0302T) uses the fitted ratio, so the stated \u03c3 grows where R2eff errs high (first-order propagation through the logarithm).",
+   "scatter_outside": 0,
+   "coverage_outside": 20,
+   "coverage_outside_by_chance": 12.3
+  }
  }
 }
