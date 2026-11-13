@@ -43,7 +43,8 @@ fit orchestration, uncertainty analysis, plotting, and output generation.
 - `src/peakfit/fit/` - validation, data loading, fitting workflow, result assembly, and output coordination.
 - `src/peakfit/mcmc/` - uncertainty sampling, diagnostics, and MCMC-facing workflows.
 - `src/peakfit/plot/` - PDF profile and MCMC diagnostic plots. Reference ratios
-  and R2eff come from `engine.scientific.profiles`, which the GUI profile uses too.
+  and R2eff come from `engine.scientific.profiles`, which the GUI profile uses too,
+  with each peak's covariance between planes read from `scientific.npz`.
 - `src/peakfit/io/` - parsing, serialization, and file-format handling.
 - `src/peakfit/engine/` - domain models, numerical algorithms, lineshapes, and fitting math.
 - `src/peakfit/shared/` - small cross-cutting helpers.

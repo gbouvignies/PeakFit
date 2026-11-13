@@ -21,11 +21,13 @@ from PySide6 import QtCore, QtWidgets
 from peakfit.engine.algorithms.covariance_factors import covariance_between_planes
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConfig
+from peakfit.engine.scientific.profiles import Normalized, normalize
 from peakfit.fit import pipeline
 from peakfit.gui import fitting, project, spectrum
 from peakfit.gui.background import ViewerComputation
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.numerical import NumericalReview
+from peakfit.gui.editor.profile import PeakProfile, peak_profile
 from peakfit.gui.editor.window import EditorWindow
 from peakfit.gui.fit_positions import continuation_source, dataset_completion
 from peakfit.gui.fitting import prepare_dataset_fit
@@ -308,6 +310,21 @@ def test_reopening_reconstructs_the_covariance_between_planes_without_source_or_
         expected = covariance_between_planes(e.covariance_factors, e.amplitudes)
         restored = covariance_between_planes(f.covariance_factors, f.amplitudes)
         assert restored.tobytes() == expected.tobytes()
+    # Ratios on the reopened run come from the stored factors: the same, with no refit.
+    before_run, after_run = analysis.completion.result, loaded.completion.result
+    for identity in after_run.inputs.identities:
+        before = peak_profile(before_run, identity.working_id, None)
+        after = peak_profile(after_run, identity.working_id, None)
+        assert isinstance(before, PeakProfile)
+        assert isinstance(after, PeakProfile)
+        for old_series, new_series in zip(before.series, after.series, strict=True):
+            assert new_series.covariance.tobytes() == old_series.covariance.tobytes()
+            reference = np.array([0, 1])
+            old_ratio = normalize(old_series.amplitudes, old_series.covariance, reference)
+            new_ratio = normalize(new_series.amplitudes, new_series.covariance, reference)
+            assert isinstance(new_ratio, Normalized)
+            assert isinstance(old_ratio, Normalized)
+            assert new_ratio.errors.tobytes() == old_ratio.errors.tobytes()
 
 
 def test_a_project_without_covariance_factors_is_refused_with_a_refit_instruction(

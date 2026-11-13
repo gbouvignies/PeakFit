@@ -381,6 +381,7 @@ def display_post_fit_summary(  # noqa: PLR0915
     chi_sq_stats: dict[str, float | None],
     clusters_to_review: list[dict[str, Any]],
     output_dir: str,
+    noise_warning: str | None = None,
 ) -> None:
     """Display the final executive summary report.
 
@@ -427,6 +428,9 @@ def display_post_fit_summary(  # noqa: PLR0915
         "Mean Red. χ²:",
         f"{mean_chi2:.2f}" if mean_chi2 is not None else "N/A (no usable outcomes)",
     )
+    if noise_warning:
+        # The run's noise-power check: a warning about the errors, never the fit.
+        summary_table.add_row(icon("bullet"), "Noise check:", Text(noise_warning, style="warning"))
 
     # --- Build Action Required Section ---
     action_section = None

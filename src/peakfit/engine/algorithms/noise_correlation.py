@@ -16,7 +16,7 @@ product of each axis's ρ at the lags between its fitting samples. It is exact u
 these assumptions, not necessarily a description of the actual spectrum's noise.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
@@ -76,9 +76,14 @@ class AxisProcessing:
         w[0] *= self.first_point
         return w
 
-    def correlation(self) -> FloatArray:
-        """ρ(k) for every lag k = 0 … M − 1; ρ(0) = 1 and ρ(−k) = ρ(k)."""
-        w2 = self.weights() ** 2
+    def correlation(self, noise_power: FloatArray | None = None) -> FloatArray:
+        """ρ(k) for every lag k = 0 … M − 1; ρ(0) = 1 and ρ(−k) = ρ(k).
+
+        ``noise_power`` replaces w_t², the noise power of each acquired point after
+        apodization; the noise-power check uses it for noise the header does not
+        describe.
+        """
+        w2 = self.weights() ** 2 if noise_power is None else noise_power
         lags = np.arange(self.transform)
         spectrum = np.fft.fft(w2, n=self.transform)  # C(k) = Σ_t w_t² e^{−2πikt/M}
         phase = np.deg2rad(self.phase - 360.0 * self.filter_delay)
@@ -87,11 +92,33 @@ class AxisProcessing:
 
 
 @dataclass(frozen=True)
+class AxisNoisePower:
+    """One axis's noise-power check: the measured noise against the recorded processing.
+
+    ``late_power`` is the noise power in the late FID relative to the early FID,
+    measured over predicted (1 when the processing is as recorded); ``spread`` is
+    the standard error of its logarithm between groups of lines.
+    ``acquired_estimate`` is the number of points that carry acquired noise when
+    that alone explains a mismatch, as after linear prediction.
+    """
+
+    status: Literal["consistent", "mismatch", "inconclusive"]
+    lines: int  # noise-only lines measured
+    late_power: float | None = None  # None when too few lines to measure
+    spread: float | None = None
+    acquired_estimate: int | None = None
+
+
+@dataclass(frozen=True)
 class NoiseModel:
     """A spectrum's noise correlation: modelled per axis, or not modelled and why."""
 
     axes: tuple[AxisProcessing, ...] = ()  # spectral axes in data order; empty if not
     reason: str | None = None  # why the correlation is not modelled
+    # The noise-power check of each axis (``check_noise_power``); empty when not
+    # checked. A warning only: it never changes the correlation, so it takes no part
+    # in comparing two models.
+    power_check: tuple[AxisNoisePower, ...] = field(default=(), compare=False)
 
     def __post_init__(self) -> None:
         """Modelled with axes, or not modelled with a reason: never both, never neither."""
@@ -99,6 +126,12 @@ class NoiseModel:
             isinstance(a, AxisProcessing) for a in self.axes
         ):
             msg = "A noise model is modelled with axes, or not modelled with a reason."
+            raise ValueError(msg)
+        if self.power_check and (
+            len(self.power_check) != len(self.axes)
+            or not all(isinstance(a, AxisNoisePower) for a in self.power_check)
+        ):
+            msg = "A noise-power check has one result per modelled axis."
             raise ValueError(msg)
 
     @property
@@ -123,6 +156,39 @@ class NoiseModel:
             for i, a in enumerate(self.axes)
         )
         return f"Noise correlation modelled from the recorded processing ({axes})."
+
+    @property
+    def power_warning(self) -> str | None:
+        """What the noise-power check found and what to do, or None when nothing was."""
+        if not self.power_check:
+            return None
+        found = [
+            (
+                get_dimension_label(i),
+                f"{get_dimension_label(i)}: the late FID carries {check.late_power:.2f}× "
+                "the noise power predicted relative to the early FID"
+                + (
+                    f", as if only about {check.acquired_estimate} of the "
+                    f"{axis.acquired} recorded points were acquired and the rest "
+                    "extended, for example by linear prediction"
+                    if check.acquired_estimate is not None
+                    else ""
+                ),
+            )
+            for i, (axis, check) in enumerate(zip(self.axes, self.power_check, strict=True))
+            if check.status == "mismatch"
+        ]
+        if not found:
+            return None
+        labels = " and ".join(label for label, _ in found)
+        return (
+            "Noise-power check: the spectrum's noise does not match its recorded "
+            f"processing. {'. '.join(text for _, text in found)}. Processing the header "
+            "does not record, such as linear prediction or an earlier window, makes the "
+            "modelled noise correlation inaccurate, so the published errors may be "
+            f"miscalibrated. Check how {labels} was processed. Fitted values are not "
+            "affected."
+        )
 
 
 def not_modelled(reason: str) -> NoiseModel:
@@ -155,6 +221,7 @@ def modelled_correlation(model: NoiseModel, grid_indices: Sequence[IntArray]) ->
 
 
 __all__ = [
+    "AxisNoisePower",
     "AxisProcessing",
     "NoiseModel",
     "cluster_correlation",
