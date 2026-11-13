@@ -133,7 +133,12 @@ class EditorWorkspace(QtWidgets.QWidget):
         # The centre shows the spectrum or every cluster's profiles; both share the
         # navigator's order and the selection.
         self.profiles = ProfilesView()
-        self._tiles: tuple[object, dict[int, Tile]] = (None, {})
+        # Tiles of one run, keyed by what they depend on: None while they compute off
+        # Qt, or the failure. Only the latest request is delivered.
+        self._tiles: tuple[object, dict[int, Tile] | Exception | None] = (None, {})
+        self._tiles_revision = 0
+        self._tiles_worker = ViewerComputation(self)
+        self._tiles_worker.completed.connect(self._tiles_ready)
         self.center = QtWidgets.QStackedWidget()
         self.center.addWidget(self.spectral)
         self.center.addWidget(self.profiles)
@@ -1027,7 +1032,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             self._focus_spectral_area()
 
     def _show_profiles(self) -> None:
-        """Tiles of the clusters the navigator shows, in its order; built once per run."""
+        """Tiles of the clusters the navigator shows, in its order; built once per run, off Qt."""
         result = self.fitting.result
         if not self.profiles_shown or result is None:
             return
@@ -1037,27 +1042,50 @@ class EditorWorkspace(QtWidgets.QWidget):
         )
         key = (result.run_id, plane_values, self.rules)
         if key != self._tiles[0]:
-            self._tiles = (key, cluster_tiles(result, self.reviews(), plane_values))
+            reviews = self.reviews()
+            self._tiles = (key, None)
+            self._tiles_revision += 1
+            self._tiles_worker.submit(
+                "tiles",
+                self._tiles_revision,
+                lambda: cluster_tiles(result, reviews, plane_values),
+            )
+        chosen = self.navigator.filter_text()
+        self.profiles.title = (
+            f"{self.dataset.path.stem} · Run {result.run_id[:8]}"
+            + ("" if self.fitting.current else " (outdated)")
+            + (f" · {chosen}" if chosen else "")
+        )
         built = self._tiles[1]
+        if built is None:
+            self.profiles.set_tiles([], "Computing profiles…", "Computing profiles…")
+            return
+        if isinstance(built, Exception):
+            message = (
+                f"Profiles could not be computed: {built}. The spectrum and the inspector are "
+                "unaffected; the full error is in the terminal log."
+            )
+            self.profiles.set_tiles([], message, message)
+            return
         shown = self.navigator.shown_reviews()
         tiles = [built[r.cluster_id] for r in shown if r.cluster_id in built]
-        chosen = self.navigator.filter_text()
         count = (
             f"{len(tiles)} of {len(built)} clusters · {chosen}"
             if chosen
             else f"{len(built)} clusters"
         )
         historical = "" if self.fitting.current else f" · Run {result.run_id[:8]} · historical"
-        self.profiles.title = (
-            f"{self.dataset.path.stem} · Run {result.run_id[:8]}"
-            + ("" if self.fitting.current else " (outdated)")
-            + (f" · {chosen}" if chosen else "")
-        )
         self.profiles.set_tiles(
             tiles,
             f"{count}{historical} · in the cluster list's order · double-click to focus",
             f"No cluster matches “{chosen}”." if chosen else "No clusters in this run.",
         )
+
+    def _tiles_ready(self, _kind: str, revision: int, outcome: object) -> None:
+        if revision != self._tiles_revision:
+            return
+        self._tiles = (self._tiles[0], cast("dict[int, Tile] | Exception", outcome))
+        self._show_profiles()
 
     def _show_run_line(self) -> None:
         """One compact status line; inspection and navigation stay available."""
@@ -1901,6 +1929,7 @@ class EditorWorkspace(QtWidgets.QWidget):
         self.canvas.stop()
         self._unexplained_cancel.set()
         self._unexplained_worker.close()
+        self._tiles_worker.close()
 
 
 def _run_rows(result, *, current: bool, warned: int) -> list[Row]:

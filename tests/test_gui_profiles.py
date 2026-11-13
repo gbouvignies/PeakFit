@@ -1,5 +1,6 @@
 """The Profiles view: every cluster's profiles, in the navigator's order, sharing selection."""
 
+import threading
 from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
@@ -13,6 +14,7 @@ from PySide6 import QtCore, QtTest, QtWidgets
 from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.scientific.profiles import Normalized, normalize
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
+from peakfit.gui.editor import workspace as workspace_module
 from peakfit.gui.editor.profiles_view import cluster_tiles, shown_rows
 from peakfit.gui.editor.review import HighlightRules, review_clusters
 from peakfit.gui.editor.workspace import EditorWorkspace
@@ -54,6 +56,12 @@ def publish(workspace, result):
     assert fitting.result is result, fitting.failure
 
 
+def show_profiles(workspace):
+    """Show the Profiles view and wait for its tiles, computed off the GUI thread."""
+    workspace.show_view(profiles=True)
+    wait_until(lambda: "Computing" not in workspace.profiles.caption.text())
+
+
 def test_tiles_hold_every_member_in_cluster_order(scientific):
     result = scientific[-1]
     axes = list(scientific[0].spectral_params)
@@ -77,6 +85,7 @@ def test_profiles_follow_the_run_navigator_order_and_selection(workspace, scient
     assert profiles.isEnabled()
     QtTest.QTest.mouseClick(profiles, QtCore.Qt.MouseButton.LeftButton)
     assert w.profiles_shown
+    wait_until(lambda: "Computing" not in w.profiles.caption.text())
     # Spectrum tools step aside; the plane strip and selection stay shared.
     assert not any(tool.isVisible() for tool in w._spectrum_tools)
     order = [r.ids for r in w.navigator.shown_reviews()]
@@ -98,10 +107,45 @@ def test_profiles_follow_the_run_navigator_order_and_selection(workspace, scient
     assert w.profiles.plane == 1
 
 
+def test_tiles_are_computed_off_the_gui_thread_once_per_run(workspace, scientific, monkeypatch):
+    w = workspace
+    publish(w, scientific[-1])
+    threads = []
+
+    def recording(*args):
+        threads.append(threading.current_thread())
+        return cluster_tiles(*args)
+
+    monkeypatch.setattr(workspace_module, "cluster_tiles", recording)
+    show_profiles(w)
+    assert len(threads) == 1
+    assert threads[0] is not threading.main_thread()
+    assert w.profiles.caption.text().startswith(f"{len(w.profiles.tile_ids())} clusters")
+    # Leaving and returning to the view reuses the run's tiles.
+    w.show_view(profiles=False)
+    w.show_view(profiles=True)
+    assert len(w.profiles.tile_ids()) == len(w.navigator.shown_reviews())
+    assert len(threads) == 1
+
+
+def test_a_tile_failure_says_what_went_wrong(workspace, scientific, monkeypatch):
+    w = workspace
+    publish(w, scientific[-1])
+
+    def failing(*_args):
+        raise ValueError("singular covariance")
+
+    monkeypatch.setattr(workspace_module, "cluster_tiles", failing)
+    show_profiles(w)
+    assert not w.profiles.tile_ids()
+    assert "Profiles could not be computed: singular covariance" in w.profiles.empty.text()
+    assert w.profiles.empty.isVisible()
+
+
 def test_a_filter_narrows_the_tiles_and_says_so(workspace, scientific):
     w = workspace
     publish(w, scientific[-1])
-    w.show_view(profiles=True)
+    show_profiles(w)
     total = len(w.profiles.tile_ids())
     assert w.profiles.caption.text().startswith(f"{total} clusters")
     w.navigator.filter.setCurrentIndex(w.navigator.filter.count() - 1)
@@ -116,7 +160,7 @@ def test_a_filter_narrows_the_tiles_and_says_so(workspace, scientific):
 def test_activating_a_tile_opens_its_cluster_in_focus(workspace, scientific):
     w = workspace
     publish(w, scientific[-1])
-    w.show_view(profiles=True)
+    show_profiles(w)
     ids = w.profiles.tile_ids()[0]
     index = w.profiles.model.index(0)
     point = w.profiles.list.visualRect(index).center()
@@ -134,7 +178,7 @@ def test_an_edit_labels_the_tiles_historical(workspace, scientific):
     w = workspace
     result = scientific[-1]
     publish(w, result)
-    w.show_view(profiles=True)
+    show_profiles(w)
     assert "historical" not in w.profiles.caption.text()
     peak = w.peaks[0]
     w.move_peak(peak.id, tuple(p + 0.001 for p in peak.positions))
@@ -185,7 +229,7 @@ def test_tiles_show_ratios_or_say_why_not(scientific):
 def test_one_reference_choice_serves_the_inspector_and_the_tiles(workspace, scientific):
     w = workspace
     publish(w, scientific[-1])
-    w.show_view(profiles=True)
+    show_profiles(w)
     w.panel.profile.set_reference((0,))
     assert w.profiles.reference == (0,)
     assert w.profiles.normalized
@@ -199,7 +243,7 @@ def test_one_reference_choice_serves_the_inspector_and_the_tiles(workspace, scie
 def test_exporting_writes_every_shown_tile_to_a_pdf(workspace, scientific, tmp_path):
     w = workspace
     publish(w, scientific[-1])
-    w.show_view(profiles=True)
+    show_profiles(w)
     target = tmp_path / "profiles.pdf"
     w.profiles.export_figure(str(target))
     data = target.read_bytes()
@@ -255,7 +299,7 @@ def test_the_correlated_profile_flag_reads_alike_on_profile_tiles_and_cluster_pa
     assert all(word not in note.lower() for word in ("discard", "bad", "unreliable"))
     assert "intensity_err" in profile.correlated.toolTip()  # the full meaning on hover
     assert profile.legend.text().count("↔") == 2  # both members carry the mark
-    w.show_view(profiles=True)
+    show_profiles(w)
     assert "↔ errors correlated across planes" in _tile_text(w, member)
     assert "↔" not in _tile_text(w, ids[remote.peak_names[0]])
     w.select_peak(member, cluster=True)
@@ -290,7 +334,7 @@ def test_withheld_lineshape_factors_leave_the_profile_not_assessed(workspace, sc
     note = w.panel.profile.correlated.text()
     assert "not assessed" in note
     assert "↔" not in w.panel.profile.legend.text()
-    w.show_view(profiles=True)
+    show_profiles(w)
     assert "correlation across planes not assessed" in _tile_text(w, member)
     w.select_peak(member, cluster=True)
     assert _review_value(w.panel.cluster_page, "Profile errors").text() == "not assessed"

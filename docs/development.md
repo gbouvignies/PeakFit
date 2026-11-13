@@ -129,8 +129,8 @@ current design.
 The desktop application keeps the Qt event loop free of scientific and disk work:
 
 - Qt objects, paths and widgets are created only on the GUI thread. Input
-  validation (`gui.spectrum.read_dataset`), contour geometry and model-plane
-  projection run in a `ViewerComputation` lane: one serial background worker per
+  validation (`gui.spectrum.read_dataset`), contour geometry, model-plane
+  projection and the Profiles view's tiles run in a `ViewerComputation` lane: one serial background worker per
   owner, with latest-pending requests and revision checks so stale deliveries are
   dropped. `close()` waits for a delivery already emitting and no delivery starts
   after it, so an owner may be deleted as soon as its lanes are closed.
