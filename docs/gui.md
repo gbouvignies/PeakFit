@@ -469,17 +469,23 @@ The profile shows **Raw amplitudes** by default. Its quantity chip offers
 `1-3`); the dialog points out isolated planes but never chooses one. The profile
 then shows each peak's ratio A / A_ref to the mean of its own amplitudes on those
 planes, with ±1σ propagated to first order using the full gradient, so a plane in a
-multi-plane reference is treated as correlated with the mean. A single reference
-plane is drawn exactly at 1 without an error bar; reference planes use diamonds.
+multi-plane reference is treated as correlated with the mean. The propagation uses
+the peak's covariance between planes, rebuilt from the stored covariance factors
+([profile-uncertainty §4](profile-uncertainty.md)): it includes the lineshape
+uncertainty, which moves a peak's amplitudes together from plane to plane, so ratio
+error bars are not the raw amplitude σ rescaled. The note reads “±1σ of the ratio,
+lineshape uncertainty included”. A single reference plane is drawn exactly at 1
+without an error bar; reference planes use diamonds.
 Normalization is a display: recorded amplitudes, σ, exports and saved results are
 unchanged, and the reference lasts for the session.
 
 When a ratio cannot be shown, the profile keeps the raw amplitudes and says so
 directly under the plot (“▲ Showing raw amplitudes …”); the quantity chip reads
 “÷ plane 1 · not applied” and the axis names what is plotted. A ratio is
-**undefined** when the reference mean is zero or not finite, when σ is
-unavailable, or when a reference plane is not in the run. It is **withheld as
-unreliable**, although computable, when σ_R/|R| exceeds 0.1. A member whose
+**undefined** when the reference mean is zero or not finite, when the covariance
+between planes is unavailable (its lineshape terms are withheld), or when a
+reference plane is not in the run. It is **withheld as unreliable**, although
+computable, when σ_R/|R| exceeds 0.1, σ_R being the total σ of the reference mean. A member whose
 individual amplitudes are withheld is never normalized: a ratio would cancel the
 arbitrary scale of a degenerate split and look well determined. The
 reference choice is kept, so the next well-determined peak is normalized again.

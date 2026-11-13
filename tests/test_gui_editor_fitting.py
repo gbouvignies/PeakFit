@@ -44,6 +44,8 @@ from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import StoredRun
 from peakfit.gui.spectrum import Dataset, display_position, read_dataset
 from peakfit.io.scientific import read_scientific
+from peakfit.plot.outputs import recorded_profiles
+from peakfit.plot.profile_data import prepare_cest_data
 
 pytestmark = pytest.mark.gui
 
@@ -1520,9 +1522,7 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(qapp, sci
     reference = int(shown.source_planes[0])
     panel.set_reference((reference,))
     selected = shown.series[0]
-    expected = normalize(
-        selected.amplitudes, np.full(selected.amplitudes.size, selected.error), np.array([0])
-    )
+    expected = normalize(selected.amplitudes, selected.covariance, np.array([0]))
     assert isinstance(expected, Normalized)
     _x, y = _selected_points(panel).getData()
     np.testing.assert_allclose(y, expected.values)
@@ -1530,8 +1530,9 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(qapp, sci
     assert panel.mode.text() == f"÷ plane {reference + 1}"
     assert f"A / A_ref (plane {reference + 1})" in panel.plot.getAxis("left").labelText
     assert "reference" in panel.legend.text()
-    assert "±1σ of the ratio, conditional on lineshapes" in panel.note.text()
+    assert "±1σ of the ratio, lineshape uncertainty included" in panel.note.text()
     assert "full-gradient" in panel.note.toolTip()
+    assert "covariance between planes" in panel.note.toolTip()
     # The reference set persists across selections; recorded amplitudes never change.
     panel.show_profile(shown, 0)
     assert panel.normalized
@@ -1539,6 +1540,35 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(qapp, sci
     panel.set_normalized(False)
     _x, y = _selected_points(panel).getData()
     np.testing.assert_array_equal(y, recorded)
+
+
+def test_gui_and_cli_ratios_are_identical_for_one_run(qapp, scientific, tmp_path):
+    result = scientific[-1]
+    directory = export_fit_result(result, tmp_path / "results")
+    recorded = recorded_profiles(directory)
+    planes = np.asarray(result.inputs.snapshot.plane_values, dtype=float)
+    order = np.argsort(planes, kind="stable")  # the CLI counts points by plane value
+    reference = (0, 1)  # zero-based source planes
+    cli_reference = [int(np.flatnonzero(order == plane)[0]) for plane in reference]
+    panel = ProfilePlot()
+    panel.show()
+    compared = 0
+    for identity in result.inputs.identities:
+        shown = peak_profile(result, identity.working_id, None)
+        assert isinstance(shown, PeakProfile)
+        panel.show_profile(shown, 0)
+        panel.set_reference(reference)
+        qapp.processEvents()
+        gui = panel._normalized
+        assert isinstance(gui, Normalized)
+        cli = prepare_cest_data(recorded[identity.engine_name], cli_reference)
+        assert not isinstance(cli, str)
+        outside = order[~np.isin(order, reference)]
+        np.testing.assert_allclose(cli["intensity"], gui.values[outside], rtol=1e-13, atol=0)
+        np.testing.assert_allclose(cli["error"], gui.errors[outside], rtol=1e-13, atol=0)
+        compared += 1
+    assert compared == len(result.inputs.identities)
+    panel.close()
 
 
 def test_unavailable_normalization_keeps_the_raw_profile_with_the_reason(qapp, scientific):
@@ -2740,21 +2770,25 @@ def test_the_error_bar_explanation_describes_the_quantity_on_show(qapp, scientif
     panel.show()
     panel.show_profile(shown, 0)
     qapp.processEvents()
-    common = ("held fixed", "never rescaled by χ²ᵣ", shown.noise_model.description)
+    common = ("never rescaled by χ²ᵣ", shown.noise_model.description)
 
     def explanation():
         text = panel.about.text()
         assert all(part in text for part in common)
         return text
 
-    # Raw: the recorded σ, one per peak, the same on every plane.
+    # Raw: the recorded σ, one per peak, the same on every plane, lineshapes held fixed.
     assert "the same on every plane" in explanation()
+    assert "held fixed" in explanation()
     assert "ratio" not in explanation()
     # One reference plane: the ratio's propagated σ, varying by plane; reference exact.
     first, second = (int(p) for p in shown.source_planes[:2])
     panel.set_reference((first,))
     text = explanation()
     assert "ratio A_k / R" in text
+    # Ratios carry the lineshape uncertainty through the covariance between planes.
+    assert "covariance between planes" in text
+    assert "held fixed" not in text
     assert "differ from plane to plane" in text
     assert "single reference plane its ratio is exactly 1 and has no error bar" in text
     assert "the same on every plane" not in text

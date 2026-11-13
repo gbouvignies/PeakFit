@@ -1176,3 +1176,28 @@ Short records of non‑obvious design choices and trade‑offs.
   to the archive, independent of the number of planes.
 - **Not in the fit JSON.** The optional JSON export stays at 9.0.0: no consumer reads
   the marginal σ there yet, and the archive and CSV carry it.
+
+## 2026-11-13: Ratios and R2eff from the covariance between planes (#162)
+- **Change.** `engine.scientific.profiles.normalize` takes a peak's covariance between
+  planes (S × S) instead of independent errors, and the reliability limit applies to
+  the total σ of the reference mean. The GUI ratio mode and `peakfit plot cest|cpmg`
+  both pass the block rebuilt from the stored covariance factors
+  (`peak_covariances_between_planes`); with no covariance between planes the
+  results are today's. Fitted values and every export column are unchanged.
+- **CLI plots read the archive.** `peakfit plot cest|cpmg` read `scientific.npz`
+  rather than `tables/intensities.csv`: the table holds per-plane errors only, and
+  `intensity_err` becomes the profile σ (#161), which is not the error of a ratio.
+  A results directory without the archive is refused with the reason. `peakfit plot
+  intensity` still reads the table.
+- **Withheld factors.** Where the lineshape terms are withheld, the covariance between
+  planes is unavailable and no ratio is given (undefined, with the reason), as for an
+  unavailable σ before. Falling back to the conditional σ would understate the ratio
+  error exactly where the lineshapes are least determined.
+- **Evidence.** Refitting 1,500 noise realizations of a correlated-noise pair
+  (`tests/test_covariance_ratios.py`): stated ratio and R2eff σ match the scatter
+  within 7% for an isolated line and a pair 3 points apart, where independent
+  conditional errors understate the ratio scatter by about 1.5×.
+- **On the bundled CEST example** (automatic references): of 166 peaks, ratio σ is
+  unchanged to round-off for 156; 8 change by more than 1% (up to +14%), all in
+  overlapping clusters. Two peaks now exceed the reliability limit (σ_R/|R| = 0.17
+  and 0.32), one more than with independent errors; no peak has withheld factors.

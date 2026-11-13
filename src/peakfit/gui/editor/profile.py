@@ -8,6 +8,7 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.algorithms.covariance_factors import peak_covariances_between_planes
 from peakfit.engine.diagnostics.identifiability import (
     AmplitudeStatus,
     Cause,
@@ -35,12 +36,18 @@ _MAX_ISOLATED = 2
 
 @dataclass(frozen=True, slots=True)
 class ProfileSeries:
-    """One peak's recorded amplitudes, analytical standard error and identifiability."""
+    """One peak's recorded amplitudes, their uncertainty and identifiability.
+
+    ``covariance`` is the covariance of the amplitudes between planes (S × S), rebuilt
+    from the stored covariance factors; ratios propagate it (profile-uncertainty §4).
+    All NaN where the factors are withheld.
+    """
 
     assignment: str
     amplitudes: np.ndarray
     error: float
     identifiability: MemberAmplitude
+    covariance: np.ndarray
     partners: tuple[str, ...] = ()  # assignments of near-collinear members
 
 
@@ -80,12 +87,16 @@ def peak_profile(
         range(len(cluster.peak_names)),
         key=lambda k: cluster.peak_names[k] != engine_name,
     )
+    covariances = peak_covariances_between_planes(
+        evaluation.covariance_factors, evaluation.amplitudes
+    )
     series = tuple(
         ProfileSeries(
             by_engine[cluster.peak_names[k]].assignment,
             evaluation.amplitudes[k],
             float(evaluation.amplitude_standard_errors[k]),
             members[k],
+            covariances[k],
             tuple(by_engine[cluster.peak_names[j]].assignment for j in members[k].partners),
         )
         for k in order
@@ -530,9 +541,7 @@ class ProfilePlot(QtWidgets.QWidget):
         for index, series in enumerate(profile.series):
             if not series.identifiability.determined:
                 continue
-            shown = normalize(
-                series.amplitudes, np.full(series.amplitudes.size, series.error), columns
-            )
+            shown = normalize(series.amplitudes, series.covariance, columns)
             if isinstance(shown, Unavailable):
                 if index == 0:
                     return raw, [], shown
@@ -741,7 +750,7 @@ class ProfilePlot(QtWidgets.QWidget):
         noise = "modelled" if profile.noise_model.modelled else "not modelled"
         shown = self._normalized
         quantity = (
-            f"±1σ of the ratio, conditional on lineshapes · noise correlation {noise} · "
+            f"±1σ of the ratio, lineshape uncertainty included · noise correlation {noise} · "
             f"σ_R/|R| = {shown.reference_error / abs(shown.reference):.3f} "
             f"(limit {RELIABILITY_LIMIT:g})"
             + (" · reference amplitude negative" if shown.reference < 0 else "")
@@ -762,13 +771,20 @@ class ProfilePlot(QtWidgets.QWidget):
                 "Error bars are the recorded analytical standard errors of the amplitudes: "
                 "one σ per peak, the same on every plane."
             )
+            quantity_text += (
+                " The amplitude standard errors are computed with the fitted lineshape "
+                "parameters held fixed, so their uncertainty and correlations are not "
+                "propagated; they can underestimate the uncertainty of overlapping peaks."
+            )
         else:
             quantity_text = (
                 "Error bars are the first-order (full-gradient) standard errors of the "
                 "ratio A_k / R, where R is the mean amplitude of the reference planes, "
-                "propagated from the analytical amplitude standard errors with amplitudes "
-                "of different planes treated as uncorrelated. They differ from plane to "
-                "plane. "
+                "propagated from the covariance between planes of the peak's amplitudes. "
+                "That covariance includes the uncertainty of the fitted lineshape "
+                "parameters, which moves a peak's amplitudes together from plane to plane; "
+                "the part common to all planes cancels in the ratio. The reliability limit "
+                "applies to the total σ of R. They differ from plane to plane. "
                 + (
                     "With a single reference plane its ratio is exactly 1 and has no error bar."
                     if shown.exact
@@ -777,10 +793,8 @@ class ProfilePlot(QtWidgets.QWidget):
                 )
             )
         explanation = (
-            quantity_text + " The amplitude standard errors are computed with the fitted lineshape "
-            "parameters held fixed, so their uncertainty and correlations are not "
-            "propagated; they can underestimate the uncertainty of overlapping peaks. "
-            "They are never rescaled by χ²ᵣ. "
+            quantity_text
+            + " Errors are never rescaled by χ²ᵣ. "
             + profile.noise_model.description
             + " χ²ᵣ is a goodness-of-fit diagnostic: well above 1, the noise level, the "
             "lineshape model or the noise assumptions do not describe the data, so these "
