@@ -287,7 +287,11 @@ model planes and 32 MiB/eight contour geometries, with stale deliveries rejected
 The run line starts with the run and Current/Outdated, then completeness,
 convergence and usable/total clusters, so a narrow window shortens only the tail;
 its tooltip keeps the full text. Clusters with a numerical warning have their own
-amber label (▲ N) that never elides.
+amber label (▲ N) that never elides. When the run's noise-power check found
+processing the header does not record, the line shows **▲ Noise check (F2)**, naming
+the axes, before the counts; the tooltip gives what was found and what to do
+([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). It is a
+warning about the errors only, never about the fit.
 
 The first completed run opens the navigator's **Clusters** tab: one row per
 recorded cluster with its members and three measures: χ²ᵣ, the largest |recorded

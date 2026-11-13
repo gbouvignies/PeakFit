@@ -18,6 +18,7 @@ from peakfit.engine.algorithms.linear_algebra import (
     factorize_shapes,
 )
 from peakfit.engine.algorithms.noise_correlation import (
+    AxisNoisePower,
     AxisProcessing,
     cluster_correlation,
     not_modelled,
@@ -153,6 +154,31 @@ def _rewrite(source: Path, target: Path, change) -> Path:
         lambda m: m["axes"][0].update(extra=1.0),
         lambda m: m["axes"][0].pop("filter_delay"),  # no default for recorded provenance
         lambda m: m.pop("axes"),
+        lambda m: m.pop("power_check"),
+        # One check for two axes, and a status the check never records.
+        lambda m: m.update(
+            power_check=[
+                {
+                    "status": "consistent",
+                    "lines": 9,
+                    "late_power": 1.0,
+                    "spread": 0.01,
+                    "acquired_estimate": None,
+                }
+            ]
+        ),
+        lambda m: m.update(
+            power_check=[
+                {
+                    "status": "maybe",
+                    "lines": 9,
+                    "late_power": 1.0,
+                    "spread": 0.01,
+                    "acquired_estimate": None,
+                }
+            ]
+            * 2
+        ),
     ],
 )
 def test_a_malformed_noise_model_is_refused(modelled, tmp_path, change):
@@ -216,3 +242,43 @@ def test_descriptions_name_the_axes_or_the_reason():
         "(F2: sine bell, 92 → 256 points; F3: sine bell, 92 → 256 points)."
     )
     assert "can be too small" in not_modelled("axis F2: x").description
+
+
+def test_the_report_carries_the_noise_power_warning_and_errors_stay_as_published(
+    modelled, tmp_path
+):
+    completed, model = modelled
+    checks = (
+        AxisNoisePower("mismatch", 900, 0.6, 0.01, None),
+        *(AxisNoisePower("consistent", 900, 1.0, 0.01) for _ in model.axes[1:]),
+    )
+    checked = replace(model, power_check=checks)
+    outcome = replace(completed.outcome, noise_model=checked)
+    for name, written_outcome in (("plain", completed.outcome), ("checked", outcome)):
+        write_fit_outputs(
+            written_outcome,
+            tmp_path / name,
+            WriterConfig(formats=("csv", "txt")),
+            metadata=RunMetadata(),
+            summary=RunSummary.from_outcome(written_outcome),
+        )
+    report = (tmp_path / "checked/summary/report.md").read_text()
+    assert str(checked.power_warning) in report
+    assert "Noise-power check" not in (tmp_path / "plain/summary/report.md").read_text()
+    # A warning only: every table, errors included, is byte-identical.
+    for table in ("parameters", "intensities", "clusters"):
+        plain = (tmp_path / f"plain/tables/{table}.csv").read_bytes()
+        assert (tmp_path / f"checked/tables/{table}.csv").read_bytes() == plain
+
+
+def test_a_noise_power_mismatch_changes_no_fitted_value_or_error(tool, modelled):
+    completed, model = modelled
+    checks = tuple(AxisNoisePower("mismatch", 900, 0.6, 0.01, 8) for _ in model.axes)
+    flagged, _ = _fit(tool, "overlapping pair", replace(model, power_check=checks))
+    a, b = completed.outcome, flagged.outcome
+    assert b.noise_model.power_warning is not None
+    assert a.final_nonlinear_parameters == b.final_nonlinear_parameters
+    for x, y in zip(a.clusters, b.clusters, strict=True):
+        ex, ey = x.analytical_evaluation, y.analytical_evaluation
+        for name in ("amplitudes", "amplitude_standard_errors", "amplitude_covariance"):
+            assert getattr(ex, name).tobytes() == getattr(ey, name).tobytes()

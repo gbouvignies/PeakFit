@@ -18,6 +18,7 @@ import peakfit.gui.editor.spectral_view as canvas_module
 import peakfit.gui.editor.workspace as workspace_module
 from peakfit.engine.algorithms.covariance_factors import marginal_standard_errors
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+from peakfit.engine.algorithms.noise_correlation import AxisNoisePower, AxisProcessing, NoiseModel
 from peakfit.engine.diagnostics.identifiability import AmplitudeStatus, Cause, MemberAmplitude
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConfig
@@ -2766,3 +2767,25 @@ def test_the_error_bar_explanation_describes_the_quantity_on_show(qapp, scientif
     panel.set_normalized(False)
     assert "the same on every plane" in explanation()
     panel.close()
+
+
+def test_the_run_status_reports_a_noise_power_mismatch(workspace, scientific):
+    w, result = workspace, scientific[-1]
+    assert not result.outcome.noise_model.power_check  # the synthetic spectrum has no header
+    axes = tuple(AxisProcessing(16, 64, "sine_bell", offset=0.4) for _ in range(2))
+    checked = NoiseModel(
+        axes=axes,
+        power_check=(
+            AxisNoisePower("mismatch", 900, 0.6, 0.01, 9),
+            AxisNoisePower("consistent", 900, 1.0, 0.01),
+        ),
+    )
+    warned = replace(
+        result,
+        completed_fit=replace(
+            result.completed_fit, outcome=replace(result.outcome, noise_model=checked)
+        ),
+    )
+    publish(w, warned)
+    assert "▲ Noise check (F2)" in w.summary.text()
+    assert str(checked.power_warning) in w.summary.toolTip()

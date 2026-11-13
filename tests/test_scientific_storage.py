@@ -12,7 +12,12 @@ from peakfit.engine.algorithms.covariance_factors import (
     CovarianceFactors,
     covariance_between_planes,
 )
-from peakfit.engine.algorithms.noise_correlation import not_modelled
+from peakfit.engine.algorithms.noise_correlation import (
+    AxisNoisePower,
+    AxisProcessing,
+    NoiseModel,
+    not_modelled,
+)
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
@@ -356,3 +361,37 @@ def test_inconsistent_covariance_factors_are_refused(tmp_path, damage):
     outcome = replace(gui.outcome, clusters=(changed, *gui.outcome.clusters[1:]))
     with pytest.raises(ValueError, match="covariance factors"):
         storage.write_scientific(tmp_path / "science.npz", outcome, gui.completed_fit.samples)
+
+
+def _checked_noise_model(samples):
+    """A modelled noise model whose noise-power check found linear prediction on F2."""
+    axes = tuple(
+        AxisProcessing(16, 64, "sine_bell", offset=0.4, end=0.98, power=2.0)
+        for _ in samples[0].grid_indices
+    )
+    check = (
+        AxisNoisePower("mismatch", 2_000, 0.54, 0.005, 9),
+        *(AxisNoisePower("inconclusive", 15) for _ in axes[1:]),
+    )
+    return NoiseModel(axes=axes, power_check=check)
+
+
+def test_the_noise_power_check_is_stored_with_the_run(tmp_path):
+    _spectra, _config, _pipeline, gui = completed_result([], False)
+    samples = gui.completed_fit.samples
+    outcome = replace(gui.outcome, noise_model=_checked_noise_model(samples))
+    path = storage.write_scientific(tmp_path / "science.npz", outcome, samples)
+    restored, _samples, _context = storage.read_scientific(path)
+    assert restored.noise_model.power_check == outcome.noise_model.power_check
+    assert restored.noise_model.power_warning == outcome.noise_model.power_warning
+    assert "about 9 of the 16 recorded points" in str(restored.noise_model.power_warning)
+
+
+def test_an_unchecked_noise_model_reads_back_unchecked(tmp_path):
+    _spectra, _config, _pipeline, gui = completed_result([], False)
+    path = storage.write_scientific(
+        tmp_path / "science.npz", gui.outcome, gui.completed_fit.samples
+    )
+    restored, _samples, _context = storage.read_scientific(path)
+    assert restored.noise_model.power_check == ()
+    assert restored.noise_model.power_warning is None

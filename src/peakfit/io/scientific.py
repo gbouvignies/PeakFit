@@ -20,7 +20,11 @@ import numpy as np
 
 from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
-from peakfit.engine.algorithms.noise_correlation import AxisProcessing, NoiseModel
+from peakfit.engine.algorithms.noise_correlation import (
+    AxisNoisePower,
+    AxisProcessing,
+    NoiseModel,
+)
 from peakfit.engine.scientific.completed import FinalClusterInputs, FinalClusterSamples
 from peakfit.engine.scientific.coordinates import validate_coordinate_table
 from peakfit.engine.scientific.final_outcome import (
@@ -363,12 +367,25 @@ def _covariance_factors(record, conditional):
 
 
 def _noise_model(record):
-    """The recorded noise correlation: per-axis processing, or why it is not modelled."""
+    """The recorded noise correlation, or why it is not modelled, and its noise-power check."""
     record = _record(record, "noise model")
-    if set(record) != {"axes", "reason"}:
+    if set(record) != {"axes", "reason", "power_check"}:
         raise ValueError("Malformed noise model.")
     axes = tuple(_axis_processing(a) for a in record["axes"])
-    return NoiseModel(axes=axes, reason=record["reason"])
+    check = tuple(_axis_noise_power(a) for a in record["power_check"])
+    return NoiseModel(axes=axes, reason=record["reason"], power_check=check)
+
+
+def _axis_noise_power(record):
+    """One axis's recorded noise-power check, as recorded: it is never re-measured."""
+    record = _record(record, "noise-power check")
+    if set(record) != {f.name for f in fields(AxisNoisePower)} or record["status"] not in {
+        "consistent",
+        "mismatch",
+        "inconclusive",
+    }:
+        raise ValueError("Malformed noise-power check.")
+    return AxisNoisePower(**record)
 
 
 def _axis_processing(record):

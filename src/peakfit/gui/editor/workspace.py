@@ -39,6 +39,7 @@ from peakfit.gui.project import Analysis, dataset_header
 from peakfit.gui.spectrum import display_position
 
 if TYPE_CHECKING:
+    from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.gui.peaks import WorkingPeak
     from peakfit.gui.spectrum import Dataset
 
@@ -1072,6 +1073,7 @@ class EditorWorkspace(QtWidgets.QWidget):
             text = (
                 f"Run {result.run_id[:8]} · {'Current' if fitting.current else 'Outdated'} · "
                 + ("▲ Not in recovery copy · " if fitting.recovery_error else "")
+                + _noise_check(result.outcome.noise_model)
                 + (fitting.attempt + " · " if fitting.attempt else "")
                 + (
                     f"all {len(clusters)} clusters usable"
@@ -1086,6 +1088,11 @@ class EditorWorkspace(QtWidgets.QWidget):
             text
             + ("\n" + dataset_summary(result, warnings=False) if result is not None else "")
             + ("\n" + fitting.failure if fitting.failure else "")
+            + (
+                "\n" + result.outcome.noise_model.power_warning
+                if result is not None and result.outcome.noise_model.power_warning
+                else ""
+            )
             + ("\n" + _recovery_note(fitting.recovery_error) if fitting.recovery_error else "")
             + ("\nClick to open the analysis page at the active run" if result is not None else "")
         )
@@ -1929,6 +1936,16 @@ def _run_rows(result, *, current: bool, warned: int) -> list[Row]:
             ("Warnings", f"▲ {warned} clusters", "warning", "", "Clusters with numerical warnings")
         )
     return rows
+
+
+def _noise_check(model: NoiseModel) -> str:
+    """The run line's flag for a noise-power mismatch, naming the axes; the tooltip explains."""
+    axes = [
+        get_dimension_label(i)
+        for i, check in enumerate(model.power_check)
+        if check.status == "mismatch"
+    ]
+    return f"▲ Noise check ({', '.join(axes)}) · " if axes else ""
 
 
 def _recovery_note(error: str) -> str:

@@ -6,6 +6,11 @@ Processing is linear, so Σ_rows x xᵀ is the exact covariance of the processed
 noise for complex white noise in the FID, and its normalized form is the correlation
 ``read_noise_model`` must reproduce. The headers are NMRPipe's own.
 
+Linear prediction is not linear in the data, so its fixtures (``NOISE_FIXTURES``) are
+instead rows of seeded complex white noise, each processed as one FID: the noise-power
+check (docs/correlated-noise.md §2.6) must detect it, and must not flag the same noise
+processed without it.
+
 Requires a local NMRPipe installation (bin2pipe, bruk2pipe, nmrPipe); the tests only
 read the committed files. Run:
 
@@ -53,6 +58,30 @@ FIXTURES: dict[str, tuple[int, str, list[str]]] = {
     "sine_bell_elb": (8, "bin", [SP_N + " -elb 10", "ZF -size 32", "FT -auto", "PS -di"]),
     "sine_bell_glb": (8, "bin", [SP_N + " -glb 10 -goff 0.2", "ZF -size 32", "FT -auto", "PS -di"]),
     "sine_bell_df": (8, "bruker", [SP_H + " -df", "ZF -size 32", "FT -auto", "PS -di"]),
+    # Processing the final header cannot show (docs/correlated-noise.md §2.5): it
+    # records the last sine bell over every acquired point, as if it were the only one.
+    "earlier_window": (
+        32,
+        "bin",
+        ["EM -lb 100", SP_N, "ZF -size 128", "FT -auto", "PS -p0 -90 -p1 180 -di"],
+    ),
+    "sp_size": (
+        32,
+        "bin",
+        [SP_N + " -size 16", "ZF -size 128", "FT -auto", "PS -p0 -90 -p1 180 -di"],
+    ),
+}
+
+# name: (acquired points, processing chain); rows of complex white noise.
+NOISE_ROWS = 512
+NOISE_FIXTURES: dict[str, tuple[int, list[str]]] = {
+    # 32 acquired points extended to 64 by linear prediction, as on the CEST ¹⁵N axis.
+    "linear_prediction": (
+        32,
+        ["LP -fb -ord 16 -pred 32", SP_N, "ZF -size 128", "FT -auto", "PS -p0 -90 -p1 180 -di"],
+    ),
+    # The control: 64 acquired points, the same processing without prediction.
+    "noise_without_lp": (64, [SP_N, "ZF -size 128", "FT -auto", "PS -p0 -90 -p1 180 -di"]),
 }
 
 
@@ -88,8 +117,14 @@ def _impulses(n: int) -> np.ndarray:
     return np.vstack([eye, 1j * eye])
 
 
-def _fid(name: str, n: int, converter: str, env: dict[str, str], cwd: Path) -> str:
-    rows = _impulses(n)
+def _noise(n: int, seed: int) -> np.ndarray:
+    """NOISE_ROWS rows of unit complex white noise, from a fixed seed."""
+    rng = np.random.default_rng(seed)
+    return rng.standard_normal((NOISE_ROWS, n)) + 1j * rng.standard_normal((NOISE_ROWS, n))
+
+
+def _fid(name: str, rows: np.ndarray, converter: str, env: dict[str, str], cwd: Path) -> str:
+    n = rows.shape[1]
     axes = (
         f"-xN {2 * n} -xT {n} -xSW 9615.38 -xOBS 800.0 -xCAR 4.7 -xLAB HN "
         f"-yN {len(rows)} -yT {len(rows)} -yMODE Real -ySW 1 -yOBS 1 -yCAR 0 -yLAB Z -ndim 2"
@@ -125,8 +160,16 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         cwd = Path(tmp)
-        for name, (n, converter, chain) in FIXTURES.items():
-            fid = _fid(name, n, converter, env, cwd)
+        jobs = [
+            (name, _impulses(n), converter, chain)
+            for name, (n, converter, chain) in FIXTURES.items()
+        ]
+        jobs += [
+            (name, _noise(n, seed), "bin", chain)
+            for seed, (name, (n, chain)) in enumerate(NOISE_FIXTURES.items())
+        ]
+        for name, rows, converter, chain in jobs:
+            fid = _fid(name, rows, converter, env, cwd)
             steps = " | ".join(f"nmrPipe -fn {step}" for step in chain)
             _run(f"nmrPipe -in {fid} | {steps} -out {name}.ft1 -ov", env, cwd)
             shutil.copy(cwd / f"{name}.ft1", OUT / f"{name}.ft1")

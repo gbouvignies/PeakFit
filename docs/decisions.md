@@ -1176,3 +1176,23 @@ Short records of non‑obvious design choices and trade‑offs.
   to the archive, independent of the number of planes.
 - **Not in the fit JSON.** The optional JSON export stays at 9.0.0: no consumer reads
   the marginal σ there yet, and the archive and CSV carry it.
+
+## 2026-11-13: Noise-power check, warning only (#165)
+- **Change.** Each run checks, per modelled axis, the time-domain noise power of the
+  spectrum's noise-only lines against the recorded processing's prediction
+  ([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). The
+  result travels in the noise model (`power_check`) and is stored in scientific
+  archive 12.0.0 and project 15.0.0, which are still unreleased, so no version
+  changes. The Markdown report, the CLI (setup, headless log and run summary) and the
+  GUI run line state a mismatch. Fitted values, errors and every CSV column are
+  unchanged.
+- **Statistic and limit.** The late power, the last 20% of the predicted power
+  against the rest, flags at a ratio outside [0.9, 1/0.9] and beyond 3 spreads. On
+  the evidence, correctly recorded processing stays within 1.03 of 1 and the weakest
+  detected case (LP on pure noise) is at 0.77. The limit is a judgement, not a
+  calibrated test; it is revisited if real spectra raise false alarms.
+- **Not in comparisons.** Two noise models with different checks compare equal: the
+  check describes the spectrum, not the correlation the errors assume, so it never
+  makes two runs' χ²ᵣ incomparable.
+- **Not in the fit JSON.** It stays at 9.0.0; the archive carries the check, and the
+  report states it.

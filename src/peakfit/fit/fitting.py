@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from peakfit.engine.algorithms.clustering import prepare_clusters
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+from peakfit.engine.algorithms.noise_power import check_noise_power
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.params_scalar import Parameters
 from peakfit.engine.domain.spectrum import get_shape_names
@@ -75,7 +76,9 @@ def load_data(
         peaks=peaks,
         noise=noise_val,
         noise_source=noise_source,
-        noise_model=read_noise_model(spectra.dic, spectra.data.shape),
+        noise_model=check_noise_power(
+            read_noise_model(spectra.dic, spectra.data.shape), spectra.data
+        ),
         shape_names=shape_names,
         contour_level=contour,
         clusters=clusters,
@@ -166,6 +169,8 @@ def run_fit(
     if reporter:
         reporter.info(f"Fitting {len(data.clusters)} clusters with {n_workers} workers.")
         reporter.info(data.noise_model.description)
+        if data.noise_model.power_warning:
+            reporter.warning(data.noise_model.power_warning)
 
     # Emit progress start event with total steps
     if progress_callback:
