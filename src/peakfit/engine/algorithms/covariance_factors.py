@@ -178,6 +178,33 @@ def covariance_between_planes(factors: CovarianceFactors, amplitudes: FloatArray
     return conditional + lineshape
 
 
+def peak_covariances_between_planes(
+    factors: CovarianceFactors, amplitudes: FloatArray
+) -> FloatArray:
+    """Each peak's own covariance between planes, (L, S, S): Cov(a_{l,s}, a_{l,t}).
+
+    The diagonal blocks of ``covariance_between_planes``, without forming the rest: what
+    ratios to reference planes need (profile-uncertainty §4). All NaN where the factors
+    are withheld.
+    """
+    n_peaks, n_planes = amplitudes.shape
+    if (
+        factors.shape_gain is None
+        or factors.cross_gain is None
+        or factors.parameter_covariance is None
+    ):
+        return np.full((n_peaks, n_planes, n_planes), np.nan)
+    gain = np.einsum("ms,mlp->lsp", amplitudes, factors.shape_gain)  # G_s, by peak
+    cross = np.einsum("ms,mlp->lsp", amplitudes, factors.cross_gain)
+    lineshape = (
+        np.einsum("lsp,pq,ltq->lst", gain, factors.parameter_covariance, gain)
+        - np.einsum("lsp,ltp->lst", cross, gain)
+        - np.einsum("lsp,ltp->lst", gain, cross)
+    )
+    conditional = np.diag(factors.conditional)[:, None, None] * np.eye(n_planes)
+    return conditional + lineshape
+
+
 def marginal_standard_errors(factors: CovarianceFactors, amplitudes: FloatArray) -> FloatArray:
     """The marginal σ of every absolute amplitude, (L, S): √Cov(a_{l,s}, a_{l,s}).
 
@@ -207,5 +234,6 @@ __all__ = [
     "covariance_between_planes",
     "covariance_factors",
     "marginal_standard_errors",
+    "peak_covariances_between_planes",
     "peak_derivatives",
 ]
