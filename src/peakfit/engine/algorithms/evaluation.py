@@ -96,6 +96,19 @@ class FitEvaluation:
         return self.classification is not FitOutcomeClassification.UNUSABLE
 
 
+# What a lineshape evaluation may raise on parameter values it cannot evaluate.
+_LINESHAPE_ERRORS = (
+    AttributeError,
+    IndexError,
+    KeyError,
+    OverflowError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+    np.linalg.LinAlgError,
+)
+
+
 class _InvalidEvaluationError(ValueError):
     """Internal control flow for an explicitly unusable analytical state."""
 
@@ -179,15 +192,28 @@ def _evaluate_analytical_model(
         normalized_residuals=normalized_residuals,
         statistics=statistics,
         uncertainty_warning=uncertainty_warning,
-        covariance_factors=covariance_factors(
-            shapes,
-            peak_derivatives(cluster, params, _free(params, nonlinear_names)),
-            amplitudes,
-            covariance,
-            noise,
-            correlation,
+        covariance_factors=_covariance_factors(
+            cluster, params, nonlinear_names, shapes, amplitudes, covariance, noise, correlation
         ),
     )
+
+
+def _covariance_factors(
+    cluster: Cluster,
+    params: Parameters,
+    nonlinear_names: list[str],
+    shapes: FloatArray,
+    amplitudes: FloatArray,
+    covariance: FloatArray,
+    noise: float,
+    correlation: FloatArray | None,
+) -> CovarianceFactors:
+    """The factors, withheld rather than failing the evaluation on a numerical error."""
+    try:
+        derivatives = peak_derivatives(cluster, params, _free(params, nonlinear_names))
+    except _LINESHAPE_ERRORS:
+        return CovarianceFactors(covariance, None, None, None)
+    return covariance_factors(shapes, derivatives, amplitudes, covariance, noise, correlation)
 
 
 def _free(params: Parameters, names: list[str]) -> list[str]:
@@ -207,16 +233,7 @@ def _evaluate_inputs(
 ) -> tuple[FloatArray, FloatArray]:
     try:
         shapes = np.asarray(cluster.evaluate(params), dtype=np.float64)
-    except (
-        AttributeError,
-        IndexError,
-        KeyError,
-        OverflowError,
-        RuntimeError,
-        TypeError,
-        ValueError,
-        np.linalg.LinAlgError,
-    ) as error:
+    except _LINESHAPE_ERRORS as error:
         raise _InvalidEvaluationError(
             f"lineshape evaluation failed: {type(error).__name__}: {error}",
         ) from error

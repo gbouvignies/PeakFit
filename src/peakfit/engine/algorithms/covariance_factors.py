@@ -21,6 +21,9 @@ and M R P⊥ E_m H⁻¹, and C_θ, together with the amplitudes.
   ``identifiable_covariance``, applied to the projected Jacobian [P⊥D_s] that gives
   H, withholds, the lineshape terms are: the factors keep only the conditional block,
   and the covariance between planes is unavailable.
+- **Numerical failure never fails a fit.** Non-finite factors (an overflow), or a
+  derivative evaluation that raises, withhold the lineshape terms; the evaluation, its
+  amplitudes and its published uncertainties are unaffected.
 """
 
 from dataclasses import dataclass
@@ -101,6 +104,26 @@ def covariance_factors(
     conditional = np.asarray(conditional, dtype=np.float64)
     if not np.all(np.isfinite(conditional)):
         return _withheld(conditional)
+    with np.errstate(all="ignore"):
+        factors = _lineshape_factors(
+            shapes, derivatives, amplitudes, conditional, noise, correlation
+        )
+    finite = all(
+        np.all(np.isfinite(values))
+        for values in (factors.shape_gain, factors.cross_gain, factors.parameter_covariance)
+        if values is not None
+    )
+    return factors if finite else _withheld(conditional)
+
+
+def _lineshape_factors(
+    shapes: FloatArray,
+    derivatives: FloatArray,
+    amplitudes: FloatArray,
+    conditional: FloatArray,
+    noise: float,
+    correlation: FloatArray | None,
+) -> CovarianceFactors:
     n_theta = derivatives.shape[1]
     variance = noise**2
     # Full rank here: the conditional covariance is published.

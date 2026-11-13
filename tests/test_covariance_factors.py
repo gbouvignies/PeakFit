@@ -233,3 +233,45 @@ def test_unidentifiable_amplitudes_stay_withheld() -> None:
     assert factors is not None
     assert not factors.available
     assert np.isnan(factors.conditional).all()
+
+
+@pytest.mark.parametrize("lineshape", ["gaussian", "no_apod", "sp2"])
+@pytest.mark.parametrize("separation", [0.0, 1e-9, 1e-6, 1e-3, 0.05, 0.3, 1.0])
+def test_poorly_conditioned_clusters_stay_usable(lineshape, separation) -> None:
+    cluster, params = peak_pair(separation, noise=0.01, lineshape=lineshape)
+    evaluation = _fitted_evaluation(cluster, params)
+    factors = evaluation.covariance_factors
+    assert factors is not None
+    assert np.array_equal(factors.conditional, evaluation.amplitude_covariance, equal_nan=True)
+    if factors.available:
+        for values in (factors.shape_gain, factors.cross_gain, factors.parameter_covariance):
+            assert values is not None
+            assert np.all(np.isfinite(values))
+
+
+def test_overflowing_factors_are_withheld() -> None:
+    shapes = np.random.default_rng(3).normal(size=(2, 30))
+    derivatives = np.full((2, 3, 30), 1e300)
+    conditional = np.eye(2)
+    factors = covariance_factors(shapes, derivatives, np.ones((2, 4)), conditional, 1.0, None)
+    assert not factors.available
+    assert np.array_equal(factors.conditional, conditional)
+
+
+def test_a_failed_derivative_evaluation_leaves_the_fit_usable(monkeypatch) -> None:
+    cluster, params = peak_pair(3.0, noise=0.01)
+    expected = _fitted_evaluation(cluster, params)
+
+    def fail(*_args):
+        raise ValueError("derivative evaluation failed")
+
+    # Fault injection: no real lineshape fails here once its values have evaluated.
+    monkeypatch.setattr("peakfit.engine.algorithms.evaluation.peak_derivatives", fail)
+    evaluation = evaluate_analytical_model(cluster, params, NOISE, MODEL)
+    assert isinstance(evaluation, AnalyticalModelEvaluation)
+    assert np.array_equal(evaluation.amplitudes, expected.amplitudes)
+    assert np.array_equal(evaluation.amplitude_covariance, expected.amplitude_covariance)
+    factors = evaluation.covariance_factors
+    assert factors is not None
+    assert not factors.available
+    assert np.array_equal(factors.conditional, evaluation.amplitude_covariance)
