@@ -18,6 +18,8 @@ from peakfit.engine.algorithms.covariance_factors import (
     covariance_factors,
     marginal_standard_errors,
     peak_derivatives,
+    profile_standard_errors,
+    relative_profile_covariance,
 )
 from peakfit.engine.algorithms.evaluation import (
     AnalyticalModelEvaluation,
@@ -317,3 +319,82 @@ def test_a_negative_variance_from_round_off_leaves_the_marginal_sigma_unavailabl
         marginal = marginal_standard_errors(factors, np.array([[1.0, 0.1]]))
     assert np.isnan(marginal[0, 0])
     assert marginal[0, 1] == pytest.approx(np.sqrt(1 - 2 * 0.01))
+
+
+def _single_peak(amplitudes: np.ndarray):
+    pair, _ = peak_pair(30.0)
+    peak = pair.peaks[0]
+    params = Parameters.from_peaks([peak])
+    cluster = Cluster(1, [peak], pair.grid_indices, np.zeros((pair.n_points, pair.n_series)))
+    cluster.data = cluster.evaluate(params).T @ amplitudes
+    return cluster, params
+
+
+def test_an_isolated_peaks_profile_sigma_is_its_conditional_sigma() -> None:
+    # T2: the lineshape term of a single peak is a common scale (§3.2), which the
+    # relative-profile covariance leaves out, so the profile σ is today's intensity_err.
+    amplitudes = np.array([[2.0, -1.0, 3.0, 0.5]])
+    cluster, params = _single_peak(amplitudes)
+    factors = _factors(cluster, params, amplitudes, _correlation(cluster.n_points))
+    conditional = np.sqrt(factors.conditional[0, 0])
+    assert marginal_standard_errors(factors, amplitudes)[0, 0] > 1.01 * conditional
+    profile = profile_standard_errors(factors, amplitudes)
+    assert profile.shape == amplitudes.shape
+    np.testing.assert_allclose(profile, conditional, rtol=1e-12)
+
+
+def _overlapping_factors():
+    cluster, params = peak_pair(3.0)
+    amplitudes = np.linalg.lstsq(cluster.evaluate(params).T, cluster.data, rcond=None)[0]
+    factors = _factors(cluster, params, amplitudes, _correlation(cluster.n_points))
+    return factors, amplitudes
+
+
+def test_a_free_scale_fit_sees_the_same_covariance_from_the_relative_profile() -> None:
+    # First-order invariance (§3.3): a downstream model a ≈ A·f(p) through the fitted
+    # profile has Jacobian [a/A, A ∂f/∂p]; with any weights, Cov(p̂) from Σ_rel equals
+    # Cov(p̂) from the full covariance between planes. The scale A's own does not.
+    factors, amplitudes = _overlapping_factors()
+    full = covariance_between_planes(factors, amplitudes)
+    relative = relative_profile_covariance(factors, amplitudes)
+    rng = np.random.default_rng(5)
+    for peak in range(amplitudes.shape[0]):
+        sigma = full[peak, :, peak, :]
+        jacobian = np.column_stack((amplitudes[peak], rng.normal(size=(amplitudes.shape[1], 2))))
+        weights = np.diag(rng.uniform(0.5, 2.0, amplitudes.shape[1]))
+        gain = np.linalg.solve(jacobian.T @ weights @ jacobian, jacobian.T @ weights)
+        expected = (gain @ sigma @ gain.T)[1:, 1:]
+        actual = (gain @ relative[peak] @ gain.T)[1:, 1:]
+        assert _relative(actual, expected) < 1e-10
+        assert not np.allclose(relative[peak], sigma, rtol=1e-3)
+
+
+def test_the_relative_profile_covariance_is_positive_definite() -> None:
+    factors, amplitudes = _overlapping_factors()
+    for covariance in relative_profile_covariance(factors, amplitudes):
+        np.testing.assert_allclose(covariance, covariance.T, rtol=0, atol=1e-14 * covariance.max())
+        assert np.linalg.eigvalsh(covariance).min() > 0
+
+
+def test_the_profile_sigma_is_the_diagonal_of_the_relative_profile_covariance() -> None:
+    factors, amplitudes = _overlapping_factors()
+    full = covariance_between_planes(factors, amplitudes)
+    expected = []
+    for peak, profile in enumerate(amplitudes):
+        conditional = factors.conditional[peak, peak]
+        unit = profile / np.linalg.norm(profile)
+        projector = np.eye(profile.size) - np.outer(unit, unit)
+        lineshape = full[peak, :, peak, :] - conditional * np.eye(profile.size)
+        expected.append(np.sqrt(np.diag(conditional + projector @ lineshape @ projector)))
+    profile_sigma = profile_standard_errors(factors, amplitudes)
+    assert _relative(profile_sigma, np.array(expected)) < 1e-12
+    relative = relative_profile_covariance(factors, amplitudes)
+    assert _relative(profile_sigma, np.sqrt(np.einsum("lss->ls", relative))) < 1e-12
+
+
+def test_withheld_factors_leave_the_profile_sigma_unavailable() -> None:
+    conditional = np.eye(2)
+    factors = CovarianceFactors(conditional, None, None, None)
+    amplitudes = np.ones((2, 4))
+    assert np.isnan(profile_standard_errors(factors, amplitudes)).all()
+    assert np.isnan(relative_profile_covariance(factors, amplitudes)).all()

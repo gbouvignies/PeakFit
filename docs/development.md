@@ -44,9 +44,10 @@ reviewing the scientific or contract reason.
 `tests/integration/test_golden_regression.py` fits the bundled example once and
 compares it with `tests/data/golden/example-fit.json` (provenance, fit arguments,
 statistics, every cluster's classification, chi-squared and nonlinear parameters)
-and `example-fit-amplitudes.npz` (amplitudes and their conditional standard
-errors). Identifiable clusters must match within 1e-3 of each reference standard
-error, standard errors to 1e-6 and chi-squared to 1e-8 (relative). Clusters
+and `example-fit-amplitudes.npz` (amplitudes, their conditional standard errors and
+their profile σ, the published `intensity_err`). Identifiable clusters must match
+within 1e-3 of each reference standard error, standard errors to 1e-6 and
+chi-squared to 1e-8 (relative). Clusters
 carrying the uncertainty warning are compared through classification, warning and
 chi-squared only, because the data do not determine their individual values. The
 module docstring records the measurements behind these tolerances.

@@ -2,7 +2,7 @@
  "provenance": {
   "description": "peakfit fit of examples/02-advanced-fitting with fit_arguments",
   "peakfit_version": "2025.11.0",
-  "source_commit": "f7c7a6a"
+  "source_commit": "defb533"
  },
  "fit_arguments": [
   "examples/02-advanced-fitting/data/pseudo3d.ft2",

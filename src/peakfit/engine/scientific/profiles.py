@@ -2,8 +2,8 @@
 
 One implementation serves the desktop profile display and the CLI's CEST and CPMG
 plots, so both publish the same values and uncertainties. The inputs are recorded
-amplitudes and their analytical standard errors (lineshapes held fixed), so
-amplitudes of different planes are treated as uncorrelated.
+amplitudes and their per-plane profile σ (``intensity_err``), and amplitudes of
+different planes are treated as uncorrelated.
 """
 
 from dataclasses import dataclass

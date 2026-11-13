@@ -158,18 +158,19 @@ def test_tiles_show_ratios_or_say_why_not(scientific):
     ratio = shown_rows(profile, (0,), normalized=True)
     assert ratio.ratio
     for (index, values), series in zip(ratio.rows, profile.series, strict=True):
-        expected = normalize(series.amplitudes, np.full(values.size, series.error), np.array([0]))
+        expected = normalize(series.amplitudes, series.errors, np.array([0]))
         assert isinstance(expected, Normalized)
         np.testing.assert_array_equal(values, expected.values)
         assert index in (0, 1)
     # A member whose reference is not distinguishable from its σ is left out and named.
-    weak = replace(profile.series[1], error=abs(float(profile.series[1].amplitudes[0])))
+    weak_sigma = abs(float(profile.series[1].amplitudes[0]))
+    weak = replace(profile.series[1], errors=np.full(profile.x.size, weak_sigma))
     mixed = shown_rows(replace(profile, series=(profile.series[0], weak)), (0,), normalized=True)
     assert mixed.ratio
     assert [i for i, _ in mixed.rows] == [0]
     assert any(n.startswith(f"Not normalized: {weak.assignment}") for n in mixed.notes)
     # With no member normalizable, raw amplitudes are drawn and the tile says why.
-    both = replace(profile, series=(replace(profile.series[0], error=weak.error * 100), weak))
+    both = replace(profile, series=(replace(profile.series[0], errors=weak.errors * 100), weak))
     fallback = shown_rows(both, (0,), normalized=True)
     assert not fallback.ratio
     assert any(n.startswith("Raw:") for n in fallback.notes)

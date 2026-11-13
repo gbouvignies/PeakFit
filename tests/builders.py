@@ -135,12 +135,17 @@ def peak_pair(
     noise: float = 0.0,
     lineshape: LineshapeName = "gaussian",
     fit_phase: tuple[str, ...] = (),
+    amplitudes: np.ndarray | None = None,
 ):
     """One cluster of two 1D peaks ``separation`` points apart, over four planes.
 
     ``fit_phase`` adds the cluster's phase on those axes (for lineshapes that have one),
-    a single parameter shared by both peaks.
+    a single parameter shared by both peaks. ``amplitudes`` (2 × S) replaces the
+    default four-plane profiles.
     """
+    if amplitudes is None:
+        amplitudes = np.array([[2.0, -1.0, 3.0, 0.5], [-1.0, 3.0, 0.5, 2.0]])
+    n_planes = amplitudes.shape[1]
 
     def axis(size, direct):
         return SpectralParameters(
@@ -160,9 +165,9 @@ def peak_pair(
 
     spectra = Spectra(
         dic={},
-        data=np.zeros((4, 101)),
-        z_values=np.arange(4.0),
-        params=[axis(4, False), axis(101, True)],
+        data=np.zeros((n_planes, 101)),
+        z_values=np.arange(float(n_planes)),
+        params=[axis(n_planes, False), axis(101, True)],
     )
     peaks = []
     for name, point in zip(("A", "B"), (50 - separation / 2, 50 + separation / 2), strict=True):
@@ -181,8 +186,7 @@ def peak_pair(
         peak.set_cluster_id(1)
         peaks.append(peak)
     params = Parameters.from_peaks(peaks)
-    cluster = Cluster(1, peaks, [np.arange(101)], np.zeros((101, 4)))
-    amplitudes = np.array([[2.0, -1.0, 3.0, 0.5], [-1.0, 3.0, 0.5, 2.0]])
+    cluster = Cluster(1, peaks, [np.arange(101)], np.zeros((101, n_planes)))
     cluster.data = cluster.evaluate(params).T @ amplitudes
     cluster.data += noise * np.random.default_rng(59).normal(size=cluster.data.shape)
     return cluster, params

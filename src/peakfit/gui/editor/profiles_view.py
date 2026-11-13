@@ -116,7 +116,7 @@ def shown_rows(profile: PeakProfile, reference: tuple[int, ...], normalized: boo
     for index, series in enumerate(profile.series):
         if not series.identifiability.determined:
             continue
-        ratio = normalize(series.amplitudes, np.full(series.amplitudes.size, series.error), columns)
+        ratio = normalize(series.amplitudes, series.errors, columns)
         if isinstance(ratio, Unavailable):
             unavailable.append(f"{series.assignment}: {ratio.reason}")
         else:

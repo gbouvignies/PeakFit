@@ -55,7 +55,8 @@ reduction; its cost is approximately 0.12 MB including archive framing here.
 The covariance factors add **0.19 MB** to the bundled example's archive (6.81 →
 7.00 MB, CLI; 121 clusters): 0.09 MB of compressed factors, the rest member framing.
 Their size does not depend on the number of planes. The `intensity_err_marginal`
-column adds 0.52 MB to `intensities.csv`. Older figures below predate both.
+column adds 0.52 MB to `intensities.csv`, and `intensity_err_conditional` about as
+much. Older figures below predate them.
 
 The bundled two-pass result directory is about **12.02 MB (CLI) / 12.06 MB (GUI)**, including CSV/report.
 It exceeds the audit's 5.77 MB result-only estimate because exact corrections are
@@ -250,21 +251,51 @@ errors are also withheld at an active bound (a finite bound within an absolute
 proof of identifiability. Fixed parameters may retain zero error because they
 were not estimated.
 
-Amplitude errors condition on the fitted nonlinear parameters, one per peak for every
-plane: they are *conditional* amplitude errors. They do not include uncertainty in
-positions or linewidths, which the *total* amplitude uncertainty would; MCMC
-estimates that ([mcmc.md](mcmc.md)), under its own independent-noise likelihood.
+`intensities.csv` gives three amplitude errors per peak and plane
+([profile-uncertainty §3.3](profile-uncertainty.md)). All are first-order, computed
+from the stored covariance factors and amplitudes, and written by the one writer
+the CLI and the GUI share.
 
-**Marginal σ.** `intensity_err_marginal`, in `intensities.csv`, is the first-order
-total uncertainty of each absolute amplitude, per peak and plane: √Σ_ss, from the
-stored covariance factors ([profile-uncertainty §3.3](profile-uncertainty.md)). It
-includes the lineshape uncertainty and is never smaller than `intensity_err`. It is
-the right error for one amplitude on its own. Its lineshape part is correlated
-across planes, so do not use the column as independent per-plane errors of a
-profile: that overstates downstream errors. It is empty where the factors are
-withheld, and where round-off makes the reconstructed variance negative (seen for
-near-coincident peaks, whose cluster carries the uncertainty warning). The CLI and the GUI write it with the same writer, and the GUI inspector
-shows it for the selected peak on the current plane.
+| Column | Quantity | Use it for |
+|---|---|---|
+| `intensity_err` | profile σ | per-plane errors of a profile: downstream fits with a free scale, ratios |
+| `intensity_err_marginal` | marginal σ | one absolute amplitude on its own |
+| `intensity_err_conditional` | conditional σ | diagnostic: lineshape parameters held fixed |
+
+**Profile σ.** `intensity_err` is the diagonal of the relative-profile covariance
+Σ_rel = cI + PLP: the conditional variance c plus the lineshape part L of the
+peak's covariance between planes, with the direction of its own profile u = a/‖a‖
+projected out (P = I − uuᵀ).
+- **What it leaves out:** a lineshape error that moves all of a peak's amplitudes by
+  one factor. That common scale cancels in ratios and in any downstream fit with a
+  free scale, so for those analyses Σ_rel is exactly equivalent to the full
+  covariance, to first order.
+- **Isolated peaks:** the lineshape part is entirely such a scale (§3.2), so the
+  profile σ equals the conditional σ, the same on every plane.
+- **Overlapping peaks:** it differs from plane to plane and can exceed the
+  conditional σ. On the bundled example, it is up to 1.23× the conditional σ and
+  equal to it at the median.
+- **Its limit:** used as independent per-plane errors, it is exact only where Σ_rel
+  is close to diagonal. Strongly overlapping peaks with differing profiles keep
+  modes correlated across planes, which any per-plane σ misstates (§4).
+- **Unavailable:** empty where the factors are withheld, and where round-off makes
+  the variance negative.
+
+**Marginal σ.** `intensity_err_marginal` is the first-order total uncertainty of each
+absolute amplitude: √Σ_ss. It includes the whole lineshape uncertainty, common scale
+included, and is never smaller than the conditional σ. It is the right error for one
+amplitude on its own. Its lineshape part is correlated across planes, so do not use
+the column as independent per-plane errors of a profile: that overstates downstream
+errors, by up to 1.5× in §4. It is empty where the factors are withheld, and where
+round-off makes the reconstructed variance negative (seen for near-coincident peaks,
+whose cluster carries the uncertainty warning). The GUI inspector shows it for the
+selected peak on the current plane.
+
+**Conditional σ.** `intensity_err_conditional` conditions on the fitted nonlinear
+parameters, one per peak for every plane. It does not include uncertainty in
+positions or linewidths; MCMC estimates the total uncertainty
+([mcmc.md](mcmc.md)), under its own independent-noise likelihood. It is the fit
+JSON's `amplitude_standard_errors`, and the `intensity_err` of earlier releases.
 
 **Correlated noise.** Zero filling and apodization correlate the noise of
 neighbouring points ([correlated-noise.md](correlated-noise.md)).
@@ -313,8 +344,8 @@ at the fit.
 - For strongly overlapping peaks, do not take an absent warning as evidence that
   the errors are reliable; compare alternative starts or a profile likelihood.
 
-**One noise convention.** Nonlinear errors, amplitude errors (`intensity_err`,
-`amplitude_standard_errors`) and MCMC intervals all use the supplied or estimated
+**One noise convention.** Nonlinear errors, amplitude errors (`intensity_err` and
+the other amplitude columns, `amplitude_standard_errors`) and MCMC intervals all use the supplied or estimated
 statistical noise σ (with its correlation, where modelled, for the analytical
 errors). None is rescaled by the reduced chi-squared. Reduced
 chi-squared is reported beside them, in `clusters.csv`, `intensities.csv`, the JSON
