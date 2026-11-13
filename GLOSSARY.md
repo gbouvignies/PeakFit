@@ -240,6 +240,11 @@ The per-plane error of an intensity profile, √(Σ_rel)_ss. It equals the
 conditional amplitude error for an isolated peak, and is valid as independent
 per-plane errors only where Σ_rel is close to diagonal.
 
+**Baseline replicates**:
+CEST planes far from a peak's own offset, references excluded, treated as
+approximate replicates: the robust scatter of their second differences checks the
+profile σ (`peakfit replicates`). They measure repeatability, not accuracy.
+
 **Correlated-profile flag**:
 A per-peak mark that the largest correlated mode of the relative-profile
 covariance exceeds τ·c (τ = 0.1, set by validation T3), or that its within-plane

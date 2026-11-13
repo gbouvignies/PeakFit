@@ -126,6 +126,22 @@ reference is not distinguishable from its uncertainty (σ_R/|R| > 0.1, σ_R the 
 σ of the reference mean), is skipped with the reason rather than plotted with
 misleading error bars.
 
+## Check the errors on a CEST run
+
+```bash
+peakfit replicates "$LATEST_RUN"
+```
+
+Far from a peak's own offset, CEST planes are approximate replicates. The command
+compares their plane-to-plane scatter (a robust SD of second differences across
+offsets, planes within `--window` Hz of the peak's offset and the reference planes
+excluded) with the published profile σ, read from `scientific.npz` without refitting.
+A median observed / stated near 1 means the errors are calibrated; `--verbose` lists
+every peak. Plane values must be offsets in Hz from the carrier of the first spectral
+axis. It measures repeatability, not accuracy: an error common to every baseline
+plane, such as a lineshape misfit, is invisible, and drift or minor-state dips only
+raise the observed scatter ([profile-uncertainty §5.1](docs/profile-uncertainty.md)).
+
 ## MCMC
 
 Run MCMC after a successful fit:

@@ -13,6 +13,7 @@ from peakfit.cli.commands.gui import gui_command
 from peakfit.cli.commands.init import init_command
 from peakfit.cli.commands.mcmc import mcmc_command
 from peakfit.cli.commands.plot import plot_app
+from peakfit.cli.commands.replicates import replicates_command
 
 app = typer.Typer(
     name="peakfit",
@@ -52,6 +53,7 @@ app.command(name="fit")(fit_command)
 app.command(name="mcmc")(mcmc_command)
 app.command(name="init")(init_command)
 app.command(name="gui")(gui_command)
+app.command(name="replicates")(replicates_command)
 
 # Sub-applications
 app.add_typer(plot_app, name="plot")
