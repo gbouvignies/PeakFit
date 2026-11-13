@@ -295,7 +295,8 @@ def profile_standard_errors(factors: CovarianceFactors, amplitudes: FloatArray) 
 
 
 # The correlated-profile flag (profile-uncertainty §6), set by validation T3 (§8.1):
-# below both, independent profile σ misstate no downstream σ by more than 5%.
+# below both, independent profile σ misstate no downstream σ by more than the tolerance.
+DOWNSTREAM_SIGMA_TOLERANCE = 0.05  # largest misstatement of a downstream σ, unflagged
 CORRELATED_MODE_THRESHOLD = 0.1  # largest correlated mode of Σ_rel, relative to c
 PARTNER_CORRELATION_THRESHOLD = 0.15  # within-plane |ρ| with a cluster partner
 
@@ -377,6 +378,7 @@ def profile_correlations(
 
 __all__ = [
     "CORRELATED_MODE_THRESHOLD",
+    "DOWNSTREAM_SIGMA_TOLERANCE",
     "PARTNER_CORRELATION_THRESHOLD",
     "CovarianceFactors",
     "PeakProfileCorrelation",

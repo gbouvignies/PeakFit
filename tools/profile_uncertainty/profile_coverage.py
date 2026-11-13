@@ -68,6 +68,7 @@ from validate_sandwich_errors import NO_APOD, SP1, SP2, Axis
 
 from peakfit.engine.algorithms.covariance_factors import (
     CORRELATED_MODE_THRESHOLD,
+    DOWNSTREAM_SIGMA_TOLERANCE,
     PARTNER_CORRELATION_THRESHOLD,
     covariance_between_planes,
     marginal_standard_errors,
@@ -95,7 +96,7 @@ if TYPE_CHECKING:
 SIGMA = 0.02  # noise SD; the larger peak's height is 1 in its reference plane
 LINEWIDTH = 20.0  # Hz, every line
 HALF_WINDOW = (5, 6)  # ¹⁵N, ¹H points either side of the pair, beyond half its separation
-TOLERANCE = 0.05  # largest misstatement of a downstream σ an unflagged peak may carry
+TOLERANCE = DOWNSTREAM_SIGMA_TOLERANCE  # largest misstatement of a downstream σ, unflagged
 # The correlated-profile flag (§6): set from the sweep's boundary, rounded down for
 # configurations between its points (see ``threshold_boundary``).
 # The engine owns the constants; the record (``thresholds``) is tested against them.

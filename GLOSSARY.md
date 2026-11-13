@@ -206,8 +206,9 @@ correlated noise, (JᵀJ)⁻¹JᵀRJ(JᵀJ)⁻¹ scaled by σ². It is first ord
 locally linear regime.
 
 **Conditional amplitude error**:
-An amplitude's standard error with the fitted lineshape parameters held fixed:
-the published `intensity_err` until the profile σ replaces it (ADR 0003).
+An amplitude's standard error with the fitted lineshape parameters held fixed, or
+**conditional σ** for short; published as `intensity_err_conditional`. Planes
+share no lineshape term, so it gives no covariance between planes.
 
 **Total amplitude uncertainty**:
 An amplitude's uncertainty including the variability of the lineshape
@@ -215,11 +216,15 @@ parameters. Its first-order analytical form is the marginal σ; MCMC estimates i
 under an independent-noise likelihood.
 
 **Marginal σ**:
-The first-order total uncertainty of one absolute amplitude, √Σ_ss, where Σ is the
-covariance of a peak's amplitudes over the planes from the sandwich over all
-parameters. It is the right error for a single amplitude; used as independent
-per-plane errors it overstates downstream errors, because its lineshape part is
-correlated across planes (`docs/profile-uncertainty.md` §3.3).
+The first-order total uncertainty of one absolute amplitude, √Σ_ss, with Σ the
+covariance between planes; published as `intensity_err_marginal`. It is the right
+error for a single amplitude; used as independent per-plane errors it overstates
+downstream errors, because its lineshape part is correlated across planes (`docs/profile-uncertainty.md` §3.3).
+
+**Covariance between planes**:
+The first-order covariance Σ of one peak's amplitudes over the planes, from the
+sandwich over all parameters. Its lineshape part correlates the planes; reference
+ratios and R2eff propagate it as gᵀΣg (`docs/profile-uncertainty.md` §4).
 
 **Covariance factors**:
 The per-cluster quantities that, with the fitted amplitudes, rebuild the first-order
@@ -236,9 +241,9 @@ for an isolated peak, and has no scale component.
 _Avoid_: common scale uncertainty (not uniquely defined, not reported)
 
 **Profile σ**:
-The per-plane error of an intensity profile, √(Σ_rel)_ss. It equals the
-conditional amplitude error for an isolated peak, and is valid as independent
-per-plane errors only where Σ_rel is close to diagonal.
+The per-plane error of an intensity profile, √(Σ_rel)_ss, published as
+`intensity_err`. It equals the conditional σ for an isolated peak, and is valid as
+independent per-plane errors only where Σ_rel is close to diagonal.
 
 **Baseline replicates**:
 CEST planes far from a peak's own offset, references excluded, treated as
@@ -247,10 +252,11 @@ profile σ (`peakfit replicates`). They measure repeatability, not accuracy.
 
 **Correlated-profile flag**:
 A per-peak mark that the largest correlated mode of the relative-profile
-covariance exceeds τ·c (τ = 0.1, set by validation T3), or that its within-plane
-amplitude correlation with a cluster partner exceeds 0.15 in magnitude, so independent per-plane
-errors cannot describe the profile's uncertainty. It states a limit of that
-approximation, not the quality of the data.
+covariance exceeds τ·c (`CORRELATED_MODE_THRESHOLD`, 0.1), or that its within-plane
+amplitude correlation with a cluster partner exceeds `PARTNER_CORRELATION_THRESHOLD`
+(0.15) in magnitude, both set by validation T3: independent per-plane errors then
+cannot describe the profile's uncertainty. It states a limit of that approximation,
+not the quality of the data; published as `correlated_profile`.
 
 **Reference-normalized profile**:
 A display of an intensity profile divided by the mean amplitude of explicitly

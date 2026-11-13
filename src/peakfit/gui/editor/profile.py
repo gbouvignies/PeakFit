@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.engine.algorithms.covariance_factors import (
     CORRELATED_MODE_THRESHOLD,
+    DOWNSTREAM_SIGMA_TOLERANCE,
     PARTNER_CORRELATION_THRESHOLD,
     PeakProfileCorrelation,
     ProfileCorrelation,
@@ -48,8 +49,9 @@ CORRELATED_SHORT = "errors correlated across planes"
 NOT_ASSESSED_SHORT = "correlation across planes not assessed"
 CORRELATED_LIMIT = (
     "Downstream fits that treat the per-plane errors (intensity_err) as independent can "
-    "misstate parameter uncertainty by more than 5%. This is a limit of independent "
-    "per-plane errors, not of the data: the amplitudes and their errors are unchanged. "
+    f"misstate parameter uncertainty by more than {DOWNSTREAM_SIGMA_TOLERANCE:.0%}. This is "
+    "a limit of independent per-plane errors, not of the data: the amplitudes and their "
+    "errors are unchanged. "
     "Read downstream errors for this peak with that in mind; the results archive "
     "records the covariance between planes, as factors, for analyses that can use it."
 )
@@ -104,7 +106,7 @@ WITHIN_TOLERANCE_TEXT = (
     "Independent per-plane errors describe every member's profile: no correlated mode "
     f"above {CORRELATED_MODE_THRESHOLD:g} c and no |ρ| with a partner above "
     f"{PARTNER_CORRELATION_THRESHOLD:g}, below which they misstated no downstream σ by "
-    "more than 5% in validation."
+    f"more than {DOWNSTREAM_SIGMA_TOLERANCE:.0%} in validation."
 )
 
 

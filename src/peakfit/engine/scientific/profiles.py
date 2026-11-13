@@ -46,7 +46,7 @@ def normalize(
     """Normalize one peak's amplitudes to the mean of its reference columns S.
 
     ``covariance`` is the S × S covariance of the amplitudes between planes. First-order
-    propagation with the full gradient (GUI specification §9): ∂r_k/∂A_j =
+    propagation with the full gradient (``docs/profile-uncertainty.md`` §4): ∂r_k/∂A_j =
     δ_kj/R − [j∈S]·A_k/(nR²), so σ²(r_k) = g_kᵀ Σ g_k. σ_R is the total σ of the
     reference mean, covariances included. Returns why instead when the ratio is
     undefined, or computable but not reliable enough to give: beyond ``limit`` the
