@@ -18,9 +18,13 @@ from typing import TYPE_CHECKING
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.algorithms.covariance_factors import ProfileCorrelation
 from peakfit.engine.diagnostics.identifiability import Cause
 from peakfit.engine.scientific.profiles import Unavailable, normalize
 from peakfit.gui.editor.profile import (
+    CORRELATED_MARK,
+    CORRELATED_SHORT,
+    NOT_ASSESSED_SHORT,
     PeakProfile,
     ask_reference,
     framed_range,
@@ -127,6 +131,21 @@ def shown_rows(profile: PeakProfile, reference: tuple[int, ...], normalized: boo
     return Shown(rows, [*notes, *(f"Not normalized: {u}" for u in unavailable)], ratio=True)
 
 
+def correlation_line(profile: PeakProfile) -> str:
+    """The cluster's correlated-profile flags in one line; empty when none applies."""
+    flagged = [
+        s.assignment for s in profile.series if s.correlation is not None and s.correlation.flagged
+    ]
+    if flagged:
+        return f"{CORRELATED_MARK} {CORRELATED_SHORT}: {', '.join(flagged)}"
+    if any(
+        s.correlation is not None and s.correlation.status is ProfileCorrelation.NOT_ASSESSED
+        for s in profile.series
+    ):
+        return NOT_ASSESSED_SHORT
+    return ""
+
+
 def _measures(review: ClusterReview) -> str:
     parts = [f"χ²ᵣ {review.chi2:.2f}" if math.isfinite(review.chi2) else "χ²ᵣ –"]
     if math.isfinite(review.largest_residual):
@@ -148,6 +167,9 @@ def _describe(tile: Tile, reference: tuple[int, ...], normalized: bool) -> str:
     else:
         shown = shown_rows(tile.profile, reference, normalized)
         lines += shown.notes
+        correlation = correlation_line(tile.profile)
+        if correlation:
+            lines.append(correlation)
         quantity = (
             f"A / A_ref ({reference_text(reference)})" if shown.ratio else "Signed amplitudes"
         )
@@ -244,7 +266,8 @@ def _legend(painter, inner: QtCore.QRectF, profile: PeakProfile, shown: Shown, s
     drawn = {index for index, _values in shown.rows}
     x, limit = inner.left(), inner.right()
     for index, series in enumerate(profile.series):
-        label = series.assignment
+        flagged = series.correlation is not None and series.correlation.flagged
+        label = f"{series.assignment} {CORRELATED_MARK}" if flagged else series.assignment
         need = 10 + metrics.horizontalAdvance(label) + 10
         if x + need > limit:
             painter.setPen(QtGui.QColor(theme.secondary))

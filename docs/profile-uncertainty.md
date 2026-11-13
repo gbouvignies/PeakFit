@@ -439,7 +439,8 @@ one error column by habit, so `intensity_err` carries the profile σ.
 - **Noise-model check:** the measured time-domain noise-power profile of each axis is
   compared with the header's prediction. A mismatch, such as unrecorded LP or an
   earlier window, gives a recorded warning.
-- **Storage:** the tensors of §3.1, the flag and the check. This is a deliberate format
+- **Storage:** the tensors of §3.1 and the check. The flag is derived when a run
+  is read, from the stored factors and amplitudes, and is not stored (#164). This is a deliberate format
   change: the next major version of the scientific archive and of the analysis
   project. The factors went into archive 12.0.0 and project 15.0.0; they add
   0.19 MB to the example's archive, whatever the number of planes.

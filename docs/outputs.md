@@ -293,6 +293,27 @@ round-off makes the reconstructed variance negative (seen for near-coincident pe
 whose cluster carries the uncertainty warning). The GUI inspector shows it for the
 selected peak on the current plane.
 
+**Correlated profile.** `correlated_profile` is the correlated-profile flag
+([profile-uncertainty §6](profile-uncertainty.md#6-reporting)), one value per peak,
+repeated on each of its planes. It says whether `intensity_err`, read as independent
+per-plane errors, can describe the profile's uncertainty.
+- **`yes`:** the largest correlated mode of Σ_rel exceeds 0.1c, or the peak's
+  within-plane amplitude correlation with a cluster partner exceeds 0.15 in
+  magnitude. Downstream fits that treat the per-plane errors as independent can then
+  misstate parameter uncertainty by more than 5%. Below both thresholds, the T3
+  validation found no downstream σ misstated by more than 3.8% (§8.1).
+- **`no`:** below both thresholds. An isolated peak is never flagged: its Σ_rel is cI.
+- **`not assessed`:** the lineshape factors are withheld, so there is no profile σ.
+- **Empty:** a run with one plane has no profile.
+
+The flag states a limit of the independent per-plane approximation, not the quality
+of the data: it does not suggest discarding or down-weighting the peak, and it
+changes no value or error. It is derived when the run is read, from the stored
+factors and amplitudes, like the profile σ; the archive and project formats do not
+change. On the bundled example it marks 28 of the 74 peaks in multi-peak clusters
+(12 by the correlated mode, the rest by the partner correlation) and none of the 92
+isolated peaks.
+
 **Conditional σ.** `intensity_err_conditional` conditions on the fitted nonlinear
 parameters, one per peak for every plane. It does not include uncertainty in
 positions or linewidths; MCMC estimates the total uncertainty

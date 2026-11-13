@@ -27,6 +27,7 @@ and M R P⊥ E_m H⁻¹, and C_θ, together with the amplitudes.
 """
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -292,13 +293,99 @@ def profile_standard_errors(factors: CovarianceFactors, amplitudes: FloatArray) 
     return np.sqrt(np.where(variances >= 0.0, variances, np.nan))
 
 
+# The correlated-profile flag (profile-uncertainty §6), set by validation T3 (§8.1):
+# below both, independent profile σ misstate no downstream σ by more than 5%.
+CORRELATED_MODE_THRESHOLD = 0.1  # largest correlated mode of Σ_rel, relative to c
+PARTNER_CORRELATION_THRESHOLD = 0.15  # within-plane |ρ| with a cluster partner
+
+
+class ProfileCorrelation(Enum):
+    """Whether independent per-plane errors can describe a profile's uncertainty."""
+
+    WITHIN_TOLERANCE = "within tolerance"
+    CORRELATED = "correlated"  # the flag: a limit of the approximation, not of the data
+    NOT_ASSESSED = "not assessed"  # the lineshape factors are withheld
+    NO_PROFILE = "no profile"  # one plane
+
+
+@dataclass(frozen=True, slots=True)
+class PeakProfileCorrelation:
+    """One peak's correlated-profile flag and the two diagnostics behind it.
+
+    ``mode`` is the largest correlated mode of Σ_rel relative to c (NaN where not
+    assessed). ``partner_correlation`` is the largest within-plane |ρ| with a cluster
+    partner, ``partner`` that partner's index; 0 and None for a single peak.
+    """
+
+    status: ProfileCorrelation
+    mode: float
+    partner_correlation: float
+    partner: int | None
+
+    @property
+    def flagged(self) -> bool:
+        """Whether the profile's errors are correlated beyond the tolerance."""
+        return self.status is ProfileCorrelation.CORRELATED
+
+
+def profile_correlations(
+    factors: CovarianceFactors, amplitudes: FloatArray
+) -> tuple[PeakProfileCorrelation, ...]:
+    """The correlated-profile flag of every peak, from the stored factors and amplitudes.
+
+    A peak is flagged where the largest eigenvalue of PLP = Σ_rel − cI exceeds
+    ``CORRELATED_MODE_THRESHOLD``·c, or its within-plane amplitude correlation with a
+    partner exceeds ``PARTNER_CORRELATION_THRESHOLD`` in magnitude. Where the lineshape
+    factors are withheld every peak is not assessed; with one plane there is no
+    profile.
+    """
+    n_peaks, n_planes = amplitudes.shape
+    conditional = np.asarray(factors.conditional, dtype=np.float64)
+    variances = np.diag(conditional)
+    with np.errstate(all="ignore"):
+        correlation = np.abs(conditional / np.sqrt(np.outer(variances, variances)))
+    np.fill_diagonal(correlation, 0.0)
+    partners = [int(np.argmax(row)) if n_peaks > 1 else None for row in correlation]
+    partner_rho = [
+        0.0 if partner is None else float(correlation[peak, partner])
+        for peak, partner in enumerate(partners)
+    ]
+    if n_planes < 2 or not factors.available:  # noqa: PLR2004
+        status = ProfileCorrelation.NOT_ASSESSED if n_planes > 1 else ProfileCorrelation.NO_PROFILE
+        modes = np.full(n_peaks, np.nan)
+    else:
+        lineshape = relative_profile_covariance(factors, amplitudes) - variances[
+            :, None, None
+        ] * np.eye(n_planes)
+        with np.errstate(all="ignore"):
+            modes = np.linalg.eigvalsh(lineshape)[:, -1] / variances
+        status = None
+
+    def judged(mode: float, rho: float) -> ProfileCorrelation:
+        if status is not None:
+            return status
+        if mode > CORRELATED_MODE_THRESHOLD or rho > PARTNER_CORRELATION_THRESHOLD:
+            return ProfileCorrelation.CORRELATED
+        return ProfileCorrelation.WITHIN_TOLERANCE
+
+    return tuple(
+        PeakProfileCorrelation(judged(float(mode), rho), float(mode), rho, partner)
+        for mode, rho, partner in zip(modes, partner_rho, partners, strict=True)
+    )
+
+
 __all__ = [
+    "CORRELATED_MODE_THRESHOLD",
+    "PARTNER_CORRELATION_THRESHOLD",
     "CovarianceFactors",
+    "PeakProfileCorrelation",
+    "ProfileCorrelation",
     "covariance_between_planes",
     "covariance_factors",
     "marginal_standard_errors",
     "peak_covariances_between_planes",
     "peak_derivatives",
+    "profile_correlations",
     "profile_standard_errors",
     "relative_profile_covariance",
 ]

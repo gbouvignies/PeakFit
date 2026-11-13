@@ -1258,3 +1258,21 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Gate.** The scatter criterion is met; the coverage criterion as written is not,
   by multiplicity and a 0.1–0.2 point over-coverage of R2eff. The choice of criterion
   is open (profile-uncertainty §10 item 5).
+
+## 2026-11-13: the correlated-profile flag (#164)
+- **Derived, not stored.** `profile_correlations` (engine) computes the flag from the
+  stored factors and amplitudes when a run is read; the archive and project formats
+  are unchanged. The thresholds live in the engine (`CORRELATED_MODE_THRESHOLD`,
+  `PARTNER_CORRELATION_THRESHOLD`) and the T3 tool imports them, so its record is
+  tested against the published values.
+- **States.** Flagged, within tolerance, not assessed (lineshape factors withheld,
+  even where the conditional ρ alone would flag) and no profile (one plane: the
+  1-plane shortfall T3 saw is nonlinearity, not what the flag describes). Only runs
+  with two planes or more show it.
+- **Exports.** `intensities.csv` gains `correlated_profile` (`yes`, `no`,
+  `not assessed`, empty for one plane), after `noise_correlation`. Readers by
+  column name are unaffected; readers by position see `plane_index` and the later
+  columns move by one.
+- **GUI.** One mark (↔) and one wording on the profile, the tiles and the cluster
+  page: a limit of independent per-plane errors, never a verdict on the data, in
+  caption style rather than as a warning.

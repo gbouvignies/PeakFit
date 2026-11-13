@@ -319,3 +319,59 @@ def test_missing_errors_stay_unknown_and_earlier_schema_is_rejected(tmp_path) ->
     payload["schema_version"] = "4.0.0"
     with pytest.raises(ValidationError, match="Unsupported fit JSON schema version"):
         FitSummarySchema.model_validate(payload)
+
+
+def _pair_cluster(factors: CovarianceFactors, amplitudes: np.ndarray) -> FinalClusterOutcome:
+    """A converged two-peak cluster recording these factors and amplitudes."""
+    cluster = _cluster(21, FitOutcomeClassification.CONVERGED, "converged")
+    assert cluster.analytical_evaluation is not None
+    conditional = factors.conditional
+    return replace(
+        cluster,
+        peak_names=("A", "B"),
+        analytical_evaluation=replace(
+            cluster.analytical_evaluation,
+            shapes=np.eye(2),
+            amplitudes=amplitudes,
+            amplitude_standard_errors=np.sqrt(np.diag(conditional)),
+            amplitude_covariance=conditional,
+            covariance_factors=factors,
+        ),
+    )
+
+
+def _correlated_profile_column(cluster: FinalClusterOutcome, tmp_path) -> dict[str, set[str]]:
+    outcome = replace(_outcome([]), clusters=(cluster,))
+    written = write_fit_outputs(outcome, tmp_path, WriterConfig(formats=("csv",)))
+    with written["intensities"].open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    marks: dict[str, set[str]] = {}
+    for row in rows:
+        marks.setdefault(row["peak_name"], set()).add(row["correlated_profile"])
+    return marks
+
+
+# Orthogonal unit profiles; A's amplitudes move with B's profile (one lineshape
+# parameter, variance 0.5 relative to c = 1): A carries a correlated mode of 0.5c.
+_PROFILES = np.array([[1.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]]) / np.sqrt(2.0)
+_GAIN = np.zeros((2, 2, 1))
+_GAIN[1, 0, 0] = 1.0
+
+
+def test_intensities_csv_marks_each_peaks_correlated_profile(tmp_path) -> None:
+    factors = CovarianceFactors(np.eye(2), _GAIN, np.zeros((2, 2, 1)), np.array([[0.5]]))
+    marks = _correlated_profile_column(_pair_cluster(factors, _PROFILES), tmp_path)
+    # One value per peak, on every one of its planes.
+    assert marks == {"A": {"yes"}, "B": {"no"}}
+
+
+def test_withheld_factors_leave_the_correlated_profile_not_assessed(tmp_path) -> None:
+    factors = CovarianceFactors(np.eye(2), None, None, None)
+    marks = _correlated_profile_column(_pair_cluster(factors, _PROFILES), tmp_path)
+    assert marks == {"A": {"not assessed"}, "B": {"not assessed"}}
+
+
+def test_one_plane_leaves_the_correlated_profile_empty(tmp_path) -> None:
+    factors = CovarianceFactors(np.eye(2), _GAIN, np.zeros((2, 2, 1)), np.array([[0.5]]))
+    marks = _correlated_profile_column(_pair_cluster(factors, _PROFILES[:, :1]), tmp_path)
+    assert marks == {"A": {""}, "B": {""}}

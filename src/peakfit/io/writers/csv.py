@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from peakfit.engine.algorithms.covariance_factors import (
+    ProfileCorrelation,
     marginal_standard_errors,
+    profile_correlations,
     profile_standard_errors,
 )
 from peakfit.io.writers.config import WriterConfig
@@ -86,6 +88,7 @@ def write_final_outcome_intensities(
         factors = evaluation.covariance_factors
         profile = profile_standard_errors(factors, evaluation.amplitudes)
         marginal = marginal_standard_errors(factors, evaluation.amplitudes)
+        correlated = profile_correlations(factors, evaluation.amplitudes)
         for peak_index, peak_name in enumerate(cluster.peak_names):
             for plane_index in range(evaluation.amplitudes.shape[1]):
                 z_value = (
@@ -119,6 +122,7 @@ def write_final_outcome_intensities(
                             unavailable="unavailable",
                         ),
                         "noise_correlation": _noise_correlation(outcome),
+                        "correlated_profile": _CORRELATED_PROFILE[correlated[peak_index].status],
                         "plane_index": plane_index,
                         "source_plane_index": int(indices[plane_index]),
                     }
@@ -236,10 +240,20 @@ def _intensity_header() -> list[str]:
         "intensity_err_conditional",
         "reduced_chi_squared",
         "noise_correlation",
+        "correlated_profile",
         "plane_index",
         "source_plane_index",
     ]
     return header + _outcome_columns()
+
+
+# The correlated-profile flag (profile-uncertainty §6): empty with one plane.
+_CORRELATED_PROFILE = {
+    ProfileCorrelation.CORRELATED: "yes",
+    ProfileCorrelation.WITHIN_TOLERANCE: "no",
+    ProfileCorrelation.NOT_ASSESSED: "not assessed",
+    ProfileCorrelation.NO_PROFILE: "",
+}
 
 
 def _noise_correlation(outcome: FinalFitOutcome) -> str:

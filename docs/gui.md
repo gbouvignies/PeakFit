@@ -316,11 +316,14 @@ compact amber line names the cluster's numerical warnings (“▲ Uncertainty
 unreliable · see Review”); their explanations stay in Review. The cluster page
 lists the members one line each: its number, a link to its peak page and its
 recorded values at display precision (± σ on hover, recorded bounds in amber,
-units under the table); then the amplitude profile of all members; the recorded
+units under the table), ↔ after a member whose profile is flagged; then the amplitude profile of all members; the recorded
 amplitude correlation, “conditional on lineshapes” (a single ρ row for two
 members, a matrix in member numbers shaded by |ρ| for more, why it is
 unavailable when the covariance was not recorded, and no section for a single
-peak); the cluster's review rows; and provenance.
+peak); the cluster's review rows, ending with **Profile errors** for runs with
+two planes or more: “↔ correlated across planes” with the flagged members, “within
+tolerance” or “not assessed”, the diagnostics and their meaning on hover; and
+provenance.
 **Enter** or a double-click on a cluster row, **Focus cluster** on the cluster page,
 or **View → Focus cluster** (Cmd/Ctrl+Shift+F) puts the selected peak's recorded
 cluster in **focus**: the same spectral view, reframed in place on the displayed
@@ -399,7 +402,8 @@ order and filter: sort or filter the list and the tiles follow. Each tile overla
 every member's recorded signed amplitudes on one vertical scale that includes zero,
 so a dip shared between correlated members, opposite signs or a large/small split
 show at a glance; members keep the cluster page's colours and order, named under the
-plot. The header gives the cluster's mark, first member and size, and its χ²ᵣ,
+plot, a flagged member followed by ↔ (the correlated-profile flag; the tooltip names
+the flagged members, or that the correlation was not assessed). The header gives the cluster's mark, first member and size, and its χ²ᵣ,
 |r|max and |ρ|. A member whose amplitude is not identifiable or not established is
 not drawn, and the tile says so. The plot frames the same range as the inspector's
 profile (a distant reference plane is left out) and a dashed line marks the current
@@ -437,7 +441,16 @@ same on every plane. It differs from the **marginal σ** of the inspector's Fitt
 table, the uncertainty of one absolute amplitude with that scale included: its
 scale part is shared by every plane, so as independent bars it would overstate the
 uncertainty of the profile. Strongly overlapping peaks can also have errors
-correlated across planes, which no independent bar shows. Where the run models the
+correlated across planes, which no independent bar shows. Where that exceeds the
+validated tolerance, the **correlated-profile flag**
+([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties), `correlated_profile`)
+marks the member with ↔ in the legend, and a caption under the plot says, for the
+selected peak, which diagnostic was found (largest correlated mode relative to c, or
+|ρ| with a partner) and that downstream fits treating the per-plane errors as
+independent can misstate parameter uncertainty. It is a caption, not a warning: a
+limit of independent per-plane errors, not of the data, and it changes nothing.
+Where the cluster's lineshape factors are withheld, the caption says the correlation
+was not assessed; runs with one plane show no flag. Where the run models the
 processed noise correlation the errors are sandwich errors; otherwise they assume
 independent points. The note beside the plot says so in a few words (“±1 profile
 σ · noise correlation modelled”), with any points off scale, by plane, on a line of

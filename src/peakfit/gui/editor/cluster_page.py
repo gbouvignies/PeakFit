@@ -11,6 +11,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.algorithms.covariance_factors import (
+    PeakProfileCorrelation,
+    ProfileCorrelation,
+    profile_correlations,
+)
 from peakfit.gui import formatting
 from peakfit.gui import theme as themes
 from peakfit.gui.dataset_fit import parameter_name
@@ -23,6 +28,13 @@ from peakfit.gui.editor.labels import (
     section,
     show_text,
     text_label,
+)
+from peakfit.gui.editor.profile import (
+    CORRELATED_LIMIT,
+    CORRELATED_MARK,
+    NOT_ASSESSED_REASON,
+    WITHIN_TOLERANCE_TEXT,
+    correlation_findings,
 )
 from peakfit.gui.editor.review import correlation_matrix
 
@@ -113,6 +125,49 @@ def review_rows(
     return rows
 
 
+def correlated_profiles(
+    cluster: FinalClusterOutcome, engine_names: tuple[str, ...], names: tuple[str, ...]
+) -> dict[str, tuple[PeakProfileCorrelation, str]]:
+    """Each member's correlated-profile flag and its most correlated partner, by name.
+
+    ``engine_names`` and ``names`` list the members in the review's order. Empty
+    without an analytical evaluation or with one plane: there is no profile.
+    """
+    evaluation = cluster.analytical_evaluation
+    if evaluation is None or evaluation.amplitudes.shape[1] < 2:  # noqa: PLR2004
+        return {}
+    flags = profile_correlations(evaluation.covariance_factors, evaluation.amplitudes)
+    shown = dict(zip(engine_names, names, strict=True))
+    by_index = [shown.get(name, name) for name in cluster.peak_names]
+    return {
+        engine: (flags[k], by_index[p] if (p := flags[k].partner) is not None else "")
+        for k, engine in enumerate(cluster.peak_names)
+    }
+
+
+def correlation_row(
+    correlations: dict[str, tuple[PeakProfileCorrelation, str]],
+    engine_names: tuple[str, ...],
+    names: tuple[str, ...],
+) -> Row | None:
+    """The cluster's correlated-profile flag as a review row; None without a profile."""
+    if not correlations:
+        return None
+    members = [
+        (name, correlations[e][0], correlations[e][1])
+        for e, name in zip(engine_names, names, strict=True)
+    ]
+    flagged = [(n, c, p) for n, c, p in members if c.flagged]
+    if flagged:
+        findings = "; ".join(f"{n}: {correlation_findings(c, p)}" for n, c, p in flagged)
+        detail = ", ".join(n for n, _c, _p in flagged) if len(members) > 1 else ""
+        tip = f"Errors correlated across planes. {findings}. {CORRELATED_LIMIT}"
+        return ("Profile errors", f"{CORRELATED_MARK} correlated across planes", "", detail, tip)
+    if any(c.status is ProfileCorrelation.NOT_ASSESSED for _n, c, _p in members):
+        return ("Profile errors", "not assessed", "", "", "Not assessed: " + NOT_ASSESSED_REASON)
+    return ("Profile errors", "within tolerance", "", "", WITHIN_TOLERANCE_TEXT)
+
+
 class ClusterPage(QtWidgets.QWidget):
     """Review of one cluster; choosing a member opens that peak's page."""
 
@@ -192,9 +247,10 @@ class ClusterPage(QtWidgets.QWidget):
         kinds = list(dict.fromkeys(w.kind for w in review.warnings))
         self.warnings.setText(f"▲ {' · '.join(kinds)} · see Review" if kinds else "")
         self.warnings.setVisible(bool(kinds))
-        self._fill_members(review, cluster, engine_names, selected)
+        correlations = correlated_profiles(cluster, engine_names, review.names)
+        self._fill_members(review, cluster, engine_names, selected, correlations)
         self._fill_matrix(review, cluster, engine_names)
-        self._fill_review(review)
+        self._fill_review(review, correlation_row(correlations, engine_names, review.names))
 
     def _fill_members(
         self,
@@ -202,11 +258,13 @@ class ClusterPage(QtWidgets.QWidget):
         cluster: FinalClusterOutcome,
         engine_names: tuple[str, ...],
         selected: str | None,
+        correlations: dict[str, tuple[PeakProfileCorrelation, str]],
     ) -> None:
         grid = self.members
         # Names keep their natural width: the parameter columns need the room.
         grid.setColumnMinimumWidth(0, _NUMBER_WIDTH)
         marked = {h.peak for h in review.highlights if h.peak}
+        engines = dict(zip(review.ids, engine_names, strict=True))
         for row, (identity, name) in enumerate(zip(review.ids, review.names, strict=True), 1):
             grid.addWidget(text_label(str(row), "caption"), row, 0)
             link = QtWidgets.QPushButton(name)
@@ -228,6 +286,13 @@ class ClusterPage(QtWidgets.QWidget):
                 glyph = text_label("◇", "caption")
                 glyph.setToolTip("; ".join(h.rule for h in review.highlights if h.peak == identity))
                 cell.addWidget(glyph)
+            correlation, partner = correlations.get(engines[identity], (None, ""))
+            if correlation is not None and correlation.flagged:
+                mark = text_label(CORRELATED_MARK, "caption")
+                mark.setToolTip(
+                    f"Errors correlated across planes: {correlation_findings(correlation, partner)}"
+                )
+                cell.addWidget(mark)
             cell.addStretch(1)
             grid.addLayout(cell, row, 1)
         if cluster.analytical_evaluation is None:
@@ -352,6 +417,7 @@ class ClusterPage(QtWidgets.QWidget):
                 self.matrix.addWidget(cell, i + 1, j + 1)
         self.matrix.setColumnStretch(size + 1, 1)
 
-    def _fill_review(self, review: ClusterReview) -> None:
+    def _fill_review(self, review: ClusterReview, correlation: Row | None) -> None:
         names = dict(zip(review.ids, review.names, strict=True))
-        label_rows(self.review, review_rows(review, names))
+        rows = review_rows(review, names)
+        label_rows(self.review, rows if correlation is None else [*rows, correlation])

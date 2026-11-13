@@ -67,6 +67,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools/
 from validate_sandwich_errors import NO_APOD, SP1, SP2, Axis
 
 from peakfit.engine.algorithms.covariance_factors import (
+    CORRELATED_MODE_THRESHOLD,
+    PARTNER_CORRELATION_THRESHOLD,
     covariance_between_planes,
     marginal_standard_errors,
     peak_covariances_between_planes,
@@ -96,8 +98,9 @@ HALF_WINDOW = (5, 6)  # ¹⁵N, ¹H points either side of the pair, beyond half 
 TOLERANCE = 0.05  # largest misstatement of a downstream σ an unflagged peak may carry
 # The correlated-profile flag (§6): set from the sweep's boundary, rounded down for
 # configurations between its points (see ``threshold_boundary``).
-MODE_THRESHOLD = 0.1  # largest correlated mode of Σ_rel, relative to c
-PARTNER_THRESHOLD = 0.15  # within-plane |ρ| with a cluster partner
+# The engine owns the constants; the record (``thresholds``) is tested against them.
+MODE_THRESHOLD = CORRELATED_MODE_THRESHOLD  # largest correlated mode of Σ_rel, relative to c
+PARTNER_THRESHOLD = PARTNER_CORRELATION_THRESHOLD  # within-plane |ρ| with a cluster partner
 Z95 = 1.96
 CHAINS: dict[LineshapeName, tuple[Axis, Axis]] = {"sp1": SP1, "sp2": SP2, "no_apod": NO_APOD}
 

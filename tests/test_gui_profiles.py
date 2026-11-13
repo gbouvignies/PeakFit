@@ -8,8 +8,9 @@ import numpy as np
 import pytest
 from builders import two_cluster_dataset
 from gui_helpers import wait_until
-from PySide6 import QtCore, QtTest
+from PySide6 import QtCore, QtTest, QtWidgets
 
+from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.scientific.profiles import Normalized, normalize
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.editor.profiles_view import cluster_tiles, shown_rows
@@ -205,3 +206,91 @@ def test_exporting_writes_every_shown_tile_to_a_pdf(workspace, scientific, tmp_p
     assert data.startswith(b"%PDF")
     assert list(tmp_path.iterdir()) == [target]  # no partial file left beside it
     assert "Exported 2 tiles on 1 page to profiles.pdf" in w.profiles.caption.text()
+
+
+def _engine_ids(result) -> dict[str, str]:
+    return {i.engine_name: i.working_id for i in result.inputs.identities}
+
+
+def _pair_cluster(result):
+    return next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
+
+
+def _tile_text(w, member: str) -> str:
+    """The tooltip and accessible text of the tile holding this member."""
+    row = next(r for r, ids in enumerate(w.profiles.tile_ids()) if member in ids)
+    return w.profiles.model.index(row).data(QtCore.Qt.ItemDataRole.ToolTipRole)
+
+
+def _review_value(page, label: str) -> QtWidgets.QLabel:
+    grid = page.review
+    for row in range(grid.rowCount()):
+        item = grid.itemAtPosition(row, 0)
+        if item is not None and item.widget().text() == label:
+            return grid.itemAtPosition(row, 1).widget()
+    raise KeyError(label)
+
+
+def test_the_correlated_profile_flag_reads_alike_on_profile_tiles_and_cluster_page(
+    workspace, scientific
+):
+    # The overlapping pair's within-plane |ρ| is 0.17, above 0.15: both are flagged.
+    # The remote peak, alone in its cluster, never is.
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    ids = _engine_ids(result)
+    pair = _pair_cluster(result)
+    remote = next(c for c in result.outcome.clusters if len(c.peak_names) == 1)
+    member = ids[pair.peak_names[0]]
+    w.select_peak(member)
+    profile = w.panel.profile
+    note = profile.correlated.text()
+    assert profile.correlated.isVisible()
+    assert "correlated across planes" in note
+    assert "|ρ| 0.17" in note
+    # A limit of the approximation, not a verdict on the data.
+    assert "not of the data" in note
+    assert "independent" in note
+    assert all(word not in note.lower() for word in ("discard", "bad", "unreliable"))
+    assert "intensity_err" in profile.correlated.toolTip()  # the full meaning on hover
+    assert profile.legend.text().count("↔") == 2  # both members carry the mark
+    w.show_view(profiles=True)
+    assert "↔ errors correlated across planes" in _tile_text(w, member)
+    assert "↔" not in _tile_text(w, ids[remote.peak_names[0]])
+    w.select_peak(member, cluster=True)
+    row = _review_value(w.panel.cluster_page, "Profile errors")
+    assert row.text().startswith("↔ correlated across planes")
+    assert "not of the data" in row.toolTip()
+    w.select_peak(ids[remote.peak_names[0]])
+    assert not profile.correlated.isVisible()
+    assert "↔" not in profile.legend.text()
+    w.select_peak(ids[remote.peak_names[0]], cluster=True)
+    row = _review_value(w.panel.cluster_page, "Profile errors")
+    assert row.text() == "within tolerance"
+
+
+def test_withheld_lineshape_factors_leave_the_profile_not_assessed(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    pair = _pair_cluster(result)
+    evaluation = pair.analytical_evaluation
+    withheld = replace(
+        evaluation,
+        covariance_factors=CovarianceFactors(evaluation.amplitude_covariance, None, None, None),
+    )
+    edited = replace(pair, analytical_evaluation=withheld)
+    outcome = replace(
+        result.outcome,
+        clusters=tuple(edited if c is pair else c for c in result.outcome.clusters),
+    )
+    publish(w, replace(result, completed_fit=replace(result.completed_fit, outcome=outcome)))
+    member = _engine_ids(result)[pair.peak_names[0]]
+    w.select_peak(member)
+    note = w.panel.profile.correlated.text()
+    assert "not assessed" in note
+    assert "↔" not in w.panel.profile.legend.text()
+    w.show_view(profiles=True)
+    assert "correlation across planes not assessed" in _tile_text(w, member)
+    w.select_peak(member, cluster=True)
+    assert _review_value(w.panel.cluster_page, "Profile errors").text() == "not assessed"

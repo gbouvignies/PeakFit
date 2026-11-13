@@ -9,7 +9,12 @@ import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from peakfit.engine.algorithms.covariance_factors import (
+    CORRELATED_MODE_THRESHOLD,
+    PARTNER_CORRELATION_THRESHOLD,
+    PeakProfileCorrelation,
+    ProfileCorrelation,
     peak_covariances_between_planes,
+    profile_correlations,
     profile_standard_errors,
 )
 from peakfit.engine.diagnostics.identifiability import (
@@ -36,6 +41,62 @@ if TYPE_CHECKING:
 
 _MAX_ISOLATED = 2
 
+# The correlated-profile flag (profile-uncertainty §6): the same mark and words on the
+# profile, the tiles and the cluster page.
+CORRELATED_MARK = "↔"
+CORRELATED_SHORT = "errors correlated across planes"
+NOT_ASSESSED_SHORT = "correlation across planes not assessed"
+CORRELATED_LIMIT = (
+    "Downstream fits that treat the per-plane errors (intensity_err) as independent can "
+    "misstate parameter uncertainty by more than 5%. This is a limit of independent "
+    "per-plane errors, not of the data: the amplitudes and their errors are unchanged. "
+    "Read downstream errors for this peak with that in mind; the results archive "
+    "records the covariance between planes, as factors, for analyses that can use it."
+)
+NOT_ASSESSED_REASON = (
+    "the lineshape uncertainty of this cluster is withheld, so there is no profile σ to qualify."
+)
+
+
+def correlation_findings(correlation: PeakProfileCorrelation, partner: str) -> str:
+    """Which diagnostic of a flagged peak exceeds its threshold, and by how much."""
+    found = []
+    if correlation.mode > CORRELATED_MODE_THRESHOLD:
+        found.append(
+            f"largest correlated mode {correlation.mode:.2f} c, above "
+            f"{CORRELATED_MODE_THRESHOLD:g} c"
+        )
+    if correlation.partner_correlation > PARTNER_CORRELATION_THRESHOLD:
+        found.append(
+            f"|ρ| {correlation.partner_correlation:.2f} with {partner} within each plane, "
+            f"above {PARTNER_CORRELATION_THRESHOLD:g}"
+        )
+    return "; ".join(found)
+
+
+def correlation_text(name: str, correlation: PeakProfileCorrelation | None, partner: str) -> str:
+    """The flag in a sentence for one peak; empty when there is nothing to say."""
+    if correlation is None:
+        return ""
+    if correlation.status is ProfileCorrelation.NOT_ASSESSED:
+        return f"Correlation of {name}'s errors across planes not assessed: {NOT_ASSESSED_REASON}"
+    if not correlation.flagged:
+        return ""
+    return (
+        f"{CORRELATED_MARK} {name}: errors correlated across planes "
+        f"({correlation_findings(correlation, partner)}). Treated as independent, the "
+        "per-plane errors can misstate downstream parameter uncertainty: a limit of that "
+        "approximation, not of the data."
+    )
+
+
+WITHIN_TOLERANCE_TEXT = (
+    "Independent per-plane errors describe every member's profile: no correlated mode "
+    f"above {CORRELATED_MODE_THRESHOLD:g} c and no |ρ| with a partner above "
+    f"{PARTNER_CORRELATION_THRESHOLD:g}, below which they misstated no downstream σ by "
+    "more than 5% in validation."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ProfileSeries:
@@ -53,6 +114,8 @@ class ProfileSeries:
     identifiability: MemberAmplitude
     covariance: np.ndarray
     partners: tuple[str, ...] = ()  # assignments of near-collinear members
+    correlation: PeakProfileCorrelation | None = None  # the correlated-profile flag
+    correlation_partner: str = ""  # assignment of the most correlated member
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,14 +158,18 @@ def peak_profile(
     covariances = peak_covariances_between_planes(
         evaluation.covariance_factors, evaluation.amplitudes
     )
+    correlations = profile_correlations(evaluation.covariance_factors, evaluation.amplitudes)
+    names = [by_engine[name].assignment for name in cluster.peak_names]
     series = tuple(
         ProfileSeries(
-            by_engine[cluster.peak_names[k]].assignment,
+            names[k],
             evaluation.amplitudes[k],
             errors[k],
             members[k],
             covariances[k],
-            tuple(by_engine[cluster.peak_names[j]].assignment for j in members[k].partners),
+            tuple(names[j] for j in members[k].partners),
+            correlations[k],
+            names[p] if (p := correlations[k].partner) is not None else "",
         )
         for k in order
     )
@@ -446,6 +513,13 @@ class ProfilePlot(QtWidgets.QWidget):
         notes.addWidget(self.note)
         notes.addLayout(self._chips())
         layout.addLayout(notes)
+        # The correlated-profile flag of the selected peak: a limit of independent
+        # per-plane errors, so a caption, not a warning.
+        self.correlated = QtWidgets.QLabel()
+        self.correlated.setObjectName("caption")
+        self.correlated.setWordWrap(True)
+        self.correlated.hide()
+        layout.addWidget(self.correlated)
         self.about_toggle, self.about = about(layout, "About these error bars")
         # Members whose individual amplitudes are withheld, and why; then the numbers.
         self.withheld = QtWidgets.QLabel()
@@ -583,6 +657,20 @@ class ProfilePlot(QtWidgets.QWidget):
         self.diagnostics.setText(diagnostics)
         self.diagnostics_toggle.setVisible(bool(diagnostics))
         self.diagnostics.setVisible(bool(diagnostics) and self.diagnostics_toggle.isChecked())
+        selected = profile.series[0] if profile is not None else None
+        correlated = (
+            correlation_text(
+                selected.assignment, selected.correlation, selected.correlation_partner
+            )
+            if selected is not None
+            else ""
+        )
+        self.correlated.setText(correlated)
+        # The full meaning, and what to do next, on hover.
+        correlation = selected.correlation if selected is not None else None
+        flagged = correlation is not None and correlation.flagged
+        self.correlated.setToolTip(CORRELATED_LIMIT if flagged else "")
+        self.correlated.setVisible(bool(correlated))
         if profile is None:
             return
         x = profile.x
@@ -673,6 +761,11 @@ class ProfilePlot(QtWidgets.QWidget):
             f'<span style="color:{colors[i % len(colors)]}">{marker}</span>&nbsp;'
             + (f"<b>{escape(s.assignment)}</b>" if i == 0 else escape(s.assignment))
             + ("" if _available(s.errors) else " · σ not available")
+            + (
+                f'&nbsp;<span title="{CORRELATED_SHORT}">{CORRELATED_MARK}</span>'
+                if s.correlation is not None and s.correlation.flagged
+                else ""
+            )
             for i, s in enumerate(profile.series)
             if i in shown
         ] + (["◆&nbsp;reference"] if normalized else [])
@@ -794,7 +887,8 @@ class ProfilePlot(QtWidgets.QWidget):
                 "lineshapes except a common scale, which moves all of a peak's amplitudes "
                 "by one factor and cancels in ratios and in any fit with a free scale. "
                 "Overlapping peaks can also have errors correlated across planes, which "
-                "independent error bars do not show."
+                f"independent error bars do not show; {CORRELATED_MARK} marks a peak where "
+                "that exceeds the validated tolerance."
             )
         else:
             quantity_text = (
