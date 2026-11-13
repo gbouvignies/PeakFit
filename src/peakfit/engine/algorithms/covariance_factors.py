@@ -229,6 +229,69 @@ def marginal_standard_errors(factors: CovarianceFactors, amplitudes: FloatArray)
     return np.sqrt(np.where(variances >= 0.0, variances, np.nan))
 
 
+def _projected_gains(
+    factors: CovarianceFactors, amplitudes: FloatArray
+) -> tuple[FloatArray, FloatArray] | None:
+    """PG_s and Pσ²MRT_sᵀ by peak, (L, S, n_θ); None where withheld.
+
+    P = I − uuᵀ removes each peak's own profile direction u = a/‖a‖ over the planes.
+    """
+    if (
+        factors.shape_gain is None
+        or factors.cross_gain is None
+        or factors.parameter_covariance is None
+    ):
+        return None
+    gain = np.einsum("ms,mlp->lsp", amplitudes, factors.shape_gain)
+    cross = np.einsum("ms,mlp->lsp", amplitudes, factors.cross_gain)
+    norms = np.linalg.norm(amplitudes, axis=1, keepdims=True)
+    # A zero profile has no direction to remove; its lineshape terms are zero anyway.
+    units = np.divide(amplitudes, norms, out=np.zeros_like(amplitudes), where=norms > 0)
+
+    def project(values: FloatArray) -> FloatArray:
+        return values - units[:, :, None] * np.einsum("ls,lsp->lp", units, values)[:, None]
+
+    return project(gain), project(cross)
+
+
+def relative_profile_covariance(factors: CovarianceFactors, amplitudes: FloatArray) -> FloatArray:
+    """Σ_rel = cI + PLP of every peak's profile over the planes, (L, S, S).
+
+    Exactly equivalent to the full covariance between planes for any downstream fit
+    with a free scale (``docs/profile-uncertainty.md`` §3.3); cI for a single peak. All
+    NaN where the factors are withheld.
+    """
+    n_peaks, n_planes = amplitudes.shape
+    projected = _projected_gains(factors, amplitudes)
+    if projected is None or factors.parameter_covariance is None:
+        return np.full((n_peaks, n_planes, n_planes), np.nan)
+    gain, cross = projected
+    lineshape = (
+        np.einsum("lsp,pq,ltq->lst", gain, factors.parameter_covariance, gain)
+        - np.einsum("lsp,ltp->lst", cross, gain)
+        - np.einsum("lsp,ltp->lst", gain, cross)
+    )
+    return np.diag(factors.conditional)[:, None, None] * np.eye(n_planes) + lineshape
+
+
+def profile_standard_errors(factors: CovarianceFactors, amplitudes: FloatArray) -> FloatArray:
+    """The profile σ of every amplitude, (L, S): √(Σ_rel)_ss.
+
+    The diagonal of ``relative_profile_covariance``, without forming the rest. All NaN
+    where the factors are withheld; NaN where round-off makes a variance negative.
+    """
+    projected = _projected_gains(factors, amplitudes)
+    if projected is None or factors.parameter_covariance is None:
+        return np.full(amplitudes.shape, np.nan)
+    gain, cross = projected
+    variances = (
+        np.diag(factors.conditional)[:, None]
+        + np.einsum("lsp,pq,lsq->ls", gain, factors.parameter_covariance, gain)
+        - 2.0 * np.einsum("lsp,lsp->ls", cross, gain)
+    )
+    return np.sqrt(np.where(variances >= 0.0, variances, np.nan))
+
+
 __all__ = [
     "CovarianceFactors",
     "covariance_between_planes",
@@ -236,4 +299,6 @@ __all__ = [
     "marginal_standard_errors",
     "peak_covariances_between_planes",
     "peak_derivatives",
+    "profile_standard_errors",
+    "relative_profile_covariance",
 ]

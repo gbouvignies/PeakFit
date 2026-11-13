@@ -8,7 +8,10 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from peakfit.engine.algorithms.covariance_factors import peak_covariances_between_planes
+from peakfit.engine.algorithms.covariance_factors import (
+    peak_covariances_between_planes,
+    profile_standard_errors,
+)
 from peakfit.engine.diagnostics.identifiability import (
     AmplitudeStatus,
     Cause,
@@ -38,14 +41,15 @@ _MAX_ISOLATED = 2
 class ProfileSeries:
     """One peak's recorded amplitudes, their uncertainty and identifiability.
 
+    ``errors`` is the profile σ by plane, the error bars of raw amplitudes.
     ``covariance`` is the covariance of the amplitudes between planes (S × S), rebuilt
     from the stored covariance factors; ratios propagate it (profile-uncertainty §4).
-    All NaN where the factors are withheld.
+    Both are all NaN where the factors are withheld.
     """
 
     assignment: str
     amplitudes: np.ndarray
-    error: float
+    errors: np.ndarray  # profile σ by plane; all NaN where unavailable
     identifiability: MemberAmplitude
     covariance: np.ndarray
     partners: tuple[str, ...] = ()  # assignments of near-collinear members
@@ -83,6 +87,7 @@ def peak_profile(
     members = amplitude_identifiability(
         evaluation.shapes, evaluation.amplitudes, evaluation.amplitude_standard_errors
     )
+    errors = profile_standard_errors(evaluation.covariance_factors, evaluation.amplitudes)
     order = sorted(
         range(len(cluster.peak_names)),
         key=lambda k: cluster.peak_names[k] != engine_name,
@@ -94,7 +99,7 @@ def peak_profile(
         ProfileSeries(
             by_engine[cluster.peak_names[k]].assignment,
             evaluation.amplitudes[k],
-            float(evaluation.amplitude_standard_errors[k]),
+            errors[k],
             members[k],
             covariances[k],
             tuple(by_engine[cluster.peak_names[j]].assignment for j in members[k].partners),
@@ -226,7 +231,7 @@ def diagnostics_text(profile: PeakProfile) -> str:
         if m.status is AmplitudeStatus.IDENTIFIABLE:
             continue
         low, high = float(np.min(s.amplitudes)), float(np.max(s.amplitudes))
-        sigma = f"σ {_scientific(s.error, 3)}" if np.isfinite(s.error) else "σ not available"
+        sigma = _sigma_range(s.errors)
         lines += [
             f"{s.assignment} · {m.status.value} ({m.cause.value})",
             f"  recorded amplitudes {_scientific(low, 3)} to {_scientific(high, 3)} · {sigma}",
@@ -243,6 +248,21 @@ def diagnostics_text(profile: PeakProfile) -> str:
     if lines:
         lines.append("Recorded values are unchanged; Export results writes them.")
     return "\n".join(lines)
+
+
+def _available(errors: np.ndarray) -> bool:
+    """Whether a series has error bars: a profile σ on every plane."""
+    return bool(np.all(np.isfinite(errors)))
+
+
+def _sigma_range(errors: np.ndarray) -> str:
+    """A series' profile σ for diagnostics: one value, or its range over the planes."""
+    if not _available(errors):
+        return "profile σ not available"
+    low, high = float(np.min(errors)), float(np.max(errors))
+    if _scientific(low, 3) == _scientific(high, 3):
+        return f"profile σ {_scientific(low, 3)}"
+    return f"profile σ {_scientific(low, 3)} to {_scientific(high, 3)}"
 
 
 def _sigma(error: float) -> str:
@@ -516,7 +536,7 @@ class ProfilePlot(QtWidgets.QWidget):
             (
                 index,
                 s.amplitudes,
-                np.full(s.amplitudes.size, s.error) if np.isfinite(s.error) else None,
+                s.errors if _available(s.errors) else None,
                 None,
             )
             for index, s in enumerate(profile.series)
@@ -652,7 +672,7 @@ class ProfilePlot(QtWidgets.QWidget):
         entries = [
             f'<span style="color:{colors[i % len(colors)]}">{marker}</span>&nbsp;'
             + (f"<b>{escape(s.assignment)}</b>" if i == 0 else escape(s.assignment))
-            + ("" if np.isfinite(s.error) else " · σ not available")
+            + ("" if _available(s.errors) else " · σ not available")
             for i, s in enumerate(profile.series)
             if i in shown
         ] + (["◆&nbsp;reference"] if normalized else [])
@@ -689,7 +709,7 @@ class ProfilePlot(QtWidgets.QWidget):
             self.show_all.setToolTip(
                 "Off-scale observations: "
                 + "; ".join(
-                    f"{s.assignment} {formatting.scaled(s.amplitudes[j])} ({_sigma(s.error)}) "
+                    f"{s.assignment} {formatting.scaled(s.amplitudes[j])} ({_sigma(s.errors[j])}) "
                     f"at {formatting.intensity(float(x[j]))} "
                     f"(plane {profile.source_planes[j] + 1})"
                     for j in hidden
@@ -755,7 +775,7 @@ class ProfilePlot(QtWidgets.QWidget):
             f"(limit {RELIABILITY_LIMIT:g})"
             + (" · reference amplitude negative" if shown.reference < 0 else "")
             if shown is not None
-            else f"±1σ conditional on lineshapes · noise correlation {noise}"
+            else f"±1 profile σ · noise correlation {noise}"
         )
         extra = getattr(self, "_normalization_note", "")
         states = [
@@ -768,13 +788,13 @@ class ProfilePlot(QtWidgets.QWidget):
         # Say what the bars on show are: raw amplitude σ, or the ratio's propagated σ.
         if shown is None:
             quantity_text = (
-                "Error bars are the recorded analytical standard errors of the amplitudes: "
-                "one σ per peak, the same on every plane."
-            )
-            quantity_text += (
-                " The amplitude standard errors are computed with the fitted lineshape "
-                "parameters held fixed, so their uncertainty and correlations are not "
-                "propagated; they can underestimate the uncertainty of overlapping peaks."
+                "Error bars are the profile σ, plane by plane, as Export results writes "
+                "it (intensity_err). For an isolated peak it is the conditional σ, the "
+                "same on every plane. The profile σ includes the uncertainty of the fitted "
+                "lineshapes except a common scale, which moves all of a peak's amplitudes "
+                "by one factor and cancels in ratios and in any fit with a free scale. "
+                "Overlapping peaks can also have errors correlated across planes, which "
+                "independent error bars do not show."
             )
         else:
             quantity_text = (

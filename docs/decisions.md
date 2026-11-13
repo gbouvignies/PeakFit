@@ -1221,4 +1221,26 @@ Short records of non‑obvious design choices and trade‑offs.
   makes two runs' χ²ᵣ incomparable.
 - **Not in the fit JSON.** It stays at 9.0.0; the archive carries the check, and the
   report states it.
-||||||| defb533
+
+## 2026-11-13: `intensity_err` is the profile σ (#161)
+- **Change.** `intensities.csv`'s `intensity_err` is now the profile σ, per peak and
+  plane: √(Σ_rel)_ss with Σ_rel = cI + PLP (profile-uncertainty §3.3). The conditional
+  σ it carried before moves to a new `intensity_err_conditional` column, after
+  `intensity_err_marginal`. The GUI profile's raw error bars use the profile σ;
+  ratios keep the covariance between planes (#162), and `peakfit plot intensity`
+  draws `intensity_err`. The fit JSON's `amplitude_standard_errors` stays the
+  conditional σ.
+- **Breaking.** A reader that took `intensity_err` as one σ per peak, or as
+  conditional on lineshapes, now gets per-plane values. Isolated peaks are unchanged
+  to round-off; on the bundled example, overlapping peaks change by up to 1.23×
+  (median 1.0000005).
+- **Why.** Downstream programs read one error column with a free scale (ChemEx), and
+  for them Σ_rel is exactly equivalent to the full covariance. Its diagonal keeps the
+  lineshape uncertainty that does not cancel and leaves out the common scale that
+  does, which the marginal σ would count once per plane (§4).
+- **Unavailable.** Where the covariance factors are withheld, the profile σ is empty,
+  like the marginal σ, although the conditional σ may be published.
+- **Golden reference.** `example-fit-amplitudes.npz` gains
+  `profile_standard_errors_<cluster>`, the published `intensity_err`. Every
+  existing entry, amplitudes and fitted values included, is bit-identical; the JSON
+  differs only in its source commit.

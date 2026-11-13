@@ -427,22 +427,27 @@ Points are the recorded amplitudes, unconnected, against the supplied plane valu
 in acquisition order; repeated values stay separate observations. Without plane
 values, or when the current values differ from those the run recorded, the axis is
 the one-based plane number. Clicking a point opens the plane of the nearest
-point; points sharing that exact value offer a choice. Error bars are the conditional analytical standard errors written
-by **Export results…**: computed with the fitted lineshape parameters held fixed,
-one σ per peak for every plane, never rescaled by χ²ᵣ. Where the run models the
-processed noise correlation they are the sandwich errors; otherwise they assume
-independent points. The note beside the plot says so in a few words (“±1σ
-conditional on lineshapes · noise correlation modelled”), with any points off
-scale, by plane, on a line of their own; χ²ᵣ is with the cluster's measures; **About these
-error bars** below it gives the noise model in full
-([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)). The
-inspector's provenance states it once for the run.
- They can underestimate the uncertainty of overlapping peaks.
+point; points sharing that exact value offer a choice. Error bars are the **profile
+σ** that **Export results…** writes as `intensity_err`, plane by plane, never
+rescaled by χ²ᵣ ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)).
+It includes the uncertainty of the fitted lineshapes except a common scale, which
+moves all of a peak's amplitudes by one factor and cancels in ratios and in any
+downstream fit with a free scale. For an isolated peak it is the conditional σ, the
+same on every plane. It differs from the **marginal σ** of the inspector's Fitted
+table, the uncertainty of one absolute amplitude with that scale included: its
+scale part is shared by every plane, so as independent bars it would overstate the
+uncertainty of the profile. Strongly overlapping peaks can also have errors
+correlated across planes, which no independent bar shows. Where the run models the
+processed noise correlation the errors are sandwich errors; otherwise they assume
+independent points. The note beside the plot says so in a few words (“±1 profile
+σ · noise correlation modelled”), with any points off scale, by plane, on a line of
+their own; χ²ᵣ is with the cluster's measures; **About these error bars** below it
+gives the noise model in full. The inspector's provenance states it once for the
+run.
 
 Each member's amplitude is classified from the run's recorded shapes, with the
 factorization and numerical conventions that produced the amplitudes and no
-threshold of its own. Like the error bars, the classification is conditional on the
-fitted lineshapes; it does not establish identifiability when positions and
+threshold of its own. The classification is conditional on the fitted lineshapes; it does not establish identifiability when positions and
 linewidths are allowed to vary:
 
 - **Not identifiable**: the fitted shapes are linearly dependent and this member's

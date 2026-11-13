@@ -186,12 +186,13 @@ def test_intensities_csv_orders_series_columns_for_reading(tmp_path) -> None:
     header = written["intensities"].read_text(encoding="utf-8").splitlines()[0].split(",")
 
     # χ²ᵣ sits beside the σ-only errors it qualifies, as a goodness-of-fit diagnostic.
-    assert header[:8] == [
+    assert header[:9] == [
         "peak_name",
         "z_value",
         "intensity",
         "intensity_err",
         "intensity_err_marginal",
+        "intensity_err_conditional",
         "reduced_chi_squared",
         "noise_correlation",
         "plane_index",
