@@ -242,8 +242,8 @@ per-plane errors only where Σ_rel is close to diagonal.
 
 **Correlated-profile flag**:
 A per-peak mark that the largest correlated mode of the relative-profile
-covariance exceeds τ·c, with the threshold τ set by validation, or that its
-amplitudes correlate strongly with a cluster partner, so independent per-plane
+covariance exceeds τ·c (τ = 0.1, set by validation T3), or that its within-plane
+amplitude correlation with a cluster partner exceeds 0.15 in magnitude, so independent per-plane
 errors cannot describe the profile's uncertainty. It states a limit of that
 approximation, not the quality of the data.
 

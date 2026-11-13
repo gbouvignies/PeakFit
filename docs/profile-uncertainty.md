@@ -6,7 +6,8 @@ engine (`engine.algorithms.covariance_factors`, validated by T1) and stored by a
 12.0.0 and project 15.0.0; the marginal σ is published as `intensity_err_marginal`
 and in the GUI inspector. Ratios and R2eff (GUI ratio mode, `peakfit plot cest|cpmg`)
 propagate each peak's covariance between planes through `profiles.normalize` (§4).
-`intensity_err` is still the conditional σ.
+`intensity_err` is still the conditional σ. T3 has run (§8.1): it sets the
+correlated-profile thresholds, and its coverage criterion awaits a decision (§10).
 
 **Builds on:** [correlated-noise.md](correlated-noise.md) and
 [ADR 0002](adr/0002-processing-derived-sandwich-errors.md).
@@ -421,9 +422,11 @@ Each quantity of §3.3 is reported under its own name:
 - **Ratios and R2eff:** the full Σ, in the GUI and the CLI alike.
 - **Correlated-profile flag:** set where the largest correlated mode of Σ_rel exceeds
   τ·c, so that per-plane errors cannot describe the profile's uncertainty.
-  - τ is set by validation (T3). It probably lies between 0.1 and 0.25.
-  - The flag also covers strong covariance with a cluster partner (§6a). No
-    covariance is exported until a consumer exists.
+  - τ = 0.1, set by T3 (§8.1).
+  - The flag also covers strong covariance with a cluster partner (§6a): a
+    within-plane |ρ| above 0.15. No covariance is exported until a consumer exists.
+  - Below both thresholds, independent profile σ misstate no downstream σ of the
+    T3 sweep by more than 3.8%; the tolerance is 5%.
   - The flag describes a limit of the approximation, not the quality of the data
     (§6a).
 
@@ -506,7 +509,8 @@ In every row, the bias is at most 0.06 SD.
   - The marginal σ goes in its own column.
 - **A per-peak flag marks where independent errors are inadequate:** correlated modes
   above τ·c, or within-plane |ρ| with a cluster partner above a threshold.
-  - The threshold is set by T3, extended with the global fit above.
+  - T3 sets them with the global fit above among its downstream fits: τ = 0.1 and
+    |ρ| > 0.15 (§8.1).
   - ChemEx needs no change.
   - The flag states a limitation of the independent-error approximation. It does not
     say the peak's data are bad, and it does not imply discarding or down-weighting
@@ -538,11 +542,110 @@ In every row, the bias is at most 0.06 SD.
 |---|---|---|
 | T1 | The factor formula against the full sandwich, including shared and fixed parameters; R = I; the proportional structure for a single peak | 10⁻¹⁰ relative |
 | T2 | The profile σ of an isolated peak against today's `intensity_err` | Equal to round-off |
-| T3 | Engine coverage (2D, NMRPipe-equivalent processing, `sp1`, `sp2`, `no_apod`): ratios, R2eff, and downstream decay or CEST fits with profile σ and with the covariance; overlap from resolved to strong | Scatter / stated within 0.95–1.05; also sets the flag threshold |
+| T3 | Engine coverage (2D, NMRPipe-equivalent processing, `sp1`, `sp2`, `no_apod`): marginal σ, profile σ, ratios, R2eff, and downstream decay, global CPMG and CEST fits with profile σ and with the covariance; overlap from resolved to strong (§8.1) | Where no flag is raised, scatter / stated within 0.95–1.05 and 95% coverage within ±2 SE; also sets the flag thresholds |
 | T4 | The baseline-replicate tool on the bundled example, and on any further CEST datasets | Empirical / stated within 0.9–1.15 (median) |
 | T5 | The noise-power check: LP, an earlier window and `SP -size` (`correlated-noise.md` §2.5) on NMRPipe-processed noise | Detects each case; no false alarm on correctly recorded processing |
 | T6 | The estimator comparison (§2), rerunnable | Reproduces §2 and §5 |
 | T7 | Known truth through real processing: synthetic pseudo-3D FIDs (isolated and overlapping peaks, differing profiles) processed by NMRPipe with and without LP, fitted by OLS and GLS | Bias and scatter of relative intensities and downstream rates; separates lineshape, LP-extrapolation and LP-noise effects |
+
+### 8.1 T3: coverage and the correlated-profile thresholds
+
+Tool: `tools/profile_uncertainty/profile_coverage.py`. Record:
+[`profile_coverage.json`](validation/profile-uncertainty/profile_coverage.json)
+(4,000 realizations per case, seed 20261113).
+
+**Set-up.**
+- **Clusters:** 2D pseudo-3D, drawn with PeakFit's own `sp1`, `sp2` and `no_apod`
+  lineshapes (equal to NMRPipe's processing, `tests/test_lineshapes_equivalence.py`).
+  The noise is complex white FID noise through the exact processing operators of
+  both axes: sine bell (or none), first point, zero fill, Fourier transform, P1.
+  Linewidths 20 Hz, noise 0.02 of the larger peak's reference height.
+- **Fit:** the engine fits each realization from the truth (`fit_cluster`,
+  `evaluate_analytical_model` under the processing-derived R).
+- **Profiles:** 1 plane; 3 planes of a decay; 30 CPMG-like planes (one reference, 29
+  ν_CPMG); 30 CEST-like planes (two references, 28 offsets, one dip per peak). The
+  partners' profiles differ.
+- **Overlap:** an isolated peak, and pairs 4, 3, 2.5 and 2 points apart on both axes;
+  a cluster phase shared by both peaks; a near-coalescent pair 1 point apart. PeakFit
+  has no linewidth shared between peaks, so the shared phase is the shared parameter.
+- **Quantities:** the marginal σ; the profile σ, against the scatter of the
+  amplitudes with their own profile direction removed, which has covariance
+  Σ_rel − c·uuᵀ; ratios and R2eff through `profiles.normalize`; downstream fits with
+  the profile σ as independent errors: A·e^(−R·t) per peak, a global fast-exchange
+  CPMG fit with kex shared and a free scale per profile, and a Lorentzian CEST dip
+  per peak. A fit with the joint covariance of both peaks is the control.
+
+**Thresholds, by downstream consequence.** A sweep of 2,583 configurations (5,166
+peaks: every lineshape and downstream profile, pairs 1–6 points apart diagonally or
+along either axis, partners of equal or 0.3× height, a shared phase) gives, at first
+order, each downstream σ's misstatement by independent profile σ:
+√(KΣKᵀ / (JᵀWJ)⁻¹), with Σ the covariance between planes of both peaks.
+
+| Largest correlated mode / c | < 0.05 | 0.05–0.1 | 0.1–0.13 | 0.13–0.15 | 0.15–0.2 | 0.2–0.3 | 0.3–0.5 | 0.5–1 | > 1 |
+|---|---|---|---|---|---|---|---|---|---|
+| Worst misstatement, own parameters | 3.5% | 4.8% | 4.9% | 6.1% | 7.7% | 11% | 18% | 31% | 54–154% |
+
+| Within-plane \|ρ\| with a partner (mode ≤ 0.1) | < 0.05 | 0.05–0.1 | 0.1–0.15 | 0.15–0.2 | 0.2–0.25 |
+|---|---|---|---|---|---|
+| Worst misstatement, shared kex | 1.2% | 2.5% | 3.6% | 4.7% | 6.0% |
+
+- **Two mechanisms.** Correlated modes misstate each peak's own parameters (R, Φ,
+  R20, the CEST dip); the tolerance of 5% is first crossed at a mode of 0.134c. The
+  covariance between partners, which independent errors drop, misstates the
+  parameters a joint fit shares (kex); among peaks below that mode it is first
+  crossed at |ρ| = 0.205.
+- **Chosen:** τ = 0.1 and |ρ| > 0.15, below both boundaries. The margin covers
+  configurations between the sweep's points and profiles it does not contain. Below
+  both, the worst misstatement in the sweep is 3.8%. 1,764 of its 5,166 peaks are
+  flagged, by construction of a sweep concentrated on overlap.
+- **Consistent with earlier estimates:** PeakFit's 1D Gaussian decay pair
+  (`tests/test_profile_sigma_calibration.py`) gives 1.044 at 0.12c and 1.09 at 0.26c.
+  τ sits at the low end of the 0.1–0.25 this specification expected.
+
+**Gate, cases without a flag.** 48 of the 68 cases raise no flag (noise-free
+diagnostics), with 270 gated quantities.
+- **Scatter / stated:** every one within 0.962–1.039. Met.
+- **95% coverage within ±2 SE:** 20 of the 270 lie outside, against 12.3 expected by
+  chance alone, since each ±2 SE test fails 4.6% of the time with exact σ. Not met
+  as written.
+  - A second seed (7) also gives 20, on other quantities, except R2eff.
+  - Excluding R2eff, 14 of 258 lie outside (11.7 expected), on both sides, with
+    standardized deviations of mean 0 and SD 1.0: chance.
+  - R2eff over-covers in 6 of 12 cases (5 at seed 7), by 0.11–0.19 percentage points
+    (coverage 0.9511–0.9519). Pooling 29 planes makes the SE 0.0006, so this small
+    effect is resolved. Its scatter / stated is 0.96–1.03. σ(R2eff) = σ_r/(r̂T) uses
+    the fitted ratio, so the stated σ grows where R2eff errs high: first-order
+    propagation through the logarithm, not an error in the covariance.
+  - The joint-covariance control exceeds ±2 SE for 2 of its 138 quantities.
+  - The decision on the criterion is §10 item 5.
+
+**Flagged cases confirm the flag.** Independent profile σ misstate downstream σ as
+the first-order sweep predicts; the joint covariance stays calibrated (scatter /
+stated 0.976–1.034, coverage 0.942–0.957).
+
+| Case (flagged by) | Independent profile σ: scatter / stated, 95% coverage |
+|---|---|
+| `sp2` decay, 2 points (mode 0.43c) | R: 1.13 · 0.927 |
+| `no_apod` decay, 2 points (mode 0.12c) | R: 1.03 · 0.940 |
+| `sp2` CPMG, 2.5 points (\|ρ\| 0.21, mode 0.07c) | kex: 0.95 · 0.963 |
+| `sp2` CPMG, 2 points (both) | kex: 0.89 · 0.972; Φ_B: 1.08 · 0.934 |
+
+**Near-coalescent cases, reported, not gated** (`sp2`, 1 point apart, mode 3.8–4.9c,
+|ρ| 0.79): the first-order description fails, as the resolution study found for
+positions.
+- The ratio is withheld by `normalize`'s reliability limit in 3,997–4,000 of 4,000
+  realizations.
+- Even the marginal σ is short: scatter / stated 1.04–1.14, coverage 0.69–0.94.
+- Downstream σ are off by −28% to +72%.
+
+**Other observations.**
+- With one plane, pairs 2 points apart (|ρ| 0.19–0.37, flagged) show marginal σ
+  short by 4–6% (coverage 0.928–0.939): nonlinearity, which first order cannot show.
+- Near a threshold the flag varies between realizations: at |ρ| 0.138 (`sp1`, one
+  plane, 2.5 points) it is raised in 20% of them.
+
+**Limits:** the exact lineshape (misfit and LP are T7's); one noise level; fits
+started at the truth; first-order thresholds from one family of profiles each.
 
 ## 9. Implementation sequence
 
@@ -557,7 +660,8 @@ In every row, the bias is at most 0.06 SD.
    - docs: `outputs.md` and `gui.md`. The glossary terms and ADR 0003 are already
      recorded with this specification.
 3. **Release gate:** the new reporting is not released until the full T3 coverage
-   validation passes, even if the earlier steps merge.
+   validation passes, even if the earlier steps merge. T3 meets the scatter criterion
+   and not, as written, the coverage criterion (§8.1); see §10 item 5.
 
 ## 10. Decisions
 
@@ -580,6 +684,18 @@ In every row, the bias is at most 0.06 SD.
    is available, process it with and without LP, at two apodizations, and compare
    the baseline-replicate scatter. That would measure the trade-off between LP,
    apodization and local fitting directly.
+5. **Open: the T3 coverage criterion.** "95% coverage within ±2 SE" is a test per
+   quantity, so over T3's 270 quantities about 12 fail by chance; T3 finds 20, of
+   which 6 are a 0.1–0.2 point over-coverage of R2eff (§8.1). The options:
+   - (a) keep the criterion as written: the release gate is not met, and nothing in
+     the estimator or the reported quantities would change that;
+   - (b) a criterion for many tests: ±3 SE for each downstream parameter (largest
+     deviation in T3: 2.5 SE), and an absolute ±0.01 for the quantities pooled over
+     planes (marginal σ, profile σ, ratios, R2eff), whose SE of 0.0006 resolves
+     effects of no practical weight. Under (b), T3 passes, with the R2eff
+     over-coverage recorded;
+   - (c) as (b), with R2eff coverage reported but not gated, since its first-order
+     σ uses the fitted ratio.
 
 ## References
 

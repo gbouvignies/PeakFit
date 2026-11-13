@@ -1,0 +1,797 @@
+sp1, 1 plane, isolated: gated
+  marginal                     scatter/stated 1.009–1.009  coverage 0.9493 (-0.2 SE)
+sp1, 1 plane, pair 4 points: gated
+  marginal                     scatter/stated 0.992–1.016  coverage 0.9485 (-0.6 SE)
+sp1, 1 plane, pair 3 points: gated
+  marginal                     scatter/stated 0.982–1.001  coverage 0.9521 (+0.8 SE)
+sp1, 1 plane, pair 2.5 points: gated
+  marginal                     scatter/stated 0.988–1.001  coverage 0.9505 (+0.2 SE)
+sp1, 1 plane, pair 2 points: flagged
+  marginal                     scatter/stated 1.034–1.041  coverage 0.9380 (-3.5 SE)
+sp1, 3-plane decay, isolated: gated
+  marginal                     scatter/stated 0.988–1.000  coverage 0.9512 (+0.5 SE)
+  profile                      scatter/stated 0.997–1.022  coverage 0.9519 (+0.8 SE)
+  ratio                        scatter/stated 0.996–1.019  coverage 0.9524 (+1.0 SE)
+  R_A                          scatter/stated 1.009–1.009  coverage 0.9510 (+0.3 SE)
+  R_A (joint covariance)       scatter/stated 1.007–1.007  coverage 0.9510 (+0.3 SE)
+sp1, 3-plane decay, pair 4 points: gated
+  marginal                     scatter/stated 0.985–1.005  coverage 0.9490 (-0.6 SE)
+  profile                      scatter/stated 0.989–0.997  coverage 0.9516 (+1.0 SE)
+  ratio                        scatter/stated 0.987–0.996  coverage 0.9499 (-0.1 SE)
+  R_A                          scatter/stated 0.990–0.990  coverage 0.9550 (+1.5 SE)
+  R_B                          scatter/stated 0.994–0.994  coverage 0.9490 (-0.3 SE)
+  R_A (joint covariance)       scatter/stated 0.989–0.989  coverage 0.9550 (+1.5 SE)
+  R_B (joint covariance)       scatter/stated 0.993–0.993  coverage 0.9490 (-0.3 SE)
+sp1, 3-plane decay, pair 3 points: gated
+  marginal                     scatter/stated 0.994–1.016  coverage 0.9500 (-0.0 SE)
+  profile                      scatter/stated 0.981–1.013  coverage 0.9521 (+1.3 SE)
+  ratio                        scatter/stated 0.980–1.011  coverage 0.9542 (+2.5 SE)
+  R_A                          scatter/stated 0.996–0.996  coverage 0.9527 (+0.8 SE)
+  R_B                          scatter/stated 1.000–1.000  coverage 0.9520 (+0.6 SE)
+  R_A (joint covariance)       scatter/stated 0.992–0.992  coverage 0.9545 (+1.3 SE)
+  R_B (joint covariance)       scatter/stated 0.996–0.996  coverage 0.9530 (+0.9 SE)
+sp1, 3-plane decay, pair 2.5 points: gated
+  marginal                     scatter/stated 0.979–1.005  coverage 0.9499 (-0.0 SE)
+  profile                      scatter/stated 0.992–1.015  coverage 0.9497 (-0.2 SE)
+  ratio                        scatter/stated 0.992–1.013  coverage 0.9498 (-0.1 SE)
+  R_A                          scatter/stated 1.019–1.019  coverage 0.9447 (-1.5 SE)
+  R_B                          scatter/stated 1.025–1.025  coverage 0.9467 (-0.9 SE)
+  R_A (joint covariance)       scatter/stated 1.002–1.002  coverage 0.9483 (-0.5 SE)
+  R_B (joint covariance)       scatter/stated 1.009–1.009  coverage 0.9503 (+0.1 SE)
+sp1, 3-plane decay, pair 2 points: flagged
+  marginal                     scatter/stated 0.990–1.014  coverage 0.9491 (-0.4 SE)
+  profile                      scatter/stated 0.998–1.034  coverage 0.9462 (-2.2 SE)
+  ratio                        scatter/stated 0.988–1.030  coverage 0.9493 (-0.4 SE)
+  R_A                          scatter/stated 1.081–1.081  coverage 0.9340 (-4.6 SE)
+  R_B                          scatter/stated 1.089–1.089  coverage 0.9327 (-5.0 SE)
+  R_A (joint covariance)       scatter/stated 1.018–1.018  coverage 0.9485 (-0.4 SE)
+  R_B (joint covariance)       scatter/stated 1.034–1.034  coverage 0.9463 (-1.1 SE)
+sp1, 30-plane CPMG, isolated: gated
+  marginal                     scatter/stated 0.977–1.022  coverage 0.9496 (-0.5 SE)
+  profile                      scatter/stated 0.977–1.026  coverage 0.9495 (-0.8 SE)
+  ratio                        scatter/stated 0.980–1.024  coverage 0.9495 (-0.7 SE)
+  r2eff                        scatter/stated 0.982–1.032  coverage 0.9500 (+0.0 SE)
+  R20_A                        scatter/stated 0.997–0.997  coverage 0.9480 (-0.6 SE)
+  Phi_A                        scatter/stated 0.992–0.992  coverage 0.9525 (+0.7 SE)
+  kex                          scatter/stated 0.998–0.998  coverage 0.9515 (+0.4 SE)
+  R20_A (joint covariance)     scatter/stated 0.991–0.991  coverage 0.9507 (+0.2 SE)
+  Phi_A (joint covariance)     scatter/stated 0.986–0.986  coverage 0.9543 (+1.2 SE)
+  kex (joint covariance)       scatter/stated 0.992–0.992  coverage 0.9527 (+0.8 SE)
+sp1, 30-plane CPMG, pair 4 points: gated
+  marginal                     scatter/stated 0.967–1.023  coverage 0.9501 (+0.3 SE)
+  profile                      scatter/stated 0.973–1.022  coverage 0.9502 (+0.4 SE)
+  ratio                        scatter/stated 0.976–1.027  coverage 0.9500 (+0.0 SE)
+  r2eff                        scatter/stated 0.978–1.029  coverage 0.9505 (+0.9 SE)
+  R20_A                        scatter/stated 1.000–1.000  coverage 0.9513 (+0.4 SE)
+  R20_B                        scatter/stated 0.997–0.997  coverage 0.9480 (-0.6 SE)
+  Phi_A                        scatter/stated 1.006–1.006  coverage 0.9463 (-1.1 SE)
+  Phi_B                        scatter/stated 1.023–1.023  coverage 0.9425 (-2.2 SE)
+  kex                          scatter/stated 1.001–1.001  coverage 0.9495 (-0.1 SE)
+  R20_A (joint covariance)     scatter/stated 0.996–0.996  coverage 0.9525 (+0.7 SE)
+  R20_B (joint covariance)     scatter/stated 0.992–0.992  coverage 0.9493 (-0.2 SE)
+  Phi_A (joint covariance)     scatter/stated 1.004–1.004  coverage 0.9465 (-1.0 SE)
+  Phi_B (joint covariance)     scatter/stated 1.019–1.019  coverage 0.9443 (-1.7 SE)
+  kex (joint covariance)       scatter/stated 0.999–0.999  coverage 0.9497 (-0.1 SE)
+sp1, 30-plane CPMG, pair 3 points: gated
+  marginal                     scatter/stated 0.982–1.026  coverage 0.9495 (-0.9 SE)
+  profile                      scatter/stated 0.976–1.022  coverage 0.9504 (+0.9 SE)
+  ratio                        scatter/stated 0.976–1.022  coverage 0.9508 (+1.5 SE)
+  r2eff                        scatter/stated 0.979–1.026  coverage 0.9512 (+2.1 SE)
+  R20_A                        scatter/stated 0.995–0.995  coverage 0.9535 (+1.0 SE)
+  R20_B                        scatter/stated 1.002–1.002  coverage 0.9480 (-0.6 SE)
+  Phi_A                        scatter/stated 0.991–0.991  coverage 0.9507 (+0.2 SE)
+  Phi_B                        scatter/stated 1.007–1.007  coverage 0.9495 (-0.1 SE)
+  kex                          scatter/stated 0.996–0.996  coverage 0.9523 (+0.7 SE)
+  R20_A (joint covariance)     scatter/stated 0.995–0.995  coverage 0.9540 (+1.2 SE)
+  R20_B (joint covariance)     scatter/stated 0.997–0.997  coverage 0.9495 (-0.1 SE)
+  Phi_A (joint covariance)     scatter/stated 0.999–0.999  coverage 0.9495 (-0.1 SE)
+  Phi_B (joint covariance)     scatter/stated 1.002–1.002  coverage 0.9510 (+0.3 SE)
+  kex (joint covariance)       scatter/stated 1.005–1.005  coverage 0.9515 (+0.4 SE)
+sp1, 30-plane CPMG, pair 2.5 points: gated
+  marginal                     scatter/stated 0.982–1.025  coverage 0.9494 (-0.8 SE)
+  profile                      scatter/stated 0.979–1.023  coverage 0.9501 (+0.2 SE)
+  ratio                        scatter/stated 0.981–1.028  coverage 0.9498 (-0.4 SE)
+  r2eff                        scatter/stated 0.986–1.029  coverage 0.9501 (+0.1 SE)
+  R20_A                        scatter/stated 1.008–1.008  coverage 0.9495 (-0.1 SE)
+  R20_B                        scatter/stated 1.013–1.013  coverage 0.9503 (+0.1 SE)
+  Phi_A                        scatter/stated 1.003–1.003  coverage 0.9487 (-0.4 SE)
+  Phi_B                        scatter/stated 1.021–1.021  coverage 0.9517 (+0.5 SE)
+  kex                          scatter/stated 0.993–0.993  coverage 0.9525 (+0.7 SE)
+  R20_A (joint covariance)     scatter/stated 1.013–1.013  coverage 0.9503 (+0.1 SE)
+  R20_B (joint covariance)     scatter/stated 1.008–1.008  coverage 0.9513 (+0.4 SE)
+  Phi_A (joint covariance)     scatter/stated 1.024–1.024  coverage 0.9453 (-1.4 SE)
+  Phi_B (joint covariance)     scatter/stated 1.008–1.008  coverage 0.9567 (+2.0 SE)
+  kex (joint covariance)       scatter/stated 1.021–1.021  coverage 0.9477 (-0.7 SE)
+sp1, 30-plane CPMG, pair 2 points: flagged
+  marginal                     scatter/stated 0.985–1.024  coverage 0.9476 (-2.2 SE)
+  profile                      scatter/stated 0.979–1.017  coverage 0.9502 (+0.4 SE)
+  ratio                        scatter/stated 0.980–1.019  coverage 0.9501 (+0.2 SE)
+  r2eff                        scatter/stated 0.988–1.022  coverage 0.9506 (+1.1 SE)
+  R20_A                        scatter/stated 0.987–0.987  coverage 0.9565 (+1.9 SE)
+  R20_B                        scatter/stated 0.992–0.992  coverage 0.9545 (+1.3 SE)
+  Phi_A                        scatter/stated 0.961–0.961  coverage 0.9585 (+2.5 SE)
+  Phi_B                        scatter/stated 1.032–1.032  coverage 0.9440 (-1.7 SE)
+  kex                          scatter/stated 0.926–0.926  coverage 0.9665 (+4.8 SE)
+  R20_A (joint covariance)     scatter/stated 1.004–1.004  coverage 0.9500 (+0.0 SE)
+  R20_B (joint covariance)     scatter/stated 0.989–0.989  coverage 0.9560 (+1.7 SE)
+  Phi_A (joint covariance)     scatter/stated 1.017–1.017  coverage 0.9450 (-1.5 SE)
+  Phi_B (joint covariance)     scatter/stated 0.999–0.999  coverage 0.9487 (-0.4 SE)
+  kex (joint covariance)       scatter/stated 0.996–0.996  coverage 0.9515 (+0.4 SE)
+sp1, 30-plane CEST, isolated: gated
+  marginal                     scatter/stated 0.978–1.018  coverage 0.9508 (+1.2 SE)
+  profile                      scatter/stated 0.978–1.020  coverage 0.9513 (+2.1 SE)
+  ratio                        scatter/stated 0.983–1.019  coverage 0.9492 (-0.9 SE)
+  depth_A                      scatter/stated 1.019–1.019  coverage 0.9483 (-0.5 SE)
+  offset_A                     scatter/stated 0.994–0.994  coverage 0.9520 (+0.6 SE)
+  width_A                      scatter/stated 1.015–1.015  coverage 0.9510 (+0.3 SE)
+  depth_A (joint covariance)   scatter/stated 1.017–1.017  coverage 0.9485 (-0.4 SE)
+  offset_A (joint covariance)  scatter/stated 0.992–0.992  coverage 0.9525 (+0.7 SE)
+  width_A (joint covariance)   scatter/stated 1.013–1.013  coverage 0.9517 (+0.5 SE)
+sp1, 30-plane CEST, pair 4 points: gated
+  marginal                     scatter/stated 0.968–1.034  coverage 0.9495 (-1.1 SE)
+  profile                      scatter/stated 0.977–1.028  coverage 0.9494 (-1.3 SE)
+  ratio                        scatter/stated 0.979–1.026  coverage 0.9500 (+0.0 SE)
+  depth_A                      scatter/stated 1.013–1.013  coverage 0.9440 (-1.7 SE)
+  offset_A                     scatter/stated 1.003–1.003  coverage 0.9513 (+0.4 SE)
+  width_A                      scatter/stated 1.004–1.004  coverage 0.9430 (-2.0 SE)
+  depth_B                      scatter/stated 0.999–0.999  coverage 0.9465 (-1.0 SE)
+  offset_B                     scatter/stated 1.018–1.018  coverage 0.9460 (-1.2 SE)
+  width_B                      scatter/stated 0.995–0.995  coverage 0.9520 (+0.6 SE)
+  depth_A (joint covariance)   scatter/stated 1.011–1.011  coverage 0.9447 (-1.5 SE)
+  offset_A (joint covariance)  scatter/stated 1.002–1.002  coverage 0.9517 (+0.5 SE)
+  width_A (joint covariance)   scatter/stated 1.003–1.003  coverage 0.9433 (-2.0 SE)
+  depth_B (joint covariance)   scatter/stated 0.997–0.997  coverage 0.9480 (-0.6 SE)
+  offset_B (joint covariance)  scatter/stated 1.016–1.016  coverage 0.9467 (-0.9 SE)
+  width_B (joint covariance)   scatter/stated 0.992–0.992  coverage 0.9515 (+0.4 SE)
+sp1, 30-plane CEST, pair 3 points: gated
+  marginal                     scatter/stated 0.967–1.032  coverage 0.9488 (-2.0 SE)
+  profile                      scatter/stated 0.969–1.037  coverage 0.9494 (-1.3 SE)
+  ratio                        scatter/stated 0.975–1.031  coverage 0.9497 (-0.5 SE)
+  depth_A                      scatter/stated 1.018–1.018  coverage 0.9445 (-1.6 SE)
+  offset_A                     scatter/stated 0.987–0.987  coverage 0.9530 (+0.9 SE)
+  width_A                      scatter/stated 1.008–1.008  coverage 0.9480 (-0.6 SE)
+  depth_B                      scatter/stated 1.003–1.003  coverage 0.9495 (-0.1 SE)
+  offset_B                     scatter/stated 1.002–1.002  coverage 0.9487 (-0.4 SE)
+  width_B                      scatter/stated 1.013–1.013  coverage 0.9485 (-0.4 SE)
+  depth_A (joint covariance)   scatter/stated 1.016–1.016  coverage 0.9433 (-2.0 SE)
+  offset_A (joint covariance)  scatter/stated 0.988–0.988  coverage 0.9520 (+0.6 SE)
+  width_A (joint covariance)   scatter/stated 1.007–1.007  coverage 0.9475 (-0.7 SE)
+  depth_B (joint covariance)   scatter/stated 1.001–1.001  coverage 0.9500 (+0.0 SE)
+  offset_B (joint covariance)  scatter/stated 1.000–1.000  coverage 0.9500 (+0.0 SE)
+  width_B (joint covariance)   scatter/stated 1.011–1.011  coverage 0.9470 (-0.9 SE)
+sp1, 30-plane CEST, pair 2.5 points: gated
+  marginal                     scatter/stated 0.982–1.032  coverage 0.9488 (-1.6 SE)
+  profile                      scatter/stated 0.975–1.025  coverage 0.9500 (-0.1 SE)
+  ratio                        scatter/stated 0.972–1.026  coverage 0.9501 (+0.2 SE)
+  depth_A                      scatter/stated 0.996–0.996  coverage 0.9505 (+0.1 SE)
+  offset_A                     scatter/stated 1.005–1.005  coverage 0.9513 (+0.4 SE)
+  width_A                      scatter/stated 1.008–1.008  coverage 0.9493 (-0.2 SE)
+  depth_B                      scatter/stated 0.995–0.995  coverage 0.9510 (+0.3 SE)
+  offset_B                     scatter/stated 0.997–0.997  coverage 0.9497 (-0.1 SE)
+  width_B                      scatter/stated 1.004–1.004  coverage 0.9480 (-0.6 SE)
+  depth_A (joint covariance)   scatter/stated 0.991–0.991  coverage 0.9517 (+0.5 SE)
+  offset_A (joint covariance)  scatter/stated 1.004–1.004  coverage 0.9517 (+0.5 SE)
+  width_A (joint covariance)   scatter/stated 1.007–1.007  coverage 0.9507 (+0.2 SE)
+  depth_B (joint covariance)   scatter/stated 0.990–0.990  coverage 0.9547 (+1.4 SE)
+  offset_B (joint covariance)  scatter/stated 0.995–0.995  coverage 0.9515 (+0.4 SE)
+  width_B (joint covariance)   scatter/stated 1.000–1.000  coverage 0.9487 (-0.4 SE)
+sp1, 30-plane CEST, pair 2 points: flagged
+  marginal                     scatter/stated 0.974–1.027  coverage 0.9473 (-2.5 SE)
+  profile                      scatter/stated 0.977–1.022  coverage 0.9506 (+1.3 SE)
+  ratio                        scatter/stated 0.981–1.030  coverage 0.9499 (-0.2 SE)
+  depth_A                      scatter/stated 1.018–1.018  coverage 0.9470 (-0.9 SE)
+  offset_A                     scatter/stated 0.994–0.994  coverage 0.9553 (+1.5 SE)
+  width_A                      scatter/stated 0.996–0.996  coverage 0.9540 (+1.2 SE)
+  depth_B                      scatter/stated 1.007–1.007  coverage 0.9487 (-0.4 SE)
+  offset_B                     scatter/stated 1.011–1.011  coverage 0.9443 (-1.7 SE)
+  width_B                      scatter/stated 1.005–1.005  coverage 0.9495 (-0.1 SE)
+  depth_A (joint covariance)   scatter/stated 1.000–1.000  coverage 0.9495 (-0.1 SE)
+  offset_A (joint covariance)  scatter/stated 1.011–1.011  coverage 0.9523 (+0.7 SE)
+  width_A (joint covariance)   scatter/stated 1.005–1.005  coverage 0.9500 (+0.0 SE)
+  depth_B (joint covariance)   scatter/stated 1.006–1.006  coverage 0.9435 (-1.9 SE)
+  offset_B (joint covariance)  scatter/stated 1.018–1.018  coverage 0.9423 (-2.2 SE)
+  width_B (joint covariance)   scatter/stated 1.007–1.007  coverage 0.9485 (-0.4 SE)
+sp2, 1 plane, isolated: gated
+  marginal                     scatter/stated 0.993–0.993  coverage 0.9563 (+1.8 SE)
+sp2, 1 plane, pair 4 points: gated
+  marginal                     scatter/stated 1.021–1.021  coverage 0.9450 (-1.8 SE)
+sp2, 1 plane, pair 3 points: gated
+  marginal                     scatter/stated 1.007–1.012  coverage 0.9483 (-0.6 SE)
+sp2, 1 plane, pair 2.5 points: flagged
+  marginal                     scatter/stated 0.993–1.003  coverage 0.9514 (+0.5 SE)
+sp2, 1 plane, pair 2 points: flagged
+  marginal                     scatter/stated 1.061–1.062  coverage 0.9283 (-5.8 SE)
+sp2, 3-plane decay, isolated: gated
+  marginal                     scatter/stated 0.988–1.015  coverage 0.9495 (-0.2 SE)
+  profile                      scatter/stated 0.997–1.009  coverage 0.9487 (-0.5 SE)
+  ratio                        scatter/stated 0.997–1.009  coverage 0.9486 (-0.5 SE)
+  R_A                          scatter/stated 0.999–0.999  coverage 0.9525 (+0.7 SE)
+  R_A (joint covariance)       scatter/stated 0.998–0.998  coverage 0.9530 (+0.9 SE)
+sp2, 3-plane decay, pair 4 points: gated
+  marginal                     scatter/stated 0.986–1.008  coverage 0.9489 (-0.7 SE)
+  profile                      scatter/stated 0.990–1.014  coverage 0.9503 (+0.2 SE)
+  ratio                        scatter/stated 0.990–1.011  coverage 0.9517 (+1.0 SE)
+  R_A                          scatter/stated 0.984–0.984  coverage 0.9527 (+0.8 SE)
+  R_B                          scatter/stated 0.993–0.993  coverage 0.9507 (+0.2 SE)
+  R_A (joint covariance)       scatter/stated 0.983–0.983  coverage 0.9525 (+0.7 SE)
+  R_B (joint covariance)       scatter/stated 0.992–0.992  coverage 0.9515 (+0.4 SE)
+sp2, 3-plane decay, pair 3 points: gated
+  marginal                     scatter/stated 0.981–1.017  coverage 0.9478 (-1.1 SE)
+  profile                      scatter/stated 0.994–1.030  coverage 0.9499 (-0.1 SE)
+  ratio                        scatter/stated 0.991–1.019  coverage 0.9510 (+0.6 SE)
+  R_A                          scatter/stated 1.011–1.011  coverage 0.9493 (-0.2 SE)
+  R_B                          scatter/stated 1.020–1.020  coverage 0.9465 (-1.0 SE)
+  R_A (joint covariance)       scatter/stated 1.001–1.001  coverage 0.9517 (+0.5 SE)
+  R_B (joint covariance)       scatter/stated 1.011–1.011  coverage 0.9473 (-0.8 SE)
+sp2, 3-plane decay, pair 2.5 points: flagged
+  marginal                     scatter/stated 0.993–1.034  coverage 0.9473 (-1.2 SE)
+  profile                      scatter/stated 0.994–1.010  coverage 0.9487 (-0.8 SE)
+  ratio                        scatter/stated 0.998–1.011  coverage 0.9496 (-0.2 SE)
+  R_A                          scatter/stated 1.042–1.042  coverage 0.9407 (-2.7 SE)
+  R_B                          scatter/stated 1.034–1.034  coverage 0.9435 (-1.9 SE)
+  R_A (joint covariance)       scatter/stated 1.009–1.009  coverage 0.9505 (+0.1 SE)
+  R_B (joint covariance)       scatter/stated 1.004–1.004  coverage 0.9517 (+0.5 SE)
+sp2, 3-plane decay, pair 2 points: flagged
+  marginal                     scatter/stated 0.997–1.022  coverage 0.9434 (-2.4 SE)
+  profile                      scatter/stated 0.984–1.035  coverage 0.9458 (-2.4 SE)
+  ratio                        scatter/stated 0.826–1.055  coverage 0.9245 (-1.7 SE)
+  R_A                          scatter/stated 1.129–1.129  coverage 0.9273 (-6.6 SE)
+  R_B                          scatter/stated 1.120–1.120  coverage 0.9200 (-8.7 SE)
+  R_A (joint covariance)       scatter/stated 1.027–1.027  coverage 0.9457 (-1.2 SE)
+  R_B (joint covariance)       scatter/stated 1.034–1.034  coverage 0.9447 (-1.5 SE)
+sp2, 30-plane CPMG, isolated: gated
+  marginal                     scatter/stated 0.977–1.024  coverage 0.9497 (-0.4 SE)
+  profile                      scatter/stated 0.965–1.019  coverage 0.9503 (+0.4 SE)
+  ratio                        scatter/stated 0.962–1.025  coverage 0.9503 (+0.4 SE)
+  r2eff                        scatter/stated 0.965–1.031  coverage 0.9516 (+2.2 SE)
+  R20_A                        scatter/stated 1.000–1.000  coverage 0.9500 (+0.0 SE)
+  Phi_A                        scatter/stated 1.005–1.005  coverage 0.9495 (-0.1 SE)
+  kex                          scatter/stated 0.999–0.999  coverage 0.9475 (-0.7 SE)
+  R20_A (joint covariance)     scatter/stated 0.993–0.993  coverage 0.9517 (+0.5 SE)
+  Phi_A (joint covariance)     scatter/stated 0.998–0.998  coverage 0.9517 (+0.5 SE)
+  kex (joint covariance)       scatter/stated 0.992–0.992  coverage 0.9500 (+0.0 SE)
+sp2, 30-plane CPMG, pair 4 points: gated
+  marginal                     scatter/stated 0.968–1.031  coverage 0.9493 (-1.4 SE)
+  profile                      scatter/stated 0.978–1.026  coverage 0.9497 (-0.7 SE)
+  ratio                        scatter/stated 0.979–1.024  coverage 0.9508 (+1.5 SE)
+  r2eff                        scatter/stated 0.981–1.033  coverage 0.9511 (+2.0 SE)
+  R20_A                        scatter/stated 1.010–1.010  coverage 0.9497 (-0.1 SE)
+  R20_B                        scatter/stated 0.978–0.978  coverage 0.9545 (+1.3 SE)
+  Phi_A                        scatter/stated 1.022–1.022  coverage 0.9477 (-0.7 SE)
+  Phi_B                        scatter/stated 1.028–1.028  coverage 0.9490 (-0.3 SE)
+  kex                          scatter/stated 1.026–1.026  coverage 0.9485 (-0.4 SE)
+  R20_A (joint covariance)     scatter/stated 1.006–1.006  coverage 0.9503 (+0.1 SE)
+  R20_B (joint covariance)     scatter/stated 0.972–0.972  coverage 0.9555 (+1.6 SE)
+  Phi_A (joint covariance)     scatter/stated 1.020–1.020  coverage 0.9477 (-0.7 SE)
+  Phi_B (joint covariance)     scatter/stated 1.022–1.022  coverage 0.9497 (-0.1 SE)
+  kex (joint covariance)       scatter/stated 1.024–1.024  coverage 0.9483 (-0.5 SE)
+sp2, 30-plane CPMG, pair 3 points: gated
+  marginal                     scatter/stated 0.982–1.018  coverage 0.9503 (+0.5 SE)
+  profile                      scatter/stated 0.977–1.020  coverage 0.9509 (+2.1 SE)
+  ratio                        scatter/stated 0.980–1.018  coverage 0.9503 (+0.5 SE)
+  r2eff                        scatter/stated 0.983–1.019  coverage 0.9510 (+1.8 SE)
+  R20_A                        scatter/stated 1.000–1.000  coverage 0.9480 (-0.6 SE)
+  R20_B                        scatter/stated 0.990–0.990  coverage 0.9550 (+1.5 SE)
+  Phi_A                        scatter/stated 1.000–1.000  coverage 0.9513 (+0.4 SE)
+  Phi_B                        scatter/stated 1.004–1.004  coverage 0.9575 (+2.2 SE)
+  kex                          scatter/stated 0.989–0.989  coverage 0.9525 (+0.7 SE)
+  R20_A (joint covariance)     scatter/stated 1.003–1.003  coverage 0.9490 (-0.3 SE)
+  R20_B (joint covariance)     scatter/stated 0.985–0.985  coverage 0.9557 (+1.7 SE)
+  Phi_A (joint covariance)     scatter/stated 1.013–1.013  coverage 0.9487 (-0.4 SE)
+  Phi_B (joint covariance)     scatter/stated 0.995–0.995  coverage 0.9595 (+2.8 SE)
+  kex (joint covariance)       scatter/stated 1.008–1.008  coverage 0.9490 (-0.3 SE)
+sp2, 30-plane CPMG, pair 2.5 points: flagged
+  marginal                     scatter/stated 0.986–1.039  coverage 0.9482 (-2.0 SE)
+  profile                      scatter/stated 0.975–1.041  coverage 0.9489 (-2.5 SE)
+  ratio                        scatter/stated 0.982–1.039  coverage 0.9488 (-2.0 SE)
+  r2eff                        scatter/stated 0.982–1.041  coverage 0.9499 (-0.1 SE)
+  R20_A                        scatter/stated 0.982–0.982  coverage 0.9550 (+1.5 SE)
+  R20_B                        scatter/stated 1.008–1.008  coverage 0.9500 (+0.0 SE)
+  Phi_A                        scatter/stated 0.963–0.963  coverage 0.9585 (+2.5 SE)
+  Phi_B                        scatter/stated 1.021–1.021  coverage 0.9513 (+0.4 SE)
+  kex                          scatter/stated 0.952–0.952  coverage 0.9633 (+3.8 SE)
+  R20_A (joint covariance)     scatter/stated 0.993–0.993  coverage 0.9517 (+0.5 SE)
+  R20_B (joint covariance)     scatter/stated 1.004–1.004  coverage 0.9507 (+0.2 SE)
+  Phi_A (joint covariance)     scatter/stated 0.999–0.999  coverage 0.9525 (+0.7 SE)
+  Phi_B (joint covariance)     scatter/stated 1.002–1.002  coverage 0.9535 (+1.0 SE)
+  kex (joint covariance)       scatter/stated 0.997–0.997  coverage 0.9520 (+0.6 SE)
+sp2, 30-plane CPMG, pair 2 points: flagged
+  marginal                     scatter/stated 0.990–1.031  coverage 0.9473 (-2.1 SE)
+  profile                      scatter/stated 0.981–1.026  coverage 0.9501 (+0.3 SE)
+  ratio                        scatter/stated 0.979–1.025  coverage 0.9504 (+0.6 SE)
+  r2eff                        scatter/stated 0.985–1.032  coverage 0.9515 (+2.6 SE)
+  R20_A                        scatter/stated 0.963–0.963  coverage 0.9605 (+3.0 SE)
+  R20_B                        scatter/stated 0.998–0.998  coverage 0.9565 (+1.9 SE)
+  Phi_A                        scatter/stated 0.934–0.934  coverage 0.9600 (+2.9 SE)
+  Phi_B                        scatter/stated 1.076–1.076  coverage 0.9335 (-4.8 SE)
+  kex                          scatter/stated 0.894–0.894  coverage 0.9718 (+6.3 SE)
+  R20_A (joint covariance)     scatter/stated 0.989–0.989  coverage 0.9565 (+1.9 SE)
+  R20_B (joint covariance)     scatter/stated 0.999–0.999  coverage 0.9560 (+1.7 SE)
+  Phi_A (joint covariance)     scatter/stated 1.004–1.004  coverage 0.9450 (-1.5 SE)
+  Phi_B (joint covariance)     scatter/stated 1.031–1.031  coverage 0.9490 (-0.3 SE)
+  kex (joint covariance)       scatter/stated 0.988–0.988  coverage 0.9545 (+1.3 SE)
+sp2, 30-plane CEST, isolated: gated
+  marginal                     scatter/stated 0.981–1.018  coverage 0.9505 (+0.8 SE)
+  profile                      scatter/stated 0.975–1.015  coverage 0.9502 (+0.3 SE)
+  ratio                        scatter/stated 0.983–1.033  coverage 0.9490 (-1.2 SE)
+  depth_A                      scatter/stated 0.997–0.997  coverage 0.9543 (+1.2 SE)
+  offset_A                     scatter/stated 1.015–1.015  coverage 0.9473 (-0.8 SE)
+  width_A                      scatter/stated 1.012–1.012  coverage 0.9455 (-1.3 SE)
+  depth_A (joint covariance)   scatter/stated 0.995–0.995  coverage 0.9545 (+1.3 SE)
+  offset_A (joint covariance)  scatter/stated 1.013–1.013  coverage 0.9475 (-0.7 SE)
+  width_A (joint covariance)   scatter/stated 1.010–1.010  coverage 0.9460 (-1.2 SE)
+sp2, 30-plane CEST, pair 4 points: gated
+  marginal                     scatter/stated 0.980–1.024  coverage 0.9496 (-0.8 SE)
+  profile                      scatter/stated 0.972–1.025  coverage 0.9500 (-0.1 SE)
+  ratio                        scatter/stated 0.980–1.030  coverage 0.9493 (-1.0 SE)
+  depth_A                      scatter/stated 1.003–1.003  coverage 0.9477 (-0.7 SE)
+  offset_A                     scatter/stated 1.006–1.006  coverage 0.9535 (+1.0 SE)
+  width_A                      scatter/stated 1.013–1.013  coverage 0.9435 (-1.9 SE)
+  depth_B                      scatter/stated 0.999–0.999  coverage 0.9513 (+0.4 SE)
+  offset_B                     scatter/stated 0.988–0.988  coverage 0.9517 (+0.5 SE)
+  width_B                      scatter/stated 1.007–1.007  coverage 0.9437 (-1.8 SE)
+  depth_A (joint covariance)   scatter/stated 1.002–1.002  coverage 0.9487 (-0.4 SE)
+  offset_A (joint covariance)  scatter/stated 1.005–1.005  coverage 0.9537 (+1.1 SE)
+  width_A (joint covariance)   scatter/stated 1.010–1.010  coverage 0.9433 (-2.0 SE)
+  depth_B (joint covariance)   scatter/stated 0.997–0.997  coverage 0.9517 (+0.5 SE)
+  offset_B (joint covariance)  scatter/stated 0.985–0.985  coverage 0.9517 (+0.5 SE)
+  width_B (joint covariance)   scatter/stated 1.004–1.004  coverage 0.9433 (-2.0 SE)
+sp2, 30-plane CEST, pair 3 points: gated
+  marginal                     scatter/stated 0.976–1.039  coverage 0.9499 (-0.1 SE)
+  profile                      scatter/stated 0.977–1.025  coverage 0.9500 (+0.1 SE)
+  ratio                        scatter/stated 0.979–1.028  coverage 0.9492 (-1.1 SE)
+  depth_A                      scatter/stated 0.998–0.998  coverage 0.9465 (-1.0 SE)
+  offset_A                     scatter/stated 1.009–1.009  coverage 0.9460 (-1.2 SE)
+  width_A                      scatter/stated 0.978–0.978  coverage 0.9553 (+1.5 SE)
+  depth_B                      scatter/stated 0.988–0.988  coverage 0.9510 (+0.3 SE)
+  offset_B                     scatter/stated 0.991–0.991  coverage 0.9493 (-0.2 SE)
+  width_B                      scatter/stated 1.010–1.010  coverage 0.9480 (-0.6 SE)
+  depth_A (joint covariance)   scatter/stated 0.995–0.995  coverage 0.9455 (-1.3 SE)
+  offset_A (joint covariance)  scatter/stated 1.010–1.010  coverage 0.9473 (-0.8 SE)
+  width_A (joint covariance)   scatter/stated 0.980–0.980  coverage 0.9535 (+1.0 SE)
+  depth_B (joint covariance)   scatter/stated 0.986–0.986  coverage 0.9487 (-0.4 SE)
+  offset_B (joint covariance)  scatter/stated 0.988–0.988  coverage 0.9510 (+0.3 SE)
+  width_B (joint covariance)   scatter/stated 1.008–1.008  coverage 0.9460 (-1.2 SE)
+sp2, 30-plane CEST, pair 2.5 points: flagged
+  marginal                     scatter/stated 0.974–1.015  coverage 0.9507 (+0.8 SE)
+  profile                      scatter/stated 0.981–1.017  coverage 0.9508 (+1.8 SE)
+  ratio                        scatter/stated 0.975–1.014  coverage 0.9510 (+1.5 SE)
+  depth_A                      scatter/stated 1.024–1.024  coverage 0.9445 (-1.6 SE)
+  offset_A                     scatter/stated 0.981–0.981  coverage 0.9575 (+2.2 SE)
+  width_A                      scatter/stated 1.003–1.003  coverage 0.9450 (-1.5 SE)
+  depth_B                      scatter/stated 0.993–0.993  coverage 0.9515 (+0.4 SE)
+  offset_B                     scatter/stated 0.996–0.996  coverage 0.9473 (-0.8 SE)
+  width_B                      scatter/stated 0.985–0.985  coverage 0.9525 (+0.7 SE)
+  depth_A (joint covariance)   scatter/stated 1.012–1.012  coverage 0.9460 (-1.2 SE)
+  offset_A (joint covariance)  scatter/stated 0.989–0.989  coverage 0.9573 (+2.1 SE)
+  width_A (joint covariance)   scatter/stated 1.008–1.008  coverage 0.9445 (-1.6 SE)
+  depth_B (joint covariance)   scatter/stated 0.987–0.987  coverage 0.9533 (+0.9 SE)
+  offset_B (joint covariance)  scatter/stated 0.996–0.996  coverage 0.9500 (+0.0 SE)
+  width_B (joint covariance)   scatter/stated 0.986–0.986  coverage 0.9527 (+0.8 SE)
+sp2, 30-plane CEST, pair 2 points: flagged
+  marginal                     scatter/stated 0.976–1.027  coverage 0.9500 (-0.0 SE)
+  profile                      scatter/stated 0.969–1.019  coverage 0.9515 (+3.2 SE)
+  ratio                        scatter/stated 0.979–1.026  coverage 0.9508 (+1.1 SE)
+  depth_A                      scatter/stated 1.037–1.037  coverage 0.9423 (-2.2 SE)
+  offset_A                     scatter/stated 0.995–0.995  coverage 0.9515 (+0.4 SE)
+  width_A                      scatter/stated 0.990–0.990  coverage 0.9557 (+1.7 SE)
+  depth_B                      scatter/stated 0.987–0.987  coverage 0.9510 (+0.3 SE)
+  offset_B                     scatter/stated 0.981–0.981  coverage 0.9505 (+0.1 SE)
+  width_B                      scatter/stated 0.998–0.998  coverage 0.9573 (+2.1 SE)
+  depth_A (joint covariance)   scatter/stated 1.009–1.009  coverage 0.9477 (-0.7 SE)
+  offset_A (joint covariance)  scatter/stated 1.016–1.016  coverage 0.9485 (-0.4 SE)
+  width_A (joint covariance)   scatter/stated 1.005–1.005  coverage 0.9470 (-0.9 SE)
+  depth_B (joint covariance)   scatter/stated 0.976–0.976  coverage 0.9543 (+1.2 SE)
+  offset_B (joint covariance)  scatter/stated 0.998–0.998  coverage 0.9480 (-0.6 SE)
+  width_B (joint covariance)   scatter/stated 0.999–0.999  coverage 0.9510 (+0.3 SE)
+no_apod, 1 plane, isolated: gated
+  marginal                     scatter/stated 1.012–1.012  coverage 0.9450 (-1.5 SE)
+no_apod, 1 plane, pair 4 points: gated
+  marginal                     scatter/stated 0.991–0.993  coverage 0.9507 (+0.3 SE)
+no_apod, 1 plane, pair 3 points: gated
+  marginal                     scatter/stated 0.997–0.999  coverage 0.9526 (+1.1 SE)
+no_apod, 1 plane, pair 2.5 points: gated
+  marginal                     scatter/stated 0.984–1.010  coverage 0.9486 (-0.5 SE)
+no_apod, 1 plane, pair 2 points: flagged
+  marginal                     scatter/stated 1.041–1.061  coverage 0.9386 (-3.5 SE)
+no_apod, 3-plane decay, isolated: gated
+  marginal                     scatter/stated 1.012–1.019  coverage 0.9501 (+0.0 SE)
+  profile                      scatter/stated 1.005–1.023  coverage 0.9462 (-1.6 SE)
+  ratio                        scatter/stated 1.007–1.025  coverage 0.9456 (-1.7 SE)
+  R_A                          scatter/stated 1.023–1.023  coverage 0.9455 (-1.3 SE)
+  R_A (joint covariance)       scatter/stated 1.022–1.022  coverage 0.9457 (-1.2 SE)
+no_apod, 3-plane decay, pair 4 points: gated
+  marginal                     scatter/stated 0.988–1.008  coverage 0.9500 (+0.0 SE)
+  profile                      scatter/stated 0.981–1.018  coverage 0.9487 (-0.7 SE)
+  ratio                        scatter/stated 0.980–1.020  coverage 0.9491 (-0.5 SE)
+  R_A                          scatter/stated 0.988–0.988  coverage 0.9545 (+1.3 SE)
+  R_B                          scatter/stated 1.018–1.018  coverage 0.9453 (-1.4 SE)
+  R_A (joint covariance)       scatter/stated 0.988–0.988  coverage 0.9545 (+1.3 SE)
+  R_B (joint covariance)       scatter/stated 1.017–1.017  coverage 0.9455 (-1.3 SE)
+no_apod, 3-plane decay, pair 3 points: gated
+  marginal                     scatter/stated 0.993–1.011  coverage 0.9495 (-0.3 SE)
+  profile                      scatter/stated 0.992–1.003  coverage 0.9521 (+1.3 SE)
+  ratio                        scatter/stated 0.996–1.003  coverage 0.9502 (+0.1 SE)
+  R_A                          scatter/stated 0.997–0.997  coverage 0.9533 (+0.9 SE)
+  R_B                          scatter/stated 1.000–1.000  coverage 0.9473 (-0.8 SE)
+  R_A (joint covariance)       scatter/stated 0.995–0.995  coverage 0.9537 (+1.1 SE)
+  R_B (joint covariance)       scatter/stated 0.999–0.999  coverage 0.9480 (-0.6 SE)
+no_apod, 3-plane decay, pair 2.5 points: gated
+  marginal                     scatter/stated 0.992–1.004  coverage 0.9498 (-0.1 SE)
+  profile                      scatter/stated 1.002–1.016  coverage 0.9505 (+0.3 SE)
+  ratio                        scatter/stated 1.003–1.013  coverage 0.9506 (+0.3 SE)
+  R_A                          scatter/stated 1.007–1.007  coverage 0.9515 (+0.4 SE)
+  R_B                          scatter/stated 1.014–1.014  coverage 0.9493 (-0.2 SE)
+  R_A (joint covariance)       scatter/stated 1.000–1.000  coverage 0.9523 (+0.7 SE)
+  R_B (joint covariance)       scatter/stated 1.007–1.007  coverage 0.9505 (+0.1 SE)
+no_apod, 3-plane decay, pair 2 points: flagged
+  marginal                     scatter/stated 0.989–1.014  coverage 0.9487 (-0.6 SE)
+  profile                      scatter/stated 0.988–1.012  coverage 0.9501 (+0.1 SE)
+  ratio                        scatter/stated 0.986–1.004  coverage 0.9520 (+1.2 SE)
+  R_A                          scatter/stated 1.018–1.018  coverage 0.9457 (-1.2 SE)
+  R_B                          scatter/stated 1.027–1.027  coverage 0.9400 (-2.9 SE)
+  R_A (joint covariance)       scatter/stated 0.988–0.988  coverage 0.9517 (+0.5 SE)
+  R_B (joint covariance)       scatter/stated 1.000–1.000  coverage 0.9497 (-0.1 SE)
+no_apod, 30-plane CPMG, isolated: gated
+  marginal                     scatter/stated 0.975–1.016  coverage 0.9498 (-0.3 SE)
+  profile                      scatter/stated 0.976–1.016  coverage 0.9508 (+1.2 SE)
+  ratio                        scatter/stated 0.979–1.018  coverage 0.9502 (+0.3 SE)
+  r2eff                        scatter/stated 0.984–1.022  coverage 0.9511 (+1.5 SE)
+  R20_A                        scatter/stated 1.006–1.006  coverage 0.9467 (-0.9 SE)
+  Phi_A                        scatter/stated 1.026–1.026  coverage 0.9420 (-2.3 SE)
+  kex                          scatter/stated 1.018–1.018  coverage 0.9433 (-2.0 SE)
+  R20_A (joint covariance)     scatter/stated 1.002–1.002  coverage 0.9475 (-0.7 SE)
+  Phi_A (joint covariance)     scatter/stated 1.022–1.022  coverage 0.9430 (-2.0 SE)
+  kex (joint covariance)       scatter/stated 1.014–1.014  coverage 0.9443 (-1.7 SE)
+no_apod, 30-plane CPMG, pair 4 points: gated
+  marginal                     scatter/stated 0.969–1.024  coverage 0.9493 (-1.4 SE)
+  profile                      scatter/stated 0.966–1.025  coverage 0.9497 (-0.7 SE)
+  ratio                        scatter/stated 0.967–1.021  coverage 0.9499 (-0.1 SE)
+  r2eff                        scatter/stated 0.966–1.025  coverage 0.9505 (+0.9 SE)
+  R20_A                        scatter/stated 1.011–1.011  coverage 0.9505 (+0.1 SE)
+  R20_B                        scatter/stated 1.000–1.000  coverage 0.9505 (+0.1 SE)
+  Phi_A                        scatter/stated 1.005–1.005  coverage 0.9525 (+0.7 SE)
+  Phi_B                        scatter/stated 0.999–0.999  coverage 0.9500 (+0.0 SE)
+  kex                          scatter/stated 1.005–1.005  coverage 0.9495 (-0.1 SE)
+  R20_A (joint covariance)     scatter/stated 1.008–1.008  coverage 0.9503 (+0.1 SE)
+  R20_B (joint covariance)     scatter/stated 0.996–0.996  coverage 0.9510 (+0.3 SE)
+  Phi_A (joint covariance)     scatter/stated 1.004–1.004  coverage 0.9535 (+1.0 SE)
+  Phi_B (joint covariance)     scatter/stated 0.995–0.995  coverage 0.9513 (+0.4 SE)
+  kex (joint covariance)       scatter/stated 1.005–1.005  coverage 0.9515 (+0.4 SE)
+no_apod, 30-plane CPMG, pair 3 points: gated
+  marginal                     scatter/stated 0.985–1.022  coverage 0.9499 (-0.2 SE)
+  profile                      scatter/stated 0.972–1.024  coverage 0.9507 (+1.5 SE)
+  ratio                        scatter/stated 0.962–1.022  coverage 0.9510 (+1.7 SE)
+  r2eff                        scatter/stated 0.962–1.027  coverage 0.9514 (+2.5 SE)
+  R20_A                        scatter/stated 1.002–1.002  coverage 0.9537 (+1.1 SE)
+  R20_B                        scatter/stated 0.976–0.976  coverage 0.9557 (+1.7 SE)
+  Phi_A                        scatter/stated 0.996–0.996  coverage 0.9537 (+1.1 SE)
+  Phi_B                        scatter/stated 1.000–1.000  coverage 0.9475 (-0.7 SE)
+  kex                          scatter/stated 0.996–0.996  coverage 0.9455 (-1.3 SE)
+  R20_A (joint covariance)     scatter/stated 1.003–1.003  coverage 0.9530 (+0.9 SE)
+  R20_B (joint covariance)     scatter/stated 0.974–0.974  coverage 0.9565 (+1.9 SE)
+  Phi_A (joint covariance)     scatter/stated 1.000–1.000  coverage 0.9525 (+0.7 SE)
+  Phi_B (joint covariance)     scatter/stated 0.996–0.996  coverage 0.9483 (-0.5 SE)
+  kex (joint covariance)       scatter/stated 1.001–1.001  coverage 0.9445 (-1.6 SE)
+no_apod, 30-plane CPMG, pair 2.5 points: gated
+  marginal                     scatter/stated 0.982–1.021  coverage 0.9496 (-0.7 SE)
+  profile                      scatter/stated 0.977–1.028  coverage 0.9504 (+1.0 SE)
+  ratio                        scatter/stated 0.969–1.023  coverage 0.9508 (+1.4 SE)
+  r2eff                        scatter/stated 0.970–1.025  coverage 0.9513 (+2.3 SE)
+  R20_A                        scatter/stated 1.008–1.008  coverage 0.9487 (-0.4 SE)
+  R20_B                        scatter/stated 0.987–0.987  coverage 0.9523 (+0.7 SE)
+  Phi_A                        scatter/stated 1.001–1.001  coverage 0.9547 (+1.4 SE)
+  Phi_B                        scatter/stated 1.007–1.007  coverage 0.9507 (+0.2 SE)
+  kex                          scatter/stated 0.997–0.997  coverage 0.9483 (-0.5 SE)
+  R20_A (joint covariance)     scatter/stated 1.014–1.014  coverage 0.9467 (-0.9 SE)
+  R20_B (joint covariance)     scatter/stated 0.984–0.984  coverage 0.9525 (+0.7 SE)
+  Phi_A (joint covariance)     scatter/stated 1.016–1.016  coverage 0.9485 (-0.4 SE)
+  Phi_B (joint covariance)     scatter/stated 1.002–1.002  coverage 0.9527 (+0.8 SE)
+  kex (joint covariance)       scatter/stated 1.015–1.015  coverage 0.9443 (-1.7 SE)
+no_apod, 30-plane CPMG, pair 2 points: flagged
+  marginal                     scatter/stated 0.974–1.038  coverage 0.9500 (+0.0 SE)
+  profile                      scatter/stated 0.969–1.026  coverage 0.9505 (+1.1 SE)
+  ratio                        scatter/stated 0.968–1.026  coverage 0.9509 (+1.5 SE)
+  r2eff                        scatter/stated 0.968–1.032  coverage 0.9512 (+2.2 SE)
+  R20_A                        scatter/stated 0.987–0.987  coverage 0.9535 (+1.0 SE)
+  R20_B                        scatter/stated 0.990–0.990  coverage 0.9497 (-0.1 SE)
+  Phi_A                        scatter/stated 0.962–0.962  coverage 0.9597 (+2.8 SE)
+  Phi_B                        scatter/stated 1.013–1.013  coverage 0.9485 (-0.4 SE)
+  kex                          scatter/stated 0.943–0.943  coverage 0.9647 (+4.3 SE)
+  R20_A (joint covariance)     scatter/stated 0.999–0.999  coverage 0.9485 (-0.4 SE)
+  R20_B (joint covariance)     scatter/stated 0.988–0.988  coverage 0.9500 (+0.0 SE)
+  Phi_A (joint covariance)     scatter/stated 0.997–0.997  coverage 0.9533 (+0.9 SE)
+  Phi_B (joint covariance)     scatter/stated 0.995–0.995  coverage 0.9545 (+1.3 SE)
+  kex (joint covariance)       scatter/stated 0.984–0.984  coverage 0.9547 (+1.4 SE)
+no_apod, 30-plane CEST, isolated: gated
+  marginal                     scatter/stated 0.975–1.025  coverage 0.9502 (+0.3 SE)
+  profile                      scatter/stated 0.971–1.025  coverage 0.9493 (-1.1 SE)
+  ratio                        scatter/stated 0.969–1.026  coverage 0.9496 (-0.5 SE)
+  depth_A                      scatter/stated 1.005–1.005  coverage 0.9463 (-1.1 SE)
+  offset_A                     scatter/stated 1.010–1.010  coverage 0.9497 (-0.1 SE)
+  width_A                      scatter/stated 1.006–1.006  coverage 0.9440 (-1.7 SE)
+  depth_A (joint covariance)   scatter/stated 1.004–1.004  coverage 0.9470 (-0.9 SE)
+  offset_A (joint covariance)  scatter/stated 1.009–1.009  coverage 0.9497 (-0.1 SE)
+  width_A (joint covariance)   scatter/stated 1.005–1.005  coverage 0.9440 (-1.7 SE)
+no_apod, 30-plane CEST, pair 4 points: gated
+  marginal                     scatter/stated 0.980–1.030  coverage 0.9499 (-0.2 SE)
+  profile                      scatter/stated 0.977–1.028  coverage 0.9499 (-0.3 SE)
+  ratio                        scatter/stated 0.982–1.027  coverage 0.9504 (+0.7 SE)
+  depth_A                      scatter/stated 1.002–1.002  coverage 0.9497 (-0.1 SE)
+  offset_A                     scatter/stated 0.989–0.989  coverage 0.9530 (+0.9 SE)
+  width_A                      scatter/stated 0.997–0.997  coverage 0.9465 (-1.0 SE)
+  depth_B                      scatter/stated 1.010–1.010  coverage 0.9465 (-1.0 SE)
+  offset_B                     scatter/stated 0.996–0.996  coverage 0.9463 (-1.1 SE)
+  width_B                      scatter/stated 1.011–1.011  coverage 0.9480 (-0.6 SE)
+  depth_A (joint covariance)   scatter/stated 1.001–1.001  coverage 0.9497 (-0.1 SE)
+  offset_A (joint covariance)  scatter/stated 0.988–0.988  coverage 0.9545 (+1.3 SE)
+  width_A (joint covariance)   scatter/stated 0.995–0.995  coverage 0.9467 (-0.9 SE)
+  depth_B (joint covariance)   scatter/stated 1.009–1.009  coverage 0.9470 (-0.9 SE)
+  offset_B (joint covariance)  scatter/stated 0.995–0.995  coverage 0.9470 (-0.9 SE)
+  width_B (joint covariance)   scatter/stated 1.010–1.010  coverage 0.9485 (-0.4 SE)
+no_apod, 30-plane CEST, pair 3 points: gated
+  marginal                     scatter/stated 0.974–1.029  coverage 0.9498 (-0.4 SE)
+  profile                      scatter/stated 0.967–1.029  coverage 0.9501 (+0.1 SE)
+  ratio                        scatter/stated 0.973–1.032  coverage 0.9503 (+0.5 SE)
+  depth_A                      scatter/stated 1.004–1.004  coverage 0.9455 (-1.3 SE)
+  offset_A                     scatter/stated 1.024–1.024  coverage 0.9447 (-1.5 SE)
+  width_A                      scatter/stated 1.020–1.020  coverage 0.9437 (-1.8 SE)
+  depth_B                      scatter/stated 1.005–1.005  coverage 0.9470 (-0.9 SE)
+  offset_B                     scatter/stated 1.004–1.004  coverage 0.9510 (+0.3 SE)
+  width_B                      scatter/stated 1.008–1.008  coverage 0.9515 (+0.4 SE)
+  depth_A (joint covariance)   scatter/stated 1.003–1.003  coverage 0.9475 (-0.7 SE)
+  offset_A (joint covariance)  scatter/stated 1.025–1.025  coverage 0.9433 (-2.0 SE)
+  width_A (joint covariance)   scatter/stated 1.020–1.020  coverage 0.9437 (-1.8 SE)
+  depth_B (joint covariance)   scatter/stated 1.005–1.005  coverage 0.9477 (-0.7 SE)
+  offset_B (joint covariance)  scatter/stated 1.002–1.002  coverage 0.9500 (+0.0 SE)
+  width_B (joint covariance)   scatter/stated 1.007–1.007  coverage 0.9523 (+0.7 SE)
+no_apod, 30-plane CEST, pair 2.5 points: gated
+  marginal                     scatter/stated 0.971–1.021  coverage 0.9512 (+1.9 SE)
+  profile                      scatter/stated 0.974–1.020  coverage 0.9501 (+0.3 SE)
+  ratio                        scatter/stated 0.974–1.020  coverage 0.9507 (+1.1 SE)
+  depth_A                      scatter/stated 0.977–0.977  coverage 0.9553 (+1.5 SE)
+  offset_A                     scatter/stated 1.015–1.015  coverage 0.9473 (-0.8 SE)
+  width_A                      scatter/stated 0.993–0.993  coverage 0.9540 (+1.2 SE)
+  depth_B                      scatter/stated 1.018–1.018  coverage 0.9477 (-0.7 SE)
+  offset_B                     scatter/stated 1.017–1.017  coverage 0.9443 (-1.7 SE)
+  width_B                      scatter/stated 1.006–1.006  coverage 0.9457 (-1.2 SE)
+  depth_A (joint covariance)   scatter/stated 0.973–0.973  coverage 0.9563 (+1.8 SE)
+  offset_A (joint covariance)  scatter/stated 1.016–1.016  coverage 0.9490 (-0.3 SE)
+  width_A (joint covariance)   scatter/stated 0.992–0.992  coverage 0.9547 (+1.4 SE)
+  depth_B (joint covariance)   scatter/stated 1.015–1.015  coverage 0.9467 (-0.9 SE)
+  offset_B (joint covariance)  scatter/stated 1.017–1.017  coverage 0.9455 (-1.3 SE)
+  width_B (joint covariance)   scatter/stated 1.006–1.006  coverage 0.9460 (-1.2 SE)
+no_apod, 30-plane CEST, pair 2 points: flagged
+  marginal                     scatter/stated 0.968–1.017  coverage 0.9496 (-0.5 SE)
+  profile                      scatter/stated 0.969–1.026  coverage 0.9497 (-0.6 SE)
+  ratio                        scatter/stated 0.967–1.025  coverage 0.9494 (-0.9 SE)
+  depth_A                      scatter/stated 1.019–1.019  coverage 0.9465 (-1.0 SE)
+  offset_A                     scatter/stated 0.995–0.995  coverage 0.9557 (+1.7 SE)
+  width_A                      scatter/stated 1.012–1.012  coverage 0.9457 (-1.2 SE)
+  depth_B                      scatter/stated 1.014–1.014  coverage 0.9440 (-1.7 SE)
+  offset_B                     scatter/stated 0.979–0.979  coverage 0.9520 (+0.6 SE)
+  width_B                      scatter/stated 1.015–1.015  coverage 0.9447 (-1.5 SE)
+  depth_A (joint covariance)   scatter/stated 1.013–1.013  coverage 0.9467 (-0.9 SE)
+  offset_A (joint covariance)  scatter/stated 0.997–0.997  coverage 0.9547 (+1.4 SE)
+  width_A (joint covariance)   scatter/stated 1.014–1.014  coverage 0.9445 (-1.6 SE)
+  depth_B (joint covariance)   scatter/stated 1.007–1.007  coverage 0.9485 (-0.4 SE)
+  offset_B (joint covariance)  scatter/stated 0.987–0.987  coverage 0.9513 (+0.4 SE)
+  width_B (joint covariance)   scatter/stated 1.017–1.017  coverage 0.9463 (-1.1 SE)
+sp2, 1 plane, pair 3 points, shared phase: gated
+  marginal                     scatter/stated 1.012–1.013  coverage 0.9459 (-1.4 SE)
+sp2, 1 plane, pair 1 point (near-coalescent): flagged
+  marginal                     scatter/stated 1.114–1.120  coverage 0.6885 (-36.2 SE)
+sp2, 3-plane decay, pair 3 points, shared phase: gated
+  marginal                     scatter/stated 0.974–0.999  coverage 0.9511 (+0.5 SE)
+  profile                      scatter/stated 0.987–1.021  coverage 0.9495 (-0.3 SE)
+  ratio                        scatter/stated 0.988–1.017  coverage 0.9484 (-0.9 SE)
+  R_A                          scatter/stated 1.012–1.012  coverage 0.9500 (+0.0 SE)
+  R_B                          scatter/stated 1.014–1.014  coverage 0.9427 (-2.1 SE)
+  R_A (joint covariance)       scatter/stated 0.997–0.997  coverage 0.9535 (+1.0 SE)
+  R_B (joint covariance)       scatter/stated 1.002–1.002  coverage 0.9465 (-1.0 SE)
+sp2, 3-plane decay, pair 1 point (near-coalescent): flagged
+  marginal                     scatter/stated 1.035–1.045  coverage 0.8662 (-16.9 SE)
+  profile                      scatter/stated 1.033–1.062  coverage 0.9157 (-13.7 SE)
+  R_A                          scatter/stated 1.719–1.719  coverage 0.8230 (-36.9 SE)
+  R_B                          scatter/stated 1.422–1.422  coverage 0.8365 (-32.9 SE)
+  R_B (joint covariance)       scatter/stated 1.511–1.511  coverage 0.8800 (-20.3 SE)
+sp2, 30-plane CPMG, pair 3 points, shared phase: gated
+  marginal                     scatter/stated 0.984–1.029  coverage 0.9491 (-1.2 SE)
+  profile                      scatter/stated 0.969–1.020  coverage 0.9505 (+1.0 SE)
+  ratio                        scatter/stated 0.975–1.018  coverage 0.9513 (+2.3 SE)
+  r2eff                        scatter/stated 0.978–1.019  coverage 0.9519 (+3.4 SE)
+  R20_A                        scatter/stated 0.987–0.987  coverage 0.9515 (+0.4 SE)
+  R20_B                        scatter/stated 1.012–1.012  coverage 0.9473 (-0.8 SE)
+  Phi_A                        scatter/stated 0.987–0.987  coverage 0.9573 (+2.1 SE)
+  Phi_B                        scatter/stated 1.013–1.013  coverage 0.9543 (+1.2 SE)
+  kex                          scatter/stated 0.974–0.974  coverage 0.9585 (+2.5 SE)
+  R20_A (joint covariance)     scatter/stated 0.992–0.992  coverage 0.9503 (+0.1 SE)
+  R20_B (joint covariance)     scatter/stated 1.007–1.007  coverage 0.9490 (-0.3 SE)
+  Phi_A (joint covariance)     scatter/stated 1.004–1.004  coverage 0.9535 (+1.0 SE)
+  Phi_B (joint covariance)     scatter/stated 1.003–1.003  coverage 0.9565 (+1.9 SE)
+  kex (joint covariance)       scatter/stated 0.995–0.995  coverage 0.9555 (+1.6 SE)
+sp2, 30-plane CPMG, pair 1 point (near-coalescent): flagged
+  marginal                     scatter/stated 1.108–1.140  coverage 0.8831 (-16.6 SE)
+  profile                      scatter/stated 0.974–1.058  coverage 0.9501 (+0.1 SE)
+  R20_A                        scatter/stated 0.888–0.888  coverage 0.9748 (+7.2 SE)
+  R20_B                        scatter/stated 0.913–0.913  coverage 0.9778 (+8.1 SE)
+  Phi_A                        scatter/stated 0.998–0.998  coverage 0.9310 (-5.5 SE)
+  Phi_B                        scatter/stated 1.593–1.593  coverage 0.7983 (-44.0 SE)
+  kex                          scatter/stated 0.717–0.717  coverage 0.9910 (+11.9 SE)
+  R20_A (joint covariance)     scatter/stated 1.243–1.243  coverage 0.9513 (+0.4 SE)
+  R20_B (joint covariance)     scatter/stated 1.370–1.370  coverage 0.9708 (+6.0 SE)
+  Phi_A (joint covariance)     scatter/stated 2.442–2.442  coverage 0.7937 (-45.3 SE)
+  Phi_B (joint covariance)     scatter/stated 2.624–2.624  coverage 0.7690 (-52.5 SE)
+  kex (joint covariance)       scatter/stated 0.976–0.976  coverage 0.9570 (+2.0 SE)
+sp2, 30-plane CEST, pair 3 points, shared phase: gated
+  marginal                     scatter/stated 0.981–1.032  coverage 0.9502 (+0.3 SE)
+  profile                      scatter/stated 0.978–1.031  coverage 0.9497 (-0.7 SE)
+  ratio                        scatter/stated 0.984–1.028  coverage 0.9485 (-2.3 SE)
+  depth_A                      scatter/stated 1.021–1.021  coverage 0.9447 (-1.5 SE)
+  offset_A                     scatter/stated 1.000–1.000  coverage 0.9523 (+0.7 SE)
+  width_A                      scatter/stated 0.990–0.990  coverage 0.9580 (+2.3 SE)
+  depth_B                      scatter/stated 0.999–0.999  coverage 0.9530 (+0.9 SE)
+  offset_B                     scatter/stated 1.021–1.021  coverage 0.9443 (-1.7 SE)
+  width_B                      scatter/stated 0.988–0.988  coverage 0.9505 (+0.1 SE)
+  depth_A (joint covariance)   scatter/stated 1.019–1.019  coverage 0.9443 (-1.7 SE)
+  offset_A (joint covariance)  scatter/stated 1.003–1.003  coverage 0.9517 (+0.5 SE)
+  width_A (joint covariance)   scatter/stated 0.990–0.990  coverage 0.9557 (+1.7 SE)
+  depth_B (joint covariance)   scatter/stated 0.995–0.995  coverage 0.9547 (+1.4 SE)
+  offset_B (joint covariance)  scatter/stated 1.023–1.023  coverage 0.9445 (-1.6 SE)
+  width_B (joint covariance)   scatter/stated 0.986–0.986  coverage 0.9493 (-0.2 SE)
+sp2, 30-plane CEST, pair 1 point (near-coalescent): flagged
+  marginal                     scatter/stated 1.010–1.036  coverage 0.9360 (-4.9 SE)
+  profile                      scatter/stated 0.970–1.026  coverage 0.9510 (+1.8 SE)
+  ratio                        scatter/stated 0.042–1.635  coverage 0.9667 (+0.7 SE)
+  depth_A                      scatter/stated 1.259–1.259  coverage 0.8882 (-17.9 SE)
+  offset_A                     scatter/stated 0.871–0.871  coverage 0.9748 (+7.2 SE)
+  width_A                      scatter/stated 0.885–0.885  coverage 0.9722 (+6.5 SE)
+  depth_B                      scatter/stated 1.066–1.066  coverage 0.9300 (-5.8 SE)
+  offset_B                     scatter/stated 0.910–0.910  coverage 0.9663 (+4.7 SE)
+  width_B                      scatter/stated 0.931–0.931  coverage 0.9630 (+3.8 SE)
+  depth_A (joint covariance)   scatter/stated 1.119–1.119  coverage 0.9173 (-9.5 SE)
+  offset_A (joint covariance)  scatter/stated 1.017–1.017  coverage 0.9423 (-2.2 SE)
+  width_A (joint covariance)   scatter/stated 1.018–1.018  coverage 0.9447 (-1.5 SE)
+  depth_B (joint covariance)   scatter/stated 1.077–1.077  coverage 0.9355 (-4.2 SE)
+  offset_B (joint covariance)  scatter/stated 0.980–0.980  coverage 0.9565 (+1.9 SE)
+  width_B (joint covariance)   scatter/stated 1.001–1.001  coverage 0.9493 (-0.2 SE)
+{
+ "thresholds": {
+  "tolerance": 0.05,
+  "mode": 0.1,
+  "partner_correlation": 0.15,
+  "boundary": {
+   "tolerance": 0.05,
+   "mode": 0.13444,
+   "partner_correlation": 0.20491
+  },
+  "sweep": {
+   "peaks": 5166,
+   "flagged": 1764,
+   "worst_unflagged": 0.03837,
+   "unflagged_beyond_tolerance": 0
+  },
+  "consequences": {
+   "own_by_mode": [
+    {
+     "from": 0.0,
+     "to": 0.01,
+     "peaks": 2717,
+     "worst": 0.03067
+    },
+    {
+     "from": 0.01,
+     "to": 0.03,
+     "peaks": 340,
+     "worst": 0.0313
+    },
+    {
+     "from": 0.03,
+     "to": 0.05,
+     "peaks": 169,
+     "worst": 0.03446
+    },
+    {
+     "from": 0.05,
+     "to": 0.07,
+     "peaks": 121,
+     "worst": 0.04128
+    },
+    {
+     "from": 0.07,
+     "to": 0.1,
+     "peaks": 118,
+     "worst": 0.04847
+    },
+    {
+     "from": 0.1,
+     "to": 0.13,
+     "peaks": 88,
+     "worst": 0.0487
+    },
+    {
+     "from": 0.13,
+     "to": 0.15,
+     "peaks": 50,
+     "worst": 0.06138
+    },
+    {
+     "from": 0.15,
+     "to": 0.2,
+     "peaks": 106,
+     "worst": 0.07684
+    },
+    {
+     "from": 0.2,
+     "to": 0.3,
+     "peaks": 146,
+     "worst": 0.11229
+    },
+    {
+     "from": 0.3,
+     "to": 0.5,
+     "peaks": 220,
+     "worst": 0.17748
+    },
+    {
+     "from": 0.5,
+     "to": 1.0,
+     "peaks": 280,
+     "worst": 0.30722
+    },
+    {
+     "from": 1.0,
+     "to": 2.0,
+     "peaks": 290,
+     "worst": 0.53509
+    },
+    {
+     "from": 2.0,
+     "to": null,
+     "peaks": 478,
+     "worst": 1.53695
+    }
+   ],
+   "shared_by_partner_correlation": [
+    {
+     "from": 0.0,
+     "to": 0.05,
+     "peaks": 1762,
+     "worst": 0.01202
+    },
+    {
+     "from": 0.05,
+     "to": 0.1,
+     "peaks": 1270,
+     "worst": 0.02454
+    },
+    {
+     "from": 0.1,
+     "to": 0.15,
+     "peaks": 370,
+     "worst": 0.03592
+    },
+    {
+     "from": 0.15,
+     "to": 0.2,
+     "peaks": 86,
+     "worst": 0.04688
+    },
+    {
+     "from": 0.2,
+     "to": 0.25,
+     "peaks": 20,
+     "worst": 0.0604
+    }
+   ]
+  }
+ },
+ "gate": {
+  "cases": 48,
+  "quantities": 270,
+  "scatter_outside": 0,
+  "coverage_outside": 20,
+  "coverage_outside_by_chance": 12.3,
+  "passes": false
+ }
+}

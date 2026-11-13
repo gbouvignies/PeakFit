@@ -1,0 +1,7675 @@
+{
+ "realizations": 4000,
+ "seed": 20261113,
+ "noise": 0.02,
+ "thresholds": {
+  "tolerance": 0.05,
+  "mode": 0.1,
+  "partner_correlation": 0.15,
+  "boundary": {
+   "tolerance": 0.05,
+   "mode": 0.13444,
+   "partner_correlation": 0.20491
+  },
+  "sweep": {
+   "peaks": 5166,
+   "flagged": 1764,
+   "worst_unflagged": 0.03837,
+   "unflagged_beyond_tolerance": 0
+  },
+  "consequences": {
+   "own_by_mode": [
+    {
+     "from": 0.0,
+     "to": 0.01,
+     "peaks": 2717,
+     "worst": 0.03067
+    },
+    {
+     "from": 0.01,
+     "to": 0.03,
+     "peaks": 340,
+     "worst": 0.0313
+    },
+    {
+     "from": 0.03,
+     "to": 0.05,
+     "peaks": 169,
+     "worst": 0.03446
+    },
+    {
+     "from": 0.05,
+     "to": 0.07,
+     "peaks": 121,
+     "worst": 0.04128
+    },
+    {
+     "from": 0.07,
+     "to": 0.1,
+     "peaks": 118,
+     "worst": 0.04847
+    },
+    {
+     "from": 0.1,
+     "to": 0.13,
+     "peaks": 88,
+     "worst": 0.0487
+    },
+    {
+     "from": 0.13,
+     "to": 0.15,
+     "peaks": 50,
+     "worst": 0.06138
+    },
+    {
+     "from": 0.15,
+     "to": 0.2,
+     "peaks": 106,
+     "worst": 0.07684
+    },
+    {
+     "from": 0.2,
+     "to": 0.3,
+     "peaks": 146,
+     "worst": 0.11229
+    },
+    {
+     "from": 0.3,
+     "to": 0.5,
+     "peaks": 220,
+     "worst": 0.17748
+    },
+    {
+     "from": 0.5,
+     "to": 1.0,
+     "peaks": 280,
+     "worst": 0.30722
+    },
+    {
+     "from": 1.0,
+     "to": 2.0,
+     "peaks": 290,
+     "worst": 0.53509
+    },
+    {
+     "from": 2.0,
+     "to": null,
+     "peaks": 478,
+     "worst": 1.53695
+    }
+   ],
+   "shared_by_partner_correlation": [
+    {
+     "from": 0.0,
+     "to": 0.05,
+     "peaks": 1762,
+     "worst": 0.01202
+    },
+    {
+     "from": 0.05,
+     "to": 0.1,
+     "peaks": 1270,
+     "worst": 0.02454
+    },
+    {
+     "from": 0.1,
+     "to": 0.15,
+     "peaks": 370,
+     "worst": 0.03592
+    },
+    {
+     "from": 0.15,
+     "to": 0.2,
+     "peaks": 86,
+     "worst": 0.04688
+    },
+    {
+     "from": 0.2,
+     "to": 0.25,
+     "peaks": 20,
+     "worst": 0.0604
+    }
+   ]
+  }
+ },
+ "gate": {
+  "cases": 48,
+  "quantities": 270,
+  "scatter_outside": 0,
+  "coverage_outside": 20,
+  "coverage_outside_by_chance": 12.3,
+  "families": {
+   "marginal": {
+    "quantities": 48,
+    "scatter_outside": [],
+    "coverage_outside": [
+     "sp1, 30-plane CEST, pair 3 points: marginal (-2.0 SE)"
+    ]
+   },
+   "profile": {
+    "quantities": 36,
+    "scatter_outside": [],
+    "coverage_outside": [
+     "sp1, 30-plane CEST, isolated: profile (+2.1 SE)",
+     "sp2, 30-plane CPMG, pair 3 points: profile (+2.1 SE)"
+    ]
+   },
+   "ratio": {
+    "quantities": 36,
+    "scatter_outside": [],
+    "coverage_outside": [
+     "sp1, 3-plane decay, pair 3 points: ratio (+2.5 SE)",
+     "sp2, 30-plane CPMG, pair 3 points, shared phase: ratio (+2.3 SE)",
+     "sp2, 30-plane CEST, pair 3 points, shared phase: ratio (-2.3 SE)"
+    ]
+   },
+   "downstream": {
+    "quantities": 138,
+    "scatter_outside": [],
+    "coverage_outside": [
+     "sp1, 30-plane CPMG, pair 4 points: Phi_B (-2.2 SE)",
+     "sp1, 30-plane CEST, pair 4 points: width_A (-2.0 SE)",
+     "sp2, 30-plane CPMG, pair 3 points: Phi_B (+2.2 SE)",
+     "no_apod, 30-plane CPMG, isolated: Phi_A (-2.3 SE)",
+     "sp2, 3-plane decay, pair 3 points, shared phase: R_B (-2.1 SE)",
+     "sp2, 30-plane CPMG, pair 3 points, shared phase: Phi_A (+2.1 SE)",
+     "sp2, 30-plane CPMG, pair 3 points, shared phase: kex (+2.5 SE)",
+     "sp2, 30-plane CEST, pair 3 points, shared phase: width_A (+2.3 SE)"
+    ]
+   },
+   "r2eff": {
+    "quantities": 12,
+    "scatter_outside": [],
+    "coverage_outside": [
+     "sp1, 30-plane CPMG, pair 3 points: r2eff (+2.1 SE)",
+     "sp2, 30-plane CPMG, isolated: r2eff (+2.2 SE)",
+     "sp2, 30-plane CPMG, pair 4 points: r2eff (+2.0 SE)",
+     "no_apod, 30-plane CPMG, pair 3 points: r2eff (+2.5 SE)",
+     "no_apod, 30-plane CPMG, pair 2.5 points: r2eff (+2.3 SE)",
+     "sp2, 30-plane CPMG, pair 3 points, shared phase: r2eff (+3.4 SE)"
+    ]
+   }
+  },
+  "passes": false
+ },
+ "cases": {
+  "sp1, 1 plane, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 1,
+     "min": 1.00897,
+     "max": 1.00897,
+     "bias_over_sd": 0.00031,
+     "coverage_95": 0.94925,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp1, 1 plane, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.01166,
+     0.01166
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 0.99181,
+     "max": 1.01631,
+     "bias_over_sd": 0.04765,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00253,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp1, 1 plane, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.05497,
+     0.05497
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 0.98177,
+     "max": 1.00131,
+     "bias_over_sd": 0.03642,
+     "coverage_95": 0.95212,
+     "coverage_se": 0.00266,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp1, 1 plane, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.13834,
+     0.13834
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 0.98798,
+     "max": 1.00074,
+     "bias_over_sd": 0.03878,
+     "coverage_95": 0.9505,
+     "coverage_se": 0.00283,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.19975,
+   "passes": true
+  },
+  "sp1, 1 plane, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.28916,
+     0.28916
+    ]
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 1.03432,
+     "max": 1.04095,
+     "bias_over_sd": 0.06531,
+     "coverage_95": 0.938,
+     "coverage_se": 0.0034,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "sp1, 3-plane decay, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ],
+    "misstatement": {
+     "R_A": 1.0
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 3,
+     "min": 0.98795,
+     "max": 1.00036,
+     "bias_over_sd": 0.01419,
+     "coverage_95": 0.95117,
+     "coverage_se": 0.00213,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 3,
+     "min": 0.99698,
+     "max": 1.02165,
+     "bias_over_sd": 0.02171,
+     "coverage_95": 0.95192,
+     "coverage_se": 0.00229,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 2,
+     "min": 0.99555,
+     "max": 1.01876,
+     "bias_over_sd": 0.02788,
+     "coverage_95": 0.95237,
+     "coverage_se": 0.00241,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.00867,
+     "max": 1.00867,
+     "bias_over_sd": 0.01,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00732,
+     "max": 1.00732,
+     "bias_over_sd": 0.01,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp1, 3-plane decay, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0003,
+     0.0003
+    ],
+    "partner_correlation": [
+     0.01166,
+     0.01166
+    ],
+    "misstatement": {
+     "R_A": 1.00009,
+     "R_B": 1.00008
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.98527,
+     "max": 1.00462,
+     "bias_over_sd": 0.01813,
+     "coverage_95": 0.949,
+     "coverage_se": 0.00166,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.98882,
+     "max": 0.99741,
+     "bias_over_sd": 0.022,
+     "coverage_95": 0.95158,
+     "coverage_se": 0.00158,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.98733,
+     "max": 0.99638,
+     "bias_over_sd": 0.01321,
+     "coverage_95": 0.94988,
+     "coverage_se": 0.00178,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 0.98978,
+     "max": 0.98978,
+     "bias_over_sd": 0.02438,
+     "coverage_95": 0.955,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 0.99358,
+     "max": 0.99358,
+     "bias_over_sd": 0.00883,
+     "coverage_95": 0.949,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98898,
+     "max": 0.98898,
+     "bias_over_sd": 0.02381,
+     "coverage_95": 0.955,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99254,
+     "max": 0.99254,
+     "bias_over_sd": 0.00952,
+     "coverage_95": 0.949,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp1, 3-plane decay, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0125,
+     0.0125
+    ],
+    "partner_correlation": [
+     0.05497,
+     0.05497
+    ],
+    "misstatement": {
+     "R_A": 1.00355,
+     "R_B": 1.0032
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.99384,
+     "max": 1.01602,
+     "bias_over_sd": 0.02464,
+     "coverage_95": 0.94996,
+     "coverage_se": 0.00185,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.98111,
+     "max": 1.0126,
+     "bias_over_sd": 0.02196,
+     "coverage_95": 0.95208,
+     "coverage_se": 0.00156,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.98022,
+     "max": 1.01127,
+     "bias_over_sd": 0.02961,
+     "coverage_95": 0.95419,
+     "coverage_se": 0.00167,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 0.99607,
+     "max": 0.99607,
+     "bias_over_sd": 0.00515,
+     "coverage_95": 0.95275,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 0.99973,
+     "max": 0.99973,
+     "bias_over_sd": 0.00633,
+     "coverage_95": 0.952,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99233,
+     "max": 0.99233,
+     "bias_over_sd": 0.00676,
+     "coverage_95": 0.9545,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99624,
+     "max": 0.99624,
+     "bias_over_sd": 0.00461,
+     "coverage_95": 0.953,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp1, 3-plane decay, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.06159,
+     0.06159
+    ],
+    "partner_correlation": [
+     0.13834,
+     0.13834
+    ],
+    "misstatement": {
+     "R_A": 1.01709,
+     "R_B": 1.0153
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.9788,
+     "max": 1.00548,
+     "bias_over_sd": 0.02592,
+     "coverage_95": 0.94992,
+     "coverage_se": 0.00212,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.99168,
+     "max": 1.01492,
+     "bias_over_sd": 0.02937,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00165,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.99163,
+     "max": 1.01291,
+     "bias_over_sd": 0.02614,
+     "coverage_95": 0.94981,
+     "coverage_se": 0.0018,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.01918,
+     "max": 1.01918,
+     "bias_over_sd": 0.01706,
+     "coverage_95": 0.94475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.0251,
+     "max": 1.0251,
+     "bias_over_sd": 0.01805,
+     "coverage_95": 0.94675,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00165,
+     "max": 1.00165,
+     "bias_over_sd": 0.01616,
+     "coverage_95": 0.94825,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00892,
+     "max": 1.00892,
+     "bias_over_sd": 0.02106,
+     "coverage_95": 0.95025,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.11525,
+   "passes": true
+  },
+  "sp1, 3-plane decay, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.24736,
+     0.24736
+    ],
+    "partner_correlation": [
+     0.28916,
+     0.28916
+    ],
+    "misstatement": {
+     "R_A": 1.06312,
+     "R_B": 1.05566
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.99013,
+     "max": 1.01425,
+     "bias_over_sd": 0.03749,
+     "coverage_95": 0.94908,
+     "coverage_se": 0.00245,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.9977,
+     "max": 1.03396,
+     "bias_over_sd": 0.04036,
+     "coverage_95": 0.94617,
+     "coverage_se": 0.00171,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.98813,
+     "max": 1.02954,
+     "bias_over_sd": 0.0602,
+     "coverage_95": 0.9493,
+     "coverage_se": 0.00186,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.08074,
+     "max": 1.08074,
+     "bias_over_sd": 0.03544,
+     "coverage_95": 0.934,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.08893,
+     "max": 1.08893,
+     "bias_over_sd": 0.00959,
+     "coverage_95": 0.93275,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.0182,
+     "max": 1.0182,
+     "bias_over_sd": 0.04225,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.03386,
+     "max": 1.03386,
+     "bias_over_sd": 0.00966,
+     "coverage_95": 0.94625,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "ratios_withheld": {
+    "reference not distinguishable from its uncertainty": 159
+   },
+   "passes": null
+  },
+  "sp1, 30-plane CPMG, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ],
+    "misstatement": {
+     "R20_A": 1.0,
+     "Phi_A": 1.0,
+     "kex": 1.0
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 30,
+     "min": 0.97704,
+     "max": 1.02223,
+     "bias_over_sd": 0.05794,
+     "coverage_95": 0.94964,
+     "coverage_se": 0.00066,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 30,
+     "min": 0.97732,
+     "max": 1.02574,
+     "bias_over_sd": 0.04403,
+     "coverage_95": 0.94947,
+     "coverage_se": 0.00063,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 29,
+     "min": 0.9796,
+     "max": 1.02427,
+     "bias_over_sd": 0.05048,
+     "coverage_95": 0.94949,
+     "coverage_se": 0.00074,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 29,
+     "min": 0.98237,
+     "max": 1.03238,
+     "bias_over_sd": 0.04957,
+     "coverage_95": 0.95003,
+     "coverage_se": 0.00075,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 0.99707,
+     "max": 0.99707,
+     "bias_over_sd": 0.02319,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 0.99225,
+     "max": 0.99225,
+     "bias_over_sd": 0.03753,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.99845,
+     "max": 0.99845,
+     "bias_over_sd": 0.0295,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99058,
+     "max": 0.99058,
+     "bias_over_sd": 0.02319,
+     "coverage_95": 0.95075,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98563,
+     "max": 0.98563,
+     "bias_over_sd": 0.03753,
+     "coverage_95": 0.95425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99187,
+     "max": 0.99187,
+     "bias_over_sd": 0.0295,
+     "coverage_95": 0.95275,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp1, 30-plane CPMG, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.00014,
+     0.00014
+    ],
+    "partner_correlation": [
+     0.01166,
+     0.01166
+    ],
+    "misstatement": {
+     "R20_A": 0.99906,
+     "R20_B": 1.00004,
+     "Phi_A": 0.99752,
+     "Phi_B": 0.99998,
+     "kex": 0.99723
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.9667,
+     "max": 1.02271,
+     "bias_over_sd": 0.06291,
+     "coverage_95": 0.95012,
+     "coverage_se": 0.00048,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97274,
+     "max": 1.02156,
+     "bias_over_sd": 0.05937,
+     "coverage_95": 0.9502,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.97593,
+     "max": 1.02678,
+     "bias_over_sd": 0.06274,
+     "coverage_95": 0.95001,
+     "coverage_se": 0.00057,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.97843,
+     "max": 1.02903,
+     "bias_over_sd": 0.08081,
+     "coverage_95": 0.95053,
+     "coverage_se": 0.00057,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 0.99977,
+     "max": 0.99977,
+     "bias_over_sd": 0.02314,
+     "coverage_95": 0.95125,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 0.9974,
+     "max": 0.9974,
+     "bias_over_sd": 0.02456,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 1.00587,
+     "max": 1.00587,
+     "bias_over_sd": 0.05137,
+     "coverage_95": 0.94625,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.02342,
+     "max": 1.02342,
+     "bias_over_sd": 0.05388,
+     "coverage_95": 0.9425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 1.00056,
+     "max": 1.00056,
+     "bias_over_sd": 0.03758,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99572,
+     "max": 0.99572,
+     "bias_over_sd": 0.02261,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.9919,
+     "max": 0.9919,
+     "bias_over_sd": 0.02514,
+     "coverage_95": 0.94925,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00365,
+     "max": 1.00365,
+     "bias_over_sd": 0.04921,
+     "coverage_95": 0.9465,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01863,
+     "max": 1.01863,
+     "bias_over_sd": 0.05864,
+     "coverage_95": 0.94425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99874,
+     "max": 0.99874,
+     "bias_over_sd": 0.03798,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp1, 30-plane CPMG, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.00633,
+     0.00633
+    ],
+    "partner_correlation": [
+     0.05497,
+     0.05497
+    ],
+    "misstatement": {
+     "R20_A": 0.99545,
+     "R20_B": 0.99992,
+     "Phi_A": 0.98851,
+     "Phi_B": 1.00135,
+     "kex": 0.98683
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98188,
+     "max": 1.02552,
+     "bias_over_sd": 0.04074,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00059,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97632,
+     "max": 1.02222,
+     "bias_over_sd": 0.03726,
+     "coverage_95": 0.95041,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.97562,
+     "max": 1.02244,
+     "bias_over_sd": 0.0489,
+     "coverage_95": 0.95084,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.97881,
+     "max": 1.02585,
+     "bias_over_sd": 0.0481,
+     "coverage_95": 0.95118,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 0.99451,
+     "max": 0.99451,
+     "bias_over_sd": 0.04565,
+     "coverage_95": 0.9535,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 1.00179,
+     "max": 1.00179,
+     "bias_over_sd": 0.04221,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 0.99132,
+     "max": 0.99132,
+     "bias_over_sd": 0.04993,
+     "coverage_95": 0.95075,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.00727,
+     "max": 1.00727,
+     "bias_over_sd": 0.04306,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.99566,
+     "max": 0.99566,
+     "bias_over_sd": 0.03997,
+     "coverage_95": 0.95225,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99504,
+     "max": 0.99504,
+     "bias_over_sd": 0.04429,
+     "coverage_95": 0.954,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.9971,
+     "max": 0.9971,
+     "bias_over_sd": 0.04384,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99908,
+     "max": 0.99908,
+     "bias_over_sd": 0.04397,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00203,
+     "max": 1.00203,
+     "bias_over_sd": 0.05586,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00492,
+     "max": 1.00492,
+     "bias_over_sd": 0.04132,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp1, 30-plane CPMG, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.03302,
+     0.03302
+    ],
+    "partner_correlation": [
+     0.13834,
+     0.13834
+    ],
+    "misstatement": {
+     "R20_A": 0.98813,
+     "R20_B": 0.99897,
+     "Phi_A": 0.97164,
+     "Phi_B": 1.0075,
+     "kex": 0.96633
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98202,
+     "max": 1.02505,
+     "bias_over_sd": 0.04626,
+     "coverage_95": 0.94943,
+     "coverage_se": 0.00073,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97941,
+     "max": 1.02328,
+     "bias_over_sd": 0.04916,
+     "coverage_95": 0.95011,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.98055,
+     "max": 1.02764,
+     "bias_over_sd": 0.05919,
+     "coverage_95": 0.94976,
+     "coverage_se": 0.00058,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.98586,
+     "max": 1.02911,
+     "bias_over_sd": 0.04392,
+     "coverage_95": 0.95005,
+     "coverage_se": 0.00058,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 1.00826,
+     "max": 1.00826,
+     "bias_over_sd": 0.04875,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 1.01288,
+     "max": 1.01288,
+     "bias_over_sd": 0.03807,
+     "coverage_95": 0.95025,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 1.00255,
+     "max": 1.00255,
+     "bias_over_sd": 0.05394,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.02063,
+     "max": 1.02063,
+     "bias_over_sd": 0.01114,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.99282,
+     "max": 0.99282,
+     "bias_over_sd": 0.04103,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.0127,
+     "max": 1.0127,
+     "bias_over_sd": 0.04676,
+     "coverage_95": 0.95025,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00774,
+     "max": 1.00774,
+     "bias_over_sd": 0.04073,
+     "coverage_95": 0.95125,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.02448,
+     "max": 1.02448,
+     "bias_over_sd": 0.04362,
+     "coverage_95": 0.94525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00792,
+     "max": 1.00792,
+     "bias_over_sd": 0.03201,
+     "coverage_95": 0.95675,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 1.02121,
+     "max": 1.02121,
+     "bias_over_sd": 0.04373,
+     "coverage_95": 0.94775,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0085,
+   "passes": true
+  },
+  "sp1, 30-plane CPMG, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.14336,
+     0.14336
+    ],
+    "partner_correlation": [
+     0.28916,
+     0.28916
+    ],
+    "misstatement": {
+     "R20_A": 0.97345,
+     "R20_B": 0.99433,
+     "Phi_A": 0.94348,
+     "Phi_B": 1.03295,
+     "kex": 0.92759
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98498,
+     "max": 1.02359,
+     "bias_over_sd": 0.03725,
+     "coverage_95": 0.94758,
+     "coverage_se": 0.00112,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97895,
+     "max": 1.0173,
+     "bias_over_sd": 0.04235,
+     "coverage_95": 0.9502,
+     "coverage_se": 0.00047,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.98029,
+     "max": 1.01893,
+     "bias_over_sd": 0.03923,
+     "coverage_95": 0.95013,
+     "coverage_se": 0.00059,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.98811,
+     "max": 1.02245,
+     "bias_over_sd": 0.0645,
+     "coverage_95": 0.95064,
+     "coverage_se": 0.00059,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 0.98676,
+     "max": 0.98676,
+     "bias_over_sd": 0.04522,
+     "coverage_95": 0.9565,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 0.99157,
+     "max": 0.99157,
+     "bias_over_sd": 0.01783,
+     "coverage_95": 0.9545,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 0.96149,
+     "max": 0.96149,
+     "bias_over_sd": 0.04998,
+     "coverage_95": 0.9585,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.03167,
+     "max": 1.03167,
+     "bias_over_sd": 0.0173,
+     "coverage_95": 0.944,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.92641,
+     "max": 0.92641,
+     "bias_over_sd": 0.03096,
+     "coverage_95": 0.9665,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00407,
+     "max": 1.00407,
+     "bias_over_sd": 0.04074,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98865,
+     "max": 0.98865,
+     "bias_over_sd": 0.0166,
+     "coverage_95": 0.956,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01725,
+     "max": 1.01725,
+     "bias_over_sd": 0.02839,
+     "coverage_95": 0.945,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99914,
+     "max": 0.99914,
+     "bias_over_sd": 0.04321,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99585,
+     "max": 0.99585,
+     "bias_over_sd": 0.03126,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "sp1, 30-plane CEST, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ],
+    "misstatement": {
+     "depth_A": 1.0,
+     "offset_A": 1.0,
+     "width_A": 1.0
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 30,
+     "min": 0.97838,
+     "max": 1.01798,
+     "bias_over_sd": 0.03995,
+     "coverage_95": 0.95081,
+     "coverage_se": 0.00067,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 30,
+     "min": 0.9783,
+     "max": 1.01971,
+     "bias_over_sd": 0.03324,
+     "coverage_95": 0.9513,
+     "coverage_se": 0.00062,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 30,
+     "min": 0.98279,
+     "max": 1.01921,
+     "bias_over_sd": 0.03429,
+     "coverage_95": 0.94915,
+     "coverage_se": 0.00091,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.01918,
+     "max": 1.01918,
+     "bias_over_sd": 0.03908,
+     "coverage_95": 0.94825,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 0.99365,
+     "max": 0.99365,
+     "bias_over_sd": 0.00842,
+     "coverage_95": 0.952,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 1.01483,
+     "max": 1.01483,
+     "bias_over_sd": 0.00154,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01742,
+     "max": 1.01742,
+     "bias_over_sd": 0.03908,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99184,
+     "max": 0.99184,
+     "bias_over_sd": 0.00842,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01309,
+     "max": 1.01309,
+     "bias_over_sd": 0.00154,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp1, 30-plane CEST, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.00025,
+     0.00025
+    ],
+    "partner_correlation": [
+     0.01166,
+     0.01166
+    ],
+    "misstatement": {
+     "depth_A": 1.00002,
+     "offset_A": 0.99999,
+     "width_A": 0.99999,
+     "depth_B": 1.0,
+     "offset_B": 0.99999,
+     "width_B": 0.99999
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.96811,
+     "max": 1.03438,
+     "bias_over_sd": 0.03375,
+     "coverage_95": 0.94946,
+     "coverage_se": 0.0005,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97654,
+     "max": 1.02849,
+     "bias_over_sd": 0.03684,
+     "coverage_95": 0.94941,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.97931,
+     "max": 1.02621,
+     "bias_over_sd": 0.04023,
+     "coverage_95": 0.95002,
+     "coverage_se": 0.00066,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.01292,
+     "max": 1.01292,
+     "bias_over_sd": 0.01043,
+     "coverage_95": 0.944,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 1.00315,
+     "max": 1.00315,
+     "bias_over_sd": 0.01219,
+     "coverage_95": 0.95125,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 1.00427,
+     "max": 1.00427,
+     "bias_over_sd": 0.00096,
+     "coverage_95": 0.943,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 0.99876,
+     "max": 0.99876,
+     "bias_over_sd": 0.02789,
+     "coverage_95": 0.9465,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 1.01759,
+     "max": 1.01759,
+     "bias_over_sd": 0.02798,
+     "coverage_95": 0.946,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 0.99459,
+     "max": 0.99459,
+     "bias_over_sd": 0.01876,
+     "coverage_95": 0.952,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01143,
+     "max": 1.01143,
+     "bias_over_sd": 0.00714,
+     "coverage_95": 0.94475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00185,
+     "max": 1.00185,
+     "bias_over_sd": 0.01204,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00306,
+     "max": 1.00306,
+     "bias_over_sd": 0.00128,
+     "coverage_95": 0.94325,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99651,
+     "max": 0.99651,
+     "bias_over_sd": 0.02611,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01569,
+     "max": 1.01569,
+     "bias_over_sd": 0.02821,
+     "coverage_95": 0.94675,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99247,
+     "max": 0.99247,
+     "bias_over_sd": 0.01851,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp1, 30-plane CEST, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.01075,
+     0.01075
+    ],
+    "partner_correlation": [
+     0.05497,
+     0.05497
+    ],
+    "misstatement": {
+     "depth_A": 1.00103,
+     "offset_A": 0.99944,
+     "width_A": 0.99956,
+     "depth_B": 1.0002,
+     "offset_B": 0.99964,
+     "width_B": 0.99965
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.96668,
+     "max": 1.03202,
+     "bias_over_sd": 0.03874,
+     "coverage_95": 0.94877,
+     "coverage_se": 0.0006,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.96871,
+     "max": 1.03694,
+     "bias_over_sd": 0.04398,
+     "coverage_95": 0.9494,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.97493,
+     "max": 1.03132,
+     "bias_over_sd": 0.04428,
+     "coverage_95": 0.9497,
+     "coverage_se": 0.00066,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.01818,
+     "max": 1.01818,
+     "bias_over_sd": 0.00563,
+     "coverage_95": 0.9445,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 0.98699,
+     "max": 0.98699,
+     "bias_over_sd": 0.02573,
+     "coverage_95": 0.953,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 1.00791,
+     "max": 1.00791,
+     "bias_over_sd": 0.02317,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 1.00329,
+     "max": 1.00329,
+     "bias_over_sd": 0.06256,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 1.00183,
+     "max": 1.00183,
+     "bias_over_sd": 0.00843,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 1.01289,
+     "max": 1.01289,
+     "bias_over_sd": 0.01994,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01566,
+     "max": 1.01566,
+     "bias_over_sd": 0.00283,
+     "coverage_95": 0.94325,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98753,
+     "max": 0.98753,
+     "bias_over_sd": 0.02485,
+     "coverage_95": 0.952,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00663,
+     "max": 1.00663,
+     "bias_over_sd": 0.02168,
+     "coverage_95": 0.9475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00117,
+     "max": 1.00117,
+     "bias_over_sd": 0.05788,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00039,
+     "max": 1.00039,
+     "bias_over_sd": 0.00961,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01103,
+     "max": 1.01103,
+     "bias_over_sd": 0.0194,
+     "coverage_95": 0.947,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp1, 30-plane CEST, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.05379,
+     0.05379
+    ],
+    "partner_correlation": [
+     0.13834,
+     0.13834
+    ],
+    "misstatement": {
+     "depth_A": 1.0051,
+     "offset_A": 0.99719,
+     "width_A": 0.9978,
+     "depth_B": 1.001,
+     "offset_B": 0.99821,
+     "width_B": 0.99828
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98176,
+     "max": 1.03151,
+     "bias_over_sd": 0.03458,
+     "coverage_95": 0.94878,
+     "coverage_se": 0.00074,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97471,
+     "max": 1.02515,
+     "bias_over_sd": 0.04334,
+     "coverage_95": 0.94997,
+     "coverage_se": 0.00046,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.97151,
+     "max": 1.02576,
+     "bias_over_sd": 0.04421,
+     "coverage_95": 0.95013,
+     "coverage_se": 0.00065,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 0.99596,
+     "max": 0.99596,
+     "bias_over_sd": 0.02158,
+     "coverage_95": 0.9505,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 1.00512,
+     "max": 1.00512,
+     "bias_over_sd": 0.0254,
+     "coverage_95": 0.95125,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 1.00804,
+     "max": 1.00804,
+     "bias_over_sd": 0.00134,
+     "coverage_95": 0.94925,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 0.99497,
+     "max": 0.99497,
+     "bias_over_sd": 0.04332,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 0.99665,
+     "max": 0.99665,
+     "bias_over_sd": 0.00582,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 1.00352,
+     "max": 1.00352,
+     "bias_over_sd": 0.02426,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99102,
+     "max": 0.99102,
+     "bias_over_sd": 0.00461,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00378,
+     "max": 1.00378,
+     "bias_over_sd": 0.02518,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.0074,
+     "max": 1.0074,
+     "bias_over_sd": 0.0008,
+     "coverage_95": 0.95075,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98983,
+     "max": 0.98983,
+     "bias_over_sd": 0.04293,
+     "coverage_95": 0.95475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99525,
+     "max": 0.99525,
+     "bias_over_sd": 0.00486,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00044,
+     "max": 1.00044,
+     "bias_over_sd": 0.01958,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp1, 30-plane CEST, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.22055,
+     0.22055
+    ],
+    "partner_correlation": [
+     0.28916,
+     0.28916
+    ],
+    "misstatement": {
+     "depth_A": 1.02018,
+     "offset_A": 0.98881,
+     "width_A": 0.99119,
+     "depth_B": 1.00398,
+     "offset_B": 0.99274,
+     "width_B": 0.99306
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.97392,
+     "max": 1.0271,
+     "bias_over_sd": 0.03997,
+     "coverage_95": 0.9473,
+     "coverage_se": 0.00108,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97672,
+     "max": 1.02158,
+     "bias_over_sd": 0.04393,
+     "coverage_95": 0.95059,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.98142,
+     "max": 1.02999,
+     "bias_over_sd": 0.04755,
+     "coverage_95": 0.94987,
+     "coverage_se": 0.0007,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.01794,
+     "max": 1.01794,
+     "bias_over_sd": 0.03267,
+     "coverage_95": 0.947,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 0.99434,
+     "max": 0.99434,
+     "bias_over_sd": 0.02988,
+     "coverage_95": 0.95525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 0.99622,
+     "max": 0.99622,
+     "bias_over_sd": 0.00818,
+     "coverage_95": 0.954,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 1.00697,
+     "max": 1.00697,
+     "bias_over_sd": 0.06915,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 1.01083,
+     "max": 1.01083,
+     "bias_over_sd": 0.01508,
+     "coverage_95": 0.94425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 1.00498,
+     "max": 1.00498,
+     "bias_over_sd": 0.01777,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00016,
+     "max": 1.00016,
+     "bias_over_sd": 0.00404,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01052,
+     "max": 1.01052,
+     "bias_over_sd": 0.02355,
+     "coverage_95": 0.95225,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00493,
+     "max": 1.00493,
+     "bias_over_sd": 0.01126,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00566,
+     "max": 1.00566,
+     "bias_over_sd": 0.06949,
+     "coverage_95": 0.9435,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01785,
+     "max": 1.01785,
+     "bias_over_sd": 0.01455,
+     "coverage_95": 0.94225,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00739,
+     "max": 1.00739,
+     "bias_over_sd": 0.01416,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "sp2, 1 plane, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 1,
+     "min": 0.99331,
+     "max": 0.99331,
+     "bias_over_sd": 0.02521,
+     "coverage_95": 0.95625,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp2, 1 plane, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.01678,
+     0.01678
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 1.02067,
+     "max": 1.0211,
+     "bias_over_sd": 0.04196,
+     "coverage_95": 0.945,
+     "coverage_se": 0.00272,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp2, 1 plane, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.09652,
+     0.09652
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 1.007,
+     "max": 1.01198,
+     "bias_over_sd": 0.04527,
+     "coverage_95": 0.94825,
+     "coverage_se": 0.00282,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp2, 1 plane, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.20695,
+     0.20695
+    ]
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 0.99318,
+     "max": 1.00291,
+     "bias_over_sd": 0.05872,
+     "coverage_95": 0.95137,
+     "coverage_se": 0.00287,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.988,
+   "passes": null
+  },
+  "sp2, 1 plane, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.37291,
+     0.37291
+    ]
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 1.06101,
+     "max": 1.06233,
+     "bias_over_sd": 0.06603,
+     "coverage_95": 0.92825,
+     "coverage_se": 0.00375,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "sp2, 3-plane decay, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ],
+    "misstatement": {
+     "R_A": 1.0
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 3,
+     "min": 0.98786,
+     "max": 1.01506,
+     "bias_over_sd": 0.01094,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00221,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 3,
+     "min": 0.99743,
+     "max": 1.0091,
+     "bias_over_sd": 0.01232,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.0024,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 2,
+     "min": 0.99693,
+     "max": 1.0088,
+     "bias_over_sd": 0.02356,
+     "coverage_95": 0.94863,
+     "coverage_se": 0.00252,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 0.99945,
+     "max": 0.99945,
+     "bias_over_sd": 0.00488,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99812,
+     "max": 0.99812,
+     "bias_over_sd": 0.00488,
+     "coverage_95": 0.953,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp2, 3-plane decay, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.00095,
+     0.00095
+    ],
+    "partner_correlation": [
+     0.01678,
+     0.01678
+    ],
+    "misstatement": {
+     "R_A": 1.00027,
+     "R_B": 1.00024
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.98559,
+     "max": 1.00824,
+     "bias_over_sd": 0.02376,
+     "coverage_95": 0.94888,
+     "coverage_se": 0.00172,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.98988,
+     "max": 1.01432,
+     "bias_over_sd": 0.01126,
+     "coverage_95": 0.95029,
+     "coverage_se": 0.00159,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.99014,
+     "max": 1.01061,
+     "bias_over_sd": 0.0222,
+     "coverage_95": 0.95169,
+     "coverage_se": 0.00175,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 0.98373,
+     "max": 0.98373,
+     "bias_over_sd": 0.01454,
+     "coverage_95": 0.95275,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 0.99261,
+     "max": 0.99261,
+     "bias_over_sd": 0.00113,
+     "coverage_95": 0.95075,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98268,
+     "max": 0.98268,
+     "bias_over_sd": 0.01372,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99165,
+     "max": 0.99165,
+     "bias_over_sd": 0.0001,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp2, 3-plane decay, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.03374,
+     0.03374
+    ],
+    "partner_correlation": [
+     0.09652,
+     0.09652
+    ],
+    "misstatement": {
+     "R_A": 1.00949,
+     "R_B": 1.00852
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.98087,
+     "max": 1.01662,
+     "bias_over_sd": 0.03715,
+     "coverage_95": 0.94783,
+     "coverage_se": 0.00206,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.99377,
+     "max": 1.02975,
+     "bias_over_sd": 0.01791,
+     "coverage_95": 0.94988,
+     "coverage_se": 0.00164,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.99056,
+     "max": 1.01933,
+     "bias_over_sd": 0.0368,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00177,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.01062,
+     "max": 1.01062,
+     "bias_over_sd": 0.02497,
+     "coverage_95": 0.94925,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.01999,
+     "max": 1.01999,
+     "bias_over_sd": 0.00303,
+     "coverage_95": 0.9465,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00064,
+     "max": 1.00064,
+     "bias_over_sd": 0.02339,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01142,
+     "max": 1.01142,
+     "bias_over_sd": 0.001,
+     "coverage_95": 0.94725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp2, 3-plane decay, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.12884,
+     0.12884
+    ],
+    "partner_correlation": [
+     0.20695,
+     0.20695
+    ],
+    "misstatement": {
+     "R_A": 1.03465,
+     "R_B": 1.03084
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.9927,
+     "max": 1.03379,
+     "bias_over_sd": 0.03943,
+     "coverage_95": 0.94729,
+     "coverage_se": 0.00224,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.99395,
+     "max": 1.01034,
+     "bias_over_sd": 0.03418,
+     "coverage_95": 0.94871,
+     "coverage_se": 0.00168,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.99781,
+     "max": 1.01133,
+     "bias_over_sd": 0.00691,
+     "coverage_95": 0.94963,
+     "coverage_se": 0.00179,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.04214,
+     "max": 1.04214,
+     "bias_over_sd": 0.01583,
+     "coverage_95": 0.94075,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.0338,
+     "max": 1.0338,
+     "bias_over_sd": 0.02158,
+     "coverage_95": 0.9435,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00869,
+     "max": 1.00869,
+     "bias_over_sd": 0.01797,
+     "coverage_95": 0.9505,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00421,
+     "max": 1.00421,
+     "bias_over_sd": 0.02367,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "sp2, 3-plane decay, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.43347,
+     0.43347
+    ],
+    "partner_correlation": [
+     0.37291,
+     0.37291
+    ],
+    "misstatement": {
+     "R_A": 1.10252,
+     "R_B": 1.08918
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.99727,
+     "max": 1.02218,
+     "bias_over_sd": 0.02326,
+     "coverage_95": 0.94342,
+     "coverage_se": 0.00272,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.98442,
+     "max": 1.0353,
+     "bias_over_sd": 0.04377,
+     "coverage_95": 0.94579,
+     "coverage_se": 0.00177,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.82557,
+     "max": 1.0548,
+     "bias_over_sd": 1.1133,
+     "coverage_95": 0.92448,
+     "coverage_se": 0.01532,
+     "coverage_within_2se": true,
+     "scatter_within_gate": false
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.12944,
+     "max": 1.12944,
+     "bias_over_sd": 0.04058,
+     "coverage_95": 0.92725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.12031,
+     "max": 1.12031,
+     "bias_over_sd": 0.00874,
+     "coverage_95": 0.92,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.02738,
+     "max": 1.02738,
+     "bias_over_sd": 0.04928,
+     "coverage_95": 0.94575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.03431,
+     "max": 1.03431,
+     "bias_over_sd": 0.00488,
+     "coverage_95": 0.94475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "ratios_withheld": {
+    "reference not distinguishable from its uncertainty": 3904
+   },
+   "passes": null
+  },
+  "sp2, 30-plane CPMG, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ],
+    "misstatement": {
+     "R20_A": 1.0,
+     "Phi_A": 1.0,
+     "kex": 1.0
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 30,
+     "min": 0.97695,
+     "max": 1.02443,
+     "bias_over_sd": 0.03548,
+     "coverage_95": 0.94973,
+     "coverage_se": 0.00068,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 30,
+     "min": 0.96532,
+     "max": 1.01864,
+     "bias_over_sd": 0.02508,
+     "coverage_95": 0.95028,
+     "coverage_se": 0.00064,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 29,
+     "min": 0.96247,
+     "max": 1.02459,
+     "bias_over_sd": 0.0287,
+     "coverage_95": 0.9503,
+     "coverage_se": 0.00073,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 29,
+     "min": 0.96486,
+     "max": 1.03069,
+     "bias_over_sd": 0.06189,
+     "coverage_95": 0.95164,
+     "coverage_se": 0.00073,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 1.00034,
+     "max": 1.00034,
+     "bias_over_sd": 0.02571,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 1.00542,
+     "max": 1.00542,
+     "bias_over_sd": 0.0511,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.99908,
+     "max": 0.99908,
+     "bias_over_sd": 0.02059,
+     "coverage_95": 0.9475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99314,
+     "max": 0.99314,
+     "bias_over_sd": 0.02571,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99799,
+     "max": 0.99799,
+     "bias_over_sd": 0.0511,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 0.9919,
+     "max": 0.9919,
+     "bias_over_sd": 0.02059,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp2, 30-plane CPMG, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.00045,
+     0.00045
+    ],
+    "partner_correlation": [
+     0.01678,
+     0.01678
+    ],
+    "misstatement": {
+     "R20_A": 0.99865,
+     "R20_B": 1.00005,
+     "Phi_A": 0.99645,
+     "Phi_B": 1.00002,
+     "kex": 0.99601
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.96846,
+     "max": 1.03114,
+     "bias_over_sd": 0.04481,
+     "coverage_95": 0.94928,
+     "coverage_se": 0.00053,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97795,
+     "max": 1.02594,
+     "bias_over_sd": 0.02874,
+     "coverage_95": 0.94968,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.9787,
+     "max": 1.02421,
+     "bias_over_sd": 0.04081,
+     "coverage_95": 0.95081,
+     "coverage_se": 0.00054,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.98052,
+     "max": 1.03256,
+     "bias_over_sd": 0.04938,
+     "coverage_95": 0.95111,
+     "coverage_se": 0.00054,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 1.00962,
+     "max": 1.00962,
+     "bias_over_sd": 0.03679,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 0.97796,
+     "max": 0.97796,
+     "bias_over_sd": 0.03101,
+     "coverage_95": 0.9545,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 1.02176,
+     "max": 1.02176,
+     "bias_over_sd": 0.05817,
+     "coverage_95": 0.94775,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.02754,
+     "max": 1.02754,
+     "bias_over_sd": 0.04077,
+     "coverage_95": 0.949,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 1.0262,
+     "max": 1.0262,
+     "bias_over_sd": 0.03883,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.0058,
+     "max": 1.0058,
+     "bias_over_sd": 0.03598,
+     "coverage_95": 0.95025,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.97228,
+     "max": 0.97228,
+     "bias_over_sd": 0.03181,
+     "coverage_95": 0.9555,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.0198,
+     "max": 1.0198,
+     "bias_over_sd": 0.05505,
+     "coverage_95": 0.94775,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.02167,
+     "max": 1.02167,
+     "bias_over_sd": 0.04708,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 1.02398,
+     "max": 1.02398,
+     "bias_over_sd": 0.03929,
+     "coverage_95": 0.94825,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp2, 30-plane CPMG, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.01733,
+     0.01733
+    ],
+    "partner_correlation": [
+     0.09652,
+     0.09652
+    ],
+    "misstatement": {
+     "R20_A": 0.99186,
+     "R20_B": 0.99955,
+     "Phi_A": 0.98003,
+     "Phi_B": 1.00386,
+     "kex": 0.97669
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98184,
+     "max": 1.01806,
+     "bias_over_sd": 0.03546,
+     "coverage_95": 0.95033,
+     "coverage_se": 0.00066,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97735,
+     "max": 1.02046,
+     "bias_over_sd": 0.03105,
+     "coverage_95": 0.95092,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.98047,
+     "max": 1.01781,
+     "bias_over_sd": 0.04308,
+     "coverage_95": 0.95026,
+     "coverage_se": 0.00057,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.98312,
+     "max": 1.01884,
+     "bias_over_sd": 0.05246,
+     "coverage_95": 0.95105,
+     "coverage_se": 0.00057,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 0.99986,
+     "max": 0.99986,
+     "bias_over_sd": 0.0305,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 0.99008,
+     "max": 0.99008,
+     "bias_over_sd": 0.0317,
+     "coverage_95": 0.955,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 1.00034,
+     "max": 1.00034,
+     "bias_over_sd": 0.05251,
+     "coverage_95": 0.95125,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.00418,
+     "max": 1.00418,
+     "bias_over_sd": 0.03495,
+     "coverage_95": 0.9575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.98884,
+     "max": 0.98884,
+     "bias_over_sd": 0.03697,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00303,
+     "max": 1.00303,
+     "bias_over_sd": 0.02768,
+     "coverage_95": 0.949,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98476,
+     "max": 0.98476,
+     "bias_over_sd": 0.03362,
+     "coverage_95": 0.95575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01341,
+     "max": 1.01341,
+     "bias_over_sd": 0.04256,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99528,
+     "max": 0.99528,
+     "bias_over_sd": 0.05099,
+     "coverage_95": 0.9595,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00771,
+     "max": 1.00771,
+     "bias_over_sd": 0.03745,
+     "coverage_95": 0.949,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp2, 30-plane CPMG, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.07044,
+     0.07044
+    ],
+    "partner_correlation": [
+     0.20695,
+     0.20695
+    ],
+    "misstatement": {
+     "R20_A": 0.98174,
+     "R20_B": 0.99745,
+     "Phi_A": 0.9583,
+     "Phi_B": 1.01613,
+     "kex": 0.949
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98626,
+     "max": 1.03875,
+     "bias_over_sd": 0.03261,
+     "coverage_95": 0.94819,
+     "coverage_se": 0.0009,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97512,
+     "max": 1.04086,
+     "bias_over_sd": 0.02759,
+     "coverage_95": 0.94886,
+     "coverage_se": 0.00046,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.98184,
+     "max": 1.03911,
+     "bias_over_sd": 0.03638,
+     "coverage_95": 0.94882,
+     "coverage_se": 0.00059,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.9821,
+     "max": 1.04083,
+     "bias_over_sd": 0.06783,
+     "coverage_95": 0.94992,
+     "coverage_se": 0.00059,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 0.98208,
+     "max": 0.98208,
+     "bias_over_sd": 0.0423,
+     "coverage_95": 0.955,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 1.00771,
+     "max": 1.00771,
+     "bias_over_sd": 0.02888,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 0.96329,
+     "max": 0.96329,
+     "bias_over_sd": 0.08461,
+     "coverage_95": 0.9585,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.02143,
+     "max": 1.02143,
+     "bias_over_sd": 0.05626,
+     "coverage_95": 0.95125,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.95245,
+     "max": 0.95245,
+     "bias_over_sd": 0.05897,
+     "coverage_95": 0.96325,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99293,
+     "max": 0.99293,
+     "bias_over_sd": 0.03824,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00357,
+     "max": 1.00357,
+     "bias_over_sd": 0.03133,
+     "coverage_95": 0.95075,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99872,
+     "max": 0.99872,
+     "bias_over_sd": 0.06829,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00244,
+     "max": 1.00244,
+     "bias_over_sd": 0.08022,
+     "coverage_95": 0.9535,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99677,
+     "max": 0.99677,
+     "bias_over_sd": 0.06047,
+     "coverage_95": 0.952,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "sp2, 30-plane CPMG, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.25872,
+     0.25872
+    ],
+    "partner_correlation": [
+     0.37291,
+     0.37291
+    ],
+    "misstatement": {
+     "R20_A": 0.96413,
+     "R20_B": 0.98929,
+     "Phi_A": 0.93028,
+     "Phi_B": 1.05887,
+     "kex": 0.90498
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.99001,
+     "max": 1.03068,
+     "bias_over_sd": 0.04344,
+     "coverage_95": 0.94725,
+     "coverage_se": 0.00131,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.98076,
+     "max": 1.0261,
+     "bias_over_sd": 0.04874,
+     "coverage_95": 0.95013,
+     "coverage_se": 0.00046,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.97929,
+     "max": 1.02459,
+     "bias_over_sd": 0.05164,
+     "coverage_95": 0.95035,
+     "coverage_se": 0.00059,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.98535,
+     "max": 1.03212,
+     "bias_over_sd": 0.06981,
+     "coverage_95": 0.95151,
+     "coverage_se": 0.00058,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 0.96269,
+     "max": 0.96269,
+     "bias_over_sd": 0.0042,
+     "coverage_95": 0.9605,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 0.9982,
+     "max": 0.9982,
+     "bias_over_sd": 0.03573,
+     "coverage_95": 0.9565,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 0.93396,
+     "max": 0.93396,
+     "bias_over_sd": 0.02233,
+     "coverage_95": 0.96,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.07647,
+     "max": 1.07647,
+     "bias_over_sd": 0.04445,
+     "coverage_95": 0.9335,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.89367,
+     "max": 0.89367,
+     "bias_over_sd": 0.01372,
+     "coverage_95": 0.97175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.989,
+     "max": 0.989,
+     "bias_over_sd": 0.00677,
+     "coverage_95": 0.9565,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.9986,
+     "max": 0.9986,
+     "bias_over_sd": 0.03654,
+     "coverage_95": 0.956,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.0041,
+     "max": 1.0041,
+     "bias_over_sd": 0.00689,
+     "coverage_95": 0.945,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.0309,
+     "max": 1.0309,
+     "bias_over_sd": 0.07705,
+     "coverage_95": 0.949,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98761,
+     "max": 0.98761,
+     "bias_over_sd": 0.02561,
+     "coverage_95": 0.9545,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "sp2, 30-plane CEST, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ],
+    "misstatement": {
+     "depth_A": 1.0,
+     "offset_A": 1.0,
+     "width_A": 1.0
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 30,
+     "min": 0.98139,
+     "max": 1.01753,
+     "bias_over_sd": 0.03074,
+     "coverage_95": 0.95053,
+     "coverage_se": 0.00068,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 30,
+     "min": 0.97489,
+     "max": 1.01543,
+     "bias_over_sd": 0.03538,
+     "coverage_95": 0.95018,
+     "coverage_se": 0.00063,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 30,
+     "min": 0.98337,
+     "max": 1.03286,
+     "bias_over_sd": 0.03079,
+     "coverage_95": 0.94895,
+     "coverage_se": 0.00091,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 0.99684,
+     "max": 0.99684,
+     "bias_over_sd": 0.02069,
+     "coverage_95": 0.95425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 1.01502,
+     "max": 1.01502,
+     "bias_over_sd": 0.02157,
+     "coverage_95": 0.94725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 1.0123,
+     "max": 1.0123,
+     "bias_over_sd": 0.02891,
+     "coverage_95": 0.9455,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.9949,
+     "max": 0.9949,
+     "bias_over_sd": 0.02069,
+     "coverage_95": 0.9545,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01286,
+     "max": 1.01286,
+     "bias_over_sd": 0.02157,
+     "coverage_95": 0.9475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01038,
+     "max": 1.01038,
+     "bias_over_sd": 0.02891,
+     "coverage_95": 0.946,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp2, 30-plane CEST, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0008,
+     0.0008
+    ],
+    "partner_correlation": [
+     0.01678,
+     0.01678
+    ],
+    "misstatement": {
+     "depth_A": 1.00008,
+     "offset_A": 0.99996,
+     "width_A": 0.99997,
+     "depth_B": 1.00001,
+     "offset_B": 0.99997,
+     "width_B": 0.99997
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.9799,
+     "max": 1.0243,
+     "bias_over_sd": 0.04561,
+     "coverage_95": 0.9496,
+     "coverage_se": 0.00053,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97205,
+     "max": 1.0246,
+     "bias_over_sd": 0.04175,
+     "coverage_95": 0.94997,
+     "coverage_se": 0.00046,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.97957,
+     "max": 1.03024,
+     "bias_over_sd": 0.04798,
+     "coverage_95": 0.9493,
+     "coverage_se": 0.00067,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.00335,
+     "max": 1.00335,
+     "bias_over_sd": 0.02155,
+     "coverage_95": 0.94775,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 1.00646,
+     "max": 1.00646,
+     "bias_over_sd": 0.00256,
+     "coverage_95": 0.9535,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 1.01256,
+     "max": 1.01256,
+     "bias_over_sd": 0.00768,
+     "coverage_95": 0.9435,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 0.99906,
+     "max": 0.99906,
+     "bias_over_sd": 0.07457,
+     "coverage_95": 0.95125,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 0.98762,
+     "max": 0.98762,
+     "bias_over_sd": 0.00861,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 1.0068,
+     "max": 1.0068,
+     "bias_over_sd": 0.01492,
+     "coverage_95": 0.94375,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00154,
+     "max": 1.00154,
+     "bias_over_sd": 0.0172,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00503,
+     "max": 1.00503,
+     "bias_over_sd": 0.00209,
+     "coverage_95": 0.95375,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01044,
+     "max": 1.01044,
+     "bias_over_sd": 0.00702,
+     "coverage_95": 0.94325,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99704,
+     "max": 0.99704,
+     "bias_over_sd": 0.07272,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98542,
+     "max": 0.98542,
+     "bias_over_sd": 0.00929,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00411,
+     "max": 1.00411,
+     "bias_over_sd": 0.01581,
+     "coverage_95": 0.94325,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp2, 30-plane CEST, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.02915,
+     0.02915
+    ],
+    "partner_correlation": [
+     0.09652,
+     0.09652
+    ],
+    "misstatement": {
+     "depth_A": 1.00278,
+     "offset_A": 0.99847,
+     "width_A": 0.99881,
+     "depth_B": 1.00054,
+     "offset_B": 0.99903,
+     "width_B": 0.99907
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.97631,
+     "max": 1.03859,
+     "bias_over_sd": 0.03954,
+     "coverage_95": 0.94992,
+     "coverage_se": 0.00066,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97726,
+     "max": 1.02524,
+     "bias_over_sd": 0.03298,
+     "coverage_95": 0.95004,
+     "coverage_se": 0.00044,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.97948,
+     "max": 1.02848,
+     "bias_over_sd": 0.04227,
+     "coverage_95": 0.94924,
+     "coverage_se": 0.00067,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 0.9975,
+     "max": 0.9975,
+     "bias_over_sd": 0.01033,
+     "coverage_95": 0.9465,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 1.0094,
+     "max": 1.0094,
+     "bias_over_sd": 0.02602,
+     "coverage_95": 0.946,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 0.97828,
+     "max": 0.97828,
+     "bias_over_sd": 0.01407,
+     "coverage_95": 0.95525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 0.98821,
+     "max": 0.98821,
+     "bias_over_sd": 0.05687,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 0.99053,
+     "max": 0.99053,
+     "bias_over_sd": 0.00333,
+     "coverage_95": 0.94925,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 1.00997,
+     "max": 1.00997,
+     "bias_over_sd": 0.01583,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99495,
+     "max": 0.99495,
+     "bias_over_sd": 0.00428,
+     "coverage_95": 0.9455,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01039,
+     "max": 1.01039,
+     "bias_over_sd": 0.02676,
+     "coverage_95": 0.94725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98028,
+     "max": 0.98028,
+     "bias_over_sd": 0.014,
+     "coverage_95": 0.9535,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98564,
+     "max": 0.98564,
+     "bias_over_sd": 0.05259,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98772,
+     "max": 0.98772,
+     "bias_over_sd": 0.00201,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00811,
+     "max": 1.00811,
+     "bias_over_sd": 0.01658,
+     "coverage_95": 0.946,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp2, 30-plane CEST, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.11325,
+     0.11325
+    ],
+    "partner_correlation": [
+     0.20695,
+     0.20695
+    ],
+    "misstatement": {
+     "depth_A": 1.01061,
+     "offset_A": 0.99415,
+     "width_A": 0.99541,
+     "depth_B": 1.00208,
+     "offset_B": 0.99624,
+     "width_B": 0.9964
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.97376,
+     "max": 1.01497,
+     "bias_over_sd": 0.04586,
+     "coverage_95": 0.95067,
+     "coverage_se": 0.00086,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.98102,
+     "max": 1.01736,
+     "bias_over_sd": 0.04182,
+     "coverage_95": 0.95081,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.97503,
+     "max": 1.01424,
+     "bias_over_sd": 0.05242,
+     "coverage_95": 0.95097,
+     "coverage_se": 0.00066,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.02351,
+     "max": 1.02351,
+     "bias_over_sd": 0.04338,
+     "coverage_95": 0.9445,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 0.98148,
+     "max": 0.98148,
+     "bias_over_sd": 0.01281,
+     "coverage_95": 0.9575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 1.00282,
+     "max": 1.00282,
+     "bias_over_sd": 0.03511,
+     "coverage_95": 0.945,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 0.99269,
+     "max": 0.99269,
+     "bias_over_sd": 0.06017,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 0.99596,
+     "max": 0.99596,
+     "bias_over_sd": 0.02354,
+     "coverage_95": 0.94725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 0.98463,
+     "max": 0.98463,
+     "bias_over_sd": 0.00365,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01167,
+     "max": 1.01167,
+     "bias_over_sd": 0.01677,
+     "coverage_95": 0.946,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98897,
+     "max": 0.98897,
+     "bias_over_sd": 0.01048,
+     "coverage_95": 0.95725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00769,
+     "max": 1.00769,
+     "bias_over_sd": 0.03515,
+     "coverage_95": 0.9445,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98746,
+     "max": 0.98746,
+     "bias_over_sd": 0.05534,
+     "coverage_95": 0.95325,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99607,
+     "max": 0.99607,
+     "bias_over_sd": 0.02222,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98585,
+     "max": 0.98585,
+     "bias_over_sd": 0.00297,
+     "coverage_95": 0.95275,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "sp2, 30-plane CEST, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.38977,
+     0.38977
+    ],
+    "partner_correlation": [
+     0.37291,
+     0.37291
+    ],
+    "misstatement": {
+     "depth_A": 1.03443,
+     "offset_A": 0.98075,
+     "width_A": 0.98476,
+     "depth_B": 1.00684,
+     "offset_B": 0.98732,
+     "width_B": 0.98794
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.97624,
+     "max": 1.02715,
+     "bias_over_sd": 0.04784,
+     "coverage_95": 0.94999,
+     "coverage_se": 0.00129,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.96854,
+     "max": 1.01873,
+     "bias_over_sd": 0.0328,
+     "coverage_95": 0.95146,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.97931,
+     "max": 1.02578,
+     "bias_over_sd": 0.03535,
+     "coverage_95": 0.95077,
+     "coverage_se": 0.00069,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.03716,
+     "max": 1.03716,
+     "bias_over_sd": 0.02745,
+     "coverage_95": 0.94225,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 0.99496,
+     "max": 0.99496,
+     "bias_over_sd": 0.00427,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 0.98975,
+     "max": 0.98975,
+     "bias_over_sd": 0.01986,
+     "coverage_95": 0.95575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 0.98741,
+     "max": 0.98741,
+     "bias_over_sd": 0.05813,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 0.98137,
+     "max": 0.98137,
+     "bias_over_sd": 0.00473,
+     "coverage_95": 0.9505,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 0.9982,
+     "max": 0.9982,
+     "bias_over_sd": 0.00277,
+     "coverage_95": 0.95725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00915,
+     "max": 1.00915,
+     "bias_over_sd": 0.01799,
+     "coverage_95": 0.94775,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01578,
+     "max": 1.01578,
+     "bias_over_sd": 0.00697,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.0053,
+     "max": 1.0053,
+     "bias_over_sd": 0.01259,
+     "coverage_95": 0.947,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.97629,
+     "max": 0.97629,
+     "bias_over_sd": 0.06056,
+     "coverage_95": 0.95425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99807,
+     "max": 0.99807,
+     "bias_over_sd": 0.00858,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99861,
+     "max": 0.99861,
+     "bias_over_sd": 0.00206,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "no_apod, 1 plane, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 1,
+     "min": 1.01187,
+     "max": 1.01187,
+     "bias_over_sd": 0.01584,
+     "coverage_95": 0.945,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 1 plane, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.01484,
+     0.01484
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 0.99138,
+     "max": 0.99304,
+     "bias_over_sd": 0.00627,
+     "coverage_95": 0.95075,
+     "coverage_se": 0.00247,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 1 plane, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.02959,
+     0.02959
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 0.9966,
+     "max": 0.9988,
+     "bias_over_sd": 0.0158,
+     "coverage_95": 0.95263,
+     "coverage_se": 0.00247,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 1 plane, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.0762,
+     0.0762
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 0.98408,
+     "max": 1.0096,
+     "bias_over_sd": 0.0157,
+     "coverage_95": 0.94863,
+     "coverage_se": 0.0028,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 1 plane, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.1897,
+     0.1897
+    ]
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 1.04138,
+     "max": 1.06111,
+     "bias_over_sd": 0.04568,
+     "coverage_95": 0.93863,
+     "coverage_se": 0.0033,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    }
+   },
+   "flagged_fraction": 0.979,
+   "passes": null
+  },
+  "no_apod, 3-plane decay, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ],
+    "misstatement": {
+     "R_A": 1.0
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 3,
+     "min": 1.01156,
+     "max": 1.01888,
+     "bias_over_sd": 0.01992,
+     "coverage_95": 0.95008,
+     "coverage_se": 0.00215,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 3,
+     "min": 1.00533,
+     "max": 1.02331,
+     "bias_over_sd": 0.03614,
+     "coverage_95": 0.94617,
+     "coverage_se": 0.00242,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 2,
+     "min": 1.00741,
+     "max": 1.0254,
+     "bias_over_sd": 0.02669,
+     "coverage_95": 0.94563,
+     "coverage_se": 0.00252,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.0228,
+     "max": 1.0228,
+     "bias_over_sd": 0.02918,
+     "coverage_95": 0.9455,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.02222,
+     "max": 1.02222,
+     "bias_over_sd": 0.02918,
+     "coverage_95": 0.94575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 3-plane decay, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0005,
+     0.0005
+    ],
+    "partner_correlation": [
+     0.01484,
+     0.01484
+    ],
+    "misstatement": {
+     "R_A": 1.00014,
+     "R_B": 1.00013
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.98811,
+     "max": 1.00838,
+     "bias_over_sd": 0.05612,
+     "coverage_95": 0.95004,
+     "coverage_se": 0.00159,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.98071,
+     "max": 1.01834,
+     "bias_over_sd": 0.0314,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.00167,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.97977,
+     "max": 1.01985,
+     "bias_over_sd": 0.0465,
+     "coverage_95": 0.94906,
+     "coverage_se": 0.0018,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 0.98793,
+     "max": 0.98793,
+     "bias_over_sd": 0.01344,
+     "coverage_95": 0.9545,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.01776,
+     "max": 1.01776,
+     "bias_over_sd": 0.02908,
+     "coverage_95": 0.94525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.9875,
+     "max": 0.9875,
+     "bias_over_sd": 0.01391,
+     "coverage_95": 0.9545,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01718,
+     "max": 1.01718,
+     "bias_over_sd": 0.02862,
+     "coverage_95": 0.9455,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 3-plane decay, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.00497,
+     0.00497
+    ],
+    "partner_correlation": [
+     0.02959,
+     0.02959
+    ],
+    "misstatement": {
+     "R_A": 1.00142,
+     "R_B": 1.00128
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.99329,
+     "max": 1.01054,
+     "bias_over_sd": 0.02045,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00174,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.99225,
+     "max": 1.00308,
+     "bias_over_sd": 0.02112,
+     "coverage_95": 0.95208,
+     "coverage_se": 0.0016,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.99576,
+     "max": 1.00329,
+     "bias_over_sd": 0.03357,
+     "coverage_95": 0.95019,
+     "coverage_se": 0.0018,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 0.99668,
+     "max": 0.99668,
+     "bias_over_sd": 0.00592,
+     "coverage_95": 0.95325,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.00018,
+     "max": 1.00018,
+     "bias_over_sd": 0.01847,
+     "coverage_95": 0.94725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99494,
+     "max": 0.99494,
+     "bias_over_sd": 0.00659,
+     "coverage_95": 0.95375,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99855,
+     "max": 0.99855,
+     "bias_over_sd": 0.01739,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 3-plane decay, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.02406,
+     0.02406
+    ],
+    "partner_correlation": [
+     0.0762,
+     0.0762
+    ],
+    "misstatement": {
+     "R_A": 1.0068,
+     "R_B": 1.00611
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.99152,
+     "max": 1.00386,
+     "bias_over_sd": 0.0237,
+     "coverage_95": 0.94979,
+     "coverage_se": 0.00195,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 1.00181,
+     "max": 1.01568,
+     "bias_over_sd": 0.00837,
+     "coverage_95": 0.9505,
+     "coverage_se": 0.0016,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 1.00312,
+     "max": 1.01274,
+     "bias_over_sd": 0.02154,
+     "coverage_95": 0.95056,
+     "coverage_se": 0.00177,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.0072,
+     "max": 1.0072,
+     "bias_over_sd": 0.01481,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.01372,
+     "max": 1.01372,
+     "bias_over_sd": 0.00518,
+     "coverage_95": 0.94925,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99987,
+     "max": 0.99987,
+     "bias_over_sd": 0.01399,
+     "coverage_95": 0.95225,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00672,
+     "max": 1.00672,
+     "bias_over_sd": 0.00355,
+     "coverage_95": 0.9505,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 3-plane decay, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.11638,
+     0.11638
+    ],
+    "partner_correlation": [
+     0.1897,
+     0.1897
+    ],
+    "misstatement": {
+     "R_A": 1.03148,
+     "R_B": 1.02805
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.98924,
+     "max": 1.01447,
+     "bias_over_sd": 0.03376,
+     "coverage_95": 0.94871,
+     "coverage_se": 0.00223,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.98837,
+     "max": 1.01178,
+     "bias_over_sd": 0.02421,
+     "coverage_95": 0.95008,
+     "coverage_se": 0.00162,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.98605,
+     "max": 1.00367,
+     "bias_over_sd": 0.03187,
+     "coverage_95": 0.952,
+     "coverage_se": 0.0017,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.01829,
+     "max": 1.01829,
+     "bias_over_sd": 0.00151,
+     "coverage_95": 0.94575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.02685,
+     "max": 1.02685,
+     "bias_over_sd": 0.00142,
+     "coverage_95": 0.94,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98783,
+     "max": 0.98783,
+     "bias_over_sd": 0.00122,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99954,
+     "max": 0.99954,
+     "bias_over_sd": 7e-05,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "no_apod, 30-plane CPMG, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ],
+    "misstatement": {
+     "R20_A": 1.0,
+     "Phi_A": 1.0,
+     "kex": 1.0
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 30,
+     "min": 0.97548,
+     "max": 1.01615,
+     "bias_over_sd": 0.05457,
+     "coverage_95": 0.94978,
+     "coverage_se": 0.00068,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 30,
+     "min": 0.97632,
+     "max": 1.01597,
+     "bias_over_sd": 0.05716,
+     "coverage_95": 0.95079,
+     "coverage_se": 0.00063,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 29,
+     "min": 0.97909,
+     "max": 1.01845,
+     "bias_over_sd": 0.05128,
+     "coverage_95": 0.95019,
+     "coverage_se": 0.00074,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 29,
+     "min": 0.9841,
+     "max": 1.02246,
+     "bias_over_sd": 0.07908,
+     "coverage_95": 0.95114,
+     "coverage_se": 0.00074,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 1.00616,
+     "max": 1.00616,
+     "bias_over_sd": 0.02188,
+     "coverage_95": 0.94675,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 1.02606,
+     "max": 1.02606,
+     "bias_over_sd": 0.05324,
+     "coverage_95": 0.942,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 1.0178,
+     "max": 1.0178,
+     "bias_over_sd": 0.03598,
+     "coverage_95": 0.94325,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00174,
+     "max": 1.00174,
+     "bias_over_sd": 0.02188,
+     "coverage_95": 0.9475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.02203,
+     "max": 1.02203,
+     "bias_over_sd": 0.05324,
+     "coverage_95": 0.943,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01357,
+     "max": 1.01357,
+     "bias_over_sd": 0.03598,
+     "coverage_95": 0.94425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "no_apod, 30-plane CPMG, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.00026,
+     0.00026
+    ],
+    "partner_correlation": [
+     0.01484,
+     0.01484
+    ],
+    "misstatement": {
+     "R20_A": 0.99881,
+     "R20_B": 1.00005,
+     "Phi_A": 0.99685,
+     "Phi_B": 1.0,
+     "kex": 0.99648
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.96921,
+     "max": 1.02356,
+     "bias_over_sd": 0.04901,
+     "coverage_95": 0.94933,
+     "coverage_se": 0.00049,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.96573,
+     "max": 1.02503,
+     "bias_over_sd": 0.05533,
+     "coverage_95": 0.9497,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.96719,
+     "max": 1.02105,
+     "bias_over_sd": 0.04013,
+     "coverage_95": 0.94992,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.96609,
+     "max": 1.02471,
+     "bias_over_sd": 0.06494,
+     "coverage_95": 0.95051,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 1.01097,
+     "max": 1.01097,
+     "bias_over_sd": 0.03477,
+     "coverage_95": 0.9505,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 1.00032,
+     "max": 1.00032,
+     "bias_over_sd": 0.00782,
+     "coverage_95": 0.9505,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 1.00535,
+     "max": 1.00535,
+     "bias_over_sd": 0.06673,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 0.99877,
+     "max": 0.99877,
+     "bias_over_sd": 0.03684,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 1.0055,
+     "max": 1.0055,
+     "bias_over_sd": 0.05357,
+     "coverage_95": 0.9495,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00839,
+     "max": 1.00839,
+     "bias_over_sd": 0.03429,
+     "coverage_95": 0.95025,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99636,
+     "max": 0.99636,
+     "bias_over_sd": 0.00828,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00427,
+     "max": 1.00427,
+     "bias_over_sd": 0.065,
+     "coverage_95": 0.9535,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.995,
+     "max": 0.995,
+     "bias_over_sd": 0.04048,
+     "coverage_95": 0.95125,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00509,
+     "max": 1.00509,
+     "bias_over_sd": 0.05377,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 30-plane CPMG, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.00256,
+     0.00256
+    ],
+    "partner_correlation": [
+     0.02959,
+     0.02959
+    ],
+    "misstatement": {
+     "R20_A": 0.99757,
+     "R20_B": 1.0,
+     "Phi_A": 0.9938,
+     "Phi_B": 1.00052,
+     "kex": 0.99294
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98498,
+     "max": 1.02189,
+     "bias_over_sd": 0.04369,
+     "coverage_95": 0.94992,
+     "coverage_se": 0.00054,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.972,
+     "max": 1.02384,
+     "bias_over_sd": 0.05299,
+     "coverage_95": 0.95067,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.96187,
+     "max": 1.02179,
+     "bias_over_sd": 0.05533,
+     "coverage_95": 0.95097,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.96222,
+     "max": 1.02656,
+     "bias_over_sd": 0.06836,
+     "coverage_95": 0.95139,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 1.00244,
+     "max": 1.00244,
+     "bias_over_sd": 0.03722,
+     "coverage_95": 0.95375,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 0.97607,
+     "max": 0.97607,
+     "bias_over_sd": 0.01562,
+     "coverage_95": 0.95575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 0.99577,
+     "max": 0.99577,
+     "bias_over_sd": 0.06551,
+     "coverage_95": 0.95375,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 0.99959,
+     "max": 0.99959,
+     "bias_over_sd": 0.03542,
+     "coverage_95": 0.9475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.99587,
+     "max": 0.99587,
+     "bias_over_sd": 0.04962,
+     "coverage_95": 0.9455,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00269,
+     "max": 1.00269,
+     "bias_over_sd": 0.03701,
+     "coverage_95": 0.953,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.97352,
+     "max": 0.97352,
+     "bias_over_sd": 0.01662,
+     "coverage_95": 0.9565,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00004,
+     "max": 1.00004,
+     "bias_over_sd": 0.06333,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99625,
+     "max": 0.99625,
+     "bias_over_sd": 0.04259,
+     "coverage_95": 0.94825,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00077,
+     "max": 1.00077,
+     "bias_over_sd": 0.05107,
+     "coverage_95": 0.9445,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "no_apod, 30-plane CPMG, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.01282,
+     0.01282
+    ],
+    "partner_correlation": [
+     0.0762,
+     0.0762
+    ],
+    "misstatement": {
+     "R20_A": 0.99359,
+     "R20_B": 0.99969,
+     "Phi_A": 0.98423,
+     "Phi_B": 1.00285,
+     "kex": 0.98165
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98246,
+     "max": 1.02055,
+     "bias_over_sd": 0.05529,
+     "coverage_95": 0.94958,
+     "coverage_se": 0.00062,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97747,
+     "max": 1.02822,
+     "bias_over_sd": 0.04749,
+     "coverage_95": 0.95043,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.9694,
+     "max": 1.02323,
+     "bias_over_sd": 0.04846,
+     "coverage_95": 0.95075,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.96994,
+     "max": 1.02453,
+     "bias_over_sd": 0.0548,
+     "coverage_95": 0.95126,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 1.00834,
+     "max": 1.00834,
+     "bias_over_sd": 0.02767,
+     "coverage_95": 0.94875,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 0.98744,
+     "max": 0.98744,
+     "bias_over_sd": 0.01772,
+     "coverage_95": 0.95225,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 1.00052,
+     "max": 1.00052,
+     "bias_over_sd": 0.06096,
+     "coverage_95": 0.95475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.00663,
+     "max": 1.00663,
+     "bias_over_sd": 0.03467,
+     "coverage_95": 0.95075,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.99661,
+     "max": 0.99661,
+     "bias_over_sd": 0.03911,
+     "coverage_95": 0.94825,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01359,
+     "max": 1.01359,
+     "bias_over_sd": 0.02556,
+     "coverage_95": 0.94675,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98413,
+     "max": 0.98413,
+     "bias_over_sd": 0.01908,
+     "coverage_95": 0.9525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01639,
+     "max": 1.01639,
+     "bias_over_sd": 0.05381,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00235,
+     "max": 1.00235,
+     "bias_over_sd": 0.04599,
+     "coverage_95": 0.95275,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01489,
+     "max": 1.01489,
+     "bias_over_sd": 0.03909,
+     "coverage_95": 0.94425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "no_apod, 30-plane CPMG, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.06592,
+     0.06592
+    ],
+    "partner_correlation": [
+     0.1897,
+     0.1897
+    ],
+    "misstatement": {
+     "R20_A": 0.98324,
+     "R20_B": 0.9976,
+     "Phi_A": 0.9619,
+     "Phi_B": 1.01514,
+     "kex": 0.95334
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.97421,
+     "max": 1.03804,
+     "bias_over_sd": 0.03895,
+     "coverage_95": 0.95002,
+     "coverage_se": 0.00085,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.96942,
+     "max": 1.02624,
+     "bias_over_sd": 0.03814,
+     "coverage_95": 0.95051,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.96779,
+     "max": 1.02619,
+     "bias_over_sd": 0.04048,
+     "coverage_95": 0.95086,
+     "coverage_se": 0.00057,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.96792,
+     "max": 1.03156,
+     "bias_over_sd": 0.06023,
+     "coverage_95": 0.95121,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 0.98712,
+     "max": 0.98712,
+     "bias_over_sd": 0.00101,
+     "coverage_95": 0.9535,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 0.98998,
+     "max": 0.98998,
+     "bias_over_sd": 0.0183,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 0.96249,
+     "max": 0.96249,
+     "bias_over_sd": 0.03327,
+     "coverage_95": 0.95975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.01265,
+     "max": 1.01265,
+     "bias_over_sd": 0.02039,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.94317,
+     "max": 0.94317,
+     "bias_over_sd": 0.03463,
+     "coverage_95": 0.96475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99939,
+     "max": 0.99939,
+     "bias_over_sd": 0.00106,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98787,
+     "max": 0.98787,
+     "bias_over_sd": 0.02092,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99715,
+     "max": 0.99715,
+     "bias_over_sd": 0.02581,
+     "coverage_95": 0.95325,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99511,
+     "max": 0.99511,
+     "bias_over_sd": 0.04159,
+     "coverage_95": 0.9545,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98396,
+     "max": 0.98396,
+     "bias_over_sd": 0.04065,
+     "coverage_95": 0.95475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "no_apod, 30-plane CEST, isolated": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0
+    ],
+    "partner_correlation": [
+     0.0
+    ],
+    "misstatement": {
+     "depth_A": 1.0,
+     "offset_A": 1.0,
+     "width_A": 1.0
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 30,
+     "min": 0.97493,
+     "max": 1.02543,
+     "bias_over_sd": 0.03258,
+     "coverage_95": 0.95022,
+     "coverage_se": 0.00066,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 30,
+     "min": 0.97148,
+     "max": 1.02531,
+     "bias_over_sd": 0.03119,
+     "coverage_95": 0.94933,
+     "coverage_se": 0.00063,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 30,
+     "min": 0.96928,
+     "max": 1.02582,
+     "bias_over_sd": 0.03307,
+     "coverage_95": 0.94957,
+     "coverage_se": 0.00088,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.00502,
+     "max": 1.00502,
+     "bias_over_sd": 0.01924,
+     "coverage_95": 0.94625,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 1.00978,
+     "max": 1.00978,
+     "bias_over_sd": 0.00894,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 1.00637,
+     "max": 1.00637,
+     "bias_over_sd": 0.02036,
+     "coverage_95": 0.944,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00374,
+     "max": 1.00374,
+     "bias_over_sd": 0.01924,
+     "coverage_95": 0.947,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00864,
+     "max": 1.00864,
+     "bias_over_sd": 0.00894,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00507,
+     "max": 1.00507,
+     "bias_over_sd": 0.02036,
+     "coverage_95": 0.944,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 30-plane CEST, pair 4 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.00043,
+     0.00043
+    ],
+    "partner_correlation": [
+     0.01484,
+     0.01484
+    ],
+    "misstatement": {
+     "depth_A": 1.00004,
+     "offset_A": 0.99998,
+     "width_A": 0.99998,
+     "depth_B": 1.00001,
+     "offset_B": 0.99999,
+     "width_B": 0.99999
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98002,
+     "max": 1.03032,
+     "bias_over_sd": 0.05055,
+     "coverage_95": 0.94989,
+     "coverage_se": 0.00048,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97666,
+     "max": 1.02802,
+     "bias_over_sd": 0.05684,
+     "coverage_95": 0.94988,
+     "coverage_se": 0.00044,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.98181,
+     "max": 1.02728,
+     "bias_over_sd": 0.04622,
+     "coverage_95": 0.95045,
+     "coverage_se": 0.00065,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.00222,
+     "max": 1.00222,
+     "bias_over_sd": 0.03957,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 0.98857,
+     "max": 0.98857,
+     "bias_over_sd": 0.00281,
+     "coverage_95": 0.953,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 0.99688,
+     "max": 0.99688,
+     "bias_over_sd": 0.02654,
+     "coverage_95": 0.9465,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 1.01027,
+     "max": 1.01027,
+     "bias_over_sd": 0.02675,
+     "coverage_95": 0.9465,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 0.99586,
+     "max": 0.99586,
+     "bias_over_sd": 0.01394,
+     "coverage_95": 0.94625,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 1.01123,
+     "max": 1.01123,
+     "bias_over_sd": 0.02299,
+     "coverage_95": 0.948,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00075,
+     "max": 1.00075,
+     "bias_over_sd": 0.03658,
+     "coverage_95": 0.94975,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98751,
+     "max": 0.98751,
+     "bias_over_sd": 0.00266,
+     "coverage_95": 0.9545,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99544,
+     "max": 0.99544,
+     "bias_over_sd": 0.02629,
+     "coverage_95": 0.94675,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00867,
+     "max": 1.00867,
+     "bias_over_sd": 0.02635,
+     "coverage_95": 0.947,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99466,
+     "max": 0.99466,
+     "bias_over_sd": 0.01431,
+     "coverage_95": 0.947,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00989,
+     "max": 1.00989,
+     "bias_over_sd": 0.02166,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 30-plane CEST, pair 3 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.00429,
+     0.00429
+    ],
+    "partner_correlation": [
+     0.02959,
+     0.02959
+    ],
+    "misstatement": {
+     "depth_A": 1.00041,
+     "offset_A": 0.99977,
+     "width_A": 0.99982,
+     "depth_B": 1.00008,
+     "offset_B": 0.99986,
+     "width_B": 0.99986
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.97381,
+     "max": 1.02858,
+     "bias_over_sd": 0.04755,
+     "coverage_95": 0.9498,
+     "coverage_se": 0.00052,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.96743,
+     "max": 1.02866,
+     "bias_over_sd": 0.04116,
+     "coverage_95": 0.95006,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.97256,
+     "max": 1.03191,
+     "bias_over_sd": 0.04331,
+     "coverage_95": 0.95028,
+     "coverage_se": 0.00063,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.00447,
+     "max": 1.00447,
+     "bias_over_sd": 0.02289,
+     "coverage_95": 0.9455,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 1.02429,
+     "max": 1.02429,
+     "bias_over_sd": 0.00651,
+     "coverage_95": 0.94475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 1.02025,
+     "max": 1.02025,
+     "bias_over_sd": 0.01832,
+     "coverage_95": 0.94375,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 1.00539,
+     "max": 1.00539,
+     "bias_over_sd": 0.03964,
+     "coverage_95": 0.947,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 1.00359,
+     "max": 1.00359,
+     "bias_over_sd": 0.00765,
+     "coverage_95": 0.951,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 1.00839,
+     "max": 1.00839,
+     "bias_over_sd": 0.0052,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00328,
+     "max": 1.00328,
+     "bias_over_sd": 0.01852,
+     "coverage_95": 0.9475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.02469,
+     "max": 1.02469,
+     "bias_over_sd": 0.00671,
+     "coverage_95": 0.94325,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01958,
+     "max": 1.01958,
+     "bias_over_sd": 0.01772,
+     "coverage_95": 0.94375,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.005,
+     "max": 1.005,
+     "bias_over_sd": 0.03649,
+     "coverage_95": 0.94775,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00243,
+     "max": 1.00243,
+     "bias_over_sd": 0.00776,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.0066,
+     "max": 1.0066,
+     "bias_over_sd": 0.00488,
+     "coverage_95": 0.95225,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 30-plane CEST, pair 2.5 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.02096,
+     0.02096
+    ],
+    "partner_correlation": [
+     0.0762,
+     0.0762
+    ],
+    "misstatement": {
+     "depth_A": 1.002,
+     "offset_A": 0.9989,
+     "width_A": 0.99914,
+     "depth_B": 1.00039,
+     "offset_B": 0.9993,
+     "width_B": 0.99933
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.97053,
+     "max": 1.02124,
+     "bias_over_sd": 0.03125,
+     "coverage_95": 0.95116,
+     "coverage_se": 0.00061,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97417,
+     "max": 1.02038,
+     "bias_over_sd": 0.03114,
+     "coverage_95": 0.95015,
+     "coverage_se": 0.00044,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.97374,
+     "max": 1.02011,
+     "bias_over_sd": 0.03739,
+     "coverage_95": 0.95068,
+     "coverage_se": 0.00064,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 0.97728,
+     "max": 0.97728,
+     "bias_over_sd": 0.05186,
+     "coverage_95": 0.95525,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 1.0147,
+     "max": 1.0147,
+     "bias_over_sd": 0.00287,
+     "coverage_95": 0.94725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 0.99256,
+     "max": 0.99256,
+     "bias_over_sd": 0.00431,
+     "coverage_95": 0.954,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 1.01789,
+     "max": 1.01789,
+     "bias_over_sd": 0.04101,
+     "coverage_95": 0.94775,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 1.01671,
+     "max": 1.01671,
+     "bias_over_sd": 0.01276,
+     "coverage_95": 0.94425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 1.00641,
+     "max": 1.00641,
+     "bias_over_sd": 0.01255,
+     "coverage_95": 0.94575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.97349,
+     "max": 0.97349,
+     "bias_over_sd": 0.04146,
+     "coverage_95": 0.95625,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01554,
+     "max": 1.01554,
+     "bias_over_sd": 0.00433,
+     "coverage_95": 0.949,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.9922,
+     "max": 0.9922,
+     "bias_over_sd": 0.00566,
+     "coverage_95": 0.95475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01521,
+     "max": 1.01521,
+     "bias_over_sd": 0.03788,
+     "coverage_95": 0.94675,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01723,
+     "max": 1.01723,
+     "bias_over_sd": 0.01454,
+     "coverage_95": 0.9455,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00615,
+     "max": 1.00615,
+     "bias_over_sd": 0.01225,
+     "coverage_95": 0.946,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "no_apod, 30-plane CEST, pair 2 points": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.10309,
+     0.10309
+    ],
+    "partner_correlation": [
+     0.1897,
+     0.1897
+    ],
+    "misstatement": {
+     "depth_A": 1.00968,
+     "offset_A": 0.99467,
+     "width_A": 0.99582,
+     "depth_B": 1.00189,
+     "offset_B": 0.99658,
+     "width_B": 0.99672
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.96796,
+     "max": 1.01736,
+     "bias_over_sd": 0.03633,
+     "coverage_95": 0.94959,
+     "coverage_se": 0.00079,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.96857,
+     "max": 1.02634,
+     "bias_over_sd": 0.03236,
+     "coverage_95": 0.94973,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.96738,
+     "max": 1.02473,
+     "bias_over_sd": 0.04607,
+     "coverage_95": 0.9494,
+     "coverage_se": 0.00067,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.01947,
+     "max": 1.01947,
+     "bias_over_sd": 0.03738,
+     "coverage_95": 0.9465,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 0.99533,
+     "max": 0.99533,
+     "bias_over_sd": 0.0159,
+     "coverage_95": 0.95575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 1.01213,
+     "max": 1.01213,
+     "bias_over_sd": 0.01092,
+     "coverage_95": 0.94575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 1.01369,
+     "max": 1.01369,
+     "bias_over_sd": 0.06876,
+     "coverage_95": 0.944,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 0.97915,
+     "max": 0.97915,
+     "bias_over_sd": 0.00897,
+     "coverage_95": 0.952,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 1.01479,
+     "max": 1.01479,
+     "bias_over_sd": 0.00288,
+     "coverage_95": 0.94475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01257,
+     "max": 1.01257,
+     "bias_over_sd": 0.01785,
+     "coverage_95": 0.94675,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.9966,
+     "max": 0.9966,
+     "bias_over_sd": 0.01673,
+     "coverage_95": 0.95475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01408,
+     "max": 1.01408,
+     "bias_over_sd": 0.01218,
+     "coverage_95": 0.9445,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00675,
+     "max": 1.00675,
+     "bias_over_sd": 0.06671,
+     "coverage_95": 0.9485,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98722,
+     "max": 0.98722,
+     "bias_over_sd": 0.01033,
+     "coverage_95": 0.95125,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01689,
+     "max": 1.01689,
+     "bias_over_sd": 0.00412,
+     "coverage_95": 0.94625,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "passes": null
+  },
+  "sp2, 1 plane, pair 3 points, shared phase": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.09652,
+     0.09652
+    ]
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 1.01205,
+     "max": 1.01259,
+     "bias_over_sd": 0.04734,
+     "coverage_95": 0.94588,
+     "coverage_se": 0.00297,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": true
+  },
+  "sp2, 1 plane, pair 1 point (near-coalescent)": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.0,
+     0.0
+    ],
+    "partner_correlation": [
+     0.78632,
+     0.78632
+    ]
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 2,
+     "min": 1.11401,
+     "max": 1.11988,
+     "bias_over_sd": 0.16174,
+     "coverage_95": 0.6885,
+     "coverage_se": 0.00722,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    }
+   },
+   "flagged_fraction": 0.99975,
+   "passes": null
+  },
+  "sp2, 3-plane decay, pair 3 points, shared phase": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.04769,
+     0.04774
+    ],
+    "partner_correlation": [
+     0.09652,
+     0.09652
+    ],
+    "misstatement": {
+     "R_A": 1.01332,
+     "R_B": 1.01195
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 0.97377,
+     "max": 0.9988,
+     "bias_over_sd": 0.0431,
+     "coverage_95": 0.95108,
+     "coverage_se": 0.00204,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 0.98734,
+     "max": 1.02064,
+     "bias_over_sd": 0.00891,
+     "coverage_95": 0.94946,
+     "coverage_se": 0.00162,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 4,
+     "min": 0.98807,
+     "max": 1.0173,
+     "bias_over_sd": 0.02182,
+     "coverage_95": 0.94844,
+     "coverage_se": 0.0018,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.01191,
+     "max": 1.01191,
+     "bias_over_sd": 0.0116,
+     "coverage_95": 0.95,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.01412,
+     "max": 1.01412,
+     "bias_over_sd": 0.00361,
+     "coverage_95": 0.94275,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99749,
+     "max": 0.99749,
+     "bias_over_sd": 0.01061,
+     "coverage_95": 0.9535,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00169,
+     "max": 1.00169,
+     "bias_over_sd": 0.00523,
+     "coverage_95": 0.9465,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp2, 3-plane decay, pair 1 point (near-coalescent)": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     4.92741,
+     4.92741
+    ],
+    "partner_correlation": [
+     0.78632,
+     0.78632
+    ],
+    "misstatement": {
+     "R_A": 1.44628,
+     "R_B": 1.33736
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 6,
+     "min": 1.03483,
+     "max": 1.04522,
+     "bias_over_sd": 0.05286,
+     "coverage_95": 0.86621,
+     "coverage_se": 0.00495,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 6,
+     "min": 1.0327,
+     "max": 1.06155,
+     "bias_over_sd": 0.15497,
+     "coverage_95": 0.91571,
+     "coverage_se": 0.00249,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R_A": {
+     "quantities": 1,
+     "min": 1.71934,
+     "max": 1.71934,
+     "bias_over_sd": 0.12294,
+     "coverage_95": 0.823,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R_B": {
+     "quantities": 1,
+     "min": 1.42196,
+     "max": 1.42196,
+     "bias_over_sd": 0.05198,
+     "coverage_95": 0.8365,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.51058,
+     "max": 1.51058,
+     "bias_over_sd": 0.11244,
+     "coverage_95": 0.88,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    }
+   },
+   "flagged_fraction": 1.0,
+   "ratios_withheld": {
+    "reference not distinguishable from its uncertainty": 4000
+   },
+   "passes": null
+  },
+  "sp2, 30-plane CPMG, pair 3 points, shared phase": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.02568,
+     0.02567
+    ],
+    "partner_correlation": [
+     0.09652,
+     0.09652
+    ],
+    "misstatement": {
+     "R20_A": 0.99167,
+     "R20_B": 0.99915,
+     "Phi_A": 0.98042,
+     "Phi_B": 1.00582,
+     "kex": 0.9766
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98415,
+     "max": 1.02932,
+     "bias_over_sd": 0.06898,
+     "coverage_95": 0.94905,
+     "coverage_se": 0.0008,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.9689,
+     "max": 1.02026,
+     "bias_over_sd": 0.05471,
+     "coverage_95": 0.95045,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 58,
+     "min": 0.97534,
+     "max": 1.0176,
+     "bias_over_sd": 0.05463,
+     "coverage_95": 0.9513,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "r2eff": {
+     "quantities": 58,
+     "min": 0.97763,
+     "max": 1.01866,
+     "bias_over_sd": 0.04949,
+     "coverage_95": 0.9519,
+     "coverage_se": 0.00056,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 0.98731,
+     "max": 0.98731,
+     "bias_over_sd": 0.01836,
+     "coverage_95": 0.9515,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 1.01219,
+     "max": 1.01219,
+     "bias_over_sd": 0.01049,
+     "coverage_95": 0.94725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 0.98657,
+     "max": 0.98657,
+     "bias_over_sd": 0.04147,
+     "coverage_95": 0.95725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.01306,
+     "max": 1.01306,
+     "bias_over_sd": 0.0329,
+     "coverage_95": 0.95425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.97448,
+     "max": 0.97448,
+     "bias_over_sd": 0.02777,
+     "coverage_95": 0.9585,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99174,
+     "max": 0.99174,
+     "bias_over_sd": 0.01688,
+     "coverage_95": 0.95025,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00713,
+     "max": 1.00713,
+     "bias_over_sd": 0.01244,
+     "coverage_95": 0.949,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00422,
+     "max": 1.00422,
+     "bias_over_sd": 0.0333,
+     "coverage_95": 0.9535,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00251,
+     "max": 1.00251,
+     "bias_over_sd": 0.04862,
+     "coverage_95": 0.9565,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99473,
+     "max": 0.99473,
+     "bias_over_sd": 0.03041,
+     "coverage_95": 0.9555,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp2, 30-plane CPMG, pair 1 point (near-coalescent)": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     3.82999,
+     3.82999
+    ],
+    "partner_correlation": [
+     0.78632,
+     0.78632
+    ],
+    "misstatement": {
+     "R20_A": 0.86652,
+     "R20_B": 0.8619,
+     "Phi_A": 1.00862,
+     "Phi_B": 1.61553,
+     "kex": 0.76856
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 1.10785,
+     "max": 1.1398,
+     "bias_over_sd": 0.0442,
+     "coverage_95": 0.88306,
+     "coverage_se": 0.00402,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97351,
+     "max": 1.05761,
+     "bias_over_sd": 0.08061,
+     "coverage_95": 0.95006,
+     "coverage_se": 0.00061,
+     "coverage_within_2se": true,
+     "scatter_within_gate": false
+    },
+    "R20_A": {
+     "quantities": 1,
+     "min": 0.88831,
+     "max": 0.88831,
+     "bias_over_sd": 0.05158,
+     "coverage_95": 0.97475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R20_B": {
+     "quantities": 1,
+     "min": 0.91311,
+     "max": 0.91311,
+     "bias_over_sd": 0.17957,
+     "coverage_95": 0.97775,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "Phi_A": {
+     "quantities": 1,
+     "min": 0.99764,
+     "max": 0.99764,
+     "bias_over_sd": 0.00227,
+     "coverage_95": 0.931,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "Phi_B": {
+     "quantities": 1,
+     "min": 1.59261,
+     "max": 1.59261,
+     "bias_over_sd": 0.14096,
+     "coverage_95": 0.79825,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "kex": {
+     "quantities": 1,
+     "min": 0.71691,
+     "max": 0.71691,
+     "bias_over_sd": 0.13071,
+     "coverage_95": 0.991,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "R20_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.2429,
+     "max": 1.2429,
+     "bias_over_sd": 0.0978,
+     "coverage_95": 0.95125,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": false
+    },
+    "R20_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.36986,
+     "max": 1.36986,
+     "bias_over_sd": 0.02212,
+     "coverage_95": 0.97075,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "Phi_A (joint covariance)": {
+     "quantities": 1,
+     "min": 2.44225,
+     "max": 2.44225,
+     "bias_over_sd": 0.17085,
+     "coverage_95": 0.79375,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "Phi_B (joint covariance)": {
+     "quantities": 1,
+     "min": 2.62389,
+     "max": 2.62389,
+     "bias_over_sd": 0.1643,
+     "coverage_95": 0.769,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "kex (joint covariance)": {
+     "quantities": 1,
+     "min": 0.97596,
+     "max": 0.97596,
+     "bias_over_sd": 0.08134,
+     "coverage_95": 0.957,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "ratios_withheld": {
+    "reference not distinguishable from its uncertainty": 4000
+   },
+   "passes": null
+  },
+  "sp2, 30-plane CEST, pair 3 points, shared phase": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     0.04176,
+     0.04161
+    ],
+    "partner_correlation": [
+     0.09652,
+     0.09652
+    ],
+    "misstatement": {
+     "depth_A": 1.00397,
+     "offset_A": 0.99782,
+     "width_A": 0.99829,
+     "depth_B": 1.00077,
+     "offset_B": 0.99861,
+     "width_B": 0.99867
+    }
+   },
+   "flagged": false,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 0.98125,
+     "max": 1.03154,
+     "bias_over_sd": 0.04968,
+     "coverage_95": 0.9502,
+     "coverage_se": 0.00072,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97763,
+     "max": 1.03094,
+     "bias_over_sd": 0.03903,
+     "coverage_95": 0.94971,
+     "coverage_se": 0.00045,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.98433,
+     "max": 1.02828,
+     "bias_over_sd": 0.04283,
+     "coverage_95": 0.94847,
+     "coverage_se": 0.00067,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.0213,
+     "max": 1.0213,
+     "bias_over_sd": 0.02955,
+     "coverage_95": 0.94475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 1.00004,
+     "max": 1.00004,
+     "bias_over_sd": 0.01613,
+     "coverage_95": 0.95225,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 0.99003,
+     "max": 0.99003,
+     "bias_over_sd": 0.01844,
+     "coverage_95": 0.958,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 0.99874,
+     "max": 0.99874,
+     "bias_over_sd": 0.05385,
+     "coverage_95": 0.953,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 1.02071,
+     "max": 1.02071,
+     "bias_over_sd": 0.01069,
+     "coverage_95": 0.94425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 0.98771,
+     "max": 0.98771,
+     "bias_over_sd": 0.03406,
+     "coverage_95": 0.9505,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01851,
+     "max": 1.01851,
+     "bias_over_sd": 0.01256,
+     "coverage_95": 0.94425,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00318,
+     "max": 1.00318,
+     "bias_over_sd": 0.01428,
+     "coverage_95": 0.95175,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98999,
+     "max": 0.98999,
+     "bias_over_sd": 0.02024,
+     "coverage_95": 0.95575,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.99521,
+     "max": 0.99521,
+     "bias_over_sd": 0.05271,
+     "coverage_95": 0.95475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.02283,
+     "max": 1.02283,
+     "bias_over_sd": 0.00853,
+     "coverage_95": 0.9445,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.98593,
+     "max": 0.98593,
+     "bias_over_sd": 0.03445,
+     "coverage_95": 0.94925,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 0.0,
+   "passes": false
+  },
+  "sp2, 30-plane CEST, pair 1 point (near-coalescent)": {
+   "realizations": 4000,
+   "factors_withheld": 0,
+   "noise_free": {
+    "modes": [
+     4.70206,
+     4.70206
+    ],
+    "partner_correlation": [
+     0.78632,
+     0.78632
+    ],
+    "misstatement": {
+     "depth_A": 1.22806,
+     "offset_A": 0.85619,
+     "width_A": 0.87929,
+     "depth_B": 1.05176,
+     "offset_B": 0.882,
+     "width_B": 0.89707
+    }
+   },
+   "flagged": true,
+   "quantities": {
+    "marginal": {
+     "quantities": 60,
+     "min": 1.01021,
+     "max": 1.03574,
+     "bias_over_sd": 0.03655,
+     "coverage_95": 0.93603,
+     "coverage_se": 0.00283,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "profile": {
+     "quantities": 60,
+     "min": 0.97034,
+     "max": 1.02602,
+     "bias_over_sd": 0.06437,
+     "coverage_95": 0.95101,
+     "coverage_se": 0.00057,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "ratio": {
+     "quantities": 60,
+     "min": 0.04209,
+     "max": 1.63538,
+     "bias_over_sd": 16.18153,
+     "coverage_95": 0.96667,
+     "coverage_se": 0.02546,
+     "coverage_within_2se": true,
+     "scatter_within_gate": false
+    },
+    "depth_A": {
+     "quantities": 1,
+     "min": 1.25915,
+     "max": 1.25915,
+     "bias_over_sd": 0.02555,
+     "coverage_95": 0.88825,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "offset_A": {
+     "quantities": 1,
+     "min": 0.87056,
+     "max": 0.87056,
+     "bias_over_sd": 0.01466,
+     "coverage_95": 0.97475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "width_A": {
+     "quantities": 1,
+     "min": 0.88501,
+     "max": 0.88501,
+     "bias_over_sd": 0.0252,
+     "coverage_95": 0.97225,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "depth_B": {
+     "quantities": 1,
+     "min": 1.0658,
+     "max": 1.0658,
+     "bias_over_sd": 0.07878,
+     "coverage_95": 0.93,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "offset_B": {
+     "quantities": 1,
+     "min": 0.9101,
+     "max": 0.9101,
+     "bias_over_sd": 0.00539,
+     "coverage_95": 0.96625,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "width_B": {
+     "quantities": 1,
+     "min": 0.93118,
+     "max": 0.93118,
+     "bias_over_sd": 0.03904,
+     "coverage_95": 0.963,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "depth_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.11922,
+     "max": 1.11922,
+     "bias_over_sd": 0.16218,
+     "coverage_95": 0.91725,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "offset_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01727,
+     "max": 1.01727,
+     "bias_over_sd": 0.01443,
+     "coverage_95": 0.94225,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": true
+    },
+    "width_A (joint covariance)": {
+     "quantities": 1,
+     "min": 1.01848,
+     "max": 1.01848,
+     "bias_over_sd": 0.00282,
+     "coverage_95": 0.94475,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "depth_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.07691,
+     "max": 1.07691,
+     "bias_over_sd": 0.21153,
+     "coverage_95": 0.9355,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": false,
+     "scatter_within_gate": false
+    },
+    "offset_B (joint covariance)": {
+     "quantities": 1,
+     "min": 0.97963,
+     "max": 0.97963,
+     "bias_over_sd": 0.00474,
+     "coverage_95": 0.9565,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    },
+    "width_B (joint covariance)": {
+     "quantities": 1,
+     "min": 1.00081,
+     "max": 1.00081,
+     "bias_over_sd": 0.00584,
+     "coverage_95": 0.94925,
+     "coverage_se": 0.00345,
+     "coverage_within_2se": true,
+     "scatter_within_gate": true
+    }
+   },
+   "flagged_fraction": 1.0,
+   "ratios_withheld": {
+    "reference not distinguishable from its uncertainty": 3997
+   },
+   "passes": null
+  }
+ }
+}

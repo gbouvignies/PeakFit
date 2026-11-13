@@ -1244,3 +1244,17 @@ Short records of non‑obvious design choices and trade‑offs.
   `profile_standard_errors_<cluster>`, the published `intensity_err`. Every
   existing entry, amplitudes and fitted values included, is bit-identical; the JSON
   differs only in its source commit.
+
+## 2026-11-13: correlated-profile thresholds from T3 (#163)
+- **Thresholds.** A peak is flagged where the largest correlated mode of Σ_rel
+  exceeds 0.1c, or its within-plane |ρ| with a cluster partner exceeds 0.15
+  (profile-uncertainty §6, §8.1). The flag itself is #164.
+- **Why these values.** They are set by consequence: the misstatement of downstream
+  σ (decay, global CPMG with shared kex, CEST dip) when the profile σ is used as
+  independent errors, with a 5% tolerance. In T3's first-order sweep the tolerance
+  is first crossed at a mode of 0.134c (own parameters) and at |ρ| = 0.205 (kex,
+  shared by a joint fit). Rounded down for margin, the worst unflagged misstatement
+  is 3.8%.
+- **Gate.** The scatter criterion is met; the coverage criterion as written is not,
+  by multiplicity and a 0.1–0.2 point over-coverage of R2eff. The choice of criterion
+  is open (profile-uncertainty §10 item 5).

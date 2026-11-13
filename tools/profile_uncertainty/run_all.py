@@ -26,6 +26,12 @@ STUDIES = {
     "cest_replicates": [],
     "curvature_term": [],
     "lp_known_truth": [],
+    "profile_coverage": [
+        "--realizations",
+        "4000",
+        "--output",
+        str(RECORDS / "profile_coverage.json"),
+    ],
 }
 
 
