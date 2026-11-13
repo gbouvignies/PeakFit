@@ -144,6 +144,11 @@ model: frozen evaluations can carry unavailable uncertainties plus an explicit
 warning. Numerical usability, optimizer termination and peak identifiability
 remain distinct. See [the scientific overlap validation](validation/overlapping-peaks.md).
 
+`engine.algorithms.covariance_factors` computes, with each analytical evaluation, the
+per-cluster factors of the amplitude covariance between planes
+([profile-uncertainty §3.1](profile-uncertainty.md)) and rebuilds that covariance from
+them and the amplitudes. It adds no withholding rule and is not yet published.
+
 
 ## GUI v2: open → inspect → edit → fit → compare → save → reopen
 

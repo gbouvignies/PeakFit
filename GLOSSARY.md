@@ -210,6 +210,13 @@ parameters. It is the right error for a single amplitude; used as independent
 per-plane errors it overstates downstream errors, because its lineshape part is
 correlated across planes (`docs/profile-uncertainty.md` §3.3).
 
+**Covariance factors**:
+The per-cluster quantities that, with the fitted amplitudes, rebuild the first-order
+covariance of the amplitudes between any two planes: the conditional amplitude
+covariance, two lineshape-propagation tensors and the lineshape-parameter covariance
+(`docs/profile-uncertainty.md` §3.1). Their size does not grow with the number of
+planes.
+
 **Relative-profile covariance**:
 Σ_rel = cI + PLP for one peak, with c its conditional variance, L = Σ − cI the
 lineshape part and P the projector orthogonal to its profile. It is exactly

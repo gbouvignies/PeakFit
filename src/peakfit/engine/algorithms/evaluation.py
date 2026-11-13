@@ -8,8 +8,14 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from peakfit.engine.algorithms.covariance_factors import (
+    CovarianceFactors,
+    covariance_factors,
+    peak_derivatives,
+)
 from peakfit.engine.algorithms.linear_algebra import calculate_amplitudes_with_uncertainty
 from peakfit.engine.algorithms.noise_correlation import modelled_correlation
+from peakfit.engine.algorithms.varpro import at_active_bound
 from peakfit.engine.results import (
     compute_chi_squared,
     compute_degrees_of_freedom,
@@ -59,6 +65,9 @@ class AnalyticalModelEvaluation:
     normalized_residuals: FloatArray
     statistics: AnalyticalFitStatistics
     uncertainty_warning: str | None = None
+    # The factors of the amplitude covariance between planes (profile-uncertainty §3.1);
+    # computed, not yet published.
+    covariance_factors: CovarianceFactors | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +94,19 @@ class FitEvaluation:
     def usable(self) -> bool:
         """Return whether the result may contribute numerical state."""
         return self.classification is not FitOutcomeClassification.UNUSABLE
+
+
+# What a lineshape evaluation may raise on parameter values it cannot evaluate.
+_LINESHAPE_ERRORS = (
+    AttributeError,
+    IndexError,
+    KeyError,
+    OverflowError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+    np.linalg.LinAlgError,
+)
 
 
 class _InvalidEvaluationError(ValueError):
@@ -170,7 +192,39 @@ def _evaluate_analytical_model(
         normalized_residuals=normalized_residuals,
         statistics=statistics,
         uncertainty_warning=uncertainty_warning,
+        covariance_factors=_covariance_factors(
+            cluster, params, nonlinear_names, shapes, amplitudes, covariance, noise, correlation
+        ),
     )
+
+
+def _covariance_factors(
+    cluster: Cluster,
+    params: Parameters,
+    nonlinear_names: list[str],
+    shapes: FloatArray,
+    amplitudes: FloatArray,
+    covariance: FloatArray,
+    noise: float,
+    correlation: FloatArray | None,
+) -> CovarianceFactors:
+    """The factors, withheld rather than failing the evaluation on a numerical error."""
+    try:
+        derivatives = peak_derivatives(cluster, params, _free(params, nonlinear_names))
+    except _LINESHAPE_ERRORS:
+        return CovarianceFactors(covariance, None, None, None)
+    return covariance_factors(shapes, derivatives, amplitudes, covariance, noise, correlation)
+
+
+def _free(params: Parameters, names: list[str]) -> list[str]:
+    """The varied parameters not held at an active bound: the free lineshape θ."""
+    varied = [name for name in names if params[name].vary]
+    values, lower, upper = (
+        np.array([getattr(params[name], field) for name in varied], dtype=np.float64)
+        for field in ("value", "min", "max")
+    )
+    active = at_active_bound(values, lower, upper)
+    return [name for name, held in zip(varied, active, strict=True) if not held]
 
 
 def _evaluate_inputs(
@@ -179,16 +233,7 @@ def _evaluate_inputs(
 ) -> tuple[FloatArray, FloatArray]:
     try:
         shapes = np.asarray(cluster.evaluate(params), dtype=np.float64)
-    except (
-        AttributeError,
-        IndexError,
-        KeyError,
-        OverflowError,
-        RuntimeError,
-        TypeError,
-        ValueError,
-        np.linalg.LinAlgError,
-    ) as error:
+    except _LINESHAPE_ERRORS as error:
         raise _InvalidEvaluationError(
             f"lineshape evaluation failed: {type(error).__name__}: {error}",
         ) from error

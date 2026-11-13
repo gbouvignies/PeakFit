@@ -233,11 +233,16 @@ def _calculate_errors(
     stderrs = np.sqrt(np.diag(identifiable_covariance(jacobian, correlation)))
     lower, upper = optimizer.params_template.get_vary_bounds()
     # Symmetric local errors are not meaningful at a constrained optimum.
-    active = (np.isfinite(lower) & np.isclose(x, lower, rtol=0, atol=1e-7)) | (
-        np.isfinite(upper) & np.isclose(x, upper, rtol=0, atol=1e-7)
-    )
+    active = at_active_bound(x, lower, upper)
     stderrs[active | (stderrs > np.minimum(x - lower, upper - x))] = np.nan
     return stderrs
+
+
+def at_active_bound(values: FloatArray, lower: FloatArray, upper: FloatArray) -> np.ndarray:
+    """Which fitted values sit at a finite bound, where the optimum is constrained."""
+    return (np.isfinite(lower) & np.isclose(values, lower, rtol=0, atol=1e-7)) | (
+        np.isfinite(upper) & np.isclose(values, upper, rtol=0, atol=1e-7)
+    )
 
 
 def identifiable_covariance(jacobian: np.ndarray, correlation: np.ndarray | None) -> np.ndarray:

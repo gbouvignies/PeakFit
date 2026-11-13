@@ -1152,3 +1152,14 @@ Short records of non‑obvious design choices and trade‑offs.
   per-plane errors overstates downstream errors (up to 3× in ChemEx under strong
   overlap). The bundled example's ¹⁵N axis was linearly predicted, which corrects
   [correlated-noise.md](correlated-noise.md) §2.4.
+
+## 2026-11-13: Covariance factors hold active-bound parameters fixed
+- In the amplitude covariance between planes (`docs/profile-uncertainty.md` §3.1), a
+  lineshape parameter at an active bound is locally fixed and leaves θ; one whose error
+  only crosses a bound stays in θ.
+- The lineshape terms are withheld only where `identifiable_covariance`'s rank and
+  conditioning rule withholds, applied to the projected Jacobian. Withholding the
+  whole cluster for one bound parameter would later remove the marginal and profile σ,
+  and so the `intensity_err`, of every peak in that cluster.
+- The cost: the one-sided freedom at the bound is ignored, as in any first-order
+  constrained result. The parameter's own error stays withheld, as before.
