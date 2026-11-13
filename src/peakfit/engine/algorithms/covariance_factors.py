@@ -59,9 +59,16 @@ class CovarianceFactors:
     parameter_covariance: FloatArray | None
 
     @property
+    def lineshape(self) -> tuple[FloatArray, FloatArray, FloatArray] | None:
+        """The shape gain, cross gain and parameter covariance; None where withheld."""
+        if self.shape_gain is None or self.cross_gain is None or self.parameter_covariance is None:
+            return None
+        return self.shape_gain, self.cross_gain, self.parameter_covariance
+
+    @property
     def available(self) -> bool:
         """Whether the covariance between planes can be reconstructed."""
-        return self.parameter_covariance is not None
+        return self.lineshape is not None
 
 
 def peak_derivatives(cluster: Cluster, params: Parameters, names: Sequence[str]) -> FloatArray:
@@ -109,10 +116,8 @@ def covariance_factors(
         factors = _lineshape_factors(
             shapes, derivatives, amplitudes, conditional, noise, correlation
         )
-    finite = all(
-        np.all(np.isfinite(values))
-        for values in (factors.shape_gain, factors.cross_gain, factors.parameter_covariance)
-        if values is not None
+    finite = factors.lineshape is None or all(
+        np.all(np.isfinite(values)) for values in factors.lineshape
     )
     return factors if finite else _withheld(conditional)
 
@@ -162,21 +167,58 @@ def covariance_between_planes(factors: CovarianceFactors, amplitudes: FloatArray
     All NaN where the factors are withheld.
     """
     n_peaks, n_planes = amplitudes.shape
-    if (
-        factors.shape_gain is None
-        or factors.cross_gain is None
-        or factors.parameter_covariance is None
-    ):
+    if factors.lineshape is None:
         return np.full((n_peaks, n_planes, n_peaks, n_planes), np.nan)
-    gain = np.einsum("ms,mlp->slp", amplitudes, factors.shape_gain)  # G_s
-    cross = np.einsum("ms,mlp->slp", amplitudes, factors.cross_gain)  # σ²MRT_sᵀ
+    shape_gain, cross_gain, theta = factors.lineshape
+    gain = np.einsum("ms,mlp->slp", amplitudes, shape_gain)  # G_s
+    cross = np.einsum("ms,mlp->slp", amplitudes, cross_gain)  # σ²MRT_sᵀ
     lineshape = (
-        np.einsum("slp,pq,tkq->lskt", gain, factors.parameter_covariance, gain)
+        np.einsum("slp,pq,tkq->lskt", gain, theta, gain)
         - np.einsum("slp,tkp->lskt", cross, gain)
         - np.einsum("slp,tkp->lskt", gain, cross)
     )
     conditional = np.einsum("lk,st->lskt", factors.conditional, np.eye(n_planes))
     return conditional + lineshape
+
+
+# By peak, (L, S, n_θ): G_s and σ²MRT_sᵀ, or their projections, with σ²C_θ.
+type _PeakGains = tuple[FloatArray, FloatArray, FloatArray]
+
+
+def _peak_gains(factors: CovarianceFactors, amplitudes: FloatArray) -> _PeakGains | None:
+    """G_s and σ²MRT_sᵀ by peak, with σ²C_θ; None where the factors are withheld."""
+    if factors.lineshape is None:
+        return None
+    shape_gain, cross_gain, theta = factors.lineshape
+    gain = np.einsum("ms,mlp->lsp", amplitudes, shape_gain)
+    cross = np.einsum("ms,mlp->lsp", amplitudes, cross_gain)
+    return gain, cross, theta
+
+
+def _peak_block(conditional: FloatArray, gains: _PeakGains, n_planes: int) -> FloatArray:
+    """Each peak's (S × S) block: the conditional term plus the lineshape terms."""
+    gain, cross, theta = gains
+    lineshape = (
+        np.einsum("lsp,pq,ltq->lst", gain, theta, gain)
+        - np.einsum("lsp,ltp->lst", cross, gain)
+        - np.einsum("lsp,ltp->lst", gain, cross)
+    )
+    return np.diag(conditional)[:, None, None] * np.eye(n_planes) + lineshape
+
+
+def _standard_errors(conditional: FloatArray, gains: _PeakGains) -> FloatArray:
+    """The square root of the diagonal of ``_peak_block``, without forming the rest.
+
+    NaN where round-off makes a variance negative: near-coincident peaks can lose the
+    reconstruction's positive definiteness to cancellation.
+    """
+    gain, cross, theta = gains
+    variances = (
+        np.diag(conditional)[:, None]
+        + np.einsum("lsp,pq,lsq->ls", gain, theta, gain)
+        - 2.0 * np.einsum("lsp,lsp->ls", cross, gain)
+    )
+    return np.sqrt(np.where(variances >= 0.0, variances, np.nan))
 
 
 def peak_covariances_between_planes(
@@ -189,21 +231,10 @@ def peak_covariances_between_planes(
     are withheld.
     """
     n_peaks, n_planes = amplitudes.shape
-    if (
-        factors.shape_gain is None
-        or factors.cross_gain is None
-        or factors.parameter_covariance is None
-    ):
+    gains = _peak_gains(factors, amplitudes)
+    if gains is None:
         return np.full((n_peaks, n_planes, n_planes), np.nan)
-    gain = np.einsum("ms,mlp->lsp", amplitudes, factors.shape_gain)  # G_s, by peak
-    cross = np.einsum("ms,mlp->lsp", amplitudes, factors.cross_gain)
-    lineshape = (
-        np.einsum("lsp,pq,ltq->lst", gain, factors.parameter_covariance, gain)
-        - np.einsum("lsp,ltp->lst", cross, gain)
-        - np.einsum("lsp,ltp->lst", gain, cross)
-    )
-    conditional = np.diag(factors.conditional)[:, None, None] * np.eye(n_planes)
-    return conditional + lineshape
+    return _peak_block(factors.conditional, gains, n_planes)
 
 
 def marginal_standard_errors(factors: CovarianceFactors, amplitudes: FloatArray) -> FloatArray:
@@ -212,39 +243,20 @@ def marginal_standard_errors(factors: CovarianceFactors, amplitudes: FloatArray)
     The diagonal of ``covariance_between_planes``, without forming the rest. All NaN
     where the factors are withheld; NaN where round-off makes a variance negative.
     """
-    if (
-        factors.shape_gain is None
-        or factors.cross_gain is None
-        or factors.parameter_covariance is None
-    ):
+    gains = _peak_gains(factors, amplitudes)
+    if gains is None:
         return np.full(amplitudes.shape, np.nan)
-    gain = np.einsum("ms,mlp->lsp", amplitudes, factors.shape_gain)  # G_s, by peak
-    cross = np.einsum("ms,mlp->lsp", amplitudes, factors.cross_gain)
-    variances = (
-        np.diag(factors.conditional)[:, None]
-        + np.einsum("lsp,pq,lsq->ls", gain, factors.parameter_covariance, gain)
-        - 2.0 * np.einsum("lsp,lsp->ls", cross, gain)
-    )
-    # A negative variance is cancellation, not a σ: near-coincident peaks can lose the
-    # reconstruction's positive definiteness to round-off.
-    return np.sqrt(np.where(variances >= 0.0, variances, np.nan))
+    return _standard_errors(factors.conditional, gains)
 
 
-def _projected_gains(
-    factors: CovarianceFactors, amplitudes: FloatArray
-) -> tuple[FloatArray, FloatArray] | None:
-    """PG_s and Pσ²MRT_sᵀ by peak, (L, S, n_θ); None where withheld.
+def _projected_gains(factors: CovarianceFactors, amplitudes: FloatArray) -> _PeakGains | None:
+    """PG_s and Pσ²MRT_sᵀ by peak, with σ²C_θ; None where withheld.
 
     P = I − uuᵀ removes each peak's own profile direction u = a/‖a‖ over the planes.
     """
-    if (
-        factors.shape_gain is None
-        or factors.cross_gain is None
-        or factors.parameter_covariance is None
-    ):
+    gains = _peak_gains(factors, amplitudes)
+    if gains is None:
         return None
-    gain = np.einsum("ms,mlp->lsp", amplitudes, factors.shape_gain)
-    cross = np.einsum("ms,mlp->lsp", amplitudes, factors.cross_gain)
     norms = np.linalg.norm(amplitudes, axis=1, keepdims=True)
     # A zero profile has no direction to remove; its lineshape terms are zero anyway.
     units = np.divide(amplitudes, norms, out=np.zeros_like(amplitudes), where=norms > 0)
@@ -252,7 +264,8 @@ def _projected_gains(
     def project(values: FloatArray) -> FloatArray:
         return values - units[:, :, None] * np.einsum("ls,lsp->lp", units, values)[:, None]
 
-    return project(gain), project(cross)
+    gain, cross, theta = gains
+    return project(gain), project(cross), theta
 
 
 def relative_profile_covariance(factors: CovarianceFactors, amplitudes: FloatArray) -> FloatArray:
@@ -264,15 +277,9 @@ def relative_profile_covariance(factors: CovarianceFactors, amplitudes: FloatArr
     """
     n_peaks, n_planes = amplitudes.shape
     projected = _projected_gains(factors, amplitudes)
-    if projected is None or factors.parameter_covariance is None:
+    if projected is None:
         return np.full((n_peaks, n_planes, n_planes), np.nan)
-    gain, cross = projected
-    lineshape = (
-        np.einsum("lsp,pq,ltq->lst", gain, factors.parameter_covariance, gain)
-        - np.einsum("lsp,ltp->lst", cross, gain)
-        - np.einsum("lsp,ltp->lst", gain, cross)
-    )
-    return np.diag(factors.conditional)[:, None, None] * np.eye(n_planes) + lineshape
+    return _peak_block(factors.conditional, projected, n_planes)
 
 
 def profile_standard_errors(factors: CovarianceFactors, amplitudes: FloatArray) -> FloatArray:
@@ -282,15 +289,9 @@ def profile_standard_errors(factors: CovarianceFactors, amplitudes: FloatArray) 
     where the factors are withheld; NaN where round-off makes a variance negative.
     """
     projected = _projected_gains(factors, amplitudes)
-    if projected is None or factors.parameter_covariance is None:
+    if projected is None:
         return np.full(amplitudes.shape, np.nan)
-    gain, cross = projected
-    variances = (
-        np.diag(factors.conditional)[:, None]
-        + np.einsum("lsp,pq,lsq->ls", gain, factors.parameter_covariance, gain)
-        - 2.0 * np.einsum("lsp,lsp->ls", cross, gain)
-    )
-    return np.sqrt(np.where(variances >= 0.0, variances, np.nan))
+    return _standard_errors(factors.conditional, projected)
 
 
 # The correlated-profile flag (profile-uncertainty §6), set by validation T3 (§8.1):
