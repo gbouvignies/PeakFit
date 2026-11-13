@@ -29,7 +29,8 @@ uv run python tools/profile_uncertainty/run_all.py cest_refit   # one study
 | `ratios.py` | §4 | Ratio errors over 5 planes: conditional, marginal, full covariance |
 | `downstream_decay.py` | §4 | A decay fitted with a free scale: which per-plane σ is calibrated |
 | `global_cpmg.py` | §6a | A ChemEx-like global CPMG fit of an overlapping pair |
-| `lp_known_truth.py` | §2.3, T7 | Known truth through LP: bias and scatter of relative intensities and rates, OLS and GLS; separates lineshape misfit, LP extrapolation and LP noise |
+| `lp_known_truth.py` | §2.3, T7 | Known truth through NMRPipe LP: bias and scatter of relative intensities and rates, OLS and GLS; separates lineshape misfit, LP extrapolation and LP noise |
+| `make_lp_fixtures.py` | T7 | Regenerates `nmrpipe_lp.npz`, the NMRPipe-processed data of `lp_known_truth.py`; the only script that needs NMRPipe |
 
 ## Shared modules
 
@@ -44,6 +45,5 @@ uv run python tools/profile_uncertainty/run_all.py cest_refit   # one study
   ¹⁵N axis was linearly predicted.
 - **Synthetic scope:** the synthetic studies use one processed axis.
 - **First order:** the CEST first-order results are evaluated at the OLS optimum.
-- **LP without NMRPipe:** `lp_known_truth.py` uses a NumPy forward-backward LP in
-  place of NMRPipe's `LP -fb`; its order is set by the example's noise-power
-  signature. Running real NMRPipe on the same FIDs is left open.
+- **LP order:** the example's processing script is not recorded, so T7's LP order
+  is the one that best matches the example's noise-power signature.

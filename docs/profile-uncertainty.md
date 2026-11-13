@@ -163,42 +163,49 @@ What they cannot establish:
   1.6×, together with t1 noise and signal from neighbouring clusters.
 
 **Known truth separates them (T7).** Synthetic planes on the LP axis: 47 acquired
-points extended to 92 by forward-backward LP (order 16, which reproduces the
-example's noise-power signature), then the example's ¹⁵N processing. An isolated
-line and a pair 3 points apart whose partners decay at rates 1 and 2 across seven
-planes, SNR 50, 400 realizations. The identity LP(s + n) = s + [LP(s) − s] +
-[LP(s + n) − LP(s)] splits LP into extrapolation error and LP noise:
+points extended to 92 by NMRPipe's `LP -fb -ord 16`, then the example's ¹⁵N
+processing. The example's processing script is not recorded; of orders 12–20,
+order 16 best matches its noise-power signature (0.57 · 0.47 · 0.22 · 0.12 at
+t = 47 · 48 · 56 · 64, against 0.51 · 0.44 · 0.21 · 0.14). An isolated line and a
+pair 3 points apart whose partners decay at rates 1 and 2 across seven planes,
+SNR 50, 200 realizations. The identity LP(s + n) = s + [LP(s) − s] +
+[LP(s + n) − LP(s)] needs only the processing after LP to be linear, so it splits
+NMRPipe's LP into extrapolation error and LP noise:
 
 | Pair, exact lineshape | χ² / E[χ²] | Rate SD, B | Rate bias / SD, B |
 |---|---|---|---|
-| 47 points, no LP: OLS · GLS header R | 0.99 · 1.01 | 11.0% · 6.3% | 0.08 · 0.04 |
-| LP: OLS · GLS header R · GLS measured R | 2.77 · 4.61 · 22.7 | 9.2% · 19.1% · 177% | 0.81 · 1.15 · 0.55 |
-| s + LP(n), signal-free LP noise: same three | 0.98 · 0.55 · 1.03 | 5.0% · 4.3% · 2.4% | 0.02 · 0.04 · 0.07 |
-| s + LP(s+n) − LP(s), signal-dependent LP noise | 2.75 · 4.57 · 23.9 | identical to LP | identical to LP |
+| 47 points, no LP: OLS · GLS header R | 0.96 · 1.00 | 11.4% · 7.3% | −0.06 · −0.17 |
+| LP: OLS · GLS header R · GLS measured R | 2.82 · 4.61 · 21.3 | 10.1% · 20.3% · 185% | 0.61 · 1.08 · 0.67 |
+| s + LP(n), signal-free LP noise: same three | 0.95 · 0.55 · 1.00 | 5.3% · 3.9% · 2.2% | 0.00 · 0.06 · 0.06 |
+| s + LP(s+n) − LP(s), signal-dependent LP noise | identical to LP | identical to LP | identical to LP |
 
 - **Signal-dependent LP noise explains the GLS behaviour on the example.** With an
   exact lineshape and no extrapolation error, it alone reproduces every feature:
   - OLS χ² is 2.8× its expectation (2.22 on the example);
-  - GLS is worse under the measured R than under the header R (whitened χ² 23 against
+  - GLS is worse under the measured R than under the header R (whitened χ² 21 against
     4.6; on the example 18.4 against 10.9);
-  - GLS scatter exceeds OLS, more for overlapping peaks: rates 2.1× (header R) and
-    19× (measured R) for the pair, relative intensities 1.3× and 3.7× for the
+  - GLS scatter exceeds OLS, more for overlapping peaks: rates 2.0× (header R) and
+    18× (measured R) for the pair, relative intensities 1.3× and 4.0× for the
     isolated line.
-- **Extrapolation error is negligible:** LP extends the noise-free FID exactly, with
-  the exact lineshape and with an unmodelled Gaussian decay.
+- **Extrapolation error is negligible:** NMRPipe's LP extends the noise-free FID
+  exactly, with the exact lineshape and with an unmodelled Gaussian decay.
 - **Signal-free LP noise is benign:** with it, the measured R is exact and GLS under
   it beats OLS. Noise-only columns measure this noise, not the noise under a peak.
 - **Lineshape misfit without LP does not cause the failure:** χ² / E stays at
-  1.0–1.3 for every estimator. Misfit does add a deterministic bias for the pair
+  0.95–1.26 for every estimator. Misfit does add a deterministic bias for the pair
   that GLS amplifies (relative intensity of B: OLS 1.0%, GLS header R −5.8%).
 - **LP also biases OLS for overlapping peaks with differing profiles:** relative
-  intensity of B −13.6% at its worst plane (0.67 SD), rate +7.4% (0.81 SD). Without
-  LP, or for the isolated line, OLS shows no bias above 0.2 SD. A likely cause: LP
-  fits its filter to each plane, so what it propagates depends on that plane's
+  intensity of B −11.1% at its worst plane (0.56 SD), rate +6.2% (0.61 SD); with the
+  Gaussian misfit, −4.8% (0.25 SD) and +3.7% (0.36 SD). With the exact lineshape,
+  OLS shows no bias above 0.2 SD without LP or for the isolated line. A likely cause, not tested: LP fits
+  its filter to each plane, so what it propagates depends on that plane's
   signal-to-noise ratio and does not cancel in ratios.
-- **Limits:** one processed axis; LP is a NumPy implementation of NMRPipe's
-  `LP -fb`, not NMRPipe itself; one SNR and one LP order. Record:
-  [`lp_known_truth.txt`](validation/profile-uncertainty/lp_known_truth.txt).
+- **A NumPy `LP -fb` reproduces NMRPipe's** to 10⁻⁵ σ on the same data
+  (`lp_extend`). A first version of this study, run with it alone on other noise
+  (400 realizations), reached the same conclusions.
+- **Limits:** one processed axis rather than a pseudo-3D; one SNR and one LP order.
+  NMRPipe 13.0 output is committed as fixtures, so the study reruns without NMRPipe.
+  Record: [`lp_known_truth.txt`](validation/profile-uncertainty/lp_known_truth.txt).
 
 ### 2.4 Conclusion
 
@@ -387,7 +394,7 @@ In the pairs, the partner peak decays at 0.2 instead of 1.0.
     - For isolated peaks such an error is a common factor and cancels.
     - For overlapping peaks with differing profiles it can distort relative
       intensities. Only a test with known truth measures that: in T7, LP biases a
-      partner's relative intensity by up to 0.7 SD at SNR 50 (§2.3).
+      partner's relative intensity by up to 0.6 SD at SNR 50 (§2.3).
 
 ### 5.2 The residual excess
 
