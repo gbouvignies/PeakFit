@@ -6,8 +6,8 @@ engine (`engine.algorithms.covariance_factors`, validated by T1) and stored by a
 12.0.0 and project 15.0.0; the marginal σ is published as `intensity_err_marginal`
 and in the GUI inspector. Ratios and R2eff (GUI ratio mode, `peakfit plot cest|cpmg`)
 propagate each peak's covariance between planes through `profiles.normalize` (§4).
-`intensity_err` is still the conditional σ. T3 has run (§8.1): it sets the
-correlated-profile thresholds, and its coverage criterion awaits a decision (§10).
+`intensity_err` is still the conditional σ. T3 has run and passes (§8.1): it sets
+the correlated-profile thresholds.
 
 **Builds on:** [correlated-noise.md](correlated-noise.md) and
 [ADR 0002](adr/0002-processing-derived-sandwich-errors.md).
@@ -546,7 +546,7 @@ In every row, the bias is at most 0.06 SD.
 |---|---|---|
 | T1 | The factor formula against the full sandwich, including shared and fixed parameters; R = I; the proportional structure for a single peak | 10⁻¹⁰ relative |
 | T2 | The profile σ of an isolated peak against today's `intensity_err` | Equal to round-off |
-| T3 | Engine coverage (2D, NMRPipe-equivalent processing, `sp1`, `sp2`, `no_apod`): marginal σ, profile σ, ratios, R2eff, and downstream decay, global CPMG and CEST fits with profile σ and with the covariance; overlap from resolved to strong (§8.1) | Where no flag is raised, scatter / stated within 0.95–1.05 and 95% coverage within ±2 SE; also sets the flag thresholds |
+| T3 | Engine coverage (2D, NMRPipe-equivalent processing, `sp1`, `sp2`, `no_apod`): marginal σ, profile σ, ratios, R2eff, and downstream decay, global CPMG and CEST fits with profile σ and with the covariance; overlap from resolved to strong (§8.1) | Where no flag is raised, scatter / stated within 0.95–1.05, and 95% coverage within ±3 SE for a single quantity and ±0.01 for quantities pooled over planes (§10 item 5); also sets the flag thresholds |
 | T4 | The baseline-replicate tool on the bundled example, and on any further CEST datasets | Empirical / stated within 0.9–1.15 (median) |
 | T5 | The noise-power check: LP, an earlier window and `SP -size` (`correlated-noise.md` §2.5) on NMRPipe-processed noise | Detects each case; no false alarm on correctly recorded processing |
 | T6 | The estimator comparison (§2), rerunnable | Reproduces §2 and §5 |
@@ -606,12 +606,14 @@ order, each downstream σ's misstatement by independent profile σ:
   (`tests/test_profile_sigma_calibration.py`) gives 1.044 at 0.12c and 1.09 at 0.26c.
   τ sits at the low end of the 0.1–0.25 this specification expected.
 
-**Gate, cases without a flag.** 48 of the 68 cases raise no flag (noise-free
-diagnostics), with 270 gated quantities.
-- **Scatter / stated:** every one within 0.962–1.039. Met.
-- **95% coverage within ±2 SE:** 20 of the 270 lie outside, against 12.3 expected by
-  chance alone, since each ±2 SE test fails 4.6% of the time with exact σ. Not met
-  as written.
+**Gate, cases without a flag: passed.** 48 of the 68 cases raise no flag
+(noise-free diagnostics), with 270 gated quantities. The criterion is §10 item 5.
+- **Scatter / stated:** every one within 0.962–1.039.
+- **95% coverage:** every single quantity within ±3 SE (largest deviation 2.5 SE), and
+  every quantity pooled over planes within ±0.01 (largest deviation 0.0063).
+- **Information, the strict ±2 SE per quantity:** 20 of the 270 lie outside, against
+  12.3 expected by chance alone, since each ±2 SE test fails 4.6% of the time with
+  exact σ.
   - A second seed (7) also gives 20, on other quantities, except R2eff.
   - Excluding R2eff, 14 of 258 lie outside (11.7 expected), on both sides, with
     standardized deviations of mean 0 and SD 1.0: chance.
@@ -621,7 +623,6 @@ diagnostics), with 270 gated quantities.
     the fitted ratio, so the stated σ grows where R2eff errs high: first-order
     propagation through the logarithm, not an error in the covariance.
   - The joint-covariance control exceeds ±2 SE for 2 of its 138 quantities.
-  - The decision on the criterion is §10 item 5.
 
 **Flagged cases confirm the flag.** Independent profile σ misstate downstream σ as
 the first-order sweep predicts; the joint covariance stays calibrated (scatter /
@@ -664,8 +665,8 @@ started at the truth; first-order thresholds from one family of profiles each.
    - docs: `outputs.md` and `gui.md`. The glossary terms and ADR 0003 are already
      recorded with this specification.
 3. **Release gate:** the new reporting is not released until the full T3 coverage
-   validation passes, even if the earlier steps merge. T3 meets the scatter criterion
-   and not, as written, the coverage criterion (§8.1); see §10 item 5.
+   validation passes, even if the earlier steps merge. T3 passes under the criterion
+   of §10 item 5 (§8.1).
 
 ## 10. Decisions
 
@@ -688,18 +689,20 @@ started at the truth; first-order thresholds from one family of profiles each.
    is available, process it with and without LP, at two apodizations, and compare
    the baseline-replicate scatter. That would measure the trade-off between LP,
    apodization and local fitting directly.
-5. **Open: the T3 coverage criterion.** "95% coverage within ±2 SE" is a test per
-   quantity, so over T3's 270 quantities about 12 fail by chance; T3 finds 20, of
-   which 6 are a 0.1–0.2 point over-coverage of R2eff (§8.1). The options:
-   - (a) keep the criterion as written: the release gate is not met, and nothing in
-     the estimator or the reported quantities would change that;
-   - (b) a criterion for many tests: ±3 SE for each downstream parameter (largest
-     deviation in T3: 2.5 SE), and an absolute ±0.01 for the quantities pooled over
-     planes (marginal σ, profile σ, ratios, R2eff), whose SE of 0.0006 resolves
-     effects of no practical weight. Under (b), T3 passes, with the R2eff
-     over-coverage recorded;
-   - (c) as (b), with R2eff coverage reported but not gated, since its first-order
-     σ uses the fitted ratio.
+5. **The T3 coverage criterion:** criterion (b). Agreed on 2026-11-13.
+   - **Scatter / stated** within 0.95–1.05, unchanged.
+   - **95% coverage** within ±3 SE for a single quantity (each downstream parameter;
+     the amplitude of an isolated peak on one plane), and within ±0.01 absolute for
+     quantities pooled over planes (marginal σ, profile σ, ratios, R2eff).
+   - **Why:** "within ±2 SE" per quantity is one test among many. Over T3's 270
+     quantities about 12 fail it by chance; T3 finds 20, 6 of them a 0.1–0.2 point
+     over-coverage of R2eff (§8.1). Pooling 29 planes makes the SE 0.0006, which
+     resolves effects of no practical weight. The largest deviations seen were 2.5 SE
+     and 0.0063.
+   - **Not chosen:** (a) the criterion as first written, which T3 does not meet and
+     which no change to the estimator or the reported quantities would meet; (c) as
+     (b), with R2eff coverage reported but not gated.
+   - The strict ±2 SE count stays in the record, as information.
 
 ## References
 

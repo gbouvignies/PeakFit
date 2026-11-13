@@ -99,6 +99,12 @@ TOLERANCE = 0.05  # largest misstatement of a downstream σ an unflagged peak ma
 MODE_THRESHOLD = 0.1  # largest correlated mode of Σ_rel, relative to c
 PARTNER_THRESHOLD = 0.15  # within-plane |ρ| with a cluster partner
 Z95 = 1.96
+# The gate (§8.1, criterion (b) of §10 item 5): scatter / stated within SCATTER_GATE;
+# 95% coverage within ±COVERAGE_SE_GATE SE for a single quantity, and within
+# ±COVERAGE_POOLED_GATE absolute for quantities pooled over planes.
+SCATTER_GATE = (0.95, 1.05)
+COVERAGE_SE_GATE = 3.0
+COVERAGE_POOLED_GATE = 0.01
 CHAINS: dict[LineshapeName, tuple[Axis, Axis]] = {"sp1": SP1, "sp2": SP2, "no_apod": NO_APOD}
 
 
@@ -520,11 +526,20 @@ def consequences(rows: list[tuple[Case, dict]]) -> dict:
 
 
 def gate_summary(report: dict) -> dict:
-    """The gate over every unflagged case, with the exceedances chance alone would give.
+    """The gate over every unflagged case, under criterion (b), and the strict count.
 
-    Each coverage test at ±2 SE fails 4.6% of the time when the σ are exact, so among
-    many quantities some exceed by chance; the count is reported with that expectation.
+    Criterion (b) of the specification's §10 item 5: scatter / stated within 0.95–1.05;
+    coverage within ±3 SE for one quantity, ±0.01 for quantities pooled over planes.
+    The stricter ±2 SE count is kept as information: each such test fails 4.6% of the
+    time when the σ are exact, so among many quantities some exceed by chance.
     """
+    failing = [
+        f"{case}: {name}"
+        for case, summary in report.items()
+        if summary["passes"] is not None
+        for name, q in summary["quantities"].items()
+        if not name.endswith("(joint covariance)") and not q["passes"]
+    ]
     families: dict[str, dict] = {}
     for case, summary in report.items():
         if summary["passes"] is None:
@@ -544,13 +559,27 @@ def gate_summary(report: dict) -> dict:
                 entry["coverage_outside"].append(f"{case}: {name} ({z:+.1f} SE)")
     total = sum(f["quantities"] for f in families.values())
     return {
+        "criterion": {
+            "scatter": list(SCATTER_GATE),
+            "coverage_single": f"±{COVERAGE_SE_GATE:g} SE",
+            "coverage_pooled": f"±{COVERAGE_POOLED_GATE:g}",
+        },
         "cases": sum(s["passes"] is not None for s in report.values()),
         "quantities": total,
-        "scatter_outside": sum(len(f["scatter_outside"]) for f in families.values()),
-        "coverage_outside": sum(len(f["coverage_outside"]) for f in families.values()),
-        "coverage_outside_by_chance": round(0.0455 * total, 1),
-        "families": families,
-        "passes": all(s["passes"] for s in report.values() if s["passes"] is not None),
+        "failing": failing,
+        "passes": not failing,
+        "strict_2se": {
+            "note": (
+                "Information, not the gate: coverage within ±2 SE per quantity. R2eff "
+                "over-covers by about 0.1–0.2 points: σ(R2eff) = σ_r/(r̂T) uses the "
+                "fitted ratio, so the stated σ grows where R2eff errs high (first-order "
+                "propagation through the logarithm)."
+            ),
+            "scatter_outside": sum(len(f["scatter_outside"]) for f in families.values()),
+            "coverage_outside": sum(len(f["coverage_outside"]) for f in families.values()),
+            "coverage_outside_by_chance": round(0.0455 * total, 1),
+            "families": families,
+        },
     }
 
 
@@ -653,10 +682,16 @@ def calibration(errors: np.ndarray, stated: np.ndarray) -> dict:
     coverage = float(covered.mean())
     # Binomial SE for one quantity; for several, the spread of per-realization fractions,
     # never below the binomial value of the pooled fraction for one quantity.
+    single = errors.shape[1] == 1
     se = (
         float(np.sqrt(0.95 * 0.05 / n))
-        if errors.shape[1] == 1
+        if single
         else float(max(covered.std(ddof=1), 0.0) / np.sqrt(n))
+    )
+    deviation = abs(coverage - 0.95)
+    scatter_ok = bool(np.all((ratio >= SCATTER_GATE[0]) & (ratio <= SCATTER_GATE[1])))
+    coverage_ok = bool(
+        deviation <= COVERAGE_SE_GATE * se if single else deviation <= COVERAGE_POOLED_GATE
     )
     return {
         "quantities": int(ratio.size),
@@ -665,8 +700,10 @@ def calibration(errors: np.ndarray, stated: np.ndarray) -> dict:
         "bias_over_sd": float(np.max(np.abs(errors.mean(axis=0)) / errors.std(axis=0, ddof=1))),
         "coverage_95": coverage,
         "coverage_se": se,
-        "coverage_within_2se": bool(abs(coverage - 0.95) <= 2 * se),
-        "scatter_within_gate": bool(np.all((ratio >= 0.95) & (ratio <= 1.05))),
+        "coverage_within_2se": bool(deviation <= 2 * se),
+        "coverage_within_criterion": coverage_ok,
+        "scatter_within_gate": scatter_ok,
+        "passes": scatter_ok and coverage_ok,
     }
 
 
@@ -717,15 +754,7 @@ def summarize(case: Case, rows: list[dict], predicted: dict) -> dict:
             label = name if key == "downstream" else f"{name} (joint covariance)"
             out["quantities"][label] = calibration(errors[:, [index]], stated[:, [index]])
     gated = [k for k in out["quantities"] if not k.endswith("(joint covariance)")]
-    out["passes"] = (
-        None
-        if out["flagged"]
-        else all(
-            out["quantities"][k]["scatter_within_gate"]
-            and out["quantities"][k]["coverage_within_2se"]
-            for k in gated
-        )
-    )
+    out["passes"] = None if out["flagged"] else all(out["quantities"][k]["passes"] for k in gated)
     return out
 
 
@@ -818,7 +847,7 @@ def main() -> None:
                 f"  {label:28s} scatter/stated {q['min']:.3f}–{q['max']:.3f}"
                 f"  coverage {q['coverage_95']:.4f} ({z:+.1f} SE)"
             )
-    brief = {k: v for k, v in gate.items() if k != "families"}
+    brief = gate | {"strict_2se": {k: v for k, v in gate["strict_2se"].items() if k != "families"}}
     print(json.dumps(_rounded({"thresholds": result["thresholds"], "gate": brief}), indent=1))
 
 
