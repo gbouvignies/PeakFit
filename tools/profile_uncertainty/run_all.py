@@ -25,6 +25,7 @@ STUDIES = {
     "cest_refit": [],
     "cest_replicates": [],
     "curvature_term": [],
+    "lp_known_truth": ["400"],
 }
 
 
