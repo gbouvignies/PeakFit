@@ -1280,9 +1280,12 @@ Short records of non‑obvious design choices and trade‑offs.
   1-plane shortfall T3 saw is nonlinearity, not what the flag describes). Only runs
   with two planes or more show it.
 - **Exports.** `intensities.csv` gains `correlated_profile` (`yes`, `no`,
-  `not assessed`, empty for one plane), after `noise_correlation`. Readers by
-  column name are unaffected; readers by position see `plane_index` and the later
-  columns move by one.
+  `not assessed`, empty for one plane), after `noise_correlation`.
+- **Breaking (column positions).** With `intensity_err_marginal` (#160) and
+  `intensity_err_conditional` (#161), inserted after `intensity_err`, and
+  `correlated_profile`, `intensities.csv` has three new columns mid-header. Readers
+  by column name are unaffected; readers by position see `reduced_chi_squared` and
+  `noise_correlation` move by two, and `plane_index` and the later columns by three.
 - **GUI.** One mark (↔) and one wording on the profile, the tiles and the cluster
   page: a limit of independent per-plane errors, never a verdict on the data, in
   caption style rather than as a warning.

@@ -92,6 +92,7 @@ def test_ratio_and_r2eff_errors_agree_with_repeated_fits(separation, independent
         rates.append([rate for rate, _ in pairs])
         stated_rates.append([sigma for _, sigma in pairs])
     # Scatter over realizations / median stated σ; 1500 draws give an SE of about 2%.
+    # The 0.93–1.07 band is a Monte Carlo smoke check; T3 (profile_coverage) is the 5% gate.
     calibration = np.std(ratios, axis=0) / np.median(stated, axis=0)
     rate_calibration = np.std(rates, axis=0) / np.median(stated_rates, axis=0)
     assert np.all((calibration > 0.93) & (calibration < 1.07)), calibration

@@ -1,13 +1,14 @@
 # Estimator and uncertainty of intensity profiles
 
 **Status:** accepted, revision 3 ([ADR 0003](adr/0003-ols-and-profile-uncertainty.md)).
-Implementation in progress: the covariance factors of §3.1 are computed in the
-engine (`engine.algorithms.covariance_factors`, validated by T1) and stored by archive
-12.0.0 and project 15.0.0; the marginal σ is published as `intensity_err_marginal`
-and in the GUI inspector. Ratios and R2eff (GUI ratio mode, `peakfit plot cest|cpmg`)
-propagate each peak's covariance between planes through `profiles.normalize` (§4).
-`intensity_err` is still the conditional σ. T3 has run and passes (§8.1): it sets
-the correlated-profile thresholds.
+Implemented, not yet released: every ticket of the implementation (§9) is done. The
+covariance factors of §3.1 are computed in the engine
+(`engine.algorithms.covariance_factors`, validated by T1) and stored by archive
+12.0.0 and project 15.0.0. `intensity_err` is the profile σ, with the marginal and
+conditional σ in their own columns and the correlated-profile flag beside them (§6).
+Ratios and R2eff (GUI ratio mode, `peakfit plot cest|cpmg`) propagate each peak's
+covariance between planes through `profiles.normalize` (§4). T3 passes under
+criterion (b) of §10 item 5 (§8.1) and sets the correlated-profile thresholds.
 
 **Builds on:** [correlated-noise.md](correlated-noise.md) and
 [ADR 0002](adr/0002-processing-derived-sandwich-errors.md).
