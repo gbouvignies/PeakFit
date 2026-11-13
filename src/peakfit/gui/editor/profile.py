@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from html import escape
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeGuard
 
 import numpy as np
 import pyqtgraph as pg
@@ -34,7 +34,7 @@ from peakfit.gui.editor.labels import about, disclosure, phrases
 from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.gui.dataset_fit import DatasetFitResult
@@ -56,6 +56,16 @@ CORRELATED_LIMIT = (
 NOT_ASSESSED_REASON = (
     "the lineshape uncertainty of this cluster is withheld, so there is no profile σ to qualify."
 )
+
+
+def flagged(correlation: PeakProfileCorrelation | None) -> TypeGuard[PeakProfileCorrelation]:
+    """Whether a profile carries the correlated-profile flag; False when not computed."""
+    return correlation is not None and correlation.flagged
+
+
+def partner_name(correlation: PeakProfileCorrelation, names: Sequence[str]) -> str:
+    """The name of a peak's most correlated cluster partner; empty for a single peak."""
+    return "" if correlation.partner is None else names[correlation.partner]
 
 
 def correlation_findings(correlation: PeakProfileCorrelation, partner: str) -> str:
@@ -117,6 +127,11 @@ class ProfileSeries:
     correlation: PeakProfileCorrelation | None = None  # the correlated-profile flag
     correlation_partner: str = ""  # assignment of the most correlated member
 
+    @property
+    def flagged(self) -> bool:
+        """Whether this member's profile carries the correlated-profile flag."""
+        return flagged(self.correlation)
+
 
 @dataclass(frozen=True, slots=True)
 class PeakProfile:
@@ -169,7 +184,7 @@ def peak_profile(
             covariances[k],
             tuple(names[j] for j in members[k].partners),
             correlations[k],
-            names[p] if (p := correlations[k].partner) is not None else "",
+            partner_name(correlations[k], names),
         )
         for k in order
     )
@@ -667,9 +682,8 @@ class ProfilePlot(QtWidgets.QWidget):
         )
         self.correlated.setText(correlated)
         # The full meaning, and what to do next, on hover.
-        correlation = selected.correlation if selected is not None else None
-        flagged = correlation is not None and correlation.flagged
-        self.correlated.setToolTip(CORRELATED_LIMIT if flagged else "")
+        marked = selected is not None and selected.flagged
+        self.correlated.setToolTip(CORRELATED_LIMIT if marked else "")
         self.correlated.setVisible(bool(correlated))
         if profile is None:
             return
@@ -763,7 +777,7 @@ class ProfilePlot(QtWidgets.QWidget):
             + ("" if _available(s.errors) else " · σ not available")
             + (
                 f'&nbsp;<span title="{CORRELATED_SHORT}">{CORRELATED_MARK}</span>'
-                if s.correlation is not None and s.correlation.flagged
+                if s.flagged
                 else ""
             )
             for i, s in enumerate(profile.series)

@@ -16,14 +16,22 @@ Values are those recorded: nothing is refitted.
 """
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from peakfit.engine.algorithms.covariance_factors import profile_standard_errors
+from peakfit.engine.domain.param_id import ParameterId
+from peakfit.engine.domain.spectrum import SpectralParameters
+from peakfit.engine.scientific.profiles import CEST_REFERENCE_HZ
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
 
 BASELINE_HZ = 400.0  # planes this far from the peak's own offset are baseline
 MIN_BASELINE_PLANES = 20
-CEST_REFERENCE_HZ = 10000.0  # planes this far off resonance are references
 _MAD_TO_SD = 1.4826
 
 
@@ -80,14 +88,18 @@ def baseline_scatter(
 
 
 def run_baseline_scatter(
-    outcome, context, *, reference: list[int] | None = None, window: float = BASELINE_HZ
+    outcome: FinalFitOutcome,
+    context: Mapping[str, Any],
+    *,
+    reference: list[int] | None = None,
+    window: float = BASELINE_HZ,
 ) -> dict[str, BaselineScatter | str]:
     """Every recorded peak's baseline scatter, from a published run.
 
     The plane values are the CEST offsets in Hz from the carrier of the first spectral
     axis, whose fitted chemical shift gives each peak's own offset. ``reference`` lists
     reference planes by their index in offset order; by default, the planes at least
-    10 kHz off resonance.
+    ``CEST_REFERENCE_HZ`` off resonance, with no fallback: a run without them has none.
     """
     offsets = np.asarray(context["plane_values"], dtype=float)
     if reference is None:
@@ -95,7 +107,7 @@ def run_baseline_scatter(
     else:
         is_reference = np.zeros(offsets.size, dtype=bool)
         is_reference[np.argsort(offsets, kind="stable")[reference]] = True
-    axis = context["spectral_parameters"][1]
+    axis = SpectralParameters.model_validate(context["spectral_parameters"][1])
     results: dict[str, BaselineScatter | str] = {}
     for cluster in outcome.clusters:
         evaluation = cluster.analytical_evaluation
@@ -106,7 +118,8 @@ def run_baseline_scatter(
         shifts = {p.name: p.value for p in cluster.final_nonlinear_parameters}
         errors = profile_standard_errors(evaluation.covariance_factors, evaluation.amplitudes)
         for peak, name in enumerate(cluster.peak_names):
-            peak_offset = shifts[f"{name}.{axis['label']}.cs"] * axis["obs"] - axis["car"]
+            shift = shifts[ParameterId(peak_name=name, axis=axis.label, label="cs").name]
+            peak_offset = shift * axis.obs - axis.car
             results[name] = baseline_scatter(
                 offsets,
                 evaluation.amplitudes[peak],

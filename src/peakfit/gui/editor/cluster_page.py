@@ -35,6 +35,8 @@ from peakfit.gui.editor.profile import (
     NOT_ASSESSED_REASON,
     WITHIN_TOLERANCE_TEXT,
     correlation_findings,
+    flagged,
+    partner_name,
 )
 from peakfit.gui.editor.review import correlation_matrix
 
@@ -140,7 +142,7 @@ def correlated_profiles(
     shown = dict(zip(engine_names, names, strict=True))
     by_index = [shown.get(name, name) for name in cluster.peak_names]
     return {
-        engine: (flags[k], by_index[p] if (p := flags[k].partner) is not None else "")
+        engine: (flags[k], partner_name(flags[k], by_index))
         for k, engine in enumerate(cluster.peak_names)
     }
 
@@ -287,7 +289,7 @@ class ClusterPage(QtWidgets.QWidget):
                 glyph.setToolTip("; ".join(h.rule for h in review.highlights if h.peak == identity))
                 cell.addWidget(glyph)
             correlation, partner = correlations.get(engines[identity], (None, ""))
-            if correlation is not None and correlation.flagged:
+            if flagged(correlation):
                 mark = text_label(CORRELATED_MARK, "caption")
                 mark.setToolTip(
                     f"Errors correlated across planes: {correlation_findings(correlation, partner)}"

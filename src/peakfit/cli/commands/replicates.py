@@ -9,16 +9,19 @@ from typing import Annotated
 import numpy as np
 import typer
 
+from peakfit.engine.scientific.profiles import CEST_REFERENCE_HZ
 from peakfit.engine.scientific.replicates import (
     BASELINE_HZ,
     BaselineScatter,
     run_baseline_scatter,
 )
-from peakfit.io.scientific import read_scientific
+from peakfit.io.scientific import read_results
 from peakfit.ui.branding import show_command_summary
 from peakfit.ui.console import Verbosity, console, display_path, set_verbosity
 from peakfit.ui.messages import info, show_error_with_details, success, warning
 from peakfit.ui.tables import create_table
+
+_DEFAULT_REFERENCE = f"|offset| ≥ {CEST_REFERENCE_HZ / 1000:g} kHz"
 
 
 def replicates_command(
@@ -31,7 +34,7 @@ def replicates_command(
         typer.Option(
             "--ref",
             "-r",
-            help="Reference point indices, in offset order; omit for |offset| ≥ 10 kHz",
+            help=f"Reference point indices, in offset order; omit for {_DEFAULT_REFERENCE}",
         ),
     ] = None,
     window: Annotated[
@@ -70,21 +73,16 @@ def replicates_command(
                     "Results": display_path(results),
                     "Reference points": ", ".join(str(i) for i in ref)
                     if ref
-                    else "|offset| ≥ 10 kHz",
+                    else _DEFAULT_REFERENCE,
                     "Peak window": f"±{window:g} Hz",
                 },
             )
         ],
     )
-    archive = results / "scientific.npz"
     try:
-        if not archive.is_file():
-            raise FileNotFoundError(
-                f"No scientific.npz in {results}: the check reads the archive PeakFit "
-                "writes with every fit. Refit to produce one."
-            )
-        outcome, _samples, context = read_scientific(archive)
+        outcome, _samples, context = read_results(results, "the check reads")
         if not context:
+            archive = results / "scientific.npz"
             raise ValueError(f"{archive} records no plane values or spectral axes.")
         peaks = run_baseline_scatter(outcome, context, reference=ref, window=window)
     except Exception as e:

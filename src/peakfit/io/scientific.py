@@ -192,6 +192,21 @@ def read_scientific(path):
         ) from error
 
 
+def read_results(results_dir: Path, needed_by: str):
+    """Read a results directory's ``scientific.npz``; say how to get one when it is missing.
+
+    ``needed_by`` completes the sentence "… the archive PeakFit writes with every fit",
+    for example "CEST and CPMG plots need".
+    """
+    archive = results_dir / "scientific.npz"
+    if not archive.is_file():
+        raise FileNotFoundError(
+            f"No scientific.npz in {results_dir}: {needed_by} the archive PeakFit writes "
+            "with every fit. Refit to produce one."
+        )
+    return read_scientific(archive)
+
+
 def read_metadata(archive):
     """The bounded ``metadata.json`` object of an archive with unique members."""
     members = archive.infolist()

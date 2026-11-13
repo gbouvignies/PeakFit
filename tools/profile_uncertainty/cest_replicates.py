@@ -27,11 +27,8 @@ from cest_example import (
 )
 
 from peakfit.engine.algorithms.noise_correlation import cluster_correlation
-from peakfit.engine.scientific.replicates import (
-    CEST_REFERENCE_HZ,
-    BaselineScatter,
-    baseline_scatter,
-)
+from peakfit.engine.scientific.profiles import CEST_REFERENCE_HZ
+from peakfit.engine.scientific.replicates import BaselineScatter, baseline_scatter
 
 ESTIMATORS = (
     ("OLS", None, 1.0),

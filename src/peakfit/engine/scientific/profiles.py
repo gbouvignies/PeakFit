@@ -14,6 +14,7 @@ from dataclasses import dataclass
 import numpy as np
 
 RELIABILITY_LIMIT = 0.1  # largest σ_R/|R| for which first-order propagation is used
+CEST_REFERENCE_HZ = 10000.0  # default CEST references: planes this far off resonance
 
 
 @dataclass(frozen=True, slots=True)

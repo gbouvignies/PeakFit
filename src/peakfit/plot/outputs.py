@@ -10,7 +10,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 
 from peakfit.engine.algorithms.covariance_factors import peak_covariances_between_planes
-from peakfit.io.scientific import read_scientific
+from peakfit.io.scientific import read_results
 from peakfit.plot.diagnostics.autocorr import plot_autocorrelation
 from peakfit.plot.diagnostics.corner import plot_correlation_pairs
 from peakfit.plot.diagnostics.summary import plot_marginal_distributions
@@ -185,13 +185,7 @@ def recorded_profiles(results_dir: Path) -> dict[str, RecordedProfile]:
     Planes are ordered by plane value (stable), or by plane when the archive records
     none. Values are exactly those recorded; nothing is refitted.
     """
-    archive = results_dir / "scientific.npz"
-    if not archive.is_file():
-        raise FileNotFoundError(
-            f"No scientific.npz in {results_dir}: CEST and CPMG plots need the archive "
-            "PeakFit writes with every fit. Refit to produce one."
-        )
-    outcome, _samples, context = read_scientific(archive)
+    outcome, _samples, context = read_results(results_dir, "CEST and CPMG plots need")
     profiles: dict[str, RecordedProfile] = {}
     for cluster in outcome.clusters:
         evaluation = cluster.analytical_evaluation

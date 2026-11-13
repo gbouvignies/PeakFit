@@ -9,7 +9,6 @@ import numpy as np
 
 from peakfit.engine.scientific import profiles
 
-_CEST_AUTO_REF_OFFSET_THRESHOLD = 10000.0
 _CEST_AUTO_REF_FALLBACK_POINTS = 2
 
 
@@ -88,9 +87,11 @@ def prepare_cpmg_data(profile: RecordedProfile, time_t2: float) -> Any | str:
 def _cest_reference_mask(offset: np.ndarray, ref_points: list[int]) -> np.ndarray:
     """Return the points used as CEST references."""
     if ref_points == [-1]:
-        ref_mask = np.abs(offset) >= _CEST_AUTO_REF_OFFSET_THRESHOLD
+        ref_mask = np.abs(offset) >= profiles.CEST_REFERENCE_HZ
         if np.any(ref_mask):
             return ref_mask
+        # Plots fall back to the planes farthest from the median offset; the baseline
+        # replicate check (engine.scientific.replicates) deliberately has no fallback.
 
         n_points = len(offset)
         if n_points <= 1:

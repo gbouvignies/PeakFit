@@ -133,9 +133,7 @@ def shown_rows(profile: PeakProfile, reference: tuple[int, ...], normalized: boo
 
 def correlation_line(profile: PeakProfile) -> str:
     """The cluster's correlated-profile flags in one line; empty when none applies."""
-    flagged = [
-        s.assignment for s in profile.series if s.correlation is not None and s.correlation.flagged
-    ]
+    flagged = [s.assignment for s in profile.series if s.flagged]
     if flagged:
         return f"{CORRELATED_MARK} {CORRELATED_SHORT}: {', '.join(flagged)}"
     if any(
@@ -266,8 +264,7 @@ def _legend(painter, inner: QtCore.QRectF, profile: PeakProfile, shown: Shown, s
     drawn = {index for index, _values in shown.rows}
     x, limit = inner.left(), inner.right()
     for index, series in enumerate(profile.series):
-        flagged = series.correlation is not None and series.correlation.flagged
-        label = f"{series.assignment} {CORRELATED_MARK}" if flagged else series.assignment
+        label = f"{series.assignment} {CORRELATED_MARK}" if series.flagged else series.assignment
         need = 10 + metrics.horizontalAdvance(label) + 10
         if x + need > limit:
             painter.setPen(QtGui.QColor(theme.secondary))
