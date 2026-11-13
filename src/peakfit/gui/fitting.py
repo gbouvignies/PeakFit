@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from peakfit.engine.algorithms.clustering import prepare_clusters
+from peakfit.engine.algorithms.noise_power import check_noise_power
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import apply_constraints
 from peakfit.engine.domain.fit_steps import build_fit_steps
@@ -178,7 +179,7 @@ def prepare_dataset_fit(
         identities,
         tuple(shape_names),
         noise,
-        read_noise_model(spectra.dic, spectra.data.shape),
+        check_noise_power(read_noise_model(spectra.dic, spectra.data.shape), spectra.data),
         float(threshold),
         tuple(clusters),
         parameters,

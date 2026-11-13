@@ -7,6 +7,12 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from peakfit.engine.algorithms.covariance_factors import (
+    ProfileCorrelation,
+    marginal_standard_errors,
+    profile_correlations,
+    profile_standard_errors,
+)
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.utils import format_float
 
@@ -79,6 +85,10 @@ def write_final_outcome_intensities(
             or len(np.unique(indices)) != n_planes
         ):
             raise ValueError("Invalid intensity source-plane mapping.")
+        factors = evaluation.covariance_factors
+        profile = profile_standard_errors(factors, evaluation.amplitudes)
+        marginal = marginal_standard_errors(factors, evaluation.amplitudes)
+        correlated = profile_correlations(factors, evaluation.amplitudes)
         for peak_index, peak_name in enumerate(cluster.peak_names):
             for plane_index in range(evaluation.amplitudes.shape[1]):
                 z_value = (
@@ -97,11 +107,22 @@ def write_final_outcome_intensities(
                             unavailable="unavailable",
                         ),
                         "intensity_err": _fmt_final_value(
+                            float(profile[peak_index, plane_index]),
+                            cfg,
+                            unavailable="unavailable",
+                        ),
+                        "intensity_err_marginal": _fmt_final_value(
+                            float(marginal[peak_index, plane_index]),
+                            cfg,
+                            unavailable="unavailable",
+                        ),
+                        "intensity_err_conditional": _fmt_final_value(
                             float(evaluation.amplitude_standard_errors[peak_index]),
                             cfg,
                             unavailable="unavailable",
                         ),
                         "noise_correlation": _noise_correlation(outcome),
+                        "correlated_profile": _CORRELATED_PROFILE[correlated[peak_index].status],
                         "plane_index": plane_index,
                         "source_plane_index": int(indices[plane_index]),
                     }
@@ -215,12 +236,24 @@ def _intensity_header() -> list[str]:
         "z_value",
         "intensity",
         "intensity_err",
+        "intensity_err_marginal",
+        "intensity_err_conditional",
         "reduced_chi_squared",
         "noise_correlation",
+        "correlated_profile",
         "plane_index",
         "source_plane_index",
     ]
     return header + _outcome_columns()
+
+
+# The correlated-profile flag (profile-uncertainty §6): empty with one plane.
+_CORRELATED_PROFILE = {
+    ProfileCorrelation.CORRELATED: "yes",
+    ProfileCorrelation.WITHIN_TOLERANCE: "no",
+    ProfileCorrelation.NOT_ASSESSED: "not assessed",
+    ProfileCorrelation.NO_PROFILE: "",
+}
 
 
 def _noise_correlation(outcome: FinalFitOutcome) -> str:

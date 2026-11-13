@@ -1163,3 +1163,129 @@ Short records of non‑obvious design choices and trade‑offs.
   and so the `intensity_err`, of every peak in that cluster.
 - The cost: the one-sided freedom at the bound is ignored, as in any first-order
   constrained result. The parameter's own error stays withheld, as before.
+
+## 2026-11-13: Marginal σ published; covariance factors stored (#160)
+- **Change.** Scientific archive 12.0.0 and analysis project 15.0.0 store each usable
+  cluster's covariance factors (profile-uncertainty §3.1); earlier files are refused
+  by version: refit. `intensities.csv` gains `intensity_err_marginal`, after
+  `intensity_err`; the GUI inspector shows the selected peak's amplitude on the
+  current plane ± its marginal σ, labelled as the σ of the absolute amplitude.
+  `intensity_err`, fitted values and every other column are unchanged.
+- **Storage.** The conditional block is the amplitude covariance and is stored once;
+  only the lineshape factors are new arrays. On the bundled example they add 0.19 MB
+  to the archive, independent of the number of planes.
+- **Not in the fit JSON.** The optional JSON export stays at 9.0.0: no consumer reads
+  the marginal σ there yet, and the archive and CSV carry it.
+
+## 2026-11-13: Ratios and R2eff from the covariance between planes (#162)
+- **Change.** `engine.scientific.profiles.normalize` takes a peak's covariance between
+  planes (S × S) instead of independent errors, and the reliability limit applies to
+  the total σ of the reference mean. The GUI ratio mode and `peakfit plot cest|cpmg`
+  both pass the block rebuilt from the stored covariance factors
+  (`peak_covariances_between_planes`); with no covariance between planes the
+  results are today's. Fitted values and every export column are unchanged.
+- **CLI plots read the archive.** `peakfit plot cest|cpmg` read `scientific.npz`
+  rather than `tables/intensities.csv`: the table holds per-plane errors only, and
+  `intensity_err` becomes the profile σ (#161), which is not the error of a ratio.
+  A results directory without the archive is refused with the reason. `peakfit plot
+  intensity` still reads the table.
+- **Withheld factors.** Where the lineshape terms are withheld, the covariance between
+  planes is unavailable and no ratio is given (undefined, with the reason), as for an
+  unavailable σ before. Falling back to the conditional σ would understate the ratio
+  error exactly where the lineshapes are least determined.
+- **Evidence.** Refitting 1,500 noise realizations of a correlated-noise pair
+  (`tests/test_covariance_ratios.py`): stated ratio and R2eff σ match the scatter
+  within 7% for an isolated line and a pair 3 points apart, where independent
+  conditional errors understate the ratio scatter by about 1.5×.
+- **On the bundled CEST example** (automatic references): of 166 peaks, ratio σ is
+  unchanged to round-off for 156; 8 change by more than 1% (up to +14%), all in
+  overlapping clusters. Two peaks now exceed the reliability limit (σ_R/|R| = 0.17
+  and 0.32), one more than with independent errors; no peak has withheld factors.
+
+## 2026-11-13: Noise-power check, warning only (#165)
+- **Change.** Each run checks, per modelled axis, the time-domain noise power of the
+  spectrum's noise-only lines against the recorded processing's prediction
+  ([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). The
+  result travels in the noise model (`power_check`) and is stored in scientific
+  archive 12.0.0 and project 15.0.0, which are still unreleased, so no version
+  changes. The Markdown report, the CLI (setup, headless log and run summary) and the
+  GUI run line state a mismatch. Fitted values, errors and every CSV column are
+  unchanged.
+- **Statistic and limit.** The late power, the last 20% of the predicted power
+  against the rest, flags at a ratio outside [0.9, 1/0.9] and beyond 3 spreads. On
+  the evidence, correctly recorded processing stays within 1.03 of 1 and the weakest
+  detected case (LP on pure noise) is at 0.77. The limit is a judgement, not a
+  calibrated test; it is revisited if real spectra raise false alarms.
+- **Not in comparisons.** Two noise models with different checks compare equal: the
+  check describes the spectrum, not the correlation the errors assume, so it never
+  makes two runs' χ²ᵣ incomparable.
+- **Not in the fit JSON.** It stays at 9.0.0; the archive carries the check, and the
+  report states it.
+
+## 2026-11-13: `intensity_err` is the profile σ (#161)
+- **Change.** `intensities.csv`'s `intensity_err` is now the profile σ, per peak and
+  plane: √(Σ_rel)_ss with Σ_rel = cI + PLP (profile-uncertainty §3.3). The conditional
+  σ it carried before moves to a new `intensity_err_conditional` column, after
+  `intensity_err_marginal`. The GUI profile's raw error bars use the profile σ;
+  ratios keep the covariance between planes (#162), and `peakfit plot intensity`
+  draws `intensity_err`. The fit JSON's `amplitude_standard_errors` stays the
+  conditional σ.
+- **Breaking.** A reader that took `intensity_err` as one σ per peak, or as
+  conditional on lineshapes, now gets per-plane values. Isolated peaks are unchanged
+  to round-off; on the bundled example, overlapping peaks change by up to 1.23×
+  (median 1.0000005).
+- **Why.** Downstream programs read one error column with a free scale (ChemEx), and
+  for them Σ_rel is exactly equivalent to the full covariance. Its diagonal keeps the
+  lineshape uncertainty that does not cancel and leaves out the common scale that
+  does, which the marginal σ would count once per plane (§4).
+- **Unavailable.** Where the covariance factors are withheld, the profile σ is empty,
+  like the marginal σ, although the conditional σ may be published.
+- **Golden reference.** `example-fit-amplitudes.npz` gains
+  `profile_standard_errors_<cluster>`, the published `intensity_err`. Every
+  existing entry, amplitudes and fitted values included, is bit-identical; the JSON
+  differs only in its source commit.
+
+## 2026-11-13: correlated-profile thresholds from T3 (#163)
+- **Thresholds.** A peak is flagged where the largest correlated mode of Σ_rel
+  exceeds 0.1c, or its within-plane |ρ| with a cluster partner exceeds 0.15
+  (profile-uncertainty §6, §8.1). The flag itself is #164.
+- **Why these values.** They are set by consequence: the misstatement of downstream
+  σ (decay, global CPMG with shared kex, CEST dip) when the profile σ is used as
+  independent errors, with a 5% tolerance. In T3's first-order sweep the tolerance
+  is first crossed at a mode of 0.134c (own parameters) and at |ρ| = 0.205 (kex,
+  shared by a joint fit). Rounded down for margin, the worst unflagged misstatement
+  is 3.8%.
+- **Gate.** Passed under the coverage criterion below.
+
+## 2026-11-13: T3 coverage criterion (b) (#163)
+- **Criterion.** Where no flag is raised: scatter / stated within 0.95–1.05; 95%
+  coverage within ±3 SE for a single quantity (a downstream parameter), and within
+  ±0.01 absolute for quantities pooled over planes (marginal σ, profile σ, ratios,
+  R2eff). Profile-uncertainty §10 item 5.
+- **Why.** ±2 SE per quantity, over 270 quantities, fails about 12 by chance; T3
+  found 20, 6 of them an R2eff over-coverage of 0.1–0.2 points that a pooled SE of
+  0.0006 resolves. The largest deviations were 2.5 SE and 0.0063, so T3 passes.
+- **Kept as information.** The record still counts the strict ±2 SE exceedances and
+  notes the R2eff over-coverage and its cause: σ(R2eff) = σ_r/(r̂T) uses the fitted
+  ratio, first-order propagation through the logarithm.
+
+## 2026-11-13: the correlated-profile flag (#164)
+- **Derived, not stored.** `profile_correlations` (engine) computes the flag from the
+  stored factors and amplitudes when a run is read; the archive and project formats
+  are unchanged. The thresholds live in the engine (`CORRELATED_MODE_THRESHOLD`,
+  `PARTNER_CORRELATION_THRESHOLD`) and the T3 tool imports them, so its record is
+  tested against the published values.
+- **States.** Flagged, within tolerance, not assessed (lineshape factors withheld,
+  even where the conditional ρ alone would flag) and no profile (one plane: the
+  1-plane shortfall T3 saw is nonlinearity, not what the flag describes). Only runs
+  with two planes or more show it.
+- **Exports.** `intensities.csv` gains `correlated_profile` (`yes`, `no`,
+  `not assessed`, empty for one plane), after `noise_correlation`.
+- **Breaking (column positions).** With `intensity_err_marginal` (#160) and
+  `intensity_err_conditional` (#161), inserted after `intensity_err`, and
+  `correlated_profile`, `intensities.csv` has three new columns mid-header. Readers
+  by column name are unaffected; readers by position see `reduced_chi_squared` and
+  `noise_correlation` move by two, and `plane_index` and the later columns by three.
+- **GUI.** One mark (↔) and one wording on the profile, the tiles and the cluster
+  page: a limit of independent per-plane errors, never a verdict on the data, in
+  caption style rather than as a warning.

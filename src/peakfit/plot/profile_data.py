@@ -2,14 +2,27 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 
 from peakfit.engine.scientific import profiles
 
-_CEST_AUTO_REF_OFFSET_THRESHOLD = 10000.0
 _CEST_AUTO_REF_FALLBACK_POINTS = 2
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedProfile:
+    """One peak's recorded amplitudes along the plane value, as the archive holds them.
+
+    ``covariance`` is the covariance of the amplitudes between planes (S × S), in the
+    same order as ``x``: what ratios and R2eff propagate (profile-uncertainty §4).
+    """
+
+    x: np.ndarray
+    intensity: np.ndarray
+    covariance: np.ndarray
 
 
 def prepare_intensity_data(points: list[tuple[float, float, float]]) -> Any:
@@ -18,20 +31,17 @@ def prepare_intensity_data(points: list[tuple[float, float, float]]) -> Any:
     return np.array(points, dtype=dtype)
 
 
-def prepare_cest_data(points: list[tuple[float, float, float]], ref_points: list[int]) -> Any | str:
+def prepare_cest_data(profile: RecordedProfile, ref_points: list[int]) -> Any | str:
     """Normalize CEST intensities to their reference points, or say why not.
 
     Ratios and their σ come from ``engine.scientific.profiles.normalize``, the
     same propagation and reliability limit as the desktop profile display.
     """
-    offset = np.array([p[0] for p in points], dtype=float)
-    intensity = np.array([p[1] for p in points], dtype=float)
-    error = np.array([p[2] for p in points], dtype=float)
-
+    offset = profile.x
     ref_mask = _cest_reference_mask(offset, ref_points)
     if not np.any(ref_mask) or np.all(ref_mask):
         return "no reference points apart from the profile"
-    shown = profiles.normalize(intensity, error, np.flatnonzero(ref_mask))
+    shown = profiles.normalize(profile.intensity, profile.covariance, np.flatnonzero(ref_mask))
     if isinstance(shown, profiles.Unavailable):
         return shown.reason
 
@@ -50,20 +60,17 @@ def prepare_cest_data(points: list[tuple[float, float, float]], ref_points: list
     )
 
 
-def prepare_cpmg_data(points: list[tuple[float, float, float]], time_t2: float) -> Any | str:
+def prepare_cpmg_data(profile: RecordedProfile, time_t2: float) -> Any | str:
     """Convert CPMG intensities to R2eff with first-order σ, or say why not.
 
     The reference is the mean of the planes without refocusing (ncyc = 0), or the
     first plane when there is none.
     """
-    ncyc = np.array([p[0] for p in points], dtype=float)
-    intensity = np.array([p[1] for p in points], dtype=float)
-    error = np.array([p[2] for p in points], dtype=float)
-
+    ncyc = profile.x
     ref_mask = ncyc == 0
     if not np.any(ref_mask):
         ref_mask[0] = True
-    shown = profiles.normalize(intensity, error, np.flatnonzero(ref_mask))
+    shown = profiles.normalize(profile.intensity, profile.covariance, np.flatnonzero(ref_mask))
     if isinstance(shown, profiles.Unavailable):
         return shown.reason
 
@@ -80,9 +87,11 @@ def prepare_cpmg_data(points: list[tuple[float, float, float]], time_t2: float) 
 def _cest_reference_mask(offset: np.ndarray, ref_points: list[int]) -> np.ndarray:
     """Return the points used as CEST references."""
     if ref_points == [-1]:
-        ref_mask = np.abs(offset) >= _CEST_AUTO_REF_OFFSET_THRESHOLD
+        ref_mask = np.abs(offset) >= profiles.CEST_REFERENCE_HZ
         if np.any(ref_mask):
             return ref_mask
+        # Plots fall back to the planes farthest from the median offset; the baseline
+        # replicate check (engine.scientific.replicates) deliberately has no fallback.
 
         n_points = len(offset)
         if n_points <= 1:
@@ -103,6 +112,7 @@ def _cest_reference_mask(offset: np.ndarray, ref_points: list[int]) -> np.ndarra
 
 
 __all__ = [
+    "RecordedProfile",
     "prepare_cest_data",
     "prepare_cpmg_data",
     "prepare_intensity_data",

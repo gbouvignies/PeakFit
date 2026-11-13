@@ -1,4 +1,8 @@
-"""Derived profiles: reference ratios and R2eff, shared by the GUI and CLI plots."""
+"""Derived profiles: reference ratios and R2eff, shared by the GUI and CLI plots.
+
+Ratios take the covariance of one peak's amplitudes between planes (specification
+§4); independent per-plane errors are the diagonal special case.
+"""
 
 import numpy as np
 import pytest
@@ -18,11 +22,11 @@ def _normalized(*args, **kwargs) -> Normalized:
     return result
 
 
-def test_outside_the_reference_reduces_to_the_independent_ratio_formula():
+def test_without_covariance_between_planes_ratios_reduce_to_the_independent_formula():
     amplitudes = np.array([10.0, 8.0, 5.0, -2.0, 9.5])
     errors = np.array([0.2, 0.3, 0.25, 0.4, 0.1])
     reference = np.array([0, 4])
-    shown = _normalized(amplitudes, errors, reference)
+    shown = _normalized(amplitudes, np.diag(errors**2), reference)
     mean = (10.0 + 9.5) / 2
     sigma_r = np.sqrt(0.2**2 + 0.1**2) / 2
     assert shown.reference == mean
@@ -36,7 +40,7 @@ def test_outside_the_reference_reduces_to_the_independent_ratio_formula():
 
 def test_a_single_reference_plane_is_exactly_one_without_error():
     amplitudes = np.array([3.7, 1.2, -0.4])
-    shown = _normalized(amplitudes, np.full(3, 0.05), np.array([0]))
+    shown = _normalized(amplitudes, np.diag(np.full(3, 0.05**2)), np.array([0]))
     assert shown.exact
     assert shown.values[0] == 1.0
     assert shown.errors[0] == 0.0
@@ -48,7 +52,7 @@ def test_full_gradient_matches_monte_carlo_inside_and_outside_the_reference():
     amplitudes = np.array([100.0, 96.0, 104.0, 40.0, -15.0])
     errors = np.array([1.0, 1.5, 0.8, 1.2, 0.9])
     reference = np.array([0, 1, 2])
-    shown = _normalized(amplitudes, errors, reference)
+    shown = _normalized(amplitudes, np.diag(errors**2), reference)
     draws = amplitudes + rng.standard_normal((400_000, amplitudes.size)) * errors
     ratios = draws / draws[:, reference].mean(axis=1, keepdims=True)
     # Members of S are correlated with R; the full gradient accounts for it.
@@ -72,21 +76,21 @@ def test_full_gradient_matches_monte_carlo_inside_and_outside_the_reference():
 def test_unavailable_ratios_say_why_and_whether_they_are_undefined(
     amplitudes, errors, reason, undefined
 ):
-    result = normalize(np.array(amplitudes), np.array(errors), np.array([0]))
+    result = normalize(np.array(amplitudes), np.diag(np.array(errors) ** 2), np.array([0]))
     assert isinstance(result, Unavailable)
     assert reason in result.reason
     assert result.undefined is undefined
 
 
 def test_the_limit_is_inclusive_and_displayed():
-    limit = normalize(np.array([1.0, 2.0]), np.array([RELIABILITY_LIMIT] * 2), np.array([0]))
+    limit = normalize(np.array([1.0, 2.0]), np.diag([RELIABILITY_LIMIT**2] * 2), np.array([0]))
     assert isinstance(limit, Normalized)
 
 
 def test_negative_reference_keeps_signs_and_never_alters_recorded_amplitudes():
     amplitudes = np.array([-4.0, -2.0, 1.0])
     original = amplitudes.copy()
-    shown = _normalized(amplitudes, np.full(3, 0.1), np.array([0]))
+    shown = _normalized(amplitudes, np.diag(np.full(3, 0.1**2)), np.array([0]))
     assert shown.reference == -4.0
     np.testing.assert_array_equal(shown.values, [1.0, 0.5, -0.25])
     np.testing.assert_array_equal(amplitudes, original)
@@ -98,9 +102,67 @@ def test_r2eff_error_carries_the_logarithm_derivative():
     rng = np.random.default_rng(11)
     amplitudes = np.array([100.0, 80.0, 30.0])
     errors = np.array([1.0, 1.0, 1.0])
-    shown = _normalized(amplitudes, errors, np.array([0]))
+    shown = _normalized(amplitudes, np.diag(errors**2), np.array([0]))
     rates, sigma = r2eff(shown.values[1:], shown.errors[1:], 0.04)
     np.testing.assert_allclose(rates, -np.log([0.8, 0.3]) / 0.04)
     draws = amplitudes + rng.standard_normal((400_000, 3)) * errors
     sampled = -np.log(draws[:, 1:] / draws[:, :1]) / 0.04
     np.testing.assert_allclose(sigma, sampled.std(axis=0), rtol=0.02)
+
+
+def _correlated_case():
+    """A peak whose lineshape uncertainty correlates its amplitudes between planes."""
+    amplitudes = np.array([100.0, 60.0, 30.0, 95.0, 70.0])
+    rng = np.random.default_rng(5)
+    modes = rng.standard_normal((5, 2))
+    covariance = (
+        np.diag(np.full(5, 1.2**2)) + modes @ modes.T + 0.8 * np.outer(amplitudes, amplitudes) / 1e4
+    )
+    return amplitudes, covariance
+
+
+def test_ratio_errors_follow_the_covariance_between_planes():
+    amplitudes, covariance = _correlated_case()
+    reference = np.array([0, 3])
+    shown = _normalized(amplitudes, covariance, reference)
+    draws = np.random.default_rng(13).multivariate_normal(amplitudes, covariance, 400_000)
+    ratios = draws / draws[:, reference].mean(axis=1, keepdims=True)
+    np.testing.assert_allclose(shown.errors, ratios.std(axis=0), rtol=0.02)
+    # The diagonal alone misstates them: the covariance is not decoration here.
+    independent = _normalized(amplitudes, np.diag(np.diag(covariance)), reference)
+    assert not np.allclose(independent.errors, ratios.std(axis=0), rtol=0.1)
+
+
+def test_r2eff_errors_follow_the_covariance_between_planes():
+    amplitudes, covariance = _correlated_case()
+    shown = _normalized(amplitudes, covariance, np.array([0]))
+    rates, sigma = r2eff(shown.values[1:], shown.errors[1:], 0.04)
+    draws = np.random.default_rng(17).multivariate_normal(amplitudes, covariance, 400_000)
+    sampled = -np.log(draws[:, 1:] / draws[:, :1]) / 0.04
+    np.testing.assert_allclose(rates, -np.log(amplitudes[1:] / amplitudes[0]) / 0.04)
+    np.testing.assert_allclose(sigma, sampled.std(axis=0), rtol=0.02)
+
+
+def test_the_reliability_limit_applies_to_the_total_sigma_of_the_reference_mean():
+    # Two reference planes, σ = 0.12 each: independent, σ_R/|R| = 0.085 is within the
+    # limit; fully correlated, the mean does not average them down and σ_R/|R| = 0.12.
+    amplitudes = np.array([1.0, 1.0, 0.5])
+    variance = 0.12**2
+    independent = np.diag([variance, variance, variance])
+    correlated = independent.copy()
+    correlated[0, 1] = correlated[1, 0] = variance
+    reference = np.array([0, 1])
+    assert _normalized(amplitudes, independent, reference).reference_error == pytest.approx(
+        0.12 / np.sqrt(2)
+    )
+    result = normalize(amplitudes, correlated, reference)
+    assert isinstance(result, Unavailable)
+    assert "σ_R/|R| = 0.12" in result.reason
+    assert not result.undefined
+
+
+def test_an_unavailable_covariance_between_planes_gives_no_ratio():
+    result = normalize(np.array([1.0, 2.0]), np.full((2, 2), np.nan), np.array([0]))
+    assert isinstance(result, Unavailable)
+    assert "σ unavailable" in result.reason
+    assert result.undefined

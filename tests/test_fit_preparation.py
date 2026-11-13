@@ -276,3 +276,17 @@ def test_an_invalid_clustering_threshold_is_rejected(level) -> None:
     config.clustering.contour_level = level
     with pytest.raises(ValueError, match="clustering threshold must be positive and finite"):
         prepare_clusters(spectra, [], config)
+
+
+def test_cli_and_gui_record_the_same_noise_power_check() -> None:
+    # The example's ¹⁵N axis was linearly predicted; its header does not say so.
+    config = PeakFitConfig()
+    cli = load_data(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt", config)
+    dataset = read_dataset(DATA / "pseudo3d.ft2", DATA / "pseudo3d.list", DATA / "b1_offsets.txt")
+    gui = prepare_dataset_fit(dataset.spectra, dataset.peaks, config)
+    assert cli.noise_model.power_check == gui.noise_model.power_check
+    assert [check.status.value for check in cli.noise_model.power_check] == [
+        "mismatch",
+        "consistent",
+    ]
+    assert cli.noise_model.power_warning is not None

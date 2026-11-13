@@ -18,8 +18,14 @@ from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
 import numpy as np
 
+from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
-from peakfit.engine.algorithms.noise_correlation import AxisProcessing, NoiseModel
+from peakfit.engine.algorithms.noise_correlation import (
+    AxisNoisePower,
+    AxisProcessing,
+    NoiseModel,
+    NoisePowerStatus,
+)
 from peakfit.engine.scientific.completed import FinalClusterInputs, FinalClusterSamples
 from peakfit.engine.scientific.coordinates import validate_coordinate_table
 from peakfit.engine.scientific.final_outcome import (
@@ -35,7 +41,7 @@ from peakfit.engine.scientific.final_outcome import (
 from peakfit.shared.exceptions import ScientificIntegrityError, require_close
 from peakfit.shared.paths import format_path
 
-VERSION = "11.0.0"
+VERSION = "12.0.0"
 _RESULT_ARRAYS = (
     "shapes",
     "amplitudes",
@@ -72,6 +78,9 @@ def write_scientific(
         ):
             return True
         if isinstance(value, FinalClusterSamples) and evidence == "results" and name == "data":
+            return True
+        # The conditional block is the amplitude covariance, stored once.
+        if isinstance(value, CovarianceFactors) and name == "conditional":
             return True
         return name == "by_cluster_id" or (
             isinstance(value, FinalFitOutcome) and name == "final_nonlinear_parameters"
@@ -182,6 +191,21 @@ def read_scientific(path):
             "scientific archive",
             "Refit the dataset, or restore an intact copy of the file.",
         ) from error
+
+
+def read_results(results_dir: Path, needed_by: str):
+    """Read a results directory's ``scientific.npz``; say how to get one when it is missing.
+
+    ``needed_by`` completes the sentence "… the archive PeakFit writes with every fit",
+    for example "CEST and CPMG plots need".
+    """
+    archive = results_dir / "scientific.npz"
+    if not archive.is_file():
+        raise FileNotFoundError(
+            f"No scientific.npz in {results_dir}: {needed_by} the archive PeakFit writes "
+            "with every fit. Refit to produce one."
+        )
+    return read_scientific(archive)
 
 
 def read_metadata(archive):
@@ -306,6 +330,9 @@ def _read_scientific(path):
             for name in (*_RESULT_ARRAYS, *(("model_values",) if evidence != "results" else ())):
                 _array(e[name], name.replace("_", " "))
             e["statistics"] = AnalyticalFitStatistics(**e["statistics"])
+            e["covariance_factors"] = _covariance_factors(
+                e["covariance_factors"], e["amplitude_covariance"]
+            )
             if evidence == "detailed":
                 sample = samples[index] if index < len(samples) else None
                 if not isinstance(sample, FinalClusterSamples):
@@ -340,13 +367,39 @@ def _read_scientific(path):
     return outcome, samples, context
 
 
+def _covariance_factors(record, conditional):
+    """The stored lineshape factors, with the amplitude covariance as their conditional block."""
+    record = _record(record, "covariance factors")
+    names = ("shape_gain", "cross_gain", "parameter_covariance")
+    if set(record) != set(names):
+        raise ValueError("Malformed covariance factors.")
+    values = [record[name] for name in names]
+    if any(v is None for v in values) and any(v is not None for v in values):
+        raise ValueError("Partially withheld covariance factors.")
+    for name, value in zip(names, values, strict=True):
+        if value is not None:
+            _array(value, name.replace("_", " "))
+    return CovarianceFactors(conditional, *values)
+
+
 def _noise_model(record):
-    """The recorded noise correlation: per-axis processing, or why it is not modelled."""
+    """The recorded noise correlation, or why it is not modelled, and its noise-power check."""
     record = _record(record, "noise model")
-    if set(record) != {"axes", "reason"}:
+    if set(record) != {"axes", "reason", "power_check"}:
         raise ValueError("Malformed noise model.")
     axes = tuple(_axis_processing(a) for a in record["axes"])
-    return NoiseModel(axes=axes, reason=record["reason"])
+    check = tuple(_axis_noise_power(a) for a in record["power_check"])
+    return NoiseModel(axes=axes, reason=record["reason"], power_check=check)
+
+
+def _axis_noise_power(record):
+    """One axis's recorded noise-power check, as recorded: it is never re-measured."""
+    record = _record(record, "noise-power check")
+    statuses = {s.value: s for s in NoisePowerStatus}
+    if set(record) != {f.name for f in fields(AxisNoisePower)} or record["status"] not in statuses:
+        raise ValueError("Malformed noise-power check.")
+    measured = {name: value for name, value in record.items() if name != "status"}
+    return AxisNoisePower(statuses[record["status"]], **measured)
 
 
 def _axis_processing(record):
@@ -422,6 +475,7 @@ def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
             largest = e.largest_recorded_residual
             if not (math.isfinite(largest) and largest >= 0):
                 raise ValueError("Invalid largest recorded residual.")
+            _validate_covariance_factors(e, c)
         if (
             not s.grid_indices
             or any(i.shape != s.grid_indices[0].shape for i in s.grid_indices)
@@ -517,6 +571,33 @@ def _validate_science(outcome, samples):  # noqa: PLR0912, PLR0915
         )
         if e.statistics.n_observations != s.data.size:
             raise ValueError("Recorded observation count disagrees with samples.")
+
+
+def _validate_covariance_factors(evaluation, cluster):
+    """Factors whose conditional block is the amplitude covariance and whose θ is free."""
+    factors = evaluation.covariance_factors
+    if not isinstance(factors, CovarianceFactors):
+        raise ValueError("Missing covariance factors.")
+    if factors.conditional is not evaluation.amplitude_covariance and not np.array_equal(
+        factors.conditional, evaluation.amplitude_covariance, equal_nan=True
+    ):
+        raise ValueError("The covariance factors disagree with the amplitude covariance.")
+    lineshape = (factors.shape_gain, factors.cross_gain, factors.parameter_covariance)
+    if all(v is None for v in lineshape):
+        return
+    if any(v is None for v in lineshape):
+        raise ValueError("Partially withheld covariance factors.")
+    k = len(cluster.peak_names)
+    n_theta = factors.parameter_covariance.shape[0]
+    varied = sum(p.vary for p in cluster.final_nonlinear_parameters)
+    if (
+        n_theta > varied
+        or factors.parameter_covariance.shape != (n_theta, n_theta)
+        or factors.shape_gain.shape != (k, k, n_theta)
+        or factors.cross_gain.shape != (k, k, n_theta)
+        or not all(np.all(np.isfinite(v)) for v in lineshape)
+    ):
+        raise ValueError("Invalid covariance factors dimensions or values.")
 
 
 def _validate_context(outcome, samples, context):  # noqa: PLR0912

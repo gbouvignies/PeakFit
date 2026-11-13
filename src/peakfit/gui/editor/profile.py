@@ -2,12 +2,22 @@
 
 from dataclasses import dataclass
 from html import escape
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeGuard
 
 import numpy as np
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.algorithms.covariance_factors import (
+    CORRELATED_MODE_THRESHOLD,
+    DOWNSTREAM_SIGMA_TOLERANCE,
+    PARTNER_CORRELATION_THRESHOLD,
+    PeakProfileCorrelation,
+    ProfileCorrelation,
+    peak_covariances_between_planes,
+    profile_correlations,
+    profile_standard_errors,
+)
 from peakfit.engine.diagnostics.identifiability import (
     AmplitudeStatus,
     Cause,
@@ -25,23 +35,104 @@ from peakfit.gui.editor.labels import about, disclosure, phrases
 from peakfit.gui.theme import FONT_CAPTION, LIGHT, Theme, color
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from peakfit.engine.algorithms.noise_correlation import NoiseModel
     from peakfit.gui.dataset_fit import DatasetFitResult
 
 _MAX_ISOLATED = 2
 
+# The correlated-profile flag (profile-uncertainty §6): the same mark and words on the
+# profile, the tiles and the cluster page.
+CORRELATED_MARK = "↔"
+CORRELATED_SHORT = "errors correlated across planes"
+NOT_ASSESSED_SHORT = "correlation across planes not assessed"
+CORRELATED_LIMIT = (
+    "Downstream fits that treat the per-plane errors (intensity_err) as independent can "
+    f"misstate parameter uncertainty by more than {DOWNSTREAM_SIGMA_TOLERANCE:.0%}. This is "
+    "a limit of independent per-plane errors, not of the data: the amplitudes and their "
+    "errors are unchanged. "
+    "Read downstream errors for this peak with that in mind; the results archive "
+    "records the covariance between planes, as factors, for analyses that can use it."
+)
+NOT_ASSESSED_REASON = (
+    "the lineshape uncertainty of this cluster is withheld, so there is no profile σ to qualify."
+)
+
+
+def flagged(correlation: PeakProfileCorrelation | None) -> TypeGuard[PeakProfileCorrelation]:
+    """Whether a profile carries the correlated-profile flag; False when not computed."""
+    return correlation is not None and correlation.flagged
+
+
+def partner_name(correlation: PeakProfileCorrelation, names: Sequence[str]) -> str:
+    """The name of a peak's most correlated cluster partner; empty for a single peak."""
+    return "" if correlation.partner is None else names[correlation.partner]
+
+
+def correlation_findings(correlation: PeakProfileCorrelation, partner: str) -> str:
+    """Which diagnostic of a flagged peak exceeds its threshold, and by how much."""
+    found = []
+    if correlation.mode > CORRELATED_MODE_THRESHOLD:
+        found.append(
+            f"largest correlated mode {correlation.mode:.2f} c, above "
+            f"{CORRELATED_MODE_THRESHOLD:g} c"
+        )
+    if correlation.partner_correlation > PARTNER_CORRELATION_THRESHOLD:
+        found.append(
+            f"|ρ| {correlation.partner_correlation:.2f} with {partner} within each plane, "
+            f"above {PARTNER_CORRELATION_THRESHOLD:g}"
+        )
+    return "; ".join(found)
+
+
+def correlation_text(name: str, correlation: PeakProfileCorrelation | None, partner: str) -> str:
+    """The flag in a sentence for one peak; empty when there is nothing to say."""
+    if correlation is None:
+        return ""
+    if correlation.status is ProfileCorrelation.NOT_ASSESSED:
+        return f"Correlation of {name}'s errors across planes not assessed: {NOT_ASSESSED_REASON}"
+    if not correlation.flagged:
+        return ""
+    return (
+        f"{CORRELATED_MARK} {name}: errors correlated across planes "
+        f"({correlation_findings(correlation, partner)}). Treated as independent, the "
+        "per-plane errors can misstate downstream parameter uncertainty: a limit of that "
+        "approximation, not of the data."
+    )
+
+
+WITHIN_TOLERANCE_TEXT = (
+    "Independent per-plane errors describe every member's profile: no correlated mode "
+    f"above {CORRELATED_MODE_THRESHOLD:g} c and no |ρ| with a partner above "
+    f"{PARTNER_CORRELATION_THRESHOLD:g}, below which they misstated no downstream σ by "
+    f"more than {DOWNSTREAM_SIGMA_TOLERANCE:.0%} in validation."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ProfileSeries:
-    """One peak's recorded amplitudes, analytical standard error and identifiability."""
+    """One peak's recorded amplitudes, their uncertainty and identifiability.
+
+    ``errors`` is the profile σ by plane, the error bars of raw amplitudes.
+    ``covariance`` is the covariance of the amplitudes between planes (S × S), rebuilt
+    from the stored covariance factors; ratios propagate it (profile-uncertainty §4).
+    Both are all NaN where the factors are withheld.
+    """
 
     assignment: str
     amplitudes: np.ndarray
-    error: float
+    errors: np.ndarray  # profile σ by plane; all NaN where unavailable
     identifiability: MemberAmplitude
+    covariance: np.ndarray
     partners: tuple[str, ...] = ()  # assignments of near-collinear members
+    correlation: PeakProfileCorrelation | None = None  # the correlated-profile flag
+    correlation_partner: str = ""  # assignment of the most correlated member
+
+    @property
+    def flagged(self) -> bool:
+        """Whether this member's profile carries the correlated-profile flag."""
+        return flagged(self.correlation)
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,17 +167,26 @@ def peak_profile(
     members = amplitude_identifiability(
         evaluation.shapes, evaluation.amplitudes, evaluation.amplitude_standard_errors
     )
+    errors = profile_standard_errors(evaluation.covariance_factors, evaluation.amplitudes)
     order = sorted(
         range(len(cluster.peak_names)),
         key=lambda k: cluster.peak_names[k] != engine_name,
     )
+    covariances = peak_covariances_between_planes(
+        evaluation.covariance_factors, evaluation.amplitudes
+    )
+    correlations = profile_correlations(evaluation.covariance_factors, evaluation.amplitudes)
+    names = [by_engine[name].assignment for name in cluster.peak_names]
     series = tuple(
         ProfileSeries(
-            by_engine[cluster.peak_names[k]].assignment,
+            names[k],
             evaluation.amplitudes[k],
-            float(evaluation.amplitude_standard_errors[k]),
+            errors[k],
             members[k],
-            tuple(by_engine[cluster.peak_names[j]].assignment for j in members[k].partners),
+            covariances[k],
+            tuple(names[j] for j in members[k].partners),
+            correlations[k],
+            partner_name(correlations[k], names),
         )
         for k in order
     )
@@ -215,7 +315,7 @@ def diagnostics_text(profile: PeakProfile) -> str:
         if m.status is AmplitudeStatus.IDENTIFIABLE:
             continue
         low, high = float(np.min(s.amplitudes)), float(np.max(s.amplitudes))
-        sigma = f"σ {_scientific(s.error, 3)}" if np.isfinite(s.error) else "σ not available"
+        sigma = _sigma_range(s.errors)
         lines += [
             f"{s.assignment} · {m.status.value} ({m.cause.value})",
             f"  recorded amplitudes {_scientific(low, 3)} to {_scientific(high, 3)} · {sigma}",
@@ -232,6 +332,21 @@ def diagnostics_text(profile: PeakProfile) -> str:
     if lines:
         lines.append("Recorded values are unchanged; Export results writes them.")
     return "\n".join(lines)
+
+
+def _available(errors: np.ndarray) -> bool:
+    """Whether a series has error bars: a profile σ on every plane."""
+    return bool(np.all(np.isfinite(errors)))
+
+
+def _sigma_range(errors: np.ndarray) -> str:
+    """A series' profile σ for diagnostics: one value, or its range over the planes."""
+    if not _available(errors):
+        return "profile σ not available"
+    low, high = float(np.min(errors)), float(np.max(errors))
+    if _scientific(low, 3) == _scientific(high, 3):
+        return f"profile σ {_scientific(low, 3)}"
+    return f"profile σ {_scientific(low, 3)} to {_scientific(high, 3)}"
 
 
 def _sigma(error: float) -> str:
@@ -415,6 +530,13 @@ class ProfilePlot(QtWidgets.QWidget):
         notes.addWidget(self.note)
         notes.addLayout(self._chips())
         layout.addLayout(notes)
+        # The correlated-profile flag of the selected peak: a limit of independent
+        # per-plane errors, so a caption, not a warning.
+        self.correlated = QtWidgets.QLabel()
+        self.correlated.setObjectName("caption")
+        self.correlated.setWordWrap(True)
+        self.correlated.hide()
+        layout.addWidget(self.correlated)
         self.about_toggle, self.about = about(layout, "About these error bars")
         # Members whose individual amplitudes are withheld, and why; then the numbers.
         self.withheld = QtWidgets.QLabel()
@@ -505,7 +627,7 @@ class ProfilePlot(QtWidgets.QWidget):
             (
                 index,
                 s.amplitudes,
-                np.full(s.amplitudes.size, s.error) if np.isfinite(s.error) else None,
+                s.errors if _available(s.errors) else None,
                 None,
             )
             for index, s in enumerate(profile.series)
@@ -530,9 +652,7 @@ class ProfilePlot(QtWidgets.QWidget):
         for index, series in enumerate(profile.series):
             if not series.identifiability.determined:
                 continue
-            shown = normalize(
-                series.amplitudes, np.full(series.amplitudes.size, series.error), columns
-            )
+            shown = normalize(series.amplitudes, series.covariance, columns)
             if isinstance(shown, Unavailable):
                 if index == 0:
                     return raw, [], shown
@@ -554,6 +674,19 @@ class ProfilePlot(QtWidgets.QWidget):
         self.diagnostics.setText(diagnostics)
         self.diagnostics_toggle.setVisible(bool(diagnostics))
         self.diagnostics.setVisible(bool(diagnostics) and self.diagnostics_toggle.isChecked())
+        selected = profile.series[0] if profile is not None else None
+        correlated = (
+            correlation_text(
+                selected.assignment, selected.correlation, selected.correlation_partner
+            )
+            if selected is not None
+            else ""
+        )
+        self.correlated.setText(correlated)
+        # The full meaning, and what to do next, on hover.
+        marked = selected is not None and selected.flagged
+        self.correlated.setToolTip(CORRELATED_LIMIT if marked else "")
+        self.correlated.setVisible(bool(correlated))
         if profile is None:
             return
         x = profile.x
@@ -643,7 +776,12 @@ class ProfilePlot(QtWidgets.QWidget):
         entries = [
             f'<span style="color:{colors[i % len(colors)]}">{marker}</span>&nbsp;'
             + (f"<b>{escape(s.assignment)}</b>" if i == 0 else escape(s.assignment))
-            + ("" if np.isfinite(s.error) else " · σ not available")
+            + ("" if _available(s.errors) else " · σ not available")
+            + (
+                f'&nbsp;<span title="{CORRELATED_SHORT}">{CORRELATED_MARK}</span>'
+                if s.flagged
+                else ""
+            )
             for i, s in enumerate(profile.series)
             if i in shown
         ] + (["◆&nbsp;reference"] if normalized else [])
@@ -680,7 +818,7 @@ class ProfilePlot(QtWidgets.QWidget):
             self.show_all.setToolTip(
                 "Off-scale observations: "
                 + "; ".join(
-                    f"{s.assignment} {formatting.scaled(s.amplitudes[j])} ({_sigma(s.error)}) "
+                    f"{s.assignment} {formatting.scaled(s.amplitudes[j])} ({_sigma(s.errors[j])}) "
                     f"at {formatting.intensity(float(x[j]))} "
                     f"(plane {profile.source_planes[j] + 1})"
                     for j in hidden
@@ -741,12 +879,12 @@ class ProfilePlot(QtWidgets.QWidget):
         noise = "modelled" if profile.noise_model.modelled else "not modelled"
         shown = self._normalized
         quantity = (
-            f"±1σ of the ratio, conditional on lineshapes · noise correlation {noise} · "
+            f"±1σ of the ratio, lineshape uncertainty included · noise correlation {noise} · "
             f"σ_R/|R| = {shown.reference_error / abs(shown.reference):.3f} "
             f"(limit {RELIABILITY_LIMIT:g})"
             + (" · reference amplitude negative" if shown.reference < 0 else "")
             if shown is not None
-            else f"±1σ conditional on lineshapes · noise correlation {noise}"
+            else f"±1 profile σ · noise correlation {noise}"
         )
         extra = getattr(self, "_normalization_note", "")
         states = [
@@ -759,16 +897,24 @@ class ProfilePlot(QtWidgets.QWidget):
         # Say what the bars on show are: raw amplitude σ, or the ratio's propagated σ.
         if shown is None:
             quantity_text = (
-                "Error bars are the recorded analytical standard errors of the amplitudes: "
-                "one σ per peak, the same on every plane."
+                "Error bars are the profile σ, plane by plane, as Export results writes "
+                "it (intensity_err). For an isolated peak it is the conditional σ, the "
+                "same on every plane. The profile σ includes the uncertainty of the fitted "
+                "lineshapes except a common scale, which moves all of a peak's amplitudes "
+                "by one factor and cancels in ratios and in any fit with a free scale. "
+                "Overlapping peaks can also have errors correlated across planes, which "
+                f"independent error bars do not show; {CORRELATED_MARK} marks a peak where "
+                "that exceeds the validated tolerance."
             )
         else:
             quantity_text = (
                 "Error bars are the first-order (full-gradient) standard errors of the "
                 "ratio A_k / R, where R is the mean amplitude of the reference planes, "
-                "propagated from the analytical amplitude standard errors with amplitudes "
-                "of different planes treated as uncorrelated. They differ from plane to "
-                "plane. "
+                "propagated from the covariance between planes of the peak's amplitudes. "
+                "That covariance includes the uncertainty of the fitted lineshape "
+                "parameters, which moves a peak's amplitudes together from plane to plane; "
+                "the part common to all planes cancels in the ratio. The reliability limit "
+                "applies to the total σ of R. They differ from plane to plane. "
                 + (
                     "With a single reference plane its ratio is exactly 1 and has no error bar."
                     if shown.exact
@@ -777,10 +923,8 @@ class ProfilePlot(QtWidgets.QWidget):
                 )
             )
         explanation = (
-            quantity_text + " The amplitude standard errors are computed with the fitted lineshape "
-            "parameters held fixed, so their uncertainty and correlations are not "
-            "propagated; they can underestimate the uncertainty of overlapping peaks. "
-            "They are never rescaled by χ²ᵣ. "
+            quantity_text
+            + " Errors are never rescaled by χ²ᵣ. "
             + profile.noise_model.description
             + " χ²ᵣ is a goodness-of-fit diagnostic: well above 1, the noise level, the "
             "lineshape model or the noise assumptions do not describe the data, so these "

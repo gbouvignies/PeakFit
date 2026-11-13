@@ -3,7 +3,8 @@
 Run with ``uv run python tools/write_golden_reference.py``. It fits the bundled
 example with ``FIT_ARGUMENTS`` and writes ``tests/data/golden/example-fit.json``
 (provenance, statistics, nonlinear parameters) and ``example-fit-amplitudes.npz``
-(amplitudes and their conditional standard errors), which
+(amplitudes, their conditional standard errors and their profile σ, the published
+``intensity_err``), which
 ``tests/integration/test_golden_regression.py`` compares against. Pass
 ``--run RUN_DIR`` to write from an existing fit made with the same arguments.
 
@@ -22,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
+from peakfit.engine.algorithms.covariance_factors import profile_standard_errors
 from peakfit.io.scientific import read_scientific
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -83,6 +85,9 @@ def write_reference(run: Path, source_commit: str) -> None:
         arrays[f"amplitudes_{cluster.cluster_id}"] = evaluation.amplitudes
         arrays[f"amplitude_standard_errors_{cluster.cluster_id}"] = (
             evaluation.amplitude_standard_errors
+        )
+        arrays[f"profile_standard_errors_{cluster.cluster_id}"] = profile_standard_errors(
+            evaluation.covariance_factors, evaluation.amplitudes
         )
     statistics = outcome.statistics
     reference = {

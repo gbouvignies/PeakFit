@@ -44,9 +44,10 @@ reviewing the scientific or contract reason.
 `tests/integration/test_golden_regression.py` fits the bundled example once and
 compares it with `tests/data/golden/example-fit.json` (provenance, fit arguments,
 statistics, every cluster's classification, chi-squared and nonlinear parameters)
-and `example-fit-amplitudes.npz` (amplitudes and their conditional standard
-errors). Identifiable clusters must match within 1e-3 of each reference standard
-error, standard errors to 1e-6 and chi-squared to 1e-8 (relative). Clusters
+and `example-fit-amplitudes.npz` (amplitudes, their conditional standard errors and
+their profile σ, the published `intensity_err`). Identifiable clusters must match
+within 1e-3 of each reference standard error, standard errors to 1e-6 and
+chi-squared to 1e-8 (relative). Clusters
 carrying the uncertainty warning are compared through classification, warning and
 chi-squared only, because the data do not determine their individual values. The
 module docstring records the measurements behind these tolerances.
@@ -128,8 +129,8 @@ current design.
 The desktop application keeps the Qt event loop free of scientific and disk work:
 
 - Qt objects, paths and widgets are created only on the GUI thread. Input
-  validation (`gui.spectrum.read_dataset`), contour geometry and model-plane
-  projection run in a `ViewerComputation` lane: one serial background worker per
+  validation (`gui.spectrum.read_dataset`), contour geometry, model-plane
+  projection and the Profiles view's tiles run in a `ViewerComputation` lane: one serial background worker per
   owner, with latest-pending requests and revision checks so stale deliveries are
   dropped. `close()` waits for a delivery already emitting and no delivery starts
   after it, so an owner may be deleted as soon as its lanes are closed.

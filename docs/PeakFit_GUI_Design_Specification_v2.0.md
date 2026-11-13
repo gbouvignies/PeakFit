@@ -795,7 +795,8 @@ comparison is outdated. Analytical and MCMC intervals have separate names and
 explanations and are never interchanged automatically.
 
 **Default: raw signed amplitudes** for every experiment, in recorded units with
-engineering axis scaling (for example ×10⁵) and a visible zero. The selected peak is
+engineering axis scaling (for example ×10⁵) and a visible zero. Error bars are the
+profile σ, the published `intensity_err`. The selected peak is
 emphasized and other cluster members are drawn lighter on the same scale. When at
 most two observations lie beyond a gap wider than half the span, the plot frames the
 rest and labels them off-scale, with **Show all points**.
@@ -810,20 +811,17 @@ Normalization is a display transform of recorded amplitudes: it never alters
 authoritative amplitudes, uncertainties, exports, run records or saved scientific
 results. Until a storage decision (§14) the reference choice is session-only.
 
-For a peak with amplitudes A_k and analytical standard errors σ_k (noise-based, never
-rescaled by χ²ᵣ):
+For a peak with amplitudes A_k and their covariance between planes Σ, rebuilt from
+the stored covariance factors (noise-based, never rescaled by χ²ᵣ;
+`docs/profile-uncertainty.md` §4):
 
 - R = (1/n) Σ_{j∈S} A_j and r_k = A_k / R.
-- Uncertainty uses first-order propagation with the full gradient, so that a
-  numerator belonging to S is correlated with R:
-  ∂r_k/∂A_k = 1/R − [k∈S]·A_k/(nR²); ∂r_k/∂A_j = −A_k/(nR²) for j ∈ S, j ≠ k;
-  σ²(r_k) = Σ_j (∂r_k/∂A_j)² σ_j².
-- For k ∉ S this reduces to σ²(r_k) = (σ_k² + r_k² σ_R²) / R², with
-  σ_R² = (1/n²) Σ_{j∈S} σ_j².
-- The current analytical uncertainties hold lineshape parameters fixed, so
-  amplitudes of different planes come from disjoint observations with independent
-  noise and have zero covariance. Uncertainty from shared lineshape parameters is
-  not included; the authoritative σ has the same limitation and the profile says so.
+- Uncertainty uses first-order propagation with the full gradient g_k:
+  ∂r_k/∂A_j = δ_kj/R − [j∈S]·A_k/(nR²), and σ²(r_k) = g_kᵀ Σ g_k. Σ includes the
+  lineshape uncertainty shared by the planes, which a ratio to fixed reference
+  planes does not cancel.
+- σ_R is the reference mean's total σ, covariances included: σ_R² = wᵀΣw with
+  w_j = 1/n on S.
 
 Special cases. Unavailability has two kinds, named as such in the display:
 **undefined**, where no ratio can be computed, and **unreliable**, where a ratio is

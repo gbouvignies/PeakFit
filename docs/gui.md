@@ -287,7 +287,11 @@ model planes and 32 MiB/eight contour geometries, with stale deliveries rejected
 The run line starts with the run and Current/Outdated, then completeness,
 convergence and usable/total clusters, so a narrow window shortens only the tail;
 its tooltip keeps the full text. Clusters with a numerical warning have their own
-amber label (▲ N) that never elides.
+amber label (▲ N) that never elides. When the run's noise-power check found
+processing the header does not record, the line shows **▲ Noise check (F2)**, naming
+the axes, before the counts; the tooltip gives what was found and what to do
+([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). It is a
+warning about the errors only, never about the fit.
 
 The first completed run opens the navigator's **Clusters** tab: one row per
 recorded cluster with its members and three measures: χ²ᵣ, the largest |recorded
@@ -312,11 +316,14 @@ compact amber line names the cluster's numerical warnings (“▲ Uncertainty
 unreliable · see Review”); their explanations stay in Review. The cluster page
 lists the members one line each: its number, a link to its peak page and its
 recorded values at display precision (± σ on hover, recorded bounds in amber,
-units under the table); then the amplitude profile of all members; the recorded
+units under the table), ↔ after a member whose profile is flagged; then the amplitude profile of all members; the recorded
 amplitude correlation, “conditional on lineshapes” (a single ρ row for two
 members, a matrix in member numbers shaded by |ρ| for more, why it is
 unavailable when the covariance was not recorded, and no section for a single
-peak); the cluster's review rows; and provenance.
+peak); the cluster's review rows, ending with **Profile errors** for runs with
+two planes or more: “↔ correlated across planes” with the flagged members, “within
+tolerance” or “not assessed”, the diagnostics and their meaning on hover; and
+provenance.
 **Enter** or a double-click on a cluster row, **Focus cluster** on the cluster page,
 or **View → Focus cluster** (Cmd/Ctrl+Shift+F) puts the selected peak's recorded
 cluster in **focus**: the same spectral view, reframed in place on the displayed
@@ -378,7 +385,10 @@ samples and are not recomputed from the displayed whole-spectrum residual.
 **Provenance** discloses the optimizer, termination message, correction revision
 and run identity. **Fitted** is a table of the peak's recorded parameters, one line
 each: positions then linewidths, the horizontal axis first, with unit, value and σ
-(“fixed” for a fixed parameter); parameters at a recorded bound are marked.
+(“fixed” for a fixed parameter); parameters at a recorded bound are marked. Its last
+line, **Amplitude plane N**, follows the current plane: the recorded amplitude ± its
+marginal σ, the uncertainty of that absolute amplitude including the lineshape
+uncertainty (`intensity_err_marginal`), as the caption under it says.
 **Starting values and bounds** (collapsed) is the same kind of table for the next
 fit: start, lower and upper bound per parameter (“fixed” in place of the bounds),
 from the current preparation of the working position and fit setup. It stays
@@ -392,7 +402,8 @@ order and filter: sort or filter the list and the tiles follow. Each tile overla
 every member's recorded signed amplitudes on one vertical scale that includes zero,
 so a dip shared between correlated members, opposite signs or a large/small split
 show at a glance; members keep the cluster page's colours and order, named under the
-plot. The header gives the cluster's mark, first member and size, and its χ²ᵣ,
+plot, a flagged member followed by ↔ (the correlated-profile flag; the tooltip names
+the flagged members, or that the correlation was not assessed). The header gives the cluster's mark, first member and size, and its χ²ᵣ,
 |r|max and |ρ|. A member whose amplitude is not identifiable or not established is
 not drawn, and the tile says so. The plot frames the same range as the inspector's
 profile (a distant reference plane is left out) and a dashed line marks the current
@@ -420,22 +431,36 @@ Points are the recorded amplitudes, unconnected, against the supplied plane valu
 in acquisition order; repeated values stay separate observations. Without plane
 values, or when the current values differ from those the run recorded, the axis is
 the one-based plane number. Clicking a point opens the plane of the nearest
-point; points sharing that exact value offer a choice. Error bars are the conditional analytical standard errors written
-by **Export results…**: computed with the fitted lineshape parameters held fixed,
-one σ per peak for every plane, never rescaled by χ²ᵣ. Where the run models the
-processed noise correlation they are the sandwich errors; otherwise they assume
-independent points. The note beside the plot says so in a few words (“±1σ
-conditional on lineshapes · noise correlation modelled”), with any points off
-scale, by plane, on a line of their own; χ²ᵣ is with the cluster's measures; **About these
-error bars** below it gives the noise model in full
-([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)). The
-inspector's provenance states it once for the run.
- They can underestimate the uncertainty of overlapping peaks.
+point; points sharing that exact value offer a choice. Error bars are the **profile
+σ** that **Export results…** writes as `intensity_err`, plane by plane, never
+rescaled by χ²ᵣ ([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties)).
+It includes the uncertainty of the fitted lineshapes except a common scale, which
+moves all of a peak's amplitudes by one factor and cancels in ratios and in any
+downstream fit with a free scale. For an isolated peak it is the conditional σ, the
+same on every plane. It differs from the **marginal σ** of the inspector's Fitted
+table, the uncertainty of one absolute amplitude with that scale included: its
+scale part is shared by every plane, so as independent bars it would overstate the
+uncertainty of the profile. Strongly overlapping peaks can also have errors
+correlated across planes, which no independent bar shows. Where that exceeds the
+validated tolerance, the **correlated-profile flag**
+([outputs.md](outputs.md#unavailable-and-unreliable-uncertainties), `correlated_profile`)
+marks the member with ↔ in the legend, and a caption under the plot says, for the
+selected peak, which diagnostic was found (largest correlated mode relative to c, or
+|ρ| with a partner) and that downstream fits treating the per-plane errors as
+independent can misstate parameter uncertainty. It is a caption, not a warning: a
+limit of independent per-plane errors, not of the data, and it changes nothing.
+Where the cluster's lineshape factors are withheld, the caption says the correlation
+was not assessed; runs with one plane show no flag. Where the run models the
+processed noise correlation the errors are sandwich errors; otherwise they assume
+independent points. The note beside the plot says so in a few words (“±1 profile
+σ · noise correlation modelled”), with any points off scale, by plane, on a line of
+their own; χ²ᵣ is with the cluster's measures; **About these error bars** below it
+gives the noise model in full. The inspector's provenance states it once for the
+run.
 
 Each member's amplitude is classified from the run's recorded shapes, with the
 factorization and numerical conventions that produced the amplitudes and no
-threshold of its own. Like the error bars, the classification is conditional on the
-fitted lineshapes; it does not establish identifiability when positions and
+threshold of its own. The classification is conditional on the fitted lineshapes; it does not establish identifiability when positions and
 linewidths are allowed to vary:
 
 - **Not identifiable**: the fitted shapes are linearly dependent and this member's
@@ -466,17 +491,23 @@ The profile shows **Raw amplitudes** by default. Its quantity chip offers
 `1-3`); the dialog points out isolated planes but never chooses one. The profile
 then shows each peak's ratio A / A_ref to the mean of its own amplitudes on those
 planes, with ±1σ propagated to first order using the full gradient, so a plane in a
-multi-plane reference is treated as correlated with the mean. A single reference
-plane is drawn exactly at 1 without an error bar; reference planes use diamonds.
+multi-plane reference is treated as correlated with the mean. The propagation uses
+the peak's covariance between planes, rebuilt from the stored covariance factors
+([profile-uncertainty §4](profile-uncertainty.md)): it includes the lineshape
+uncertainty, which moves a peak's amplitudes together from plane to plane, so ratio
+error bars are not the raw amplitude σ rescaled. The note reads “±1σ of the ratio,
+lineshape uncertainty included”. A single reference plane is drawn exactly at 1
+without an error bar; reference planes use diamonds.
 Normalization is a display: recorded amplitudes, σ, exports and saved results are
 unchanged, and the reference lasts for the session.
 
 When a ratio cannot be shown, the profile keeps the raw amplitudes and says so
 directly under the plot (“▲ Showing raw amplitudes …”); the quantity chip reads
 “÷ plane 1 · not applied” and the axis names what is plotted. A ratio is
-**undefined** when the reference mean is zero or not finite, when σ is
-unavailable, or when a reference plane is not in the run. It is **withheld as
-unreliable**, although computable, when σ_R/|R| exceeds 0.1. A member whose
+**undefined** when the reference mean is zero or not finite, when the covariance
+between planes is unavailable (its lineshape terms are withheld), or when a
+reference plane is not in the run. It is **withheld as unreliable**, although
+computable, when σ_R/|R| exceeds 0.1, σ_R being the total σ of the reference mean. A member whose
 individual amplitudes are withheld is never normalized: a ratio would cancel the
 arbitrary scale of a degenerate split and look well determined. The
 reference choice is kept, so the next well-determined peak is normalized again.

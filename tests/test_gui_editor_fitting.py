@@ -16,7 +16,18 @@ from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 import peakfit.gui.editor.review as review_module
 import peakfit.gui.editor.spectral_view as canvas_module
 import peakfit.gui.editor.workspace as workspace_module
+from peakfit.engine.algorithms.covariance_factors import (
+    CovarianceFactors,
+    marginal_standard_errors,
+    profile_standard_errors,
+)
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
+from peakfit.engine.algorithms.noise_correlation import (
+    AxisNoisePower,
+    AxisProcessing,
+    NoiseModel,
+    NoisePowerStatus,
+)
 from peakfit.engine.diagnostics.identifiability import AmplitudeStatus, Cause, MemberAmplitude
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConfig
@@ -43,6 +54,8 @@ from peakfit.gui.fitting import prepare_dataset_fit
 from peakfit.gui.project import StoredRun
 from peakfit.gui.spectrum import Dataset, display_position, read_dataset
 from peakfit.io.scientific import read_scientific
+from peakfit.plot.outputs import recorded_profiles
+from peakfit.plot.profile_data import prepare_cest_data
 
 pytestmark = pytest.mark.gui
 
@@ -589,11 +602,15 @@ def test_profile_shows_recorded_run_values_and_follows_selection(workspace, scie
     assert evaluation is not None
     selected = profile.series[0]
     np.testing.assert_array_equal(selected.amplitudes, evaluation.amplitudes[1])
-    assert selected.error == evaluation.amplitude_standard_errors[1]
+    # The bars are the profile σ, plane by plane, as intensity_err records it.
+    np.testing.assert_array_equal(
+        selected.errors,
+        profile_standard_errors(evaluation.covariance_factors, evaluation.amplitudes)[1],
+    )
     # σ-only: the bar is the unscaled analytical σ; χ²ᵣ is a measure, not a bar scale.
     chi2 = evaluation.statistics.reduced_chi_squared
     assert profile.reduced_chi_squared == chi2
-    assert "±1σ conditional on lineshapes" in panel.note.text()
+    assert "±1 profile σ" in panel.note.text()
     assert "scaled" not in panel.note.text()
     assert "never rescaled by χ²ᵣ" in panel.note.toolTip()
     # The synthetic dataset has no NMRPipe header: its errors say so.
@@ -614,7 +631,7 @@ def test_profile_shows_recorded_run_values_and_follows_selection(workspace, scie
         [float(r["intensity"]) for r in rows], selected.amplitudes, rtol=1e-6, atol=1e-6
     )
     np.testing.assert_allclose(
-        [float(r["intensity_err"]) for r in rows], selected.error, rtol=1e-6, atol=1e-6
+        [float(r["intensity_err"]) for r in rows], selected.errors, rtol=1e-6, atol=1e-6
     )
     w.select_peak(identities[cluster.peak_names[0]])
     assert panel._profile is not None
@@ -947,12 +964,16 @@ def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(qapp, scientif
     cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
     evaluation = cluster.analytical_evaluation
     assert evaluation is not None
-    # A usable but poorly identifiable cluster can report NaN amplitude errors.
+    # A usable but poorly identifiable cluster can report NaN amplitude errors; its
+    # covariance factors are then withheld, and with them every profile σ.
     errors = evaluation.amplitude_standard_errors.copy()
     errors[0] = np.nan
+    withheld = CovarianceFactors(evaluation.amplitude_covariance, None, None, None)
     weak = replace(
         cluster,
-        analytical_evaluation=replace(evaluation, amplitude_standard_errors=errors),
+        analytical_evaluation=replace(
+            evaluation, amplitude_standard_errors=errors, covariance_factors=withheld
+        ),
     )
     clusters = tuple(weak if c is cluster else c for c in result.outcome.clusters)
     outcome = replace(
@@ -971,9 +992,9 @@ def test_profile_keeps_amplitudes_when_uncertainty_is_unavailable(qapp, scientif
     assert not panel.plot.grab().isNull()
     assert panel._profile is not None
     np.testing.assert_array_equal(panel._profile.series[0].amplitudes, evaluation.amplitudes[0])
-    assert np.isnan(panel._profile.series[0].error)
+    assert np.isnan(panel._profile.series[0].errors).all()
     bars = [i for i in panel.plot.getPlotItem().items if isinstance(i, pg.ErrorBarItem)]
-    assert len(bars) == len(weak.peak_names) - 1
+    assert bars == []
     assert np.all(np.isfinite(panel.plot.getViewBox().viewRange()))
     assert "σ not available" in panel.legend.text()
     # The value is determined, so it is drawn; only its error bar is missing.
@@ -1026,6 +1047,40 @@ def test_navigator_clusters_and_inspector_show_recorded_values(workspace, scient
     ]
     assert [value, sigma] in cells
     assert w.edits.revision == 0
+
+
+def test_inspector_shows_the_marginal_sigma_of_the_absolute_amplitude(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
+    evaluation = cluster.analytical_evaluation
+    marginal = marginal_standard_errors(evaluation.covariance_factors, evaluation.amplitudes)
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    w.select_peak(identities[cluster.peak_names[1]])
+    fitted = w.panel.fitted
+
+    def amplitude_row():
+        rows = [
+            [fitted.itemAtPosition(row, column).widget().text() for column in (0, 1, 2)]
+            for row in range(1, fitted.rowCount())
+            if fitted.itemAtPosition(row, 2) is not None
+        ]
+        return next(r for r in rows if r[0].startswith("Amplitude"))
+
+    for plane in (1, 3):
+        w.set_plane(plane)
+        value, sigma = formatting.with_sigma(
+            evaluation.amplitudes[1, plane - 1], marginal[1, plane - 1]
+        )
+        assert amplitude_row() == [f"Amplitude plane {plane}", value, sigma]
+    # Labelled as the uncertainty of the absolute amplitude, not of a profile.
+    captions = [
+        fitted.itemAt(i).widget().text()
+        for i in range(fitted.count())
+        if isinstance(fitted.itemAt(i).widget(), QtWidgets.QLabel)
+    ]
+    assert any("σ of the absolute amplitude" in text for text in captions)
 
 
 def test_dense_profile_click_opens_the_nearest_plane(qapp, scientific):
@@ -1485,9 +1540,7 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(qapp, sci
     reference = int(shown.source_planes[0])
     panel.set_reference((reference,))
     selected = shown.series[0]
-    expected = normalize(
-        selected.amplitudes, np.full(selected.amplitudes.size, selected.error), np.array([0])
-    )
+    expected = normalize(selected.amplitudes, selected.covariance, np.array([0]))
     assert isinstance(expected, Normalized)
     _x, y = _selected_points(panel).getData()
     np.testing.assert_allclose(y, expected.values)
@@ -1495,8 +1548,9 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(qapp, sci
     assert panel.mode.text() == f"÷ plane {reference + 1}"
     assert f"A / A_ref (plane {reference + 1})" in panel.plot.getAxis("left").labelText
     assert "reference" in panel.legend.text()
-    assert "±1σ of the ratio, conditional on lineshapes" in panel.note.text()
+    assert "±1σ of the ratio, lineshape uncertainty included" in panel.note.text()
     assert "full-gradient" in panel.note.toolTip()
+    assert "covariance between planes" in panel.note.toolTip()
     # The reference set persists across selections; recorded amplitudes never change.
     panel.show_profile(shown, 0)
     assert panel.normalized
@@ -1504,6 +1558,35 @@ def test_normalized_profile_draws_ratios_and_keeps_recorded_amplitudes(qapp, sci
     panel.set_normalized(False)
     _x, y = _selected_points(panel).getData()
     np.testing.assert_array_equal(y, recorded)
+
+
+def test_gui_and_cli_ratios_are_identical_for_one_run(qapp, scientific, tmp_path):
+    result = scientific[-1]
+    directory = export_fit_result(result, tmp_path / "results")
+    recorded = recorded_profiles(directory)
+    planes = np.asarray(result.inputs.snapshot.plane_values, dtype=float)
+    order = np.argsort(planes, kind="stable")  # the CLI counts points by plane value
+    reference = (0, 1)  # zero-based source planes
+    cli_reference = [int(np.flatnonzero(order == plane)[0]) for plane in reference]
+    panel = ProfilePlot()
+    panel.show()
+    compared = 0
+    for identity in result.inputs.identities:
+        shown = peak_profile(result, identity.working_id, None)
+        assert isinstance(shown, PeakProfile)
+        panel.show_profile(shown, 0)
+        panel.set_reference(reference)
+        qapp.processEvents()
+        gui = panel._normalized
+        assert isinstance(gui, Normalized)
+        cli = prepare_cest_data(recorded[identity.engine_name], cli_reference)
+        assert not isinstance(cli, str)
+        outside = order[~np.isin(order, reference)]
+        np.testing.assert_allclose(cli["intensity"], gui.values[outside], rtol=1e-13, atol=0)
+        np.testing.assert_allclose(cli["error"], gui.errors[outside], rtol=1e-13, atol=0)
+        compared += 1
+    assert compared == len(result.inputs.identities)
+    panel.close()
 
 
 def test_unavailable_normalization_keeps_the_raw_profile_with_the_reason(qapp, scientific):
@@ -2646,9 +2729,9 @@ def test_qualifiers_stay_beside_values_and_explanations_open_in_place(workspace,
     panel = w.panel
     profile = panel.profile
     note = profile.note.text()
-    # Conditional σ and the noise treatment stay visible as short qualifiers; χ²ᵣ is
+    # The profile σ and the noise treatment stay visible as short qualifiers; χ²ᵣ is
     # one of the cluster's measures.
-    assert "±1σ conditional on lineshapes" in note
+    assert "±1 profile σ" in note
     assert "noise correlation not modelled" in note
     assert "χ²ᵣ" not in note
     # The full explanation opens in place, by keyboard, not only as a tooltip.
@@ -2659,7 +2742,7 @@ def test_qualifiers_stay_beside_values_and_explanations_open_in_place(workspace,
     QtTest.QTest.keyClick(toggle, QtCore.Qt.Key.Key_Space)
     assert profile.about.isVisible()
     assert "never rescaled by χ²ᵣ" in profile.about.text()
-    assert "held fixed" in profile.about.text()
+    assert "common scale" in profile.about.text()
     # Measures: the reference maximum says what it assumes and is not a threshold.
     residual = _review_cell(panel.review, "Max residual")
     assert "(guide " in residual.text()
@@ -2705,29 +2788,56 @@ def test_the_error_bar_explanation_describes_the_quantity_on_show(qapp, scientif
     panel.show()
     panel.show_profile(shown, 0)
     qapp.processEvents()
-    common = ("held fixed", "never rescaled by χ²ᵣ", shown.noise_model.description)
+    common = ("never rescaled by χ²ᵣ", shown.noise_model.description)
 
     def explanation():
         text = panel.about.text()
         assert all(part in text for part in common)
         return text
 
-    # Raw: the recorded σ, one per peak, the same on every plane.
-    assert "the same on every plane" in explanation()
-    assert "ratio" not in explanation()
+    # Raw: the profile σ, plane by plane; the conditional σ for an isolated peak.
+    assert "profile σ" in explanation()
+    assert "isolated peak" in explanation()
+    assert "common scale" in explanation()
+    assert "ratio A_k / R" not in explanation()
     # One reference plane: the ratio's propagated σ, varying by plane; reference exact.
     first, second = (int(p) for p in shown.source_planes[:2])
     panel.set_reference((first,))
     text = explanation()
     assert "ratio A_k / R" in text
+    # Ratios carry the lineshape uncertainty through the covariance between planes.
+    assert "covariance between planes" in text
+    assert "held fixed" not in text
     assert "differ from plane to plane" in text
     assert "single reference plane its ratio is exactly 1 and has no error bar" in text
-    assert "the same on every plane" not in text
+    assert "isolated peak" not in text
     # Several reference planes: each has a propagated error of its own.
     panel.set_reference((first, second))
     assert "its own ratio has a propagated error" in explanation()
     assert "exactly 1" not in explanation()
     # Back to raw amplitudes.
     panel.set_normalized(False)
-    assert "the same on every plane" in explanation()
+    assert "isolated peak" in explanation()
     panel.close()
+
+
+def test_the_run_status_reports_a_noise_power_mismatch(workspace, scientific):
+    w, result = workspace, scientific[-1]
+    assert not result.outcome.noise_model.power_check  # the synthetic spectrum has no header
+    axes = tuple(AxisProcessing(16, 64, "sine_bell", offset=0.4) for _ in range(2))
+    checked = NoiseModel(
+        axes=axes,
+        power_check=(
+            AxisNoisePower(NoisePowerStatus.MISMATCH, 900, 0.6, 0.01, 9),
+            AxisNoisePower(NoisePowerStatus.CONSISTENT, 900, 1.0, 0.01),
+        ),
+    )
+    warned = replace(
+        result,
+        completed_fit=replace(
+            result.completed_fit, outcome=replace(result.outcome, noise_model=checked)
+        ),
+    )
+    publish(w, warned)
+    assert "▲ Noise check (F2)" in w.summary.text()
+    assert str(checked.power_warning) in w.summary.toolTip()

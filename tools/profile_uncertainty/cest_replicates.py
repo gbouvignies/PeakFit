@@ -8,7 +8,9 @@ shrinkage α = 0.1 and GLS, the script reports:
   proportional to its amplitude in each plane;
 - on baseline planes (more than 400 Hz from the peak's own ¹⁵N offset, reference
   excluded), the robust SD of second differences of the relative intensities: its
-  ratio to OLS's, and its ratio to the estimator's own stated conditional σ.
+  ratio to OLS's, and its ratio to the estimator's own stated conditional σ. The
+  scatter is ``engine.scientific.replicates.baseline_scatter``, the method of
+  ``peakfit replicates``.
 """
 
 import numpy as np
@@ -25,9 +27,9 @@ from cest_example import (
 )
 
 from peakfit.engine.algorithms.noise_correlation import cluster_correlation
+from peakfit.engine.scientific.profiles import CEST_REFERENCE_HZ
+from peakfit.engine.scientific.replicates import BaselineScatter, baseline_scatter
 
-BASELINE_HZ = 400.0  # planes this far from the peak's own offset are baseline
-MIN_BASELINE = 20
 ESTIMATORS = (
     ("OLS", None, 1.0),
     ("α=0.1, header R", "hdr", 0.1),
@@ -35,11 +37,6 @@ ESTIMATORS = (
     ("α=0.1, measured R", "meas", 0.1),
     ("GLS, measured R", "meas", 0.0),
 )
-
-
-def robust_sd(v):
-    """SD from the median absolute deviation."""
-    return 1.4826 * np.median(np.abs(v - np.median(v)))
 
 
 def summary(values) -> str:
@@ -55,6 +52,7 @@ def main() -> None:  # noqa: PLR0915 - one study, reported in one place
     rho_1h = example.model.axes[1].correlation()
     carrier, observe = example.spectra.dic["FDF3CAR"], example.spectra.dic["FDF3OBS"]
     sizes = {c.cluster_id: len(c.peaks) for c in example.clusters}
+    reference = np.abs(example.offsets) >= CEST_REFERENCE_HZ
     chi2 = {name: [] for name, *_ in ESTIMATORS}
     scatter = {name: {} for name, *_ in ESTIMATORS}
     calibration = {name: {"hdr": {}, "meas": {}} for name, *_ in ESTIMATORS}
@@ -89,11 +87,7 @@ def main() -> None:  # noqa: PLR0915 - one study, reported in one place
             excess[f"{key}, misfit shape removed"].append(
                 np.sum(remainder**2) / example.noise**2 / ((planes - peaks) * e)
             )
-        baseline = {}
-        for k, peak in enumerate(cluster.peaks):
-            hz = (float(peak.positions[0]) - carrier) * observe
-            far = np.abs(example.offsets - hz) > BASELINE_HZ
-            baseline[k] = np.where((np.arange(planes) > 0) & far)[0]
+        own = [(float(peak.positions[0]) - carrier) * observe for peak in cluster.peaks]
 
         for name, key, alpha in ESTIMATORS:
             wh = whitener(rs[key] if key else np.eye(len(y)), alpha)
@@ -117,15 +111,14 @@ def main() -> None:  # noqa: PLR0915 - one study, reported in one place
             w = wh.T @ wh
             m = np.linalg.solve(shapes(opt) @ w @ shapes(opt).T, shapes(opt) @ w)
             for k in range(peaks):
-                planes_k = baseline[k]
-                if planes_k.size < MIN_BASELINE:
+                # The released tool's method, on this estimator's amplitudes.
+                found = baseline_scatter(
+                    example.offsets, a[k], np.ones(planes), peak_offset=own[k], reference=reference
+                )
+                if not isinstance(found, BaselineScatter):
                     continue
-                ab = a[k, planes_k]
-                mean = np.median(ab)
-                if mean <= 0:
-                    continue
-                d2 = (ab[:-2] - 2 * ab[1:-1] + ab[2:]) / np.sqrt(6)
-                empirical = robust_sd(d2) / mean
+                mean = found.level
+                empirical = found.observed / mean
                 scatter[name][cluster.cluster_id, k] = empirical
                 for rkey, r in rs.items():
                     stated = example.noise * np.sqrt((m @ r @ m.T)[k, k]) / mean

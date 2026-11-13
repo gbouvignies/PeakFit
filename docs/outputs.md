@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**11.0.0**, fit JSON **9.0.0**, analysis project **14.0.0** and MCMC record **1.1.0**.
+**12.0.0**, fit JSON **9.0.0**, analysis project **15.0.0** and MCMC record **1.1.0**.
 
 ## Default scientific export
 
@@ -26,6 +26,13 @@ Retain exactly:
 
 - Published nonlinear values, bounds, freedom, units and uncertainties; signed
   per-plane amplitudes, covariance and all reported amplitude errors.
+- Per usable cluster, the **covariance factors** (`analytical_evaluation.covariance_factors`,
+  [profile-uncertainty §3.1](profile-uncertainty.md)): the tensors M E_m
+  (`shape_gain`) and σ²M R P⊥ E_m H⁻¹ (`cross_gain`), each L × L × n_θ, and σ²C_θ
+  (`parameter_covariance`, n_θ × n_θ), or all three `null` where withheld. Their
+  conditional block is the stored amplitude covariance, kept once. With the amplitudes
+  they rebuild the amplitude covariance between any two planes
+  (`covariance_between_planes`) without the spectrum or a refit.
 - Cluster/global statistics, classifications, optimizer termination diagnostics,
   noise, terminal correction revision, pass counts and provenance.
 - Per usable cluster, the **largest recorded residual**
@@ -44,6 +51,12 @@ from default exports; the largest recorded residual is the only residual summary
 retained, so review measures need no source. Published values are never re-fitted or re-solved to read
 them. The small shape reference is retained for validation, rather than for size
 reduction; its cost is approximately 0.12 MB including archive framing here.
+
+The covariance factors add **0.19 MB** to the bundled example's archive (6.81 →
+7.00 MB, CLI; 121 clusters): 0.09 MB of compressed factors, the rest member framing.
+Their size does not depend on the number of planes. The `intensity_err_marginal`
+column adds 0.52 MB to `intensities.csv`, and `intensity_err_conditional` about as
+much. Older figures below predate them.
 
 The bundled two-pass result directory is about **12.02 MB (CLI) / 12.06 MB (GUI)**, including CSV/report.
 It exceeds the audit's 5.77 MB result-only estimate because exact corrections are
@@ -238,10 +251,74 @@ errors are also withheld at an active bound (a finite bound within an absolute
 proof of identifiability. Fixed parameters may retain zero error because they
 were not estimated.
 
-Amplitude errors condition on the fitted nonlinear parameters, one per peak for every
-plane: they are *conditional* amplitude errors. They do not include uncertainty in
-positions or linewidths, which the *total* amplitude uncertainty would; MCMC
-estimates that ([mcmc.md](mcmc.md)), under its own independent-noise likelihood.
+`intensities.csv` gives three amplitude errors per peak and plane
+([profile-uncertainty §3.3](profile-uncertainty.md)). All are first-order, computed
+from the stored covariance factors and amplitudes, and written by the one writer
+the CLI and the GUI share.
+
+| Column | Quantity | Use it for |
+|---|---|---|
+| `intensity_err` | profile σ | per-plane errors of a profile: downstream fits with a free scale |
+| `intensity_err_marginal` | marginal σ | one absolute amplitude on its own |
+| `intensity_err_conditional` | conditional σ | diagnostic: lineshape parameters held fixed |
+
+**Profile σ.** `intensity_err` is the diagonal of the relative-profile covariance
+Σ_rel = cI + PLP: the conditional variance c plus the lineshape part L of the
+peak's covariance between planes, with the direction of its own profile u = a/‖a‖
+projected out (P = I − uuᵀ).
+- **What it leaves out:** a lineshape error that moves all of a peak's amplitudes by
+  one factor. That common scale cancels in ratios and in any downstream fit with a
+  free scale, so for those analyses Σ_rel is exactly equivalent to the full
+  covariance, to first order.
+- **Isolated peaks:** the lineshape part is entirely such a scale (§3.2), so the
+  profile σ equals the conditional σ, the same on every plane.
+- **Overlapping peaks:** it differs from plane to plane and can exceed the
+  conditional σ. On the bundled example, it is up to 1.23× the conditional σ and
+  equal to it at the median.
+- **Its limit:** used as independent per-plane errors, it is exact only where Σ_rel
+  is close to diagonal. Strongly overlapping peaks with differing profiles keep
+  modes correlated across planes, which any per-plane σ misstates (§4).
+- **Unavailable:** empty where the factors are withheld, and where round-off makes
+  the variance negative.
+- **Ratios** to given reference planes use the full covariance between planes from
+  the archive, not this column (`peakfit plot cest|cpmg` and the GUI ratio mode).
+
+**Marginal σ.** `intensity_err_marginal` is the first-order total uncertainty of each
+absolute amplitude: √Σ_ss. It includes the whole lineshape uncertainty, common scale
+included, and is never smaller than the conditional σ. It is the right error for one
+amplitude on its own. Its lineshape part is correlated across planes, so do not use
+the column as independent per-plane errors of a profile: that overstates downstream
+errors, by up to 1.5× in §4. It is empty where the factors are withheld, and where
+round-off makes the reconstructed variance negative (seen for near-coincident peaks,
+whose cluster carries the uncertainty warning). The GUI inspector shows it for the
+selected peak on the current plane.
+
+**Correlated profile.** `correlated_profile` is the correlated-profile flag
+([profile-uncertainty §6](profile-uncertainty.md#6-reporting)), one value per peak,
+repeated on each of its planes. It says whether `intensity_err`, read as independent
+per-plane errors, can describe the profile's uncertainty.
+- **`yes`:** the largest correlated mode of Σ_rel exceeds 0.1c, or the peak's
+  within-plane amplitude correlation with a cluster partner exceeds 0.15 in
+  magnitude. Downstream fits that treat the per-plane errors as independent can then
+  misstate parameter uncertainty by more than 5%. Below both thresholds, the T3
+  validation found no downstream σ misstated by more than 3.8% (§8.1).
+- **`no`:** below both thresholds. An isolated peak is never flagged: its Σ_rel is cI.
+- **`not assessed`:** the lineshape factors are withheld, so there is no profile σ.
+- **Empty:** a run with one plane has no profile.
+
+The flag states a limit of the independent per-plane approximation, not the quality
+of the data: it does not suggest discarding or down-weighting the peak, and it
+changes no value or error. It is derived when the run is read, from the stored
+factors and amplitudes, like the profile σ; the archive and project formats do not
+change. On the bundled example it marks 28 of the 74 peaks in multi-peak clusters
+(12 by the correlated mode, the rest by the partner correlation) and none of the 92
+isolated peaks.
+
+**Conditional σ.** `intensity_err_conditional` conditions on the fitted nonlinear
+parameters, one per peak for every plane. It does not include uncertainty in
+positions or linewidths; MCMC estimates the total uncertainty
+([mcmc.md](mcmc.md)), under its own independent-noise likelihood. It is the fit
+JSON's `amplitude_standard_errors`, and the `intensity_err` of earlier releases.
 
 **Correlated noise.** Zero filling and apodization correlate the noise of
 neighbouring points ([correlated-noise.md](correlated-noise.md)).
@@ -265,6 +342,14 @@ neighbouring points ([correlated-noise.md](correlated-noise.md)).
   with NMRPipe's IST, parameter scatter exceeded the published errors 1.5–6.6-fold
   ([correlated-noise.md §2.5](correlated-noise.md#25-what-the-final-header-cannot-show)).
   SMILE and other reconstruction methods were not tested.
+- **Noise-power check:** each run compares, per axis, the time-domain noise power of
+  the spectrum's noise-only lines with the recorded processing's prediction
+  ([correlated-noise.md §2.6](correlated-noise.md#26-the-noise-power-check)). A
+  mismatch, as from LP, an earlier window or `SP -size`, is a warning only: it
+  changes no value and no error. The archive and the project record each axis's
+  verdict, late power, spread, number of lines and any acquired-length estimate
+  (`outcome.noise_model.power_check`); the Markdown report, the CLI and the GUI run
+  line state the warning. The fit JSON and the CSV tables do not carry it.
 - **What the noise model changes:** only the published errors. Fitted values, σ and
   reduced chi-squared are the same either way.
 - **Where it is stated:** the scientific archive and fit JSON record the noise model.
@@ -290,8 +375,8 @@ at the fit.
 - For strongly overlapping peaks, do not take an absent warning as evidence that
   the errors are reliable; compare alternative starts or a profile likelihood.
 
-**One noise convention.** Nonlinear errors, amplitude errors (`intensity_err`,
-`amplitude_standard_errors`) and MCMC intervals all use the supplied or estimated
+**One noise convention.** Nonlinear errors, amplitude errors (`intensity_err` and
+the other amplitude columns, `amplitude_standard_errors`) and MCMC intervals all use the supplied or estimated
 statistical noise σ (with its correlation, where modelled, for the analytical
 errors). None is rescaled by the reduced chi-squared. Reduced
 chi-squared is reported beside them, in `clusters.csv`, `intensities.csv`, the JSON
@@ -347,7 +432,7 @@ mode, embedded cube or shared-asset registry. Full calculated spectra and residu
 are generated on demand.
 
 Projects preserve exact nonlinear values/bounds/freedom/uncertainties, amplitudes,
-conditional covariance and errors, optimizer diagnostics/statistics, scientific
+conditional covariance and errors, covariance factors, optimizer diagnostics/statistics, scientific
 identities, starting/optimized/adopted coordinates, settings and provenance. They
 also retain exact terminal corrections, paired sample indices, ordered source-plane
 identities, observation dtype/SHA-256, calibration and a small component-basis
@@ -394,15 +479,16 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **14.0.0**. Earlier project formats are rejected;
+New projects use schema **15.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
-- Only scientific archive **11.0.0**, fit JSON **9.0.0** and project **14.0.0** are
+- Only scientific archive **12.0.0**, fit JSON **9.0.0** and project **15.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
-  version": they record configuration keys (`[auto_peak]`, `fix_positions`,
+  version". Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
+  only a fit computes. Older ones record configuration keys (`[auto_peak]`, `fix_positions`,
   `fit_j_coupling`, `[parameters].from_file`, `[fitting].optimizer_seed`) or run metadata (`git_commit`,
   `completion_warnings`) that no longer exist. To
   continue an older analysis, open its spectrum and peak list and refit. When

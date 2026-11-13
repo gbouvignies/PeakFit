@@ -9,11 +9,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 
+from peakfit.engine.algorithms.covariance_factors import peak_covariances_between_planes
+from peakfit.io.scientific import read_results
 from peakfit.plot.diagnostics.autocorr import plot_autocorrelation
 from peakfit.plot.diagnostics.corner import plot_correlation_pairs
 from peakfit.plot.diagnostics.summary import plot_marginal_distributions
 from peakfit.plot.diagnostics.trace import plot_trace
-from peakfit.plot.profile_data import prepare_cest_data, prepare_cpmg_data, prepare_intensity_data
+from peakfit.plot.profile_data import (
+    RecordedProfile,
+    prepare_cest_data,
+    prepare_cpmg_data,
+    prepare_intensity_data,
+)
 from peakfit.plot.profiles import (
     make_cest_figure,
     make_cpmg_figure,
@@ -23,7 +30,7 @@ from peakfit.plot.reporting import generate_mcmc_report_page
 from peakfit.shared.reporter import NullReporter, Reporter
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
     from pathlib import Path
 
     from matplotlib.figure import Figure
@@ -56,8 +63,11 @@ def generate_intensity_plots(
     def _make_figure(peak: str, data: Any) -> Figure:
         return make_intensity_figure(peak, data)
 
+    peak_data = _load_peak_data_from_intensities_csv(results_dir)
+    for points in peak_data.values():
+        points.sort(key=lambda p: p[0])
     return _generate_paginated_plots(
-        results_dir=results_dir,
+        peak_data=peak_data,
         output_path=output_path,
         plot_type="intensity",
         prepare_data_fn=prepare_intensity_data,
@@ -74,22 +84,23 @@ def generate_cest_plots(
     show: bool = False,
     reporter: Reporter | None = None,
 ) -> PlotOutput:
-    """Generate CEST profiles from fit intensities.
+    """Generate CEST profiles from the recorded amplitudes in ``scientific.npz``.
 
-    Intensities are normalized to reference points. With no explicit references,
-    points at |offset| >= 10000 Hz are used; if none exist, the farthest points
-    from the profile center are used.
+    Intensities are normalized to reference points, with errors from each peak's
+    covariance between planes. Reference indices count points in order of offset. With
+    no explicit references, points at |offset| >= 10000 Hz are used; if none exist, the
+    farthest points from the profile center are used.
     """
     if output_path is None:
         output_path = results_dir / "cest_profiles.pdf"
 
     ref_points = reference_indices or [-1]
 
-    def _prepare_data(points: list[tuple[float, float, float]]) -> Any | str:
-        return prepare_cest_data(points, ref_points)
+    def _prepare_data(profile: RecordedProfile) -> Any | str:
+        return prepare_cest_data(profile, ref_points)
 
     return _generate_paginated_plots(
-        results_dir=results_dir,
+        peak_data=recorded_profiles(results_dir),
         output_path=output_path,
         plot_type="cest",
         prepare_data_fn=_prepare_data,
@@ -106,18 +117,18 @@ def generate_cpmg_plots(
     show: bool = False,
     reporter: Reporter | None = None,
 ) -> PlotOutput:
-    """Generate CPMG R2eff profiles from fit intensities."""
+    """Generate CPMG R2eff profiles from the recorded amplitudes in ``scientific.npz``."""
     if time_t2 <= 0:
         raise ValueError("time_t2 must be greater than zero")
 
     if output_path is None:
         output_path = results_dir / "cpmg_profiles.pdf"
 
-    def _prepare_data(points: list[tuple[float, float, float]]) -> Any | str:
-        return prepare_cpmg_data(points, time_t2)
+    def _prepare_data(profile: RecordedProfile) -> Any | str:
+        return prepare_cpmg_data(profile, time_t2)
 
     return _generate_paginated_plots(
-        results_dir=results_dir,
+        peak_data=recorded_profiles(results_dir),
         output_path=output_path,
         plot_type="cpmg",
         prepare_data_fn=_prepare_data,
@@ -127,18 +138,17 @@ def generate_cpmg_plots(
     )
 
 
-def _generate_paginated_plots(
-    results_dir: Path,
+def _generate_paginated_plots[T](
+    peak_data: Mapping[str, T],
     output_path: Path,
     plot_type: str,
-    prepare_data_fn: Callable[[list[tuple[float, float, float]]], Any | str],
+    prepare_data_fn: Callable[[T], Any | str],
     make_figure_fn: Callable[[str, Any], Figure],
     show: bool = False,
     reporter: Reporter | None = None,
 ) -> PlotOutput:
-    """Generate paginated plots from tabular fit results."""
+    """Generate paginated plots, one per peak in name order."""
     reporter = reporter or NullReporter()
-    peak_data = _load_peak_data_from_intensities_csv(results_dir)
 
     n_plots = 0
     sorted_peaks = sorted(peak_data.keys())
@@ -146,11 +156,7 @@ def _generate_paginated_plots(
     with PdfPages(output_path) as pdf:
         for peak in sorted_peaks:
             try:
-                points = peak_data[peak]
-                # Sort by X/time/freq
-                points.sort(key=lambda p: p[0])
-
-                data = prepare_data_fn(points)
+                data = prepare_data_fn(peak_data[peak])
                 if isinstance(data, str):
                     reporter.warning(f"Skipped {peak}: {data}")
                     continue
@@ -171,6 +177,33 @@ def _generate_paginated_plots(
         plt.show()
 
     return PlotOutput(output_path, plot_type, n_plots)
+
+
+def recorded_profiles(results_dir: Path) -> dict[str, RecordedProfile]:
+    """Each usable peak's amplitudes and covariance between planes from ``scientific.npz``.
+
+    Planes are ordered by plane value (stable), or by plane when the archive records
+    none. Values are exactly those recorded; nothing is refitted.
+    """
+    outcome, _samples, context = read_results(results_dir, "CEST and CPMG plots need")
+    profiles: dict[str, RecordedProfile] = {}
+    for cluster in outcome.clusters:
+        evaluation = cluster.analytical_evaluation
+        if not cluster.usable or evaluation is None:
+            continue
+        amplitudes = evaluation.amplitudes
+        planes = (
+            np.asarray(context["plane_values"], dtype=float)
+            if context
+            else np.arange(amplitudes.shape[1], dtype=float)
+        )
+        order = np.argsort(planes, kind="stable")
+        blocks = peak_covariances_between_planes(evaluation.covariance_factors, amplitudes)
+        for peak, name in enumerate(cluster.peak_names):
+            profiles[name] = RecordedProfile(
+                planes[order], amplitudes[peak, order], blocks[peak][np.ix_(order, order)]
+            )
+    return profiles
 
 
 def _load_peak_data_from_intensities_csv(

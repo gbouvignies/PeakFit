@@ -1,0 +1,167 @@
+LP 47→92 points, forward-backward.
+Noise power / header prediction (§2.2):
+t                     40    45    46    47    48    56    64    80    88
+NMRPipe, order 12    0.98  0.99  1.04  0.35  0.29  0.12  0.04  0.01  0.01
+NMRPipe, order 14    0.98  0.99  1.04  0.46  0.38  0.17  0.08  0.02  0.02
+NMRPipe, order 16    0.98  0.99  1.04  0.57  0.47  0.22  0.12  0.05  0.03
+NMRPipe, order 18    0.98  0.99  1.04  0.72  0.59  0.27  0.18  0.08  0.06
+NMRPipe, order 20    0.98  0.99  1.04  0.91  0.72  0.33  0.22  0.12  0.09
+NumPy, order 16      1.01  0.99  1.04  0.55  0.48  0.23  0.13  0.05  0.03
+CEST ¹⁵N measured    0.95  0.94  0.74  0.51  0.44  0.21  0.14  0.27  0.70
+
+LP order 16; SNR 50 (line A, first plane, 92 acquired points); planes τ = [0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8]; window 19 points
+I: relative intensity I_k/I_0; R: downstream rate, free-scale exponential fit.
+I bias%, b/SD: at the plane of largest |bias|; I SD%: median over planes.
+bias: median − truth; SD: robust SD (1.4826 MAD); b/SD: bias over SD,
+      Monte Carlo SE ≈ 1.25/√count.
+χ²/E: mean χ² over its first-order expectation under the estimator's own R
+      and σ² (LP: from LP of signal-free noise; OLS: the header R, as in §2.3).
+Every LP arm is NMRPipe's; the NumPy LP is only compared with it.
+
+=== isolated; exact lineshape; rates [1.5]
+noise-free (deterministic bias):
+processing              estimator         ln  I bias%   b/SD  I SD%  R bias%  R SD%   b/SD   χ²/E
+acquired 92             OLS                A     0.00      –      –    -0.00      –      –
+acquired 92             GLS header R       A    -0.00      –      –    -0.00      –      –
+acquired 47, no LP      OLS                A     0.00      –      –    -0.00      –      –
+acquired 47, no LP      GLS header R       A     0.00      –      –    -0.00      –      –
+LP 47→92                OLS                A    -0.00      –      –     0.00      –      –
+LP 47→92                GLS header R       A     0.00      –      –    -0.00      –      –
+LP 47→92                GLS measured R     A     0.02      –      –    -0.00      –      –
+with noise (200 realizations, the same noise in every arm):
+processing              estimator         ln  I bias%   b/SD  I SD%  R bias%  R SD%   b/SD   χ²/E
+acquired 92             OLS                A    -1.06  -0.15   4.24    -0.16   3.99  -0.04   1.00
+acquired 92             GLS header R       A    -0.31  -0.05   3.55     0.07   3.69   0.02   0.99
+acquired 47, no LP      OLS                A    -0.59  -0.10   5.16     0.07   4.90   0.01   0.99
+acquired 47, no LP      GLS header R       A    -0.41  -0.06   4.20     0.00   4.16   0.00   1.00
+LP 47→92                OLS                A    -0.68  -0.10   4.19     0.32   3.92   0.08   1.15
+LP 47→92                GLS header R       A    -1.21  -0.13   5.64     0.90   3.96   0.23   0.97
+LP 47→92                GLS measured R     A    -6.27  -0.27  16.58     4.00  13.92   0.29   5.02
+NumPy LP against NMRPipe, max |difference| / σ: 1.1e-05
+s + LP(n)               OLS                A    -0.66  -0.09   3.99    -0.07   3.68  -0.02   0.98
+s + LP(n)               GLS header R       A    -0.49  -0.10   3.33     0.27   3.25   0.08   0.56
+s + LP(n)               GLS measured R     A    -0.24  -0.18   1.57     0.17   1.48   0.12   1.00
+s + LP(s+n) − LP(s)     OLS                A    -0.68  -0.10   4.19     0.32   3.92   0.08   1.15
+s + LP(s+n) − LP(s)     GLS header R       A    -1.21  -0.14   5.64     0.90   3.96   0.23   0.97
+s + LP(s+n) − LP(s)     GLS measured R     A    -6.29  -0.27  16.58     4.00  13.92   0.29   5.02
+
+=== isolated; unmodelled Gaussian decay; rates [1.5]
+noise-free (deterministic bias):
+processing              estimator         ln  I bias%   b/SD  I SD%  R bias%  R SD%   b/SD   χ²/E
+acquired 92             OLS                A     0.00      –      –    -0.00      –      –
+acquired 92             GLS header R       A     0.00      –      –    -0.00      –      –
+acquired 47, no LP      OLS                A     0.00      –      –    -0.00      –      –
+acquired 47, no LP      GLS header R       A    -0.00      –      –    -0.00      –      –
+LP 47→92                OLS                A     0.00      –      –    -0.00      –      –
+LP 47→92                GLS header R       A     0.00      –      –    -0.00      –      –
+LP 47→92                GLS measured R     A     0.02      –      –    -0.00      –      –
+with noise (200 realizations, the same noise in every arm):
+processing              estimator         ln  I bias%   b/SD  I SD%  R bias%  R SD%   b/SD   χ²/E
+acquired 92             OLS                A    -0.93  -0.12   4.44    -0.09   4.33  -0.02   1.09
+acquired 92             GLS header R       A    -0.61  -0.08   4.16    -0.03   4.28  -0.01   1.13
+acquired 47, no LP      OLS                A    -0.76  -0.12   5.32     0.05   5.04   0.01   1.01
+acquired 47, no LP      GLS header R       A    -0.88  -0.11   4.44    -0.03   4.44  -0.01   1.02
+LP 47→92                OLS                A    -0.64  -0.08   4.42     0.15   4.25   0.04   1.17
+LP 47→92                GLS header R       A    -0.91  -0.10   5.34     0.64   4.45   0.14   0.86
+LP 47→92                GLS measured R     A    -4.77  -0.20  15.17     3.78  12.77   0.30   3.72
+NumPy LP against NMRPipe, max |difference| / σ: 9.5e-06
+s + LP(n)               OLS                A    -0.73  -0.09   4.35    -0.13   3.96  -0.03   1.08
+s + LP(n)               GLS header R       A    -0.54  -0.08   4.01     0.31   3.99   0.08   0.71
+s + LP(n)               GLS measured R     A     0.45   0.16   2.84     0.08   2.39   0.04   1.48
+s + LP(s+n) − LP(s)     OLS                A    -0.64  -0.08   4.42     0.15   4.25   0.04   1.17
+s + LP(s+n) − LP(s)     GLS header R       A    -0.91  -0.10   5.34     0.64   4.45   0.14   0.86
+s + LP(s+n) − LP(s)     GLS measured R     A    -4.76  -0.20  15.17     3.78  12.77   0.30   3.72
+
+=== pair 3 points apart, differing profiles; exact lineshape; rates [1.0, 2.0]
+noise-free (deterministic bias):
+processing              estimator         ln  I bias%   b/SD  I SD%  R bias%  R SD%   b/SD   χ²/E
+acquired 92             OLS                A    -0.00      –      –    -0.00      –      –
+acquired 92             OLS                B     0.00      –      –    -0.00      –      –
+acquired 92             GLS header R       A    -0.00      –      –    -0.00      –      –
+acquired 92             GLS header R       B    -0.00      –      –    -0.00      –      –
+acquired 47, no LP      OLS                A     0.00      –      –    -0.00      –      –
+acquired 47, no LP      OLS                B     0.00      –      –    -0.00      –      –
+acquired 47, no LP      GLS header R       A    -0.00      –      –    -0.00      –      –
+acquired 47, no LP      GLS header R       B    -0.00      –      –    -0.00      –      –
+LP 47→92                OLS                A     0.00      –      –    -0.00      –      –
+LP 47→92                OLS                B     0.00      –      –    -0.00      –      –
+LP 47→92                GLS header R       A    -0.00      –      –     0.00      –      –
+LP 47→92                GLS header R       B    -0.00      –      –     0.00      –      –
+LP 47→92                GLS measured R     A    -0.01      –      –     0.00      –      –
+LP 47→92                GLS measured R     B    -0.03      –      –     0.00      –      –
+with noise (200 realizations, the same noise in every arm):
+processing              estimator         ln  I bias%   b/SD  I SD%  R bias%  R SD%   b/SD   χ²/E
+acquired 92             OLS                A    -0.81  -0.19   3.43     0.34   5.06   0.07   0.96
+acquired 92             OLS                B     1.38   0.09   6.20    -0.61   5.28  -0.11   0.96
+acquired 92             GLS header R       A    -0.69  -0.18   3.18     0.78   4.84   0.16   0.99
+acquired 92             GLS header R       B     1.25   0.16   6.05    -0.32   4.33  -0.07   0.99
+acquired 47, no LP      OLS                A     0.77   0.11   5.92    -1.05  11.35  -0.09   0.96
+acquired 47, no LP      OLS                B     1.79   0.10  10.32    -0.66  11.38  -0.06   0.96
+acquired 47, no LP      GLS header R       A     0.51   0.14   3.87     0.12   6.55   0.02   1.00
+acquired 47, no LP      GLS header R       B     1.66   0.13   6.87    -1.21   7.26  -0.17   1.00
+LP 47→92                OLS                A     2.15   0.28   4.52    -1.94   7.76  -0.25   2.82
+LP 47→92                OLS                B   -11.09  -0.56   9.15     6.19  10.10   0.61   2.82
+LP 47→92                GLS header R       A     5.61   0.48   8.91    -6.35  13.89  -0.46   4.61
+LP 47→92                GLS header R       B   -35.79  -1.52  17.39    21.90  20.34   1.08   4.61
+LP 47→92                GLS measured R     A    -6.27  -0.32  19.55     6.16  24.01   0.26  21.33
+LP 47→92                GLS measured R     B   -77.64  -1.71  52.83   124.02 185.17   0.67  21.33
+NumPy LP against NMRPipe, max |difference| / σ: 1.1e-05
+s + LP(n)               OLS                A    -0.65  -0.17   3.27     0.62   4.68   0.13   0.95
+s + LP(n)               OLS                B    -0.57  -0.09   6.06     0.02   5.34   0.00   0.95
+s + LP(n)               GLS header R       A    -0.61  -0.19   2.73     0.46   4.32   0.11   0.55
+s + LP(n)               GLS header R       B    -0.79  -0.15   4.84     0.22   3.91   0.06   0.55
+s + LP(n)               GLS measured R     A    -0.11  -0.08   1.49     0.10   2.27   0.04   1.00
+s + LP(n)               GLS measured R     B     0.43   0.14   2.63     0.13   2.19   0.06   1.00
+s + LP(s+n) − LP(s)     OLS                A     2.15   0.28   4.52    -1.94   7.76  -0.25   2.82
+s + LP(s+n) − LP(s)     OLS                B   -11.09  -0.56   9.15     6.19  10.10   0.61   2.82
+s + LP(s+n) − LP(s)     GLS header R       A     5.61   0.48   8.91    -6.35  13.88  -0.46   4.61
+s + LP(s+n) − LP(s)     GLS header R       B   -35.79  -1.52  17.39    21.90  20.34   1.08   4.61
+s + LP(s+n) − LP(s)     GLS measured R     A    -6.26  -0.32  19.56     6.16  23.99   0.26  21.33
+s + LP(s+n) − LP(s)     GLS measured R     B   -77.36  -1.69  52.87   124.18 185.45   0.67  21.33
+
+=== pair 3 points apart, differing profiles; unmodelled Gaussian decay; rates [1.0, 2.0]
+noise-free (deterministic bias):
+processing              estimator         ln  I bias%   b/SD  I SD%  R bias%  R SD%   b/SD   χ²/E
+acquired 92             OLS                A     0.71      –      –    -0.94      –      –
+acquired 92             OLS                B     0.95      –      –    -0.52      –      –
+acquired 92             GLS header R       A     1.70      –      –    -2.22      –      –
+acquired 92             GLS header R       B    -5.75      –      –     3.19      –      –
+acquired 47, no LP      OLS                A    -0.77      –      –     1.01      –      –
+acquired 47, no LP      OLS                B     4.36      –      –    -2.36      –      –
+acquired 47, no LP      GLS header R       A    -0.51      –      –     0.68      –      –
+acquired 47, no LP      GLS header R       B     4.19      –      –    -2.27      –      –
+LP 47→92                OLS                A     0.71      –      –    -0.93      –      –
+LP 47→92                OLS                B     0.95      –      –    -0.52      –      –
+LP 47→92                GLS header R       A     1.64      –      –    -2.16      –      –
+LP 47→92                GLS header R       B    -5.65      –      –     3.14      –      –
+LP 47→92                GLS measured R     A     2.16      –      –    -2.91      –      –
+LP 47→92                GLS measured R     B    -9.95      –      –     5.64      –      –
+with noise (200 realizations, the same noise in every arm):
+processing              estimator         ln  I bias%   b/SD  I SD%  R bias%  R SD%   b/SD   χ²/E
+acquired 92             OLS                A     1.07   0.19   3.80    -0.45   5.45  -0.08   1.10
+acquired 92             OLS                B     2.26   0.14   6.85    -1.32   5.83  -0.23   1.10
+acquired 92             GLS header R       A     1.48   0.29   3.64    -1.48   6.00  -0.25   1.26
+acquired 92             GLS header R       B    -3.95  -0.22   7.51     2.58   5.42   0.48   1.26
+acquired 47, no LP      OLS                A    -1.07  -0.15   5.87    -0.28  11.20  -0.02   0.95
+acquired 47, no LP      OLS                B     4.46   0.26   9.95    -2.90  10.79  -0.27   0.95
+acquired 47, no LP      GLS header R       A    -0.59  -0.10   4.06     1.04   6.86   0.15   1.01
+acquired 47, no LP      GLS header R       B     5.65   0.29   7.17    -3.12   6.70  -0.47   1.01
+LP 47→92                OLS                A     2.41   0.30   4.68    -1.61   8.05  -0.20   2.59
+LP 47→92                OLS                B    -4.83  -0.25   9.16     3.66  10.12   0.36   2.59
+LP 47→92                GLS header R       A     5.99   0.49   8.83    -6.99  14.51  -0.48   3.57
+LP 47→92                GLS header R       B   -25.20  -0.99  16.09    16.29  17.20   0.95   3.57
+LP 47→92                GLS measured R     A    -3.78  -0.21  18.87     2.87  26.69   0.11  15.39
+LP 47→92                GLS measured R     B   -65.05  -1.23  64.13    70.34 121.18   0.58  15.39
+NumPy LP against NMRPipe, max |difference| / σ: 9.8e-06
+s + LP(n)               OLS                A     0.93   0.18   3.69    -0.25   5.19  -0.05   1.10
+s + LP(n)               OLS                B     1.06   0.07   6.51    -0.54   5.94  -0.09   1.10
+s + LP(n)               GLS header R       A     1.67   0.33   3.37    -1.81   5.23  -0.35   0.85
+s + LP(n)               GLS header R       B    -5.40  -0.38   6.29     3.53   5.02   0.70   0.85
+s + LP(n)               GLS measured R     A     2.44   0.76   2.45    -2.94   3.88  -0.76   1.82
+s + LP(n)               GLS measured R     B   -10.15  -1.00   4.75     5.92   4.01   1.48   1.82
+s + LP(s+n) − LP(s)     OLS                A     2.42   0.30   4.68    -1.63   8.05  -0.20   2.59
+s + LP(s+n) − LP(s)     OLS                B    -4.83  -0.25   9.16     3.67  10.12   0.36   2.59
+s + LP(s+n) − LP(s)     GLS header R       A     6.08   0.50   8.88    -7.10  14.57  -0.49   3.59
+s + LP(s+n) − LP(s)     GLS header R       B   -25.33  -1.00  16.14    16.23  17.20   0.94   3.59
+s + LP(s+n) − LP(s)     GLS measured R     A    -3.63  -0.20  19.10     2.99  26.75   0.11  15.51
+s + LP(s+n) − LP(s)     GLS measured R     B   -66.92  -1.27  63.68    71.24 121.30   0.59  15.51

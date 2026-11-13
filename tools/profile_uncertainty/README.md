@@ -7,7 +7,7 @@ estimator, the uncertainty of intensity profiles, and their use downstream.
 - **Records:** their outputs are in
   [`docs/validation/profile-uncertainty/`](../../docs/validation/profile-uncertainty/).
 - **Status:** they are evidence, not tests. The implementation's validation tools
-  (T3–T7 in the specification) supersede them.
+  (T3–T7 in the specification) supersede them; `profile_coverage.py` is T3.
 
 ```bash
 uv run python tools/profile_uncertainty/run_all.py              # every study
@@ -29,6 +29,9 @@ uv run python tools/profile_uncertainty/run_all.py cest_refit   # one study
 | `ratios.py` | §4 | Ratio errors over 5 planes: conditional, marginal, full covariance |
 | `downstream_decay.py` | §4 | A decay fitted with a free scale: which per-plane σ is calibrated |
 | `global_cpmg.py` | §6a | A ChemEx-like global CPMG fit of an overlapping pair |
+| `lp_known_truth.py` | §2.3, T7 | Known truth through NMRPipe LP: bias and scatter of relative intensities and rates, OLS and GLS; separates lineshape misfit, LP extrapolation and LP noise |
+| `profile_coverage.py` | §6, §8 (T3) | The release gate: coverage of the marginal σ, profile σ, ratios, R2eff and downstream fits (decay, global CPMG, CEST) on 2D `sp1`, `sp2` and `no_apod` clusters; the correlated-profile thresholds. Record: `profile_coverage.json` |
+| `make_lp_fixtures.py` | T7 | Regenerates `nmrpipe_lp.npz`, the NMRPipe-processed data of `lp_known_truth.py`; the only script that needs NMRPipe |
 
 ## Shared modules
 
@@ -43,3 +46,5 @@ uv run python tools/profile_uncertainty/run_all.py cest_refit   # one study
   ¹⁵N axis was linearly predicted.
 - **Synthetic scope:** the synthetic studies use one processed axis.
 - **First order:** the CEST first-order results are evaluated at the OLS optimum.
+- **LP order:** the example's processing script is not recorded, so T7's LP order
+  is the one that best matches the example's noise-power signature.
