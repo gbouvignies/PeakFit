@@ -152,7 +152,7 @@ fails, the whole run is not modelled.
 ### 2.4 Comparison with a real spectrum
 
 This is not a validation. On the bundled CEST example, the predicted noise
-autocorrelation is compared with one measured on noise-only points (|x| < 3σ):
+autocorrelation is compared with one measured on points with |x| < 3σ:
 
 | Lag | ¹⁵N predicted | ¹⁵N measured | ¹H predicted | ¹H measured |
 |---:|---:|---:|---:|---:|
@@ -161,14 +161,16 @@ autocorrelation is compared with one measured on noise-only points (|x| < 3σ):
 | 3 | −0.050 | 0.048 | −0.233 | −0.155 |
 | 4 | −0.096 | −0.118 | −0.162 | −0.103 |
 
-- Lag 1 agrees to within 0.03 along ¹⁵N and 0.05 along ¹H. Differences of up to
-  0.13 remain at higher lags.
-- These differences are far larger than the measurement's sampling error. Since C1
-  and the NMRPipe fixtures rule out the formula, they come from the measurement or
-  from the spectrum.
-  Candidates are residual signal in the mask, the effect of truncation on the mask,
-  and noise sources outside §2.1.
-- They are not established, and PeakFit does not use the measured curve.
+- **The differences above come from this point mask and from the spectrum, not the
+  model** ([profile-uncertainty.md](profile-uncertainty.md) §2.2). With a strict
+  noise-only selection, whole lines with every point < 4.5σ:
+  - **¹H matches its model:** 0.650 · 0.064 · −0.204 measured against
+    0.656 · 0.043 · −0.233 at lags 1–3.
+  - **The ¹⁵N discrepancy is linear prediction.** The axis's time-domain noise power
+    drops at t ≈ 46–48 of the 92 points the header records as acquired: about 47
+    acquired points were extended by LP, which the header cannot show (§2.5).
+- PeakFit does not use a measured curve. The noise-power profile is a diagnostic of
+  unrecorded processing, not a replacement for R.
 
 ### 2.5 What the final header cannot show
 

@@ -232,6 +232,9 @@ ban-relative-imports = "parents"
   "PLR2004",  # Allow magic values in tests (assert x == 5)
 ]
 "src/peakfit/engine/domain/cluster.py" = ["TC001"]
+# Archived evidence for docs/profile-uncertainty.md: scripts whose output is their
+# printout, written in the specification's notation (L, S, P; l for a peak).
+"tools/profile_uncertainty/*" = ["T201", "N806", "N803", "E741", "PLR2004", "D103"]
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-base-classes = ["pydantic.BaseModel"]

@@ -1,0 +1,536 @@
+# Estimator and uncertainty of intensity profiles
+
+**Status:** accepted, revision 3 ([ADR 0003](adr/0003-ols-and-profile-uncertainty.md)).
+Implementation pending; no production code has changed.
+
+**Builds on:** [correlated-noise.md](correlated-noise.md) and
+[ADR 0002](adr/0002-processing-derived-sandwich-errors.md).
+
+**Evidence:** exploratory scripts with fixed seeds, in
+[`tools/profile_uncertainty/`](../tools/profile_uncertainty/README.md). Their outputs
+are recorded in [`validation/profile-uncertainty/`](validation/profile-uncertainty/),
+and every number below comes from them. The README maps each script to its section.
+The implementation's validation tools (T3–T7) supersede them.
+
+This specification answers three separate questions:
+1. Which estimator suits realistically processed spectra (§2)?
+2. How should uncertainty propagate into relative intensities and the physical
+   parameters derived from them (§3–§4)?
+3. How well does the result describe real experimental variability (§5)?
+
+**The scientific target is the relative intensity profile.** CEST, CPMG, T1 and T2
+models fit a free overall scale per peak, so only the uncertainty that varies from
+plane to plane matters downstream.
+
+## 1. Summary
+
+1. **The example's ¹⁵N axis was linearly predicted, invisibly to the header.**
+   - Its time-domain noise power drops at t ≈ 46–48 of the 92 points the header
+     records as acquired. The data fit about 47 acquired points, extended by linear
+     prediction (LP).
+   - The ¹H axis matches its processing model.
+   - So R was wrong on ¹⁵N (§2.2).
+2. **Correcting R in noise-only regions does not rescue GLS.**
+   - With the measured ¹⁵N correlation, GLS's whitened χ²ᵣ rises from 10.9 to 18.4.
+   - The failure comes from the late, LP-extended part of the FID, which GLS
+     up-weights. There, neither the signal model nor the noise covariance near peaks
+     is known.
+   - LP is data-dependent, so these data cannot separate lineshape misfit,
+     extrapolation error and signal-dependent noise correlation. A known-truth test
+     can (§2.3, T7).
+3. **Real replicates favour OLS.** On CEST baseline planes:
+   - OLS gives the smallest plane-to-plane scatter of relative intensities.
+     Shrinkage gives 1.07–1.34× that scatter, and GLS 1.30–1.95×; for overlapping
+     peaks GLS reaches 1.9–2.7×.
+   - The OLS conditional sandwich σ matches the observed scatter: empirical / stated
+     1.06 under the header R, 1.01 under the measured R (§5).
+4. **For an isolated peak, the lineshape uncertainty is exactly a common scale
+   error.**
+   - Every lineshape term of the covariance is proportional to a_s a_t (§3.2), so it
+     cancels in relative intensities.
+   - Adding it to per-plane σ makes a downstream relaxation fit overstate its rate
+     error 1.08–1.47× (§4).
+5. **Only overlap leaves a lineshape uncertainty that changes the profile's shape:**
+   intensity moves between peaks whose profiles differ. It is correlated across
+   planes, so a per-plane σ cannot show it.
+   - On the example, its largest correlated mode exceeds 10% of the per-plane noise
+     variance for 12 of 74 overlapping peaks, and exceeds the full variance for 2.
+   - The per-plane diagonal hides this: it rises by at most 1.23×.
+6. **Three distinct quantities, defined in §3.3:**
+   - the *marginal σ* of an absolute amplitude;
+   - the *relative-profile covariance*, exact for any downstream fit with a free
+     scale;
+   - the *profile σ*, its diagonal. The profile σ suffices on its own only where a
+     criterion on the correlated modes says so.
+
+   A "common scale uncertainty" has no unique definition and is not reported.
+7. **The residual excess (2.2×) is mostly misfit proportional to the amplitude** and
+   harmless to relative intensities. Inflating the errors is not justified (§5.2).
+
+## 2. Estimator
+
+### 2.1 Theory
+
+- **Information:** for white FID noise, a spectrum apodized by w(t), zero filled at
+  least 2× and kept real still holds the FID's information (Bartholdi and Ernst 1973).
+- **The two estimators over the full spectrum:**
+  - OLS on the spectrum is the FID fit with weights w(t)².
+  - GLS under R⁻¹ removes them, which is maximum likelihood when the model and R are
+    exact (Aitken 1935).
+- **GLS gains on the late-FID components the apodization suppressed.** Model
+  inadequacy concentrates in exactly those components:
+  - non-exponential decay;
+  - LP-extrapolated signal;
+  - truncation and the sidelobes of peaks outside the cluster, which a local fit
+    cannot model.
+- **So GLS undoes the localization that makes local cluster fitting work.** It weights
+  the data as if they were unapodized, and so inherits the drawbacks of unapodized
+  fitting (truncation and outside sidelobes) without their model.
+
+**Synthetic, exact model and exact R** (one axis, sine-bell² offset 0.4, 92 → 256
+points, SNR 30, 2,000 realizations):
+
+| Case | GLS SD / OLS SD |
+|---|---|
+| Isolated line (amplitude · position · R2) | 0.89 · 0.69 · 0.66 (narrow); 0.95 · 0.95 · 0.92 (broad) |
+| Pair 3 points apart (amplitude · position) | 0.50 · 0.35 |
+| Unmodelled Gaussian decay (amplitude bias / SD) | OLS 0.64; GLS 1.22 |
+
+Every estimator is calibrated under its own sandwich when the model is exact. With 5×
+zero fill, R on a 25-point window has numerical rank 18 of 25.
+
+### 2.2 Linear prediction on the example
+
+The ¹⁵N axis was tested on 25,849 noise-only columns (every point < 4.5σ). The FFT
+of a processed axis is its time-domain noise, so its power profile is checked against
+the header's prediction. Both are normalized over the first 40 points:
+
+| t (points) | 4–45 | 46 | 47 | 48 | 56 | 64 | 80 |
+|---|---|---|---|---|---|---|---|
+| Measured / predicted power | 0.94–1.02 | 0.74 | 0.51 | 0.44 | 0.21 | 0.14 | 0.27 |
+
+- **First point:** at t = 0 the ratio is 1.22. That single point is the first-point
+  scaling's, and it plays no part in the LP diagnosis.
+- **Best fit:** about 47 acquired points, extended to 92. The mismatch is 0.055
+  against 0.132 for the header's 92.
+- **Lag correlations, measured against predicted:**
+  - ¹⁵N: 0.811 · 0.384 · 0.002 against 0.751 · 0.263 · −0.050;
+  - ¹H, on 3,147 noise-only rows: 0.650 · 0.064 · −0.204 against
+    0.656 · 0.043 · −0.233.
+- **This revises `correlated-noise.md` §2.4:** with a strict noise-only selection, the
+  ¹H model agrees. The ¹⁵N discrepancy is LP.
+- **A diagnostic for any spectrum:** the time-domain noise-power profile detects LP
+  and other unrecorded processing from the data alone (§6).
+
+### 2.3 Which component causes the large whitened χ²?
+
+| | Header R | Measured ¹⁵N R |
+|---|---|---|
+| OLS χ² / E[χ² ∣ R] | 2.22 (1.67–3.51) | 2.26 (1.71–3.58) |
+| Same, after removing one amplitude-proportional misfit shape per peak | 1.61 (1.48–1.80) | 1.64 (1.51–1.84) |
+| Shrinkage α = 0.1, whitened χ²ᵣ | 1.38 | 1.81 |
+| GLS, whitened χ²ᵣ | 10.9 (5.2–206) | 18.4 (9.1–163) |
+
+Values are medians, with the 10th–90th percentile in parentheses.
+
+What these data establish:
+- **Numerics are not the cause.** Shrinkage bounds the conditioning, yet it still
+  loses to OLS on real replicates (§5).
+- **Noise-only covariance is not the cause.** The ¹⁵N correlation measured in
+  signal-free columns corrects the noise there, and makes GLS worse.
+- **The late, LP-extended part of the FID is the cause.** The signal model, the noise
+  covariance near peaks, or both, are wrong there, and GLS gives that part the most
+  weight.
+
+What they cannot establish:
+- **Which of the two is responsible.** LP fits its coefficients to the data. Near a
+  resonance, the prediction filter follows the signal's poles, and it propagates the
+  acquired noise into the extended points with a correlation that depends on the
+  signal. The covariance in noise-only columns therefore says nothing about the
+  covariance under a peak.
+- **The causes cannot be separated here.** Three effects act in the same late-FID
+  directions:
+  - lineshape misfit;
+  - deterministic LP extrapolation error;
+  - signal-dependent LP noise.
+- **Consistent, but not proof:** most of the OLS excess is one fixed shape per peak,
+  scaled by its amplitude (2.22 → 1.61). That pattern is what a systematic signal
+  error looks like, whether from the lineshape or from extrapolation. Signal-dependent
+  noise changes with every plane's realization, so it would sit in the remaining
+  1.6×, together with t1 noise and signal from neighbouring clusters.
+- **A test with known truth can separate them (T7):** synthetic FIDs processed by
+  NMRPipe with and without LP, then fitted by OLS and GLS.
+
+### 2.4 Conclusion
+
+**OLS with sandwich errors stays.** The reasons are now empirical:
+- the smallest real scatter of relative intensities;
+- calibrated errors on real replicates;
+- no inverse of an ill-conditioned R;
+- no tuning constant.
+
+GLS would be reconsidered only for spectra whose late FID the model describes, for
+example without LP and with a well-modelled decay. The replicate test of §5 decides,
+whatever the processing.
+
+## 3. Covariance of the fitted amplitudes
+
+### 3.1 First-order covariance
+
+For a cluster, write:
+- Φ, the shapes (L × n);
+- M = (ΦΦᵀ)⁻¹Φ and P⊥ = I − ΦᵀM;
+- E_l, the derivatives of peak l's shape with respect to the lineshape parameters θ;
+- D_s = Σ_l a_{l,s} E_l;
+- H = Σ_s D_sᵀP⊥D_s and T_s = H⁻¹D_sᵀP⊥.
+
+Then:
+
+  Cov(a_s, a_t) = σ²[δ_st MRMᵀ − MRT_sᵀG_tᵀ − G_sT_tRMᵀ + G_s C_θ G_tᵀ],
+
+with G_s = M D_s and C_θ = Σ_u T_u R T_uᵀ.
+
+- **It is the amplitude block of the OLS sandwich over all parameters.** It matches a
+  direct computation to 1.4 × 10⁻¹⁴.
+- **When R = I,** the cross terms vanish (10⁻¹⁸ in the check).
+- **Storage:** the covariance is fixed by MRMᵀ, the tensors M E_m and M R P⊥ E_m H⁻¹,
+  and C_θ, together with the stored amplitudes. That is O(L²n_θ) numbers per cluster (L peaks, n_θ lineshape parameters),
+  whatever the number of planes, and reopening a project never refits.
+
+### 3.2 Isolated peaks: the lineshape term is a pure scale error
+
+With one peak, D_s = a_s E, so T_s and G_s are proportional to a_s. Every term except
+the first is therefore proportional to a_s a_t:
+
+  Cov(a_s, a_t) = δ_st c + a_s a_t k.
+
+- **What it means:** the lineshape uncertainty moves all of a peak's amplitudes by the
+  same factor. Relative intensities, and anything fitted with a free scale, see only
+  c, today's conditional σ².
+- **On the example:** for all 92 isolated peaks, the relative-profile covariance of
+  §3.3 equals cI to round-off (correlated modes ≤ 4 × 10⁻¹⁶ c). Over all peaks, the
+  marginal/conditional ratio at plane 1 is 1.03 (median), 1.12 (90th percentile) and 4.4
+  (maximum). For isolated peaks all of it is in the scale term.
+
+### 3.3 Marginal σ, relative-profile covariance and profile σ
+
+For one peak, let:
+- Σ be the S × S covariance of its amplitudes over the planes (§3.1);
+- c be its conditional variance, the same in every plane, since planes have
+  independent noise;
+- L = Σ − cI be the lineshape part, including the cross terms;
+- u = a/‖a‖ be its unit profile, and P = I − uuᵀ.
+
+**Marginal σ.** σ_s = √Σ_ss is the uncertainty of one absolute amplitude on its own.
+It is correct, and it is the right error for a single amplitude. Treating the planes'
+σ_s as independent is what overstates downstream errors (§4); the marginal σ itself is
+not wrong.
+
+**Relative-profile covariance.** A downstream model with a free scale fits a ≈ A·f(p).
+- **First-order response:** to first order, at the fit, f ∝ a. Eliminating A then
+  gives δp̂ = K δa with K a = 0, whatever the downstream weights.
+- **What follows:** Cov(p̂) = KΣKᵀ is unchanged by Σ → Σ + a vᵀ + v aᵀ, for any
+  vector v. Covariances that differ by such terms are equivalent for every analysis
+  with a free scale.
+- **Representative:** this specification uses
+
+    Σ_rel = cI + PLP.
+
+  It differs from Σ only by terms of that form, because
+  L − PLP = (I − P)L + PL(I − P) and I − P = uuᵀ. So it is exactly equivalent to Σ
+  for those analyses.
+- **Properties:** it is positive definite. It equals cI for an isolated peak (§3.2).
+  It contains no scale component.
+- **Without a free scale,** for example a ratio to given reference planes, the
+  analysis needs Σ itself. Ratios use Σ (§4).
+
+**Profile σ.** √(Σ_rel)_ss, the diagonal of Σ_rel.
+- **Valid alone only where Σ_rel ≈ diag:** used as independent per-plane errors, it is
+  exact only where Σ_rel is close to diagonal. Off the diagonal, PLP holds modes
+  correlated across planes, smooth distortions that resemble the partner peak's
+  profile.
+- **The diagonal is a poor test of this.** A mode of variance λ spread over S planes
+  adds only about λ/S to each diagonal element.
+- **The criterion is the largest eigenvalue of PLP relative to c.**
+
+| Case | Largest correlated mode / c | Largest diagonal increase / c | Downstream rate error, profile σ: scatter / stated |
+|---|---:|---:|---:|
+| Synthetic pair, 3 points apart | 0.26 | 0.07 | 1.05 |
+| Synthetic pair, 2 points apart | 1.75 | 0.46 | 1.39 |
+| Example, overlapping peaks (median · 90th percentile · maximum) | 0.0004 · 0.38 · 5.6 | up to 0.52 | — |
+
+- **On the example:** 12 of 74 overlapping peaks have a correlated mode above 0.1c,
+  and 2 above c. They are larger than in the synthetic case where per-plane errors
+  failed.
+- **The earlier draft understated this.** It judged the transfer by the diagonal
+  alone.
+
+**Common scale uncertainty.** Splitting Σ into a scale part and a remainder is not
+unique: any a vᵀ + v aᵀ can be moved between the two. Downstream analyses with a free
+scale do not need it, and those without one need Σ. So it is not reported.
+
+**Compact form.** PLP has rank at most twice the number of nonlinear parameters, so
+Σ_rel = cI + Σ_k λ_k v_k v_kᵀ over a few modes. Every quantity above follows from the
+tensors of §3.1.
+
+## 4. Downstream parameters
+
+The test is a relaxation decay, I_s = A·e^(−R·t_s) over 8 planes, fitted to a peak's
+fitted amplitudes. The fit is weighted least squares with independent per-plane σ_s,
+as downstream programs do. 1,500 realizations; each cell gives scatter / stated SD of
+R, then 95% coverage.
+
+| Per-plane σ | Isolated | Pair 3 points apart | Pair 2 points apart |
+|---|---|---|---|
+| Conditional | 1.01 · 0.946 | 1.08 · 0.930 | 1.61 · 0.794 |
+| Marginal | 0.93 · 0.965 | 0.73 · 0.993 | 0.68 · 0.994 |
+| Profile σ | 1.01 · 0.946 | 1.05 · 0.935 | 1.39 · 0.851 |
+| Full covariance (GLS downstream fit) | 1.01 · 0.947 | 0.95 · 0.956 | 1.00 · 0.965 |
+
+In the pairs, the partner peak decays at 0.2 instead of 1.0.
+
+- **Marginal σ treated as independent overstates downstream errors,** by up to 1.47×.
+  The common scale error is fully correlated across planes, but independent errors
+  count it as fresh noise in every plane.
+- **Profile σ is exact for isolated peaks and close for moderate overlap.**
+- **Strong overlap with differing profiles leaves correlated modes in Σ_rel (§3.3).**
+  - Any per-plane σ is then wrong, in one direction or the other.
+  - Σ, or equivalently Σ_rel, is calibrated in every case.
+- **Ratios (CEST, CPMG I/I₀, R2eff)** are to use the full covariance, through
+  `profiles.normalize` extended with a covariance (§9); today it takes independent
+  errors. The scale term cancels there.
+  - In the 5-plane study, today's independent conditional ratio errors were within
+    16% for a pair 3 points apart.
+  - Marginal σ treated as independent overstated them up to 2.2×.
+  - The full covariance was calibrated: 95% coverage 0.95–0.96.
+
+## 5. Real experimental variability
+
+### 5.1 CEST baseline planes as replicates
+
+- **Planes used:** those more than 400 Hz from the peak's own ¹⁵N offset, excluding
+  the −12 kHz reference.
+- **Scatter:** the robust SD of second differences across offsets, divided by √6.
+  Second differences remove slow trends and common-mode errors, and the robust SD
+  limits the influence of unknown minor-state dips.
+- **Coverage:** 164 peak profiles. The OLS relative scatter is 2.8% (median).
+
+| Estimator | Scatter / OLS scatter, all peaks | Multi-peak clusters | Empirical / own stated σ |
+|---|---|---|---|
+| OLS, conditional sandwich (header R) | 1 | 1 | 1.06 (0.89–1.28) |
+| OLS (measured ¹⁵N R) | 1 | 1 | 1.01 (0.85–1.22) |
+| α = 0.1, header R | 1.07 (0.88–1.26) | 1.09 | 1.19 |
+| GLS, header R | 1.30 (0.99–6.2) | 1.89 | 1.48 |
+| α = 0.1, measured R | 1.34 (0.99–1.76) | 1.43 | 1.53 |
+| GLS, measured R | 1.95 (1.35–11.9) | 2.73 | 2.29 |
+
+- **The conditional sandwich σ that OLS publishes today is calibrated for relative
+  intensities on real data.** Correcting R for LP moves the median from 1.06 to 1.01.
+- **Caveats:**
+  - Common-mode errors are invisible by construction. They are also irrelevant
+    downstream (§3.2).
+  - Drift, residual saturation and minor-state dips can only inflate the empirical
+    scatter.
+  - This is one dataset.
+  - **Replicates measure repeatability, not accuracy.**
+    - A systematic error that is the same in every baseline plane is invisible here,
+      for example a misfit, or a bias from LP extrapolation.
+    - For isolated peaks such an error is a common factor and cancels.
+    - For overlapping peaks with differing profiles it can distort relative
+      intensities. Only a test with known truth measures that (T7).
+
+### 5.2 The residual excess
+
+- **Composition:** it is mostly a fixed misfit shape per peak, proportional to the
+  amplitude. Such misfit biases every plane's amplitude by the same factor, so it
+  cancels in relative intensities for isolated peaks.
+- **Inflating σ by the excess would be wrong:** it would make the errors about 1.5×
+  too large against the replicates.
+- **As a diagnostic,** the proportional part measures how well the lineshape fits. It
+  could replace χ²ᵣ in review, whose expectation under correlated noise varies by
+  cluster. That replacement is not planned.
+
+## 6. Reporting
+
+Each quantity of §3.3 is reported under its own name:
+- **Marginal σ:** the error of one absolute amplitude, in the amplitude table and the
+  inspector.
+- **Profile σ:** the per-plane error of the profile.
+  - It goes in the per-peak profile files that downstream programs read.
+  - It is the error bar on profiles in the GUI.
+- **The conditional σ** stays an export column, as a diagnostic.
+- **Ratios and R2eff:** the full Σ, in the GUI and the CLI alike.
+- **Correlated-profile flag:** set where the largest correlated mode of Σ_rel exceeds
+  τ·c, so that per-plane errors cannot describe the profile's uncertainty.
+  - τ is set by validation (T3). It probably lies between 0.1 and 0.25.
+  - The flag also covers strong covariance with a cluster partner (§6a). No
+    covariance is exported until a consumer exists.
+  - The flag describes a limit of the approximation, not the quality of the data
+    (§6a).
+
+**Which name downstream programs see** was settled as option (a) of §10: many read
+one error column by habit, so `intensity_err` carries the profile σ.
+- **Noise-model check:** the measured time-domain noise-power profile of each axis is
+  compared with the header's prediction. A mismatch, such as unrecorded LP or an
+  earlier window, gives a recorded warning.
+- **Storage:** the tensors of §3.1, the flag and the check. This is a deliberate format
+  change: the next major version of the scientific archive (11.0.0 today) and of the
+  analysis project (14.0.0 today), with the fit JSON.
+- **GUI:**
+  - error bars use the profile σ, and ratios use the covariance;
+  - the flag is shown on the profile, the tiles and the cluster page;
+  - there is no uncertainty mode.
+
+## 6a. Consumption by ChemEx
+
+### What ChemEx does today
+
+ChemEx is read at `d0ba6e34`.
+- **Input:** one profile per spin system, with columns (metadata, intensity, error).
+  CEST and CPMG profiles are raw intensities, reference planes included.
+- **Free scale:** each profile has one, solved analytically with weights 1/err²
+  (`Data.scale`).
+- **Residuals:** (scale·calc − exp)/err, independent.
+- **Parameter errors:** from the Jacobian, with err taken as absolute; there is no χ²ᵣ
+  rescaling.
+- **Monte Carlo and bootstrap:** both assume independent points.
+- **Error options:** `error = "scatter"` or `"duplicates"` replaces the file errors
+  with one estimated σ per profile. With the default `global_error = true`, that σ is
+  shared by every profile of the experiment.
+
+**Consequences:**
+- PeakFit's ratios are for display only. ChemEx normalizes through its own free
+  scale.
+- The per-plane error ChemEx needs is exactly the relative-profile one (§3.3).
+
+### What independent per-plane errors lose
+
+The test is a ChemEx-like global fit: two peaks of one cluster, 13 planes (one
+reference and ν_CPMG from 25 to 1,000 Hz), fast-exchange R2eff, a free scale per
+profile, and kex shared. Reference-plane SNR is 150, with 1,500 realizations. Each
+cell gives scatter / stated SD, then SD relative to the joint-covariance fit.
+
+| Error input | Δ = 6 points: kex | Δ = 3 points (ρ = −0.16): kex · Φ₂ | Δ = 2 points (ρ = −0.43): kex · Φ₂ |
+|---|---|---|---|
+| Marginal σ, independent | 0.92 · 1.00 | 0.68 · 0.73 (SD 1.03) | 0.35 · 0.50 (SD 1.10) |
+| Profile σ, independent | 0.97 · 1.00 | 0.95 · 1.05 (SD 1.01) | 0.87 · 1.20 (SD 1.09) |
+| Conditional σ, independent | 0.97 · 1.00 | 0.96 · 1.05 (SD 1.01) | 0.90 · 1.26 (SD 1.08) |
+| Covariance per peak | 0.97 · 1.00 | 0.96 · 1.02 (SD 1.01) | 0.90 · 0.99 (SD 1.09) |
+| Joint covariance across both peaks | 1.00 · 1.00 | 1.00 · 1.02 (SD 1) | 1.00 · 1.01 (SD 1) |
+
+In every row, the bias is at most 0.06 SD.
+
+- **Marginal σ in the error column is wrong for ChemEx.** It overstates kinetic errors
+  by 1.08× for resolved peaks, 1.4–1.5× for moderate overlap and 2–3× for strong
+  overlap, and gains no precision.
+- **Profile σ is calibrated within 5%** for resolved and moderately overlapping peaks.
+- **In strong overlap, two kinds of information are lost:**
+  - the correlated modes within a profile, so Φ₂'s error is about 20% too small;
+  - the covariance between the two peaks, which costs about 9% of kex precision. The
+    covariance within each peak alone does not recover it.
+- **Fitted values were not biased by any choice in these simulations.** This is a
+  finding for these cases, not a guarantee. Covariance-aware weighting changes the
+  weights, and can move fitted values when the model is nonlinear enough, the data are
+  sparse or the profiles are strongly overlapped.
+- **On the example:**
+  - 7 of 29 multi-peak clusters have a within-plane |ρ| above 0.3 (maximum 0.77);
+  - 12 of 74 overlapping peaks have correlated modes above 0.1c.
+
+  So the losses concern a minority of clusters, about 6% of all of them.
+
+### Interface
+
+- **The error column gets the profile σ.**
+  - For isolated peaks it equals today's `intensity_err`, so nothing changes for most
+    peaks.
+  - The marginal σ goes in its own column.
+- **A per-peak flag marks where independent errors are inadequate:** correlated modes
+  above τ·c, or within-plane |ρ| with a cluster partner above a threshold.
+  - The threshold is set by T3, extended with the global fit above.
+  - ChemEx needs no change.
+  - The flag states a limitation of the independent-error approximation. It does not
+    say the peak's data are bad, and it does not imply discarding or down-weighting
+    the peak; that judgment stays with the user.
+- **No covariance export yet.**
+  - Using one would change ChemEx's residual layer: groups of profiles whitened
+    jointly, with coupled scales.
+  - The gain is at most about 10% in precision and 20–25% in error calibration, on a
+    few clusters.
+  - The archive keeps the tensors (§3.1), so such an export can be added when a
+    consumer exists.
+- **ChemEx `scatter` with `global_error`** averages one σ over every profile. It
+  therefore discards the larger σ of overlapping peaks. With PeakFit's errors
+  calibrated against baseline scatter (§5.1), `error = "file"` is the better choice.
+  That is a usage note, not a ChemEx change.
+
+## 7. MCMC
+
+- **No likelihood to sample.** OLS is not a likelihood estimator under R, and the GLS
+  likelihood is contradicted on real data, with or without the LP correction.
+- **The formulation stays deferred,** and MCMC stays out of the GUI.
+- **When to revisit:** if the target becomes the relative profile, a likelihood could
+  be built on plane-to-plane variability, which the replicates (§5) can validate. That
+  question is separate.
+
+## 8. Validation plan
+
+| ID | Test | Gate |
+|---|---|---|
+| T1 | The factor formula against the full sandwich, including shared and fixed parameters; R = I; the proportional structure for a single peak | 10⁻¹⁰ relative |
+| T2 | The profile σ of an isolated peak against today's `intensity_err` | Equal to round-off |
+| T3 | Engine coverage (2D, NMRPipe-equivalent processing, `sp1`, `sp2`, `no_apod`): ratios, R2eff, and downstream decay or CEST fits with profile σ and with the covariance; overlap from resolved to strong | Scatter / stated within 0.95–1.05; also sets the flag threshold |
+| T4 | The baseline-replicate tool on the bundled example, and on any further CEST datasets | Empirical / stated within 0.9–1.15 (median) |
+| T5 | The noise-power check: LP, an earlier window and `SP -size` (`correlated-noise.md` §2.5) on NMRPipe-processed noise | Detects each case; no false alarm on correctly recorded processing |
+| T6 | The estimator comparison (§2), rerunnable | Reproduces §2 and §5 |
+| T7 | Known truth through real processing: synthetic pseudo-3D FIDs (isolated and overlapping peaks, differing profiles) processed by NMRPipe with and without LP, fitted by OLS and GLS | Bias and scatter of relative intensities and downstream rates; separates lineshape, LP-extrapolation and LP-noise effects |
+
+## 9. Implementation sequence
+
+1. **Engine and tools, unpublished:**
+   - the covariance tensors, marginal σ, Σ_rel, profile σ and the flag;
+   - `profiles.normalize` with a covariance;
+   - the noise-power check;
+   - T1 and T2, and the tools for T3–T7.
+2. **Publishing:**
+   - formats and columns;
+   - the GUI and CLI;
+   - docs: `outputs.md` and `gui.md`. The glossary terms and ADR 0003 are already
+     recorded with this specification.
+3. **Release gate:** the new reporting is not released until the full T3 coverage
+   validation passes, even if the earlier steps merge.
+
+## 10. Decisions
+
+1. **Estimator:** OLS with sandwich errors. Agreed on 2026-11-13, on the replicate
+   evidence.
+2. **Reporting interface:** the three quantities of §3.3, with (a) below. Agreed on
+   2026-11-13.
+   - (a) `intensity_err` becomes the profile σ in profile files, with the marginal σ
+     in a separate column. This keeps downstream programs correct by default.
+   - (b) `intensity_err` is the marginal σ everywhere, and downstream users must pick
+     the profile column.
+
+   §6a decides for (a): ChemEx reads one error column, and the marginal σ there
+   overstates kinetic errors by up to 3×.
+3. **When the noise-power check finds a mismatch:** warn only; on this dataset the
+   measured correlation changes calibration by 5%. Replacing that axis's correlation
+   with the measured one was not chosen. Agreed on 2026-11-13.
+4. **Open, optional, outside the current implementation: a decisive test of
+   processing.** If the raw FID of this dataset
+   is available, process it with and without LP, at two apodizations, and compare
+   the baseline-replicate scatter. That would measure the trade-off between LP,
+   apodization and local fitting directly.
+
+## References
+
+- A. C. Aitken (1935). On least squares and linear combination of observations.
+  *Proceedings of the Royal Society of Edinburgh* 55, 42–48.
+- E. Bartholdi and R. R. Ernst (1973). Fourier spectroscopy and the causality
+  principle. *Journal of Magnetic Resonance* 11, 9–19.
+- G. H. Golub and V. Pereyra (1973). The differentiation of pseudo-inverses and
+  nonlinear least squares problems whose variables separate. *SIAM Journal on
+  Numerical Analysis* 10, 413–432.
+- J. A. Hausman (1978). Specification tests in econometrics. *Econometrica* 46,
+  1251–1271.
+- H. White (1980). A heteroskedasticity-consistent covariance matrix estimator and a
+  direct test for heteroskedasticity. *Econometrica* 48, 817–838.

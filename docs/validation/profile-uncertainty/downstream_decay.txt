@@ -1,0 +1,18 @@
+
+## isolated line  (R true 1.0)
+  conditional  R SD 0.0563  scatter/stated 1.01  cov95 0.946
+  total        R SD 0.0570  scatter/stated 0.93  cov95 0.965
+  profile      R SD 0.0563  scatter/stated 1.01  cov95 0.946
+  ideal        R SD 0.0563  scatter/stated 1.01  cov95 0.947
+
+## pair Δ=3, partner decays slower  (R true 1.0)
+  conditional  R SD 0.0563  scatter/stated 1.08  cov95 0.930
+  total        R SD 0.0603  scatter/stated 0.73  cov95 0.993
+  profile      R SD 0.0562  scatter/stated 1.05  cov95 0.935
+  ideal        R SD 0.0565  scatter/stated 0.95  cov95 0.956
+
+## pair Δ=2, partner decays slower  (R true 1.0)
+  conditional  R SD 0.0991  scatter/stated 1.61  cov95 0.794
+  total        R SD 0.1105  scatter/stated 0.68  cov95 0.994
+  profile      R SD 0.0966  scatter/stated 1.39  cov95 0.851
+  ideal        R SD 0.1061  scatter/stated 1.00  cov95 0.965
