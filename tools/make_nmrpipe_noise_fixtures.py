@@ -85,6 +85,18 @@ NOISE_FIXTURES: dict[str, tuple[int, list[str]]] = {
 }
 
 
+def add_nmrpipe_argument(parser: argparse.ArgumentParser) -> None:
+    """Add ``--nmrpipe``, defaulting to ``$NMRBASE`` as NMRPipe's own init sets it."""
+    base = os.environ.get("NMRBASE")
+    parser.add_argument(
+        "--nmrpipe",
+        type=Path,
+        default=Path(base) if base else None,
+        required=base is None,
+        help="NMRPipe installation (default: $NMRBASE)",
+    )
+
+
 def _environment(base: Path) -> dict[str, str]:
     arch = "mac_arm64" if platform.system() == "Darwin" else "linux239_64"
     binaries = base / f"nmrbin.{arch}"
@@ -154,7 +166,7 @@ def _fid(name: str, rows: np.ndarray, converter: str, env: dict[str, str], cwd: 
 def main() -> None:
     """Process every fixture with the given NMRPipe and copy it into the tests."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--nmrpipe", type=Path, required=True, help="NMRPipe installation")
+    add_nmrpipe_argument(parser)
     args = parser.parse_args()
     env = _environment(args.nmrpipe.expanduser())
     OUT.mkdir(parents=True, exist_ok=True)

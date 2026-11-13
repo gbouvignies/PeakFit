@@ -17,6 +17,13 @@ hooks = [
 repo = "local"
 hooks = [
   {
+    id = "diff3-base-marker",
+    name = "Check for diff3 conflict base markers",
+    entry = '^\|{7}( |$)',
+    language = "pygrep",
+    types = ["text"]
+  },
+  {
     id = "ruff",
     name = "Ruff Check",
     entry = "uv run ruff check --fix",

@@ -484,6 +484,10 @@ no embedded-project readers, conversion adapters or alternative project modes re
 
 ## Reading and migrating existing files
 
+A format version is bumped at most once per release. Until the version that
+introduced it is released, a format may still be amended in place; files written
+by development builds of that version can then become unreadable, and are refit.
+
 - Only scientific archive **12.0.0**, fit JSON **9.0.0** and project **15.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis

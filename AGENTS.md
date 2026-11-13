@@ -45,9 +45,8 @@ task is explicitly a storage change.
 - `engine` stays pure: no Qt, Typer, Rich or filesystem side effects. The GUI is a
   presentation layer above the scientific code. `uv run lint-imports` enforces the
   layers.
-- Prefer direct functions and explicit data flow over managers, services,
-  registries, factories or adapters.
 - Package map and boundaries: `docs/architecture.md`.
+- Review rules (architecture, GUI, types, documentation): `CODING_STANDARDS.md`.
 
 ## Focused development
 
@@ -64,13 +63,8 @@ task is explicitly a storage change.
 ## GUI
 
 Visual design, readability, intuitiveness and consistency are product
-requirements, not finishing touches.
-
-- Design baseline: `docs/PeakFit_GUI_Design_Specification_v2.0.md`.
-- User workflow: `docs/gui.md`.
-- Long work runs off the UI thread; see "GUI responsiveness" in
-  `docs/development.md`.
-- Errors say what went wrong and what the user can do next.
+requirements, not finishing touches. Design baseline:
+`docs/PeakFit_GUI_Design_Specification_v2.0.md`; user workflow: `docs/gui.md`.
 
 ## Testing
 
@@ -81,6 +75,7 @@ Use `uv`. Run tests headless:
 
 ```bash
 QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg uv run pytest -q tests/<relevant>
+QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg uv run pytest -q -n auto   # full suite
 ```
 
 Run the focused tests for each change. Before finishing a change that crosses
@@ -91,11 +86,9 @@ ones.
 
 ## Documentation and records
 
-- Update the one document that describes the changed behavior; delete stale text
-  rather than layering corrections.
-- Short decisions go in `docs/decisions.md`; hard-to-reverse ones in `docs/adr/`.
-- Long-form scientific specifications live in version-controlled Markdown under
-  `docs/`; issues link to them.
+Update the one document that describes the changed behavior; the map of which
+document describes what is in `CODING_STANDARDS.md`. Short decisions go in
+`docs/decisions.md`; hard-to-reverse ones in `docs/adr/`.
 
 ## Agent skills
 

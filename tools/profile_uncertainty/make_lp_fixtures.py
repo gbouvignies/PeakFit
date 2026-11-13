@@ -37,7 +37,7 @@ from lp_known_truth import (
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # tools/
-from make_nmrpipe_noise_fixtures import _environment, _run
+from make_nmrpipe_noise_fixtures import _environment, _run, add_nmrpipe_argument
 
 ORDERS = (12, 14, 16, 18, 20)
 SIGNATURE_DRAWS = 2000
@@ -79,7 +79,7 @@ def _write(name: str, arrays: dict[str, Any]) -> None:
 def main() -> None:
     """Process every LP input with NMRPipe and write the fixtures."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--nmrpipe", type=Path, required=True, help="NMRPipe installation")
+    add_nmrpipe_argument(parser)
     env = _environment(parser.parse_args().nmrpipe.expanduser())
     FIXTURES.mkdir(exist_ok=True)
     rng = np.random.default_rng([SEED, 97])

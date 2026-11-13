@@ -1,7 +1,7 @@
 # Development Guide
 
-This guide records the current contributor workflow and coding conventions. Keep
-it short; implementation details should live in code and tests.
+This guide records the current contributor workflow. Keep it short;
+implementation details should live in code and tests.
 
 ## Commands
 
@@ -13,7 +13,7 @@ uv run ruff check src tests
 uv run ruff format --check src tests
 uv run ty check --error-on-warning
 uv run lint-imports
-QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg uv run pytest -q
+QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg uv run pytest -q -n auto
 uv run prek run --all-files
 uv build
 ```
@@ -24,8 +24,14 @@ Use `prek`, not `pre-commit`, for hooks.
 
 Run the complete suite headlessly with `QT_QPA_PLATFORM=offscreen` and
 `MPLBACKEND=Agg`, as shown above. This is the supported environment for
-automated tests that may import GUI or plotting dependencies. The suite can run
-in parallel with `-n auto`, as CI does.
+automated tests that may import GUI or plotting dependencies. Run the full suite
+with `-n auto`, as CI does: about 70 s instead of about 300 s serially.
+
+NMRPipe is needed only to regenerate fixtures (`tools/make_nmrpipe_noise_fixtures.py`,
+`tools/profile_uncertainty/make_lp_fixtures.py`). Its own init script configures
+it for csh, so `which nmrPipe` in bash or zsh can find nothing even when it is
+installed. Check with `csh -c 'echo $NMRBASE'`. The fixture tools take
+`--nmrpipe <install dir>` and default to `$NMRBASE`.
 
 Shared synthetic inputs and completed fits live in `tests/builders.py`, which
 imports no Qt; `tests/gui_helpers.wait_until` runs the Qt event loop until a
@@ -69,19 +75,8 @@ its run ID, timestamps, output directory or fit timings.
 
 ## Architecture Rules
 
-- Keep numerical code independent from Typer, Rich, Qt, and filesystem side
-  effects unless that boundary is intentionally changed.
-- Prefer direct functions and explicit data flow over managers, service layers,
-  registries, factories, or adapters.
-- Excellent visual design, readability, intuitiveness and consistency are explicit
-  product requirements. A dedicated GUI UX and visual polish milestone remains
-  required after establishment of the core whole-dataset workflows; functional
-  changes should support that direction.
-- Keep `engine` focused on numerical/domain primitives.
-- Keep `fit` focused on loading, validation, orchestration, and fit-output
-  assembly.
-- Keep one shared scientific authority: `scientific.npz`, CSV tables under
-  `tables/`, and a short report; JSON is explicit interoperability.
+The review rules for architecture, GUI, typing, CLI output and documentation are
+in `CODING_STANDARDS.md`.
 
 The import-linter contracts in `pyproject.toml` enforce the current package
 layers, keep the siblings `gui`/`ui` and `fit`/`mcmc`/`plot` independent of each
@@ -89,40 +84,6 @@ other, and keep Qt, Typer, Rich and matplotlib out of `engine`, `fit`, `io`,
 `mcmc` and `shared`, and Qt out of `plot`. Imports used only for type checking
 count too; the few mutual type references between sibling modules are listed in
 the acyclic contract's `ignore_imports`, which fails if one of them disappears.
-
-## CLI And Terminal Output
-
-PeakFit runs can be long. Terminal output should leave a useful scrollback:
-
-- Show a compact input/config/output summary before work starts.
-- Keep routine success terse.
-- Make parse errors, failed clusters, boundary hits, and high reduced
-  chi-squared easy to find.
-- Prefer actionable messages over decorative panels.
-- Do not expose internal architecture names in user-facing output.
-
-Shared helpers under `src/peakfit/ui/` are useful only when they reduce
-duplication and improve consistency. They may be merged or removed during
-simplification.
-
-## Typing
-
-- Do not add `from __future__ import annotations`; Python 3.14 already defers
-  annotations.
-- Use modern syntax: `X | Y`, `list[str]`, `dict[str, float]`.
-- For NumPy-style public inputs, prefer `numpy.typing.ArrayLike` and normalize
-  immediately with `np.asarray(...)`.
-- Return `numpy.typing.NDArray[...]` for vectorized numerical functions.
-- Use overloads only when the public API guarantees scalar-in/scalar-out
-  behavior.
-- Enforce shape requirements at runtime; do not encode fragile shape types.
-
-## Documentation
-
-Documentation should be consolidated with code changes. Prefer one accurate page
-over several overlapping pages. Delete stale notes when they stop matching the
-current design.
-
 
 ## GUI responsiveness
 
