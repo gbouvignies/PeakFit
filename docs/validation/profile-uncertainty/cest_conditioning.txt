@@ -1,0 +1,4 @@
+clusters 121, planes 131
+points per cluster: median 40, max 154
+cond(R): median 3.8e+05, max 8e+09
+fraction of directions with λ < 1e-3 λmax: median 0.26

@@ -1,0 +1,21 @@
+
+## isolated-like (Δ=6 pts)  (within-plane conditional amplitude correlation: -0.07)
+  marginal σ     kex: SD/best 1.00 scat/stated 0.92 cov95 0.97 bias/SD -0.06 | Φ1: SD/best 1.00 scat/stated 0.92 cov95 0.97 bias/SD -0.02 | Φ2: SD/best 1.00 scat/stated 0.94 cov95 0.96 bias/SD -0.03
+  profile σ      kex: SD/best 1.00 scat/stated 0.97 cov95 0.96 bias/SD -0.06 | Φ1: SD/best 1.00 scat/stated 0.99 cov95 0.96 bias/SD -0.02 | Φ2: SD/best 1.00 scat/stated 1.00 cov95 0.95 bias/SD -0.03
+  conditional σ  kex: SD/best 1.00 scat/stated 0.97 cov95 0.96 bias/SD -0.06 | Φ1: SD/best 1.00 scat/stated 0.99 cov95 0.96 bias/SD -0.02 | Φ2: SD/best 1.00 scat/stated 1.00 cov95 0.95 bias/SD -0.03
+  per-peak cov   kex: SD/best 1.00 scat/stated 0.97 cov95 0.96 bias/SD -0.06 | Φ1: SD/best 1.00 scat/stated 0.99 cov95 0.96 bias/SD -0.02 | Φ2: SD/best 1.00 scat/stated 1.00 cov95 0.95 bias/SD -0.03
+  joint cov      kex: SD/best 1.00 scat/stated 1.00 cov95 0.96 bias/SD -0.05 | Φ1: SD/best 1.00 scat/stated 1.01 cov95 0.96 bias/SD -0.01 | Φ2: SD/best 1.00 scat/stated 1.00 cov95 0.95 bias/SD -0.03
+
+## pair Δ=3 pts  (within-plane conditional amplitude correlation: -0.16)
+  marginal σ     kex: SD/best 1.03 scat/stated 0.68 cov95 1.00 bias/SD -0.02 | Φ1: SD/best 1.02 scat/stated 0.65 cov95 1.00 bias/SD +0.02 | Φ2: SD/best 1.02 scat/stated 0.73 cov95 1.00 bias/SD +0.02
+  profile σ      kex: SD/best 1.01 scat/stated 0.95 cov95 0.96 bias/SD -0.02 | Φ1: SD/best 1.01 scat/stated 0.96 cov95 0.96 bias/SD +0.02 | Φ2: SD/best 1.00 scat/stated 1.05 cov95 0.94 bias/SD +0.02
+  conditional σ  kex: SD/best 1.01 scat/stated 0.96 cov95 0.96 bias/SD -0.02 | Φ1: SD/best 1.01 scat/stated 0.97 cov95 0.96 bias/SD +0.02 | Φ2: SD/best 1.00 scat/stated 1.05 cov95 0.94 bias/SD +0.02
+  per-peak cov   kex: SD/best 1.01 scat/stated 0.96 cov95 0.96 bias/SD -0.02 | Φ1: SD/best 1.01 scat/stated 0.96 cov95 0.96 bias/SD +0.03 | Φ2: SD/best 1.01 scat/stated 1.02 cov95 0.95 bias/SD -0.00
+  joint cov      kex: SD/best 1.00 scat/stated 1.00 cov95 0.95 bias/SD -0.03 | Φ1: SD/best 1.00 scat/stated 0.99 cov95 0.96 bias/SD +0.05 | Φ2: SD/best 1.00 scat/stated 1.02 cov95 0.94 bias/SD +0.01
+
+## pair Δ=2 pts  (within-plane conditional amplitude correlation: -0.43)
+  marginal σ     kex: SD/best 1.10 scat/stated 0.35 cov95 1.00 bias/SD +0.01 | Φ1: SD/best 1.04 scat/stated 0.35 cov95 1.00 bias/SD +0.01 | Φ2: SD/best 1.04 scat/stated 0.50 cov95 1.00 bias/SD +0.03
+  profile σ      kex: SD/best 1.09 scat/stated 0.87 cov95 0.98 bias/SD -0.01 | Φ1: SD/best 1.04 scat/stated 0.95 cov95 0.96 bias/SD -0.01 | Φ2: SD/best 1.00 scat/stated 1.20 cov95 0.90 bias/SD +0.03
+  conditional σ  kex: SD/best 1.08 scat/stated 0.90 cov95 0.97 bias/SD -0.01 | Φ1: SD/best 1.04 scat/stated 0.97 cov95 0.95 bias/SD +0.01 | Φ2: SD/best 1.00 scat/stated 1.26 cov95 0.88 bias/SD +0.00
+  per-peak cov   kex: SD/best 1.09 scat/stated 0.90 cov95 0.97 bias/SD -0.03 | Φ1: SD/best 1.05 scat/stated 0.91 cov95 0.97 bias/SD +0.02 | Φ2: SD/best 1.02 scat/stated 0.99 cov95 0.95 bias/SD -0.06
+  joint cov      kex: SD/best 1.00 scat/stated 1.00 cov95 0.95 bias/SD -0.01 | Φ1: SD/best 1.00 scat/stated 0.99 cov95 0.95 bias/SD -0.03 | Φ2: SD/best 1.00 scat/stated 1.01 cov95 0.95 bias/SD +0.01

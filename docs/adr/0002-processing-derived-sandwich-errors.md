@@ -2,6 +2,7 @@
 
 **Date:** 2026-11-05 · **Status:** accepted, pending review of its scientific outputs
 · **Refines:** [ADR 0001](0001-sigma-only-uncertainties.md)
+· **Refined by:** [ADR 0003](0003-ols-and-profile-uncertainty.md)
 
 ## Decision
 

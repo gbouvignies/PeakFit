@@ -196,12 +196,38 @@ locally linear regime.
 
 **Conditional amplitude error**:
 An amplitude's standard error with the fitted lineshape parameters held fixed:
-the published `intensity_err`.
+the published `intensity_err` until the profile σ replaces it (ADR 0003).
 
 **Total amplitude uncertainty**:
 An amplitude's uncertainty including the variability of the lineshape
-parameters. PeakFit does not publish it analytically; MCMC estimates it under an
-independent-noise likelihood.
+parameters. Its first-order analytical form is the marginal σ; MCMC estimates it
+under an independent-noise likelihood.
+
+**Marginal σ**:
+The first-order total uncertainty of one absolute amplitude, √Σ_ss, where Σ is the
+covariance of a peak's amplitudes over the planes from the sandwich over all
+parameters. It is the right error for a single amplitude; used as independent
+per-plane errors it overstates downstream errors, because its lineshape part is
+correlated across planes (`docs/profile-uncertainty.md` §3.3).
+
+**Relative-profile covariance**:
+Σ_rel = cI + PLP for one peak, with c its conditional variance, L = Σ − cI the
+lineshape part and P the projector orthogonal to its profile. It is exactly
+equivalent to Σ for every downstream analysis that fits a free scale, equals cI
+for an isolated peak, and has no scale component.
+_Avoid_: common scale uncertainty (not uniquely defined, not reported)
+
+**Profile σ**:
+The per-plane error of an intensity profile, √(Σ_rel)_ss. It equals the
+conditional amplitude error for an isolated peak, and is valid as independent
+per-plane errors only where Σ_rel is close to diagonal.
+
+**Correlated-profile flag**:
+A per-peak mark that the largest correlated mode of the relative-profile
+covariance exceeds τ·c, with the threshold τ set by validation, or that its
+amplitudes correlate strongly with a cluster partner, so independent per-plane
+errors cannot describe the profile's uncertainty. It states a limit of that
+approximation, not the quality of the data.
 
 **Reference-normalized profile**:
 A display of an intensity profile divided by the mean amplitude of explicitly

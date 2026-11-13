@@ -1,0 +1,2 @@
+max |formula − full| / max|full| = 1.3904288622880128e-14
+cross term norm under R=I: 9.151714384024813e-19

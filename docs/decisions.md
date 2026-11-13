@@ -1138,3 +1138,17 @@ Short records of non‑obvious design choices and trade‑offs.
   different quantities for the same cluster. Raw and ratio values never share one
   scale. One painter for screen and paper keeps the figure identical to what was
   reviewed; matplotlib PDFs (`peakfit plot`) remain the CLI's publication path.
+
+## 2026-11-13: Profile uncertainty: OLS stays, three quantities ([ADR 0003](adr/0003-ols-and-profile-uncertainty.md))
+- **Change.** The specification [profile-uncertainty.md](profile-uncertainty.md) and
+  its reproducible studies (`tools/profile_uncertainty/`, records in
+  `docs/validation/profile-uncertainty/`) are recorded. OLS with sandwich errors
+  stays; the marginal σ, the relative-profile covariance and the profile σ are
+  defined, with a correlated-profile flag; `intensity_err` will carry the profile σ.
+  No production code changed.
+- **Why.** On CEST baseline replicates OLS has the smallest real scatter and a
+  calibrated σ, and GLS stays worse even with a corrected R. For isolated peaks the
+  lineshape uncertainty is a pure scale error, so the marginal σ as independent
+  per-plane errors overstates downstream errors (up to 3× in ChemEx under strong
+  overlap). The bundled example's ¹⁵N axis was linearly predicted, which corrects
+  [correlated-noise.md](correlated-noise.md) §2.4.

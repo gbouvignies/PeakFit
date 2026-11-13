@@ -1,0 +1,342 @@
+{
+ "single, alpha=1": {
+  "conditional, planes independent": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     1.0,
+     1.02,
+     1.02,
+     1.02
+    ]
+   ],
+   "cov95": [
+    [
+     0.949,
+     0.951,
+     0.95,
+     0.951
+    ]
+   ]
+  },
+  "total, planes independent": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     0.78,
+     0.89,
+     0.96,
+     1.0
+    ]
+   ],
+   "cov95": [
+    [
+     0.989,
+     0.975,
+     0.963,
+     0.953
+    ]
+   ]
+  },
+  "total, full covariance": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     1.0,
+     1.02,
+     1.02,
+     1.02
+    ]
+   ],
+   "cov95": [
+    [
+     0.949,
+     0.951,
+     0.95,
+     0.951
+    ]
+   ]
+  },
+  "ratio_sd (line \u00d7 plane\u2260ref)": [
+   [
+    0.045,
+    0.0403,
+    0.0378,
+    0.0362
+   ]
+  ]
+ },
+ "pair \u0394=3, alpha=1": {
+  "conditional, planes independent": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     0.99,
+     1.05,
+     1.08,
+     1.13
+    ],
+    [
+     1.03,
+     1.07,
+     1.07,
+     1.16
+    ]
+   ],
+   "cov95": [
+    [
+     0.945,
+     0.942,
+     0.932,
+     0.918
+    ],
+    [
+     0.945,
+     0.939,
+     0.942,
+     0.917
+    ]
+   ]
+  },
+  "total, planes independent": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     0.46,
+     0.59,
+     0.74,
+     0.89
+    ],
+    [
+     0.51,
+     0.56,
+     0.59,
+     0.65
+    ]
+   ],
+   "cov95": [
+    [
+     1.0,
+     0.998,
+     0.987,
+     0.978
+    ],
+    [
+     0.999,
+     0.998,
+     0.997,
+     0.997
+    ]
+   ]
+  },
+  "total, full covariance": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     0.99,
+     1.02,
+     1.02,
+     1.03
+    ],
+    [
+     1.03,
+     1.02,
+     0.98,
+     1.03
+    ]
+   ],
+   "cov95": [
+    [
+     0.947,
+     0.946,
+     0.947,
+     0.945
+    ],
+    [
+     0.948,
+     0.949,
+     0.959,
+     0.946
+    ]
+   ]
+  },
+  "ratio_sd (line \u00d7 plane\u2260ref)": [
+   [
+    0.0418,
+    0.0388,
+    0.0373,
+    0.0379
+   ],
+   [
+    0.0688,
+    0.0696,
+    0.0676,
+    0.0733
+   ]
+  ]
+ },
+ "single, alpha=0": {
+  "conditional, planes independent": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     1.02,
+     1.02,
+     0.99,
+     1.03
+    ]
+   ],
+   "cov95": [
+    [
+     0.945,
+     0.949,
+     0.955,
+     0.945
+    ]
+   ]
+  },
+  "total, planes independent": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     0.81,
+     0.9,
+     0.94,
+     1.01
+    ]
+   ],
+   "cov95": [
+    [
+     0.985,
+     0.969,
+     0.967,
+     0.947
+    ]
+   ]
+  },
+  "total, full covariance": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     1.02,
+     1.02,
+     0.99,
+     1.03
+    ]
+   ],
+   "cov95": [
+    [
+     0.945,
+     0.949,
+     0.955,
+     0.945
+    ]
+   ]
+  },
+  "ratio_sd (line \u00d7 plane\u2260ref)": [
+   [
+    0.0423,
+    0.037,
+    0.0336,
+    0.0337
+   ]
+  ]
+ },
+ "pair \u0394=3, alpha=0": {
+  "conditional, planes independent": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     1.0,
+     1.02,
+     1.02,
+     1.06
+    ],
+    [
+     0.99,
+     1.03,
+     1.03,
+     1.03
+    ]
+   ],
+   "cov95": [
+    [
+     0.949,
+     0.947,
+     0.941,
+     0.938
+    ],
+    [
+     0.957,
+     0.941,
+     0.941,
+     0.948
+    ]
+   ]
+  },
+  "total, planes independent": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     0.61,
+     0.74,
+     0.86,
+     0.98
+    ],
+    [
+     0.68,
+     0.73,
+     0.75,
+     0.75
+    ]
+   ],
+   "cov95": [
+    [
+     0.999,
+     0.991,
+     0.975,
+     0.953
+    ],
+    [
+     0.995,
+     0.991,
+     0.992,
+     0.992
+    ]
+   ]
+  },
+  "total, full covariance": {
+   "scatter_over_stated (line \u00d7 plane\u2260ref)": [
+    [
+     1.0,
+     1.02,
+     1.01,
+     1.04
+    ],
+    [
+     0.99,
+     1.02,
+     1.02,
+     1.01
+    ]
+   ],
+   "cov95": [
+    [
+     0.949,
+     0.947,
+     0.943,
+     0.941
+    ],
+    [
+     0.957,
+     0.943,
+     0.946,
+     0.949
+    ]
+   ]
+  },
+  "ratio_sd (line \u00d7 plane\u2260ref)": [
+   [
+    0.0388,
+    0.0346,
+    0.0324,
+    0.0325
+   ],
+   [
+    0.0609,
+    0.0619,
+    0.0605,
+    0.0603
+   ]
+  ]
+ }
+}
