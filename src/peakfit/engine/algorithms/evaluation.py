@@ -8,8 +8,14 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from peakfit.engine.algorithms.covariance_factors import (
+    CovarianceFactors,
+    covariance_factors,
+    peak_derivatives,
+)
 from peakfit.engine.algorithms.linear_algebra import calculate_amplitudes_with_uncertainty
 from peakfit.engine.algorithms.noise_correlation import modelled_correlation
+from peakfit.engine.algorithms.varpro import at_active_bound
 from peakfit.engine.results import (
     compute_chi_squared,
     compute_degrees_of_freedom,
@@ -59,6 +65,9 @@ class AnalyticalModelEvaluation:
     normalized_residuals: FloatArray
     statistics: AnalyticalFitStatistics
     uncertainty_warning: str | None = None
+    # The factors of the amplitude covariance between planes (profile-uncertainty §3.1);
+    # computed, not yet published.
+    covariance_factors: CovarianceFactors | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,7 +179,26 @@ def _evaluate_analytical_model(
         normalized_residuals=normalized_residuals,
         statistics=statistics,
         uncertainty_warning=uncertainty_warning,
+        covariance_factors=covariance_factors(
+            shapes,
+            peak_derivatives(cluster, params, _free(params, nonlinear_names)),
+            amplitudes,
+            covariance,
+            noise,
+            correlation,
+        ),
     )
+
+
+def _free(params: Parameters, names: list[str]) -> list[str]:
+    """The varied parameters not held at an active bound: the free lineshape θ."""
+    varied = [name for name in names if params[name].vary]
+    values, lower, upper = (
+        np.array([getattr(params[name], field) for name in varied], dtype=np.float64)
+        for field in ("value", "min", "max")
+    )
+    active = at_active_bound(values, lower, upper)
+    return [name for name, held in zip(varied, active, strict=True) if not held]
 
 
 def _evaluate_inputs(

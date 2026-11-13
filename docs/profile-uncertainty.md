@@ -1,7 +1,9 @@
 # Estimator and uncertainty of intensity profiles
 
 **Status:** accepted, revision 3 ([ADR 0003](adr/0003-ols-and-profile-uncertainty.md)).
-Implementation pending; no production code has changed.
+Implementation in progress: the covariance factors of §3.1 are computed in the
+engine (`engine.algorithms.covariance_factors`, validated by T1) but not yet
+published.
 
 **Builds on:** [correlated-noise.md](correlated-noise.md) and
 [ADR 0002](adr/0002-processing-derived-sandwich-errors.md).
