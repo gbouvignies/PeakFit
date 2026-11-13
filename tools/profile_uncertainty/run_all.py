@@ -24,6 +24,7 @@ STUDIES = {
     "cest_first_order": [],
     "cest_refit": [],
     "cest_replicates": [],
+    "curvature_term": [],
 }
 
 

@@ -25,6 +25,7 @@ uv run python tools/profile_uncertainty/run_all.py cest_refit   # one study
 | `cest_refit.py` | §2.3, §5.2 | GLS and shrinkage refits: whitened χ²ᵣ, parameter shifts and residual excess |
 | `cest_replicates.py` | §2.3, §5 | CEST baseline planes as replicates: real scatter and calibration of each estimator |
 | `formula_check.py` | §3.1 | The covariance formula over all parameters against the full-Jacobian sandwich |
+| `curvature_term.py` | §3.1 | The factors' C_θ against the published lineshape covariance, which carries a residual term; effect on marginal and profile σ |
 | `ratios.py` | §4 | Ratio errors over 5 planes: conditional, marginal, full covariance |
 | `downstream_decay.py` | §4 | A decay fitted with a free scale: which per-plane σ is calibrated |
 | `global_cpmg.py` | §6a | A ChemEx-like global CPMG fit of an overlapping pair |

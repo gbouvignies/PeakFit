@@ -1,0 +1,32 @@
+C_θ (factors) against the published lineshape covariance, same optimum and R
+parameters at an active bound, excluded from both: 0
+withheld: published only 0, factors only 0, both 0
+single n=92 clusters, 368 parameters, 92 peaks
+  SD ratio per parameter: 1 (1–1), max 1; min 0.998
+  |SD ratio − 1|, worst linear combination per cluster: 0.000448 (0.000166–0.00104), max 0.00224
+  |Δ marginal σ| / marginal σ, worst plane per peak: 3.51e-06 (6.31e-07–1.01e-05), max 7.4e-05
+  |Δ profile σ| / profile σ, worst plane per peak: 2.22e-16 (1.11e-16–2.22e-16), max 2.22e-16
+  peaks with |Δ marginal σ| > 5%: 0 of 92
+  largest differences (cluster, peaks, χ²ᵣ, ‖r‖/‖model‖, SD-ratio range over combinations, worst parameter):
+     338 1   1.36 0.1875 0.998–1.002  11N-H.F2.cs 1.002
+     332 1   1.36 0.1546 0.998–1.002  7N-H.F3.cs 1.002
+       9 1   1.26 0.1675 0.999–1.002  1013N-H.F2.cs 1.002
+      39 1   1.63 0.1329 1.000–1.001  51N-H.F3.cs 1.001
+     272 1   1.63 0.1417 1.000–1.001  150N-H.F3.cs 1.001
+  Spearman ρ(chi2r, worst |ratio − 1|): -0.70
+  Spearman ρ(residual, worst |ratio − 1|): 0.84
+multi n=29 clusters, 296 parameters, 74 peaks
+  SD ratio per parameter: 1 (0.999–1), max 1.13; min 0.989
+  |SD ratio − 1|, worst linear combination per cluster: 0.00106 (0.000372–0.0146), max 0.14
+  |Δ marginal σ| / marginal σ, worst plane per peak: 1.57e-05 (3.54e-06–0.00298), max 0.116
+  |Δ profile σ| / profile σ, worst plane per peak: 1.38e-08 (9.52e-11–0.000212), max 0.0408
+  peaks with |Δ marginal σ| > 5%: 2 of 74
+  marginal/conditional variance of those peaks (worst plane): 19.4, 17.4
+  largest differences (cluster, peaks, χ²ᵣ, ‖r‖/‖model‖, SD-ratio range over combinations, worst parameter):
+     269 3   1.80 0.0490 0.982–1.140  93N-H.F2.cs 1.118
+     360 4   1.35 0.0700 0.956–1.134  5N-H.F3.cs 1.131
+     427 2   1.56 0.0511 0.985–1.004  102N-H.F2.cs 0.989
+     424 2   3.01 0.0547 0.987–1.014  147N-H.F3.cs 1.011
+     537 4   1.41 0.0685 0.987–1.014  107N-H.F3.cs 1.010
+  Spearman ρ(chi2r, worst |ratio − 1|): -0.30
+  Spearman ρ(residual, worst |ratio − 1|): -0.36

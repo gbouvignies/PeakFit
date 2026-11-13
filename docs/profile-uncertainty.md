@@ -198,6 +198,16 @@ with G_s = M D_s and C_θ = Σ_u T_u R T_uᵀ.
 - **Storage:** the covariance is fixed by MRMᵀ, the tensors M E_m and M R P⊥ E_m H⁻¹,
   and C_θ, together with the stored amplitudes. That is O(L²n_θ) numbers per cluster (L peaks, n_θ lineshape parameters),
   whatever the number of planes, and reopening a project never refits.
+- **C_θ is not the published lineshape covariance.** The published errors use the
+  exact Jacobian of the projected residual, which carries a term proportional to the
+  residuals; C_θ, as the sandwich over all parameters, does not. On the example:
+  - isolated peaks agree within 0.2% for every lineshape combination, and their
+    profile σ cannot change, since the lineshape term is a pure scale (§3.2);
+  - for overlapping clusters the SD ratio is within 1.5% at the 90th percentile;
+  - two strongly overlapped clusters reach 14%. There the marginal σ of two peaks, whose
+    variance is 17–19× the conditional variance, moves by up to 12%, and the profile σ
+    by at most 4%. These are the clusters where a first-order result is least
+    reliable either way.
 
 ### 3.2 Isolated peaks: the lineshape term is a pure scale error
 
