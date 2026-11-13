@@ -38,9 +38,9 @@ plane to plane matters downstream.
    - The failure comes from the late, LP-extended part of the FID, which GLS
      up-weights. There, neither the signal model nor the noise covariance near peaks
      is known.
-   - LP is data-dependent, so these data cannot separate lineshape misfit,
-     extrapolation error and signal-dependent noise correlation. A known-truth test
-     can (§2.3, T7).
+   - A known-truth test (T7) separates the causes: signal-dependent LP noise
+     reproduces the failure with an exact lineshape and an exact extrapolation
+     (§2.3).
 3. **Real replicates favour OLS.** On CEST baseline planes:
    - OLS gives the smallest plane-to-plane scatter of relative intensities.
      Shrinkage gives 1.07–1.34× that scatter, and GLS 1.30–1.95×; for overlapping
@@ -161,8 +161,44 @@ What they cannot establish:
   error looks like, whether from the lineshape or from extrapolation. Signal-dependent
   noise changes with every plane's realization, so it would sit in the remaining
   1.6×, together with t1 noise and signal from neighbouring clusters.
-- **A test with known truth can separate them (T7):** synthetic FIDs processed by
-  NMRPipe with and without LP, then fitted by OLS and GLS.
+
+**Known truth separates them (T7).** Synthetic planes on the LP axis: 47 acquired
+points extended to 92 by forward-backward LP (order 16, which reproduces the
+example's noise-power signature), then the example's ¹⁵N processing. An isolated
+line and a pair 3 points apart whose partners decay at rates 1 and 2 across seven
+planes, SNR 50, 400 realizations. The identity LP(s + n) = s + [LP(s) − s] +
+[LP(s + n) − LP(s)] splits LP into extrapolation error and LP noise:
+
+| Pair, exact lineshape | χ² / E[χ²] | Rate SD, B | Rate bias / SD, B |
+|---|---|---|---|
+| 47 points, no LP: OLS · GLS header R | 0.99 · 1.01 | 11.0% · 6.3% | 0.08 · 0.04 |
+| LP: OLS · GLS header R · GLS measured R | 2.77 · 4.61 · 22.7 | 9.2% · 19.1% · 177% | 0.81 · 1.15 · 0.55 |
+| s + LP(n), signal-free LP noise: same three | 0.98 · 0.55 · 1.03 | 5.0% · 4.3% · 2.4% | 0.02 · 0.04 · 0.07 |
+| s + LP(s+n) − LP(s), signal-dependent LP noise | 2.75 · 4.57 · 23.9 | identical to LP | identical to LP |
+
+- **Signal-dependent LP noise explains the GLS behaviour on the example.** With an
+  exact lineshape and no extrapolation error, it alone reproduces every feature:
+  - OLS χ² is 2.8× its expectation (2.22 on the example);
+  - GLS is worse under the measured R than under the header R (whitened χ² 23 against
+    4.6; on the example 18.4 against 10.9);
+  - GLS scatter exceeds OLS, more for overlapping peaks: rates 2.1× (header R) and
+    19× (measured R) for the pair, relative intensities 1.3× and 3.7× for the
+    isolated line.
+- **Extrapolation error is negligible:** LP extends the noise-free FID exactly, with
+  the exact lineshape and with an unmodelled Gaussian decay.
+- **Signal-free LP noise is benign:** with it, the measured R is exact and GLS under
+  it beats OLS. Noise-only columns measure this noise, not the noise under a peak.
+- **Lineshape misfit without LP does not cause the failure:** χ² / E stays at
+  1.0–1.3 for every estimator. Misfit does add a deterministic bias for the pair
+  that GLS amplifies (relative intensity of B: OLS 1.0%, GLS header R −5.8%).
+- **LP also biases OLS for overlapping peaks with differing profiles:** relative
+  intensity of B −13.6% at its worst plane (0.67 SD), rate +7.4% (0.81 SD). Without
+  LP, or for the isolated line, OLS shows no bias above 0.2 SD. A likely cause: LP
+  fits its filter to each plane, so what it propagates depends on that plane's
+  signal-to-noise ratio and does not cancel in ratios.
+- **Limits:** one processed axis; LP is a NumPy implementation of NMRPipe's
+  `LP -fb`, not NMRPipe itself; one SNR and one LP order. Record:
+  [`lp_known_truth.txt`](validation/profile-uncertainty/lp_known_truth.txt).
 
 ### 2.4 Conclusion
 
@@ -350,7 +386,8 @@ In the pairs, the partner peak decays at 0.2 instead of 1.0.
       for example a misfit, or a bias from LP extrapolation.
     - For isolated peaks such an error is a common factor and cancels.
     - For overlapping peaks with differing profiles it can distort relative
-      intensities. Only a test with known truth measures that (T7).
+      intensities. Only a test with known truth measures that: in T7, LP biases a
+      partner's relative intensity by up to 0.7 SD at SNR 50 (§2.3).
 
 ### 5.2 The residual excess
 
