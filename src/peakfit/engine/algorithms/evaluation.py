@@ -64,10 +64,9 @@ class AnalyticalModelEvaluation:
     raw_residuals: FloatArray
     normalized_residuals: FloatArray
     statistics: AnalyticalFitStatistics
+    # The factors of the amplitude covariance between planes (profile-uncertainty §3.1).
+    covariance_factors: CovarianceFactors
     uncertainty_warning: str | None = None
-    # The factors of the amplitude covariance between planes (profile-uncertainty §3.1);
-    # computed, not yet published.
-    covariance_factors: CovarianceFactors | None = None
 
 
 @dataclass(frozen=True, slots=True)

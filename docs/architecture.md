@@ -147,7 +147,9 @@ remain distinct. See [the scientific overlap validation](validation/overlapping-
 `engine.algorithms.covariance_factors` computes, with each analytical evaluation, the
 per-cluster factors of the amplitude covariance between planes
 ([profile-uncertainty §3.1](profile-uncertainty.md)) and rebuilds that covariance from
-them and the amplitudes. It adds no withholding rule and is not yet published.
+them and the amplitudes. It adds no withholding rule. The completed result carries
+the factors, the archive and projects store them, and the marginal σ is read from
+them ([outputs](outputs.md)).
 
 
 ## GUI v2: open → inspect → edit → fit → compare → save → reopen
@@ -377,9 +379,9 @@ Ten full runs and protected evidence remain on disk; older entries retain exact
 coordinates, fitted tables/errors/bounds, submitted parameters/settings and concise
 diagnostics/statistics, explicitly without sample/profile capabilities. The 1 GiB
 historical budget excludes active/protected evidence. New writes use project
-schema 14.0.0, always referencing external sources; earlier project formats are
+schema 15.0.0, always referencing external sources; earlier project formats are
 explicitly rejected.
-The scientific archive is at 11.0.0; its recorded configuration changes as
+The scientific archive is at 12.0.0; its recorded configuration changes as
 configuration keys are removed (see [outputs](outputs.md)). Explicit JSON remains a derived
 optional scientific export, shared by both interfaces. See
 [external-project validation](validation/external-projects.md) for measured sizes,

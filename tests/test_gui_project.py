@@ -18,6 +18,7 @@ from builders import two_cluster_dataset
 from gui_helpers import wait_until
 from PySide6 import QtCore, QtWidgets
 
+from peakfit.engine.algorithms.covariance_factors import covariance_between_planes
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
 from peakfit.engine.domain.constraints import ParameterConfig
 from peakfit.fit import pipeline
@@ -268,6 +269,7 @@ def test_project_recording_a_removed_config_key_is_rejected_by_version(
         "10.0.0",  # no noise-correlation record (ADR 0002)
         "12.0.0",  # spectral parameters with aq = APOD/SW (docs/lineshapes.md)
         "13.0.0",  # AIC, BIC and independent-noise log-likelihood
+        "14.0.0",  # no covariance factors (profile-uncertainty §3.1)
     ],
 )
 def test_a_project_from_an_earlier_error_convention_is_rejected_by_version(
@@ -275,10 +277,48 @@ def test_a_project_from_an_earlier_error_convention_is_rejected_by_version(
 ):
     path = save_analysis(analysis, tmp_path / "test.peakfit")
     manifest = json.loads((path / "manifest.json").read_text())
-    assert manifest["schema_version"] == "14.0.0"
+    assert manifest["schema_version"] == "15.0.0"
     manifest["schema_version"] = version
     (path / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match=f"Unsupported analysis version: '{re.escape(version)}'"):
+        open_analysis(path)
+
+
+def test_reopening_reconstructs_the_covariance_between_planes_without_source_or_refit(
+    analysis, tmp_path, monkeypatch
+):
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Reopening must not refit")
+
+    def missing(*_args, **_kwargs):
+        raise OSError("missing")
+
+    # The spectrum is unavailable: numerical review stands without it.
+    monkeypatch.setattr(project, "read_dataset", missing)
+    monkeypatch.setattr(pipeline, "run_pipeline_iter", forbidden)
+    monkeypatch.setattr(fitting, "prepare_dataset_fit", forbidden)
+    loaded = open_analysis(path)
+    assert loaded.dataset is None
+    old, new = analysis.completion.result.outcome, loaded.completion.result.outcome
+    for before, after in zip(old.clusters, new.clusters, strict=True):
+        e, f = before.analytical_evaluation, after.analytical_evaluation
+        assert f.covariance_factors.available
+        expected = covariance_between_planes(e.covariance_factors, e.amplitudes)
+        restored = covariance_between_planes(f.covariance_factors, f.amplitudes)
+        assert restored.tobytes() == expected.tobytes()
+
+
+def test_a_project_without_covariance_factors_is_refused_with_a_refit_instruction(
+    analysis, tmp_path
+):
+    path = save_analysis(analysis, tmp_path / "test.peakfit")
+    manifest = json.loads((path / "manifest.json").read_text())
+    assert manifest["schema_version"] == "15.0.0"
+    manifest["schema_version"] = "14.0.0"
+    (path / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match=r"Unsupported analysis version: '14\.0\.0'.*refit"):
         open_analysis(path)
 
 

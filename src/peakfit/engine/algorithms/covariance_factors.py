@@ -178,9 +178,34 @@ def covariance_between_planes(factors: CovarianceFactors, amplitudes: FloatArray
     return conditional + lineshape
 
 
+def marginal_standard_errors(factors: CovarianceFactors, amplitudes: FloatArray) -> FloatArray:
+    """The marginal σ of every absolute amplitude, (L, S): √Cov(a_{l,s}, a_{l,s}).
+
+    The diagonal of ``covariance_between_planes``, without forming the rest. All NaN
+    where the factors are withheld; NaN where round-off makes a variance negative.
+    """
+    if (
+        factors.shape_gain is None
+        or factors.cross_gain is None
+        or factors.parameter_covariance is None
+    ):
+        return np.full(amplitudes.shape, np.nan)
+    gain = np.einsum("ms,mlp->lsp", amplitudes, factors.shape_gain)  # G_s, by peak
+    cross = np.einsum("ms,mlp->lsp", amplitudes, factors.cross_gain)
+    variances = (
+        np.diag(factors.conditional)[:, None]
+        + np.einsum("lsp,pq,lsq->ls", gain, factors.parameter_covariance, gain)
+        - 2.0 * np.einsum("lsp,lsp->ls", cross, gain)
+    )
+    # A negative variance is cancellation, not a σ: near-coincident peaks can lose the
+    # reconstruction's positive definiteness to round-off.
+    return np.sqrt(np.where(variances >= 0.0, variances, np.nan))
+
+
 __all__ = [
     "CovarianceFactors",
     "covariance_between_planes",
     "covariance_factors",
+    "marginal_standard_errors",
     "peak_derivatives",
 ]

@@ -3,7 +3,7 @@
 GUI and CLI use one scientific model and `fit.export.write_completed_outputs`.
 A `.peakfit` analysis saves working state and references its external spectrum; it
 does not replace scientific exports. The current formats are scientific archive
-**11.0.0**, fit JSON **9.0.0**, analysis project **14.0.0** and MCMC record **1.1.0**.
+**12.0.0**, fit JSON **9.0.0**, analysis project **15.0.0** and MCMC record **1.1.0**.
 
 ## Default scientific export
 
@@ -26,6 +26,13 @@ Retain exactly:
 
 - Published nonlinear values, bounds, freedom, units and uncertainties; signed
   per-plane amplitudes, covariance and all reported amplitude errors.
+- Per usable cluster, the **covariance factors** (`analytical_evaluation.covariance_factors`,
+  [profile-uncertainty §3.1](profile-uncertainty.md)): the tensors M E_m
+  (`shape_gain`) and σ²M R P⊥ E_m H⁻¹ (`cross_gain`), each L × L × n_θ, and σ²C_θ
+  (`parameter_covariance`, n_θ × n_θ), or all three `null` where withheld. Their
+  conditional block is the stored amplitude covariance, kept once. With the amplitudes
+  they rebuild the amplitude covariance between any two planes
+  (`covariance_between_planes`) without the spectrum or a refit.
 - Cluster/global statistics, classifications, optimizer termination diagnostics,
   noise, terminal correction revision, pass counts and provenance.
 - Per usable cluster, the **largest recorded residual**
@@ -44,6 +51,11 @@ from default exports; the largest recorded residual is the only residual summary
 retained, so review measures need no source. Published values are never re-fitted or re-solved to read
 them. The small shape reference is retained for validation, rather than for size
 reduction; its cost is approximately 0.12 MB including archive framing here.
+
+The covariance factors add **0.19 MB** to the bundled example's archive (6.81 →
+7.00 MB, CLI; 121 clusters): 0.09 MB of compressed factors, the rest member framing.
+Their size does not depend on the number of planes. The `intensity_err_marginal`
+column adds 0.52 MB to `intensities.csv`. Older figures below predate both.
 
 The bundled two-pass result directory is about **12.02 MB (CLI) / 12.06 MB (GUI)**, including CSV/report.
 It exceeds the audit's 5.77 MB result-only estimate because exact corrections are
@@ -243,6 +255,17 @@ plane: they are *conditional* amplitude errors. They do not include uncertainty 
 positions or linewidths, which the *total* amplitude uncertainty would; MCMC
 estimates that ([mcmc.md](mcmc.md)), under its own independent-noise likelihood.
 
+**Marginal σ.** `intensity_err_marginal`, in `intensities.csv`, is the first-order
+total uncertainty of each absolute amplitude, per peak and plane: √Σ_ss, from the
+stored covariance factors ([profile-uncertainty §3.3](profile-uncertainty.md)). It
+includes the lineshape uncertainty and is never smaller than `intensity_err`. It is
+the right error for one amplitude on its own. Its lineshape part is correlated
+across planes, so do not use the column as independent per-plane errors of a
+profile: that overstates downstream errors. It is empty where the factors are
+withheld, and where round-off makes the reconstructed variance negative (seen for
+near-coincident peaks, whose cluster carries the uncertainty warning). The CLI and the GUI write it with the same writer, and the GUI inspector
+shows it for the selected peak on the current plane.
+
 **Correlated noise.** Zero filling and apodization correlate the noise of
 neighbouring points ([correlated-noise.md](correlated-noise.md)).
 - **When it is modelled:** each fit derives that correlation, R, from the processing
@@ -347,7 +370,7 @@ mode, embedded cube or shared-asset registry. Full calculated spectra and residu
 are generated on demand.
 
 Projects preserve exact nonlinear values/bounds/freedom/uncertainties, amplitudes,
-conditional covariance and errors, optimizer diagnostics/statistics, scientific
+conditional covariance and errors, covariance factors, optimizer diagnostics/statistics, scientific
 identities, starting/optimized/adopted coordinates, settings and provenance. They
 also retain exact terminal corrections, paired sample indices, ordered source-plane
 identities, observation dtype/SHA-256, calibration and a small component-basis
@@ -394,15 +417,16 @@ protected results are exempt from eviction, not reader limits. The project reade
 limit is 8 GiB and project JSON is bounded at 512 MiB. Routine Save reuses immutable
 run files. Recovery checkpoints use the same compact external-source format;
 source-free recovery supports numerical review and relinking, not spectral work.
-New projects use schema **14.0.0**. Earlier project formats are rejected;
+New projects use schema **15.0.0**. Earlier project formats are rejected;
 no embedded-project readers, conversion adapters or alternative project modes remain.
 
 ## Reading and migrating existing files
 
-- Only scientific archive **11.0.0**, fit JSON **9.0.0** and project **14.0.0** are
+- Only scientific archive **12.0.0**, fit JSON **9.0.0** and project **15.0.0** are
   read. Earlier versions are rejected with "Unsupported scientific result
   version", "Unsupported fit JSON schema version" or "Unsupported analysis
-  version": they record configuration keys (`[auto_peak]`, `fix_positions`,
+  version". Archive 11.0.0 and project 14.0.0 lack the covariance factors, which
+  only a fit computes. Older ones record configuration keys (`[auto_peak]`, `fix_positions`,
   `fit_j_coupling`, `[parameters].from_file`, `[fitting].optimizer_seed`) or run metadata (`git_commit`,
   `completion_warnings`) that no longer exist. To
   continue an older analysis, open its spectrum and peak list and refit. When

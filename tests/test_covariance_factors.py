@@ -6,13 +6,17 @@ derivatives with the factors, and those are checked against finite differences o
 shapes.
 """
 
+import warnings
+
 import numpy as np
 import pytest
 from builders import peak_pair
 
 from peakfit.engine.algorithms.covariance_factors import (
+    CovarianceFactors,
     covariance_between_planes,
     covariance_factors,
+    marginal_standard_errors,
     peak_derivatives,
 )
 from peakfit.engine.algorithms.evaluation import (
@@ -115,6 +119,32 @@ def test_reconstructed_covariance_is_the_full_jacobian_sandwich(case) -> None:
     assert factors.parameter_covariance is not None
     if theta.size:
         assert _relative(factors.parameter_covariance, theta) < 1e-10
+
+
+@pytest.mark.parametrize("case", ["overlapping", "isolated", "shared", "fixed", "all fixed"])
+def test_marginal_sigma_is_the_diagonal_of_the_full_jacobian_sandwich(case) -> None:
+    cluster, params = _cases()[case]
+    amplitudes = np.linalg.lstsq(cluster.evaluate(params).T, cluster.data, rcond=None)[0]
+    correlation = _correlation(cluster.n_points)
+    factors = _factors(cluster, params, amplitudes, correlation)
+    _, expected = _full_sandwich(cluster, params, amplitudes, correlation)
+    variances = np.einsum("lsls->ls", expected)
+    marginal = marginal_standard_errors(factors, amplitudes)
+    assert marginal.shape == amplitudes.shape
+    assert _relative(marginal, np.sqrt(variances)) < 1e-10
+
+
+def test_withheld_factors_leave_the_marginal_sigma_unavailable() -> None:
+    cluster, params = peak_pair(6.0)
+    names = _varied(cluster, params)
+    shapes = cluster.evaluate(params)
+    derivatives = peak_derivatives(cluster, params, names)
+    derivatives[:, 1] = derivatives[:, 0]
+    amplitudes, _, conditional = calculate_amplitudes_with_uncertainty(
+        shapes, cluster.data, NOISE, None
+    )
+    factors = covariance_factors(shapes, derivatives, amplitudes, conditional, NOISE, None)
+    assert np.isnan(marginal_standard_errors(factors, amplitudes)).all()
 
 
 @pytest.mark.parametrize("case", ["overlapping", "shared"])
@@ -275,3 +305,15 @@ def test_a_failed_derivative_evaluation_leaves_the_fit_usable(monkeypatch) -> No
     assert factors is not None
     assert not factors.available
     assert np.array_equal(factors.conditional, evaluation.amplitude_covariance)
+
+
+def test_a_negative_variance_from_round_off_leaves_the_marginal_sigma_unavailable() -> None:
+    # Near-coincident peaks: the reconstructed covariance loses positive definiteness
+    # to cancellation (the bundled example reaches −7×10²⁷ against 8×10³⁵).
+    one = np.ones((1, 1, 1))
+    factors = CovarianceFactors(np.eye(1), one, one, np.zeros((1, 1)))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        marginal = marginal_standard_errors(factors, np.array([[1.0, 0.1]]))
+    assert np.isnan(marginal[0, 0])
+    assert marginal[0, 1] == pytest.approx(np.sqrt(1 - 2 * 0.01))

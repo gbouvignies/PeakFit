@@ -7,6 +7,7 @@ from types import MappingProxyType
 import numpy as np
 
 from peakfit.cli.commands.fit import _format_review_clusters
+from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
 from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.scientific.final_outcome import (
@@ -100,6 +101,7 @@ def _evaluation(cluster_id: int, redchi: float) -> FinalAnalyticalEvaluation:
         amplitudes=values,
         amplitude_standard_errors=values,
         amplitude_covariance=values,
+        covariance_factors=CovarianceFactors(values, None, None, None),
         model_values=values,
         raw_residuals=values,
         normalized_residuals=values,

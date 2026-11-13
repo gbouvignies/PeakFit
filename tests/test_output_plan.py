@@ -2,6 +2,7 @@ from types import MappingProxyType
 
 import numpy as np
 
+from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
 from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.scientific.final_outcome import (
@@ -29,6 +30,7 @@ def _outcome() -> FinalFitOutcome:
         amplitudes=matrix,
         amplitude_standard_errors=vector,
         amplitude_covariance=matrix,
+        covariance_factors=CovarianceFactors(matrix, None, None, None),
         model_values=matrix,
         raw_residuals=matrix,
         normalized_residuals=vector,
@@ -183,12 +185,13 @@ def test_intensities_csv_orders_series_columns_for_reading(tmp_path) -> None:
 
     header = written["intensities"].read_text(encoding="utf-8").splitlines()[0].split(",")
 
-    # χ²ᵣ sits beside the σ-only error it qualifies, as a goodness-of-fit diagnostic.
-    assert header[:7] == [
+    # χ²ᵣ sits beside the σ-only errors it qualifies, as a goodness-of-fit diagnostic.
+    assert header[:8] == [
         "peak_name",
         "z_value",
         "intensity",
         "intensity_err",
+        "intensity_err_marginal",
         "reduced_chi_squared",
         "noise_correlation",
         "plane_index",

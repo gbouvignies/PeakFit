@@ -11,6 +11,7 @@ import pytest
 from builders import overlapping_gaussians
 from PySide6 import QtCore, QtWidgets
 
+from peakfit.engine.algorithms.covariance_factors import marginal_standard_errors
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.gui.dataset_fit import compute_dataset_fit, finish_dataset_fit
 from peakfit.gui.fit_export import export_fit_result
@@ -113,9 +114,15 @@ def test_export_authoritative_values_and_original_identities(tmp_path, monkeypat
         np.testing.assert_array_equal(
             loaded.amplitude_standard_errors, evaluation.amplitude_standard_errors
         )
+        marginal = marginal_standard_errors(evaluation.covariance_factors, evaluation.amplitudes)
         for row in rows:
             peak_index = cluster.peak_names.index(row["peak_name"])
             plane = int(row["plane_index"])
+            # The uncertainty of the absolute amplitude, lineshape uncertainty included.
+            assert float(row["intensity_err_marginal"]) == pytest.approx(
+                marginal[peak_index, plane], rel=1e-15
+            )
+            assert float(row["intensity_err_marginal"]) >= float(row["intensity_err"])
             assert float(row["intensity"]) == pytest.approx(
                 evaluation.amplitudes[peak_index, plane], rel=1e-15
             )

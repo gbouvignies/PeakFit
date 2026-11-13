@@ -8,6 +8,10 @@ import numpy as np
 import pytest
 from builders import completed_result, two_cluster_dataset, write_as_cli
 
+from peakfit.engine.algorithms.covariance_factors import (
+    CovarianceFactors,
+    covariance_between_planes,
+)
 from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.fit.pipeline import run_pipeline
 from peakfit.gui.dataset_fit import DatasetFitAttempt, finish_dataset_fit
@@ -99,7 +103,11 @@ def test_nonfinite_uncertainties_and_array_bits_are_lossless(tmp_path):
     changed = replace(
         c,
         analytical_evaluation=replace(
-            e, amplitude_standard_errors=errors, amplitude_covariance=cov
+            e,
+            amplitude_standard_errors=errors,
+            amplitude_covariance=cov,
+            # Withheld with the conditional covariance, as the engine withholds them.
+            covariance_factors=CovarianceFactors(cov, None, None, None),
         ),
     )
     clusters = (changed, *gui.outcome.clusters[1:])
@@ -158,6 +166,12 @@ def test_malformed_scientific_evidence_rejected(tmp_path, corruption):
 @pytest.mark.parametrize(
     ("field", "value", "message"),
     [
+        # 11.0.0 did not record the covariance factors (profile-uncertainty §3.1).
+        (
+            "schema_version",
+            "11.0.0",
+            r"Unsupported scientific result version '11\.0\.0'.*Refit the dataset",
+        ),
         # 6.0.0 recorded amplitude errors rescaled by √χ²ᵣ (ADR 0001).
         ("schema_version", "6.0.0", "Unsupported scientific result version"),
         ("schema_version", "2.1.0", "Unsupported scientific result version"),
@@ -288,3 +302,57 @@ def test_every_authoritative_array_round_trips_exactly(tmp_path):
 
     compare(gui.outcome, outcome)
     compare(gui.completed_fit.samples, samples)
+
+
+def test_the_archive_reconstructs_the_covariance_between_planes_exactly(tmp_path):
+    """Reading needs neither the spectrum nor a refit: factors and amplitudes suffice."""
+    _spectra, _config, _pipeline, gui = completed_result([], False)
+    path = storage.write_scientific(
+        tmp_path / "science.npz", gui.outcome, gui.completed_fit.samples, evidence="results"
+    )
+    outcome, _samples, _context = storage.read_scientific(path)
+    for old, new in zip(gui.outcome.clusters, outcome.clusters, strict=True):
+        before, after = old.analytical_evaluation, new.analytical_evaluation
+        assert after.covariance_factors.available
+        assert after.covariance_factors.conditional is after.amplitude_covariance
+        expected = covariance_between_planes(before.covariance_factors, before.amplitudes)
+        restored = covariance_between_planes(after.covariance_factors, after.amplitudes)
+        assert restored.tobytes() == expected.tobytes()
+        # O(L²n_θ) numbers per cluster, whatever the number of planes.
+        n_peaks = len(new.peak_names)
+        n_theta = after.covariance_factors.parameter_covariance.shape[0]
+        assert after.covariance_factors.shape_gain.shape == (n_peaks, n_peaks, n_theta)
+        assert after.covariance_factors.cross_gain.shape == (n_peaks, n_peaks, n_theta)
+
+
+def test_withheld_covariance_factors_stay_withheld_on_reading(tmp_path):
+    _spectra, _config, _pipeline, gui = completed_result([], False)
+    c = gui.outcome.clusters[0]
+    e = c.analytical_evaluation
+    withheld = CovarianceFactors(e.amplitude_covariance, None, None, None)
+    changed = replace(c, analytical_evaluation=replace(e, covariance_factors=withheld))
+    outcome = replace(gui.outcome, clusters=(changed, *gui.outcome.clusters[1:]))
+    path = storage.write_scientific(tmp_path / "science.npz", outcome, gui.completed_fit.samples)
+    restored, _samples, _context = storage.read_scientific(path)
+    factors = restored.clusters[0].analytical_evaluation.covariance_factors
+    assert not factors.available
+    assert factors.shape_gain is None
+    assert factors.cross_gain is None
+
+
+@pytest.mark.parametrize("damage", ["shape", "nonfinite", "conditional"])
+def test_inconsistent_covariance_factors_are_refused(tmp_path, damage):
+    _spectra, _config, _pipeline, gui = completed_result([], False)
+    c = gui.outcome.clusters[0]
+    e = c.analytical_evaluation
+    factors = e.covariance_factors
+    if damage == "shape":
+        factors = replace(factors, shape_gain=factors.shape_gain[:, :, :-1])
+    elif damage == "nonfinite":
+        factors = replace(factors, cross_gain=np.full_like(factors.cross_gain, np.nan))
+    else:
+        factors = replace(factors, conditional=2 * e.amplitude_covariance)
+    changed = replace(c, analytical_evaluation=replace(e, covariance_factors=factors))
+    outcome = replace(gui.outcome, clusters=(changed, *gui.outcome.clusters[1:]))
+    with pytest.raises(ValueError, match="covariance factors"):
+        storage.write_scientific(tmp_path / "science.npz", outcome, gui.completed_fit.samples)

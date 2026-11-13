@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.algorithms.evaluation import (
     AnalyticalFitStatistics,
     AnalyticalModelEvaluation,
@@ -50,6 +51,9 @@ class FinalAnalyticalResult:
     amplitudes: FloatArray
     amplitude_standard_errors: FloatArray
     amplitude_covariance: FloatArray
+    # The factors of the amplitude covariance between planes (profile-uncertainty §3.1);
+    # their conditional block is ``amplitude_covariance`` itself.
+    covariance_factors: CovarianceFactors
     statistics: AnalyticalFitStatistics
     uncertainty_warning: str | None = None
     # max |recorded optimizer residual| / σ over the statistics.n_observations
@@ -415,12 +419,25 @@ def _freeze_parameter(parameter: Parameter) -> FinalParameter:
 
 
 def _freeze_evaluation(evaluation: AnalyticalModelEvaluation) -> FinalAnalyticalEvaluation:
+    covariance = _freeze_array(evaluation.amplitude_covariance)
+    factors = evaluation.covariance_factors
     return FinalAnalyticalEvaluation(
         cluster_id=evaluation.cluster_id,
         shapes=_freeze_array(evaluation.shapes),
         amplitudes=_freeze_array(evaluation.amplitudes),
         amplitude_standard_errors=_freeze_array(evaluation.amplitude_standard_errors),
-        amplitude_covariance=_freeze_array(evaluation.amplitude_covariance),
+        amplitude_covariance=covariance,
+        covariance_factors=CovarianceFactors(
+            covariance,
+            *(
+                None if values is None else _freeze_array(values)
+                for values in (
+                    factors.shape_gain,
+                    factors.cross_gain,
+                    factors.parameter_covariance,
+                )
+            ),
+        ),
         model_values=_freeze_array(evaluation.model_values),
         raw_residuals=_freeze_array(evaluation.raw_residuals),
         normalized_residuals=_freeze_array(evaluation.normalized_residuals),

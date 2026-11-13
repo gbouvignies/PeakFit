@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from peakfit.engine.algorithms.covariance_factors import marginal_standard_errors
 from peakfit.io.writers.config import WriterConfig
 from peakfit.io.writers.utils import format_float
 
@@ -79,6 +80,7 @@ def write_final_outcome_intensities(
             or len(np.unique(indices)) != n_planes
         ):
             raise ValueError("Invalid intensity source-plane mapping.")
+        marginal = marginal_standard_errors(evaluation.covariance_factors, evaluation.amplitudes)
         for peak_index, peak_name in enumerate(cluster.peak_names):
             for plane_index in range(evaluation.amplitudes.shape[1]):
                 z_value = (
@@ -98,6 +100,11 @@ def write_final_outcome_intensities(
                         ),
                         "intensity_err": _fmt_final_value(
                             float(evaluation.amplitude_standard_errors[peak_index]),
+                            cfg,
+                            unavailable="unavailable",
+                        ),
+                        "intensity_err_marginal": _fmt_final_value(
+                            float(marginal[peak_index, plane_index]),
                             cfg,
                             unavailable="unavailable",
                         ),
@@ -215,6 +222,7 @@ def _intensity_header() -> list[str]:
         "z_value",
         "intensity",
         "intensity_err",
+        "intensity_err_marginal",
         "reduced_chi_squared",
         "noise_correlation",
         "plane_index",

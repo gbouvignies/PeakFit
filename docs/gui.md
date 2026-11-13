@@ -378,7 +378,10 @@ samples and are not recomputed from the displayed whole-spectrum residual.
 **Provenance** discloses the optimizer, termination message, correction revision
 and run identity. **Fitted** is a table of the peak's recorded parameters, one line
 each: positions then linewidths, the horizontal axis first, with unit, value and σ
-(“fixed” for a fixed parameter); parameters at a recorded bound are marked.
+(“fixed” for a fixed parameter); parameters at a recorded bound are marked. Its last
+line, **Amplitude plane N**, follows the current plane: the recorded amplitude ± its
+marginal σ, the uncertainty of that absolute amplitude including the lineshape
+uncertainty (`intensity_err_marginal`), as the caption under it says.
 **Starting values and bounds** (collapsed) is the same kind of table for the next
 fit: start, lower and upper bound per parameter (“fixed” in place of the bounds),
 from the current preparation of the working position and fit setup. It stays

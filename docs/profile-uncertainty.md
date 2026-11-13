@@ -2,8 +2,9 @@
 
 **Status:** accepted, revision 3 ([ADR 0003](adr/0003-ols-and-profile-uncertainty.md)).
 Implementation in progress: the covariance factors of §3.1 are computed in the
-engine (`engine.algorithms.covariance_factors`, validated by T1) but not yet
-published.
+engine (`engine.algorithms.covariance_factors`, validated by T1) and stored by archive
+12.0.0 and project 15.0.0; the marginal σ is published as `intensity_err_marginal`
+and in the GUI inspector. `intensity_err` is still the conditional σ.
 
 **Builds on:** [correlated-noise.md](correlated-noise.md) and
 [ADR 0002](adr/0002-processing-derived-sandwich-errors.md).
@@ -386,8 +387,9 @@ one error column by habit, so `intensity_err` carries the profile σ.
   compared with the header's prediction. A mismatch, such as unrecorded LP or an
   earlier window, gives a recorded warning.
 - **Storage:** the tensors of §3.1, the flag and the check. This is a deliberate format
-  change: the next major version of the scientific archive (11.0.0 today) and of the
-  analysis project (14.0.0 today), with the fit JSON.
+  change: the next major version of the scientific archive and of the analysis
+  project. The factors went into archive 12.0.0 and project 15.0.0; they add
+  0.19 MB to the example's archive, whatever the number of planes.
 - **GUI:**
   - error bars use the profile σ, and ratios use the covariance;
   - the flag is shown on the profile, the tiles and the cluster page;

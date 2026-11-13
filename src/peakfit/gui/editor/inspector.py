@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from peakfit.engine.algorithms.covariance_factors import marginal_standard_errors
 from peakfit.engine.diagnostics.bounds import at_bound
 from peakfit.engine.domain.spectrum import get_dimension_label
 from peakfit.gui import formatting
@@ -445,6 +446,11 @@ class Inspector(QtWidgets.QScrollArea):
         layout.addWidget(self.analysis_page)
         layout.addStretch(1)
         self._peak: WorkingPeak | None = None
+        # The peak's amplitude row: its labels, the source plane of each amplitude
+        # column, the amplitudes and their marginal σ.
+        self._amplitude: (
+            tuple[tuple[QtWidgets.QLabel, ...], np.ndarray, np.ndarray, np.ndarray] | None
+        ) = None
         self.cluster_view = False
         self._key = None
         self.theme = themes.LIGHT
@@ -531,8 +537,9 @@ class Inspector(QtWidgets.QScrollArea):
         self._key = None
 
     def set_plane(self, plane: int) -> None:
-        """Move the profile's plane marker only."""
+        """Move the profile's plane marker and the amplitude row to ``plane``."""
         self.profile.set_plane(plane)
+        self._show_amplitude(plane)
 
     def show_analysis(
         self,
@@ -599,7 +606,7 @@ class Inspector(QtWidgets.QScrollArea):
             retained,
         )
         if key == self._key:
-            self.profile.set_plane(plane)
+            self.set_plane(plane)
             return
         self._key = key
         found = result.index.find(peak.id) if result is not None else None
@@ -615,6 +622,7 @@ class Inspector(QtWidgets.QScrollArea):
         self.about.setVisible(found is not None and self.about_toggle.isChecked())
         _clear(self.fitted)
         _clear(self.review)
+        self._amplitude = None
         if result is None or found is None:
             self.kind.setText("PEAK")
             # Before any fit the toolbar already says Not fitted.
@@ -637,6 +645,7 @@ class Inspector(QtWidgets.QScrollArea):
         )
         self._show_profile(result, peak.id, plane_values, plane, current=current)
         self._fill_parameters(engine, cluster)
+        self._fill_amplitude(engine, cluster, result, plane)
         start = next((p for p in result.inputs.snapshot.peaks if p.id == peak.id), None)
         if start is not None:
             # The run's submitted position, for inspection; movement is not a diagnostic.
@@ -880,6 +889,53 @@ class Inspector(QtWidgets.QScrollArea):
                 )
             )
         parameter_table(self.fitted, ("Value", "± σ"), rows)
+
+    def _fill_amplitude(
+        self, engine: str, cluster: FinalClusterOutcome, result: DatasetFitResult, plane: int
+    ) -> None:
+        """The peak's amplitude on the current plane, ± the marginal σ the run recorded."""
+        evaluation = cluster.analytical_evaluation
+        if evaluation is None:
+            return
+        index = cluster.peak_names.index(engine)
+        marginal = marginal_standard_errors(evaluation.covariance_factors, evaluation.amplitudes)
+        planes = np.asarray(
+            result.inputs.snapshot.source_plane_indices or range(evaluation.amplitudes.shape[1]),
+            dtype=int,
+        )
+        row = self.fitted.rowCount()
+        cells = (_label("", "muted"), _label(""), _label(""))
+        for column, cell in enumerate(cells):
+            if column:
+                cell.setAlignment(_RIGHT)
+            self.fitted.addWidget(cell, row, column)
+        meaning = (
+            "± σ of the absolute amplitude on this plane (marginal σ), including the "
+            "lineshape uncertainty. Planes share that part: do not treat these σ as "
+            "independent errors of a profile."
+        )
+        caption = _label(meaning, "caption", wrap=True)
+        self.fitted.addWidget(caption, row + 1, 0, 1, -1)
+        for cell in cells:
+            cell.setToolTip(meaning)
+        self._amplitude = (cells, planes, evaluation.amplitudes[index], marginal[index])
+        self._show_amplitude(plane)
+
+    def _show_amplitude(self, plane: int) -> None:
+        if self._amplitude is None:
+            return
+        (title, value, error), planes, amplitudes, marginal = self._amplitude
+        title.setText(f"Amplitude plane {plane + 1}")
+        columns = np.flatnonzero(planes == plane)
+        if not columns.size:
+            value.setText("plane not fitted")
+            error.setText("")
+            return
+        shown, sigma = formatting.with_sigma(
+            float(amplitudes[columns[0]]), float(marginal[columns[0]])
+        )
+        value.setText(shown)
+        error.setText("unavailable" if sigma == "σ unavailable" else sigma)
 
     def _fill_review(
         self,

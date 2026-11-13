@@ -1163,3 +1163,16 @@ Short records of non‑obvious design choices and trade‑offs.
   and so the `intensity_err`, of every peak in that cluster.
 - The cost: the one-sided freedom at the bound is ignored, as in any first-order
   constrained result. The parameter's own error stays withheld, as before.
+
+## 2026-11-13: Marginal σ published; covariance factors stored (#160)
+- **Change.** Scientific archive 12.0.0 and analysis project 15.0.0 store each usable
+  cluster's covariance factors (profile-uncertainty §3.1); earlier files are refused
+  by version: refit. `intensities.csv` gains `intensity_err_marginal`, after
+  `intensity_err`; the GUI inspector shows the selected peak's amplitude on the
+  current plane ± its marginal σ, labelled as the σ of the absolute amplitude.
+  `intensity_err`, fitted values and every other column are unchanged.
+- **Storage.** The conditional block is the amplitude covariance and is stored once;
+  only the lineshape factors are new arrays. On the bundled example they add 0.19 MB
+  to the archive, independent of the number of planes.
+- **Not in the fit JSON.** The optional JSON export stays at 9.0.0: no consumer reads
+  the marginal σ there yet, and the archive and CSV carry it.

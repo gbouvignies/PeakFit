@@ -16,6 +16,7 @@ from PySide6 import QtCore, QtGui, QtTest, QtWidgets
 import peakfit.gui.editor.review as review_module
 import peakfit.gui.editor.spectral_view as canvas_module
 import peakfit.gui.editor.workspace as workspace_module
+from peakfit.engine.algorithms.covariance_factors import marginal_standard_errors
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.diagnostics.identifiability import AmplitudeStatus, Cause, MemberAmplitude
 from peakfit.engine.domain.config import FitConfig, PeakFitConfig
@@ -1026,6 +1027,40 @@ def test_navigator_clusters_and_inspector_show_recorded_values(workspace, scient
     ]
     assert [value, sigma] in cells
     assert w.edits.revision == 0
+
+
+def test_inspector_shows_the_marginal_sigma_of_the_absolute_amplitude(workspace, scientific):
+    w = workspace
+    result = scientific[-1]
+    publish(w, result)
+    cluster = next(c for c in result.outcome.clusters if c.usable and len(c.peak_names) > 1)
+    evaluation = cluster.analytical_evaluation
+    marginal = marginal_standard_errors(evaluation.covariance_factors, evaluation.amplitudes)
+    identities = {i.engine_name: i.working_id for i in result.inputs.identities}
+    w.select_peak(identities[cluster.peak_names[1]])
+    fitted = w.panel.fitted
+
+    def amplitude_row():
+        rows = [
+            [fitted.itemAtPosition(row, column).widget().text() for column in (0, 1, 2)]
+            for row in range(1, fitted.rowCount())
+            if fitted.itemAtPosition(row, 2) is not None
+        ]
+        return next(r for r in rows if r[0].startswith("Amplitude"))
+
+    for plane in (1, 3):
+        w.set_plane(plane)
+        value, sigma = formatting.with_sigma(
+            evaluation.amplitudes[1, plane - 1], marginal[1, plane - 1]
+        )
+        assert amplitude_row() == [f"Amplitude plane {plane}", value, sigma]
+    # Labelled as the uncertainty of the absolute amplitude, not of a profile.
+    captions = [
+        fitted.itemAt(i).widget().text()
+        for i in range(fitted.count())
+        if isinstance(fitted.itemAt(i).widget(), QtWidgets.QLabel)
+    ]
+    assert any("σ of the absolute amplitude" in text for text in captions)
 
 
 def test_dense_profile_click_opens_the_nearest_plane(qapp, scientific):

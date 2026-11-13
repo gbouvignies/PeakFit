@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
+from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
 from peakfit.engine.algorithms.evaluation import AnalyticalFitStatistics, FitOutcomeClassification
 from peakfit.engine.algorithms.noise_correlation import not_modelled
 from peakfit.engine.scientific.final_outcome import (
@@ -79,6 +80,7 @@ def _cluster(
             amplitudes=matrix,
             amplitude_standard_errors=vector,
             amplitude_covariance=matrix,
+            covariance_factors=CovarianceFactors(matrix, None, None, None),
             model_values=matrix,
             raw_residuals=matrix,
             normalized_residuals=vector,
