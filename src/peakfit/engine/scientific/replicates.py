@@ -33,8 +33,9 @@ the uncertainty of contrasts is calibrated.
 - **Pools:** peaks without and with the correlated-profile flag, kept apart.
 - **Exclusions:** unusable clusters, withheld covariance factors, and a contrast
   covariance that is not positive definite or has a direction weaker than √ε of the
-  largest (eigenvalue ratio, as in ``varpro.identifiable_covariance``). Nothing is
-  regularized.
+  largest. That is the codebase's weak-direction convention s ≤ √ε·s₁ applied to the
+  singular values of the matrix inverted, here the eigenvalues of CΣCᵀ (equivalently
+  cond ≥ 1/√ε, as in ``evaluation``). Nothing is regularized.
 - **Limits:** repeatability, not accuracy; contrasts, not marginal σ (a shared scale
   uncertainty cancels); raw amplitudes, not normalized profiles. Peaks of one cluster
   have correlated contrasts, so the effective sample is smaller than the count.

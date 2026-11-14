@@ -18,11 +18,13 @@ from typer.testing import CliRunner
 from peakfit.cli.app import app
 from peakfit.engine.algorithms.covariance_factors import (
     CovarianceFactors,
+    covariance_between_planes,
     profile_correlations,
 )
 from peakfit.engine.algorithms.evaluation import FitOutcomeClassification
 from peakfit.engine.scientific.replicates import (
     RecordedCluster,
+    duplicate_groups,
     duplicate_plane_check,
     run_duplicate_check,
 )
@@ -179,6 +181,94 @@ def test_fewer_than_fifty_contrasts_carry_a_low_sample_warning():
     assert np.isclose(small.standard_error_bound, 1 / np.sqrt(98))
     assert not enough.low_sample
     assert np.isclose(enough.standard_error_bound, 0.1)
+
+
+# Validation T8, fast cases (profile-uncertainty §8.2): amplitudes drawn from the
+# covariance the factors state, around true duplicates, then checked as recorded. The
+# end-to-end cases, through the processing operators and the engine fit, are the tool's
+# (tools/profile_uncertainty/duplicate_check.py).
+REALIZATIONS = 2000
+
+
+def _draws(cluster: RecordedCluster, rng, *, copies_correlation: float = 0.0) -> list:
+    """Realizations of ``cluster`` whose amplitudes scatter as its factors state.
+
+    The true amplitudes are equal within each group of equal plane values. A nonzero
+    ``copies_correlation`` adds what the factors omit: the conditional noise of the
+    copies of each group, correlated with that coefficient.
+    """
+    factors = cluster.factors
+    assert factors is not None
+    planes = cluster.plane_values
+    truth = np.array(cluster.amplitudes, dtype=float)
+    for group in duplicate_groups(planes):
+        truth[:, list(group)] = truth[:, [group[0]]]
+    n_peaks, n_planes = truth.shape
+    stated = covariance_between_planes(factors, truth)
+    stated = stated.reshape(n_peaks * n_planes, n_peaks * n_planes)
+    copies = np.zeros((n_planes, n_planes))
+    for group in duplicate_groups(planes):
+        for s in group:
+            for t in group:
+                copies[s, t] = copies_correlation if s != t else 0.0
+    actual = stated + np.kron(factors.conditional, copies)
+    root = np.linalg.cholesky(actual)
+    draws = truth.ravel() + rng.standard_normal((REALIZATIONS, truth.size)) @ root.T
+    return [replace(cluster, amplitudes=a.reshape(n_peaks, n_planes)) for a in draws]
+
+
+def _measured_cluster(rng, plane_values) -> RecordedCluster:
+    """Two peaks sharing two lineshape parameters, at a signal-to-noise ratio near 70.
+
+    The lineshape term of each amplitude's variance, a²·gᵀC_θg, is of the order of the
+    conditional c, as in a fit: shape parameters are known about as well as amplitudes.
+    """
+    cluster = _random_cluster(rng, plane_values)
+    factors = cluster.factors
+    assert factors.parameter_covariance is not None
+    return replace(
+        cluster,
+        amplitudes=10.0 * cluster.amplitudes,
+        factors=replace(factors, parameter_covariance=1e-3 * factors.parameter_covariance),
+    )
+
+
+def _mean_q_over_k(clusters) -> tuple[float, float]:
+    """The mean over realizations of Σq/Σk, every peak pooled, and its standard error."""
+    values = []
+    for cluster in clusters:
+        check = duplicate_plane_check([cluster])
+        assert check.excluded == {}
+        q = check.unflagged.q + check.flagged.q
+        values.append(q / (check.unflagged.contrasts + check.flagged.contrasts))
+    values = np.asarray(values)
+    return float(values.mean()), float(values.std(ddof=1) / np.sqrt(values.size))
+
+
+@pytest.mark.parametrize(
+    "plane_values",
+    [
+        pytest.param([0.0, 1.0, 1.0, 2.0, 3.0, 3.0], id="two copies"),
+        pytest.param([0.0, 1.0, 1.0, 1.0, 2.0, 3.0, 3.0, 3.0], id="three copies"),
+    ],
+)
+def test_contrasts_scattering_as_stated_give_a_mean_q_over_k_of_one(plane_values):
+    # The groups' contrasts are correlated through the shared parameters, and the
+    # check whitens them jointly.
+    rng = np.random.default_rng(175)
+    cluster = _measured_cluster(rng, plane_values)
+    mean, se = _mean_q_over_k(_draws(cluster, rng))
+    assert abs(mean - 1.0) <= 3.0 * se
+
+
+@pytest.mark.parametrize(("rho", "below"), [(0.3, True), (-0.3, False)])
+def test_unmodelled_correlation_between_copies_moves_the_result_away_from_one(rho, below):
+    # Positive correlation shrinks the contrasts below what the covariance states;
+    # negative correlation enlarges them.
+    rng = np.random.default_rng(1750)
+    cluster = _measured_cluster(rng, [0.0, 1.0, 1.0, 2.0, 3.0, 3.0])
+    mean, se = _mean_q_over_k(_draws(cluster, rng, copies_correlation=rho))
+    assert (mean < 1.0 - 3.0 * se) if below else (mean > 1.0 + 3.0 * se)
 
 
 def _fit_example(output: Path, z_values: Path, peaks: Path = DATA / "pseudo3d.list") -> Path:

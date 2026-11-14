@@ -1,0 +1,19 @@
+sp2, isolated, two copies: q/k 0.9549 ± 0.0152 (-3.0 SE), RMS 0.977; analytical worst 2.4 SE; pass
+sp2, isolated, three copies: q/k 0.9965 ± 0.0111 (-0.3 SE), RMS 0.998; analytical worst 2.2 SE; pass
+sp1, isolated, two copies: q/k 0.9953 ± 0.0156 (-0.3 SE), RMS 0.998; analytical worst 0.6 SE; pass
+no_apod, isolated, two copies: q/k 1.0025 ± 0.0157 (+0.2 SE), RMS 1.001; analytical worst 1.0 SE; pass
+sp2, pair 3 points, two copies: q/k 1.0040 ± 0.0111 (+0.4 SE), RMS 1.002; analytical worst 1.4 SE; pass
+sp2, pair 3 points, three copies: q/k 0.9909 ± 0.0076 (-1.2 SE), RMS 0.995; analytical worst 1.1 SE; pass
+sp2, pair 3 points, shared phase, three copies: q/k 0.9943 ± 0.0078 (-0.7 SE), RMS 0.997; analytical worst 1.6 SE; pass
+sp2, pair 2 points (flagged), two copies: q/k 1.0168 ± 0.0119 (+1.4 SE), RMS 1.008; analytical worst 2.5 SE; pass
+sp2, isolated with a coincident pair (exclusions), two copies: q/k 1.0129 ± 0.0162 (+0.8 SE), RMS 1.006; analytical worst 0.8 SE; pass
+sp2, pair 1 point (near-coalescent), two copies: q/k 1.0001 ± 0.0137 (+0.0 SE), RMS 1.000; analytical worst 3.2 SE; recorded
+sp2, isolated, two copies, copies correlated +0.3: q/k 0.6954 ± 0.0112 (-27.2 SE), RMS 0.834; analytical worst 13.6 SE; recorded
+sp2, isolated, two copies, copies correlated −0.3: q/k 1.2969 ± 0.0206 (+14.4 SE), RMS 1.139; analytical worst 14.0 SE; recorded
+sp2, pair 3 points, three copies, copies correlated +0.3: q/k 0.6984 ± 0.0057 (-52.8 SE), RMS 0.836; analytical worst 14.5 SE; recorded
+sp2, pair 3 points, three copies, copies correlated −0.3: q/k 1.2985 ± 0.0103 (+28.9 SE), RMS 1.140; analytical worst 16.4 SE; recorded
+{
+ "cases": 9,
+ "failing": [],
+ "passes": true
+}
