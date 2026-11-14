@@ -248,7 +248,27 @@ independent per-plane errors only where Σ_rel is close to diagonal.
 **Baseline replicates**:
 CEST planes far from a peak's own offset, references excluded, treated as
 approximate replicates: the robust scatter of their second differences checks the
-profile σ (`peakfit replicates`). They measure repeatability, not accuracy.
+profile σ (`peakfit replicates --baseline`, and the default for a run without
+duplicate planes). They measure repeatability, not accuracy.
+
+**Duplicate planes**:
+Planes of one run whose recorded plane values are exactly equal: copies of one
+condition, in any series. `peakfit replicates` standardizes each peak's
+orthonormal contrasts between copies by its conditional variance and pools them
+into an RMS of standardized contrasts, 1 when the conditional σ is calibrated. The
+lineshape-parameter part of the uncertainty cancels between copies, so they test
+the conditional σ only. Like baseline replicates, they measure repeatability, not
+accuracy; they check contrasts, not the marginal σ.
+_Avoid_: replicate pairs (copies may be three or more), near-duplicates (no
+tolerance matching)
+
+**Standardized contrast**:
+A contrast is a difference between copies of duplicate planes: each group of m
+copies gives m − 1 orthonormal contrasts, k per peak over all groups. A peak's
+contrasts d are standardized by its conditional variance c, giving q = |d|²/c,
+whose expected value is k at first order. The RMS of standardized contrasts,
+√(Σq / Σk) over a pool of peaks, is 1 when the conditional σ is calibrated; its
+sampling SE is at least 1/√(2Σk).
 
 **Correlated-profile flag**:
 A per-peak mark that the largest correlated mode of the relative-profile

@@ -1,0 +1,1023 @@
+{
+ "realizations": 40000,
+ "seed": 20261114,
+ "noise": 0.02,
+ "criterion": "mean q/k within ±3 SE of 1 (SE from the realizations); analytical variance ratios within ±3 SE of 1, SE √(2/(N − 1))",
+ "gate": {
+  "cases": 9,
+  "failing": [],
+  "passes": true
+ },
+ "cases": {
+  "sp2, isolated, two copies": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 0.98934,
+    "se": 0.00495,
+    "deviation_se": -2.15468,
+    "rms": 0.99465,
+    "passes": true
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     -2.85155,
+     -1.36021,
+     1.00653,
+     1.36194,
+     0.09212,
+     -2.03419,
+     -1.37244,
+     0.95098,
+     -0.48095,
+     -2.35298
+    ],
+    "chi2": 20.27478,
+    "p_value": 0.01629,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 0.99299,
+     "se": 0.00523,
+     "deviation_se": -1.34084,
+     "rms": 0.99649,
+     "passes": true
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 0.98934,
+     "se": 0.00495,
+     "deviation_se": -2.15468,
+     "rms": 0.99465,
+     "passes": true,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     0.99443,
+     0.98441
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 2.20403,
+    "largest_covariance_gap": 0.00768,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, isolated, three copies": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 1.00078,
+    "se": 0.00356,
+    "deviation_se": 0.21818,
+    "rms": 1.00039,
+    "passes": true
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     -0.06944,
+     0.60891,
+     0.87237,
+     0.10364,
+     -0.21685,
+     -0.18762,
+     -0.65552,
+     -0.582,
+     -0.63962,
+     1.4197
+    ],
+    "chi2": 4.38461,
+    "p_value": 0.88433,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 1.00095,
+     "se": 0.00375,
+     "deviation_se": 0.25262,
+     "rms": 1.00047,
+     "passes": true
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.00078,
+     "se": 0.00356,
+     "deviation_se": 0.21818,
+     "rms": 1.00039,
+     "passes": true,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     0.98712,
+     1.01501,
+     0.99914,
+     1.00245
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 2.12269,
+    "largest_covariance_gap": 0.00845,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp1, isolated, two copies": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 1.00668,
+    "se": 0.00506,
+    "deviation_se": 1.31888,
+    "rms": 1.00333,
+    "passes": true
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     -0.1976,
+     -0.45384,
+     0.91217,
+     -0.7828,
+     1.85759,
+     1.27323,
+     -0.824,
+     0.89609,
+     -0.2131,
+     1.43116
+    ],
+    "chi2": 9.0239,
+    "p_value": 0.43507,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 1.00777,
+     "se": 0.00535,
+     "deviation_se": 1.4513,
+     "rms": 1.00388,
+     "passes": true
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.00668,
+     "se": 0.00506,
+     "deviation_se": 1.31888,
+     "rms": 1.00333,
+     "passes": true,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     0.99933,
+     1.01448
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 2.04805,
+    "largest_covariance_gap": 0.00913,
+    "passes": true
+   },
+   "passes": true
+  },
+  "no_apod, isolated, two copies": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 1.00332,
+    "se": 0.00502,
+    "deviation_se": 0.66236,
+    "rms": 1.00166,
+    "passes": true
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     0.2302,
+     -0.50018,
+     -0.0294,
+     1.63903,
+     1.25063,
+     -0.96932,
+     0.39892,
+     -0.80291,
+     -0.02077,
+     0.75839
+    ],
+    "chi2": 6.54318,
+    "p_value": 0.68456,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 1.00329,
+     "se": 0.0053,
+     "deviation_se": 0.6215,
+     "rms": 1.00164,
+     "passes": true
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.00332,
+     "se": 0.00502,
+     "deviation_se": 0.66236,
+     "rms": 1.00166,
+     "passes": true,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     0.99613,
+     1.00995
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 1.40744,
+    "largest_covariance_gap": 0.00298,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, pair 3 points, two copies": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 1.0002,
+    "se": 0.00357,
+    "deviation_se": 0.05588,
+    "rms": 1.0001,
+    "passes": true
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     0.66337,
+     0.73499,
+     -0.39913,
+     0.16222,
+     0.50161,
+     -0.7273,
+     -0.71706,
+     0.48427,
+     0.20616,
+     -0.76666
+    ],
+    "chi2": 3.3243,
+    "p_value": 0.95004,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 0.99939,
+     "se": 0.00376,
+     "deviation_se": -0.1609,
+     "rms": 0.9997,
+     "passes": true
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.0002,
+     "se": 0.00357,
+     "deviation_se": 0.05588,
+     "rms": 1.0001,
+     "passes": true,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     1.01031,
+     1.00169,
+     0.99055,
+     0.99911
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 1.45828,
+    "largest_covariance_gap": 0.01011,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, pair 3 points, three copies": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 0.9997,
+    "se": 0.0025,
+    "deviation_se": -0.11832,
+    "rms": 0.99985,
+    "passes": true
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     -0.49325,
+     -1.35615,
+     0.98978,
+     0.35279,
+     0.25801,
+     -0.16944,
+     -0.06601,
+     -0.4245,
+     0.12391,
+     0.33558
+    ],
+    "chi2": 3.56695,
+    "p_value": 0.93754,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 1.00009,
+     "se": 0.00264,
+     "deviation_se": 0.0354,
+     "rms": 1.00005,
+     "passes": true
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 0.9997,
+     "se": 0.0025,
+     "deviation_se": -0.11832,
+     "rms": 0.99985,
+     "passes": true,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     0.98799,
+     1.00048,
+     1.00818,
+     0.99162,
+     1.0032,
+     1.00486,
+     1.00096,
+     1.00308
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 1.69783,
+    "largest_covariance_gap": 0.014,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, pair 3 points, shared phase, three copies": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 1.00041,
+    "se": 0.00251,
+    "deviation_se": 0.16232,
+    "rms": 1.0002,
+    "passes": true
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     0.13619,
+     -1.64321,
+     -0.2532,
+     -0.48682,
+     -0.67758,
+     0.11015,
+     -0.22537,
+     0.58926,
+     2.4085,
+     0.51363
+    ],
+    "chi2": 9.9352,
+    "p_value": 0.35576,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 1.00033,
+     "se": 0.00264,
+     "deviation_se": 0.12585,
+     "rms": 1.00017,
+     "passes": true
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.00041,
+     "se": 0.00251,
+     "deviation_se": 0.16232,
+     "rms": 1.0002,
+     "passes": true,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     0.99447,
+     1.00717,
+     1.00138,
+     0.99766,
+     0.9914,
+     1.00922,
+     1.00234,
+     1.00123
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 1.30322,
+    "largest_covariance_gap": 0.00823,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, pair 2 points (flagged), two copies": {
+   "realizations": 40000,
+   "pool": "flagged",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 1.00898,
+    "se": 0.00382,
+    "deviation_se": 2.35071,
+    "rms": 1.00448,
+    "passes": true
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     2.05454,
+     1.18992,
+     0.15115,
+     0.30085,
+     2.69848,
+     0.58786,
+     0.56674,
+     0.67031,
+     -0.50033,
+     -0.39803
+    ],
+    "chi2": 9.35892,
+    "p_value": 0.40482,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 1.00722,
+     "se": 0.00403,
+     "deviation_se": 1.7934,
+     "rms": 1.0036,
+     "passes": true
+    }
+   },
+   "pools": {
+    "flagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.00898,
+     "se": 0.00382,
+     "deviation_se": 2.35071,
+     "rms": 1.00448,
+     "passes": true,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 1.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     1.0087,
+     1.00499,
+     1.01284,
+     1.01027
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 1.8164,
+    "largest_covariance_gap": 0.00523,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, isolated with a coincident pair (exclusions), two copies": {
+   "realizations": 40000,
+   "pool": "unflagged",
+   "gated": true,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 0.99383,
+    "se": 0.00501,
+    "deviation_se": -1.23179,
+    "rms": 0.99691,
+    "passes": true
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     0.94974,
+     -0.23543,
+     0.07903,
+     0.49804,
+     -1.95174,
+     -1.06071,
+     0.69943,
+     -0.60604,
+     -1.77982,
+     -0.6279
+    ],
+    "chi2": 8.822,
+    "p_value": 0.45387,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 0.99143,
+     "se": 0.00526,
+     "deviation_se": -1.62715,
+     "rms": 0.99571,
+     "passes": true
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 0.99383,
+     "se": 0.00501,
+     "deviation_se": -1.23179,
+     "rms": 0.99691,
+     "passes": true,
+     "peaks_per_realization": 1.0029
+    },
+    "flagged": {
+     "realizations_used": 3165,
+     "mean_q_over_k": 1.9151,
+     "se": 0.02777,
+     "deviation_se": 32.9534,
+     "rms": 1.38387,
+     "passes": false,
+     "peaks_per_realization": 0.1569
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {
+    "conditional variance withheld or not positive": 36007,
+    "lineshape covariance withheld": 797
+   },
+   "lineshape_covariance_withheld": {
+    "realizations": 797,
+    "peaks": {
+     "C1": 797,
+     "C2": 797
+    },
+    "would_join_unflagged": {
+     "realizations": 797,
+     "peaks": 1594,
+     "pooled_q_over_k": 1.51136
+    },
+    "statistic_with_them": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.00139,
+     "se": 0.00502,
+     "deviation_se": 0.27706,
+     "rms": 1.00069,
+     "passes": true
+    }
+   },
+   "coincident_pair_pooled": {
+    "unflagged": {
+     "realizations": 85,
+     "peaks": 116,
+     "pooled_q_over_k": 1.4695
+    },
+    "flagged": {
+     "realizations": 3165,
+     "peaks": 6276,
+     "pooled_q_over_k": 1.91035
+    }
+   },
+   "analytical": {
+    "variance_ratios": [
+     0.98406,
+     1.0019
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 2.25357,
+    "largest_covariance_gap": 0.00431,
+    "passes": true
+   },
+   "passes": true
+  },
+  "sp2, pair 1 point (near-coalescent), two copies": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": false,
+   "copies_correlation": 0.0,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 1.05904,
+    "se": 0.00474,
+    "deviation_se": 12.44563,
+    "rms": 1.0291,
+    "passes": false
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     3.87569,
+     3.02371,
+     4.43596,
+     4.89068,
+     4.07522,
+     4.19613,
+     4.71389,
+     3.96234,
+     2.92669,
+     3.1711
+    ],
+    "chi2": 5.05999,
+    "p_value": 0.82905,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 1.05908,
+     "se": 0.005,
+     "deviation_se": 11.82703,
+     "rms": 1.02912,
+     "passes": false
+    }
+   },
+   "pools": {
+    "flagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.05904,
+     "se": 0.00474,
+     "deviation_se": 12.44563,
+     "rms": 1.0291,
+     "passes": false,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 1.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     1.04951,
+     1.05563,
+     1.06139,
+     1.06556
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 9.27149,
+    "largest_covariance_gap": 0.0046,
+    "passes": false
+   },
+   "passes": null
+  },
+  "sp2, isolated, two copies, copies correlated +0.3": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": false,
+   "copies_correlation": 0.3,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 0.69796,
+    "se": 0.00351,
+    "deviation_se": -85.99148,
+    "rms": 0.83544,
+    "passes": false
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     -27.02907,
+     -25.90191,
+     -27.08047,
+     -30.87338,
+     -27.70541,
+     -26.23114,
+     -24.29456,
+     -27.26661,
+     -28.10603,
+     -27.78065
+    ],
+    "chi2": 13.17212,
+    "p_value": 0.15497,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 0.69815,
+     "se": 0.0037,
+     "deviation_se": -81.63356,
+     "rms": 0.83555,
+     "passes": false
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 0.69796,
+     "se": 0.00351,
+     "deviation_se": -85.99148,
+     "rms": 0.83544,
+     "passes": false,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     0.69461,
+     0.70136
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 43.18876,
+    "largest_covariance_gap": 0.00168,
+    "passes": false
+   },
+   "passes": null
+  },
+  "sp2, isolated, two copies, copies correlated −0.3": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": false,
+   "copies_correlation": -0.3,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 1.30087,
+    "se": 0.00656,
+    "deviation_se": 45.86083,
+    "rms": 1.14055,
+    "passes": false
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     14.46021,
+     14.40503,
+     14.75179,
+     15.20419,
+     14.54181,
+     14.99611,
+     13.88112,
+     14.71433,
+     14.78174,
+     13.28717
+    ],
+    "chi2": 3.29014,
+    "p_value": 0.95167,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 1.30097,
+     "se": 0.00692,
+     "deviation_se": 43.52089,
+     "rms": 1.1406,
+     "passes": false
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.30087,
+     "se": 0.00656,
+     "deviation_se": 45.86083,
+     "rms": 1.14055,
+     "passes": false,
+     "peaks_per_realization": 1.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     1.29031,
+     1.31191
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 44.11037,
+    "largest_covariance_gap": 0.01126,
+    "passes": false
+   },
+   "passes": null
+  },
+  "sp2, pair 3 points, three copies, copies correlated +0.3": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": false,
+   "copies_correlation": 0.3,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 0.70045,
+    "se": 0.00177,
+    "deviation_se": -169.33594,
+    "rms": 0.83693,
+    "passes": false
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     -51.9302,
+     -53.17919,
+     -52.76512,
+     -53.49372,
+     -55.92159,
+     -53.61119,
+     -53.74719,
+     -53.09957,
+     -54.16486,
+     -53.67928
+    ],
+    "chi2": 3.88782,
+    "p_value": 0.91864,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 0.70037,
+     "se": 0.00186,
+     "deviation_se": -161.20887,
+     "rms": 0.83688,
+     "passes": false
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 0.70045,
+     "se": 0.00177,
+     "deviation_se": -169.33594,
+     "rms": 0.83693,
+     "passes": false,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     0.70103,
+     0.69723,
+     0.69901,
+     0.69904,
+     0.7026,
+     0.70285,
+     0.69565,
+     0.70724
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 43.04037,
+    "largest_covariance_gap": 0.00627,
+    "passes": false
+   },
+   "passes": null
+  },
+  "sp2, pair 3 points, three copies, copies correlated −0.3": {
+   "realizations": 40000,
+   "pool": "all",
+   "gated": false,
+   "copies_correlation": -0.3,
+   "statistic": {
+    "realizations_used": 40000,
+    "mean_q_over_k": 1.29935,
+    "se": 0.00326,
+    "deviation_se": 91.94591,
+    "rms": 1.13989,
+    "passes": false
+   },
+   "blocks": {
+    "count": 10,
+    "deviation_se": [
+     29.42225,
+     29.49995,
+     30.25754,
+     27.87841,
+     29.01483,
+     28.52699,
+     29.2884,
+     28.22052,
+     28.74553,
+     29.92591
+    ],
+    "chi2": 5.26991,
+    "p_value": 0.81017,
+    "replication": {
+     "realizations_used": 36000,
+     "mean_q_over_k": 1.29842,
+     "se": 0.00343,
+     "deviation_se": 87.11103,
+     "rms": 1.13948,
+     "passes": false
+    }
+   },
+   "pools": {
+    "unflagged": {
+     "realizations_used": 40000,
+     "mean_q_over_k": 1.29935,
+     "se": 0.00326,
+     "deviation_se": 91.94591,
+     "rms": 1.13989,
+     "passes": false,
+     "peaks_per_realization": 2.0
+    }
+   },
+   "flagged_fraction": 0.0,
+   "realizations_with_exclusion": {},
+   "lineshape_covariance_withheld": {
+    "realizations": 0,
+    "peaks": {}
+   },
+   "analytical": {
+    "variance_ratios": [
+     1.29696,
+     1.31249,
+     1.30302,
+     1.29167,
+     1.29991,
+     1.29312,
+     1.31394,
+     1.2901
+    ],
+    "se": 0.00707,
+    "largest_deviation_se": 44.39729,
+    "largest_covariance_gap": 0.01783,
+    "passes": false
+   },
+   "passes": null
+  }
+ }
+}

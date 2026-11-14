@@ -32,6 +32,14 @@ STUDIES = {
         "--output",
         str(RECORDS / "profile_coverage.json"),
     ],
+    "duplicate_check": [
+        "--realizations",
+        "40000",
+        "--blocks",
+        "10",
+        "--output",
+        str(RECORDS / "duplicate_check.json"),
+    ],
 }
 
 

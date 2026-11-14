@@ -1,7 +1,15 @@
-"""CEST baseline planes as replicates: a check of the published profile σ on real data.
+"""Replicate planes: empirical checks of a published run's uncertainties on real data.
 
-Far from a peak's own offset, a CEST profile is a flat or slowly varying baseline, so
-its planes are approximate replicates of one another. Their plane-to-plane scatter is
+Two methods, neither of which refits or changes any error:
+
+- **Duplicate planes** (any series): planes whose recorded plane values are exactly
+  equal. The contrasts between copies are compared with the conditional amplitude
+  variance, the noise part of the published uncertainty.
+- **CEST baseline planes:** see below.
+
+**CEST baseline planes.** Far from a peak's own offset, a CEST profile is a flat or
+slowly varying baseline, so its planes are approximate replicates of one another.
+Their plane-to-plane scatter is
 an empirical measure of the amplitude error, compared here with the published profile
 σ (``docs/profile-uncertainty.md`` §5.1, validation T4).
 
@@ -13,22 +21,53 @@ an empirical measure of the amplitude error, compared here with the published pr
   Drift, residual saturation and minor-state dips can only inflate the scatter.
 
 Values are those recorded: nothing is refitted.
+
+**Duplicate planes.** For each peak, all within-group orthonormal contrasts C are
+stacked, k = Σ_g (m_g − 1) for groups of m_g copies, and standardized by the peak's
+conditional amplitude variance c, the diagonal of σ²MRMᵀ: q = |Ca|²/c, with E[q] = k
+at first order. The lineshape terms of the covariance between planes are linear in
+the true amplitudes of each plane, equal across copies, so the contrasts annihilate
+them: CΣCᵀ = cI exactly at the true amplitudes (``docs/profile-uncertainty.md``
+§5.3). Built from the fitted amplitudes instead, they would return as noise along
+the contrast itself and bias q low. q depends on neither the contrast basis nor the
+plane order. The pooled RMS √(Σq / Σk) is 1 when the conditional σ is calibrated.
+
+- **Pools:** peaks without and with the correlated-profile flag, kept apart.
+- **Exclusions,** each peak with the first reason that applies, in this order: an
+  unusable cluster; a non-finite amplitude on any plane of the peak; a conditional
+  variance that is not finite (the fit withholds the conditional covariance where
+  the shapes are rank-deficient or their condition number reaches 1/√ε) or not
+  positive; withheld lineshape covariance factors (``CovarianceFactors.available``).
+  The last is a conservative fit-quality safeguard, not a requirement of q, which
+  does not use those factors: a finite c alone does not make the fit trustworthy,
+  least where it struggles to separate overlapping peaks, and the fit's own
+  withholding rule marks such fits with no new threshold. Nothing is regularized.
+- **Limits:** the conditional σ only: blind to the lineshape-parameter part of the
+  marginal and profile σ. Repeatability, not accuracy; raw amplitudes, not
+  normalized profiles. Peaks of one cluster have correlated contrasts, so the
+  effective sample is smaller than the count.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from peakfit.engine.algorithms.covariance_factors import profile_standard_errors
+from peakfit.engine.algorithms.covariance_factors import (
+    profile_correlations,
+    profile_standard_errors,
+)
 from peakfit.engine.domain.param_id import ParameterId
 from peakfit.engine.domain.spectrum import SpectralParameters
 from peakfit.engine.scientific.profiles import CEST_REFERENCE_HZ
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
+    from peakfit.engine.algorithms.covariance_factors import CovarianceFactors
     from peakfit.engine.scientific.final_outcome import FinalFitOutcome
+    from peakfit.shared.typing import FloatArray
 
 BASELINE_HZ = 400.0  # planes this far from the peak's own offset are baseline
 MIN_BASELINE_PLANES = 20
@@ -131,10 +170,209 @@ def run_baseline_scatter(
     return results
 
 
+# The pooled RMS warns of a small sample when its independent-case SE, 1/√(2n), exceeds
+# RMS_STANDARD_ERROR_LIMIT: below MIN_DUPLICATE_CONTRASTS = 1/(2·0.1²) = 50 contrasts.
+RMS_STANDARD_ERROR_LIMIT = 0.1
+MIN_DUPLICATE_CONTRASTS = round(0.5 / RMS_STANDARD_ERROR_LIMIT**2)
+
+
+class ExclusionReason(Enum):
+    """Why a peak with duplicate planes is left out of the duplicate check.
+
+    Listed in their fixed precedence: a peak takes the first reason that applies.
+    ``LINESHAPE_COVARIANCE_WITHHELD`` is a fit-quality safeguard: q does not need the
+    lineshape factors, but a fit whose lineshape parameters the fit's own rule cannot
+    identify, such as overlapping peaks it separates with difficulty, is not trusted.
+    """
+
+    UNUSABLE_CLUSTER = "unusable cluster"
+    NON_FINITE_AMPLITUDE = "non-finite amplitude"
+    NO_CONDITIONAL_VARIANCE = "conditional variance withheld or not positive"
+    LINESHAPE_COVARIANCE_WITHHELD = "lineshape covariance withheld"
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedCluster:
+    """One cluster as recorded: the input of the duplicate check.
+
+    ``plane_values`` (S), ``amplitudes`` (L × S), ``factors`` and ``flagged``, the
+    correlated-profile flag of each of the L peaks. ``amplitudes`` and ``factors`` are
+    None for an unusable cluster. The check reads the conditional covariance of the
+    factors and whether their lineshape factors are withheld; the flags come from
+    ``profile_correlations`` of the factors and amplitudes.
+    """
+
+    peak_names: tuple[str, ...]
+    plane_values: FloatArray
+    amplitudes: FloatArray | None
+    factors: CovarianceFactors | None
+    flagged: tuple[bool, ...]
+
+    @classmethod
+    def fitted(
+        cls,
+        peak_names: tuple[str, ...],
+        plane_values: FloatArray,
+        amplitudes: FloatArray,
+        factors: CovarianceFactors,
+    ) -> RecordedCluster:
+        """A fitted cluster, its peaks flagged as ``profile_correlations`` judges them."""
+        flags = tuple(flag.flagged for flag in profile_correlations(factors, amplitudes))
+        return cls(peak_names, plane_values, amplitudes, factors, flags)
+
+
+@dataclass(frozen=True, slots=True)
+class DuplicatePool:
+    """The pooled standardized contrasts of one group of peaks."""
+
+    q: float = 0.0  # Σq
+    contrasts: int = 0  # Σk
+    peaks: int = 0
+    clusters: int = 0
+
+    @property
+    def rms(self) -> float:
+        """√(Σq / Σk): 1 when the conditional σ is calibrated; NaN if empty."""
+        return float(np.sqrt(self.q / self.contrasts)) if self.contrasts else float("nan")
+
+    @property
+    def standard_error_bound(self) -> float:
+        """1/√(2n), the independent-case SE: a lower bound on the RMS's sampling SE."""
+        return float(1.0 / np.sqrt(2.0 * self.contrasts)) if self.contrasts else float("inf")
+
+    @property
+    def low_sample(self) -> bool:
+        """Whether that lower bound exceeds ``RMS_STANDARD_ERROR_LIMIT``.
+
+        That is, fewer than ``MIN_DUPLICATE_CONTRASTS`` contrasts.
+        """
+        return 0 < self.contrasts < MIN_DUPLICATE_CONTRASTS
+
+
+@dataclass(frozen=True, slots=True)
+class DuplicateCheck:
+    """The duplicate check of a run: two pools and the peaks left out, with reasons."""
+
+    unflagged: DuplicatePool = field(default_factory=DuplicatePool)
+    flagged: DuplicatePool = field(default_factory=DuplicatePool)
+    excluded: dict[str, ExclusionReason] = field(default_factory=dict)
+
+
+def duplicate_groups(plane_values: FloatArray) -> tuple[tuple[int, ...], ...]:
+    """The planes whose values are exactly equal, as index groups of two or more.
+
+    Groups are in the order of their first plane, each in plane order.
+    """
+    groups: dict[float, list[int]] = {}
+    for index, value in enumerate(np.asarray(plane_values, dtype=float).tolist()):
+        groups.setdefault(value, []).append(index)
+    return tuple(tuple(group) for group in groups.values() if len(group) > 1)
+
+
+def orthonormal_contrasts(groups: Sequence[Sequence[int]], n_planes: int) -> FloatArray:
+    """Orthonormal within-group (Helmert) contrasts, stacked: Σ_g (m_g − 1) × S.
+
+    ``groups`` are plane-index groups such as ``duplicate_groups`` returns; each row is
+    zero outside its group and blind to equal copies.
+    """
+    rows = []
+    for group in groups:
+        for j in range(1, len(group)):
+            row = np.zeros(n_planes)
+            row[list(group[:j])] = 1.0
+            row[group[j]] = -float(j)
+            rows.append(row / np.sqrt(j * (j + 1.0)))
+    return np.array(rows).reshape(-1, n_planes)
+
+
+@dataclass(slots=True)
+class _Tally:
+    q: float = 0.0
+    contrasts: int = 0
+    peaks: int = 0
+    clusters: set[int] = field(default_factory=set)
+
+    def pool(self) -> DuplicatePool:
+        return DuplicatePool(self.q, self.contrasts, self.peaks, len(self.clusters))
+
+
+def duplicate_plane_check(clusters: Sequence[RecordedCluster]) -> DuplicateCheck:
+    """Pool the standardized contrasts between duplicate planes over every peak.
+
+    Each cluster's duplicates are the groups of its exactly equal plane values; a
+    cluster without them contributes nothing and excludes nothing. A peak's standardized
+    norm is q = |Ca|²/c for its contrasts Ca and its conditional variance c. Nothing is
+    regularized: a peak that cannot be standardized, or whose cluster's lineshape
+    covariance factors are withheld, is left out with the first reason of
+    ``ExclusionReason`` that applies.
+    """
+    tallies = {False: _Tally(), True: _Tally()}
+    excluded: dict[str, ExclusionReason] = {}
+    for index, cluster in enumerate(clusters):
+        groups = duplicate_groups(cluster.plane_values)
+        if not groups:
+            continue
+        if cluster.amplitudes is None or cluster.factors is None:
+            excluded.update(dict.fromkeys(cluster.peak_names, ExclusionReason.UNUSABLE_CLUSTER))
+            continue
+        contrasts = orthonormal_contrasts(groups, cluster.amplitudes.shape[1])
+        variances = np.diag(np.asarray(cluster.factors.conditional, dtype=float))
+        for peak, name in enumerate(cluster.peak_names):
+            amplitudes = cluster.amplitudes[peak]
+            if not np.all(np.isfinite(amplitudes)):
+                excluded[name] = ExclusionReason.NON_FINITE_AMPLITUDE
+                continue
+            variance = float(variances[peak])
+            if not (np.isfinite(variance) and variance > 0.0):
+                excluded[name] = ExclusionReason.NO_CONDITIONAL_VARIANCE
+                continue
+            if not cluster.factors.available:
+                excluded[name] = ExclusionReason.LINESHAPE_COVARIANCE_WITHHELD
+                continue
+            tally = tallies[bool(cluster.flagged[peak])]
+            tally.q += float(np.sum((contrasts @ amplitudes) ** 2)) / variance
+            tally.contrasts += contrasts.shape[0]
+            tally.peaks += 1
+            tally.clusters.add(index)
+    return DuplicateCheck(tallies[False].pool(), tallies[True].pool(), excluded)
+
+
+def run_duplicate_check(outcome: FinalFitOutcome, context: Mapping[str, Any]) -> DuplicateCheck:
+    """The duplicate check of a published run, with its correlated-profile flags.
+
+    The plane values, amplitudes and covariance factors are those recorded: nothing is
+    refitted.
+    """
+    plane_values = np.asarray(context["plane_values"], dtype=float)
+    clusters = []
+    for cluster in outcome.clusters:
+        names = tuple(cluster.peak_names)
+        evaluation = cluster.analytical_evaluation
+        if not cluster.usable or evaluation is None:
+            clusters.append(RecordedCluster(names, plane_values, None, None, (False,) * len(names)))
+            continue
+        clusters.append(
+            RecordedCluster.fitted(
+                names, plane_values, evaluation.amplitudes, evaluation.covariance_factors
+            )
+        )
+    return duplicate_plane_check(clusters)
+
+
 __all__ = [
     "BASELINE_HZ",
+    "MIN_DUPLICATE_CONTRASTS",
+    "RMS_STANDARD_ERROR_LIMIT",
     "BaselineScatter",
+    "DuplicateCheck",
+    "DuplicatePool",
+    "ExclusionReason",
+    "RecordedCluster",
     "baseline_scatter",
+    "duplicate_groups",
+    "duplicate_plane_check",
+    "orthonormal_contrasts",
     "robust_sd",
     "run_baseline_scatter",
+    "run_duplicate_check",
 ]

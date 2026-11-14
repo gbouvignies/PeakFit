@@ -1289,3 +1289,75 @@ Short records of non‑obvious design choices and trade‑offs.
 - **GUI.** One mark (↔) and one wording on the profile, the tiles and the cluster
   page: a limit of independent per-plane errors, never a verdict on the data, in
   caption style rather than as a warning.
+
+## 2026-11-14: Processing guide for quantitative series (#173)
+- **One user page.** [Processing quantitative series](processing-quantitative-series.md)
+  states the validated workflow (uniform sampling; NMRPipe `SP` or no window, zero
+  fill, FT with the digital-filter delay corrected at FT time) and, for LP,
+  plane-by-plane NUS, joint pseudo-3D reconstruction and other processing, the
+  evidence on relative-intensity bias, σ calibration and correlation between planes,
+  each with its tested conditions or marked untested.
+- **Evidence, not rules.** The validated workflow is the case PeakFit can check, not
+  the only acceptable processing. No status taxonomy, no new glossary terms, and no
+  processing declarations, restrictions or error corrections: documentation and the
+  existing warnings only.
+- **One home.** The output reference, the lineshape reference and the correlated-noise
+  specification (§2.5, §9) link to the page instead of repeating its guidance; the
+  measurements stay in the specifications that record them.
+- **Literature.** East, Delaglio and Lisi (2021) and Stetz and Wand (2016) are cited
+  with their conditions. The East et al. ~10% systematic error is an overestimate of
+  the decay time α (T2, similarly T1), not of the rate, as the published article
+  states. Stetz and Wand developed their reference-plane check with hmsIST and also
+  compared IRLS and NESTA reconstructions. Spec #172 and ticket #173 were corrected
+  to match on 2026-11-14.
+
+## 2026-11-14: Duplicate-plane check and its validation (#174, #175)
+- **Second method of `peakfit replicates`.** Planes with exactly equal plane values
+  are copies; each peak's orthonormal contrasts between them are standardized by its
+  conditional variance, q = |Ca|²/c, and pooled into an RMS of standardized
+  contrasts for unflagged and flagged peaks
+  ([profile-uncertainty §5.3](profile-uncertainty.md#53-duplicate-planes)). The CEST
+  baseline method stays, with `--baseline`. A diagnostic only: no error changes.
+- **Statistic changed after review: the conditional variance, not CΣCᵀ.** The first
+  implementation whitened the contrasts jointly by CΣCᵀ, Σ reconstructed from the
+  factors at the fitted amplitudes. The lineshape terms of Σ are linear in the true
+  amplitudes of each plane, which the contrasts annihilate for true copies: the
+  true contrast covariance is cI. At the fitted amplitudes those terms return
+  along the observed contrast and bias q low by about β(k + 2), the resolved
+  shortfall of the first record. The check therefore tests the conditional σ only
+  and is blind to the lineshape-parameter part of the marginal and profile σ; the
+  CLI says so. The eigendecomposition, the weak-direction and
+  not-positive-definite exclusions and the dependence on the lineshape factors are
+  gone. Exclusions, in this fixed precedence: an unusable cluster, a non-finite
+  amplitude, a conditional variance withheld (as the fit withholds it where
+  cond(Φ) ≥ 1/√ε) or not positive, a lineshape covariance withheld. Nothing is
+  regularized.
+- **Peaks whose lineshape covariance is withheld are excluded** (maintainer's
+  decision). A conservative fit-quality safeguard, not a mathematical requirement
+  of q, which uses only the finite conditional variance: a finite c alone does not
+  guarantee a trustworthy fit, particularly where the fit has difficulty separating
+  overlapping peaks. A coincident pair that the fit separates has a finite c but
+  contrasts about 50% above it; with its lineshape factors withheld, its flag is
+  not assessed and it joined the unflagged pool, in 797 of 40,000 T8 realizations.
+  The rule reuses the fit's existing withholding criterion, with no new threshold,
+  under its own reason, "lineshape covariance withheld". Being flagged excludes
+  nothing: both pools stay. In T8 it changes only the exclusions case (unflagged
+  pool 1.001 → 0.994, +0.3 → −1.2 SE) and excludes none of the near-coalescent
+  pair, still recorded at q/k 1.059. T8 records what it hides: the excluded fits'
+  pooled q/k, 1.51. Pair fits with identified lineshape parameters stay pooled
+  and are not calibrated either (85 unflagged realizations, q/k 1.47).
+- **Validation T8** ([§8.2](profile-uncertainty.md#82-t8-the-duplicate-plane-check)):
+  synthetic duplicates through the exact processing operators and the engine fit;
+  mean q/k within ±3 SE of 1 over realizations, SE from the realizations. Passed in
+  every gated case. Unmodelled correlation between copies (±0.3) is recorded as an
+  illustration, not gated.
+- **Confirmation at 40,000 realizations.** The first 4,000-realization record left
+  `sp2`, isolated, two copies at −2.97 SE. A protocol fixed before the rerun (same
+  seed, 10× the realizations, unchanged gate, block and replication diagnostics, a
+  decision rule) classed it as sampling variability. Re-applied unchanged after the
+  statistic change: −2.2 SE on all 40,000, −1.3 SE on the 36,000 new ones, blocks
+  consistent (p = 0.02). The `sp2` shortfall of the first statistic, resolved by
+  T8 (q/k 0.995 ± 0.0013), is gone: 1.000 ± 0.0013 now. The near-coalescent pair, not
+  gated, now shows its departure from the first order, q/k 1.059 ± 0.005.
+- **Remaining gap.** No real dataset with duplicates has been checked; one is to be
+  checked before release if it becomes available.
