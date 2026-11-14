@@ -1393,3 +1393,24 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Shown, not hidden.** The failure section of the analysis page shows the path,
   and **Copy details** includes it. If the file cannot be created, PeakFit starts
   anyway and logs to the terminal only.
+
+## 2026-11-14: Adaptive Profiles tiles (#191)
+- The Profiles grid takes the largest column count whose tiles are at least
+  `TILE_MIN_WIDTH` = 210 px wide; tiles stretch to fill the width up to
+  `TILE_MAX_WIDTH` = 320 px; height is 0.72 × width, at least 156 px. Further width
+  adds a column. Replaces a 240 px preferred width, unbounded stretch and fixed
+  184 px height, which gave two columns (about 7 tiles per screen) at 1280×800.
+- Reasoning for the provisional values: at 1280×800 the Profiles viewport measured
+  654 px wide (offscreen, default panels), so three columns need a minimum of at
+  most 217 px. At 210 px the plot is about 190 px wide, about 3 px per plane of a
+  60-plane CEST profile; the plot area keeps about 90 px of height under header and
+  legend. Synthetic short series (`cpmg_like_dataset`, 20 planes with an outlier;
+  `decay_dataset`, 10 planes) were drawn at 210, 260 and 320 px: the outlier and
+  both members stay distinguishable at 210 px.
+- At 210 px a multi-member header cannot hold the name and all measures, so the
+  header keeps the cluster's name whole and elides the measures (full text in the
+  tooltip).
+- Pending: visual acceptance on the bundled CEST tiles and of the view at
+  1280×800, 1512×982, 1920×1080 and 2560×1440 with DPR, both appearances, using the
+  validation tool of #179; the constants may change with it.
+- PDF export keeps A4 landscape, twelve tiles per page.
