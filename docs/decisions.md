@@ -1305,8 +1305,11 @@ Short records of non‑obvious design choices and trade‑offs.
   specification (§2.5, §9) link to the page instead of repeating its guidance; the
   measurements stay in the specifications that record them.
 - **Literature.** East, Delaglio and Lisi (2021) and Stetz and Wand (2016) are cited
-  with their conditions. The East et al. ~10% systematic error is in the decay time
-  (T2, similarly T1), as the published article states.
+  with their conditions. The East et al. ~10% systematic error is an overestimate of
+  the decay time α (T2, similarly T1), not of the rate, as the published article
+  states. Stetz and Wand developed their reference-plane check with hmsIST and also
+  compared IRLS and NESTA reconstructions. Spec #172 and ticket #173 were corrected
+  to match on 2026-11-14.
 
 ## 2026-11-14: Duplicate-plane check and its validation (#174, #175)
 - **Second method of `peakfit replicates`.** Planes with exactly equal plane values
@@ -1325,5 +1328,12 @@ Short records of non‑obvious design choices and trade‑offs.
   mean q/k within ±3 SE of 1 over realizations, SE from the realizations. Passed in
   every gated case. Unmodelled correlation between copies (±0.3) is recorded as an
   illustration, not gated.
+- **Confirmation at 40,000 realizations.** The first 4,000-realization record left
+  `sp2`, isolated, two copies at −2.97 SE. A protocol fixed before the rerun (same
+  seed, 10× the realizations, unchanged gate, block and replication diagnostics, a
+  decision rule) classed it as sampling variability: −2.5 SE on all 40,000, −1.7 SE
+  on the 36,000 new ones. The larger run also resolves a small conservative
+  shortfall across the `sp2` cases, q/k 0.995 ± 0.0013 (stated contrast σ about
+  0.25% too large); recorded, not explained, and not material for the diagnostic.
 - **Remaining gap.** No real dataset with duplicates has been checked; one is to be
   checked before release if it becomes available.

@@ -705,7 +705,7 @@ started at the truth; first-order thresholds from one family of profiles each.
 
 Tool: `tools/profile_uncertainty/duplicate_check.py`. Record:
 [`duplicate_check.json`](validation/profile-uncertainty/duplicate_check.json)
-(4,000 realizations per case, seed 20261114). Fast cases, with amplitudes drawn
+(40,000 realizations per case, seed 20261114). Fast cases, with amplitudes drawn
 from the stated covariance, run in `tests/test_duplicate_planes.py`.
 
 **Set-up.** As T3 (§8.1): 2D clusters with the `sp1`, `sp2` or `no_apod`
@@ -739,48 +739,62 @@ or changing the criterion:
   miscalibration if the replication deviates beyond 3 SE in the same direction as
   the first record.
 
-**Gate: passed.** Every gated case:
+**Gate: passed** on all 40,000 realizations of every gated case. The
+replication is blocks 2–10 alone (36,000 realizations); the block χ² has 9 degrees
+of freedom.
 
-| Case | Pool | Mean q/k | SE | Deviation | Contrast variances, worst |
-|---|---|---|---|---|---|
-| `sp2`, isolated, two copies | all | 0.955 | 0.015 | −3.0 SE | 2.4 SE |
-| `sp2`, isolated, three copies | all | 0.997 | 0.011 | −0.3 SE | 2.2 SE |
-| `sp1`, isolated, two copies | all | 0.995 | 0.016 | −0.3 SE | 0.6 SE |
-| `no_apod`, isolated, two copies | all | 1.003 | 0.016 | +0.2 SE | 1.0 SE |
-| `sp2`, pair 3 points, two copies | all | 1.004 | 0.011 | +0.4 SE | 1.4 SE |
-| `sp2`, pair 3 points, three copies | all | 0.991 | 0.008 | −1.2 SE | 1.1 SE |
-| `sp2`, pair 3 points, shared phase, three copies | all | 0.994 | 0.008 | −0.7 SE | 1.6 SE |
-| `sp2`, pair 2 points, two copies (flagged in every realization) | flagged | 1.017 | 0.012 | +1.4 SE | 2.5 SE |
-| `sp2`, isolated peak with a coincident pair, two copies | unflagged | 1.013 | 0.016 | +0.8 SE | 0.8 SE |
+| Case | Pool | Mean q/k | SE | Deviation | Replication | Block χ² (p) | Contrast variances, worst |
+|---|---|---|---|---|---|---|---|
+| `sp2`, isolated, two copies | all | 0.988 | 0.005 | −2.5 SE | 0.991, −1.7 SE | 20.3 (0.02) | 2.3 SE |
+| `sp2`, isolated, three copies | all | 0.998 | 0.004 | −0.6 SE | 0.998, −0.5 SE | 4.4 (0.88) | 2.1 SE |
+| `sp1`, isolated, two copies | all | 1.005 | 0.005 | +1.0 SE | 1.006, +1.1 SE | 9.0 (0.44) | 2.0 SE |
+| `no_apod`, isolated, two copies | all | 1.002 | 0.005 | +0.4 SE | 1.002, +0.4 SE | 6.5 (0.68) | 1.4 SE |
+| `sp2`, pair 3 points, two copies | all | 0.997 | 0.004 | −0.9 SE | 0.996, −1.1 SE | 3.3 (0.95) | 1.5 SE |
+| `sp2`, pair 3 points, three copies | all | 0.994 | 0.003 | −2.3 SE | 0.995, −2.0 SE | 3.6 (0.94) | 1.8 SE |
+| `sp2`, pair 3 points, shared phase, three copies | all | 0.994 | 0.003 | −2.6 SE | 0.994, −2.5 SE | 10.0 (0.35) | 1.4 SE |
+| `sp2`, pair 2 points, two copies (flagged in every realization) | flagged | 1.001 | 0.004 | +0.2 SE | 0.999, −0.2 SE | 9.4 (0.40) | 1.4 SE |
+| `sp2`, isolated peak with a coincident pair, two copies | unflagged | 0.992 | 0.005 | −1.7 SE | 0.989, −2.1 SE | 8.7 (0.47) | 2.3 SE |
 
-- **The edge case.** `sp2`, isolated, two copies lies at −2.97 SE, inside the gate.
-  The same case at seeds 7 and 11 gives 1.013 (+0.8 SE) and 1.022 (+1.3 SE), and
-  the three-copy and other-lineshape isolated cases are within 0.3 SE: a sampling
-  fluctuation, not a bias.
-- **Exclusions,** end to end: the coincident pair's factors were withheld in 3,666
-  of 4,000 realizations; its contrast covariance was not positive definite in 36 and
-  had a direction weaker than √ε in 11. Each was listed with its reason, and the
-  pool of the remaining peaks stayed calibrated. The fourth reason, an unusable
+- **The edge case: sampling variability, by the protocol's rule.** `sp2`, isolated,
+  two copies passes on all 40,000 (−2.5 SE); its independent replication passes
+  (−1.7 SE); its blocks are consistent (p = 0.02 > 0.01). The first record is
+  block 1, at −3.0 SE; the other nine lie between −2.5 and +1.3 SE. The block χ² is
+  the largest of the gated cases and the margin over the rule is small.
+- **A small conservative shortfall in the `sp2` cases (post hoc, not part of the
+  protocol).** At this resolution, six of the seven `sp2` gated cases lie below 1.
+  Their inverse-variance weighted mean q/k is 0.995 ± 0.0013 (−4.0 SE); the `sp1`
+  and `no_apod` cases give 1.004 ± 0.004. The stated contrast covariance is then
+  about 0.5% larger than the observed one: the RMS is about 0.997 and the stated
+  contrast σ is about 0.25% too large, on the conservative side. It is small
+  against the sampling uncertainty of the RMS on a real dataset, at least
+  1/√(2n) for n contrasts (0.022 even at n = 1,000), and every case passes on its
+  own; but it is a resolved effect, not noise. Its mechanism was not established;
+  §8.1 found no shortfall of this size in T3's marginal and profile σ.
+- **Exclusions,** end to end: the coincident pair's factors were withheld in 36,804
+  of 40,000 realizations; its contrast covariance was not positive definite in 300
+  and had a direction weaker than √ε in 176. Each was listed with its reason, and the
+  pool of the remaining peaks passed the gate. The fourth reason, an unusable
   cluster, has no end-to-end case (the fits start at the truth and succeed): it is
   covered by the tests of `tests/test_duplicate_planes.py` only.
-- **The flagged pool** is calibrated too: the check uses each peak's full covariance
-  between planes, which the flag does not concern.
-- **Off-diagonal contrast covariances** agree with the stated ones to within 0.035
+- **The flagged pool** passes too: the check uses each peak's full covariance between
+  planes, which the flag does not concern.
+- **Off-diagonal contrast covariances** agree with the stated ones to within 0.014
   of the variances in every gated case.
 
 **Recorded, not gated.**
-- **Near-coalescent pair** (`sp2`, 1 point apart, flagged): mean q/k 1.000 ± 0.014,
-  worst contrast variance 3.2 SE. Unlike the marginal σ (§8.1), the contrasts
-  between copies stay described at first order here.
+- **Near-coalescent pair** (`sp2`, 1 point apart, flagged): mean q/k 1.001 ± 0.004
+  (+0.2 SE), but its worst contrast variance lies 5.9 SE (about 4%) from the stated
+  one. The pooled statistic stays calibrated while single contrasts depart from the
+  first order, as the marginal σ do in §8.1.
 - **Unmodelled correlation between planes:** the noise of each group's copies
   correlated with ρ, which the model omits. q/k is then about 1 − ρ:
 
 | Case | ρ | Mean q/k | RMS |
 |---|---|---|---|
-| `sp2`, isolated, two copies | +0.3 | 0.695 ± 0.011 | 0.834 |
-| `sp2`, isolated, two copies | −0.3 | 1.297 ± 0.021 | 1.139 |
-| `sp2`, pair 3 points, three copies | +0.3 | 0.698 ± 0.006 | 0.836 |
-| `sp2`, pair 3 points, three copies | −0.3 | 1.298 ± 0.010 | 1.140 |
+| `sp2`, isolated, two copies | +0.3 | 0.697 ± 0.004 | 0.835 |
+| `sp2`, isolated, two copies | −0.3 | 1.298 ± 0.007 | 1.139 |
+| `sp2`, pair 3 points, three copies | +0.3 | 0.698 ± 0.002 | 0.835 |
+| `sp2`, pair 3 points, three copies | −0.3 | 1.290 ± 0.003 | 1.136 |
 
   Positive correlation pushes the RMS below 1, negative above. This illustrates
   unmodelled covariance in general; it is not a model of joint pseudo-3D NUS
