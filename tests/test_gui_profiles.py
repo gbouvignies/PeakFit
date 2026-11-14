@@ -438,11 +438,21 @@ def test_tiles_stay_within_the_limits_at_every_width():
     for width in WIDTHS:
         columns, size = tile_grid(width)
         assert columns >= 1
-        assert TILE_MIN_WIDTH <= size.width() <= TILE_MAX_WIDTH, width
+        assert size.width() >= TILE_MIN_WIDTH, width
+        if columns > 1:
+            assert size.width() <= TILE_MAX_WIDTH, width
         assert size.height() >= TILE_MIN_HEIGHT
         assert size.height() == max(TILE_MIN_HEIGHT, round(size.width() * TILE_ASPECT))
         if width >= TILE_MIN_WIDTH:
             assert columns * size.width() <= width, width
+
+
+def test_a_single_column_fills_the_width():
+    # Between one maximum tile and two minimum tiles, one tile takes the whole width.
+    for width in range(TILE_MAX_WIDTH + 1, 2 * TILE_MIN_WIDTH):
+        columns, size = tile_grid(width)
+        assert (columns, size.width()) == (1, width), width
+    assert tile_grid(TILE_MIN_WIDTH - 50)[1].width() == TILE_MIN_WIDTH
 
 
 def test_width_beyond_the_maximum_adds_columns():

@@ -1475,6 +1475,8 @@ Short records of non‑obvious design choices and trade‑offs.
 - **Tile limits unchanged**: 210–320 px wide, 0.72 × width, at least 156 px. On
   screen tiles are 213–267 px; narrow CEST dips, multi-member clusters and the
   synthetic 20- and 10-plane series stay distinguishable at the minimum.
+  One exception from review: when only one column fits (321–419 px), its tile
+  fills the width instead of stopping at 320 px beside dead space.
 - Evidence, the matrix and what was not verified (native DPR 1, full-height large
   screens, Linux, compositor fractional scaling, a real large system font):
   [validation note](validation/gui-audit-followup.md). The acceptance tool gained

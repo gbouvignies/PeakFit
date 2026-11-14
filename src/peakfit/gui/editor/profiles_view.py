@@ -66,11 +66,14 @@ def tile_grid(width: int) -> tuple[int, QtCore.QSize]:
     """Column count and tile size for an available width in logical pixels.
 
     Columns are the largest count whose tiles meet the minimum width; tiles stretch to
-    fill the width up to the maximum, so further width adds a column instead. A width
-    narrower than one minimum tile still gets one minimum tile.
+    fill the width up to the maximum, so further width adds a column instead. A
+    single column fills the whole width, even past the maximum, rather than leave
+    dead space beside it; a width narrower than one minimum tile still gets one
+    minimum tile.
     """
     columns = max(1, width // TILE_MIN_WIDTH)
-    tile = min(TILE_MAX_WIDTH, max(TILE_MIN_WIDTH, width // columns))
+    widest = TILE_MAX_WIDTH if columns > 1 else max(TILE_MIN_WIDTH, width)
+    tile = min(widest, max(TILE_MIN_WIDTH, width // columns))
     return columns, QtCore.QSize(tile, max(TILE_MIN_HEIGHT, round(tile * TILE_ASPECT)))
 
 
