@@ -1,10 +1,10 @@
-"""The replicates command: check a CEST run's profile σ against its baseline planes."""
+"""The replicates command: check a run's uncertainties against its replicate planes."""
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path  # noqa: TC003 - needed at runtime for Typer
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 import numpy as np
 import typer
@@ -13,15 +13,39 @@ from peakfit.engine.scientific.profiles import CEST_REFERENCE_HZ
 from peakfit.engine.scientific.replicates import (
     BASELINE_HZ,
     BaselineScatter,
+    duplicate_groups,
     run_baseline_scatter,
+    run_duplicate_check,
 )
 from peakfit.io.scientific import read_results
 from peakfit.ui.branding import show_command_summary
 from peakfit.ui.console import Verbosity, console, display_path, set_verbosity
-from peakfit.ui.messages import info, show_error_with_details, success, warning
+from peakfit.ui.messages import bullet, info, show_error_with_details, success, warning
 from peakfit.ui.tables import create_table
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from peakfit.engine.scientific.final_outcome import FinalFitOutcome
+    from peakfit.engine.scientific.replicates import DuplicatePool
+
 _DEFAULT_REFERENCE = f"|offset| ≥ {CEST_REFERENCE_HZ / 1000:g} kHz"
+_DUPLICATES = "duplicate planes"
+_BASELINE = "CEST baseline planes"
+
+# What the duplicate check does not show (spec #172, "Stated limits").
+_DUPLICATE_LIMITS = (
+    "It measures repeatability, not accuracy.",
+    "It checks the uncertainty of contrasts between copies, not marginal σ.",
+    "It checks raw amplitudes, not normalized profiles.",
+    "Equal plane values do not prove independent, equivalent acquisitions.",
+    "It is not calibrated for copies reconstructed jointly.",
+    "No error is changed.",
+)
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}{'' if count == 1 else 's'}"
 
 
 def replicates_command(
@@ -29,41 +53,158 @@ def replicates_command(
         Path,
         typer.Argument(help="Results directory", exists=True, file_okay=False, resolve_path=True),
     ],
+    baseline: Annotated[
+        bool,
+        typer.Option(
+            "--baseline",
+            help="Use the CEST baseline method, even when the run has duplicate planes",
+        ),
+    ] = False,
     ref: Annotated[
         list[int] | None,
         typer.Option(
             "--ref",
             "-r",
-            help=f"Reference point indices, in offset order; omit for {_DEFAULT_REFERENCE}",
+            help=(
+                "Baseline method: reference point indices, in offset order; "
+                f"omit for {_DEFAULT_REFERENCE}"
+            ),
         ),
     ] = None,
     window: Annotated[
-        float,
+        float | None,
         typer.Option(
-            "--window", help="Planes closer than this to a peak's own offset (Hz) are left out"
+            "--window",
+            help=(
+                "Baseline method: planes closer than this to a peak's own offset (Hz) are "
+                f"left out [default: {BASELINE_HZ:g}]"
+            ),
         ),
-    ] = BASELINE_HZ,
+    ] = None,
     verbose: Annotated[
         bool,
-        typer.Option("--verbose", "-v", help="List every peak"),
+        typer.Option("--verbose", "-v", help="List every peak (baseline method)"),
     ] = False,
 ) -> None:
-    """Check a CEST run's profile σ against the scatter of its baseline planes.
+    """Check a run's uncertainties against its replicate planes.
 
-    Far from a peak's own offset, CEST planes are approximate replicates. The robust
-    scatter of their second differences across offsets is compared with the published
-    profile σ: observed / stated is 1 when the errors are calibrated. The run is read
-    from scientific.npz, never refitted. Plane values must be offsets in Hz from the
-    carrier of the first spectral axis.
+    Two methods read the run from scientific.npz, never refit it and change no error.
 
-    This measures repeatability, not accuracy: an error common to every baseline plane,
-    such as a lineshape misfit, is invisible. Drift and minor-state dips can only
-    raise the observed scatter.
+    Duplicate planes, used when the run has planes with exactly equal plane values: the
+    contrasts between copies are standardized by the covariance the stored covariance
+    factors predict for them. The pooled RMS is 1 when the uncertainty of contrasts is
+    calibrated, reported apart for peaks with the correlated-profile flag.
+
+    CEST baseline planes, used otherwise or with --baseline: far from a peak's own
+    offset, CEST planes are approximate replicates. The robust scatter of their second
+    differences across offsets is compared with the published profile σ: observed /
+    stated is 1 when the errors are calibrated. Plane values must be offsets in Hz from
+    the carrier of the first spectral axis.
+
+    Both measure repeatability, not accuracy: an error common to every copy, such as a
+    lineshape misfit, is invisible.
 
     Examples:
         peakfit replicates Fits/20240101_120000/
+        peakfit replicates Fits/20240101_120000/ --baseline
     """
     set_verbosity(Verbosity.VERBOSE if verbose else Verbosity.NORMAL)
+    try:
+        outcome, _samples, context = read_results(results, "the check reads")
+        if not context:
+            archive = results / "scientific.npz"
+            raise ValueError(f"{archive} records no plane values or spectral axes.")
+    except Exception as e:
+        show_error_with_details("checking replicates", e)
+        raise typer.Exit(1) from e
+
+    groups = duplicate_groups(np.asarray(context["plane_values"], dtype=float))
+    if groups and not baseline:
+        if ref is not None or window is not None:
+            raise typer.BadParameter(
+                "--ref and --window belong to the CEST baseline method; "
+                "add --baseline to run it on a run with duplicate planes."
+            )
+        _check_duplicates(results, outcome, context, groups)
+    else:
+        _check_baseline(
+            results,
+            outcome,
+            context,
+            ref=ref,
+            window=BASELINE_HZ if window is None else window,
+            verbose=verbose,
+            duplicates=bool(groups),
+        )
+
+
+def _check_duplicates(
+    results: Path,
+    outcome: FinalFitOutcome,
+    context: Mapping[str, Any],
+    groups: tuple[tuple[int, ...], ...],
+) -> None:
+    show_command_summary(
+        "Check Uncertainties Against Duplicate Planes",
+        [("Inputs", {"Results": display_path(results), "Method": _DUPLICATES})],
+    )
+    contrasts = sum(len(group) - 1 for group in groups)
+    info(
+        f"{_plural(len(groups), 'group')} of equal plane values, "
+        f"{_plural(contrasts, 'contrast')} per peak"
+    )
+    try:
+        check = run_duplicate_check(outcome, context)
+    except Exception as e:
+        show_error_with_details("checking duplicate planes", e)
+        raise typer.Exit(1) from e
+
+    by_reason: defaultdict[str, list[str]] = defaultdict(list)
+    for name, reason in check.excluded.items():
+        by_reason[reason].append(name)
+    for reason, names in sorted(by_reason.items()):
+        warning(f"Excluded {_plural(len(names), 'peak')}, {reason}: {', '.join(sorted(names))}")
+    if not check.unflagged.peaks and not check.flagged.peaks:
+        warning("No peak has duplicate planes it can be checked on.")
+        raise typer.Exit(1)
+    _report_pool("Peaks without the correlated-profile flag", check.unflagged)
+    _report_pool("Peaks with the correlated-profile flag", check.flagged)
+    info(
+        "Contrasts from peaks of one cluster are correlated: the effective sample is "
+        "smaller than the count of contrasts."
+    )
+    info("Limits of this check:")
+    for limit in _DUPLICATE_LIMITS:
+        bullet(limit)
+
+
+def _report_pool(label: str, pool: DuplicatePool) -> None:
+    if not pool.peaks:
+        info(f"{label}: none")
+        return
+    success(
+        f"{label}: RMS of standardized contrasts {pool.rms:.2f} "
+        f"({_plural(pool.contrasts, 'contrast')}, {_plural(pool.peaks, 'peak')}, "
+        f"{_plural(pool.clusters, 'cluster')})"
+    )
+    if pool.low_sample:
+        warning(
+            "Few contrasts: the sampling uncertainty of the RMS is at least "
+            f"1/√(2n) = {pool.standard_error_bound:.2f}, a lower bound",
+            indent=1,
+        )
+
+
+def _check_baseline(
+    results: Path,
+    outcome: FinalFitOutcome,
+    context: Mapping[str, Any],
+    *,
+    ref: list[int] | None,
+    window: float,
+    verbose: bool,
+    duplicates: bool,
+) -> None:
     show_command_summary(
         "Check Profile σ Against CEST Baseline Replicates",
         [
@@ -71,6 +212,7 @@ def replicates_command(
                 "Inputs",
                 {
                     "Results": display_path(results),
+                    "Method": _BASELINE,
                     "Reference points": ", ".join(str(i) for i in ref)
                     if ref
                     else _DEFAULT_REFERENCE,
@@ -79,11 +221,9 @@ def replicates_command(
             )
         ],
     )
+    if not duplicates:
+        info("No duplicate planes: the run has no repeated plane values.")
     try:
-        outcome, _samples, context = read_results(results, "the check reads")
-        if not context:
-            archive = results / "scientific.npz"
-            raise ValueError(f"{archive} records no plane values or spectral axes.")
         peaks = run_baseline_scatter(outcome, context, reference=ref, window=window)
     except Exception as e:
         show_error_with_details("checking baseline replicates", e)
