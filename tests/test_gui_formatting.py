@@ -53,3 +53,17 @@ def test_scaled_values_never_use_e_notation():
     assert formatting.scaled(-2.5e-5) == "−2.5 ×10⁻⁵"
     assert formatting.scaled(123.456) == "123.5"
     assert formatting.scaled(math.nan) == "–"
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [("2500", 2500.0), ("1.5e5", 1.5e5), ("6.035 ×10⁴", 60350.0), ("−2.5 ×10⁻³", -2.5e-3)],
+)
+def test_typed_numbers_read_plain_scientific_and_scaled(text, value):
+    assert formatting.parse_scaled(text) == pytest.approx(value, rel=1e-12)
+
+
+@pytest.mark.parametrize("text", ["1,5", "", "×10⁴", "abc"])
+def test_other_text_is_not_a_number(text):
+    with pytest.raises(ValueError, match="could not convert"):
+        formatting.parse_scaled(text)

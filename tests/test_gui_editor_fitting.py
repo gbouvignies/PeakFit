@@ -2127,6 +2127,82 @@ def test_display_settings_apply_in_focus_without_touching_results(
     assert c.box.viewRange() == view
 
 
+def test_toolbar_names_slices_and_what_display_holds(workspace, scientific):
+    w = workspace
+    pin = w.pin_button
+    # The glossary's word: native slices, not traces.
+    assert pin.toolTip() == "Pin slices at the sampled position (Space)"
+    assert pin.accessibleName() == "Pin slices at the sampled position"
+    w.canvas.set_pinned(True)
+    assert pin.toolTip() == "Slices pinned · click to follow the pointer (Space)"
+    assert pin.accessibleName() == "Slices pinned · click to follow the pointer"
+    w.canvas.set_pinned(False)
+    assert pin.accessibleName() == "Pin slices at the sampled position"
+    tools = w.findChildren(QtWidgets.QToolButton)
+    assert not any("trace" in t.toolTip().lower() for t in tools)
+    display = next(t for t in tools if t.toolTip().startswith("Display"))
+    assert display.toolTip() == "Display: contours, labels, residual levels, highlights"
+    # The Profiles toggle names its state, not the one it had before the fit.
+    profiles = w.profiles_button
+    assert profiles.accessibleName() == "Profiles: available after a fit"
+    publish(w, scientific[-1])
+    assert profiles.isEnabled()
+    assert profiles.accessibleName() == "Profiles: every cluster's amplitude profiles"
+
+
+def test_cluster_list_headers_leave_room_for_the_sort_indicator(workspace, scientific):
+    w = workspace
+    publish(w, scientific[-1])
+    tree = w.navigator.tree
+    header = tree.header()
+    header.setSortIndicator(3, QtCore.Qt.SortOrder.AscendingOrder)
+    style = header.style()
+    room = style.pixelMetric(QtWidgets.QStyle.PixelMetric.PM_HeaderMarkSize) + 3 * (
+        style.pixelMetric(QtWidgets.QStyle.PixelMetric.PM_HeaderMargin)
+    )
+    metrics = QtGui.QFontMetrics(header.font())
+    for column in (2, 3, 4, 5):
+        label = tree.headerItem().text(column)
+        assert tree.columnWidth(column) >= metrics.horizontalAdvance(label) + room, label
+
+
+@pytest.fixture
+def comma_locale():
+    previous = QtCore.QLocale()
+    QtCore.QLocale.setDefault(QtCore.QLocale(QtCore.QLocale.Language.French))
+    yield
+    QtCore.QLocale.setDefault(previous)
+
+
+@pytest.mark.usefixtures("comma_locale")
+@pytest.mark.parametrize(("typed", "expected"), [("2500", 2500.0), ("1.5e5", 1.5e5)])
+def test_display_dialog_uses_one_decimal_convention_and_scaled_intensities(
+    workspace, monkeypatch, typed, expected
+):
+    w, c = workspace, workspace.canvas
+    c.contour_threshold = 60349.7535
+    shown = {}
+
+    def accept(dialog):
+        for field in dialog.findChildren(QtWidgets.QAbstractSpinBox):
+            shown[field.accessibleName() or field.text()] = field.text()
+            if field.accessibleName() == "First contour":
+                field.lineEdit().selectAll()
+                QtTest.QTest.keyClicks(field.lineEdit(), typed)
+                field.interpretText()
+        return QtWidgets.QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(QtWidgets.QDialog, "exec", accept)
+    w.display_dialog()
+    # One decimal point in every field, whatever the locale.
+    assert not [text for text in shown.values() if "," in text], shown
+    assert shown["Level factor"] == "1.60"
+    # The first contour reads through the shared ×10ⁿ formatter.
+    assert shown["First contour"] == "6.035 ×10⁴"
+    # Entry still accepts plain and scientific notation.
+    assert c.contour_threshold == expected
+
+
 def test_escape_leaves_focus_from_any_column_but_discards_a_draft_first(workspace, scientific):
     w = workspace
     result = scientific[-1]

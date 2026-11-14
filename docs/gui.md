@@ -51,11 +51,13 @@ be canceled while its private file read finishes.
 The **row slice** above the 2D plot and the **column slice** to its right are native
 row/column cross-sections: lines through the native samples, with no markers and
 no values between samples. Each shares its frequency axis exactly with the 2D plot.
-Move over the plot to preview them. The **Pin traces** tool, Space on the canvas, or
+Move over the plot to preview them. The **Pin slices** tool, Space on the canvas, or
 a click on blank spectrum freezes the sample. Selecting a peak pins once; later blank clicks
 and arrow-key sample steps retain selection. Resume preview without losing the
 selected peak or its coordinate draft. Choosing a peak in the Peaks list, a cluster
-row, a change summary or warning navigation centres it at the current zoom; a click
+row, a change summary or warning navigation centres it at the current zoom within
+the data: the view never extends past the spectrum's extent, and at full spectrum
+it does not move; a click
 on the spectrum or a member link on a cluster page leaves the view where it is, and
 cluster focus keeps its frame. Plane controls preserve acquisition order,
 including repeated or unordered plane values. Missing values are labeled honestly;
@@ -407,9 +409,12 @@ the flagged members, or that the correlation was not assessed). The header gives
 |r|max and |ρ|. A member whose amplitude is not identifiable or not established is
 not drawn, and the tile says so. The plot frames the same range as the inspector's
 profile (a distant reference plane is left out) and a dashed line marks the current
-plane. Choosing a tile selects its cluster, as a cluster row does; double-click or
+plane. Opening Profiles marks the selected peak's tile and keeps the selection;
+with nothing selected, no tile is chosen. Clicking a tile or moving to one with the
+arrow keys selects its cluster, as a cluster row does; double-click or
 Enter opens it in focus on the spectrum. Comparison and canvas tools step aside
-while Profiles shows; the plane strip, selection and inspector stay. Tiles show
+while Profiles shows; the plane strip, selection and inspector stay, and returning
+to the spectrum keeps the selection. Tiles show
 no error bars: the inspector's profile carries them. The quantity chip over the tiles
 is the inspector's: raw amplitudes or ratios to the chosen reference planes, one
 choice for the session, made in either place. In ratios a dotted line marks 1; a
@@ -557,8 +562,11 @@ their existing close protection. Exporting an outdated run never marks different
 working peaks as preserved. Failed or canceled exports leave the state unchanged.
 MCMC and full cluster refinement remain out of scope.
 
-The **Display** tool changes signed contour threshold, spacing/count, labels and
-stroke weight. Contours are graded from light low levels to strong high levels;
+The **Display** tool holds contours (signed first contour, level factor, levels per
+sign, stroke weight), peak labels, residual levels (first residual contour and the
+unexplained-signal threshold) and the review highlights. Every field uses a decimal
+point whatever the system locale; the first contour reads in the shared ×10ⁿ form
+and accepts plain or scientific entry (2500, 1.5e5). Contours are graded from light low levels to strong high levels;
 measured data is blue (negative plum, dashed), the model amber (negative dotted)
 and the residual vermilion/teal, as named in the in-plot legend. Peak markers
 keep a plot-coloured halo so they stay visible over contours; the selected and
