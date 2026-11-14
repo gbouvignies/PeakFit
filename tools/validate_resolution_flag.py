@@ -29,8 +29,6 @@ the positions against the truth, and the candidate measures:
 
 # ruff: noqa: T201, PLR2004
 
-from __future__ import annotations
-
 import argparse
 import gzip
 import json

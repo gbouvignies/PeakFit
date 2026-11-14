@@ -23,8 +23,6 @@ Subclasses only need to define:
 - `kernel` / `kernel_with_derivs`: The mathematical kernel function
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import numpy as np

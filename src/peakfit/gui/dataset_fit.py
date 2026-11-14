@@ -1,7 +1,5 @@
 """Whole-dataset execution using the existing pipeline and completed-fit contracts."""
 
-from __future__ import annotations
-
 import warnings
 from dataclasses import dataclass
 from datetime import UTC, datetime

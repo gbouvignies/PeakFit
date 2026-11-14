@@ -2,8 +2,6 @@
 
 # Fixed numerical table layout and explicit experiment pass numbers.
 # ruff: noqa: PLR2004
-from __future__ import annotations
-
 import argparse
 import gzip
 import json

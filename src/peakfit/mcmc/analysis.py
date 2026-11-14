@@ -1,7 +1,5 @@
 """Post-fit MCMC uncertainty analysis of a fit's results directory."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
