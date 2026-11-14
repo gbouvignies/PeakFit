@@ -51,7 +51,7 @@ be canceled while its private file read finishes.
 The **row slice** above the 2D plot and the **column slice** to its right are native
 row/column cross-sections: lines through the native samples, with no markers and
 no values between samples. Each shares its frequency axis exactly with the 2D plot.
-Move over the plot to preview them. The **Pin traces** tool, Space on the canvas, or
+Move over the plot to preview them. The **Pin slices** tool, Space on the canvas, or
 a click on blank spectrum freezes the sample. Selecting a peak pins once; later blank clicks
 and arrow-key sample steps retain selection. Resume preview without losing the
 selected peak or its coordinate draft. Choosing a peak in the Peaks list, a cluster
@@ -561,8 +561,11 @@ their existing close protection. Exporting an outdated run never marks different
 working peaks as preserved. Failed or canceled exports leave the state unchanged.
 MCMC and full cluster refinement remain out of scope.
 
-The **Display** tool changes signed contour threshold, spacing/count, labels and
-stroke weight. Contours are graded from light low levels to strong high levels;
+The **Display** tool holds contours (signed first contour, level factor, levels per
+sign, stroke weight), peak labels, residual levels (first residual contour and the
+unexplained-signal threshold) and the review highlights. Every field uses a decimal
+point whatever the system locale; the first contour reads in the shared ×10ⁿ form
+and accepts plain or scientific entry (2500, 1.5e5). Contours are graded from light low levels to strong high levels;
 measured data is blue (negative plum, dashed), the model amber (negative dotted)
 and the residual vermilion/teal, as named in the in-plot legend. Peak markers
 keep a plot-coloured halo so they stay visible over contours; the selected and
